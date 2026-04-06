@@ -17,7 +17,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import {
   ChevronLeft, ChevronRight, ChevronDown, Loader2,
-  Milestone, Layers, Download, Settings2,
+  Milestone, Layers, Download, Settings2, Save, FolderOpen, Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
@@ -183,11 +183,52 @@ const S_CLR: Record<string, string> = { draft: '#9ca3af', planned: '#60a5fa', ac
 const T_CLR: Record<string, string> = { todo: '#9ca3af', in_progress: '#3b82f6', review: '#eab308', done: '#22c55e', cancelled: '#ef4444' }
 
 // ── Persisted Gantt display settings ────────────────────────────────────
+
 const SETTINGS_KEY = 'opsflux:gantt-settings'
-interface GanttSettings { barH: number; showLabels: boolean; zoomFactor: number }
-const DEFAULT_SETTINGS: GanttSettings = { barH: 18, showLabels: true, zoomFactor: 1.0 }
-function loadSettings(): GanttSettings { try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') } } catch { return DEFAULT_SETTINGS } }
-function saveSettings(s: GanttSettings) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)) } catch {} }
+const PRESETS_KEY = 'opsflux:gantt-presets'
+
+const TASK_STATUSES = ['todo', 'in_progress', 'review', 'done', 'cancelled'] as const
+type TaskStatus = typeof TASK_STATUSES[number]
+
+interface GanttSettings {
+  barH: number
+  showLabels: boolean
+  showDates: 'none' | 'on_bar' | 'below_bar'
+  zoomFactor: number
+  hiddenStatuses: TaskStatus[]  // statuses to HIDE (empty = show all)
+  activePreset: string | null   // name of the currently loaded preset
+}
+
+interface GanttPreset {
+  name: string
+  settings: Omit<GanttSettings, 'activePreset'>
+  scale: TimeScale
+  viewStart: string
+  viewEnd: string
+}
+
+const DEFAULT_SETTINGS: GanttSettings = {
+  barH: 18, showLabels: true, showDates: 'none',
+  zoomFactor: 1.0, hiddenStatuses: [], activePreset: null,
+}
+
+function loadSettings(): GanttSettings {
+  try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') } }
+  catch { return DEFAULT_SETTINGS }
+}
+function saveSettings(s: GanttSettings) {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)) } catch {}
+}
+function loadPresets(): GanttPreset[] {
+  try { return JSON.parse(localStorage.getItem(PRESETS_KEY) || '[]') } catch { return [] }
+}
+function savePresets(p: GanttPreset[]) {
+  try { localStorage.setItem(PRESETS_KEY, JSON.stringify(p)) } catch {}
+}
+
+const STATUS_LABELS: Record<TaskStatus, string> = {
+  todo: 'À faire', in_progress: 'En cours', review: 'Revue', done: 'Terminé', cancelled: 'Annulé',
+}
 
 /** Compute bar pixel position. Returns null when entirely outside the view. */
 function computeBar(vs: string, startISO: string, endISO: string, ppd: number, totalViewDays: number): { left: number; width: number } | null {
@@ -219,8 +260,9 @@ function Tip({ title, lines, x, y }: { title: string; lines: [string, string][];
 // Expanded tasks
 // ═══════════════════════════════════════════════════════════════════════
 
-function ExpandedTasks({ project, ppd, vs, totalPx, pw, barH, showLabels }: {
-  project: Project; ppd: number; vs: string; totalPx: number; pw: number; barH: number; showLabels: boolean
+function ExpandedTasks({ project, ppd, vs, totalPx, pw, barH, showLabels, showDates, hiddenStatuses }: {
+  project: Project; ppd: number; vs: string; totalPx: number; pw: number; barH: number
+  showLabels: boolean; showDates: 'none' | 'on_bar' | 'below_bar'; hiddenStatuses: TaskStatus[]
 }) {
   const { data: tasks } = useProjectTasks(project.id)
   const { data: milestones } = useProjectMilestones(project.id)
@@ -230,12 +272,19 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, barH, showLabels }: {
   const critSet = useMemo(() => new Set(cpm?.critical_path_task_ids || []), [cpm])
   const rowH = barH + 8
 
+  // Filter out hidden statuses
+  const hiddenSet = useMemo(() => new Set(hiddenStatuses), [hiddenStatuses])
+  const filteredTasks = useMemo(() =>
+    (tasks || []).filter(t => !hiddenSet.has(t.status as TaskStatus)),
+    [tasks, hiddenSet],
+  )
+
   const tree = useMemo(() => {
     const m = new Map<string | null, ProjectTask[]>()
-    for (const t of (tasks || [])) { const k = t.parent_id ?? null; if (!m.has(k)) m.set(k, []); m.get(k)!.push(t) }
+    for (const t of filteredTasks) { const k = t.parent_id ?? null; if (!m.has(k)) m.set(k, []); m.get(k)!.push(t) }
     for (const a of m.values()) a.sort((x, y) => (x.order ?? 0) - (y.order ?? 0))
     return m
-  }, [tasks])
+  }, [filteredTasks])
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault()
@@ -276,17 +325,31 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, barH, showLabels }: {
         </div>
         <div data-bar-area className="relative flex-1" style={{ minWidth: totalPx }} onDragOver={e => e.preventDefault()} onDrop={handleDrop}>
           {bar && (
-            <div
-              draggable
-              onDragStart={e => { e.dataTransfer.setData('application/ptask', JSON.stringify({ id: task.id, s: task.start_date!.split('T')[0], e: task.due_date!.split('T')[0] })); e.dataTransfer.effectAllowed = 'move' }}
-              onMouseEnter={e => setTip({ title: task.title, lines: [['Statut', task.status], ['%', `${task.progress}%`]], x: e.clientX, y: e.clientY })}
-              onMouseMove={e => setTip(t => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
-              onMouseLeave={() => setTip(null)}
-              className={cn('absolute rounded-sm cursor-move text-white text-[7px] font-medium truncate px-0.5 flex items-center hover:brightness-110', isCrit && 'ring-1 ring-red-500')}
-              style={{ left: bar.left, width: bar.width, top: (rowH - barH) / 2, height: barH, backgroundColor: clr, opacity: task.status === 'todo' ? 0.5 : 1 }}
-            >
-              {showLabels && <span className="truncate">{task.title}</span>}
-            </div>
+            <>
+              <div
+                draggable
+                onDragStart={e => { e.dataTransfer.setData('application/ptask', JSON.stringify({ id: task.id, s: task.start_date!.split('T')[0], e: task.due_date!.split('T')[0] })); e.dataTransfer.effectAllowed = 'move' }}
+                onMouseEnter={e => setTip({ title: task.title, lines: [['Statut', task.status], ['%', `${task.progress}%`]], x: e.clientX, y: e.clientY })}
+                onMouseMove={e => setTip(t => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
+                onMouseLeave={() => setTip(null)}
+                className={cn('absolute rounded-sm cursor-move text-white font-medium truncate px-0.5 flex items-center gap-0.5 hover:brightness-110', isCrit && 'ring-1 ring-red-500')}
+                style={{ left: bar.left, width: bar.width, top: (rowH - barH) / 2, height: barH, backgroundColor: clr, opacity: task.status === 'todo' ? 0.5 : 1, fontSize: Math.max(6, barH * 0.45) }}
+              >
+                {showDates === 'on_bar' && task.start_date && (
+                  <span className="opacity-70 shrink-0 tabular-nums">{new Date(task.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>
+                )}
+                {showLabels && <span className="truncate">{task.title}</span>}
+                {showDates === 'on_bar' && task.due_date && (
+                  <span className="opacity-70 shrink-0 tabular-nums ml-auto">{new Date(task.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>
+                )}
+              </div>
+              {showDates === 'below_bar' && task.start_date && (
+                <div className="absolute text-[6px] text-muted-foreground tabular-nums" style={{ left: bar.left, top: (rowH - barH) / 2 + barH + 1 }}>
+                  {new Date(task.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                  {task.due_date && ` → ${new Date(task.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}`}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -324,6 +387,172 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, barH, showLabels }: {
       })}
       {tip && <Tip {...tip} />}
     </>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Settings panel (extracted for clarity)
+// ═══════════════════════════════════════════════════════════════════════
+
+function GanttSettingsPanel({ settings, setSettings, scale, vs, ve }: {
+  settings: GanttSettings
+  setSettings: (fn: (s: GanttSettings) => GanttSettings) => void
+  scale: TimeScale
+  vs: string
+  ve: string
+}) {
+  const [presets, setPresetsState] = useState(loadPresets)
+  const [newPresetName, setNewPresetName] = useState('')
+  const [showPresets, setShowPresets] = useState(false)
+
+  const handleSavePreset = () => {
+    const name = newPresetName.trim()
+    if (!name) return
+    const { activePreset, ...rest } = settings
+    const preset: GanttPreset = { name, settings: rest, scale, viewStart: vs, viewEnd: ve }
+    const updated = [...presets.filter(p => p.name !== name), preset]
+    savePresets(updated)
+    setPresetsState(updated)
+    setSettings(s => ({ ...s, activePreset: name }))
+    setNewPresetName('')
+  }
+
+  const handleLoadPreset = (p: GanttPreset) => {
+    setSettings(() => ({ ...p.settings, activePreset: p.name }))
+    setShowPresets(false)
+  }
+
+  const handleDeletePreset = (name: string) => {
+    const updated = presets.filter(p => p.name !== name)
+    savePresets(updated)
+    setPresetsState(updated)
+    if (settings.activePreset === name) setSettings(s => ({ ...s, activePreset: null }))
+  }
+
+  const toggleStatus = (status: TaskStatus) => {
+    setSettings(s => {
+      const cur = s.hiddenStatuses
+      const next = cur.includes(status) ? cur.filter(x => x !== status) : [...cur, status]
+      return { ...s, hiddenStatuses: next }
+    })
+  }
+
+  return (
+    <div className="border-b border-border px-3.5 py-2.5 bg-muted/30 space-y-2.5 text-xs">
+      {/* Row 1: Appearance */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground font-medium">Barres:</span>
+          <input type="range" min="8" max="32" step="2" value={settings.barH} onChange={e => setSettings(s => ({ ...s, barH: Number(e.target.value) }))} className="w-[80px]" />
+          <span className="tabular-nums text-muted-foreground w-6">{settings.barH}px</span>
+        </div>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input type="checkbox" checked={settings.showLabels} onChange={e => setSettings(s => ({ ...s, showLabels: e.target.checked }))} className="w-3 h-3" />
+          <span className="text-muted-foreground">Noms</span>
+        </label>
+        <div className="flex items-center gap-1.5">
+          <span className="text-muted-foreground">Dates:</span>
+          {(['none', 'on_bar', 'below_bar'] as const).map(v => (
+            <button
+              key={v}
+              onClick={() => setSettings(s => ({ ...s, showDates: v }))}
+              className={cn('px-1.5 py-0.5 rounded border text-[9px]', settings.showDates === v ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted')}
+            >
+              {v === 'none' ? 'Masquées' : v === 'on_bar' ? 'Sur barre' : 'Sous barre'}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground">Zoom:</span>
+          <input type="range" min="25" max="400" step="5" value={Math.round(settings.zoomFactor * 100)} onChange={e => setSettings(s => ({ ...s, zoomFactor: Number(e.target.value) / 100 }))} className="w-[80px]" />
+          <span className="tabular-nums text-muted-foreground w-8">{Math.round(settings.zoomFactor * 100)}%</span>
+        </div>
+      </div>
+
+      {/* Row 2: Status filter */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-muted-foreground font-medium">Masquer:</span>
+        {TASK_STATUSES.map(st => {
+          const hidden = settings.hiddenStatuses.includes(st)
+          return (
+            <button
+              key={st}
+              onClick={() => toggleStatus(st)}
+              className={cn(
+                'px-1.5 py-0.5 rounded border text-[9px] flex items-center gap-1',
+                hidden
+                  ? 'border-red-500/30 bg-red-500/10 text-red-600 line-through'
+                  : 'border-border hover:bg-muted text-foreground',
+              )}
+            >
+              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: T_CLR[st] }} />
+              {STATUS_LABELS[st]}
+            </button>
+          )
+        })}
+        {settings.hiddenStatuses.length > 0 && (
+          <button
+            onClick={() => setSettings(s => ({ ...s, hiddenStatuses: [] }))}
+            className="text-[9px] text-primary hover:text-primary/80"
+          >
+            Tout afficher
+          </button>
+        )}
+      </div>
+
+      {/* Row 3: Presets */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-muted-foreground font-medium">Modèles:</span>
+        {settings.activePreset && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+            {settings.activePreset}
+          </span>
+        )}
+        <button
+          onClick={() => setShowPresets(v => !v)}
+          className="flex items-center gap-1 text-[9px] text-primary hover:text-primary/80"
+        >
+          <FolderOpen size={10} /> Charger
+        </button>
+        <div className="flex items-center gap-1">
+          <input
+            type="text"
+            value={newPresetName}
+            onChange={e => setNewPresetName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleSavePreset() }}
+            placeholder="Nom du modèle..."
+            className="h-5 px-1.5 text-[9px] border border-border rounded bg-background w-[120px]"
+          />
+          <button
+            onClick={handleSavePreset}
+            disabled={!newPresetName.trim()}
+            className="flex items-center gap-0.5 text-[9px] text-primary hover:text-primary/80 disabled:opacity-40"
+          >
+            <Save size={10} /> Enregistrer
+          </button>
+        </div>
+      </div>
+
+      {/* Preset list (expandable) */}
+      {showPresets && presets.length > 0 && (
+        <div className="border border-border rounded p-2 bg-background space-y-1">
+          {presets.map(p => (
+            <div key={p.name} className="flex items-center gap-2 text-[10px] hover:bg-muted/40 px-1.5 py-0.5 rounded">
+              <button onClick={() => handleLoadPreset(p)} className="flex-1 text-left truncate text-foreground hover:text-primary">
+                {p.name}
+              </button>
+              <span className="text-muted-foreground text-[8px]">{p.scale} · {Math.round((p.settings.zoomFactor || 1) * 100)}%</span>
+              <button onClick={() => handleDeletePreset(p.name)} className="p-0.5 hover:text-red-500 text-muted-foreground">
+                <Trash2 size={9} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {showPresets && presets.length === 0 && (
+        <div className="text-[9px] text-muted-foreground italic pl-2">Aucun modèle sauvegardé</div>
+      )}
+    </div>
   )
 }
 
@@ -482,22 +711,13 @@ export function ProjectGanttView() {
 
       {/* ── Settings panel ──────────────────────────────────── */}
       {showSettings && (
-        <div className="border-b border-border px-3.5 py-2 bg-muted/30 flex items-center gap-4 text-xs flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Hauteur barres:</span>
-            <input type="range" min="8" max="32" step="2" value={barH} onChange={e => setSettings(s => ({ ...s, barH: Number(e.target.value) }))} className="w-[100px]" />
-            <span className="tabular-nums text-muted-foreground w-6">{barH}px</span>
-          </div>
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input type="checkbox" checked={showLabels} onChange={e => setSettings(s => ({ ...s, showLabels: e.target.checked }))} className="w-3 h-3" />
-            <span className="text-muted-foreground">Noms sur les barres</span>
-          </label>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Zoom:</span>
-            <input type="range" min="25" max="400" step="5" value={Math.round(zoomFactor * 100)} onChange={e => setSettings(s => ({ ...s, zoomFactor: Number(e.target.value) / 100 }))} className="w-[100px]" />
-            <span className="tabular-nums text-muted-foreground w-8">{Math.round(zoomFactor * 100)}%</span>
-          </div>
-        </div>
+        <GanttSettingsPanel
+          settings={settings}
+          setSettings={setSettings}
+          scale={scale}
+          vs={vs}
+          ve={ve}
+        />
       )}
 
       {/* ── Content ─────────────────────────────────────────── */}
@@ -595,7 +815,7 @@ export function ProjectGanttView() {
                     )}
                   </div>
                 </div>
-                {isExp && <ExpandedTasks project={project} ppd={ppd} vs={vs} totalPx={totalPx} pw={pw} barH={barH} showLabels={showLabels} />}
+                {isExp && <ExpandedTasks project={project} ppd={ppd} vs={vs} totalPx={totalPx} pw={pw} barH={barH} showLabels={showLabels} showDates={settings.showDates} hiddenStatuses={settings.hiddenStatuses} />}
               </div>
             )
           })}

@@ -57,6 +57,11 @@ VALIDATION_LEVELS: dict[str, list[str]] = {
 # Work order reference sequence prefix
 WO_PREFIX = "ACT"
 
+# Recurrence horizon — how far ahead the daily APScheduler job will
+# create recurring activity instances. Extended from 30 → 90 days so
+# the capacity heatmap and forecast see upcoming recurring load.
+RECURRENCE_HORIZON_DAYS = 90
+
 
 def validate_priority_floor(activity_type: str, subtype: str | None, priority: str) -> str:
     """Enforce minimum priority per activity type. Returns corrected priority."""
@@ -159,18 +164,34 @@ async def get_effective_capacity(
     return effective
 
 
+# Statuses that consume capacity. "submitted" is included by default
+# so the heatmap and conflict detection account for pending requests —
+# this gives managers visibility into worst-case load before validation.
+# Callers that only want confirmed load can pass include_submitted=False.
+_CAPACITY_STATUSES_CONFIRMED = ["validated", "in_progress"]
+_CAPACITY_STATUSES_ALL = ["submitted", "validated", "in_progress"]
+
+
 async def compute_daily_load(
     db: AsyncSession,
     entity_id: UUID,
     asset_id: UUID,
     target_date: date,
+    include_submitted: bool = True,
 ) -> dict:
-    """Compute PAX load for a single asset on a single day."""
+    """Compute PAX load for a single asset on a single day.
+
+    When ``include_submitted`` is True (default), submitted activities
+    that haven't been validated yet still count toward capacity — this
+    is a "reservation" mechanism so the arbitration dashboard reflects
+    pending demand, not just confirmed allocations.
+    """
     cap = await get_current_capacity(db, asset_id, target_date)
     total = cap["max_pax_total"] if cap else 0
     perm_ops = cap["permanent_ops_quota"] if cap else 0
+    statuses = _CAPACITY_STATUSES_ALL if include_submitted else _CAPACITY_STATUSES_CONFIRMED
 
-    # Sum pax_quota of approved/in_progress/submitted activities overlapping the date
+    # Sum pax_quota of activities in the relevant statuses overlapping the date
     result = await db.execute(
         select(
             sqla_func.coalesce(sqla_func.sum(PlannerActivity.pax_quota), 0),
@@ -178,7 +199,7 @@ async def compute_daily_load(
             PlannerActivity.entity_id == entity_id,
             PlannerActivity.asset_id == asset_id,
             PlannerActivity.active == True,  # noqa: E712
-            PlannerActivity.status.in_(["validated", "in_progress"]),
+            PlannerActivity.status.in_(statuses),
             PlannerActivity.start_date.isnot(None),
             PlannerActivity.end_date.isnot(None),
             PlannerActivity.start_date <= datetime.combine(target_date, datetime.max.time()),
@@ -474,6 +495,210 @@ async def get_capacity_heatmap(
     return heatmap
 
 
+# ── What-if scenario simulation ──────────────────────────────────────────
+
+
+async def simulate_scenario(
+    db: AsyncSession,
+    entity_id: UUID,
+    proposed_activities: list[dict],
+    start_date: date,
+    end_date: date,
+) -> dict:
+    """Dry-run scenario: compute projected daily load and conflicts
+    assuming a set of proposed activities were added alongside the
+    existing ones — without persisting anything.
+
+    ``proposed_activities`` is a list of dicts with at least:
+        asset_id, pax_quota, start_date, end_date, title (optional)
+
+    Returns:
+        daily_loads: [{asset_id, date, current_load, projected_load,
+                       max_capacity, saturation_pct}]
+        projected_conflicts: [{asset_id, date, overflow}]
+        summary: {total_days, conflict_days, worst_overflow, worst_date}
+    """
+    # Gather all unique assets from proposals
+    asset_ids: set[UUID] = set()
+    for pa in proposed_activities:
+        try:
+            asset_ids.add(UUID(str(pa["asset_id"])))
+        except (KeyError, ValueError):
+            continue
+    if not asset_ids:
+        return {"daily_loads": [], "projected_conflicts": [], "summary": {}}
+
+    # Pre-compute current loads per (asset, date)
+    daily_loads: list[dict] = []
+    projected_conflicts: list[dict] = []
+    total_days = 0
+    conflict_days = 0
+    worst_overflow = 0
+    worst_date: date | None = None
+
+    for asset_id in asset_ids:
+        current = start_date
+        while current <= end_date:
+            total_days += 1
+            load = await compute_daily_load(db, entity_id, asset_id, current, include_submitted=True)
+            current_used = load["total_used"]
+            max_cap = load["max_pax_total"]
+
+            # Add proposed pax for this asset+date
+            proposed_extra = 0
+            for pa in proposed_activities:
+                try:
+                    pa_asset = UUID(str(pa["asset_id"]))
+                except (KeyError, ValueError):
+                    continue
+                if pa_asset != asset_id:
+                    continue
+                pa_start = pa.get("start_date")
+                pa_end = pa.get("end_date")
+                if pa_start is None or pa_end is None:
+                    continue
+                # Parse dates if strings
+                if isinstance(pa_start, str):
+                    pa_start = date.fromisoformat(pa_start[:10])
+                if isinstance(pa_end, str):
+                    pa_end = date.fromisoformat(pa_end[:10])
+                if pa_start <= current <= pa_end:
+                    proposed_extra += int(pa.get("pax_quota", 0) or 0)
+
+            projected_used = current_used + proposed_extra
+            projected_sat = (projected_used / max_cap * 100) if max_cap > 0 else 0.0
+            overflow = projected_used - max_cap if max_cap > 0 and projected_used > max_cap else 0
+
+            entry = {
+                "asset_id": str(asset_id),
+                "date": current.isoformat(),
+                "current_load": current_used,
+                "proposed_extra": proposed_extra,
+                "projected_load": projected_used,
+                "max_capacity": max_cap,
+                "saturation_pct": round(projected_sat, 2),
+                "overflow": overflow,
+            }
+            daily_loads.append(entry)
+
+            if overflow > 0:
+                conflict_days += 1
+                projected_conflicts.append({
+                    "asset_id": str(asset_id),
+                    "date": current.isoformat(),
+                    "overflow": overflow,
+                })
+                if overflow > worst_overflow:
+                    worst_overflow = overflow
+                    worst_date = current
+
+            current += timedelta(days=1)
+
+    return {
+        "daily_loads": daily_loads,
+        "projected_conflicts": projected_conflicts,
+        "summary": {
+            "total_days": total_days,
+            "conflict_days": conflict_days,
+            "worst_overflow": worst_overflow,
+            "worst_date": worst_date.isoformat() if worst_date else None,
+            "proposed_count": len(proposed_activities),
+        },
+    }
+
+
+# ── Capacity forecast ────────────────────────────────────────────────────
+
+
+async def forecast_capacity(
+    db: AsyncSession,
+    entity_id: UUID,
+    asset_id: UUID,
+    horizon_days: int = 90,
+) -> dict:
+    """Predict future capacity trends from historical activity patterns.
+
+    Uses a simple trailing-average approach:
+    1. Look back 90 days and compute average daily load per weekday
+    2. Project forward ``horizon_days`` using the weekday pattern
+    3. Overlay already-scheduled activities (submitted + validated + in_progress)
+    4. Flag days where projected load > 80% capacity as "at risk"
+
+    Returns:
+        forecast: [{date, projected_load, scheduled_load, combined_load,
+                     max_capacity, at_risk}]
+        summary: {at_risk_days, avg_projected_load, peak_date, peak_load}
+    """
+    today = date.today()
+    lookback_start = today - timedelta(days=90)
+    cap = await get_current_capacity(db, asset_id, today)
+    max_cap = cap["max_pax_total"] if cap else 0
+
+    if max_cap <= 0:
+        return {"forecast": [], "summary": {"at_risk_days": 0, "avg_projected_load": 0}}
+
+    # Compute historical daily loads (last 90 days)
+    historical: dict[int, list[int]] = {i: [] for i in range(7)}  # weekday -> loads
+    current = lookback_start
+    while current < today:
+        load = await compute_daily_load(db, entity_id, asset_id, current, include_submitted=False)
+        historical[current.weekday()].append(load["total_used"])
+        current += timedelta(days=1)
+
+    # Compute weekday averages
+    weekday_avg: dict[int, float] = {}
+    for wd, loads in historical.items():
+        weekday_avg[wd] = sum(loads) / len(loads) if loads else 0.0
+
+    # Project forward
+    forecast: list[dict] = []
+    at_risk_days = 0
+    total_combined = 0
+    peak_load = 0
+    peak_date: date | None = None
+
+    current = today
+    end = today + timedelta(days=horizon_days)
+    while current <= end:
+        projected = weekday_avg.get(current.weekday(), 0.0)
+        # Scheduled load from already-planned activities
+        scheduled_load = await compute_daily_load(db, entity_id, asset_id, current, include_submitted=True)
+        scheduled = scheduled_load["total_used"]
+        # Combined: max of projected trend and scheduled (don't double-count)
+        combined = max(projected, float(scheduled))
+        at_risk = combined > (max_cap * 0.8)
+        if at_risk:
+            at_risk_days += 1
+        total_combined += combined
+        if combined > peak_load:
+            peak_load = combined
+            peak_date = current
+
+        forecast.append({
+            "date": current.isoformat(),
+            "projected_load": round(projected, 1),
+            "scheduled_load": scheduled,
+            "combined_load": round(combined, 1),
+            "max_capacity": max_cap,
+            "at_risk": at_risk,
+            "saturation_pct": round(combined / max_cap * 100, 2) if max_cap > 0 else 0,
+        })
+        current += timedelta(days=1)
+
+    days_counted = len(forecast) or 1
+    return {
+        "forecast": forecast,
+        "summary": {
+            "at_risk_days": at_risk_days,
+            "avg_projected_load": round(total_combined / days_counted, 1),
+            "peak_date": peak_date.isoformat() if peak_date else None,
+            "peak_load": round(peak_load, 1),
+            "max_capacity": max_cap,
+            "horizon_days": horizon_days,
+        },
+    }
+
+
 # ── Materialized view refresh ──────────────────────────────────────────────
 
 
@@ -525,8 +750,11 @@ async def generate_recurring_activities(db: AsyncSession, entity_id: UUID) -> in
             if end_dt and next_date > end_dt:
                 continue
 
-            # Only generate within the next 30 days
-            horizon = date.today() + timedelta(days=30)
+            # Generate within the configurable horizon (default 90 days).
+            # This aligns with the heatmap's extended range so recurring
+            # activities appear on the capacity forecast before managers
+            # notice a gap.
+            horizon = date.today() + timedelta(days=RECURRENCE_HORIZON_DAYS)
             if next_date > horizon:
                 continue
 

@@ -42,6 +42,8 @@ from app.schemas.planner import (
     CapacityRead,
     DependencyCreate,
     DependencyRead,
+    ScenarioRequest,
+    ForecastRequest,
 )
 from app.schemas.common import PaginatedResponse
 from app.services.core.fsm_service import fsm_service, FSMError, FSMPermissionError
@@ -1795,3 +1797,51 @@ async def delete_recurrence(
     )
     await db.commit()
     return {"detail": "Recurrence rule removed"}
+
+
+# ── Scenario simulation (what-if) ────────────────────────────────────────
+
+
+@router.post("/scenarios/simulate")
+async def simulate(
+    body: ScenarioRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.capacity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Dry-run: compute projected daily loads and conflicts if the
+    proposed activities were added alongside the current plan.
+
+    Nothing is persisted — this is a pure read-only analysis.
+    """
+    from app.services.modules.planner_service import simulate_scenario
+
+    proposed = [pa.model_dump() for pa in body.proposed_activities]
+    return await simulate_scenario(
+        db, entity_id, proposed, body.start_date, body.end_date,
+    )
+
+
+# ── Capacity forecast ────────────────────────────────────────────────────
+
+
+@router.post("/forecast")
+async def forecast(
+    body: ForecastRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.capacity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Project future capacity load from historical patterns.
+
+    Uses a trailing 90-day weekday average overlaid with already-
+    scheduled activities. Returns day-by-day projections and flags
+    days where combined load exceeds 80% as "at risk".
+    """
+    from app.services.modules.planner_service import forecast_capacity
+
+    return await forecast_capacity(
+        db, entity_id, body.asset_id, body.horizon_days,
+    )

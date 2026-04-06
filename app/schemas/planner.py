@@ -312,6 +312,31 @@ class GanttResponse(BaseModel):
 
 # ─── Recurrence schemas ─────────────────────────────────────────────────────
 
+# ─── Scenario simulation schemas ─────────────────────────────────────────
+
+class ProposedActivity(BaseModel):
+    asset_id: UUID
+    pax_quota: int = Field(ge=1)
+    start_date: date
+    end_date: date
+    title: str | None = None
+
+
+class ScenarioRequest(BaseModel):
+    proposed_activities: list[ProposedActivity] = Field(..., min_length=1, max_length=50)
+    start_date: date
+    end_date: date
+
+
+# ─── Forecast schemas ────────────────────────────────────────────────────
+
+class ForecastRequest(BaseModel):
+    asset_id: UUID
+    horizon_days: int = Field(90, ge=7, le=365)
+
+
+# ─── Recurrence schemas ─────────────────────────────────────────────────────
+
 class RecurrenceRuleCreate(BaseModel):
     frequency: str = Field(..., pattern=r"^(daily|weekly|monthly|quarterly|annually)$")
     interval_value: int = Field(1, ge=1, le=365)

@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
+from io import BytesIO
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
+from starlette.datastructures import UploadFile
 
+from app.api.routes.modules import travelwiz as travelwiz_routes
 from app.api.routes.core import settings as settings_routes
 from app.core.events import OpsFluxEvent
 from app.event_handlers import travelwiz_handlers
@@ -904,3 +907,94 @@ def test_validate_travelwiz_numeric_settings():
 
     with pytest.raises(HTTPException):
         settings_routes._validate_travelwiz_numeric_setting(_body("travelwiz.weight_alert_ratio", 2))
+
+
+def test_normalize_article_csv_row_supports_aliases_and_types():
+    normalized = travelwiz_routes._normalize_article_csv_row(
+        {
+            "sap_code": "SAP-001",
+            "description": " Pompe Hydraulique ",
+            "unit": "EA",
+            "management_type": "stock",
+            "is_hazmat": "oui",
+            "unit_weight_kg": "12,5",
+        },
+        2,
+    )
+
+    assert normalized["sap_code"] == "SAP-001"
+    assert normalized["description_fr"] == "Pompe Hydraulique"
+    assert normalized["description_normalized"] == "pompe hydraulique"
+    assert normalized["unit_of_measure"] == "EA"
+    assert normalized["is_hazmat"] is True
+    assert normalized["unit_weight_kg"] == 12.5
+
+
+@pytest.mark.asyncio
+async def test_import_articles_csv_creates_and_updates_rows():
+    entity_id = uuid4()
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=None),
+            FakeResult(),
+            FakeResult(scalar_one_or_none=uuid4()),
+            FakeResult(),
+        ]
+    )
+    upload = UploadFile(
+        filename="articles.csv",
+        file=BytesIO(
+            "\n".join(
+                [
+                    "sap_code,description,management_type,unit,is_hazmat",
+                    "SAP-001,Pompe,stock,EA,false",
+                    "SAP-002,Vanne,consumable,EA,true",
+                ]
+            ).encode("utf-8")
+        ),
+    )
+
+    result = await travelwiz_routes.import_articles_csv(
+        file=upload,
+        entity_id=entity_id,
+        _=None,
+        db=db,
+    )
+
+    assert result["status"] == "completed"
+    assert result["imported"] == 1
+    assert result["updated"] == 1
+    assert result["errors"] == []
+    assert result["total_rows"] == 2
+    assert db.commits == 1
+    assert len(db.executed) == 4
+
+
+@pytest.mark.asyncio
+async def test_import_articles_csv_collects_validation_errors():
+    entity_id = uuid4()
+    db = FakeDB([])
+    upload = UploadFile(
+        filename="articles.csv",
+        file=BytesIO(
+            "\n".join(
+                [
+                    "sap_code,description",
+                    ",Article sans code",
+                    "SAP-003,",
+                ]
+            ).encode("utf-8")
+        ),
+    )
+
+    result = await travelwiz_routes.import_articles_csv(
+        file=upload,
+        entity_id=entity_id,
+        _=None,
+        db=db,
+    )
+
+    assert result["imported"] == 0
+    assert result["updated"] == 0
+    assert len(result["errors"]) == 2
+    assert db.commits == 1

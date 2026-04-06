@@ -21,6 +21,8 @@ scheduler = AsyncIOScheduler()
 
 # Track job start times for duration calculation
 _job_start_times: dict[str, datetime] = {}
+_jobs_registered = False
+_listeners_registered = False
 
 
 # ── Execution logging listeners ────────────────────────────────────────────
@@ -113,6 +115,10 @@ async def log_manual_execution(job_id: str, job_name: str, started_at: datetime,
 
 def _register_jobs() -> None:
     """Register all scheduled jobs on the scheduler."""
+    global _jobs_registered
+    if _jobs_registered:
+        return
+
     from app.tasks.jobs.email_queue import process_email_queue
     from app.tasks.jobs.notification_digest import send_notification_digest
     from app.tasks.jobs.session_cleanup import cleanup_expired_sessions
@@ -207,22 +213,31 @@ def _register_jobs() -> None:
     )
 
     logger.info("APScheduler: %d jobs registered", len(scheduler.get_jobs()))
+    _jobs_registered = True
 
 
 # ── Lifecycle ──────────────────────────────────────────────────────────────
 
 async def start_scheduler():
     """Register jobs, attach listeners, and start the APScheduler instance."""
+    global _listeners_registered
+    if scheduler.running:
+        logger.info("APScheduler: already running")
+        return
+
     _register_jobs()
-    scheduler.add_listener(_on_job_submitted, EVENT_JOB_SUBMITTED)
-    scheduler.add_listener(_on_job_executed, EVENT_JOB_EXECUTED)
-    scheduler.add_listener(_on_job_error, EVENT_JOB_ERROR)
-    scheduler.add_listener(_on_job_missed, EVENT_JOB_MISSED)
+    if not _listeners_registered:
+        scheduler.add_listener(_on_job_submitted, EVENT_JOB_SUBMITTED)
+        scheduler.add_listener(_on_job_executed, EVENT_JOB_EXECUTED)
+        scheduler.add_listener(_on_job_error, EVENT_JOB_ERROR)
+        scheduler.add_listener(_on_job_missed, EVENT_JOB_MISSED)
+        _listeners_registered = True
     scheduler.start()
     logger.info("APScheduler: started with execution logging")
 
 
 async def stop_scheduler():
     """Shutdown the APScheduler instance."""
-    scheduler.shutdown(wait=False)
-    logger.info("APScheduler: stopped")
+    if scheduler.running:
+        scheduler.shutdown(wait=False)
+        logger.info("APScheduler: stopped")

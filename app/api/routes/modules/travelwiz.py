@@ -6,12 +6,14 @@ Integrates with:
 - Workflow Engine: FSM service manages voyage status transitions (D-014)
 """
 
+import csv
+import io
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select, func as sqla_func, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -91,6 +93,50 @@ VOYAGE_ENTITY_TYPE = "voyage"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────
+
+
+def _normalize_article_description(description: str) -> str:
+    return " ".join(description.strip().lower().split())
+
+
+def _parse_csv_bool(value: str | None) -> bool:
+    if value is None:
+        return False
+    normalized = value.strip().lower()
+    return normalized in {"1", "true", "yes", "y", "oui", "o"}
+
+
+def _parse_csv_decimal(value: str | None) -> float | None:
+    if value is None:
+        return None
+    normalized = value.strip().replace(",", ".")
+    if not normalized:
+        return None
+    return float(normalized)
+
+
+def _normalize_article_csv_row(row: dict[str, str], line_number: int) -> dict:
+    sap_code = (row.get("sap_code") or "").strip()
+    description_fr = (row.get("description_fr") or row.get("description") or "").strip()
+    if not sap_code:
+        raise ValueError(f"Ligne {line_number}: sap_code requis")
+    if not description_fr:
+        raise ValueError(f"Ligne {line_number}: description requise")
+
+    return {
+        "sap_code": sap_code,
+        "internal_code": (row.get("internal_code") or "").strip() or None,
+        "description_fr": description_fr,
+        "description_en": (row.get("description_en") or "").strip() or None,
+        "description_normalized": _normalize_article_description(description_fr),
+        "management_type": (row.get("management_type") or "standard").strip() or "standard",
+        "unit_of_measure": (row.get("unit_of_measure") or row.get("unit") or "").strip() or None,
+        "packaging_type": (row.get("packaging_type") or "").strip() or None,
+        "is_hazmat": _parse_csv_bool(row.get("is_hazmat")),
+        "hazmat_class": (row.get("hazmat_class") or "").strip() or None,
+        "unit_weight_kg": _parse_csv_decimal(row.get("unit_weight_kg")),
+        "active": _parse_csv_bool(row.get("active")) if "active" in row else True,
+    }
 
 
 async def _get_vector_or_404(db: AsyncSession, vector_id: UUID, entity_id: UUID) -> TransportVector:
@@ -2429,7 +2475,7 @@ async def list_articles(
     try:
         result = await db.execute(
             text(
-                f"SELECT id, sap_code, description, management_type, unit, "
+                f"SELECT id, sap_code, description_fr, management_type, unit_of_measure, "
                 f"  is_hazmat, hazmat_class, created_at "
                 f"FROM article_catalog "
                 f"WHERE {where_clause} "
@@ -2471,15 +2517,14 @@ async def create_article(
     """Create a new article catalog entry."""
     from sqlalchemy import text
     try:
-        # Normalize description for fuzzy search
-        normalized = description.strip().lower()
+        normalized = _normalize_article_description(description)
         result = await db.execute(
             text(
                 "INSERT INTO article_catalog "
-                "(entity_id, sap_code, description, description_normalized, "
-                "  management_type, unit, is_hazmat, hazmat_class) "
-                "VALUES (:eid, :sap, :desc, :norm, :mt, :unit, :haz, :hclass) "
-                "RETURNING id, sap_code, description, management_type, unit, is_hazmat, hazmat_class"
+                "(entity_id, sap_code, description_fr, description_normalized, "
+                "  management_type, unit_of_measure, is_hazmat, hazmat_class, source, last_imported_at) "
+                "VALUES (:eid, :sap, :desc, :norm, :mt, :unit, :haz, :hclass, :source, :imported_at) "
+                "RETURNING id, sap_code, description_fr, management_type, unit_of_measure, is_hazmat, hazmat_class"
             ),
             {
                 "eid": str(entity_id),
@@ -2490,6 +2535,8 @@ async def create_article(
                 "unit": unit,
                 "haz": is_hazmat,
                 "hclass": hazmat_class,
+                "source": "manual",
+                "imported_at": datetime.now(timezone.utc),
             },
         )
         row = result.first()
@@ -2509,19 +2556,100 @@ async def create_article(
 
 @router.post("/articles/import-csv")
 async def import_articles_csv(
+    file: UploadFile = File(...),
     entity_id: UUID = Depends(get_current_entity),
     _: None = require_permission("travelwiz.cargo.create"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Bulk import SAP articles from CSV.
+    """Bulk import SAP articles from a CSV file."""
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(400, "Le fichier doit être un CSV")
 
-    Note: In production, this accepts a file upload. For now, returns a placeholder
-    indicating the endpoint is ready for file upload integration.
-    """
+    raw_bytes = await file.read()
+    try:
+        content = raw_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(400, "Le fichier CSV doit être encodé en UTF-8") from exc
+
+    reader = csv.DictReader(io.StringIO(content))
+    if not reader.fieldnames:
+        raise HTTPException(400, "Le fichier CSV est vide")
+
+    imported = 0
+    updated = 0
+    errors: list[str] = []
+    imported_at = datetime.now(timezone.utc)
+
+    for line_number, row in enumerate(reader, start=2):
+        try:
+            payload = _normalize_article_csv_row(row, line_number)
+            existing = await db.execute(
+                text(
+                    "SELECT id FROM article_catalog "
+                    "WHERE entity_id = :eid AND sap_code = :sap "
+                    "LIMIT 1"
+                ),
+                {"eid": str(entity_id), "sap": payload["sap_code"]},
+            )
+            article_id = existing.scalar_one_or_none()
+            if article_id:
+                await db.execute(
+                    text(
+                        "UPDATE article_catalog "
+                        "SET internal_code = :internal_code, "
+                        "    description_fr = :description_fr, "
+                        "    description_en = :description_en, "
+                        "    description_normalized = :description_normalized, "
+                        "    management_type = :management_type, "
+                        "    unit_of_measure = :unit_of_measure, "
+                        "    packaging_type = :packaging_type, "
+                        "    is_hazmat = :is_hazmat, "
+                        "    hazmat_class = :hazmat_class, "
+                        "    unit_weight_kg = :unit_weight_kg, "
+                        "    source = :source, "
+                        "    last_imported_at = :last_imported_at, "
+                        "    active = :active "
+                        "WHERE id = :article_id"
+                    ),
+                    {
+                        **payload,
+                        "article_id": article_id,
+                        "source": "csv",
+                        "last_imported_at": imported_at,
+                    },
+                )
+                updated += 1
+            else:
+                await db.execute(
+                    text(
+                        "INSERT INTO article_catalog ("
+                        "entity_id, sap_code, internal_code, description_fr, description_en, "
+                        "description_normalized, management_type, unit_of_measure, packaging_type, "
+                        "is_hazmat, hazmat_class, unit_weight_kg, source, last_imported_at, active"
+                        ") VALUES ("
+                        ":entity_id, :sap_code, :internal_code, :description_fr, :description_en, "
+                        ":description_normalized, :management_type, :unit_of_measure, :packaging_type, "
+                        ":is_hazmat, :hazmat_class, :unit_weight_kg, :source, :last_imported_at, :active"
+                        ")"
+                    ),
+                    {
+                        **payload,
+                        "entity_id": str(entity_id),
+                        "source": "csv",
+                        "last_imported_at": imported_at,
+                    },
+                )
+                imported += 1
+        except ValueError as exc:
+            errors.append(str(exc))
+
+    await db.commit()
     return {
-        "detail": "CSV import endpoint ready. Send CSV file with columns: "
-                  "sap_code, description, management_type, unit, is_hazmat, hazmat_class",
-        "status": "not_implemented",
+        "status": "completed",
+        "imported": imported,
+        "updated": updated,
+        "errors": errors,
+        "total_rows": max(0, imported + updated + len(errors)),
     }
 
 

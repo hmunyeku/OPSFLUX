@@ -11,7 +11,7 @@ import type {
   VoyageStopCreate, VoyageStopUpdate,
   ManifestCreate,
   ManifestPassengerCreate, ManifestPassengerUpdate,
-  CargoItemCreate, CargoItemUpdate, CargoReceive, CargoReturnCreate,
+  CargoItem, CargoItemCreate, CargoItemUpdate, CargoReceive, CargoReturnCreate,
   CaptainLogCreate,
   VoyageEventCreate,
   PackageElementCreate,
@@ -446,6 +446,15 @@ export function useUpdateCargoStatus() {
   return useMutation({
     mutationFn: ({ id, status, notes }: { id: string; status: string; notes?: string | null }) =>
       travelwizService.updateCargoStatus(id, { status, notes }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo'] }) },
+  })
+}
+
+export function useUpdateCargoWorkflowStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, workflow_status }: { id: string; workflow_status: CargoItem['workflow_status'] }) =>
+      travelwizService.updateCargoWorkflowStatus(id, { workflow_status }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo'] }) },
   })
 }

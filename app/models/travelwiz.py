@@ -269,13 +269,18 @@ class CargoItem(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     )
     tracking_code: Mapped[str] = mapped_column(String(50), nullable=False)  # CGO-2026-NNNNN
     description: Mapped[str] = mapped_column(String(500), nullable=False)
+    designation: Mapped[str | None] = mapped_column(String(255))
     cargo_type: Mapped[str] = mapped_column(
         String(30), nullable=False
     )  # unit, bulk, consumable, packaging, waste, hazmat
+    workflow_status: Mapped[str] = mapped_column(String(30), nullable=False, default="draft")
     weight_kg: Mapped[float] = mapped_column(Float, nullable=False)
     width_cm: Mapped[float | None] = mapped_column(Float)
     length_cm: Mapped[float | None] = mapped_column(Float)
     height_cm: Mapped[float | None] = mapped_column(Float)
+    surface_m2: Mapped[float | None] = mapped_column(Float)
+    package_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    stackable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     sender_tier_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tiers.id")
     )
@@ -286,6 +291,29 @@ class CargoItem(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     project_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("projects.id")
     )
+    imputation_reference_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("imputation_references.id", ondelete="SET NULL")
+    )
+    ownership_type: Mapped[str | None] = mapped_column(String(30))
+    pickup_location_label: Mapped[str | None] = mapped_column(String(255))
+    pickup_latitude: Mapped[float | None] = mapped_column(Float)
+    pickup_longitude: Mapped[float | None] = mapped_column(Float)
+    requester_name: Mapped[str | None] = mapped_column(String(200))
+    document_prepared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    available_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    pickup_contact_user_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
+    pickup_contact_tier_contact_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tier_contacts.id", ondelete="SET NULL")
+    )
+    pickup_contact_name: Mapped[str | None] = mapped_column(String(200))
+    pickup_contact_phone: Mapped[str | None] = mapped_column(String(80))
+    lifting_provider: Mapped[str | None] = mapped_column(String(200))
+    lifting_points_certified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    weight_ticket_provided: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    photo_evidence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    document_attachment_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(
         String(30), nullable=False, default="registered"
     )  # registered, ready, loaded, in_transit, delivered_intermediate, delivered_final, damaged, missing

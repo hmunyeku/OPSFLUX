@@ -1913,10 +1913,15 @@ export interface CargoItem {
   tracking_code: string
   code: string
   description: string
+  designation: string | null
+  workflow_status: 'draft' | 'prepared' | 'ready_for_review' | 'approved' | 'rejected' | 'assigned' | 'in_transit' | 'delivered' | 'cancelled'
   weight_kg: number
   width_cm: number | null
   length_cm: number | null
   height_cm: number | null
+  surface_m2: number | null
+  package_count: number
+  stackable: boolean
   volume_m3: number | null
   cargo_type: string
   status: 'registered' | 'ready' | 'loaded' | 'in_transit' | 'delivered_intermediate' | 'delivered_final' | 'damaged' | 'missing'
@@ -1924,6 +1929,24 @@ export interface CargoItem {
   receiver_name: string | null
   destination_asset_id: string | null
   project_id: string | null
+  imputation_reference_id: string | null
+  ownership_type: string | null
+  pickup_location_label: string | null
+  pickup_latitude: number | null
+  pickup_longitude: number | null
+  requester_name: string | null
+  document_prepared_at: string | null
+  available_from: string | null
+  pickup_contact_user_id: string | null
+  pickup_contact_tier_contact_id: string | null
+  pickup_contact_name: string | null
+  pickup_contact_phone: string | null
+  pickup_contact_display_name?: string | null
+  lifting_provider: string | null
+  lifting_points_certified: boolean
+  weight_ticket_provided: boolean
+  photo_evidence_count: number
+  document_attachment_count: number
   sap_article_code: string | null
   hazmat_validated: boolean
   received_by: string | null
@@ -1935,6 +1958,8 @@ export interface CargoItem {
   created_at: string
   sender_name?: string | null
   destination_name?: string | null
+  imputation_reference_code?: string | null
+  imputation_reference_name?: string | null
   voyage_code?: string | null
   hazmat_class?: string | null
   is_urgent?: boolean
@@ -1942,15 +1967,36 @@ export interface CargoItem {
 
 export interface CargoItemCreate {
   description: string
+  designation?: string | null
   cargo_type: string
   weight_kg: number
   width_cm?: number | null
   length_cm?: number | null
   height_cm?: number | null
+  surface_m2?: number | null
+  package_count?: number
+  stackable?: boolean
   sender_tier_id?: string | null
   receiver_name?: string | null
   destination_asset_id?: string | null
   project_id?: string | null
+  imputation_reference_id?: string | null
+  ownership_type?: string | null
+  pickup_location_label?: string | null
+  pickup_latitude?: number | null
+  pickup_longitude?: number | null
+  requester_name?: string | null
+  document_prepared_at?: string | null
+  available_from?: string | null
+  pickup_contact_user_id?: string | null
+  pickup_contact_tier_contact_id?: string | null
+  pickup_contact_name?: string | null
+  pickup_contact_phone?: string | null
+  lifting_provider?: string | null
+  lifting_points_certified?: boolean
+  weight_ticket_provided?: boolean
+  photo_evidence_count?: number
+  document_attachment_count?: number
   manifest_id?: string | null
   sap_article_code?: string | null
   hazmat_validated?: boolean
@@ -1959,21 +2005,45 @@ export interface CargoItemCreate {
 export interface CargoItemUpdate {
   code?: string
   description?: string | null
+  designation?: string | null
   weight_kg?: number | null
   width_cm?: number | null
   length_cm?: number | null
   height_cm?: number | null
+  surface_m2?: number | null
+  package_count?: number | null
+  stackable?: boolean | null
   volume_m3?: number | null
   cargo_type?: string | null
-  hazmat_class?: string | null
   sender_tier_id?: string | null
   receiver_name?: string | null
   destination_asset_id?: string | null
   project_id?: string | null
+  imputation_reference_id?: string | null
+  ownership_type?: string | null
+  pickup_location_label?: string | null
+  pickup_latitude?: number | null
+  pickup_longitude?: number | null
+  requester_name?: string | null
+  document_prepared_at?: string | null
+  available_from?: string | null
+  pickup_contact_user_id?: string | null
+  pickup_contact_tier_contact_id?: string | null
+  pickup_contact_name?: string | null
+  pickup_contact_phone?: string | null
+  lifting_provider?: string | null
+  lifting_points_certified?: boolean | null
+  weight_ticket_provided?: boolean | null
+  photo_evidence_count?: number | null
+  document_attachment_count?: number | null
   manifest_id?: string | null
   sap_article_code?: string | null
   hazmat_validated?: boolean
   notes?: string | null
+}
+
+export interface CargoWorkflowStatusUpdate {
+  workflow_status: CargoItem['workflow_status']
 }
 
 export interface CargoStatusUpdate {

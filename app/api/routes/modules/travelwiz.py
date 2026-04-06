@@ -25,7 +25,7 @@ from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.core.pagination import PaginationParams, paginate
 from app.models.asset_registry import Installation
-from app.models.common import AuditLog, Tier, User
+from app.models.common import AuditLog, ImputationReference, Tier, TierContact, User
 from app.services.core.fsm_service import fsm_service, FSMError
 from app.models.travelwiz import (
     CaptainLog,
@@ -53,6 +53,7 @@ from app.schemas.travelwiz import (
     CargoCreate,
     CargoRead,
     CargoTrackingRead,
+    CargoWorkflowStatusUpdate,
     VoyageCargoTrackingRead,
     CargoStatusUpdate,
     CargoUpdate,
@@ -270,6 +271,75 @@ async def _get_cargo_or_404(db: AsyncSession, cargo_id: UUID, entity_id: UUID) -
     if not cargo:
         raise HTTPException(404, "Cargo item not found")
     return cargo
+
+
+async def _validate_cargo_dossier_refs(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    payload: CargoCreate | CargoUpdate,
+) -> None:
+    if payload.imputation_reference_id:
+        imputation = await db.get(ImputationReference, payload.imputation_reference_id)
+        if not imputation or imputation.entity_id != entity_id or not imputation.active:
+            raise HTTPException(400, "Imputation introuvable ou inactive")
+    if payload.pickup_contact_user_id:
+        pickup_user = await db.get(User, payload.pickup_contact_user_id)
+        if not pickup_user or not pickup_user.active:
+            raise HTTPException(400, "Utilisateur d'enlevement introuvable ou inactif")
+    if payload.pickup_contact_tier_contact_id:
+        pickup_contact = await db.get(TierContact, payload.pickup_contact_tier_contact_id)
+        if not pickup_contact or not pickup_contact.active:
+            raise HTTPException(400, "Contact d'enlevement introuvable ou inactif")
+
+
+async def _build_cargo_read_data(
+    db: AsyncSession,
+    cargo: CargoItem,
+    *,
+    sender_name: str | None = None,
+    destination_name: str | None = None,
+    imputation_reference_code: str | None = None,
+    imputation_reference_name: str | None = None,
+) -> dict:
+    data = {c.key: getattr(cargo, c.key) for c in cargo.__table__.columns}
+    sender_tier_id = getattr(cargo, "sender_tier_id", None)
+    destination_asset_id = getattr(cargo, "destination_asset_id", None)
+    imputation_reference_id = getattr(cargo, "imputation_reference_id", None)
+    pickup_contact_user_id = getattr(cargo, "pickup_contact_user_id", None)
+    pickup_contact_tier_contact_id = getattr(cargo, "pickup_contact_tier_contact_id", None)
+    pickup_contact_name = getattr(cargo, "pickup_contact_name", None)
+
+    if sender_name is None and sender_tier_id:
+        tier = await db.get(Tier, sender_tier_id)
+        sender_name = tier.name if tier else None
+    if destination_name is None and destination_asset_id:
+        installation = await db.get(Installation, destination_asset_id)
+        destination_name = installation.name if installation else None
+    if imputation_reference_name is None and imputation_reference_id:
+        imputation = await db.get(ImputationReference, imputation_reference_id)
+        if imputation:
+            imputation_reference_name = imputation.name
+            imputation_reference_code = imputation.code
+
+    pickup_contact_display_name = None
+    if pickup_contact_user_id:
+        pickup_user = await db.get(User, pickup_contact_user_id)
+        if pickup_user:
+            pickup_contact_display_name = f"{pickup_user.first_name} {pickup_user.last_name}".strip()
+    elif pickup_contact_tier_contact_id:
+        pickup_contact = await db.get(TierContact, pickup_contact_tier_contact_id)
+        if pickup_contact:
+            pickup_contact_display_name = f"{pickup_contact.first_name} {pickup_contact.last_name}".strip()
+    elif pickup_contact_name:
+        pickup_contact_display_name = pickup_contact_name
+
+    data["sender_name"] = sender_name
+    data["destination_name"] = destination_name
+    data["imputation_reference_code"] = imputation_reference_code
+    data["imputation_reference_name"] = imputation_reference_name
+    data["pickup_contact_display_name"] = pickup_contact_display_name
+    return data
 
 
 async def _generate_voyage_code(db: AsyncSession, entity_id: UUID) -> str:
@@ -1416,9 +1486,12 @@ async def list_cargo(
             CargoItem,
             Tier.name.label("sender_name"),
             Installation.name.label("destination_name"),
+            ImputationReference.code.label("imputation_reference_code"),
+            ImputationReference.name.label("imputation_reference_name"),
         )
         .outerjoin(Tier, CargoItem.sender_tier_id == Tier.id)
         .outerjoin(Installation, CargoItem.destination_asset_id == Installation.id)
+        .outerjoin(ImputationReference, CargoItem.imputation_reference_id == ImputationReference.id)
         .where(CargoItem.entity_id == entity_id, CargoItem.active == True)  # noqa: E712
     )
 
@@ -1452,6 +1525,9 @@ async def list_cargo(
         d = {c.key: getattr(item, c.key) for c in item.__table__.columns}
         d["sender_name"] = row[1]
         d["destination_name"] = row[2]
+        d["imputation_reference_code"] = row[3]
+        d["imputation_reference_name"] = row[4]
+        d["pickup_contact_display_name"] = item.pickup_contact_name
         return d
 
     return await paginate(db, query, pagination, transform=_transform)
@@ -1465,6 +1541,7 @@ async def create_cargo(
     _: None = require_permission("travelwiz.cargo.create"),
     db: AsyncSession = Depends(get_db),
 ):
+    await _validate_cargo_dossier_refs(db, entity_id=entity_id, payload=body)
     # ── Weight capacity validation (if assigning to a manifest) ────────
     if body.manifest_id:
         manifest_result = await db.execute(
@@ -1520,13 +1597,11 @@ async def create_cargo(
             "status": cargo.status,
             "manifest_id": str(cargo.manifest_id) if cargo.manifest_id else None,
             "cargo_type": cargo.cargo_type,
+            "workflow_status": cargo.workflow_status,
         },
     )
     await db.commit()
-    d = {c.key: getattr(cargo, c.key) for c in cargo.__table__.columns}
-    d["sender_name"] = None
-    d["destination_name"] = None
-    return d
+    return await _build_cargo_read_data(db, cargo)
 
 
 @router.get("/cargo/{cargo_id}", response_model=CargoRead)
@@ -1537,20 +1612,7 @@ async def get_cargo(
     db: AsyncSession = Depends(get_db),
 ):
     cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
-    d = {c.key: getattr(cargo, c.key) for c in cargo.__table__.columns}
-    # Sender name
-    if cargo.sender_tier_id:
-        tier = await db.get(Tier, cargo.sender_tier_id)
-        d["sender_name"] = tier.name if tier else None
-    else:
-        d["sender_name"] = None
-    # Destination name
-    if cargo.destination_asset_id:
-        asset = await db.get(Installation, cargo.destination_asset_id)
-        d["destination_name"] = asset.name if asset else None
-    else:
-        d["destination_name"] = None
-    return d
+    return await _build_cargo_read_data(db, cargo)
 
 
 @router.get("/public/cargo/{tracking_code}", response_model=CargoTrackingRead)
@@ -1711,6 +1773,7 @@ async def update_cargo(
     db: AsyncSession = Depends(get_db),
 ):
     cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
+    await _validate_cargo_dossier_refs(db, entity_id=entity_id, payload=body)
     changes = body.model_dump(exclude_unset=True)
     for field, value in changes.items():
         setattr(cargo, field, value)
@@ -1727,10 +1790,37 @@ async def update_cargo(
             details={"changes": changes},
         )
         await db.commit()
-    d = {c.key: getattr(cargo, c.key) for c in cargo.__table__.columns}
-    d["sender_name"] = None
-    d["destination_name"] = None
-    return d
+    return await _build_cargo_read_data(db, cargo)
+
+
+@router.patch("/cargo/{cargo_id}/workflow-status", response_model=CargoRead)
+async def update_cargo_workflow_status(
+    cargo_id: UUID,
+    body: CargoWorkflowStatusUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.cargo.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
+    previous_status = cargo.workflow_status
+    cargo.workflow_status = body.workflow_status
+    await db.commit()
+    await db.refresh(cargo)
+    await record_audit(
+        db,
+        action="travelwiz.cargo.workflow_status",
+        resource_type="cargo_item",
+        resource_id=str(cargo.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "from_status": previous_status,
+            "to_status": cargo.workflow_status,
+        },
+    )
+    await db.commit()
+    return await _build_cargo_read_data(db, cargo)
 
 
 @router.patch("/cargo/{cargo_id}/status", response_model=CargoRead)
@@ -1764,10 +1854,7 @@ async def update_cargo_status(
         },
     )
     await db.commit()
-    d = {c.key: getattr(cargo, c.key) for c in cargo.__table__.columns}
-    d["sender_name"] = None
-    d["destination_name"] = None
-    return d
+    return await _build_cargo_read_data(db, cargo)
 
 
 @router.post("/cargo/{cargo_id}/receive", response_model=CargoRead)
@@ -1802,10 +1889,7 @@ async def receive_cargo(
         },
     )
     await db.commit()
-    d = {c.key: getattr(cargo, c.key) for c in cargo.__table__.columns}
-    d["sender_name"] = None
-    d["destination_name"] = None
-    return d
+    return await _build_cargo_read_data(db, cargo)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

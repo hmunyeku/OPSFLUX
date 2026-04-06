@@ -326,15 +326,36 @@ class PassengerRead(OpsFluxSchema):
 
 class CargoCreate(BaseModel):
     description: str = Field(..., min_length=1, max_length=500)
+    designation: str | None = Field(None, max_length=255)
     cargo_type: str = Field(..., pattern=r"^(unit|bulk|consumable|packaging|waste|hazmat)$")
     weight_kg: float = Field(..., gt=0)
     width_cm: float | None = None
     length_cm: float | None = None
     height_cm: float | None = None
+    surface_m2: float | None = Field(None, ge=0)
+    package_count: int = Field(default=1, ge=1)
+    stackable: bool = False
     sender_tier_id: UUID | None = None
     receiver_name: str | None = Field(None, max_length=200)
     destination_asset_id: UUID | None = None
     project_id: UUID | None = None
+    imputation_reference_id: UUID | None = None
+    ownership_type: str | None = Field(None, pattern=r"^(rental|purchased|customer|internal)$")
+    pickup_location_label: str | None = Field(None, max_length=255)
+    pickup_latitude: float | None = None
+    pickup_longitude: float | None = None
+    requester_name: str | None = Field(None, max_length=200)
+    document_prepared_at: datetime | None = None
+    available_from: datetime | None = None
+    pickup_contact_user_id: UUID | None = None
+    pickup_contact_tier_contact_id: UUID | None = None
+    pickup_contact_name: str | None = Field(None, max_length=200)
+    pickup_contact_phone: str | None = Field(None, max_length=80)
+    lifting_provider: str | None = Field(None, max_length=200)
+    lifting_points_certified: bool = False
+    weight_ticket_provided: bool = False
+    photo_evidence_count: int = Field(default=0, ge=0)
+    document_attachment_count: int = Field(default=0, ge=0)
     manifest_id: UUID | None = None
     sap_article_code: str | None = Field(None, max_length=50)
     hazmat_validated: bool = False
@@ -342,18 +363,46 @@ class CargoCreate(BaseModel):
 
 class CargoUpdate(BaseModel):
     description: str | None = None
+    designation: str | None = None
     cargo_type: str | None = None
     weight_kg: float | None = None
     width_cm: float | None = None
     length_cm: float | None = None
     height_cm: float | None = None
+    surface_m2: float | None = None
+    package_count: int | None = Field(None, ge=1)
+    stackable: bool | None = None
     sender_tier_id: UUID | None = None
     receiver_name: str | None = None
     destination_asset_id: UUID | None = None
     project_id: UUID | None = None
+    imputation_reference_id: UUID | None = None
+    ownership_type: str | None = None
+    pickup_location_label: str | None = None
+    pickup_latitude: float | None = None
+    pickup_longitude: float | None = None
+    requester_name: str | None = None
+    document_prepared_at: datetime | None = None
+    available_from: datetime | None = None
+    pickup_contact_user_id: UUID | None = None
+    pickup_contact_tier_contact_id: UUID | None = None
+    pickup_contact_name: str | None = None
+    pickup_contact_phone: str | None = None
+    lifting_provider: str | None = None
+    lifting_points_certified: bool | None = None
+    weight_ticket_provided: bool | None = None
+    photo_evidence_count: int | None = Field(None, ge=0)
+    document_attachment_count: int | None = Field(None, ge=0)
     manifest_id: UUID | None = None
     sap_article_code: str | None = None
     hazmat_validated: bool | None = None
+
+
+class CargoWorkflowStatusUpdate(BaseModel):
+    workflow_status: str = Field(
+        ...,
+        pattern=r"^(draft|prepared|ready_for_review|approved|rejected|assigned|in_transit|delivered|cancelled)$",
+    )
 
 
 class CargoStatusUpdate(BaseModel):
@@ -369,15 +418,37 @@ class CargoRead(OpsFluxSchema):
     entity_id: UUID
     tracking_code: str
     description: str
+    designation: str | None = None
     cargo_type: str
+    workflow_status: str
     weight_kg: float
     width_cm: float | None = None
     length_cm: float | None = None
     height_cm: float | None = None
+    surface_m2: float | None = None
+    package_count: int
+    stackable: bool
     sender_tier_id: UUID | None = None
     receiver_name: str | None = None
     destination_asset_id: UUID | None = None
     project_id: UUID | None = None
+    imputation_reference_id: UUID | None = None
+    ownership_type: str | None = None
+    pickup_location_label: str | None = None
+    pickup_latitude: float | None = None
+    pickup_longitude: float | None = None
+    requester_name: str | None = None
+    document_prepared_at: datetime | None = None
+    available_from: datetime | None = None
+    pickup_contact_user_id: UUID | None = None
+    pickup_contact_tier_contact_id: UUID | None = None
+    pickup_contact_name: str | None = None
+    pickup_contact_phone: str | None = None
+    lifting_provider: str | None = None
+    lifting_points_certified: bool
+    weight_ticket_provided: bool
+    photo_evidence_count: int
+    document_attachment_count: int
     status: str
     manifest_id: UUID | None = None
     sap_article_code: str | None = None
@@ -391,6 +462,9 @@ class CargoRead(OpsFluxSchema):
     # Enriched
     sender_name: str | None = None
     destination_name: str | None = None
+    imputation_reference_code: str | None = None
+    imputation_reference_name: str | None = None
+    pickup_contact_display_name: str | None = None
 
 
 class CargoTrackingEventRead(BaseModel):

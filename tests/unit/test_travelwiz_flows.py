@@ -548,6 +548,53 @@ async def test_update_cargo_status_records_audit(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_update_cargo_workflow_status_records_audit(monkeypatch):
+    cargo_id = uuid4()
+    entity_id = uuid4()
+    actor_id = uuid4()
+    cargo = SimpleNamespace(
+        id=cargo_id,
+        workflow_status="draft",
+        sender_tier_id=None,
+        destination_asset_id=None,
+        pickup_contact_user_id=None,
+        pickup_contact_tier_contact_id=None,
+        pickup_contact_name=None,
+        __table__=SimpleNamespace(columns=[]),
+    )
+    db = FakeDB([])
+    audits = []
+
+    async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
+        return cargo
+
+    async def fake_record_audit(_db, **kwargs):
+        audits.append(kwargs)
+
+    async def fake_build_cargo_read_data(_db, _cargo):
+        return {"id": _cargo.id, "workflow_status": _cargo.workflow_status}
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_or_404", fake_get_cargo_or_404)
+    monkeypatch.setattr(travelwiz_routes, "record_audit", fake_record_audit)
+    monkeypatch.setattr(travelwiz_routes, "_build_cargo_read_data", fake_build_cargo_read_data)
+
+    result = await travelwiz_routes.update_cargo_workflow_status(
+        cargo_id=cargo_id,
+        body=travelwiz_routes.CargoWorkflowStatusUpdate(workflow_status="approved"),
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=actor_id),
+        _=None,
+        db=db,
+    )
+
+    assert result["workflow_status"] == "approved"
+    assert db.commits == 2
+    assert audits and audits[0]["action"] == "travelwiz.cargo.workflow_status"
+    assert audits[0]["details"]["from_status"] == "draft"
+    assert audits[0]["details"]["to_status"] == "approved"
+
+
+@pytest.mark.asyncio
 async def test_verify_captain_session_token_accepts_matching_access():
     voyage_id = uuid4()
     trip_code_access_id = uuid4()

@@ -39,8 +39,11 @@ import { AssetPicker } from '@/components/shared/AssetPicker'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
-import { useTiers } from '@/hooks/useTiers'
+import { useTiers, useTierContacts } from '@/hooks/useTiers'
 import { useProjects } from '@/hooks/useProjets'
+import { useUsers } from '@/hooks/useUsers'
+import { useDictionaryOptions, useDictionaryLabels } from '@/hooks/useDictionary'
+import { useImputationReferences } from '@/hooks/useSettings'
 import {
   useVoyages,
   useVoyage,
@@ -65,6 +68,7 @@ import {
   useCreateCargo,
   useUpdateCargo,
   useUpdateCargoStatus,
+  useUpdateCargoWorkflowStatus,
   useInitiateCargoReturn,
   usePackageElements,
   useCargoHistory,
@@ -89,7 +93,7 @@ import { FleetMap } from '@/components/travelwiz/FleetMap'
 import type {
   VoyageCreate, VoyageUpdate,
   TravelVectorCreate, TravelVectorUpdate,
-  CargoItemCreate, CargoItemUpdate,
+  CargoItem, CargoItemCreate, CargoItemUpdate,
   RotationCreate, RotationUpdate,
   TravelArticleCreate,
 } from '@/types/api'
@@ -188,15 +192,6 @@ const CARGO_STATUS_MAP: Record<string, { label: string; badge: string }> = {
   damaged:           { label: 'Endommagé',         badge: 'gl-badge-danger' },
   missing:           { label: 'Manquant',          badge: 'gl-badge-danger' },
 }
-
-const CARGO_TYPE_OPTIONS = [
-  { value: 'unit', label: 'Unité' },
-  { value: 'bulk', label: 'Vrac' },
-  { value: 'consumable', label: 'Consommable' },
-  { value: 'packaging', label: 'Conditionnement' },
-  { value: 'waste', label: 'Déchet' },
-  { value: 'hazmat', label: 'HAZMAT' },
-]
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -1956,23 +1951,50 @@ function CreateCargoPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createCargo = useCreateCargo()
   const { data: tiersData } = useTiers({ page: 1, page_size: 100 })
+  const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
+  const { data: imputationReferences } = useImputationReferences()
+  const cargoTypeOptions = useDictionaryOptions('travelwiz_cargo_type')
+  const ownershipOptions = useDictionaryOptions('travelwiz_cargo_ownership_type')
   const { toast } = useToast()
   const [form, setForm] = useState<CargoItemCreate>({
     description: '',
+    designation: '',
     cargo_type: 'unit',
     weight_kg: 0,
     width_cm: null,
     length_cm: null,
     height_cm: null,
+    surface_m2: null,
+    package_count: 1,
+    stackable: false,
     sender_tier_id: null,
     receiver_name: null,
     destination_asset_id: null,
     project_id: null,
+    imputation_reference_id: null,
+    ownership_type: null,
+    pickup_location_label: null,
+    pickup_latitude: null,
+    pickup_longitude: null,
+    requester_name: null,
+    document_prepared_at: null,
+    available_from: null,
+    pickup_contact_user_id: null,
+    pickup_contact_tier_contact_id: null,
+    pickup_contact_name: null,
+    pickup_contact_phone: null,
+    lifting_provider: null,
+    lifting_points_certified: false,
+    weight_ticket_provided: false,
+    photo_evidence_count: 0,
+    document_attachment_count: 0,
     manifest_id: null,
     sap_article_code: null,
     hazmat_validated: false,
   })
   const tiers = tiersData?.items ?? []
+  const users = usersData?.items ?? []
+  const { data: tierContacts } = useTierContacts(form.sender_tier_id ?? undefined)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -2004,10 +2026,13 @@ function CreateCargoPanel() {
               </DynamicPanelField>
               <DynamicPanelField label="Type de colis" required>
                 <select value={form.cargo_type} onChange={(e) => setForm({ ...form, cargo_type: e.target.value })} className={panelInputClass}>
-                  {CARGO_TYPE_OPTIONS.map((option) => (
+                  {cargoTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Désignation">
+                <input type="text" value={form.designation ?? ''} onChange={(e) => setForm({ ...form, designation: e.target.value || null })} className={panelInputClass} placeholder="Désignation courte du colis" />
               </DynamicPanelField>
               <DynamicPanelField label="Article SAP">
                 <input type="text" value={form.sap_article_code ?? ''} onChange={(e) => setForm({ ...form, sap_article_code: e.target.value || null })} className={panelInputClass} placeholder="MAT-00001" />
@@ -2038,10 +2063,59 @@ function CreateCargoPanel() {
               <DynamicPanelField label="Hauteur (cm)">
                 <input type="number" min={0} step="any" value={form.height_cm ?? ''} onChange={(e) => setForm({ ...form, height_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
               </DynamicPanelField>
+              <DynamicPanelField label="Surface totale (m²)">
+                <input type="number" min={0} step="any" value={form.surface_m2 ?? ''} onChange={(e) => setForm({ ...form, surface_m2: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Nombre de colis">
+                <input type="number" min={1} step={1} value={form.package_count ?? 1} onChange={(e) => setForm({ ...form, package_count: e.target.value ? Number(e.target.value) : 1 })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Empilable">
+                <label className="inline-flex items-center gap-2 text-xs">
+                  <input type="checkbox" checked={form.stackable ?? false} onChange={(e) => setForm({ ...form, stackable: e.target.checked })} />
+                  Oui, ce colis peut être empilé
+                </label>
+              </DynamicPanelField>
             </FormGrid>
             <p className="text-xs text-muted-foreground">
               Les dimensions physiques sont utilisées pour raisonner la place occupée et préparer le placement pont, pas seulement un volume libre saisi à la main.
             </p>
+          </FormSection>
+          <FormSection title="Dossier logistique" collapsible defaultExpanded>
+            <FormGrid>
+              <DynamicPanelField label="Projet">
+                <ProjectPicker
+                  value={form.project_id ?? null}
+                  onChange={(projectId) => setForm({ ...form, project_id: projectId ?? null })}
+                  clearable
+                  placeholder="Sélectionner un projet..."
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label="Imputation">
+                <select value={form.imputation_reference_id ?? ''} onChange={(e) => setForm({ ...form, imputation_reference_id: e.target.value || null })} className={panelInputClass}>
+                  <option value="">Sélectionner une imputation...</option>
+                  {(imputationReferences ?? []).map((reference) => (
+                    <option key={reference.id} value={reference.id}>{reference.code} — {reference.name}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Propriété du matériel">
+                <select value={form.ownership_type ?? ''} onChange={(e) => setForm({ ...form, ownership_type: e.target.value || null })} className={panelInputClass}>
+                  <option value="">Sélectionner...</option>
+                  {ownershipOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Demandeur">
+                <input type="text" value={form.requester_name ?? ''} onChange={(e) => setForm({ ...form, requester_name: e.target.value || null })} className={panelInputClass} placeholder="Nom du demandeur" />
+              </DynamicPanelField>
+              <DynamicPanelField label="Document préparé le">
+                <input type="datetime-local" value={form.document_prepared_at ?? ''} onChange={(e) => setForm({ ...form, document_prepared_at: e.target.value || null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Mise à disposition">
+                <input type="datetime-local" value={form.available_from ?? ''} onChange={(e) => setForm({ ...form, available_from: e.target.value || null })} className={panelInputClass} />
+              </DynamicPanelField>
+            </FormGrid>
           </FormSection>
           <FormSection title="Affectation" collapsible defaultExpanded>
             <FormGrid>
@@ -2069,6 +2143,62 @@ function CreateCargoPanel() {
                   <input type="checkbox" checked={form.hazmat_validated ?? false} onChange={(e) => setForm({ ...form, hazmat_validated: e.target.checked })} />
                   Conforme / validé pour traitement HAZMAT
                 </label>
+              </DynamicPanelField>
+            </FormGrid>
+          </FormSection>
+          <FormSection title="Enlèvement et preuves" collapsible defaultExpanded>
+            <FormGrid>
+              <DynamicPanelField label="Lieu d’enlèvement" span="full">
+                <input type="text" value={form.pickup_location_label ?? ''} onChange={(e) => setForm({ ...form, pickup_location_label: e.target.value || null })} className={panelInputClass} placeholder="Base, quai, magasin, yard..." />
+              </DynamicPanelField>
+              <DynamicPanelField label="Latitude">
+                <input type="number" step="any" value={form.pickup_latitude ?? ''} onChange={(e) => setForm({ ...form, pickup_latitude: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Longitude">
+                <input type="number" step="any" value={form.pickup_longitude ?? ''} onChange={(e) => setForm({ ...form, pickup_longitude: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Contact utilisateur">
+                <select value={form.pickup_contact_user_id ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_user_id: e.target.value || null })} className={panelInputClass}>
+                  <option value="">Sélectionner un utilisateur...</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>{user.first_name} {user.last_name}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Contact entreprise">
+                <select value={form.pickup_contact_tier_contact_id ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_tier_contact_id: e.target.value || null })} className={panelInputClass}>
+                  <option value="">Sélectionner un contact...</option>
+                  {(tierContacts ?? []).map((contact) => (
+                    <option key={contact.id} value={contact.id}>{contact.first_name} {contact.last_name}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Nom libre du contact">
+                <input type="text" value={form.pickup_contact_name ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_name: e.target.value || null })} className={panelInputClass} placeholder="Fallback si hors référentiel" />
+              </DynamicPanelField>
+              <DynamicPanelField label="Téléphone contact">
+                <input type="text" value={form.pickup_contact_phone ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_phone: e.target.value || null })} className={panelInputClass} placeholder="+237..." />
+              </DynamicPanelField>
+              <DynamicPanelField label="Moyen de levage fourni par">
+                <input type="text" value={form.lifting_provider ?? ''} onChange={(e) => setForm({ ...form, lifting_provider: e.target.value || null })} className={panelInputClass} placeholder="Entreprise, site, prestataire..." />
+              </DynamicPanelField>
+              <DynamicPanelField label="Oreilles de levage certifiées">
+                <label className="inline-flex items-center gap-2 text-xs">
+                  <input type="checkbox" checked={form.lifting_points_certified ?? false} onChange={(e) => setForm({ ...form, lifting_points_certified: e.target.checked })} />
+                  Certification fournie
+                </label>
+              </DynamicPanelField>
+              <DynamicPanelField label="Preuve de pesée">
+                <label className="inline-flex items-center gap-2 text-xs">
+                  <input type="checkbox" checked={form.weight_ticket_provided ?? false} onChange={(e) => setForm({ ...form, weight_ticket_provided: e.target.checked })} />
+                  Ticket de pesée disponible
+                </label>
+              </DynamicPanelField>
+              <DynamicPanelField label="Nombre de photos">
+                <input type="number" min={0} step={1} value={form.photo_evidence_count ?? 0} onChange={(e) => setForm({ ...form, photo_evidence_count: e.target.value ? Number(e.target.value) : 0 })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Nombre de documents">
+                <input type="number" min={0} step={1} value={form.document_attachment_count ?? 0} onChange={(e) => setForm({ ...form, document_attachment_count: e.target.value ? Number(e.target.value) : 0 })} className={panelInputClass} />
               </DynamicPanelField>
             </FormGrid>
           </FormSection>
@@ -2783,30 +2913,61 @@ function CargoDetailPanel({ id }: { id: string }) {
   const { data: cargo, isLoading } = useCargoItem(id)
   const { data: tiers } = useTiers({ page: 1, page_size: 100 })
   const { data: projects } = useProjects({ page: 1, page_size: 100 })
+  const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
+  const { data: imputationReferences } = useImputationReferences()
   const { data: manifests } = useAllManifests({ page: 1, page_size: 100 })
   const updateCargo = useUpdateCargo()
   const updateCargoSt = useUpdateCargoStatus()
+  const updateCargoWorkflowStatus = useUpdateCargoWorkflowStatus()
   const initiateReturn = useInitiateCargoReturn()
   const { data: packageElements } = usePackageElements(id)
   const { data: cargoHistory } = useCargoHistory(id)
   const sapMatch = useSapMatch()
+  const cargoTypeOptions = useDictionaryOptions('travelwiz_cargo_type')
+  const ownershipOptions = useDictionaryOptions('travelwiz_cargo_ownership_type')
+  const cargoTypeLabels = useDictionaryLabels('travelwiz_cargo_type')
+  const ownershipLabels = useDictionaryLabels('travelwiz_cargo_ownership_type')
+  const cargoWorkflowLabels = useDictionaryLabels('travelwiz_cargo_workflow_status')
   const { toast } = useToast()
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<CargoItemUpdate>({})
+  const { data: tierContacts } = useTierContacts(editForm.sender_tier_id ?? cargo?.sender_tier_id ?? undefined)
+  const users = usersData?.items ?? []
 
   const startEdit = useCallback(() => {
     if (!cargo) return
     setEditForm({
       description: cargo.description,
+      designation: cargo.designation,
       weight_kg: cargo.weight_kg,
       width_cm: cargo.width_cm,
       length_cm: cargo.length_cm,
       height_cm: cargo.height_cm,
+      surface_m2: cargo.surface_m2,
+      package_count: cargo.package_count,
+      stackable: cargo.stackable,
       cargo_type: cargo.cargo_type,
       sender_tier_id: cargo.sender_tier_id,
       receiver_name: cargo.receiver_name,
       destination_asset_id: cargo.destination_asset_id,
       project_id: cargo.project_id,
+      imputation_reference_id: cargo.imputation_reference_id,
+      ownership_type: cargo.ownership_type,
+      pickup_location_label: cargo.pickup_location_label,
+      pickup_latitude: cargo.pickup_latitude,
+      pickup_longitude: cargo.pickup_longitude,
+      requester_name: cargo.requester_name,
+      document_prepared_at: cargo.document_prepared_at,
+      available_from: cargo.available_from,
+      pickup_contact_user_id: cargo.pickup_contact_user_id,
+      pickup_contact_tier_contact_id: cargo.pickup_contact_tier_contact_id,
+      pickup_contact_name: cargo.pickup_contact_name,
+      pickup_contact_phone: cargo.pickup_contact_phone,
+      lifting_provider: cargo.lifting_provider,
+      lifting_points_certified: cargo.lifting_points_certified,
+      weight_ticket_provided: cargo.weight_ticket_provided,
+      photo_evidence_count: cargo.photo_evidence_count,
+      document_attachment_count: cargo.document_attachment_count,
       manifest_id: cargo.manifest_id,
       sap_article_code: cargo.sap_article_code,
       hazmat_validated: cargo.hazmat_validated,
@@ -2857,6 +3018,7 @@ function CargoDetailPanel({ id }: { id: string }) {
         {/* Status + HAZMAT warning */}
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={cargo.status} map={CARGO_STATUS_MAP} />
+          <span className="gl-badge gl-badge-info">{cargoWorkflowLabels[cargo.workflow_status] ?? cargo.workflow_status}</span>
           {cargo.hazmat_validated && (
             <span className="inline-flex items-center gap-1 text-xs text-destructive font-medium">
               <AlertTriangle size={12} />
@@ -2868,6 +3030,13 @@ function CargoDetailPanel({ id }: { id: string }) {
               onChange={(e) => { if (e.target.value) updateCargoSt.mutate({ id, status: e.target.value }) }}>
               <option value="">Changer statut...</option>
               {Object.entries(CARGO_STATUS_MAP).filter(([k]) => k !== cargo.status).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
+          )}
+          {!editing && (
+            <select className="text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground" value=""
+              onChange={(e) => { if (e.target.value) updateCargoWorkflowStatus.mutate({ id, workflow_status: e.target.value as CargoItem['workflow_status'] }) }}>
+              <option value="">Workflow...</option>
+              {Object.entries(cargoWorkflowLabels).filter(([k]) => k !== cargo.workflow_status).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           )}
           {isDelivered && !editing && (
@@ -2885,10 +3054,13 @@ function CargoDetailPanel({ id }: { id: string }) {
               </DynamicPanelField>
               <DynamicPanelField label="Type de colis">
                 <select value={editForm.cargo_type ?? ''} onChange={(e) => setEditForm({ ...editForm, cargo_type: e.target.value || null })} className={panelInputClass}>
-                  {CARGO_TYPE_OPTIONS.map((option) => (
+                  {cargoTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Désignation">
+                <input type="text" value={editForm.designation ?? ''} onChange={(e) => setEditForm({ ...editForm, designation: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
               <DynamicPanelField label="Article SAP">
                 <input type="text" value={editForm.sap_article_code ?? ''} onChange={(e) => setEditForm({ ...editForm, sap_article_code: e.target.value || null })} className={panelInputClass} />
@@ -2897,6 +3069,14 @@ function CargoDetailPanel({ id }: { id: string }) {
               <DynamicPanelField label="Largeur (cm)"><input type="number" min={0} step="any" value={editForm.width_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, width_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
               <DynamicPanelField label="Longueur (cm)"><input type="number" min={0} step="any" value={editForm.length_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, length_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
               <DynamicPanelField label="Hauteur (cm)"><input type="number" min={0} step="any" value={editForm.height_cm ?? ''} onChange={(e) => setEditForm({ ...editForm, height_cm: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label="Surface totale (m²)"><input type="number" min={0} step="any" value={editForm.surface_m2 ?? ''} onChange={(e) => setEditForm({ ...editForm, surface_m2: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label="Nombre de colis"><input type="number" min={1} step={1} value={editForm.package_count ?? ''} onChange={(e) => setEditForm({ ...editForm, package_count: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+              <DynamicPanelField label="Empilable">
+                <label className="inline-flex items-center gap-2 text-xs">
+                  <input type="checkbox" checked={editForm.stackable ?? false} onChange={(e) => setEditForm({ ...editForm, stackable: e.target.checked })} />
+                  Empilable
+                </label>
+              </DynamicPanelField>
               <DynamicPanelField label="Expéditeur">
                 <select value={editForm.sender_tier_id ?? ''} onChange={(e) => setEditForm({ ...editForm, sender_tier_id: e.target.value || null })} className={panelInputClass}>
                   <option value="">Aucun</option>
@@ -2924,6 +3104,22 @@ function CargoDetailPanel({ id }: { id: string }) {
                   placeholder="Sélectionner un projet..."
                 />
               </DynamicPanelField>
+              <DynamicPanelField label="Imputation">
+                <select value={editForm.imputation_reference_id ?? ''} onChange={(e) => setEditForm({ ...editForm, imputation_reference_id: e.target.value || null })} className={panelInputClass}>
+                  <option value="">Aucune</option>
+                  {(imputationReferences ?? []).map((reference) => (
+                    <option key={reference.id} value={reference.id}>{reference.code} — {reference.name}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Propriété du matériel">
+                <select value={editForm.ownership_type ?? ''} onChange={(e) => setEditForm({ ...editForm, ownership_type: e.target.value || null })} className={panelInputClass}>
+                  <option value="">Sélectionner...</option>
+                  {ownershipOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
               <DynamicPanelField label="Manifeste">
                 <select value={editForm.manifest_id ?? ''} onChange={(e) => setEditForm({ ...editForm, manifest_id: e.target.value || null })} className={panelInputClass}>
                   <option value="">Aucun</option>
@@ -2938,6 +3134,67 @@ function CargoDetailPanel({ id }: { id: string }) {
                   Conforme et validé pour transport HAZMAT
                 </label>
               </DynamicPanelField>
+              <DynamicPanelField label="Demandeur">
+                <input type="text" value={editForm.requester_name ?? ''} onChange={(e) => setEditForm({ ...editForm, requester_name: e.target.value || null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Document préparé le">
+                <input type="datetime-local" value={editForm.document_prepared_at ?? ''} onChange={(e) => setEditForm({ ...editForm, document_prepared_at: e.target.value || null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Mise à disposition">
+                <input type="datetime-local" value={editForm.available_from ?? ''} onChange={(e) => setEditForm({ ...editForm, available_from: e.target.value || null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Lieu d’enlèvement" span="full">
+                <input type="text" value={editForm.pickup_location_label ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_location_label: e.target.value || null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Latitude">
+                <input type="number" step="any" value={editForm.pickup_latitude ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_latitude: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Longitude">
+                <input type="number" step="any" value={editForm.pickup_longitude ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_longitude: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Contact utilisateur">
+                <select value={editForm.pickup_contact_user_id ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_contact_user_id: e.target.value || null })} className={panelInputClass}>
+                  <option value="">Aucun</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>{user.first_name} {user.last_name}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Contact entreprise">
+                <select value={editForm.pickup_contact_tier_contact_id ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_contact_tier_contact_id: e.target.value || null })} className={panelInputClass}>
+                  <option value="">Aucun</option>
+                  {(tierContacts ?? []).map((contact) => (
+                    <option key={contact.id} value={contact.id}>{contact.first_name} {contact.last_name}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Nom libre du contact">
+                <input type="text" value={editForm.pickup_contact_name ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_contact_name: e.target.value || null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Téléphone contact">
+                <input type="text" value={editForm.pickup_contact_phone ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_contact_phone: e.target.value || null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Levage fourni par">
+                <input type="text" value={editForm.lifting_provider ?? ''} onChange={(e) => setEditForm({ ...editForm, lifting_provider: e.target.value || null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Oreilles certifiées">
+                <label className="inline-flex items-center gap-2 text-xs">
+                  <input type="checkbox" checked={editForm.lifting_points_certified ?? false} onChange={(e) => setEditForm({ ...editForm, lifting_points_certified: e.target.checked })} />
+                  Certification disponible
+                </label>
+              </DynamicPanelField>
+              <DynamicPanelField label="Ticket de pesée">
+                <label className="inline-flex items-center gap-2 text-xs">
+                  <input type="checkbox" checked={editForm.weight_ticket_provided ?? false} onChange={(e) => setEditForm({ ...editForm, weight_ticket_provided: e.target.checked })} />
+                  Preuve de pesée disponible
+                </label>
+              </DynamicPanelField>
+              <DynamicPanelField label="Photos">
+                <input type="number" min={0} step={1} value={editForm.photo_evidence_count ?? ''} onChange={(e) => setEditForm({ ...editForm, photo_evidence_count: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Documents">
+                <input type="number" min={0} step={1} value={editForm.document_attachment_count ?? ''} onChange={(e) => setEditForm({ ...editForm, document_attachment_count: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
+              </DynamicPanelField>
               <DynamicPanelField label="Description" span="full"><textarea value={editForm.description ?? ''} onChange={(e) => setEditForm({ ...editForm, description: e.target.value || null })} className={`${panelInputClass} min-h-[60px] resize-y`} rows={3} /></DynamicPanelField>
             </FormGrid>
           </FormSection>
@@ -2945,9 +3202,14 @@ function CargoDetailPanel({ id }: { id: string }) {
           <>
             <FormSection title="Details">
               <DetailRow label="Code" value={cargo.code} />
-              <DetailRow label="Type" value={cargo.cargo_type ?? '—'} />
+              <DetailRow label="Type" value={cargoTypeLabels[cargo.cargo_type] ?? cargo.cargo_type ?? '—'} />
+              <DetailRow label="Workflow dossier" value={cargoWorkflowLabels[cargo.workflow_status] ?? cargo.workflow_status} />
+              <DetailRow label="Désignation" value={cargo.designation ?? '—'} />
               <DetailRow label="Poids" value={cargo.weight_kg ? `${cargo.weight_kg.toLocaleString('fr-FR')} kg` : '—'} />
               <DetailRow label="Dimensions" value={cargo.width_cm && cargo.length_cm && cargo.height_cm ? `${cargo.width_cm} × ${cargo.length_cm} × ${cargo.height_cm} cm` : '—'} />
+              <DetailRow label="Surface totale" value={cargo.surface_m2 != null ? `${cargo.surface_m2.toLocaleString('fr-FR')} m²` : '—'} />
+              <DetailRow label="Nombre de colis" value={cargo.package_count?.toString() ?? '—'} />
+              <DetailRow label="Empilable" value={cargo.stackable ? 'Oui' : 'Non'} />
               <DetailRow label="Volume estimé" value={volumeLabel} />
               <DetailRow label="Voyage" value={cargo.voyage_code ?? '—'} />
               <DetailRow label="Manifeste" value={manifestLabel ?? '—'} />
@@ -2955,8 +3217,22 @@ function CargoDetailPanel({ id }: { id: string }) {
               <DetailRow label="Destinataire" value={cargo.receiver_name ?? '—'} />
               <DetailRow label="Site de destination" value={cargo.destination_name ?? '—'} />
               <DetailRow label="Projet" value={projectLabel ?? '—'} />
+              <DetailRow label="Imputation" value={cargo.imputation_reference_name ? `${cargo.imputation_reference_code ?? ''} ${cargo.imputation_reference_name}`.trim() : '—'} />
+              <DetailRow label="Propriété du matériel" value={cargo.ownership_type ? (ownershipLabels[cargo.ownership_type] ?? cargo.ownership_type) : '—'} />
               <DetailRow label="Article SAP" value={cargo.sap_article_code ?? '—'} />
               <DetailRow label="HAZMAT validé" value={cargo.hazmat_validated ? 'Oui' : 'Non'} />
+              <DetailRow label="Demandeur" value={cargo.requester_name ?? '—'} />
+              <DetailRow label="Préparé le" value={cargo.document_prepared_at ? new Date(cargo.document_prepared_at).toLocaleString('fr-FR') : '—'} />
+              <DetailRow label="Disponible le" value={cargo.available_from ? new Date(cargo.available_from).toLocaleString('fr-FR') : '—'} />
+              <DetailRow label="Lieu d’enlèvement" value={cargo.pickup_location_label ?? '—'} />
+              <DetailRow label="Coordonnées enlèvement" value={cargo.pickup_latitude != null && cargo.pickup_longitude != null ? `${cargo.pickup_latitude}, ${cargo.pickup_longitude}` : '—'} />
+              <DetailRow label="Contact d’enlèvement" value={cargo.pickup_contact_display_name ?? cargo.pickup_contact_name ?? '—'} />
+              <DetailRow label="Téléphone d’enlèvement" value={cargo.pickup_contact_phone ?? '—'} />
+              <DetailRow label="Levage fourni par" value={cargo.lifting_provider ?? '—'} />
+              <DetailRow label="Oreilles de levage certifiées" value={cargo.lifting_points_certified ? 'Oui' : 'Non'} />
+              <DetailRow label="Ticket de pesée" value={cargo.weight_ticket_provided ? 'Oui' : 'Non'} />
+              <DetailRow label="Photos" value={cargo.photo_evidence_count?.toString() ?? '0'} />
+              <DetailRow label="Documents" value={cargo.document_attachment_count?.toString() ?? '0'} />
               <DetailRow label="Description" value={cargo.description ?? '—'} />
               <DetailRow label="Notes avarie" value={cargo.damage_notes ?? '—'} />
               {cargo.received_at && <DetailRow label="Recu le" value={new Date(cargo.received_at).toLocaleString('fr-FR')} />}

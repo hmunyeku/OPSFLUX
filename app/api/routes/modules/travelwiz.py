@@ -52,6 +52,7 @@ from app.schemas.travelwiz import (
     CaptainLogRead,
     CargoCreate,
     CargoRead,
+    CargoTrackingRead,
     CargoStatusUpdate,
     CargoUpdate,
     ManifestCreate,
@@ -94,6 +95,17 @@ logger = logging.getLogger(__name__)
 VOYAGE_WORKFLOW_SLUG = "voyage-workflow"
 VOYAGE_ENTITY_TYPE = "voyage"
 
+CARGO_PUBLIC_STATUS_LABELS = {
+    "registered": "Enregistré",
+    "ready": "Prêt au départ",
+    "loaded": "Chargé",
+    "in_transit": "En transit",
+    "delivered_intermediate": "Livré en escale",
+    "delivered_final": "Livré",
+    "damaged": "Signalé endommagé",
+    "missing": "Signalé manquant",
+}
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -131,6 +143,37 @@ def _serialize_cargo_history_entry(entry: AuditLog, actor_name: str | None) -> d
         "actor_id": str(entry.user_id) if entry.user_id else None,
         "actor_name": actor_name,
         "details": details,
+    }
+
+
+def _build_public_cargo_tracking_event(entry: AuditLog) -> dict:
+    details = entry.details or {}
+    if entry.action == "travelwiz.cargo.create":
+        label = "Expédition enregistrée"
+        description = details.get("cargo_type")
+    elif entry.action == "travelwiz.cargo.status":
+        next_status = details.get("to_status")
+        label = CARGO_PUBLIC_STATUS_LABELS.get(str(next_status), "Statut mis à jour")
+        description = details.get("damage_notes")
+    elif entry.action == "travelwiz.cargo.receive":
+        label = "Réception confirmée"
+        description = None
+    elif entry.action == "travelwiz.cargo.update":
+        label = "Informations mises à jour"
+        changed = details.get("changes")
+        if isinstance(changed, dict) and changed:
+            description = ", ".join(changed.keys())
+        else:
+            description = None
+    else:
+        label = entry.action
+        description = None
+
+    return {
+        "code": entry.action,
+        "label": label,
+        "occurred_at": entry.created_at,
+        "description": description,
     }
 
 
@@ -1495,6 +1538,64 @@ async def get_cargo(
     else:
         d["destination_name"] = None
     return d
+
+
+@router.get("/public/cargo/{tracking_code}", response_model=CargoTrackingRead)
+async def get_public_cargo_tracking(
+    tracking_code: str,
+    db: AsyncSession = Depends(get_db),
+):
+    cargo_result = await db.execute(
+        select(
+            CargoItem,
+            Tier.name.label("sender_name"),
+            Installation.name.label("destination_name"),
+            Voyage.code.label("voyage_code"),
+        )
+        .outerjoin(Tier, CargoItem.sender_tier_id == Tier.id)
+        .outerjoin(Installation, CargoItem.destination_asset_id == Installation.id)
+        .outerjoin(VoyageManifest, CargoItem.manifest_id == VoyageManifest.id)
+        .outerjoin(Voyage, VoyageManifest.voyage_id == Voyage.id)
+        .where(
+            CargoItem.tracking_code == tracking_code,
+            CargoItem.active == True,  # noqa: E712
+        )
+    )
+    row = cargo_result.first()
+    if not row:
+        raise HTTPException(404, "Cargo tracking not found")
+
+    cargo, sender_name, destination_name, voyage_code = row
+    history_result = await db.execute(
+        select(AuditLog)
+        .where(
+            AuditLog.resource_type == "cargo_item",
+            AuditLog.resource_id == str(cargo.id),
+        )
+        .order_by(AuditLog.created_at.asc())
+    )
+    audit_entries = history_result.scalars().all()
+    events = [_build_public_cargo_tracking_event(entry) for entry in audit_entries]
+    last_event_at = events[-1]["occurred_at"] if events else cargo.created_at
+
+    return {
+        "tracking_code": cargo.tracking_code,
+        "description": cargo.description,
+        "cargo_type": cargo.cargo_type,
+        "status": cargo.status,
+        "status_label": CARGO_PUBLIC_STATUS_LABELS.get(cargo.status, cargo.status),
+        "weight_kg": cargo.weight_kg,
+        "width_cm": cargo.width_cm,
+        "length_cm": cargo.length_cm,
+        "height_cm": cargo.height_cm,
+        "sender_name": sender_name,
+        "receiver_name": cargo.receiver_name,
+        "destination_name": destination_name,
+        "voyage_code": voyage_code,
+        "received_at": cargo.received_at,
+        "last_event_at": last_event_at,
+        "events": events,
+    }
 
 
 @router.get("/cargo/{cargo_id}/history")

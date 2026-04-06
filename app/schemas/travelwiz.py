@@ -393,6 +393,32 @@ class CargoRead(OpsFluxSchema):
     destination_name: str | None = None
 
 
+class CargoTrackingEventRead(BaseModel):
+    code: str
+    label: str
+    occurred_at: datetime
+    description: str | None = None
+
+
+class CargoTrackingRead(BaseModel):
+    tracking_code: str
+    description: str
+    cargo_type: str
+    status: str
+    status_label: str
+    weight_kg: float
+    width_cm: float | None = None
+    length_cm: float | None = None
+    height_cm: float | None = None
+    sender_name: str | None = None
+    receiver_name: str | None = None
+    destination_name: str | None = None
+    voyage_code: str | None = None
+    received_at: datetime | None = None
+    last_event_at: datetime | None = None
+    events: list[CargoTrackingEventRead] = []
+
+
 # ─── Captain Logs ───────────────────────────────────────────────────────────
 
 

@@ -377,6 +377,76 @@ async def test_get_cargo_history_returns_audit_entries(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_get_public_cargo_tracking_returns_limited_tracking_timeline():
+    cargo_id = uuid4()
+    created_at = datetime.now(timezone.utc) - timedelta(hours=4)
+    received_at = datetime.now(timezone.utc)
+    cargo = SimpleNamespace(
+        id=cargo_id,
+        tracking_code="CGO-TRACK-001",
+        description="Pompe HP",
+        cargo_type="unit",
+        status="delivered_final",
+        weight_kg=125.0,
+        width_cm=120.0,
+        length_cm=80.0,
+        height_cm=95.0,
+        receiver_name="Base logistique",
+        received_at=received_at,
+        created_at=created_at,
+    )
+    audit_create = SimpleNamespace(
+        action="travelwiz.cargo.create",
+        created_at=created_at,
+        details={"cargo_type": "unit"},
+    )
+    audit_status = SimpleNamespace(
+        action="travelwiz.cargo.status",
+        created_at=created_at + timedelta(hours=2),
+        details={"from_status": "ready", "to_status": "in_transit"},
+    )
+    audit_receive = SimpleNamespace(
+        action="travelwiz.cargo.receive",
+        created_at=received_at,
+        details={"to_status": "delivered_final"},
+    )
+    db = FakeDB(
+        [
+            FakeResult(first=(cargo, "Acme Logistics", "Offshore Bravo", "VYG-204")),
+            FakeResult(all_rows=[audit_create, audit_status, audit_receive]),
+        ]
+    )
+
+    result = await travelwiz_routes.get_public_cargo_tracking(
+        tracking_code="CGO-TRACK-001",
+        db=db,
+    )
+
+    assert result["tracking_code"] == "CGO-TRACK-001"
+    assert result["status"] == "delivered_final"
+    assert result["status_label"] == "Livré"
+    assert result["sender_name"] == "Acme Logistics"
+    assert result["destination_name"] == "Offshore Bravo"
+    assert result["voyage_code"] == "VYG-204"
+    assert len(result["events"]) == 3
+    assert result["events"][0]["label"] == "Expédition enregistrée"
+    assert result["events"][-1]["label"] == "Réception confirmée"
+
+
+@pytest.mark.asyncio
+async def test_get_public_cargo_tracking_raises_404_when_not_found():
+    db = FakeDB([FakeResult(first=None)])
+
+    with pytest.raises(HTTPException) as exc:
+        await travelwiz_routes.get_public_cargo_tracking(
+            tracking_code="UNKNOWN",
+            db=db,
+        )
+
+    assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_update_cargo_status_records_audit(monkeypatch):
     cargo_id = uuid4()
     entity_id = uuid4()

@@ -53,6 +53,7 @@ from app.schemas.travelwiz import (
     CargoCreate,
     CargoRead,
     CargoTrackingRead,
+    VoyageCargoTrackingRead,
     CargoStatusUpdate,
     CargoUpdate,
     ManifestCreate,
@@ -104,6 +105,18 @@ CARGO_PUBLIC_STATUS_LABELS = {
     "delivered_final": "Livré",
     "damaged": "Signalé endommagé",
     "missing": "Signalé manquant",
+}
+
+VOYAGE_PUBLIC_STATUS_LABELS = {
+    "draft": "Brouillon",
+    "planned": "Planifié",
+    "confirmed": "Confirmé",
+    "boarding": "Embarquement",
+    "in_progress": "En cours",
+    "completed": "Terminé",
+    "closed": "Clôturé",
+    "delayed": "Retardé",
+    "cancelled": "Annulé",
 }
 
 
@@ -1595,6 +1608,70 @@ async def get_public_cargo_tracking(
         "received_at": cargo.received_at,
         "last_event_at": last_event_at,
         "events": events,
+    }
+
+
+@router.get("/public/voyages/{voyage_code}/cargo", response_model=VoyageCargoTrackingRead)
+async def get_public_voyage_cargo_tracking(
+    voyage_code: str,
+    db: AsyncSession = Depends(get_db),
+):
+    voyage_result = await db.execute(
+        select(Voyage).where(Voyage.code == voyage_code, Voyage.active == True)  # noqa: E712
+    )
+    voyage = voyage_result.scalar_one_or_none()
+    if not voyage:
+        raise HTTPException(404, "Voyage not found")
+
+    cargo_result = await db.execute(
+        select(
+            CargoItem,
+            Installation.name.label("destination_name"),
+        )
+        .join(VoyageManifest, CargoItem.manifest_id == VoyageManifest.id)
+        .outerjoin(Installation, CargoItem.destination_asset_id == Installation.id)
+        .where(
+            VoyageManifest.voyage_id == voyage.id,
+            VoyageManifest.manifest_type == "cargo",
+            CargoItem.active == True,  # noqa: E712
+        )
+        .order_by(CargoItem.created_at.asc())
+    )
+
+    items = []
+    for cargo, destination_name in cargo_result.all():
+        last_event_result = await db.execute(
+            select(AuditLog.created_at)
+            .where(
+                AuditLog.resource_type == "cargo_item",
+                AuditLog.resource_id == str(cargo.id),
+            )
+            .order_by(AuditLog.created_at.desc())
+            .limit(1)
+        )
+        items.append(
+            {
+                "tracking_code": cargo.tracking_code,
+                "description": cargo.description,
+                "cargo_type": cargo.cargo_type,
+                "status": cargo.status,
+                "status_label": CARGO_PUBLIC_STATUS_LABELS.get(cargo.status, cargo.status),
+                "destination_name": destination_name,
+                "receiver_name": cargo.receiver_name,
+                "weight_kg": cargo.weight_kg,
+                "manifest_id": cargo.manifest_id,
+                "last_event_at": last_event_result.scalar_one_or_none(),
+            }
+        )
+
+    return {
+        "voyage_code": voyage.code,
+        "voyage_status": voyage.status,
+        "voyage_status_label": VOYAGE_PUBLIC_STATUS_LABELS.get(voyage.status, voyage.status),
+        "scheduled_departure": voyage.scheduled_departure,
+        "scheduled_arrival": voyage.scheduled_arrival,
+        "cargo_count": len(items),
+        "items": items,
     }
 
 

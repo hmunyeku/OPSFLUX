@@ -115,6 +115,8 @@ export const translations = {
     cargo_tracking_unavailable: "Le suivi public est momentanément indisponible.",
     cargo_tracking_summary: "Résumé expédition",
     cargo_tracking_history: "Historique public",
+    cargo_tracking_voyage_result: "Résultat voyage",
+    cargo_tracking_shipments: "Colis rattachés",
     cargo_tracking_type: "Type",
     cargo_tracking_weight: "Poids",
     cargo_tracking_sender: "Expéditeur",
@@ -129,6 +131,8 @@ export const translations = {
     cargo_tracking_unknown: "Non renseigné",
     cargo_tracking_dimensions_unknown: "Dimensions non renseignées",
     cargo_tracking_hint: "Le suivi public n'expose que les informations opérationnelles utiles.",
+    cargo_tracking_try_voyage: "Aucun colis trouvé avec ce code. Vérification d'un éventuel numéro de voyage...",
+    cargo_tracking_no_shipments_for_voyage: "Aucun colis public n'est rattaché à ce voyage pour le moment.",
   },
   en: {
     app_title: "PaxLog external portal",
@@ -246,6 +250,8 @@ export const translations = {
     cargo_tracking_unavailable: "Public tracking is temporarily unavailable.",
     cargo_tracking_summary: "Shipment summary",
     cargo_tracking_history: "Public history",
+    cargo_tracking_voyage_result: "Voyage result",
+    cargo_tracking_shipments: "Linked shipments",
     cargo_tracking_type: "Type",
     cargo_tracking_weight: "Weight",
     cargo_tracking_sender: "Sender",
@@ -260,6 +266,8 @@ export const translations = {
     cargo_tracking_unknown: "Not provided",
     cargo_tracking_dimensions_unknown: "Dimensions unavailable",
     cargo_tracking_hint: "Public tracking only exposes essential operational information.",
+    cargo_tracking_try_voyage: "No shipment matched this code. Checking whether it is a voyage number...",
+    cargo_tracking_no_shipments_for_voyage: "No public shipment is currently linked to this voyage.",
   },
 }
 

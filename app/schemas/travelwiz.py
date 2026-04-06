@@ -419,6 +419,29 @@ class CargoTrackingRead(BaseModel):
     events: list[CargoTrackingEventRead] = []
 
 
+class VoyageCargoTrackingItemRead(BaseModel):
+    tracking_code: str
+    description: str
+    cargo_type: str
+    status: str
+    status_label: str
+    destination_name: str | None = None
+    receiver_name: str | None = None
+    weight_kg: float
+    manifest_id: UUID | None = None
+    last_event_at: datetime | None = None
+
+
+class VoyageCargoTrackingRead(BaseModel):
+    voyage_code: str
+    voyage_status: str | None = None
+    voyage_status_label: str | None = None
+    scheduled_departure: datetime | None = None
+    scheduled_arrival: datetime | None = None
+    cargo_count: int
+    items: list[VoyageCargoTrackingItemRead] = []
+
+
 # ─── Captain Logs ───────────────────────────────────────────────────────────
 
 

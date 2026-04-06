@@ -447,6 +447,64 @@ async def test_get_public_cargo_tracking_raises_404_when_not_found():
 
 
 @pytest.mark.asyncio
+async def test_get_public_voyage_cargo_tracking_returns_associated_shipments():
+    voyage_id = uuid4()
+    cargo_id = uuid4()
+    voyage = SimpleNamespace(
+        id=voyage_id,
+        code="VYG-204",
+        status="confirmed",
+        scheduled_departure=datetime.now(timezone.utc) + timedelta(hours=2),
+        scheduled_arrival=datetime.now(timezone.utc) + timedelta(hours=7),
+        active=True,
+    )
+    cargo = SimpleNamespace(
+        id=cargo_id,
+        tracking_code="CGO-TRACK-001",
+        description="Pompe HP",
+        cargo_type="unit",
+        status="in_transit",
+        weight_kg=125.0,
+        manifest_id=uuid4(),
+        receiver_name="Base logistique",
+        created_at=datetime.now(timezone.utc) - timedelta(hours=4),
+    )
+    last_event_at = datetime.now(timezone.utc) - timedelta(minutes=15)
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=voyage),
+            FakeResult(all_rows=[(cargo, "Offshore Bravo")]),
+            FakeResult(scalar_one_or_none=last_event_at),
+        ]
+    )
+
+    result = await travelwiz_routes.get_public_voyage_cargo_tracking(
+        voyage_code="VYG-204",
+        db=db,
+    )
+
+    assert result["voyage_code"] == "VYG-204"
+    assert result["voyage_status"] == "confirmed"
+    assert result["cargo_count"] == 1
+    assert result["items"][0]["tracking_code"] == "CGO-TRACK-001"
+    assert result["items"][0]["destination_name"] == "Offshore Bravo"
+    assert result["items"][0]["last_event_at"] == last_event_at
+
+
+@pytest.mark.asyncio
+async def test_get_public_voyage_cargo_tracking_raises_404_when_voyage_not_found():
+    db = FakeDB([FakeResult(scalar_one_or_none=None)])
+
+    with pytest.raises(HTTPException) as exc:
+        await travelwiz_routes.get_public_voyage_cargo_tracking(
+            voyage_code="VYG-404",
+            db=db,
+        )
+
+    assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_update_cargo_status_records_audit(monkeypatch):
     cargo_id = uuid4()
     entity_id = uuid4()

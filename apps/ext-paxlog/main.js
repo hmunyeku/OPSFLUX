@@ -30,6 +30,7 @@ const state = {
   linkInfo: null,
   dossier: null,
   publicTracking: null,
+  publicVoyageTracking: null,
   credentialTypes: [],
   jobPositions: [],
   departureBases: [],
@@ -116,6 +117,7 @@ async function loadPublicTracking(code) {
   setLoading(true)
   render()
   try {
+    state.publicVoyageTracking = null
     state.publicTracking = await apiRequest(
       { apiBase: state.apiBase, sessionToken: null },
       `/api/v1/travelwiz/public/cargo/${encodeURIComponent(code)}`,
@@ -127,8 +129,28 @@ async function loadPublicTracking(code) {
   } catch (error) {
     state.publicTracking = null
     const message = String(error?.message || "")
-    if (message.includes("404")) setMessage(t("cargo_tracking_not_found"), "error")
-    else setMessage(t("cargo_tracking_unavailable"), "error")
+    if (message.includes("404")) {
+      setMessage(t("cargo_tracking_try_voyage"), "subtle")
+      try {
+        state.publicVoyageTracking = await apiRequest(
+          { apiBase: state.apiBase, sessionToken: null },
+          `/api/v1/travelwiz/public/voyages/${encodeURIComponent(code)}/cargo`,
+        )
+        state.trackingCode = code
+        const url = new URL(window.location.href)
+        url.searchParams.set("tracking", code)
+        window.history.replaceState({}, "", url)
+        clearMessage()
+      } catch (voyageError) {
+        state.publicVoyageTracking = null
+        const voyageMessage = String(voyageError?.message || "")
+        if (voyageMessage.includes("404")) setMessage(t("cargo_tracking_not_found"), "error")
+        else setMessage(t("cargo_tracking_unavailable"), "error")
+      }
+    } else {
+      state.publicVoyageTracking = null
+      setMessage(t("cargo_tracking_unavailable"), "error")
+    }
   } finally {
     setLoading(false)
     render()
@@ -168,6 +190,7 @@ async function handleTrackingSearch(event) {
   state.trackingCode = code || ""
   if (!code) {
     state.publicTracking = null
+    state.publicVoyageTracking = null
     setMessage(t("cargo_tracking_missing"), "error")
     render()
     return

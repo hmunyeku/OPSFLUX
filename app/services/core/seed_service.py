@@ -746,9 +746,9 @@ async def seed_pdf_templates(db: AsyncSession, entity_id, admin_id) -> None:
             page_size=tpl_def.get("page_size", "A4"),
             orientation=tpl_def.get("orientation", "portrait"),
             margin_top=tpl_def.get("margin_top", 15),
-            margin_right=tpl_def.get("margin_right", 15),
+            margin_right=tpl_def.get("margin_right", 12),
             margin_bottom=tpl_def.get("margin_bottom", 15),
-            margin_left=tpl_def.get("margin_left", 15),
+            margin_left=tpl_def.get("margin_left", 12),
         )
         db.add(template)
         await db.flush()

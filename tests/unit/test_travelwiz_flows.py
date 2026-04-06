@@ -595,6 +595,12 @@ async def test_update_cargo_workflow_status_records_audit(monkeypatch):
             "cargo_type": "unit",
             "hazmat_validated": False,
             "lifting_points_certified": True,
+            "_evidence_counts": {
+                "cargo_photo": 2,
+                "weight_ticket": 1,
+                "transport_document": 1,
+                "lifting_certificate": 1,
+            },
         }
 
     monkeypatch.setattr(travelwiz_routes, "_get_cargo_or_404", fake_get_cargo_or_404)
@@ -650,12 +656,10 @@ async def test_update_cargo_workflow_status_blocks_incomplete_dossier(monkeypatc
             "pickup_contact_tier_contact_id": None,
             "available_from": None,
             "imputation_reference_id": None,
-            "photo_evidence_count": 0,
-            "document_attachment_count": 0,
-            "weight_ticket_provided": False,
             "cargo_type": "unit",
             "hazmat_validated": False,
             "lifting_points_certified": False,
+            "_evidence_counts": {},
         }
 
     monkeypatch.setattr(travelwiz_routes, "_get_cargo_or_404", fake_get_cargo_or_404)
@@ -675,6 +679,7 @@ async def test_update_cargo_workflow_status_blocks_incomplete_dossier(monkeypatc
     assert exc.value.detail["code"] == "CARGO_DOSSIER_INCOMPLETE"
     assert "designation" in exc.value.detail["missing_requirements"]
     assert "imputation_reference_id" in exc.value.detail["missing_requirements"]
+    assert "cargo_photo" in exc.value.detail["missing_requirements"]
 
 
 @pytest.mark.asyncio

@@ -631,11 +631,20 @@ const CARGO_READINESS_LABELS: Record<string, string> = {
   pickup_contact: 'Contact d’enlèvement',
   available_from: 'Date de mise à disposition',
   imputation_reference_id: 'Imputation',
-  photo_evidence: 'Photos',
-  document_attachment: 'Documents joints',
-  weight_ticket: 'Preuve de pesée',
+  cargo_photo: 'Photo du colis',
+  weight_ticket: 'Ticket de pesée',
+  transport_document: 'Document de transport',
+  hazmat_document: 'Document HAZMAT',
+  lifting_certificate: 'Certification levage',
   hazmat_validated: 'Validation HAZMAT',
   lifting_points_certified: 'Certification des oreilles de levage',
+}
+
+function getRequiredCargoEvidenceTypes(cargoType: string): CargoAttachmentEvidence['evidence_type'][] {
+  const required: CargoAttachmentEvidence['evidence_type'][] = ['cargo_photo', 'weight_ticket', 'transport_document']
+  if (['unit', 'bulk', 'hazmat'].includes(cargoType)) required.push('lifting_certificate')
+  if (cargoType === 'hazmat') required.push('hazmat_document')
+  return required
 }
 
 function assessCargoReadiness(cargo: CargoItem): string[] {
@@ -650,9 +659,6 @@ function assessCargoReadiness(cargo: CargoItem): string[] {
   }
   if (!cargo.available_from) missing.push('available_from')
   if (!cargo.imputation_reference_id) missing.push('imputation_reference_id')
-  if ((cargo.photo_evidence_count ?? 0) <= 0) missing.push('photo_evidence')
-  if ((cargo.document_attachment_count ?? 0) <= 0) missing.push('document_attachment')
-  if (!cargo.weight_ticket_provided) missing.push('weight_ticket')
   if (cargo.cargo_type === 'hazmat' && !cargo.hazmat_validated) missing.push('hazmat_validated')
   if (['unit', 'bulk', 'hazmat'].includes(cargo.cargo_type) && !cargo.lifting_points_certified) {
     missing.push('lifting_points_certified')
@@ -3047,7 +3053,12 @@ function CargoDetailPanel({ id }: { id: string }) {
     ? (manifests?.items ?? []).find((manifest) => manifest.id === cargo.manifest_id)?.reference ?? cargo.manifest_id
     : null
   const volumeLabel = cargo.volume_m3 ? `${cargo.volume_m3.toLocaleString('fr-FR')} m³` : '—'
-  const missingRequirements = assessCargoReadiness(cargo)
+  const requiredEvidenceTypes = getRequiredCargoEvidenceTypes(cargo.cargo_type)
+  const evidenceTypeSet = new Set((attachmentEvidence ?? []).map((item) => item.evidence_type))
+  const missingRequirements = [
+    ...assessCargoReadiness(cargo),
+    ...requiredEvidenceTypes.filter((type) => !evidenceTypeSet.has(type)),
+  ]
   const pickupMapUrl = cargo.pickup_latitude != null && cargo.pickup_longitude != null
     ? `https://www.openstreetmap.org/?mlat=${cargo.pickup_latitude}&mlon=${cargo.pickup_longitude}#map=16/${cargo.pickup_latitude}/${cargo.pickup_longitude}`
     : null
@@ -3472,7 +3483,7 @@ function CargoDetailPanel({ id }: { id: string }) {
 
             <FormSection title="Preuves attendues" collapsible defaultExpanded={false}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {['cargo_photo', 'weight_ticket', 'lifting_certificate', 'transport_document'].map((code) => {
+                {requiredEvidenceTypes.map((code) => {
                   const present = (attachmentEvidence ?? []).some((item) => item.evidence_type === code)
                   return (
                     <div

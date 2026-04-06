@@ -367,10 +367,19 @@ async def _build_cargo_read_data(
     data["document_attachment_count"] = max(int(getattr(cargo, "document_attachment_count", 0) or 0), document_count)
     data["weight_ticket_provided"] = bool(getattr(cargo, "weight_ticket_provided", False) or evidence_counts.get("weight_ticket", 0) > 0)
     data["lifting_points_certified"] = bool(getattr(cargo, "lifting_points_certified", False) or evidence_counts.get("lifting_certificate", 0) > 0)
+    data["_evidence_counts"] = evidence_counts
     return data
 
 
 def _assess_cargo_workflow_requirements(cargo: CargoItem | dict) -> dict:
+    def _required_evidence_types(cargo_type: str | None) -> list[str]:
+        required = ["cargo_photo", "weight_ticket", "transport_document"]
+        if cargo_type in {"unit", "bulk", "hazmat"}:
+            required.append("lifting_certificate")
+        if cargo_type == "hazmat":
+            required.append("hazmat_document")
+        return required
+
     def _value(key: str):
         if isinstance(cargo, dict):
             return cargo.get(key)
@@ -393,13 +402,11 @@ def _assess_cargo_workflow_requirements(cargo: CargoItem | dict) -> dict:
         missing.append("available_from")
     if not _value("imputation_reference_id"):
         missing.append("imputation_reference_id")
-    if int(_value("photo_evidence_count") or 0) <= 0:
-        missing.append("photo_evidence")
-    if int(_value("document_attachment_count") or 0) <= 0:
-        missing.append("document_attachment")
-    if not _value("weight_ticket_provided"):
-        missing.append("weight_ticket")
     cargo_type = _value("cargo_type")
+    evidence_counts = _value("_evidence_counts") or {}
+    for evidence_type in _required_evidence_types(cargo_type):
+        if int(evidence_counts.get(evidence_type, 0) or 0) <= 0:
+            missing.append(evidence_type)
     if cargo_type == "hazmat" and not _value("hazmat_validated"):
         missing.append("hazmat_validated")
     if cargo_type in {"unit", "bulk", "hazmat"} and not _value("lifting_points_certified"):

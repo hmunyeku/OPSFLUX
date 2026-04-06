@@ -175,15 +175,30 @@ function getISOWeek(d: Date): number {
 // ═══════════════════════════════════════════════════════════════════════
 
 const toISO = (d: Date) => d.toISOString().slice(0, 10)
-const daysB = (a: string, b: string) => Math.max(0, Math.ceil((new Date(b).getTime() - new Date(a).getTime()) / 86400000))
+// SIGNED days-between — can be negative when b < a (task before view start)
+const daysB = (a: string, b: string) => Math.ceil((new Date(b).getTime() - new Date(a).getTime()) / 86400000)
 const addD = (s: string, n: number) => { const d = new Date(s); d.setDate(d.getDate() + n); return toISO(d) }
 
 const S_CLR: Record<string, string> = { draft: '#9ca3af', planned: '#60a5fa', active: '#22c55e', on_hold: '#fbbf24', completed: '#10b981', cancelled: '#ef4444' }
 const T_CLR: Record<string, string> = { todo: '#9ca3af', in_progress: '#3b82f6', review: '#eab308', done: '#22c55e', cancelled: '#ef4444' }
 
-const BAR_HEIGHT_KEY = 'opsflux:gantt-bar-height'
-function loadBarHeight(): number { try { return Number(localStorage.getItem(BAR_HEIGHT_KEY)) || 18 } catch { return 18 } }
-function saveBarHeight(h: number) { try { localStorage.setItem(BAR_HEIGHT_KEY, String(h)) } catch {} }
+// ── Persisted Gantt display settings ────────────────────────────────────
+const SETTINGS_KEY = 'opsflux:gantt-settings'
+interface GanttSettings { barH: number; showLabels: boolean; zoomFactor: number }
+const DEFAULT_SETTINGS: GanttSettings = { barH: 18, showLabels: true, zoomFactor: 1.0 }
+function loadSettings(): GanttSettings { try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') } } catch { return DEFAULT_SETTINGS } }
+function saveSettings(s: GanttSettings) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)) } catch {} }
+
+/** Compute bar pixel position. Returns null when entirely outside the view. */
+function computeBar(vs: string, startISO: string, endISO: string, ppd: number, totalViewDays: number): { left: number; width: number } | null {
+  const s = daysB(vs, startISO)  // signed!
+  const e = daysB(vs, endISO)
+  // Entirely before view or entirely after
+  if (e < 0 || s > totalViewDays) return null
+  const cl = Math.max(0, s)
+  const cr = Math.min(totalViewDays, e)
+  return { left: cl * ppd, width: Math.max(ppd * 0.5, (cr - cl + 1) * ppd) }
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // Tooltip
@@ -204,8 +219,8 @@ function Tip({ title, lines, x, y }: { title: string; lines: [string, string][];
 // Expanded tasks
 // ═══════════════════════════════════════════════════════════════════════
 
-function ExpandedTasks({ project, ppd, vs, totalPx, pw, barH }: {
-  project: Project; ppd: number; vs: string; totalPx: number; pw: number; barH: number
+function ExpandedTasks({ project, ppd, vs, totalPx, pw, barH, showLabels }: {
+  project: Project; ppd: number; vs: string; totalPx: number; pw: number; barH: number; showLabels: boolean
 }) {
   const { data: tasks } = useProjectTasks(project.id)
   const { data: milestones } = useProjectMilestones(project.id)
@@ -242,15 +257,9 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, barH }: {
     const children = tree.get(task.id) || []
     const isCrit = critSet.has(task.id)
     const clr = T_CLR[task.status] || '#9ca3af'
-    let barLeft = -1; let barWidth = 0
-    if (task.start_date && task.due_date) {
-      const s = daysB(vs, task.start_date.split('T')[0])
-      const e = daysB(vs, task.due_date.split('T')[0])
-      if (e >= 0 && s < totalPx / ppd) {
-        barLeft = Math.max(0, s) * ppd
-        barWidth = Math.max(ppd, (Math.min(e, totalPx / ppd) - Math.max(0, s) + 1) * ppd)
-      }
-    }
+    const bar = (task.start_date && task.due_date)
+      ? computeBar(vs, task.start_date.split('T')[0], task.due_date.split('T')[0], ppd, totalPx / ppd)
+      : null
     const nodes: React.ReactNode[] = []
     nodes.push(
       <div key={task.id} className="flex border-b border-border/20" style={{ minWidth: pw + totalPx, height: rowH }}>
@@ -266,7 +275,7 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, barH }: {
           {isCrit && <span className="text-[7px] px-0.5 rounded bg-red-500/10 text-red-500 shrink-0">CPM</span>}
         </div>
         <div data-bar-area className="relative flex-1" style={{ minWidth: totalPx }} onDragOver={e => e.preventDefault()} onDrop={handleDrop}>
-          {barLeft >= 0 && (
+          {bar && (
             <div
               draggable
               onDragStart={e => { e.dataTransfer.setData('application/ptask', JSON.stringify({ id: task.id, s: task.start_date!.split('T')[0], e: task.due_date!.split('T')[0] })); e.dataTransfer.effectAllowed = 'move' }}
@@ -274,9 +283,9 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, barH }: {
               onMouseMove={e => setTip(t => t ? { ...t, x: e.clientX, y: e.clientY } : null)}
               onMouseLeave={() => setTip(null)}
               className={cn('absolute rounded-sm cursor-move text-white text-[7px] font-medium truncate px-0.5 flex items-center hover:brightness-110', isCrit && 'ring-1 ring-red-500')}
-              style={{ left: barLeft, width: barWidth, top: (rowH - barH) / 2, height: barH, backgroundColor: clr, opacity: task.status === 'todo' ? 0.5 : 1 }}
+              style={{ left: bar.left, width: bar.width, top: (rowH - barH) / 2, height: barH, backgroundColor: clr, opacity: task.status === 'todo' ? 0.5 : 1 }}
             >
-              <span className="truncate">{task.title}</span>
+              {showLabels && <span className="truncate">{task.title}</span>}
             </div>
           )}
         </div>
@@ -287,8 +296,12 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, barH }: {
   }
 
   const roots = tree.get(null) || []
-  const knownIds = new Set((tasks || []).map(t => t.id))
-  const orphans = (tasks || []).filter(t => t.parent_id && !knownIds.has(t.parent_id))
+  // Orphans: tasks whose parent_id doesn't exist in the task set.
+  // Skip tasks already reachable from the roots to prevent double-render.
+  const rendered = new Set<string>()
+  const markRendered = (id: string) => { rendered.add(id); for (const ch of (tree.get(id) || [])) markRendered(ch.id) }
+  for (const r of roots) markRendered(r.id)
+  const orphans = (tasks || []).filter(t => !rendered.has(t.id))
 
   return (
     <>
@@ -324,7 +337,14 @@ export function ProjectGanttView() {
 
   const [scale, setScale] = useState<TimeScale>('month')
   const [pw, setPw] = useState(260)
-  const [barH, setBarH] = useState(loadBarHeight)
+  const [settings, setSettingsRaw] = useState(loadSettings)
+  const setSettings = useCallback((fn: (s: GanttSettings) => GanttSettings) => {
+    setSettingsRaw(prev => { const next = fn(prev); saveSettings(next); return next })
+  }, [])
+  const barH = settings.barH
+  const showLabels = settings.showLabels
+  const zoomFactor = settings.zoomFactor
+
   const [exp, setExp] = useState<Set<string>>(new Set())
   const [tip, setTip] = useState<{ title: string; lines: [string, string][]; x: number; y: number } | null>(null)
   const [showDatePicker, setShowDatePicker] = useState(false)
@@ -335,6 +355,8 @@ export function ProjectGanttView() {
 
   const meta = SCALE_META[scale]
   const projects = pd?.items ?? []
+  // Effective pxPerDay = base * user zoom factor
+  const ppd = meta.pxPerDay * zoomFactor
 
   // Date range
   const defaultRange = useMemo(() => {
@@ -350,16 +372,30 @@ export function ProjectGanttView() {
   const cells = useMemo(() => buildCells(scale, new Date(vs), new Date(ve)), [scale, vs, ve])
   const headerGroups = useMemo(() => buildHeaderGroups(scale, cells), [scale, cells])
   const totalDays = useMemo(() => cells.reduce((s, c) => s + c.days, 0), [cells])
-  const totalPx = totalDays * meta.pxPerDay
+  const totalPx = totalDays * ppd
   const contentW = pw + totalPx
 
   // Today line
   const todayStr = toISO(new Date())
   const todayDays = daysB(vs, todayStr)
-  const todayPx = todayDays * meta.pxPerDay
+  const todayPx = todayDays * ppd
 
   // Navigation
   const nav = useCallback((d: -1 | 1) => { setVs(v => addD(v, d * meta.shiftDays)); setVe(v => addD(v, d * meta.shiftDays)) }, [meta.shiftDays])
+
+  // Zoom
+  const zoomIn = useCallback(() => setSettings(s => ({ ...s, zoomFactor: Math.min(4, s.zoomFactor * 1.25) })), [setSettings])
+  const zoomOut = useCallback(() => setSettings(s => ({ ...s, zoomFactor: Math.max(0.25, s.zoomFactor / 1.25) })), [setSettings])
+
+  // Fit all — calculate zoom factor to show entire date range in viewport
+  const fitAll = useCallback(() => {
+    if (!scrollRef.current || totalDays === 0) return
+    const viewportW = scrollRef.current.clientWidth - pw
+    if (viewportW <= 0) return
+    const newPpd = viewportW / totalDays
+    const newZoom = newPpd / meta.pxPerDay
+    setSettings(s => ({ ...s, zoomFactor: Math.max(0.1, Math.min(6, newZoom)) }))
+  }, [totalDays, pw, ppd, setSettings])
 
   // Resize
   const handleResize = useCallback((e: React.MouseEvent) => {
@@ -409,7 +445,15 @@ export function ProjectGanttView() {
 
         <button onClick={() => nav(1)} className="p-1 rounded hover:bg-accent text-muted-foreground"><ChevronRight size={14} /></button>
 
-        {/* Settings (bar height) */}
+        {/* Zoom controls */}
+        <div className="flex items-center gap-0.5 ml-2 border-l border-border pl-2">
+          <button onClick={zoomOut} className="p-1 rounded hover:bg-accent text-muted-foreground text-xs font-bold" title="Zoom arrière">−</button>
+          <span className="text-[9px] tabular-nums text-muted-foreground w-8 text-center">{Math.round(zoomFactor * 100)}%</span>
+          <button onClick={zoomIn} className="p-1 rounded hover:bg-accent text-muted-foreground text-xs font-bold" title="Zoom avant">+</button>
+          <button onClick={fitAll} className="px-1.5 py-0.5 rounded hover:bg-accent text-[9px] text-muted-foreground" title="Ajuster tout à la vue">Fit</button>
+        </div>
+
+        {/* Settings */}
         <button
           onClick={() => setShowSettings(v => !v)}
           className={cn('p-1 rounded hover:bg-accent text-muted-foreground', showSettings && 'bg-primary/10 text-primary')}
@@ -438,14 +482,21 @@ export function ProjectGanttView() {
 
       {/* ── Settings panel ──────────────────────────────────── */}
       {showSettings && (
-        <div className="border-b border-border px-3.5 py-2 bg-muted/30 flex items-center gap-3 text-xs">
-          <span className="text-muted-foreground">Hauteur des barres:</span>
-          <input
-            type="range" min="10" max="32" step="2" value={barH}
-            onChange={e => { const v = Number(e.target.value); setBarH(v); saveBarHeight(v) }}
-            className="w-[120px]"
-          />
-          <span className="tabular-nums text-muted-foreground">{barH}px</span>
+        <div className="border-b border-border px-3.5 py-2 bg-muted/30 flex items-center gap-4 text-xs flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground">Hauteur barres:</span>
+            <input type="range" min="8" max="32" step="2" value={barH} onChange={e => setSettings(s => ({ ...s, barH: Number(e.target.value) }))} className="w-[100px]" />
+            <span className="tabular-nums text-muted-foreground w-6">{barH}px</span>
+          </div>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input type="checkbox" checked={showLabels} onChange={e => setSettings(s => ({ ...s, showLabels: e.target.checked }))} className="w-3 h-3" />
+            <span className="text-muted-foreground">Noms sur les barres</span>
+          </label>
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground">Zoom:</span>
+            <input type="range" min="25" max="400" step="5" value={Math.round(zoomFactor * 100)} onChange={e => setSettings(s => ({ ...s, zoomFactor: Number(e.target.value) / 100 }))} className="w-[100px]" />
+            <span className="tabular-nums text-muted-foreground w-8">{Math.round(zoomFactor * 100)}%</span>
+          </div>
         </div>
       )}
 
@@ -469,7 +520,7 @@ export function ProjectGanttView() {
                 {(() => {
                   let cellIdx = 0
                   return headerGroups.map(g => {
-                    const w = cells.slice(cellIdx, cellIdx + g.spanCells).reduce((s, c) => s + c.days * meta.pxPerDay, 0)
+                    const w = cells.slice(cellIdx, cellIdx + g.spanCells).reduce((s, c) => s + c.days * ppd, 0)
                     cellIdx += g.spanCells
                     return (
                       <div key={g.key} className="h-5 flex items-center justify-center border-r border-border/50 text-[9px] font-semibold text-muted-foreground" style={{ width: w }}>
@@ -489,7 +540,7 @@ export function ProjectGanttView() {
               </div>
               <div className="flex cursor-grab active:cursor-grabbing" onMouseDown={handleGrab}>
                 {cells.map(c => {
-                  const w = c.days * meta.pxPerDay
+                  const w = c.days * ppd
                   const isToday = c.key === todayStr
                   return (
                     <div key={c.key} className={cn('h-5 flex items-center justify-center border-r border-border/30 text-[8px] text-muted-foreground', isToday && 'bg-primary/5')} style={{ width: w }}>
@@ -512,15 +563,9 @@ export function ProjectGanttView() {
             const gouti = isGoutiProject(project)
             const isMacro = (project.children_count ?? 0) > 0
             const color = gouti ? '#f97316' : (S_CLR[project.status] || '#9ca3af')
-            let barLeft = -1; let barWidth = 0
-            if (project.start_date && project.end_date) {
-              const s = daysB(vs, project.start_date.split('T')[0])
-              const e = daysB(vs, project.end_date.split('T')[0])
-              if (e >= 0 && s * meta.pxPerDay < totalPx) {
-                barLeft = Math.max(0, s) * meta.pxPerDay
-                barWidth = Math.max(meta.pxPerDay, (Math.min(e, totalPx / meta.pxPerDay) - Math.max(0, s) + 1) * meta.pxPerDay)
-              }
-            }
+            const projBar = (project.start_date && project.end_date)
+              ? computeBar(vs, project.start_date.split('T')[0], project.end_date.split('T')[0], ppd, totalDays)
+              : null
 
             return (
               <div key={project.id}>
@@ -539,18 +584,18 @@ export function ProjectGanttView() {
                     <span className="text-[9px] text-muted-foreground truncate">{project.name}</span>
                   </div>
                   <div className="relative flex-1" style={{ minWidth: totalPx }}>
-                    {barLeft >= 0 && (
+                    {projBar && (
                       <div
                         onClick={() => open({ type: 'detail', module: 'projets', id: project.id })}
                         className="absolute rounded-sm cursor-pointer hover:brightness-110 flex items-center px-1 text-white text-[8px] font-medium truncate"
-                        style={{ left: barLeft, width: barWidth, top: (rowH + 4 - barH - 2) / 2, height: barH + 2, backgroundColor: color }}
+                        style={{ left: projBar.left, width: projBar.width, top: (rowH + 4 - barH - 2) / 2, height: barH + 2, backgroundColor: color }}
                       >
-                        <span className="truncate">{project.progress}%</span>
+                        {showLabels && <span className="truncate">{project.progress}%</span>}
                       </div>
                     )}
                   </div>
                 </div>
-                {isExp && <ExpandedTasks project={project} ppd={meta.pxPerDay} vs={vs} totalPx={totalPx} pw={pw} barH={barH} />}
+                {isExp && <ExpandedTasks project={project} ppd={ppd} vs={vs} totalPx={totalPx} pw={pw} barH={barH} showLabels={showLabels} />}
               </div>
             )
           })}

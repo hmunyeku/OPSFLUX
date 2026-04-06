@@ -37,6 +37,9 @@ from app.models.common import (
     TierContactTransfer, User,
 )
 from app.models.asset_registry import Installation, OilSite, OilField, RegistryEquipment
+from app.models.paxlog import PaxGroup, Ads, AdsPax
+from app.models.planner import PlannerActivity, PlannerConflict
+from app.models.travelwiz import TransportVector, Voyage
 from app.mcp.mcp_native import NativeBackend
 
 logger = logging.getLogger(__name__)
@@ -1549,6 +1552,293 @@ async def _get_asset_hierarchy(args: dict) -> dict:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# PaxLog — ADS, PAX profiles
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def _list_ads(args: dict) -> dict:
+    """List ADS (Autorisations De Sortie). Filters: status, type, search, limit."""
+    search = (args.get("search") or "").strip()
+    status_filter = args.get("status")
+    ads_type = args.get("type")
+    limit = min(max(int(args.get("limit", 20) or 20), 1), 200)
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(Ads).where(Ads.entity_id == entity_id, Ads.deleted_at.is_(None))
+        if status_filter:
+            query = query.where(Ads.status == status_filter)
+        if ads_type:
+            query = query.where(Ads.type == ads_type)
+        if search:
+            needle = f"%{search.lower()}%"
+            query = query.where(or_(sqla_func.lower(Ads.reference).like(needle), sqla_func.lower(Ads.visit_purpose).like(needle)))
+        query = query.order_by(Ads.created_at.desc()).limit(limit)
+        rows = (await session.execute(query)).scalars().all()
+    return _ok({"count": len(rows), "items": [
+        {"id": str(a.id), "reference": a.reference, "type": a.type, "status": a.status,
+         "visit_purpose": (a.visit_purpose or "")[:100], "visit_category": a.visit_category,
+         "start_date": a.start_date.isoformat() if a.start_date else None,
+         "end_date": a.end_date.isoformat() if a.end_date else None,
+         "created_at": a.created_at.isoformat() if a.created_at else None}
+        for a in rows
+    ]})
+
+
+async def _get_ads(args: dict) -> dict:
+    """Get an ADS by id or reference."""
+    aid = args.get("id") or args.get("reference")
+    if not aid:
+        raise ValueError("id ou reference requis")
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(Ads).where(Ads.entity_id == entity_id, Ads.deleted_at.is_(None))
+        try:
+            query = query.where(Ads.id == UUID(str(aid)))
+        except (TypeError, ValueError):
+            query = query.where(Ads.reference == str(aid))
+        a = (await session.execute(query)).scalar_one_or_none()
+        if not a:
+            return _err("ADS introuvable")
+        # Count PAX
+        pax_count = (await session.execute(
+            select(sqla_func.count(AdsPax.id)).where(AdsPax.ads_id == a.id)
+        )).scalar() or 0
+    return _ok({"id": str(a.id), "reference": a.reference, "type": a.type, "status": a.status,
+                "visit_purpose": a.visit_purpose, "visit_category": a.visit_category,
+                "start_date": a.start_date.isoformat() if a.start_date else None,
+                "end_date": a.end_date.isoformat() if a.end_date else None,
+                "outbound_transport_mode": a.outbound_transport_mode,
+                "return_transport_mode": a.return_transport_mode,
+                "cross_company_flag": a.cross_company_flag,
+                "submitted_at": a.submitted_at.isoformat() if a.submitted_at else None,
+                "approved_at": a.approved_at.isoformat() if a.approved_at else None,
+                "pax_count": pax_count,
+                "created_at": a.created_at.isoformat() if a.created_at else None})
+
+
+async def _list_pax_groups(args: dict) -> dict:
+    """List PAX groups."""
+    search = (args.get("search") or "").strip()
+    limit = min(max(int(args.get("limit", 20) or 20), 1), 200)
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(PaxGroup).where(PaxGroup.entity_id == entity_id, PaxGroup.active == True)  # noqa: E712
+        if search:
+            query = query.where(sqla_func.lower(PaxGroup.name).like(f"%{search.lower()}%"))
+        query = query.order_by(PaxGroup.name).limit(limit)
+        rows = (await session.execute(query)).scalars().all()
+    return _ok({"count": len(rows), "items": [
+        {"id": str(g.id), "name": g.name, "company_id": str(g.company_id) if g.company_id else None}
+        for g in rows
+    ]})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Planner — activities, conflicts
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def _list_planner_activities(args: dict) -> dict:
+    """List planner activities. Filters: status, type, asset_id, priority, search, limit."""
+    search = (args.get("search") or "").strip()
+    status_filter = args.get("status")
+    act_type = args.get("type")
+    asset_id = args.get("asset_id")
+    priority = args.get("priority")
+    limit = min(max(int(args.get("limit", 30) or 30), 1), 200)
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(PlannerActivity).where(PlannerActivity.entity_id == entity_id, PlannerActivity.deleted_at.is_(None))
+        if status_filter:
+            query = query.where(PlannerActivity.status == status_filter)
+        if act_type:
+            query = query.where(PlannerActivity.type == act_type)
+        if asset_id:
+            try:
+                query = query.where(PlannerActivity.asset_id == UUID(str(asset_id)))
+            except ValueError:
+                return _err(f"asset_id invalide: {asset_id}")
+        if priority:
+            query = query.where(PlannerActivity.priority == priority)
+        if search:
+            needle = f"%{search.lower()}%"
+            query = query.where(sqla_func.lower(PlannerActivity.title).like(needle))
+        query = query.order_by(PlannerActivity.start_date.desc()).limit(limit)
+        rows = (await session.execute(query)).scalars().all()
+    return _ok({"count": len(rows), "items": [
+        {"id": str(a.id), "title": a.title, "type": a.type, "status": a.status,
+         "priority": a.priority, "pax_quota": a.pax_quota,
+         "asset_id": str(a.asset_id) if a.asset_id else None,
+         "start_date": a.start_date.isoformat() if a.start_date else None,
+         "end_date": a.end_date.isoformat() if a.end_date else None}
+        for a in rows
+    ]})
+
+
+async def _get_planner_activity(args: dict) -> dict:
+    """Get a planner activity by id."""
+    aid = args.get("id")
+    if not aid:
+        raise ValueError("id requis")
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(PlannerActivity).where(
+            PlannerActivity.entity_id == entity_id, PlannerActivity.deleted_at.is_(None),
+            PlannerActivity.id == UUID(str(aid)))
+        a = (await session.execute(query)).scalar_one_or_none()
+        if not a:
+            return _err("Activite introuvable")
+    return _ok({"id": str(a.id), "title": a.title, "type": a.type, "subtype": a.subtype,
+                "status": a.status, "priority": a.priority, "pax_quota": a.pax_quota,
+                "description": (a.description or "")[:500],
+                "asset_id": str(a.asset_id) if a.asset_id else None,
+                "project_id": str(a.project_id) if a.project_id else None,
+                "start_date": a.start_date.isoformat() if a.start_date else None,
+                "end_date": a.end_date.isoformat() if a.end_date else None,
+                "actual_start": a.actual_start.isoformat() if a.actual_start else None,
+                "actual_end": a.actual_end.isoformat() if a.actual_end else None,
+                "well_reference": a.well_reference, "rig_name": a.rig_name,
+                "submitted_at": a.submitted_at.isoformat() if a.submitted_at else None,
+                "validated_at": a.validated_at.isoformat() if a.validated_at else None,
+                "created_at": a.created_at.isoformat() if a.created_at else None})
+
+
+async def _list_planner_conflicts(args: dict) -> dict:
+    """List active planner conflicts."""
+    limit = min(max(int(args.get("limit", 20) or 20), 1), 100)
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(PlannerConflict).where(
+            PlannerConflict.entity_id == entity_id,
+            PlannerConflict.resolved == False,  # noqa: E712
+        ).order_by(PlannerConflict.detected_at.desc()).limit(limit)
+        rows = (await session.execute(query)).scalars().all()
+    return _ok({"count": len(rows), "items": [
+        {"id": str(c.id), "conflict_type": c.conflict_type, "severity": c.severity,
+         "asset_id": str(c.asset_id) if c.asset_id else None,
+         "conflict_date": c.conflict_date.isoformat() if c.conflict_date else None,
+         "message": (c.message or "")[:200],
+         "detected_at": c.detected_at.isoformat() if c.detected_at else None}
+        for c in rows
+    ]})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TravelWiz — vectors, voyages
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def _list_vectors(args: dict) -> dict:
+    """List transport vectors (helicopters, boats, vehicles). Filters: mode, type, search, limit."""
+    search = (args.get("search") or "").strip()
+    mode_filter = args.get("mode")
+    type_filter = args.get("type")
+    limit = min(max(int(args.get("limit", 20) or 20), 1), 200)
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(TransportVector).where(TransportVector.entity_id == entity_id, TransportVector.deleted_at.is_(None))
+        if mode_filter:
+            query = query.where(TransportVector.mode == mode_filter)
+        if type_filter:
+            query = query.where(TransportVector.type == type_filter)
+        if search:
+            needle = f"%{search.lower()}%"
+            query = query.where(or_(
+                sqla_func.lower(TransportVector.registration).like(needle),
+                sqla_func.lower(TransportVector.name).like(needle),
+            ))
+        query = query.order_by(TransportVector.registration).limit(limit)
+        rows = (await session.execute(query)).scalars().all()
+    return _ok({"count": len(rows), "items": [
+        {"id": str(v.id), "registration": v.registration, "name": v.name,
+         "type": v.type, "mode": v.mode, "pax_capacity": v.pax_capacity,
+         "active": v.active}
+        for v in rows
+    ]})
+
+
+async def _get_vector(args: dict) -> dict:
+    """Get a transport vector by id or registration."""
+    vid = args.get("id") or args.get("registration")
+    if not vid:
+        raise ValueError("id ou registration requis")
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(TransportVector).where(TransportVector.entity_id == entity_id, TransportVector.deleted_at.is_(None))
+        try:
+            query = query.where(TransportVector.id == UUID(str(vid)))
+        except (TypeError, ValueError):
+            query = query.where(TransportVector.registration == str(vid))
+        v = (await session.execute(query)).scalar_one_or_none()
+        if not v:
+            return _err("Vecteur introuvable")
+    return _ok({"id": str(v.id), "registration": v.registration, "name": v.name,
+                "type": v.type, "mode": v.mode, "pax_capacity": v.pax_capacity,
+                "weight_capacity_kg": float(v.weight_capacity_kg) if v.weight_capacity_kg else None,
+                "volume_capacity_m3": float(v.volume_capacity_m3) if v.volume_capacity_m3 else None,
+                "home_base_id": str(v.home_base_id) if v.home_base_id else None,
+                "requires_weighing": v.requires_weighing, "mmsi_number": v.mmsi_number,
+                "active": v.active})
+
+
+async def _list_voyages(args: dict) -> dict:
+    """List voyages. Filters: status, vector_id, search, limit."""
+    search = (args.get("search") or "").strip()
+    status_filter = args.get("status")
+    vector_id = args.get("vector_id")
+    limit = min(max(int(args.get("limit", 20) or 20), 1), 200)
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(Voyage).where(Voyage.entity_id == entity_id, Voyage.deleted_at.is_(None))
+        if status_filter:
+            query = query.where(Voyage.status == status_filter)
+        if vector_id:
+            try:
+                query = query.where(Voyage.vector_id == UUID(str(vector_id)))
+            except ValueError:
+                return _err(f"vector_id invalide: {vector_id}")
+        if search:
+            query = query.where(sqla_func.lower(Voyage.code).like(f"%{search.lower()}%"))
+        query = query.order_by(Voyage.scheduled_departure.desc()).limit(limit)
+        rows = (await session.execute(query)).scalars().all()
+    return _ok({"count": len(rows), "items": [
+        {"id": str(v.id), "code": v.code, "status": v.status,
+         "vector_id": str(v.vector_id) if v.vector_id else None,
+         "scheduled_departure": v.scheduled_departure.isoformat() if v.scheduled_departure else None,
+         "scheduled_arrival": v.scheduled_arrival.isoformat() if v.scheduled_arrival else None,
+         "actual_departure": v.actual_departure.isoformat() if v.actual_departure else None,
+         "actual_arrival": v.actual_arrival.isoformat() if v.actual_arrival else None}
+        for v in rows
+    ]})
+
+
+async def _get_voyage(args: dict) -> dict:
+    """Get a voyage by id or code."""
+    vid = args.get("id") or args.get("code")
+    if not vid:
+        raise ValueError("id ou code requis")
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(Voyage).where(Voyage.entity_id == entity_id, Voyage.deleted_at.is_(None))
+        try:
+            query = query.where(Voyage.id == UUID(str(vid)))
+        except (TypeError, ValueError):
+            query = query.where(Voyage.code == str(vid))
+        v = (await session.execute(query)).scalar_one_or_none()
+        if not v:
+            return _err("Voyage introuvable")
+    return _ok({"id": str(v.id), "code": v.code, "status": v.status,
+                "vector_id": str(v.vector_id) if v.vector_id else None,
+                "departure_base_id": str(v.departure_base_id) if v.departure_base_id else None,
+                "scheduled_departure": v.scheduled_departure.isoformat() if v.scheduled_departure else None,
+                "scheduled_arrival": v.scheduled_arrival.isoformat() if v.scheduled_arrival else None,
+                "actual_departure": v.actual_departure.isoformat() if v.actual_departure else None,
+                "actual_arrival": v.actual_arrival.isoformat() if v.actual_arrival else None,
+                "delay_reason": v.delay_reason,
+                "created_at": v.created_at.isoformat() if v.created_at else None})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Compliance — rules and types creation
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -2716,6 +3006,98 @@ OPSFLUX_TOOLS: list[tuple[str, str, dict, Any]] = [
      _s({
          "entity_code": {"type": "string"},
      }), _get_asset_hierarchy),
+
+    # ── PaxLog (ADS, groupes PAX) ───────────────────────────────────────
+    ("list_ads",
+     "Liste les ADS (Autorisations De Sortie). Filtres: status (draft/submitted/approved/rejected/closed), type, search, limit.",
+     _s({
+         "status": {"type": "string", "description": "draft, submitted, approved, rejected, closed, cancelled"},
+         "type": {"type": "string", "description": "Type d'ADS"},
+         "search": {"type": "string"},
+         "limit": {"type": "integer"},
+         "entity_code": {"type": "string"},
+     }), _list_ads),
+
+    ("get_ads",
+     "Récupère une ADS par id ou référence (ex: ADS-2026-0001). Inclut le nombre de PAX.",
+     _s({
+         "id": {"type": "string"},
+         "reference": {"type": "string"},
+         "entity_code": {"type": "string"},
+     }), _get_ads),
+
+    ("list_pax_groups",
+     "Liste les groupes PAX de l'entité. Filtre: search, limit.",
+     _s({
+         "search": {"type": "string"},
+         "limit": {"type": "integer"},
+         "entity_code": {"type": "string"},
+     }), _list_pax_groups),
+
+    # ── Planner (activités, conflits) ───────────────────────────────────
+    ("list_planner_activities",
+     "Liste les activités planifiées. Filtres: status (draft/submitted/validated/in_progress/completed/cancelled), "
+     "type (project/workover/drilling/maintenance/inspection/event), asset_id, priority, search, limit.",
+     _s({
+         "status": {"type": "string"},
+         "type": {"type": "string"},
+         "asset_id": {"type": "string"},
+         "priority": {"type": "string"},
+         "search": {"type": "string"},
+         "limit": {"type": "integer"},
+         "entity_code": {"type": "string"},
+     }), _list_planner_activities),
+
+    ("get_planner_activity",
+     "Récupère une activité planifiée par id. Détails complets: dates, PAX quota, well, rig, etc.",
+     _s({
+         "id": {"type": "string", "description": "UUID de l'activité"},
+         "entity_code": {"type": "string"},
+     }, ["id"]), _get_planner_activity),
+
+    ("list_planner_conflicts",
+     "Liste les conflits de planification non résolus (surcharge capacité, chevauchements).",
+     _s({
+         "limit": {"type": "integer"},
+         "entity_code": {"type": "string"},
+     }), _list_planner_conflicts),
+
+    # ── TravelWiz (vecteurs, voyages) ───────────────────────────────────
+    ("list_vectors",
+     "Liste les vecteurs de transport (hélicoptères, bateaux, véhicules). Filtres: mode (air/sea/land), type, search, limit.",
+     _s({
+         "mode": {"type": "string", "description": "air, sea, land"},
+         "type": {"type": "string"},
+         "search": {"type": "string"},
+         "limit": {"type": "integer"},
+         "entity_code": {"type": "string"},
+     }), _list_vectors),
+
+    ("get_vector",
+     "Récupère un vecteur de transport par id ou immatriculation.",
+     _s({
+         "id": {"type": "string"},
+         "registration": {"type": "string"},
+         "entity_code": {"type": "string"},
+     }), _get_vector),
+
+    ("list_voyages",
+     "Liste les voyages TravelWiz. Filtres: status, vector_id, search, limit.",
+     _s({
+         "status": {"type": "string"},
+         "vector_id": {"type": "string"},
+         "search": {"type": "string"},
+         "limit": {"type": "integer"},
+         "entity_code": {"type": "string"},
+     }), _list_voyages),
+
+    ("get_voyage",
+     "Récupère un voyage par id ou code.",
+     _s({
+         "id": {"type": "string"},
+         "code": {"type": "string"},
+         "entity_code": {"type": "string"},
+     }), _get_voyage),
 
     # ── Compliance rules (V2) ────────────────────────────────────────────
     ("create_compliance_type",

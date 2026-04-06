@@ -28,29 +28,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import async_session_factory
 from app.core.references import generate_reference
 from app.models.common import (
-    Address,
-    Attachment,
-    ComplianceRecord,
-    ComplianceRule,
-    ComplianceType,
-    ContactEmail,
-    CostCenter,
-    CostImputation,
-    Entity,
-    ExternalReference,
-    ImputationReference,
-    LegalIdentifier,
-    Note,
-    OpeningHour,
-    Phone,
-    Setting,
-    SocialNetwork,
-    Tag,
-    Tier,
-    TierBlock,
-    TierContact,
-    TierContactTransfer,
-    User,
+    Address, Attachment, ComplianceRecord, ComplianceRule, ComplianceType,
+    ContactEmail, CostCenter, CostImputation, Entity, ExternalReference,
+    ImputationReference, LegalIdentifier, Note, OpeningHour, Phone,
+    Project, ProjectMember, ProjectMilestone, ProjectTask, ProjectTemplate,
+    ProjectWBSNode,
+    Setting, SocialNetwork, Tag, Tier, TierBlock, TierContact,
+    TierContactTransfer, User,
 )
 from app.models.asset_registry import Installation, OilSite
 from app.mcp.mcp_native import NativeBackend
@@ -1945,6 +1929,209 @@ async def _delete_setting(args: dict) -> dict:
     return _ok({"deleted": key, "scope": scope})
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Project management tools
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _project_to_dict(p: Project, *, compact: bool = False) -> dict:
+    if compact:
+        return {"id": str(p.id), "code": p.code, "name": p.name, "status": p.status,
+                "priority": p.priority, "progress": p.progress, "project_type": p.project_type}
+    return {"id": str(p.id), "code": p.code, "name": p.name, "description": (p.description or "")[:500],
+            "status": p.status, "priority": p.priority, "progress": p.progress,
+            "project_type": p.project_type, "weather": p.weather,
+            "start_date": p.start_date.isoformat() if p.start_date else None,
+            "end_date": p.end_date.isoformat() if p.end_date else None,
+            "budget": p.budget, "external_ref": p.external_ref, "active": p.active}
+
+
+async def _list_projects(args: dict) -> dict:
+    search = (args.get("search") or "").strip()
+    status_filter = args.get("status")
+    ptype = args.get("project_type")
+    limit = min(max(int(args.get("limit", 20) or 20), 1), 200)
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(Project).where(Project.entity_id == entity_id, Project.archived == False)  # noqa: E712
+        if search:
+            needle = f"%{search.lower()}%"
+            query = query.where(or_(sqla_func.lower(Project.name).like(needle), sqla_func.lower(Project.code).like(needle)))
+        if status_filter:
+            query = query.where(Project.status == status_filter)
+        if ptype:
+            query = query.where(Project.project_type == ptype)
+        query = query.order_by(Project.created_at.desc()).limit(limit)
+        rows = (await session.execute(query)).scalars().all()
+    return _ok({"count": len(rows), "items": [_project_to_dict(p, compact=True) for p in rows]})
+
+
+async def _get_project(args: dict) -> dict:
+    pid = args.get("id") or args.get("code")
+    if not pid:
+        raise ValueError("id ou code requis")
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        query = select(Project).where(Project.entity_id == entity_id, Project.archived == False)  # noqa: E712
+        try:
+            query = query.where(Project.id == UUID(str(pid)))
+        except (TypeError, ValueError):
+            query = query.where(Project.code == str(pid))
+        p = (await session.execute(query)).scalar_one_or_none()
+        if not p:
+            return _err("Projet introuvable")
+    return _ok(_project_to_dict(p))
+
+
+async def _create_project(args: dict) -> dict:
+    name = (args.get("name") or "").strip()
+    if not name:
+        raise ValueError("name requis")
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        from app.core.references import generate_reference
+        code = await generate_reference("PRJ", session, entity_id=entity_id)
+        p = Project(
+            entity_id=entity_id, code=code, name=name,
+            description=args.get("description"),
+            project_type=args.get("project_type") or "project",
+            status=args.get("status") or "draft",
+            priority=args.get("priority") or "medium",
+            weather=args.get("weather") or "sunny",
+            budget=float(args["budget"]) if args.get("budget") else None,
+        )
+        session.add(p); await session.commit(); await session.refresh(p)
+    return _ok(_project_to_dict(p))
+
+
+async def _update_project(args: dict) -> dict:
+    pid = args.get("id")
+    if not pid:
+        raise ValueError("id requis")
+    WRITABLE = {"name", "description", "status", "priority", "weather", "project_type", "budget", "start_date", "end_date"}
+    async with async_session_factory() as session:
+        p = (await session.execute(select(Project).where(Project.id == UUID(str(pid))))).scalar_one_or_none()
+        if not p:
+            return _err("Projet introuvable")
+        for k, v in args.items():
+            if k in WRITABLE and v is not None:
+                if k in ("start_date", "end_date") and isinstance(v, str):
+                    from app.api.routes.core.gouti_sync import _parse_gouti_date
+                    v = _parse_gouti_date(v)
+                if k == "budget":
+                    v = float(v)
+                setattr(p, k, v)
+        await session.commit(); await session.refresh(p)
+    return _ok(_project_to_dict(p))
+
+
+async def _list_project_tasks(args: dict) -> dict:
+    pid = args.get("project_id")
+    if not pid:
+        raise ValueError("project_id requis")
+    status_filter = args.get("status")
+    limit = min(max(int(args.get("limit", 50) or 50), 1), 500)
+    async with async_session_factory() as session:
+        query = select(ProjectTask).where(ProjectTask.project_id == UUID(str(pid)), ProjectTask.active == True)  # noqa: E712
+        if status_filter:
+            query = query.where(ProjectTask.status == status_filter)
+        query = query.order_by(ProjectTask.order, ProjectTask.created_at).limit(limit)
+        rows = (await session.execute(query)).scalars().all()
+    items = [{"id": str(t.id), "title": t.title, "status": t.status, "priority": t.priority, "progress": t.progress,
+              "parent_id": str(t.parent_id) if t.parent_id else None,
+              "start_date": t.start_date.isoformat() if t.start_date else None,
+              "due_date": t.due_date.isoformat() if t.due_date else None,
+              "estimated_hours": t.estimated_hours, "order": t.order} for t in rows]
+    return _ok({"count": len(items), "items": items})
+
+
+async def _create_project_task(args: dict) -> dict:
+    pid = args.get("project_id")
+    title = (args.get("title") or "").strip()
+    if not pid or not title:
+        raise ValueError("project_id et title requis")
+    async with async_session_factory() as session:
+        task = ProjectTask(
+            project_id=UUID(str(pid)), title=title,
+            description=args.get("description"), status=args.get("status") or "todo",
+            priority=args.get("priority") or "medium",
+            parent_id=UUID(str(args["parent_id"])) if args.get("parent_id") else None,
+            estimated_hours=float(args["estimated_hours"]) if args.get("estimated_hours") else None,
+        )
+        session.add(task); await session.commit(); await session.refresh(task)
+    return _ok({"id": str(task.id), "title": task.title, "status": task.status})
+
+
+async def _list_project_milestones(args: dict) -> dict:
+    pid = args.get("project_id")
+    if not pid:
+        raise ValueError("project_id requis")
+    async with async_session_factory() as session:
+        rows = (await session.execute(
+            select(ProjectMilestone).where(ProjectMilestone.project_id == UUID(str(pid)), ProjectMilestone.active == True)
+            .order_by(ProjectMilestone.due_date)
+        )).scalars().all()
+    return _ok({"count": len(rows), "items": [
+        {"id": str(m.id), "name": m.name, "status": m.status,
+         "due_date": m.due_date.isoformat() if m.due_date else None}
+        for m in rows
+    ]})
+
+
+async def _get_project_cpm(args: dict) -> dict:
+    pid = args.get("project_id")
+    if not pid:
+        raise ValueError("project_id requis")
+    from app.services.cpm_service import compute_cpm
+    async with async_session_factory() as session:
+        result = await compute_cpm(session, UUID(str(pid)))
+    return _ok(result)
+
+
+async def _get_project_activity_feed(args: dict) -> dict:
+    pid = args.get("project_id")
+    if not pid:
+        raise ValueError("project_id requis")
+    limit = min(max(int(args.get("limit", 30) or 30), 1), 100)
+    from app.models.common import ProjectStatusHistory, ProjectComment, TaskChangeLog
+    async with async_session_factory() as session:
+        feed: list[dict] = []
+        # Status history
+        for r in (await session.execute(
+            select(ProjectStatusHistory).where(ProjectStatusHistory.project_id == UUID(str(pid)))
+            .order_by(ProjectStatusHistory.changed_at.desc()).limit(limit)
+        )).scalars().all():
+            feed.append({"type": "status_change", "date": r.changed_at.isoformat(),
+                         "detail": f"{r.from_status or '—'} → {r.to_status}", "reason": r.reason})
+        # Task changes
+        task_ids = (await session.execute(
+            select(ProjectTask.id).where(ProjectTask.project_id == UUID(str(pid)))
+        )).scalars().all()
+        if task_ids:
+            for cl in (await session.execute(
+                select(TaskChangeLog).where(TaskChangeLog.task_id.in_(task_ids))
+                .order_by(TaskChangeLog.created_at.desc()).limit(limit)
+            )).scalars().all():
+                feed.append({"type": "task_change", "date": cl.created_at.isoformat(),
+                             "field": cl.field_name, "old": cl.old_value, "new": cl.new_value})
+        feed.sort(key=lambda x: x["date"], reverse=True)
+    return _ok({"count": len(feed[:limit]), "items": feed[:limit]})
+
+
+async def _list_project_templates(args: dict) -> dict:
+    async with async_session_factory() as session:
+        entity_id = await _resolve_entity_id(session, args.get("entity_code"))
+        rows = (await session.execute(
+            select(ProjectTemplate).where(ProjectTemplate.entity_id == entity_id, ProjectTemplate.active == True)
+            .order_by(ProjectTemplate.usage_count.desc())
+        )).scalars().all()
+    return _ok({"count": len(rows), "items": [
+        {"id": str(t.id), "name": t.name, "category": t.category,
+         "description": t.description, "usage_count": t.usage_count}
+        for t in rows
+    ]})
+
+
 # ─── Tool registry ───────────────────────────────────────────────────────────
 
 def _s(props: dict | None = None, required: list | None = None) -> dict:
@@ -2505,6 +2692,98 @@ OPSFLUX_TOOLS: list[tuple[str, str, dict, Any]] = [
          "scope": {"type": "string"},
          "scope_id": {"type": "string"},
      }, ["key"]), _delete_setting),
+
+    # ── Projets (gestion de projets) ────────────────────────────────────
+    ("list_projects",
+     "Liste les projets OpsFlux. Filtres: search, status, project_type, limit (défaut 20, max 200).",
+     _s({
+         "search": {"type": "string", "description": "Filtre texte (nom ou code)"},
+         "status": {"type": "string", "description": "Filtre par statut (draft, active, on_hold, completed, cancelled)"},
+         "project_type": {"type": "string", "description": "Filtre par type (project, gouti)"},
+         "limit": {"type": "integer", "description": "Nombre max de résultats"},
+         "entity_code": {"type": "string", "description": "Code entité (optionnel)"},
+     }), _list_projects),
+
+    ("get_project",
+     "Récupère les détails d'un projet par id (UUID) ou code (ex: PRJ-2026-0001).",
+     _s({
+         "id": {"type": "string", "description": "UUID du projet"},
+         "code": {"type": "string", "description": "Code du projet"},
+         "entity_code": {"type": "string"},
+     }), _get_project),
+
+    ("create_project",
+     "Crée un nouveau projet. Seul 'name' est obligatoire.",
+     _s({
+         "name": {"type": "string", "description": "Nom du projet"},
+         "description": {"type": "string"},
+         "project_type": {"type": "string", "description": "project (défaut) ou gouti"},
+         "status": {"type": "string", "description": "draft (défaut), active, on_hold, completed, cancelled"},
+         "priority": {"type": "string", "description": "low, medium (défaut), high, critical"},
+         "weather": {"type": "string", "description": "sunny (défaut), cloudy, rainy, stormy"},
+         "budget": {"type": "number"},
+         "entity_code": {"type": "string"},
+     }, ["name"]), _create_project),
+
+    ("update_project",
+     "Met à jour un projet existant. Champs modifiables: name, description, status, priority, weather, project_type, budget, start_date, end_date.",
+     _s({
+         "id": {"type": "string", "description": "UUID du projet (obligatoire)"},
+         "name": {"type": "string"},
+         "description": {"type": "string"},
+         "status": {"type": "string"},
+         "priority": {"type": "string"},
+         "weather": {"type": "string"},
+         "project_type": {"type": "string"},
+         "budget": {"type": "number"},
+         "start_date": {"type": "string", "description": "Date ISO (YYYY-MM-DD)"},
+         "end_date": {"type": "string", "description": "Date ISO (YYYY-MM-DD)"},
+     }, ["id"]), _update_project),
+
+    ("list_project_tasks",
+     "Liste les tâches d'un projet. Filtres: status, limit (défaut 50, max 500).",
+     _s({
+         "project_id": {"type": "string", "description": "UUID du projet (obligatoire)"},
+         "status": {"type": "string", "description": "Filtre par statut (todo, in_progress, done, cancelled)"},
+         "limit": {"type": "integer"},
+     }, ["project_id"]), _list_project_tasks),
+
+    ("create_project_task",
+     "Crée une tâche dans un projet. project_id et title obligatoires.",
+     _s({
+         "project_id": {"type": "string", "description": "UUID du projet"},
+         "title": {"type": "string", "description": "Titre de la tâche"},
+         "description": {"type": "string"},
+         "status": {"type": "string", "description": "todo (défaut), in_progress, done, cancelled"},
+         "priority": {"type": "string", "description": "low, medium (défaut), high, critical"},
+         "parent_id": {"type": "string", "description": "UUID de la tâche parente (sous-tâche)"},
+         "estimated_hours": {"type": "number"},
+     }, ["project_id", "title"]), _create_project_task),
+
+    ("list_project_milestones",
+     "Liste les jalons d'un projet, triés par date.",
+     _s({
+         "project_id": {"type": "string", "description": "UUID du projet (obligatoire)"},
+     }, ["project_id"]), _list_project_milestones),
+
+    ("get_project_cpm",
+     "Calcule le chemin critique (CPM) d'un projet: durées, marges, tâches critiques.",
+     _s({
+         "project_id": {"type": "string", "description": "UUID du projet (obligatoire)"},
+     }, ["project_id"]), _get_project_cpm),
+
+    ("get_project_activity_feed",
+     "Flux d'activité unifié d'un projet: changements de statut, modifications de tâches. limit=30 par défaut.",
+     _s({
+         "project_id": {"type": "string", "description": "UUID du projet (obligatoire)"},
+         "limit": {"type": "integer", "description": "Nombre max d'événements (défaut 30, max 100)"},
+     }, ["project_id"]), _get_project_activity_feed),
+
+    ("list_project_templates",
+     "Liste les templates de projet disponibles, triés par popularité.",
+     _s({
+         "entity_code": {"type": "string", "description": "Code entité (optionnel)"},
+     }), _list_project_templates),
 ]
 
 OPSFLUX_TOOLS_LIST = [

@@ -53,6 +53,8 @@ class FakeDB:
         self._results = list(results)
         self.executed = []
         self.commits = 0
+        self.rollbacks = 0
+        self.flushes = 0
 
     async def execute(self, statement, params=None):
         self.executed.append((statement, params))
@@ -62,6 +64,12 @@ class FakeDB:
 
     async def commit(self):
         self.commits += 1
+
+    async def flush(self):
+        self.flushes += 1
+
+    async def rollback(self):
+        self.rollbacks += 1
 
 
 class FakeAsyncSessionContext:
@@ -275,6 +283,101 @@ async def test_verify_captain_session_token_rejects_wrong_voyage():
             session_token=token,
             voyage_id=uuid4(),
         )
+
+
+@pytest.mark.asyncio
+async def test_rebalance_manifest_passenger_standby_marks_over_capacity_passengers():
+    entity_id = uuid4()
+    voyage_id = uuid4()
+    manifest_id = uuid4()
+    vector_id = uuid4()
+    voyage = SimpleNamespace(id=voyage_id, entity_id=entity_id, vector_id=vector_id)
+    vector = SimpleNamespace(id=vector_id, pax_capacity=2, weight_capacity_kg=None)
+    passengers = [
+        SimpleNamespace(priority_score=90, created_at=datetime(2026, 1, 1, tzinfo=timezone.utc), actual_weight_kg=None, declared_weight_kg=None, standby=False),
+        SimpleNamespace(priority_score=80, created_at=datetime(2026, 1, 2, tzinfo=timezone.utc), actual_weight_kg=None, declared_weight_kg=None, standby=False),
+        SimpleNamespace(priority_score=10, created_at=datetime(2026, 1, 3, tzinfo=timezone.utc), actual_weight_kg=None, declared_weight_kg=None, standby=False),
+    ]
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=voyage),
+            FakeResult(scalar_one_or_none=vector),
+            FakeResult(all_rows=passengers),
+        ]
+    )
+
+    summary = await travelwiz_service.rebalance_manifest_passenger_standby(
+        db,
+        voyage_id=voyage_id,
+        manifest_id=manifest_id,
+        entity_id=entity_id,
+    )
+
+    assert summary["active_count"] == 2
+    assert summary["standby_count"] == 1
+    assert passengers[0].standby is False
+    assert passengers[1].standby is False
+    assert passengers[2].standby is True
+
+
+@pytest.mark.asyncio
+async def test_reassign_voyage_passengers_moves_pending_passengers_and_cancels_source():
+    entity_id = uuid4()
+    source_voyage_id = uuid4()
+    target_voyage_id = uuid4()
+    source_manifest_id = uuid4()
+    target_manifest_id = uuid4()
+    source_voyage = SimpleNamespace(id=source_voyage_id, entity_id=entity_id, status="delayed", scheduled_departure=datetime.now(timezone.utc) - timedelta(hours=5), actual_departure=None, delay_reason="Meteo", vector_id=uuid4())
+    target_voyage = SimpleNamespace(id=target_voyage_id, entity_id=entity_id, status="confirmed", scheduled_departure=datetime.now(timezone.utc) + timedelta(hours=2), code="VYG-TARGET", active=True)
+    source_manifest = SimpleNamespace(id=source_manifest_id, voyage_id=source_voyage_id, manifest_type="pax", active=True)
+    target_manifest = SimpleNamespace(id=target_manifest_id, voyage_id=target_voyage_id, manifest_type="pax", status="draft", active=True)
+    passenger = SimpleNamespace(
+        ads_pax_id=uuid4(),
+        manifest_id=source_manifest_id,
+        standby=False,
+        boarding_status="pending",
+        priority_score=80,
+        created_at=datetime.now(timezone.utc),
+        actual_weight_kg=None,
+        declared_weight_kg=None,
+    )
+    rebalance_calls = []
+
+    async def fake_rebalance(db, *, voyage_id, manifest_id, entity_id):
+        rebalance_calls.append((voyage_id, manifest_id, entity_id))
+        return {"standby_count": 0}
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(travelwiz_service, "rebalance_manifest_passenger_standby", fake_rebalance)
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=source_voyage),          # assess source voyage
+            FakeResult(scalar_one_or_none={"v": 4}),               # delay threshold
+            FakeResult(all_rows=[(uuid4(),)]),                     # source stop ids
+            FakeResult(all_rows=[(target_voyage, "DOLPHIN")]),     # alternatives
+            FakeResult(scalar_one_or_none=source_voyage),          # source voyage load
+            FakeResult(scalar_one_or_none=target_voyage),          # target voyage load
+            FakeResult(scalar_one_or_none=source_manifest),        # source manifest
+            FakeResult(scalar_one_or_none=target_manifest),        # target manifest
+            FakeResult(all_rows=[]),                               # target existing ads pax ids
+            FakeResult(all_rows=[passenger]),                      # source passengers
+        ]
+    )
+
+    try:
+        result = await travelwiz_service.reassign_voyage_passengers(
+            db,
+            source_voyage_id=source_voyage_id,
+            target_voyage_id=target_voyage_id,
+            entity_id=entity_id,
+        )
+    finally:
+        monkeypatch.undo()
+
+    assert result["moved_count"] == 1
+    assert passenger.manifest_id == target_manifest_id
+    assert source_voyage.status == "cancelled"
+    assert rebalance_calls == [(target_voyage_id, target_manifest_id, entity_id)]
 
 
 @pytest.mark.asyncio

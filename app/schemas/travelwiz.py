@@ -156,6 +156,10 @@ class VoyageStatusUpdate(BaseModel):
     actual_arrival: datetime | None = None
 
 
+class VoyageReassignRequest(BaseModel):
+    target_voyage_id: UUID
+
+
 class VoyageRead(OpsFluxSchema):
     id: UUID
     entity_id: UUID

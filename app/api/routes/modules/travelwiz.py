@@ -63,6 +63,7 @@ from app.schemas.travelwiz import (
     VectorZoneUpdate,
     VoyageCreate,
     VoyageRead,
+    VoyageReassignRequest,
     VoyageStatusUpdate,
     VoyageStopCreate,
     VoyageStopRead,
@@ -73,6 +74,8 @@ from app.services.modules.travelwiz_service import (
     assess_manifest_weight,
     assess_voyage_delay,
     get_weight_alert_ratio,
+    rebalance_manifest_passenger_standby,
+    reassign_voyage_passengers,
 )
 
 router = APIRouter(prefix="/api/v1/travelwiz", tags=["travelwiz"])
@@ -1155,29 +1158,15 @@ async def add_passenger(
     if manifest.status != "draft":
         raise HTTPException(400, "Cannot add passengers to a non-draft manifest")
 
-    # ── PAX capacity validation ──────────────────────────────────────────
-    vector = await db.get(TransportVector, voyage.vector_id)
-    if vector and vector.pax_capacity:
-        # Count active passengers across ALL pax manifests for this voyage
-        pax_count_result = await db.execute(
-            select(sqla_func.count(ManifestPassenger.id))
-            .join(VoyageManifest, ManifestPassenger.manifest_id == VoyageManifest.id)
-            .where(
-                VoyageManifest.voyage_id == voyage_id,
-                VoyageManifest.manifest_type == "pax",
-                ManifestPassenger.active == True,
-            )
-        )
-        current_pax = pax_count_result.scalar() or 0
-        if current_pax + 1 > vector.pax_capacity:
-            raise HTTPException(
-                400,
-                f"PAX capacity exceeded: vector allows {vector.pax_capacity}, "
-                f"currently {current_pax} passengers on board",
-            )
-
     pax = ManifestPassenger(manifest_id=manifest_id, **body.model_dump())
     db.add(pax)
+    await db.flush()
+    await rebalance_manifest_passenger_standby(
+        db,
+        voyage_id=voyage_id,
+        manifest_id=manifest_id,
+        entity_id=entity_id,
+    )
     await db.commit()
     await db.refresh(pax)
     return pax
@@ -1207,6 +1196,13 @@ async def update_passenger(
     # Auto-set boarded_at
     if body.boarding_status == "boarded" and not pax.boarded_at:
         pax.boarded_at = datetime.now(timezone.utc)
+    await db.flush()
+    await rebalance_manifest_passenger_standby(
+        db,
+        voyage_id=voyage_id,
+        manifest_id=manifest_id,
+        entity_id=entity_id,
+    )
     await db.commit()
     await db.refresh(pax)
     return pax
@@ -1605,6 +1601,29 @@ async def get_manifest_weight_analysis(
         )
     except ValueError as exc:
         raise HTTPException(404, str(exc))
+
+
+@router.post("/voyages/{voyage_id}/reassign")
+async def reassign_delayed_voyage(
+    voyage_id: UUID,
+    body: VoyageReassignRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("travelwiz.voyage.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_voyage_or_404(db, voyage_id, entity_id)
+    try:
+        result = await reassign_voyage_passengers(
+            db,
+            source_voyage_id=voyage_id,
+            target_voyage_id=body.target_voyage_id,
+            entity_id=entity_id,
+        )
+        await db.commit()
+        return result
+    except ValueError as exc:
+        await db.rollback()
+        raise HTTPException(400, str(exc)) from exc
 
 
 # ==============================================================================

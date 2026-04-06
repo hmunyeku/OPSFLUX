@@ -345,6 +345,12 @@ async def generate_pax_manifest_from_ads(
         added_count += 1
 
     await db.flush()
+    standby_summary = await rebalance_manifest_passenger_standby(
+        db,
+        voyage_id=trip_id,
+        manifest_id=manifest.id,
+        entity_id=entity_id,
+    )
 
     # Total count
     total_result = await db.execute(
@@ -365,6 +371,89 @@ async def generate_pax_manifest_from_ads(
         "added_count": added_count,
         "skipped_count": skipped_count,
         "total_pax": total_pax,
+        "standby_count": standby_summary["standby_count"],
+    }
+
+
+async def rebalance_manifest_passenger_standby(
+    db: AsyncSession,
+    *,
+    voyage_id: UUID,
+    manifest_id: UUID,
+    entity_id: UUID,
+) -> dict:
+    """Recompute active vs standby passengers using capacity and available weights.
+
+    Priority order is:
+    - highest priority_score first
+    - oldest creation timestamp first
+
+    Weight-based blocking only applies when declared/actual weights exist on the
+    manifest rows. Unknown weights do not block placement; they remain governed
+    by passenger capacity until a final weight is recorded.
+    """
+    voyage_result = await db.execute(
+        select(Voyage).where(
+            Voyage.id == voyage_id,
+            Voyage.entity_id == entity_id,
+        )
+    )
+    voyage = voyage_result.scalar_one_or_none()
+    if not voyage:
+        raise ValueError(f"Voyage {voyage_id} not found")
+
+    vector_result = await db.execute(
+        select(TransportVector).where(TransportVector.id == voyage.vector_id)
+    )
+    vector = vector_result.scalar_one_or_none()
+    if not vector:
+        raise ValueError(f"Vector {voyage.vector_id} not found")
+
+    pax_result = await db.execute(
+        select(ManifestPassenger)
+        .where(
+            ManifestPassenger.manifest_id == manifest_id,
+            ManifestPassenger.active == True,  # noqa: E712
+        )
+        .order_by(ManifestPassenger.priority_score.desc(), ManifestPassenger.created_at.asc())
+    )
+    passengers = pax_result.scalars().all()
+
+    remaining_slots = vector.pax_capacity if vector.pax_capacity is not None else len(passengers)
+    max_weight = float(vector.weight_capacity_kg) if vector.weight_capacity_kg is not None else None
+    assigned_weight = 0.0
+    active_count = 0
+    standby_count = 0
+
+    for passenger in passengers:
+        passenger_weight = float(
+            passenger.actual_weight_kg
+            or passenger.declared_weight_kg
+            or 0.0
+        )
+        can_fit_pax = remaining_slots > 0
+        can_fit_weight = (
+            max_weight is None
+            or passenger_weight <= 0
+            or assigned_weight + passenger_weight <= max_weight
+        )
+        should_standby = not (can_fit_pax and can_fit_weight)
+        passenger.standby = should_standby
+        if should_standby:
+            standby_count += 1
+            continue
+        remaining_slots -= 1
+        assigned_weight += passenger_weight
+        active_count += 1
+
+    await db.flush()
+    return {
+        "manifest_id": manifest_id,
+        "active_count": active_count,
+        "standby_count": standby_count,
+        "assigned_weight_kg": round(assigned_weight, 2),
+        "pax_capacity": vector.pax_capacity,
+        "weight_capacity_kg": max_weight,
     }
 
 
@@ -1157,6 +1246,137 @@ async def assess_manifest_weight(
         "is_alert": is_alert,
         "is_blocked": is_blocked,
         "remaining_weight_kg": round(max_weight - current_weight, 2) if max_weight is not None else None,
+    }
+
+
+async def reassign_voyage_passengers(
+    db: AsyncSession,
+    *,
+    source_voyage_id: UUID,
+    target_voyage_id: UUID,
+    entity_id: UUID,
+) -> dict:
+    """Cancel a delayed voyage and move confirmed passengers to an alternative voyage."""
+    if source_voyage_id == target_voyage_id:
+        raise ValueError("Source and target voyages must be different")
+
+    analysis = await assess_voyage_delay(
+        db,
+        voyage_id=source_voyage_id,
+        entity_id=entity_id,
+    )
+    allowed_targets = {UUID(str(item["voyage_id"])) for item in analysis["alternatives"]}
+    if not analysis["reassign_available"] or target_voyage_id not in allowed_targets:
+        raise ValueError("Target voyage is not an allowed reassignment option")
+
+    source_result = await db.execute(
+        select(Voyage).where(
+            Voyage.id == source_voyage_id,
+            Voyage.entity_id == entity_id,
+        )
+    )
+    source_voyage = source_result.scalar_one_or_none()
+    if not source_voyage:
+        raise ValueError(f"Voyage {source_voyage_id} not found")
+
+    target_result = await db.execute(
+        select(Voyage).where(
+            Voyage.id == target_voyage_id,
+            Voyage.entity_id == entity_id,
+            Voyage.active == True,  # noqa: E712
+            Voyage.status.in_(["planned", "confirmed"]),
+        )
+    )
+    target_voyage = target_result.scalar_one_or_none()
+    if not target_voyage:
+        raise ValueError(f"Target voyage {target_voyage_id} not found")
+
+    source_manifest_result = await db.execute(
+        select(VoyageManifest).where(
+            VoyageManifest.voyage_id == source_voyage_id,
+            VoyageManifest.manifest_type == "pax",
+            VoyageManifest.active == True,  # noqa: E712
+        )
+    )
+    source_manifest = source_manifest_result.scalar_one_or_none()
+    if not source_manifest:
+        raise ValueError("Source voyage has no active pax manifest")
+
+    target_manifest_result = await db.execute(
+        select(VoyageManifest).where(
+            VoyageManifest.voyage_id == target_voyage_id,
+            VoyageManifest.manifest_type == "pax",
+            VoyageManifest.status == "draft",
+            VoyageManifest.active == True,  # noqa: E712
+        )
+    )
+    target_manifest = target_manifest_result.scalar_one_or_none()
+    if target_manifest is None:
+        target_manifest = VoyageManifest(
+            voyage_id=target_voyage_id,
+            manifest_type="pax",
+            status="draft",
+        )
+        db.add(target_manifest)
+        await db.flush()
+
+    target_existing_result = await db.execute(
+        select(ManifestPassenger.ads_pax_id).where(
+            ManifestPassenger.manifest_id == target_manifest.id,
+            ManifestPassenger.active == True,  # noqa: E712
+            ManifestPassenger.ads_pax_id.is_not(None),
+        )
+    )
+    existing_ads_pax_ids = {row[0] for row in target_existing_result.all()}
+
+    source_pax_result = await db.execute(
+        select(ManifestPassenger)
+        .where(
+            ManifestPassenger.manifest_id == source_manifest.id,
+            ManifestPassenger.active == True,  # noqa: E712
+            ManifestPassenger.standby == False,  # noqa: E712
+            ManifestPassenger.boarding_status == "pending",
+        )
+        .order_by(ManifestPassenger.priority_score.desc(), ManifestPassenger.created_at.asc())
+    )
+    passengers = source_pax_result.scalars().all()
+
+    moved = 0
+    duplicates = 0
+    for passenger in passengers:
+        if passenger.ads_pax_id and passenger.ads_pax_id in existing_ads_pax_ids:
+            passenger.standby = True
+            passenger.boarding_status = "offloaded"
+            duplicates += 1
+            continue
+        passenger.manifest_id = target_manifest.id
+        moved += 1
+        if passenger.ads_pax_id:
+            existing_ads_pax_ids.add(passenger.ads_pax_id)
+
+    await db.flush()
+    standby_summary = await rebalance_manifest_passenger_standby(
+        db,
+        voyage_id=target_voyage_id,
+        manifest_id=target_manifest.id,
+        entity_id=entity_id,
+    )
+
+    source_voyage.status = "cancelled"
+    source_voyage.delay_reason = (
+        f"{source_voyage.delay_reason} | reassigned_to:{target_voyage.code}"
+        if source_voyage.delay_reason
+        else f"reassigned_to:{target_voyage.code}"
+    )
+    await db.flush()
+
+    return {
+        "source_voyage_id": source_voyage_id,
+        "target_voyage_id": target_voyage_id,
+        "target_manifest_id": target_manifest.id,
+        "moved_count": moved,
+        "duplicate_count": duplicates,
+        "standby_count": standby_summary["standby_count"],
     }
 
 

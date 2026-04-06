@@ -1740,7 +1740,7 @@ async def update_pickup_progress(
             PickupStop.active == True,  # noqa: E712
         )
     )
-    pickup_round.total_pax_picked = int(total_result.scalar() or 0) + pax_picked
+    pickup_round.total_pax_picked = int(total_result.scalar() or 0)
 
     await db.flush()
 
@@ -1772,6 +1772,92 @@ async def update_pickup_progress(
         "stop_status": stop.status,
         "total_pax_picked": pickup_round.total_pax_picked,
         "round_status": pickup_round.status,
+    }
+
+
+async def report_pickup_no_show(
+    db: AsyncSession,
+    *,
+    trip_id: UUID,
+    stop_id: UUID,
+    entity_id: UUID,
+    event_data: dict,
+) -> dict:
+    """Report a no-show at a pickup stop and alert operations."""
+    stop_result = await db.execute(
+        select(PickupStop).where(PickupStop.id == stop_id)
+    )
+    stop = stop_result.scalar_one_or_none()
+    if not stop:
+        raise ValueError(f"Pickup stop {stop_id} not found")
+
+    round_result = await db.execute(
+        select(PickupRound).where(
+            PickupRound.id == stop.pickup_round_id,
+            PickupRound.trip_id == trip_id,
+            PickupRound.entity_id == entity_id,
+            PickupRound.active == True,  # noqa: E712
+        )
+    )
+    pickup_round = round_result.scalar_one_or_none()
+    if not pickup_round:
+        raise ValueError(f"Pickup round for trip {trip_id} / stop {stop_id} not found")
+
+    missing_pax_count = int(event_data.get("missing_pax_count") or 0)
+    if missing_pax_count <= 0:
+        raise ValueError("missing_pax_count must be greater than zero")
+
+    previous_notes = (stop.notes or "").strip()
+    report_notes = f"No-show signale: {missing_pax_count} absent(s)"
+    extra_notes = (event_data.get("notes") or "").strip()
+    if extra_notes:
+        report_notes = f"{report_notes}. {extra_notes}"
+    stop.notes = f"{previous_notes}\n{report_notes}".strip() if previous_notes else report_notes
+    stop.status = "skipped"
+    stop.actual_time = datetime.now(timezone.utc)
+
+    if pickup_round.status == "planned":
+        pickup_round.status = "in_progress"
+        pickup_round.actual_departure = datetime.now(timezone.utc)
+
+    total_result = await db.execute(
+        select(sqla_func.coalesce(sqla_func.sum(PickupStop.pax_picked_up), 0))
+        .where(
+            PickupStop.pickup_round_id == pickup_round.id,
+            PickupStop.active == True,  # noqa: E712
+        )
+    )
+    pickup_round.total_pax_picked = int(total_result.scalar() or 0)
+
+    await db.flush()
+
+    await event_bus.publish(OpsFluxEvent(
+        event_type="travelwiz.pickup.no_show",
+        payload={
+            "entity_id": str(entity_id),
+            "trip_id": str(trip_id),
+            "pickup_round_id": str(pickup_round.id),
+            "stop_id": str(stop_id),
+            "route_name": pickup_round.route_name,
+            "missing_pax_count": missing_pax_count,
+            "notes": extra_notes or None,
+        },
+    ))
+
+    logger.info(
+        "Pickup no-show reported on stop %s: %d missing passengers",
+        stop_id, missing_pax_count,
+    )
+
+    return {
+        "stop_id": stop.id,
+        "pickup_round_id": pickup_round.id,
+        "missing_pax_count": missing_pax_count,
+        "actual_time": stop.actual_time.isoformat(),
+        "stop_status": stop.status,
+        "total_pax_picked": pickup_round.total_pax_picked,
+        "round_status": pickup_round.status,
+        "notes": stop.notes,
     }
 
 

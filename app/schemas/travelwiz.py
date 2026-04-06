@@ -175,6 +175,34 @@ class BackCargoReturnRequest(BaseModel):
     yard_justification: str | None = None
 
 
+class PickupStopInput(BaseModel):
+    asset_id: UUID
+    pickup_order: int = Field(..., ge=1)
+    scheduled_time: datetime | None = None
+    pax_expected: int = Field(default=0, ge=0)
+
+
+class PickupRoundCreate(BaseModel):
+    trip_id: UUID
+    route_name: str = Field(..., min_length=1, max_length=200)
+    scheduled_departure: datetime
+    driver_name: str | None = Field(default=None, max_length=200)
+    driver_phone: str | None = Field(default=None, max_length=50)
+    vehicle_registration: str | None = Field(default=None, max_length=100)
+    notes: str | None = None
+    stops: list[PickupStopInput] = Field(default_factory=list)
+
+
+class PickupProgressUpdate(BaseModel):
+    pax_picked_up: int = Field(default=0, ge=0)
+    notes: str | None = None
+
+
+class PickupNoShowReport(BaseModel):
+    missing_pax_count: int = Field(default=1, ge=1)
+    notes: str | None = None
+
+
 class VoyageRead(OpsFluxSchema):
     id: UUID
     entity_id: UUID

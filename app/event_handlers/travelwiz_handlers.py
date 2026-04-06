@@ -49,6 +49,23 @@ async def _get_contact_email_and_name(contact_id: UUID, db) -> tuple[str | None,
     return (row[0], row[1]) if row else (None, "")
 
 
+async def _get_user_ids_for_role(role_code: str, entity_id: UUID, db) -> list[UUID]:
+    """Resolve users assigned to a role within an entity."""
+    from sqlalchemy import text
+
+    result = await db.execute(
+        text(
+            "SELECT DISTINCT ugm.user_id "
+            "FROM user_group_members ugm "
+            "JOIN user_group_roles ugr ON ugr.group_id = ugm.group_id "
+            "WHERE ugm.entity_id = :entity_id "
+            "AND ugr.role_code = :role_code"
+        ),
+        {"entity_id": str(entity_id), "role_code": role_code},
+    )
+    return [UUID(str(row[0])) for row in result.all() if row[0]]
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Handler: on_voyage_confirmed
 # When a voyage is confirmed — notify manifest passengers
@@ -494,6 +511,48 @@ async def on_voyage_delayed(event: OpsFluxEvent) -> None:
         logger.exception("Error in on_voyage_delayed for voyage %s", voyage_id)
 
 
+async def on_pickup_no_show(event: OpsFluxEvent) -> None:
+    """Alert LOG_BASE operators when a chauffeur reports a no-show."""
+    payload = event.payload
+    entity_id = payload.get("entity_id")
+    trip_id = payload.get("trip_id")
+    route_name = payload.get("route_name", "")
+    stop_id = payload.get("stop_id")
+    missing_pax_count = payload.get("missing_pax_count") or 0
+    notes = payload.get("notes") or ""
+
+    if not entity_id or not trip_id or not stop_id:
+        return
+
+    try:
+        from app.core.notifications import send_in_app
+        from app.event_handlers.core_handlers import _get_admin_user_ids
+
+        eid = UUID(str(entity_id))
+
+        async with async_session_factory() as db:
+            recipients = await _get_user_ids_for_role("LOG_BASE", eid, db)
+            if not recipients:
+                recipients = await _get_admin_user_ids(entity_id)
+
+            for user_id in recipients:
+                await send_in_app(
+                    db,
+                    user_id=user_id,
+                    entity_id=eid,
+                    title="No-show ramassage",
+                    body=(
+                        f"Le circuit {route_name or trip_id} signale {missing_pax_count} no-show(s) "
+                        f"au point {stop_id}. {notes}".strip()
+                    ),
+                    category="travelwiz",
+                    link=f"/travelwiz/pickup-rounds/{trip_id}",
+                )
+            await db.commit()
+    except Exception:
+        logger.exception("Error in on_pickup_no_show for trip %s", trip_id)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Handler: on_planner_activity_modified_tw
 # Planner → TravelWiz: put linked manifests in requires_review
@@ -708,6 +767,7 @@ def register_travelwiz_handlers(event_bus: EventBus) -> None:
     event_bus.subscribe("travelwiz.voyage.confirmed", on_voyage_confirmed)
     event_bus.subscribe("travelwiz.voyage.delayed", on_voyage_delayed)
     event_bus.subscribe("travelwiz.manifest.validated", on_manifest_validated)
+    event_bus.subscribe("travelwiz.pickup.no_show", on_pickup_no_show)
 
     # PaxLog → TravelWiz (AdS approved → add PAX to manifests)
     event_bus.subscribe("paxlog.ads.approved", on_ads_approved)

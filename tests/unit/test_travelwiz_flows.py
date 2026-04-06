@@ -381,6 +381,141 @@ async def test_reassign_voyage_passengers_moves_pending_passengers_and_cancels_s
 
 
 @pytest.mark.asyncio
+async def test_report_pickup_no_show_marks_stop_skipped_and_emits_event(monkeypatch):
+    entity_id = uuid4()
+    trip_id = uuid4()
+    stop_id = uuid4()
+    pickup_round_id = uuid4()
+    stop = SimpleNamespace(
+        id=stop_id,
+        pickup_round_id=pickup_round_id,
+        status="pending",
+        actual_time=None,
+        notes=None,
+    )
+    pickup_round = SimpleNamespace(
+        id=pickup_round_id,
+        trip_id=trip_id,
+        entity_id=entity_id,
+        route_name="Camp Nord",
+        status="planned",
+        actual_departure=None,
+        total_pax_picked=0,
+    )
+    published = []
+
+    async def fake_publish(event):
+        published.append(event)
+
+    monkeypatch.setattr(travelwiz_service.event_bus, "publish", fake_publish)
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=stop),
+            FakeResult(scalar_one_or_none=pickup_round),
+            FakeResult(scalar=3),
+        ]
+    )
+
+    result = await travelwiz_service.report_pickup_no_show(
+        db,
+        trip_id=trip_id,
+        stop_id=stop_id,
+        entity_id=entity_id,
+        event_data={"missing_pax_count": 2, "notes": "Le chauffeur continue la rotation"},
+    )
+
+    assert result["stop_status"] == "skipped"
+    assert pickup_round.status == "in_progress"
+    assert stop.notes.startswith("No-show signale: 2 absent(s)")
+    assert published and published[0].event_type == "travelwiz.pickup.no_show"
+    assert published[0].payload["missing_pax_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_update_pickup_progress_does_not_double_count_round_total(monkeypatch):
+    trip_id = uuid4()
+    stop_id = uuid4()
+    pickup_round_id = uuid4()
+    stop = SimpleNamespace(
+        id=stop_id,
+        pickup_round_id=pickup_round_id,
+        pax_picked_up=0,
+        actual_time=None,
+        status="pending",
+        notes=None,
+    )
+    pickup_round = SimpleNamespace(
+        id=pickup_round_id,
+        trip_id=trip_id,
+        route_name="Camp Nord",
+        status="planned",
+        actual_departure=None,
+        total_pax_picked=0,
+    )
+    published = []
+
+    async def fake_publish(event):
+        published.append(event)
+
+    monkeypatch.setattr(travelwiz_service.event_bus, "publish", fake_publish)
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=stop),
+            FakeResult(scalar_one_or_none=pickup_round),
+            FakeResult(scalar=4),
+        ]
+    )
+
+    result = await travelwiz_service.update_pickup_progress(
+        db,
+        trip_id=trip_id,
+        stop_id=stop_id,
+        event_data={"pax_picked_up": 4, "notes": "Tous montes"},
+    )
+
+    assert pickup_round.total_pax_picked == 4
+    assert result["total_pax_picked"] == 4
+    assert published and published[0].payload["total_pax_picked"] == 4
+
+
+@pytest.mark.asyncio
+async def test_on_pickup_no_show_notifies_log_base_or_admin(monkeypatch):
+    entity_id = uuid4()
+    log_base_user_id = uuid4()
+    db = FakeDB([FakeResult(all_rows=[(log_base_user_id,)])])
+    notifications = []
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    async def fake_admins(_entity_id):
+        return []
+
+    monkeypatch.setattr(travelwiz_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+    monkeypatch.setattr("app.event_handlers.core_handlers._get_admin_user_ids", fake_admins)
+
+    await travelwiz_handlers.on_pickup_no_show(
+        OpsFluxEvent(
+            event_type="travelwiz.pickup.no_show",
+            payload={
+                "entity_id": str(entity_id),
+                "trip_id": str(uuid4()),
+                "pickup_round_id": str(uuid4()),
+                "stop_id": str(uuid4()),
+                "route_name": "Camp Nord",
+                "missing_pax_count": 1,
+                "notes": "Aucun contact sur zone",
+            },
+        )
+    )
+
+    assert notifications
+    assert notifications[0]["title"] == "No-show ramassage"
+    assert notifications[0]["category"] == "travelwiz"
+
+
+@pytest.mark.asyncio
 async def test_initiate_back_cargo_requires_type_specific_prerequisites():
     entity_id = uuid4()
     cargo = SimpleNamespace(id=uuid4(), entity_id=entity_id, status="delivered_final", tracking_code="CGO-001")

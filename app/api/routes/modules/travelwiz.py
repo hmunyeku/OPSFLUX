@@ -53,6 +53,9 @@ from app.schemas.travelwiz import (
     PassengerCreate,
     PassengerRead,
     PassengerUpdate,
+    PickupNoShowReport,
+    PickupProgressUpdate,
+    PickupRoundCreate,
     RotationCreate,
     RotationRead,
     RotationUpdate,
@@ -2470,7 +2473,7 @@ async def fleet_kpis(
 
 @router.post("/pickup-rounds", status_code=201)
 async def create_pickup_round(
-    body: dict,
+    body: PickupRoundCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.pickup.create"),
@@ -2480,7 +2483,7 @@ async def create_pickup_round(
     from app.services.modules.travelwiz_service import create_pickup_round as _create
 
     try:
-        result = await _create(db, entity_id=entity_id, data=body)
+        result = await _create(db, entity_id=entity_id, data=body.model_dump())
         await db.commit()
         return result
     except ValueError as e:
@@ -2594,8 +2597,7 @@ async def get_pickup_round_details(
 async def record_pickup_at_stop(
     trip_id: UUID,
     stop_id: UUID,
-    pax_picked_up: int,
-    notes: str | None = None,
+    body: PickupProgressUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.pickup.update"),
@@ -2609,7 +2611,34 @@ async def record_pickup_at_stop(
             db,
             trip_id=trip_id,
             stop_id=stop_id,
-            event_data={"pax_picked_up": pax_picked_up, "notes": notes},
+            event_data=body.model_dump(),
+        )
+        await db.commit()
+        return result
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/pickup-rounds/{trip_id}/stops/{stop_id}/no-show", status_code=201)
+async def report_pickup_no_show(
+    trip_id: UUID,
+    stop_id: UUID,
+    body: PickupNoShowReport,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.pickup.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Report absent passengers at a pickup stop and alert operators."""
+    from app.services.modules.travelwiz_service import report_pickup_no_show as _report
+
+    try:
+        result = await _report(
+            db,
+            trip_id=trip_id,
+            stop_id=stop_id,
+            entity_id=entity_id,
+            event_data=body.model_dump(),
         )
         await db.commit()
         return result

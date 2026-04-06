@@ -4238,6 +4238,41 @@ async def test_download_external_ads_pdf_reuses_canonical_ads_ticket(monkeypatch
 
 
 @pytest.mark.asyncio
+async def test_build_ads_pdf_response_passes_entity_context_to_template(monkeypatch):
+    entity_id = uuid4()
+    ads = _build_ads(entity_id=entity_id)
+    db = FakeDB([
+        FakeResult(all_rows=[]),
+        FakeResult(first=("Aline", "Mukeba", "aline@example.com")),
+        FakeResult(first=("Onshore A",)),
+        FakeResult(first=("OpsFlux Public", "OPS")),
+    ])
+    captured = {}
+
+    async def fake_render_pdf(_db, *, slug, entity_id, language, variables):
+        captured["slug"] = slug
+        captured["entity_id"] = entity_id
+        captured["language"] = language
+        captured["variables"] = variables
+        return b"%PDF-1.4"
+
+    monkeypatch.setattr("app.core.pdf_templates.render_pdf", fake_render_pdf)
+
+    response = await paxlog._build_ads_pdf_response(
+        db,
+        ads=ads,
+        entity_id=entity_id,
+        language="fr",
+    )
+
+    assert response.media_type == "application/pdf"
+    assert captured["slug"] == "ads.ticket"
+    assert captured["entity_id"] == entity_id
+    assert captured["variables"]["entity"] == {"name": "OpsFlux Public", "code": "OPS"}
+    assert captured["variables"]["entity_name"] == "OpsFlux Public"
+
+
+@pytest.mark.asyncio
 async def test_list_external_credential_types_requires_external_session(monkeypatch):
     link = SimpleNamespace(id=uuid4())
     credential_types = [

@@ -4024,11 +4024,12 @@ async def _build_ads_pdf_response(
 
     # Load entity name
     entity_row = await db.execute(
-        sql_text("SELECT name FROM entities WHERE id = :eid"),
+        sql_text("SELECT name, code FROM entities WHERE id = :eid"),
         {"eid": entity_id},
     )
     entity = entity_row.first()
     entity_name = entity[0] if entity else "OpsFlux"
+    entity_code = entity[1] if entity and len(entity) > 1 else None
 
     variables = {
         "reference": ads.reference,
@@ -4043,6 +4044,10 @@ async def _build_ads_pdf_response(
         "requester_name": requester_name,
         "pax_count": len(passengers),
         "passengers": passengers,
+        "entity": {
+            "name": entity_name,
+            "code": entity_code,
+        },
         "entity_name": entity_name,
         "qr_data": ads.reference,
     }

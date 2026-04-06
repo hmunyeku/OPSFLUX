@@ -25,7 +25,7 @@ from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.core.pagination import PaginationParams, paginate
 from app.models.asset_registry import Installation
-from app.models.common import AuditLog, ImputationReference, Tier, TierContact, User
+from app.models.common import Attachment, AuditLog, ImputationReference, Tier, TierContact, User
 from app.services.core.fsm_service import fsm_service, FSMError
 from app.models.travelwiz import (
     CaptainLog,
@@ -334,12 +334,65 @@ async def _build_cargo_read_data(
     elif pickup_contact_name:
         pickup_contact_display_name = pickup_contact_name
 
+    attachment_result = await db.execute(
+        select(Attachment.content_type).where(
+            Attachment.owner_type == "cargo_item",
+            Attachment.owner_id == cargo.id,
+        )
+    )
+    attachment_types = [content_type for (content_type,) in attachment_result.all()]
+    image_count = sum(1 for content_type in attachment_types if isinstance(content_type, str) and content_type.startswith("image/"))
+    document_count = len(attachment_types) - image_count
+
     data["sender_name"] = sender_name
     data["destination_name"] = destination_name
     data["imputation_reference_code"] = imputation_reference_code
     data["imputation_reference_name"] = imputation_reference_name
     data["pickup_contact_display_name"] = pickup_contact_display_name
+    data["photo_evidence_count"] = max(int(getattr(cargo, "photo_evidence_count", 0) or 0), image_count)
+    data["document_attachment_count"] = max(int(getattr(cargo, "document_attachment_count", 0) or 0), document_count)
     return data
+
+
+def _assess_cargo_workflow_requirements(cargo: CargoItem | dict) -> dict:
+    def _value(key: str):
+        if isinstance(cargo, dict):
+            return cargo.get(key)
+        return getattr(cargo, key, None)
+
+    missing: list[str] = []
+    if not _value("description"):
+        missing.append("description")
+    if not _value("designation"):
+        missing.append("designation")
+    if not _value("weight_kg"):
+        missing.append("weight_kg")
+    if not _value("destination_asset_id"):
+        missing.append("destination_asset_id")
+    if not _value("pickup_location_label"):
+        missing.append("pickup_location_label")
+    if not (_value("pickup_contact_user_id") or _value("pickup_contact_tier_contact_id") or _value("pickup_contact_name")):
+        missing.append("pickup_contact")
+    if not _value("available_from"):
+        missing.append("available_from")
+    if not _value("imputation_reference_id"):
+        missing.append("imputation_reference_id")
+    if int(_value("photo_evidence_count") or 0) <= 0:
+        missing.append("photo_evidence")
+    if int(_value("document_attachment_count") or 0) <= 0:
+        missing.append("document_attachment")
+    if not _value("weight_ticket_provided"):
+        missing.append("weight_ticket")
+    cargo_type = _value("cargo_type")
+    if cargo_type == "hazmat" and not _value("hazmat_validated"):
+        missing.append("hazmat_validated")
+    if cargo_type in {"unit", "bulk", "hazmat"} and not _value("lifting_points_certified"):
+        missing.append("lifting_points_certified")
+
+    return {
+        "is_complete": len(missing) == 0,
+        "missing_requirements": missing,
+    }
 
 
 async def _generate_voyage_code(db: AsyncSession, entity_id: UUID) -> str:
@@ -1803,6 +1856,18 @@ async def update_cargo_workflow_status(
     db: AsyncSession = Depends(get_db),
 ):
     cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
+    current_payload = await _build_cargo_read_data(db, cargo)
+    if body.workflow_status in {"ready_for_review", "approved"}:
+        readiness = _assess_cargo_workflow_requirements(current_payload)
+        if not readiness["is_complete"]:
+            raise HTTPException(
+                400,
+                {
+                    "code": "CARGO_DOSSIER_INCOMPLETE",
+                    "message": "Le dossier cargo est incomplet pour cette étape workflow.",
+                    "missing_requirements": readiness["missing_requirements"],
+                },
+            )
     previous_status = cargo.workflow_status
     cargo.workflow_status = body.workflow_status
     await db.commit()

@@ -82,6 +82,9 @@ class FakeDB:
     async def flush(self):
         self.flushes += 1
 
+    async def refresh(self, _instance):
+        return None
+
     async def rollback(self):
         self.rollbacks += 1
 
@@ -251,6 +254,87 @@ async def test_on_voyage_delayed_notifies_admins_and_passengers(monkeypatch):
     assert notifications
     assert any(item["category"] == "travelwiz" for item in notifications)
     assert emails and emails[0]["slug"] == "travelwiz.voyage.delayed"
+
+
+@pytest.mark.asyncio
+async def test_list_package_elements_uses_current_package_element_model(monkeypatch):
+    cargo_id = uuid4()
+    entity_id = uuid4()
+    created_at = datetime.now(timezone.utc)
+    element = SimpleNamespace(
+        id=uuid4(),
+        package_id=cargo_id,
+        description="Pompe hydraulique",
+        quantity_sent=Decimal("2"),
+        unit_weight_kg=Decimal("5.5"),
+        sap_code="SAP-001",
+        created_at=created_at,
+    )
+    db = FakeDB([FakeResult(all_rows=[element])])
+
+    async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
+        return SimpleNamespace(id=_cargo_id)
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_or_404", fake_get_cargo_or_404)
+
+    result = await travelwiz_routes.list_package_elements(
+        cargo_id=cargo_id,
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        db=db,
+    )
+
+    assert result == [
+        {
+            "id": element.id,
+            "cargo_item_id": cargo_id,
+            "description": "Pompe hydraulique",
+            "quantity": 2,
+            "weight_kg": 5.5,
+            "sap_code": "SAP-001",
+            "created_at": created_at.isoformat(),
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_add_package_element_uses_package_element_model(monkeypatch):
+    cargo_id = uuid4()
+    entity_id = uuid4()
+    db = FakeDB([])
+
+    async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
+        return SimpleNamespace(id=_cargo_id)
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_or_404", fake_get_cargo_or_404)
+
+    result = await travelwiz_routes.add_package_element(
+        cargo_id=cargo_id,
+        description="  Moteur auxiliaire  ",
+        quantity=3,
+        weight_kg=12.5,
+        sap_code=" SAP-77 ",
+        notes="  Controle retour  ",
+        entity_id=entity_id,
+        _=None,
+        db=db,
+    )
+
+    assert len(db.added) == 1
+    added = db.added[0]
+    assert added.package_id == cargo_id
+    assert added.description == "Moteur auxiliaire"
+    assert added.quantity_sent == Decimal("3")
+    assert added.unit_weight_kg == Decimal("12.5")
+    assert added.sap_code == "SAP-77"
+    assert added.management_type == "manual"
+    assert added.unit_of_measure == "unit"
+    assert added.return_notes == "Controle retour"
+    assert db.flushes == 1
+    assert db.commits == 1
+    assert result["cargo_item_id"] == cargo_id
+    assert result["quantity"] == 3
+    assert result["weight_kg"] == 12.5
 
 
 @pytest.mark.asyncio

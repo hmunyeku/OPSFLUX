@@ -10,6 +10,7 @@ import csv
 import io
 import logging
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
@@ -29,6 +30,7 @@ from app.models.travelwiz import (
     CaptainLog,
     CargoItem,
     ManifestPassenger,
+    PackageElement,
     PickupRound,
     PickupStopAssignment,
     PickupStop,
@@ -97,6 +99,26 @@ VOYAGE_ENTITY_TYPE = "voyage"
 
 def _normalize_article_description(description: str) -> str:
     return " ".join(description.strip().lower().split())
+
+
+def _serialize_package_element(element: PackageElement) -> dict:
+    quantity_value = float(element.quantity_sent) if element.quantity_sent is not None else 0.0
+    if quantity_value.is_integer():
+        quantity_value = int(quantity_value)
+
+    return {
+        "id": element.id,
+        "cargo_item_id": element.package_id,
+        "description": element.description,
+        "quantity": quantity_value,
+        "weight_kg": float(element.unit_weight_kg) if element.unit_weight_kg is not None else None,
+        "sap_code": element.sap_code,
+        "created_at": (
+            element.created_at.isoformat()
+            if getattr(element, "created_at", None) is not None
+            else datetime.now(timezone.utc).isoformat()
+        ),
+    }
 
 
 def _parse_csv_bool(value: str | None) -> bool:
@@ -1994,33 +2016,12 @@ async def list_package_elements(
 ):
     """List elements of a package-type cargo item."""
     await _get_cargo_or_404(db, cargo_id, entity_id)
-    from sqlalchemy import text
-    try:
-        result = await db.execute(
-            text(
-                "SELECT id, cargo_item_id, description, quantity, weight_kg, "
-                "  sap_code, notes "
-                "FROM cargo_package_elements "
-                "WHERE cargo_item_id = :cid "
-                "ORDER BY description"
-            ),
-            {"cid": str(cargo_id)},
-        )
-        return [
-            {
-                "id": row[0],
-                "cargo_item_id": row[1],
-                "description": row[2],
-                "quantity": row[3],
-                "weight_kg": row[4],
-                "sap_code": row[5],
-                "notes": row[6],
-            }
-            for row in result.all()
-        ]
-    except Exception as e:
-        logger.debug("cargo_package_elements query failed: %s", e)
-        return []
+    result = await db.execute(
+        select(PackageElement)
+        .where(PackageElement.package_id == cargo_id)
+        .order_by(PackageElement.description.asc())
+    )
+    return [_serialize_package_element(element) for element in result.scalars().all()]
 
 
 @router.post("/cargo/{cargo_id}/elements", status_code=201)
@@ -2037,37 +2038,31 @@ async def add_package_element(
 ):
     """Add an element to a package-type cargo item."""
     await _get_cargo_or_404(db, cargo_id, entity_id)
-    from sqlalchemy import text
-    try:
-        result = await db.execute(
-            text(
-                "INSERT INTO cargo_package_elements "
-                "(cargo_item_id, description, quantity, weight_kg, sap_code, notes) "
-                "VALUES (:cid, :desc, :qty, :wkg, :sap, :notes) "
-                "RETURNING id"
-            ),
-            {
-                "cid": str(cargo_id),
-                "desc": description,
-                "qty": quantity,
-                "wkg": weight_kg,
-                "sap": sap_code,
-                "notes": notes,
-            },
-        )
-        new_id = result.scalar()
-        await db.commit()
-        return {
-            "id": new_id,
-            "cargo_item_id": cargo_id,
-            "description": description,
-            "quantity": quantity,
-            "weight_kg": weight_kg,
-            "sap_code": sap_code,
-            "notes": notes,
-        }
-    except Exception as e:
-        raise HTTPException(500, f"Failed to add package element: {e}")
+    normalized_description = description.strip()
+    if not normalized_description:
+        raise HTTPException(400, "Description is required")
+    if quantity <= 0:
+        raise HTTPException(400, "Quantity must be greater than zero")
+
+    normalized_sap_code = sap_code.strip() if isinstance(sap_code, str) and sap_code.strip() else None
+    normalized_notes = notes.strip() if isinstance(notes, str) and notes.strip() else None
+
+    element = PackageElement(
+        package_id=cargo_id,
+        description=normalized_description,
+        quantity_sent=Decimal(str(quantity)),
+        unit_weight_kg=Decimal(str(weight_kg)) if weight_kg is not None else None,
+        sap_code=normalized_sap_code,
+        sap_code_status="matched" if normalized_sap_code else "unknown",
+        management_type="manual",
+        unit_of_measure="unit",
+        return_notes=normalized_notes,
+    )
+    db.add(element)
+    await db.flush()
+    await db.commit()
+    await db.refresh(element)
+    return _serialize_package_element(element)
 
 
 @router.post("/cargo/sap-match")

@@ -568,6 +568,16 @@ export function useCreateArticle() {
   })
 }
 
+export function useImportArticlesCsv() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => travelwizService.importArticlesCsv(file),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'articles'] })
+    },
+  })
+}
+
 // ── Capacity ──
 
 export function useVoyageCapacity(voyageId: string | undefined) {

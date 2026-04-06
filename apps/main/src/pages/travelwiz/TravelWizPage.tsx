@@ -4,7 +4,7 @@
  * Static Panel: tab bar + DataTable per tab.
  * Dynamic Panel: create/detail forms per entity.
  */
-import { useState, useCallback, useMemo, Component, type ReactNode, type ErrorInfo } from 'react'
+import { useState, useCallback, useMemo, useRef, Component, type ReactNode, type ErrorInfo } from 'react'
 import {
   Plane, Ship, Package, FileText, Plus, LayoutDashboard,
   Anchor, Truck, Users, ArrowRight, Calendar, Weight,
@@ -70,6 +70,7 @@ import {
   useValidateManifest,
   useArticles,
   useCreateArticle,
+  useImportArticlesCsv,
   useTripsToday,
   useFleetKpis,
   usePickupRounds,
@@ -1390,14 +1391,21 @@ function WeatherTab() {
 
 export function TravelWizPage() {
   const [activeTab, setActiveTab] = useState<TravelWizTab>('dashboard')
+  const articleImportInputRef = useRef<HTMLInputElement | null>(null)
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
+  const importArticlesCsv = useImportArticlesCsv()
+  const { toast } = useToast()
 
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'travelwiz'
 
   const { hasPermission } = usePermission()
-  const canCreate = hasPermission('travelwiz.voyage.create')
+  const canCreate =
+    activeTab === 'voyages' ? hasPermission('travelwiz.voyage.create')
+      : activeTab === 'vectors' ? hasPermission('travelwiz.vector.create')
+        : activeTab === 'cargo' || activeTab === 'articles' ? hasPermission('travelwiz.cargo.create')
+          : false
 
   const handleCreate = useCallback(() => {
     if (activeTab === 'voyages') openDynamicPanel({ type: 'create', module: 'travelwiz', meta: { subtype: 'voyage' } })
@@ -1414,14 +1422,51 @@ export function TravelWizPage() {
             : ''
 
   const showCreate = ['voyages', 'vectors', 'cargo', 'articles'].includes(activeTab)
+  const showArticleImport = activeTab === 'articles' && hasPermission('travelwiz.cargo.create')
+
+  const handleImportArticlesClick = useCallback(() => {
+    articleImportInputRef.current?.click()
+  }, [])
+
+  const handleArticleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    try {
+      const result = await importArticlesCsv.mutateAsync(file)
+      toast({
+        title: `Import CSV terminé: ${result.imported} créés, ${result.updated} mis à jour`,
+        description: result.errors.length ? `${result.errors.length} ligne(s) rejetée(s)` : undefined,
+        variant: result.errors.length ? 'warning' : 'success',
+      })
+    } catch {
+      toast({ title: 'Erreur lors de l’import CSV des articles', variant: 'error' })
+    } finally {
+      event.target.value = ''
+    }
+  }, [importArticlesCsv, toast])
 
   return (
     <div className="flex h-full">
       {!isFullPanel && (
         <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
           <PanelHeader icon={Plane} title="TravelWiz" subtitle="Transport et logistique">
+            {showArticleImport && (
+              <ToolbarButton
+                icon={FileText}
+                label={importArticlesCsv.isPending ? 'Import en cours…' : 'Importer CSV'}
+                onClick={handleImportArticlesClick}
+                disabled={importArticlesCsv.isPending}
+              />
+            )}
             {showCreate && canCreate && <ToolbarButton icon={Plus} label={createLabel} variant="primary" onClick={handleCreate} />}
           </PanelHeader>
+          <input
+            ref={articleImportInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={handleArticleFileChange}
+          />
 
           {/* Tab bar */}
           <div className="flex items-center gap-1 border-b border-border px-3.5 h-9 shrink-0">

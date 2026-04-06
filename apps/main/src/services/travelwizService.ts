@@ -17,7 +17,7 @@ import type {
   TripKpi,
   DeckLayout, DeckLayoutValidation,
   PackageElement, PackageElementCreate,
-  TravelArticle, TravelArticleCreate, SapMatchResult,
+  TravelArticle, TravelArticleCreate, TravelArticleImportResult, SapMatchResult,
   CaptainAuth, CaptainManifest,
   TravelDashboardTripsToday, TravelDashboardCargoPending, TravelFleetKpi,
   FleetPositionResponse, VehicleTrack,
@@ -27,6 +27,30 @@ import type {
 } from '@/types/api'
 
 const BASE = '/api/v1/travelwiz'
+
+function normalizeTravelArticle(data: Record<string, unknown>): TravelArticle {
+  return {
+    id: String(data.id),
+    entity_id: typeof data.entity_id === 'string' ? data.entity_id : undefined,
+    sap_code: String(data.sap_code ?? ''),
+    description: String(data.description ?? data.description_fr ?? ''),
+    management_type: typeof data.management_type === 'string' ? data.management_type : null,
+    packaging: typeof data.packaging === 'string'
+      ? data.packaging
+      : typeof data.packaging_type === 'string'
+        ? data.packaging_type
+        : null,
+    is_hazmat: Boolean(data.is_hazmat),
+    hazmat_class: typeof data.hazmat_class === 'string' ? data.hazmat_class : null,
+    unit: typeof data.unit === 'string'
+      ? data.unit
+      : typeof data.unit_of_measure === 'string'
+        ? data.unit_of_measure
+        : null,
+    active: typeof data.active === 'boolean' ? data.active : true,
+    created_at: typeof data.created_at === 'string' ? data.created_at : new Date().toISOString(),
+  }
+}
 
 interface VectorListParams extends PaginationParams {
   type?: string
@@ -341,11 +365,35 @@ export const travelwizService = {
   // ── Articles ──
   listArticles: async (params: ArticleListParams = {}): Promise<PaginatedResponse<TravelArticle>> => {
     const { data } = await api.get(`${BASE}/articles`, { params })
-    return data
+    if (Array.isArray(data)) {
+      const items = data.map((item) => normalizeTravelArticle(item))
+      return {
+        items,
+        total: items.length,
+        page: 1,
+        page_size: items.length || 1,
+        pages: 1,
+      }
+    }
+    return {
+      ...data,
+      items: Array.isArray(data.items)
+        ? data.items.map((item: Record<string, unknown>) => normalizeTravelArticle(item))
+        : [],
+    }
   },
 
   createArticle: async (payload: TravelArticleCreate): Promise<TravelArticle> => {
     const { data } = await api.post(`${BASE}/articles`, payload)
+    return normalizeTravelArticle(data)
+  },
+
+  importArticlesCsv: async (file: File): Promise<TravelArticleImportResult> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const { data } = await api.post(`${BASE}/articles/import-csv`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
     return data
   },
 

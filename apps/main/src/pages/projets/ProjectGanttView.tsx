@@ -1021,7 +1021,7 @@ export function ProjectGanttView() {
 
           {/* ── Today line ───────────────────────────────────── */}
           {todayDays >= 0 && todayDays <= totalDays && (
-            <div className="absolute top-0 bottom-0 w-[2px] bg-primary z-[15] pointer-events-none" style={{ left: pw + todayPx }} />
+            <div className="absolute top-0 bottom-0 w-px bg-primary/40 z-[15] pointer-events-none" style={{ left: pw + todayPx }} />
           )}
 
           {/* ── Project rows ─────────────────────────────────── */}

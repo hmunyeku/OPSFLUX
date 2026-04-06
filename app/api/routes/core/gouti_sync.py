@@ -85,6 +85,7 @@ class SingleProjectSyncResult(BaseModel):
     local_id: str
     action: str  # "created" | "updated"
     reports_synced: int
+    tasks_synced: int = 0
     errors: list[str]
 
 
@@ -1481,6 +1482,19 @@ async def sync_single_project(
         logger.warning("Gouti single sync — %s", msg)
         errors.append(msg)
 
+    # ── Also re-import tasks (hierarchy, milestones, dates) ──
+    tasks_synced = 0
+    try:
+        tasks_synced = await _import_project_tasks(
+            db, entity_id, project.id, project_id, connector,
+            task_selection={"mode": "all", "task_ids": []},
+            current_user_id=current_user.id,
+        )
+    except Exception as exc:
+        msg = f"Erreur import tâches Gouti pour projet {project_id}: {str(exc)[:200]}"
+        logger.warning("Gouti single sync — %s", msg)
+        errors.append(msg)
+
     try:
         await db.commit()
         await db.refresh(project)
@@ -1497,8 +1511,8 @@ async def sync_single_project(
     await db.commit()
 
     logger.info(
-        "Gouti single sync — project=%s action=%s reports=%d (user=%s)",
-        project_id, action, reports_synced, current_user.id,
+        "Gouti single sync — project=%s action=%s reports=%d tasks=%d (user=%s)",
+        project_id, action, reports_synced, tasks_synced, current_user.id,
     )
 
     return SingleProjectSyncResult(
@@ -1506,5 +1520,6 @@ async def sync_single_project(
         local_id=str(project.id),
         action=action,
         reports_synced=reports_synced,
+        tasks_synced=tasks_synced,
         errors=errors,
     )

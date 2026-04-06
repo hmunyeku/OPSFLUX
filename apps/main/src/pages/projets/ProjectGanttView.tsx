@@ -21,12 +21,12 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
-import { useProjects, useProjectTasks, useProjectMilestones, useProjectCpm } from '@/hooks/useProjets'
+import { useProjects, useProjectTasks, useProjectMilestones, useProjectCpm, useTaskDependencies } from '@/hooks/useProjets'
 import { projetsService, isGoutiProject } from '@/services/projetsService'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useToast } from '@/components/ui/Toast'
 import { useUserPreferences } from '@/hooks/useUserPreferences'
-import type { Project, ProjectTask } from '@/types/api'
+import type { Project, ProjectTask, TaskDependency } from '@/types/api'
 
 // ═══════════════════════════════════════════════════════════════════════
 // Time scale engine
@@ -271,6 +271,7 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
   const { data: tasks } = useProjectTasks(project.id)
   const { data: milestones } = useProjectMilestones(project.id)
   const { data: cpm } = useProjectCpm(project.id)
+  const { data: deps } = useTaskDependencies(project.id)
   const { toast } = useToast()
   const [tip, setTip] = useState<{ title: string; lines: [string, string][]; x: number; y: number } | null>(null)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -312,6 +313,21 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
       const offsetDays = Math.floor((e.clientX - rect.left) / ppd)
       const newStart = addD(vs, offsetDays)
       await projetsService.updateTask(project.id, id, { start_date: newStart, due_date: addD(newStart, dur) })
+      // Propagate to parent: if this task has a parent, update parent's dates
+      // to span min(children.start) → max(children.end)
+      const task = filteredTasks.find(t => t.id === id)
+      if (task?.parent_id) {
+        const siblings = filteredTasks.filter(t => t.parent_id === task.parent_id)
+        const allStarts = siblings.map(t => t.id === id ? newStart : t.start_date?.split('T')[0]).filter(Boolean) as string[]
+        const allEnds = siblings.map(t => t.id === id ? addD(newStart, dur) : t.due_date?.split('T')[0]).filter(Boolean) as string[]
+        if (allStarts.length && allEnds.length) {
+          const minStart = allStarts.sort()[0]
+          const maxEnd = allEnds.sort().reverse()[0]
+          try {
+            await projetsService.updateTask(project.id, task.parent_id, { start_date: minStart, due_date: maxEnd })
+          } catch { /* parent update is best-effort */ }
+        }
+      }
       toast({ title: 'Tâche replanifiée', variant: 'success' })
     } catch { toast({ title: 'Erreur', variant: 'error' }) }
   }, [project.id, toast, ppd, vs])
@@ -457,6 +473,72 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
   for (const r of roots) markRendered(r.id)
   const orphans = filteredTasks.filter(t => !rendered.has(t.id))
 
+  // Build visible row order for dependency arrow Y positions
+  const visibleRows = useMemo(() => {
+    const rows: string[] = []
+    const walk = (parentId: string | null) => {
+      for (const t of (tree.get(parentId) || [])) {
+        rows.push(t.id)
+        if (!collapsed.has(t.id)) walk(t.id)
+      }
+    }
+    walk(null)
+    // Orphans
+    for (const t of orphans) {
+      rows.push(t.id)
+    }
+    return rows
+  }, [tree, collapsed, orphans])
+
+  const rowIndex = useMemo(() => {
+    const m = new Map<string, number>()
+    visibleRows.forEach((id, i) => m.set(id, i))
+    return m
+  }, [visibleRows])
+
+  // Task position map for arrows: id → { endX, centerY } for "from" and { startX, centerY } for "to"
+  const taskPositions = useMemo(() => {
+    const m = new Map<string, { startX: number; endX: number; centerY: number }>()
+    for (const t of filteredTasks) {
+      const idx = rowIndex.get(t.id)
+      if (idx === undefined) continue
+      const centerY = idx * rowH + rowH / 2
+      if (t.start_date && t.due_date) {
+        const bar = computeBar(vs, t.start_date.split('T')[0], t.due_date.split('T')[0], ppd, totalPx / ppd)
+        if (bar) {
+          m.set(t.id, { startX: bar.left, endX: bar.left + bar.width, centerY })
+          continue
+        }
+      }
+      // No bar visible — position at 0
+      m.set(t.id, { startX: 0, endX: 0, centerY })
+    }
+    return m
+  }, [filteredTasks, rowIndex, rowH, vs, ppd, totalPx])
+
+  // Dependency arrows as SVG paths
+  const depArrows = useMemo(() => {
+    if (!deps || deps.length === 0) return []
+    const arrows: { key: string; path: string; isCritical: boolean }[] = []
+    for (const d of deps as TaskDependency[]) {
+      const from = taskPositions.get(d.from_task_id)
+      const to = taskPositions.get(d.to_task_id)
+      if (!from || !to) continue
+      // FS: arrow from end of predecessor to start of successor
+      const x1 = from.endX; const y1 = from.centerY
+      const x2 = to.startX; const y2 = to.centerY
+      if (x1 === 0 && x2 === 0) continue // both out of view
+      // Bezier curve
+      const dx = Math.abs(x2 - x1) / 2
+      const path = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`
+      const isCritical = critSet.has(d.from_task_id) && critSet.has(d.to_task_id)
+      arrows.push({ key: d.id, path, isCritical })
+    }
+    return arrows
+  }, [deps, taskPositions, critSet])
+
+  const totalHeight = visibleRows.length * rowH + ((milestones || []).filter(ms => ms.due_date).length * rowH)
+
   return (
     <>
       {roots.flatMap(r => renderTask(r, 1))}
@@ -476,6 +558,35 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
           </div>
         )
       })}
+      {/* Dependency arrows SVG overlay */}
+      {depArrows.length > 0 && (
+        <svg
+          className="absolute pointer-events-none z-[12]"
+          style={{ left: pw, top: 0, width: totalPx, height: totalHeight }}
+          viewBox={`0 0 ${totalPx} ${totalHeight}`}
+          fill="none"
+        >
+          <defs>
+            <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
+              <polygon points="0 0, 6 2, 0 4" fill="#6b7280" />
+            </marker>
+            <marker id="arrowhead-crit" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
+              <polygon points="0 0, 6 2, 0 4" fill="#ef4444" />
+            </marker>
+          </defs>
+          {depArrows.map(a => (
+            <path
+              key={a.key}
+              d={a.path}
+              stroke={a.isCritical ? '#ef4444' : '#6b7280'}
+              strokeWidth={a.isCritical ? 1.5 : 1}
+              strokeDasharray={a.isCritical ? undefined : '4 2'}
+              opacity={0.6}
+              markerEnd={a.isCritical ? 'url(#arrowhead-crit)' : 'url(#arrowhead)'}
+            />
+          ))}
+        </svg>
+      )}
       {tip && <Tip {...tip} />}
     </>
   )

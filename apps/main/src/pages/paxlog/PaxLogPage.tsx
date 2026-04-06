@@ -4441,7 +4441,7 @@ function AvmDetailPanel({ id }: { id?: string }) {
   const visaTypeOptions = useDictionaryOptions('visa_type')
   const currencyOptions = useDictionaryOptions('currency')
 
-  const { data: avm, isLoading } = useAvm(id || '')
+  const { data: avm, isLoading, isError, error } = useAvm(id || '')
   const { data: avmUsers } = useUsers({ page: 1, page_size: 200, active: true })
   const [showModifyForm, setShowModifyForm] = useState(false)
   const [taskDrafts, setTaskDrafts] = useState<Record<string, MissionPreparationTaskUpdate>>({})
@@ -4508,10 +4508,19 @@ function AvmDetailPanel({ id }: { id?: string }) {
       </DynamicPanelShell>
     )
   }
-  if (!avm) {
+  if (isError || !avm) {
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : t('common.error')
     return (
       <DynamicPanelShell title={t('paxlog.avm_detail.not_found_title')} icon={<Briefcase size={14} className="text-primary" />}>
-        <PanelContent><p className="p-4 text-sm text-muted-foreground">{t('paxlog.avm_detail.not_found_message')}</p></PanelContent>
+        <PanelContent>
+          <div className="p-4 space-y-2">
+            <p className="text-sm text-muted-foreground">{t('paxlog.avm_detail.not_found_message')}</p>
+            <p className="text-xs text-muted-foreground">{message}</p>
+          </div>
+        </PanelContent>
       </DynamicPanelShell>
     )
   }

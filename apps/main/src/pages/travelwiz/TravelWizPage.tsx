@@ -81,8 +81,8 @@ import {
   useClosePickupRound,
   useLatestWeather,
   useRotations,
-  // useCreateRotation,
-  // useUpdateRotation,
+  useCreateRotation,
+  useUpdateRotation,
 } from '@/hooks/useTravelWiz'
 import { usePermission } from '@/hooks/usePermission'
 import { FleetMap } from '@/components/travelwiz/FleetMap'
@@ -90,7 +90,7 @@ import type {
   VoyageCreate, VoyageUpdate,
   TravelVectorCreate, TravelVectorUpdate,
   CargoItemCreate, CargoItemUpdate,
-  // RotationCreate, RotationUpdate,
+  RotationCreate, RotationUpdate,
   TravelArticleCreate,
 } from '@/types/api'
 
@@ -407,6 +407,7 @@ function VoyagesTab() {
   const canDelete = hasPermission('travelwiz.voyage.delete')
   const canExport = hasPermission('travelwiz.voyage.read')
   const canImport = hasPermission('travelwiz.voyage.create')
+  const { data: rotationsData, isLoading: loadingRotations } = useRotations({ page: 1, page_size: 100 })
 
   const { data, isLoading } = useVoyages({
     page,
@@ -416,6 +417,7 @@ function VoyagesTab() {
   })
 
   const items: AnyRow[] = data?.items ?? []
+  const rotations: AnyRow[] = rotationsData?.items ?? []
   const total = data?.total ?? 0
 
   const stats = useMemo(() => {
@@ -423,8 +425,8 @@ function VoyagesTab() {
     const inProgress = items.filter((v: AnyRow) => ['boarding', 'departed'].includes(v.status)).length
     const arrived = items.filter((v: AnyRow) => v.status === 'arrived').length
     const totalPax = items.reduce((sum: number, v: AnyRow) => sum + (v.pax_count ?? 0), 0)
-    return { planned, inProgress, arrived, totalPax }
-  }, [items])
+    return { planned, inProgress, arrived, totalPax, rotations: rotations.length }
+  }, [items, rotations.length])
 
   const columns = useMemo<ColumnDef<AnyRow, unknown>[]>(() => [
     {
@@ -518,7 +520,7 @@ function VoyagesTab() {
         <StatCard label="Planifiés" value={stats.planned} icon={Calendar} />
         <StatCard label="En cours" value={stats.inProgress} icon={Plane} />
         <StatCard label="Arrivés" value={stats.arrived} icon={Anchor} />
-        <StatCard label="PAX total" value={stats.totalPax} icon={Users} />
+        <StatCard label="Rotations actives" value={stats.rotations} icon={Route} />
       </div>
 
       <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
@@ -566,6 +568,58 @@ function VoyagesTab() {
           } : undefined}
           storageKey="travelwiz-voyages"
         />
+
+        <div className="mt-5 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Programmations récurrentes</h3>
+              <p className="text-xs text-muted-foreground">
+                Les rotations définissent les voyages périodiques par vecteur, base et cadence.
+              </p>
+            </div>
+            {canImport && (
+              <button
+                className="gl-button-sm gl-button-primary text-xs"
+                onClick={() => openDynamicPanel({ type: 'create', module: 'travelwiz', meta: { subtype: 'rotation' } })}
+              >
+                <Plus size={10} className="mr-1" />
+                Nouvelle rotation
+              </button>
+            )}
+          </div>
+          {loadingRotations ? (
+            <div className="flex items-center justify-center rounded-lg border border-border bg-card py-8">
+              <Loader2 size={16} className="animate-spin text-muted-foreground" />
+            </div>
+          ) : rotations.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border bg-card px-4 py-6 text-sm text-muted-foreground">
+              Aucune rotation configurée. Créez une rotation pour programmer des voyages récurrents sans ressaisie manuelle.
+            </div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {rotations.map((rotation) => (
+                <button
+                  key={rotation.id}
+                  type="button"
+                  onClick={() => openDynamicPanel({ type: 'detail', module: 'travelwiz', id: rotation.id, meta: { subtype: 'rotation' } })}
+                  className="rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-muted/30"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{rotation.name}</p>
+                      <p className="text-xs text-muted-foreground mt-1 truncate">{rotation.vector_name ?? 'Vecteur non résolu'}</p>
+                    </div>
+                    <span className="gl-badge gl-badge-neutral shrink-0">Rotation</span>
+                  </div>
+                  <div className="mt-3 space-y-1.5 text-xs text-muted-foreground">
+                    <p><span className="text-foreground font-medium">Base:</span> {rotation.departure_base_name ?? '—'}</p>
+                    <p><span className="text-foreground font-medium">Cadence:</span> {rotation.schedule_description ?? rotation.schedule_cron ?? '—'}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </PanelContent>
     </>
   )
@@ -1515,10 +1569,12 @@ export function TravelWizPage() {
       )}
 
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'voyage' && <CreateVoyagePanel />}
+      {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'rotation' && <CreateRotationPanel />}
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'vector' && <CreateVectorPanel />}
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'cargo' && <CreateCargoPanel />}
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'article' && <CreateArticlePanel />}
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'voyage' && <VoyageDetailPanel id={(dynamicPanel as { id: string }).id} />}
+      {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'rotation' && <RotationDetailPanel id={(dynamicPanel as { id: string }).id} />}
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'vector' && <VectorDetailPanel id={(dynamicPanel as { id: string }).id} />}
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'cargo' && <CargoDetailPanel id={(dynamicPanel as { id: string }).id} />}
     </div>
@@ -1641,6 +1697,116 @@ function CreateVoyagePanel() {
                 />
               </DynamicPanelField>
             </FormGrid>
+          </FormSection>
+        </PanelContentLayout>
+      </form>
+    </DynamicPanelShell>
+  )
+}
+
+function CreateRotationPanel() {
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const createRotation = useCreateRotation()
+  const { data: vectorsData } = useVectors({ page: 1, page_size: 100 })
+  const { toast } = useToast()
+  const [form, setForm] = useState<RotationCreate>({
+    name: '',
+    vector_id: '',
+    departure_base_id: '',
+    schedule_cron: null,
+    schedule_description: null,
+  })
+  const vectors = vectorsData?.items ?? []
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      await createRotation.mutateAsync(form)
+      toast({ title: 'Rotation créée avec succès', variant: 'success' })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: 'Erreur lors de la création de la rotation', variant: 'error' })
+    }
+  }
+
+  return (
+    <DynamicPanelShell
+      title="Nouvelle rotation"
+      subtitle="Programmation récurrente TravelWiz"
+      icon={<Route size={14} className="text-primary" />}
+      actions={<>
+        <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
+        <PanelActionButton
+          variant="primary"
+          disabled={createRotation.isPending}
+          onClick={() => (document.getElementById('create-rotation-form') as HTMLFormElement)?.requestSubmit()}
+        >
+          {createRotation.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
+        </PanelActionButton>
+      </>}
+    >
+      <form id="create-rotation-form" onSubmit={handleSubmit}>
+        <PanelContentLayout>
+          <FormSection title="Identification">
+            <FormGrid>
+              <DynamicPanelField label="Nom" required>
+                <input
+                  type="text"
+                  required
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className={panelInputClass}
+                  placeholder="Rotation Pointe-Noire Hebdo"
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label="Vecteur" required>
+                <select
+                  required
+                  value={form.vector_id}
+                  onChange={(e) => setForm({ ...form, vector_id: e.target.value })}
+                  className={panelInputClass}
+                >
+                  <option value="">Sélectionner un vecteur...</option>
+                  {vectors.map((vector) => (
+                    <option key={vector.id} value={vector.id}>
+                      {vector.registration} - {vector.name}
+                    </option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Base de départ" required span="full">
+                <AssetPicker
+                  value={form.departure_base_id || null}
+                  onChange={(assetId) => setForm({ ...form, departure_base_id: assetId ?? '' })}
+                  placeholder="Sélectionner la base de départ..."
+                />
+              </DynamicPanelField>
+            </FormGrid>
+          </FormSection>
+          <FormSection title="Périodicité">
+            <FormGrid>
+              <DynamicPanelField label="Expression CRON">
+                <input
+                  type="text"
+                  value={form.schedule_cron ?? ''}
+                  onChange={(e) => setForm({ ...form, schedule_cron: e.target.value || null })}
+                  className={panelInputClass}
+                  placeholder="0 6 * * 1"
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label="Description métier" span="full">
+                <textarea
+                  value={form.schedule_description ?? ''}
+                  onChange={(e) => setForm({ ...form, schedule_description: e.target.value || null })}
+                  className={`${panelInputClass} min-h-[72px] resize-y`}
+                  rows={3}
+                  placeholder="Tous les lundis à 06h00 depuis la base de départ."
+                />
+              </DynamicPanelField>
+            </FormGrid>
+            <p className="text-xs text-muted-foreground">
+              La rotation définit la cadence nominale. Les voyages opérationnels restent des occurrences concrètes générées ou planifiées sur cette base.
+            </p>
           </FormSection>
         </PanelContentLayout>
       </form>
@@ -2481,6 +2647,128 @@ function VectorDetailPanel({ id }: { id: string }) {
                   ))}
                 </div>
               ) : <p className="text-xs text-muted-foreground py-2">Aucune zone configuree.</p>}
+            </FormSection>
+          </>
+        )}
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
+function RotationDetailPanel({ id }: { id: string }) {
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const { data: rotationsData, isLoading } = useRotations({ page: 1, page_size: 100 })
+  const { data: vectorsData } = useVectors({ page: 1, page_size: 100 })
+  const updateRotation = useUpdateRotation()
+  const { toast } = useToast()
+  const [editing, setEditing] = useState(false)
+  const [editForm, setEditForm] = useState<RotationUpdate>({})
+
+  const rotation = useMemo(
+    () => (rotationsData?.items ?? []).find((item) => item.id === id),
+    [rotationsData?.items, id],
+  )
+
+  const startEdit = useCallback(() => {
+    if (!rotation) return
+    setEditForm({
+      name: rotation.name,
+      vector_id: rotation.vector_id,
+      departure_base_id: rotation.departure_base_id,
+      schedule_cron: rotation.schedule_cron,
+      schedule_description: rotation.schedule_description,
+      active: rotation.active,
+    })
+    setEditing(true)
+  }, [rotation])
+
+  const handleSave = async () => {
+    try {
+      await updateRotation.mutateAsync({ id, payload: editForm })
+      toast({ title: 'Rotation mise à jour', variant: 'success' })
+      setEditing(false)
+    } catch {
+      toast({ title: 'Erreur lors de la mise à jour', variant: 'error' })
+    }
+  }
+
+  if (isLoading || !rotation) {
+    return (
+      <DynamicPanelShell title="Chargement..." icon={<Route size={14} className="text-primary" />}>
+        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+      </DynamicPanelShell>
+    )
+  }
+
+  return (
+    <DynamicPanelShell
+      title={rotation.name}
+      subtitle={rotation.vector_name ?? 'Rotation TravelWiz'}
+      icon={<Route size={14} className="text-primary" />}
+      actions={<>
+        {!editing && <PanelActionButton onClick={startEdit} icon={<Pencil size={12} />}>Modifier</PanelActionButton>}
+        {editing && <>
+          <PanelActionButton onClick={() => setEditing(false)}>Annuler</PanelActionButton>
+          <PanelActionButton variant="primary" onClick={handleSave} disabled={updateRotation.isPending} icon={<Save size={12} />}>
+            {updateRotation.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
+          </PanelActionButton>
+        </>}
+        {!editing && <PanelActionButton onClick={closeDynamicPanel}>Fermer</PanelActionButton>}
+      </>}
+    >
+      <PanelContentLayout>
+        {editing ? (
+          <>
+            <FormSection title="Identification">
+              <FormGrid>
+                <DynamicPanelField label="Nom">
+                  <input type="text" value={editForm.name ?? ''} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className={panelInputClass} />
+                </DynamicPanelField>
+                <DynamicPanelField label="Vecteur">
+                  <select value={editForm.vector_id ?? ''} onChange={(e) => setEditForm({ ...editForm, vector_id: e.target.value || null })} className={panelInputClass}>
+                    <option value="">Sélectionner...</option>
+                    {(vectorsData?.items ?? []).map((vector) => (
+                      <option key={vector.id} value={vector.id}>{vector.registration} - {vector.name}</option>
+                    ))}
+                  </select>
+                </DynamicPanelField>
+                <DynamicPanelField label="Base de départ" span="full">
+                  <AssetPicker
+                    value={editForm.departure_base_id ?? null}
+                    onChange={(assetId) => setEditForm({ ...editForm, departure_base_id: assetId ?? null })}
+                    placeholder="Sélectionner la base de départ..."
+                  />
+                </DynamicPanelField>
+              </FormGrid>
+            </FormSection>
+            <FormSection title="Programmation">
+              <FormGrid>
+                <DynamicPanelField label="Expression CRON">
+                  <input type="text" value={editForm.schedule_cron ?? ''} onChange={(e) => setEditForm({ ...editForm, schedule_cron: e.target.value || null })} className={panelInputClass} />
+                </DynamicPanelField>
+                <DynamicPanelField label="Description métier" span="full">
+                  <textarea value={editForm.schedule_description ?? ''} onChange={(e) => setEditForm({ ...editForm, schedule_description: e.target.value || null })} className={`${panelInputClass} min-h-[72px] resize-y`} rows={3} />
+                </DynamicPanelField>
+                <DynamicPanelField label="Active">
+                  <label className="inline-flex items-center gap-2 text-xs">
+                    <input type="checkbox" checked={editForm.active ?? true} onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })} />
+                    Rotation active
+                  </label>
+                </DynamicPanelField>
+              </FormGrid>
+            </FormSection>
+          </>
+        ) : (
+          <>
+            <FormSection title="Identification">
+              <DetailRow label="Nom" value={rotation.name} />
+              <DetailRow label="Vecteur" value={rotation.vector_name ?? '—'} />
+              <DetailRow label="Base de départ" value={rotation.departure_base_name ?? '—'} />
+              <DetailRow label="Active" value={rotation.active ? 'Oui' : 'Non'} />
+            </FormSection>
+            <FormSection title="Programmation">
+              <DetailRow label="Expression CRON" value={rotation.schedule_cron ?? '—'} />
+              <DetailRow label="Description métier" value={rotation.schedule_description ?? '—'} />
             </FormSection>
           </>
         )}

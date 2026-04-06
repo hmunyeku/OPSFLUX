@@ -209,6 +209,7 @@ interface CargoListParams extends PaginationParams {
   voyage_id?: string
   cargo_type?: string
   is_hazmat?: boolean
+  request_id?: string
   search?: string
 }
 

@@ -447,7 +447,7 @@ export function useUpdateCargoRequest() {
 }
 
 export function useCargo(params: PaginationParams & {
-  status?: string; voyage_id?: string; cargo_type?: string; is_hazmat?: boolean; search?: string;
+  status?: string; voyage_id?: string; cargo_type?: string; is_hazmat?: boolean; request_id?: string; search?: string;
 } = {}) {
   return useQuery({
     queryKey: ['travelwiz', 'cargo', params],

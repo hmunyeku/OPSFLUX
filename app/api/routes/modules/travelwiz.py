@@ -1732,6 +1732,59 @@ async def update_cargo_request(
         imputation = await db.get(ImputationReference, body.imputation_reference_id)
         if not imputation or imputation.entity_id != entity_id or not imputation.active:
             raise HTTPException(400, "Imputation introuvable ou inactive")
+    target_status = body.status or cargo_request.status
+    cargo_result = await db.execute(
+        select(CargoItem).where(
+            CargoItem.request_id == cargo_request.id,
+            CargoItem.active == True,  # noqa: E712
+        )
+    )
+    request_cargo = cargo_result.scalars().all()
+    if target_status in {"submitted", "approved", "assigned", "closed"} and not request_cargo:
+        raise HTTPException(400, "La demande doit contenir au moins un colis actif")
+    if target_status == "approved":
+        invalid_cargo = [
+            cargo.tracking_code
+            for cargo in request_cargo
+            if cargo.workflow_status not in {"approved", "assigned", "in_transit", "delivered"}
+        ]
+        if invalid_cargo:
+            raise HTTPException(
+                400,
+                {
+                    "code": "CARGO_REQUEST_REQUIRES_APPROVED_ITEMS",
+                    "message": "Tous les colis doivent être validés avant approbation de la demande.",
+                    "tracking_codes": invalid_cargo,
+                },
+            )
+    if target_status == "assigned":
+        unassigned_cargo = [
+            cargo.tracking_code for cargo in request_cargo if not cargo.manifest_id
+        ]
+        if unassigned_cargo:
+            raise HTTPException(
+                400,
+                {
+                    "code": "CARGO_REQUEST_REQUIRES_ASSIGNED_ITEMS",
+                    "message": "Tous les colis doivent être affectés à un manifeste/voyage.",
+                    "tracking_codes": unassigned_cargo,
+                },
+            )
+    if target_status == "closed":
+        open_cargo = [
+            cargo.tracking_code
+            for cargo in request_cargo
+            if cargo.status not in {"delivered", "delivered_intermediate", "delivered_final"}
+        ]
+        if open_cargo:
+            raise HTTPException(
+                400,
+                {
+                    "code": "CARGO_REQUEST_REQUIRES_DELIVERED_ITEMS",
+                    "message": "Tous les colis doivent être livrés avant clôture de la demande.",
+                    "tracking_codes": open_cargo,
+                },
+            )
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(cargo_request, field, value)
     await db.commit()
@@ -1760,6 +1813,7 @@ async def list_cargo(
     cargo_type: str | None = None,
     manifest_id: UUID | None = None,
     destination_asset_id: UUID | None = None,
+    request_id: UUID | None = None,
     search: str | None = None,
     scope: str | None = None,
     pagination: PaginationParams = Depends(),
@@ -1802,6 +1856,8 @@ async def list_cargo(
         query = query.where(CargoItem.manifest_id == manifest_id)
     if destination_asset_id:
         query = query.where(CargoItem.destination_asset_id == destination_asset_id)
+    if request_id:
+        query = query.where(CargoItem.request_id == request_id)
     if search:
         like = f"%{search}%"
         query = query.where(

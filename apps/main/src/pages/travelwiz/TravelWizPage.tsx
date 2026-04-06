@@ -2430,6 +2430,7 @@ function CreateCargoPanel() {
 
 function CargoRequestDetailPanel({ id }: { id: string }) {
   const { data: cargoRequest, isLoading } = useCargoRequest(id)
+  const { data: requestCargoData } = useCargo({ page: 1, page_size: 100, request_id: id })
   const updateCargoRequest = useUpdateCargoRequest()
   const { data: tiersData } = useTiers({ page: 1, page_size: 100 })
   const { data: imputationReferences } = useImputationReferences()
@@ -2439,6 +2440,7 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<CargoRequestUpdate>({})
   const tiers = tiersData?.items ?? []
+  const requestCargo = requestCargoData?.items ?? []
 
   const startEdit = useCallback(() => {
     if (!cargoRequest) return
@@ -2552,19 +2554,48 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
             </FormGrid>
           </FormSection>
         ) : (
-          <FormSection title="Demande d’expédition">
-            <DetailRow label="Code" value={cargoRequest.request_code} />
-            <DetailRow label="Intitulé" value={cargoRequest.title} />
-            <DetailRow label="Statut" value={requestStatusLabels[cargoRequest.status] ?? cargoRequest.status} />
-            <DetailRow label="Description" value={cargoRequest.description ?? '—'} />
-            <DetailRow label="Expéditeur" value={cargoRequest.sender_name ?? '—'} />
-            <DetailRow label="Destinataire" value={cargoRequest.receiver_name ?? '—'} />
-            <DetailRow label="Destination" value={cargoRequest.destination_name ?? '—'} />
-            <DetailRow label="Imputation" value={cargoRequest.imputation_reference_name ? `${cargoRequest.imputation_reference_code ?? ''} ${cargoRequest.imputation_reference_name}`.trim() : '—'} />
-            <DetailRow label="Demandeur" value={cargoRequest.requester_name ?? '—'} />
-            <DetailRow label="Nombre de colis" value={String(cargoRequest.cargo_count ?? 0)} />
-            <DetailRow label="Créée le" value={new Date(cargoRequest.created_at).toLocaleString('fr-FR')} />
-          </FormSection>
+          <>
+            <FormSection title="Demande d’expédition">
+              <DetailRow label="Code" value={cargoRequest.request_code} />
+              <DetailRow label="Intitulé" value={cargoRequest.title} />
+              <DetailRow label="Statut" value={requestStatusLabels[cargoRequest.status] ?? cargoRequest.status} />
+              <DetailRow label="Description" value={cargoRequest.description ?? '—'} />
+              <DetailRow label="Expéditeur" value={cargoRequest.sender_name ?? '—'} />
+              <DetailRow label="Destinataire" value={cargoRequest.receiver_name ?? '—'} />
+              <DetailRow label="Destination" value={cargoRequest.destination_name ?? '—'} />
+              <DetailRow label="Imputation" value={cargoRequest.imputation_reference_name ? `${cargoRequest.imputation_reference_code ?? ''} ${cargoRequest.imputation_reference_name}`.trim() : '—'} />
+              <DetailRow label="Demandeur" value={cargoRequest.requester_name ?? '—'} />
+              <DetailRow label="Nombre de colis" value={String(cargoRequest.cargo_count ?? 0)} />
+              <DetailRow label="Créée le" value={new Date(cargoRequest.created_at).toLocaleString('fr-FR')} />
+            </FormSection>
+
+            <FormSection title={`Colis rattachés (${requestCargo.length})`} collapsible defaultExpanded>
+              {requestCargo.length > 0 ? (
+                <div className="space-y-2">
+                  {requestCargo.map((cargo) => (
+                    <button
+                      key={cargo.id}
+                      onClick={() => useUIStore.getState().openDynamicPanel({ type: 'detail', module: 'travelwiz', id: cargo.id, meta: { subtype: 'cargo' } })}
+                      className="w-full rounded-lg border border-border/60 bg-card px-3 py-2 text-left hover:bg-muted/40"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-mono text-muted-foreground">{cargo.code}</p>
+                          <p className="text-sm font-medium text-foreground truncate">{cargo.designation || cargo.description}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">{cargo.weight_kg.toLocaleString('fr-FR')} kg</p>
+                          <p className="text-[11px] text-muted-foreground">{cargo.status}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Aucun colis rattaché à cette demande.</p>
+              )}
+            </FormSection>
+          </>
         )}
       </PanelContentLayout>
     </DynamicPanelShell>

@@ -301,7 +301,7 @@ async def test_list_package_elements_uses_current_package_element_model(monkeypa
 async def test_add_package_element_uses_package_element_model(monkeypatch):
     cargo_id = uuid4()
     entity_id = uuid4()
-    db = FakeDB([])
+    db = FakeDB([FakeResult(all_rows=[])])
 
     async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
         return SimpleNamespace(id=_cargo_id)
@@ -517,7 +517,7 @@ async def test_update_cargo_status_records_audit(monkeypatch):
         destination_asset_id=None,
         __table__=SimpleNamespace(columns=[]),
     )
-    db = FakeDB([])
+    db = FakeDB([FakeResult(all_rows=[])])
     audits = []
 
     async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
@@ -566,7 +566,7 @@ async def test_update_cargo_workflow_status_records_audit(monkeypatch):
         pickup_contact_name=None,
         __table__=SimpleNamespace(columns=[]),
     )
-    db = FakeDB([])
+    db = FakeDB([FakeResult(all_rows=[])])
     audits = []
 
     async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
@@ -638,7 +638,7 @@ async def test_update_cargo_workflow_status_blocks_incomplete_dossier(monkeypatc
         pickup_contact_name=None,
         __table__=SimpleNamespace(columns=[]),
     )
-    db = FakeDB([])
+    db = FakeDB([FakeResult(all_rows=[])])
 
     async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
         return cargo
@@ -736,7 +736,15 @@ async def test_update_cargo_request_updates_status_and_audits(monkeypatch):
         status="draft",
         active=True,
     )
-    db = FakeDB([])
+    child_cargo = SimpleNamespace(
+        id=uuid4(),
+        tracking_code="CGO-2026-00011",
+        workflow_status="draft",
+        manifest_id=None,
+        status="draft",
+        active=True,
+    )
+    db = FakeDB([FakeResult(all_rows=[child_cargo])])
     audits = []
 
     async def fake_get_request(_db, _request_id, _entity_id):
@@ -770,6 +778,88 @@ async def test_update_cargo_request_updates_status_and_audits(monkeypatch):
     assert cargo_request.status == "submitted"
     assert result["status"] == "submitted"
     assert audits and audits[0]["action"] == "travelwiz.cargo_request.update"
+
+
+@pytest.mark.asyncio
+async def test_update_cargo_request_blocks_approval_when_child_cargo_not_ready(monkeypatch):
+    entity_id = uuid4()
+    user_id = uuid4()
+    request_id = uuid4()
+    cargo_request = SimpleNamespace(
+        id=request_id,
+        entity_id=entity_id,
+        request_code="CGR-2026-00003",
+        title="Expédition flexibles",
+        status="submitted",
+        active=True,
+    )
+    child_cargo = SimpleNamespace(
+        tracking_code="CGO-2026-00003",
+        workflow_status="draft",
+        manifest_id=None,
+        status="registered",
+    )
+    db = FakeDB([FakeResult(all_rows=[child_cargo])])
+
+    async def fake_get_request(_db, _request_id, _entity_id):
+        return cargo_request
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_request_or_404", fake_get_request)
+
+    with pytest.raises(HTTPException) as exc:
+        await travelwiz_routes.update_cargo_request(
+            request_id=request_id,
+            body=travelwiz_routes.CargoRequestUpdate(status="approved"),
+            entity_id=entity_id,
+            current_user=SimpleNamespace(id=user_id),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail["code"] == "CARGO_REQUEST_REQUIRES_APPROVED_ITEMS"
+    assert "CGO-2026-00003" in exc.value.detail["tracking_codes"]
+
+
+@pytest.mark.asyncio
+async def test_update_cargo_request_blocks_close_when_child_cargo_not_delivered(monkeypatch):
+    entity_id = uuid4()
+    user_id = uuid4()
+    request_id = uuid4()
+    cargo_request = SimpleNamespace(
+        id=request_id,
+        entity_id=entity_id,
+        request_code="CGR-2026-00004",
+        title="Expédition valves",
+        status="assigned",
+        active=True,
+    )
+    child_cargo = SimpleNamespace(
+        tracking_code="CGO-2026-00004",
+        workflow_status="approved",
+        manifest_id=uuid4(),
+        status="in_transit",
+    )
+    db = FakeDB([FakeResult(all_rows=[child_cargo])])
+
+    async def fake_get_request(_db, _request_id, _entity_id):
+        return cargo_request
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_request_or_404", fake_get_request)
+
+    with pytest.raises(HTTPException) as exc:
+        await travelwiz_routes.update_cargo_request(
+            request_id=request_id,
+            body=travelwiz_routes.CargoRequestUpdate(status="closed"),
+            entity_id=entity_id,
+            current_user=SimpleNamespace(id=user_id),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail["code"] == "CARGO_REQUEST_REQUIRES_DELIVERED_ITEMS"
+    assert "CGO-2026-00004" in exc.value.detail["tracking_codes"]
 
 
 @pytest.mark.asyncio

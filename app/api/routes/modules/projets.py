@@ -392,17 +392,54 @@ async def update_project(
     db: AsyncSession = Depends(get_db),
 ):
     project = await _get_project_or_404(db, project_id, entity_id)
-
-    # §9 CDC: only project manager or CHEF_PROJET member can update project
-    if not await _check_project_member_role(db, project_id, current_user.id, ["manager", "reviewer"]):
-        # Soft check: allow if user has the system-level project.update permission
-        pass  # require_permission already checked system-level, role check is additive
-
     update_data = body.model_dump(exclude_unset=True)
 
     # Guard: project code is immutable after creation (CDC §2.3)
     if "code" in update_data and update_data["code"] != project.code:
         raise HTTPException(400, "Le code du projet est immutable après création.")
+
+    # ── §9 CDC: Status transition validation by project role ──────────
+    # Each status transition requires a specific project-level role.
+    # System-level require_permission("project.update") is already checked
+    # above — this adds the project-membership guard.
+    if "status" in update_data and update_data["status"] != project.status:
+        new_status = update_data["status"]
+        old_status = project.status
+
+        # Transition permission matrix:
+        #   draft → planned        : manager, reviewer (CHEF_PROJET)
+        #   planned → active       : manager (CHEF_PROJET only)
+        #   active → on_hold       : manager, reviewer
+        #   on_hold → active       : manager, reviewer
+        #   active → completed     : manager (CHEF_PROJET only)
+        #   any → cancelled        : manager (CHEF_PROJET only)
+        #   any → draft            : manager (rollback, CHEF_PROJET only)
+        TRANSITION_ROLES: dict[tuple[str, str], list[str]] = {
+            ("draft", "planned"):     ["manager", "reviewer"],
+            ("planned", "active"):    ["manager"],
+            ("active", "on_hold"):    ["manager", "reviewer"],
+            ("on_hold", "active"):    ["manager", "reviewer"],
+            ("active", "completed"):  ["manager"],
+            ("completed", "active"):  ["manager"],  # reopen
+        }
+        # Cancellation from any state: manager only
+        cancel_roles = ["manager"]
+
+        if new_status == "cancelled":
+            required = cancel_roles
+        elif new_status == "draft":
+            required = ["manager"]  # rollback to draft
+        else:
+            required = TRANSITION_ROLES.get((old_status, new_status), ["manager"])
+
+        is_authorized = await _check_project_member_role(db, project_id, current_user.id, required)
+        if not is_authorized:
+            role_labels = ", ".join(required)
+            raise HTTPException(
+                403,
+                f"Transition {old_status} → {new_status} requiert le rôle projet : {role_labels}. "
+                f"Contactez le chef de projet.",
+            )
 
     # ── Read-only lock for Gouti-imported projects ─────────────────────
     # Per the capability matrix probed at connector test time, Gouti does

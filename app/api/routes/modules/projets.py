@@ -1810,3 +1810,164 @@ async def send_tasks_to_planner(
         raise HTTPException(500, f"Erreur: {str(exc)[:300]}")
 
     return SendToPlannerResult(created=created, skipped=skipped, errors=errors)
+
+
+
+# ── Project Templates ──────────────────────────────────────────────────
+
+
+@router.get("/templates")
+async def list_templates(
+    category: str | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.common import ProjectTemplate
+    query = select(ProjectTemplate).where(ProjectTemplate.entity_id == entity_id, ProjectTemplate.active == True)
+    if category:
+        query = query.where(ProjectTemplate.category == category)
+    query = query.order_by(ProjectTemplate.usage_count.desc(), ProjectTemplate.name)
+    rows = (await db.execute(query)).scalars().all()
+    return [{c.key: getattr(r, c.key) for c in r.__table__.columns} for r in rows]
+
+
+@router.post("/templates", status_code=201)
+async def save_as_template(
+    project_id: UUID, name: str, description: str | None = None, category: str | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.create"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Snapshot a project into a reusable template."""
+    from app.models.common import ProjectTemplate, ProjectWBSNode
+    project = await _get_project_or_404(db, project_id, entity_id)
+    tasks = (await db.execute(select(ProjectTask).where(ProjectTask.project_id == project_id, ProjectTask.active == True))).scalars().all()
+    milestones = (await db.execute(select(ProjectMilestone).where(ProjectMilestone.project_id == project_id, ProjectMilestone.active == True))).scalars().all()
+    wbs = (await db.execute(select(ProjectWBSNode).where(ProjectWBSNode.project_id == project_id, ProjectWBSNode.active == True))).scalars().all()
+    task_id_to_idx = {t.id: i for i, t in enumerate(tasks)}
+    snapshot = {
+        "project": {"name": project.name, "project_type": project.project_type, "priority": project.priority, "weather": project.weather, "description": project.description},
+        "tasks": [{"title": t.title, "description": t.description, "status": "todo", "priority": t.priority, "estimated_hours": t.estimated_hours, "order": t.order, "parent_idx": task_id_to_idx.get(t.parent_id)} for t in tasks],
+        "milestones": [{"name": m.name, "description": m.description} for m in milestones],
+        "wbs_nodes": [{"code": w.code, "name": w.name, "description": w.description, "budget": w.budget, "order": w.order} for w in wbs],
+    }
+    tpl = ProjectTemplate(entity_id=entity_id, name=name, description=description, category=category, snapshot=snapshot, source_project_id=project_id, created_by=current_user.id)
+    db.add(tpl); await db.commit(); await db.refresh(tpl)
+    return {c.key: getattr(tpl, c.key) for c in tpl.__table__.columns}
+
+
+@router.post("/from-template", status_code=201)
+async def create_from_template(
+    template_id: UUID, name: str,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.create"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Clone a project from a template."""
+    from app.models.common import ProjectTemplate, ProjectWBSNode
+    tpl = (await db.execute(select(ProjectTemplate).where(ProjectTemplate.id == template_id, ProjectTemplate.entity_id == entity_id))).scalar_one_or_none()
+    if not tpl: raise HTTPException(404, "Template not found")
+    snap = tpl.snapshot
+    code = await generate_reference("PRJ", db, entity_id=entity_id)
+    project = Project(entity_id=entity_id, code=code, name=name, project_type=snap.get("project", {}).get("project_type", "project"), priority=snap.get("project", {}).get("priority", "medium"), weather=snap.get("project", {}).get("weather", "sunny"), description=snap.get("project", {}).get("description"), status="draft")
+    db.add(project); await db.flush()
+    task_map: dict[int, UUID] = {}
+    for i, td in enumerate(snap.get("tasks", [])):
+        parent_id = task_map.get(td.get("parent_idx")) if td.get("parent_idx") is not None else None
+        task = ProjectTask(project_id=project.id, parent_id=parent_id, title=td["title"], description=td.get("description"), status="todo", priority=td.get("priority", "medium"), estimated_hours=td.get("estimated_hours"), order=td.get("order", 0))
+        db.add(task); await db.flush(); task_map[i] = task.id
+    for md in snap.get("milestones", []):
+        db.add(ProjectMilestone(project_id=project.id, name=md["name"], description=md.get("description")))
+    for wd in snap.get("wbs_nodes", []):
+        db.add(ProjectWBSNode(project_id=project.id, code=wd["code"], name=wd["name"], description=wd.get("description"), budget=wd.get("budget"), order=wd.get("order", 0)))
+    tpl.usage_count += 1; await db.commit(); await db.refresh(project)
+    d = {c.key: getattr(project, c.key) for c in project.__table__.columns}
+    d["manager_name"] = None; d["tier_name"] = None; d["parent_name"] = None; d["department_name"] = None
+    d["task_count"] = len(snap.get("tasks", [])); d["member_count"] = 0; d["children_count"] = 0
+    return d
+
+
+@router.delete("/templates/{template_id}", status_code=204)
+async def delete_template(template_id: UUID, entity_id: UUID = Depends(get_current_entity), _: None = require_permission("project.delete"), db: AsyncSession = Depends(get_db)):
+    from app.models.common import ProjectTemplate
+    tpl = (await db.execute(select(ProjectTemplate).where(ProjectTemplate.id == template_id, ProjectTemplate.entity_id == entity_id))).scalar_one_or_none()
+    if not tpl: raise HTTPException(404, "Template not found")
+    tpl.active = False; await db.commit()
+
+
+# ── Custom Fields ──────────────────────────────────────────────────────
+
+
+@router.get("/{project_id}/custom-fields")
+async def list_custom_fields(project_id: UUID, entity_id: UUID = Depends(get_current_entity), _: None = require_permission("project.read"), db: AsyncSession = Depends(get_db)):
+    from app.models.common import CustomFieldDef, CustomFieldValue
+    defs = (await db.execute(select(CustomFieldDef).where(CustomFieldDef.entity_id == entity_id, CustomFieldDef.target_type == "project", CustomFieldDef.active == True).order_by(CustomFieldDef.order))).scalars().all()
+    values = (await db.execute(select(CustomFieldValue).where(CustomFieldValue.owner_type == "project", CustomFieldValue.owner_id == project_id))).scalars().all()
+    val_map = {str(v.field_def_id): v for v in values}
+    return [{"id": str(d.id), "slug": d.slug, "label": d.label, "field_type": d.field_type, "options": d.options, "required": d.required, "default_value": d.default_value, "order": d.order, "value_text": val_map[str(d.id)].value_text if str(d.id) in val_map else d.default_value, "value_json": val_map[str(d.id)].value_json if str(d.id) in val_map else None} for d in defs]
+
+
+@router.put("/{project_id}/custom-fields/{field_def_id}")
+async def set_custom_field_value(project_id: UUID, field_def_id: UUID, value_text: str | None = None, value_json: dict | None = None, entity_id: UUID = Depends(get_current_entity), _: None = require_permission("project.update"), db: AsyncSession = Depends(get_db)):
+    from app.models.common import CustomFieldValue
+    existing = (await db.execute(select(CustomFieldValue).where(CustomFieldValue.field_def_id == field_def_id, CustomFieldValue.owner_type == "project", CustomFieldValue.owner_id == project_id))).scalar_one_or_none()
+    if existing: existing.value_text = value_text; existing.value_json = value_json
+    else: db.add(CustomFieldValue(field_def_id=field_def_id, owner_type="project", owner_id=project_id, value_text=value_text, value_json=value_json))
+    await db.commit()
+    return {"ok": True}
+
+
+# ── PDF Export ─────────────────────────────────────────────────────────
+
+
+@router.get("/{project_id}/pdf")
+async def export_project_pdf(project_id: UUID, entity_id: UUID = Depends(get_current_entity), current_user: User = Depends(get_current_user), _: None = require_permission("project.export"), db: AsyncSession = Depends(get_db)):
+    """Generate a PDF report for the project."""
+    from fastapi.responses import Response
+    from app.core.pdf_templates import render_pdf
+    from app.models.common import ProjectWBSNode
+    project = await _get_project_or_404(db, project_id, entity_id)
+    tasks = (await db.execute(select(ProjectTask).where(ProjectTask.project_id == project_id, ProjectTask.active == True).order_by(ProjectTask.order))).scalars().all()
+    milestones = (await db.execute(select(ProjectMilestone).where(ProjectMilestone.project_id == project_id, ProjectMilestone.active == True))).scalars().all()
+    wbs = (await db.execute(select(ProjectWBSNode).where(ProjectWBSNode.project_id == project_id, ProjectWBSNode.active == True).order_by(ProjectWBSNode.code))).scalars().all()
+    manager = await db.get(User, project.manager_id) if project.manager_id else None
+    variables = {
+        "project": {"code": project.code, "name": project.name, "status": project.status, "priority": project.priority, "progress": project.progress, "project_type": project.project_type, "weather": project.weather, "start_date": project.start_date.strftime("%d/%m/%Y") if project.start_date else "--", "end_date": project.end_date.strftime("%d/%m/%Y") if project.end_date else "--", "budget": f"{project.budget:,.0f} XAF" if project.budget else "--", "description": project.description or "", "manager_name": f"{manager.first_name} {manager.last_name}" if manager else "--"},
+        "tasks": [{"title": t.title, "status": t.status, "priority": t.priority, "progress": t.progress, "start": t.start_date.strftime("%d/%m/%Y") if t.start_date else "--", "end": t.due_date.strftime("%d/%m/%Y") if t.due_date else "--"} for t in tasks],
+        "milestones": [{"name": m.name, "due_date": m.due_date.strftime("%d/%m/%Y") if m.due_date else "--", "status": m.status} for m in milestones],
+        "wbs_nodes": [{"code": w.code, "name": w.name, "budget": f"{w.budget:,.0f}" if w.budget else "--"} for w in wbs],
+        "task_count": len(tasks), "milestone_count": len(milestones),
+        "generated_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M"),
+    }
+    pdf_bytes = await render_pdf(db, entity_id, "project.report", variables, language="fr")
+    if not pdf_bytes:
+        raise HTTPException(404, "Template PDF 'project.report' introuvable. Creez-le dans Parametres > Modeles PDF.")
+    return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename={project.code}_report.pdf'})
+
+
+# ── Activity Feed ──────────────────────────────────────────────────────
+
+
+@router.get("/{project_id}/activity-feed")
+async def get_activity_feed(project_id: UUID, limit: int = 50, entity_id: UUID = Depends(get_current_entity), _: None = require_permission("project.read"), db: AsyncSession = Depends(get_db)):
+    """Unified activity timeline — merges status changes, task modifications, comments."""
+    await _get_project_or_404(db, project_id, entity_id)
+    feed: list[dict] = []
+    from app.models.common import ProjectStatusHistory, ProjectComment
+    # Status history
+    for r, fn, ln in (await db.execute(select(ProjectStatusHistory, User.first_name, User.last_name).outerjoin(User, ProjectStatusHistory.changed_by == User.id).where(ProjectStatusHistory.project_id == project_id).order_by(ProjectStatusHistory.changed_at.desc()).limit(limit))).all():
+        feed.append({"type": "status_change", "date": r.changed_at.isoformat(), "user": f"{fn} {ln}" if fn else None, "detail": f"{r.from_status or chr(8212)} -> {r.to_status}", "reason": r.reason})
+    # Task changelog
+    task_ids = (await db.execute(select(ProjectTask.id).where(ProjectTask.project_id == project_id))).scalars().all()
+    if task_ids:
+        for cl, fn, ln, title in (await db.execute(select(TaskChangeLog, User.first_name, User.last_name, ProjectTask.title).outerjoin(User, TaskChangeLog.changed_by == User.id).outerjoin(ProjectTask, TaskChangeLog.task_id == ProjectTask.id).where(TaskChangeLog.task_id.in_(task_ids)).order_by(TaskChangeLog.created_at.desc()).limit(limit))).all():
+            feed.append({"type": "task_change", "date": cl.created_at.isoformat(), "user": f"{fn} {ln}" if fn else None, "task_title": title, "field": cl.field_name, "old": cl.old_value, "new": cl.new_value, "change_type": cl.change_type})
+    # Comments
+    owner_ids = [project_id] + list(task_ids)
+    for cm, fn, ln in (await db.execute(select(ProjectComment, User.first_name, User.last_name).outerjoin(User, ProjectComment.author_id == User.id).where(ProjectComment.owner_type.in_(["project", "project_task"]), ProjectComment.owner_id.in_(owner_ids), ProjectComment.active == True).order_by(ProjectComment.created_at.desc()).limit(limit))).all():
+        feed.append({"type": "comment", "date": cm.created_at.isoformat(), "user": f"{fn} {ln}" if fn else None, "body": cm.body[:200], "owner_type": cm.owner_type})
+    feed.sort(key=lambda x: x["date"], reverse=True)
+    return feed[:limit]

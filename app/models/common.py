@@ -1884,6 +1884,88 @@ class ProjectStatusHistory(UUIDPrimaryKeyMixin, Base):
     )
 
 
+# ─── Project Templates (save & clone projects as templates) ──────────────────
+
+class ProjectTemplate(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Reusable project template — snapshot of a project's structure.
+
+    Stores the full structure (tasks tree, milestones, WBS, members, custom
+    fields) as a JSONB blob so any project can be cloned from it instantly.
+    Templates are entity-scoped and can be shared across the organization.
+    """
+    __tablename__ = "project_templates"
+    __table_args__ = (
+        Index("idx_project_templates_entity", "entity_id"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(300), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[str | None] = mapped_column(String(50))  # project, workover, drilling, maintenance, etc.
+    thumbnail_url: Mapped[str | None] = mapped_column(String(500))
+    snapshot: Mapped[dict] = mapped_column(
+        JSONB, nullable=False,
+        comment="Full project structure: {project, tasks[], milestones[], wbs_nodes[], members[], custom_fields[]}",
+    )
+    source_project_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"),
+    )
+    created_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    usage_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+# ─── Custom Fields (EAV — Entity-Attribute-Value) ────────────────────────────
+
+class CustomFieldDef(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Definition of a custom field — shared across a target type within an entity.
+
+    target_type: 'project', 'project_task', 'tier', 'tier_contact', etc.
+    field_type: 'text', 'number', 'date', 'select', 'multi_select', 'checkbox', 'url', 'email'
+    options: for select/multi_select — JSON array of {value, label, color?}
+    """
+    __tablename__ = "custom_field_defs"
+    __table_args__ = (
+        Index("idx_custom_field_defs_entity_target", "entity_id", "target_type"),
+        UniqueConstraint("entity_id", "target_type", "slug", name="uq_custom_field_def_slug"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(50), nullable=False)  # project, project_task, tier, ...
+    slug: Mapped[str] = mapped_column(String(100), nullable=False)
+    label: Mapped[str] = mapped_column(String(200), nullable=False)
+    field_type: Mapped[str] = mapped_column(String(30), nullable=False, default="text")
+    options: Mapped[list | None] = mapped_column(JSONB)  # [{value, label, color?}] for select types
+    required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    default_value: Mapped[str | None] = mapped_column(Text)
+    order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class CustomFieldValue(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Stored value of a custom field for a specific entity instance.
+
+    Links a CustomFieldDef to a concrete object via owner_type + owner_id.
+    value_text stores all types as text; value_json stores structured data
+    (multi_select arrays, nested objects).
+    """
+    __tablename__ = "custom_field_values"
+    __table_args__ = (
+        Index("idx_custom_field_values_owner", "owner_type", "owner_id"),
+        Index("idx_custom_field_values_field", "field_def_id"),
+    )
+
+    field_def_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("custom_field_defs.id", ondelete="CASCADE"), nullable=False,
+    )
+    owner_type: Mapped[str] = mapped_column(String(50), nullable=False)  # project, project_task, tier, ...
+    owner_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    value_text: Mapped[str | None] = mapped_column(Text)  # string representation for all types
+    value_json: Mapped[dict | None] = mapped_column(JSONB)  # structured data for complex types
+
+    field_def: Mapped["CustomFieldDef"] = relationship(foreign_keys=[field_def_id])
+
+
 # ─── PDF Templates ──────────────────────────────────────────────────────────
 
 class PdfTemplate(UUIDPrimaryKeyMixin, TimestampMixin, Base):

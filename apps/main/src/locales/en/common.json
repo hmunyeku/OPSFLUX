@@ -1683,6 +1683,8 @@
       }
     },
     "ads_detail": {
+      "not_found_title": "AdS unavailable",
+      "not_found_message": "The details for this AdS could not be loaded.",
       "actions": {
         "external_link": "External link",
         "add_passenger": "Add passenger",

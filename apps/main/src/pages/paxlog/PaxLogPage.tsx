@@ -2184,7 +2184,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const { toast } = useToast()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
-  const { data: ads, isLoading } = useAds(id)
+  const { data: ads, isLoading, isError, error } = useAds(id)
   const { data: adsPax } = useAdsPax(id)
   const { data: adsEvents } = useAdsEvents(id)
   const { data: externalLinks = [] } = useAdsExternalLinks(id)
@@ -2302,10 +2302,25 @@ function AdsDetailPanel({ id }: { id: string }) {
     }
   }, [eligibleExternalRecipients, externalLinkRecipientKey])
 
-  if (isLoading || !ads) {
+  if (isLoading) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<ClipboardList size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+      </DynamicPanelShell>
+    )
+  }
+
+  if (isError || !ads) {
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : t('common.error')
+    return (
+      <DynamicPanelShell title={t('paxlog.ads_detail.not_found_title')} icon={<ClipboardList size={14} className="text-primary" />}>
+        <div className="py-10 px-4 space-y-2">
+          <p className="text-sm font-medium text-foreground">{t('paxlog.ads_detail.not_found_message')}</p>
+          <p className="text-xs text-muted-foreground">{message}</p>
+        </div>
       </DynamicPanelShell>
     )
   }

@@ -50,6 +50,7 @@ MANIFEST = ModuleManifest(
             "permissions": [
                 "project.read", "project.create", "project.update", "project.delete",
                 "project.status_change", "project.export_sap",
+                "project.import", "project.export",
                 "project.member.manage",
                 "project.task.create", "project.task.update", "project.task.delete", "project.task.reorder",
                 "project.milestone.create", "project.milestone.update", "project.milestone.delete",

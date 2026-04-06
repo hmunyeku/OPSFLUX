@@ -1233,6 +1233,8 @@ export interface Project {
   tier_id: string | null
   asset_id: string | null
   external_ref: string | null  // e.g. "gouti:<id>" for imported projects
+  project_type: string  // project, workover, drilling, integrity, maintenance, inspection, event
+  department_id: string | null
   active: boolean
   archived: boolean
   created_at: string

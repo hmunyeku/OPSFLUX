@@ -249,12 +249,56 @@ function computeBar(vs: string, startISO: string, endISO: string, ppd: number, t
 // Tooltip
 // ═══════════════════════════════════════════════════════════════════════
 
-function Tip({ title, lines, x, y }: { title: string; lines: [string, string][]; x: number; y: number }) {
+interface TipData {
+  title: string
+  subtitle?: string
+  progress?: number
+  status?: string
+  statusColor?: string
+  lines: [string, string][]
+  x: number
+  y: number
+}
+
+function Tip({ title, subtitle, progress, status, statusColor, lines, x, y }: TipData) {
+  // Keep tooltip in viewport
+  const tipW = 280; const tipH = 200
+  const left = x + tipW + 20 > window.innerWidth ? x - tipW - 10 : x + 14
+  const top = y + tipH > window.innerHeight ? Math.max(8, y - tipH) : y - 8
+
   return (
-    <div className="fixed z-[100] bg-popover border border-border rounded-md shadow-lg p-2 text-xs w-[230px] pointer-events-none" style={{ left: x + 14, top: y - 8 }}>
-      <div className="font-semibold mb-1 truncate">{title}</div>
-      <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-[10px]">
-        {lines.map(([k, v], i) => <><span key={`k${i}`} className="text-muted-foreground">{k}</span><span key={`v${i}`}>{v}</span></>)}
+    <div className="fixed z-[100] bg-popover border border-border rounded-lg shadow-xl p-3 text-xs pointer-events-none" style={{ left, top, width: tipW }}>
+      {/* Title + subtitle */}
+      <div className="font-semibold text-foreground truncate">{title}</div>
+      {subtitle && <div className="text-[10px] text-muted-foreground truncate mt-0.5">{subtitle}</div>}
+
+      {/* Status badge + progress bar */}
+      {(status || progress != null) && (
+        <div className="flex items-center gap-2 mt-1.5 mb-1">
+          {status && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: (statusColor || '#9ca3af') + '20', color: statusColor || '#9ca3af' }}>
+              {status}
+            </span>
+          )}
+          {progress != null && (
+            <div className="flex-1 flex items-center gap-1.5">
+              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: statusColor || '#3b82f6' }} />
+              </div>
+              <span className="text-[9px] tabular-nums text-muted-foreground">{progress}%</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Detail fields */}
+      <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[10px] mt-1 border-t border-border/50 pt-1.5">
+        {lines.map(([k, v], i) => (
+          <div key={i} className="contents">
+            <span className="text-muted-foreground whitespace-nowrap">{k}</span>
+            <span className="truncate text-foreground">{v}</span>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -273,7 +317,7 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
   const { data: cpm } = useProjectCpm(project.id)
   const { data: deps } = useTaskDependencies(project.id)
   const { toast } = useToast()
-  const [tip, setTip] = useState<{ title: string; lines: [string, string][]; x: number; y: number } | null>(null)
+  const [tip, setTip] = useState<TipData | null>(null)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
@@ -349,24 +393,57 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
 
   // Build rich tooltip content for a task
   const buildTip = useCallback((task: ProjectTask, e: React.MouseEvent) => {
-    const lines: [string, string][] = [
-      ['Statut', STATUS_LABELS[task.status as TaskStatus] || task.status],
-      ['Priorité', PRIORITY_LABELS[task.priority as TaskPriority] || task.priority],
-      ['Progression', `${task.progress}%`],
-    ]
-    if (task.start_date) lines.push(['Début', new Date(task.start_date).toLocaleDateString('fr-FR')])
-    if (task.due_date) lines.push(['Fin', new Date(task.due_date).toLocaleDateString('fr-FR')])
+    const statusLabel = STATUS_LABELS[task.status as TaskStatus] || task.status
+    const statusClr = T_CLR[task.status] || '#9ca3af'
+    const children = tree.get(task.id) || []
+    const lines: [string, string][] = []
+
+    // Priority
+    const prioLabel = PRIORITY_LABELS[task.priority as TaskPriority] || task.priority
+    if (prioLabel) lines.push(['Priorité', prioLabel])
+
+    // Dates + duration
+    if (task.start_date) lines.push(['Début', new Date(task.start_date).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })])
+    if (task.due_date) lines.push(['Fin', new Date(task.due_date).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })])
     if (task.start_date && task.due_date) {
       const dur = daysB(task.start_date.split('T')[0], task.due_date.split('T')[0])
-      lines.push(['Durée', `${dur} jour${dur > 1 ? 's' : ''}`])
+      lines.push(['Durée', `${dur} jour${dur > 1 ? 's' : ''} (${Math.round(dur / 7)} sem.)`])
     }
+
+    // Assignee
     if (task.assignee_name) lines.push(['Responsable', task.assignee_name])
+
+    // Hours
     if (task.estimated_hours) lines.push(['Charge estimée', `${task.estimated_hours}h`])
     if (task.actual_hours) lines.push(['Charge réelle', `${task.actual_hours}h`])
+    if (task.estimated_hours && task.actual_hours) {
+      const pctHours = Math.round(task.actual_hours / task.estimated_hours * 100)
+      lines.push(['Consommation', `${pctHours}% de la charge`])
+    }
+
+    // Hierarchy
+    if (children.length > 0) lines.push(['Sous-tâches', `${children.length}`])
+    if (task.parent_id) lines.push(['Parent', 'Sous-tâche'])
+
+    // Ref + code
     if (task.code) lines.push(['Réf.', task.code])
-    if (critSet.has(task.id)) lines.push(['Chemin critique', '⚡ Oui'])
-    setTip({ title: task.title, lines, x: e.clientX, y: e.clientY })
-  }, [critSet])
+
+    // CPM
+    if (critSet.has(task.id)) lines.push(['Chemin critique', '⚡ Oui — marge zéro'])
+
+    // Order
+    if (task.order) lines.push(['Ordre', `#${task.order}`])
+
+    setTip({
+      title: task.title,
+      subtitle: `${project.code} — ${project.name}`,
+      progress: task.progress,
+      status: statusLabel,
+      statusColor: statusClr,
+      lines,
+      x: e.clientX, y: e.clientY,
+    })
+  }, [critSet, tree, project])
 
   let rowIdx_counter = 0
   const renderTask = (task: ProjectTask, depth: number): React.ReactNode[] => {
@@ -824,8 +901,17 @@ export function ProjectGanttView() {
   const showLabels = settings.showLabels
   const zoomFactor = settings.zoomFactor
 
-  const [exp, setExp] = useState<Set<string>>(new Set())
-  const [tip, setTip] = useState<{ title: string; lines: [string, string][]; x: number; y: number } | null>(null)
+  // Expanded projects — persisted so date range changes don't lose state
+  const savedExpanded: string[] = getPref('gantt_expanded', [] as string[])
+  const [exp, setExpRaw] = useState<Set<string>>(() => new Set(savedExpanded))
+  const setExp = useCallback((fn: (prev: Set<string>) => Set<string>) => {
+    setExpRaw(prev => {
+      const next = fn(prev)
+      setUserPref('gantt_expanded', [...next])
+      return next
+    })
+  }, [setUserPref])
+  const [tip, setTip] = useState<TipData | null>(null)
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
 
@@ -1046,7 +1132,35 @@ export function ProjectGanttView() {
                     className="sticky left-0 z-[5] bg-background border-r border-border shrink-0 flex items-center gap-1.5 px-2 cursor-pointer hover:bg-muted/40"
                     style={{ width: pw }}
                     onClick={() => toggle(project.id)}
-                    onMouseEnter={e => setTip({ title: project.name, lines: [['Code', project.code], ['Statut', project.status], ['%', `${project.progress}%`], ...(gouti ? [['Source', 'Gouti'] as [string, string]] : [])], x: e.clientX, y: e.clientY })}
+                    onMouseEnter={e => {
+                      const pLines: [string,string][] = [
+                        ['Code', project.code],
+                        ['Type', project.project_type || 'project'],
+                        ['Priorité', project.priority],
+                      ]
+                      if (project.start_date) pLines.push(['Début', new Date(project.start_date).toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric'})])
+                      if (project.end_date) pLines.push(['Fin', new Date(project.end_date).toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric'})])
+                      if (project.start_date && project.end_date) {
+                        const dur = daysB(project.start_date.split('T')[0], project.end_date.split('T')[0])
+                        pLines.push(['Durée', `${dur}j (${Math.round(dur/30)} mois)`])
+                      }
+                      if (project.manager_name) pLines.push(['Chef de projet', project.manager_name])
+                      if (project.tier_name) pLines.push(['Entreprise', project.tier_name])
+                      if (project.budget) pLines.push(['Budget', `${project.budget.toLocaleString('fr-FR')} XAF`])
+                      if (project.task_count) pLines.push(['Tâches', `${project.task_count}`])
+                      if (project.member_count) pLines.push(['Équipe', `${project.member_count} membre(s)`])
+                      if (gouti) pLines.push(['Source', '🔶 Importé de Gouti'])
+                      if (project.external_ref) pLines.push(['Réf. externe', project.external_ref])
+                      setTip({
+                        title: project.name,
+                        subtitle: project.code,
+                        progress: project.progress,
+                        status: project.status,
+                        statusColor: color,
+                        lines: pLines,
+                        x: e.clientX, y: e.clientY,
+                      })
+                    }}
                     onMouseLeave={() => setTip(null)}
                   >
                     <ChevronDown size={10} className={cn('text-muted-foreground transition-transform shrink-0', !isExp && '-rotate-90')} />

@@ -298,6 +298,16 @@ async def publish_version(
     db: AsyncSession = Depends(get_db),
 ):
     """Set a version as the published (active) version for its language."""
+    # Verify template belongs to current entity or is global
+    tpl_check = await db.execute(
+        select(PdfTemplate.id).where(
+            PdfTemplate.id == template_id,
+            (PdfTemplate.entity_id == entity_id) | (PdfTemplate.entity_id.is_(None)),
+        )
+    )
+    if not tpl_check.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Template not found")
+
     result = await db.execute(
         select(PdfTemplateVersion).where(
             PdfTemplateVersion.id == version_id,
@@ -331,6 +341,16 @@ async def delete_version(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a PDF template version."""
+    # Verify template belongs to current entity or is global
+    tpl_check = await db.execute(
+        select(PdfTemplate.id).where(
+            PdfTemplate.id == template_id,
+            (PdfTemplate.entity_id == entity_id) | (PdfTemplate.entity_id.is_(None)),
+        )
+    )
+    if not tpl_check.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Template not found")
+
     result = await db.execute(
         select(PdfTemplateVersion).where(
             PdfTemplateVersion.id == version_id,
@@ -360,6 +380,17 @@ async def preview_template(
     If output='html', returns the rendered HTML (for in-browser preview).
     If output='pdf', returns the PDF file as application/pdf.
     """
+    # Fetch parent template (for page settings) — verify entity scope
+    tpl_result = await db.execute(
+        select(PdfTemplate).where(
+            PdfTemplate.id == template_id,
+            (PdfTemplate.entity_id == entity_id) | (PdfTemplate.entity_id.is_(None)),
+        )
+    )
+    template = tpl_result.scalar_one_or_none()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
     # Fetch version
     result = await db.execute(
         select(PdfTemplateVersion).where(
@@ -370,14 +401,6 @@ async def preview_template(
     version = result.scalar_one_or_none()
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
-
-    # Fetch parent template (for page settings)
-    tpl_result = await db.execute(
-        select(PdfTemplate).where(PdfTemplate.id == template_id)
-    )
-    template = tpl_result.scalar_one_or_none()
-    if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
 
     if body.output == "pdf":
         pdf_bytes = await render_pdf_from_version(version, template, body.variables)

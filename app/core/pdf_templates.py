@@ -273,6 +273,11 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
                 "header_html": None,
                 "footer_html": None,
             },
+            "en": {
+                "body_html": "",  # patched below
+                "header_html": None,
+                "footer_html": None,
+            },
         },
     },
 ]
@@ -1050,28 +1055,115 @@ _PROJECT_REPORT_BODY_FR = """\
 
 DEFAULT_PDF_TEMPLATES[4]["default_versions"]["fr"]["body_html"] = _PROJECT_REPORT_BODY_FR
 
+_PROJECT_REPORT_BODY_EN = """\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<style>
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px; color: #1a1a1a; line-height: 1.5; }
+  h1 { font-size: 20px; margin: 0 0 4px 0; color: #1e3a5f; }
+  h2 { font-size: 14px; margin: 20px 0 8px 0; color: #1e3a5f; border-bottom: 2px solid #e5e7eb; padding-bottom: 4px; }
+  .subtitle { font-size: 12px; color: #6b7280; margin-bottom: 16px; }
+  .meta-grid { display: flex; flex-wrap: wrap; gap: 6px 24px; margin-bottom: 16px; }
+  .meta-item { display: flex; gap: 6px; }
+  .meta-label { font-weight: 600; color: #374151; min-width: 90px; }
+  .meta-value { color: #1a1a1a; }
+  .description { background: #f9fafb; border-left: 3px solid #3b82f6; padding: 8px 12px; margin: 12px 0; font-size: 10px; white-space: pre-wrap; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10px; }
+  th { background: #f3f4f6; font-weight: 600; text-align: left; padding: 6px 8px; border: 1px solid #e5e7eb; }
+  td { padding: 5px 8px; border: 1px solid #e5e7eb; }
+  tr:nth-child(even) { background: #fafafa; }
+  .footer { margin-top: 24px; font-size: 9px; color: #9ca3af; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 8px; }
+</style>
+</head>
+<body>
+<h1>{{ project.code }} &mdash; {{ project.name }}</h1>
+<div class="subtitle">Project Report &bull; {{ generated_at }}</div>
+
+<h2>Project Summary</h2>
+<div class="meta-grid">
+  <div class="meta-item"><span class="meta-label">Status</span><span class="meta-value">{{ project.status }}</span></div>
+  <div class="meta-item"><span class="meta-label">Priority</span><span class="meta-value">{{ project.priority }}</span></div>
+  <div class="meta-item"><span class="meta-label">Weather</span><span class="meta-value">{{ project.weather }}</span></div>
+  <div class="meta-item"><span class="meta-label">Progress</span><span class="meta-value">{{ project.progress }}%</span></div>
+  <div class="meta-item"><span class="meta-label">Project Manager</span><span class="meta-value">{{ project.manager_name }}</span></div>
+  <div class="meta-item"><span class="meta-label">Budget</span><span class="meta-value">{{ project.budget }}</span></div>
+  <div class="meta-item"><span class="meta-label">Start</span><span class="meta-value">{{ project.start_date }}</span></div>
+  <div class="meta-item"><span class="meta-label">End (planned)</span><span class="meta-value">{{ project.end_date }}</span></div>
+</div>
+
+{% if project.description %}
+<h2>Description</h2>
+<div class="description">{{ project.description }}</div>
+{% endif %}
+
+<h2>Tasks ({{ task_count }})</h2>
+{% if tasks %}
+<table>
+  <thead><tr><th>Task</th><th>Status</th><th>Priority</th><th>%</th><th>Start</th><th>End</th></tr></thead>
+  <tbody>
+  {% for t in tasks %}
+  <tr>
+    <td>{{ t.title }}</td>
+    <td>{{ t.status }}</td>
+    <td>{{ t.priority }}</td>
+    <td>{{ t.progress }}%</td>
+    <td>{{ t.start }}</td>
+    <td>{{ t.end }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No tasks.</p>
+{% endif %}
+
+{% if milestones %}
+<h2>Milestones ({{ milestone_count }})</h2>
+<table>
+  <thead><tr><th>Milestone</th><th>Due Date</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for m in milestones %}
+  <tr><td>{{ m.name }}</td><td>{{ m.due_date }}</td><td>{{ m.status }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if wbs_nodes %}
+<h2>WBS</h2>
+<table>
+  <thead><tr><th>Code</th><th>Name</th><th>Budget</th></tr></thead>
+  <tbody>
+  {% for w in wbs_nodes %}
+  <tr><td>{{ w.code }}</td><td>{{ w.name }}</td><td>{{ w.budget }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<div class="footer">OpsFlux &mdash; Report generated on {{ generated_at }}</div>
+</body>
+</html>
+"""
+
+DEFAULT_PDF_TEMPLATES[4]["default_versions"]["en"]["body_html"] = _PROJECT_REPORT_BODY_EN
+
 
 # ── Rendering helpers ────────────────────────────────────────────────────
-
-def _make_dot_accessible(variables: dict) -> dict:
-    """Create a template context that supports both {{ entity.name }} and {{ reference }}."""
-    ctx: dict = {}
-    for key, value in variables.items():
-        if isinstance(value, dict):
-            ctx[key] = value
-        else:
-            ctx[key] = value
-    return ctx
-
 
 def render_template_string(template_str: str, variables: dict) -> str:
     """Render a Jinja2 template string with the given variables."""
     try:
         tpl = _jinja_env.from_string(template_str)
-        return tpl.render(**_make_dot_accessible(variables))
+        return tpl.render(**variables)
     except TemplateSyntaxError as e:
-        logger.warning("PDF template syntax error: %s", e)
-        return template_str  # Return raw template on error
+        logger.error("PDF template syntax error: %s", e)
+        return f"<div style='color:red;padding:16px;border:2px solid red'><b>Erreur de syntaxe dans le template PDF:</b><br>{e}</div>"
+    except Exception as e:
+        logger.error("PDF template render error: %s", e)
+        return f"<div style='color:red;padding:16px;border:2px solid red'><b>Erreur de rendu PDF:</b><br>{e}</div>"
 
 
 # ── Page size mapping ────────────────────────────────────────────────────
@@ -1181,22 +1273,24 @@ async def render_pdf(
 
 def _html_to_pdf(html: str, template: "PdfTemplate | None" = None) -> bytes:
     """Convert HTML string to PDF bytes using WeasyPrint."""
+    _VALID_SIZES = {"A3", "A4", "A5", "A6", "Letter", "Legal"}
+    _VALID_ORIENT = {"portrait", "landscape"}
     try:
         from weasyprint import HTML, CSS
 
-        # Build @page CSS from template settings
+        # Build @page CSS from template settings with validation
         page_css = "@page {"
         if template:
-            size = template.page_size or "A4"
-            orient = template.orientation or "portrait"
+            size = template.page_size if template.page_size in _VALID_SIZES else "A4"
+            orient = template.orientation if template.orientation in _VALID_ORIENT else "portrait"
             page_css += f" size: {size} {orient};"
-            mt = template.margin_top or 10
-            mr = template.margin_right or 10
-            mb = template.margin_bottom or 10
-            ml = template.margin_left or 10
+            mt = max(0, min(int(template.margin_top or 15), 100))
+            mr = max(0, min(int(template.margin_right or 12), 100))
+            mb = max(0, min(int(template.margin_bottom or 15), 100))
+            ml = max(0, min(int(template.margin_left or 12), 100))
             page_css += f" margin: {mt}mm {mr}mm {mb}mm {ml}mm;"
         else:
-            page_css += " size: A4 portrait; margin: 15mm;"
+            page_css += " size: A4 portrait; margin: 15mm 12mm 15mm 12mm;"
         page_css += " }"
 
         html_doc = HTML(string=html)

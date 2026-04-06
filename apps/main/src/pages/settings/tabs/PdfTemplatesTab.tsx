@@ -47,9 +47,11 @@ const LANG_LABELS: Record<string, string> = {
 
 const PAGE_SIZE_LABELS: Record<string, string> = {
   A4: 'A4',
-  letter: 'Letter',
+  A5: 'A5',
+  A6: 'A6',
   A3: 'A3',
-  legal: 'Legal',
+  Letter: 'Letter',
+  Legal: 'Legal',
 }
 
 export function PdfTemplatesTab() {

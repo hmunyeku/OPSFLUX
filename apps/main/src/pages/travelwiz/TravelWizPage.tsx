@@ -620,6 +620,44 @@ function VoyagesTab() {
   )
 }
 
+const CARGO_READINESS_LABELS: Record<string, string> = {
+  description: 'Description',
+  designation: 'Désignation',
+  weight_kg: 'Poids',
+  destination_asset_id: 'Installation de destination',
+  pickup_location_label: 'Lieu d’enlèvement',
+  pickup_contact: 'Contact d’enlèvement',
+  available_from: 'Date de mise à disposition',
+  imputation_reference_id: 'Imputation',
+  photo_evidence: 'Photos',
+  document_attachment: 'Documents joints',
+  weight_ticket: 'Preuve de pesée',
+  hazmat_validated: 'Validation HAZMAT',
+  lifting_points_certified: 'Certification des oreilles de levage',
+}
+
+function assessCargoReadiness(cargo: CargoItem): string[] {
+  const missing: string[] = []
+  if (!cargo.description) missing.push('description')
+  if (!cargo.designation) missing.push('designation')
+  if (!cargo.weight_kg) missing.push('weight_kg')
+  if (!cargo.destination_asset_id) missing.push('destination_asset_id')
+  if (!cargo.pickup_location_label) missing.push('pickup_location_label')
+  if (!(cargo.pickup_contact_user_id || cargo.pickup_contact_tier_contact_id || cargo.pickup_contact_name)) {
+    missing.push('pickup_contact')
+  }
+  if (!cargo.available_from) missing.push('available_from')
+  if (!cargo.imputation_reference_id) missing.push('imputation_reference_id')
+  if ((cargo.photo_evidence_count ?? 0) <= 0) missing.push('photo_evidence')
+  if ((cargo.document_attachment_count ?? 0) <= 0) missing.push('document_attachment')
+  if (!cargo.weight_ticket_provided) missing.push('weight_ticket')
+  if (cargo.cargo_type === 'hazmat' && !cargo.hazmat_validated) missing.push('hazmat_validated')
+  if (['unit', 'bulk', 'hazmat'].includes(cargo.cargo_type) && !cargo.lifting_points_certified) {
+    missing.push('lifting_points_certified')
+  }
+  return missing
+}
+
 // ══════════════════════════════════════════════════════════════
 // ── MANIFESTES PAX TAB ───────────────────────────────────────
 // ══════════════════════════════════════════════════════════════
@@ -2931,6 +2969,7 @@ function CargoDetailPanel({ id }: { id: string }) {
   const { toast } = useToast()
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<CargoItemUpdate>({})
+  const [workflowBlockingItems, setWorkflowBlockingItems] = useState<string[]>([])
   const { data: tierContacts } = useTierContacts(editForm.sender_tier_id ?? cargo?.sender_tier_id ?? undefined)
   const users = usersData?.items ?? []
 
@@ -3001,6 +3040,32 @@ function CargoDetailPanel({ id }: { id: string }) {
     ? (manifests?.items ?? []).find((manifest) => manifest.id === cargo.manifest_id)?.reference ?? cargo.manifest_id
     : null
   const volumeLabel = cargo.volume_m3 ? `${cargo.volume_m3.toLocaleString('fr-FR')} m³` : '—'
+  const missingRequirements = assessCargoReadiness(cargo)
+  const pickupMapUrl = cargo.pickup_latitude != null && cargo.pickup_longitude != null
+    ? `https://www.openstreetmap.org/?mlat=${cargo.pickup_latitude}&mlon=${cargo.pickup_longitude}#map=16/${cargo.pickup_latitude}/${cargo.pickup_longitude}`
+    : null
+
+  const handleWorkflowChange = async (workflowStatus: CargoItem['workflow_status']) => {
+    try {
+      setWorkflowBlockingItems([])
+      await updateCargoWorkflowStatus.mutateAsync({ id, workflow_status: workflowStatus })
+      toast({ title: 'Étape workflow mise à jour', variant: 'success' })
+    } catch (error: unknown) {
+      const missing = Array.isArray((error as { response?: { data?: { detail?: { missing_requirements?: string[] } } } })?.response?.data?.detail?.missing_requirements)
+        ? ((error as { response?: { data?: { detail?: { missing_requirements?: string[] } } } }).response?.data?.detail?.missing_requirements ?? [])
+        : []
+      if (missing.length > 0) {
+        setWorkflowBlockingItems(missing)
+        toast({
+          title: 'Dossier cargo incomplet',
+          description: missing.map((item) => CARGO_READINESS_LABELS[item] ?? item).join(', '),
+          variant: 'error',
+        })
+        return
+      }
+      toast({ title: 'Erreur lors du changement d’étape workflow', variant: 'error' })
+    }
+  }
 
   return (
     <DynamicPanelShell title={cargo.code} subtitle={cargo.description || 'Colis'} icon={<Package size={14} className="text-primary" />}
@@ -3034,7 +3099,7 @@ function CargoDetailPanel({ id }: { id: string }) {
           )}
           {!editing && (
             <select className="text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground" value=""
-              onChange={(e) => { if (e.target.value) updateCargoWorkflowStatus.mutate({ id, workflow_status: e.target.value as CargoItem['workflow_status'] }) }}>
+              onChange={(e) => { if (e.target.value) void handleWorkflowChange(e.target.value as CargoItem['workflow_status']) }}>
               <option value="">Workflow...</option>
               {Object.entries(cargoWorkflowLabels).filter(([k]) => k !== cargo.workflow_status).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
@@ -3237,6 +3302,48 @@ function CargoDetailPanel({ id }: { id: string }) {
               <DetailRow label="Notes avarie" value={cargo.damage_notes ?? '—'} />
               {cargo.received_at && <DetailRow label="Recu le" value={new Date(cargo.received_at).toLocaleString('fr-FR')} />}
               <DetailRow label="Cree le" value={new Date(cargo.created_at).toLocaleDateString('fr-FR')} />
+            </FormSection>
+
+            <FormSection title="Complétude du dossier" collapsible defaultExpanded>
+              <div className="space-y-2">
+                <div className={cn(
+                  'rounded-lg border px-3 py-2 text-xs',
+                  missingRequirements.length === 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-900',
+                )}>
+                  {missingRequirements.length === 0
+                    ? 'Le dossier cargo contient les éléments minimums pour passer en revue/validation.'
+                    : `${missingRequirements.length} élément(s) bloquant(s) restent à compléter.`}
+                </div>
+                {(workflowBlockingItems.length > 0 || missingRequirements.length > 0) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {(workflowBlockingItems.length > 0 ? workflowBlockingItems : missingRequirements).map((item) => (
+                      <div key={item} className="rounded-lg border border-border/60 bg-card px-3 py-2 text-xs text-muted-foreground">
+                        {CARGO_READINESS_LABELS[item] ?? item}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </FormSection>
+
+            <FormSection title="Localisation d’enlèvement" collapsible defaultExpanded>
+              <div className="space-y-2">
+                <DetailRow label="Lieu" value={cargo.pickup_location_label ?? '—'} />
+                <DetailRow label="Coordonnées" value={cargo.pickup_latitude != null && cargo.pickup_longitude != null ? `${cargo.pickup_latitude}, ${cargo.pickup_longitude}` : '—'} />
+                {pickupMapUrl ? (
+                  <a
+                    href={pickupMapUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:bg-muted/40"
+                  >
+                    <MapPin size={12} />
+                    Ouvrir la localisation sur la carte
+                  </a>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Aucune coordonnée cartographique renseignée.</p>
+                )}
+              </div>
             </FormSection>
 
             {/* Package elements */}

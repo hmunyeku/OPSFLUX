@@ -1069,6 +1069,9 @@ function ContactDetailPanel({
   // Fetch polymorphic counts for badge display
   const { data: contactPhones } = usePhones('tier_contact', contact?.id)
   const { data: contactCEmails } = useContactEmails('tier_contact', contact?.id)
+  const { data: contactAddresses } = useAddresses('tier_contact', contact?.id)
+  const { data: contactNotes } = useNotes('tier_contact', contact?.id)
+  const { data: contactAttachments } = useAttachments('tier_contact', contact?.id)
 
   const updateContact = useUpdateTierContact()
   const deleteContact = useDeleteTierContact()
@@ -1291,7 +1294,7 @@ function ContactDetailPanel({
               <SubSectionLabel icon={Mail} label={t('shared.emails.title')} count={contactCEmails?.length ?? 0} />
               <ContactEmailManager ownerType="tier_contact" ownerId={contact.id} compact />
 
-              <SubSectionLabel icon={MapPin} label={t('shared.addresses.title')} count={0} />
+              <SubSectionLabel icon={MapPin} label={t('shared.addresses.title')} count={contactAddresses?.length ?? 0} />
               <AddressManager ownerType="tier_contact" ownerId={contact.id} compact />
             </FormSection>
           </div>
@@ -1306,11 +1309,11 @@ function ContactDetailPanel({
         <FormSection title={t('tiers.ui.sections.notes_documents')} collapsible defaultExpanded={false} storageKey="contact-detail-sections">
           <DetailFieldGrid>
             <div>
-              <SubSectionLabel icon={MessageSquare} label={t('common.notes')} count={0} />
+              <SubSectionLabel icon={MessageSquare} label={t('common.notes')} count={contactNotes?.length ?? 0} />
               <NoteManager ownerType="tier_contact" ownerId={contact.id} compact />
             </div>
             <div>
-              <SubSectionLabel icon={Paperclip} label={t('common.files')} count={0} />
+              <SubSectionLabel icon={Paperclip} label={t('common.files')} count={contactAttachments?.length ?? 0} />
               <AttachmentManager ownerType="tier_contact" ownerId={contact.id} compact />
             </div>
           </DetailFieldGrid>

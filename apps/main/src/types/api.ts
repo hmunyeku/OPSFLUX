@@ -2177,6 +2177,101 @@ export interface RecurrenceCreate {
   end_date?: string
 }
 
+// ── Planner — Bulk Resolve / Audit / Scenarios / Forecast ───
+
+export interface BulkConflictResolveItem {
+  conflict_id: string
+  resolution: string
+  resolution_note?: string | null
+}
+
+export interface BulkConflictResolveResult {
+  resolved: number
+  skipped: number
+  errors: string[]
+  conflict_ids: string[]
+}
+
+export interface ConflictAuditEntry {
+  id: string
+  conflict_id: string
+  actor_id: string | null
+  actor_name: string | null
+  action: string
+  old_status: string | null
+  new_status: string | null
+  old_resolution: string | null
+  new_resolution: string | null
+  resolution_note: string | null
+  context: string | null
+  created_at: string
+}
+
+export interface ProposedActivity {
+  asset_id: string
+  pax_quota: number
+  start_date: string
+  end_date: string
+  title?: string
+}
+
+export interface ScenarioRequest {
+  proposed_activities: ProposedActivity[]
+  start_date: string
+  end_date: string
+}
+
+export interface ScenarioDailyLoad {
+  asset_id: string
+  date: string
+  current_load: number
+  proposed_extra: number
+  projected_load: number
+  max_capacity: number
+  saturation_pct: number
+  overflow: number
+}
+
+export interface ScenarioConflict {
+  asset_id: string
+  date: string
+  overflow: number
+}
+
+export interface ScenarioResult {
+  daily_loads: ScenarioDailyLoad[]
+  projected_conflicts: ScenarioConflict[]
+  summary: {
+    total_days: number
+    conflict_days: number
+    worst_overflow: number
+    worst_date: string | null
+    proposed_count: number
+  }
+}
+
+export interface ForecastDay {
+  date: string
+  projected_load: number
+  scheduled_load: number
+  combined_load: number
+  max_capacity: number
+  at_risk: boolean
+  saturation_pct: number
+}
+
+export interface ForecastResult {
+  forecast: ForecastDay[]
+  summary: {
+    at_risk_days: number
+    avg_projected_load: number
+    peak_date: string | null
+    peak_load: number
+    max_capacity: number
+    horizon_days: number
+  }
+}
+
 // ── TravelWiz — Voyage Events (Journal de bord) ─────────────
 
 export interface VoyageEvent {

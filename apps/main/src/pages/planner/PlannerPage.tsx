@@ -10,6 +10,7 @@ import {
   Calendar, Clock, Users, CheckCircle2, XCircle, Send, Ban,
   Wrench, HardHat, Gauge, Shield, Drill, Pencil, Trash2, Link2, Loader2,
   ChevronLeft, ChevronRight, GanttChart, Eye, Repeat, ArrowUpDown,
+  FlaskConical, TrendingUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
@@ -57,6 +58,8 @@ import {
   useRemoveDependency,
   useConflicts,
   useResolveConflict,
+  // useBulkResolveConflicts — available, wired into ConflitsTab in a future pass
+  // useConflictAudit — available, wired into conflict detail panel in a future pass
   useGanttData,
   useCapacityHeatmap,
   useAssetCapacities,
@@ -65,6 +68,8 @@ import {
   useOverridePriority,
   useSetRecurrence,
   useDeleteRecurrence,
+  useSimulateScenario,
+  useForecast,
 } from '@/hooks/usePlanner'
 import { usePermission } from '@/hooks/usePermission'
 import type {
@@ -72,17 +77,20 @@ import type {
   PlannerConflict, PlannerDependency,
   GanttActivity, GanttAsset,
   AssetCapacity,
+  ProposedActivity, ScenarioResult, ForecastDay,
 } from '@/types/api'
 
 // ── Tab definitions ───────────────────────────────────────────
 
-type PlannerTab = 'gantt' | 'activities' | 'conflicts' | 'capacity'
+type PlannerTab = 'gantt' | 'activities' | 'conflicts' | 'capacity' | 'scenarios' | 'forecast'
 
 const TABS: { id: PlannerTab; label: string; icon: typeof CalendarRange }[] = [
   { id: 'gantt', label: 'Gantt', icon: GanttChart },
   { id: 'activities', label: 'Activites', icon: ListTodo },
   { id: 'conflicts', label: 'Conflits', icon: AlertTriangle },
   { id: 'capacity', label: 'Capacite', icon: BarChart3 },
+  { id: 'scenarios', label: 'Scénarios', icon: FlaskConical },
+  { id: 'forecast', label: 'Prévisions', icon: TrendingUp },
 ]
 
 // ── Constants ─────────────────────────────────────────────────
@@ -1234,6 +1242,231 @@ function CapacityTab() {
 
 // ── Main page component ───────────────────────────────────────
 
+// ── Scenarios Tab (what-if simulation) ──────────────────────────────────
+
+function ScenariosTab() {
+  const simulate = useSimulateScenario()
+  const { toast } = useToast()
+  const [proposed, setProposed] = useState<ProposedActivity[]>([])
+  const [result, setResult] = useState<ScenarioResult | null>(null)
+  const [form, setForm] = useState({ asset_id: '', pax_quota: '', start_date: '', end_date: '', title: '' })
+
+  const handleAdd = () => {
+    if (!form.asset_id || !form.pax_quota || !form.start_date || !form.end_date) return
+    setProposed(prev => [...prev, {
+      asset_id: form.asset_id,
+      pax_quota: Number(form.pax_quota),
+      start_date: form.start_date,
+      end_date: form.end_date,
+      title: form.title || undefined,
+    }])
+    setForm(f => ({ ...f, pax_quota: '', start_date: '', end_date: '', title: '' }))
+  }
+
+  const handleSimulate = async () => {
+    if (proposed.length === 0) return
+    const dates = proposed.flatMap(p => [p.start_date, p.end_date]).sort()
+    try {
+      const res = await simulate.mutateAsync({
+        proposed_activities: proposed,
+        start_date: dates[0],
+        end_date: dates[dates.length - 1],
+      })
+      setResult(res)
+    } catch (err) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Erreur'
+      toast({ title: 'Simulation échouée', description: String(msg), variant: 'error' })
+    }
+  }
+
+  return (
+    <div className="p-4 space-y-4 overflow-y-auto">
+      <div className="text-xs text-muted-foreground mb-2">
+        <FlaskConical size={12} className="inline mr-1 text-primary" />
+        Testez l'impact de nouvelles activités sur la capacité sans rien enregistrer.
+      </div>
+
+      <FormSection title="Activités proposées" collapsible defaultExpanded storageKey="planner-scenario-proposed">
+        <div className="grid grid-cols-[1fr_80px_120px_120px_auto] gap-2 text-xs items-end">
+          <AssetPicker value={form.asset_id} onChange={v => setForm(f => ({ ...f, asset_id: v || '' }))} label="Site" />
+          <div>
+            <label className="text-[10px] text-muted-foreground block mb-0.5">PAX</label>
+            <input type="number" min="1" value={form.pax_quota} onChange={e => setForm(f => ({ ...f, pax_quota: e.target.value }))} className={`${panelInputClass} w-full text-xs`} placeholder="PAX" />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground block mb-0.5">Début</label>
+            <input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} className={`${panelInputClass} w-full text-xs`} />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground block mb-0.5">Fin</label>
+            <input type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} className={`${panelInputClass} w-full text-xs`} />
+          </div>
+          <button onClick={handleAdd} disabled={!form.asset_id || !form.pax_quota || !form.start_date || !form.end_date} className="px-2 py-1 rounded bg-primary text-primary-foreground text-xs disabled:opacity-40 self-end">
+            <Plus size={12} />
+          </button>
+        </div>
+        {proposed.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {proposed.map((p, i) => (
+              <div key={i} className="flex items-center gap-2 text-[11px] px-2 py-1 rounded bg-muted/40">
+                <span className="font-mono text-muted-foreground">{p.asset_id.slice(0, 8)}…</span>
+                <span className="font-medium">{p.title || 'Sans titre'}</span>
+                <span>{p.pax_quota} PAX</span>
+                <span className="text-muted-foreground">{p.start_date} → {p.end_date}</span>
+                <button onClick={() => setProposed(prev => prev.filter((_, j) => j !== i))} className="ml-auto text-muted-foreground hover:text-red-500"><Trash2 size={10} /></button>
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={handleSimulate}
+          disabled={proposed.length === 0 || simulate.isPending}
+          className="mt-2 px-3 py-1 rounded bg-primary text-primary-foreground text-xs disabled:opacity-40 flex items-center gap-1.5"
+        >
+          {simulate.isPending ? <Loader2 size={11} className="animate-spin" /> : <FlaskConical size={11} />}
+          Simuler ({proposed.length} activité{proposed.length > 1 ? 's' : ''})
+        </button>
+      </FormSection>
+
+      {result && (
+        <FormSection title="Résultats de la simulation" collapsible defaultExpanded storageKey="planner-scenario-results">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            <div className="border rounded p-2 text-center">
+              <div className="text-[9px] uppercase text-muted-foreground">Jours analysés</div>
+              <div className="text-lg font-semibold tabular-nums">{result.summary.total_days}</div>
+            </div>
+            <div className={cn('border rounded p-2 text-center', result.summary.conflict_days > 0 ? 'border-red-500/30 bg-red-500/5' : '')}>
+              <div className="text-[9px] uppercase text-muted-foreground">Jours en conflit</div>
+              <div className={cn('text-lg font-semibold tabular-nums', result.summary.conflict_days > 0 && 'text-red-600')}>{result.summary.conflict_days}</div>
+            </div>
+            <div className={cn('border rounded p-2 text-center', result.summary.worst_overflow > 0 ? 'border-red-500/30 bg-red-500/5' : '')}>
+              <div className="text-[9px] uppercase text-muted-foreground">Pire dépassement</div>
+              <div className="text-lg font-semibold tabular-nums">{result.summary.worst_overflow} PAX</div>
+            </div>
+            <div className="border rounded p-2 text-center">
+              <div className="text-[9px] uppercase text-muted-foreground">Activités proposées</div>
+              <div className="text-lg font-semibold tabular-nums">{result.summary.proposed_count}</div>
+            </div>
+          </div>
+
+          {result.projected_conflicts.length > 0 && (
+            <div className="border border-red-500/30 rounded p-2 mb-3">
+              <div className="text-xs font-semibold text-red-600 mb-1 flex items-center gap-1">
+                <AlertTriangle size={12} /> Conflits projetés
+              </div>
+              <div className="space-y-0.5 max-h-[120px] overflow-y-auto">
+                {result.projected_conflicts.map((c, i) => (
+                  <div key={i} className="text-[10px] flex items-center gap-2">
+                    <span className="text-muted-foreground tabular-nums">{c.date}</span>
+                    <span className="font-mono text-[9px]">{c.asset_id.slice(0, 8)}</span>
+                    <span className="text-red-600 font-medium">+{c.overflow} PAX</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {result.projected_conflicts.length === 0 && (
+            <div className="text-[11px] text-green-600 flex items-center gap-1.5 p-2 rounded bg-green-500/5 border border-green-500/30">
+              <CheckCircle2 size={12} /> Aucun conflit projeté — la capacité est suffisante.
+            </div>
+          )}
+        </FormSection>
+      )}
+    </div>
+  )
+}
+
+// ── Forecast Tab (capacity trends) ─────────────────────────────────────
+
+function ForecastTab() {
+  const [assetId, setAssetId] = useState('')
+  const [horizon, setHorizon] = useState(90)
+  const { data, isLoading } = useForecast(assetId || undefined, horizon)
+
+  return (
+    <div className="p-4 space-y-4 overflow-y-auto">
+      <div className="text-xs text-muted-foreground mb-2">
+        <TrendingUp size={12} className="inline mr-1 text-primary" />
+        Prévision de charge basée sur les 90 derniers jours + activités planifiées.
+      </div>
+
+      <div className="flex items-end gap-3">
+        <AssetPicker value={assetId} onChange={v => setAssetId(v || '')} label="Site" />
+        <div>
+          <label className="text-[10px] text-muted-foreground block mb-0.5">Horizon (jours)</label>
+          <select value={horizon} onChange={e => setHorizon(Number(e.target.value))} className={`${panelInputClass} text-xs`}>
+            <option value={30}>30 jours</option>
+            <option value={60}>60 jours</option>
+            <option value={90}>90 jours</option>
+            <option value={180}>6 mois</option>
+            <option value={365}>1 an</option>
+          </select>
+        </div>
+      </div>
+
+      {!assetId && (
+        <div className="text-center py-8 text-xs text-muted-foreground italic">
+          Sélectionnez un site pour voir les prévisions de capacité.
+        </div>
+      )}
+
+      {isLoading && assetId && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 size={16} className="animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {data && (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className={cn('border rounded p-2 text-center', data.summary.at_risk_days > 0 ? 'border-orange-500/30 bg-orange-500/5' : '')}>
+              <div className="text-[9px] uppercase text-muted-foreground">Jours à risque (&gt;80%)</div>
+              <div className={cn('text-lg font-semibold tabular-nums', data.summary.at_risk_days > 0 && 'text-orange-600')}>{data.summary.at_risk_days}</div>
+            </div>
+            <div className="border rounded p-2 text-center">
+              <div className="text-[9px] uppercase text-muted-foreground">Charge moy. projetée</div>
+              <div className="text-lg font-semibold tabular-nums">{data.summary.avg_projected_load}</div>
+            </div>
+            <div className="border rounded p-2 text-center">
+              <div className="text-[9px] uppercase text-muted-foreground">Pic de charge</div>
+              <div className="text-lg font-semibold tabular-nums">{data.summary.peak_load}</div>
+              {data.summary.peak_date && <div className="text-[9px] text-muted-foreground">{data.summary.peak_date}</div>}
+            </div>
+            <div className="border rounded p-2 text-center">
+              <div className="text-[9px] uppercase text-muted-foreground">Capacité max</div>
+              <div className="text-lg font-semibold tabular-nums">{data.summary.max_capacity}</div>
+            </div>
+          </div>
+
+          <div className="border border-border rounded p-3">
+            <div className="text-xs font-semibold mb-2 flex items-center gap-1">
+              <TrendingUp size={12} className="text-primary" /> Charge jour par jour
+            </div>
+            <div className="max-h-[400px] overflow-y-auto space-y-0.5">
+              {data.forecast.map((day: ForecastDay) => {
+                const pct = day.max_capacity > 0 ? (day.combined_load / day.max_capacity) * 100 : 0
+                const barColor = day.at_risk ? 'bg-orange-500' : pct > 50 ? 'bg-yellow-400' : 'bg-green-500'
+                return (
+                  <div key={day.date} className={cn('flex items-center gap-2 text-[10px] py-0.5', day.at_risk && 'bg-orange-500/5 rounded')}>
+                    <span className="w-[80px] text-muted-foreground tabular-nums shrink-0">{day.date}</span>
+                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                      <div className={cn('h-full rounded-full', barColor)} style={{ width: `${Math.min(100, pct)}%` }} />
+                    </div>
+                    <span className="w-[40px] text-right tabular-nums">{Math.round(day.combined_load)}</span>
+                    <span className="w-[30px] text-right tabular-nums text-muted-foreground">/{day.max_capacity}</span>
+                    {day.at_risk && <AlertTriangle size={9} className="text-orange-500 shrink-0" />}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 export function PlannerPage() {
   const [activeTab, setActiveTab] = useState<PlannerTab>('gantt')
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
@@ -1285,6 +1518,8 @@ export function PlannerPage() {
           {activeTab === 'activities' && <ActivitiesTab />}
           {activeTab === 'conflicts' && <ConflitsTab />}
           {activeTab === 'capacity' && <CapacityTab />}
+          {activeTab === 'scenarios' && <ScenariosTab />}
+          {activeTab === 'forecast' && <ForecastTab />}
         </div>
       )}
 

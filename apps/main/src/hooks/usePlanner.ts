@@ -10,6 +10,8 @@ import type {
   PaginationParams,
   AssetCapacityCreate,
   RecurrenceCreate,
+  BulkConflictResolveItem,
+  ScenarioRequest,
 } from '@/types/api'
 
 // ── Activities ──
@@ -289,5 +291,47 @@ export function useDeleteRecurrence() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['planner', 'activities'] })
     },
+  })
+}
+
+// ── Bulk conflict resolution ──
+
+export function useBulkResolveConflicts() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (items: BulkConflictResolveItem[]) =>
+      plannerService.bulkResolveConflicts(items),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['planner', 'conflicts'] })
+    },
+  })
+}
+
+// ── Conflict audit trail ──
+
+export function useConflictAudit(conflictId: string | undefined) {
+  return useQuery({
+    queryKey: ['planner', 'conflict-audit', conflictId],
+    queryFn: () => plannerService.getConflictAudit(conflictId!),
+    enabled: !!conflictId,
+  })
+}
+
+// ── Scenario simulation (what-if) ──
+
+export function useSimulateScenario() {
+  return useMutation({
+    mutationFn: (payload: ScenarioRequest) => plannerService.simulate(payload),
+  })
+}
+
+// ── Capacity forecast ──
+
+export function useForecast(assetId: string | undefined, horizonDays = 90) {
+  return useQuery({
+    queryKey: ['planner', 'forecast', assetId, horizonDays],
+    queryFn: () => plannerService.forecast(assetId!, horizonDays),
+    enabled: !!assetId,
+    staleTime: 60_000,
   })
 }

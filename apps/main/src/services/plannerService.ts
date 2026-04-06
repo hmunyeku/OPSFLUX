@@ -14,6 +14,10 @@ import type {
   ImpactPreview,
   AssetCapacity, AssetCapacityCreate,
   RecurrenceCreate, RecurrenceConfig,
+  BulkConflictResolveItem, BulkConflictResolveResult,
+  ConflictAuditEntry,
+  ScenarioRequest, ScenarioResult,
+  ForecastResult,
 } from '@/types/api'
 
 const BASE = '/api/v1/planner'
@@ -201,5 +205,32 @@ export const plannerService = {
 
   deleteRecurrence: async (activityId: string): Promise<void> => {
     await api.delete(`${BASE}/activities/${activityId}/recurrence`)
+  },
+
+  // ── Bulk conflict resolution ──
+  bulkResolveConflicts: async (items: BulkConflictResolveItem[]): Promise<BulkConflictResolveResult> => {
+    const { data } = await api.post(`${BASE}/conflicts/bulk-resolve`, { items })
+    return data
+  },
+
+  // ── Conflict audit trail ──
+  getConflictAudit: async (conflictId: string): Promise<ConflictAuditEntry[]> => {
+    const { data } = await api.get(`${BASE}/conflicts/${conflictId}/audit`)
+    return data
+  },
+
+  // ── Scenario simulation (what-if) ──
+  simulate: async (payload: ScenarioRequest): Promise<ScenarioResult> => {
+    const { data } = await api.post(`${BASE}/scenarios/simulate`, payload)
+    return data
+  },
+
+  // ── Capacity forecast ──
+  forecast: async (assetId: string, horizonDays = 90): Promise<ForecastResult> => {
+    const { data } = await api.post(`${BASE}/forecast`, {
+      asset_id: assetId,
+      horizon_days: horizonDays,
+    })
+    return data
   },
 }

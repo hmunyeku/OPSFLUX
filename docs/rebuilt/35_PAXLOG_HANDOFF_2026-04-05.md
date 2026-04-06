@@ -22,8 +22,10 @@ Verdict court:
 
 Vérifications disponibles:
 
-- `python -m pytest -q` -> `128 passed, 2 skipped`
+- `python -m pytest tests/unit/test_paxlog_flows.py -q` -> `132 passed`
+- `python -m pytest tests/unit/test_workflow_seed_config.py -q` -> `2 passed`
 - `npm --prefix apps/main run typecheck` -> OK
+- `npm --prefix apps/ext-paxlog run build` -> OK
 
 ## Ce qui est fermé
 
@@ -40,6 +42,7 @@ Vérifications disponibles:
 - création / lecture / soumission / rejet / correction / re-soumission
 - `pending_initiator_review`
 - `pending_project_review`
+- `pending_compliance` explicite avant validation finale
 - approbation partielle PAX par PAX
 - re-soumission `requires_review` prouvée sans retour parasite vers initiateur / projet
 - imputation backend
@@ -58,6 +61,23 @@ Vérifications disponibles:
   - `transport_change`
   - `window_change`
 - transport aller/retour explicite pour le contrat `AdS -> TravelWiz`
+- scope multi-entreprises explicite sur `AdS` via `allowed companies`
+- preuve automatisée `create -> submit` avec déclenchement réel du workflow lors du lancement en validation
+
+### Workflow
+
+- `PaxLog` branché sur les slugs workflow canoniques:
+  - `ads-workflow`
+  - `planner-activity`
+  - `voyage-workflow`
+- seed aligné avec les slugs runtime
+- migration de synchronisation des définitions existantes:
+  - [093_sync_workflow_definition_slugs.py](/C:/Users/ajha0/Desktop/OPSFLUX/alembic/versions/093_sync_workflow_definition_slugs.py)
+- garde-fous d'approbation clarifiés par étape:
+  - initiateur
+  - chef de projet
+  - conformité/HSE
+  - validation finale
 
 ### AVM
 

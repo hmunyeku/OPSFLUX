@@ -44,8 +44,10 @@ Références code principales:
 
 Vérifications disponibles à la date de cet audit:
 
-- `python -m pytest -q` -> `128 passed, 2 skipped`
+- `python -m pytest tests/unit/test_paxlog_flows.py -q` -> `132 passed`
+- `python -m pytest tests/unit/test_workflow_seed_config.py -q` -> `2 passed`
 - `npm --prefix apps/main run typecheck` -> OK
+- `npm --prefix apps/ext-paxlog run build` -> OK
 
 ## Matrice CDC
 
@@ -155,7 +157,7 @@ Verdict: `covered`
 
 Couverts:
 
-- transitions principales `draft -> pending_compliance/pending_validation -> approved`
+- transitions principales `draft -> pending_initiator_review -> pending_project_review -> pending_compliance -> pending_validation -> approved`
 - `requires_review`
 - `rejected`
 - `cancelled`
@@ -165,16 +167,26 @@ Points désormais couverts:
 
 - `pending_initiator_review`
 - `pending_project_review`
+- `pending_compliance` comme étape explicite avant validation finale
 - approbation partielle PAX par PAX
 - reprise du circuit après validation initiateur / projet
 - re-soumission après `requires_review` prouvée sans rebouclage parasite vers initiateur / projet
 - transitions backend et visibilité UI cohérentes sur ces états
+- seed workflow réaligné avec les slugs runtime:
+  - `ads-workflow`
+  - `planner-activity`
+  - `voyage-workflow`
+- migration de synchronisation des définitions workflow déployées
+- preuve automatisée `create -> submit` sur `AdS` avec déclenchement du workflow en `pending_initiator_review`
 
 Références:
 
 - `app/api/routes/modules/paxlog.py`
 - `app/services/modules/paxlog_service.py`
+- `app/services/core/seed_service.py`
+- `alembic/versions/093_sync_workflow_definition_slugs.py`
 - `docs/rebuilt/20_WORKFLOW_ADS.md`
+- `tests/unit/test_workflow_seed_config.py`
 
 ### 6. Gestion des cas particuliers
 

@@ -568,6 +568,93 @@ async def test_submit_ads_routes_to_pending_initiator_review_when_created_for_so
 
 
 @pytest.mark.asyncio
+async def test_create_then_submit_ads_starts_workflow_with_initiator_review(monkeypatch):
+    entity_id = uuid4()
+    creator_id = uuid4()
+    requester_id = uuid4()
+    site_asset_id = uuid4()
+    create_db = FakeDBWithGet([], get_map={(paxlog.User, requester_id): SimpleNamespace(id=requester_id, active=True)})
+    transition_calls = []
+    emitted_events = []
+    created_ads_ref = {}
+
+    async def fake_generate_reference(*_args, **_kwargs):
+        return "ADS-NEW-001"
+
+    async def fake_replace_allowed_companies(*_args, **_kwargs):
+        return ([], [])
+
+    async def fake_ensure_default_imputation(*_args, **_kwargs):
+        return None
+
+    async def fake_record_audit(*_args, **_kwargs):
+        return None
+
+    async def fake_build_ads_read_data(_db, *, ads, entity_id):
+        ads.rejection_reason = getattr(ads, "rejection_reason", None)
+        ads.created_at = getattr(ads, "created_at", None) or datetime.now(timezone.utc)
+        ads.updated_at = getattr(ads, "updated_at", None) or datetime.now(timezone.utc)
+        created_ads_ref["ads"] = ads
+        return _ads_read_payload(ads, entity_id)
+
+    async def fake_can_manage_ads(*_args, **_kwargs):
+        return True
+
+    async def fake_transition(*_args, **kwargs):
+        transition_calls.append(kwargs)
+
+    async def fake_emit_transition_event(**kwargs):
+        emitted_events.append(kwargs)
+
+    monkeypatch.setattr(paxlog, "generate_reference", fake_generate_reference)
+    monkeypatch.setattr(paxlog, "_replace_ads_allowed_companies", fake_replace_allowed_companies)
+    monkeypatch.setattr(paxlog, "_ensure_ads_default_imputation", fake_ensure_default_imputation)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "_build_ads_read_data", fake_build_ads_read_data)
+
+    create_body = paxlog.AdsCreate(
+        type="individual",
+        requester_id=requester_id,
+        site_entry_asset_id=site_asset_id,
+        visit_purpose="Inspection",
+        visit_category="visit",
+        start_date=date(2026, 4, 10),
+        end_date=date(2026, 4, 12),
+        pax_entries=[],
+    )
+
+    create_response = await paxlog.create_ads(
+        create_body,
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=creator_id),
+        _=None,
+        db=create_db,
+    )
+
+    created_ads = created_ads_ref["ads"]
+    assert create_response.status == "draft"
+    assert created_ads.created_by == creator_id
+    assert created_ads.requester_id == requester_id
+
+    submit_db = FakeDB([FakeResult(scalar_one_or_none=created_ads)])
+    monkeypatch.setattr(paxlog, "_can_manage_ads", fake_can_manage_ads)
+    monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
+    monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
+
+    submit_response = await paxlog.submit_ads(
+        created_ads.id,
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=creator_id),
+        _=None,
+        db=submit_db,
+    )
+
+    assert submit_response.status == "pending_initiator_review"
+    assert transition_calls and transition_calls[0]["to_state"] == "pending_initiator_review"
+    assert emitted_events and emitted_events[0]["to_state"] == "pending_initiator_review"
+
+
+@pytest.mark.asyncio
 async def test_submit_ads_routes_to_pending_project_review_when_project_manager_review_is_required(monkeypatch):
     ads = _build_ads(status="draft", project_id=uuid4())
     project = SimpleNamespace(id=ads.project_id, manager_id=uuid4())

@@ -2714,25 +2714,33 @@ function SpreadsheetView() {
   const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
-  const [filterProjectId, setFilterProjectId] = useState<string | undefined>(undefined)
+  const { selection, setSelection, filteredProjectIds, isFiltered } = useProjectFilter()
+  const [showSelector, setShowSelector] = useState(false)
   const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
   const { toast } = useToast()
 
   const statusFilter = typeof activeFilters.status === 'string' ? activeFilters.status : undefined
   const priorityFilter = typeof activeFilters.priority === 'string' ? activeFilters.priority : undefined
 
+  // When filtered to a single project, pass project_id to API for server-side filtering
+  const singleProjectId = isFiltered && selection.projectIds.length === 1 ? selection.projectIds[0] : undefined
+
   const { data, isLoading } = useAllProjectTasks({
     page, page_size: pageSize,
     search: debouncedSearch || undefined,
-    project_id: filterProjectId,
+    project_id: singleProjectId,
     status: statusFilter,
     priority: priorityFilter,
   })
 
-  // Projects list for filter dropdown
-  const { data: projectsData } = useProjects({ page_size: 100 })
+  useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters, singleProjectId])
 
-  useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters, filterProjectId])
+  // Client-side filter for multi-project selection (when >1 project selected)
+  const filteredData = useMemo(() => {
+    if (!data?.items || !filteredProjectIds || selection.projectIds.length <= 1) return data
+    const filtered = data.items.filter(t => filteredProjectIds.has(t.project_id))
+    return { ...data, items: filtered, total: filtered.length }
+  }, [data, filteredProjectIds, selection.projectIds.length])
 
   const handleInlineSave = useCallback(async (row: ProjectTaskEnriched, columnId: string, value: unknown) => {
     try {
@@ -2841,24 +2849,19 @@ function SpreadsheetView() {
       {/* Project filter bar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/30">
         <Sheet size={14} className="text-primary" />
-        <span className="text-xs font-medium text-muted-foreground">Projet:</span>
-        <select
-          value={filterProjectId || ''}
-          onChange={(e) => setFilterProjectId(e.target.value || undefined)}
-          className="text-xs border border-border rounded px-2 py-1 bg-background min-w-[180px]"
+        <button
+          onClick={() => setShowSelector(true)}
+          className={cn('px-2 py-1 rounded border text-xs', isFiltered ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted text-muted-foreground')}
         >
-          <option value="">Tous les projets</option>
-          {projectsData?.items?.map(p => (
-            <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-          ))}
-        </select>
-        <span className="text-[10px] text-muted-foreground ml-auto">Double-clic sur une cellule pour editer</span>
+          {isFiltered ? `${selection.projectIds.length} projet(s)` : 'Tous les projets'}
+        </button>
+        <span className="text-xs text-muted-foreground ml-auto">Double-clic sur une cellule pour éditer</span>
       </div>
 
       <div className="flex-1 overflow-hidden">
         <DataTable<ProjectTaskEnriched>
           columns={columns}
-          data={data?.items ?? []}
+          data={(filteredData ?? data)?.items ?? []}
           isLoading={isLoading}
           pagination={pagination}
           onPaginationChange={(p, size) => { if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p) }}
@@ -2879,6 +2882,7 @@ function SpreadsheetView() {
           storageKey="projets-spreadsheet"
         />
       </div>
+      <ProjectSelectorModal open={showSelector} onClose={() => setShowSelector(false)} selection={selection} onSelectionChange={setSelection} />
     </div>
   )
 }
@@ -3653,6 +3657,8 @@ function ProjectsListView() {
   const { hasPermission } = usePermission()
   const canImport = hasPermission('project.import')
   const canExport = hasPermission('project.export') || hasPermission('project.read')
+  const { selection: projSelection, setSelection: setProjSelection, filteredProjectIds: projFilterIds, isFiltered: isProjFiltered } = useProjectFilter()
+  const [showProjSelector, setShowProjSelector] = useState(false)
 
   const statusFilter = typeof activeFilters.status === 'string' ? activeFilters.status : undefined
   const priorityFilter = typeof activeFilters.priority === 'string' ? activeFilters.priority : undefined
@@ -3755,11 +3761,27 @@ function ProjectsListView() {
 
   const pagination: DataTablePagination | undefined = data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined
 
+  // Apply shared project filter (client-side since list is paginated)
+  const listItems = useMemo(() => {
+    const items = data?.items ?? []
+    if (!projFilterIds) return items
+    return items.filter(p => projFilterIds.has(p.id))
+  }, [data, projFilterIds])
+
   return (
+    <>
     <DataTable<Project>
       columns={columns}
-      data={data?.items ?? []}
+      data={listItems}
       isLoading={isLoading}
+      toolbarLeft={
+        <button
+          onClick={() => setShowProjSelector(true)}
+          className={cn('px-2 py-1 rounded border text-xs mr-2', isProjFiltered ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted text-muted-foreground')}
+        >
+          {isProjFiltered ? `${projSelection.projectIds.length} projet(s)` : 'Sélection'}
+        </button>
+      }
       pagination={pagination}
       onPaginationChange={(p, size) => { if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p) }}
       searchValue={search}
@@ -3784,6 +3806,8 @@ function ProjectsListView() {
       defaultHiddenColumns={['tier_name', 'end_date', 'parent_name']}
       storageKey="projets"
     />
+    <ProjectSelectorModal open={showProjSelector} onClose={() => setShowProjSelector(false)} selection={projSelection} onSelectionChange={setProjSelection} />
+    </>
   )
 }
 

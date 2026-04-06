@@ -65,11 +65,16 @@ export function ProjectSelectorModal({ open, onClose, selection, onSelectionChan
   const [sourceFilter, setSourceFilter] = useState<'all' | 'opsflux' | 'gouti'>('all')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(selection.projectIds))
 
+  // Server-side paginated + search for scalability (works with 1000+ projects)
   const { data: projectsData, isLoading } = useProjects({
-    page_size: 200,
+    page_size: 50,
     source: sourceFilter === 'all' ? undefined : sourceFilter,
     search: debouncedSearch || undefined,
+    status: statusFilter.length === 1 ? statusFilter[0] : undefined,
+    priority: priorityFilter.length === 1 ? priorityFilter[0] : undefined,
   })
+  const totalAvailable = projectsData?.total ?? 0
+  const hasMore = (projectsData?.items?.length ?? 0) < totalAvailable
 
   const projects = useMemo(() => {
     let list = projectsData?.items ?? []
@@ -123,7 +128,7 @@ export function ProjectSelectorModal({ open, onClose, selection, onSelectionChan
           <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
             <Dialog.Title className="text-sm font-semibold">{title}</Dialog.Title>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>{selectedIds.size}/{projects.length} sélectionnés</span>
+              <span>{selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''} · {projects.length}{hasMore ? `/${totalAvailable}` : ''} affichés</span>
               <Dialog.Close asChild>
                 <button className="p-1 rounded hover:bg-accent"><X size={14} /></button>
               </Dialog.Close>
@@ -176,7 +181,7 @@ export function ProjectSelectorModal({ open, onClose, selection, onSelectionChan
             {isLoading ? (
               <div className="flex items-center justify-center h-32"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
             ) : projects.length === 0 ? (
-              <div className="text-center py-8 text-xs text-muted-foreground italic">Aucun projet ne correspond à vos filtres</div>
+              <div className="text-center py-8 text-xs text-muted-foreground italic">Aucun projet ne correspond. Essayez une recherche différente.</div>
             ) : (
               <>
                 {/* Select all header */}

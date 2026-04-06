@@ -237,6 +237,44 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
             },
         },
     },
+    {
+        "slug": "project.report",
+        "name": "Rapport de projet",
+        "description": "Rapport PDF complet d'un projet: fiche, taches, jalons, WBS.",
+        "object_type": "project",
+        "page_size": "A4",
+        "orientation": "portrait",
+        "margin_top": 15,
+        "margin_right": 12,
+        "margin_bottom": 15,
+        "margin_left": 12,
+        "variables_schema": {
+            "project.code": "Code du projet",
+            "project.name": "Nom du projet",
+            "project.status": "Statut",
+            "project.priority": "Priorite",
+            "project.progress": "Pourcentage d'avancement",
+            "project.weather": "Meteo du projet",
+            "project.start_date": "Date de debut",
+            "project.end_date": "Date de fin prevue",
+            "project.budget": "Budget",
+            "project.description": "Description",
+            "project.manager_name": "Chef de projet",
+            "tasks": "Liste des taches [{title, status, priority, progress, start, end}]",
+            "milestones": "Liste des jalons [{name, due_date, status}]",
+            "wbs_nodes": "Noeuds WBS [{code, name, budget}]",
+            "task_count": "Nombre de taches",
+            "milestone_count": "Nombre de jalons",
+            "generated_at": "Date de generation",
+        },
+        "default_versions": {
+            "fr": {
+                "body_html": "",  # patched below
+                "header_html": None,
+                "footer_html": None,
+            },
+        },
+    },
 ]
 
 
@@ -907,6 +945,110 @@ DEFAULT_PDF_TEMPLATES[2]["default_versions"]["fr"]["body_html"] = _DOCUMENT_EXPO
 DEFAULT_PDF_TEMPLATES[2]["default_versions"]["en"]["body_html"] = _DOCUMENT_EXPORT_BODY_EN
 DEFAULT_PDF_TEMPLATES[3]["default_versions"]["fr"]["body_html"] = _VOYAGE_MANIFEST_BODY_FR
 DEFAULT_PDF_TEMPLATES[3]["default_versions"]["en"]["body_html"] = _VOYAGE_MANIFEST_BODY_EN
+
+# ── Project Report HTML ─────────────────────────────────────────────────
+
+_PROJECT_REPORT_BODY_FR = """\
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<style>
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px; color: #1a1a1a; line-height: 1.5; }
+  h1 { font-size: 20px; margin: 0 0 4px 0; color: #1e3a5f; }
+  h2 { font-size: 14px; margin: 20px 0 8px 0; color: #1e3a5f; border-bottom: 2px solid #e5e7eb; padding-bottom: 4px; }
+  .subtitle { font-size: 12px; color: #6b7280; margin-bottom: 16px; }
+  .meta-grid { display: flex; flex-wrap: wrap; gap: 6px 24px; margin-bottom: 16px; }
+  .meta-item { display: flex; gap: 6px; }
+  .meta-label { font-weight: 600; color: #374151; min-width: 90px; }
+  .meta-value { color: #1a1a1a; }
+  .description { background: #f9fafb; border-left: 3px solid #3b82f6; padding: 8px 12px; margin: 12px 0; font-size: 10px; white-space: pre-wrap; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10px; }
+  th { background: #f3f4f6; font-weight: 600; text-align: left; padding: 6px 8px; border: 1px solid #e5e7eb; }
+  td { padding: 5px 8px; border: 1px solid #e5e7eb; }
+  tr:nth-child(even) { background: #fafafa; }
+  .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 9px; font-weight: 600; }
+  .badge-green { background: #d1fae5; color: #065f46; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-amber { background: #fef3c7; color: #92400e; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .progress-bar { background: #e5e7eb; border-radius: 4px; height: 8px; width: 80px; display: inline-block; vertical-align: middle; }
+  .progress-fill { background: #3b82f6; border-radius: 4px; height: 100%; }
+  .footer { margin-top: 24px; font-size: 9px; color: #9ca3af; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 8px; }
+</style>
+</head>
+<body>
+<h1>{{ project.code }} &mdash; {{ project.name }}</h1>
+<div class="subtitle">Rapport de projet &bull; {{ generated_at }}</div>
+
+<h2>Fiche projet</h2>
+<div class="meta-grid">
+  <div class="meta-item"><span class="meta-label">Statut</span><span class="meta-value">{{ project.status }}</span></div>
+  <div class="meta-item"><span class="meta-label">Priorite</span><span class="meta-value">{{ project.priority }}</span></div>
+  <div class="meta-item"><span class="meta-label">Meteo</span><span class="meta-value">{{ project.weather }}</span></div>
+  <div class="meta-item"><span class="meta-label">Avancement</span><span class="meta-value">{{ project.progress }}%</span></div>
+  <div class="meta-item"><span class="meta-label">Chef de projet</span><span class="meta-value">{{ project.manager_name }}</span></div>
+  <div class="meta-item"><span class="meta-label">Budget</span><span class="meta-value">{{ project.budget }}</span></div>
+  <div class="meta-item"><span class="meta-label">Debut</span><span class="meta-value">{{ project.start_date }}</span></div>
+  <div class="meta-item"><span class="meta-label">Fin prevue</span><span class="meta-value">{{ project.end_date }}</span></div>
+</div>
+
+{% if project.description %}
+<h2>Description</h2>
+<div class="description">{{ project.description }}</div>
+{% endif %}
+
+<h2>Taches ({{ task_count }})</h2>
+{% if tasks %}
+<table>
+  <thead><tr><th>Tache</th><th>Statut</th><th>Priorite</th><th>%</th><th>Debut</th><th>Fin</th></tr></thead>
+  <tbody>
+  {% for t in tasks %}
+  <tr>
+    <td>{{ t.title }}</td>
+    <td>{{ t.status }}</td>
+    <td>{{ t.priority }}</td>
+    <td>{{ t.progress }}%</td>
+    <td>{{ t.start }}</td>
+    <td>{{ t.end }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>Aucune tache.</p>
+{% endif %}
+
+{% if milestones %}
+<h2>Jalons ({{ milestone_count }})</h2>
+<table>
+  <thead><tr><th>Jalon</th><th>Echeance</th><th>Statut</th></tr></thead>
+  <tbody>
+  {% for m in milestones %}
+  <tr><td>{{ m.name }}</td><td>{{ m.due_date }}</td><td>{{ m.status }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if wbs_nodes %}
+<h2>WBS</h2>
+<table>
+  <thead><tr><th>Code</th><th>Nom</th><th>Budget</th></tr></thead>
+  <tbody>
+  {% for w in wbs_nodes %}
+  <tr><td>{{ w.code }}</td><td>{{ w.name }}</td><td>{{ w.budget }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<div class="footer">OpsFlux &mdash; Rapport genere le {{ generated_at }}</div>
+</body>
+</html>
+"""
+
+DEFAULT_PDF_TEMPLATES[4]["default_versions"]["fr"]["body_html"] = _PROJECT_REPORT_BODY_FR
 
 
 # ── Rendering helpers ────────────────────────────────────────────────────

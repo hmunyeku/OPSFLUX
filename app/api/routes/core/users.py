@@ -1097,3 +1097,85 @@ async def admin_set_avatar_from_url(
     await db.commit()
     await db.refresh(user)
     return user
+
+
+# ── User Preferences (DB-stored, per-user JSONB blob) ────────────────────
+
+PREFS_KEY = "user.preferences"
+
+
+@router.get("/me/preferences")
+async def get_my_preferences(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the current user's full preferences blob (or {} if none)."""
+    from app.models.common import Setting
+    result = await db.execute(
+        select(Setting).where(
+            Setting.key == PREFS_KEY,
+            Setting.scope == "user",
+            Setting.scope_id == str(current_user.id),
+        )
+    )
+    row = result.scalar_one_or_none()
+    return row.value if row and isinstance(row.value, dict) else {}
+
+
+@router.put("/me/preferences")
+async def set_my_preferences(
+    body: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Replace the current user's full preferences blob."""
+    from app.models.common import Setting
+    result = await db.execute(
+        select(Setting).where(
+            Setting.key == PREFS_KEY,
+            Setting.scope == "user",
+            Setting.scope_id == str(current_user.id),
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        existing.value = body
+    else:
+        db.add(Setting(
+            key=PREFS_KEY,
+            value=body,
+            scope="user",
+            scope_id=str(current_user.id),
+        ))
+    await db.commit()
+    return body
+
+
+@router.patch("/me/preferences")
+async def patch_my_preferences(
+    body: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Merge a partial update into the user's preferences.
+
+    Top-level keys are merged; nested keys within each namespace are
+    replaced entirely (e.g. {"gantt": {...}} replaces the whole gantt block).
+    """
+    from app.models.common import Setting
+    result = await db.execute(
+        select(Setting).where(
+            Setting.key == PREFS_KEY,
+            Setting.scope == "user",
+            Setting.scope_id == str(current_user.id),
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        merged = {**(existing.value if isinstance(existing.value, dict) else {}), **body}
+        existing.value = merged
+    else:
+        db.add(Setting(key=PREFS_KEY, value=body, scope="user", scope_id=str(current_user.id)))
+        merged = body
+    await db.commit()
+    return merged

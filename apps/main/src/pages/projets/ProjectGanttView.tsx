@@ -25,6 +25,7 @@ import { useProjects, useProjectTasks, useProjectMilestones, useProjectCpm } fro
 import { projetsService, isGoutiProject } from '@/services/projetsService'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useToast } from '@/components/ui/Toast'
+import { useUserPreferences } from '@/hooks/useUserPreferences'
 import type { Project, ProjectTask } from '@/types/api'
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -184,8 +185,9 @@ const T_CLR: Record<string, string> = { todo: '#9ca3af', in_progress: '#3b82f6',
 
 // ── Persisted Gantt display settings ────────────────────────────────────
 
-const SETTINGS_KEY = 'opsflux:gantt-settings'
-const PRESETS_KEY = 'opsflux:gantt-presets'
+// DB-backed preference keys (namespace in user.preferences JSONB):
+//   gantt         → GanttSettings
+//   gantt_presets  → GanttPreset[]
 
 const TASK_STATUSES = ['todo', 'in_progress', 'review', 'done', 'cancelled'] as const
 type TaskStatus = typeof TASK_STATUSES[number]
@@ -225,19 +227,8 @@ const DEFAULT_SETTINGS: GanttSettings = {
   filterAssignee: null, activePreset: null,
 }
 
-function loadSettings(): GanttSettings {
-  try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') } }
-  catch { return DEFAULT_SETTINGS }
-}
-function saveSettings(s: GanttSettings) {
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)) } catch {}
-}
-function loadPresets(): GanttPreset[] {
-  try { return JSON.parse(localStorage.getItem(PRESETS_KEY) || '[]') } catch { return [] }
-}
-function savePresets(p: GanttPreset[]) {
-  try { localStorage.setItem(PRESETS_KEY, JSON.stringify(p)) } catch {}
-}
+// Settings/presets are now loaded via useUserPreferences (DB-backed with
+// localStorage cache). The old direct-localStorage functions are removed.
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: 'À faire', in_progress: 'En cours', review: 'Revue', done: 'Terminé', cancelled: 'Annulé',
@@ -420,14 +411,15 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
 // Settings panel (extracted for clarity)
 // ═══════════════════════════════════════════════════════════════════════
 
-function GanttSettingsPanel({ settings, setSettings, scale, vs, ve }: {
+function GanttSettingsPanel({ settings, setSettings, scale, vs, ve, presets, setPresets }: {
   settings: GanttSettings
   setSettings: (fn: (s: GanttSettings) => GanttSettings) => void
   scale: TimeScale
   vs: string
   ve: string
+  presets: GanttPreset[]
+  setPresets: (p: GanttPreset[]) => void
 }) {
-  const [presets, setPresetsState] = useState(loadPresets)
   const [newPresetName, setNewPresetName] = useState('')
   const [showPresets, setShowPresets] = useState(false)
 
@@ -436,9 +428,7 @@ function GanttSettingsPanel({ settings, setSettings, scale, vs, ve }: {
     if (!name) return
     const { activePreset, ...rest } = settings
     const preset: GanttPreset = { name, settings: rest, scale, viewStart: vs, viewEnd: ve }
-    const updated = [...presets.filter(p => p.name !== name), preset]
-    savePresets(updated)
-    setPresetsState(updated)
+    setPresets([...presets.filter(p => p.name !== name), preset])
     setSettings(s => ({ ...s, activePreset: name }))
     setNewPresetName('')
   }
@@ -449,9 +439,7 @@ function GanttSettingsPanel({ settings, setSettings, scale, vs, ve }: {
   }
 
   const handleDeletePreset = (name: string) => {
-    const updated = presets.filter(p => p.name !== name)
-    savePresets(updated)
-    setPresetsState(updated)
+    setPresets(presets.filter(p => p.name !== name))
     if (settings.activePreset === name) setSettings(s => ({ ...s, activePreset: null }))
   }
 
@@ -635,10 +623,13 @@ export function ProjectGanttView() {
 
   const [scale, setScale] = useState<TimeScale>('month')
   const [pw, setPw] = useState(260)
-  const [settings, setSettingsRaw] = useState(loadSettings)
+  // User preferences backed by DB (synced via API) with localStorage cache
+  const { getPref, setPref: setUserPref } = useUserPreferences()
+  const settings: GanttSettings = getPref('gantt', DEFAULT_SETTINGS)
   const setSettings = useCallback((fn: (s: GanttSettings) => GanttSettings) => {
-    setSettingsRaw(prev => { const next = fn(prev); saveSettings(next); return next })
-  }, [])
+    const next = fn(settings)
+    setUserPref('gantt', next)
+  }, [settings, setUserPref])
   const barH = settings.barH
   const showLabels = settings.showLabels
   const zoomFactor = settings.zoomFactor
@@ -786,6 +777,8 @@ export function ProjectGanttView() {
           scale={scale}
           vs={vs}
           ve={ve}
+          presets={getPref('gantt_presets', [] as GanttPreset[])}
+          setPresets={(p) => setUserPref('gantt_presets', p)}
         />
       )}
 

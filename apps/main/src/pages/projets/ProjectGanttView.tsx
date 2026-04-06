@@ -21,7 +21,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
-import { useProjects, useProjectTasks, useProjectMilestones, useProjectCpm, useTaskDependencies } from '@/hooks/useProjets'
+import { useProjects, useProjectTasks, useProjectMilestones, useProjectCpm, useTaskDependencies, usePlanningRevisions } from '@/hooks/useProjets'
 import { projetsService, isGoutiProject } from '@/services/projetsService'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { ProjectSelectorModal } from '@/components/shared/ProjectSelectorModal'
@@ -441,6 +441,25 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
   const { data: milestones } = useProjectMilestones(project.id)
   const { data: cpm } = useProjectCpm(project.id)
   const { data: deps } = useTaskDependencies(project.id)
+  const { data: revisions } = usePlanningRevisions(project.id)
+
+  // Active baseline: the latest active, non-simulation revision with snapshot_data
+  const baseline = useMemo(() => {
+    if (!revisions) return null
+    const active = revisions.find((r: { is_active: boolean; is_simulation: boolean; snapshot_data: unknown }) =>
+      r.is_active && !r.is_simulation && r.snapshot_data)
+    return active?.snapshot_data as { tasks?: { id: string; start_date: string; due_date: string }[] } | null
+  }, [revisions])
+
+  // Map baseline task dates by id for quick lookup
+  const baselineMap = useMemo(() => {
+    if (!baseline?.tasks) return new Map<string, { start: string; end: string }>()
+    const m = new Map<string, { start: string; end: string }>()
+    for (const bt of baseline.tasks) {
+      if (bt.start_date && bt.due_date) m.set(bt.id, { start: bt.start_date.split('T')[0], end: bt.due_date.split('T')[0] })
+    }
+    return m
+  }, [baseline])
   const { toast } = useToast()
   const [tip, setTip] = useState<TipData | null>(null)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -658,6 +677,24 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
               toast={toast}
             />
           )}
+          {/* Baseline ghost bar (dashed outline from the saved revision) */}
+          {(() => {
+            const bl = baselineMap.get(task.id)
+            if (!bl) return null
+            const blBar = computeBar(vs, bl.start, bl.end, ppd, totalPx / ppd)
+            if (!blBar) return null
+            return (
+              <div
+                className="absolute rounded-sm pointer-events-none"
+                style={{
+                  left: blBar.left, width: blBar.width,
+                  top: (rowH - barH) / 2 - 1, height: barH + 2,
+                  border: '1.5px dashed rgba(100,100,100,0.4)',
+                }}
+                title="Baseline (révision de référence)"
+              />
+            )
+          })()}
         </div>
       </div>
     )

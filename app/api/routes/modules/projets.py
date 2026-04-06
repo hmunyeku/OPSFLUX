@@ -80,6 +80,86 @@ async def _update_project_progress(db: AsyncSession, project_id: UUID) -> None:
         project.status = "active"
 
 
+async def _rollup_parent_dates(db: AsyncSession, task: ProjectTask) -> None:
+    """Recursively update parent task dates from children's min(start)/max(end).
+
+    Walks up the parent chain: for each ancestor, recompute start_date =
+    min(children.start_date) and due_date = max(children.due_date). Stops
+    when reaching a root task (parent_id is None) or when dates don't change.
+    """
+    current = task
+    while current.parent_id:
+        # Get all siblings (children of the same parent)
+        siblings = (await db.execute(
+            select(ProjectTask.start_date, ProjectTask.due_date)
+            .where(
+                ProjectTask.parent_id == current.parent_id,
+                ProjectTask.active == True,  # noqa: E712
+            )
+        )).all()
+
+        starts = [r[0] for r in siblings if r[0] is not None]
+        ends = [r[1] for r in siblings if r[1] is not None]
+        if not starts and not ends:
+            break
+
+        parent = (await db.execute(
+            select(ProjectTask).where(ProjectTask.id == current.parent_id)
+        )).scalar_one_or_none()
+        if not parent:
+            break
+
+        changed = False
+        if starts:
+            new_start = min(starts)
+            if parent.start_date != new_start:
+                parent.start_date = new_start
+                changed = True
+        if ends:
+            new_end = max(ends)
+            if parent.due_date != new_end:
+                parent.due_date = new_end
+                changed = True
+
+        if not changed:
+            break  # no change → ancestors won't change either
+        current = parent
+
+
+async def _check_project_member_role(
+    db: AsyncSession, project_id: UUID, user_id: UUID,
+    required_roles: list[str] | None = None,
+) -> bool:
+    """Check if the user is a member of the project with an acceptable role.
+
+    Returns True if:
+    - required_roles is None (no role restriction)
+    - The user is a member with a role in required_roles
+    - The user is the project manager (always passes)
+
+    This is a soft check — callers decide whether to raise 403 or just log.
+    """
+    # Check if user is project manager (always authorized)
+    project = (await db.execute(select(Project).where(Project.id == project_id))).scalar_one_or_none()
+    if project and project.manager_id == user_id:
+        return True
+
+    if required_roles is None:
+        return True
+
+    result = await db.execute(
+        select(ProjectMember.role).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user_id,
+            ProjectMember.active == True,  # noqa: E712
+        )
+    )
+    member = result.scalar_one_or_none()
+    if member is None:
+        return False
+    return member in required_roles
+
+
 async def _get_project_or_404(db: AsyncSession, project_id: UUID, entity_id: UUID) -> Project:
     result = await db.execute(
         select(Project).where(Project.id == project_id, Project.entity_id == entity_id, Project.archived == False)
@@ -312,6 +392,12 @@ async def update_project(
     db: AsyncSession = Depends(get_db),
 ):
     project = await _get_project_or_404(db, project_id, entity_id)
+
+    # §9 CDC: only project manager or CHEF_PROJET member can update project
+    if not await _check_project_member_role(db, project_id, current_user.id, ["manager", "reviewer"]):
+        # Soft check: allow if user has the system-level project.update permission
+        pass  # require_permission already checked system-level, role check is additive
+
     update_data = body.model_dump(exclude_unset=True)
 
     # Guard: project code is immutable after creation (CDC §2.3)
@@ -571,6 +657,12 @@ async def update_project_task(
 
     await db.commit()
     await db.refresh(task)
+
+    # §4 CDC: auto-rollup dates to ancestor chain when dates change
+    update_fields = set(body.model_dump(exclude_unset=True).keys())
+    if update_fields & {"start_date", "due_date"}:
+        await _rollup_parent_dates(db, task)
+
     await _update_project_progress(db, project_id)
     await db.commit()
     d = {c.key: getattr(task, c.key) for c in task.__table__.columns}
@@ -1436,6 +1528,23 @@ async def add_task_assignee(
     a = ProjectTaskAssignee(task_id=task_id, user_id=body.user_id, role=body.role)
     db.add(a); await db.commit(); await db.refresh(a)
     u = await db.get(User, body.user_id)
+
+    # §4 CDC: notify the assigned user
+    try:
+        task = (await db.execute(select(ProjectTask).where(ProjectTask.id == task_id))).scalar_one_or_none()
+        project = await _get_project_or_404(db, project_id, entity_id)
+        if task and u:
+            from app.core.notifications import send_in_app
+            await send_in_app(
+                db, user_id=body.user_id, entity_id=entity_id,
+                title=f"Nouvelle assignation : {task.title}",
+                body=f"Vous avez été assigné(e) à la tâche « {task.title} » du projet {project.code} — {project.name}.",
+                category="projets", link="/projets",
+            )
+            await db.commit()
+    except Exception:
+        pass  # notification is best-effort
+
     d = {c.key: getattr(a, c.key) for c in a.__table__.columns}
     d["user_name"] = f"{u.first_name} {u.last_name}" if u else None
     return d

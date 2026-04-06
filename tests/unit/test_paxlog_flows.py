@@ -547,11 +547,15 @@ async def test_submit_ads_routes_to_pending_initiator_review_when_created_for_so
     async def fake_build_ads_read_data(_db, *, ads, entity_id):
         return _ads_read_payload(ads, entity_id)
 
+    async def fake_resolve_auto_transition(*_args, **_kwargs):
+        return "pending_initiator_review"
+
     monkeypatch.setattr(paxlog, "_can_manage_ads", fake_can_manage_ads)
     monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
     monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
     monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
     monkeypatch.setattr(paxlog, "_build_ads_read_data", fake_build_ads_read_data)
+    monkeypatch.setattr(paxlog, "_resolve_ads_auto_transition", fake_resolve_auto_transition)
 
     response = await paxlog.submit_ads(
         ads.id,
@@ -606,11 +610,15 @@ async def test_create_then_submit_ads_starts_workflow_with_initiator_review(monk
     async def fake_emit_transition_event(**kwargs):
         emitted_events.append(kwargs)
 
+    async def fake_resolve_auto_transition(*_args, **_kwargs):
+        return "pending_initiator_review"
+
     monkeypatch.setattr(paxlog, "generate_reference", fake_generate_reference)
     monkeypatch.setattr(paxlog, "_replace_ads_allowed_companies", fake_replace_allowed_companies)
     monkeypatch.setattr(paxlog, "_ensure_ads_default_imputation", fake_ensure_default_imputation)
     monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
     monkeypatch.setattr(paxlog, "_build_ads_read_data", fake_build_ads_read_data)
+    monkeypatch.setattr(paxlog, "_resolve_ads_auto_transition", fake_resolve_auto_transition)
 
     create_body = paxlog.AdsCreate(
         type="individual",
@@ -681,12 +689,16 @@ async def test_submit_ads_routes_to_pending_project_review_when_project_manager_
     async def fake_build_ads_read_data(_db, *, ads, entity_id):
         return _ads_read_payload(ads, entity_id)
 
+    async def fake_resolve_auto_transition(*_args, **_kwargs):
+        return "pending_project_review"
+
     monkeypatch.setattr(paxlog, "_can_manage_ads", fake_can_manage_ads)
     monkeypatch.setattr(paxlog, "_get_ads_project_reviewer", fake_get_project_reviewer)
     monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
     monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
     monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
     monkeypatch.setattr(paxlog, "_build_ads_read_data", fake_build_ads_read_data)
+    monkeypatch.setattr(paxlog, "_resolve_ads_auto_transition", fake_resolve_auto_transition)
 
     response = await paxlog.submit_ads(
         ads.id,
@@ -737,6 +749,9 @@ async def test_approve_ads_from_initiator_review_runs_next_step(monkeypatch):
     async def fake_build_ads_read_data(_db, *, ads, entity_id):
         return _ads_read_payload(ads, entity_id)
 
+    async def fake_resolve_auto_transition(*_args, **_kwargs):
+        return "pending_compliance"
+
     monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
     monkeypatch.setattr(paxlog, "_get_ads_project_reviewer", fake_get_project_reviewer)
     monkeypatch.setattr(paxlog, "_run_ads_submission_checks", fake_submission_checks)
@@ -744,6 +759,7 @@ async def test_approve_ads_from_initiator_review_runs_next_step(monkeypatch):
     monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
     monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
     monkeypatch.setattr(paxlog, "_build_ads_read_data", fake_build_ads_read_data)
+    monkeypatch.setattr(paxlog, "_resolve_ads_auto_transition", fake_resolve_auto_transition)
 
     response = await paxlog.approve_ads(
         ads.id,
@@ -794,6 +810,9 @@ async def test_approve_ads_from_project_review_runs_compliance_checks(monkeypatc
     async def fake_build_ads_read_data(_db, *, ads, entity_id):
         return _ads_read_payload(ads, entity_id)
 
+    async def fake_resolve_auto_transition(*_args, **_kwargs):
+        return "pending_compliance"
+
     monkeypatch.setattr(paxlog, "_get_ads_project_reviewer", fake_get_project_reviewer)
     monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
     monkeypatch.setattr(paxlog, "_run_ads_submission_checks", fake_submission_checks)
@@ -801,6 +820,7 @@ async def test_approve_ads_from_project_review_runs_compliance_checks(monkeypatc
     monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
     monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
     monkeypatch.setattr(paxlog, "_build_ads_read_data", fake_build_ads_read_data)
+    monkeypatch.setattr(paxlog, "_resolve_ads_auto_transition", fake_resolve_auto_transition)
 
     response = await paxlog.approve_ads(
         ads.id,

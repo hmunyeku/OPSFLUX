@@ -41,6 +41,7 @@ from app.models.common import (
     UserGroup,
     UserGroupMember,
     UserTierLink,
+    WorkflowDefinition,
 )
 from app.models.paxlog import (
     Ads,
@@ -673,6 +674,38 @@ async def _run_ads_submission_checks(
     target_status = "pending_compliance"
     ads.rejection_reason = build_compliance_issues_summary(issues_for_summary) if has_compliance_issues else None
     return pax_entries, has_compliance_issues, target_status
+
+
+async def _get_ads_workflow_definition(db: AsyncSession, *, entity_id: UUID) -> WorkflowDefinition | None:
+    return await fsm_service.get_definition(
+        db,
+        workflow_slug=ADS_WORKFLOW_SLUG,
+        entity_id_scope=entity_id,
+    )
+
+
+async def _resolve_ads_auto_transition(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    from_state: str,
+    ads: Ads,
+    project_reviewer: Project | None = None,
+) -> str | None:
+    definition = await _get_ads_workflow_definition(db, entity_id=entity_id)
+    if not definition:
+        return None
+
+    transition = fsm_service.resolve_next_transition(
+        transitions=definition.transitions,
+        from_state=from_state,
+        context={
+            "created_by": str(ads.created_by) if ads.created_by else None,
+            "requester_id": str(ads.requester_id) if ads.requester_id else None,
+            "project_reviewer_id": str(project_reviewer.manager_id) if project_reviewer and getattr(project_reviewer, "manager_id", None) else None,
+        },
+    )
+    return transition.to_state if transition else None
 
 
 async def _can_manage_avm(
@@ -2424,23 +2457,32 @@ async def submit_ads(
             detail=f"Impossible de soumettre un AdS avec le statut '{ads.status}'.",
         )
 
-    if ads.created_by != ads.requester_id and current_user.id != ads.requester_id:
+    project_reviewer = await _get_ads_project_reviewer(db, ads=ads, entity_id=entity_id)
+    next_review_state = await _resolve_ads_auto_transition(
+        db,
+        entity_id=entity_id,
+        from_state=ads.status,
+        ads=ads,
+        project_reviewer=project_reviewer,
+    )
+
+    if next_review_state == "pending_initiator_review" and current_user.id != ads.requester_id:
         from_state = ads.status
         await _try_ads_workflow_transition(
             db,
             entity_id_str=str(ads.id),
-            to_state="pending_initiator_review",
+            to_state=next_review_state,
             actor_id=current_user.id,
             entity_id_scope=entity_id,
         )
-        ads.status = "pending_initiator_review"
+        ads.status = next_review_state
         ads.submitted_at = func.now()
         db.add(AdsEvent(
             entity_id=entity_id,
             ads_id=ads.id,
             event_type="submitted_for_initiator_review",
             old_status=from_state,
-            new_status="pending_initiator_review",
+            new_status=next_review_state,
             actor_id=current_user.id,
             metadata_json={
                 "requester_id": str(ads.requester_id),
@@ -2453,7 +2495,7 @@ async def submit_ads(
             entity_type=ADS_ENTITY_TYPE,
             entity_id=str(ads.id),
             from_state=from_state,
-            to_state="pending_initiator_review",
+            to_state=next_review_state,
             actor_id=current_user.id,
             workflow_slug=ADS_WORKFLOW_SLUG,
             extra_payload={
@@ -2479,24 +2521,23 @@ async def submit_ads(
         await db.commit()
         return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
-    project_reviewer = await _get_ads_project_reviewer(db, ads=ads, entity_id=entity_id)
-    if project_reviewer and project_reviewer.manager_id != current_user.id:
+    if next_review_state == "pending_project_review" and project_reviewer and project_reviewer.manager_id != current_user.id:
         from_state = ads.status
         await _try_ads_workflow_transition(
             db,
             entity_id_str=str(ads.id),
-            to_state="pending_project_review",
+            to_state=next_review_state,
             actor_id=current_user.id,
             entity_id_scope=entity_id,
         )
-        ads.status = "pending_project_review"
+        ads.status = next_review_state
         ads.submitted_at = func.now()
         db.add(AdsEvent(
             entity_id=entity_id,
             ads_id=ads.id,
             event_type="submitted_for_project_review",
             old_status=from_state,
-            new_status="pending_project_review",
+            new_status=next_review_state,
             actor_id=current_user.id,
             metadata_json={
                 "project_id": str(project_reviewer.id),
@@ -2509,7 +2550,7 @@ async def submit_ads(
             entity_type=ADS_ENTITY_TYPE,
             entity_id=str(ads.id),
             from_state=from_state,
-            to_state="pending_project_review",
+            to_state=next_review_state,
             actor_id=current_user.id,
             workflow_slug=ADS_WORKFLOW_SLUG,
             extra_payload={
@@ -2669,8 +2710,14 @@ async def approve_ads(
         )
 
         project_reviewer = await _get_ads_project_reviewer(db, ads=ads, entity_id=entity_id)
-        if project_reviewer and project_reviewer.manager_id != current_user.id:
-            target_status = "pending_project_review"
+        target_status = await _resolve_ads_auto_transition(
+            db,
+            entity_id=entity_id,
+            from_state=ads.status,
+            ads=ads,
+            project_reviewer=project_reviewer,
+        )
+        if target_status == "pending_project_review" and project_reviewer and project_reviewer.manager_id != current_user.id:
             has_compliance_issues = False
             pax_entries = []
         else:
@@ -2737,6 +2784,13 @@ async def approve_ads(
             db=db,
         )
 
+        target_status = await _resolve_ads_auto_transition(
+            db,
+            entity_id=entity_id,
+            from_state=ads.status,
+            ads=ads,
+            project_reviewer=project_reviewer,
+        ) or "pending_compliance"
         pax_entries, has_compliance_issues, target_status = await _run_ads_submission_checks(
             db,
             ads=ads,

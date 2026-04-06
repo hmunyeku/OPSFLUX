@@ -16,6 +16,7 @@ Pattern: await fsm_service.transition(entity, to_state, actor, db)
 
 import logging
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select
@@ -55,6 +56,31 @@ class TransitionInfo:
     required_permission: str | None = None
     comment_required: bool = False
     sla_hours: int | None = None
+    condition: dict | None = None
+    assignee: dict | None = None
+
+
+def _apply_transition_runtime_metadata(metadata: dict | None, *, to_state: str, sla_hours: int | None) -> dict:
+    """Persist generic runtime timing hints for the current workflow state.
+
+    This keeps temporal workflow automation generic:
+    - the FSM records when the current state started
+    - the scheduler can later use the configured SLA to send reminders
+    """
+    now = datetime.now(UTC)
+    runtime_metadata = dict(metadata or {})
+    runtime_metadata["current_state_name"] = to_state
+    runtime_metadata["current_state_entered_at"] = now.isoformat()
+    runtime_metadata.pop("current_state_last_reminder_at", None)
+
+    if sla_hours and sla_hours > 0:
+        runtime_metadata["current_state_sla_hours"] = sla_hours
+        runtime_metadata["current_state_due_at"] = (now + timedelta(hours=sla_hours)).isoformat()
+    else:
+        runtime_metadata.pop("current_state_sla_hours", None)
+        runtime_metadata.pop("current_state_due_at", None)
+
+    return runtime_metadata
 
 
 class FSMService:
@@ -112,6 +138,7 @@ class FSMService:
             entity_type=entity_type,
             entity_id_ref=entity_id,
             current_state=initial_state,
+            metadata_=_apply_transition_runtime_metadata(None, to_state=initial_state, sla_hours=None),
             created_by=created_by,
         )
         db.add(instance)
@@ -226,6 +253,11 @@ class FSMService:
         # Execute transition
         instance.current_state = to_state
         instance.version = (instance.version or 1) + 1
+        instance.metadata_ = _apply_transition_runtime_metadata(
+            instance.metadata_,
+            to_state=to_state,
+            sla_hours=transition_meta.sla_hours,
+        )
 
         # Record immutable transition history
         transition_record = WorkflowTransition(
@@ -346,6 +378,48 @@ class FSMService:
                 filtered.append(t)
         return filtered
 
+    async def get_definition(
+        self,
+        db: AsyncSession,
+        *,
+        workflow_slug: str,
+        entity_id_scope: UUID | None = None,
+    ) -> WorkflowDefinition | None:
+        stmt = select(WorkflowDefinition).where(
+            WorkflowDefinition.slug == workflow_slug,
+            WorkflowDefinition.active.is_(True),
+        )
+        if entity_id_scope:
+            scoped = await db.execute(stmt.where(WorkflowDefinition.entity_id == entity_id_scope))
+            definition = scoped.scalar_one_or_none()
+            if definition:
+                return definition
+        result = await db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    def resolve_next_transition(
+        self,
+        *,
+        transitions: dict | list,
+        from_state: str,
+        context: dict | None = None,
+    ) -> TransitionInfo | None:
+        """Return the first transition whose declarative condition matches.
+
+        Transitions without a `condition` act as fallback transitions and are
+        selected only if no earlier conditional edge matched.
+        """
+        context = context or {}
+        candidates = self._get_transitions_from_state(transitions, from_state)
+        fallback: TransitionInfo | None = None
+        for transition in candidates:
+            if not transition.condition:
+                fallback = fallback or transition
+                continue
+            if self._evaluate_condition(transition.condition, context):
+                return transition
+        return fallback
+
     async def get_current_state(
         self,
         db: AsyncSession,
@@ -404,6 +478,8 @@ class FSMService:
                         required_permission=t.get("required_permission"),
                         comment_required=t.get("comment_required", False),
                         sla_hours=t.get("sla_hours"),
+                        condition=t.get("condition"),
+                        assignee=t.get("assignee"),
                     )
         elif isinstance(transitions, dict):
             # Simple format: {state: [allowed_targets]}
@@ -439,6 +515,8 @@ class FSMService:
                         required_permission=t.get("required_permission"),
                         comment_required=t.get("comment_required", False),
                         sla_hours=t.get("sla_hours"),
+                        condition=t.get("condition"),
+                        assignee=t.get("assignee"),
                     ))
         elif isinstance(transitions, dict):
             for target in transitions.get(current_state, []):
@@ -497,6 +575,49 @@ class FSMService:
             roles.add("*")
 
         return roles
+
+    def _evaluate_condition(self, condition: dict, context: dict) -> bool:
+        if "all" in condition:
+            return all(self._evaluate_condition(item, context) for item in condition["all"])
+        if "any" in condition:
+            return any(self._evaluate_condition(item, context) for item in condition["any"])
+        if "not" in condition:
+            nested = condition["not"]
+            return not self._evaluate_condition(nested, context) if isinstance(nested, dict) else False
+
+        field = condition.get("field")
+        op = (condition.get("op") or "eq").lower()
+        left = self._resolve_context_value(context, field)
+        right = condition.get("value")
+        if "value_from" in condition:
+            right = self._resolve_context_value(context, condition.get("value_from"))
+
+        if op == "eq":
+            return left == right
+        if op == "ne":
+            return left != right
+        if op == "truthy":
+            return bool(left)
+        if op == "falsy":
+            return not bool(left)
+        if op == "in":
+            return left in (right or [])
+        if op == "not_in":
+            return left not in (right or [])
+        return False
+
+    def _resolve_context_value(self, context: dict, path: str | None):
+        if not path:
+            return None
+        value = context
+        for part in str(path).split("."):
+            if isinstance(value, dict):
+                value = value.get(part)
+            else:
+                value = getattr(value, part, None)
+            if value is None:
+                return None
+        return value
 
 
 # Singleton

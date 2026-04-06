@@ -60,11 +60,34 @@ def _default_workflow_definitions() -> list[dict]:
             "transitions": [
                 {"from": "draft", "to": "submitted", "label": "Soumettre", "required_permission": "paxlog.ads.submit"},
                 {"from": "draft", "to": "cancelled", "label": "Annuler", "required_permission": "paxlog.ads.cancel"},
-                {"from": "submitted", "to": "pending_initiator_review", "label": "Vers validation initiateur"},
-                {"from": "pending_initiator_review", "to": "pending_project_review", "label": "Valider"},
+                {
+                    "from": "submitted",
+                    "to": "pending_initiator_review",
+                    "label": "Vers validation initiateur",
+                    "condition": {"field": "created_by", "op": "ne", "value_from": "requester_id"},
+                    "assignee": {"resolver": "field", "field": "requester_id"},
+                },
+                {
+                    "from": "pending_initiator_review",
+                    "to": "pending_project_review",
+                    "label": "Valider",
+                    "condition": {"field": "project_reviewer_id", "op": "truthy"},
+                    "assignee": {"resolver": "field", "field": "project_reviewer_id"},
+                },
                 {"from": "pending_initiator_review", "to": "pending_compliance", "label": "Valider"},
                 {"from": "pending_initiator_review", "to": "cancelled", "label": "Annuler", "comment_required": True},
-                {"from": "submitted", "to": "pending_project_review", "label": "Vers validation projet"},
+                {
+                    "from": "submitted",
+                    "to": "pending_project_review",
+                    "label": "Vers validation projet",
+                    "condition": {
+                        "all": [
+                            {"field": "created_by", "op": "eq", "value_from": "requester_id"},
+                            {"field": "project_reviewer_id", "op": "truthy"},
+                        ]
+                    },
+                    "assignee": {"resolver": "field", "field": "project_reviewer_id"},
+                },
                 {"from": "pending_project_review", "to": "pending_compliance", "label": "Valider"},
                 {"from": "pending_project_review", "to": "rejected", "label": "Rejeter", "comment_required": True},
                 {"from": "submitted", "to": "pending_compliance", "label": "Vers vérification compliance"},

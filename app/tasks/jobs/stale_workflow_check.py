@@ -1,7 +1,9 @@
 """Scheduled job — check for stale workflow instances.
 
-Runs every 6 hours. Finds workflow instances stuck in a non-terminal state
-for more than 7 days and sends reminder notifications to the relevant users.
+Runs every 6 hours. Sends reminder notifications when a workflow instance
+stays too long in its current state:
+- uses the state SLA stored by the FSM when available
+- falls back to a generic stale threshold otherwise
 """
 
 import logging
@@ -23,7 +25,8 @@ async def check_stale_workflows() -> None:
     logger.debug("stale_workflow_check: starting run")
 
     try:
-        cutoff = datetime.now(UTC) - timedelta(days=STALE_THRESHOLD_DAYS)
+        now = datetime.now(UTC)
+        cutoff = now - timedelta(days=STALE_THRESHOLD_DAYS)
 
         async with async_session_factory() as db:
             # Find workflow instances in non-terminal states that haven't been
@@ -112,7 +115,11 @@ async def check_stale_workflows() -> None:
                     )
                     continue
 
-                days_stale = (datetime.now(UTC) - row.updated_at).days
+                due_at = _resolve_due_at(row.instance_metadata, row.updated_at)
+                if due_at and due_at > now:
+                    continue
+
+                days_stale = (now - row.updated_at).days
 
                 for uid_str in notify_user_ids:
                     try:
@@ -139,6 +146,20 @@ async def check_stale_workflows() -> None:
 
     except Exception:
         logger.exception("stale_workflow_check: unhandled error during check run")
+
+
+def _resolve_due_at(instance_metadata: dict | None, updated_at: datetime) -> datetime:
+    if instance_metadata and isinstance(instance_metadata, dict):
+        due_at_raw = instance_metadata.get("current_state_due_at")
+        if isinstance(due_at_raw, str):
+            try:
+                due_at = datetime.fromisoformat(due_at_raw.replace("Z", "+00:00"))
+                if due_at.tzinfo is None:
+                    due_at = due_at.replace(tzinfo=UTC)
+                return due_at
+            except ValueError:
+                pass
+    return updated_at + timedelta(days=STALE_THRESHOLD_DAYS)
 
 
 async def _resolve_entity_id(db, entity_type: str, entity_id_ref: str) -> str | None:

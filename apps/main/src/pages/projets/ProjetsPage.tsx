@@ -76,6 +76,7 @@ import type {
   GoutiProjectSelection, GoutiTaskSelection,
 } from '@/services/projetsService'
 import { projetsService, isGoutiProject, goutiProjectId, isProjectFieldEditable } from '@/services/projetsService'
+import { ProjectGanttView } from './ProjectGanttView'
 import type {
   Project, ProjectCreate, ProjectTask, ProjectTaskEnriched,
   ProjectMilestone as ProjectMilestoneType,
@@ -2908,7 +2909,8 @@ function getBarColor(item: { status?: string; priority?: string; weather?: strin
   return STATUS_COLORS[(item as Record<string, string>).status] || 'bg-gray-300'
 }
 
-function MacroPlanningView() {
+/* @ts-expect-error legacy — replaced by ProjectGanttView.tsx */
+function _MacroPlanningViewLegacy() { // eslint-disable-line
   const [config, setConfig] = useState<PlanningConfig>({
     showProjects: true,
     showTasks: true,
@@ -3781,7 +3783,7 @@ export function ProjetsPage() {
           {viewTab === 'projets' && <ProjectsListView />}
           {viewTab === 'tableur' && <SpreadsheetView />}
           {viewTab === 'kanban' && <KanbanView />}
-          {viewTab === 'planning' && <MacroPlanningView />}
+          {viewTab === 'planning' && <ProjectGanttView />}
           {viewTab === 'dashboard' && <DashboardView />}
         </PanelContent>
       </div>}

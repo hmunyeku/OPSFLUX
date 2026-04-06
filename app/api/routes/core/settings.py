@@ -79,6 +79,29 @@ def _validate_paxlog_compliance_sequence_setting(value: dict[str, Any]) -> None:
         raise HTTPException(status_code=400, detail="paxlog.compliance_sequence must contain site_requirements, job_profile, self_declaration exactly once")
 
 
+def _validate_travelwiz_numeric_setting(body: SettingWrite) -> None:
+    numeric_constraints: dict[str, tuple[float, float | None]] = {
+        "travelwiz.delay_reassign_threshold_hours": (0.25, None),
+        "travelwiz.weight_alert_ratio": (0.1, 1.0),
+        "travelwiz.weather_alert_beaufort_threshold": (1.0, 12.0),
+        "travelwiz.signal_stale_minutes": (1.0, None),
+        "travelwiz.captain_session_minutes": (5.0, None),
+    }
+    bounds = numeric_constraints.get(body.key)
+    if bounds is None:
+        return
+    payload = body.value.get("v", body.value)
+    try:
+        numeric_value = float(payload)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid numeric value for {body.key}") from exc
+    minimum, maximum = bounds
+    if numeric_value < minimum:
+        raise HTTPException(status_code=400, detail=f"{body.key} must be >= {minimum}")
+    if maximum is not None and numeric_value > maximum:
+        raise HTTPException(status_code=400, detail=f"{body.key} must be <= {maximum}")
+
+
 async def _require_settings_manage(current_user: User, entity_id: UUID, db: AsyncSession) -> None:
     if not await has_user_permission(current_user, entity_id, "core.settings.manage", db):
         raise HTTPException(status_code=403, detail="Permission denied: core.settings.manage")
@@ -189,6 +212,8 @@ async def upsert_setting(
         await _validate_default_imputation_setting(body.value, entity_id=entity_id, db=db)
     elif body.key == "paxlog.compliance_sequence":
         _validate_paxlog_compliance_sequence_setting(body.value)
+    elif body.key.startswith("travelwiz."):
+        _validate_travelwiz_numeric_setting(body)
 
     if scope == "user":
         scope_id = str(current_user.id)

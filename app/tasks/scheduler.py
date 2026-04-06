@@ -143,6 +143,16 @@ def _register_jobs() -> None:
     from app.tasks.jobs.paxlog_requires_review_followup import process_requires_review_followup
     scheduler.add_job(process_requires_review_followup, trigger=CronTrigger(hour=1, minute=45), id="paxlog_requires_review_followup", name="Rappeler les AdS bloquées en nécessite révision", replace_existing=True, max_instances=1)
 
+    from app.tasks.jobs.travelwiz_operational_watch import process_travelwiz_operational_watch
+    scheduler.add_job(
+        process_travelwiz_operational_watch,
+        trigger=IntervalTrigger(minutes=30),
+        id="travelwiz_operational_watch",
+        name="Surveiller les signaux et alertes météo TravelWiz",
+        replace_existing=True,
+        max_instances=1,
+    )
+
     # Gouti auto-sync — runs every 15 min and per-entity throttles via
     # integration.gouti.auto_sync_interval_minutes (default 60). Entities
     # that have not opted in (auto_sync_enabled != truthy) are skipped.

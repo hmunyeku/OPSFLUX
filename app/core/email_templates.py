@@ -1136,6 +1136,51 @@ DEFAULT_TEMPLATES: list[dict] = [
         },
     },
     {
+        "slug": "travelwiz.voyage.delayed",
+        "name": "Voyage retardé",
+        "description": "Envoyé aux opérateurs et passagers lorsqu'un voyage est retardé.",
+        "object_type": "voyage",
+        "variables_schema": {
+            "code": "Code du voyage",
+            "voyage_id": "ID du voyage",
+            "delay_reason": "Motif du retard",
+            "delay_hours": "Durée actuelle du retard en heures",
+            "reassign_available": "Indique si des alternatives existent",
+            "user.first_name": "Prénom du destinataire",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Voyage {{ code }} retardé",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Le voyage <strong>{{ code }}</strong> est actuellement <strong>retardé</strong>.</p>"
+                    "<ul>"
+                    "<li>Retard constaté : {{ delay_hours }} h</li>"
+                    "<li>Motif : {{ delay_reason | default('non renseigné') }}</li>"
+                    "<li>Réassignation disponible : {{ reassign_available }}</li>"
+                    "</ul>"
+                    "<p>Veuillez consulter OpsFlux pour les consignes mises à jour.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Voyage {{ code }} delayed",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Voyage <strong>{{ code }}</strong> is currently <strong>delayed</strong>.</p>"
+                    "<ul>"
+                    "<li>Current delay: {{ delay_hours }} h</li>"
+                    "<li>Reason: {{ delay_reason | default('not specified') }}</li>"
+                    "<li>Reassignment available: {{ reassign_available }}</li>"
+                    "</ul>"
+                    "<p>Please consult OpsFlux for updated instructions.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
         "slug": "travelwiz.manifest.closed",
         "name": "Manifeste clôturé",
         "description": "Envoyé aux PAX quand un manifeste est clôturé (voyage terminé).",

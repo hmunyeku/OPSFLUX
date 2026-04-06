@@ -8,19 +8,24 @@ Integrates with:
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
+from jose import JWTError, jwt
 from sqlalchemy import and_, func as sqla_func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.events import OpsFluxEvent, event_bus
+from app.models.common import Setting
+from app.models.asset_registry import Installation
 from app.models.travelwiz import (
     CaptainLog,
     CargoItem,
     ManifestPassenger,
     PickupRound,
     PickupStop,
+    TripCodeAccess,
     TransportVector,
     TransportVectorZone,
     VectorPosition,
@@ -35,6 +40,12 @@ logger = logging.getLogger(__name__)
 # Reference prefixes
 TRIP_REF_PREFIX = "TRIP"
 VOYAGE_REF_PREFIX = "VYG"
+
+DEFAULT_DELAY_REASSIGN_THRESHOLD_HOURS = 4.0
+DEFAULT_WEIGHT_ALERT_RATIO = 0.9
+DEFAULT_WEATHER_ALERT_BEAUFORT = 6
+DEFAULT_SIGNAL_STALE_MINUTES = 15
+DEFAULT_CAPTAIN_SESSION_MINUTES = 480
 
 # Cargo forward lifecycle
 CARGO_FORWARD_TRANSITIONS = {
@@ -78,6 +89,99 @@ EVENT_TO_STATUS = {
     "ARRIVED_DESTINATION": "arrived",
     "BOARDING_START": "boarding",
 }
+
+
+async def _get_entity_numeric_setting(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    key: str,
+    default: float,
+) -> float:
+    result = await db.execute(
+        select(Setting.value).where(
+            Setting.key == key,
+            Setting.scope == "entity",
+            Setting.scope_id == str(entity_id),
+        )
+    )
+    raw = result.scalar_one_or_none()
+    value = raw.get("v") if isinstance(raw, dict) else raw
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+async def get_delay_reassign_threshold_hours(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+) -> float:
+    return await _get_entity_numeric_setting(
+        db,
+        entity_id=entity_id,
+        key="travelwiz.delay_reassign_threshold_hours",
+        default=DEFAULT_DELAY_REASSIGN_THRESHOLD_HOURS,
+    )
+
+
+async def get_weight_alert_ratio(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+) -> float:
+    value = await _get_entity_numeric_setting(
+        db,
+        entity_id=entity_id,
+        key="travelwiz.weight_alert_ratio",
+        default=DEFAULT_WEIGHT_ALERT_RATIO,
+    )
+    if value <= 0:
+        return DEFAULT_WEIGHT_ALERT_RATIO
+    return min(value, 1.0)
+
+
+async def get_weather_alert_beaufort_threshold(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+) -> int:
+    value = await _get_entity_numeric_setting(
+        db,
+        entity_id=entity_id,
+        key="travelwiz.weather_alert_beaufort_threshold",
+        default=float(DEFAULT_WEATHER_ALERT_BEAUFORT),
+    )
+    return max(1, int(round(value)))
+
+
+async def get_signal_stale_minutes(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+) -> int:
+    value = await _get_entity_numeric_setting(
+        db,
+        entity_id=entity_id,
+        key="travelwiz.signal_stale_minutes",
+        default=float(DEFAULT_SIGNAL_STALE_MINUTES),
+    )
+    return max(1, int(round(value)))
+
+
+async def get_captain_session_minutes(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+) -> int:
+    value = await _get_entity_numeric_setting(
+        db,
+        entity_id=entity_id,
+        key="travelwiz.captain_session_minutes",
+        default=float(DEFAULT_CAPTAIN_SESSION_MINUTES),
+    )
+    return max(5, int(round(value)))
 
 
 # ==============================================================================
@@ -772,8 +876,7 @@ async def compute_trip_kpis(db: AsyncSession, trip_id: UUID, entity_id: UUID) ->
 async def authenticate_captain_code(db: AsyncSession, access_code: str) -> dict:
     """Validate a 6-digit captain portal access code.
 
-    Looks up the code in captain_portal_codes table (raw SQL).
-    Returns trip info if valid.
+    Looks up the code in ``trip_code_access`` and returns voyage context if valid.
 
     Returns::
 
@@ -785,50 +888,275 @@ async def authenticate_captain_code(db: AsyncSession, access_code: str) -> dict:
             "departure_base": str | None,
             "scheduled_departure": str | None,
             "captain_name": str | None,
+            "entity_id": UUID | None,
         }
     """
     if not access_code or len(access_code) != 6 or not access_code.isdigit():
         return {"valid": False, "voyage_id": None, "code": None,
                 "vector_name": None, "departure_base": None,
-                "scheduled_departure": None, "captain_name": None}
+                "scheduled_departure": None, "captain_name": None, "entity_id": None}
 
-    try:
-        result = await db.execute(
-            text(
-                "SELECT cpc.voyage_id, cpc.captain_name, "
-                "  v.code, v.scheduled_departure, "
-                "  tv.name AS vector_name, a.name AS departure_base "
-                "FROM captain_portal_codes cpc "
-                "JOIN voyages v ON v.id = cpc.voyage_id "
-                "LEFT JOIN transport_vectors tv ON tv.id = v.vector_id "
-                "LEFT JOIN ar_installations a ON a.id = v.departure_base_id "
-                "WHERE cpc.access_code = :code "
-                "  AND cpc.active = true "
-                "  AND cpc.expires_at > NOW() "
-                "  AND v.status IN ('planned', 'confirmed', 'boarding', 'departed')"
-            ),
-            {"code": access_code},
+    result = await db.execute(
+        select(TripCodeAccess, Voyage, TransportVector.name, Installation.name)
+        .join(Voyage, Voyage.id == TripCodeAccess.trip_id)
+        .join(TransportVector, TransportVector.id == Voyage.vector_id)
+        .join(Installation, Installation.id == Voyage.departure_base_id)
+        .where(
+            TripCodeAccess.access_code == access_code,
+            TripCodeAccess.revoked == False,  # noqa: E712
+            TripCodeAccess.expires_at.is_not(None),
+            TripCodeAccess.expires_at > datetime.now(timezone.utc),
+            Voyage.status.in_(["planned", "confirmed", "boarding", "departed"]),
         )
-        row = result.first()
-    except Exception:
-        logger.debug("captain_portal_codes table may not exist yet")
-        return {"valid": False, "voyage_id": None, "code": None,
-                "vector_name": None, "departure_base": None,
-                "scheduled_departure": None, "captain_name": None}
+    )
+    row = result.first()
 
-    if not row:
+    if row is None:
         return {"valid": False, "voyage_id": None, "code": None,
                 "vector_name": None, "departure_base": None,
-                "scheduled_departure": None, "captain_name": None}
+                "scheduled_departure": None, "captain_name": None, "entity_id": None}
+
+    code_access, voyage, vector_name, departure_base = row
 
     return {
         "valid": True,
-        "voyage_id": row[0],
-        "captain_name": row[1],
-        "code": row[2],
-        "scheduled_departure": str(row[3]) if row[3] else None,
-        "vector_name": row[4],
-        "departure_base": row[5],
+        "voyage_id": voyage.id,
+        "captain_name": None,
+        "code": voyage.code,
+        "scheduled_departure": str(voyage.scheduled_departure) if voyage.scheduled_departure else None,
+        "vector_name": vector_name,
+        "departure_base": departure_base,
+        "entity_id": voyage.entity_id,
+        "trip_code_access_id": code_access.id,
+    }
+
+
+def create_captain_session_token(
+    *,
+    trip_code_access_id: UUID,
+    voyage_id: UUID,
+    expires_at: datetime,
+) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(trip_code_access_id),
+        "voyage_id": str(voyage_id),
+        "iat": now,
+        "exp": expires_at,
+        "type": "travelwiz_captain",
+    }
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+async def verify_captain_session_token(
+    db: AsyncSession,
+    *,
+    session_token: str,
+    voyage_id: UUID,
+) -> dict:
+    try:
+        payload = jwt.decode(
+            session_token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
+        )
+    except JWTError as exc:
+        raise ValueError("Invalid or expired captain session") from exc
+
+    if payload.get("type") != "travelwiz_captain":
+        raise ValueError("Invalid captain session")
+    if payload.get("voyage_id") != str(voyage_id):
+        raise ValueError("Captain session does not match requested voyage")
+
+    trip_code_access_id_raw = payload.get("sub")
+    try:
+        trip_code_access_id = UUID(str(trip_code_access_id_raw))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Invalid captain session") from exc
+
+    result = await db.execute(
+        select(TripCodeAccess, Voyage)
+        .join(Voyage, Voyage.id == TripCodeAccess.trip_id)
+        .where(
+            TripCodeAccess.id == trip_code_access_id,
+            TripCodeAccess.trip_id == voyage_id,
+            TripCodeAccess.revoked == False,  # noqa: E712
+            TripCodeAccess.expires_at.is_not(None),
+            TripCodeAccess.expires_at > datetime.now(timezone.utc),
+            Voyage.active == True,  # noqa: E712
+        )
+    )
+    row = result.first()
+    if row is None:
+        raise ValueError("Captain session is no longer valid")
+
+    code_access, voyage = row
+    return {
+        "trip_code_access_id": code_access.id,
+        "created_by": code_access.created_by,
+        "voyage": voyage,
+    }
+
+
+async def assess_voyage_delay(
+    db: AsyncSession,
+    *,
+    voyage_id: UUID,
+    entity_id: UUID,
+) -> dict:
+    voyage_result = await db.execute(
+        select(Voyage).where(
+            Voyage.id == voyage_id,
+            Voyage.entity_id == entity_id,
+        )
+    )
+    voyage = voyage_result.scalar_one_or_none()
+    if not voyage:
+        raise ValueError(f"Voyage {voyage_id} not found")
+
+    if voyage.status != "delayed":
+        return {
+            "voyage_id": voyage.id,
+            "status": voyage.status,
+            "delay_hours": 0.0,
+            "threshold_hours": await get_delay_reassign_threshold_hours(db, entity_id=entity_id),
+            "reassign_available": False,
+            "alternatives": [],
+        }
+
+    threshold_hours = await get_delay_reassign_threshold_hours(db, entity_id=entity_id)
+    reference_time = voyage.actual_departure or datetime.now(timezone.utc)
+    delay_delta = reference_time - voyage.scheduled_departure
+    delay_hours = max(0.0, round(delay_delta.total_seconds() / 3600, 2))
+
+    stop_ids_result = await db.execute(
+        select(VoyageStop.asset_id).where(
+            VoyageStop.voyage_id == voyage.id,
+            VoyageStop.active == True,  # noqa: E712
+        )
+    )
+    destination_asset_ids = [row[0] for row in stop_ids_result.all()]
+
+    alternatives: list[dict] = []
+    if delay_hours >= threshold_hours and destination_asset_ids:
+        alt_result = await db.execute(
+            select(Voyage, TransportVector.name)
+            .join(TransportVector, TransportVector.id == Voyage.vector_id)
+            .join(VoyageStop, VoyageStop.voyage_id == Voyage.id)
+            .where(
+                Voyage.entity_id == entity_id,
+                Voyage.id != voyage.id,
+                Voyage.active == True,  # noqa: E712
+                Voyage.status.in_(["planned", "confirmed"]),
+                VoyageStop.active == True,  # noqa: E712
+                VoyageStop.asset_id.in_(destination_asset_ids),
+                Voyage.scheduled_departure >= datetime.now(timezone.utc),
+            )
+            .order_by(Voyage.scheduled_departure)
+            .limit(5)
+        )
+        seen: set[UUID] = set()
+        for alt_voyage, vector_name in alt_result.all():
+            if alt_voyage.id in seen:
+                continue
+            seen.add(alt_voyage.id)
+            alternatives.append(
+                {
+                    "voyage_id": alt_voyage.id,
+                    "code": alt_voyage.code,
+                    "scheduled_departure": alt_voyage.scheduled_departure.isoformat() if alt_voyage.scheduled_departure else None,
+                    "vector_name": vector_name,
+                    "status": alt_voyage.status,
+                }
+            )
+
+    return {
+        "voyage_id": voyage.id,
+        "status": voyage.status,
+        "delay_hours": delay_hours,
+        "threshold_hours": threshold_hours,
+        "reassign_available": delay_hours >= threshold_hours and len(alternatives) > 0,
+        "alternatives": alternatives,
+        "delay_reason": voyage.delay_reason,
+    }
+
+
+async def assess_manifest_weight(
+    db: AsyncSession,
+    *,
+    voyage_id: UUID,
+    manifest_id: UUID,
+    entity_id: UUID,
+) -> dict:
+    voyage_result = await db.execute(
+        select(Voyage).where(
+            Voyage.id == voyage_id,
+            Voyage.entity_id == entity_id,
+        )
+    )
+    voyage = voyage_result.scalar_one_or_none()
+    if not voyage:
+        raise ValueError(f"Voyage {voyage_id} not found")
+
+    manifest_result = await db.execute(
+        select(VoyageManifest).where(
+            VoyageManifest.id == manifest_id,
+            VoyageManifest.voyage_id == voyage_id,
+            VoyageManifest.manifest_type == "pax",
+        )
+    )
+    manifest = manifest_result.scalar_one_or_none()
+    if not manifest:
+        raise ValueError(f"Manifest {manifest_id} not found")
+
+    vector_result = await db.execute(
+        select(TransportVector).where(TransportVector.id == voyage.vector_id)
+    )
+    vector = vector_result.scalar_one_or_none()
+    if not vector:
+        raise ValueError(f"Vector {voyage.vector_id} not found")
+
+    pax_weight_result = await db.execute(
+        select(sqla_func.coalesce(sqla_func.sum(
+            sqla_func.coalesce(ManifestPassenger.actual_weight_kg, ManifestPassenger.declared_weight_kg)
+        ), 0))
+        .where(
+            ManifestPassenger.manifest_id == manifest_id,
+            ManifestPassenger.active == True,  # noqa: E712
+            ManifestPassenger.boarding_status.notin_(["no_show", "offloaded"]),
+        )
+    )
+    pax_weight = float(pax_weight_result.scalar() or 0)
+
+    cargo_weight_result = await db.execute(
+        select(sqla_func.coalesce(sqla_func.sum(CargoItem.weight_kg), 0))
+        .join(VoyageManifest, CargoItem.manifest_id == VoyageManifest.id)
+        .where(
+            VoyageManifest.voyage_id == voyage_id,
+            VoyageManifest.active == True,  # noqa: E712
+            CargoItem.active == True,  # noqa: E712
+        )
+    )
+    cargo_weight = float(cargo_weight_result.scalar() or 0)
+
+    current_weight = round(pax_weight + cargo_weight, 2)
+    max_weight = float(vector.weight_capacity_kg) if vector.weight_capacity_kg is not None else None
+    alert_ratio = await get_weight_alert_ratio(db, entity_id=entity_id)
+    alert_threshold = round(max_weight * alert_ratio, 2) if max_weight is not None else None
+    is_alert = bool(max_weight is not None and current_weight >= alert_threshold)
+    is_blocked = bool(max_weight is not None and current_weight >= max_weight)
+
+    return {
+        "voyage_id": voyage_id,
+        "manifest_id": manifest_id,
+        "requires_weighing": vector.requires_weighing,
+        "weight_capacity_kg": max_weight,
+        "current_weight_kg": current_weight,
+        "alert_threshold_kg": alert_threshold,
+        "alert_ratio": alert_ratio,
+        "is_alert": is_alert,
+        "is_blocked": is_blocked,
+        "remaining_weight_kg": round(max_weight - current_weight, 2) if max_weight is not None else None,
     }
 
 

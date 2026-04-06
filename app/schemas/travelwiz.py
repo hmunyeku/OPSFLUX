@@ -397,4 +397,8 @@ class CapacityCheckResult(BaseModel):
     weight_capacity_kg: float | None = None
     current_weight_kg: float
     remaining_weight_kg: float | None = None
+    weight_alert_ratio: float | None = None
+    weight_alert_threshold_kg: float | None = None
+    weight_alert_reached: bool = False
+    weight_blocked: bool = False
     is_over_capacity: bool

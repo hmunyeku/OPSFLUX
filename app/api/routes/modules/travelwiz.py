@@ -7,11 +7,11 @@ Integrates with:
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select, func as sqla_func, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -68,6 +68,11 @@ from app.schemas.travelwiz import (
     VoyageStopRead,
     VoyageStopUpdate,
     VoyageUpdate,
+)
+from app.services.modules.travelwiz_service import (
+    assess_manifest_weight,
+    assess_voyage_delay,
+    get_weight_alert_ratio,
 )
 
 router = APIRouter(prefix="/api/v1/travelwiz", tags=["travelwiz"])
@@ -142,6 +147,25 @@ async def _generate_cargo_code(db: AsyncSession, entity_id: UUID) -> str:
     from app.core.references import generate_reference
 
     return await generate_reference("CGO", db, entity_id=entity_id)
+
+
+async def _require_captain_session(
+    voyage_id: UUID,
+    db: AsyncSession,
+    x_captain_session: str | None,
+) -> dict:
+    if not x_captain_session:
+        raise HTTPException(401, "Captain session required")
+    from app.services.modules.travelwiz_service import verify_captain_session_token as _verify
+
+    try:
+        return await _verify(
+            db,
+            session_token=x_captain_session,
+            voyage_id=voyage_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(401, str(exc)) from exc
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -751,6 +775,23 @@ async def update_voyage_status(
                 "destination": str(voyage.destination_asset_id) if hasattr(voyage, "destination_asset_id") and voyage.destination_asset_id else "",
                 "scheduled_departure": str(voyage.scheduled_departure) if voyage.scheduled_departure else "",
                 "transport_mode": voyage.transport_mode if hasattr(voyage, "transport_mode") else "",
+            },
+        ))
+
+    if body.status == "delayed":
+        from app.core.events import OpsFluxEvent, event_bus
+        delay_analysis = await assess_voyage_delay(db, voyage_id=voyage_id, entity_id=entity_id)
+        await event_bus.publish(OpsFluxEvent(
+            event_type="travelwiz.voyage.delayed",
+            payload={
+                "voyage_id": str(voyage_id),
+                "entity_id": str(entity_id),
+                "code": voyage.code,
+                "delay_reason": voyage.delay_reason,
+                "delay_hours": delay_analysis["delay_hours"],
+                "threshold_hours": delay_analysis["threshold_hours"],
+                "reassign_available": delay_analysis["reassign_available"],
+                "alternatives": delay_analysis["alternatives"],
             },
         ))
 
@@ -1501,6 +1542,16 @@ async def check_voyage_capacity(
     remaining_weight = (
         (vector.weight_capacity_kg - current_weight) if vector.weight_capacity_kg else None
     )
+    weight_alert_ratio = await get_weight_alert_ratio(db, entity_id=entity_id)
+    weight_alert_threshold = (
+        vector.weight_capacity_kg * weight_alert_ratio if vector.weight_capacity_kg else None
+    )
+    weight_alert_reached = bool(
+        weight_alert_threshold is not None and current_weight >= weight_alert_threshold
+    )
+    weight_blocked = bool(
+        vector.weight_capacity_kg is not None and current_weight >= vector.weight_capacity_kg
+    )
     is_over = current_pax > vector.pax_capacity or (
         vector.weight_capacity_kg is not None and current_weight > vector.weight_capacity_kg
     )
@@ -1514,8 +1565,46 @@ async def check_voyage_capacity(
         "weight_capacity_kg": vector.weight_capacity_kg,
         "current_weight_kg": current_weight,
         "remaining_weight_kg": remaining_weight,
+        "weight_alert_ratio": weight_alert_ratio,
+        "weight_alert_threshold_kg": weight_alert_threshold,
+        "weight_alert_reached": weight_alert_reached,
+        "weight_blocked": weight_blocked,
         "is_over_capacity": is_over,
     }
+
+
+@router.get("/voyages/{voyage_id}/delay-analysis")
+async def get_voyage_delay_analysis(
+    voyage_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_voyage_or_404(db, voyage_id, entity_id)
+    try:
+        return await assess_voyage_delay(db, voyage_id=voyage_id, entity_id=entity_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+
+
+@router.get("/voyages/{voyage_id}/manifests/{manifest_id}/weight-analysis")
+async def get_manifest_weight_analysis(
+    voyage_id: UUID,
+    manifest_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_voyage_or_404(db, voyage_id, entity_id)
+    try:
+        return await assess_manifest_weight(
+            db,
+            voyage_id=voyage_id,
+            manifest_id=manifest_id,
+            entity_id=entity_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
 
 
 # ==============================================================================
@@ -1910,23 +1999,38 @@ async def captain_auth(
     """Authenticate with 6-digit captain code. Returns trip details if valid."""
     from app.services.modules.travelwiz_service import authenticate_captain_code as _auth
 
+    from app.services.modules.travelwiz_service import (
+        create_captain_session_token as _create_session,
+        get_captain_session_minutes as _get_session_minutes,
+    )
+
     result = await _auth(db, access_code=access_code)
     if not result.get("valid"):
         raise HTTPException(401, "Invalid or expired access code")
+    entity_id = result.get("entity_id")
+    voyage_id = result.get("voyage_id")
+    trip_code_access_id = result.get("trip_code_access_id")
+    if not entity_id or not voyage_id or not trip_code_access_id:
+        raise HTTPException(500, "Captain access is missing required session context")
+    session_minutes = await _get_session_minutes(db, entity_id=entity_id)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=session_minutes)
+    result["session_token"] = _create_session(
+        trip_code_access_id=trip_code_access_id,
+        voyage_id=voyage_id,
+        expires_at=expires_at,
+    )
+    result["session_expires_at"] = expires_at.isoformat()
     return result
 
 
 @router.get("/captain/{voyage_id}/manifest")
 async def captain_manifest(
     voyage_id: UUID,
+    x_captain_session: str | None = Header(default=None, alias="X-Captain-Session"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Read-only manifest view for captain portal.
-
-    Note: In production, this should validate a captain session token.
-    For now it returns the manifest data for the given voyage.
-    """
-    # Load voyage (no entity scoping for captain portal — uses voyage ID directly)
+    """Read-only manifest view for captain portal."""
+    await _require_captain_session(voyage_id, db, x_captain_session)
     voyage_result = await db.execute(
         select(Voyage).where(Voyage.id == voyage_id)
     )
@@ -2003,15 +2107,13 @@ async def captain_event(
     notes: str | None = None,
     latitude: float | None = None,
     longitude: float | None = None,
+    x_captain_session: str | None = Header(default=None, alias="X-Captain-Session"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Captain records a voyage event from the portal.
-
-    Note: In production, this should validate a captain session token.
-    """
+    """Captain records a voyage event from the portal."""
     from app.services.modules.travelwiz_service import record_voyage_event as _record_event
 
-    # Load voyage to get entity_id
+    captain_session = await _require_captain_session(voyage_id, db, x_captain_session)
     voyage_result = await db.execute(
         select(Voyage).where(Voyage.id == voyage_id)
     )
@@ -2024,13 +2126,14 @@ async def captain_event(
             db,
             trip_id=voyage_id,
             entity_id=voyage.entity_id,
-            user_id=voyage.created_by,  # Captain portal uses voyage creator as fallback
+            user_id=captain_session["created_by"],
             event_code=event_code,
             latitude=latitude,
             longitude=longitude,
             notes=notes,
         )
         await db.commit()
+        result["trip_code_access_id"] = str(captain_session["trip_code_access_id"])
         return result
     except ValueError as e:
         raise HTTPException(400, str(e))

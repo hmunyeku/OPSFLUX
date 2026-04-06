@@ -70,7 +70,7 @@ async def on_voyage_confirmed(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from sqlalchemy import select
+        from sqlalchemy import select, text
         from app.core.notifications import send_in_app
         from app.core.email_templates import render_and_send_email
         from app.models.travelwiz import VoyageManifest, ManifestPassenger
@@ -343,126 +343,155 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from sqlalchemy import text
+        from sqlalchemy import func as sqla_func, select
+        from app.core.notifications import send_in_app
+        from app.event_handlers.core_handlers import _get_admin_user_ids
+        from app.models.travelwiz import Voyage, VoyageStop
+        from app.services.modules.travelwiz_service import generate_pax_manifest_from_ads
 
         async with async_session_factory() as db:
-            # Find matching trips (destination = site_asset_id, departure around start_date)
             trips_result = await db.execute(
-                text(
-                    "SELECT t.id, pm.id as manifest_id "
-                    "FROM trips t "
-                    "LEFT JOIN pax_manifests pm ON pm.trip_id = t.id "
-                    "  AND pm.status IN ('draft', 'pending_validation') "
-                    "WHERE t.entity_id = :eid "
-                    "AND t.destination_asset_id = :dest "
-                    "AND t.departure_datetime::date = :dt "
-                    "AND t.status IN ('planned', 'confirmed') "
-                    "LIMIT 1"
-                ),
-                {
-                    "eid": str(entity_id),
-                    "dest": str(site_asset_id),
-                    "dt": start_date,
-                },
+                select(Voyage)
+                .join(VoyageStop, VoyageStop.voyage_id == Voyage.id)
+                .where(
+                    Voyage.entity_id == UUID(str(entity_id)),
+                    Voyage.active == True,  # noqa: E712
+                    Voyage.status.in_(["planned", "confirmed"]),
+                    VoyageStop.active == True,  # noqa: E712
+                    VoyageStop.asset_id == UUID(str(site_asset_id)),
+                    sqla_func.date(Voyage.scheduled_departure) == start_date,
+                )
+                .order_by(Voyage.scheduled_departure)
+                .limit(1)
             )
-            trip_row = trips_result.first()
-            if not trip_row:
+            voyage = trips_result.scalar_one_or_none()
+            if not voyage:
                 logger.info(
-                    "ads.approved → no matching trip found for AdS %s (site=%s, date=%s)",
+                    "ads.approved → no matching voyage found for AdS %s (site=%s, date=%s)",
                     ads_id, site_asset_id, start_date,
                 )
-                return
-
-            trip_id, manifest_id = trip_row
-
-            # If no manifest exists yet, we just log — LOG_BASE creates manifests manually
-            if not manifest_id:
-                logger.info(
-                    "ads.approved → trip %s found but no manifest yet. AdS %s PAX pending.",
-                    trip_id, ads_id,
-                )
-                # Notify LOG_BASE that PAX are ready for manifesting
-                from app.core.notifications import send_in_app
-                from app.event_handlers.core_handlers import _get_admin_user_ids
-
                 admin_ids = await _get_admin_user_ids(entity_id)
                 for admin_id in admin_ids:
                     await send_in_app(
                         db,
                         user_id=admin_id,
                         entity_id=UUID(str(entity_id)),
-                        title="PAX disponibles pour manifeste",
+                        title="Voyage à planifier",
                         body=(
-                            f"L'AdS {payload.get('reference', '')} a été approuvée. "
-                            f"Les PAX sont prêts à être ajoutés au manifeste du voyage."
+                            f"L'AdS {payload.get('reference', '')} est approuvée mais aucun voyage compatible "
+                            f"n'existe pour le {start_date} vers le site demandé."
                         ),
                         category="travelwiz",
-                        link=f"/travelwiz",
+                        link="/travelwiz",
                     )
                 await db.commit()
                 return
 
-            # Get approved PAX from the AdS
-            pax_result = await db.execute(
-                text(
-                    "SELECT ap.id, ap.user_id, ap.contact_id, ap.priority_score "
-                    "FROM ads_pax ap "
-                    "WHERE ap.ads_id = :aid "
-                    "AND ap.status IN ('compliant', 'approved')"
-                ),
-                {"aid": str(ads_id)},
+            manifest_summary = await generate_pax_manifest_from_ads(
+                db,
+                trip_id=voyage.id,
+                entity_id=UUID(str(entity_id)),
             )
-            pax_rows = pax_result.all()
-
-            added = 0
-            for prow in pax_rows:
-                ads_pax_id, ap_user_id, ap_contact_id, priority = prow
-                # Check if already in manifest (by ads_pax_id)
-                existing = await db.execute(
-                    text(
-                        "SELECT 1 FROM pax_manifest_entries "
-                        "WHERE manifest_id = :mid AND ads_pax_id = :apid"
-                    ),
-                    {"mid": str(manifest_id), "apid": str(ads_pax_id)},
-                )
-                if existing.first():
-                    continue
-
-                await db.execute(
-                    text(
-                        "INSERT INTO pax_manifest_entries "
-                        "(manifest_id, user_id, contact_id, ads_pax_id, status, priority_score, added_manually) "
-                        "VALUES (:mid, :uid, :cid, :apid, 'confirmed', :ps, FALSE)"
-                    ),
-                    {
-                        "mid": str(manifest_id),
-                        "uid": str(ap_user_id) if ap_user_id else None,
-                        "cid": str(ap_contact_id) if ap_contact_id else None,
-                        "apid": str(ads_pax_id),
-                        "ps": priority or 0,
-                    },
-                )
-                added += 1
-
-            # Update manifest total
-            if added > 0:
-                await db.execute(
-                    text(
-                        "UPDATE pax_manifests SET "
-                        "total_pax_confirmed = total_pax_confirmed + :n, "
-                        "updated_at = NOW() "
-                        "WHERE id = :mid"
-                    ),
-                    {"mid": str(manifest_id), "n": added},
-                )
 
             await db.commit()
             logger.info(
-                "ads.approved → %d PAX added to manifest %s for trip %s",
-                added, manifest_id, trip_id,
+                "ads.approved → %d PAX added to manifest %s for voyage %s",
+                manifest_summary["added_count"],
+                manifest_summary["manifest_id"],
+                voyage.id,
             )
     except Exception:
         logger.exception("Error in on_ads_approved for AdS %s", ads_id)
+
+
+async def on_voyage_delayed(event: OpsFluxEvent) -> None:
+    """Notify operators and passengers when a voyage enters delayed status."""
+    payload = event.payload
+    entity_id = payload.get("entity_id")
+    voyage_id = payload.get("voyage_id")
+    code = payload.get("code", "")
+    delay_reason = payload.get("delay_reason") or ""
+    delay_hours = payload.get("delay_hours") or 0
+    reassign_available = bool(payload.get("reassign_available"))
+
+    if not entity_id or not voyage_id:
+        return
+
+    try:
+        from sqlalchemy import select
+        from app.core.notifications import send_in_app
+        from app.core.email_templates import render_and_send_email
+        from app.event_handlers.core_handlers import _get_admin_user_ids
+        from app.models.travelwiz import ManifestPassenger, VoyageManifest
+
+        eid = UUID(str(entity_id))
+        vid = UUID(str(voyage_id))
+
+        async with async_session_factory() as db:
+            admin_ids = await _get_admin_user_ids(entity_id)
+            for admin_id in admin_ids:
+                await send_in_app(
+                    db,
+                    user_id=admin_id,
+                    entity_id=eid,
+                    title="Voyage retardé",
+                    body=(
+                        f"Le voyage {code or voyage_id} est retardé ({delay_hours} h). "
+                        f"{'Des alternatives sont disponibles.' if reassign_available else 'Aucune alternative immédiate.'}"
+                    ),
+                    category="travelwiz",
+                    link=f"/travelwiz/voyages/{voyage_id}",
+                )
+
+            pax_result = await db.execute(
+                select(ManifestPassenger).join(VoyageManifest, ManifestPassenger.manifest_id == VoyageManifest.id).where(
+                    VoyageManifest.voyage_id == vid,
+                    VoyageManifest.manifest_type == "pax",
+                    VoyageManifest.active == True,  # noqa: E712
+                    ManifestPassenger.active == True,  # noqa: E712
+                )
+            )
+            notified: set[str] = set()
+            for passenger in pax_result.scalars().all():
+                recipient_id = passenger.user_id or passenger.contact_id
+                if recipient_id is None:
+                    continue
+                recipient_key = str(recipient_id)
+                if recipient_key in notified:
+                    continue
+                notified.add(recipient_key)
+                if passenger.user_id:
+                    email, name = await _get_user_email_and_name(passenger.user_id, db)
+                    await send_in_app(
+                        db,
+                        user_id=passenger.user_id,
+                        entity_id=eid,
+                        title="Voyage retardé",
+                        body=f"Le voyage {code or voyage_id} est retardé. {delay_reason}".strip(),
+                        category="travelwiz",
+                        link=f"/travelwiz/voyages/{voyage_id}",
+                    )
+                else:
+                    email, name = await _get_contact_email_and_name(passenger.contact_id, db)
+                if email:
+                    await render_and_send_email(
+                        db,
+                        slug="travelwiz.voyage.delayed",
+                        entity_id=eid,
+                        language="fr",
+                        to=email,
+                        variables={
+                            "code": code or str(voyage_id),
+                            "voyage_id": str(voyage_id),
+                            "delay_reason": delay_reason,
+                            "delay_hours": str(delay_hours),
+                            "reassign_available": "oui" if reassign_available else "non",
+                            "user": {"first_name": name},
+                        },
+                    )
+            await db.commit()
+    except Exception:
+        logger.exception("Error in on_voyage_delayed for voyage %s", voyage_id)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -677,6 +706,7 @@ def register_travelwiz_handlers(event_bus: EventBus) -> None:
     """Register all TravelWiz event handlers."""
     # TravelWiz lifecycle
     event_bus.subscribe("travelwiz.voyage.confirmed", on_voyage_confirmed)
+    event_bus.subscribe("travelwiz.voyage.delayed", on_voyage_delayed)
     event_bus.subscribe("travelwiz.manifest.validated", on_manifest_validated)
 
     # PaxLog → TravelWiz (AdS approved → add PAX to manifests)

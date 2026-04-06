@@ -578,6 +578,7 @@ async def _try_ads_workflow_transition(
     actor_id: UUID,
     entity_id_scope: UUID,
     comment: str | None = None,
+    runtime_context: dict | None = None,
 ) -> tuple[str | None, object | None]:
     """Attempt FSM transition for an AdS.
 
@@ -595,6 +596,7 @@ async def _try_ads_workflow_transition(
             actor_id=actor_id,
             comment=comment,
             entity_id_scope=entity_id_scope,
+            runtime_context=runtime_context,
         )
         return instance.current_state, instance
     except FSMPermissionError as e:
@@ -706,6 +708,24 @@ async def _resolve_ads_auto_transition(
         },
     )
     return transition.to_state if transition else None
+
+
+def _build_ads_workflow_runtime_context(
+    *,
+    ads: Ads,
+    entity_id: UUID,
+    project_reviewer: Project | None = None,
+) -> dict:
+    return {
+        "entity_id": str(entity_id),
+        "created_by": str(ads.created_by) if ads.created_by else None,
+        "requester_id": str(ads.requester_id) if ads.requester_id else None,
+        "project_reviewer_id": (
+            str(project_reviewer.manager_id)
+            if project_reviewer and getattr(project_reviewer, "manager_id", None)
+            else None
+        ),
+    }
 
 
 async def _can_manage_avm(
@@ -2463,6 +2483,11 @@ async def submit_ads(
         )
 
     project_reviewer = await _get_ads_project_reviewer(db, ads=ads, entity_id=entity_id)
+    workflow_runtime_context = _build_ads_workflow_runtime_context(
+        ads=ads,
+        entity_id=entity_id,
+        project_reviewer=project_reviewer,
+    )
     next_review_state = await _resolve_ads_auto_transition(
         db,
         entity_id=entity_id,
@@ -2473,13 +2498,15 @@ async def submit_ads(
 
     if next_review_state == "pending_initiator_review" and current_user.id != ads.requester_id:
         from_state = ads.status
-        await _try_ads_workflow_transition(
+        transition_result = await _try_ads_workflow_transition(
             db,
             entity_id_str=str(ads.id),
             to_state=next_review_state,
             actor_id=current_user.id,
             entity_id_scope=entity_id,
+            runtime_context=workflow_runtime_context,
         )
+        workflow_instance = transition_result[1] if isinstance(transition_result, tuple) else None
         ads.status = next_review_state
         ads.submitted_at = func.now()
         db.add(AdsEvent(
@@ -2507,6 +2534,9 @@ async def submit_ads(
                 "reference": ads.reference,
                 "requester_id": str(ads.requester_id),
                 "created_by": str(ads.created_by),
+                "entity_scope_id": str(entity_id),
+                "assigned_to": workflow_instance.metadata_.get("assigned_to") if workflow_instance and workflow_instance.metadata_ else None,
+                "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code") if workflow_instance and workflow_instance.metadata_ else None,
             },
         )
         await record_audit(
@@ -2528,13 +2558,15 @@ async def submit_ads(
 
     if next_review_state == "pending_project_review" and project_reviewer and project_reviewer.manager_id != current_user.id:
         from_state = ads.status
-        await _try_ads_workflow_transition(
+        transition_result = await _try_ads_workflow_transition(
             db,
             entity_id_str=str(ads.id),
             to_state=next_review_state,
             actor_id=current_user.id,
             entity_id_scope=entity_id,
+            runtime_context=workflow_runtime_context,
         )
+        workflow_instance = transition_result[1] if isinstance(transition_result, tuple) else None
         ads.status = next_review_state
         ads.submitted_at = func.now()
         db.add(AdsEvent(
@@ -2562,6 +2594,9 @@ async def submit_ads(
                 "reference": ads.reference,
                 "project_id": str(project_reviewer.id),
                 "next_approver_id": str(project_reviewer.manager_id),
+                "entity_scope_id": str(entity_id),
+                "assigned_to": workflow_instance.metadata_.get("assigned_to") if workflow_instance and workflow_instance.metadata_ else None,
+                "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code") if workflow_instance and workflow_instance.metadata_ else None,
             },
         )
         await record_audit(
@@ -2589,13 +2624,15 @@ async def submit_ads(
 
     # FSM transition: draft → pending_compliance or pending_validation
     from_state = ads.status
-    await _try_ads_workflow_transition(
+    transition_result = await _try_ads_workflow_transition(
         db,
         entity_id_str=str(ads.id),
         to_state=target_status,
         actor_id=current_user.id,
         entity_id_scope=entity_id,
+        runtime_context=workflow_runtime_context,
     )
+    workflow_instance = transition_result[1] if isinstance(transition_result, tuple) else None
 
     ads.status = target_status
     ads.submitted_at = func.now()
@@ -2623,6 +2660,9 @@ async def submit_ads(
         extra_payload={
             "reference": ads.reference,
             "compliance_issues": has_compliance_issues,
+            "entity_scope_id": str(entity_id),
+            "assigned_to": workflow_instance.metadata_.get("assigned_to") if workflow_instance and workflow_instance.metadata_ else None,
+            "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code") if workflow_instance and workflow_instance.metadata_ else None,
         },
     )
 
@@ -2715,6 +2755,11 @@ async def approve_ads(
         )
 
         project_reviewer = await _get_ads_project_reviewer(db, ads=ads, entity_id=entity_id)
+        workflow_runtime_context = _build_ads_workflow_runtime_context(
+            ads=ads,
+            entity_id=entity_id,
+            project_reviewer=project_reviewer,
+        )
         target_status = await _resolve_ads_auto_transition(
             db,
             entity_id=entity_id,
@@ -2733,13 +2778,15 @@ async def approve_ads(
             )
 
         from_state = ads.status
-        await _try_ads_workflow_transition(
+        transition_result = await _try_ads_workflow_transition(
             db,
             entity_id_str=str(ads.id),
             to_state=target_status,
             actor_id=current_user.id,
             entity_id_scope=entity_id,
+            runtime_context=workflow_runtime_context,
         )
+        workflow_instance = transition_result[1] if isinstance(transition_result, tuple) else None
         ads.status = target_status
         db.add(AdsEvent(
             entity_id=entity_id,
@@ -2762,7 +2809,13 @@ async def approve_ads(
             to_state=target_status,
             actor_id=current_user.id,
             workflow_slug=ADS_WORKFLOW_SLUG,
-            extra_payload={"reference": ads.reference, "requester_id": str(ads.requester_id)},
+            extra_payload={
+                "reference": ads.reference,
+                "requester_id": str(ads.requester_id),
+                "entity_scope_id": str(entity_id),
+                "assigned_to": workflow_instance.metadata_.get("assigned_to") if workflow_instance and workflow_instance.metadata_ else None,
+                "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code") if workflow_instance and workflow_instance.metadata_ else None,
+            },
         )
         await record_audit(
             db,
@@ -2789,6 +2842,11 @@ async def approve_ads(
             db=db,
         )
 
+        workflow_runtime_context = _build_ads_workflow_runtime_context(
+            ads=ads,
+            entity_id=entity_id,
+            project_reviewer=project_reviewer,
+        )
         target_status = await _resolve_ads_auto_transition(
             db,
             entity_id=entity_id,
@@ -2802,13 +2860,15 @@ async def approve_ads(
             entity_id=entity_id,
         )
         from_state = ads.status
-        await _try_ads_workflow_transition(
+        transition_result = await _try_ads_workflow_transition(
             db,
             entity_id_str=str(ads.id),
             to_state=target_status,
             actor_id=current_user.id,
             entity_id_scope=entity_id,
+            runtime_context=workflow_runtime_context,
         )
+        workflow_instance = transition_result[1] if isinstance(transition_result, tuple) else None
         ads.status = target_status
         db.add(AdsEvent(
             entity_id=entity_id,
@@ -2828,7 +2888,13 @@ async def approve_ads(
             to_state=target_status,
             actor_id=current_user.id,
             workflow_slug=ADS_WORKFLOW_SLUG,
-            extra_payload={"reference": ads.reference, "project_id": str(project_reviewer.id)},
+            extra_payload={
+                "reference": ads.reference,
+                "project_id": str(project_reviewer.id),
+                "entity_scope_id": str(entity_id),
+                "assigned_to": workflow_instance.metadata_.get("assigned_to") if workflow_instance and workflow_instance.metadata_ else None,
+                "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code") if workflow_instance and workflow_instance.metadata_ else None,
+            },
         )
         await record_audit(
             db,
@@ -2869,13 +2935,19 @@ async def approve_ads(
             )
 
         from_state = ads.status
-        await _try_ads_workflow_transition(
+        workflow_runtime_context = _build_ads_workflow_runtime_context(
+            ads=ads,
+            entity_id=entity_id,
+        )
+        transition_result = await _try_ads_workflow_transition(
             db,
             entity_id_str=str(ads.id),
             to_state="pending_validation",
             actor_id=current_user.id,
             entity_id_scope=entity_id,
+            runtime_context=workflow_runtime_context,
         )
+        workflow_instance = transition_result[1] if isinstance(transition_result, tuple) else None
 
         ads.status = "pending_validation"
         db.add(AdsEvent(
@@ -2897,7 +2969,12 @@ async def approve_ads(
             to_state="pending_validation",
             actor_id=current_user.id,
             workflow_slug=ADS_WORKFLOW_SLUG,
-            extra_payload={"reference": ads.reference},
+            extra_payload={
+                "reference": ads.reference,
+                "entity_scope_id": str(entity_id),
+                "assigned_to": workflow_instance.metadata_.get("assigned_to") if workflow_instance and workflow_instance.metadata_ else None,
+                "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code") if workflow_instance and workflow_instance.metadata_ else None,
+            },
         )
         await record_audit(
             db,

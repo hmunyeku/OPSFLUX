@@ -1,5 +1,6 @@
 import pytest
 from fastapi import HTTPException
+from uuid import uuid4
 
 from app.api.routes.core.workflow import _validate_definition_structure
 from app.api.routes.modules.paxlog import ADS_WORKFLOW_SLUG
@@ -141,3 +142,28 @@ def test_workflow_definition_validation_rejects_invalid_runtime_metadata():
     assert detail["message"] == "Le workflow n'est pas valide pour la publication"
     assert any("assignee.field" in error for error in detail["errors"])
     assert any("sla_hours" in error for error in detail["errors"])
+
+
+@pytest.mark.asyncio
+async def test_emit_transition_event_also_publishes_generic_workflow_transition(monkeypatch):
+    published = []
+
+    async def fake_publish(event):
+        published.append(event)
+
+    monkeypatch.setattr("app.services.core.fsm_service.event_bus.publish", fake_publish)
+
+    await fsm_service.emit_transition_event(
+        entity_type="ads",
+        entity_id=str(uuid4()),
+        from_state="draft",
+        to_state="pending_compliance",
+        actor_id=uuid4(),
+        workflow_slug=ADS_WORKFLOW_SLUG,
+        extra_payload={"reference": "ADS-001"},
+    )
+
+    event_types = [event.event_type for event in published]
+    assert "ads.pending_compliance" in event_types
+    assert "workflow.transition" in event_types
+    assert "ads.status_changed" in event_types

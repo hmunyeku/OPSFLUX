@@ -60,7 +60,14 @@ class TransitionInfo:
     assignee: dict | None = None
 
 
-def _apply_transition_runtime_metadata(metadata: dict | None, *, to_state: str, sla_hours: int | None) -> dict:
+def _apply_transition_runtime_metadata(
+    metadata: dict | None,
+    *,
+    to_state: str,
+    sla_hours: int | None,
+    assigned_to: str | None = None,
+    assigned_role_code: str | None = None,
+) -> dict:
     """Persist generic runtime timing hints for the current workflow state.
 
     This keeps temporal workflow automation generic:
@@ -72,6 +79,14 @@ def _apply_transition_runtime_metadata(metadata: dict | None, *, to_state: str, 
     runtime_metadata["current_state_name"] = to_state
     runtime_metadata["current_state_entered_at"] = now.isoformat()
     runtime_metadata.pop("current_state_last_reminder_at", None)
+    if assigned_to:
+        runtime_metadata["assigned_to"] = assigned_to
+    else:
+        runtime_metadata.pop("assigned_to", None)
+    if assigned_role_code:
+        runtime_metadata["assigned_role_code"] = assigned_role_code
+    else:
+        runtime_metadata.pop("assigned_role_code", None)
 
     if sla_hours and sla_hours > 0:
         runtime_metadata["current_state_sla_hours"] = sla_hours
@@ -81,6 +96,23 @@ def _apply_transition_runtime_metadata(metadata: dict | None, *, to_state: str, 
         runtime_metadata.pop("current_state_due_at", None)
 
     return runtime_metadata
+
+
+def _resolve_assignee_runtime_metadata(assignee: dict | None, context: dict | None) -> tuple[str | None, str | None]:
+    if not assignee or not isinstance(assignee, dict):
+        return None, None
+    resolver = assignee.get("resolver")
+    if resolver == "field":
+        field_name = assignee.get("field")
+        if field_name and context:
+            value = context.get(field_name)
+            if value:
+                return str(value), None
+        return None, None
+    if resolver == "role":
+        role_code = assignee.get("role_code")
+        return None, str(role_code) if role_code else None
+    return None, None
 
 
 class FSMService:
@@ -175,6 +207,7 @@ class FSMService:
         comment: str | None = None,
         entity_id_scope: UUID | None = None,
         skip_role_check: bool = False,
+        runtime_context: dict | None = None,
     ) -> WorkflowInstance:
         """Execute a state transition with validation and row-level locking.
 
@@ -253,10 +286,19 @@ class FSMService:
         # Execute transition
         instance.current_state = to_state
         instance.version = (instance.version or 1) + 1
+        merged_metadata = dict(instance.metadata_ or {})
+        if runtime_context:
+            merged_metadata.update(runtime_context)
+        assigned_to, assigned_role_code = _resolve_assignee_runtime_metadata(
+            transition_meta.assignee,
+            merged_metadata,
+        )
         instance.metadata_ = _apply_transition_runtime_metadata(
-            instance.metadata_,
+            merged_metadata,
             to_state=to_state,
             sla_hours=transition_meta.sla_hours,
+            assigned_to=assigned_to,
+            assigned_role_code=assigned_role_code,
         )
 
         # Record immutable transition history
@@ -327,10 +369,16 @@ class FSMService:
 
         # Also emit a generic transition event
         generic_event = OpsFluxEvent(
-            event_type=f"{entity_type}.status_changed",
+            event_type="workflow.transition",
             payload=payload,
         )
         await event_bus.publish(generic_event)
+
+        status_changed_event = OpsFluxEvent(
+            event_type=f"{entity_type}.status_changed",
+            payload=payload,
+        )
+        await event_bus.publish(status_changed_event)
 
     # ── Query helpers ──────────────────────────────────────────────────
 

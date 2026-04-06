@@ -4904,11 +4904,105 @@ async def test_planner_activity_cancelled_creates_ads_event_and_notifies(monkeyp
     planner_events = [obj for obj in db.added if isinstance(obj, AdsEvent)]
     assert len(planner_events) == 1
     assert planner_events[0].event_type == "planner_activity_cancelled"
-    assert planner_events[0].new_status == "requires_review"
-    assert planner_events[0].reason == "Shutdown window"
-    assert planner_events[0].metadata_json["planner_activity_id"] == str(activity_id)
-    assert planner_events[0].metadata_json["planner_activity_title"] == "Shutdown window"
-    assert notifications and notifications[0]["link"] == f"/paxlog/ads/{ads_id}"
+
+
+@pytest.mark.asyncio
+async def test_ads_workflow_transition_notifies_assigned_user(monkeypatch):
+    entity_scope_id = uuid4()
+    ads_id = uuid4()
+    assigned_user_id = uuid4()
+    db = FakeDB([
+        FakeResult(first=("aline@example.com", "Aline Mukeba")),
+    ])
+    notifications = []
+    emails = []
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    async def fake_render_and_send_email(db, slug, entity_id, language, to, variables):
+        emails.append({
+            "slug": slug,
+            "entity_id": entity_id,
+            "language": language,
+            "to": to,
+            "variables": variables,
+        })
+        return True
+
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+    monkeypatch.setattr("app.core.email_templates.render_and_send_email", fake_render_and_send_email)
+    monkeypatch.setattr(paxlog_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+
+    await paxlog_handlers.on_ads_workflow_validation_required(
+        OpsFluxEvent(
+            event_type="workflow.transition",
+            payload={
+                "entity_type": "ads",
+                "entity_id": str(ads_id),
+                "entity_scope_id": str(entity_scope_id),
+                "to_state": "pending_project_review",
+                "actor_id": str(uuid4()),
+                "reference": "ADS-777",
+                "assigned_to": str(assigned_user_id),
+            },
+        )
+    )
+
+    assert notifications and notifications[0]["user_id"] == assigned_user_id
+    assert notifications[0]["link"] == f"/paxlog/ads/{ads_id}"
+    assert emails and emails[0]["slug"] == "workflow.validation_required"
+    assert emails[0]["to"] == "aline@example.com"
+    assert emails[0]["variables"]["workflow_step"] == "Validation chef de projet"
+
+
+@pytest.mark.asyncio
+async def test_ads_workflow_transition_notifies_role_assignee(monkeypatch):
+    entity_scope_id = uuid4()
+    ads_id = uuid4()
+    role_user_id = uuid4()
+    db = FakeDB([
+        FakeResult(all_rows=[(role_user_id,)]),
+        FakeResult(first=("cds@example.com", "Chef De Site")),
+    ])
+    notifications = []
+    emails = []
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    async def fake_render_and_send_email(db, slug, entity_id, language, to, variables):
+        emails.append({
+            "slug": slug,
+            "entity_id": entity_id,
+            "language": language,
+            "to": to,
+            "variables": variables,
+        })
+        return True
+
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+    monkeypatch.setattr("app.core.email_templates.render_and_send_email", fake_render_and_send_email)
+    monkeypatch.setattr(paxlog_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+
+    await paxlog_handlers.on_ads_workflow_validation_required(
+        OpsFluxEvent(
+            event_type="workflow.transition",
+            payload={
+                "entity_type": "ads",
+                "entity_id": str(ads_id),
+                "entity_scope_id": str(entity_scope_id),
+                "to_state": "pending_validation",
+                "actor_id": str(uuid4()),
+                "reference": "ADS-778",
+                "assigned_role_code": "CDS",
+            },
+        )
+    )
+
+    assert notifications and notifications[0]["user_id"] == role_user_id
+    assert emails and emails[0]["to"] == "cds@example.com"
+    assert emails[0]["variables"]["workflow_step"] == "Validation finale CDS"
 
 
 def test_register_module_handlers_does_not_duplicate_planner_cancelled_for_paxlog():

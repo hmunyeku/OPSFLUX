@@ -35,6 +35,33 @@ async def _get_user_email_and_name(user_id: UUID, db) -> tuple[str | None, str]:
     return (row[0], row[1]) if row else (None, "")
 
 
+async def _get_user_ids_for_role(role_code: str, entity_id: UUID, db) -> list[UUID]:
+    from sqlalchemy import text
+
+    result = await db.execute(
+        text(
+            "SELECT DISTINCT ugm.user_id "
+            "FROM user_group_members ugm "
+            "JOIN user_groups ug ON ug.id = ugm.group_id "
+            "JOIN user_group_roles ugr ON ugr.group_id = ug.id "
+            "WHERE ug.entity_id = :entity_id "
+            "AND ugr.role_code = :role_code"
+        ),
+        {"entity_id": str(entity_id), "role_code": role_code},
+    )
+    return [UUID(str(row[0])) for row in result.all() if row[0]]
+
+
+def _ads_workflow_step_label(state: str) -> str | None:
+    labels = {
+        "pending_initiator_review": "Validation initiateur",
+        "pending_project_review": "Validation chef de projet",
+        "pending_compliance": "Validation HSE",
+        "pending_validation": "Validation finale CDS",
+    }
+    return labels.get(state)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Handler: on_ads_submitted
 # When an AdS is submitted — notify requester (confirmation) + validators
@@ -315,6 +342,70 @@ async def on_ads_cancelled(event: OpsFluxEvent) -> None:
         logger.info("ads.cancelled handled: %s (%s)", reference, ads_id)
     except Exception:
         logger.exception("Error in on_ads_cancelled for %s", ads_id)
+
+
+async def on_ads_workflow_validation_required(event: OpsFluxEvent) -> None:
+    """Notify the current assignee when an AdS enters a validation step."""
+    payload = event.payload or {}
+    if payload.get("entity_type") != "ads":
+        return
+
+    ads_id = payload.get("entity_id")
+    entity_scope_id = payload.get("entity_scope_id")
+    to_state = payload.get("to_state")
+    reference = payload.get("reference", "")
+    assigned_to = payload.get("assigned_to")
+    assigned_role_code = payload.get("assigned_role_code")
+    actor_id = payload.get("actor_id")
+
+    workflow_step = _ads_workflow_step_label(str(to_state))
+    if not ads_id or not entity_scope_id or not workflow_step:
+        return
+
+    try:
+        from app.core.notifications import send_in_app
+        from app.core.email_templates import render_and_send_email
+
+        eid = UUID(str(entity_scope_id))
+        recipients: list[UUID] = []
+
+        async with async_session_factory() as db:
+            if assigned_to:
+                recipients = [UUID(str(assigned_to))]
+            elif assigned_role_code:
+                recipients = await _get_user_ids_for_role(str(assigned_role_code), eid, db)
+
+            unique_recipients = [uid for uid in dict.fromkeys(recipients) if str(uid) != str(actor_id)]
+            for uid in unique_recipients:
+                await send_in_app(
+                    db,
+                    user_id=uid,
+                    entity_id=eid,
+                    title="Validation AdS requise",
+                    body=f"L'AdS {reference} est en attente de votre validation ({workflow_step}).",
+                    category="paxlog",
+                    link=f"/paxlog/ads/{ads_id}",
+                )
+                email, name = await _get_user_email_and_name(uid, db)
+                if email:
+                    await render_and_send_email(
+                        db,
+                        slug="workflow.validation_required",
+                        entity_id=eid,
+                        language="fr",
+                        to=email,
+                        variables={
+                            "document_number": reference,
+                            "document_title": f"AdS {reference}",
+                            "document_id": str(ads_id),
+                            "workflow_step": workflow_step,
+                            "user": {"first_name": name},
+                        },
+                    )
+
+            await db.commit()
+    except Exception:
+        logger.exception("Error in on_ads_workflow_validation_required for ads %s", ads_id)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -634,6 +725,7 @@ def register_paxlog_handlers(event_bus: EventBus) -> None:
     event_bus.subscribe("ads.rejected", on_ads_rejected)
     event_bus.subscribe("ads.compliance_failed", on_ads_compliance_failed)
     event_bus.subscribe("ads.cancelled", on_ads_cancelled)
+    event_bus.subscribe("workflow.transition", on_ads_workflow_validation_required)
 
     # Planner → PaxLog (activity changes affect AdS)
     event_bus.subscribe("planner.activity.modified", on_planner_activity_modified)

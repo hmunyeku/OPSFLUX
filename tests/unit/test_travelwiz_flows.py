@@ -683,6 +683,96 @@ async def test_update_cargo_workflow_status_blocks_incomplete_dossier(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_create_cargo_request_generates_code_and_audits(monkeypatch):
+    entity_id = uuid4()
+    user_id = uuid4()
+    db = FakeDB([])
+    audits = []
+
+    async def fake_generate_code(_db, _entity_id):
+        return "CGR-2026-00001"
+
+    async def fake_record_audit(_db, **kwargs):
+        audits.append(kwargs)
+
+    async def fake_build_read(_db, cargo_request, *, cargo_count=None):
+        return {
+            "id": cargo_request.id,
+            "request_code": cargo_request.request_code,
+            "title": cargo_request.title,
+            "status": cargo_request.status,
+            "cargo_count": cargo_count or 0,
+        }
+
+    monkeypatch.setattr(travelwiz_routes, "_generate_cargo_request_code", fake_generate_code)
+    monkeypatch.setattr(travelwiz_routes, "record_audit", fake_record_audit)
+    monkeypatch.setattr(travelwiz_routes, "_build_cargo_request_read_data", fake_build_read)
+
+    result = await travelwiz_routes.create_cargo_request(
+        body=travelwiz_routes.CargoRequestCreate(title="Expédition kits BOP"),
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=user_id),
+        _=None,
+        db=db,
+    )
+
+    created = db.added[0]
+    assert created.request_code == "CGR-2026-00001"
+    assert created.requested_by == user_id
+    assert result["request_code"] == "CGR-2026-00001"
+    assert audits and audits[0]["action"] == "travelwiz.cargo_request.create"
+
+
+@pytest.mark.asyncio
+async def test_update_cargo_request_updates_status_and_audits(monkeypatch):
+    entity_id = uuid4()
+    user_id = uuid4()
+    request_id = uuid4()
+    cargo_request = SimpleNamespace(
+        id=request_id,
+        entity_id=entity_id,
+        request_code="CGR-2026-00002",
+        title="Expédition tubings",
+        status="draft",
+        active=True,
+    )
+    db = FakeDB([])
+    audits = []
+
+    async def fake_get_request(_db, _request_id, _entity_id):
+        return cargo_request
+
+    async def fake_record_audit(_db, **kwargs):
+        audits.append(kwargs)
+
+    async def fake_build_read(_db, request, *, cargo_count=None):
+        return {
+            "id": request.id,
+            "request_code": request.request_code,
+            "title": request.title,
+            "status": request.status,
+            "cargo_count": cargo_count or 0,
+        }
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_request_or_404", fake_get_request)
+    monkeypatch.setattr(travelwiz_routes, "record_audit", fake_record_audit)
+    monkeypatch.setattr(travelwiz_routes, "_build_cargo_request_read_data", fake_build_read)
+
+    result = await travelwiz_routes.update_cargo_request(
+        request_id=request_id,
+        body=travelwiz_routes.CargoRequestUpdate(status="submitted"),
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=user_id),
+        _=None,
+        db=db,
+    )
+
+    assert cargo_request.status == "submitted"
+    assert result["status"] == "submitted"
+    assert audits and audits[0]["action"] == "travelwiz.cargo_request.update"
+
+
+@pytest.mark.asyncio
 async def test_verify_captain_session_token_accepts_matching_access():
     voyage_id = uuid4()
     trip_code_access_id = uuid4()

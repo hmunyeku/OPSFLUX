@@ -64,6 +64,8 @@ import {
   useDeleteVector,
   useVectorZones,
   useCargo,
+  useCargoRequests,
+  useCreateCargoRequest,
   useCargoItem,
   useCreateCargo,
   useUpdateCargo,
@@ -96,6 +98,7 @@ import type {
   VoyageCreate, VoyageUpdate,
   TravelVectorCreate, TravelVectorUpdate,
   CargoAttachmentEvidence, CargoItem, CargoItemCreate, CargoItemUpdate,
+  CargoRequestCreate,
   RotationCreate, RotationUpdate,
   TravelArticleCreate,
 } from '@/types/api'
@@ -1521,6 +1524,10 @@ export function TravelWizPage() {
     else if (activeTab === 'articles') openDynamicPanel({ type: 'create', module: 'travelwiz', meta: { subtype: 'article' } })
   }, [activeTab, openDynamicPanel])
 
+  const handleCreateCargoRequest = useCallback(() => {
+    openDynamicPanel({ type: 'create', module: 'travelwiz', meta: { subtype: 'cargo-request' } })
+  }, [openDynamicPanel])
+
   const createLabel =
     activeTab === 'voyages' ? 'Nouveau voyage'
       : activeTab === 'vectors' ? 'Nouveau vecteur'
@@ -1557,6 +1564,13 @@ export function TravelWizPage() {
       {!isFullPanel && (
         <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
           <PanelHeader icon={Plane} title="TravelWiz" subtitle="Transport et logistique">
+            {activeTab === 'cargo' && canCreate && (
+              <ToolbarButton
+                icon={FileText}
+                label="Nouvelle demande"
+                onClick={handleCreateCargoRequest}
+              />
+            )}
             {showArticleImport && (
               <ToolbarButton
                 icon={FileText}
@@ -1612,6 +1626,7 @@ export function TravelWizPage() {
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'voyage' && <CreateVoyagePanel />}
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'rotation' && <CreateRotationPanel />}
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'vector' && <CreateVectorPanel />}
+      {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'cargo-request' && <CreateCargoRequestPanel />}
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'cargo' && <CreateCargoPanel />}
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'article' && <CreateArticlePanel />}
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'voyage' && <VoyageDetailPanel id={(dynamicPanel as { id: string }).id} />}
@@ -1993,9 +2008,130 @@ function CreateVectorPanel() {
   )
 }
 
+function CreateCargoRequestPanel() {
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const createCargoRequest = useCreateCargoRequest()
+  const { data: tiersData } = useTiers({ page: 1, page_size: 100 })
+  const { data: imputationReferences } = useImputationReferences()
+  const { toast } = useToast()
+  const [form, setForm] = useState<CargoRequestCreate>({
+    title: '',
+    description: null,
+    project_id: null,
+    imputation_reference_id: null,
+    sender_tier_id: null,
+    receiver_name: null,
+    destination_asset_id: null,
+    requester_name: null,
+  })
+  const tiers = tiersData?.items ?? []
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      await createCargoRequest.mutateAsync(form)
+      toast({ title: "Demande d'expédition créée", variant: 'success' })
+      closeDynamicPanel()
+    } catch {
+      toast({ title: "Erreur lors de la création de la demande d'expédition", variant: 'error' })
+    }
+  }
+
+  return (
+    <DynamicPanelShell
+      title="Nouvelle demande d’expédition"
+      subtitle="TravelWiz"
+      icon={<FileText size={14} className="text-primary" />}
+      actions={
+        <>
+          <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
+          <PanelActionButton
+            variant="primary"
+            disabled={createCargoRequest.isPending}
+            onClick={() => (document.getElementById('create-cargo-request-form') as HTMLFormElement)?.requestSubmit()}
+          >
+            {createCargoRequest.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
+          </PanelActionButton>
+        </>
+      }
+    >
+      <form id="create-cargo-request-form" onSubmit={handleSubmit}>
+        <PanelContentLayout>
+          <FormSection title="Demande">
+            <FormGrid>
+              <DynamicPanelField label="Référence">
+                <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  Générée automatiquement par la numérotation OpsFlux à l’enregistrement de la demande.
+                </div>
+              </DynamicPanelField>
+              <DynamicPanelField label="Intitulé" required>
+                <input
+                  type="text"
+                  required
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className={panelInputClass}
+                  placeholder="Demande d’expédition équipements forage"
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label="Description" span="full">
+                <textarea
+                  value={form.description ?? ''}
+                  onChange={(e) => setForm({ ...form, description: e.target.value || null })}
+                  className={`${panelInputClass} min-h-[72px] resize-y`}
+                  rows={3}
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label="Projet">
+                <ProjectPicker
+                  value={form.project_id ?? null}
+                  onChange={(projectId) => setForm({ ...form, project_id: projectId ?? null })}
+                  clearable
+                  placeholder="Sélectionner un projet..."
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label="Imputation">
+                <select value={form.imputation_reference_id ?? ''} onChange={(e) => setForm({ ...form, imputation_reference_id: e.target.value || null })} className={panelInputClass}>
+                  <option value="">Sélectionner une imputation...</option>
+                  {(imputationReferences ?? []).map((reference) => (
+                    <option key={reference.id} value={reference.id}>{reference.code} — {reference.name}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Expéditeur">
+                <select value={form.sender_tier_id ?? ''} onChange={(e) => setForm({ ...form, sender_tier_id: e.target.value || null })} className={panelInputClass}>
+                  <option value="">Sélectionner une entreprise...</option>
+                  {tiers.map((tier) => (
+                    <option key={tier.id} value={tier.id}>{tier.name}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Destinataire">
+                <input type="text" value={form.receiver_name ?? ''} onChange={(e) => setForm({ ...form, receiver_name: e.target.value || null })} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label="Installation de destination" span="full">
+                <AssetPicker
+                  value={form.destination_asset_id ?? null}
+                  onChange={(assetId) => setForm({ ...form, destination_asset_id: assetId ?? null })}
+                  clearable
+                  placeholder="Sélectionner l'installation de destination..."
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label="Demandeur">
+                <input type="text" value={form.requester_name ?? ''} onChange={(e) => setForm({ ...form, requester_name: e.target.value || null })} className={panelInputClass} />
+              </DynamicPanelField>
+            </FormGrid>
+          </FormSection>
+        </PanelContentLayout>
+      </form>
+    </DynamicPanelShell>
+  )
+}
+
 function CreateCargoPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createCargo = useCreateCargo()
+  const { data: cargoRequestsData } = useCargoRequests({ page: 1, page_size: 100 })
   const { data: tiersData } = useTiers({ page: 1, page_size: 100 })
   const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
   const { data: imputationReferences } = useImputationReferences()
@@ -2003,6 +2139,7 @@ function CreateCargoPanel() {
   const ownershipOptions = useDictionaryOptions('travelwiz_cargo_ownership_type')
   const { toast } = useToast()
   const [form, setForm] = useState<CargoItemCreate>({
+    request_id: null,
     description: '',
     designation: '',
     cargo_type: 'unit',
@@ -2038,6 +2175,7 @@ function CreateCargoPanel() {
     sap_article_code: null,
     hazmat_validated: false,
   })
+  const cargoRequests = cargoRequestsData?.items ?? []
   const tiers = tiersData?.items ?? []
   const users = usersData?.items ?? []
   const { data: tierContacts } = useTierContacts(form.sender_tier_id ?? undefined)
@@ -2065,6 +2203,14 @@ function CreateCargoPanel() {
         <PanelContentLayout>
           <FormSection title="Identification">
             <FormGrid>
+              <DynamicPanelField label="Demande d’expédition">
+                <select value={form.request_id ?? ''} onChange={(e) => setForm({ ...form, request_id: e.target.value || null })} className={panelInputClass}>
+                  <option value="">Aucune demande parente</option>
+                  {cargoRequests.map((request) => (
+                    <option key={request.id} value={request.id}>{request.request_code} — {request.title}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
               <DynamicPanelField label="Référence">
                 <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                   Générée automatiquement par la numérotation TravelWiz à l’enregistrement du colis.
@@ -2957,6 +3103,7 @@ function RotationDetailPanel({ id }: { id: string }) {
 
 function CargoDetailPanel({ id }: { id: string }) {
   const { data: cargo, isLoading } = useCargoItem(id)
+  const { data: cargoRequestsData } = useCargoRequests({ page: 1, page_size: 100 })
   const { data: tiers } = useTiers({ page: 1, page_size: 100 })
   const { data: projects } = useProjects({ page: 1, page_size: 100 })
   const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
@@ -2977,6 +3124,7 @@ function CargoDetailPanel({ id }: { id: string }) {
   const cargoTypeLabels = useDictionaryLabels('travelwiz_cargo_type')
   const ownershipLabels = useDictionaryLabels('travelwiz_cargo_ownership_type')
   const cargoWorkflowLabels = useDictionaryLabels('travelwiz_cargo_workflow_status')
+  const cargoRequestStatusLabels = useDictionaryLabels('travelwiz_cargo_request_status')
   const cargoEvidenceOptions = useDictionaryOptions('travelwiz_cargo_evidence_type')
   const cargoEvidenceLabels = useDictionaryLabels('travelwiz_cargo_evidence_type')
   const { toast } = useToast()
@@ -2985,10 +3133,12 @@ function CargoDetailPanel({ id }: { id: string }) {
   const [workflowBlockingItems, setWorkflowBlockingItems] = useState<string[]>([])
   const { data: tierContacts } = useTierContacts(editForm.sender_tier_id ?? cargo?.sender_tier_id ?? undefined)
   const users = usersData?.items ?? []
+  const cargoRequests = cargoRequestsData?.items ?? []
 
   const startEdit = useCallback(() => {
     if (!cargo) return
     setEditForm({
+      request_id: cargo.request_id,
       description: cargo.description,
       designation: cargo.designation,
       weight_kg: cargo.weight_kg,
@@ -3053,6 +3203,12 @@ function CargoDetailPanel({ id }: { id: string }) {
     ? (manifests?.items ?? []).find((manifest) => manifest.id === cargo.manifest_id)?.reference ?? cargo.manifest_id
     : null
   const volumeLabel = cargo.volume_m3 ? `${cargo.volume_m3.toLocaleString('fr-FR')} m³` : '—'
+  const cargoRequest = cargo.request_id
+    ? cargoRequests.find((request) => request.id === cargo.request_id) ?? null
+    : null
+  const cargoRequestStatusLabel = cargoRequest?.status
+    ? (cargoRequestStatusLabels[cargoRequest.status] ?? cargoRequest.status)
+    : '—'
   const requiredEvidenceTypes = getRequiredCargoEvidenceTypes(cargo.cargo_type)
   const evidenceTypeSet = new Set((attachmentEvidence ?? []).map((item) => item.evidence_type))
   const missingRequirements = [
@@ -3140,6 +3296,14 @@ function CargoDetailPanel({ id }: { id: string }) {
                 <select value={editForm.cargo_type ?? ''} onChange={(e) => setEditForm({ ...editForm, cargo_type: e.target.value || null })} className={panelInputClass}>
                   {cargoTypeOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label="Demande d’expédition">
+                <select value={editForm.request_id ?? ''} onChange={(e) => setEditForm({ ...editForm, request_id: e.target.value || null })} className={panelInputClass}>
+                  <option value="">Aucune demande parente</option>
+                  {cargoRequests.map((request) => (
+                    <option key={request.id} value={request.id}>{request.request_code} — {request.title}</option>
                   ))}
                 </select>
               </DynamicPanelField>
@@ -3286,6 +3450,8 @@ function CargoDetailPanel({ id }: { id: string }) {
           <>
             <FormSection title="Details">
               <DetailRow label="Code" value={cargo.code} />
+              <DetailRow label="Demande d’expédition" value={cargo.request_code ? `${cargo.request_code} — ${cargo.request_title ?? ''}`.trim() : '—'} />
+              <DetailRow label="Statut demande" value={cargoRequestStatusLabel} />
               <DetailRow label="Type" value={cargoTypeLabels[cargo.cargo_type] ?? cargo.cargo_type ?? '—'} />
               <DetailRow label="Workflow dossier" value={cargoWorkflowLabels[cargo.workflow_status] ?? cargo.workflow_status} />
               <DetailRow label="Désignation" value={cargo.designation ?? '—'} />
@@ -3514,6 +3680,7 @@ registerPanelRenderer('travelwiz', (view) => {
   if (view.type === 'create') {
     if (view.meta?.subtype === 'voyage') return <CreateVoyagePanel />
     if (view.meta?.subtype === 'vector') return <CreateVectorPanel />
+    if (view.meta?.subtype === 'cargo-request') return <CreateCargoRequestPanel />
     if (view.meta?.subtype === 'cargo') return <CreateCargoPanel />
     if (view.meta?.subtype === 'article') return <CreateArticlePanel />
   }

@@ -1909,6 +1909,7 @@ export interface ManifestPassengerUpdate {
 export interface CargoItem {
   id: string
   entity_id: string
+  request_id: string | null
   manifest_id: string | null
   tracking_code: string
   code: string
@@ -1960,12 +1961,15 @@ export interface CargoItem {
   destination_name?: string | null
   imputation_reference_code?: string | null
   imputation_reference_name?: string | null
+  request_code?: string | null
+  request_title?: string | null
   voyage_code?: string | null
   hazmat_class?: string | null
   is_urgent?: boolean
 }
 
 export interface CargoItemCreate {
+  request_id?: string | null
   description: string
   designation?: string | null
   cargo_type: string
@@ -2003,6 +2007,7 @@ export interface CargoItemCreate {
 }
 
 export interface CargoItemUpdate {
+  request_id?: string | null
   code?: string
   description?: string | null
   designation?: string | null
@@ -2044,6 +2049,52 @@ export interface CargoItemUpdate {
 
 export interface CargoWorkflowStatusUpdate {
   workflow_status: CargoItem['workflow_status']
+}
+
+export interface CargoRequest {
+  id: string
+  entity_id: string
+  request_code: string
+  title: string
+  description: string | null
+  status: 'draft' | 'submitted' | 'approved' | 'assigned' | 'in_progress' | 'closed' | 'cancelled'
+  project_id: string | null
+  imputation_reference_id: string | null
+  sender_tier_id: string | null
+  receiver_name: string | null
+  destination_asset_id: string | null
+  requester_name: string | null
+  requested_by: string
+  active: boolean
+  created_at: string
+  cargo_count: number
+  sender_name?: string | null
+  destination_name?: string | null
+  imputation_reference_code?: string | null
+  imputation_reference_name?: string | null
+}
+
+export interface CargoRequestCreate {
+  title: string
+  description?: string | null
+  project_id?: string | null
+  imputation_reference_id?: string | null
+  sender_tier_id?: string | null
+  receiver_name?: string | null
+  destination_asset_id?: string | null
+  requester_name?: string | null
+}
+
+export interface CargoRequestUpdate {
+  title?: string | null
+  description?: string | null
+  status?: CargoRequest['status'] | null
+  project_id?: string | null
+  imputation_reference_id?: string | null
+  sender_tier_id?: string | null
+  receiver_name?: string | null
+  destination_asset_id?: string | null
+  requester_name?: string | null
 }
 
 export interface CargoAttachmentEvidence {

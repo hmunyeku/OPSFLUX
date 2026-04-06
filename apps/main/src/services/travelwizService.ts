@@ -10,7 +10,7 @@ import type {
   VoyageStop, VoyageStopCreate, VoyageStopUpdate,
   Manifest, ManifestCreate, ManifestWithTrip,
   ManifestPassenger, ManifestPassengerCreate, ManifestPassengerUpdate,
-  CargoAttachmentEvidence, CargoItem, CargoItemCreate, CargoItemUpdate, CargoStatusUpdate, CargoWorkflowStatusUpdate, CargoReceive, CargoReturnCreate,
+  CargoAttachmentEvidence, CargoItem, CargoItemCreate, CargoItemUpdate, CargoRequest, CargoRequestCreate, CargoRequestUpdate, CargoStatusUpdate, CargoWorkflowStatusUpdate, CargoReceive, CargoReturnCreate,
   CaptainLog, CaptainLogCreate,
   VoyageCapacity,
   VoyageEvent, VoyageEventCreate,
@@ -96,6 +96,7 @@ function normalizeCargo(data: Record<string, unknown>): CargoItem {
   return {
     id: String(data.id),
     entity_id: String(data.entity_id),
+    request_id: typeof data.request_id === 'string' ? data.request_id : null,
     manifest_id: typeof data.manifest_id === 'string' ? data.manifest_id : null,
     tracking_code: trackingCode,
     code: trackingCode,
@@ -151,9 +152,36 @@ function normalizeCargo(data: Record<string, unknown>): CargoItem {
     destination_name: typeof data.destination_name === 'string' ? data.destination_name : null,
     imputation_reference_code: typeof data.imputation_reference_code === 'string' ? data.imputation_reference_code : null,
     imputation_reference_name: typeof data.imputation_reference_name === 'string' ? data.imputation_reference_name : null,
+    request_code: typeof data.request_code === 'string' ? data.request_code : null,
+    request_title: typeof data.request_title === 'string' ? data.request_title : null,
     voyage_code: typeof data.voyage_code === 'string' ? data.voyage_code : null,
     hazmat_class: typeof data.hazmat_class === 'string' ? data.hazmat_class : null,
     is_urgent: typeof data.is_urgent === 'boolean' ? data.is_urgent : undefined,
+  }
+}
+
+function normalizeCargoRequest(data: Record<string, unknown>): CargoRequest {
+  return {
+    id: String(data.id),
+    entity_id: String(data.entity_id),
+    request_code: String(data.request_code ?? ''),
+    title: String(data.title ?? ''),
+    description: typeof data.description === 'string' ? data.description : null,
+    status: String(data.status ?? 'draft') as CargoRequest['status'],
+    project_id: typeof data.project_id === 'string' ? data.project_id : null,
+    imputation_reference_id: typeof data.imputation_reference_id === 'string' ? data.imputation_reference_id : null,
+    sender_tier_id: typeof data.sender_tier_id === 'string' ? data.sender_tier_id : null,
+    receiver_name: typeof data.receiver_name === 'string' ? data.receiver_name : null,
+    destination_asset_id: typeof data.destination_asset_id === 'string' ? data.destination_asset_id : null,
+    requester_name: typeof data.requester_name === 'string' ? data.requester_name : null,
+    requested_by: typeof data.requested_by === 'string' ? data.requested_by : '',
+    active: typeof data.active === 'boolean' ? data.active : true,
+    created_at: typeof data.created_at === 'string' ? data.created_at : new Date().toISOString(),
+    cargo_count: typeof data.cargo_count === 'number' ? data.cargo_count : 0,
+    sender_name: typeof data.sender_name === 'string' ? data.sender_name : null,
+    destination_name: typeof data.destination_name === 'string' ? data.destination_name : null,
+    imputation_reference_code: typeof data.imputation_reference_code === 'string' ? data.imputation_reference_code : null,
+    imputation_reference_name: typeof data.imputation_reference_name === 'string' ? data.imputation_reference_name : null,
   }
 }
 
@@ -181,6 +209,11 @@ interface CargoListParams extends PaginationParams {
   voyage_id?: string
   cargo_type?: string
   is_hazmat?: boolean
+  search?: string
+}
+
+interface CargoRequestListParams extends PaginationParams {
+  status?: string
   search?: string
 }
 
@@ -398,6 +431,29 @@ export const travelwizService = {
   },
 
   // ── Cargo ──
+  listCargoRequests: async (params: CargoRequestListParams = {}): Promise<PaginatedResponse<CargoRequest>> => {
+    const { data } = await api.get(`${BASE}/cargo-requests`, { params })
+    return {
+      ...data,
+      items: Array.isArray(data.items) ? data.items.map((item: Record<string, unknown>) => normalizeCargoRequest(item)) : [],
+    }
+  },
+
+  getCargoRequest: async (id: string): Promise<CargoRequest> => {
+    const { data } = await api.get(`${BASE}/cargo-requests/${id}`)
+    return normalizeCargoRequest(data)
+  },
+
+  createCargoRequest: async (payload: CargoRequestCreate): Promise<CargoRequest> => {
+    const { data } = await api.post(`${BASE}/cargo-requests`, payload)
+    return normalizeCargoRequest(data)
+  },
+
+  updateCargoRequest: async (id: string, payload: CargoRequestUpdate): Promise<CargoRequest> => {
+    const { data } = await api.patch(`${BASE}/cargo-requests/${id}`, payload)
+    return normalizeCargoRequest(data)
+  },
+
   listCargo: async (params: CargoListParams = {}): Promise<PaginatedResponse<CargoItem>> => {
     const { data } = await api.get(`${BASE}/cargo`, { params })
     return {
@@ -418,6 +474,7 @@ export const travelwizService = {
 
   updateCargo: async (id: string, payload: CargoItemUpdate): Promise<CargoItem> => {
     const normalizedPayload = {
+      request_id: payload.request_id,
       description: payload.description,
       designation: payload.designation,
       weight_kg: payload.weight_kg,

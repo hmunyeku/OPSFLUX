@@ -254,6 +254,41 @@ class ManifestPassenger(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Cargo Items ────────────────────────────────────────────────────────────
 
+class CargoRequest(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
+    __tablename__ = "cargo_requests"
+    __table_args__ = (
+        UniqueConstraint("request_code", name="uq_cargo_request_code"),
+        Index("idx_cargo_request_entity", "entity_id"),
+        Index("idx_cargo_request_status", "status"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
+    )
+    request_code: Mapped[str] = mapped_column(String(50), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="draft")
+    project_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("projects.id")
+    )
+    imputation_reference_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("imputation_references.id", ondelete="SET NULL")
+    )
+    sender_tier_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tiers.id")
+    )
+    receiver_name: Mapped[str | None] = mapped_column(String(200))
+    destination_asset_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_installations.id")
+    )
+    requester_name: Mapped[str | None] = mapped_column(String(200))
+    requested_by: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
 class CargoItem(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     __tablename__ = "cargo_items"
     __table_args__ = (
@@ -266,6 +301,9 @@ class CargoItem(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
 
     entity_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
+    )
+    request_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cargo_requests.id", ondelete="SET NULL")
     )
     tracking_code: Mapped[str] = mapped_column(String(50), nullable=False)  # CGO-2026-NNNNN
     description: Mapped[str] = mapped_column(String(500), nullable=False)

@@ -11,7 +11,7 @@ import type {
   VoyageStopCreate, VoyageStopUpdate,
   ManifestCreate,
   ManifestPassengerCreate, ManifestPassengerUpdate,
-  CargoAttachmentEvidence, CargoItem, CargoItemCreate, CargoItemUpdate, CargoReceive, CargoReturnCreate,
+  CargoAttachmentEvidence, CargoItem, CargoItemCreate, CargoItemUpdate, CargoRequestCreate, CargoRequestUpdate, CargoReceive, CargoReturnCreate,
   CaptainLogCreate,
   VoyageEventCreate,
   PackageElementCreate,
@@ -405,6 +405,46 @@ export function useRemovePassenger() {
 }
 
 // ── Cargo ──
+
+export function useCargoRequests(params: PaginationParams & {
+  status?: string; search?: string;
+} = {}) {
+  return useQuery({
+    queryKey: ['travelwiz', 'cargo-requests', params],
+    queryFn: () => travelwizService.listCargoRequests(params),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useCargoRequest(id: string | undefined) {
+  return useQuery({
+    queryKey: ['travelwiz', 'cargo-requests', id],
+    queryFn: () => travelwizService.getCargoRequest(id!),
+    enabled: !!id,
+  })
+}
+
+export function useCreateCargoRequest() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: CargoRequestCreate) => travelwizService.createCargoRequest(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo-requests'] })
+    },
+  })
+}
+
+export function useUpdateCargoRequest() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: CargoRequestUpdate }) =>
+      travelwizService.updateCargoRequest(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo-requests'] })
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo'] })
+    },
+  })
+}
 
 export function useCargo(params: PaginationParams & {
   status?: string; voyage_id?: string; cargo_type?: string; is_hazmat?: boolean; search?: string;

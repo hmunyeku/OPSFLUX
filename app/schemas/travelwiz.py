@@ -325,6 +325,7 @@ class PassengerRead(OpsFluxSchema):
 
 
 class CargoCreate(BaseModel):
+    request_id: UUID | None = None
     description: str = Field(..., min_length=1, max_length=500)
     designation: str | None = Field(None, max_length=255)
     cargo_type: str = Field(..., pattern=r"^(unit|bulk|consumable|packaging|waste|hazmat)$")
@@ -362,6 +363,7 @@ class CargoCreate(BaseModel):
 
 
 class CargoUpdate(BaseModel):
+    request_id: UUID | None = None
     description: str | None = None
     designation: str | None = None
     cargo_type: str | None = None
@@ -416,6 +418,7 @@ class CargoStatusUpdate(BaseModel):
 class CargoRead(OpsFluxSchema):
     id: UUID
     entity_id: UUID
+    request_id: UUID | None = None
     tracking_code: str
     description: str
     designation: str | None = None
@@ -465,6 +468,54 @@ class CargoRead(OpsFluxSchema):
     imputation_reference_code: str | None = None
     imputation_reference_name: str | None = None
     pickup_contact_display_name: str | None = None
+    request_code: str | None = None
+    request_title: str | None = None
+
+
+class CargoRequestCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=255)
+    description: str | None = None
+    project_id: UUID | None = None
+    imputation_reference_id: UUID | None = None
+    sender_tier_id: UUID | None = None
+    receiver_name: str | None = Field(None, max_length=200)
+    destination_asset_id: UUID | None = None
+    requester_name: str | None = Field(None, max_length=200)
+
+
+class CargoRequestUpdate(BaseModel):
+    title: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+    status: str | None = Field(None, pattern=r"^(draft|submitted|approved|assigned|in_progress|closed|cancelled)$")
+    project_id: UUID | None = None
+    imputation_reference_id: UUID | None = None
+    sender_tier_id: UUID | None = None
+    receiver_name: str | None = None
+    destination_asset_id: UUID | None = None
+    requester_name: str | None = None
+
+
+class CargoRequestRead(OpsFluxSchema):
+    id: UUID
+    entity_id: UUID
+    request_code: str
+    title: str
+    description: str | None = None
+    status: str
+    project_id: UUID | None = None
+    imputation_reference_id: UUID | None = None
+    sender_tier_id: UUID | None = None
+    receiver_name: str | None = None
+    destination_asset_id: UUID | None = None
+    requester_name: str | None = None
+    requested_by: UUID
+    active: bool
+    created_at: datetime
+    cargo_count: int = 0
+    sender_name: str | None = None
+    destination_name: str | None = None
+    imputation_reference_code: str | None = None
+    imputation_reference_name: str | None = None
 
 
 class CargoAttachmentEvidenceUpdate(BaseModel):

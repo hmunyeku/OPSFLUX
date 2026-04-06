@@ -34,6 +34,7 @@ import {
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
+import { GanttView } from './GanttView'
 import { TagManager } from '@/components/shared/TagManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
@@ -237,7 +238,9 @@ function toISODate(d: Date): string {
 
 type TimeUnit = 'week' | 'month' | 'quarter'
 
-function GanttTab() {
+/* Legacy GanttTab — replaced by GanttView.tsx */
+/* @ts-expect-error keeping code for reference */
+function _GanttTabLegacy() { // eslint-disable-line
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
 
   const [timeUnit, setTimeUnit] = useState<TimeUnit>('month')
@@ -1514,7 +1517,7 @@ export function PlannerPage() {
             })}
           </div>
 
-          {activeTab === 'gantt' && <GanttTab />}
+          {activeTab === 'gantt' && <GanttView />}
           {activeTab === 'activities' && <ActivitiesTab />}
           {activeTab === 'conflicts' && <ConflitsTab />}
           {activeTab === 'capacity' && <CapacityTab />}

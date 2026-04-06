@@ -1775,7 +1775,7 @@ function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSource: '
   const { t } = useTranslation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
-  const { data: profile, isLoading } = usePaxProfile(id, paxSource)
+  const { data: profile, isLoading, isError, error } = usePaxProfile(id, paxSource)
   const updateProfile = useUpdatePaxProfile()
   const { data: credentials } = usePaxCredentials(id)
   const { data: sitePresenceHistory } = usePaxProfileSitePresenceHistory(id, profile?.pax_source)
@@ -1792,10 +1792,25 @@ function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSource: '
     return m
   }, [credentialTypes])
 
-  if (isLoading || !profile) {
+  if (isLoading) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<Users size={14} className="text-primary" />}>
         <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+      </DynamicPanelShell>
+    )
+  }
+
+  if (isError || !profile) {
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : t('common.error')
+    return (
+      <DynamicPanelShell title={t('paxlog.profile_panel.not_found_title')} icon={<Users size={14} className="text-primary" />}>
+        <div className="py-10 px-4 space-y-2">
+          <p className="text-sm font-medium text-foreground">{t('paxlog.profile_panel.not_found_message')}</p>
+          <p className="text-xs text-muted-foreground">{message}</p>
+        </div>
       </DynamicPanelShell>
     )
   }

@@ -2092,6 +2092,8 @@
       "count": "{{count}} rotations"
     },
     "profile_panel": {
+      "not_found_title": "Profil PAX indisponible",
+      "not_found_message": "Le détail de ce profil PAX n'a pas pu être chargé.",
       "create_title": "Nouveau profil PAX",
       "subtitle": "PaxLog",
       "sections": {

@@ -761,12 +761,22 @@ function ExpandedTasks({ project, ppd, vs, totalPx, pw, settings }: {
       const from = taskPositions.get(d.from_task_id)
       const to = taskPositions.get(d.to_task_id)
       if (!from || !to) continue
-      // FS: arrow from end of predecessor to start of successor
-      const x1 = from.endX; const y1 = from.centerY
-      const x2 = to.startX; const y2 = to.centerY
+      // Determine anchor points based on dependency type
+      let x1: number, y1: number, x2: number, y2: number
+      const depType = d.dependency_type || 'finish_to_start'
+      switch (depType) {
+        case 'start_to_start':
+          x1 = from.startX; y1 = from.centerY; x2 = to.startX; y2 = to.centerY; break
+        case 'finish_to_finish':
+          x1 = from.endX; y1 = from.centerY; x2 = to.endX; y2 = to.centerY; break
+        case 'start_to_finish':
+          x1 = from.startX; y1 = from.centerY; x2 = to.endX; y2 = to.centerY; break
+        default: // finish_to_start
+          x1 = from.endX; y1 = from.centerY; x2 = to.startX; y2 = to.centerY; break
+      }
       if (x1 === 0 && x2 === 0) continue // both out of view
-      // Bezier curve
-      const dx = Math.abs(x2 - x1) / 2
+      // Bezier curve with minimum control offset for readability
+      const dx = Math.max(Math.abs(x2 - x1) / 2, 20)
       const path = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`
       const isCritical = critSet.has(d.from_task_id) && critSet.has(d.to_task_id)
       arrows.push({ key: d.id, path, isCritical })

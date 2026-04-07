@@ -954,7 +954,515 @@ async def _handle_user_notes(c: GoutiApiClient, a: dict) -> dict:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Tool definitions — 12 consolidated tools
+# Aggregation tools — parallelized multi-call handlers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+import asyncio
+from datetime import date, datetime
+
+
+def _parse_pct(val: str | None) -> int:
+    """Parse '85%' or '85' to int."""
+    if not val:
+        return 0
+    return int(str(val).replace("%", "").strip() or "0")
+
+
+def _parse_by_status(raw: Any) -> dict:
+    """Parse byStatus JSON string from Gouti."""
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        try:
+            return json.loads(raw)
+        except Exception:
+            return {}
+    return {}
+
+
+def _extract_items(data: Any) -> list[dict]:
+    """Extract items from various Gouti response shapes."""
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        if "items" in data:
+            return data["items"] if isinstance(data["items"], list) else list(data["items"].values())
+        return list(data.values()) if data else []
+    return []
+
+
+def _project_summary(p: dict, today: str) -> dict:
+    """Build lean project summary from Gouti project dict."""
+    pm = p.get("Project_manager") or {}
+    cats = p.get("Enterprise_categories") or []
+    return {
+        "id": p.get("Ref"),
+        "name": p.get("Name"),
+        "status": p.get("Status"),
+        "start": p.get("Start_date"),
+        "end": p.get("Target_date"),
+        "planned_end": None,
+        "today": today,
+        "pct": _parse_pct(p.get("Tasks_progress")),
+        "delta_w1": p.get("Delta_progress_w1"),
+        "delta_w4": p.get("Delta_progress_w4"),
+        "pm": pm.get("name_us"),
+        "pm_id": pm.get("ref_us"),
+        "weather": p.get("Weather"),
+        "trend": p.get("Trend"),
+        "criticality": p.get("Criticality"),
+        "last_update": p.get("Last_update_date"),
+        "categories": [{"id": c.get("id"), "name": c.get("name")} for c in (cats if isinstance(cats, list) else [])],
+    }
+
+
+def _project_with_counts(p: dict, today: str) -> dict:
+    """Project summary + parsed status counts."""
+    base = _project_summary(p, today)
+    base["counts"] = {
+        "tasks": {"total": (p.get("Tasks") or {}).get("number", 0), "by_status": _parse_by_status((p.get("Tasks") or {}).get("byStatus"))},
+        "milestones": {"total": (p.get("Milestones") or {}).get("number", 0), "by_status": _parse_by_status((p.get("Milestones") or {}).get("byStatus"))},
+        "actions": {"total": (p.get("Actions") or {}).get("number", 0), "by_status": _parse_by_status((p.get("Actions") or {}).get("byStatus"))},
+        "issues": {"total": (p.get("Issues") or {}).get("number", 0), "by_status": _parse_by_status((p.get("Issues") or {}).get("byStatus"))},
+        "deliverables": {"total": (p.get("Deliverables") or {}).get("number", 0), "by_status": _parse_by_status((p.get("Deliverables") or {}).get("byStatus"))},
+        "risks": {"total": (p.get("Active_risks") or {}).get("number", 0), "by_severity": _parse_by_status((p.get("Active_risks") or {}).get("byStatus"))},
+    }
+    return base
+
+
+def _filter_projects(projects: list[dict], args: dict) -> list[dict]:
+    """Apply status_filter and exclude_status."""
+    status_filter = args.get("status_filter")
+    exclude_status = args.get("exclude_status")
+    filtered = projects
+    if status_filter:
+        filtered = [p for p in filtered if p.get("Status") in status_filter]
+    if exclude_status:
+        filtered = [p for p in filtered if p.get("Status") not in exclude_status]
+    return filtered
+
+
+def _sort_projects(projects: list[dict], sort_by: str) -> list[dict]:
+    """Sort project summaries."""
+    key_map = {"start": "start", "end": "end", "pct": "pct", "name": "name", "last_update": "last_update"}
+    key = key_map.get(sort_by, "start")
+    reverse = sort_by in ("last_update", "pct")
+    return sorted(projects, key=lambda p: p.get(key) or "", reverse=reverse)
+
+
+async def _handle_gantt_summary(c: "GoutiApiClient", a: dict) -> dict:
+    """Portfolio Gantt data for all projects."""
+    include_archived = a.get("include_archived", False)
+    calls = [c.call("projects")]
+    if include_archived:
+        calls.append(c.call("projects/archived"))
+    results = await asyncio.gather(*calls, return_exceptions=True)
+
+    all_projects = []
+    for r in results:
+        if isinstance(r, Exception):
+            continue
+        all_projects.extend(_extract_items(r))
+
+    filtered = _filter_projects(all_projects, a)
+    # Exclude projects without dates
+    filtered = [p for p in filtered if p.get("Start_date") or p.get("Target_date")]
+
+    today = date.today().isoformat()
+    summaries = [_project_summary(p, today) for p in filtered]
+    summaries = _sort_projects(summaries, a.get("sort_by", "start"))
+
+    return _ok({"today": today, "count": len(summaries), "items": summaries})
+
+
+async def _handle_macro_tasks(c: "GoutiApiClient", a: dict) -> dict:
+    """Level-1 macro phase tasks for one project."""
+    pid = _req(a, "project_id")
+    data = await c.call(f"projects/{pid}/tasks")
+    tasks = _extract_items(data)
+
+    today = date.today().isoformat()
+    phases = []
+    for t in tasks:
+        if str(t.get("level_ta")) != "1":
+            continue
+        initial_end = t.get("initial_end_date_ta")
+        actual_end = t.get("actual_end_date_ta")
+        delay_days = None
+        if initial_end and actual_end:
+            try:
+                d1 = date.fromisoformat(str(initial_end)[:10])
+                d2 = date.fromisoformat(str(actual_end)[:10])
+                delay_days = (d2 - d1).days
+            except (ValueError, TypeError):
+                pass
+        phases.append({
+            "id": t.get("ref_ta"),
+            "order": t.get("order_ta"),
+            "name": t.get("name_ta"),
+            "planned_start": t.get("initial_start_date_ta"),
+            "planned_end": initial_end,
+            "actual_start": t.get("actual_start_date_ta"),
+            "actual_end": actual_end,
+            "today": today,
+            "pct": _parse_pct(t.get("progress_ta")),
+            "status": t.get("status_ta"),
+            "is_milestone": bool(int(t.get("milestone_ta") or "0")),
+            "color": t.get("macro_color_ta"),
+            "duration_days": t.get("duration_ta"),
+            "delay_days": delay_days,
+        })
+    phases.sort(key=lambda p: int(p.get("order") or 0))
+
+    return _ok({"project_id": pid, "today": today, "phases": phases})
+
+
+async def _handle_tcm_snapshot(c: "GoutiApiClient", a: dict) -> dict:
+    """Complete project snapshot for TCM/status reporting."""
+    import time
+    t0 = time.monotonic()
+    pid = _req(a, "project_id")
+    max_comments = int(a.get("max_comments_per_item", 5))
+    include_closed = a.get("include_closed_issues", True)
+    include_phase_comments = a.get("include_phase_comments", False)
+    today = date.today().isoformat()
+    gouti_calls = 0
+
+    # Wave 1: parallel fetch
+    wave1 = await asyncio.gather(
+        c.call(f"projects/{pid}"),
+        c.call(f"projects/{pid}/tasks"),
+        c.call(f"projects/{pid}/issues"),
+        c.call(f"projects/{pid}/actions"),
+        c.call(f"projects/{pid}/deliverables"),
+        c.call(f"projects/{pid}/goals"),
+        c.call(f"projects/{pid}/organization"),
+        return_exceptions=True,
+    )
+    gouti_calls += 7
+    proj_data, tasks_data, issues_data, actions_data, deliverables_data, goals_data, org_data = wave1
+    proj = proj_data if isinstance(proj_data, dict) else {}
+    tasks = _extract_items(tasks_data) if not isinstance(tasks_data, Exception) else []
+    issues = _extract_items(issues_data) if not isinstance(issues_data, Exception) else []
+    actions = _extract_items(actions_data) if not isinstance(actions_data, Exception) else []
+    deliverables = _extract_items(deliverables_data) if not isinstance(deliverables_data, Exception) else []
+    goals = _extract_items(goals_data) if not isinstance(goals_data, Exception) else []
+    org = _extract_items(org_data) if not isinstance(org_data, Exception) else []
+
+    # Wave 2: transform
+    macro_phases = []
+    for t in tasks:
+        if str(t.get("level_ta")) != "1":
+            continue
+        ie, ae = t.get("initial_end_date_ta"), t.get("actual_end_date_ta")
+        delay = None
+        if ie and ae:
+            try:
+                delay = (date.fromisoformat(str(ae)[:10]) - date.fromisoformat(str(ie)[:10])).days
+            except Exception:
+                pass
+        macro_phases.append({
+            "id": t.get("ref_ta"), "order": t.get("order_ta"), "name": t.get("name_ta"),
+            "planned_start": t.get("initial_start_date_ta"), "planned_end": ie,
+            "actual_start": t.get("actual_start_date_ta"), "actual_end": ae,
+            "today": today, "pct": _parse_pct(t.get("progress_ta")), "status": t.get("status_ta"),
+            "is_milestone": bool(int(t.get("milestone_ta") or "0")),
+            "color": t.get("macro_color_ta"), "duration_days": t.get("duration_ta"), "delay_days": delay,
+        })
+    macro_phases.sort(key=lambda p: int(p.get("order") or 0))
+
+    milestones = []
+    for t in tasks:
+        if str(t.get("milestone_ta")) != "1":
+            continue
+        ise, ase = t.get("initial_start_date_ta"), t.get("actual_start_date_ta")
+        delay = None
+        if ise and ase:
+            try:
+                delay = (date.fromisoformat(str(ase)[:10]) - date.fromisoformat(str(ise)[:10])).days
+            except Exception:
+                pass
+        milestones.append({
+            "id": t.get("ref_ta"), "order": t.get("order_ta"), "name": t.get("name_ta"),
+            "planned_date": ise, "actual_date": ase,
+            "today": today, "pct": _parse_pct(t.get("progress_ta")), "status": t.get("status_ta"), "delay_days": delay,
+        })
+    milestones.sort(key=lambda m: m.get("actual_date") or m.get("planned_date") or "")
+
+    open_issues = [{"id": i.get("ref_is"), "subject": i.get("subject_is"), "description": i.get("description_is"),
+                     "priority": i.get("priority_is"), "creation_date": i.get("creation_date_is"), "status": i.get("status_is")}
+                    for i in issues if str(i.get("status_is")) in ("0", "1")]
+    open_issues.sort(key=lambda x: (x.get("priority") or "", x.get("creation_date") or ""), reverse=True)
+
+    closed_issues = [{"id": i.get("ref_is"), "subject": i.get("subject_is"), "creation_date": i.get("creation_date_is")}
+                      for i in issues if str(i.get("status_is")) == "7"] if include_closed else []
+
+    open_actions = [{"id": a_.get("ref_ac"), "name": a_.get("name_ac"), "description": a_.get("description_ac"),
+                      "domain": a_.get("domain_ac"), "target_date": a_.get("actual_target_date_ac"),
+                      "creation_date": a_.get("creation_date_ac"), "status": a_.get("status_ac"),
+                      "progress": _parse_pct(a_.get("progress_ac"))}
+                     for a_ in actions if str(a_.get("status_ac")) in ("0", "1")]
+    open_actions.sort(key=lambda x: x.get("target_date") or "")
+
+    pending_deliverables = [{"id": d.get("ref_de"), "name": d.get("name_de"), "description": d.get("description_de"),
+                              "type": d.get("type_de"), "due_date": d.get("previsional_delivery_date_de"),
+                              "last_delivery": d.get("last_delivery_date_de"), "status": d.get("status_de")}
+                             for d in deliverables if str(d.get("status_de")) != "2"]
+    pending_deliverables.sort(key=lambda x: x.get("due_date") or "")
+
+    goals_out = [{"id": g.get("ref_go"), "name": g.get("name_go"), "description": g.get("description_go"),
+                   "status": g.get("status_go"), "date": g.get("date_status_go")} for g in goals]
+
+    team = [{"id": o.get("id"), "name": f'{o.get("lastname", "")} {o.get("firstname", "")}'.strip(),
+              "initials": o.get("initials"), "role": o.get("role"), "ref_user": o.get("refUser")} for o in org]
+
+    # Wave 3: comments (parallel)
+    comment_calls = []
+    comment_targets: list[tuple[str, str, int]] = []  # (type, id, index)
+    for idx, oi in enumerate(open_issues):
+        comment_calls.append(c.call(f"projects/{pid}/issues/{oi['id']}/comments"))
+        comment_targets.append(("issue", oi["id"], idx))
+    for idx, oa in enumerate(open_actions):
+        comment_calls.append(c.call(f"projects/{pid}/actions/{oa['id']}/comments"))
+        comment_targets.append(("action", oa["id"], idx))
+    if include_phase_comments:
+        for idx, mp in enumerate(macro_phases):
+            comment_calls.append(c.call(f"projects/{pid}/tasks/{mp['id']}/comments"))
+            comment_targets.append(("phase", mp["id"], idx))
+
+    if comment_calls:
+        comment_results = await asyncio.gather(*comment_calls, return_exceptions=True)
+        gouti_calls += len(comment_calls)
+        for (ctype, cid, cidx), cr in zip(comment_targets, comment_results):
+            if isinstance(cr, Exception):
+                continue
+            raw_comments = _extract_items(cr)
+            raw_comments.sort(key=lambda x: x.get("date_co") or "", reverse=True)
+            formatted = [{"id": co.get("ref_co"), "text": co.get("comment_co"), "date": co.get("date_co"),
+                           "author": f'{co.get("firstname_us", "")} {co.get("lastname_us", "")}'.strip(),
+                           "initials": co.get("initials_us")} for co in raw_comments[:max_comments]]
+            if ctype == "issue":
+                open_issues[cidx]["comments"] = formatted
+            elif ctype == "action":
+                open_actions[cidx]["comments"] = formatted
+            elif ctype == "phase":
+                macro_phases[cidx]["comments"] = formatted
+
+    # Build project header
+    pm = proj.get("Project_manager") or {}
+    sponsor = proj.get("Sponsor") or {}
+    cats = proj.get("Enterprise_categories") or []
+    custom_ind = proj.get("Custom_indicators") or []
+    project_header = {
+        "id": proj.get("Ref"), "name": proj.get("Name"), "status": proj.get("Status"),
+        "start_date": proj.get("Start_date"), "target_date": proj.get("Target_date"), "today": today,
+        "general_situation": proj.get("General_situation"), "detailed_situation": proj.get("Detailed_situation"),
+        "description": proj.get("Description"),
+        "pct": _parse_pct(proj.get("Tasks_progress")), "delta_w1": proj.get("Delta_progress_w1"), "delta_w4": proj.get("Delta_progress_w4"),
+        "weather": proj.get("Weather"), "trend": proj.get("Trend"), "criticality": proj.get("Criticality"),
+        "last_update": proj.get("Last_update_date"),
+        "pm": {"id": pm.get("ref_us"), "name": pm.get("name_us")},
+        "sponsor": {"name": sponsor.get("lastname"), "firstname": sponsor.get("firstname"), "org_id": sponsor.get("organization_id")},
+        "categories": [{"id": c_.get("id"), "name": c_.get("name")} for c_ in (cats if isinstance(cats, list) else [])],
+        "custom_indicators": [{"title": ci.get("title"), "value": ci.get("value"), "type": ci.get("type")} for ci in (custom_ind if isinstance(custom_ind, list) else [])],
+        "risk_summary": {"total": (proj.get("Active_risks") or {}).get("number", 0), "by_severity": _parse_by_status((proj.get("Active_risks") or {}).get("byStatus"))},
+        "task_summary": {"total": (proj.get("Tasks") or {}).get("number", 0), "by_status": _parse_by_status((proj.get("Tasks") or {}).get("byStatus"))},
+        "milestone_summary": {"total": (proj.get("Milestones") or {}).get("number", 0), "by_status": _parse_by_status((proj.get("Milestones") or {}).get("byStatus"))},
+        "action_summary": {"total": (proj.get("Actions") or {}).get("number", 0), "by_status": _parse_by_status((proj.get("Actions") or {}).get("byStatus"))},
+        "issue_summary": {"total": (proj.get("Issues") or {}).get("number", 0), "by_status": _parse_by_status((proj.get("Issues") or {}).get("byStatus"))},
+        "deliverable_summary": {"total": (proj.get("Deliverables") or {}).get("number", 0), "by_status": _parse_by_status((proj.get("Deliverables") or {}).get("byStatus"))},
+    }
+
+    duration_ms = int((time.monotonic() - t0) * 1000)
+    return _ok({
+        "project": project_header, "macro_phases": macro_phases, "milestones": milestones,
+        "open_issues": open_issues, "closed_issues": closed_issues, "open_actions": open_actions,
+        "pending_deliverables": pending_deliverables, "goals": goals_out, "team": team,
+        "_meta": {"generated_at": datetime.utcnow().isoformat() + "Z", "today": today,
+                  "project_id": pid, "gouti_calls": gouti_calls, "duration_ms": duration_ms},
+    })
+
+
+async def _handle_portfolio_health(c: "GoutiApiClient", a: dict) -> dict:
+    """Health snapshot for all projects with parsed status counts."""
+    include_archived = a.get("include_archived", False)
+    calls = [c.call("projects")]
+    if include_archived:
+        calls.append(c.call("projects/archived"))
+    results = await asyncio.gather(*calls, return_exceptions=True)
+
+    all_projects = []
+    for r in results:
+        if isinstance(r, Exception):
+            continue
+        all_projects.extend(_extract_items(r))
+
+    filtered = _filter_projects(all_projects, a)
+    today = date.today().isoformat()
+    summaries = [_project_with_counts(p, today) for p in filtered]
+    summaries = _sort_projects(summaries, a.get("sort_by", "last_update"))
+
+    return _ok({"today": today, "count": len(summaries), "items": summaries})
+
+
+async def _handle_pm_portfolio(c: "GoutiApiClient", a: dict) -> dict:
+    """All projects managed by a specific user."""
+    user_id = _req(a, "user_id")
+    include_archived = a.get("include_archived", False)
+    calls = [c.call("projects")]
+    if include_archived:
+        calls.append(c.call("projects/archived"))
+    results = await asyncio.gather(*calls, return_exceptions=True)
+
+    all_projects = []
+    for r in results:
+        if isinstance(r, Exception):
+            continue
+        all_projects.extend(_extract_items(r))
+
+    # Filter by PM
+    pm_projects = [p for p in all_projects if str((p.get("Project_manager") or {}).get("ref_us")) == str(user_id)]
+    filtered = _filter_projects(pm_projects, a)
+    today = date.today().isoformat()
+    summaries = [_project_with_counts(p, today) for p in filtered]
+    summaries.sort(key=lambda p: p.get("end") or "9999")
+
+    return _ok({"user_id": user_id, "today": today, "count": len(summaries), "items": summaries})
+
+
+async def _handle_weekly_timesheets(c: "GoutiApiClient", a: dict) -> dict:
+    """Aggregated timesheet data for a given ISO week."""
+    import time
+    t0 = time.monotonic()
+    week_start = _req(a, "week_start")
+    d = date.fromisoformat(week_start)
+    year, week_num, _ = d.isocalendar()
+    period_end = (d + __import__("datetime").timedelta(days=4)).isoformat()
+    filter_pid = a.get("filter_project_id")
+    user_ids = a.get("user_ids")
+    all_users_fetched = False
+    gouti_calls = 0
+
+    if not user_ids:
+        users_data = await c.call("users")
+        gouti_calls += 1
+        all_users_fetched = True
+        users_list = _extract_items(users_data)
+        user_ids = [str(u.get("Ref") or u.get("ref_us") or u.get("id")) for u in users_list if u.get("Ref") or u.get("ref_us")]
+
+    # Parallel timesheet fetch
+    ts_calls = [c.call(f"timesheets/users/{uid}/timesheet/year/{year}/week/{week_num}/type/1") for uid in user_ids]
+    ts_results = await asyncio.gather(*ts_calls, return_exceptions=True)
+    gouti_calls += len(ts_calls)
+
+    by_user = []
+    project_totals: dict[str, dict] = {}
+
+    for uid, tr in zip(user_ids, ts_results):
+        if isinstance(tr, Exception):
+            continue
+        entries = _extract_items(tr)
+        user_projects: dict[str, float] = {}
+        user_name = ""
+        for e in entries:
+            pid = str(e.get("project_id") or e.get("ref_pr") or "")
+            pname = str(e.get("project_name") or e.get("name_pr") or pid)
+            hours = float(e.get("value") or e.get("hours") or 0)
+            if not user_name:
+                user_name = str(e.get("user_name") or e.get("name_us") or uid)
+            if filter_pid and pid != filter_pid:
+                continue
+            user_projects[pid] = user_projects.get(pid, 0) + hours
+            if pid not in project_totals:
+                project_totals[pid] = {"project_id": pid, "project_name": pname, "total_hours": 0, "contributors": set()}
+            project_totals[pid]["total_hours"] += hours
+            project_totals[pid]["contributors"].add(uid)
+
+        total = sum(user_projects.values())
+        if total > 0:
+            by_user.append({
+                "user_id": uid, "user_name": user_name, "total_hours": round(total, 2),
+                "by_project": [{"project_id": k, "hours": round(v, 2)} for k, v in user_projects.items()],
+            })
+
+    by_project = [{"project_id": v["project_id"], "project_name": v["project_name"],
+                    "total_hours": round(v["total_hours"], 2), "contributors": len(v["contributors"])}
+                   for v in project_totals.values()]
+    by_project.sort(key=lambda x: x["total_hours"], reverse=True)
+
+    return _ok({
+        "week": f"{year}-W{week_num:02d}", "period": {"start": week_start, "end": period_end},
+        "today": date.today().isoformat(),
+        "by_user": by_user, "by_project": by_project,
+        "team_total_hours": round(sum(u["total_hours"] for u in by_user), 2),
+        "coverage": {"users_with_data": len(by_user), "users_total": len(user_ids)},
+        "_meta": {"gouti_calls": gouti_calls, "duration_ms": int((time.monotonic() - t0) * 1000), "all_users_fetched": all_users_fetched},
+    })
+
+
+async def _handle_user_dashboard(c: "GoutiApiClient", a: dict) -> dict:
+    """Personal dashboard for one Gouti user."""
+    import time
+    t0 = time.monotonic()
+    uid = _req(a, "user_id")
+    today = date.today().isoformat()
+
+    results = await asyncio.gather(
+        c.call(f"users/{uid}"),
+        c.call(f"users/{uid}/tasks"),
+        c.call(f"users/{uid}/actions"),
+        c.call(f"users/{uid}/issues"),
+        c.call(f"users/{uid}/notifications"),
+        c.call(f"users/{uid}/personnals-notes"),
+        return_exceptions=True,
+    )
+
+    user_data = results[0] if not isinstance(results[0], Exception) else {}
+    tasks = _extract_items(results[1]) if not isinstance(results[1], Exception) else []
+    actions_raw = _extract_items(results[2]) if not isinstance(results[2], Exception) else []
+    issues_raw = _extract_items(results[3]) if not isinstance(results[3], Exception) else []
+    notifs = _extract_items(results[4]) if not isinstance(results[4], Exception) else []
+    notes = _extract_items(results[5]) if not isinstance(results[5], Exception) else []
+
+    # Filter open tasks/actions/issues
+    open_tasks = [t for t in tasks if str(t.get("status_ta")) in ("0", "1")]
+    open_tasks.sort(key=lambda t: t.get("actual_end_date_ta") or "9999")
+    open_actions = [a_ for a_ in actions_raw if str(a_.get("status_ac")) in ("0", "1")]
+    open_issues = [i for i in issues_raw if str(i.get("status_is")) in ("0", "1")]
+
+    tasks_overdue = sum(1 for t in open_tasks
+                        if t.get("actual_end_date_ta") and str(t.get("actual_end_date_ta"))[:10] < today and str(t.get("status_ta")) != "2")
+
+    user_info = {"id": user_data.get("ref_us") or uid,
+                  "name": f'{user_data.get("lastname", "")} {user_data.get("firstname", "")}'.strip(),
+                  "initials": user_data.get("initials")}
+
+    return _ok({
+        "user": user_info, "today": today,
+        "open_tasks": [{"id": t.get("ref_ta"), "project_id": t.get("ref_pr_ta"), "project_name": t.get("name_pr"),
+                         "name": t.get("name_ta"), "due_date": t.get("actual_end_date_ta"),
+                         "pct": _parse_pct(t.get("progress_ta")), "status": t.get("status_ta"),
+                         "overdue": bool(t.get("actual_end_date_ta") and str(t.get("actual_end_date_ta"))[:10] < today)}
+                        for t in open_tasks],
+        "open_actions": [{"id": a_.get("ref_ac"), "project_id": a_.get("ref_pr_ac"), "project_name": a_.get("name_pr"),
+                           "name": a_.get("name_ac"), "due_date": a_.get("actual_target_date_ac"),
+                           "status": a_.get("status_ac"), "progress": _parse_pct(a_.get("progress_ac"))}
+                          for a_ in open_actions],
+        "open_issues": [{"id": i.get("ref_is"), "project_id": i.get("ref_pr_is"), "project_name": i.get("name_pr"),
+                          "subject": i.get("subject_is"), "priority": i.get("priority_is"), "status": i.get("status_is")}
+                         for i in open_issues],
+        "notifications": [{"id": n.get("ref_no") or n.get("id"), "message": n.get("message") or n.get("text"),
+                            "date": n.get("date") or n.get("created_at")} for n in notifs[:20]],
+        "personal_notes": [{"id": n.get("ref_no") or n.get("id"), "text": n.get("note_no") or n.get("text")} for n in notes[:20]],
+        "_summary": {"tasks_total": len(open_tasks), "tasks_overdue": tasks_overdue,
+                      "actions_total": len(open_actions), "issues_total": len(open_issues),
+                      "notifications_total": len(notifs)},
+        "_meta": {"gouti_calls": 6, "duration_ms": int((time.monotonic() - t0) * 1000)},
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tool definitions — 12 consolidated tools + 7 aggregation tools
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _s(props: dict | None = None, required: list | None = None) -> dict:
@@ -1083,6 +1591,64 @@ GOUTI_TOOLS: list[tuple[str, str, dict, Any]] = [
          "params": {"type": "object", "description": "Query params optionnels"},
      }, ["path"]),
      _api_post),
+
+    # ── Aggregation tools (parallelized multi-call) ─────────────────
+    ("get_gantt_summary",
+     "Portfolio Gantt data for all Gouti projects. Returns start date, current target end date, today (server-generated), progress %, velocity deltas, weather, trend, and raw enterprise categories. planned_end is always null at project level. No client-specific category interpretation.",
+     _s({
+         "status_filter": {"type": "array", "items": {"type": "string"}, "description": "Keep only projects with Status in this list"},
+         "exclude_status": {"type": "array", "items": {"type": "string"}, "description": "Exclude projects with Status in this list"},
+         "include_archived": {"type": "boolean", "default": False},
+         "sort_by": {"type": "string", "enum": ["start", "end", "pct", "name", "last_update"], "default": "start"},
+     }), _handle_gantt_summary),
+
+    ("get_macro_tasks",
+     "Level-1 macro phase tasks for one project. Returns all 4 dates per phase: planned_start/end (baseline) and actual_start/end (current), plus today and delay_days. Use for planned vs actual Gantt.",
+     _s({"project_id": {"type": "string"}}, ["project_id"]),
+     _handle_macro_tasks),
+
+    ("get_tcm_snapshot",
+     "Complete project snapshot for status reporting and TCM slides. Single MCP call returning project header, macro phases with planned vs actual, milestones with delay, open issues + comments, open actions + comments, pending deliverables, goals, team. All Gouti sub-calls parallelized across 3 waves.",
+     _s({
+         "project_id": {"type": "string"},
+         "max_comments_per_item": {"type": "integer", "default": 5},
+         "include_closed_issues": {"type": "boolean", "default": True},
+         "include_phase_comments": {"type": "boolean", "default": False},
+     }, ["project_id"]),
+     _handle_tcm_snapshot),
+
+    ("get_portfolio_health",
+     "Health snapshot for all Gouti projects. Returns weather, trend, progress velocity, and parsed status counts for tasks/milestones/issues/actions/deliverables/risks. Does NOT compute RAG. Client-agnostic.",
+     _s({
+         "status_filter": {"type": "array", "items": {"type": "string"}},
+         "exclude_status": {"type": "array", "items": {"type": "string"}},
+         "include_archived": {"type": "boolean", "default": False},
+         "sort_by": {"type": "string", "enum": ["last_update", "pct", "end", "name", "start"], "default": "last_update"},
+     }), _handle_portfolio_health),
+
+    ("get_pm_portfolio",
+     "All projects managed by a specific user (filtered by Project_manager.ref_us). Returns lean project data with dates and status counts. Useful for personal weekly reports.",
+     _s({
+         "user_id": {"type": "string", "description": "Gouti user ref_us"},
+         "status_filter": {"type": "array", "items": {"type": "string"}},
+         "exclude_status": {"type": "array", "items": {"type": "string"}},
+         "include_archived": {"type": "boolean", "default": False},
+     }, ["user_id"]),
+     _handle_pm_portfolio),
+
+    ("get_weekly_timesheets",
+     "Aggregated timesheet data for a given ISO week, grouped by user and by project. Pass user_ids explicitly for best performance. All user calls parallelized.",
+     _s({
+         "week_start": {"type": "string", "description": "ISO date of the Monday (YYYY-MM-DD)"},
+         "user_ids": {"type": "array", "items": {"type": "string"}, "description": "Gouti user IDs. If absent, fetches all users (slow)."},
+         "filter_project_id": {"type": "string", "description": "Filter output to this project only"},
+     }, ["week_start"]),
+     _handle_weekly_timesheets),
+
+    ("get_user_dashboard",
+     "Personal dashboard for one Gouti user. Returns open tasks sorted by deadline (with overdue flag), open actions, open issues, notifications, and personal notes. All 6 Gouti calls parallelized.",
+     _s({"user_id": {"type": "string", "description": "Gouti user ID (ref_us)"}}, ["user_id"]),
+     _handle_user_dashboard),
 ]
 
 GOUTI_TOOLS_LIST = [{"name": n, "description": d, "inputSchema": s} for n, d, s, _ in GOUTI_TOOLS]

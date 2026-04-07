@@ -40,6 +40,7 @@ import {
 } from '@/components/layout/DynamicPanel'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { ComplianceDashboard } from './ComplianceDashboard'
+import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { useDictionaryLabels, useDictionaryOptions } from '@/hooks/useDictionary'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useUIStore } from '@/stores/uiStore'
@@ -1008,7 +1009,7 @@ export function ConformitePage() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <div className="p-6"><ComplianceDashboard /></div>
+        return <div className="p-6 space-y-4"><ModuleDashboard module="conformite" /><ComplianceDashboard /></div>
       case 'referentiel':
         return (
           <DataTable<ComplianceType>

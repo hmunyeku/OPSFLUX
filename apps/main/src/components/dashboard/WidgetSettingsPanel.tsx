@@ -46,7 +46,7 @@ export function WidgetSettingsPanel({
   }
 
   return (
-    <aside className="w-[300px] shrink-0 border-l border-border bg-background flex flex-col h-full">
+    <div className="flex flex-col h-full max-h-[calc(100vh-120px)]">
       {/* Header */}
       <div className="h-10 px-3 flex items-center justify-between border-b border-border shrink-0">
         <div className="flex items-center gap-2 min-w-0">
@@ -193,6 +193,6 @@ export function WidgetSettingsPanel({
           </button>
         </div>
       </div>
-    </aside>
+    </div>
   )
 }

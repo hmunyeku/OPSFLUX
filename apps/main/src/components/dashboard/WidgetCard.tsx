@@ -781,7 +781,7 @@ function TableWidget({
                   key={col.key}
                   className={cn(
                     'text-left px-2.5 py-2 font-bold text-[10px] uppercase tracking-wider whitespace-nowrap',
-                    'bg-primary/10 text-primary/80 border-b-2 border-primary/20',
+                    'bg-muted/40 text-foreground/70 border-b border-border/50',
                     i === 0 && 'rounded-tl-lg',
                     i === effectiveColumns.length - 1 && 'rounded-tr-lg',
                   )}

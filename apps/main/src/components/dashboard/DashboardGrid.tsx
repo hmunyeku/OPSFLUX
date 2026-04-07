@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils'
 
 const COLS = 12
 const CELL_HEIGHT = 80 // px
-const GAP = 8 // px
+const GAP = 12 // px — slightly more breathing room between widgets
 
 interface DashboardGridProps {
   widgets: DashboardWidget[]

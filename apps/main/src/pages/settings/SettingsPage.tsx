@@ -429,7 +429,18 @@ export function SettingsPage() {
         {dynamicPanel?.module === 'settings-app' && dynamicPanel.type === 'create' && <CreateAppPanel />}
         {dynamicPanel?.module === 'settings-address' && (dynamicPanel.type === 'create' || dynamicPanel.type === 'edit') && <CreateAddressPanel />}
         {dynamicPanel?.module === 'settings-email-template' && <EditEmailTemplatePanel />}
-        {dynamicPanel?.module === 'settings-pdf-template' && <EditPdfTemplatePanel />}
+        {dynamicPanel?.module === 'settings-pdf-template' && (
+          <EditPdfTemplatePanel
+            mode={dynamicPanel.type === 'create' ? 'create' : 'edit'}
+            templateId={
+              typeof dynamicPanel.data?.templateId === 'string'
+                ? dynamicPanel.data.templateId
+                : dynamicPanel.type !== 'create'
+                  ? dynamicPanel.id
+                  : null
+            }
+          />
+        )}
       </div>
     </div>
   )

@@ -948,9 +948,19 @@ export function EditPdfTemplatePanel({
   mode?: 'create' | 'edit'
 }) {
   const { t } = useTranslation()
-  if (mode === 'create') return <CreatePdfTemplatePanel />
+  const dynamicPanel = useUIStore((s) => s.dynamicPanel)
+  const resolvedMode = dynamicPanel?.module === 'settings-pdf-template'
+    ? (dynamicPanel.type === 'create' ? 'create' : 'edit')
+    : mode
+  const resolvedTemplateId = (
+    templateId
+    ?? (typeof dynamicPanel?.data?.templateId === 'string' ? dynamicPanel.data.templateId : null)
+    ?? (dynamicPanel?.module === 'settings-pdf-template' && dynamicPanel.type !== 'create' ? dynamicPanel.id : null)
+  )
 
-  if (!templateId) {
+  if (resolvedMode === 'create') return <CreatePdfTemplatePanel />
+
+  if (!resolvedTemplateId) {
     return (
       <DynamicPanelShell title={t('settings.pdf_templates_editor.not_found.title')} icon={<FileOutput size={14} className="text-primary" />}>
         <div className="px-4 py-6 text-sm text-muted-foreground">{t('settings.pdf_templates_editor.not_found.missing_id')}</div>
@@ -958,5 +968,5 @@ export function EditPdfTemplatePanel({
     )
   }
 
-  return <EditPdfTemplateInner templateId={templateId} />
+  return <EditPdfTemplateInner templateId={resolvedTemplateId} />
 }

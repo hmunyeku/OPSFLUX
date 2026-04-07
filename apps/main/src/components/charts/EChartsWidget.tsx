@@ -73,20 +73,24 @@ export function EChartsWidget({
     if (!Array.isArray(data) || data.length === 0) return null
 
     const baseTextStyle = {
-      color: isDark ? '#a1a1aa' : '#71717a',
-      fontSize: 10,
+      color: isDark ? '#a1a1aa' : '#6b7280',
+      fontSize: 11,
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     }
 
     const axisCommon = {
-      axisLabel: { ...baseTextStyle },
-      axisLine: { lineStyle: { color: isDark ? '#3f3f46' : '#e4e4e7' } },
-      splitLine: { lineStyle: { color: isDark ? '#27272a' : '#f4f4f5', type: 'dashed' as const } },
+      axisLabel: { ...baseTextStyle, margin: 10 },
+      axisLine: { show: false },
+      splitLine: { lineStyle: { color: isDark ? '#27272a' : '#f3f4f6', type: 'solid' as const } },
     }
 
     const tooltipStyle = {
-      backgroundColor: isDark ? '#18181b' : '#ffffff',
-      borderColor: isDark ? '#3f3f46' : '#e4e4e7',
-      textStyle: { color: isDark ? '#fafafa' : '#09090b', fontSize: 12 },
+      backgroundColor: isDark ? '#1f1f23' : '#ffffff',
+      borderColor: isDark ? '#3f3f46' : '#e5e7eb',
+      borderWidth: 1,
+      padding: [10, 14],
+      textStyle: { color: isDark ? '#f4f4f5' : '#111827', fontSize: 12, fontFamily: baseTextStyle.fontFamily },
+      extraCssText: 'border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12);',
     }
 
     const toolbox = {
@@ -118,7 +122,9 @@ export function EChartsWidget({
             name: field,
             type: 'bar',
             data: data.map((d) => d[field] ?? 0),
-            itemStyle: { borderRadius: [2, 2, 0, 0], color: COLOR_PALETTE[i % COLOR_PALETTE.length] },
+            barMaxWidth: 32,
+            itemStyle: { borderRadius: [4, 4, 0, 0], color: COLOR_PALETTE[i % COLOR_PALETTE.length] },
+            label: { show: data.length <= 12, position: 'top' as const, fontSize: 9, color: baseTextStyle.color, formatter: (p: { value: number }) => p.value >= 1000 ? `${(p.value / 1000).toFixed(1)}k` : String(p.value) },
           })),
           ...(title ? { title: { text: title, ...baseTextStyle, left: 'center', top: 0 } } : {}),
         }
@@ -135,15 +141,21 @@ export function EChartsWidget({
           grid: { left: 40, right: 16, top: title ? 32 : 16, bottom: hasLegend ? 36 : 24, containLabel: false },
           xAxis: { type: 'category', data: xData, ...axisCommon, axisLabel: { ...baseTextStyle, rotate: xData.length > 8 ? 30 : 0, hideOverlap: true } },
           yAxis: { type: 'value', ...axisCommon },
-          series: yFields.map((field, i) => ({
-            name: field,
-            type: 'line',
-            data: data.map((d) => d[field] ?? 0),
-            smooth: true,
-            showSymbol: false,
-            lineStyle: { width: 2, color: COLOR_PALETTE[i % COLOR_PALETTE.length] },
-            itemStyle: { color: COLOR_PALETTE[i % COLOR_PALETTE.length] },
-          })),
+          series: yFields.map((field, i) => {
+            const c = COLOR_PALETTE[i % COLOR_PALETTE.length]
+            return {
+              name: field,
+              type: 'line',
+              data: data.map((d) => d[field] ?? 0),
+              smooth: 0.3,
+              showSymbol: data.length <= 30,
+              symbol: 'circle',
+              symbolSize: 5,
+              lineStyle: { width: 2.5, color: c },
+              itemStyle: { color: c, borderWidth: 2, borderColor: isDark ? '#18181b' : '#fff' },
+              emphasis: { itemStyle: { borderWidth: 3, shadowBlur: 8, shadowColor: c + '40' } },
+            }
+          }),
           ...(title ? { title: { text: title, ...baseTextStyle, left: 'center', top: 0 } } : {}),
         }
       }
@@ -159,36 +171,70 @@ export function EChartsWidget({
           grid: { left: 40, right: 16, top: title ? 32 : 16, bottom: hasLegend ? 36 : 24, containLabel: false },
           xAxis: { type: 'category', data: xData, ...axisCommon, axisLabel: { ...baseTextStyle, rotate: xData.length > 8 ? 30 : 0, hideOverlap: true } },
           yAxis: { type: 'value', ...axisCommon },
-          series: yFields.map((field, i) => ({
-            name: field,
-            type: 'line',
-            data: data.map((d) => d[field] ?? 0),
-            smooth: true,
-            showSymbol: false,
-            areaStyle: { opacity: 0.15, color: COLOR_PALETTE[i % COLOR_PALETTE.length] },
-            lineStyle: { width: 2, color: COLOR_PALETTE[i % COLOR_PALETTE.length] },
-            itemStyle: { color: COLOR_PALETTE[i % COLOR_PALETTE.length] },
-          })),
+          series: yFields.map((field, i) => {
+            const c = COLOR_PALETTE[i % COLOR_PALETTE.length]
+            return {
+              name: field,
+              type: 'line',
+              data: data.map((d) => d[field] ?? 0),
+              smooth: 0.3,
+              showSymbol: false,
+              areaStyle: {
+                color: {
+                  type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1,
+                  colorStops: [
+                    { offset: 0, color: c + '30' },
+                    { offset: 1, color: c + '05' },
+                  ],
+                },
+              },
+              lineStyle: { width: 2, color: c },
+              itemStyle: { color: c },
+            }
+          }),
           ...(title ? { title: { text: title, ...baseTextStyle, left: 'center', top: 0 } } : {}),
         }
       }
 
       case 'pie': {
+        const showInlineLabel = data.length <= 6
         return {
           color: COLOR_PALETTE,
-          tooltip: { trigger: 'item', ...tooltipStyle },
+          tooltip: {
+            trigger: 'item',
+            ...tooltipStyle,
+            formatter: (p: { name: string; value: number; percent: number; marker: string }) =>
+              `${p.marker} <b>${p.name}</b><br/>Valeur: <b>${p.value >= 1000 ? (p.value / 1000).toFixed(1) + 'k' : p.value}</b> (${p.percent}%)`,
+          },
           toolbox,
           legend: {
             bottom: 0,
             textStyle: baseTextStyle,
+            icon: 'circle',
+            itemWidth: 8,
+            itemHeight: 8,
+            itemGap: 12,
           },
           series: [
             {
               type: 'pie',
-              radius: ['40%', '70%'],
+              radius: ['42%', '72%'],
+              center: ['50%', '45%'],
               padAngle: 2,
-              label: { show: false },
-              emphasis: { label: { show: true, fontSize: 12, fontWeight: 'bold' } },
+              itemStyle: { borderRadius: 4, borderColor: isDark ? '#18181b' : '#fff', borderWidth: 2 },
+              label: showInlineLabel ? {
+                show: true,
+                position: 'outside' as const,
+                fontSize: 10,
+                color: baseTextStyle.color,
+                formatter: (p: { name: string; percent: number }) => `${p.name}\n${p.percent.toFixed(0)}%`,
+                lineHeight: 14,
+              } : { show: false },
+              labelLine: showInlineLabel ? { show: true, length: 10, length2: 8 } : { show: false },
+              emphasis: {
+                label: { show: true, fontSize: 13, fontWeight: 'bold' as const },
+                itemStyle: { shadowBlur: 12, shadowColor: 'rgba(0,0,0,0.15)' },
+              },
               data: data.map((d, i) => ({
                 name: String(d[xField] ?? ''),
                 value: d[yFields[0]] ?? 0,
@@ -285,25 +331,63 @@ export function EChartsWidget({
       case 'gauge': {
         const value = data[0] ? Number(data[0][yFields[0]] ?? 0) : 0
         const max = data[0] ? Number(data[0].max ?? 100) : 100
+        const pct = max > 0 ? value / max : 0
+        const gaugeColor = pct >= 0.75 ? '#22c55e' : pct >= 0.5 ? '#3b82f6' : pct >= 0.25 ? '#f59e0b' : '#ef4444'
         return {
           toolbox,
           series: [
             {
               type: 'gauge',
+              startAngle: 200,
+              endAngle: -20,
               min: 0,
               max,
-              progress: { show: true, width: 12, itemStyle: { color: COLOR_PALETTE[0] } },
-              axisLine: { lineStyle: { width: 12, color: [[1, isDark ? '#3f3f46' : '#e4e4e7']] } },
+              center: ['50%', '60%'],
+              radius: '90%',
+              progress: {
+                show: true,
+                width: 16,
+                roundCap: true,
+                itemStyle: { color: gaugeColor },
+              },
+              axisLine: {
+                roundCap: true,
+                lineStyle: { width: 16, color: [[1, isDark ? '#27272a' : '#f3f4f6']] },
+              },
               axisTick: { show: false },
-              splitLine: { length: 8, lineStyle: { width: 1, color: isDark ? '#71717a' : '#a1a1aa' } },
-              axisLabel: { distance: 16, ...baseTextStyle },
-              pointer: { show: true, length: '60%', width: 4 },
+              splitLine: { show: false },
+              axisLabel: {
+                distance: 24,
+                fontSize: 10,
+                color: baseTextStyle.color,
+                formatter: (v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v),
+              },
+              pointer: {
+                show: true,
+                length: '55%',
+                width: 5,
+                offsetCenter: [0, 0],
+                itemStyle: { color: gaugeColor },
+              },
+              anchor: {
+                show: true,
+                size: 12,
+                showAbove: true,
+                itemStyle: { borderWidth: 3, borderColor: gaugeColor, color: isDark ? '#18181b' : '#fff' },
+              },
               detail: {
                 valueAnimation: true,
-                fontSize: 18,
-                fontWeight: 'bold',
-                color: isDark ? '#fafafa' : '#09090b',
-                offsetCenter: [0, '70%'],
+                fontSize: 22,
+                fontWeight: 'bold' as const,
+                fontFamily: baseTextStyle.fontFamily,
+                color: isDark ? '#fafafa' : '#111827',
+                offsetCenter: [0, '30%'],
+                formatter: (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v),
+              },
+              title: {
+                offsetCenter: [0, '52%'],
+                fontSize: 11,
+                color: baseTextStyle.color,
               },
               data: [{ value, name: String(data[0]?.[xField] ?? '') }],
             },

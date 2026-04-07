@@ -43,18 +43,7 @@ import { EChartsWidget } from '@/components/charts/EChartsWidget'
 import ReactECharts from 'echarts-for-react'
 import { useDashboardFilters } from './DashboardFilterContext'
 
-// ── Relative time formatting ────────────────────────────────────
 
-function formatRelativeTime(timestamp: number | undefined): string {
-  if (!timestamp) return ''
-  const seconds = Math.floor((Date.now() - timestamp) / 1000)
-  if (seconds < 10) return 'maintenant'
-  if (seconds < 60) return `${seconds}s`
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}min`
-  const hours = Math.floor(minutes / 60)
-  return `${hours}h`
-}
 
 
 // ── Widget Type Icon ────────────────────────────────────────────
@@ -93,7 +82,7 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
   const { filterParams } = useDashboardFilters()
   // Use config.widget_id (provider ID) for data fetching, fallback to widget.id
   const dataWidgetId = (widget.config?.widget_id as string) || widget.id
-  const { data, error, refetch, dataUpdatedAt, isLoading } = useWidgetData(
+  const { data, error, refetch, isLoading } = useWidgetData(
     dataWidgetId,
     widget.type,
     widget.config,
@@ -157,55 +146,51 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
     ...(bgColor ? { backgroundColor: bgColor, color: '#fff' } : {}),
   } as React.CSSProperties
 
-  // Modern card — PowerBI/Tableau inspired
+  // ── Kyubit-level card shell — clean, no heavy borders ──
   if (!fullscreen) {
     return (
       <div
         ref={cardRef}
         className={cn(
-          'group flex flex-col h-full rounded-xl overflow-hidden transition-all duration-200',
-          'shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)]',
-          !hasBgColor && 'bg-card border border-border/50',
+          'group flex flex-col h-full rounded-lg overflow-hidden transition-shadow duration-200',
+          'shadow-sm hover:shadow-md',
+          !hasBgColor && 'bg-card',
         )}
         style={cssVars}
       >
-        {/* Compact header */}
+        {/* Header — minimal, title left, actions right on hover */}
         <div className={cn(
-          'flex items-center h-7 px-3 gap-1.5 shrink-0',
+          'flex items-center h-8 px-4 gap-2 shrink-0',
           hideHeader && mode !== 'edit' ? 'opacity-0 group-hover:opacity-100' : 'opacity-100',
         )}>
           {mode === 'edit' && (
             <div {...(dragHandleProps || {})} className="cursor-grab active:cursor-grabbing shrink-0">
-              <GripVertical className="h-3 w-3 text-muted-foreground/40" />
+              <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30" />
             </div>
           )}
-          <span className={cn('text-[11px] font-semibold truncate flex-1', hasBgColor ? 'text-white/90' : 'text-foreground/70')}>
+          <span className={cn('text-xs font-semibold truncate flex-1', hasBgColor ? 'text-white/90' : 'text-foreground/80')}>
             {widget.title}
           </span>
-          {/* Clock icon with relative time as tooltip */}
-          <span className={cn('shrink-0 cursor-default', hasBgColor ? 'text-white/30' : 'text-muted-foreground/30')} title={formatRelativeTime(dataUpdatedAt)}>
-            <Clock className="h-2.5 w-2.5" />
-          </span>
-          {/* Action buttons — visible on hover */}
-          <div className={cn('flex items-center gap-0.5 transition-opacity', mode !== 'edit' ? 'opacity-0 group-hover:opacity-100' : '')}>
-            <button onClick={() => refetch()} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Actualiser">
-              <RefreshCw className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/60' : 'text-muted-foreground/50', isLoading && 'animate-spin')} />
+          {/* Toolbar — appears on hover */}
+          <div className={cn('flex items-center gap-1 transition-opacity', mode !== 'edit' ? 'opacity-0 group-hover:opacity-100' : '')}>
+            <button onClick={() => refetch()} className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10" title="Actualiser">
+              <RefreshCw className={cn('h-3 w-3', hasBgColor ? 'text-white/50' : 'text-muted-foreground/40', isLoading && 'animate-spin')} />
             </button>
-            <button onClick={handleExport} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Exporter en image">
-              <Download className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/60' : 'text-muted-foreground/50')} />
+            <button onClick={handleExport} className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10" title="Exporter">
+              <Download className={cn('h-3 w-3', hasBgColor ? 'text-white/50' : 'text-muted-foreground/40')} />
             </button>
-            <button onClick={() => setFullscreen(true)} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Plein ecran">
-              <Maximize2 className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/60' : 'text-muted-foreground/50')} />
+            <button onClick={() => setFullscreen(true)} className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10" title="Plein écran">
+              <Maximize2 className={cn('h-3 w-3', hasBgColor ? 'text-white/50' : 'text-muted-foreground/40')} />
             </button>
             {mode === 'edit' && onRemove && (
-              <button onClick={onRemove} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-destructive/20 transition-colors" title="Supprimer">
-                <X className="h-2.5 w-2.5 text-destructive/60" />
+              <button onClick={onRemove} className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-destructive/10" title="Supprimer">
+                <X className="h-3 w-3 text-destructive/50" />
               </button>
             )}
           </div>
         </div>
-        {/* Content area */}
-        <div className="flex-1 min-h-0 px-3 pb-3" style={accentColor ? { '--widget-accent': accentColor } as React.CSSProperties : undefined}>
+        {/* Content — generous padding */}
+        <div className="flex-1 min-h-0 px-4 pb-4" style={accentColor ? { '--widget-accent': accentColor } as React.CSSProperties : undefined}>
           {widgetContent}
         </div>
       </div>
@@ -308,7 +293,25 @@ function WidgetRenderer({
   }
 }
 
-// ── KPI Widget — Modern Trend Card ─────────────────────────────
+// ── KPI Widget — Kyubit-level card ─────────────────────────────
+//
+// Layout: [Icon circle] [Value block]     [Sparkline area]
+//                        Big number
+//                        Delta + comparison
+//         [Label below]
+
+// Icon color presets — mapped from config.icon_color or accent
+const KPI_ICON_COLORS: Record<string, { bg: string; fg: string }> = {
+  blue:   { bg: 'bg-blue-500',   fg: 'text-white' },
+  green:  { bg: 'bg-emerald-500', fg: 'text-white' },
+  red:    { bg: 'bg-red-500',    fg: 'text-white' },
+  orange: { bg: 'bg-orange-400', fg: 'text-white' },
+  yellow: { bg: 'bg-yellow-400', fg: 'text-yellow-900' },
+  violet: { bg: 'bg-violet-500', fg: 'text-white' },
+  cyan:   { bg: 'bg-cyan-500',   fg: 'text-white' },
+  pink:   { bg: 'bg-pink-500',   fg: 'text-white' },
+  slate:  { bg: 'bg-slate-500',  fg: 'text-white' },
+}
 
 function KPIWidget({
   config,
@@ -325,12 +328,13 @@ function KPIWidget({
   const comparison = (meta?.comparison as string) || (config.comparison as string) || ''
   const format = (config.format as string) || 'number'
   const unit = (config.unit as string) || ''
+  const iconColor = (config.icon_color as string) || 'blue'
+  const iconPreset = KPI_ICON_COLORS[iconColor] || KPI_ICON_COLORS.blue
 
-  // Extract value from first data item or meta
+  // Extract value
   const rawValue = data?.[0]
     ? (data[0] as Record<string, unknown>)[valueField]
     : meta?.value
-
   const numValue = typeof rawValue === 'number' ? rawValue : parseFloat(String(rawValue ?? '0'))
 
   // Format display value
@@ -347,56 +351,67 @@ function KPIWidget({
     displayValue = new Intl.NumberFormat('fr-FR').format(numValue)
   }
 
-  const TrendIcon = trend === null ? null : trend > 0 ? TrendingUp : trend < 0 ? TrendingDown : Minus
-  const trendColor = trend === null ? '' : trend > 0 ? 'text-emerald-600 dark:text-emerald-400' : trend < 0 ? 'text-red-500 dark:text-red-400' : 'text-muted-foreground'
-  const trendBg = trend === null ? '' : trend > 0 ? 'bg-emerald-50 dark:bg-emerald-900/20' : trend < 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-muted/30'
+  // Trend
+  const trendUp = trend !== null && trend > 0
+  const trendDown = trend !== null && trend < 0
+  const TrendIcon = trend === null ? null : trendUp ? TrendingUp : trendDown ? TrendingDown : Minus
+  const trendColor = trend === null ? 'text-muted-foreground' : trendUp ? 'text-emerald-600' : trendDown ? 'text-red-500' : 'text-muted-foreground'
 
-  // Sparkline data — array of numbers from meta or config
+  // Sparkline
   const sparklineData = (meta?.sparkline as number[]) || (config.sparkline as number[]) || null
-  const sparklineColor = trend === null ? '#3b82f6' : trend > 0 ? '#22c55e' : trend < 0 ? '#ef4444' : '#94a3b8'
+  const sparklineColor = trend === null ? '#3b82f6' : trendUp ? '#10b981' : trendDown ? '#ef4444' : '#94a3b8'
 
-  // Extract details if available
+  // Details
   const details = (meta?.details || config.details) as Record<string, unknown> | undefined
 
   return (
-    <div className="flex flex-col justify-between h-full">
-      {/* Top: Label */}
-      {labelField && (
-        <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide truncate">{labelField}</span>
-      )}
+    <div className="flex flex-col h-full gap-3">
+      {/* Top row: icon + value + sparkline */}
+      <div className="flex items-start gap-3 flex-1">
+        {/* Icon circle */}
+        <div className={cn('h-11 w-11 rounded-lg flex items-center justify-center shrink-0', iconPreset.bg)}>
+          <Gauge className={cn('h-5 w-5', iconPreset.fg)} />
+        </div>
 
-      {/* Center: Big number + unit + trend badge */}
-      <div className="flex-1 flex flex-col justify-center gap-1.5">
-        <div className="flex items-baseline gap-2">
-          <span className="text-3xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--widget-accent, hsl(var(--primary)))' }}>
-            {displayValue}
-          </span>
-          {unit && (
-            <span className="text-sm text-muted-foreground/60 font-medium">{unit}</span>
+        {/* Value block */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl font-bold tracking-tight leading-none text-foreground">
+              {displayValue}
+            </span>
+            {unit && <span className="text-xs text-muted-foreground/60 font-medium">{unit}</span>}
+          </div>
+          {/* Delta row */}
+          {trend !== null && (
+            <div className="flex items-center gap-1.5 mt-1">
+              {TrendIcon && <TrendIcon className={cn('h-3.5 w-3.5', trendColor)} />}
+              <span className={cn('text-xs font-semibold', trendColor)}>
+                {trendUp ? '+' : ''}{trend}%
+              </span>
+              {comparison && <span className="text-[11px] text-muted-foreground ml-1">{comparison}</span>}
+            </div>
+          )}
+          {!trend && comparison && (
+            <span className="text-[11px] text-muted-foreground mt-0.5 block">{comparison}</span>
           )}
         </div>
 
-        {/* Trend pill + comparison */}
-        {(trend !== null || comparison) && (
-          <div className="flex items-center gap-2">
-            {trend !== null && (
-              <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold', trendColor, trendBg)}>
-                {TrendIcon && <TrendIcon className="h-3 w-3" />}
-                {trend > 0 ? '+' : ''}{trend}%
-              </span>
-            )}
-            {comparison && <span className="text-[11px] text-muted-foreground">{comparison}</span>}
+        {/* Mini sparkline (right side) */}
+        {sparklineData && sparklineData.length > 1 && (
+          <div className="w-20 h-10 shrink-0 self-center">
+            <KPISparkline data={sparklineData} color={sparklineColor} />
           </div>
         )}
       </div>
 
-      {/* Bottom: Sparkline OR detail chips */}
-      {sparklineData && sparklineData.length > 1 ? (
-        <div className="h-10 -mx-1 mt-1">
-          <KPISparkline data={sparklineData} color={sparklineColor} />
-        </div>
-      ) : details && Object.keys(details).length > 0 ? (
-        <div className="flex flex-wrap gap-1.5 mt-1">
+      {/* Label */}
+      {labelField && (
+        <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{labelField}</span>
+      )}
+
+      {/* Detail chips */}
+      {details && Object.keys(details).length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
           {Object.entries(details).slice(0, 6).map(([k, v]) => {
             const label = k.replace(/_/g, ' ')
             const val = String(v)
@@ -404,16 +419,16 @@ function KPIWidget({
             const isBad = /overdue|expired|critical|cancelled/.test(k)
             const chipColor = isGood ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'
               : isBad ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'
-              : 'bg-muted/50 text-foreground/70'
+              : 'bg-muted/40 text-foreground/70'
             return (
-              <div key={k} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px]', chipColor)}>
+              <div key={k} className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px]', chipColor)}>
                 <span className="opacity-60">{label}</span>
                 <span className="font-bold">{val}</span>
               </div>
             )
           })}
         </div>
-      ) : null}
+      )}
     </div>
   )
 }

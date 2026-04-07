@@ -49,6 +49,23 @@ export function WidgetSettingsKPI({ config, onChange }: WidgetSettingsKPIProps) 
           placeholder="ex: Assets actifs"
         />
       </DynamicPanelField>
+      <DynamicPanelField label="Couleur icone">
+        <TagSelector
+          options={[
+            { value: 'blue', label: 'Bleu' },
+            { value: 'green', label: 'Vert' },
+            { value: 'orange', label: 'Orange' },
+            { value: 'red', label: 'Rouge' },
+            { value: 'violet', label: 'Violet' },
+            { value: 'cyan', label: 'Cyan' },
+            { value: 'pink', label: 'Rose' },
+            { value: 'yellow', label: 'Jaune' },
+            { value: 'slate', label: 'Gris' },
+          ]}
+          value={(config.icon_color as string) || 'blue'}
+          onChange={(v) => onChange({ icon_color: v })}
+        />
+      </DynamicPanelField>
       <DynamicPanelField label="Format">
         <TagSelector
           options={FORMAT_OPTIONS}

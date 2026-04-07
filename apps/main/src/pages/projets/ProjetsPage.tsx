@@ -86,6 +86,7 @@ import { ProjectGanttView } from './ProjectGanttView'
 import { ProjectSelectorModal } from '@/components/shared/ProjectSelectorModal'
 import { PlannerLinkModal } from '@/components/shared/PlannerLinkModal'
 import { useProjectFilter } from '@/hooks/useProjectFilter'
+import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { useUsers } from '@/hooks/useUsers'
 import type {
   Project, ProjectCreate, ProjectTask, ProjectTaskEnriched,
@@ -3836,7 +3837,7 @@ function DashboardKpiCard({ icon: Icon, label, value, hint, tone = 'default' }: 
   )
 }
 
-function DashboardView() {
+export function DashboardView() {
   const { data: projectsData, isLoading: projLoading } = useProjects({ page_size: 200 })
   const { data: tasksData, isLoading: tasksLoading } = useAllProjectTasks({ page: 1, page_size: 1000 })
   const openDynamicPanel = useUIStore(s => s.openDynamicPanel)
@@ -4263,7 +4264,7 @@ export function ProjetsPage() {
           {viewTab === 'tableur' && <SpreadsheetView />}
           {viewTab === 'kanban' && <KanbanView />}
           {viewTab === 'planning' && <ProjectGanttView />}
-          {viewTab === 'dashboard' && <DashboardView />}
+          {viewTab === 'dashboard' && <ModuleDashboard module="projets" />}
         </PanelContent>
       </div>}
 

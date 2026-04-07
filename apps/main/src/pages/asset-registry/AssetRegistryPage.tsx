@@ -42,7 +42,7 @@ import type {
 // Detail + Create panels
 import { FieldDetailPanel, SiteDetailPanel, InstallationDetailPanel, EquipmentDetailPanel, PipelineDetailPanel } from './DetailPanels'
 import { CreateFieldPanel, CreateSitePanel, CreateInstallationPanel, CreateEquipmentPanel, CreatePipelinePanel } from './CreatePanels'
-import { AssetRegistryDashboard } from './AssetRegistryDashboard'
+import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { AssetHierarchyTree } from './AssetHierarchyTree'
 
 
@@ -857,7 +857,7 @@ export function AssetRegistryPage() {
   const showCreateButton = canCreate && activeTab !== 'dashboard' && activeTab !== 'hierarchy'
 
   const tabContent: Record<TabKey, JSX.Element> = {
-    dashboard: <AssetRegistryDashboard />,
+    dashboard: <ModuleDashboard module="asset_registry" />,
     hierarchy: <AssetHierarchyTree />,
     fields: <FieldsTab />,
     sites: <SitesTab />,

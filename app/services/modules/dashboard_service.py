@@ -147,6 +147,115 @@ PREDEFINED_WIDGETS: dict[str, dict[str, Any]] = {
         "source": "travelwiz",
         "roles": ["LOG_BASE", "DO"],
     },
+    # ── Projets module widgets ──
+    "projets_kpis": {
+        "type": "kpi",
+        "title": "KPIs Projets",
+        "description": "Projets actifs, terminés, progression, budget, tâches",
+        "source": "projets",
+        "roles": ["CHEF_PROJET", "DPROJ", "DO"],
+    },
+    "projets_weather": {
+        "type": "chart",
+        "title": "Santé projets (météo)",
+        "description": "Distribution météo des projets actifs",
+        "source": "projets",
+        "roles": ["CHEF_PROJET", "DPROJ", "DO"],
+    },
+    "projets_deadlines": {
+        "type": "table",
+        "title": "Échéances 14 jours",
+        "description": "Tâches dont l'échéance est dans les 14 prochains jours",
+        "source": "projets",
+        "roles": ["CHEF_PROJET", "DPROJ"],
+    },
+    "projets_top_volume": {
+        "type": "table",
+        "title": "Top projets par volume",
+        "description": "Les 5 projets avec le plus de tâches",
+        "source": "projets",
+        "roles": ["CHEF_PROJET", "DPROJ", "DO"],
+    },
+    # ── Asset Registry module widgets ──
+    "assets_overview": {
+        "type": "kpi",
+        "title": "Vue d'ensemble Assets",
+        "description": "Champs, sites, installations, équipements, pipelines",
+        "source": "asset_registry",
+        "roles": ["ASSET_ADMIN", "DO", "CDS"],
+    },
+    "assets_equipment_by_class": {
+        "type": "chart",
+        "title": "Équipements par classe",
+        "description": "Distribution des équipements par type (pompe, grue, séparateur…)",
+        "source": "asset_registry",
+        "roles": ["ASSET_ADMIN", "DO"],
+    },
+    "assets_by_status": {
+        "type": "chart",
+        "title": "Équipements par statut",
+        "description": "Distribution opérationnel / standby / hors service",
+        "source": "asset_registry",
+        "roles": ["ASSET_ADMIN", "DO"],
+    },
+    "assets_sites_by_type": {
+        "type": "chart",
+        "title": "Sites par type",
+        "description": "Distribution production / terminal / forage / stockage",
+        "source": "asset_registry",
+        "roles": ["ASSET_ADMIN", "DO"],
+    },
+    "assets_map": {
+        "type": "map",
+        "title": "Carte des assets",
+        "description": "Champs, sites et installations géolocalisés",
+        "source": "asset_registry",
+        "roles": ["ASSET_ADMIN", "DO", "CDS"],
+    },
+    # ── PaxLog module widgets ──
+    "paxlog_compliance_rate": {
+        "type": "kpi",
+        "title": "Taux de conformité PAX",
+        "description": "Pourcentage de conformité globale avec détail",
+        "source": "paxlog",
+        "roles": ["CDS", "CHSE", "DO"],
+    },
+    "paxlog_ads_by_status": {
+        "type": "chart",
+        "title": "AdS par statut",
+        "description": "Distribution des autorisations de sortie par statut",
+        "source": "paxlog",
+        "roles": ["CDS", "CHSE", "DO"],
+    },
+    "paxlog_expiring_credentials": {
+        "type": "table",
+        "title": "Certifications expirant bientôt",
+        "description": "PAX dont les certifications expirent dans les 30 prochains jours",
+        "source": "paxlog",
+        "roles": ["CHSE", "CMEDIC"],
+    },
+    "paxlog_incidents": {
+        "type": "kpi",
+        "title": "Incidents actifs",
+        "description": "Nombre d'incidents PAX non résolus",
+        "source": "paxlog",
+        "roles": ["CDS", "CHSE", "DO"],
+    },
+    # ── Conformité module widgets ──
+    "conformite_kpis": {
+        "type": "kpi",
+        "title": "KPIs Conformité",
+        "description": "Taux de conformité, valides, expirés, en attente",
+        "source": "conformite",
+        "roles": ["RESPONSABLE_CONFORMITE", "OPERATEUR_CONFORMITE", "CHSE"],
+    },
+    "conformite_by_category": {
+        "type": "chart",
+        "title": "Conformité par catégorie",
+        "description": "Formation, certification, habilitation, médical — valides vs expirés",
+        "source": "conformite",
+        "roles": ["RESPONSABLE_CONFORMITE", "OPERATEUR_CONFORMITE", "CHSE"],
+    },
 }
 
 

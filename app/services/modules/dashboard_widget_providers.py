@@ -737,10 +737,345 @@ async def provider_fleet_map(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  Projets — module-contextual providers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def provider_projets_kpis(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """All project KPIs in one call: active, completed, avg progress, budget, task stats."""
+    r = await db.execute(text("""
+        SELECT
+            COUNT(*) FILTER (WHERE status = 'active') AS active,
+            COUNT(*) FILTER (WHERE status = 'completed') AS completed,
+            COUNT(*) AS total,
+            COALESCE(AVG(progress), 0) AS avg_progress,
+            COALESCE(SUM(budget), 0) AS total_budget
+        FROM projects WHERE entity_id = :eid AND archived = FALSE
+    """), {"eid": str(entity_id)})
+    p = r.mappings().first() or {}
+    rt = await db.execute(text("""
+        SELECT
+            COUNT(*) FILTER (WHERE status = 'in_progress') AS in_progress,
+            COUNT(*) FILTER (WHERE due_date < NOW() AND status NOT IN ('done','cancelled')) AS overdue,
+            COUNT(*) FILTER (WHERE priority = 'critical' AND status NOT IN ('done','cancelled')) AS critical,
+            COUNT(*) FILTER (WHERE status = 'done') AS done
+        FROM project_tasks WHERE active = TRUE
+          AND project_id IN (SELECT id FROM projects WHERE entity_id = :eid AND archived = FALSE)
+    """), {"eid": str(entity_id)})
+    t = rt.mappings().first() or {}
+    return {
+        "value": p.get("active", 0), "label": "Projets actifs",
+        "details": {
+            "active": p.get("active", 0), "completed": p.get("completed", 0), "total": p.get("total", 0),
+            "avg_progress": round(float(p.get("avg_progress", 0)), 1),
+            "total_budget": float(p.get("total_budget", 0)),
+            "tasks_in_progress": t.get("in_progress", 0), "tasks_overdue": t.get("overdue", 0),
+            "tasks_critical": t.get("critical", 0), "tasks_done": t.get("done", 0),
+        },
+    }
+
+
+async def provider_projets_weather(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Project health by weather category."""
+    r = await db.execute(text("""
+        SELECT weather, COUNT(*) AS cnt
+        FROM projects WHERE entity_id = :eid AND archived = FALSE AND status = 'active'
+        GROUP BY weather ORDER BY cnt DESC
+    """), {"eid": str(entity_id)})
+    rows = r.mappings().all()
+    return {
+        "data": [{"name": row["weather"] or "unknown", "value": row["cnt"]} for row in rows],
+        "series": [{"name": "Projets", "type": "bar"}],
+    }
+
+
+async def provider_projets_deadlines(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Tasks with deadlines in the next 14 days."""
+    r = await db.execute(text("""
+        SELECT pt.title, pt.due_date, pt.status, pt.priority, p.code AS project_code
+        FROM project_tasks pt
+        JOIN projects p ON p.id = pt.project_id
+        WHERE p.entity_id = :eid AND p.archived = FALSE AND pt.active = TRUE
+          AND pt.due_date BETWEEN NOW() AND NOW() + INTERVAL '14 days'
+          AND pt.status NOT IN ('done','cancelled')
+        ORDER BY pt.due_date LIMIT 10
+    """), {"eid": str(entity_id)})
+    rows = r.mappings().all()
+    return {
+        "columns": [
+            {"key": "project_code", "label": "Projet"},
+            {"key": "title", "label": "Tache"},
+            {"key": "due_date", "label": "Echeance"},
+            {"key": "status", "label": "Statut"},
+            {"key": "priority", "label": "Priorite"},
+        ],
+        "rows": [dict(row) for row in rows],
+    }
+
+
+async def provider_projets_top_volume(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Top 5 projects by task count."""
+    r = await db.execute(text("""
+        SELECT p.code, p.name, p.progress, p.status,
+               COUNT(pt.id) AS task_count
+        FROM projects p
+        LEFT JOIN project_tasks pt ON pt.project_id = p.id AND pt.active = TRUE
+        WHERE p.entity_id = :eid AND p.archived = FALSE
+        GROUP BY p.id ORDER BY task_count DESC LIMIT 5
+    """), {"eid": str(entity_id)})
+    rows = r.mappings().all()
+    return {
+        "columns": [
+            {"key": "code", "label": "Code"}, {"key": "name", "label": "Nom"},
+            {"key": "progress", "label": "%"}, {"key": "task_count", "label": "Taches"},
+        ],
+        "rows": [dict(row) for row in rows],
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Asset Registry — module-contextual providers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def provider_assets_overview(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Asset registry KPIs: fields, sites, installations, equipment, pipelines."""
+    r = await db.execute(text("""
+        SELECT
+            (SELECT COUNT(*) FROM ar_oil_fields WHERE entity_id = :eid AND deleted_at IS NULL) AS fields,
+            (SELECT COUNT(*) FROM ar_sites WHERE entity_id = :eid AND deleted_at IS NULL) AS sites,
+            (SELECT COUNT(*) FROM ar_installations WHERE entity_id = :eid AND deleted_at IS NULL) AS installations,
+            (SELECT COUNT(*) FROM ar_equipment WHERE entity_id = :eid AND deleted_at IS NULL) AS equipment,
+            (SELECT COUNT(*) FROM ar_pipelines WHERE entity_id = :eid AND deleted_at IS NULL) AS pipelines
+    """), {"eid": str(entity_id)})
+    row = r.mappings().first() or {}
+    return {
+        "value": row.get("installations", 0), "label": "Installations",
+        "details": {k: row.get(k, 0) for k in ("fields", "sites", "installations", "equipment", "pipelines")},
+    }
+
+
+async def provider_assets_equipment_by_class(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Equipment count grouped by class."""
+    r = await db.execute(text("""
+        SELECT equipment_class AS name, COUNT(*) AS value
+        FROM ar_equipment WHERE entity_id = :eid AND deleted_at IS NULL
+        GROUP BY equipment_class ORDER BY value DESC LIMIT 15
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()], "series": [{"name": "Equipements", "type": "pie"}]}
+
+
+async def provider_assets_by_status(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Equipment count grouped by status."""
+    r = await db.execute(text("""
+        SELECT status AS name, COUNT(*) AS value
+        FROM ar_equipment WHERE entity_id = :eid AND deleted_at IS NULL
+        GROUP BY status ORDER BY value DESC
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()], "series": [{"name": "Statut", "type": "bar"}]}
+
+
+async def provider_assets_sites_by_type(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Sites grouped by type."""
+    r = await db.execute(text("""
+        SELECT site_type AS name, COUNT(*) AS value
+        FROM ar_sites WHERE entity_id = :eid AND deleted_at IS NULL
+        GROUP BY site_type ORDER BY value DESC
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()], "series": [{"name": "Sites", "type": "pie"}]}
+
+
+async def provider_assets_map(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Geographic markers for fields, sites, installations."""
+    markers = []
+    for tbl, label, color in [
+        ("ar_oil_fields", "Champ", "#4f46e5"),
+        ("ar_sites", "Site", "#06b6d4"),
+        ("ar_installations", "Installation", "#f59e0b"),
+    ]:
+        r = await db.execute(text(f"""
+            SELECT code, name, latitude, longitude
+            FROM {tbl} WHERE entity_id = :eid AND deleted_at IS NULL
+              AND latitude IS NOT NULL AND longitude IS NOT NULL
+        """), {"eid": str(entity_id)})
+        for row in r.mappings().all():
+            markers.append({
+                "lat": float(row["latitude"]), "lng": float(row["longitude"]),
+                "label": f'{row["code"]} — {row["name"]}', "type": label, "color": color,
+            })
+    return {"markers": markers}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PaxLog — module-contextual providers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def provider_paxlog_compliance_rate(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """PaxLog compliance rate and breakdown."""
+    r = await db.execute(text("""
+        SELECT
+            COUNT(*) AS total,
+            COUNT(*) FILTER (WHERE is_compliant = TRUE) AS compliant,
+            COUNT(*) FILTER (WHERE expires_at < NOW()) AS expired,
+            COUNT(*) FILTER (WHERE expires_at BETWEEN NOW() AND NOW() + INTERVAL '30 days') AS expiring_soon
+        FROM compliance_records
+        WHERE entity_id = :eid AND active = TRUE
+    """), {"eid": str(entity_id)})
+    row = r.mappings().first() or {}
+    total = row.get("total", 0)
+    compliant = row.get("compliant", 0)
+    rate = round(compliant / total * 100, 1) if total > 0 else 0
+    return {
+        "value": rate, "label": "Taux de conformite", "unit": "%",
+        "details": {"total": total, "compliant": compliant,
+                    "expired": row.get("expired", 0), "expiring_soon": row.get("expiring_soon", 0)},
+    }
+
+
+async def provider_paxlog_ads_by_status(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """ADS count grouped by status."""
+    r = await db.execute(text("""
+        SELECT status AS name, COUNT(*) AS value
+        FROM ads WHERE entity_id = :eid AND archived = FALSE
+        GROUP BY status ORDER BY value DESC
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()], "series": [{"name": "AdS", "type": "bar"}]}
+
+
+async def provider_paxlog_expiring_credentials(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Credentials expiring in the next 30 days."""
+    days = int(config.get("days_ahead", 30))
+    r = await db.execute(text("""
+        SELECT pc.id, pg.name AS pax_name, ct.name AS credential_type,
+               pc.expiry_date, pc.expiry_date - CURRENT_DATE AS days_remaining
+        FROM pax_credentials pc
+        JOIN pax_groups pg ON pg.id = pc.pax_group_id
+        JOIN credential_types ct ON ct.id = pc.credential_type_id
+        WHERE pg.entity_id = :eid AND pc.active = TRUE
+          AND pc.expiry_date BETWEEN CURRENT_DATE AND CURRENT_DATE + :days * INTERVAL '1 day'
+        ORDER BY pc.expiry_date LIMIT 15
+    """), {"eid": str(entity_id), "days": days})
+    rows = r.mappings().all()
+    return {
+        "columns": [
+            {"key": "pax_name", "label": "PAX"}, {"key": "credential_type", "label": "Type"},
+            {"key": "expiry_date", "label": "Expiration"}, {"key": "days_remaining", "label": "J restants"},
+        ],
+        "rows": [dict(row) for row in rows],
+    }
+
+
+async def provider_paxlog_incidents(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Active incident count."""
+    r = await db.execute(text("""
+        SELECT COUNT(*) AS cnt FROM pax_incidents
+        WHERE entity_id = :eid AND status NOT IN ('closed','resolved')
+    """), {"eid": str(entity_id)})
+    row = r.mappings().first() or {}
+    return {"value": row.get("cnt", 0), "label": "Incidents actifs", "unit": "incidents"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Conformité — module-contextual providers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def provider_conformite_kpis(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Conformité KPIs: total, valid, expired, pending, rate."""
+    r = await db.execute(text("""
+        SELECT
+            COUNT(*) AS total,
+            COUNT(*) FILTER (WHERE is_compliant = TRUE AND (expires_at IS NULL OR expires_at > NOW())) AS valid,
+            COUNT(*) FILTER (WHERE expires_at < NOW()) AS expired,
+            COUNT(*) FILTER (WHERE status = 'pending') AS pending,
+            COUNT(*) FILTER (WHERE expires_at BETWEEN NOW() AND NOW() + INTERVAL '30 days') AS expiring_soon
+        FROM compliance_records WHERE entity_id = :eid AND active = TRUE
+    """), {"eid": str(entity_id)})
+    row = r.mappings().first() or {}
+    total = row.get("total", 0)
+    valid = row.get("valid", 0)
+    rate = round(valid / total * 100, 1) if total > 0 else 0
+    return {
+        "value": rate, "label": "Taux de conformite", "unit": "%",
+        "details": {
+            "total": total, "valid": valid, "expired": row.get("expired", 0),
+            "pending": row.get("pending", 0), "expiring_soon": row.get("expiring_soon", 0),
+            "rate": rate,
+        },
+    }
+
+
+async def provider_conformite_by_category(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Conformité records grouped by type category."""
+    r = await db.execute(text("""
+        SELECT ct.category AS name,
+               COUNT(*) AS total,
+               COUNT(*) FILTER (WHERE cr.is_compliant = TRUE AND (cr.expires_at IS NULL OR cr.expires_at > NOW())) AS valid,
+               COUNT(*) FILTER (WHERE cr.expires_at < NOW()) AS expired
+        FROM compliance_records cr
+        JOIN compliance_types ct ON ct.id = cr.compliance_type_id
+        WHERE cr.entity_id = :eid AND cr.active = TRUE
+        GROUP BY ct.category ORDER BY total DESC
+    """), {"eid": str(entity_id)})
+    rows = r.mappings().all()
+    return {
+        "data": [{"name": row["name"] or "autre", "total": row["total"], "valid": row["valid"], "expired": row["expired"]} for row in rows],
+        "series": [{"name": "Valide", "type": "bar"}, {"name": "Expire", "type": "bar"}],
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Registration
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _PROVIDER_MAP: dict[str, Any] = {
+    # ── Core / cross-module ──
     "pax_on_site": provider_pax_on_site,
     "ads_pending": provider_ads_pending,
     "alerts_urgent": provider_alerts_urgent,
@@ -756,6 +1091,25 @@ _PROVIDER_MAP: dict[str, Any] = {
     "capacity_heatmap": provider_capacity_heatmap,
     "planner_gantt_mini": provider_planner_gantt_mini,
     "fleet_map": provider_fleet_map,
+    # ── Projets module ──
+    "projets_kpis": provider_projets_kpis,
+    "projets_weather": provider_projets_weather,
+    "projets_deadlines": provider_projets_deadlines,
+    "projets_top_volume": provider_projets_top_volume,
+    # ── Asset Registry module ──
+    "assets_overview": provider_assets_overview,
+    "assets_equipment_by_class": provider_assets_equipment_by_class,
+    "assets_by_status": provider_assets_by_status,
+    "assets_sites_by_type": provider_assets_sites_by_type,
+    "assets_map": provider_assets_map,
+    # ── PaxLog module ──
+    "paxlog_compliance_rate": provider_paxlog_compliance_rate,
+    "paxlog_ads_by_status": provider_paxlog_ads_by_status,
+    "paxlog_expiring_credentials": provider_paxlog_expiring_credentials,
+    "paxlog_incidents": provider_paxlog_incidents,
+    # ── Conformité module ──
+    "conformite_kpis": provider_conformite_kpis,
+    "conformite_by_category": provider_conformite_by_category,
 }
 
 

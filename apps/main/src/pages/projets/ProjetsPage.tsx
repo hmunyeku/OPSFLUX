@@ -4321,8 +4321,8 @@ export function ProjetsPage() {
       {!isFullPanel && <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <PanelHeader icon={FolderKanban} title="Projets" subtitle="Gestion de projets">
           <ViewTabSelector active={viewTab} onChange={setViewTab} />
-          <GoutiSyncToolbar />
-          <ToolbarButton icon={Plus} label="Nouveau projet" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'projets' })} />
+          {viewTab !== 'dashboard' && <GoutiSyncToolbar />}
+          {viewTab !== 'dashboard' && <ToolbarButton icon={Plus} label="Nouveau projet" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'projets' })} />}
         </PanelHeader>
 
         <PanelContent>

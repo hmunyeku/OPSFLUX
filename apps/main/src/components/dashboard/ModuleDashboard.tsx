@@ -1,13 +1,21 @@
 /**
  * ModuleDashboard — Reusable dashboard component scoped to a module.
  *
- * Each module (PaxLog, Projets, TravelWiz, Assets, Planner, Conformite)
- * embeds this component to display its own editable dashboard with
- * module-contextual widgets. Admins can customize via the editor.
+ * Each module embeds this component to display its own editable dashboard.
+ * The toolbar (Modifier, Save, Cancel, Undo, Redo) is rendered via the
+ * `toolbarSlot` render prop so the parent can place it in its own tab bar.
  *
- * Props:
- *   module   — module slug (e.g. "paxlog", "projets", "travelwiz")
- *   title    — display title for the dashboard section
+ * Usage:
+ *   <ModuleDashboard module="projets">
+ *     {(toolbar) => (
+ *       <div className="flex items-center">
+ *         <TabBar ... />
+ *         {toolbar}
+ *       </div>
+ *     )}
+ *   </ModuleDashboard>
+ *
+ * Or without children — toolbar renders inline above the grid.
  */
 import { useState, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -28,9 +36,11 @@ interface ModuleDashboardProps {
   module: string
   title?: string
   className?: string
+  /** Render prop: receives toolbar JSX that the parent can place in its tab bar */
+  children?: (toolbar: React.ReactNode) => React.ReactNode
 }
 
-export function ModuleDashboard({ module, title, className }: ModuleDashboardProps) {
+export function ModuleDashboard({ module, title, className, children }: ModuleDashboardProps) {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
   const canEdit = hasPermission('dashboard.customize') || hasPermission('dashboard.admin')
@@ -42,40 +52,65 @@ export function ModuleDashboard({ module, title, className }: ModuleDashboardPro
   const [editMode, setEditMode] = useState(false)
   const editorRef = useRef<DashboardEditorHandle>(null)
 
-  // Get the first mandatory tab for this module, or personal tab
   const tab = tabsData?.mandatory?.[0] || tabsData?.personal?.[0] || null
   const widgets: DashboardWidget[] = Array.isArray(tab?.widgets) ? tab.widgets : []
 
-  // Create a personal module tab if none exists
   const handleCreateModuleTab = useCallback(async () => {
-    if (tab) return // already has a tab
+    if (tab) return
     try {
       await createTab.mutateAsync({ name: `${title || module}` })
     } catch { /* ignore */ }
   }, [tab, createTab, title, module])
 
-  // Filter catalog to module-relevant widgets
   const moduleCatalog = (catalog || []).filter(
     (w) => !w.source_module || w.source_module === module || w.source_module === 'core'
   )
 
-  if (!tab && !canEdit) {
-    // No dashboard configured and user can't edit — show nothing
-    return null
-  }
+  // ── Toolbar JSX (can be placed by parent or rendered inline) ──
+  const toolbarJsx = canEdit ? (
+    <div className="flex items-center gap-1 ml-auto shrink-0">
+      {editMode && (
+        <>
+          <button onClick={() => editorRef.current?.undo()} disabled={!editorRef.current?.canUndo}
+            className="h-7 px-1.5 rounded text-xs text-muted-foreground hover:bg-muted disabled:opacity-30" title="Annuler">
+            <Undo2 className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={() => editorRef.current?.redo()} disabled={!editorRef.current?.canRedo}
+            className="h-7 px-1.5 rounded text-xs text-muted-foreground hover:bg-muted disabled:opacity-30" title="Refaire">
+            <Redo2 className="h-3.5 w-3.5" />
+          </button>
+          <div className="w-px h-4 bg-border mx-1" />
+          <button onClick={() => { editorRef.current?.flushSave(); setEditMode(false) }}
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90">
+            <Check className="h-3.5 w-3.5" />
+            {t('dashboard.save_dashboard')}
+          </button>
+          <button onClick={() => { editorRef.current?.discardChanges(); setEditMode(false) }}
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium hover:bg-muted text-muted-foreground">
+            <X className="h-3.5 w-3.5" />
+            Annuler
+          </button>
+        </>
+      )}
+      {!editMode && (
+        <button onClick={() => setEditMode(true)}
+          className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium transition-colors hover:bg-muted text-muted-foreground">
+          <Settings2 className="h-3.5 w-3.5" />
+          {t('dashboard.edit_dashboard')}
+        </button>
+      )}
+    </div>
+  ) : null
+
+  // ── No tab state ──
+  if (!tab && !canEdit) return null
 
   if (!tab && canEdit) {
-    // No dashboard tab for this module — offer to create one
     return (
       <div className={cn('rounded-lg border border-dashed border-border p-6 text-center', className)}>
-        <p className="text-sm text-muted-foreground mb-3">
-          Aucun dashboard configure pour ce module.
-        </p>
-        <button
-          onClick={handleCreateModuleTab}
-          disabled={createTab.isPending}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-        >
+        <p className="text-sm text-muted-foreground mb-3">Aucun dashboard configure pour ce module.</p>
+        <button onClick={handleCreateModuleTab} disabled={createTab.isPending}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
           <Plus className="h-3.5 w-3.5" />
           Creer le dashboard {title || module}
         </button>
@@ -83,64 +118,9 @@ export function ModuleDashboard({ module, title, className }: ModuleDashboardPro
     )
   }
 
-  return (
-    <div className={cn('flex flex-col', className)}>
-      {/* Toolbar */}
-      <div className="flex items-center justify-between h-8 mb-2">
-        {title && <span className="text-sm font-semibold text-foreground">{title}</span>}
-        <div className="flex items-center gap-1 ml-auto">
-          {canEdit && editMode && (
-            <>
-              <button
-                onClick={() => editorRef.current?.undo()}
-                disabled={!editorRef.current?.canUndo}
-                className="h-6 px-1.5 rounded text-xs text-muted-foreground hover:bg-muted disabled:opacity-30"
-                title="Annuler"
-              >
-                <Undo2 className="h-3 w-3" />
-              </button>
-              <button
-                onClick={() => editorRef.current?.redo()}
-                disabled={!editorRef.current?.canRedo}
-                className="h-6 px-1.5 rounded text-xs text-muted-foreground hover:bg-muted disabled:opacity-30"
-                title="Refaire"
-              >
-                <Redo2 className="h-3 w-3" />
-              </button>
-              <div className="w-px h-4 bg-border mx-1" />
-            </>
-          )}
-          {canEdit && !editMode && (
-            <button
-              onClick={() => setEditMode(true)}
-              className="inline-flex items-center gap-1 h-6 px-2 rounded text-xs text-muted-foreground hover:bg-muted"
-            >
-              <Settings2 className="h-3 w-3" />
-              {t('dashboard.edit_dashboard')}
-            </button>
-          )}
-          {canEdit && editMode && (
-            <>
-              <button
-                onClick={() => { editorRef.current?.flushSave(); setEditMode(false) }}
-                className="inline-flex items-center gap-1 h-6 px-2 rounded text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                <Check className="h-3 w-3" />
-                Enregistrer
-              </button>
-              <button
-                onClick={() => { editorRef.current?.discardChanges(); setEditMode(false) }}
-                className="inline-flex items-center gap-1 h-6 px-2 rounded text-xs text-muted-foreground hover:bg-muted"
-              >
-                <X className="h-3 w-3" />
-                Annuler
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Content */}
+  // ── Render ──
+  const content = (
+    <div className={cn('flex flex-col flex-1 min-h-0', className)}>
       {editMode && tab ? (
         <DashboardEditorLayout
           ref={editorRef}
@@ -150,11 +130,31 @@ export function ModuleDashboard({ module, title, className }: ModuleDashboardPro
           onExitEdit={() => setEditMode(false)}
         />
       ) : (
-        <DashboardGrid
-          widgets={widgets}
-          mode="view"
-        />
+        <div className="p-4">
+          <DashboardGrid widgets={widgets} mode="view" />
+        </div>
       )}
+    </div>
+  )
+
+  // If parent provides a render prop, pass toolbar for external placement
+  if (children) {
+    return (
+      <>
+        {children(toolbarJsx)}
+        {content}
+      </>
+    )
+  }
+
+  // Default: toolbar inline above content
+  return (
+    <div className={cn('flex flex-col', className)}>
+      <div className="flex items-center h-9 px-4 border-b border-border shrink-0">
+        {title && <span className="text-sm font-semibold text-foreground">{title}</span>}
+        {toolbarJsx}
+      </div>
+      {content}
     </div>
   )
 }

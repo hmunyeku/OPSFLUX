@@ -11,10 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
+from app.core.event_contracts import PROJECT_STATUS_CHANGED_EVENT
 from app.core.references import generate_reference
 from app.services.core.delete_service import delete_entity
 from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
+from app.services.core.fsm_service import fsm_service, FSMError
 from app.models.common import (
     Project, ProjectMember, ProjectTask, ProjectMilestone,
     PlanningRevision, TaskDeliverable, TaskAction, TaskChangeLog,
@@ -42,6 +44,8 @@ from app.schemas.common import (
 from app.services.cpm_service import compute_cpm
 
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"])
+PROJECT_WORKFLOW_SLUG = "project"
+PROJECT_ENTITY_TYPE = "project"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────
@@ -441,6 +445,36 @@ async def update_project(
                 f"Contactez le chef de projet.",
             )
 
+        try:
+            instance = await fsm_service.get_instance(
+                db,
+                entity_type=PROJECT_ENTITY_TYPE,
+                entity_id=str(project.id),
+            )
+            if not instance:
+                await fsm_service.get_or_create_instance(
+                    db,
+                    workflow_slug=PROJECT_WORKFLOW_SLUG,
+                    entity_type=PROJECT_ENTITY_TYPE,
+                    entity_id=str(project.id),
+                    initial_state=old_status,
+                    entity_id_scope=entity_id,
+                    created_by=current_user.id,
+                )
+            await fsm_service.transition(
+                db,
+                workflow_slug=PROJECT_WORKFLOW_SLUG,
+                entity_type=PROJECT_ENTITY_TYPE,
+                entity_id=str(project.id),
+                to_state=new_status,
+                actor_id=current_user.id,
+                entity_id_scope=entity_id,
+                skip_role_check=True,
+            )
+        except FSMError as exc:
+            if "not found" not in str(exc).lower():
+                raise HTTPException(400, str(exc)) from exc
+
     # ── Read-only lock for Gouti-imported projects ─────────────────────
     # Per the capability matrix probed at connector test time, Gouti does
     # NOT accept PATCH on projects. To stay consistent with the remote
@@ -492,7 +526,15 @@ async def update_project(
             reason=update_data.get("status_change_reason"),
         ))
         await db.commit()
-        await emit_event("project.status.changed", {
+        await fsm_service.emit_transition_event(
+            entity_type=PROJECT_ENTITY_TYPE,
+            entity_id=str(project.id),
+            from_state=old_status,
+            to_state=project.status,
+            actor_id=current_user.id,
+            workflow_slug=PROJECT_WORKFLOW_SLUG,
+        )
+        await emit_event(PROJECT_STATUS_CHANGED_EVENT, {
             "project_id": str(project.id),
             "entity_id": str(entity_id),
             "old_status": old_status,

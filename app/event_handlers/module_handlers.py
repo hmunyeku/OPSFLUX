@@ -3,6 +3,19 @@
 All notifications use Core services:
 - In-app: core.notifications.send_in_app()
 - Email:  core.email_templates.render_and_send_email() — configurable via Email Manager
+
+Event orchestration convention:
+- Native business events stay the source of truth when downstream consumers need
+  rich domain payloads or product-facing semantics, for example `ads.approved`,
+  `planner.activity.cancelled`, `project.status.changed`, or
+  `paxlog.mission_notice.modified`.
+- `workflow.transition` remains the technical backbone emitted by the FSM for
+  observability and generic orchestration.
+- `WORKFLOW_SEMANTIC_BRIDGES` is intentionally narrow. It republishes stable
+  module-level aliases only for FSM-managed workflows that do not already have a
+  sufficiently rich business event layer.
+- Do not add a bridge entry when a native domain event already exists and is the
+  event consumed by downstream modules; this avoids duplicated side effects.
 """
 
 import logging
@@ -10,6 +23,11 @@ from datetime import date, datetime, timezone, UTC
 from uuid import UUID
 
 from app.core.database import async_session_factory
+from app.core.event_contracts import (
+    PROJECT_STATUS_CHANGED_EVENT,
+    WORKFLOW_SEMANTIC_BRIDGES,
+    WORKFLOW_TRANSITION_EVENT,
+)
 from app.core.events import EventBus, OpsFluxEvent, event_bus
 from app.services.core.fsm_service import fsm_service
 
@@ -930,7 +948,7 @@ async def on_paxlog_ads_in_progress(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import select
-        from app.models.common import Ads
+        from app.models.paxlog import Ads
         from app.models.planner import PlannerActivity
 
         async with async_session_factory() as db:
@@ -957,6 +975,57 @@ async def on_paxlog_ads_in_progress(event: OpsFluxEvent) -> None:
                 )
     except Exception:
         logger.exception("Error in on_paxlog_ads_in_progress for ads=%s", ads_id)
+
+
+async def on_paxlog_ads_completed(event: OpsFluxEvent) -> None:
+    """Auto-complete a linked Planner activity when the AdS is completed."""
+    payload = event.payload
+    ads_id = payload.get("ads_id")
+    entity_id = payload.get("entity_id")
+    if not ads_id:
+        return
+
+    try:
+        from sqlalchemy import select
+        from app.models.paxlog import Ads
+        from app.models.planner import PlannerActivity
+
+        async with async_session_factory() as db:
+            ads_row = (await db.execute(
+                select(Ads).where(Ads.id == UUID(str(ads_id)))
+            )).scalar_one_or_none()
+            if ads_row is None or ads_row.planner_activity_id is None:
+                return
+
+            activity = (await db.execute(
+                select(PlannerActivity).where(PlannerActivity.id == ads_row.planner_activity_id)
+            )).scalar_one_or_none()
+            if activity is None or activity.status in ("completed", "cancelled"):
+                return
+
+            activity.status = "completed"
+            if activity.actual_end is None:
+                activity.actual_end = datetime.now(timezone.utc)
+            await db.commit()
+
+            await event_bus.publish(OpsFluxEvent(
+                event_type="planner.activity.completed",
+                payload={
+                    "activity_id": str(activity.id),
+                    "entity_id": str(entity_id or ads_row.entity_id),
+                    "asset_id": str(activity.asset_id),
+                    "project_id": str(activity.project_id) if activity.project_id else None,
+                    "title": activity.title,
+                    "source": "ads.completed",
+                    "ads_id": str(ads_row.id),
+                },
+            ))
+            logger.info(
+                "ads.completed cascade: planner activity %s → completed (ads=%s)",
+                activity.id, ads_id,
+            )
+    except Exception:
+        logger.exception("Error in on_paxlog_ads_completed for ads=%s", ads_id)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1104,6 +1173,43 @@ async def on_workflow_transition(event: OpsFluxEvent) -> None:
     )
 
 
+async def on_workflow_transition_semantic_bridge(event: OpsFluxEvent) -> None:
+    """Republish selected workflow transitions under stable module-level aliases."""
+    payload = event.payload or {}
+    workflow_slug = payload.get("workflow_slug") or payload.get("definition_slug")
+    entity_type = payload.get("entity_type")
+    entity_id = payload.get("entity_id_ref") or payload.get("entity_id")
+    to_state = payload.get("to_state")
+    if not entity_id or not to_state:
+        return
+    bridge = WORKFLOW_SEMANTIC_BRIDGES.get((str(workflow_slug), str(entity_type)))
+    if not bridge:
+        return
+
+    state_filter = bridge.get("state_filter")
+    if isinstance(state_filter, set) and to_state not in state_filter:
+        return
+
+    bridge_payload = dict(payload)
+    payload_map = bridge.get("payload_map", {})
+    if isinstance(payload_map, dict):
+        for target_key, source_key in payload_map.items():
+            if source_key == "entity_id":
+                bridge_payload[target_key] = entity_id
+            else:
+                bridge_payload[target_key] = payload.get(str(source_key))
+
+    aliases = bridge.get("aliases", [])
+    if isinstance(aliases, list):
+        for alias in aliases:
+            if not isinstance(alias, str):
+                continue
+            await event_bus.publish(OpsFluxEvent(
+                event_type=alias.format(to_state=to_state),
+                payload=bridge_payload,
+            ))
+
+
 async def on_planner_activity_status_sync(event: OpsFluxEvent) -> None:
     """Sync Planner activity status back to source ProjectTask.
 
@@ -1170,17 +1276,24 @@ async def on_planner_activity_cancelled_bundle(event: OpsFluxEvent) -> None:
     await on_planner_activity_cancelled(event)
 
 
+async def on_planner_activity_completed_bundle(event: OpsFluxEvent) -> None:
+    """Execute all side effects attached to planner.activity.completed once."""
+    await on_planner_activity_status_sync(event)
+
+
 def register_module_handlers(event_bus: EventBus) -> None:
     """Register all inter-module event handlers."""
     # Planner events
     event_bus.subscribe("planner.activity.validated", on_planner_activity_validated_bundle)
     event_bus.subscribe("planner.activity.cancelled", on_planner_activity_cancelled_bundle)
+    event_bus.subscribe("planner.activity.completed", on_planner_activity_completed_bundle)
     event_bus.subscribe("planner.conflict.detected", on_planner_conflict_detected)
     # PaxLog → Planner: when an AdS actually starts, auto-mark the linked
     # planner activity as in_progress so the arbitration dashboard reflects
     # reality without the manager having to move it manually.
     event_bus.subscribe("ads.approved", on_ads_approved)
     event_bus.subscribe("ads.in_progress", on_paxlog_ads_in_progress)
+    event_bus.subscribe("ads.completed", on_paxlog_ads_completed)
     event_bus.subscribe("travelwiz.manifest.closed", on_travelwiz_manifest_closed)
     event_bus.subscribe("travelwiz.trip.closed", on_travelwiz_trip_closed)
     # Conformite & Projets events
@@ -1189,8 +1302,9 @@ def register_module_handlers(event_bus: EventBus) -> None:
     event_bus.subscribe("conformite.record.verified", on_compliance_record_verified)
     event_bus.subscribe("conformite.record.rejected", on_compliance_record_verified)
     event_bus.subscribe("conformite.record.expired", on_compliance_expired)
-    event_bus.subscribe("project.status.changed", on_project_status_changed)
+    event_bus.subscribe(PROJECT_STATUS_CHANGED_EVENT, on_project_status_changed)
     event_bus.subscribe("pax.credential.expiring", on_credential_expiring)
     # Generic FSM transition observability
-    event_bus.subscribe("workflow.transition", on_workflow_transition)
+    event_bus.subscribe(WORKFLOW_TRANSITION_EVENT, on_workflow_transition)
+    event_bus.subscribe(WORKFLOW_TRANSITION_EVENT, on_workflow_transition_semantic_bridge)
     logger.info("Inter-module event handlers registered (incl. FSM observer)")

@@ -56,6 +56,15 @@ export function WidgetSettingsKPI({ config, onChange }: WidgetSettingsKPIProps) 
           onChange={(v) => onChange({ format: v })}
         />
       </DynamicPanelField>
+      <DynamicPanelField label="Unite">
+        <input
+          type="text"
+          className={panelInputClass}
+          value={(config.unit as string) || ''}
+          onChange={(e) => onChange({ unit: e.target.value })}
+          placeholder="ex: /mois, PAX, XAF"
+        />
+      </DynamicPanelField>
       <DynamicPanelField label="Tendance (%)">
         <input
           type="number"

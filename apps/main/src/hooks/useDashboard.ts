@@ -113,6 +113,24 @@ const BUILTIN_CATALOG_ENTRIES: WidgetCatalogEntry[] = [
     source_module: 'core',
     roles: [],
   },
+  {
+    id: 'builtin:group',
+    type: 'group',
+    title: 'Groupe KPI',
+    description: 'Conteneur pour regrouper plusieurs mini-KPIs dans une seule carte (2x2, 3x1, 1x4)',
+    permissions: [],
+    default_config: {
+      layout: '2x2',
+      children: [
+        { title: 'KPI 1', value: 0, format: 'number' },
+        { title: 'KPI 2', value: 0, format: 'number' },
+        { title: 'KPI 3', value: 0, format: 'number' },
+        { title: 'KPI 4', value: 0, format: 'number' },
+      ],
+    },
+    source_module: 'core',
+    roles: [],
+  },
 ]
 
 export function useWidgetCatalog() {

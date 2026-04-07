@@ -8,6 +8,7 @@ from app.api.routes.core.workflow import _validate_definition_structure
 from app.api.routes.modules.paxlog import ADS_WORKFLOW_SLUG
 from app.api.routes.modules.planner import PLANNER_WORKFLOW_SLUG
 from app.api.routes.modules.travelwiz import VOYAGE_WORKFLOW_SLUG
+from app.core.event_contracts import WORKFLOW_TRANSITION_EVENT, workflow_status_changed_event_names
 from app.services.core.fsm_service import fsm_service
 from app.services.core.seed_service import _default_workflow_definitions
 
@@ -167,8 +168,9 @@ async def test_emit_transition_event_also_publishes_generic_workflow_transition(
 
     event_types = [event.event_type for event in published]
     assert "ads.pending_compliance" in event_types
-    assert "workflow.transition" in event_types
-    assert "ads.status_changed" in event_types
+    assert WORKFLOW_TRANSITION_EVENT in event_types
+    for event_name in workflow_status_changed_event_names("ads"):
+        assert event_name in event_types
 
 
 @pytest.mark.asyncio

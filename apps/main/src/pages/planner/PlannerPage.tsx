@@ -18,6 +18,7 @@ import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePageSize } from '@/hooks/usePageSize'
+import { useDictionaryLabels } from '@/hooks/useDictionary'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import { useUIStore } from '@/stores/uiStore'
 import {
@@ -96,58 +97,94 @@ const TABS: { id: PlannerTab; label: string; icon: typeof CalendarRange }[] = [
 
 // ── Constants ─────────────────────────────────────────────────
 
-const ACTIVITY_STATUS_OPTIONS = [
-  { value: '', label: 'Tous' },
-  { value: 'draft', label: 'Brouillon' },
-  { value: 'submitted', label: 'Soumis' },
-  { value: 'validated', label: 'Valide' },
-  { value: 'in_progress', label: 'En cours' },
-  { value: 'completed', label: 'Terminé' },
-  { value: 'rejected', label: 'Rejete' },
-  { value: 'cancelled', label: 'Annulé' },
-]
+const PLANNER_ACTIVITY_STATUS_VALUES = ['draft', 'submitted', 'validated', 'in_progress', 'completed', 'rejected', 'cancelled'] as const
+const PLANNER_ACTIVITY_TYPE_VALUES = ['project', 'workover', 'drilling', 'integrity', 'maintenance', 'permanent_ops', 'inspection', 'event'] as const
+const PLANNER_PRIORITY_VALUES = ['low', 'medium', 'high', 'critical'] as const
+const PLANNER_CONFLICT_STATUS_VALUES = ['open', 'resolved', 'deferred'] as const
+const PLANNER_RESOLUTION_VALUES = ['approve_both', 'reschedule', 'reduce_pax', 'cancel', 'deferred'] as const
+const PLANNER_DEP_TYPE_VALUES = ['FS', 'SS', 'FF'] as const
 
-const ACTIVITY_STATUS_MAP: Record<string, { label: string; badge: string }> = {
-  draft: { label: 'Brouillon', badge: 'gl-badge-neutral' },
-  submitted: { label: 'Soumis', badge: 'gl-badge-info' },
-  validated: { label: 'Valide', badge: 'gl-badge-success' },
-  rejected: { label: 'Rejete', badge: 'gl-badge-danger' },
-  in_progress: { label: 'En cours', badge: 'gl-badge-warning' },
-  completed: { label: 'Terminé', badge: 'gl-badge-success' },
-  cancelled: { label: 'Annulé', badge: 'gl-badge-neutral' },
+const ACTIVITY_STATUS_LABELS_FALLBACK: Record<string, string> = {
+  draft: 'Brouillon',
+  submitted: 'Soumis',
+  validated: 'Validé',
+  in_progress: 'En cours',
+  completed: 'Terminé',
+  rejected: 'Rejeté',
+  cancelled: 'Annulé',
 }
 
-const ACTIVITY_TYPE_MAP: Record<string, { label: string; badge: string; icon: typeof Wrench }> = {
-  project: { label: 'Projet', badge: 'gl-badge-info', icon: ListTodo },
-  workover: { label: 'Workover', badge: 'gl-badge-warning', icon: Wrench },
-  drilling: { label: 'Forage', badge: 'gl-badge-danger', icon: Drill },
-  integrity: { label: 'Integrite', badge: 'gl-badge-success', icon: Shield },
-  maintenance: { label: 'Maintenance', badge: 'gl-badge-warning', icon: HardHat },
-  permanent_ops: { label: 'Ops permanentes', badge: 'gl-badge-neutral', icon: Gauge },
-  inspection: { label: 'Inspection', badge: 'gl-badge-info', icon: Eye },
-  event: { label: 'Evenement', badge: 'gl-badge-neutral', icon: Calendar },
+const ACTIVITY_STATUS_BADGES: Record<string, string> = {
+  draft: 'gl-badge-neutral',
+  submitted: 'gl-badge-info',
+  validated: 'gl-badge-success',
+  rejected: 'gl-badge-danger',
+  in_progress: 'gl-badge-warning',
+  completed: 'gl-badge-success',
+  cancelled: 'gl-badge-neutral',
 }
 
-const PRIORITY_MAP: Record<string, { label: string; cls: string }> = {
-  low: { label: 'Basse', cls: 'text-muted-foreground' },
-  medium: { label: 'Moyenne', cls: 'text-foreground' },
-  high: { label: 'Haute', cls: 'text-amber-600 dark:text-amber-400' },
-  critical: { label: 'Critique', cls: 'text-destructive font-semibold' },
+const ACTIVITY_TYPE_LABELS_FALLBACK: Record<string, string> = {
+  project: 'Projet',
+  workover: 'Workover',
+  drilling: 'Forage',
+  integrity: 'Intégrité',
+  maintenance: 'Maintenance',
+  permanent_ops: 'Ops permanentes',
+  inspection: 'Inspection',
+  event: 'Événement',
 }
 
-const CONFLICT_STATUS_MAP: Record<string, { label: string; badge: string }> = {
-  open: { label: 'Ouvert', badge: 'gl-badge-danger' },
-  resolved: { label: 'Resolu', badge: 'gl-badge-success' },
-  deferred: { label: 'Differe', badge: 'gl-badge-warning' },
+const ACTIVITY_TYPE_META: Record<string, { badge: string; icon: typeof Wrench }> = {
+  project: { badge: 'gl-badge-info', icon: ListTodo },
+  workover: { badge: 'gl-badge-warning', icon: Wrench },
+  drilling: { badge: 'gl-badge-danger', icon: Drill },
+  integrity: { badge: 'gl-badge-success', icon: Shield },
+  maintenance: { badge: 'gl-badge-warning', icon: HardHat },
+  permanent_ops: { badge: 'gl-badge-neutral', icon: Gauge },
+  inspection: { badge: 'gl-badge-info', icon: Eye },
+  event: { badge: 'gl-badge-neutral', icon: Calendar },
 }
 
-const RESOLUTION_OPTIONS = [
-  { value: 'approve_both', label: 'Approuver les deux' },
-  { value: 'reschedule', label: 'Replanifier' },
-  { value: 'reduce_pax', label: 'Reduire PAX' },
-  { value: 'cancel', label: 'Annuler une activite' },
-  { value: 'deferred', label: 'Reporter la decision' },
-]
+const PRIORITY_LABELS_FALLBACK: Record<string, string> = {
+  low: 'Basse',
+  medium: 'Moyenne',
+  high: 'Haute',
+  critical: 'Critique',
+}
+
+const PRIORITY_CLASS_MAP: Record<string, string> = {
+  low: 'text-muted-foreground',
+  medium: 'text-foreground',
+  high: 'text-amber-600 dark:text-amber-400',
+  critical: 'text-destructive font-semibold',
+}
+
+const CONFLICT_STATUS_LABELS_FALLBACK: Record<string, string> = {
+  open: 'Ouvert',
+  resolved: 'Résolu',
+  deferred: 'Différé',
+}
+
+const CONFLICT_STATUS_BADGES: Record<string, string> = {
+  open: 'gl-badge-danger',
+  resolved: 'gl-badge-success',
+  deferred: 'gl-badge-warning',
+}
+
+const RESOLUTION_LABELS_FALLBACK: Record<string, string> = {
+  approve_both: 'Approuver les deux',
+  reschedule: 'Replanifier',
+  reduce_pax: 'Réduire PAX',
+  cancel: 'Annuler une activité',
+  deferred: 'Reporter la décision',
+}
+
+const DEP_TYPE_LABELS_FALLBACK: Record<string, string> = {
+  FS: 'Fin-Début (FS)',
+  SS: 'Début-Début (SS)',
+  FF: 'Fin-Fin (FF)',
+}
 
 const ACTIVITY_TYPE_COLORS: Record<string, string> = {
   project: '#3b82f6',
@@ -162,13 +199,19 @@ const ACTIVITY_TYPE_COLORS: Record<string, string> = {
 
 // ── Helpers ───────────────────────────────────────────────────
 
-function StatusBadge({ status, map }: { status: string; map: Record<string, { label: string; badge: string }> }) {
-  const entry = map[status]
+function StatusBadge({ status, labels, badges }: { status: string; labels: Record<string, string>; badges: Record<string, string> }) {
   return (
-    <span className={cn('gl-badge', entry?.badge || 'gl-badge-neutral')}>
-      {entry?.label || status.replace(/_/g, ' ')}
+    <span className={cn('gl-badge', badges[status] || 'gl-badge-neutral')}>
+      {labels[status] || status.replace(/_/g, ' ')}
     </span>
   )
+}
+
+function buildDictionaryOptions(labels: Record<string, string>, values: readonly string[], allLabel?: string) {
+  return [
+    ...(allLabel ? [{ value: '', label: allLabel }] : []),
+    ...values.map((value) => ({ value, label: labels[value] ?? value })),
+  ]
 }
 
 function formatDateShort(d: string | null | undefined) {
@@ -242,6 +285,10 @@ type TimeUnit = 'week' | 'month' | 'quarter'
 /* @ts-expect-error keeping code for reference */
 function _GanttTabLegacy() { // eslint-disable-line
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const activityTypeLabels = useDictionaryLabels('planner_activity_type', ACTIVITY_TYPE_LABELS_FALLBACK)
+  const activityStatusLabels = useDictionaryLabels('planner_activity_status', ACTIVITY_STATUS_LABELS_FALLBACK)
+  const activityTypeOptions = useMemo(() => buildDictionaryOptions(activityTypeLabels, PLANNER_ACTIVITY_TYPE_VALUES), [activityTypeLabels])
+  const activityStatusOptions = useMemo(() => buildDictionaryOptions(activityStatusLabels, PLANNER_ACTIVITY_STATUS_VALUES, 'Tous'), [activityStatusLabels])
 
   const [timeUnit, setTimeUnit] = useState<TimeUnit>('month')
   const [typeFilter, setTypeFilter] = useState('')
@@ -339,8 +386,8 @@ function _GanttTabLegacy() { // eslint-disable-line
           className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
         >
           <option value="">Tous types</option>
-          {Object.entries(ACTIVITY_TYPE_MAP).map(([k, v]) => (
-            <option key={k} value={k}>{v.label}</option>
+          {activityTypeOptions.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
         <select
@@ -348,7 +395,7 @@ function _GanttTabLegacy() { // eslint-disable-line
           onChange={(e) => setStatusFilter(e.target.value)}
           className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
         >
-          {ACTIVITY_STATUS_OPTIONS.map((o) => (
+          {activityStatusOptions.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
@@ -547,6 +594,11 @@ function ActivitiesTab() {
   const { hasPermission } = usePermission()
   const canDelete = hasPermission('planner.activity.delete')
   const canExport = hasPermission('planner.activity.read')
+  const activityStatusLabels = useDictionaryLabels('planner_activity_status', ACTIVITY_STATUS_LABELS_FALLBACK)
+  const activityTypeLabels = useDictionaryLabels('planner_activity_type', ACTIVITY_TYPE_LABELS_FALLBACK)
+  const priorityLabels = useDictionaryLabels('planner_activity_priority', PRIORITY_LABELS_FALLBACK)
+  const activityStatusOptions = useMemo(() => buildDictionaryOptions(activityStatusLabels, PLANNER_ACTIVITY_STATUS_VALUES, 'Tous'), [activityStatusLabels])
+  const activityTypeOptions = useMemo(() => buildDictionaryOptions(activityTypeLabels, PLANNER_ACTIVITY_TYPE_VALUES), [activityTypeLabels])
 
   const { data, isLoading } = useActivities({
     page,
@@ -593,12 +645,12 @@ function ActivitiesTab() {
       header: 'Type',
       size: 130,
       cell: ({ row }) => {
-        const t = ACTIVITY_TYPE_MAP[row.original.type]
+        const t = ACTIVITY_TYPE_META[row.original.type]
         const TIcon = t?.icon || ListTodo
         return (
           <span className={cn('gl-badge inline-flex items-center gap-1', t?.badge || 'gl-badge-neutral')}>
             <TIcon size={10} />
-            {t?.label || row.original.type}
+            {activityTypeLabels[row.original.type] || row.original.type}
           </span>
         )
       },
@@ -607,14 +659,7 @@ function ActivitiesTab() {
       accessorKey: 'priority',
       header: 'Priorité',
       size: 90,
-      cell: ({ row }) => {
-        const p = PRIORITY_MAP[row.original.priority]
-        return (
-          <span className={cn('text-xs font-medium', p?.cls || 'text-muted-foreground')}>
-            {p?.label || row.original.priority}
-          </span>
-        )
-      },
+      cell: ({ row }) => <span className={cn('text-xs font-medium', PRIORITY_CLASS_MAP[row.original.priority] || 'text-muted-foreground')}>{priorityLabels[row.original.priority] || row.original.priority}</span>,
     },
     {
       accessorKey: 'pax_quota',
@@ -651,7 +696,7 @@ function ActivitiesTab() {
       accessorKey: 'status',
       header: 'Statut',
       size: 110,
-      cell: ({ row }) => <StatusBadge status={row.original.status} map={ACTIVITY_STATUS_MAP} />,
+      cell: ({ row }) => <StatusBadge status={row.original.status} labels={activityStatusLabels} badges={ACTIVITY_STATUS_BADGES} />,
     },
     {
       id: 'actions',
@@ -719,7 +764,7 @@ function ActivitiesTab() {
         )
       },
     },
-  ], [deleteActivity, submitActivity, validateActivity, rejectActivity, cancelActivity, handleAction, canDelete])
+  ], [activityStatusLabels, activityTypeLabels, canDelete, cancelActivity, deleteActivity, handleAction, priorityLabels, rejectActivity, submitActivity, validateActivity])
 
   return (
     <>
@@ -734,7 +779,7 @@ function ActivitiesTab() {
       {/* Filter bar */}
       <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
         <div className="flex items-center gap-1 overflow-x-auto">
-          {ACTIVITY_STATUS_OPTIONS.map((opt) => (
+          {activityStatusOptions.map((opt) => (
             <button
               key={opt.value}
               onClick={() => { setStatusFilter(opt.value); setPage(1) }}
@@ -753,8 +798,8 @@ function ActivitiesTab() {
           className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary ml-1"
         >
           <option value="">Tous types</option>
-          {Object.entries(ACTIVITY_TYPE_MAP).map(([k, v]) => (
-            <option key={k} value={k}>{v.label}</option>
+          {activityTypeOptions.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
         {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{total} activites</span>}
@@ -801,6 +846,10 @@ function ConflitsTab() {
   const { pageSize } = usePageSize()
   const [statusFilter, setStatusFilter] = useState('')
   const resolveConflict = useResolveConflict()
+  const conflictStatusLabels = useDictionaryLabels('planner_conflict_status', CONFLICT_STATUS_LABELS_FALLBACK)
+  const resolutionLabels = useDictionaryLabels('planner_conflict_resolution', RESOLUTION_LABELS_FALLBACK)
+  const conflictStatusOptions = useMemo(() => buildDictionaryOptions(conflictStatusLabels, PLANNER_CONFLICT_STATUS_VALUES, 'Tous'), [conflictStatusLabels])
+  const resolutionOptions = useMemo(() => buildDictionaryOptions(resolutionLabels, PLANNER_RESOLUTION_VALUES), [resolutionLabels])
 
   const { data, isLoading } = useConflicts({
     page,
@@ -829,13 +878,6 @@ function ConflitsTab() {
       { onSuccess: () => { setResolveModal(null); setResolution(''); setResolutionNote('') } },
     )
   }, [resolveModal, resolution, resolutionNote, resolveConflict])
-
-  const CONFLICT_STATUS_OPTIONS = [
-    { value: '', label: 'Tous' },
-    { value: 'open', label: 'Ouverts' },
-    { value: 'resolved', label: 'Resolus' },
-    { value: 'deferred', label: 'Differes' },
-  ]
 
   const columns = useMemo<ColumnDef<PlannerConflict, unknown>[]>(() => [
     {
@@ -876,15 +918,14 @@ function ConflitsTab() {
       size: 140,
       cell: ({ row }) => {
         if (!row.original.resolution) return <span className="text-xs text-muted-foreground">{'—'}</span>
-        const opt = RESOLUTION_OPTIONS.find((o) => o.value === row.original.resolution)
-        return <span className="text-xs text-muted-foreground">{opt?.label || row.original.resolution}</span>
+        return <span className="text-xs text-muted-foreground">{resolutionLabels[row.original.resolution] || row.original.resolution}</span>
       },
     },
     {
       accessorKey: 'status',
       header: 'Statut',
       size: 100,
-      cell: ({ row }) => <StatusBadge status={row.original.status} map={CONFLICT_STATUS_MAP} />,
+      cell: ({ row }) => <StatusBadge status={row.original.status} labels={conflictStatusLabels} badges={CONFLICT_STATUS_BADGES} />,
     },
     {
       id: 'actions',
@@ -906,7 +947,7 @@ function ConflitsTab() {
         )
       },
     },
-  ], [resolveConflict.isPending])
+  ], [conflictStatusLabels, resolutionLabels, resolveConflict.isPending])
 
   return (
     <>
@@ -921,7 +962,7 @@ function ConflitsTab() {
       {/* Filter bar */}
       <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
         <div className="flex items-center gap-1 overflow-x-auto">
-          {CONFLICT_STATUS_OPTIONS.map((opt) => (
+          {conflictStatusOptions.map((opt) => (
             <button
               key={opt.value}
               onClick={() => { setStatusFilter(opt.value); setPage(1) }}
@@ -963,7 +1004,7 @@ function ConflitsTab() {
                 className="w-full h-8 px-2 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="">Choisir...</option>
-                {RESOLUTION_OPTIONS.map((o) => (
+                {resolutionOptions.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
@@ -1534,30 +1575,6 @@ export function PlannerPage() {
 
 // ── Activity Detail Panel ──────────────────────────────────────
 
-const ACTIVITY_TYPE_OPTIONS = [
-  { value: 'project', label: 'Projet' },
-  { value: 'workover', label: 'Workover' },
-  { value: 'drilling', label: 'Forage' },
-  { value: 'integrity', label: 'Integrite' },
-  { value: 'maintenance', label: 'Maintenance' },
-  { value: 'permanent_ops', label: 'Ops permanentes' },
-  { value: 'inspection', label: 'Inspection' },
-  { value: 'event', label: 'Evenement' },
-]
-
-const PRIORITY_OPTIONS = [
-  { value: 'low', label: 'Basse' },
-  { value: 'medium', label: 'Moyenne' },
-  { value: 'high', label: 'Haute' },
-  { value: 'critical', label: 'Critique' },
-]
-
-const DEP_TYPE_OPTIONS = [
-  { value: 'FS', label: 'Fin-Debut (FS)' },
-  { value: 'SS', label: 'Debut-Debut (SS)' },
-  { value: 'FF', label: 'Fin-Fin (FF)' },
-]
-
 function ActivityDetailPanel({ id }: { id: string }) {
   const { toast } = useToast()
   const promptInput = usePromptInput()
@@ -1579,6 +1596,13 @@ function ActivityDetailPanel({ id }: { id: string }) {
   const { hasPermission } = usePermission()
   const canUpdate = hasPermission('planner.activity.update')
   const canDelete = hasPermission('planner.activity.delete')
+  const activityTypeLabels = useDictionaryLabels('planner_activity_type', ACTIVITY_TYPE_LABELS_FALLBACK)
+  const priorityLabels = useDictionaryLabels('planner_activity_priority', PRIORITY_LABELS_FALLBACK)
+  const activityStatusLabels = useDictionaryLabels('planner_activity_status', ACTIVITY_STATUS_LABELS_FALLBACK)
+  const dependencyTypeLabels = useDictionaryLabels('planner_dependency_type', DEP_TYPE_LABELS_FALLBACK)
+  const activityTypeOptions = useMemo(() => buildDictionaryOptions(activityTypeLabels, PLANNER_ACTIVITY_TYPE_VALUES), [activityTypeLabels])
+  const priorityOptions = useMemo(() => buildDictionaryOptions(priorityLabels, PLANNER_PRIORITY_VALUES), [priorityLabels])
+  const dependencyTypeOptions = useMemo(() => buildDictionaryOptions(dependencyTypeLabels, PLANNER_DEP_TYPE_VALUES), [dependencyTypeLabels])
 
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<Record<string, unknown>>({})
@@ -1851,14 +1875,14 @@ function ActivityDetailPanel({ id }: { id: string }) {
     </>
   )
 
-  const typeEntry = ACTIVITY_TYPE_MAP[tp]
-  const priorityEntry = PRIORITY_MAP[activity.priority]
-  const statusEntry = ACTIVITY_STATUS_MAP[st]
+  const typeEntry = ACTIVITY_TYPE_META[tp]
+  const priorityEntry = { label: priorityLabels[activity.priority] ?? activity.priority, cls: PRIORITY_CLASS_MAP[activity.priority] || 'text-muted-foreground' }
+  const statusEntry = { label: activityStatusLabels[st] ?? st, badge: ACTIVITY_STATUS_BADGES[st] || 'gl-badge-neutral' }
 
   return (
     <DynamicPanelShell
       title={activity.title}
-      subtitle={typeEntry?.label || tp}
+      subtitle={activityTypeLabels[tp] || tp}
       icon={<CalendarRange size={14} className="text-primary" />}
       actions={actionButtons}
     >
@@ -1882,7 +1906,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                     onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
                     className={panelInputClass}
                   >
-                    {ACTIVITY_TYPE_OPTIONS.map((o) => (
+                    {activityTypeOptions.map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
                     ))}
                   </select>
@@ -1901,7 +1925,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                     onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })}
                     className={panelInputClass}
                   >
-                    {PRIORITY_OPTIONS.map((o) => (
+                    {priorityOptions.map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
                     ))}
                   </select>
@@ -2027,7 +2051,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                     label="Type"
                     value={
                       <span className={cn('gl-badge inline-flex items-center gap-1', typeEntry?.badge || 'gl-badge-neutral')}>
-                        {typeEntry?.label || tp}
+                        {activityTypeLabels[tp] || tp}
                       </span>
                     }
                   />
@@ -2185,7 +2209,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                           onChange={(e) => setDepForm({ ...depForm, dependency_type: e.target.value })}
                           className={panelInputClass}
                         >
-                          {DEP_TYPE_OPTIONS.map((o) => (
+                          {dependencyTypeOptions.map((o) => (
                             <option key={o.value} value={o.value}>{o.label}</option>
                           ))}
                         </select>
@@ -2314,7 +2338,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                         onChange={(e) => setPriorityOverrideForm({ ...priorityOverrideForm, priority: e.target.value })}
                         className={panelInputClass}
                       >
-                        {PRIORITY_OPTIONS.map((o) => (
+                        {priorityOptions.map((o) => (
                           <option key={o.value} value={o.value}>{o.label}</option>
                         ))}
                       </select>
@@ -2427,6 +2451,10 @@ function CreateActivityPanel() {
   const { toast } = useToast()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createActivity = useCreateActivity()
+  const activityTypeLabels = useDictionaryLabels('planner_activity_type', ACTIVITY_TYPE_LABELS_FALLBACK)
+  const priorityLabels = useDictionaryLabels('planner_activity_priority', PRIORITY_LABELS_FALLBACK)
+  const activityTypeOptions = useMemo(() => buildDictionaryOptions(activityTypeLabels, PLANNER_ACTIVITY_TYPE_VALUES), [activityTypeLabels])
+  const priorityOptions = useMemo(() => buildDictionaryOptions(priorityLabels, PLANNER_PRIORITY_VALUES), [priorityLabels])
 
   const [form, setForm] = useState<PlannerActivityCreate>({
     asset_id: '',
@@ -2518,7 +2546,7 @@ function CreateActivityPanel() {
                   onChange={(e) => setForm({ ...form, type: e.target.value })}
                   className={panelInputClass}
                 >
-                  {ACTIVITY_TYPE_OPTIONS.map((o) => (
+                  {activityTypeOptions.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
@@ -2538,7 +2566,7 @@ function CreateActivityPanel() {
                   onChange={(e) => setForm({ ...form, priority: e.target.value })}
                   className={panelInputClass}
                 >
-                  {PRIORITY_OPTIONS.map((o) => (
+                  {priorityOptions.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>

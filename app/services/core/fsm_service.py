@@ -23,6 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
+from app.core.event_contracts import WORKFLOW_TRANSITION_EVENT, workflow_status_changed_event_names
 from app.core.events import OpsFluxEvent, event_bus
 from app.core.rbac import get_user_permissions
 from app.models.common import (
@@ -348,15 +349,25 @@ class FSMService:
         """Emit a transition event AFTER the caller has committed.
 
         Must be called AFTER db.commit() — never inside a transaction (D-004).
-        Event name format: {entity_type}.{to_state} (e.g., ads.approved, project.active)
+        Event contract:
+        - Always emit `{entity_type}.{to_state}` for direct FSM consumers.
+        - Always emit `workflow.transition` as the generic orchestration spine.
+        - Emit both `{entity_type}.status_changed` and `{entity_type}.status.changed`
+          as compatibility aliases for modules still consuming one naming style.
+
+        Domain-specific business events with richer payloads should still be
+        emitted separately by route/service code when downstream modules depend
+        on module semantics rather than raw workflow state changes.
         """
         payload = {
             "entity_type": entity_type,
             "entity_id": entity_id,
+            "entity_id_ref": entity_id,
             "from_state": from_state,
             "to_state": to_state,
             "actor_id": str(actor_id),
             "workflow_slug": workflow_slug,
+            "definition_slug": workflow_slug,
         }
         if extra_payload:
             payload.update(extra_payload)
@@ -369,16 +380,18 @@ class FSMService:
 
         # Also emit a generic transition event
         generic_event = OpsFluxEvent(
-            event_type="workflow.transition",
+            event_type=WORKFLOW_TRANSITION_EVENT,
             payload=payload,
         )
         await event_bus.publish(generic_event)
 
-        status_changed_event = OpsFluxEvent(
-            event_type=f"{entity_type}.status_changed",
-            payload=payload,
-        )
-        await event_bus.publish(status_changed_event)
+        for status_changed_event_name in workflow_status_changed_event_names(entity_type):
+            await event_bus.publish(
+                OpsFluxEvent(
+                    event_type=status_changed_event_name,
+                    payload=payload,
+                )
+            )
 
     # ── Query helpers ──────────────────────────────────────────────────
 

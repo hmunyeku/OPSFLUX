@@ -23,6 +23,8 @@ export interface WorkflowEdgeDef {
   condition_expression?: string
   required_role?: string
   required_roles?: string[]
+  required_permission?: string
+  comment_required?: boolean
   assignee?: Record<string, unknown>
   sla_hours?: number
   trigger?: 'human' | 'auto'
@@ -39,6 +41,7 @@ export interface WorkflowDefinition {
   status: 'draft' | 'published' | 'archived'
   version: number
   active: boolean
+  structure_locked?: boolean
   // Visual editor data (computed fields from backend)
   nodes: WorkflowNodeDef[]
   edges: WorkflowEdgeDef[]
@@ -61,6 +64,7 @@ export interface WorkflowDefinitionSummary {
   status: 'draft' | 'published' | 'archived'
   version: number
   active: boolean
+  structure_locked?: boolean
   node_count: number
   edge_count: number
   created_by: string | null
@@ -122,6 +126,7 @@ export interface WorkflowStats {
 interface DefinitionListParams extends PaginationParams {
   status?: string
   search?: string
+  entity_type?: string
 }
 
 interface InstanceListParams extends PaginationParams {
@@ -137,7 +142,13 @@ export const workflowService = {
   // ── Definitions ──
 
   listDefinitions: async (params: DefinitionListParams = {}): Promise<PaginatedResponse<WorkflowDefinitionSummary>> => {
-    const { data } = await api.get('/api/v1/workflow/definitions', { params })
+    const { status, ...rest } = params
+    const { data } = await api.get('/api/v1/workflow/definitions', {
+      params: {
+        ...rest,
+        status_filter: status,
+      },
+    })
     return data
   },
 
@@ -151,7 +162,15 @@ export const workflowService = {
     return data
   },
 
-  updateDefinition: async (id: string, payload: Partial<WorkflowDefinitionCreate & { nodes: WorkflowNodeDef[]; edges: WorkflowEdgeDef[] }>): Promise<WorkflowDefinition> => {
+  updateDefinition: async (
+    id: string,
+    payload: Partial<WorkflowDefinitionCreate & {
+      nodes: WorkflowNodeDef[]
+      edges: WorkflowEdgeDef[]
+      states: unknown
+      transitions: unknown
+    }>,
+  ): Promise<WorkflowDefinition> => {
     const { data } = await api.put(`/api/v1/workflow/definitions/${id}`, payload)
     return data
   },

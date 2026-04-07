@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.events import OpsFluxEvent, event_bus
 from app.services.modules import compliance_service
-from app.services.core.fsm_service import fsm_service
+from app.services.core.fsm_service import fsm_service, FSMError
 from app.models.common import Address, Setting, TierContact, User
 from app.models.paxlog import (
     Ads,
@@ -41,6 +41,46 @@ from app.models.paxlog import (
 )
 
 logger = logging.getLogger(__name__)
+AVM_WORKFLOW_SLUG = "avm-workflow"
+AVM_ENTITY_TYPE = "avm"
+
+
+async def _try_avm_workflow_transition(
+    db: AsyncSession,
+    *,
+    avm: MissionNotice,
+    to_state: str,
+    actor_id: UUID,
+) -> None:
+    try:
+        instance = await fsm_service.get_instance(
+            db,
+            entity_type=AVM_ENTITY_TYPE,
+            entity_id=str(avm.id),
+        )
+        if not instance:
+            await fsm_service.get_or_create_instance(
+                db,
+                workflow_slug=AVM_WORKFLOW_SLUG,
+                entity_type=AVM_ENTITY_TYPE,
+                entity_id=str(avm.id),
+                initial_state=avm.status,
+                entity_id_scope=avm.entity_id,
+                created_by=actor_id,
+            )
+        await fsm_service.transition(
+            db,
+            workflow_slug=AVM_WORKFLOW_SLUG,
+            entity_type=AVM_ENTITY_TYPE,
+            entity_id=str(avm.id),
+            to_state=to_state,
+            actor_id=actor_id,
+            entity_id_scope=avm.entity_id,
+            skip_role_check=True,
+        )
+    except FSMError as exc:
+        if "not found" not in str(exc).lower():
+            raise
 
 # ── Priority scoring weights ────────────────────────────────────────────────
 
@@ -1569,9 +1609,25 @@ async def submit_avm(
     prep_summary = _summarize_preparation_tasks(tasks_to_create)
 
     # ── Transition to in_preparation / ready ─────────────────────
-    avm.status = "ready" if prep_summary["ready_for_approval"] else "in_preparation"
+    previous_status = avm.status
+    next_status = "ready" if prep_summary["ready_for_approval"] else "in_preparation"
+    await _try_avm_workflow_transition(
+        db,
+        avm=avm,
+        to_state=next_status,
+        actor_id=user_id,
+    )
+    avm.status = next_status
     await db.commit()
     await db.refresh(avm)
+    await fsm_service.emit_transition_event(
+        entity_type=AVM_ENTITY_TYPE,
+        entity_id=str(avm.id),
+        from_state=previous_status,
+        to_state=avm.status,
+        actor_id=user_id,
+        workflow_slug=AVM_WORKFLOW_SLUG,
+    )
 
     # ── Emit event ───────────────────────────────────────────────
     await event_bus.publish(OpsFluxEvent(
@@ -1700,9 +1756,24 @@ async def approve_avm(
                 ads_creation_task_index += 1
             ads_created_count += 1
 
+    previous_status = avm.status
+    await _try_avm_workflow_transition(
+        db,
+        avm=avm,
+        to_state="active",
+        actor_id=user_id,
+    )
     avm.status = "active"
     await db.commit()
     await db.refresh(avm)
+    await fsm_service.emit_transition_event(
+        entity_type=AVM_ENTITY_TYPE,
+        entity_id=str(avm.id),
+        from_state=previous_status,
+        to_state=avm.status,
+        actor_id=user_id,
+        workflow_slug=AVM_WORKFLOW_SLUG,
+    )
 
     # Emit event
     await event_bus.publish(OpsFluxEvent(
@@ -1795,9 +1866,24 @@ async def complete_avm(
                 + ", ".join(non_terminal_ads)
             )
 
+    previous_status = avm.status
+    await _try_avm_workflow_transition(
+        db,
+        avm=avm,
+        to_state="completed",
+        actor_id=user_id,
+    )
     avm.status = "completed"
     await db.commit()
     await db.refresh(avm)
+    await fsm_service.emit_transition_event(
+        entity_type=AVM_ENTITY_TYPE,
+        entity_id=str(avm.id),
+        from_state=previous_status,
+        to_state=avm.status,
+        actor_id=user_id,
+        workflow_slug=AVM_WORKFLOW_SLUG,
+    )
 
     await event_bus.publish(OpsFluxEvent(
         event_type="paxlog.mission_notice.completed",

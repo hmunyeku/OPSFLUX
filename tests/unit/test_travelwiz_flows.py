@@ -520,6 +520,7 @@ async def test_get_voyage_cargo_operations_report_aggregates_returns(monkeypatch
         id=cargo_id,
         entity_id=entity_id,
         manifest_id=uuid4(),
+        request_id=None,
         tracking_code="CGO-100",
         designation="Kit valves",
         description="Kit valves",
@@ -999,12 +1000,25 @@ async def test_update_cargo_workflow_status_records_audit(monkeypatch):
     )
     db = FakeDB([FakeResult(all_rows=[])])
     audits = []
+    transition_events = []
 
     async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
         return cargo
 
     async def fake_record_audit(_db, **kwargs):
         audits.append(kwargs)
+
+    async def fake_get_instance(*_args, **_kwargs):
+        return None
+
+    async def fake_get_or_create_instance(*_args, **_kwargs):
+        return SimpleNamespace(current_state="draft")
+
+    async def fake_transition(*_args, **_kwargs):
+        return SimpleNamespace(current_state="draft")
+
+    async def fake_emit_transition_event(**kwargs):
+        transition_events.append(kwargs)
 
     async def fake_build_cargo_read_data(_db, _cargo):
         return {
@@ -1037,6 +1051,10 @@ async def test_update_cargo_workflow_status_records_audit(monkeypatch):
     monkeypatch.setattr(travelwiz_routes, "_get_cargo_or_404", fake_get_cargo_or_404)
     monkeypatch.setattr(travelwiz_routes, "record_audit", fake_record_audit)
     monkeypatch.setattr(travelwiz_routes, "_build_cargo_read_data", fake_build_cargo_read_data)
+    monkeypatch.setattr(travelwiz_routes.fsm_service, "get_instance", fake_get_instance)
+    monkeypatch.setattr(travelwiz_routes.fsm_service, "get_or_create_instance", fake_get_or_create_instance)
+    monkeypatch.setattr(travelwiz_routes.fsm_service, "transition", fake_transition)
+    monkeypatch.setattr(travelwiz_routes.fsm_service, "emit_transition_event", fake_emit_transition_event)
 
     result = await travelwiz_routes.update_cargo_workflow_status(
         cargo_id=cargo_id,
@@ -1052,6 +1070,7 @@ async def test_update_cargo_workflow_status_records_audit(monkeypatch):
     assert audits and audits[0]["action"] == "travelwiz.cargo.workflow_status"
     assert audits[0]["details"]["from_status"] == "draft"
     assert audits[0]["details"]["to_status"] == "approved"
+    assert transition_events and transition_events[0]["to_state"] == "approved"
 
 
 @pytest.mark.asyncio
@@ -1490,10 +1509,11 @@ async def test_apply_cargo_request_loading_option_assigns_request_children(monke
         request_code="CGR-2026-00021",
     )
     voyage = SimpleNamespace(id=voyage_id, code="VYG-2026-00041")
-    cargo_a = SimpleNamespace(tracking_code="CGO-1", manifest_id=None, planned_zone_id=None, workflow_status="approved", active=True)
-    cargo_b = SimpleNamespace(tracking_code="CGO-2", manifest_id=None, planned_zone_id=None, workflow_status="assigned", active=True)
+    cargo_a = SimpleNamespace(id=uuid4(), tracking_code="CGO-1", manifest_id=None, planned_zone_id=None, workflow_status="approved", active=True)
+    cargo_b = SimpleNamespace(id=uuid4(), tracking_code="CGO-2", manifest_id=None, planned_zone_id=None, workflow_status="assigned", active=True)
     db = FakeDB([FakeResult(all_rows=[cargo_a, cargo_b])])
     audits = []
+    transition_events = []
 
     async def fake_get_request(_db, _request_id, _entity_id):
         return cargo_request
@@ -1526,11 +1546,19 @@ async def test_apply_cargo_request_loading_option_assigns_request_children(monke
     async def fake_build_read(_db, request, *, cargo_count=None):
         return {"id": request.id, "status": request.status, "cargo_count": cargo_count or 2}
 
+    async def fake_try_cargo_workflow_transition(*_args, **_kwargs):
+        return None
+
+    async def fake_emit_transition_event(**kwargs):
+        transition_events.append(kwargs)
+
     monkeypatch.setattr(travelwiz_routes, "_get_cargo_request_or_404", fake_get_request)
     monkeypatch.setattr(travelwiz_routes, "_get_voyage_or_404", fake_get_voyage)
     monkeypatch.setattr(travelwiz_routes, "_build_cargo_loading_options", fake_loading_options)
     monkeypatch.setattr(travelwiz_routes, "record_audit", fake_record_audit)
     monkeypatch.setattr(travelwiz_routes, "_build_cargo_request_read_data", fake_build_read)
+    monkeypatch.setattr(travelwiz_routes, "_try_cargo_workflow_transition", fake_try_cargo_workflow_transition)
+    monkeypatch.setattr(travelwiz_routes.fsm_service, "emit_transition_event", fake_emit_transition_event)
     monkeypatch.setattr(db, "get", fake_db_get, raising=False)
 
     result = await travelwiz_routes.apply_cargo_request_loading_option(
@@ -1551,6 +1579,7 @@ async def test_apply_cargo_request_loading_option_assigns_request_children(monke
     assert cargo_b.workflow_status == "assigned"
     assert result["status"] == "assigned"
     assert audits and audits[0]["action"] == "travelwiz.cargo_request.assign_to_voyage"
+    assert transition_events and transition_events[0]["to_state"] == "assigned"
 
 
 @pytest.mark.asyncio

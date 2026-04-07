@@ -14,6 +14,126 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
+STRUCTURE_LOCKED_WORKFLOW_SLUGS = frozenset({
+    "project",
+    "ads-workflow",
+    "planner-activity",
+    "voyage-workflow",
+    "travelwiz-cargo-workflow",
+    "avm-workflow",
+})
+
+
+def _humanize_state_name(value: str) -> str:
+    return value.replace("_", " ").replace("-", " ").strip().title()
+
+
+def _infer_system_node_type(state: str, *, initial: bool, terminal: bool) -> str:
+    normalized = state.lower()
+    if initial:
+        return "start"
+    if terminal:
+        if "reject" in normalized:
+            return "end_rejected"
+        if "cancel" in normalized or "archive" in normalized:
+            return "end_cancelled"
+        return "end_approved"
+    if any(token in normalized for token in ("check", "compliance", "system")):
+        return "system_check"
+    if any(token in normalized for token in ("notify", "notification", "message")):
+        return "notification"
+    if any(token in normalized for token in ("timer", "wait", "delay", "timeout")):
+        return "timer"
+    return "human_validation"
+
+
+def _extract_state_names(states: Any) -> list[str]:
+    if isinstance(states, list):
+        extracted: list[str] = []
+        for item in states:
+            if isinstance(item, str):
+                extracted.append(item)
+            elif isinstance(item, dict):
+                extracted.append(str(item.get("id") or item.get("name") or ""))
+        return [item for item in extracted if item]
+    if isinstance(states, dict):
+        return [str(key) for key in states.keys()]
+    return []
+
+
+def _fsm_nodes(states: Any, transitions: Any) -> list[dict[str, Any]]:
+    state_names = _extract_state_names(states)
+    if not state_names:
+        return []
+
+    outgoing: dict[str, int] = {name: 0 for name in state_names}
+    incoming: dict[str, int] = {name: 0 for name in state_names}
+    if isinstance(transitions, list):
+        for transition in transitions:
+            if not isinstance(transition, dict):
+                continue
+            source = transition.get("from") or transition.get("source")
+            target = transition.get("to") or transition.get("target")
+            if isinstance(source, str) and source in outgoing:
+                outgoing[source] += 1
+            if isinstance(target, str) and target in incoming:
+                incoming[target] += 1
+
+    rows = max(1, min(4, len(state_names)))
+    nodes: list[dict[str, Any]] = []
+    for index, state in enumerate(state_names):
+        initial = index == 0
+        terminal = outgoing.get(state, 0) == 0 and not initial
+        nodes.append({
+            "id": state,
+            "type": _infer_system_node_type(state, initial=initial, terminal=terminal),
+            "label": _humanize_state_name(state),
+            "config": {
+                "fsm_state": state,
+                "system_managed": True,
+                "incoming_count": incoming.get(state, 0),
+                "outgoing_count": outgoing.get(state, 0),
+            },
+            "position": {
+                "x": 220 * (index // rows),
+                "y": 120 * (index % rows),
+            },
+        })
+    return nodes
+
+
+def _fsm_edges(transitions: Any) -> list[dict[str, Any]]:
+    if not isinstance(transitions, list):
+        return []
+    edges: list[dict[str, Any]] = []
+    for index, transition in enumerate(transitions):
+        if not isinstance(transition, dict):
+            continue
+        source = transition.get("source") or transition.get("from")
+        target = transition.get("target") or transition.get("to")
+        if not isinstance(source, str) or not isinstance(target, str):
+            continue
+        required_roles = transition.get("required_roles")
+        required_role = None
+        if isinstance(required_roles, list) and required_roles:
+            required_role = required_roles[0]
+        edges.append({
+            "id": str(transition.get("id") or f"edge-{index + 1}-{source}-{target}"),
+            "source": source,
+            "target": target,
+            "label": transition.get("label") or _humanize_state_name(target),
+            "condition": transition.get("condition"),
+            "condition_expression": transition.get("condition_expression"),
+            "required_role": transition.get("required_role") or required_role,
+            "required_roles": required_roles if isinstance(required_roles, list) else None,
+            "required_permission": transition.get("required_permission"),
+            "comment_required": bool(transition.get("comment_required")) if "comment_required" in transition else None,
+            "assignee": transition.get("assignee") if isinstance(transition.get("assignee"), dict) else None,
+            "sla_hours": transition.get("sla_hours"),
+            "trigger": transition.get("trigger") or "human",
+        })
+    return edges
+
 
 # ─── Base ────────────────────────────────────────────────────────────────────
 
@@ -86,17 +206,22 @@ class WorkflowDefinitionRead(OpsFluxSchema):
     @property
     def nodes(self) -> list[dict[str, Any]]:
         """Return visual editor nodes (stored in `states` when using editor format)."""
-        if isinstance(self.states, list):
+        if isinstance(self.states, list) and all(isinstance(item, dict) and "id" in item for item in self.states):
             return self.states
-        return []
+        return _fsm_nodes(self.states, self.transitions)
 
     @computed_field
     @property
     def edges(self) -> list[dict[str, Any]]:
         """Return visual editor edges (stored in `transitions` when using editor format)."""
-        if isinstance(self.transitions, list):
+        if isinstance(self.transitions, list) and all(isinstance(item, dict) and "source" in item and "target" in item for item in self.transitions):
             return self.transitions
-        return []
+        return _fsm_edges(self.transitions)
+
+    @computed_field
+    @property
+    def structure_locked(self) -> bool:
+        return self.slug in STRUCTURE_LOCKED_WORKFLOW_SLUGS
 
 
 class WorkflowDefinitionSummary(OpsFluxSchema):
@@ -135,6 +260,11 @@ class WorkflowDefinitionSummary(OpsFluxSchema):
         if isinstance(self.transitions, list):
             return len(self.transitions)
         return 0
+
+    @computed_field
+    @property
+    def structure_locked(self) -> bool:
+        return self.slug in STRUCTURE_LOCKED_WORKFLOW_SLUGS
 
 
 # ─── Workflow Instance schemas ───────────────────────────────────────────────

@@ -20,6 +20,7 @@ from app.models.common import (
     WorkflowTransition,
 )
 from app.schemas.workflow import (
+    STRUCTURE_LOCKED_WORKFLOW_SLUGS,
     TransitionRequest,
     WorkflowDefinitionCreate,
     WorkflowDefinitionRead,
@@ -57,6 +58,79 @@ def _normalize_definition_data(body) -> tuple:
     if body.nodes is not None:
         return body.nodes, body.edges or []
     return body.states or {}, body.transitions or []
+
+
+def _state_keys(states: dict | list | None) -> list[str]:
+    if isinstance(states, list):
+        values: list[str] = []
+        for item in states:
+            if isinstance(item, str):
+                values.append(item)
+            elif isinstance(item, dict):
+                raw = item.get("id") or item.get("name")
+                if raw:
+                    values.append(str(raw))
+        return values
+    if isinstance(states, dict):
+        return [str(key) for key in states.keys()]
+    return []
+
+
+def _transition_topology(transitions: dict | list | None) -> list[tuple[str, str]]:
+    if not isinstance(transitions, list):
+        return []
+    topology: list[tuple[str, str]] = []
+    for item in transitions:
+        if not isinstance(item, dict):
+            continue
+        source = item.get("from") or item.get("source")
+        target = item.get("to") or item.get("target")
+        if source and target:
+            topology.append((str(source), str(target)))
+    return topology
+
+
+def _ensure_structure_locked_update_is_safe(
+    definition: WorkflowDefinition,
+    update_data: dict,
+) -> None:
+    if definition.slug not in STRUCTURE_LOCKED_WORKFLOW_SLUGS:
+        return
+
+    forbidden_fields = {"name", "slug", "entity_type", "nodes", "edges"} & set(update_data.keys())
+    if forbidden_fields:
+        fields = ", ".join(sorted(forbidden_fields))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Les workflows système ont une structure verrouillée. "
+                f"Les champs suivants ne peuvent pas être modifiés ici: {fields}."
+            ),
+        )
+
+    if "states" in update_data:
+        current_states = _state_keys(definition.states)
+        candidate_states = _state_keys(update_data.get("states"))
+        if current_states != candidate_states:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Les workflows système ont une structure verrouillée. "
+                    "Les états ne peuvent pas être ajoutés, supprimés ou renommés."
+                ),
+            )
+
+    if "transitions" in update_data:
+        current_topology = _transition_topology(definition.transitions)
+        candidate_topology = _transition_topology(update_data.get("transitions"))
+        if current_topology != candidate_topology:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Les workflows système ont une structure verrouillée. "
+                    "Les transitions ne peuvent pas être ajoutées, supprimées ou reroutées."
+                ),
+            )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -215,6 +289,8 @@ async def update_definition(
         )
 
     update_data = body.model_dump(exclude_unset=True)
+
+    _ensure_structure_locked_update_is_safe(definition, update_data)
 
     # Normalize: if nodes/edges provided, map to states/transitions columns
     if "nodes" in update_data:

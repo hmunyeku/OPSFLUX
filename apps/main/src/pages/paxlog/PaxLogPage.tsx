@@ -803,8 +803,8 @@ function ValidatorHomeTab({
 
   const adsItems = adsData?.items ?? []
   const avmItems = avmData?.items ?? []
-  const adsToValidate = adsItems.filter((item) => ['submitted', 'pending_compliance', 'pending_validation', 'requires_review'].includes(item.status))
-  const adsAwaitingApproval = adsItems.filter((item) => ['submitted', 'pending_validation'].includes(item.status))
+  const adsToValidate = adsItems.filter((item) => ['submitted', 'pending_project_review', 'pending_compliance', 'pending_validation', 'requires_review'].includes(item.status))
+  const adsAwaitingApproval = adsItems.filter((item) => ['submitted', 'pending_project_review', 'pending_validation'].includes(item.status))
   const adsAwaitingCompliance = adsItems.filter((item) => item.status === 'pending_compliance')
   const avmToArbitrate = avmItems.filter((item) => ['in_preparation', 'active', 'ready'].includes(item.status))
   const urgentCreds = (expiringCreds ?? []).filter((item) => item.days_remaining <= 7).slice(0, 6)
@@ -952,7 +952,7 @@ function AdsTab({ openDetail, requesterOnly = false, validatorOnly = false }: { 
   const visitCategoryLabels = useDictionaryLabels('visit_category')
   const adsStatusLabels = useDictionaryLabels('pax_ads_status', ADS_STATUS_LABELS_FALLBACK)
   const adsStatusOptions = useMemo(
-    () => buildStatusFilterOptions(adsStatusLabels, ['draft', 'submitted', 'pending_compliance', 'pending_validation', 'approved', 'rejected', 'in_progress', 'completed', 'cancelled'], t('common.all')),
+    () => buildStatusFilterOptions(adsStatusLabels, ['draft', 'submitted', 'pending_project_review', 'pending_compliance', 'pending_validation', 'approved', 'rejected', 'in_progress', 'completed', 'cancelled'], t('common.all')),
     [adsStatusLabels, t],
   )
 
@@ -967,8 +967,8 @@ function AdsTab({ openDetail, requesterOnly = false, validatorOnly = false }: { 
   const items: AdsSummary[] = data?.items ?? []
 
   const stats = useMemo(() => {
-    const pending = items.filter((a) => ['submitted', 'pending_compliance', 'pending_validation'].includes(a.status)).length
-    const review = items.filter((a) => ['requires_review', 'pending_compliance'].includes(a.status)).length
+    const pending = items.filter((a) => ['submitted', 'pending_project_review', 'pending_compliance', 'pending_validation'].includes(a.status)).length
+    const review = items.filter((a) => ['requires_review', 'pending_project_review', 'pending_compliance'].includes(a.status)).length
     const approved = items.filter((a) => a.status === 'approved').length
     const totalPax = items.reduce((sum, a) => sum + (a.pax_count ?? 0), 0)
     return { pending, review, approved, totalPax }
@@ -1040,7 +1040,7 @@ function AdsTab({ openDetail, requesterOnly = false, validatorOnly = false }: { 
       {validatorOnly && (
         <div className="px-4 py-3 border-b border-border bg-amber-500/[0.06]">
           <p className="text-xs text-muted-foreground">
-            {t('paxlog.ads.validator_hint_prefix')} <span className="font-medium text-foreground">pending_validation</span>, {t('paxlog.ads.validator_hint_middle')} <span className="font-medium text-foreground">pending_compliance</span> {t('paxlog.ads.validator_hint_or')} <span className="font-medium text-foreground">requires_review</span>.
+            {t('paxlog.ads.validator_hint_prefix')} <span className="font-medium text-foreground">{adsStatusLabels.pending_validation || 'pending_validation'}</span>, <span className="font-medium text-foreground">{adsStatusLabels.pending_project_review || 'pending_project_review'}</span>, {t('paxlog.ads.validator_hint_middle')} <span className="font-medium text-foreground">{adsStatusLabels.pending_compliance || 'pending_compliance'}</span> {t('paxlog.ads.validator_hint_or')} <span className="font-medium text-foreground">{adsStatusLabels.requires_review || 'requires_review'}</span>.
           </p>
         </div>
       )}
@@ -2383,7 +2383,18 @@ function AdsDetailPanel({ id }: { id: string }) {
 
   const compliantPaxCount = (adsPax ?? []).filter((entry) => entry.compliant === true).length
   const nonCompliantPaxCount = (adsPax ?? []).filter((entry) => entry.compliant === false).length
-  const isProjectReviewer = !!ads.project_manager_id && ads.project_manager_id === currentUser?.id
+  const approvedProjectIds = new Set(
+    (adsEvents ?? [])
+      .filter((event) => event.event_type === 'project_review_approved')
+      .flatMap((event) => {
+        const metadata = (event.metadata_json ?? {}) as { project_id?: string; project_ids?: string[] }
+        return metadata.project_ids?.length ? metadata.project_ids : metadata.project_id ? [metadata.project_id] : []
+      }),
+  )
+  const linkedProjects = ads.linked_projects ?? []
+  const pendingProjectReviews = linkedProjects.filter((project) => !approvedProjectIds.has(project.project_id))
+  const approvedProjectReviews = linkedProjects.filter((project) => approvedProjectIds.has(project.project_id))
+  const isProjectReviewer = pendingProjectReviews.some((project) => project.project_manager_id === currentUser?.id)
   const isInitiatorReviewer = ads.status === 'pending_initiator_review' && ads.requester_id === currentUser?.id
   const canSubmit = ads.status === 'draft' && hasPermission('paxlog.ads.submit')
   const canCancel = !['cancelled', 'completed', 'rejected'].includes(ads.status) && hasPermission('paxlog.ads.cancel')
@@ -2490,7 +2501,7 @@ function AdsDetailPanel({ id }: { id: string }) {
           : ads.status === 'pending_validation'
             ? t('paxlog.ads_detail.next_action.pending_validation')
             : ads.status === 'pending_project_review'
-              ? t('paxlog.ads_detail.next_action.pending_project_review')
+              ? t('paxlog.ads_detail.next_action.pending_project_review', { count: pendingProjectReviews.length || 1 })
             : ads.status === 'requires_review'
               ? t('paxlog.ads_detail.next_action.requires_review')
             : ads.status === 'approved'
@@ -3009,6 +3020,74 @@ function AdsDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label={t('paxlog.ads_detail.fields.project')} value={
                 <CrossModuleLink module="projets" id={ads.project_id} label={ads.project_name || ads.project_id} mode="navigate" />
               } />
+            )}
+            {(linkedProjects.length > 1) && (
+              <ReadOnlyRow
+                label={t('paxlog.ads_detail.fields.related_projects')}
+                value={
+                  <span className="inline-flex flex-wrap gap-x-1 gap-y-1">
+                    {linkedProjects.map((project, index) => (
+                      <span key={project.project_id}>
+                        <CrossModuleLink
+                          module="projets"
+                          id={project.project_id}
+                          label={project.project_name || project.project_id}
+                          mode="navigate"
+                        />
+                        {index < linkedProjects.length - 1 ? ', ' : ''}
+                      </span>
+                    ))}
+                  </span>
+                }
+              />
+            )}
+            {ads.status === 'pending_project_review' && linkedProjects.length > 0 && (
+              <ReadOnlyRow
+                label={t('paxlog.ads_detail.fields.project_review_status')}
+                value={
+                  <div className="space-y-2">
+                    {pendingProjectReviews.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {pendingProjectReviews.map((project) => (
+                          <span key={project.project_id} className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                            <CrossModuleLink
+                              module="projets"
+                              id={project.project_id}
+                              label={project.project_name || project.project_id}
+                              mode="navigate"
+                            />
+                            <span>{t('paxlog.ads_detail.project_review.pending')}</span>
+                            {project.project_manager_name && <span className="text-amber-700/90 dark:text-amber-300/90">{t('paxlog.ads_detail.project_review.manager', { name: project.project_manager_name })}</span>}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {approvedProjectReviews.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {approvedProjectReviews.map((project) => (
+                          <span key={project.project_id} className="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-1 text-[11px] text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+                            <CrossModuleLink
+                              module="projets"
+                              id={project.project_id}
+                              label={project.project_name || project.project_id}
+                              mode="navigate"
+                            />
+                            <span>{t('paxlog.ads_detail.project_review.approved')}</span>
+                            {project.project_manager_name && <span className="text-emerald-700/90 dark:text-emerald-300/90">{t('paxlog.ads_detail.project_review.manager', { name: project.project_manager_name })}</span>}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-[11px] text-muted-foreground">
+                      {t('paxlog.ads_detail.project_review.summary', {
+                        approved: approvedProjectReviews.length,
+                        pending: pendingProjectReviews.length,
+                        total: linkedProjects.length,
+                      })}
+                    </p>
+                  </div>
+                }
+              />
             )}
             {ads.outbound_transport_mode && <ReadOnlyRow label={t('paxlog.ads_detail.fields.outbound_transport')} value={transportModeLabels[ads.outbound_transport_mode] || ads.outbound_transport_mode} />}
             {ads.return_transport_mode && <ReadOnlyRow label={t('paxlog.ads_detail.fields.return_transport')} value={transportModeLabels[ads.return_transport_mode] || ads.return_transport_mode} />}

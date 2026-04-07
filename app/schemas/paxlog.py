@@ -230,6 +230,7 @@ class AdsCreate(BaseModel):
 
 
 class AdsUpdate(BaseModel):
+    project_id: UUID | None = None
     visit_purpose: str | None = None
     visit_category: str | None = None
     start_date: date | None = None
@@ -293,6 +294,7 @@ class AdsRead(OpsFluxSchema):
     planner_activity_status: str | None = None
     project_id: UUID | None = None
     project_name: str | None = None
+    linked_projects: list["AdsLinkedProjectRead"] = []
     allowed_company_ids: list[UUID] = []
     allowed_company_names: list[str] = []
     project_manager_id: UUID | None = None
@@ -320,6 +322,13 @@ class AdsRead(OpsFluxSchema):
     archived: bool
     created_at: datetime
     updated_at: datetime
+
+
+class AdsLinkedProjectRead(OpsFluxSchema):
+    project_id: UUID
+    project_name: str | None = None
+    project_manager_id: UUID | None = None
+    project_manager_name: str | None = None
 
 
 class AdsSummary(OpsFluxSchema):
@@ -461,6 +470,7 @@ class ExternalAdsSummaryRead(BaseModel):
     site_name: str | None = None
     project_id: str | None = None
     project_name: str | None = None
+    linked_projects: list["ExternalLinkedProjectRead"] = []
     outbound_transport_mode: str | None = None
     outbound_departure_base_id: str | None = None
     outbound_departure_base_name: str | None = None
@@ -470,6 +480,11 @@ class ExternalAdsSummaryRead(BaseModel):
     return_departure_base_name: str | None = None
     return_notes: str | None = None
     rejection_reason: str | None = None
+
+
+class ExternalLinkedProjectRead(BaseModel):
+    project_id: str
+    project_name: str | None = None
 
 
 class ExternalPaxSummaryRead(BaseModel):

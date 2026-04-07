@@ -241,6 +241,12 @@ export interface Ads {
   outbound_transport_mode: string | null
   return_transport_mode: string | null
   project_id: string | null
+  linked_projects?: Array<{
+    project_id: string
+    project_name?: string | null
+    project_manager_id?: string | null
+    project_manager_name?: string | null
+  }>
   allowed_company_ids?: string[]
   allowed_company_names?: string[]
   project_manager_id?: string | null

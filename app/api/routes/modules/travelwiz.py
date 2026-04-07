@@ -108,6 +108,8 @@ logger = logging.getLogger(__name__)
 
 VOYAGE_WORKFLOW_SLUG = "voyage-workflow"
 VOYAGE_ENTITY_TYPE = "voyage"
+CARGO_WORKFLOW_SLUG = "travelwiz-cargo-workflow"
+CARGO_WORKFLOW_ENTITY_TYPE = "cargo_item_workflow"
 
 CARGO_PUBLIC_STATUS_LABELS = {
     "registered": "Enregistré",
@@ -340,6 +342,45 @@ async def _get_cargo_request_or_404(
     if not cargo_request:
         raise HTTPException(404, "Cargo request not found")
     return cargo_request
+
+
+async def _try_cargo_workflow_transition(
+    db: AsyncSession,
+    *,
+    cargo: CargoItem,
+    to_state: str,
+    actor_id: UUID,
+    entity_id: UUID,
+) -> None:
+    try:
+        instance = await fsm_service.get_instance(
+            db,
+            entity_type=CARGO_WORKFLOW_ENTITY_TYPE,
+            entity_id=str(cargo.id),
+        )
+        if not instance:
+            await fsm_service.get_or_create_instance(
+                db,
+                workflow_slug=CARGO_WORKFLOW_SLUG,
+                entity_type=CARGO_WORKFLOW_ENTITY_TYPE,
+                entity_id=str(cargo.id),
+                initial_state=cargo.workflow_status,
+                entity_id_scope=entity_id,
+                created_by=actor_id,
+            )
+        await fsm_service.transition(
+            db,
+            workflow_slug=CARGO_WORKFLOW_SLUG,
+            entity_type=CARGO_WORKFLOW_ENTITY_TYPE,
+            entity_id=str(cargo.id),
+            to_state=to_state,
+            actor_id=actor_id,
+            entity_id_scope=entity_id,
+            skip_role_check=True,
+        )
+    except FSMError as exc:
+        if "not found" not in str(exc).lower():
+            raise HTTPException(400, str(exc)) from exc
 
 
 async def _validate_cargo_dossier_refs(
@@ -2592,17 +2633,35 @@ async def apply_cargo_request_loading_option(
     )
     request_cargo = cargo_result.scalars().all()
     assigned_tracking_codes: list[str] = []
+    workflow_transitioned: list[tuple[CargoItem, str]] = []
     for cargo in request_cargo:
         cargo.manifest_id = manifest.id
         if selected_option["compatible_zones"]:
             cargo.planned_zone_id = UUID(selected_option["compatible_zones"][0]["zone_id"])
         if cargo.workflow_status == "approved":
+            await _try_cargo_workflow_transition(
+                db,
+                cargo=cargo,
+                to_state="assigned",
+                actor_id=current_user.id,
+                entity_id=entity_id,
+            )
+            workflow_transitioned.append((cargo, cargo.workflow_status))
             cargo.workflow_status = "assigned"
         assigned_tracking_codes.append(cargo.tracking_code)
 
     cargo_request.status = "assigned"
     await db.commit()
     await db.refresh(cargo_request)
+    for cargo, previous_status in workflow_transitioned:
+        await fsm_service.emit_transition_event(
+            entity_type=CARGO_WORKFLOW_ENTITY_TYPE,
+            entity_id=str(cargo.id),
+            from_state=previous_status,
+            to_state=cargo.workflow_status,
+            actor_id=current_user.id,
+            workflow_slug=CARGO_WORKFLOW_SLUG,
+        )
     await record_audit(
         db,
         action="travelwiz.cargo_request.assign_to_voyage",
@@ -3081,9 +3140,24 @@ async def update_cargo_workflow_status(
                 },
             )
     previous_status = cargo.workflow_status
+    await _try_cargo_workflow_transition(
+        db,
+        cargo=cargo,
+        to_state=body.workflow_status,
+        actor_id=current_user.id,
+        entity_id=entity_id,
+    )
     cargo.workflow_status = body.workflow_status
     await db.commit()
     await db.refresh(cargo)
+    await fsm_service.emit_transition_event(
+        entity_type=CARGO_WORKFLOW_ENTITY_TYPE,
+        entity_id=str(cargo.id),
+        from_state=previous_status,
+        to_state=cargo.workflow_status,
+        actor_id=current_user.id,
+        workflow_slug=CARGO_WORKFLOW_SLUG,
+    )
     await record_audit(
         db,
         action="travelwiz.cargo.workflow_status",

@@ -27,6 +27,43 @@ OWNER_TYPE_IMPUTATION_RULES: dict[str, dict[str, object]] = {
 }
 
 
+async def _sync_owner_project_snapshot(
+    *,
+    owner_type: str,
+    owner_id: UUID,
+    db: AsyncSession,
+) -> None:
+    """Keep owner-side project snapshot aligned with project imputations.
+
+    For AdS, `project_id` is only a mono-project summary:
+    - 0 project imputations  -> null
+    - 1 distinct project     -> that project
+    - >1 distinct projects   -> null
+    """
+    if owner_type != "ads":
+        return
+
+    from app.models.paxlog import Ads
+
+    ads = await db.scalar(select(Ads).where(Ads.id == owner_id))
+    if ads is None:
+        return
+
+    project_rows = (
+        await db.execute(
+            select(CostImputation.project_id)
+            .where(
+                CostImputation.owner_type == owner_type,
+                CostImputation.owner_id == owner_id,
+                CostImputation.project_id.isnot(None),
+            )
+            .distinct()
+        )
+    ).all()
+    project_ids = [row[0] for row in project_rows if row[0] is not None]
+    ads.project_id = project_ids[0] if len(project_ids) == 1 else None
+
+
 async def _validate_imputation_references(
     *,
     entity_id: UUID,
@@ -263,6 +300,12 @@ async def create_cost_imputation(
     )
     db.add(obj)
     await db.commit()
+    await _sync_owner_project_snapshot(
+        owner_type=body.owner_type,
+        owner_id=body.owner_id,
+        db=db,
+    )
+    await db.commit()
     await db.refresh(
         obj,
         attribute_names=["imputation_reference", "project", "cost_center", "author"],
@@ -339,6 +382,12 @@ async def update_cost_imputation(
     obj.cost_center_id = resolved_cost_center_id
 
     await db.commit()
+    await _sync_owner_project_snapshot(
+        owner_type=obj.owner_type,
+        owner_id=obj.owner_id,
+        db=db,
+    )
+    await db.commit()
     await db.refresh(
         obj,
         attribute_names=["imputation_reference", "project", "cost_center", "author"],
@@ -371,6 +420,14 @@ async def delete_cost_imputation(
         write=True,
     )
 
+    owner_type = obj.owner_type
+    owner_id = obj.owner_id
     await db.delete(obj)
+    await db.commit()
+    await _sync_owner_project_snapshot(
+        owner_type=owner_type,
+        owner_id=owner_id,
+        db=db,
+    )
     await db.commit()
     return None

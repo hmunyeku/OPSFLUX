@@ -13,6 +13,7 @@ from fastapi import HTTPException
 from app.api.routes.modules import paxlog
 from app.api.routes.modules import conformite
 from app.api.routes.modules import planner
+from app.core.event_contracts import PROJECT_STATUS_CHANGED_EVENT, WORKFLOW_TRANSITION_EVENT
 from app.core.events import OpsFluxEvent
 from app.event_handlers import module_handlers
 from app.event_handlers import paxlog_handlers
@@ -366,6 +367,7 @@ async def test_get_ads_includes_avm_origin(monkeypatch):
             FakeResult(all_rows=[]),
             FakeResult(all_rows=[(ads.requester_id, "Aline", "Mukeba")]),
             FakeResult(first=(program_id, "Inspection compresseur", avm_id, "AVM-009", "Campagne compresseur")),
+            FakeResult(all_rows=[]),
             FakeResult(first=None),
         ]
     )
@@ -401,6 +403,7 @@ async def test_get_ads_includes_planner_context(monkeypatch):
             FakeResult(all_rows=[]),
             FakeResult(all_rows=[(ads.requester_id, "Aline", "Mukeba")]),
             FakeResult(first=None),
+            FakeResult(all_rows=[]),
             FakeResult(first=None),
             FakeResult(first=("Inspection ligne 12", "validated")),
         ]
@@ -474,6 +477,41 @@ async def test_update_ads_denies_non_owner_without_approve(monkeypatch):
 
     assert exc.value.status_code == 403
     assert exc.value.detail == "Vous ne pouvez pas modifier cette AdS."
+
+
+@pytest.mark.asyncio
+async def test_update_ads_with_project_id_triggers_default_imputation_sync(monkeypatch):
+    ads = _build_ads(status="draft", project_id=None)
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+    ensure_calls = []
+
+    async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
+        assert permission_code == "paxlog.ads.approve"
+        return False
+
+    async def fake_ensure_default_imputation(_db, *, ads, entity_id, author_id):
+        ensure_calls.append({
+            "ads_id": ads.id,
+            "entity_id": entity_id,
+            "author_id": author_id,
+            "project_id": ads.project_id,
+        })
+
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+    monkeypatch.setattr(paxlog, "_ensure_ads_default_imputation", fake_ensure_default_imputation)
+
+    project_id = uuid4()
+    await paxlog.update_ads(
+        ads.id,
+        paxlog.AdsUpdate(project_id=project_id),
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=ads.requester_id),
+        _=None,
+        db=db,
+    )
+
+    assert ads.project_id == project_id
+    assert ensure_calls and ensure_calls[0]["project_id"] == project_id
 
 
 @pytest.mark.asyncio
@@ -554,7 +592,11 @@ async def test_submit_ads_routes_to_pending_initiator_review_when_created_for_so
     async def fake_resolve_auto_transition(*_args, **_kwargs):
         return "pending_initiator_review"
 
+    async def fake_get_pending_targets(*_args, **_kwargs):
+        return []
+
     monkeypatch.setattr(paxlog, "_can_manage_ads", fake_can_manage_ads)
+    monkeypatch.setattr(paxlog, "_get_ads_pending_project_review_targets", fake_get_pending_targets)
     monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
     monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
     monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
@@ -617,6 +659,9 @@ async def test_create_then_submit_ads_starts_workflow_with_initiator_review(monk
     async def fake_resolve_auto_transition(*_args, **_kwargs):
         return "pending_initiator_review"
 
+    async def fake_get_pending_targets(*_args, **_kwargs):
+        return []
+
     monkeypatch.setattr(paxlog, "generate_reference", fake_generate_reference)
     monkeypatch.setattr(paxlog, "_replace_ads_allowed_companies", fake_replace_allowed_companies)
     monkeypatch.setattr(paxlog, "_ensure_ads_default_imputation", fake_ensure_default_imputation)
@@ -650,6 +695,7 @@ async def test_create_then_submit_ads_starts_workflow_with_initiator_review(monk
 
     submit_db = FakeDB([FakeResult(scalar_one_or_none=created_ads)])
     monkeypatch.setattr(paxlog, "_can_manage_ads", fake_can_manage_ads)
+    monkeypatch.setattr(paxlog, "_get_ads_pending_project_review_targets", fake_get_pending_targets)
     monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
     monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
 
@@ -681,6 +727,9 @@ async def test_submit_ads_routes_to_pending_project_review_when_project_manager_
     async def fake_get_project_reviewer(*_args, **_kwargs):
         return project
 
+    async def fake_get_pending_targets(*_args, **_kwargs):
+        return [{"project_id": project.id, "project_manager_id": project.manager_id}]
+
     async def fake_transition(*args, **kwargs):
         transition_calls.append(kwargs)
 
@@ -698,6 +747,7 @@ async def test_submit_ads_routes_to_pending_project_review_when_project_manager_
 
     monkeypatch.setattr(paxlog, "_can_manage_ads", fake_can_manage_ads)
     monkeypatch.setattr(paxlog, "_get_ads_project_reviewer", fake_get_project_reviewer)
+    monkeypatch.setattr(paxlog, "_get_ads_pending_project_review_targets", fake_get_pending_targets)
     monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
     monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
     monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
@@ -738,6 +788,9 @@ async def test_approve_ads_from_initiator_review_runs_next_step(monkeypatch):
     async def fake_get_project_reviewer(*_args, **_kwargs):
         return None
 
+    async def fake_get_pending_targets(*_args, **_kwargs):
+        return []
+
     async def fake_submission_checks(*_args, **_kwargs):
         return ([SimpleNamespace(id=uuid4())], False, "pending_compliance")
 
@@ -758,6 +811,7 @@ async def test_approve_ads_from_initiator_review_runs_next_step(monkeypatch):
 
     monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
     monkeypatch.setattr(paxlog, "_get_ads_project_reviewer", fake_get_project_reviewer)
+    monkeypatch.setattr(paxlog, "_get_ads_pending_project_review_targets", fake_get_pending_targets)
     monkeypatch.setattr(paxlog, "_run_ads_submission_checks", fake_submission_checks)
     monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
     monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
@@ -792,6 +846,9 @@ async def test_approve_ads_from_project_review_runs_compliance_checks(monkeypatc
     async def fake_get_project_reviewer(*_args, **_kwargs):
         return project
 
+    async def fake_get_pending_targets(*_args, **_kwargs):
+        return [{"project_id": project.id, "project_manager_id": project.manager_id}]
+
     async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
         if permission_code == "paxlog.ads.approve":
             return False
@@ -817,7 +874,9 @@ async def test_approve_ads_from_project_review_runs_compliance_checks(monkeypatc
     async def fake_resolve_auto_transition(*_args, **_kwargs):
         return "pending_compliance"
 
+    monkeypatch.setattr(paxlog, "_assert_ads_project_review_access", fake_get_project_reviewer)
     monkeypatch.setattr(paxlog, "_get_ads_project_reviewer", fake_get_project_reviewer)
+    monkeypatch.setattr(paxlog, "_get_ads_pending_project_review_targets", fake_get_pending_targets)
     monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
     monkeypatch.setattr(paxlog, "_run_ads_submission_checks", fake_submission_checks)
     monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
@@ -838,6 +897,172 @@ async def test_approve_ads_from_project_review_runs_compliance_checks(monkeypatc
     assert transition_calls and transition_calls[0]["to_state"] == "pending_compliance"
     assert emitted_events and emitted_events[0]["to_state"] == "pending_compliance"
     assert audits and audits[0]["action"] == "paxlog.ads.project_approve"
+
+
+@pytest.mark.asyncio
+async def test_submit_ads_keeps_pending_project_review_when_other_project_managers_remain(monkeypatch):
+    current_user_id = uuid4()
+    own_project_id = uuid4()
+    other_project_id = uuid4()
+    ads = _build_ads(status="draft", project_id=None)
+    project = SimpleNamespace(id=own_project_id, manager_id=current_user_id)
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+    transition_calls = []
+
+    async def fake_can_manage_ads(*_args, **_kwargs):
+        return True
+
+    async def fake_get_project_reviewer(*_args, **_kwargs):
+        return project
+
+    async def fake_get_pending_targets(*_args, **_kwargs):
+        return [
+            {"project_id": own_project_id, "project_manager_id": current_user_id},
+            {"project_id": other_project_id, "project_manager_id": uuid4()},
+        ]
+
+    async def fake_transition(*_args, **kwargs):
+        transition_calls.append(kwargs)
+
+    async def fake_build_ads_read_data(_db, *, ads, entity_id):
+        return _ads_read_payload(ads, entity_id)
+
+    async def fake_resolve_auto_transition(*_args, **_kwargs):
+        return "pending_project_review"
+
+    async def fake_emit_transition_event(**_kwargs):
+        return None
+
+    async def fake_record_audit(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(paxlog, "_can_manage_ads", fake_can_manage_ads)
+    monkeypatch.setattr(paxlog, "_get_ads_project_reviewer", fake_get_project_reviewer)
+    monkeypatch.setattr(paxlog, "_get_ads_pending_project_review_targets", fake_get_pending_targets)
+    monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
+    monkeypatch.setattr(paxlog, "_build_ads_read_data", fake_build_ads_read_data)
+    monkeypatch.setattr(paxlog, "_resolve_ads_auto_transition", fake_resolve_auto_transition)
+    monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+
+    response = await paxlog.submit_ads(
+        ads.id,
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=current_user_id),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "pending_project_review"
+    assert transition_calls and transition_calls[0]["to_state"] == "pending_project_review"
+
+
+@pytest.mark.asyncio
+async def test_approve_ads_from_project_review_stays_pending_when_other_projects_remain(monkeypatch):
+    manager_id = uuid4()
+    own_project_id = uuid4()
+    other_project_id = uuid4()
+    ads = _build_ads(status="pending_project_review", project_id=None)
+    project = SimpleNamespace(id=own_project_id, manager_id=manager_id)
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+    audits = []
+
+    async def fake_assert_access(*_args, **_kwargs):
+        return project
+
+    async def fake_get_pending_targets(*_args, **_kwargs):
+        return [
+            {"project_id": own_project_id, "project_manager_id": manager_id},
+            {"project_id": other_project_id, "project_manager_id": uuid4()},
+        ]
+
+    async def fake_has_user_permission(_user, _entity_id, _permission_code, _db):
+        return False
+
+    async def fake_record_audit(*args, **kwargs):
+        audits.append(kwargs)
+
+    async def fake_build_ads_read_data(_db, *, ads, entity_id):
+        return _ads_read_payload(ads, entity_id)
+
+    monkeypatch.setattr(paxlog, "_assert_ads_project_review_access", fake_assert_access)
+    monkeypatch.setattr(paxlog, "_get_ads_pending_project_review_targets", fake_get_pending_targets)
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "_build_ads_read_data", fake_build_ads_read_data)
+
+    response = await paxlog.approve_ads(
+        ads.id,
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=manager_id),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "pending_project_review"
+    assert db.commits == 2
+    assert audits and audits[0]["details"]["partial_project_review"] is True
+    assert any(isinstance(item, AdsEvent) and item.event_type == "project_review_approved" for item in db.added)
+
+
+@pytest.mark.asyncio
+async def test_approve_ads_from_project_review_advances_when_last_project_is_approved(monkeypatch):
+    manager_id = uuid4()
+    project_id = uuid4()
+    ads = _build_ads(status="pending_project_review", project_id=None)
+    project = SimpleNamespace(id=project_id, manager_id=manager_id)
+    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+    transition_calls = []
+    emitted_events = []
+
+    async def fake_assert_access(*_args, **_kwargs):
+        return project
+
+    async def fake_get_pending_targets(*_args, **_kwargs):
+        return [{"project_id": project_id, "project_manager_id": manager_id}]
+
+    async def fake_has_user_permission(_user, _entity_id, _permission_code, _db):
+        return False
+
+    async def fake_submission_checks(*_args, **_kwargs):
+        return ([SimpleNamespace(id=uuid4())], False, "pending_compliance")
+
+    async def fake_transition(*_args, **kwargs):
+        transition_calls.append(kwargs)
+
+    async def fake_emit_transition_event(**kwargs):
+        emitted_events.append(kwargs)
+
+    async def fake_record_audit(*_args, **_kwargs):
+        return None
+
+    async def fake_build_ads_read_data(_db, *, ads, entity_id):
+        return _ads_read_payload(ads, entity_id)
+
+    async def fake_resolve_auto_transition(*_args, **_kwargs):
+        return "pending_compliance"
+
+    monkeypatch.setattr(paxlog, "_assert_ads_project_review_access", fake_assert_access)
+    monkeypatch.setattr(paxlog, "_get_ads_pending_project_review_targets", fake_get_pending_targets)
+    monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
+    monkeypatch.setattr(paxlog, "_run_ads_submission_checks", fake_submission_checks)
+    monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
+    monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "_build_ads_read_data", fake_build_ads_read_data)
+    monkeypatch.setattr(paxlog, "_resolve_ads_auto_transition", fake_resolve_auto_transition)
+
+    response = await paxlog.approve_ads(
+        ads.id,
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=manager_id),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "pending_compliance"
+    assert transition_calls and transition_calls[0]["to_state"] == "pending_compliance"
+    assert emitted_events and emitted_events[0]["to_state"] == "pending_compliance"
 
 
 @pytest.mark.asyncio
@@ -1815,6 +2040,7 @@ async def test_cancel_avm_propagates_to_linked_ads(monkeypatch):
     audits = []
     notifications = []
     published_events = []
+    transition_events = []
 
     async def fake_record_audit(*args, **kwargs):
         audits.append(kwargs)
@@ -1832,10 +2058,18 @@ async def test_cancel_avm_propagates_to_linked_ads(monkeypatch):
     async def fake_has_user_permission(*_args, **_kwargs):
         return True
 
+    async def fake_try_avm_workflow_transition(*_args, **_kwargs):
+        return "in_preparation", SimpleNamespace(current_state="in_preparation")
+
+    async def fake_emit_transition_event(**kwargs):
+        transition_events.append(kwargs)
+
     monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
     monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
     monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
     monkeypatch.setattr(paxlog, "_build_avm_read", fake_build_avm_read)
+    monkeypatch.setattr(paxlog, "_try_avm_workflow_transition", fake_try_avm_workflow_transition)
+    monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
     monkeypatch.setattr("app.core.events.event_bus", FakeEventBus())
 
     response = await paxlog.cancel_avm(
@@ -1856,6 +2090,7 @@ async def test_cancel_avm_propagates_to_linked_ads(monkeypatch):
     assert published_events and published_events[0].event_type == "paxlog.mission_notice.cancelled"
     assert published_events[0].payload["linked_ads_cancelled"] == 1
     assert published_events[0].payload["linked_ads_reviewed"] == 1
+    assert transition_events and transition_events[0]["to_state"] == "cancelled"
 
     avm_cancel_events = [obj for obj in db.added if isinstance(obj, AdsEvent) and obj.event_type == "avm_cancelled"]
     assert len(avm_cancel_events) == 2
@@ -1996,11 +2231,20 @@ async def test_update_avm_preparation_task_marks_completion_and_audits(monkeypat
         ]
     )
     audits = []
+    transition_events = []
 
     async def fake_record_audit(*args, **kwargs):
         audits.append(kwargs)
 
+    async def fake_try_avm_workflow_transition(*_args, **_kwargs):
+        return "in_preparation", SimpleNamespace(current_state="in_preparation")
+
+    async def fake_emit_transition_event(**kwargs):
+        transition_events.append(kwargs)
+
     monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "_try_avm_workflow_transition", fake_try_avm_workflow_transition)
+    monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
 
     response = await paxlog.update_avm_preparation_task(
         avm.id,
@@ -2025,6 +2269,7 @@ async def test_update_avm_preparation_task_marks_completion_and_audits(monkeypat
     assert audits and audits[0]["action"] == "paxlog.avm.preparation_task.update"
     assert audits[0]["details"]["task_id"] == str(task_id)
     assert audits[0]["details"]["changes"]["status"] == "completed"
+    assert transition_events and transition_events[0]["to_state"] == "ready"
 
 
 @pytest.mark.asyncio
@@ -2051,11 +2296,20 @@ async def test_update_avm_preparation_task_sets_ready_when_no_blocker_remains(mo
         ]
     )
     audits = []
+    transition_events = []
 
     async def fake_record_audit(*args, **kwargs):
         audits.append(kwargs)
 
+    async def fake_try_avm_workflow_transition(*_args, **_kwargs):
+        return "in_preparation", SimpleNamespace(current_state="in_preparation")
+
+    async def fake_emit_transition_event(**kwargs):
+        transition_events.append(kwargs)
+
     monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "_try_avm_workflow_transition", fake_try_avm_workflow_transition)
+    monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
 
     response = await paxlog.update_avm_preparation_task(
         avm.id,
@@ -2070,6 +2324,7 @@ async def test_update_avm_preparation_task_sets_ready_when_no_blocker_remains(mo
     assert response.status == "completed"
     assert avm.status == "ready"
     assert audits and audits[0]["action"] == "paxlog.avm.preparation_task.update"
+    assert transition_events and transition_events[0]["to_state"] == "ready"
 
 
 @pytest.mark.asyncio
@@ -2110,6 +2365,7 @@ async def test_submit_avm_sets_ready_when_only_ads_creation_tasks_exist(monkeypa
     )
     db = FakeDB([])
     published_events = []
+    transition_events = []
 
     async def fake_execute(statement, params=None):
         db.executed.append((statement, params))
@@ -2126,8 +2382,16 @@ async def test_submit_avm_sets_ready_when_only_ads_creation_tasks_exist(monkeypa
         async def publish(self, event):
             published_events.append(event)
 
+    async def fake_try_avm_workflow_transition(*_args, **_kwargs):
+        return None
+
+    async def fake_emit_transition_event(**kwargs):
+        transition_events.append(kwargs)
+
     db.execute = fake_execute  # type: ignore[method-assign]
     monkeypatch.setattr(paxlog_service, "event_bus", FakeEventBus())
+    monkeypatch.setattr(paxlog_service, "_try_avm_workflow_transition", fake_try_avm_workflow_transition)
+    monkeypatch.setattr(paxlog_service.fsm_service, "emit_transition_event", fake_emit_transition_event)
 
     result = await paxlog_service.submit_avm(db, avm.id, avm.entity_id, uuid4())
 
@@ -2137,6 +2401,7 @@ async def test_submit_avm_sets_ready_when_only_ads_creation_tasks_exist(monkeypa
     created_tasks = [obj for obj in db.added if getattr(obj, "task_type", None) == "ads_creation"]
     assert len(created_tasks) == 1
     assert published_events and published_events[0].event_type == "paxlog.mission_notice.launched"
+    assert transition_events and transition_events[0]["to_state"] == "ready"
 
 
 @pytest.mark.asyncio
@@ -2159,6 +2424,7 @@ async def test_submit_avm_creates_document_collection_task_and_stays_in_preparat
     )
     db = FakeDB([])
     published_events = []
+    transition_events = []
 
     async def fake_execute(statement, params=None):
         db.executed.append((statement, params))
@@ -2175,8 +2441,16 @@ async def test_submit_avm_creates_document_collection_task_and_stays_in_preparat
         async def publish(self, event):
             published_events.append(event)
 
+    async def fake_try_avm_workflow_transition(*_args, **_kwargs):
+        return None
+
+    async def fake_emit_transition_event(**kwargs):
+        transition_events.append(kwargs)
+
     db.execute = fake_execute  # type: ignore[method-assign]
     monkeypatch.setattr(paxlog_service, "event_bus", FakeEventBus())
+    monkeypatch.setattr(paxlog_service, "_try_avm_workflow_transition", fake_try_avm_workflow_transition)
+    monkeypatch.setattr(paxlog_service.fsm_service, "emit_transition_event", fake_emit_transition_event)
 
     result = await paxlog_service.submit_avm(db, avm.id, avm.entity_id, uuid4())
 
@@ -2190,6 +2464,7 @@ async def test_submit_avm_creates_document_collection_task_and_stays_in_preparat
     assert "Ordre de mission" in (created_document_tasks[0].notes or "")
     assert "Piece d'identite" in (created_document_tasks[0].notes or "")
     assert published_events and published_events[0].event_type == "paxlog.mission_notice.launched"
+    assert transition_events and transition_events[0]["to_state"] == "in_preparation"
 
 
 @pytest.mark.asyncio
@@ -2229,8 +2504,16 @@ async def test_submit_avm_creates_indicator_tasks_for_visa_badge_epi_and_allowan
         async def publish(self, event):
             return None
 
+    async def fake_try_avm_workflow_transition(*_args, **_kwargs):
+        return None
+
+    async def fake_emit_transition_event(**kwargs):
+        return None
+
     db.execute = fake_execute  # type: ignore[method-assign]
     monkeypatch.setattr(paxlog_service, "event_bus", FakeEventBus())
+    monkeypatch.setattr(paxlog_service, "_try_avm_workflow_transition", fake_try_avm_workflow_transition)
+    monkeypatch.setattr(paxlog_service.fsm_service, "emit_transition_event", fake_emit_transition_event)
 
     result = await paxlog_service.submit_avm(db, avm.id, avm.entity_id, uuid4())
 
@@ -2290,6 +2573,7 @@ async def test_approve_avm_links_ads_creation_tasks_to_generated_ads(monkeypatch
     )
 
     published_events = []
+    transition_events = []
 
     async def fake_generate_ads_reference(_db, _entity_id):
         return "ADS-777"
@@ -2313,9 +2597,17 @@ async def test_approve_avm_links_ads_creation_tasks_to_generated_ads(monkeypatch
         async def publish(self, event):
             published_events.append(event)
 
+    async def fake_try_avm_workflow_transition(*_args, **_kwargs):
+        return None
+
+    async def fake_emit_transition_event(**kwargs):
+        transition_events.append(kwargs)
+
     db.execute = fake_execute  # type: ignore[method-assign]
     monkeypatch.setattr(paxlog_service, "generate_ads_reference", fake_generate_ads_reference)
     monkeypatch.setattr(paxlog_service, "event_bus", FakeEventBus())
+    monkeypatch.setattr(paxlog_service, "_try_avm_workflow_transition", fake_try_avm_workflow_transition)
+    monkeypatch.setattr(paxlog_service.fsm_service, "emit_transition_event", fake_emit_transition_event)
 
     result = await paxlog_service.approve_avm(db, avm.id, avm.entity_id, uuid4())
 
@@ -2326,6 +2618,7 @@ async def test_approve_avm_links_ads_creation_tasks_to_generated_ads(monkeypatch
     assert prep_task.status == "completed"
     assert prep_task.completed_at is not None
     assert published_events and published_events[0].event_type == "paxlog.mission_notice.approved"
+    assert transition_events and transition_events[0]["to_state"] == "active"
 
 
 @pytest.mark.asyncio
@@ -2352,6 +2645,7 @@ async def test_complete_avm_succeeds_when_generated_ads_are_terminal(monkeypatch
     avm = _build_avm(status="active")
     generated_ads_id = uuid4()
     published_events = []
+    transition_events = []
     db = FakeDB(
         [
             FakeResult(scalar_one_or_none=avm),
@@ -2364,7 +2658,15 @@ async def test_complete_avm_succeeds_when_generated_ads_are_terminal(monkeypatch
         async def publish(self, event):
             published_events.append(event)
 
+    async def fake_try_avm_workflow_transition(*_args, **_kwargs):
+        return None
+
+    async def fake_emit_transition_event(**kwargs):
+        transition_events.append(kwargs)
+
     monkeypatch.setattr(paxlog_service, "event_bus", FakeEventBus())
+    monkeypatch.setattr(paxlog_service, "_try_avm_workflow_transition", fake_try_avm_workflow_transition)
+    monkeypatch.setattr(paxlog_service.fsm_service, "emit_transition_event", fake_emit_transition_event)
 
     result = await paxlog_service.complete_avm(db, avm.id, avm.entity_id, uuid4())
 
@@ -2372,6 +2674,7 @@ async def test_complete_avm_succeeds_when_generated_ads_are_terminal(monkeypatch
     assert result["generated_ads_count"] == 1
     assert avm.status == "completed"
     assert published_events and published_events[0].event_type == "paxlog.mission_notice.completed"
+    assert transition_events and transition_events[0]["to_state"] == "completed"
 
 
 @pytest.mark.asyncio
@@ -3072,6 +3375,226 @@ async def test_ensure_ads_default_imputation_skips_capex_and_otp_required(monkey
     )
 
     assert not any(isinstance(obj, CostImputation) for obj in db.added)
+
+
+@pytest.mark.asyncio
+async def test_sync_ads_project_from_imputations_sets_single_project(monkeypatch):
+    ads = _build_ads(project_id=None)
+    project_id = uuid4()
+    db = FakeDB([
+        FakeResult(all_rows=[(project_id,)]),
+    ])
+
+    await paxlog._sync_ads_project_from_imputations(db, ads=ads)
+
+    assert ads.project_id == project_id
+
+
+@pytest.mark.asyncio
+async def test_sync_ads_project_from_imputations_clears_primary_on_multiple_projects(monkeypatch):
+    ads = _build_ads(project_id=uuid4())
+    db = FakeDB([
+        FakeResult(all_rows=[(uuid4(),), (uuid4(),)]),
+    ])
+
+    await paxlog._sync_ads_project_from_imputations(db, ads=ads)
+
+    assert ads.project_id is None
+
+
+@pytest.mark.asyncio
+async def test_sync_ads_project_from_imputations_clears_primary_when_no_project_remains(monkeypatch):
+    ads = _build_ads(project_id=uuid4())
+    db = FakeDB([
+        FakeResult(all_rows=[]),
+    ])
+
+    await paxlog._sync_ads_project_from_imputations(db, ads=ads)
+
+    assert ads.project_id is None
+
+
+@pytest.mark.asyncio
+async def test_build_ads_read_data_uses_single_imputation_project_as_primary(monkeypatch):
+    ads = _build_ads(project_id=None)
+    requester_name = "Aline Doe"
+    project_id = uuid4()
+    db = FakeDB([
+        FakeResult(all_rows=[(ads.requester_id, "Aline", "Doe")]),
+        FakeResult(first=None),
+        FakeResult(all_rows=[(project_id, uuid4(), "PRJ-001", "Projet Alpha", "Maya", "Manager")]),
+        FakeResult(first=("SITE-01", "Munja")),
+    ])
+
+    async def fake_allowed_companies(_db, *, ads_id):
+        assert ads_id == ads.id
+        return [], []
+
+    monkeypatch.setattr(paxlog, "_get_ads_allowed_company_scope", fake_allowed_companies)
+
+    data = await paxlog._build_ads_read_data(db, ads=ads, entity_id=ads.entity_id)
+
+    assert data["project_id"] == project_id
+    assert data["project_name"] == "PRJ-001 — Projet Alpha"
+    assert data["project_manager_name"] == "Maya Manager"
+    assert data["linked_projects"] == [
+        {
+            "project_id": project_id,
+            "project_name": "PRJ-001 — Projet Alpha",
+            "project_manager_id": data["project_manager_id"],
+            "project_manager_name": "Maya Manager",
+        },
+    ]
+    assert data["requester_name"] == requester_name
+
+
+@pytest.mark.asyncio
+async def test_build_ads_read_data_exposes_multiple_imputation_projects_without_fake_primary(monkeypatch):
+    ads = _build_ads(project_id=uuid4())
+    first_project_id = uuid4()
+    second_project_id = uuid4()
+    db = FakeDB([
+        FakeResult(all_rows=[(ads.requester_id, "Aline", "Doe")]),
+        FakeResult(first=None),
+        FakeResult(all_rows=[
+            (first_project_id, uuid4(), "PRJ-001", "Projet Alpha", "Maya", "Manager"),
+            (second_project_id, uuid4(), "PRJ-002", "Projet Beta", "Noah", "Lead"),
+        ]),
+        FakeResult(first=("SITE-01", "Munja")),
+    ])
+
+    async def fake_allowed_companies(_db, *, ads_id):
+        assert ads_id == ads.id
+        return [], []
+
+    monkeypatch.setattr(paxlog, "_get_ads_allowed_company_scope", fake_allowed_companies)
+
+    data = await paxlog._build_ads_read_data(db, ads=ads, entity_id=ads.entity_id)
+
+    assert data["project_id"] is None
+    assert data["project_name"] is None
+    assert data["project_manager_name"] is None
+    assert data["linked_projects"] == [
+        {
+            "project_id": first_project_id,
+            "project_name": "PRJ-001 — Projet Alpha",
+            "project_manager_id": data["linked_projects"][0]["project_manager_id"],
+            "project_manager_name": "Maya Manager",
+        },
+        {
+            "project_id": second_project_id,
+            "project_name": "PRJ-002 — Projet Beta",
+            "project_manager_id": data["linked_projects"][1]["project_manager_id"],
+            "project_manager_name": "Noah Lead",
+        },
+    ]
+
+
+@pytest.mark.asyncio
+async def test_add_imputation_sets_ads_project_id_for_first_full_project_line(monkeypatch):
+    ads = _build_ads(status="draft", project_id=None)
+    project_id = uuid4()
+    db = FakeDB([
+        FakeResult(scalar_one_or_none=ads),
+        FakeResult(all_rows=[(project_id,)]),
+    ])
+
+    async def fake_can_manage_ads(_ads, *, current_user, entity_id, db):
+        return True
+
+    async def fake_create_cost_imputation(*, body, current_user, db):
+        return {
+            "owner_type": body.owner_type,
+            "owner_id": body.owner_id,
+            "project_id": body.project_id,
+            "percentage": body.percentage,
+        }
+
+    monkeypatch.setattr(paxlog, "_can_manage_ads", fake_can_manage_ads)
+    monkeypatch.setattr(
+        "app.api.routes.core.cost_imputations.create_cost_imputation",
+        fake_create_cost_imputation,
+    )
+
+    result = await paxlog.add_imputation(
+        ads.id,
+        project_id=project_id,
+        percentage=100.0,
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=ads.requester_id),
+        _=None,
+        db=db,
+    )
+
+    assert result["project_id"] == project_id
+    assert ads.project_id == project_id
+
+
+@pytest.mark.asyncio
+async def test_add_imputation_clears_primary_project_when_multiple_projects_exist(monkeypatch):
+    ads = _build_ads(status="draft", project_id=uuid4())
+    db = FakeDB([
+        FakeResult(scalar_one_or_none=ads),
+        FakeResult(all_rows=[(uuid4(),), (uuid4(),)]),
+    ])
+
+    async def fake_can_manage_ads(_ads, *, current_user, entity_id, db):
+        return True
+
+    async def fake_create_cost_imputation(*, body, current_user, db):
+        return {"project_id": body.project_id}
+
+    monkeypatch.setattr(paxlog, "_can_manage_ads", fake_can_manage_ads)
+    monkeypatch.setattr(
+        "app.api.routes.core.cost_imputations.create_cost_imputation",
+        fake_create_cost_imputation,
+    )
+
+    await paxlog.add_imputation(
+        ads.id,
+        project_id=uuid4(),
+        percentage=50.0,
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=ads.requester_id),
+        _=None,
+        db=db,
+    )
+
+    assert ads.project_id is None
+
+
+@pytest.mark.asyncio
+async def test_delete_imputation_recomputes_primary_project(monkeypatch):
+    ads = _build_ads(status="draft", project_id=uuid4())
+    remaining_project_id = uuid4()
+    db = FakeDB([
+        FakeResult(scalar_one_or_none=ads),
+        FakeResult(all_rows=[(remaining_project_id,)]),
+    ])
+
+    async def fake_can_manage_ads(_ads, *, current_user, entity_id, db):
+        return True
+
+    async def fake_delete_cost_imputation(*, imputation_id, current_user, db):
+        return None
+
+    monkeypatch.setattr(paxlog, "_can_manage_ads", fake_can_manage_ads)
+    monkeypatch.setattr(
+        "app.api.routes.core.cost_imputations.delete_cost_imputation",
+        fake_delete_cost_imputation,
+    )
+
+    result = await paxlog.delete_imputation(
+        ads.id,
+        imputation_id=uuid4(),
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=ads.requester_id),
+        _=None,
+        db=db,
+    )
+
+    assert result is None
+    assert ads.project_id == remaining_project_id
 
 
 @pytest.mark.asyncio
@@ -4008,7 +4531,7 @@ async def test_get_external_ads_dossier_filters_pax_to_allowed_company(monkeypat
     db = FakeDB(
         [
             FakeResult(scalar_one_or_none="Onshore Alpha"),
-            FakeResult(first=("PRJ-001", "Projet Alpha")),
+            FakeResult(all_rows=[(project_id, "PRJ-001", "Projet Alpha")]),
             FakeResult(
                 all_rows=[
                     (
@@ -4068,8 +4591,43 @@ async def test_get_external_ads_dossier_filters_pax_to_allowed_company(monkeypat
     async def fake_get_ads_and_context(_db, link):
         return ads, ads.entity_id, allowed_company_id
 
+    async def fake_build_external_dossier_pax_data(_db, *, ads_id, allowed_company_ids):
+        assert ads_id == ads.id
+        assert allowed_company_ids == [allowed_company_id]
+        return [
+            {
+                "ads_pax_id": str(uuid4()),
+                "user_id": None,
+                "contact_id": str(visible_contact.id),
+                "full_name": "Aline Mukeba",
+                "compliance_ok": False,
+                "compliance_blocker_count": 1,
+                "compliance_blockers": [
+                    {
+                        "credential_type_code": "MED",
+                        "layer_label": None,
+                    }
+                ],
+                "credentials": [
+                    {
+                        "credential_type_code": "MED",
+                        "status": "pending_validation",
+                    }
+                ],
+                "missing_identity_fields": [],
+                "required_actions": [{"kind": "credential"}],
+            }
+        ], {
+            "total": 1,
+            "pending_check": 1,
+            "compliant": 0,
+            "blocked": 1,
+            "approved": 0,
+        }
+
     monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
     monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+    monkeypatch.setattr(paxlog.paxlog_service, "build_external_dossier_pax_data", fake_build_external_dossier_pax_data)
 
     response = await paxlog.get_external_ads_dossier(
         "token-dossier",
@@ -4096,7 +4654,62 @@ async def test_get_external_ads_dossier_filters_pax_to_allowed_company(monkeypat
     assert response["ads"]["return_transport_mode"] == ads.return_transport_mode
     assert response["ads"]["site_name"] == "Onshore Alpha"
     assert response["ads"]["project_name"] == "PRJ-001 — Projet Alpha"
+    assert response["ads"]["linked_projects"] == [
+        {"project_id": str(project_id), "project_name": "PRJ-001 — Projet Alpha"},
+    ]
     assert response["ads"]["rejection_reason"] == "Pièces HSE manquantes"
+
+
+@pytest.mark.asyncio
+async def test_get_external_ads_dossier_exposes_multiple_projects_without_fake_primary(monkeypatch):
+    link = SimpleNamespace(id=uuid4(), preconfigured_data={}, access_log=[])
+    ads = _build_ads(status="draft", project_id=uuid4())
+    allowed_company_id = uuid4()
+    project_a = uuid4()
+    project_b = uuid4()
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none="Onshore Alpha"),
+            FakeResult(all_rows=[
+                (project_a, "PRJ-001", "Projet Alpha"),
+                (project_b, "PRJ-002", "Projet Beta"),
+            ]),
+            FakeResult(all_rows=[]),
+            FakeResult(all_rows=[]),
+            FakeResult(all_rows=[]),
+        ]
+    )
+
+    async def fake_require_session(_db, token, session_token, request=None):
+        return link
+
+    async def fake_get_ads_and_context(_db, link):
+        return ads, ads.entity_id, allowed_company_id
+
+    async def fake_allowed_companies(_db, *, ads, link, fallback_company_id):
+        return [allowed_company_id], ["Vendor X"], allowed_company_id, "Vendor X"
+
+    async def fake_build_external_dossier_pax_data(_db, *, ads_id, allowed_company_ids):
+        return [], {"total": 0, "pending_check": 0, "compliant": 0, "blocked": 0, "approved": 0}
+
+    monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
+    monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+    monkeypatch.setattr(paxlog, "_resolve_external_allowed_companies", fake_allowed_companies)
+    monkeypatch.setattr(paxlog.paxlog_service, "build_external_dossier_pax_data", fake_build_external_dossier_pax_data)
+
+    response = await paxlog.get_external_ads_dossier(
+        "token-dossier",
+        request=SimpleNamespace(client=None, headers={}),
+        x_external_session="session-ok",
+        db=db,
+    )
+
+    assert response["ads"]["project_id"] is None
+    assert response["ads"]["project_name"] is None
+    assert response["ads"]["linked_projects"] == [
+        {"project_id": str(project_a), "project_name": "PRJ-001 — Projet Alpha"},
+        {"project_id": str(project_b), "project_name": "PRJ-002 — Projet Beta"},
+    ]
 
 
 @pytest.mark.asyncio
@@ -4180,7 +4793,7 @@ async def test_get_external_ads_dossier_includes_user_backed_promoted_contact(mo
     db = FakeDB(
         [
             FakeResult(scalar_one_or_none="Onshore Alpha"),
-            FakeResult(first=None),
+            FakeResult(all_rows=[]),
             FakeResult(
                 all_rows=[
                     (
@@ -4207,8 +4820,28 @@ async def test_get_external_ads_dossier_includes_user_backed_promoted_contact(mo
     async def fake_get_ads_and_context(_db, link):
         return ads, ads.entity_id, allowed_company_id
 
+    async def fake_build_external_dossier_pax_data(_db, *, ads_id, allowed_company_ids):
+        return [
+            {
+                "ads_pax_id": str(uuid4()),
+                "user_id": str(promoted_user_id),
+                "contact_id": str(promoted_contact_id),
+                "full_name": "Aline Mukeba",
+                "pax_source": "user",
+                "contractual_airport": "FIH",
+                "pickup_city": "Matadi",
+            }
+        ], {
+            "total": 1,
+            "pending_check": 1,
+            "compliant": 0,
+            "blocked": 0,
+            "approved": 0,
+        }
+
     monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
     monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+    monkeypatch.setattr(paxlog.paxlog_service, "build_external_dossier_pax_data", fake_build_external_dossier_pax_data)
 
     response = await paxlog.get_external_ads_dossier(
         "token-dossier",
@@ -4932,6 +5565,39 @@ async def test_planner_activity_cancelled_creates_ads_event_and_notifies(monkeyp
 
 
 @pytest.mark.asyncio
+async def test_project_status_changed_notifies_ads_linked_by_direct_project_id(monkeypatch):
+    entity_id = uuid4()
+    project_id = uuid4()
+    ads_id = uuid4()
+    requester_id = uuid4()
+    db = FakeDB([FakeResult(all_rows=[(ads_id, "ADS-777", requester_id)])])
+    notifications = []
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+    monkeypatch.setattr(paxlog_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+
+    await paxlog_handlers.on_project_status_changed(
+        OpsFluxEvent(
+            event_type="project.status.changed",
+            payload={
+                "project_id": str(project_id),
+                "project_code": "PRJ-777",
+                "new_status": "cancelled",
+                "entity_id": str(entity_id),
+            },
+        )
+    )
+
+    executed_sql = str(db.executed[0][0])
+    assert "a.project_id = :pid" in executed_sql
+    assert notifications and notifications[0]["link"] == f"/paxlog/ads/{ads_id}"
+    assert "PRJ-777" in notifications[0]["title"]
+
+
+@pytest.mark.asyncio
 async def test_ads_workflow_transition_notifies_assigned_user(monkeypatch):
     entity_scope_id = uuid4()
     ads_id = uuid4()
@@ -5037,6 +5703,168 @@ def test_register_module_handlers_does_not_duplicate_planner_cancelled_for_paxlo
 
     subscribed_events = [event_type for event_type, _handler in bus.subscriptions]
     assert subscribed_events.count("planner.activity.cancelled") == 1
+    assert subscribed_events.count("planner.activity.completed") == 1
+    assert subscribed_events.count("ads.completed") == 1
+    assert subscribed_events.count(WORKFLOW_TRANSITION_EVENT) == 2
+
+
+@pytest.mark.asyncio
+async def test_ads_completed_cascade_completes_linked_planner_activity(monkeypatch):
+    entity_id = uuid4()
+    ads_id = uuid4()
+    planner_id = uuid4()
+    ads = _build_ads(id=ads_id, entity_id=entity_id, planner_activity_id=planner_id, status="completed")
+    activity = SimpleNamespace(
+        id=planner_id,
+        entity_id=entity_id,
+        asset_id=uuid4(),
+        project_id=uuid4(),
+        title="Inspection line A",
+        status="in_progress",
+        actual_end=None,
+    )
+    db = FakeDB([
+        FakeResult(scalar_one_or_none=ads),
+        FakeResult(scalar_one_or_none=activity),
+    ])
+    published = []
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published.append(event)
+
+    monkeypatch.setattr(module_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+    monkeypatch.setattr(module_handlers, "event_bus", FakeEventBus())
+
+    await module_handlers.on_paxlog_ads_completed(
+        OpsFluxEvent(
+            event_type="ads.completed",
+            payload={
+                "ads_id": str(ads_id),
+                "entity_id": str(entity_id),
+            },
+        )
+    )
+
+    assert activity.status == "completed"
+    assert activity.actual_end is not None
+    assert db.commits == 1
+    assert published and published[0].event_type == "planner.activity.completed"
+    assert published[0].payload["ads_id"] == str(ads_id)
+
+
+@pytest.mark.asyncio
+async def test_planner_activity_completed_syncs_project_task_to_done(monkeypatch):
+    activity_id = uuid4()
+    task_id = uuid4()
+    activity = SimpleNamespace(id=activity_id, source_task_id=task_id, status="completed")
+    task = SimpleNamespace(id=task_id, status="in_progress", completed_at=None)
+    db = FakeDB([
+        FakeResult(scalar_one_or_none=activity),
+        FakeResult(scalar_one_or_none=task),
+    ])
+
+    monkeypatch.setattr(module_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+
+    await module_handlers.on_planner_activity_completed_bundle(
+        OpsFluxEvent(
+            event_type="planner.activity.completed",
+            payload={"activity_id": str(activity_id)},
+        )
+    )
+
+    assert task.status == "done"
+    assert task.completed_at is not None
+    assert db.commits == 1
+
+
+@pytest.mark.asyncio
+async def test_workflow_transition_semantic_bridge_emits_cargo_aliases(monkeypatch):
+    published = []
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published.append(event)
+
+    monkeypatch.setattr(module_handlers, "event_bus", FakeEventBus())
+
+    await module_handlers.on_workflow_transition_semantic_bridge(
+        OpsFluxEvent(
+            event_type="workflow.transition",
+            payload={
+                "workflow_slug": "travelwiz-cargo-workflow",
+                "entity_type": "cargo_item_workflow",
+                "entity_id": str(uuid4()),
+                "from_state": "approved",
+                "to_state": "assigned",
+                "actor_id": str(uuid4()),
+            },
+        )
+    )
+
+    assert [event.event_type for event in published] == [
+        "travelwiz.cargo.workflow.assigned",
+        "travelwiz.cargo.workflow.changed",
+    ]
+    assert published[0].payload["to_status"] == "assigned"
+
+
+@pytest.mark.asyncio
+async def test_workflow_transition_semantic_bridge_emits_avm_ready_aliases(monkeypatch):
+    published = []
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published.append(event)
+
+    monkeypatch.setattr(module_handlers, "event_bus", FakeEventBus())
+
+    await module_handlers.on_workflow_transition_semantic_bridge(
+        OpsFluxEvent(
+            event_type="workflow.transition",
+            payload={
+                "workflow_slug": "avm-workflow",
+                "entity_type": "avm",
+                "entity_id_ref": str(uuid4()),
+                "from_state": "in_preparation",
+                "to_state": "ready",
+                "actor_id": str(uuid4()),
+            },
+        )
+    )
+
+    assert [event.event_type for event in published] == [
+        "paxlog.avm.ready",
+        "paxlog.avm.status.changed",
+    ]
+    assert published[0].payload["avm_id"] == published[1].payload["avm_id"]
+
+
+@pytest.mark.asyncio
+async def test_workflow_transition_semantic_bridge_does_not_duplicate_ads_native_events(monkeypatch):
+    published = []
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published.append(event)
+
+    monkeypatch.setattr(module_handlers, "event_bus", FakeEventBus())
+
+    await module_handlers.on_workflow_transition_semantic_bridge(
+        OpsFluxEvent(
+            event_type="workflow.transition",
+            payload={
+                "workflow_slug": "ads-workflow",
+                "entity_type": "ads",
+                "entity_id_ref": str(uuid4()),
+                "from_state": "pending_validation",
+                "to_state": "approved",
+                "actor_id": str(uuid4()),
+            },
+        )
+    )
+
+    assert published == []
 
 
 @pytest.mark.asyncio

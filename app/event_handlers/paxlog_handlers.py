@@ -13,6 +13,11 @@ import logging
 from uuid import UUID
 
 from app.core.database import async_session_factory
+from app.core.event_contracts import (
+    PROJECT_STATUS_CHANGED_SUBSCRIPTIONS,
+    WORKFLOW_TRANSITION_EVENT,
+    subscribe_with_aliases,
+)
 from app.core.events import EventBus, OpsFluxEvent
 
 logger = logging.getLogger(__name__)
@@ -675,11 +680,13 @@ async def on_project_status_changed(event: OpsFluxEvent) -> None:
         async with async_session_factory() as db:
             result = await db.execute(
                 text(
-                    "SELECT DISTINCT ci.owner_id AS ads_id, a.reference, a.requester_id "
-                    "FROM cost_imputations ci "
-                    "JOIN ads a ON a.id = ci.owner_id "
-                    "WHERE ci.owner_type = 'ads' "
+                    "SELECT DISTINCT a.id AS ads_id, a.reference, a.requester_id "
+                    "FROM ads a "
+                    "LEFT JOIN cost_imputations ci "
+                    "ON ci.owner_type = 'ads' "
+                    "AND ci.owner_id = a.id "
                     "AND ci.project_id = :pid "
+                    "WHERE (a.project_id = :pid OR ci.project_id = :pid) "
                     "AND a.status NOT IN ('completed', 'cancelled', 'rejected')"
                 ),
                 {"pid": str(project_id)},
@@ -706,7 +713,7 @@ async def on_project_status_changed(event: OpsFluxEvent) -> None:
 
             await db.commit()
             logger.info(
-                "project.status_changed → %d AdS warned (project %s)",
+                "project.status.changed → %d AdS warned (project %s)",
                 len(affected), project_code,
             )
     except Exception:
@@ -725,7 +732,7 @@ def register_paxlog_handlers(event_bus: EventBus) -> None:
     event_bus.subscribe("ads.rejected", on_ads_rejected)
     event_bus.subscribe("ads.compliance_failed", on_ads_compliance_failed)
     event_bus.subscribe("ads.cancelled", on_ads_cancelled)
-    event_bus.subscribe("workflow.transition", on_ads_workflow_validation_required)
+    event_bus.subscribe(WORKFLOW_TRANSITION_EVENT, on_ads_workflow_validation_required)
 
     # Planner → PaxLog (activity changes affect AdS)
     event_bus.subscribe("planner.activity.modified", on_planner_activity_modified)
@@ -737,6 +744,6 @@ def register_paxlog_handlers(event_bus: EventBus) -> None:
     event_bus.subscribe("travelwiz.manifest.closed", on_travelwiz_manifest_closed)
 
     # Projets → PaxLog (project lifecycle affects AdS)
-    event_bus.subscribe("project.status_changed", on_project_status_changed)
+    subscribe_with_aliases(event_bus, PROJECT_STATUS_CHANGED_SUBSCRIPTIONS, on_project_status_changed)
 
     logger.info("PaxLog event handlers registered (lifecycle + inter-module)")

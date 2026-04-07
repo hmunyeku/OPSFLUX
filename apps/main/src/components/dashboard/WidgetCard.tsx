@@ -5,7 +5,7 @@
  * Content is delegated to WidgetRenderer which picks the right sub-component
  * based on widget.type (kpi, chart, table, map, text).
  */
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import L from 'leaflet'
 import {
@@ -27,6 +27,7 @@ import {
   TableProperties,
   Zap,
   Clock,
+  LayoutGrid,
 } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
@@ -38,6 +39,8 @@ import { QuickAccessWidget } from './widgets/QuickAccessWidget'
 import { ClockWidget } from './widgets/ClockWidget'
 import type { DashboardWidget } from '@/services/dashboardService'
 import { EChartsWidget } from '@/components/charts/EChartsWidget'
+import ReactECharts from 'echarts-for-react'
+import { useDashboardFilters } from './DashboardFilterContext'
 
 // ── Relative time formatting ────────────────────────────────────
 
@@ -66,6 +69,7 @@ export function WidgetTypeIcon({ type, className }: { type: string; className?: 
     case 'perspective': return <TableProperties className={cls} />
     case 'quick_access': return <Zap className={cls} />
     case 'clock': return <Clock className={cls} />
+    case 'group': return <LayoutGrid className={cls} />
     default: return <BarChart3 className={cls} />
   }
 }
@@ -270,6 +274,8 @@ function WidgetRenderer({
       return <QuickAccessWidget config={widget.config} data={data} />
     case 'clock':
       return <ClockWidget config={widget.config} />
+    case 'group':
+      return <GroupWidget config={widget.config} />
     default:
       return (
         <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
@@ -279,7 +285,7 @@ function WidgetRenderer({
   }
 }
 
-// ── KPI Widget ──────────────────────────────────────────────────
+// ── KPI Widget — Modern Trend Card ─────────────────────────────
 
 function KPIWidget({
   config,
@@ -295,6 +301,7 @@ function KPIWidget({
   const trend = (meta?.trend as number) ?? (config.trend as number) ?? null
   const comparison = (meta?.comparison as string) || (config.comparison as string) || ''
   const format = (config.format as string) || 'number'
+  const unit = (config.unit as string) || ''
 
   // Extract value from first data item or meta
   const rawValue = data?.[0]
@@ -306,45 +313,70 @@ function KPIWidget({
   // Format display value
   let displayValue: string
   if (format === 'currency') {
-    displayValue = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(numValue)
+    displayValue = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 }).format(numValue)
   } else if (format === 'percent') {
     displayValue = `${numValue.toFixed(1)}%`
+  } else if (numValue >= 1_000_000) {
+    displayValue = `${(numValue / 1_000_000).toFixed(1)}M`
+  } else if (numValue >= 10_000) {
+    displayValue = `${(numValue / 1_000).toFixed(1)}k`
   } else {
     displayValue = new Intl.NumberFormat('fr-FR').format(numValue)
   }
 
   const TrendIcon = trend === null ? null : trend > 0 ? TrendingUp : trend < 0 ? TrendingDown : Minus
-  const trendColor = trend === null ? '' : trend > 0 ? 'text-green-600 dark:text-green-400' : trend < 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
+  const trendColor = trend === null ? '' : trend > 0 ? 'text-emerald-600 dark:text-emerald-400' : trend < 0 ? 'text-red-500 dark:text-red-400' : 'text-muted-foreground'
+  const trendBg = trend === null ? '' : trend > 0 ? 'bg-emerald-50 dark:bg-emerald-900/20' : trend < 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-muted/30'
+
+  // Sparkline data — array of numbers from meta or config
+  const sparklineData = (meta?.sparkline as number[]) || (config.sparkline as number[]) || null
+  const sparklineColor = trend === null ? '#3b82f6' : trend > 0 ? '#22c55e' : trend < 0 ? '#ef4444' : '#94a3b8'
 
   // Extract details if available
   const details = (meta?.details || config.details) as Record<string, unknown> | undefined
 
   return (
-    <div className="flex flex-col justify-center h-full gap-2">
-      {/* Main value — large, bold, colored */}
-      <div className="flex items-baseline gap-2">
-        <span className="text-4xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--widget-accent, hsl(var(--primary)))' }}>
-          {displayValue}
-        </span>
-        {labelField && (
-          <span className="text-xs text-muted-foreground font-medium">{labelField}</span>
+    <div className="flex flex-col justify-between h-full">
+      {/* Top: Label */}
+      {labelField && (
+        <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide truncate">{labelField}</span>
+      )}
+
+      {/* Center: Big number + unit + trend badge */}
+      <div className="flex-1 flex flex-col justify-center gap-1.5">
+        <div className="flex items-baseline gap-2">
+          <span className="text-3xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--widget-accent, hsl(var(--primary)))' }}>
+            {displayValue}
+          </span>
+          {unit && (
+            <span className="text-sm text-muted-foreground/60 font-medium">{unit}</span>
+          )}
+        </div>
+
+        {/* Trend pill + comparison */}
+        {(trend !== null || comparison) && (
+          <div className="flex items-center gap-2">
+            {trend !== null && (
+              <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold', trendColor, trendBg)}>
+                {TrendIcon && <TrendIcon className="h-3 w-3" />}
+                {trend > 0 ? '+' : ''}{trend}%
+              </span>
+            )}
+            {comparison && <span className="text-[11px] text-muted-foreground">{comparison}</span>}
+          </div>
         )}
       </div>
-      {/* Trend line */}
-      {(trend !== null || comparison) && (
-        <div className={cn('flex items-center gap-1.5 text-xs font-medium', trendColor)}>
-          {TrendIcon && <TrendIcon className="h-3.5 w-3.5" />}
-          {trend !== null && <span>{trend > 0 ? '+' : ''}{trend}%</span>}
-          {comparison && <span className="text-muted-foreground font-normal">{comparison}</span>}
+
+      {/* Bottom: Sparkline OR detail chips */}
+      {sparklineData && sparklineData.length > 1 ? (
+        <div className="h-10 -mx-1 mt-1">
+          <KPISparkline data={sparklineData} color={sparklineColor} />
         </div>
-      )}
-      {/* Detail chips — mini KPI sub-metrics */}
-      {details && Object.keys(details).length > 1 && (
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {Object.entries(details).slice(0, 8).map(([k, v]) => {
+      ) : details && Object.keys(details).length > 0 ? (
+        <div className="flex flex-wrap gap-1.5 mt-1">
+          {Object.entries(details).slice(0, 6).map(([k, v]) => {
             const label = k.replace(/_/g, ' ')
             const val = String(v)
-            // Color hints based on key name
             const isGood = /compliant|active|done|valid/.test(k)
             const isBad = /overdue|expired|critical|cancelled/.test(k)
             const chipColor = isGood ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'
@@ -358,7 +390,123 @@ function KPIWidget({
             )
           })}
         </div>
-      )}
+      ) : null}
+    </div>
+  )
+}
+
+// ── KPI Sparkline (mini area chart) ────────────────────────────
+
+function KPISparkline({ data, color }: { data: number[]; color: string }) {
+  const option = useMemo(() => ({
+    grid: { top: 0, right: 0, bottom: 0, left: 0 },
+    xAxis: { type: 'category' as const, show: false, data: data.map((_, i) => i) },
+    yAxis: { type: 'value' as const, show: false, min: Math.min(...data) * 0.9, max: Math.max(...data) * 1.05 },
+    series: [{
+      type: 'line' as const,
+      data,
+      smooth: true,
+      symbol: 'none',
+      lineStyle: { width: 2, color },
+      areaStyle: { color: { type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: color + '40' }, { offset: 1, color: color + '05' }] } },
+    }],
+    tooltip: { show: false },
+    animation: false,
+  }), [data, color])
+
+  return <ReactECharts option={option} style={{ height: '100%', width: '100%' }} opts={{ renderer: 'svg' }} />
+}
+
+// ── Group Widget — Container for mini-KPI tiles ────────────────
+
+interface GroupChild {
+  title: string
+  value: number | string
+  format?: string
+  unit?: string
+  trend?: number | null
+  sparkline?: number[]
+  icon?: string
+  color?: string
+}
+
+function GroupWidget({ config }: { config: Record<string, unknown> }) {
+  const layout = (config.layout as string) || '2x2'
+  const children = (config.children as GroupChild[]) || []
+
+  // Parse layout → grid classes
+  const gridClass = layout === '1x4' ? 'grid-cols-4'
+    : layout === '4x1' ? 'grid-cols-1'
+    : layout === '3x1' ? 'grid-cols-3'
+    : layout === '1x3' ? 'grid-cols-1'
+    : 'grid-cols-2' // 2x2 default
+
+  if (!children.length) {
+    return (
+      <div className="flex items-center justify-center h-full text-xs text-muted-foreground/40">
+        <LayoutGrid className="h-5 w-5 mr-2 opacity-30" />
+        Configurer les KPIs enfants
+      </div>
+    )
+  }
+
+  return (
+    <div className={cn('grid gap-2 h-full', gridClass)}>
+      {children.map((child, idx) => (
+        <GroupChildTile key={idx} child={child} />
+      ))}
+    </div>
+  )
+}
+
+function GroupChildTile({ child }: { child: GroupChild }) {
+  const { title, value, format, unit, trend, sparkline, color } = child
+
+  // Format value
+  const numValue = typeof value === 'number' ? value : parseFloat(String(value ?? '0'))
+  let displayValue: string
+  if (format === 'currency') {
+    displayValue = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 }).format(numValue)
+  } else if (format === 'percent') {
+    displayValue = `${numValue.toFixed(1)}%`
+  } else if (numValue >= 1_000_000) {
+    displayValue = `${(numValue / 1_000_000).toFixed(1)}M`
+  } else if (numValue >= 10_000) {
+    displayValue = `${(numValue / 1_000).toFixed(1)}k`
+  } else {
+    displayValue = typeof value === 'string' ? value : new Intl.NumberFormat('fr-FR').format(numValue)
+  }
+
+  const trendColor = trend == null ? '' : trend > 0 ? 'text-emerald-600' : trend < 0 ? 'text-red-500' : 'text-muted-foreground'
+  const TrendIcon = trend == null ? null : trend > 0 ? TrendingUp : trend < 0 ? TrendingDown : Minus
+  const accentColor = color || 'hsl(var(--primary))'
+  const sparkColor = trend == null ? '#3b82f6' : trend > 0 ? '#22c55e' : trend < 0 ? '#ef4444' : '#94a3b8'
+
+  return (
+    <div className="flex flex-col justify-between rounded-lg bg-muted/30 dark:bg-muted/10 border border-border/30 px-3 py-2 min-h-0 overflow-hidden">
+      {/* Title */}
+      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide truncate">{title}</span>
+      {/* Value row */}
+      <div className="flex items-baseline gap-1.5 mt-1">
+        <span className="text-xl font-extrabold tracking-tight leading-none" style={{ color: accentColor }}>
+          {displayValue}
+        </span>
+        {unit && <span className="text-[10px] text-muted-foreground/60">{unit}</span>}
+      </div>
+      {/* Trend + sparkline */}
+      <div className="flex items-center justify-between mt-1 min-h-[16px]">
+        {trend != null ? (
+          <span className={cn('inline-flex items-center gap-0.5 text-[10px] font-semibold', trendColor)}>
+            {TrendIcon && <TrendIcon className="h-2.5 w-2.5" />}
+            {trend > 0 ? '+' : ''}{trend}%
+          </span>
+        ) : <span />}
+        {sparkline && sparkline.length > 1 && (
+          <div className="h-4 w-12">
+            <KPISparkline data={sparkline} color={sparkColor} />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -578,22 +726,53 @@ function TableWidget({
         </table>
       </div>
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-2 py-1 border-t shrink-0">
+        <div className="flex items-center justify-between px-2 py-1.5 border-t shrink-0">
           <span className="text-[10px] text-muted-foreground">
             {page * pageSize + 1}-{Math.min((page + 1) * pageSize, rows.length)} / {rows.length}
           </span>
-          <div className="flex gap-1">
+          <div className="flex items-center gap-0.5">
             <button
               onClick={() => setPage(Math.max(0, page - 1))}
               disabled={page === 0}
-              className="text-[10px] px-1.5 py-0.5 rounded hover:bg-muted disabled:opacity-40"
+              className="text-[10px] px-1.5 py-0.5 rounded hover:bg-muted disabled:opacity-30"
             >
               &lt;
             </button>
+            {/* Numbered page buttons — show max 5 with ellipsis */}
+            {(() => {
+              const pages: (number | 'ellipsis')[] = []
+              if (totalPages <= 5) {
+                for (let i = 0; i < totalPages; i++) pages.push(i)
+              } else {
+                pages.push(0)
+                if (page > 2) pages.push('ellipsis')
+                for (let i = Math.max(1, page - 1); i <= Math.min(totalPages - 2, page + 1); i++) pages.push(i)
+                if (page < totalPages - 3) pages.push('ellipsis')
+                pages.push(totalPages - 1)
+              }
+              return pages.map((p, idx) =>
+                p === 'ellipsis' ? (
+                  <span key={`e${idx}`} className="text-[10px] px-1 text-muted-foreground">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={cn(
+                      'text-[10px] min-w-[20px] h-5 rounded transition-colors',
+                      p === page
+                        ? 'bg-primary text-primary-foreground font-bold'
+                        : 'hover:bg-muted text-muted-foreground',
+                    )}
+                  >
+                    {p + 1}
+                  </button>
+                ),
+              )
+            })()}
             <button
               onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
               disabled={page >= totalPages - 1}
-              className="text-[10px] px-1.5 py-0.5 rounded hover:bg-muted disabled:opacity-40"
+              className="text-[10px] px-1.5 py-0.5 rounded hover:bg-muted disabled:opacity-30"
             >
               &gt;
             </button>

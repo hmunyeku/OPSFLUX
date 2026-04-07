@@ -113,6 +113,8 @@ logger = logging.getLogger(__name__)
 
 ADS_WORKFLOW_SLUG = "ads-workflow"
 ADS_ENTITY_TYPE = "ads"
+AVM_WORKFLOW_SLUG = "avm-workflow"
+AVM_ENTITY_TYPE = "avm"
 EXTERNAL_OTP_TTL_MINUTES = 10
 EXTERNAL_SESSION_TTL_MINUTES = 30
 EXTERNAL_OTP_MAX_ATTEMPTS = 3
@@ -570,6 +572,33 @@ async def _ensure_ads_default_imputation(
     )
 
 
+async def _sync_ads_project_from_imputations(
+    db: AsyncSession,
+    *,
+    ads: Ads,
+) -> None:
+    """Reflect mono-project imputations into ads.project_id.
+
+    Rules:
+    - no project imputation: ads.project_id = None
+    - one distinct project across imputations: ads.project_id = that project
+    - several distinct projects: ads.project_id = None
+    """
+    project_rows = (
+        await db.execute(
+            select(CostImputation.project_id)
+            .where(
+                CostImputation.owner_type == "ads",
+                CostImputation.owner_id == ads.id,
+                CostImputation.project_id.isnot(None),
+            )
+            .distinct()
+        )
+    ).all()
+    project_ids = [row[0] for row in project_rows if row[0] is not None]
+    ads.project_id = project_ids[0] if len(project_ids) == 1 else None
+
+
 async def _try_ads_workflow_transition(
     db: AsyncSession,
     *,
@@ -606,6 +635,54 @@ async def _try_ads_workflow_transition(
             logger.debug(
                 "No workflow definition '%s' found — direct status update",
                 ADS_WORKFLOW_SLUG,
+            )
+            return None, None
+        raise HTTPException(400, str(e))
+
+
+async def _try_avm_workflow_transition(
+    db: AsyncSession,
+    *,
+    avm: MissionNotice,
+    to_state: str,
+    actor_id: UUID,
+    comment: str | None = None,
+) -> tuple[str | None, object | None]:
+    try:
+        instance = await fsm_service.get_instance(
+            db,
+            entity_type=AVM_ENTITY_TYPE,
+            entity_id=str(avm.id),
+        )
+        if not instance:
+            await fsm_service.get_or_create_instance(
+                db,
+                workflow_slug=AVM_WORKFLOW_SLUG,
+                entity_type=AVM_ENTITY_TYPE,
+                entity_id=str(avm.id),
+                initial_state=avm.status,
+                entity_id_scope=avm.entity_id,
+                created_by=actor_id,
+            )
+        instance = await fsm_service.transition(
+            db,
+            workflow_slug=AVM_WORKFLOW_SLUG,
+            entity_type=AVM_ENTITY_TYPE,
+            entity_id=str(avm.id),
+            to_state=to_state,
+            actor_id=actor_id,
+            comment=comment,
+            entity_id_scope=avm.entity_id,
+            skip_role_check=True,
+        )
+        return instance.current_state, instance
+    except FSMPermissionError as e:
+        raise HTTPException(403, str(e))
+    except FSMError as e:
+        if "not found" in str(e).lower():
+            logger.debug(
+                "No workflow definition '%s' found — direct status update",
+                AVM_WORKFLOW_SLUG,
             )
             return None, None
         raise HTTPException(400, str(e))
@@ -2269,6 +2346,14 @@ async def update_ads(
             metadata_json={"changes": changed_fields},
         ))
 
+    if "project_id" in update_data and ads.project_id:
+        await _ensure_ads_default_imputation(
+            db,
+            ads=ads,
+            entity_id=entity_id,
+            author_id=current_user.id,
+        )
+
     await db.commit()
     await db.refresh(ads)
     return ads
@@ -2463,6 +2548,7 @@ async def submit_ads(
             detail=f"Impossible de soumettre un AdS avec le statut '{ads.status}'.",
         )
 
+    pending_project_review_targets = await _get_ads_pending_project_review_targets(db, ads=ads, entity_id=entity_id)
     project_reviewer = await _get_ads_project_reviewer(db, ads=ads, entity_id=entity_id)
     workflow_runtime_context = _build_ads_workflow_runtime_context(
         ads=ads,
@@ -2537,7 +2623,12 @@ async def submit_ads(
         await db.commit()
         return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
-    if next_review_state == "pending_project_review" and project_reviewer and project_reviewer.manager_id != current_user.id:
+    pending_reviewer_ids = {
+        target["project_manager_id"]
+        for target in pending_project_review_targets
+        if target.get("project_manager_id")
+    }
+    if next_review_state == "pending_project_review" and pending_reviewer_ids - {current_user.id}:
         from_state = ads.status
         transition_result = await _try_ads_workflow_transition(
             db,
@@ -2558,8 +2649,10 @@ async def submit_ads(
             new_status=next_review_state,
             actor_id=current_user.id,
             metadata_json={
-                "project_id": str(project_reviewer.id),
-                "project_manager_id": str(project_reviewer.manager_id),
+                "project_id": str(project_reviewer.id) if project_reviewer else None,
+                "project_manager_id": str(project_reviewer.manager_id) if project_reviewer and project_reviewer.manager_id else None,
+                "pending_project_ids": [str(target["project_id"]) for target in pending_project_review_targets],
+                "pending_project_manager_ids": [str(target["project_manager_id"]) for target in pending_project_review_targets if target.get("project_manager_id")],
             },
         ))
         await db.commit()
@@ -2573,8 +2666,10 @@ async def submit_ads(
             workflow_slug=ADS_WORKFLOW_SLUG,
             extra_payload={
                 "reference": ads.reference,
-                "project_id": str(project_reviewer.id),
-                "next_approver_id": str(project_reviewer.manager_id),
+                "project_id": str(project_reviewer.id) if project_reviewer else None,
+                "next_approver_id": str(project_reviewer.manager_id) if project_reviewer and project_reviewer.manager_id else None,
+                "pending_project_ids": [str(target["project_id"]) for target in pending_project_review_targets],
+                "pending_project_manager_ids": [str(target["project_manager_id"]) for target in pending_project_review_targets if target.get("project_manager_id")],
                 "entity_scope_id": str(entity_id),
                 "assigned_to": workflow_instance.metadata_.get("assigned_to") if workflow_instance and workflow_instance.metadata_ else None,
                 "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code") if workflow_instance and workflow_instance.metadata_ else None,
@@ -2590,8 +2685,9 @@ async def submit_ads(
             details={
                 "reference": ads.reference,
                 "project_review_required": True,
-                "project_id": str(project_reviewer.id),
-                "project_manager_id": str(project_reviewer.manager_id),
+                "project_id": str(project_reviewer.id) if project_reviewer else None,
+                "project_manager_id": str(project_reviewer.manager_id) if project_reviewer and project_reviewer.manager_id else None,
+                "pending_project_count": len(pending_project_review_targets),
             },
         )
         await db.commit()
@@ -2735,6 +2831,7 @@ async def approve_ads(
             db=db,
         )
 
+        pending_project_review_targets = await _get_ads_pending_project_review_targets(db, ads=ads, entity_id=entity_id)
         project_reviewer = await _get_ads_project_reviewer(db, ads=ads, entity_id=entity_id)
         workflow_runtime_context = _build_ads_workflow_runtime_context(
             ads=ads,
@@ -2748,7 +2845,12 @@ async def approve_ads(
             ads=ads,
             project_reviewer=project_reviewer,
         )
-        if target_status == "pending_project_review" and project_reviewer and project_reviewer.manager_id != current_user.id:
+        pending_reviewer_ids = {
+            target["project_manager_id"]
+            for target in pending_project_review_targets
+            if target.get("project_manager_id")
+        }
+        if target_status == "pending_project_review" and pending_reviewer_ids - {current_user.id}:
             has_compliance_issues = False
             pax_entries = []
         else:
@@ -2822,12 +2924,60 @@ async def approve_ads(
             entity_id=entity_id,
             db=db,
         )
+        pending_targets = await _get_ads_pending_project_review_targets(db, ads=ads, entity_id=entity_id)
+        can_update_project = await has_user_permission(current_user, entity_id, "project.update", db)
+        can_approve = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
+        if can_update_project or can_approve:
+            approved_targets = pending_targets
+        else:
+            approved_targets = [
+                target for target in pending_targets
+                if target.get("project_manager_id") == current_user.id
+            ]
+        remaining_targets = [
+            target for target in pending_targets
+            if target["project_id"] not in {item["project_id"] for item in approved_targets}
+        ]
 
         workflow_runtime_context = _build_ads_workflow_runtime_context(
             ads=ads,
             entity_id=entity_id,
             project_reviewer=project_reviewer,
         )
+        db.add(AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type="project_review_approved",
+            old_status=ads.status,
+            new_status=ads.status if remaining_targets else "pending_compliance",
+            actor_id=current_user.id,
+            metadata_json={
+                "project_id": str(project_reviewer.id) if project_reviewer else None,
+                "project_ids": [str(item["project_id"]) for item in approved_targets],
+                "remaining_project_ids": [str(item["project_id"]) for item in remaining_targets],
+            },
+        ))
+        if remaining_targets:
+            await db.commit()
+            await db.refresh(ads)
+            await record_audit(
+                db,
+                action="paxlog.ads.project_approve",
+                resource_type="ads",
+                resource_id=str(ads.id),
+                user_id=current_user.id,
+                entity_id=entity_id,
+                details={
+                    "reference": ads.reference,
+                    "approved_project_ids": [str(item["project_id"]) for item in approved_targets],
+                    "remaining_project_ids": [str(item["project_id"]) for item in remaining_targets],
+                    "pending_project_count": len(remaining_targets),
+                    "partial_project_review": True,
+                },
+            )
+            await db.commit()
+            return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
+
         target_status = await _resolve_ads_auto_transition(
             db,
             entity_id=entity_id,
@@ -2851,15 +3001,6 @@ async def approve_ads(
         )
         workflow_instance = transition_result[1] if isinstance(transition_result, tuple) else None
         ads.status = target_status
-        db.add(AdsEvent(
-            entity_id=entity_id,
-            ads_id=ads.id,
-            event_type="project_review_approved",
-            old_status=from_state,
-            new_status=target_status,
-            actor_id=current_user.id,
-            metadata_json={"project_id": str(project_reviewer.id)},
-        ))
         await db.commit()
         await db.refresh(ads)
         await fsm_service.emit_transition_event(
@@ -4386,7 +4527,13 @@ async def add_imputation(
         percentage=percentage,
         wbs_id=wbs_id,
     )
-    return await create_cost_imputation(body=body, current_user=current_user, db=db)
+    result = await create_cost_imputation(body=body, current_user=current_user, db=db)
+
+    if project_id is not None:
+        await _sync_ads_project_from_imputations(db, ads=ads)
+        await db.commit()
+
+    return result
 
 
 @router.delete("/ads/{ads_id}/imputations/{imputation_id}", status_code=204)
@@ -4411,9 +4558,12 @@ async def delete_imputation(
     if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
         raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier les imputations de cette AdS.")
 
-    return await delete_cost_imputation(
+    await delete_cost_imputation(
         imputation_id=imputation_id, current_user=current_user, db=db
     )
+    await _sync_ads_project_from_imputations(db, ads=ads)
+    await db.commit()
+    return None
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -5491,14 +5641,39 @@ async def get_external_ads_dossier(
             row[0]: f"{row[1]} — {row[2]}" if row[1] else row[2]
             for row in departure_base_rows
         }
-    project_name = None
-    if ads.project_id:
+    linked_project_rows = (
+        await db.execute(
+            select(Project.id, Project.code, Project.name)
+            .where(
+                Project.id.in_(
+                    select(CostImputation.project_id).where(
+                        CostImputation.owner_type == "ads",
+                        CostImputation.owner_id == ads.id,
+                        CostImputation.project_id.isnot(None),
+                    )
+                )
+            )
+            .order_by(Project.code, Project.name)
+        )
+    ).all()
+    linked_projects = [
+        {
+            "project_id": str(row[0]),
+            "project_name": f"{row[1]} — {row[2]}" if row[1] else row[2],
+        }
+        for row in linked_project_rows
+    ]
+    if not linked_projects and ads.project_id:
         project_result = await db.execute(
-            select(Project.code, Project.name).where(Project.id == ads.project_id)
+            select(Project.id, Project.code, Project.name).where(Project.id == ads.project_id)
         )
         project_row = project_result.first()
         if project_row:
-            project_name = f"{project_row[0]} — {project_row[1]}" if project_row[0] else project_row[1]
+            linked_projects = [{
+                "project_id": str(project_row[0]),
+                "project_name": f"{project_row[1]} — {project_row[2]}" if project_row[1] else project_row[2],
+            }]
+    primary_project = linked_projects[0] if len(linked_projects) == 1 else None
     allowed_pax, pax_summary = await paxlog_service.build_external_dossier_pax_data(
         db,
         ads_id=ads.id,
@@ -5517,8 +5692,9 @@ async def get_external_ads_dossier(
             "end_date": ads.end_date.isoformat(),
             "site_entry_asset_id": str(ads.site_entry_asset_id),
             "site_name": site_name,
-            "project_id": str(ads.project_id) if ads.project_id else None,
-            "project_name": project_name,
+            "project_id": primary_project["project_id"] if primary_project else None,
+            "project_name": primary_project["project_name"] if primary_project else None,
+            "linked_projects": linked_projects,
             "outbound_transport_mode": getattr(ads, "outbound_transport_mode", None),
             "outbound_departure_base_id": str(getattr(ads, "outbound_departure_base_id", None)) if getattr(ads, "outbound_departure_base_id", None) else None,
             "outbound_departure_base_name": departure_base_names.get(getattr(ads, "outbound_departure_base_id", None)) if getattr(ads, "outbound_departure_base_id", None) else None,
@@ -6163,15 +6339,21 @@ async def _assert_ads_project_review_access(
     current_user: User,
     entity_id: UUID,
     db: AsyncSession,
-) -> Project:
-    project_reviewer = await _get_ads_project_reviewer(db, ads=ads, entity_id=entity_id)
-    if not project_reviewer:
+) -> Project | None:
+    pending_targets = await _get_ads_pending_project_review_targets(db, ads=ads, entity_id=entity_id)
+    if not pending_targets:
         raise HTTPException(status_code=400, detail="Aucune validation projet n'est attendue sur cette AdS.")
     can_update_project = await has_user_permission(current_user, entity_id, "project.update", db)
     can_approve = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
-    if current_user.id != project_reviewer.manager_id and not can_update_project and not can_approve:
+    current_target = next(
+        (target for target in pending_targets if target.get("project_manager_id") == current_user.id),
+        None,
+    )
+    if current_target is None and not can_update_project and not can_approve:
         raise HTTPException(status_code=403, detail="Vous ne pouvez pas valider cette revue projet.")
-    return project_reviewer
+    if current_target is None:
+        return None
+    return await db.get(Project, current_target["project_id"])
 
 
 async def _assert_ads_compliance_review_access(
@@ -6196,23 +6378,124 @@ async def _assert_ads_final_approval_access(
         raise HTTPException(status_code=403, detail="Vous ne pouvez pas approuver cette AdS.")
 
 
+async def _get_ads_linked_project_details(
+    db: AsyncSession,
+    *,
+    ads: Ads,
+    entity_id: UUID,
+) -> list[dict]:
+    linked_project_rows = (
+        await db.execute(
+            select(
+                Project.id,
+                Project.manager_id,
+                Project.code,
+                Project.name,
+                User.first_name,
+                User.last_name,
+            )
+            .outerjoin(User, Project.manager_id == User.id)
+            .where(
+                Project.entity_id == entity_id,
+                Project.id.in_(
+                    select(CostImputation.project_id).where(
+                        CostImputation.owner_type == "ads",
+                        CostImputation.owner_id == ads.id,
+                        CostImputation.project_id.isnot(None),
+                    )
+                ),
+            )
+            .order_by(Project.code, Project.name)
+        )
+    ).all()
+
+    linked_projects = [
+        {
+            "project_id": row[0],
+            "project_name": f"{row[2]} — {row[3]}" if row[2] else row[3],
+            "project_manager_id": row[1],
+            "project_manager_name": f"{row[4]} {row[5]}".strip() if row[4] else None,
+        }
+        for row in linked_project_rows
+    ]
+
+    if not linked_projects and ads.project_id:
+        project_result = await db.execute(
+            select(Project.id, Project.manager_id, Project.code, Project.name, User.first_name, User.last_name)
+            .outerjoin(User, Project.manager_id == User.id)
+            .where(Project.id == ads.project_id, Project.entity_id == entity_id)
+        )
+        project_row = project_result.first()
+        if project_row:
+            linked_projects = [{
+                "project_id": project_row[0],
+                "project_name": f"{project_row[2]} — {project_row[3]}" if project_row[2] else project_row[3],
+                "project_manager_id": project_row[1],
+                "project_manager_name": f"{project_row[4]} {project_row[5]}".strip() if project_row[4] else None,
+            }]
+    return linked_projects
+
+
+async def _get_ads_project_review_approved_ids(
+    db: AsyncSession,
+    *,
+    ads_id: UUID,
+) -> set[UUID]:
+    approved_events = (
+        await db.execute(
+            select(AdsEvent.metadata_json).where(
+                AdsEvent.ads_id == ads_id,
+                AdsEvent.event_type == "project_review_approved",
+            )
+        )
+    ).all()
+    approved_ids: set[UUID] = set()
+    for (metadata,) in approved_events:
+        if not isinstance(metadata, dict):
+            continue
+        project_id = metadata.get("project_id")
+        if project_id:
+            try:
+                approved_ids.add(UUID(str(project_id)))
+            except (TypeError, ValueError):
+                pass
+        for item in metadata.get("project_ids", []) or []:
+            try:
+                approved_ids.add(UUID(str(item)))
+            except (TypeError, ValueError):
+                continue
+    return approved_ids
+
+
+async def _get_ads_pending_project_review_targets(
+    db: AsyncSession,
+    *,
+    ads: Ads,
+    entity_id: UUID,
+) -> list[dict]:
+    origin_result = await db.execute(
+        select(MissionProgram.id).where(MissionProgram.generated_ads_id == ads.id).limit(1)
+    )
+    if origin_result.scalar_one_or_none():
+        return []
+    linked_projects = await _get_ads_linked_project_details(db, ads=ads, entity_id=entity_id)
+    review_targets = [item for item in linked_projects if item.get("project_manager_id")]
+    if not review_targets:
+        return []
+    approved_ids = await _get_ads_project_review_approved_ids(db, ads_id=ads.id)
+    return [item for item in review_targets if item["project_id"] not in approved_ids]
+
+
 async def _get_ads_project_reviewer(
     db: AsyncSession,
     *,
     ads: Ads,
     entity_id: UUID,
 ) -> Project | None:
-    if not ads.project_id:
+    pending_targets = await _get_ads_pending_project_review_targets(db, ads=ads, entity_id=entity_id)
+    if not pending_targets:
         return None
-    project = await db.get(Project, ads.project_id)
-    if not project or project.entity_id != entity_id or project.archived or not project.manager_id:
-        return None
-    origin_result = await db.execute(
-        select(MissionProgram.id).where(MissionProgram.generated_ads_id == ads.id).limit(1)
-    )
-    if origin_result.scalar_one_or_none():
-        return None
-    return project
+    return await db.get(Project, pending_targets[0]["project_id"])
 
 
 async def _build_ads_read_data(
@@ -6265,19 +6548,32 @@ async def _build_ads_read_data(
             "origin_mission_notice_title": avm_origin[4],
         })
 
-    if ads.project_id:
-        project_result = await db.execute(
-            select(Project.manager_id, Project.code, Project.name, User.first_name, User.last_name)
-            .outerjoin(User, Project.manager_id == User.id)
-            .where(Project.id == ads.project_id, Project.entity_id == entity_id)
-        )
-        project_row = project_result.first()
-        if project_row:
-            data.update({
-                "project_manager_id": project_row[0],
-                "project_name": f"{project_row[1]} — {project_row[2]}" if project_row[1] else project_row[2],
-                "project_manager_name": f"{project_row[3]} {project_row[4]}".strip() if project_row[3] else None,
-            })
+    linked_projects = await _get_ads_linked_project_details(db, ads=ads, entity_id=entity_id)
+
+    data["linked_projects"] = [
+        {
+            "project_id": item["project_id"],
+            "project_name": item["project_name"],
+            "project_manager_id": item["project_manager_id"],
+            "project_manager_name": item["project_manager_name"],
+        }
+        for item in linked_projects
+    ]
+
+    if len(linked_projects) == 1:
+        data.update({
+            "project_id": linked_projects[0]["project_id"],
+            "project_name": linked_projects[0]["project_name"],
+            "project_manager_id": linked_projects[0]["project_manager_id"],
+            "project_manager_name": linked_projects[0]["project_manager_name"],
+        })
+    elif len(linked_projects) > 1:
+        data.update({
+            "project_id": None,
+            "project_name": None,
+            "project_manager_id": None,
+            "project_manager_name": None,
+        })
 
     site_result = await db.execute(
         select(Installation.code, Installation.name).where(
@@ -7836,6 +8132,14 @@ async def cancel_avm(
                 link=f"/paxlog/ads/{linked_ads_id}",
             )
 
+    previous_status = avm.status
+    await _try_avm_workflow_transition(
+        db,
+        avm=avm,
+        to_state="cancelled",
+        actor_id=current_user.id,
+        comment=reason,
+    )
     avm.status = "cancelled"
     avm.cancellation_reason = reason
 
@@ -7850,6 +8154,20 @@ async def cancel_avm(
 
     await db.commit()
     await db.refresh(avm)
+    await fsm_service.emit_transition_event(
+        entity_type=AVM_ENTITY_TYPE,
+        entity_id=str(avm.id),
+        from_state=previous_status,
+        to_state=avm.status,
+        actor_id=current_user.id,
+        workflow_slug=AVM_WORKFLOW_SLUG,
+        extra_payload={
+            "reason": reason,
+            "linked_ads_cancelled": linked_ads_cancelled,
+            "linked_ads_reviewed": linked_ads_reviewed,
+            "linked_ads_references": linked_ads_refs,
+        },
+    )
 
     await record_audit(
         db, action="paxlog.avm.cancel", resource_type="mission_notice",
@@ -8278,14 +8596,32 @@ async def update_avm_preparation_task(
     if "status" in update_data:
         task.completed_at = datetime.now(timezone.utc) if task.status == "completed" else None
 
+    previous_avm_status = avm.status
     if avm.status in ("in_preparation", "ready"):
         from app.services.modules.paxlog_service import get_avm_preparation_status
         await db.flush()
         prep_status = await get_avm_preparation_status(db, avm.id)
-        avm.status = "ready" if prep_status["ready_for_approval"] else "in_preparation"
+        next_avm_status = "ready" if prep_status["ready_for_approval"] else "in_preparation"
+        if next_avm_status != avm.status:
+            await _try_avm_workflow_transition(
+                db,
+                avm=avm,
+                to_state=next_avm_status,
+                actor_id=current_user.id,
+            )
+            avm.status = next_avm_status
 
     await db.commit()
     await db.refresh(task)
+    if avm.status != previous_avm_status:
+        await fsm_service.emit_transition_event(
+            entity_type=AVM_ENTITY_TYPE,
+            entity_id=str(avm.id),
+            from_state=previous_avm_status,
+            to_state=avm.status,
+            actor_id=current_user.id,
+            workflow_slug=AVM_WORKFLOW_SLUG,
+        )
 
     await record_audit(
         db,

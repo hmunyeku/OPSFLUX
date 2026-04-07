@@ -7,7 +7,7 @@ import type { WorkflowDefinitionCreate, WorkflowNodeDef, WorkflowEdgeDef } from 
 
 // ── Definition hooks ──
 
-export function useWorkflowDefinitions(params: { page?: number; page_size?: number; status?: string; search?: string } = {}) {
+export function useWorkflowDefinitions(params: { page?: number; page_size?: number; status?: string; search?: string; entity_type?: string } = {}) {
   return useQuery({
     queryKey: ['workflow', 'definitions', params],
     queryFn: () => workflowService.listDefinitions(params),
@@ -35,7 +35,18 @@ export function useCreateWorkflowDefinition() {
 export function useUpdateWorkflowDefinition() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Partial<WorkflowDefinitionCreate & { nodes: WorkflowNodeDef[]; edges: WorkflowEdgeDef[] }> }) =>
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string
+      payload: Partial<WorkflowDefinitionCreate & {
+        nodes: WorkflowNodeDef[]
+        edges: WorkflowEdgeDef[]
+        states: unknown
+        transitions: unknown
+      }>
+    }) =>
       workflowService.updateDefinition(id, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['workflow', 'definitions'] })

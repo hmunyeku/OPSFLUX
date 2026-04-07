@@ -17,7 +17,7 @@ export interface EChartsWidgetProps {
   height?: number | string
 }
 
-// OpsFlux design-system palette (blues, greens, oranges + accents)
+// OpsFlux design-system palette — rich, distinct, high-contrast
 const COLOR_PALETTE = [
   '#3b82f6', // blue-500
   '#22c55e', // green-500
@@ -29,7 +29,31 @@ const COLOR_PALETTE = [
   '#f97316', // orange-500
   '#06b6d4', // cyan-500
   '#a855f7', // purple-500
+  '#84cc16', // lime-500
+  '#0ea5e9', // sky-500
+  '#d946ef', // fuchsia-500
+  '#64748b', // slate-500
 ]
+
+// Semantic colors for known status/weather/category names
+const SEMANTIC_COLORS: Record<string, string> = {
+  sunny: '#f59e0b', cloudy: '#94a3b8', rainy: '#3b82f6', stormy: '#ef4444',
+  active: '#22c55e', completed: '#3b82f6', planned: '#f59e0b', cancelled: '#ef4444',
+  draft: '#94a3b8', on_hold: '#f97316', suspended: '#d946ef',
+  todo: '#94a3b8', in_progress: '#3b82f6', done: '#22c55e', review: '#f59e0b',
+  operational: '#22c55e', standby: '#f59e0b', decommissioned: '#ef4444',
+  low: '#22c55e', medium: '#f59e0b', high: '#f97316', critical: '#ef4444',
+  client: '#3b82f6', supplier: '#22c55e', subcontractor: '#f97316', partner: '#8b5cf6',
+  production: '#22c55e', shore_base: '#3b82f6', terminal: '#f59e0b', storage: '#8b5cf6',
+  formation: '#3b82f6', certification: '#22c55e', habilitation: '#f59e0b', medical: '#ef4444',
+  pump: '#3b82f6', crane: '#f59e0b', separator: '#22c55e', compressor: '#8b5cf6',
+}
+
+/** Get color for a data point name — semantic first, then palette fallback */
+function getDataColor(name: string, index: number): string {
+  const key = String(name).toLowerCase().replace(/[^a-z0-9_]/g, '_')
+  return SEMANTIC_COLORS[key] || COLOR_PALETTE[index % COLOR_PALETTE.length]
+}
 
 export function EChartsWidget({
   chartType,
@@ -159,7 +183,7 @@ export function EChartsWidget({
               data: data.map((d, i) => ({
                 name: String(d[xField] ?? ''),
                 value: d[yFields[0]] ?? 0,
-                itemStyle: { color: COLOR_PALETTE[i % COLOR_PALETTE.length] },
+                itemStyle: { color: getDataColor(String(d[xField] ?? ''), i) },
               })),
             },
           ],
@@ -290,7 +314,7 @@ export function EChartsWidget({
               data: data.map((d, i) => ({
                 name: String(d[xField] ?? ''),
                 value: d[yFields[0]] ?? 0,
-                itemStyle: { color: COLOR_PALETTE[i % COLOR_PALETTE.length] },
+                itemStyle: { color: getDataColor(String(d[xField] ?? ''), i) },
               })),
               label: { show: true, fontSize: 10, color: '#fff' },
               breadcrumb: { show: false },

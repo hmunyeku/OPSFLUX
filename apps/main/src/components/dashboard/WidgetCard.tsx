@@ -175,42 +175,81 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge }: W
   const accentColor = (widget.config?.accent_color as string) || ''
   const hideHeader = (widget.config?.hide_header as boolean) || false
   const hasBgColor = !!bgColor
-  const cardStyle: React.CSSProperties = bgColor
-    ? { backgroundColor: bgColor, color: '#ffffff', borderColor: bgColor }
-    : {}
+  const cssVars = {
+    ...(accentColor ? { '--widget-accent': accentColor } : {}),
+    ...(bgColor ? { backgroundColor: bgColor, color: '#fff' } : {}),
+  } as React.CSSProperties
 
-  // Normal card
+  // Modern card — PowerBI/Tableau inspired
   if (!fullscreen) {
     return (
       <div
-        className={cn('flex flex-col h-full border rounded-md overflow-hidden shadow-sm', !hasBgColor && 'bg-background')}
-        style={cardStyle}
-      >
-        {!hideHeader ? headerBar : (
-          <div className="flex items-center h-7 px-3 gap-2">
-            {mode === 'edit' && <div {...(dragHandleProps || {})} className="cursor-grab"><GripVertical className="h-3 w-3 opacity-50" /></div>}
-            <span className="text-xs font-medium truncate flex-1 opacity-80">{widget.title}</span>
-          </div>
+        className={cn(
+          'group flex flex-col h-full rounded-xl overflow-hidden transition-all duration-200',
+          'shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)]',
+          !hasBgColor && 'bg-card border border-border/50',
         )}
-        <div className="flex-1 min-h-0 p-2" style={accentColor ? { '--widget-accent': accentColor } as React.CSSProperties : undefined}>
+        style={cssVars}
+      >
+        {/* Compact header — visible on hover or edit mode */}
+        <div className={cn(
+          'flex items-center h-8 px-3 gap-2 shrink-0 transition-opacity',
+          hideHeader && mode !== 'edit' ? 'opacity-0 group-hover:opacity-100' : 'opacity-100',
+        )}>
+          {mode === 'edit' && (
+            <div {...(dragHandleProps || {})} className="cursor-grab active:cursor-grabbing shrink-0">
+              <GripVertical className="h-3 w-3 text-muted-foreground/50" />
+            </div>
+          )}
+          <WidgetTypeIcon type={widget.type} className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+          <span className={cn('text-[11px] font-medium truncate flex-1', hasBgColor ? 'text-white/80' : 'text-muted-foreground')}>
+            {widget.title}
+          </span>
+          <span className={cn('text-[9px] shrink-0', hasBgColor ? 'text-white/40' : 'text-muted-foreground/40')}>
+            {formatRelativeTime(dataUpdatedAt)}
+          </span>
+          <div className={cn('flex items-center gap-0.5 transition-opacity', mode !== 'edit' ? 'opacity-0 group-hover:opacity-100' : '')}>
+            <button onClick={() => refetch()} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+              <RefreshCw className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/60' : 'text-muted-foreground/60', isLoading && 'animate-spin')} />
+            </button>
+            <button onClick={() => setFullscreen(true)} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+              <Maximize2 className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/60' : 'text-muted-foreground/60')} />
+            </button>
+            {mode === 'edit' && onRemove && (
+              <button onClick={onRemove} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-destructive/20 transition-colors">
+                <X className="h-2.5 w-2.5 text-destructive/60" />
+              </button>
+            )}
+          </div>
+        </div>
+        {/* Content area */}
+        <div className="flex-1 min-h-0 px-3 pb-3" style={accentColor ? { '--widget-accent': accentColor } as React.CSSProperties : undefined}>
           {widgetContent}
         </div>
       </div>
     )
   }
 
-  // Fullscreen overlay
+  // Fullscreen overlay — modern modal
   return (
     <>
-      {/* Placeholder in grid */}
-      <div className="flex flex-col h-full bg-background border rounded-md overflow-hidden opacity-30">
-        {headerBar}
-        <div className="flex-1 min-h-0 p-2" />
-      </div>
-      {/* Fullscreen overlay */}
-      <div className="fixed inset-0 z-[9999] bg-background flex flex-col">
-        {headerBar}
-        <div className="flex-1 min-h-0 p-4">{widgetContent}</div>
+      <div className="flex flex-col h-full rounded-xl bg-card border border-border/50 shadow-sm overflow-hidden opacity-30" />
+      <div className="fixed inset-0 z-[9999] bg-background/80 backdrop-blur-sm flex items-center justify-center p-8">
+        <div className="w-full max-w-6xl h-full max-h-[90vh] bg-card rounded-2xl shadow-2xl border flex flex-col overflow-hidden">
+          <div className="flex items-center h-12 px-5 border-b shrink-0">
+            <WidgetTypeIcon type={widget.type} className="h-4 w-4 text-primary mr-2" />
+            <span className="text-sm font-semibold flex-1">{widget.title}</span>
+            <button onClick={() => refetch()} className="h-8 w-8 inline-flex items-center justify-center rounded-lg hover:bg-muted transition-colors mr-1">
+              <RefreshCw className={cn('h-3.5 w-3.5 text-muted-foreground', isLoading && 'animate-spin')} />
+            </button>
+            <button onClick={() => setFullscreen(false)} className="h-8 w-8 inline-flex items-center justify-center rounded-lg hover:bg-muted transition-colors">
+              <Minimize2 className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 p-5" style={accentColor ? { '--widget-accent': accentColor } as React.CSSProperties : undefined}>
+            {widgetContent}
+          </div>
+        </div>
       </div>
     </>
   )
@@ -322,19 +361,37 @@ function KPIWidget({
   const TrendIcon = trend === null ? null : trend > 0 ? TrendingUp : trend < 0 ? TrendingDown : Minus
   const trendColor = trend === null ? '' : trend > 0 ? 'text-green-600 dark:text-green-400' : trend < 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
 
+  // Extract details if available
+  const details = (meta?.details || config.details) as Record<string, unknown> | undefined
+
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-1">
-      {labelField && (
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-          {labelField}
+    <div className="flex flex-col justify-center h-full gap-2">
+      {/* Main value — large, bold, colored */}
+      <div className="flex items-baseline gap-2">
+        <span className="text-4xl font-extrabold tracking-tight leading-none" style={{ color: 'var(--widget-accent, hsl(var(--primary)))' }}>
+          {displayValue}
         </span>
-      )}
-      <span className="text-3xl font-bold leading-none" style={{ color: 'var(--widget-accent, currentColor)' }}>{displayValue}</span>
+        {labelField && (
+          <span className="text-xs text-muted-foreground font-medium">{labelField}</span>
+        )}
+      </div>
+      {/* Trend line */}
       {(trend !== null || comparison) && (
-        <div className={cn('flex items-center gap-1 text-xs', trendColor)}>
-          {TrendIcon && <TrendIcon className="h-3 w-3" />}
+        <div className={cn('flex items-center gap-1.5 text-xs font-medium', trendColor)}>
+          {TrendIcon && <TrendIcon className="h-3.5 w-3.5" />}
           {trend !== null && <span>{trend > 0 ? '+' : ''}{trend}%</span>}
-          {comparison && <span className="text-muted-foreground">{comparison}</span>}
+          {comparison && <span className="text-muted-foreground font-normal">{comparison}</span>}
+        </div>
+      )}
+      {/* Detail chips — show extra metrics from the provider */}
+      {details && Object.keys(details).length > 1 && (
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+          {Object.entries(details).slice(0, 6).map(([k, v]) => (
+            <div key={k} className="flex items-center gap-1 text-[10px]">
+              <span className="text-muted-foreground/60">{k.replace(/_/g, ' ')}</span>
+              <span className="font-semibold text-foreground/80">{String(v)}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -405,10 +462,26 @@ function TableWidget({
       ? Object.keys(rows[0]).slice(0, 6).map((key) => ({ key, label: key }))
       : []
 
+  // Format cell value — dates, numbers, etc.
+  const formatCell = (value: unknown, key: string): string => {
+    if (value == null) return '—'
+    const s = String(value)
+    // ISO date detection
+    if (/^\d{4}-\d{2}-\d{2}[T ]/.test(s)) {
+      try { return new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) } catch { /* */ }
+    }
+    // Numeric percentage
+    if (key.includes('progress') || key.includes('pct') || key.includes('avancement')) {
+      const n = Number(s)
+      if (!isNaN(n)) return `${n}%`
+    }
+    return s.length > 50 ? s.slice(0, 50) + '…' : s
+  }
+
   if (!rows.length || !effectiveColumns.length) {
     return (
-      <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
-        Aucune donnée
+      <div className="flex items-center justify-center h-full text-xs text-muted-foreground/60">
+        Aucune donnée disponible
       </div>
     )
   }
@@ -419,13 +492,18 @@ function TableWidget({
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 min-h-0 overflow-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b">
-              {effectiveColumns.map((col) => (
+        <table className="w-full text-xs border-separate border-spacing-0">
+          <thead className="sticky top-0 z-[1]">
+            <tr>
+              {effectiveColumns.map((col, i) => (
                 <th
                   key={col.key}
-                  className="text-left px-2 py-1.5 font-medium text-muted-foreground whitespace-nowrap"
+                  className={cn(
+                    'text-left px-2.5 py-2 font-semibold text-[10px] uppercase tracking-wider whitespace-nowrap',
+                    'bg-muted/60 text-muted-foreground border-b border-border/30',
+                    i === 0 && 'rounded-tl-md',
+                    i === effectiveColumns.length - 1 && 'rounded-tr-md',
+                  )}
                 >
                   {col.label}
                 </th>
@@ -434,10 +512,16 @@ function TableWidget({
           </thead>
           <tbody>
             {pagedRows.map((row, rowIdx) => (
-              <tr key={rowIdx} className="border-b last:border-0 hover:bg-muted/50">
-                {effectiveColumns.map((col) => (
-                  <td key={col.key} className="px-2 py-1.5 text-foreground whitespace-nowrap truncate max-w-[200px]">
-                    {String(row[col.key] ?? '')}
+              <tr key={rowIdx} className={cn(
+                'transition-colors hover:bg-primary/5',
+                rowIdx % 2 === 1 && 'bg-muted/20',
+              )}>
+                {effectiveColumns.map((col, colIdx) => (
+                  <td key={col.key} className={cn(
+                    'px-2.5 py-1.5 whitespace-nowrap truncate max-w-[200px]',
+                    colIdx === 0 ? 'font-medium text-foreground' : 'text-muted-foreground',
+                  )}>
+                    {formatCell(row[col.key], col.key)}
                   </td>
                 ))}
               </tr>

@@ -444,7 +444,7 @@ async def get_gantt_data(
             asset_map[aid] = {
                 "id": str(aid) if aid else None,
                 "name": asset.name if asset else "Non affecté",
-                "parent_id": str(asset.parent_id) if asset and asset.parent_id else None,
+                "site_id": str(asset.site_id) if asset and asset.site_id else None,
                 "capacity": {
                     "max_pax": cap["max_pax_total"] if cap else 0,
                     "permanent_ops_quota": cap["permanent_ops_quota"] if cap else 0,

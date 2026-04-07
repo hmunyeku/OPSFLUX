@@ -256,6 +256,28 @@ PREDEFINED_WIDGETS: dict[str, dict[str, Any]] = {
         "source": "conformite",
         "roles": ["RESPONSABLE_CONFORMITE", "OPERATEUR_CONFORMITE", "CHSE"],
     },
+    # ── Tiers module widgets ──
+    "tiers_overview": {
+        "type": "kpi",
+        "title": "Vue d'ensemble Tiers",
+        "description": "Entreprises par type, contacts, statut actif",
+        "source": "tiers",
+        "roles": ["*"],
+    },
+    "tiers_by_type": {
+        "type": "chart",
+        "title": "Entreprises par type",
+        "description": "Distribution clients / fournisseurs / sous-traitants",
+        "source": "tiers",
+        "roles": ["*"],
+    },
+    "tiers_recent": {
+        "type": "table",
+        "title": "Tiers récents",
+        "description": "Dernières entreprises créées ou modifiées",
+        "source": "tiers",
+        "roles": ["*"],
+    },
 }
 
 

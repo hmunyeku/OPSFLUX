@@ -1071,6 +1071,72 @@ async def provider_conformite_by_category(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  Tiers — module-contextual providers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def provider_tiers_overview(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Tiers KPIs: total companies, by type, contacts count."""
+    r = await db.execute(text("""
+        SELECT
+            COUNT(*) AS total,
+            COUNT(*) FILTER (WHERE type = 'client') AS clients,
+            COUNT(*) FILTER (WHERE type = 'supplier') AS suppliers,
+            COUNT(*) FILTER (WHERE type = 'subcontractor') AS subcontractors,
+            COUNT(*) FILTER (WHERE status = 'active') AS active
+        FROM tiers WHERE entity_id = :eid AND archived = FALSE
+    """), {"eid": str(entity_id)})
+    row = r.mappings().first() or {}
+    rc = await db.execute(text("""
+        SELECT COUNT(*) AS cnt FROM tier_contacts WHERE entity_id = :eid AND active = TRUE
+    """), {"eid": str(entity_id)})
+    contacts = (rc.mappings().first() or {}).get("cnt", 0)
+    return {
+        "value": row.get("total", 0), "label": "Entreprises",
+        "details": {
+            "total": row.get("total", 0), "clients": row.get("clients", 0),
+            "suppliers": row.get("suppliers", 0), "subcontractors": row.get("subcontractors", 0),
+            "active": row.get("active", 0), "contacts": contacts,
+        },
+    }
+
+
+async def provider_tiers_by_type(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Tiers distribution by type."""
+    r = await db.execute(text("""
+        SELECT type AS name, COUNT(*) AS value
+        FROM tiers WHERE entity_id = :eid AND archived = FALSE
+        GROUP BY type ORDER BY value DESC
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()], "series": [{"name": "Entreprises", "type": "pie"}]}
+
+
+async def provider_tiers_recent(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Recently created/modified tiers."""
+    r = await db.execute(text("""
+        SELECT code, name, type, status, created_at
+        FROM tiers WHERE entity_id = :eid AND archived = FALSE
+        ORDER BY updated_at DESC NULLS LAST LIMIT 10
+    """), {"eid": str(entity_id)})
+    return {
+        "columns": [
+            {"key": "code", "label": "Code"}, {"key": "name", "label": "Nom"},
+            {"key": "type", "label": "Type"}, {"key": "status", "label": "Statut"},
+        ],
+        "rows": [dict(row) for row in r.mappings().all()],
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Registration
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1110,6 +1176,10 @@ _PROVIDER_MAP: dict[str, Any] = {
     # ── Conformité module ──
     "conformite_kpis": provider_conformite_kpis,
     "conformite_by_category": provider_conformite_by_category,
+    # ── Tiers module ──
+    "tiers_overview": provider_tiers_overview,
+    "tiers_by_type": provider_tiers_by_type,
+    "tiers_recent": provider_tiers_recent,
 }
 
 

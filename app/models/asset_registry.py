@@ -252,6 +252,8 @@ class OilField(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     reservoir_formation: Mapped[str | None] = mapped_column(String(100))
     original_oil_in_place_mmbo: Mapped[Decimal | None] = mapped_column(Numeric(12, 3))
     recoverable_reserves_mmbo: Mapped[Decimal | None] = mapped_column(Numeric(12, 3))
+    # Operations
+    pob_capacity: Mapped[int | None] = mapped_column(Integer, comment="Capacité POB globale du champ")
     # Status
     status: Mapped[str] = mapped_column(String(30), default="OPERATIONAL", nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)

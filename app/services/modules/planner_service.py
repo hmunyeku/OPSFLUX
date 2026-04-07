@@ -124,8 +124,8 @@ async def get_current_capacity(
             "changed_by": row[6],
         }
 
-    # Fallback hierarchy: Installation.pob_max → Site.pob_capacity → 0
-    from app.models.asset_registry import OilSite
+    # Fallback hierarchy: Installation.pob_max → Site.pob_capacity → Field.pob_capacity → 0
+    from app.models.asset_registry import OilField, OilSite
 
     asset = await db.get(Installation, asset_id)
     if not asset:
@@ -140,6 +140,12 @@ async def get_current_capacity(
         if site and site.pob_capacity is not None:
             pob = site.pob_capacity
             source = "site"
+        # If not set on site, try the parent field
+        if pob is None and site and site.field_id:
+            field = await db.get(OilField, site.field_id)
+            if field and field.pob_capacity is not None:
+                pob = field.pob_capacity
+                source = "champ"
 
     return {
         "id": None,

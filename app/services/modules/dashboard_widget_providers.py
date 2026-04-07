@@ -857,7 +857,7 @@ async def provider_assets_overview(
     """Asset registry KPIs: fields, sites, installations, equipment, pipelines."""
     r = await db.execute(text("""
         SELECT
-            (SELECT COUNT(*) FROM ar_oil_fields WHERE entity_id = :eid AND deleted_at IS NULL) AS fields,
+            (SELECT COUNT(*) FROM ar_fields WHERE entity_id = :eid AND deleted_at IS NULL) AS fields,
             (SELECT COUNT(*) FROM ar_sites WHERE entity_id = :eid AND deleted_at IS NULL) AS sites,
             (SELECT COUNT(*) FROM ar_installations WHERE entity_id = :eid AND deleted_at IS NULL) AS installations,
             (SELECT COUNT(*) FROM ar_equipment WHERE entity_id = :eid AND deleted_at IS NULL) AS equipment,
@@ -916,7 +916,7 @@ async def provider_assets_map(
     """Geographic markers for fields, sites, installations."""
     markers = []
     for tbl, label, color in [
-        ("ar_oil_fields", "Champ", "#4f46e5"),
+        ("ar_fields", "Champ", "#4f46e5"),
         ("ar_sites", "Site", "#06b6d4"),
         ("ar_installations", "Installation", "#f59e0b"),
     ]:

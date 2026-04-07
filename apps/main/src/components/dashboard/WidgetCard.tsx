@@ -417,25 +417,84 @@ function TableWidget({
       ? Object.keys(rows[0]).slice(0, 6).map((key) => ({ key, label: key }))
       : []
 
-  // Format cell value — dates, numbers, etc.
-  const formatCell = (value: unknown, key: string): string => {
-    if (value == null) return '—'
+  // ── Smart cell rendering ──
+
+  // Status badge colors
+  const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+    draft: { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-300' },
+    brouillon: { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-300' },
+    planned: { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300' },
+    planifie: { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300' },
+    active: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300' },
+    in_progress: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300' },
+    todo: { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-300' },
+    completed: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300' },
+    done: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300' },
+    cancelled: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300' },
+    suspended: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-700 dark:text-yellow-300' },
+    on_hold: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-700 dark:text-yellow-300' },
+    review: { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300' },
+    submitted: { bg: 'bg-indigo-100 dark:bg-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-300' },
+  }
+
+  const PRIORITY_COLORS: Record<string, string> = {
+    low: 'text-emerald-600', medium: 'text-amber-600', high: 'text-orange-600', critical: 'text-red-600',
+  }
+
+  const isStatusCol = (key: string) => /status|statut/i.test(key)
+  const isPriorityCol = (key: string) => /priority|priorite|priorité/i.test(key)
+  const isProgressCol = (key: string) => /progress|pct|avancement|%/i.test(key)
+  const isDateCol = (key: string) => /date|echeance|échéance|deadline|start|end|debut|fin|created|updated/i.test(key)
+  const isRefCol = (key: string, colIdx: number) => colIdx === 0 || /code|ref|reference|id$/i.test(key)
+
+  const renderCell = (value: unknown, key: string, colIdx: number) => {
+    if (value == null) return <span className="text-muted-foreground/30">—</span>
     const s = String(value)
-    // ISO date detection
-    if (/^\d{4}-\d{2}-\d{2}[T ]/.test(s)) {
-      try { return new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) } catch { /* */ }
+
+    // Status badge
+    if (isStatusCol(key)) {
+      const colors = STATUS_COLORS[s.toLowerCase().replace(/[^a-z_]/g, '_')] || STATUS_COLORS.draft
+      return <span className={cn('inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold', colors?.bg, colors?.text)}>{s}</span>
     }
-    // Numeric percentage
-    if (key.includes('progress') || key.includes('pct') || key.includes('avancement')) {
-      const n = Number(s)
-      if (!isNaN(n)) return `${n}%`
+
+    // Priority with color
+    if (isPriorityCol(key)) {
+      const color = PRIORITY_COLORS[s.toLowerCase()] || ''
+      return <span className={cn('font-semibold text-[10px] uppercase', color)}>{s}</span>
     }
-    return s.length > 50 ? s.slice(0, 50) + '…' : s
+
+    // Progress circle
+    if (isProgressCol(key)) {
+      const n = parseInt(s) || 0
+      const color = n >= 70 ? '#22c55e' : n >= 30 ? '#f59e0b' : n < 1 ? '#d1d5db' : '#ef4444'
+      return (
+        <div className="flex items-center gap-1.5">
+          <svg width="20" height="20" viewBox="0 0 20 20">
+            <circle cx="10" cy="10" r="8" fill="none" stroke="#e5e7eb" strokeWidth="2.5" />
+            <circle cx="10" cy="10" r="8" fill="none" stroke={color} strokeWidth="2.5"
+              strokeDasharray={`${n * 0.502} 50.2`} strokeLinecap="round" transform="rotate(-90 10 10)" />
+          </svg>
+          <span className="text-[10px] font-bold" style={{ color }}>{n}%</span>
+        </div>
+      )
+    }
+
+    // Date formatting
+    if (isDateCol(key) && /^\d{4}-\d{2}-\d{2}/.test(s)) {
+      try { return <span>{new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span> } catch { /* */ }
+    }
+
+    // Reference / code — first column or ref-like columns — bold + primary color
+    if (isRefCol(key, colIdx)) {
+      return <span className="font-semibold text-primary cursor-pointer hover:underline">{s}</span>
+    }
+
+    return <span>{s.length > 45 ? s.slice(0, 45) + '…' : s}</span>
   }
 
   if (!rows.length || !effectiveColumns.length) {
     return (
-      <div className="flex items-center justify-center h-full text-xs text-muted-foreground/60">
+      <div className="flex items-center justify-center h-full text-xs text-muted-foreground/40">
         Aucune donnée disponible
       </div>
     )
@@ -454,10 +513,10 @@ function TableWidget({
                 <th
                   key={col.key}
                   className={cn(
-                    'text-left px-2.5 py-2 font-semibold text-[10px] uppercase tracking-wider whitespace-nowrap',
-                    'bg-muted/60 text-muted-foreground border-b border-border/30',
-                    i === 0 && 'rounded-tl-md',
-                    i === effectiveColumns.length - 1 && 'rounded-tr-md',
+                    'text-left px-2.5 py-2 font-bold text-[10px] uppercase tracking-wider whitespace-nowrap',
+                    'bg-primary/10 text-primary/80 border-b-2 border-primary/20',
+                    i === 0 && 'rounded-tl-lg',
+                    i === effectiveColumns.length - 1 && 'rounded-tr-lg',
                   )}
                 >
                   {col.label}
@@ -468,15 +527,12 @@ function TableWidget({
           <tbody>
             {pagedRows.map((row, rowIdx) => (
               <tr key={rowIdx} className={cn(
-                'transition-colors hover:bg-primary/5',
-                rowIdx % 2 === 1 && 'bg-muted/20',
+                'transition-colors hover:bg-primary/[0.03] border-b border-border/20',
+                rowIdx % 2 === 1 && 'bg-muted/15',
               )}>
                 {effectiveColumns.map((col, colIdx) => (
-                  <td key={col.key} className={cn(
-                    'px-2.5 py-1.5 whitespace-nowrap truncate max-w-[200px]',
-                    colIdx === 0 ? 'font-medium text-foreground' : 'text-muted-foreground',
-                  )}>
-                    {formatCell(row[col.key], col.key)}
+                  <td key={col.key} className="px-2.5 py-2 whitespace-nowrap max-w-[220px]">
+                    {renderCell(row[col.key], col.key, colIdx)}
                   </td>
                 ))}
               </tr>

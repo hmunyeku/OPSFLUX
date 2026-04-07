@@ -85,8 +85,10 @@ interface WidgetCardProps {
 
 export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge }: WidgetCardProps) {
   const { t } = useTranslation()
+  // Use config.widget_id (provider ID) for data fetching, fallback to widget.id
+  const dataWidgetId = (widget.config?.widget_id as string) || widget.id
   const { data, error, refetch, dataUpdatedAt, isLoading } = useWidgetData(
-    widget.id,
+    dataWidgetId,
     widget.type,
     widget.config,
   )
@@ -94,7 +96,7 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge }: W
   // Fullscreen persisted in user preferences
   const { getPref, setPref } = useUserPreferences()
   const prefKey = `widget_fullscreen_${widget.id}`
-  const [fullscreen, setFullscreenLocal] = useState(() => getPref(prefKey, '') === 'true')
+  const [fullscreen, setFullscreenLocal] = useState(() => String(getPref(prefKey, '')) === 'true')
   const setFullscreen = (val: boolean) => {
     setFullscreenLocal(val)
     setPref(prefKey, val ? 'true' : '')

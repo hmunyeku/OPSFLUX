@@ -43,6 +43,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { useUsers, useUser, useCreateUser, useUpdateUser, useDeleteUser, useRevokeAllSessions, useUserEntities, useAssignUserToEntity, useRemoveUserFromEntity, useSendPasswordReset, useUsersStats, useRecentActivity, useUserTierLinks, useLinkUserToTier, useUnlinkUserFromTier, useProfileCompleteness, useAdminUploadAvatar, useAdminSetAvatarFromURL } from '@/hooks/useUsers'
 import { useAllEntities } from '@/hooks/useEntities'
+import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { usePageSize } from '@/hooks/usePageSize'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
@@ -1935,6 +1936,7 @@ function UserPermissionsTab({ userId }: { userId: string }) {
   return <PermissionMatrix userId={userId} />
 }
 // ── Overview Dashboard ─────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function AccountsOverview({ onNavigate, onCreateGroup }: { onNavigate: (tab: AccountsTab) => void; onCreateGroup: () => void }) {
   const { t } = useTranslation()
   const { data: usersData, isLoading: usersLoading } = useUsers({ page: 1, page_size: 1 })
@@ -2219,6 +2221,7 @@ function BatchAssignModal({ title, subtitle, searchPlaceholder, items, isPending
 }
 
 // ── Main Page ──────────────────────────────────────────────
+void AccountsOverview // keep for reference — replaced by ModuleDashboard
 type AccountsTab = 'overview' | 'users' | 'groups' | 'roles'
 
 export function UsersPage() {
@@ -2467,7 +2470,7 @@ export function UsersPage() {
 
           <div className="flex-1 min-h-0">
           {activeTab === 'overview' ? (
-              <AccountsOverview onNavigate={setActiveTab} onCreateGroup={() => { setActiveTab('groups'); setCreateTrigger((c) => c + 1) }} />
+              <ModuleDashboard module="users" />
           ) : activeTab === 'groups' ? (
               <GroupsTab
                 externalSearch={search || ''}

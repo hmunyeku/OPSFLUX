@@ -10,8 +10,9 @@ import {
   LifeBuoy, Plus, Loader2, Trash2, Bug, Lightbulb, HelpCircle, MoreHorizontal,
   MessageSquare, CheckCircle2, Clock, AlertTriangle, ListTodo, Square, CheckSquare,
   BarChart3, ArrowRight, Send, X, Lock, Paperclip, Megaphone,
-  Eye, EyeOff, Pin,
+  Eye, EyeOff, Pin, LayoutDashboard,
 } from 'lucide-react'
+import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTableFilterDef } from '@/components/ui/DataTable/types'
@@ -829,7 +830,7 @@ function AnnouncementsAdminTab() {
 
 // ── Main Page ───────────────────────────────────────────────
 
-type SupportTab = 'tickets' | 'announcements'
+type SupportTab = 'dashboard' | 'tickets' | 'announcements'
 
 // Columns to hide on mobile (< 768px)
 const MOBILE_HIDDEN_TICKET_COLS = new Set(['reporter_name', 'assignee_name', 'comment_count', 'created_at', 'ticket_type'])
@@ -838,7 +839,7 @@ const MOBILE_HIDDEN_ANN_COLS = new Set(['display_location', 'created_at', 'activ
 export function SupportPage() {
   useTranslation() // loaded for future i18n
   const isMobile = useIsMobile()
-  const [activeTab, setActiveTab] = useState<SupportTab>('tickets')
+  const [activeTab, setActiveTab] = useState<SupportTab>('dashboard')
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
@@ -895,11 +896,14 @@ export function SupportPage() {
         <TabBar
           items={[
             { id: 'tickets' as const, label: 'Tickets', icon: LifeBuoy },
+            { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
             ...(canManageAnnouncements ? [{ id: 'announcements' as const, label: 'Annonces', icon: Megaphone }] : []),
           ]}
           activeId={activeTab}
           onTabChange={(id) => setActiveTab(id as SupportTab)}
         />
+
+        {activeTab === 'dashboard' && <ModuleDashboard module="support" />}
 
         {activeTab === 'tickets' && (
           <>

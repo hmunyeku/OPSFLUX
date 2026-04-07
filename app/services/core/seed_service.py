@@ -878,6 +878,66 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
                              {"x": 0, "y": 2, "w": 4, "h": 2}),
             ],
         },
+        # Users module dashboard
+        {
+            "name": "Comptes",
+            "target_role": None,
+            "target_module": "users",
+            "tab_order": 0,
+            "widgets": [
+                _make_widget("alerts_urgent", "Utilisateurs actifs",
+                             {"source": "core"},
+                             {"x": 0, "y": 0, "w": 3, "h": 2}),
+                _make_widget("alerts_urgent", "Groupes",
+                             {"source": "core"},
+                             {"x": 3, "y": 0, "w": 3, "h": 2}),
+                _make_widget("alerts_urgent", "Roles",
+                             {"source": "core"},
+                             {"x": 6, "y": 0, "w": 3, "h": 2}),
+                _make_widget("alerts_urgent", "Alertes",
+                             {"source": "core"},
+                             {"x": 9, "y": 0, "w": 3, "h": 2}),
+            ],
+        },
+        # Support module dashboard
+        {
+            "name": "Support",
+            "target_role": None,
+            "target_module": "support",
+            "tab_order": 0,
+            "widgets": [
+                _make_widget("alerts_urgent", "Tickets ouverts",
+                             {"source": "core"},
+                             {"x": 0, "y": 0, "w": 3, "h": 2}),
+                _make_widget("alerts_urgent", "En attente",
+                             {"source": "core"},
+                             {"x": 3, "y": 0, "w": 3, "h": 2}),
+                _make_widget("alerts_urgent", "Resolus ce mois",
+                             {"source": "core"},
+                             {"x": 6, "y": 0, "w": 3, "h": 2}),
+                _make_widget("alerts_urgent", "Alertes",
+                             {"source": "core"},
+                             {"x": 9, "y": 0, "w": 3, "h": 2}),
+            ],
+        },
+        # Workflow module dashboard
+        {
+            "name": "Workflow",
+            "target_role": None,
+            "target_module": "workflow",
+            "tab_order": 0,
+            "widgets": [
+                _make_widget("alerts_urgent", "Workflows actifs",
+                             {"source": "core"},
+                             {"x": 0, "y": 0, "w": 4, "h": 2}),
+                _make_widget("alerts_urgent", "En attente validation",
+                             {"source": "core"},
+                             {"x": 4, "y": 0, "w": 4, "h": 2}),
+                _make_widget("alerts_urgent", "Alertes",
+                             {"source": "core"},
+                             {"x": 8, "y": 0, "w": 4, "h": 2}),
+            ],
+        },
     ]
 
     # ── Bulk UPSERT via raw SQL — updates widgets on re-seed ──────────
@@ -1647,6 +1707,7 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("compliance_rule_target", "asset", "Asset", 3, {"en": "Asset"}),
         ("compliance_rule_target", "department", "Département", 4, {"en": "Department"}),
         ("compliance_rule_target", "job_position", "Fiche de poste", 5, {"en": "Job position"}),
+        ("compliance_rule_target", "packlog_cargo", "Colis PackLog", 6, {"en": "PackLog cargo"}),
         # ── Rule priorities ──
         ("compliance_rule_priority", "high", "Haute", 1, {"en": "High"}),
         ("compliance_rule_priority", "normal", "Normale", 2, {"en": "Normal"}),

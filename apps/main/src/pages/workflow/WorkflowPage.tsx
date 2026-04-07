@@ -21,8 +21,9 @@ import {
   CheckCircle2, Clock, ArrowLeft, XCircle,
   Loader2, Tag, LayoutList,
   AlertTriangle, Undo2, Redo2, Shield,
-  LayoutGrid, ArrowDownUp,
+  LayoutGrid, ArrowDownUp, LayoutDashboard,
 } from 'lucide-react'
+import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -652,7 +653,7 @@ export function WorkflowPage() {
   const search = useUIStore((s) => s.globalSearch)
 
   // ── Navigation state ──
-  const [activeTab, setActiveTab] = useState<'definitions' | 'instances'>('definitions')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'definitions' | 'instances'>('dashboard')
   const [statusFilter, setStatusFilter] = useState('')
   const [entityTypeFilter, setEntityTypeFilter] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -880,6 +881,18 @@ export function WorkflowPage() {
         <div className="flex items-center gap-4 mb-3">
           <div className="flex items-center gap-0.5 bg-accent/30 rounded-lg p-0.5">
             <button
+              onClick={() => setActiveTab('dashboard')}
+              className={cn(
+                'px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+                activeTab === 'dashboard'
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <LayoutDashboard size={12} className="inline mr-1.5" />
+              Dashboard
+            </button>
+            <button
               onClick={() => { setActiveTab('definitions'); setInstanceDefinitionFilter(undefined) }}
               className={cn(
                 'px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
@@ -922,6 +935,9 @@ export function WorkflowPage() {
             </>
           )}
         </div>
+
+        {/* ═══ Dashboard Tab ═══ */}
+        {activeTab === 'dashboard' && <ModuleDashboard module="workflow" />}
 
         {/* ═══ Definitions Tab ═══ */}
         {activeTab === 'definitions' && (

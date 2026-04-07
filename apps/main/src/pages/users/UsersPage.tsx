@@ -1490,9 +1490,15 @@ function UserDetailPanel({ id }: { id: string }) {
                   <span className="flex items-center gap-1.5"><Shield size={12} /> Rôles attribués</span>
                 </SectionHeader>
                 {userRoleNames.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5 mt-1">
+                  <div className="flex flex-wrap gap-2 mt-1.5">
                     {userRoleNames.map((roleName) => (
-                      <span key={roleName} className="gl-badge gl-badge-info text-[10px]">{roleName}</span>
+                      <button
+                        key={roleName}
+                        onClick={() => openDynamicPanel({ type: 'detail', module: 'roles', id: roleName })}
+                        className="gl-badge gl-badge-info text-xs cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
+                      >
+                        {roleName}
+                      </button>
                     ))}
                   </div>
                 ) : (
@@ -1503,12 +1509,12 @@ function UserDetailPanel({ id }: { id: string }) {
                   <span className="flex items-center gap-1.5 mt-3"><KeyRound size={12} /> Groupes</span>
                 </SectionHeader>
                 {userGroups.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5 mt-1">
+                  <div className="flex flex-wrap gap-2 mt-1.5">
                     {userGroups.map((group) => (
                       <button
                         key={group.group_id}
                         onClick={() => openDynamicPanel({ type: 'detail', module: 'groups', id: group.group_id })}
-                        className="gl-badge gl-badge-neutral text-[10px] cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
+                        className="gl-badge gl-badge-neutral text-xs cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
                       >
                         {group.group_name} ({group.role_names.join(', ') || group.role_codes.join(', ')})
                       </button>

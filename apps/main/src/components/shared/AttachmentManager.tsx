@@ -22,6 +22,27 @@ import { useToast } from '@/components/ui/Toast'
 import api from '@/lib/api'
 import type { FileAttachment } from '@/types/api'
 
+/** Download a file via authenticated API call → blob → save as link click */
+async function downloadFile(attachmentId: string, filename: string) {
+  try {
+    const response = await api.get(`/api/v1/attachments/${attachmentId}/download`, {
+      responseType: 'blob',
+    })
+    const blob = new Blob([response.data])
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+  } catch {
+    // Fallback: open in new tab (may fail if not authenticated)
+    window.open(`/api/v1/attachments/${attachmentId}/download`, '_blank')
+  }
+}
+
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} o`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`
@@ -215,15 +236,13 @@ export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm
                     {isExpanded ? <EyeOff size={11} /> : <Eye size={11} />}
                   </button>
                 )}
-                <a
-                  href={`/api/v1/attachments/${att.id}/download`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => downloadFile(att.id, att.original_name)}
                   className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   title="Télécharger"
                 >
                   <Download size={11} />
-                </a>
+                </button>
                 {!readOnly && (isConfirming ? (
                   <div className="flex items-center gap-0.5">
                     <button className="text-[9px] px-1.5 py-0.5 rounded bg-destructive text-destructive-foreground" onClick={() => handleDelete(att.id)} disabled={deleteAttachment.isPending}>Oui</button>

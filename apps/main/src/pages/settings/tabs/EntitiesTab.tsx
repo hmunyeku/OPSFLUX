@@ -278,7 +278,7 @@ function EntityDetailPanel({ id }: { id: string }) {
   // User picker state
   const [showUserPicker, setShowUserPicker] = useState(false)
   const [userSearch, setUserSearch] = useState('')
-  const { data: allUsersData } = useUsers({ page: 1, page_size: 50, search: userSearch || undefined })
+  const { data: allUsersData } = useUsers({ page: 1, page_size: 50, search: userSearch || undefined, active: true })
 
   const handleInlineSave = useCallback((field: string, value: string) => {
     updateEntity.mutate({ id, payload: { [field]: value } })

@@ -502,7 +502,7 @@ function EntityDetailPanel({ id }: { id: string }) {
   const [userSearch, setUserSearch] = useState('')
   const [logoEditing, setLogoEditing] = useState(false)
   const [logoInput, setLogoInput] = useState('')
-  const { data: allUsersData } = useUsers({ page: 1, page_size: 50, search: userSearch || undefined })
+  const { data: allUsersData } = useUsers({ page: 1, page_size: 50, search: userSearch || undefined, active: true })
 
   const save = useCallback((field: string, value: string | number | boolean | Record<string, unknown> | null) => {
     updateEntity.mutate({ id, payload: { [field]: value } })

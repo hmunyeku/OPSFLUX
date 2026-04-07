@@ -174,15 +174,18 @@ export function FileManagerTab() {
                   <span className="text-muted-foreground tabular-nums">
                     {file.created_at ? new Date(file.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : '—'}
                   </span>
-                  <a
-                    href={`/api/v1/attachments/${file.id}/download`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={async () => {
+                      const { default: apiClient } = await import('@/lib/api')
+                      const r = await apiClient.get(`/api/v1/attachments/${file.id}/download`, { responseType: 'blob' })
+                      const url = window.URL.createObjectURL(new Blob([r.data]))
+                      const a = document.createElement('a'); a.href = url; a.download = file.original_name; a.click(); window.URL.revokeObjectURL(url)
+                    }}
                     className="p-1 rounded hover:bg-muted text-muted-foreground"
                     title="Télécharger"
                   >
                     <Download size={12} />
-                  </a>
+                  </button>
                 </div>
               )
             })}

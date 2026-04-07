@@ -97,22 +97,17 @@ async def get_current_capacity(
     """
     target = at_date or date.today()
 
-    try:
-        result = await db.execute(
-            text(
-                "SELECT id, max_pax_total, permanent_ops_quota, max_pax_per_company, "
-                "effective_date, reason, changed_by "
-                "FROM asset_capacities "
-                "WHERE asset_id = :aid AND effective_date <= :dt "
-                "ORDER BY effective_date DESC LIMIT 1"
-            ),
-            {"aid": str(asset_id), "dt": target},
-        )
-        row = result.first()
-    except Exception:
-        # Table may not exist yet (migration pending) — fall through to asset fallback
-        await db.rollback()
-        row = None
+    result = await db.execute(
+        text(
+            "SELECT id, max_pax_total, permanent_ops_quota, max_pax_per_company, "
+            "effective_date, reason, changed_by "
+            "FROM asset_capacities "
+            "WHERE asset_id = :aid AND effective_date <= :dt "
+            "ORDER BY effective_date DESC LIMIT 1"
+        ),
+        {"aid": str(asset_id), "dt": target},
+    )
+    row = result.first()
     if row:
         return {
             "id": row[0],

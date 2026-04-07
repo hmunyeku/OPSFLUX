@@ -25,12 +25,14 @@ import {
   Maximize2,
   Minimize2,
   TableProperties,
+  Zap,
 } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
 import { useWidgetData } from '@/hooks/useDashboard'
 import { PerspectiveWidget } from './widgets/PerspectiveWidget'
 import type { PerspectiveConfig } from './widgets/PerspectiveWidget'
+import { QuickAccessWidget } from './widgets/QuickAccessWidget'
 import type { DashboardWidget } from '@/services/dashboardService'
 import { EChartsWidget } from '@/components/charts/EChartsWidget'
 
@@ -59,6 +61,7 @@ export function WidgetTypeIcon({ type, className }: { type: string; className?: 
     case 'map': return <MapPin className={cls} />
     case 'text': return <Type className={cls} />
     case 'perspective': return <TableProperties className={cls} />
+    case 'quick_access': return <Zap className={cls} />
     default: return <BarChart3 className={cls} />
   }
 }
@@ -154,12 +157,31 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge }: W
     </div>
   )
 
+  // Visual customization from config
+  const bgColor = (widget.config?.bg_color as string) || ''
+  const accentColor = (widget.config?.accent_color as string) || ''
+  const hideHeader = (widget.config?.hide_header as boolean) || false
+  const hasBgColor = !!bgColor
+  const cardStyle: React.CSSProperties = bgColor
+    ? { backgroundColor: bgColor, color: '#ffffff', borderColor: bgColor }
+    : {}
+
   // Normal card
   if (!fullscreen) {
     return (
-      <div className="flex flex-col h-full bg-background border rounded-md overflow-hidden">
-        {headerBar}
-        <div className="flex-1 min-h-0 p-2">{widgetContent}</div>
+      <div
+        className={cn('flex flex-col h-full border rounded-md overflow-hidden shadow-sm', !hasBgColor && 'bg-background')}
+        style={cardStyle}
+      >
+        {!hideHeader ? headerBar : (
+          <div className="flex items-center h-7 px-3 gap-2">
+            {mode === 'edit' && <div {...(dragHandleProps || {})} className="cursor-grab"><GripVertical className="h-3 w-3 opacity-50" /></div>}
+            <span className="text-xs font-medium truncate flex-1 opacity-80">{widget.title}</span>
+          </div>
+        )}
+        <div className="flex-1 min-h-0 p-2" style={accentColor ? { '--widget-accent': accentColor } as React.CSSProperties : undefined}>
+          {widgetContent}
+        </div>
       </div>
     )
   }
@@ -237,6 +259,8 @@ function WidgetRenderer({
           config={widget.config as PerspectiveConfig}
         />
       )
+    case 'quick_access':
+      return <QuickAccessWidget config={widget.config} data={data} />
     default:
       return (
         <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
@@ -290,7 +314,7 @@ function KPIWidget({
           {labelField}
         </span>
       )}
-      <span className="text-3xl font-bold text-foreground leading-none">{displayValue}</span>
+      <span className="text-3xl font-bold leading-none" style={{ color: 'var(--widget-accent, currentColor)' }}>{displayValue}</span>
       {(trend !== null || comparison) && (
         <div className={cn('flex items-center gap-1 text-xs', trendColor)}>
           {TrendIcon && <TrendIcon className="h-3 w-3" />}

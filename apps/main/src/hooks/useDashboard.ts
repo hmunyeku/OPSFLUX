@@ -74,6 +74,28 @@ const BUILTIN_CATALOG_ENTRIES: WidgetCatalogEntry[] = [
     source_module: 'Analyse',
     roles: [],
   },
+  {
+    id: 'builtin:quick_access',
+    type: 'quick_access',
+    title: 'Acces rapide',
+    description: 'Grille de raccourcis, favoris, marque-pages et actions frequentes',
+    permissions: [],
+    default_config: {
+      columns: 4,
+      items: [
+        { label: 'Tableau de bord', path: '/dashboard', icon: 'dashboard', color: '#1e40af' },
+        { label: 'Projets', path: '/projets', icon: 'projets', color: '#047857' },
+        { label: 'PaxLog', path: '/paxlog', icon: 'users', color: '#b45309' },
+        { label: 'TravelWiz', path: '/travelwiz', icon: 'travelwiz', color: '#0891b2' },
+        { label: 'Assets', path: '/assets', icon: 'assets', color: '#7c3aed' },
+        { label: 'Tiers', path: '/tiers', icon: 'tiers', color: '#dc2626' },
+        { label: 'Conformite', path: '/conformite', icon: 'conformite', color: '#374151' },
+        { label: 'Recherche', path: '/search', icon: 'search', color: '#0f172a' },
+      ],
+    },
+    source_module: 'core',
+    roles: [],
+  },
 ]
 
 export function useWidgetCatalog() {

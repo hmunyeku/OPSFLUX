@@ -1121,3 +1121,35 @@ async def update_dashboard_layout(
         "breakpoint": breakpoint_name,
         "widgets": len(layout),
     }
+
+
+# ── Seed mandatory tabs ──────────────────────────────────────────────────
+
+@router.post(
+    "/dashboard/seed-tabs",
+    status_code=201,
+    dependencies=[Depends(require_permission("dashboard.admin"))],
+)
+async def seed_mandatory_dashboard_tabs(
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Seed default mandatory dashboard tabs for the current entity.
+
+    Idempotent — only creates tabs that don't already exist.
+    """
+    from app.services.core.seed_service import seed_dashboard_tabs
+
+    await seed_dashboard_tabs(db, entity_id)
+    await db.commit()
+
+    # Count how many mandatory tabs exist now
+    result = await db.execute(
+        select(func.count(DashboardTab.id)).where(
+            DashboardTab.entity_id == entity_id,
+            DashboardTab.is_mandatory == True,  # noqa: E712
+            DashboardTab.is_active == True,  # noqa: E712
+        )
+    )
+    total = result.scalar() or 0
+    return {"seeded": True, "mandatory_tab_count": total}

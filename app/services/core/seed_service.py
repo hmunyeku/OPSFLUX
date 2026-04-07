@@ -473,6 +473,42 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
 
     # ── Tab definitions per spec section 11 ──────────────────────────
     ROLE_TABS: list[dict] = [
+        # Universal — visible to all users (no role/module filter)
+        {
+            "name": "Vue d'ensemble",
+            "target_role": None,
+            "target_module": None,
+            "tab_order": -1,
+            "widgets": [
+                _make_widget("alerts_urgent", "Alertes critiques",
+                             {"source": "core"},
+                             {"x": 0, "y": 0, "w": 3, "h": 2}),
+                _make_widget("pax_on_site", "PAX sur site",
+                             {"source": "paxlog"},
+                             {"x": 3, "y": 0, "w": 3, "h": 2}),
+                _make_widget("kpi_fleet", "Flotte active",
+                             {"source": "travelwiz"},
+                             {"x": 6, "y": 0, "w": 3, "h": 2}),
+                _make_widget("pickup_progress", "Ramassage",
+                             {"source": "travelwiz"},
+                             {"x": 9, "y": 0, "w": 3, "h": 2}),
+                _make_widget("ads_pending", "AdS en attente",
+                             {"source": "paxlog", "status": "pending_validation"},
+                             {"x": 0, "y": 2, "w": 4, "h": 4}),
+                _make_widget("project_status", "Projets actifs",
+                             {"source": "projets"},
+                             {"x": 4, "y": 2, "w": 4, "h": 4}),
+                _make_widget("signalements_actifs", "Signalements",
+                             {"source": "paxlog"},
+                             {"x": 8, "y": 2, "w": 4, "h": 4}),
+                _make_widget("compliance_expiry", "Certifications expirant",
+                             {"source": "paxlog", "days_ahead": 30},
+                             {"x": 0, "y": 6, "w": 6, "h": 3}),
+                _make_widget("trips_today", "Voyages du jour",
+                             {"source": "travelwiz"},
+                             {"x": 6, "y": 6, "w": 6, "h": 3}),
+            ],
+        },
         # CDS — Chef de Site
         {
             "name": "Mon site",

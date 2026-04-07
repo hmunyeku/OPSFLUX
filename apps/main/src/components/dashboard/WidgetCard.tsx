@@ -353,7 +353,11 @@ function ChartWidget({
   const chartType = (config.chart_type as string) || 'bar'
   const xField = (config.x_field as string) || 'name'
   const yFields = (config.y_fields as string[]) || ['value']
-  const chartData = data as Record<string, unknown>[]
+  // Provider may return {data: [...], series: [...]} or a flat array
+  const firstItem = data?.[0] as Record<string, unknown> | undefined
+  const chartData = (firstItem && Array.isArray(firstItem.data))
+    ? (firstItem.data as Record<string, unknown>[])
+    : (data as Record<string, unknown>[])
 
   // Map legacy chart_type values to EChartsWidget types
   const validTypes = ['bar', 'line', 'area', 'pie', 'scatter', 'radar', 'heatmap', 'gauge', 'treemap'] as const
@@ -377,13 +381,20 @@ function ChartWidget({
 
 function TableWidget({
   config,
-  data,
+  data: rawData,
 }: {
   config: Record<string, unknown>
   data: unknown[]
 }) {
-  const columns = (config.columns as { key: string; label: string }[]) || []
-  const rows = data as Record<string, unknown>[]
+  // Provider may return {columns, rows} or a flat array of row objects
+  const providerData = rawData?.[0] as Record<string, unknown> | undefined
+  const hasProviderShape = providerData && Array.isArray(providerData.rows)
+  const columns = hasProviderShape
+    ? (providerData.columns as { key: string; label: string }[]) || []
+    : (config.columns as { key: string; label: string }[]) || []
+  const rows = hasProviderShape
+    ? (providerData.rows as Record<string, unknown>[])
+    : (rawData as Record<string, unknown>[])
   const pageSize = (config.page_size as number) || 10
   const [page, setPage] = useState(0)
 

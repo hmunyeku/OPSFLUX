@@ -2147,6 +2147,12 @@ export interface CargoStatusUpdate {
 }
 
 export interface CargoReceive {
+  received_quantity?: number | null
+  declared_quantity?: number | null
+  recipient_available?: boolean
+  signature_collected?: boolean
+  damage_notes?: string | null
+  photo_evidence_count?: number
   notes?: string | null
 }
 
@@ -2625,8 +2631,11 @@ export interface PackageElement {
   cargo_item_id: string
   description: string
   quantity: number
+  quantity_returned: number
   weight_kg: number | null
   sap_code: string | null
+  return_status: string
+  return_notes?: string | null
   created_at: string
 }
 
@@ -2637,6 +2646,16 @@ export interface PackageElementCreate {
   sap_code?: string | null
 }
 
+export interface PackageElementReturnUpdate {
+  quantity_returned: number
+  return_notes?: string | null
+}
+
+export interface PackageElementDispositionUpdate {
+  return_status: 'returned' | 'reintegrated' | 'scrapped' | 'yard_storage'
+  return_notes?: string | null
+}
+
 export interface CargoHistoryEntry {
   id: string
   action: string
@@ -2644,6 +2663,37 @@ export interface CargoHistoryEntry {
   actor_id: string | null
   actor_name: string | null
   details: Record<string, unknown> | null
+}
+
+export interface VoyageCargoOperationsReportItem {
+  cargo_id: string
+  tracking_code: string
+  request_code: string | null
+  designation: string | null
+  description: string
+  status: string
+  workflow_status: string
+  destination_name: string | null
+  weight_kg: number
+  package_count: number
+  damage_notes: string | null
+  received_at: string | null
+  package_element_count: number
+  total_sent_units: number
+  total_returned_units: number
+  return_coverage_ratio: number
+  aggregate_return_status: string
+  aggregate_disposition: string
+}
+
+export interface VoyageCargoOperationsReport {
+  voyage_id: string
+  cargo_count: number
+  delivered_count: number
+  damaged_count: number
+  missing_count: number
+  return_started_count: number
+  items: VoyageCargoOperationsReportItem[]
 }
 
 // ── TravelWiz — Articles (SAP) ─────────────────────────────
@@ -2693,6 +2743,13 @@ export interface SapMatchResult {
 export interface CargoReturnCreate {
   return_type: string
   notes?: string | null
+  waste_manifest_ref?: string | null
+  pass_number?: string | null
+  inventory_reference?: string | null
+  sap_code_confirmed?: boolean
+  photo_evidence_count?: number
+  double_signature_confirmed?: boolean
+  yard_justification?: string | null
 }
 
 // ── TravelWiz — Captain Portal ──────────────────────────────

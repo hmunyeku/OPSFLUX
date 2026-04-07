@@ -175,6 +175,19 @@ class BackCargoReturnRequest(BaseModel):
     yard_justification: str | None = None
 
 
+class PackageElementReturnUpdate(BaseModel):
+    quantity_returned: float = Field(..., ge=0)
+    return_notes: str | None = None
+
+
+class PackageElementDispositionUpdate(BaseModel):
+    return_status: str = Field(
+        ...,
+        pattern=r"^(returned|reintegrated|scrapped|yard_storage)$",
+    )
+    return_notes: str | None = None
+
+
 class PickupStopInput(BaseModel):
     asset_id: UUID
     pickup_order: int = Field(..., ge=1)
@@ -412,9 +425,19 @@ class CargoWorkflowStatusUpdate(BaseModel):
 class CargoStatusUpdate(BaseModel):
     status: str = Field(
         ...,
-        pattern=r"^(registered|ready|loaded|in_transit|delivered_intermediate|delivered_final|damaged|missing)$",
+        pattern=r"^(registered|ready|ready_for_loading|loaded|in_transit|delivered_intermediate|delivered_final|damaged|missing|return_declared|return_in_transit|returned|reintegrated|scrapped)$",
     )
     damage_notes: str | None = None
+
+
+class CargoReceiptConfirm(BaseModel):
+    received_quantity: float | None = Field(default=None, ge=0)
+    declared_quantity: float | None = Field(default=None, ge=0)
+    recipient_available: bool = True
+    signature_collected: bool = True
+    damage_notes: str | None = None
+    photo_evidence_count: int = Field(default=0, ge=0)
+    notes: str | None = None
 
 
 class CargoRead(OpsFluxSchema):

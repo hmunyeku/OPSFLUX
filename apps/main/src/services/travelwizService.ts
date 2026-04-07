@@ -16,7 +16,8 @@ import type {
   VoyageEvent, VoyageEventCreate,
   TripKpi,
   DeckLayout, DeckLayoutValidation,
-  PackageElement, PackageElementCreate, CargoHistoryEntry,
+  PackageElement, PackageElementCreate, PackageElementDispositionUpdate, PackageElementReturnUpdate, CargoHistoryEntry,
+  VoyageCargoOperationsReport,
   TravelArticle, TravelArticleCreate, TravelArticleImportResult, SapMatchResult,
   CaptainAuth, CaptainManifest,
   TravelDashboardTripsToday, TravelDashboardCargoPending, TravelFleetKpi,
@@ -379,6 +380,16 @@ export const travelwizService = {
     return data
   },
 
+  getVoyagePaxManifestPdf: async (id: string): Promise<Blob> => {
+    const { data } = await api.get(`${BASE}/voyages/${id}/pdf/pax-manifest`, { responseType: 'blob' })
+    return data
+  },
+
+  getVoyageCargoManifestPdf: async (id: string): Promise<Blob> => {
+    const { data } = await api.get(`${BASE}/voyages/${id}/pdf/cargo-manifest`, { responseType: 'blob' })
+    return data
+  },
+
   // ── Voyage Stops ──
   listVoyageStops: async (voyageId: string): Promise<VoyageStop[]> => {
     const { data } = await api.get(`${BASE}/voyages/${voyageId}/stops`)
@@ -413,6 +424,11 @@ export const travelwizService = {
   // ── Trip KPIs ──
   getTripKpis: async (tripId: string): Promise<TripKpi> => {
     const { data } = await api.get(`${BASE}/voyages/${tripId}/kpis`)
+    return data
+  },
+
+  getVoyageCargoOperationsReport: async (tripId: string): Promise<VoyageCargoOperationsReport> => {
+    const { data } = await api.get(`${BASE}/voyages/${tripId}/cargo-operations-report`)
     return data
   },
 
@@ -485,6 +501,11 @@ export const travelwizService = {
   getCargoRequest: async (id: string): Promise<CargoRequest> => {
     const { data } = await api.get(`${BASE}/cargo-requests/${id}`)
     return normalizeCargoRequest(data)
+  },
+
+  getCargoRequestLtPdf: async (id: string): Promise<Blob> => {
+    const { data } = await api.get(`${BASE}/cargo-requests/${id}/pdf/lt`, { responseType: 'blob' })
+    return data
   },
 
   createCargoRequest: async (payload: CargoRequestCreate): Promise<CargoRequest> => {
@@ -619,6 +640,24 @@ export const travelwizService = {
 
   addPackageElement: async (cargoItemId: string, payload: PackageElementCreate): Promise<PackageElement> => {
     const { data } = await api.post(`${BASE}/cargo/${cargoItemId}/elements`, payload)
+    return data
+  },
+
+  updatePackageElementReturn: async (
+    cargoItemId: string,
+    elementId: string,
+    payload: PackageElementReturnUpdate,
+  ): Promise<PackageElement> => {
+    const { data } = await api.patch(`${BASE}/cargo/${cargoItemId}/elements/${elementId}/return`, payload)
+    return data
+  },
+
+  updatePackageElementDisposition: async (
+    cargoItemId: string,
+    elementId: string,
+    payload: PackageElementDispositionUpdate,
+  ): Promise<PackageElement> => {
+    const { data } = await api.patch(`${BASE}/cargo/${cargoItemId}/elements/${elementId}/disposition`, payload)
     return data
   },
 

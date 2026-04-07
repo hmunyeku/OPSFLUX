@@ -14,11 +14,24 @@ import type {
   CargoAttachmentEvidence, CargoItem, CargoItemCreate, CargoItemUpdate, CargoRequestCreate, CargoRequestUpdate, CargoReceive, CargoReturnCreate,
   CaptainLogCreate,
   VoyageEventCreate,
-  PackageElementCreate,
+  PackageElementCreate, PackageElementDispositionUpdate, PackageElementReturnUpdate,
   TravelArticleCreate,
   WeatherReport, CaptainWeatherReport,
   PaginationParams,
 } from '@/types/api'
+
+async function openPdfBlob(loader: () => Promise<Blob>) {
+  const popup = window.open('', '_blank')
+  if (popup) {
+    popup.document.write('<html><body style="font-family: sans-serif; padding: 16px;">Chargement du PDF...</body></html>')
+    popup.document.close()
+  }
+  const blob = await loader()
+  const url = URL.createObjectURL(blob)
+  if (popup && !popup.closed) popup.location.href = url
+  else window.open(url, '_blank')
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
+}
 
 // ── Vectors ──
 
@@ -205,6 +218,18 @@ export function useCloseTrip() {
   })
 }
 
+export function useVoyagePaxManifestPdf() {
+  return useMutation({
+    mutationFn: async (id: string) => openPdfBlob(() => travelwizService.getVoyagePaxManifestPdf(id)),
+  })
+}
+
+export function useVoyageCargoManifestPdf() {
+  return useMutation({
+    mutationFn: async (id: string) => openPdfBlob(() => travelwizService.getVoyageCargoManifestPdf(id)),
+  })
+}
+
 // ── Voyage Stops ──
 
 export function useVoyageStops(voyageId: string | undefined) {
@@ -278,6 +303,14 @@ export function useTripKpis(tripId: string | undefined) {
   return useQuery({
     queryKey: ['travelwiz', 'voyages', tripId, 'kpis'],
     queryFn: () => travelwizService.getTripKpis(tripId!),
+    enabled: !!tripId,
+  })
+}
+
+export function useVoyageCargoOperationsReport(tripId: string | undefined) {
+  return useQuery({
+    queryKey: ['travelwiz', 'voyages', tripId, 'cargo-operations-report'],
+    queryFn: () => travelwizService.getVoyageCargoOperationsReport(tripId!),
     enabled: !!tripId,
   })
 }
@@ -421,6 +454,12 @@ export function useCargoRequest(id: string | undefined) {
     queryKey: ['travelwiz', 'cargo-requests', id],
     queryFn: () => travelwizService.getCargoRequest(id!),
     enabled: !!id,
+  })
+}
+
+export function useCargoRequestLtPdf() {
+  return useMutation({
+    mutationFn: async (id: string) => openPdfBlob(() => travelwizService.getCargoRequestLtPdf(id)),
   })
 }
 
@@ -590,6 +629,34 @@ export function useAddPackageElement() {
       travelwizService.addPackageElement(cargoItemId, payload),
     onSuccess: (_, { cargoItemId }) => {
       qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo', cargoItemId, 'elements'] })
+    },
+  })
+}
+
+export function useUpdatePackageElementReturn() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ cargoItemId, elementId, payload }: { cargoItemId: string; elementId: string; payload: PackageElementReturnUpdate }) =>
+      travelwizService.updatePackageElementReturn(cargoItemId, elementId, payload),
+    onSuccess: (_, { cargoItemId }) => {
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo'] })
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo', cargoItemId] })
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo', cargoItemId, 'elements'] })
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo', cargoItemId, 'history'] })
+    },
+  })
+}
+
+export function useUpdatePackageElementDisposition() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ cargoItemId, elementId, payload }: { cargoItemId: string; elementId: string; payload: PackageElementDispositionUpdate }) =>
+      travelwizService.updatePackageElementDisposition(cargoItemId, elementId, payload),
+    onSuccess: (_, { cargoItemId }) => {
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo'] })
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo', cargoItemId] })
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo', cargoItemId, 'elements'] })
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'cargo', cargoItemId, 'history'] })
     },
   })
 }

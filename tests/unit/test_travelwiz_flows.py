@@ -293,8 +293,11 @@ async def test_list_package_elements_uses_current_package_element_model(monkeypa
             "cargo_item_id": cargo_id,
             "description": "Pompe hydraulique",
             "quantity": 2,
+            "quantity_returned": 0,
             "weight_kg": 5.5,
             "sap_code": "SAP-001",
+            "return_status": "pending",
+            "return_notes": None,
             "created_at": created_at.isoformat(),
         }
     ]
@@ -508,12 +511,68 @@ async def test_get_public_voyage_cargo_tracking_raises_404_when_voyage_not_found
 
 
 @pytest.mark.asyncio
+async def test_get_voyage_cargo_operations_report_aggregates_returns(monkeypatch):
+    voyage_id = uuid4()
+    entity_id = uuid4()
+    cargo_id = uuid4()
+    destination_id = uuid4()
+    cargo = SimpleNamespace(
+        id=cargo_id,
+        entity_id=entity_id,
+        manifest_id=uuid4(),
+        tracking_code="CGO-100",
+        designation="Kit valves",
+        description="Kit valves",
+        status="return_in_transit",
+        workflow_status="in_transit",
+        destination_asset_id=destination_id,
+        weight_kg=25.0,
+        package_count=4,
+        damage_notes=None,
+        received_at=None,
+        created_at=datetime.now(timezone.utc),
+    )
+    element_a = SimpleNamespace(quantity_sent=Decimal("2"), quantity_returned=Decimal("2"), return_status="returned")
+    element_b = SimpleNamespace(quantity_sent=Decimal("2"), quantity_returned=Decimal("1"), return_status="partial")
+    db = FakeDB([
+        FakeResult(all_rows=[cargo]),
+        FakeResult(all_rows=[element_a, element_b]),
+    ])
+
+    async def fake_get_voyage_or_404(_db, _voyage_id, _entity_id):
+        return SimpleNamespace(id=_voyage_id, entity_id=_entity_id)
+
+    async def fake_get(_model, _id):
+        if _id == destination_id:
+            return SimpleNamespace(name="Offshore Delta")
+        return None
+
+    monkeypatch.setattr(travelwiz_routes, "_get_voyage_or_404", fake_get_voyage_or_404)
+    monkeypatch.setattr(db, "get", fake_get)
+
+    result = await travelwiz_routes.get_voyage_cargo_operations_report(
+        voyage_id=voyage_id,
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        db=db,
+    )
+
+    assert result["cargo_count"] == 1
+    assert result["return_started_count"] == 1
+    assert result["items"][0]["destination_name"] == "Offshore Delta"
+    assert result["items"][0]["total_sent_units"] == 4.0
+    assert result["items"][0]["total_returned_units"] == 3.0
+    assert result["items"][0]["aggregate_return_status"] == "partial_return"
+
+
+@pytest.mark.asyncio
 async def test_update_cargo_status_records_audit(monkeypatch):
     cargo_id = uuid4()
     entity_id = uuid4()
     actor_id = uuid4()
     cargo = SimpleNamespace(
         id=cargo_id,
+        entity_id=entity_id,
         status="registered",
         damage_notes=None,
         sender_tier_id=None,
@@ -532,9 +591,16 @@ async def test_update_cargo_status_records_audit(monkeypatch):
     async def fake_build_cargo_read_data(_db, _cargo):
         return {"id": _cargo.id, "status": _cargo.status}
 
+    async def fake_apply_status(_db, cargo_item_id, new_status, entity_id, user_id, location_asset_id=None):
+        assert cargo_item_id == cargo_id
+        assert entity_id == cargo.entity_id
+        assert user_id == actor_id
+        cargo.status = new_status
+
     monkeypatch.setattr(travelwiz_routes, "_get_cargo_or_404", fake_get_cargo_or_404)
     monkeypatch.setattr(travelwiz_routes, "record_audit", fake_record_audit)
     monkeypatch.setattr(travelwiz_routes, "_build_cargo_read_data", fake_build_cargo_read_data)
+    monkeypatch.setattr(travelwiz_routes, "apply_cargo_status_transition", fake_apply_status)
 
     await travelwiz_routes.update_cargo_status(
         cargo_id=cargo_id,
@@ -552,6 +618,368 @@ async def test_update_cargo_status_records_audit(monkeypatch):
     assert audits[0]["user_id"] == actor_id
     assert audits[0]["details"]["from_status"] == "registered"
     assert audits[0]["details"]["to_status"] == "in_transit"
+
+
+@pytest.mark.asyncio
+async def test_update_cargo_status_normalizes_ready_and_supports_return_flow(monkeypatch):
+    cargo_id = uuid4()
+    entity_id = uuid4()
+    actor_id = uuid4()
+    cargo = SimpleNamespace(
+        id=cargo_id,
+        entity_id=entity_id,
+        status="return_declared",
+        damage_notes=None,
+        destination_asset_id=None,
+        __table__=SimpleNamespace(columns=[]),
+    )
+    db = FakeDB([FakeResult(all_rows=[])])
+    transitions = []
+
+    async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
+        return cargo
+
+    async def fake_record_audit(_db, **kwargs):
+        return None
+
+    async def fake_build_cargo_read_data(_db, _cargo):
+        return {"id": _cargo.id, "status": _cargo.status}
+
+    async def fake_apply_status(_db, cargo_item_id, new_status, entity_id, user_id, location_asset_id=None):
+        transitions.append(new_status)
+        cargo.status = new_status
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_or_404", fake_get_cargo_or_404)
+    monkeypatch.setattr(travelwiz_routes, "record_audit", fake_record_audit)
+    monkeypatch.setattr(travelwiz_routes, "_build_cargo_read_data", fake_build_cargo_read_data)
+    monkeypatch.setattr(travelwiz_routes, "apply_cargo_status_transition", fake_apply_status)
+
+    await travelwiz_routes.update_cargo_status(
+        cargo_id=cargo_id,
+        body=travelwiz_routes.CargoStatusUpdate(status="return_in_transit"),
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=actor_id),
+        _=None,
+        db=db,
+    )
+
+    assert transitions == ["return_in_transit"]
+    assert cargo.status == "return_in_transit"
+
+
+@pytest.mark.asyncio
+async def test_receive_cargo_requires_photo_evidence_when_damaged(monkeypatch):
+    cargo_id = uuid4()
+    entity_id = uuid4()
+    cargo = SimpleNamespace(
+        id=cargo_id,
+        entity_id=entity_id,
+        status="in_transit",
+        destination_asset_id=None,
+    )
+    db = FakeDB([])
+
+    async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
+        return cargo
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_or_404", fake_get_cargo_or_404)
+
+    with pytest.raises(HTTPException) as exc:
+        await travelwiz_routes.receive_cargo(
+            cargo_id=cargo_id,
+            body=travelwiz_routes.CargoReceiptConfirm(
+                damage_notes="Coin enfonce",
+                photo_evidence_count=0,
+            ),
+            entity_id=entity_id,
+            current_user=SimpleNamespace(id=uuid4()),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail["code"] == "CARGO_DAMAGE_EVIDENCE_REQUIRED"
+
+
+@pytest.mark.asyncio
+async def test_receive_cargo_records_structured_reception_details(monkeypatch):
+    cargo_id = uuid4()
+    entity_id = uuid4()
+    actor_id = uuid4()
+    cargo = SimpleNamespace(
+        id=cargo_id,
+        entity_id=entity_id,
+        status="in_transit",
+        destination_asset_id=None,
+        package_count=3,
+        received_at=datetime.now(timezone.utc),
+        damage_notes=None,
+        __table__=SimpleNamespace(columns=[]),
+    )
+    db = FakeDB([FakeResult(all_rows=[])])
+    audits = []
+
+    async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
+        return cargo
+
+    async def fake_apply_status(_db, cargo_item_id, new_status, entity_id, user_id, location_asset_id=None):
+        cargo.status = new_status
+        cargo.received_at = datetime.now(timezone.utc)
+
+    async def fake_record_audit(_db, **kwargs):
+        audits.append(kwargs)
+
+    async def fake_build_cargo_read_data(_db, _cargo):
+        return {"id": _cargo.id, "status": _cargo.status}
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_or_404", fake_get_cargo_or_404)
+    monkeypatch.setattr(travelwiz_routes, "apply_cargo_status_transition", fake_apply_status)
+    monkeypatch.setattr(travelwiz_routes, "record_audit", fake_record_audit)
+    monkeypatch.setattr(travelwiz_routes, "_build_cargo_read_data", fake_build_cargo_read_data)
+
+    result = await travelwiz_routes.receive_cargo(
+        cargo_id=cargo_id,
+        body=travelwiz_routes.CargoReceiptConfirm(
+            received_quantity=2,
+            recipient_available=False,
+            signature_collected=False,
+            notes="Depot securise au magasin",
+        ),
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=actor_id),
+        _=None,
+        db=db,
+    )
+
+    assert result["status"] == "delivered_final"
+    assert audits
+    assert audits[0]["details"]["received_quantity"] == 2
+    assert audits[0]["details"]["declared_quantity"] == 3.0
+    assert audits[0]["details"]["recipient_available"] is False
+    assert audits[0]["details"]["signature_collected"] is False
+
+
+@pytest.mark.asyncio
+async def test_update_package_element_return_tracks_partial_quantity(monkeypatch):
+    cargo_id = uuid4()
+    element_id = uuid4()
+    entity_id = uuid4()
+    actor_id = uuid4()
+    cargo = SimpleNamespace(
+        id=cargo_id,
+        entity_id=entity_id,
+        status="return_declared",
+        destination_asset_id=None,
+    )
+    element = SimpleNamespace(
+        id=element_id,
+        package_id=cargo_id,
+        quantity_sent=Decimal("4"),
+        quantity_returned=None,
+        return_status="pending",
+        return_notes=None,
+        unit_weight_kg=None,
+        description="Valve kit",
+        sap_code=None,
+        created_at=datetime.now(timezone.utc),
+    )
+    db = FakeDB([])
+    audits = []
+
+    async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
+        return cargo
+
+    async def fake_get_element_or_404(_db, *, cargo_id, element_id):
+        return element
+
+    async def fake_apply_status(_db, cargo_item_id, new_status, entity_id, user_id, location_asset_id=None):
+        cargo.status = new_status
+
+    async def fake_record_audit(_db, **kwargs):
+        audits.append(kwargs)
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_or_404", fake_get_cargo_or_404)
+    monkeypatch.setattr(travelwiz_routes, "_get_package_element_or_404", fake_get_element_or_404)
+    monkeypatch.setattr(travelwiz_routes, "apply_cargo_status_transition", fake_apply_status)
+    monkeypatch.setattr(travelwiz_routes, "record_audit", fake_record_audit)
+
+    result = await travelwiz_routes.update_package_element_return(
+        cargo_id=cargo_id,
+        element_id=element_id,
+        body=travelwiz_routes.PackageElementReturnUpdate(
+            quantity_returned=2,
+            return_notes="Retour partiel confirme",
+        ),
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=actor_id),
+        _=None,
+        db=db,
+    )
+
+    assert result["quantity_returned"] == 2
+    assert result["return_status"] == "partial"
+    assert cargo.status == "return_in_transit"
+    assert audits and audits[0]["action"] == "travelwiz.cargo.element_return"
+
+
+@pytest.mark.asyncio
+async def test_update_package_element_return_blocks_quantity_over_sent(monkeypatch):
+    cargo_id = uuid4()
+    element_id = uuid4()
+    entity_id = uuid4()
+    cargo = SimpleNamespace(
+        id=cargo_id,
+        entity_id=entity_id,
+        status="return_declared",
+        destination_asset_id=None,
+    )
+    element = SimpleNamespace(
+        id=element_id,
+        package_id=cargo_id,
+        quantity_sent=Decimal("1"),
+        quantity_returned=None,
+        return_status="pending",
+        return_notes=None,
+        unit_weight_kg=None,
+        description="Valve kit",
+        sap_code=None,
+        created_at=datetime.now(timezone.utc),
+    )
+    db = FakeDB([])
+
+    async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
+        return cargo
+
+    async def fake_get_element_or_404(_db, *, cargo_id, element_id):
+        return element
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_or_404", fake_get_cargo_or_404)
+    monkeypatch.setattr(travelwiz_routes, "_get_package_element_or_404", fake_get_element_or_404)
+
+    with pytest.raises(HTTPException) as exc:
+        await travelwiz_routes.update_package_element_return(
+            cargo_id=cargo_id,
+            element_id=element_id,
+            body=travelwiz_routes.PackageElementReturnUpdate(quantity_returned=3),
+            entity_id=entity_id,
+            current_user=SimpleNamespace(id=uuid4()),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail["code"] == "PACKAGE_RETURN_EXCEEDS_SENT"
+
+
+@pytest.mark.asyncio
+async def test_update_package_element_disposition_requires_return_first(monkeypatch):
+    cargo_id = uuid4()
+    element_id = uuid4()
+    entity_id = uuid4()
+    cargo = SimpleNamespace(
+        id=cargo_id,
+        entity_id=entity_id,
+        status="return_declared",
+        destination_asset_id=None,
+    )
+    element = SimpleNamespace(
+        id=element_id,
+        package_id=cargo_id,
+        quantity_sent=Decimal("2"),
+        quantity_returned=Decimal("0"),
+        return_status="pending",
+        return_notes=None,
+        unit_weight_kg=None,
+        description="Valve kit",
+        sap_code=None,
+        created_at=datetime.now(timezone.utc),
+    )
+    db = FakeDB([])
+
+    async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
+        return cargo
+
+    async def fake_get_element_or_404(_db, *, cargo_id, element_id):
+        return element
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_or_404", fake_get_cargo_or_404)
+    monkeypatch.setattr(travelwiz_routes, "_get_package_element_or_404", fake_get_element_or_404)
+
+    with pytest.raises(HTTPException) as exc:
+        await travelwiz_routes.update_package_element_disposition(
+            cargo_id=cargo_id,
+            element_id=element_id,
+            body=travelwiz_routes.PackageElementDispositionUpdate(return_status="scrapped"),
+            entity_id=entity_id,
+            current_user=SimpleNamespace(id=uuid4()),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail["code"] == "PACKAGE_RETURN_REQUIRED"
+
+
+@pytest.mark.asyncio
+async def test_update_package_element_disposition_updates_cargo_dispatch(monkeypatch):
+    cargo_id = uuid4()
+    element_id = uuid4()
+    entity_id = uuid4()
+    actor_id = uuid4()
+    cargo = SimpleNamespace(
+        id=cargo_id,
+        entity_id=entity_id,
+        status="returned",
+        destination_asset_id=None,
+    )
+    element = SimpleNamespace(
+        id=element_id,
+        package_id=cargo_id,
+        quantity_sent=Decimal("2"),
+        quantity_returned=Decimal("2"),
+        return_status="returned",
+        return_notes=None,
+        unit_weight_kg=None,
+        description="Valve kit",
+        sap_code=None,
+        created_at=datetime.now(timezone.utc),
+    )
+    db = FakeDB([])
+    audits = []
+
+    async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
+        return cargo
+
+    async def fake_get_element_or_404(_db, *, cargo_id, element_id):
+        return element
+
+    async def fake_apply_status(_db, cargo_item_id, new_status, entity_id, user_id, location_asset_id=None):
+        cargo.status = new_status
+
+    async def fake_record_audit(_db, **kwargs):
+        audits.append(kwargs)
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_or_404", fake_get_cargo_or_404)
+    monkeypatch.setattr(travelwiz_routes, "_get_package_element_or_404", fake_get_element_or_404)
+    monkeypatch.setattr(travelwiz_routes, "apply_cargo_status_transition", fake_apply_status)
+    monkeypatch.setattr(travelwiz_routes, "record_audit", fake_record_audit)
+
+    result = await travelwiz_routes.update_package_element_disposition(
+        cargo_id=cargo_id,
+        element_id=element_id,
+        body=travelwiz_routes.PackageElementDispositionUpdate(
+            return_status="reintegrated",
+            return_notes="Reintegre magasin central",
+        ),
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=actor_id),
+        _=None,
+        db=db,
+    )
+
+    assert result["return_status"] == "reintegrated"
+    assert cargo.status == "reintegrated"
+    assert audits and audits[0]["action"] == "travelwiz.cargo.element_disposition"
 
 
 @pytest.mark.asyncio
@@ -683,6 +1111,60 @@ async def test_update_cargo_workflow_status_blocks_incomplete_dossier(monkeypatc
     assert "designation" in exc.value.detail["missing_requirements"]
     assert "imputation_reference_id" in exc.value.detail["missing_requirements"]
     assert "cargo_photo" in exc.value.detail["missing_requirements"]
+
+
+@pytest.mark.asyncio
+async def test_create_cargo_requires_parent_request():
+    entity_id = uuid4()
+    user_id = uuid4()
+    db = FakeDB([])
+
+    with pytest.raises(HTTPException) as exc:
+        await travelwiz_routes.create_cargo(
+            body=travelwiz_routes.CargoCreate(
+                request_id=None,
+                description="Pompe de transfert",
+                cargo_type="unit",
+                weight_kg=120.0,
+            ),
+            entity_id=entity_id,
+            current_user=SimpleNamespace(id=user_id),
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail["code"] == "CARGO_REQUEST_REQUIRED"
+
+
+@pytest.mark.asyncio
+async def test_update_cargo_blocks_removing_parent_request(monkeypatch):
+    cargo_id = uuid4()
+    entity_id = uuid4()
+    cargo = SimpleNamespace(
+        id=cargo_id,
+        request_id=uuid4(),
+        sender_tier_id=None,
+        destination_asset_id=None,
+    )
+    db = FakeDB([])
+
+    async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
+        return cargo
+
+    monkeypatch.setattr(travelwiz_routes, "_get_cargo_or_404", fake_get_cargo_or_404)
+
+    with pytest.raises(HTTPException) as exc:
+        await travelwiz_routes.update_cargo(
+            cargo_id=cargo_id,
+            body=travelwiz_routes.CargoUpdate(request_id=None),
+            entity_id=entity_id,
+            _=None,
+            db=db,
+        )
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail["code"] == "CARGO_REQUEST_REQUIRED"
 
 
 @pytest.mark.asyncio

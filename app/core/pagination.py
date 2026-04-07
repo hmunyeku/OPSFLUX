@@ -1,5 +1,6 @@
 """Pagination utilities for API responses."""
 
+import inspect
 from typing import Any, Generic, TypeVar
 
 from fastapi import Query
@@ -55,7 +56,12 @@ async def paginate(
 
     if transform is not None:
         rows = result.all()
-        items = [transform(row) for row in rows]
+        items = []
+        for row in rows:
+            item = transform(row)
+            if inspect.isawaitable(item):
+                item = await item
+            items.append(item)
     else:
         items = result.scalars().all()
 

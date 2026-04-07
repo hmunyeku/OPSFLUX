@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
+import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { useUIStore } from '@/stores/uiStore'
 import { usePermission } from '@/hooks/usePermission'
 import {
@@ -134,6 +135,7 @@ import { CreateTokenPanel } from './panels/CreateTokenPanel'
 import { CreateAppPanel } from './panels/CreateAppPanel'
 import { CreateAddressPanel } from './panels/CreateAddressPanel'
 import { EditEmailTemplatePanel } from './panels/EditEmailTemplatePanel'
+import { EditPdfTemplatePanel } from './panels/EditPdfTemplatePanel'
 
 // ── Register core user settings ─────────────────────────────
 // Top-level items (no parentId)
@@ -163,6 +165,13 @@ registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppressi
 registerSettingsSection({ id: 'mcp-gateway', label: 'MCP Gateway', icon: Plug, component: McpGatewayTab, category: 'general', order: 55, requiredPermission: 'admin.system' })
 registerSettingsSection({ id: 'system', label: 'Système', icon: Activity, component: SystemTab, category: 'general', order: 60, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'adminer', label: 'Base de données', icon: Database, component: AdminerTab, category: 'general', order: 80, requiredPermission: 'admin.system' })
+
+registerPanelRenderer('settings-pdf-template', (view) => (
+  <EditPdfTemplatePanel
+    mode={view.type === 'create' ? 'create' : 'edit'}
+    templateId={typeof view.data?.templateId === 'string' ? view.data.templateId : (view.type !== 'create' ? view.id : null)}
+  />
+))
 
 /* ── Main Settings Page ── */
 export function SettingsPage() {

@@ -15,7 +15,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import select, func as sqla_func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,6 +56,7 @@ from app.schemas.travelwiz import (
     CargoAttachmentEvidenceRead,
     CargoAttachmentEvidenceUpdate,
     CargoRead,
+    CargoReceiptConfirm,
     CargoLoadingOptionRead,
     CargoRequestCreate,
     CargoRequestRead,
@@ -70,6 +71,8 @@ from app.schemas.travelwiz import (
     PassengerCreate,
     PassengerRead,
     PassengerUpdate,
+    PackageElementDispositionUpdate,
+    PackageElementReturnUpdate,
     PickupNoShowReport,
     PickupProgressUpdate,
     PickupRoundCreate,
@@ -94,6 +97,7 @@ from app.schemas.travelwiz import (
 from app.services.modules.travelwiz_service import (
     assess_manifest_weight,
     assess_voyage_delay,
+    update_cargo_status as apply_cargo_status_transition,
     get_weight_alert_ratio,
     rebalance_manifest_passenger_standby,
     reassign_voyage_passengers,
@@ -108,12 +112,18 @@ VOYAGE_ENTITY_TYPE = "voyage"
 CARGO_PUBLIC_STATUS_LABELS = {
     "registered": "Enregistré",
     "ready": "Prêt au départ",
+    "ready_for_loading": "Prêt au chargement",
     "loaded": "Chargé",
     "in_transit": "En transit",
     "delivered_intermediate": "Livré en escale",
     "delivered_final": "Livré",
     "damaged": "Signalé endommagé",
     "missing": "Signalé manquant",
+    "return_declared": "Retour déclaré",
+    "return_in_transit": "Retour en transit",
+    "returned": "Retourné base",
+    "reintegrated": "Réintégré stock",
+    "scrapped": "Mis au rebut",
 }
 
 VOYAGE_PUBLIC_STATUS_LABELS = {
@@ -137,17 +147,25 @@ def _normalize_article_description(description: str) -> str:
 
 
 def _serialize_package_element(element: PackageElement) -> dict:
-    quantity_value = float(element.quantity_sent) if element.quantity_sent is not None else 0.0
+    quantity_sent = getattr(element, "quantity_sent", None)
+    quantity_returned = getattr(element, "quantity_returned", None)
+    quantity_value = float(quantity_sent) if quantity_sent is not None else 0.0
     if quantity_value.is_integer():
         quantity_value = int(quantity_value)
+    returned_value = float(quantity_returned) if quantity_returned is not None else 0.0
+    if returned_value.is_integer():
+        returned_value = int(returned_value)
 
     return {
         "id": element.id,
         "cargo_item_id": element.package_id,
         "description": element.description,
         "quantity": quantity_value,
+        "quantity_returned": returned_value,
         "weight_kg": float(element.unit_weight_kg) if element.unit_weight_kg is not None else None,
         "sap_code": element.sap_code,
+        "return_status": getattr(element, "return_status", "pending"),
+        "return_notes": getattr(element, "return_notes", None),
         "created_at": (
             element.created_at.isoformat()
             if getattr(element, "created_at", None) is not None
@@ -197,6 +215,13 @@ def _build_public_cargo_tracking_event(entry: AuditLog) -> dict:
         "occurred_at": entry.created_at,
         "description": description,
     }
+
+
+def _normalize_cargo_status(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized == "ready":
+        return "ready_for_loading"
+    return normalized
 
 
 def _parse_csv_bool(value: str | None) -> bool:
@@ -281,6 +306,24 @@ async def _get_cargo_or_404(db: AsyncSession, cargo_id: UUID, entity_id: UUID) -
     return cargo
 
 
+async def _get_package_element_or_404(
+    db: AsyncSession,
+    *,
+    cargo_id: UUID,
+    element_id: UUID,
+) -> PackageElement:
+    result = await db.execute(
+        select(PackageElement).where(
+            PackageElement.id == element_id,
+            PackageElement.package_id == cargo_id,
+        )
+    )
+    element = result.scalars().first()
+    if not element:
+        raise HTTPException(404, "Package element not found")
+    return element
+
+
 async def _get_cargo_request_or_404(
     db: AsyncSession,
     request_id: UUID,
@@ -333,6 +376,17 @@ async def _validate_cargo_dossier_refs(
             voyage = await db.get(Voyage, manifest.voyage_id)
             if not voyage or zone.vector_id != voyage.vector_id:
                 raise HTTPException(400, "La zone de chargement ne correspond pas au vecteur du manifeste")
+
+
+def _ensure_cargo_request_parent(request_id: UUID | None) -> None:
+    if request_id is None:
+        raise HTTPException(
+            400,
+            {
+                "code": "CARGO_REQUEST_REQUIRED",
+                "message": "Chaque colis doit être rattaché à une demande d'expédition.",
+            },
+        )
 
 
 async def _build_cargo_read_data(
@@ -474,6 +528,122 @@ async def _build_cargo_request_read_data(
     return data
 
 
+def _summarize_package_return_states(elements: list[PackageElement]) -> dict:
+    if not elements:
+        return {
+            "total_sent_units": 0.0,
+            "total_returned_units": 0.0,
+            "return_coverage_ratio": 0.0,
+            "aggregate_return_status": "no_elements",
+            "aggregate_disposition": "none",
+        }
+
+    total_sent_units = sum(float(element.quantity_sent or 0) for element in elements)
+    total_returned_units = sum(float(element.quantity_returned or 0) for element in elements)
+    finalized_statuses = {"reintegrated", "scrapped", "yard_storage"}
+    finalized = [element for element in elements if (element.return_status or "") in finalized_statuses]
+
+    aggregate_return_status = "not_started"
+    if total_returned_units > 0:
+        aggregate_return_status = "partial_return"
+    if total_sent_units > 0 and total_returned_units >= total_sent_units:
+        aggregate_return_status = "fully_returned"
+
+    aggregate_disposition = "not_dispatched"
+    if finalized:
+        distinct = {element.return_status for element in finalized}
+        aggregate_disposition = next(iter(distinct)) if len(distinct) == 1 and len(finalized) == len(elements) else "mixed"
+
+    return {
+        "total_sent_units": round(total_sent_units, 3),
+        "total_returned_units": round(total_returned_units, 3),
+        "return_coverage_ratio": round((total_returned_units / total_sent_units), 4) if total_sent_units > 0 else 0.0,
+        "aggregate_return_status": aggregate_return_status,
+        "aggregate_disposition": aggregate_disposition,
+    }
+
+
+async def _build_voyage_cargo_operations_report(
+    db: AsyncSession,
+    *,
+    voyage_id: UUID,
+    entity_id: UUID,
+) -> dict:
+    cargo_result = await db.execute(
+        select(CargoItem)
+        .join(VoyageManifest, CargoItem.manifest_id == VoyageManifest.id)
+        .where(
+            VoyageManifest.voyage_id == voyage_id,
+            VoyageManifest.manifest_type == "cargo",
+            VoyageManifest.active == True,  # noqa: E712
+            CargoItem.active == True,  # noqa: E712
+            CargoItem.entity_id == entity_id,
+        )
+        .order_by(CargoItem.created_at.asc())
+    )
+    cargo_items = cargo_result.scalars().all()
+
+    report_items: list[dict] = []
+    delivered_count = 0
+    damaged_count = 0
+    missing_count = 0
+    return_started_count = 0
+
+    for cargo in cargo_items:
+        destination_name = None
+        request_code = None
+        if cargo.destination_asset_id:
+            destination = await db.get(Installation, cargo.destination_asset_id)
+            destination_name = destination.name if destination else None
+        if cargo.request_id:
+            cargo_request = await db.get(CargoRequest, cargo.request_id)
+            request_code = cargo_request.request_code if cargo_request else None
+
+        element_result = await db.execute(
+            select(PackageElement).where(PackageElement.package_id == cargo.id)
+        )
+        package_elements = element_result.scalars().all()
+        return_summary = _summarize_package_return_states(package_elements)
+
+        if cargo.status in {"delivered_intermediate", "delivered_final"}:
+            delivered_count += 1
+        if cargo.status == "damaged":
+            damaged_count += 1
+        if cargo.status == "missing":
+            missing_count += 1
+        if cargo.status in {"return_declared", "return_in_transit", "returned", "reintegrated", "scrapped"} or return_summary["total_returned_units"] > 0:
+            return_started_count += 1
+
+        report_items.append(
+            {
+                "cargo_id": str(cargo.id),
+                "tracking_code": cargo.tracking_code,
+                "designation": cargo.designation,
+                "description": cargo.description,
+                "request_code": request_code,
+                "status": cargo.status,
+                "workflow_status": cargo.workflow_status,
+                "destination_name": destination_name,
+                "weight_kg": float(cargo.weight_kg or 0),
+                "package_count": int(cargo.package_count or 0),
+                "damage_notes": cargo.damage_notes,
+                "received_at": cargo.received_at.isoformat() if cargo.received_at else None,
+                "package_element_count": len(package_elements),
+                **return_summary,
+            }
+        )
+
+    return {
+        "voyage_id": str(voyage_id),
+        "cargo_count": len(report_items),
+        "delivered_count": delivered_count,
+        "damaged_count": damaged_count,
+        "missing_count": missing_count,
+        "return_started_count": return_started_count,
+        "items": report_items,
+    }
+
+
 def _assess_cargo_workflow_requirements(cargo: CargoItem | dict) -> dict:
     def _required_evidence_types(cargo_type: str | None) -> list[str]:
         required = ["cargo_photo", "weight_ticket", "transport_document"]
@@ -567,6 +737,219 @@ def _cargo_request_to_payload(cargo_request: CargoRequest | dict | object) -> di
             if not key.startswith("_")
         }
     raise TypeError("Unsupported cargo request payload object")
+
+
+def _format_pdf_datetime(value: datetime | None) -> str:
+    if value is None:
+        return "--"
+    return value.astimezone(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
+
+
+async def _get_entity_pdf_context(db: AsyncSession, entity_id: UUID) -> dict:
+    row = (
+        await db.execute(
+            text("SELECT name, code FROM entities WHERE id = :eid"),
+            {"eid": entity_id},
+        )
+    ).first()
+    return {
+        "name": row[0] if row else "OpsFlux",
+        "code": row[1] if row and len(row) > 1 else None,
+    }
+
+
+async def _build_voyage_pdf_base_context(
+    db: AsyncSession,
+    *,
+    voyage: Voyage,
+    entity_id: UUID,
+) -> dict:
+    entity = await _get_entity_pdf_context(db, entity_id)
+    vector = await db.get(TransportVector, voyage.vector_id) if voyage.vector_id else None
+    departure_base = await db.get(Installation, voyage.departure_base_id) if voyage.departure_base_id else None
+    stops = (
+        await db.execute(
+            select(VoyageStop)
+            .where(VoyageStop.voyage_id == voyage.id, VoyageStop.active == True)  # noqa: E712
+            .order_by(VoyageStop.stop_order.asc())
+        )
+    ).scalars().all()
+    arrival_location = departure_base.name if departure_base else "--"
+    if stops:
+        final_stop = await db.get(Installation, stops[-1].asset_id)
+        arrival_location = final_stop.name if final_stop else arrival_location
+    return {
+        "entity": entity,
+        "voyage_number": voyage.code,
+        "transport_type": vector.type if vector else "--",
+        "carrier": vector.name if vector else "--",
+        "departure_date": _format_pdf_datetime(voyage.scheduled_departure),
+        "departure_location": departure_base.name if departure_base else "--",
+        "arrival_location": arrival_location,
+        "generated_at": _format_pdf_datetime(datetime.now(timezone.utc)),
+    }
+
+
+async def _build_voyage_pax_manifest_variables(
+    db: AsyncSession,
+    *,
+    voyage: Voyage,
+    entity_id: UUID,
+) -> dict:
+    variables = await _build_voyage_pdf_base_context(db, voyage=voyage, entity_id=entity_id)
+    passengers = (
+        await db.execute(
+            select(ManifestPassenger)
+            .join(VoyageManifest, ManifestPassenger.manifest_id == VoyageManifest.id)
+            .where(
+                VoyageManifest.voyage_id == voyage.id,
+                VoyageManifest.manifest_type == "pax",
+                VoyageManifest.active == True,  # noqa: E712
+                ManifestPassenger.active == True,  # noqa: E712
+            )
+            .order_by(ManifestPassenger.name.asc())
+        )
+    ).scalars().all()
+    vector = await db.get(TransportVector, voyage.vector_id) if voyage.vector_id else None
+    variables.update(
+        {
+            "passengers": [
+                {
+                    "name": passenger.name,
+                    "company": passenger.company,
+                    "badge_number": "--",
+                    "compliance_status": "Standby" if passenger.standby else passenger.boarding_status,
+                }
+                for passenger in passengers
+            ],
+            "total_passengers": len(passengers),
+            "max_capacity": vector.pax_capacity if vector else None,
+        }
+    )
+    return variables
+
+
+async def _build_voyage_cargo_manifest_variables(
+    db: AsyncSession,
+    *,
+    voyage: Voyage,
+    entity_id: UUID,
+) -> dict:
+    variables = await _build_voyage_pdf_base_context(db, voyage=voyage, entity_id=entity_id)
+    cargo_rows = (
+        await db.execute(
+            select(
+                CargoItem,
+                CargoRequest.request_code.label("request_code"),
+                Installation.name.label("destination_name"),
+            )
+            .join(VoyageManifest, CargoItem.manifest_id == VoyageManifest.id)
+            .outerjoin(CargoRequest, CargoItem.request_id == CargoRequest.id)
+            .outerjoin(Installation, CargoItem.destination_asset_id == Installation.id)
+            .where(
+                VoyageManifest.voyage_id == voyage.id,
+                VoyageManifest.manifest_type == "cargo",
+                VoyageManifest.active == True,  # noqa: E712
+                CargoItem.active == True,  # noqa: E712
+            )
+            .order_by(CargoItem.created_at.asc())
+        )
+    ).all()
+    cargo_items = []
+    total_weight = 0.0
+    total_packages = 0
+    for cargo, request_code, destination_name in cargo_rows:
+        weight_value = float(cargo.weight_kg or 0)
+        package_count = int(cargo.package_count or 0)
+        total_weight += weight_value
+        total_packages += package_count
+        cargo_items.append(
+            {
+                "tracking_code": cargo.tracking_code,
+                "request_code": request_code,
+                "designation": cargo.designation,
+                "description": cargo.description,
+                "destination_name": destination_name,
+                "receiver_name": cargo.receiver_name,
+                "weight_kg": round(weight_value, 2),
+                "package_count": package_count,
+                "status": cargo.status,
+                "status_label": CARGO_PUBLIC_STATUS_LABELS.get(cargo.status, cargo.status),
+            }
+        )
+    variables.update(
+        {
+            "cargo_items": cargo_items,
+            "total_cargo_items": len(cargo_items),
+            "total_weight_kg": round(total_weight, 2),
+            "total_packages": total_packages,
+        }
+    )
+    return variables
+
+
+async def _build_cargo_lt_variables(
+    db: AsyncSession,
+    *,
+    cargo_request: CargoRequest,
+    entity_id: UUID,
+) -> dict:
+    entity = await _get_entity_pdf_context(db, entity_id)
+    request_payload = await _build_cargo_request_read_data(db, cargo_request)
+    cargo_rows = (
+        await db.execute(
+            select(CargoItem)
+            .where(
+                CargoItem.request_id == cargo_request.id,
+                CargoItem.active == True,  # noqa: E712
+            )
+            .order_by(CargoItem.created_at.asc())
+        )
+    ).scalars().all()
+    cargo_items = []
+    total_weight = 0.0
+    total_packages = 0
+    for cargo in cargo_rows:
+        weight_value = float(cargo.weight_kg or 0)
+        package_count = int(cargo.package_count or 0)
+        total_weight += weight_value
+        total_packages += package_count
+        cargo_items.append(
+            {
+                "tracking_code": cargo.tracking_code,
+                "designation": cargo.designation,
+                "description": cargo.description,
+                "cargo_type": cargo.cargo_type,
+                "weight_kg": round(weight_value, 2),
+                "package_count": package_count,
+                "status": cargo.status,
+                "status_label": CARGO_PUBLIC_STATUS_LABELS.get(cargo.status, cargo.status),
+            }
+        )
+    return {
+        "entity": entity,
+        "request_code": request_payload.get("request_code"),
+        "request_title": request_payload.get("title"),
+        "request_status": request_payload.get("status"),
+        "sender_name": request_payload.get("sender_name"),
+        "receiver_name": request_payload.get("receiver_name"),
+        "destination_name": request_payload.get("destination_name"),
+        "requester_name": request_payload.get("requester_name"),
+        "description": request_payload.get("description"),
+        "imputation_reference": " ".join(
+            part
+            for part in [
+                request_payload.get("imputation_reference_code"),
+                request_payload.get("imputation_reference_name"),
+            ]
+            if part
+        ) or None,
+        "cargo_items": cargo_items,
+        "total_cargo_items": len(cargo_items),
+        "total_weight_kg": round(total_weight, 2),
+        "total_packages": total_packages,
+        "generated_at": _format_pdf_datetime(datetime.now(timezone.utc)),
+    }
 
 
 def _estimate_cargo_surface_m2(cargo: CargoItem | object) -> float:
@@ -1476,6 +1859,64 @@ async def archive_voyage(
     return {"detail": "Voyage archived"}
 
 
+@router.get("/voyages/{voyage_id}/pdf/pax-manifest")
+async def download_voyage_pax_manifest_pdf(
+    voyage_id: UUID,
+    language: str = "fr",
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("travelwiz.voyage.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.core.pdf_templates import render_pdf
+
+    voyage = await _get_voyage_or_404(db, voyage_id, entity_id)
+    variables = await _build_voyage_pax_manifest_variables(db, voyage=voyage, entity_id=entity_id)
+    pdf_bytes = await render_pdf(
+        db,
+        slug="voyage.manifest",
+        entity_id=entity_id,
+        language=language,
+        variables=variables,
+    )
+    if not pdf_bytes:
+        raise HTTPException(404, "Template PDF 'voyage.manifest' introuvable. Initialisez-le dans Parametres > Modeles PDF.")
+    filename = f"{voyage.code}_manifest_pax.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
+@router.get("/voyages/{voyage_id}/pdf/cargo-manifest")
+async def download_voyage_cargo_manifest_pdf(
+    voyage_id: UUID,
+    language: str = "fr",
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("travelwiz.voyage.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.core.pdf_templates import render_pdf
+
+    voyage = await _get_voyage_or_404(db, voyage_id, entity_id)
+    variables = await _build_voyage_cargo_manifest_variables(db, voyage=voyage, entity_id=entity_id)
+    pdf_bytes = await render_pdf(
+        db,
+        slug="voyage.cargo_manifest",
+        entity_id=entity_id,
+        language=language,
+        variables=variables,
+    )
+    if not pdf_bytes:
+        raise HTTPException(404, "Template PDF 'voyage.cargo_manifest' introuvable. Initialisez-le dans Parametres > Modeles PDF.")
+    filename = f"{voyage.code}_manifest_cargo.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
 # ── Voyage Stops ─────────────────────────────────────────────────────────
 
 
@@ -1654,6 +2095,21 @@ async def list_manifests(
             d["validated_by_name"] = None
         enriched.append(d)
     return enriched
+
+
+@router.get("/voyages/{voyage_id}/cargo-operations-report")
+async def get_voyage_cargo_operations_report(
+    voyage_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await _get_voyage_or_404(db, voyage_id, entity_id)
+    return await _build_voyage_cargo_operations_report(
+        db,
+        voyage_id=voyage_id,
+        entity_id=entity_id,
+    )
 
 
 @router.post("/voyages/{voyage_id}/manifests", response_model=ManifestRead, status_code=201)
@@ -1957,6 +2413,35 @@ async def get_cargo_request(
     return await _build_cargo_request_read_data(db, cargo_request)
 
 
+@router.get("/cargo-requests/{request_id}/pdf/lt")
+async def download_cargo_request_lt_pdf(
+    request_id: UUID,
+    language: str = "fr",
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("travelwiz.cargo.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.core.pdf_templates import render_pdf
+
+    cargo_request = await _get_cargo_request_or_404(db, request_id, entity_id)
+    variables = await _build_cargo_lt_variables(db, cargo_request=cargo_request, entity_id=entity_id)
+    pdf_bytes = await render_pdf(
+        db,
+        slug="cargo.lt",
+        entity_id=entity_id,
+        language=language,
+        variables=variables,
+    )
+    if not pdf_bytes:
+        raise HTTPException(404, "Template PDF 'cargo.lt' introuvable. Initialisez-le dans Parametres > Modeles PDF.")
+    filename = f"{cargo_request.request_code}_lt.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
 @router.patch("/cargo-requests/{request_id}", response_model=CargoRequestRead)
 async def update_cargo_request(
     request_id: UUID,
@@ -2222,20 +2707,20 @@ async def create_cargo(
     _: None = require_permission("travelwiz.cargo.create"),
     db: AsyncSession = Depends(get_db),
 ):
+    _ensure_cargo_request_parent(body.request_id)
     await _validate_cargo_dossier_refs(db, entity_id=entity_id, payload=body)
     payload_data = body.model_dump()
-    if body.request_id:
-        cargo_request = await _get_cargo_request_or_404(db, body.request_id, entity_id)
-        for cargo_field, request_field in (
-            ("project_id", "project_id"),
-            ("imputation_reference_id", "imputation_reference_id"),
-            ("sender_tier_id", "sender_tier_id"),
-            ("receiver_name", "receiver_name"),
-            ("destination_asset_id", "destination_asset_id"),
-            ("requester_name", "requester_name"),
-        ):
-            if not payload_data.get(cargo_field):
-                payload_data[cargo_field] = getattr(cargo_request, request_field, None)
+    cargo_request = await _get_cargo_request_or_404(db, body.request_id, entity_id)
+    for cargo_field, request_field in (
+        ("project_id", "project_id"),
+        ("imputation_reference_id", "imputation_reference_id"),
+        ("sender_tier_id", "sender_tier_id"),
+        ("receiver_name", "receiver_name"),
+        ("destination_asset_id", "destination_asset_id"),
+        ("requester_name", "requester_name"),
+    ):
+        if not payload_data.get(cargo_field):
+            payload_data[cargo_field] = getattr(cargo_request, request_field, None)
     # ── Weight capacity validation (if assigning to a manifest) ────────
     if payload_data.get("manifest_id"):
         manifest_result = await db.execute(
@@ -2553,6 +3038,8 @@ async def update_cargo(
     cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
     await _validate_cargo_dossier_refs(db, entity_id=entity_id, payload=body)
     changes = body.model_dump(exclude_unset=True)
+    resulting_request_id = changes["request_id"] if "request_id" in changes else cargo.request_id
+    _ensure_cargo_request_parent(resulting_request_id)
     for field, value in changes.items():
         setattr(cargo, field, value)
     await db.commit()
@@ -2624,10 +3111,25 @@ async def update_cargo_status(
 ):
     """Transition cargo to a new status."""
     cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
+    target_status = _normalize_cargo_status(body.status)
     previous_status = cargo.status
-    cargo.status = body.status
     if body.damage_notes is not None:
         cargo.damage_notes = body.damage_notes
+    try:
+        await apply_cargo_status_transition(
+            db,
+            cargo_item_id=cargo.id,
+            new_status=target_status,
+            entity_id=entity_id,
+            user_id=current_user.id,
+            location_asset_id=cargo.destination_asset_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    if body.damage_notes is not None:
+        cargo.damage_notes = body.damage_notes
+
     await db.commit()
     await db.refresh(cargo)
     await record_audit(
@@ -2650,6 +3152,7 @@ async def update_cargo_status(
 @router.post("/cargo/{cargo_id}/receive", response_model=CargoRead)
 async def receive_cargo(
     cargo_id: UUID,
+    body: CargoReceiptConfirm | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("travelwiz.cargo.receive"),
@@ -2659,10 +3162,28 @@ async def receive_cargo(
     cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
     if cargo.status not in ("in_transit", "delivered_intermediate"):
         raise HTTPException(400, f"Cannot receive cargo in status '{cargo.status}'")
+    receipt = body or CargoReceiptConfirm()
+    if receipt.damage_notes and receipt.photo_evidence_count <= 0:
+        raise HTTPException(
+            400,
+            {
+                "code": "CARGO_DAMAGE_EVIDENCE_REQUIRED",
+                "message": "Une photo de preuve est obligatoire en cas de dommage à la réception.",
+            },
+        )
     previous_status = cargo.status
-    cargo.status = "delivered_final"
-    cargo.received_by = current_user.id
-    cargo.received_at = datetime.now(timezone.utc)
+    cargo.damage_notes = receipt.damage_notes
+    try:
+        await apply_cargo_status_transition(
+            db,
+            cargo_item_id=cargo.id,
+            new_status="delivered_final",
+            entity_id=entity_id,
+            user_id=current_user.id,
+            location_asset_id=cargo.destination_asset_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
     await db.commit()
     await db.refresh(cargo)
     await record_audit(
@@ -2676,6 +3197,17 @@ async def receive_cargo(
             "from_status": previous_status,
             "to_status": cargo.status,
             "received_at": cargo.received_at.isoformat() if cargo.received_at else None,
+            "received_quantity": receipt.received_quantity,
+            "declared_quantity": (
+                receipt.declared_quantity
+                if receipt.declared_quantity is not None
+                else float(cargo.package_count or 0)
+            ),
+            "recipient_available": receipt.recipient_available,
+            "signature_collected": receipt.signature_collected,
+            "damage_notes": receipt.damage_notes,
+            "photo_evidence_count": receipt.photo_evidence_count,
+            "notes": receipt.notes,
         },
     )
     await db.commit()
@@ -3211,6 +3743,141 @@ async def add_package_element(
     await db.flush()
     await db.commit()
     await db.refresh(element)
+    return _serialize_package_element(element)
+
+
+@router.patch("/cargo/{cargo_id}/elements/{element_id}/return")
+async def update_package_element_return(
+    cargo_id: UUID,
+    element_id: UUID,
+    body: PackageElementReturnUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.cargo.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
+    element = await _get_package_element_or_404(db, cargo_id=cargo_id, element_id=element_id)
+
+    quantity_sent = float(element.quantity_sent or 0)
+    quantity_returned = float(body.quantity_returned)
+    if quantity_returned > quantity_sent:
+        raise HTTPException(
+            400,
+            {
+                "code": "PACKAGE_RETURN_EXCEEDS_SENT",
+                "message": "La quantité retournée ne peut pas dépasser la quantité expédiée.",
+            },
+        )
+
+    element.quantity_returned = Decimal(str(quantity_returned))
+    if quantity_returned <= 0:
+        element.return_status = "pending"
+    elif quantity_returned < quantity_sent:
+        element.return_status = "partial"
+    else:
+        element.return_status = "returned"
+    if body.return_notes is not None:
+        element.return_notes = body.return_notes
+
+    if quantity_returned > 0:
+        target_status = "returned" if quantity_returned >= quantity_sent else "return_in_transit"
+        if cargo.status != target_status:
+            try:
+                await apply_cargo_status_transition(
+                    db,
+                    cargo_item_id=cargo.id,
+                    new_status=target_status,
+                    entity_id=entity_id,
+                    user_id=current_user.id,
+                    location_asset_id=cargo.destination_asset_id,
+                )
+            except ValueError as exc:
+                raise HTTPException(400, str(exc)) from exc
+
+    await db.commit()
+    await db.refresh(element)
+    await record_audit(
+        db,
+        action="travelwiz.cargo.element_return",
+        resource_type="cargo_item",
+        resource_id=str(cargo.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "element_id": str(element.id),
+            "quantity_sent": quantity_sent,
+            "quantity_returned": quantity_returned,
+            "return_status": element.return_status,
+            "return_notes": element.return_notes,
+        },
+    )
+    await db.commit()
+    return _serialize_package_element(element)
+
+
+@router.patch("/cargo/{cargo_id}/elements/{element_id}/disposition")
+async def update_package_element_disposition(
+    cargo_id: UUID,
+    element_id: UUID,
+    body: PackageElementDispositionUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.cargo.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
+    element = await _get_package_element_or_404(db, cargo_id=cargo_id, element_id=element_id)
+
+    if float(element.quantity_returned or 0) <= 0:
+        raise HTTPException(
+            400,
+            {
+                "code": "PACKAGE_RETURN_REQUIRED",
+                "message": "Aucun retour partiel ou complet n'a encore été déclaré pour cet élément.",
+            },
+        )
+
+    element.return_status = body.return_status
+    if body.return_notes is not None:
+        element.return_notes = body.return_notes
+
+    mapped_cargo_status = {
+        "returned": "returned",
+        "reintegrated": "reintegrated",
+        "scrapped": "scrapped",
+        "yard_storage": "returned",
+    }
+    target_status = mapped_cargo_status.get(body.return_status)
+    if target_status and cargo.status != target_status:
+        try:
+            await apply_cargo_status_transition(
+                db,
+                cargo_item_id=cargo.id,
+                new_status=target_status,
+                entity_id=entity_id,
+                user_id=current_user.id,
+                location_asset_id=cargo.destination_asset_id,
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    await db.commit()
+    await db.refresh(element)
+    await record_audit(
+        db,
+        action="travelwiz.cargo.element_disposition",
+        resource_type="cargo_item",
+        resource_id=str(cargo.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "element_id": str(element.id),
+            "return_status": element.return_status,
+            "return_notes": element.return_notes,
+        },
+    )
+    await db.commit()
     return _serialize_package_element(element)
 
 

@@ -238,6 +238,85 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
         },
     },
     {
+        "slug": "voyage.cargo_manifest",
+        "name": "TravelWiz Cargo Manifest",
+        "description": "Cargo manifest for a TravelWiz voyage, including package list and weights.",
+        "object_type": "travelwiz",
+        "page_size": "A4",
+        "orientation": "landscape",
+        "margin_top": 12,
+        "margin_right": 10,
+        "margin_bottom": 12,
+        "margin_left": 10,
+        "variables_schema": {
+            "voyage_number": "Voyage reference number",
+            "entity.name": "Entity name",
+            "transport_type": "Transport type",
+            "carrier": "Carrier / operator name",
+            "departure_date": "Departure date and time",
+            "departure_location": "Departure location",
+            "arrival_location": "Arrival location",
+            "cargo_items": "List of cargo dicts",
+            "total_cargo_items": "Total cargo item count",
+            "total_weight_kg": "Total cargo weight",
+            "total_packages": "Total package count",
+            "generated_at": "Generation timestamp",
+        },
+        "default_versions": {
+            "fr": {
+                "body_html": "",
+                "header_html": None,
+                "footer_html": None,
+            },
+            "en": {
+                "body_html": "",
+                "header_html": None,
+                "footer_html": None,
+            },
+        },
+    },
+    {
+        "slug": "cargo.lt",
+        "name": "Lettre de Transport Cargo",
+        "description": "Printable shipping request / transport letter for validated cargo operations.",
+        "object_type": "travelwiz",
+        "page_size": "A4",
+        "orientation": "portrait",
+        "margin_top": 14,
+        "margin_right": 12,
+        "margin_bottom": 14,
+        "margin_left": 12,
+        "variables_schema": {
+            "request_code": "Shipping request reference",
+            "request_title": "Shipping request title",
+            "request_status": "Shipping request status",
+            "entity.name": "Entity name",
+            "sender_name": "Sender company name",
+            "receiver_name": "Receiver name",
+            "destination_name": "Destination installation name",
+            "requester_name": "Requester name",
+            "description": "Shipping request description",
+            "imputation_reference": "Imputation reference",
+            "cargo_items": "List of cargo items linked to the request",
+            "total_cargo_items": "Total cargo item count",
+            "total_weight_kg": "Total cargo weight",
+            "total_packages": "Total package count",
+            "generated_at": "Generation timestamp",
+        },
+        "default_versions": {
+            "fr": {
+                "body_html": "",
+                "header_html": None,
+                "footer_html": None,
+            },
+            "en": {
+                "body_html": "",
+                "header_html": None,
+                "footer_html": None,
+            },
+        },
+    },
+    {
         "slug": "project.report",
         "name": "Rapport de projet",
         "description": "Rapport PDF complet d'un projet: fiche, taches, jalons, WBS.",
@@ -939,6 +1018,312 @@ _VOYAGE_MANIFEST_BODY_EN = """\
 </body>
 </html>"""
 
+_VOYAGE_CARGO_MANIFEST_BODY_FR = """\
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9pt; color: #1a1a2e; }
+  .header { text-align: center; padding-bottom: 12px; border-bottom: 2px solid #16213e; margin-bottom: 14px; }
+  .header .title { font-size: 16pt; font-weight: 700; color: #16213e; }
+  .header .subtitle { font-size: 10pt; color: #555; margin-top: 4px; }
+  .meta-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .meta-item { flex: 1; min-width: 140px; padding: 8px; background: #f8f9fa; border-radius: 4px; }
+  .meta-item .label { font-size: 7pt; text-transform: uppercase; color: #888; }
+  .meta-item .value { font-size: 10pt; font-weight: 600; }
+  .totals { display: flex; gap: 10px; margin-bottom: 14px; }
+  .total-box { flex: 1; background: #e8edf3; border-radius: 4px; padding: 8px; }
+  .total-box .label { font-size: 7pt; text-transform: uppercase; color: #667085; }
+  .total-box .value { font-size: 11pt; font-weight: 700; color: #16213e; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #16213e; color: #fff; text-align: left; padding: 6px 7px; font-size: 7.5pt; text-transform: uppercase; }
+  td { padding: 5px 7px; border-bottom: 1px solid #ddd; font-size: 8.5pt; vertical-align: top; }
+  tr:nth-child(even) { background: #f8f9fa; }
+  .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 7pt; color: #888; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">MANIFESTE CARGO</div>
+    <div class="subtitle">{{ entity.name | default('OpsFlux') }}</div>
+  </div>
+  <div class="meta-grid">
+    <div class="meta-item"><div class="label">Voyage</div><div class="value">{{ voyage_number }}</div></div>
+    <div class="meta-item"><div class="label">Transport</div><div class="value">{{ transport_type }}</div></div>
+    <div class="meta-item"><div class="label">Vecteur</div><div class="value">{{ carrier | default('--') }}</div></div>
+    <div class="meta-item"><div class="label">Depart</div><div class="value">{{ departure_location }}</div></div>
+    <div class="meta-item"><div class="label">Arrivee</div><div class="value">{{ arrival_location }}</div></div>
+    <div class="meta-item"><div class="label">Date</div><div class="value">{{ departure_date }}</div></div>
+  </div>
+  <div class="totals">
+    <div class="total-box"><div class="label">Colis</div><div class="value">{{ total_cargo_items | default(cargo_items | length) }}</div></div>
+    <div class="total-box"><div class="label">Poids total</div><div class="value">{{ total_weight_kg | default('--') }} kg</div></div>
+    <div class="total-box"><div class="label">Packages</div><div class="value">{{ total_packages | default('--') }}</div></div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Tracking</th>
+        <th>Demande</th>
+        <th>Designation</th>
+        <th>Destination</th>
+        <th>Destinataire</th>
+        <th>Poids</th>
+        <th>Colis</th>
+        <th>Statut</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cargo in cargo_items %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ cargo.tracking_code }}</td>
+        <td>{{ cargo.request_code | default('--') }}</td>
+        <td>{{ cargo.designation | default(cargo.description) }}</td>
+        <td>{{ cargo.destination_name | default('--') }}</td>
+        <td>{{ cargo.receiver_name | default('--') }}</td>
+        <td>{{ cargo.weight_kg | default('--') }}</td>
+        <td>{{ cargo.package_count | default('--') }}</td>
+        <td>{{ cargo.status_label | default(cargo.status) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="footer">
+    <span>Genere le {{ generated_at | default('--') }}</span>
+    <span>{{ entity.name | default('OpsFlux') }} -- TravelWiz Cargo</span>
+  </div>
+</body>
+</html>"""
+
+_VOYAGE_CARGO_MANIFEST_BODY_EN = """\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9pt; color: #1a1a2e; }
+  .header { text-align: center; padding-bottom: 12px; border-bottom: 2px solid #16213e; margin-bottom: 14px; }
+  .header .title { font-size: 16pt; font-weight: 700; color: #16213e; }
+  .header .subtitle { font-size: 10pt; color: #555; margin-top: 4px; }
+  .meta-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .meta-item { flex: 1; min-width: 140px; padding: 8px; background: #f8f9fa; border-radius: 4px; }
+  .meta-item .label { font-size: 7pt; text-transform: uppercase; color: #888; }
+  .meta-item .value { font-size: 10pt; font-weight: 600; }
+  .totals { display: flex; gap: 10px; margin-bottom: 14px; }
+  .total-box { flex: 1; background: #e8edf3; border-radius: 4px; padding: 8px; }
+  .total-box .label { font-size: 7pt; text-transform: uppercase; color: #667085; }
+  .total-box .value { font-size: 11pt; font-weight: 700; color: #16213e; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #16213e; color: #fff; text-align: left; padding: 6px 7px; font-size: 7.5pt; text-transform: uppercase; }
+  td { padding: 5px 7px; border-bottom: 1px solid #ddd; font-size: 8.5pt; vertical-align: top; }
+  tr:nth-child(even) { background: #f8f9fa; }
+  .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 7pt; color: #888; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">CARGO MANIFEST</div>
+    <div class="subtitle">{{ entity.name | default('OpsFlux') }}</div>
+  </div>
+  <div class="meta-grid">
+    <div class="meta-item"><div class="label">Voyage</div><div class="value">{{ voyage_number }}</div></div>
+    <div class="meta-item"><div class="label">Transport</div><div class="value">{{ transport_type }}</div></div>
+    <div class="meta-item"><div class="label">Vector</div><div class="value">{{ carrier | default('--') }}</div></div>
+    <div class="meta-item"><div class="label">Departure</div><div class="value">{{ departure_location }}</div></div>
+    <div class="meta-item"><div class="label">Arrival</div><div class="value">{{ arrival_location }}</div></div>
+    <div class="meta-item"><div class="label">Date</div><div class="value">{{ departure_date }}</div></div>
+  </div>
+  <div class="totals">
+    <div class="total-box"><div class="label">Cargo items</div><div class="value">{{ total_cargo_items | default(cargo_items | length) }}</div></div>
+    <div class="total-box"><div class="label">Total weight</div><div class="value">{{ total_weight_kg | default('--') }} kg</div></div>
+    <div class="total-box"><div class="label">Packages</div><div class="value">{{ total_packages | default('--') }}</div></div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Tracking</th>
+        <th>Request</th>
+        <th>Description</th>
+        <th>Destination</th>
+        <th>Receiver</th>
+        <th>Weight</th>
+        <th>Packages</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cargo in cargo_items %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ cargo.tracking_code }}</td>
+        <td>{{ cargo.request_code | default('--') }}</td>
+        <td>{{ cargo.designation | default(cargo.description) }}</td>
+        <td>{{ cargo.destination_name | default('--') }}</td>
+        <td>{{ cargo.receiver_name | default('--') }}</td>
+        <td>{{ cargo.weight_kg | default('--') }}</td>
+        <td>{{ cargo.package_count | default('--') }}</td>
+        <td>{{ cargo.status_label | default(cargo.status) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="footer">
+    <span>Generated on {{ generated_at | default('--') }}</span>
+    <span>{{ entity.name | default('OpsFlux') }} -- TravelWiz Cargo</span>
+  </div>
+</body>
+</html>"""
+
+_CARGO_LT_BODY_FR = """\
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10pt; color: #1a1a2e; }
+  .header { text-align: center; padding-bottom: 12px; border-bottom: 2px solid #16213e; margin-bottom: 16px; }
+  .header .title { font-size: 16pt; font-weight: 700; color: #16213e; }
+  .header .subtitle { font-size: 10pt; color: #555; margin-top: 4px; }
+  .meta-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .meta-item { flex: 1; min-width: 160px; padding: 8px; background: #f8f9fa; border-radius: 4px; }
+  .meta-item .label { font-size: 7pt; text-transform: uppercase; color: #888; }
+  .meta-item .value { font-size: 10pt; font-weight: 600; }
+  .description { margin-bottom: 14px; padding: 10px; background: #f8f9fa; border-left: 3px solid #16213e; white-space: pre-wrap; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th { background: #16213e; color: #fff; text-align: left; padding: 6px 8px; font-size: 8pt; text-transform: uppercase; }
+  td { padding: 5px 8px; border-bottom: 1px solid #ddd; font-size: 9pt; }
+  tr:nth-child(even) { background: #f8f9fa; }
+  .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 7pt; color: #888; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">LETTRE DE TRANSPORT</div>
+    <div class="subtitle">{{ entity.name | default('OpsFlux') }}</div>
+  </div>
+  <div class="meta-grid">
+    <div class="meta-item"><div class="label">Reference</div><div class="value">{{ request_code }}</div></div>
+    <div class="meta-item"><div class="label">Intitule</div><div class="value">{{ request_title }}</div></div>
+    <div class="meta-item"><div class="label">Statut</div><div class="value">{{ request_status }}</div></div>
+    <div class="meta-item"><div class="label">Expediteur</div><div class="value">{{ sender_name | default('--') }}</div></div>
+    <div class="meta-item"><div class="label">Destinataire</div><div class="value">{{ receiver_name | default('--') }}</div></div>
+    <div class="meta-item"><div class="label">Destination</div><div class="value">{{ destination_name | default('--') }}</div></div>
+    <div class="meta-item"><div class="label">Demandeur</div><div class="value">{{ requester_name | default('--') }}</div></div>
+    <div class="meta-item"><div class="label">Imputation</div><div class="value">{{ imputation_reference | default('--') }}</div></div>
+  </div>
+  <div class="description">{{ description | default('--') }}</div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Tracking</th>
+        <th>Designation</th>
+        <th>Type</th>
+        <th>Poids</th>
+        <th>Colis</th>
+        <th>Statut</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cargo in cargo_items %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ cargo.tracking_code }}</td>
+        <td>{{ cargo.designation | default(cargo.description) }}</td>
+        <td>{{ cargo.cargo_type | default('--') }}</td>
+        <td>{{ cargo.weight_kg | default('--') }}</td>
+        <td>{{ cargo.package_count | default('--') }}</td>
+        <td>{{ cargo.status_label | default(cargo.status) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="footer">
+    <span>Genere le {{ generated_at | default('--') }}</span>
+    <span>{{ entity.name | default('OpsFlux') }} -- LT Cargo</span>
+  </div>
+</body>
+</html>"""
+
+_CARGO_LT_BODY_EN = """\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10pt; color: #1a1a2e; }
+  .header { text-align: center; padding-bottom: 12px; border-bottom: 2px solid #16213e; margin-bottom: 16px; }
+  .header .title { font-size: 16pt; font-weight: 700; color: #16213e; }
+  .header .subtitle { font-size: 10pt; color: #555; margin-top: 4px; }
+  .meta-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .meta-item { flex: 1; min-width: 160px; padding: 8px; background: #f8f9fa; border-radius: 4px; }
+  .meta-item .label { font-size: 7pt; text-transform: uppercase; color: #888; }
+  .meta-item .value { font-size: 10pt; font-weight: 600; }
+  .description { margin-bottom: 14px; padding: 10px; background: #f8f9fa; border-left: 3px solid #16213e; white-space: pre-wrap; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th { background: #16213e; color: #fff; text-align: left; padding: 6px 8px; font-size: 8pt; text-transform: uppercase; }
+  td { padding: 5px 8px; border-bottom: 1px solid #ddd; font-size: 9pt; }
+  tr:nth-child(even) { background: #f8f9fa; }
+  .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 7pt; color: #888; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">TRANSPORT LETTER</div>
+    <div class="subtitle">{{ entity.name | default('OpsFlux') }}</div>
+  </div>
+  <div class="meta-grid">
+    <div class="meta-item"><div class="label">Reference</div><div class="value">{{ request_code }}</div></div>
+    <div class="meta-item"><div class="label">Title</div><div class="value">{{ request_title }}</div></div>
+    <div class="meta-item"><div class="label">Status</div><div class="value">{{ request_status }}</div></div>
+    <div class="meta-item"><div class="label">Sender</div><div class="value">{{ sender_name | default('--') }}</div></div>
+    <div class="meta-item"><div class="label">Receiver</div><div class="value">{{ receiver_name | default('--') }}</div></div>
+    <div class="meta-item"><div class="label">Destination</div><div class="value">{{ destination_name | default('--') }}</div></div>
+    <div class="meta-item"><div class="label">Requester</div><div class="value">{{ requester_name | default('--') }}</div></div>
+    <div class="meta-item"><div class="label">Imputation</div><div class="value">{{ imputation_reference | default('--') }}</div></div>
+  </div>
+  <div class="description">{{ description | default('--') }}</div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Tracking</th>
+        <th>Description</th>
+        <th>Type</th>
+        <th>Weight</th>
+        <th>Packages</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cargo in cargo_items %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ cargo.tracking_code }}</td>
+        <td>{{ cargo.designation | default(cargo.description) }}</td>
+        <td>{{ cargo.cargo_type | default('--') }}</td>
+        <td>{{ cargo.weight_kg | default('--') }}</td>
+        <td>{{ cargo.package_count | default('--') }}</td>
+        <td>{{ cargo.status_label | default(cargo.status) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="footer">
+    <span>Generated on {{ generated_at | default('--') }}</span>
+    <span>{{ entity.name | default('OpsFlux') }} -- Cargo LT</span>
+  </div>
+</body>
+</html>"""
+
 # ── Patch default versions with actual HTML ──────────────────────────────
 # (Avoids forward-reference issues with the walrus operator placeholders above)
 
@@ -950,6 +1335,10 @@ DEFAULT_PDF_TEMPLATES[2]["default_versions"]["fr"]["body_html"] = _DOCUMENT_EXPO
 DEFAULT_PDF_TEMPLATES[2]["default_versions"]["en"]["body_html"] = _DOCUMENT_EXPORT_BODY_EN
 DEFAULT_PDF_TEMPLATES[3]["default_versions"]["fr"]["body_html"] = _VOYAGE_MANIFEST_BODY_FR
 DEFAULT_PDF_TEMPLATES[3]["default_versions"]["en"]["body_html"] = _VOYAGE_MANIFEST_BODY_EN
+DEFAULT_PDF_TEMPLATES[4]["default_versions"]["fr"]["body_html"] = _VOYAGE_CARGO_MANIFEST_BODY_FR
+DEFAULT_PDF_TEMPLATES[4]["default_versions"]["en"]["body_html"] = _VOYAGE_CARGO_MANIFEST_BODY_EN
+DEFAULT_PDF_TEMPLATES[5]["default_versions"]["fr"]["body_html"] = _CARGO_LT_BODY_FR
+DEFAULT_PDF_TEMPLATES[5]["default_versions"]["en"]["body_html"] = _CARGO_LT_BODY_EN
 
 # ── Project Report HTML ─────────────────────────────────────────────────
 
@@ -1053,7 +1442,7 @@ _PROJECT_REPORT_BODY_FR = """\
 </html>
 """
 
-DEFAULT_PDF_TEMPLATES[4]["default_versions"]["fr"]["body_html"] = _PROJECT_REPORT_BODY_FR
+DEFAULT_PDF_TEMPLATES[6]["default_versions"]["fr"]["body_html"] = _PROJECT_REPORT_BODY_FR
 
 _PROJECT_REPORT_BODY_EN = """\
 <!DOCTYPE html>
@@ -1148,7 +1537,7 @@ _PROJECT_REPORT_BODY_EN = """\
 </html>
 """
 
-DEFAULT_PDF_TEMPLATES[4]["default_versions"]["en"]["body_html"] = _PROJECT_REPORT_BODY_EN
+DEFAULT_PDF_TEMPLATES[6]["default_versions"]["en"]["body_html"] = _PROJECT_REPORT_BODY_EN
 
 
 # ── Rendering helpers ────────────────────────────────────────────────────

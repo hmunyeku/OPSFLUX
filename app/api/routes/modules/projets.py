@@ -4,7 +4,7 @@ planning revisions, deliverables, actions, change logs."""
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import delete as sql_delete, select, func as sqla_func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1860,7 +1860,7 @@ async def send_tasks_to_planner(
 
 @router.get("/templates")
 async def list_templates(
-    category: str | None = None,
+    category: str | None = Query(None),
     entity_id: UUID = Depends(get_current_entity),
     _: None = require_permission("project.read"),
     db: AsyncSession = Depends(get_db),

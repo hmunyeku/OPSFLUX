@@ -389,8 +389,8 @@ async def get_gantt_data(
             PlannerActivity.active == True,  # noqa: E712
             PlannerActivity.start_date.isnot(None),
             PlannerActivity.end_date.isnot(None),
-            PlannerActivity.start_date <= datetime.combine(end_date, datetime.max.time()),
-            PlannerActivity.end_date >= datetime.combine(start_date, datetime.min.time()),
+            PlannerActivity.start_date <= datetime.combine(end_date, datetime.max.time(), tzinfo=timezone.utc),
+            PlannerActivity.end_date >= datetime.combine(start_date, datetime.min.time(), tzinfo=timezone.utc),
         )
     )
 
@@ -411,14 +411,15 @@ async def get_gantt_data(
     activities = result.scalars().all()
 
     # Group by asset
-    asset_map: dict[UUID, dict] = {}
+    asset_map: dict[UUID | None, dict] = {}
     for act in activities:
-        if act.asset_id not in asset_map:
-            asset = await db.get(Installation, act.asset_id)
-            cap = await get_current_capacity(db, act.asset_id)
-            asset_map[act.asset_id] = {
-                "id": str(act.asset_id),
-                "name": asset.name if asset else "Unknown",
+        aid = act.asset_id
+        if aid not in asset_map:
+            asset = await db.get(Installation, aid) if aid else None
+            cap = await get_current_capacity(db, aid) if aid else None
+            asset_map[aid] = {
+                "id": str(aid) if aid else None,
+                "name": asset.name if asset else "Non affecté",
                 "parent_id": str(asset.parent_id) if asset and asset.parent_id else None,
                 "capacity": {
                     "max_pax": cap["max_pax_total"] if cap else 0,
@@ -426,7 +427,7 @@ async def get_gantt_data(
                 },
                 "activities": [],
             }
-        asset_map[act.asset_id]["activities"].append({
+        asset_map[aid]["activities"].append({
             "id": str(act.id),
             "title": act.title,
             "type": act.type,

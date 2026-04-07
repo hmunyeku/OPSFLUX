@@ -156,35 +156,13 @@ async def has_user_permission(
     """Check if user has a specific permission (non-raising).
 
     Returns True if user has the permission or wildcard '*'.
+    Uses the full 3-layer RBAC resolution via get_user_permissions().
     Used for conditional query scoping (e.g., read_all vs own data).
     """
-    redis = get_redis()
-    cache_key = f"rbac:{user.id}:{entity_id}"
+    from app.core.rbac import get_user_permissions
 
-    cached = await redis.smembers(cache_key)
-    if cached:
-        return permission_code in cached or "*" in cached
-
-    stmt = (
-        select(Permission.code)
-        .join(RolePermission, RolePermission.permission_code == Permission.code)
-        .join(UserGroupRole, UserGroupRole.role_code == RolePermission.role_code)
-        .join(UserGroup, UserGroup.id == UserGroupRole.group_id)
-        .join(UserGroupMember, UserGroupMember.group_id == UserGroup.id)
-        .where(
-            UserGroupMember.user_id == user.id,
-            UserGroup.entity_id == entity_id,
-            UserGroup.active == True,
-        )
-    )
-    result = await db.execute(stmt)
-    user_permissions = {row[0] for row in result.all()}
-
-    if user_permissions:
-        await redis.sadd(cache_key, *user_permissions)
-        await redis.expire(cache_key, 300)
-
-    return permission_code in user_permissions or "*" in user_permissions
+    permissions = await get_user_permissions(user.id, entity_id, db)
+    return permission_code in permissions or "*" in permissions
 
 
 # Permission mapping for polymorphic owner types

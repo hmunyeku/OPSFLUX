@@ -97,54 +97,54 @@ async def get_current_entity(
 
 
 def require_permission(permission_code: str):
-    """Factory returning a dependency that checks user has a specific permission."""
+    """Factory returning a dependency that checks user has a specific permission.
+
+    Uses the full 3-layer RBAC resolution (group overrides → role perms → user overrides)
+    via get_user_permissions() with Redis caching.
+    """
 
     async def _check_permission(
         current_user: User = Depends(get_current_user),
         entity_id: UUID = Depends(get_current_entity),
         db: AsyncSession = Depends(get_db),
     ) -> None:
-        redis = get_redis()
-        cache_key = f"rbac:{current_user.id}:{entity_id}"
+        from app.core.rbac import get_user_permissions
 
-        # Check Redis cache first
-        cached = await redis.smembers(cache_key)
-        if cached:
-            if permission_code in cached or "*" in cached:
-                return
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Permission denied: {permission_code}",
-            )
+        permissions = await get_user_permissions(current_user.id, entity_id, db)
 
-        # Load from DB: get all permissions for this user in this entity
-        stmt = (
-            select(Permission.code)
-            .join(RolePermission, RolePermission.permission_code == Permission.code)
-            .join(UserGroupRole, UserGroupRole.role_code == RolePermission.role_code)
-            .join(UserGroup, UserGroup.id == UserGroupRole.group_id)
-            .join(UserGroupMember, UserGroupMember.group_id == UserGroup.id)
-            .where(
-                UserGroupMember.user_id == current_user.id,
-                UserGroup.entity_id == entity_id,
-                UserGroup.active == True,
-            )
-        )
-        result = await db.execute(stmt)
-        user_permissions = {row[0] for row in result.all()}
-
-        # Cache for 5 minutes
-        if user_permissions:
-            await redis.sadd(cache_key, *user_permissions)
-            await redis.expire(cache_key, 300)
-
-        if permission_code not in user_permissions and "*" not in user_permissions:
+        if permission_code not in permissions and "*" not in permissions:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Permission denied: {permission_code}",
             )
 
     return Depends(_check_permission)
+
+
+def require_any_permission(*permission_codes: str):
+    """Factory returning a dependency that checks user has at least one permission.
+
+    Uses the full 3-layer RBAC resolution via get_user_permissions().
+    """
+
+    async def _check_permissions(
+        current_user: User = Depends(get_current_user),
+        entity_id: UUID = Depends(get_current_entity),
+        db: AsyncSession = Depends(get_db),
+    ) -> None:
+        from app.core.rbac import get_user_permissions
+
+        permissions = await get_user_permissions(current_user.id, entity_id, db)
+
+        if "*" not in permissions and not any(
+            code in permissions for code in permission_codes
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission denied: one of {', '.join(permission_codes)}",
+            )
+
+    return Depends(_check_permissions)
 
 
 async def has_user_permission(
@@ -264,6 +264,38 @@ async def check_polymorphic_owner_access(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No entity context for permission check",
+        )
+
+    if owner_type == "ads":
+        from app.models.paxlog import Ads
+
+        result = await db.execute(
+            select(Ads).where(Ads.id == owner_id, Ads.entity_id == entity_id)
+        )
+        ads = result.scalar_one_or_none()
+        if ads is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="AdS not found",
+            )
+
+        if ads.requester_id == current_user.id or ads.created_by == current_user.id:
+            return
+
+        if write:
+            if await has_user_permission(current_user, entity_id, "paxlog.ads.update", db):
+                return
+            if await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db):
+                return
+        else:
+            if await has_user_permission(current_user, entity_id, "paxlog.ads.read", db):
+                return
+            if await has_user_permission(current_user, entity_id, "paxlog.ads.read_all", db):
+                return
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied",
         )
 
     if not await has_user_permission(current_user, entity_id, permission_code, db):

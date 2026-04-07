@@ -161,6 +161,21 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Development seed skipped at startup")
 
+    # Seed mandatory dashboard tabs (idempotent UPSERT — safe to run every startup)
+    try:
+        from app.core.database import async_session_factory
+        from app.services.core.seed_service import seed_dashboard_tabs
+        from sqlalchemy import text
+        async with async_session_factory() as db:
+            # Get all entity IDs
+            entities = (await db.execute(text("SELECT id FROM entities WHERE active = TRUE"))).scalars().all()
+            for eid in entities:
+                await seed_dashboard_tabs(db, eid)
+            await db.commit()
+            logger.info("Dashboard tabs seeded for %d entities", len(entities))
+    except Exception:
+        logger.exception("Failed to seed dashboard tabs at startup (non-fatal)")
+
     # APScheduler
     await start_scheduler()
 

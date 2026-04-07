@@ -26,6 +26,7 @@ import {
   Minimize2,
   TableProperties,
   Zap,
+  Clock,
 } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
@@ -33,6 +34,7 @@ import { useWidgetData } from '@/hooks/useDashboard'
 import { PerspectiveWidget } from './widgets/PerspectiveWidget'
 import type { PerspectiveConfig } from './widgets/PerspectiveWidget'
 import { QuickAccessWidget } from './widgets/QuickAccessWidget'
+import { ClockWidget } from './widgets/ClockWidget'
 import type { DashboardWidget } from '@/services/dashboardService'
 import { EChartsWidget } from '@/components/charts/EChartsWidget'
 
@@ -62,6 +64,7 @@ export function WidgetTypeIcon({ type, className }: { type: string; className?: 
     case 'text': return <Type className={cls} />
     case 'perspective': return <TableProperties className={cls} />
     case 'quick_access': return <Zap className={cls} />
+    case 'clock': return <Clock className={cls} />
     default: return <BarChart3 className={cls} />
   }
 }
@@ -261,6 +264,8 @@ function WidgetRenderer({
       )
     case 'quick_access':
       return <QuickAccessWidget config={widget.config} data={data} />
+    case 'clock':
+      return <ClockWidget config={widget.config} />
     default:
       return (
         <div className="flex items-center justify-center h-full text-xs text-muted-foreground">

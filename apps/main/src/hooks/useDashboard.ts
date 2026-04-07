@@ -75,6 +75,23 @@ const BUILTIN_CATALOG_ENTRIES: WidgetCatalogEntry[] = [
     roles: [],
   },
   {
+    id: 'builtin:clock',
+    type: 'clock',
+    title: 'Horloge',
+    description: 'Horloge temps reel avec date, phase lunaire et saison. Mode numerique ou analogique.',
+    permissions: [],
+    default_config: {
+      mode: 'digital',
+      show_date: true,
+      show_seconds: true,
+      show_moon: true,
+      show_season: true,
+      locale: 'fr',
+    },
+    source_module: 'core',
+    roles: [],
+  },
+  {
     id: 'builtin:quick_access',
     type: 'quick_access',
     title: 'Acces rapide',

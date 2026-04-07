@@ -4,7 +4,8 @@
  * Shows when a widget is selected. Renders common settings + type-specific config.
  * Uses DynamicPanel design system components for consistency.
  */
-import { X, Trash2 } from 'lucide-react'
+import { X, Trash2, Info, Database, Shield, Hash } from 'lucide-react'
+import { FormSection } from '@/components/layout/DynamicPanel'
 import { WidgetTypeIcon } from './WidgetCard'
 import { WidgetSettingsCommon } from './settings/WidgetSettingsCommon'
 import { WidgetSettingsKPI } from './settings/WidgetSettingsKPI'
@@ -105,6 +106,60 @@ export function WidgetSettingsPanel({
             ))}
           </div>
         </div>
+
+        {/* Widget info (metadata, data source, permissions) */}
+        <FormSection title="Informations" collapsible defaultExpanded={false} storageKey="widget-settings-info">
+          <div className="space-y-2 text-xs">
+            <div className="flex items-start gap-2">
+              <Hash size={11} className="text-muted-foreground mt-0.5 shrink-0" />
+              <div>
+                <span className="text-muted-foreground">ID: </span>
+                <span className="font-mono text-[10px] text-foreground">{String(widget.id)}</span>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <Info size={11} className="text-muted-foreground mt-0.5 shrink-0" />
+              <div>
+                <span className="text-muted-foreground">Type: </span>
+                <span className="font-medium text-foreground">{String(widget.type)}</span>
+              </div>
+            </div>
+            {widget.config?.widget_id ? (
+              <div className="flex items-start gap-2">
+                <Database size={11} className="text-muted-foreground mt-0.5 shrink-0" />
+                <div>
+                  <span className="text-muted-foreground">Source: </span>
+                  <span className="font-mono text-[10px] text-foreground">{String(widget.config.widget_id as string)}</span>
+                  {widget.config?.source ? (
+                    <span className="text-muted-foreground ml-1">({String(widget.config.source as string)})</span>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+            {widget.permissions && widget.permissions.length > 0 ? (
+              <div className="flex items-start gap-2">
+                <Shield size={11} className="text-muted-foreground mt-0.5 shrink-0" />
+                <div>
+                  <span className="text-muted-foreground">Permissions: </span>
+                  <div className="flex flex-wrap gap-1 mt-0.5">
+                    {(widget.permissions as string[]).map((p: string) => (
+                      <span key={p} className="px-1.5 py-0.5 rounded bg-muted text-[9px] font-mono">{p}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            {widget.config?.refresh_interval && Number(widget.config.refresh_interval) > 0 ? (
+              <div className="flex items-start gap-2">
+                <Info size={11} className="text-muted-foreground mt-0.5 shrink-0" />
+                <div>
+                  <span className="text-muted-foreground">Rafraichissement: </span>
+                  <span className="text-foreground">{String(Number(widget.config.refresh_interval))}s</span>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </FormSection>
 
         {/* Danger zone */}
         <div className="border-t border-border pt-3">

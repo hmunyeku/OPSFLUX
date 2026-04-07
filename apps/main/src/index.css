@@ -14,7 +14,7 @@
 /* ═══════════════════════════════════════════════════════════════
  * OpsFlux — GitLab Pajamas Design Tokens
  *
- * Typography: Inter (GitLab Sans equiv), 16px (1rem) base.
+ * Typography: local system sans-serif stack, 16px (1rem) base.
  * Spacing: 8px base unit.
  * Border-radius: 4px for controls, 4px for cards (Pajamas standard).
  * Shadows: minimal — only overlaid elements get shadow.
@@ -138,8 +138,8 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    /* Pajamas: Inter at 16px base, weight 400, line-height 1.5 */
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
+    /* Pajamas-like neutral sans stack without external font dependency */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', Ubuntu, Cantarell, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -361,4 +361,3 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.45);
 }
-

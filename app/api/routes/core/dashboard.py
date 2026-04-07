@@ -347,15 +347,49 @@ async def sse_widget_stream(
     async def event_generator():
         """Stream dashboard widget updates via SSE.
 
-        Sends heartbeat events every 30 seconds to keep the connection
-        alive.  Real data events will be pushed once the event_bus
-        integration is complete.
+        Pushes real widget data every 30 seconds (or widget-specific interval).
+        Heartbeat events keep the connection alive between data pushes.
         """
+        import json as _json
+        from app.services.modules.dashboard_service import get_widget_data
+        from app.core.database import async_session_factory as _session_factory
+
+        # Widget refresh intervals (seconds)
+        _INTERVALS = {
+            'pax_count': 30, 'pax_on_site': 30,
+            'alerts': 60, 'alerts_urgent': 60,
+            'fleet_position': 15, 'fleet_map': 15,
+            'pickup_progress': 30,
+            'trips_today': 60,
+        }
+        interval = _INTERVALS.get(widget_type, 30)
+
         try:
             while True:
-                # Heartbeat every 30 seconds
-                yield "event: heartbeat\ndata: {}\n\n"
-                await asyncio.sleep(30)
+                # Fetch real widget data with a fresh DB session
+                try:
+                    async with _session_factory() as sse_db:
+                        result = await get_widget_data(
+                            widget_id=widget_type,
+                            widget_config={"type": widget_type, "source": widget_type},
+                            tenant_id=tenant_id,
+                            entity_id=entity_id,
+                            user=current_user,
+                            db=sse_db,
+                        )
+                    payload = _json.dumps({
+                        "widget_id": result.widget_id,
+                        "widget_type": result.widget_type,
+                        "data": result.data,
+                        "row_count": result.row_count,
+                        "error": result.error,
+                    }, default=str, ensure_ascii=False)
+                    yield f"event: widget_data\ndata: {payload}\n\n"
+                except Exception as exc:
+                    logger.debug("SSE widget %s data error: %s", widget_type, exc)
+                    yield f"event: error\ndata: {{\"error\": \"{str(exc)[:200]}\"}}\n\n"
+
+                await asyncio.sleep(interval)
         except asyncio.CancelledError:
             logger.debug("SSE stream cancelled for widget %s", widget_type)
             return

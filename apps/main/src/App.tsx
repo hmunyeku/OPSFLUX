@@ -27,6 +27,7 @@ const EntitiesPage = lazy(() => import('@/pages/entities/EntitiesPage').then(m =
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage').then(m => ({ default: m.SettingsPage })))
 const SearchPage = lazy(() => import('@/pages/search/SearchPage').then(m => ({ default: m.SearchPage })))
 const CaptainPortalPage = lazy(() => import('@/pages/travelwiz/CaptainPortalPage').then(m => ({ default: m.CaptainPortalPage })))
+const TVModePage = lazy(() => import('@/pages/dashboard/TVModePage').then(m => ({ default: m.TVModePage })))
 const FileManagerPage = lazy(() => import('@/pages/files/FileManagerPage'))
 const SupportPage = lazy(() => import('@/pages/support/SupportPage').then(m => ({ default: m.SupportPage })))
 
@@ -59,6 +60,7 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/verify-email" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}><VerifyEmailPage /></Suspense>} />
       <Route path="/captain-portal" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}><CaptainPortalPage /></Suspense>} />
+      <Route path="/tv/:token" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}><TVModePage /></Suspense>} />
       <Route
         path="/*"
         element={

@@ -76,6 +76,17 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
     return m
   }, [filteredTasks])
 
+  // Collect all leaf descendant IDs recursively
+  const getLeafDescendants = useCallback((parentId: string): string[] => {
+    const children = tree.get(parentId) || []
+    if (children.length === 0) return [parentId] // is a leaf itself
+    const leaves: string[] = []
+    for (const child of children) {
+      leaves.push(...getLeafDescendants(child.id))
+    }
+    return leaves
+  }, [tree])
+
   const toggle = useCallback((id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev)
@@ -83,6 +94,21 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
       return next
     })
   }, [])
+
+  // Toggle all leaf children of a parent task
+  const toggleParent = useCallback((parentId: string) => {
+    const leafIds = getLeafDescendants(parentId).filter(id => !linkedIds.has(id))
+    if (leafIds.length === 0) return
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      // If all leaves are already selected → deselect all; otherwise select all
+      const allSelected = leafIds.every(id => next.has(id))
+      for (const id of leafIds) {
+        if (allSelected) next.delete(id); else next.add(id)
+      }
+      return next
+    })
+  }, [getLeafDescendants, linkedIds])
 
   const handleSend = async () => {
     if (selectedIds.size === 0) return
@@ -112,25 +138,46 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
     const checked = selectedIds.has(task.id)
     const isLeaf = children.length === 0
 
+    // For parent tasks: check if all/some/none leaf descendants are selected
+    let parentState: 'all' | 'some' | 'none' = 'none'
+    if (!isLeaf) {
+      const leafIds = getLeafDescendants(task.id).filter(id => !linkedIds.has(id))
+      if (leafIds.length > 0) {
+        const selectedCount = leafIds.filter(id => selectedIds.has(id)).length
+        parentState = selectedCount === leafIds.length ? 'all' : selectedCount > 0 ? 'some' : 'none'
+      }
+    }
+
     return (
       <div key={task.id}>
         <div
           className={cn(
             'flex items-center gap-2 px-2 py-1.5 rounded text-xs',
-            !linked && isLeaf && 'hover:bg-muted/40 cursor-pointer',
-            checked && 'bg-primary/5',
+            !linked && 'hover:bg-muted/40 cursor-pointer',
+            (checked || parentState === 'all') && 'bg-primary/5',
             linked && 'opacity-60',
           )}
           style={{ paddingLeft: `${8 + depth * 18}px` }}
-          onClick={() => { if (!linked && isLeaf) toggle(task.id) }}
+          onClick={() => {
+            if (linked) return
+            if (isLeaf) toggle(task.id)
+            else toggleParent(task.id)
+          }}
         >
-          {/* Checkbox — only on leaf tasks, no auto-select of groups */}
+          {/* Checkbox — leaf tasks: simple toggle */}
           {isLeaf && !linked && (
             <button className="shrink-0" onClick={e => { e.stopPropagation(); toggle(task.id) }}>
               {checked ? <CheckSquare size={14} className="text-primary" /> : <Square size={14} className="text-muted-foreground" />}
             </button>
           )}
-          {!isLeaf && <span className="w-[14px] shrink-0" />}
+          {/* Checkbox — parent tasks: toggle all children */}
+          {!isLeaf && !linked && (
+            <button className="shrink-0" onClick={e => { e.stopPropagation(); toggleParent(task.id) }}>
+              {parentState === 'all' ? <CheckSquare size={14} className="text-primary" />
+                : parentState === 'some' ? <CheckSquare size={14} className="text-primary/40" />
+                : <Square size={14} className="text-muted-foreground" />}
+            </button>
+          )}
           {linked && <Zap size={11} className="text-green-500 shrink-0" />}
 
           {/* Status dot */}

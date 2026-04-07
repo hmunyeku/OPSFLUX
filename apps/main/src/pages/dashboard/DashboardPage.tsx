@@ -143,7 +143,7 @@ export function DashboardPage() {
   const lang = i18n.language?.startsWith('fr') ? 'fr' : 'en'
 
   // Data fetching
-  const { data: tabsData } = useDashboardTabs()
+  const { data: tabsData, isLoading: tabsLoading } = useDashboardTabs()
   const { data: stats, isLoading: statsLoading } = useDashboardStats()
   const { data: catalog } = useWidgetCatalog()
   const {
@@ -176,7 +176,7 @@ export function DashboardPage() {
   // If we have no tabs from the API, show built-in "Overview" + "My activity" tabs
   const hasApiTabs = allTabs.length > 0
   const builtinTabs: UnifiedTab[] = useMemo(() => {
-    if (hasApiTabs) return []
+    if (hasApiTabs || tabsLoading) return [] // Don't show fallback while loading
     return [
       {
         id: '__builtin_overview',
@@ -197,7 +197,7 @@ export function DashboardPage() {
         icon: null,
       },
     ]
-  }, [hasApiTabs, t])
+  }, [hasApiTabs, tabsLoading, t])
 
   const displayTabs = hasApiTabs ? allTabs : builtinTabs
 
@@ -383,8 +383,14 @@ export function DashboardPage() {
 
       {/* Content area */}
       <PanelContent className="p-4">
+        {/* Loading state — show while fetching tabs */}
+        {tabsLoading && (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 size={20} className="animate-spin text-muted-foreground" />
+          </div>
+        )}
         {/* Banners (only on built-in overview) */}
-        {isBuiltinOverview && (
+        {!tabsLoading && isBuiltinOverview && (
           <div className="space-y-3 mb-4">
             <Banner
               variant="promo"

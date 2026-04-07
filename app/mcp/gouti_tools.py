@@ -983,16 +983,22 @@ def _parse_by_status(raw: Any) -> dict:
 def _extract_items(data: Any) -> list[dict]:
     """Extract items from various Gouti response shapes."""
     if isinstance(data, list):
-        return data
+        return [i for i in data if isinstance(i, dict)]
     if isinstance(data, dict):
-        if "items" in data:
-            return data["items"] if isinstance(data["items"], list) else list(data["items"].values())
-        return list(data.values()) if data else []
+        for key in ("items", "data", "results"):
+            if key in data and isinstance(data[key], list):
+                return [i for i in data[key] if isinstance(i, dict)]
+            if key in data and isinstance(data[key], dict):
+                return [v for v in data[key].values() if isinstance(v, dict)]
+        # Fallback: dict keyed by ID — only keep dict values (skip bool, int, str metadata)
+        return [v for v in data.values() if isinstance(v, dict)]
     return []
 
 
 def _project_summary(p: dict, today: str) -> dict:
     """Build lean project summary from Gouti project dict."""
+    if not isinstance(p, dict):
+        return {"id": None, "name": str(p), "status": "unknown", "today": today}
     pm = p.get("Project_manager") or {}
     cats = p.get("Enterprise_categories") or []
     return {

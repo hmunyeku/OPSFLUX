@@ -2093,6 +2093,26 @@ class PdfPreviewRequest(BaseModel):
     output: str = Field(default="html", pattern="^(html|pdf)$")
 
 
+class PdfTemplateValidationRequest(BaseModel):
+    body_html: str = ""
+    header_html: str | None = None
+    footer_html: str | None = None
+    variables_schema: dict[str, Any] | None = None
+
+
+class PdfTemplateValidationIssue(OpsFluxSchema):
+    level: str
+    area: str
+    message: str
+
+
+class PdfTemplateValidationRead(OpsFluxSchema):
+    valid: bool
+    issues: list[PdfTemplateValidationIssue] = []
+    referenced_variables: list[str] = []
+    unknown_variables: list[str] = []
+
+
 # ─── User Sub-Model Schemas ───────────────────────────────────────────────────
 
 # UserPassport

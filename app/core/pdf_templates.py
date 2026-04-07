@@ -25,10 +25,12 @@ Usage:
 import base64
 import io
 import logging
+import re
 from datetime import UTC, datetime
+from html.parser import HTMLParser
 from uuid import UUID
 
-from jinja2 import BaseLoader, Environment, TemplateSyntaxError, Undefined
+from jinja2 import BaseLoader, Environment, TemplateSyntaxError, Undefined, meta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -81,6 +83,122 @@ def generate_qr_base64(data: str, box_size: int = 6, border: int = 2) -> str:
 
 # Register QR helper as a Jinja2 global function
 _jinja_env.globals["qr_code"] = generate_qr_base64
+
+
+class _TemplateHtmlValidator(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.issues: list[dict[str, str]] = []
+        self._stack: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        if tag not in {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}:
+            self._stack.append(tag)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}:
+            return
+        if not self._stack:
+            self.issues.append({"level": "error", "area": "html", "message": f"Balise de fermeture inattendue </{tag}>."})
+            return
+        expected = self._stack.pop()
+        if expected != tag:
+            self.issues.append({"level": "error", "area": "html", "message": f"Balises mal imbriquees: attendu </{expected}> mais trouve </{tag}>."})
+
+    def close(self) -> None:
+        super().close()
+        while self._stack:
+            tag = self._stack.pop()
+            self.issues.append({"level": "error", "area": "html", "message": f"Balise non fermee <{tag}>."})
+
+
+def validate_pdf_template_source(
+    *,
+    body_html: str,
+    header_html: str | None = None,
+    footer_html: str | None = None,
+    variables_schema: dict | None = None,
+) -> dict[str, object]:
+    issues: list[dict[str, str]] = []
+    declared = set(variables_schema.keys()) if variables_schema else set()
+    referenced: set[str] = set()
+
+    sections = [
+        ("body", body_html or ""),
+        ("header", header_html or ""),
+        ("footer", footer_html or ""),
+    ]
+
+    for area, source in sections:
+        if not source.strip():
+            continue
+        try:
+            ast = _jinja_env.parse(source)
+            referenced.update(meta.find_undeclared_variables(ast))
+        except TemplateSyntaxError as exc:
+            issues.append({"level": "error", "area": area, "message": f"Syntaxe template invalide: {exc.message} (ligne {exc.lineno})."})
+            continue
+        except Exception as exc:
+            issues.append({"level": "error", "area": area, "message": f"Template invalide: {exc}."})
+            continue
+
+        parser = _TemplateHtmlValidator()
+        try:
+            parser.feed(source)
+            parser.close()
+            issues.extend(parser.issues)
+        except Exception as exc:
+            issues.append({"level": "warning", "area": area, "message": f"Analyse HTML incomplete: {exc}."})
+
+        style_blocks = re.findall(r"<style[^>]*>(.*?)</style>", source, flags=re.IGNORECASE | re.DOTALL)
+        for css in style_blocks:
+            if css.count("{") != css.count("}"):
+                issues.append({"level": "error", "area": "css", "message": f"Accolades CSS non equilibrees dans {area}."})
+            if css.count("(") != css.count(")"):
+                issues.append({"level": "warning", "area": "css", "message": f"Parentheses CSS non equilibrees dans {area}."})
+
+    unknown = sorted(
+        var_name for var_name in referenced
+        if var_name not in declared and not any(declared_name.startswith(f"{var_name}.") for declared_name in declared)
+    )
+    for var_name in unknown:
+        issues.append({"level": "warning", "area": "variables", "message": f"Variable non declaree dans le schema: {var_name}."})
+
+    return {
+        "valid": not any(issue["level"] == "error" for issue in issues),
+        "issues": issues,
+        "referenced_variables": sorted(referenced),
+        "unknown_variables": unknown,
+    }
+
+
+def _build_invalid_template_html(*, title: str, issues: list[dict[str, str]]) -> str:
+    items = "".join(
+        f"<li><strong>{issue['area']}</strong> - {issue['message']}</li>"
+        for issue in issues
+    )
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    body {{ font-family: Arial, Helvetica, sans-serif; color: #1f2937; padding: 24px; }}
+    .box {{ border: 2px solid #dc2626; background: #fef2f2; border-radius: 8px; padding: 20px; }}
+    h1 {{ color: #991b1b; font-size: 20px; margin: 0 0 12px 0; }}
+    p {{ margin: 0 0 10px 0; }}
+    ul {{ margin: 12px 0 0 18px; padding: 0; }}
+    li {{ margin: 6px 0; }}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>{title}</h1>
+    <p>Le modele PDF publie contient des erreurs bloquantes. Le document d'origine n'a pas ete execute comme template libre.</p>
+    <p>Diagnostics:</p>
+    <ul>{items or '<li>Aucun detail disponible.</li>'}</ul>
+  </div>
+</body>
+</html>"""
 
 
 # ── Known template slugs with default variable schemas ────────────────────
@@ -354,6 +472,41 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
             },
             "en": {
                 "body_html": "",  # patched below
+                "header_html": None,
+                "footer_html": None,
+            },
+        },
+    },
+    {
+        "slug": "pid.export",
+        "name": "PID/PFD Export",
+        "description": "Export PDF d'un schema PID/PFD avec rendu du canvas SVG.",
+        "object_type": "document",
+        "page_size": "A3",
+        "orientation": "landscape",
+        "margin_top": 10,
+        "margin_right": 10,
+        "margin_bottom": 10,
+        "margin_left": 10,
+        "variables_schema": {
+            "pid_number": "Numero du document PID",
+            "pid_title": "Titre du PID",
+            "revision": "Revision courante",
+            "drawing_number": "Numero de dessin",
+            "status": "Statut du document",
+            "sheet_format": "Format de feuille",
+            "svg_content": "Contenu SVG du schema",
+            "generated_at": "Date de generation",
+            "entity.name": "Nom de l'entite",
+        },
+        "default_versions": {
+            "fr": {
+                "body_html": "",
+                "header_html": None,
+                "footer_html": None,
+            },
+            "en": {
+                "body_html": "",
                 "header_html": None,
                 "footer_html": None,
             },
@@ -1540,6 +1693,66 @@ _PROJECT_REPORT_BODY_EN = """\
 DEFAULT_PDF_TEMPLATES[6]["default_versions"]["en"]["body_html"] = _PROJECT_REPORT_BODY_EN
 
 
+_PID_EXPORT_BODY_FR = """\
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color: #1f2937; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 12px; font-size: 10px; color: #6b7280; }
+  .meta strong { color: #111827; }
+  .canvas { border: 1px solid #d1d5db; padding: 8px; background: white; }
+  .canvas svg { width: 100%; height: auto; display: block; }
+</style>
+</head>
+<body>
+  <div class="meta">
+    <span><strong>Document</strong> {{ pid_number }}</span>
+    <span><strong>Titre</strong> {{ pid_title }}</span>
+    <span><strong>Revision</strong> {{ revision or '-' }}</span>
+    <span><strong>Dessin</strong> {{ drawing_number or '-' }}</span>
+    <span><strong>Statut</strong> {{ status }}</span>
+    <span><strong>Feuille</strong> {{ sheet_format or 'A1' }}</span>
+    <span><strong>Genere le</strong> {{ generated_at }}</span>
+  </div>
+  <div class="canvas">{{ svg_content | safe }}</div>
+</body>
+</html>
+"""
+
+_PID_EXPORT_BODY_EN = """\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color: #1f2937; }
+  .meta { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 12px; font-size: 10px; color: #6b7280; }
+  .meta strong { color: #111827; }
+  .canvas { border: 1px solid #d1d5db; padding: 8px; background: white; }
+  .canvas svg { width: 100%; height: auto; display: block; }
+</style>
+</head>
+<body>
+  <div class="meta">
+    <span><strong>Document</strong> {{ pid_number }}</span>
+    <span><strong>Title</strong> {{ pid_title }}</span>
+    <span><strong>Revision</strong> {{ revision or '-' }}</span>
+    <span><strong>Drawing</strong> {{ drawing_number or '-' }}</span>
+    <span><strong>Status</strong> {{ status }}</span>
+    <span><strong>Sheet</strong> {{ sheet_format or 'A1' }}</span>
+    <span><strong>Generated</strong> {{ generated_at }}</span>
+  </div>
+  <div class="canvas">{{ svg_content | safe }}</div>
+</body>
+</html>
+"""
+
+DEFAULT_PDF_TEMPLATES[7]["default_versions"]["fr"]["body_html"] = _PID_EXPORT_BODY_FR
+DEFAULT_PDF_TEMPLATES[7]["default_versions"]["en"]["body_html"] = _PID_EXPORT_BODY_EN
+
+
 # ── Rendering helpers ────────────────────────────────────────────────────
 
 def render_template_string(template_str: str, variables: dict) -> str:
@@ -1702,12 +1915,38 @@ async def render_pdf_preview(
     variables: dict | None = None,
 ) -> str | None:
     """Resolve and render a PDF template. Returns rendered HTML for preview, or None."""
+    template_result = await db.execute(
+        select(PdfTemplate)
+        .options(selectinload(PdfTemplate.versions))
+        .where(
+            PdfTemplate.slug == slug,
+            ((PdfTemplate.entity_id == entity_id) | (PdfTemplate.entity_id.is_(None))),
+            PdfTemplate.enabled == True,  # noqa: E712
+        )
+        .order_by(PdfTemplate.entity_id.is_(None))
+    )
+    template_candidates = template_result.scalars().all()
+
     version = await resolve_pdf_template_version(
         db, slug=slug, entity_id=entity_id, language=language,
     )
     if not version:
         logger.info("PDF template '%s' not found or disabled for entity %s", slug, entity_id)
         return None
+
+    template = next((candidate for candidate in template_candidates if candidate.id == version.template_id), None)
+    validation = validate_pdf_template_source(
+        body_html=version.body_html,
+        header_html=version.header_html,
+        footer_html=version.footer_html,
+        variables_schema=template.variables_schema if template else None,
+    )
+    if not validation["valid"]:
+        logger.warning("Invalid published PDF template '%s' for entity %s", slug, entity_id)
+        return _build_invalid_template_html(
+            title=f"Template PDF invalide: {slug}",
+            issues=[issue for issue in validation["issues"] if issue["level"] == "error"],
+        )
 
     ctx = variables or {}
     body_html = render_template_string(version.body_html, ctx)
@@ -1729,6 +1968,21 @@ async def render_pdf_from_version(
     variables: dict | None = None,
 ) -> bytes:
     """Render a specific version to PDF (for preview from admin routes)."""
+    validation = validate_pdf_template_source(
+        body_html=version.body_html,
+        header_html=version.header_html,
+        footer_html=version.footer_html,
+        variables_schema=template.variables_schema,
+    )
+    if not validation["valid"]:
+        return _html_to_pdf(
+            _build_invalid_template_html(
+                title=f"Template PDF invalide: {template.slug}",
+                issues=[issue for issue in validation["issues"] if issue["level"] == "error"],
+            ),
+            template,
+        )
+
     ctx = variables or {}
     body_html = render_template_string(version.body_html, ctx)
 
@@ -1747,6 +2001,17 @@ async def render_html_from_version(
     variables: dict | None = None,
 ) -> str:
     """Render a specific version to HTML (for admin preview)."""
+    validation = validate_pdf_template_source(
+        body_html=version.body_html,
+        header_html=version.header_html,
+        footer_html=version.footer_html,
+    )
+    if not validation["valid"]:
+        return _build_invalid_template_html(
+            title="Template PDF invalide",
+            issues=[issue for issue in validation["issues"] if issue["level"] == "error"],
+        )
+
     ctx = variables or {}
     body_html = render_template_string(version.body_html, ctx)
 

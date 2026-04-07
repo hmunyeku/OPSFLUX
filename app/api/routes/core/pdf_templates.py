@@ -15,9 +15,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_current_entity, get_current_user
+from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
-from app.core.pdf_templates import render_html_from_version, render_pdf_from_version, render_template_string
+from app.core.pdf_templates import render_html_from_version, render_pdf_from_version, render_template_string, validate_pdf_template_source
 from app.models.common import (
     PdfTemplate,
     PdfTemplateVersion,
@@ -32,10 +32,45 @@ from app.schemas.common import (
     PdfTemplateVersionCreate,
     PdfTemplateVersionRead,
     PdfTemplateVersionUpdate,
+    PdfTemplateValidationRead,
+    PdfTemplateValidationRequest,
 )
 from app.services.core.delete_service import delete_entity
 
-router = APIRouter(prefix="/api/v1/pdf-templates", tags=["pdf-templates"])
+router = APIRouter(
+    prefix="/api/v1/pdf-templates",
+    tags=["pdf-templates"],
+    dependencies=[require_permission("core.settings.manage")],
+)
+
+
+def _assert_publishable_template_version(
+    *,
+    template: PdfTemplate,
+    body_html: str,
+    header_html: str | None,
+    footer_html: str | None,
+) -> None:
+    validation = validate_pdf_template_source(
+        body_html=body_html,
+        header_html=header_html,
+        footer_html=footer_html,
+        variables_schema=template.variables_schema,
+    )
+    blocking_issues = [
+        issue["message"]
+        for issue in validation["issues"]
+        if issue["level"] == "error"
+    ]
+    if blocking_issues:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "PDF_TEMPLATE_INVALID",
+                "message": "Le template PDF contient des erreurs bloquantes.",
+                "issues": blocking_issues,
+            },
+        )
 
 
 # ── List all templates ─────────────────────────────────────────────────────
@@ -247,12 +282,13 @@ async def create_version(
 ):
     """Create a new version of a PDF template."""
     tpl = await db.execute(
-        select(PdfTemplate.id).where(
+        select(PdfTemplate).where(
             PdfTemplate.id == template_id,
             PdfTemplate.entity_id == entity_id,
         )
     )
-    if not tpl.scalar_one_or_none():
+    template = tpl.scalar_one_or_none()
+    if not template:
         raise HTTPException(status_code=404, detail="PDF template not found")
 
     # Calculate next version number for this language
@@ -267,6 +303,12 @@ async def create_version(
 
     # If publishing this version, unpublish others for same language
     if body.is_published:
+        _assert_publishable_template_version(
+            template=template,
+            body_html=body.body_html,
+            header_html=body.header_html,
+            footer_html=body.footer_html,
+        )
         await _unpublish_language_versions(db, template_id, body.language)
 
     version = PdfTemplateVersion(
@@ -296,12 +338,13 @@ async def update_version(
 ):
     """Update an existing PDF template version."""
     tpl = await db.execute(
-        select(PdfTemplate.id).where(
+        select(PdfTemplate).where(
             PdfTemplate.id == template_id,
             PdfTemplate.entity_id == entity_id,
         )
     )
-    if not tpl.scalar_one_or_none():
+    template = tpl.scalar_one_or_none()
+    if not template:
         raise HTTPException(status_code=404, detail="PDF template not found")
 
     result = await db.execute(
@@ -316,6 +359,12 @@ async def update_version(
 
     payload = body.model_dump(exclude_unset=True)
     if payload.get("is_published"):
+        _assert_publishable_template_version(
+            template=template,
+            body_html=payload.get("body_html", version.body_html),
+            header_html=payload.get("header_html", version.header_html),
+            footer_html=payload.get("footer_html", version.footer_html),
+        )
         await _unpublish_language_versions(db, template_id, version.language)
 
     for field, value in payload.items():
@@ -342,12 +391,13 @@ async def publish_version(
     """Set a version as the published (active) version for its language."""
     # Verify template belongs to current entity or is global
     tpl_check = await db.execute(
-        select(PdfTemplate.id).where(
+        select(PdfTemplate).where(
             PdfTemplate.id == template_id,
             (PdfTemplate.entity_id == entity_id) | (PdfTemplate.entity_id.is_(None)),
         )
     )
-    if not tpl_check.scalar_one_or_none():
+    template = tpl_check.scalar_one_or_none()
+    if not template:
         raise HTTPException(status_code=404, detail="Template not found")
 
     result = await db.execute(
@@ -359,6 +409,13 @@ async def publish_version(
     version = result.scalar_one_or_none()
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
+
+    _assert_publishable_template_version(
+        template=template,
+        body_html=version.body_html,
+        header_html=version.header_html,
+        footer_html=version.footer_html,
+    )
 
     # Unpublish others for same language
     await _unpublish_language_versions(db, template_id, version.language)
@@ -456,6 +513,32 @@ async def preview_template(
     else:
         html = await render_html_from_version(version, body.variables)
         return {"rendered_html": html}
+
+
+@router.post("/{template_id}/validate", response_model=PdfTemplateValidationRead)
+async def validate_template_source(
+    template_id: UUID,
+    body: PdfTemplateValidationRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    tpl_result = await db.execute(
+        select(PdfTemplate).where(
+            PdfTemplate.id == template_id,
+            (PdfTemplate.entity_id == entity_id) | (PdfTemplate.entity_id.is_(None)),
+        )
+    )
+    template = tpl_result.scalar_one_or_none()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    return validate_pdf_template_source(
+        body_html=body.body_html,
+        header_html=body.header_html,
+        footer_html=body.footer_html,
+        variables_schema=body.variables_schema if body.variables_schema is not None else template.variables_schema,
+    )
 
 
 # ── Seed defaults ──────────────────────────────────────────────────────────

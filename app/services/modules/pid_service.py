@@ -1439,45 +1439,42 @@ async def export_pdf(
     entity_id: UUID,
     db: AsyncSession,
 ) -> tuple[bytes, str]:
-    """Export PID as PDF by converting SVG content to PDF via WeasyPrint.
+    """Export PID as PDF via the centralized PDF template engine.
 
     Returns (pdf_bytes, filename).
     """
     from fastapi import HTTPException
+    from app.core.pdf_templates import render_pdf
+    from app.models.common import Entity
 
     pid = await get_pid_document(pid_id, entity_id, db)
 
     # Get SVG content (reuse the existing export_svg helper)
     svg_bytes = await export_svg(pid_id, entity_id, db)
     svg_content = svg_bytes.decode("utf-8")
-
-    # Map sheet_format to CSS @page size dimensions
-    sheet_sizes = {
-        "A0": "841mm 1189mm",
-        "A1": "594mm 841mm",
-        "A2": "420mm 594mm",
-        "A3": "297mm 420mm",
-    }
-    page_size = sheet_sizes.get(pid.sheet_format or "A1", "594mm 841mm")
-
-    # Build an HTML wrapper that embeds the SVG with proper page sizing
-    html_content = f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8">
-<style>
-  @page {{ size: {page_size} landscape; margin: 10mm; }}
-  body {{ margin: 0; padding: 0; }}
-  svg {{ width: 100%; height: auto; }}
-</style>
-</head><body>{svg_content}</body></html>"""
-
+    entity = await db.get(Entity, entity_id)
     try:
-        from weasyprint import HTML as WeasyprintHTML
-        pdf_bytes = WeasyprintHTML(string=html_content).write_pdf()
-    except ImportError:
-        raise HTTPException(
-            501,
-            "WeasyPrint not installed — PDF export unavailable. Install with: pip install weasyprint",
+        pdf_bytes = await render_pdf(
+            db,
+            slug="pid.export",
+            entity_id=entity_id,
+            language="fr",
+            variables={
+                "pid_number": pid.number,
+                "pid_title": pid.title,
+                "revision": pid.revision or "0",
+                "drawing_number": pid.drawing_number or "",
+                "status": pid.status,
+                "sheet_format": pid.sheet_format or "A1",
+                "svg_content": svg_content,
+                "generated_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M"),
+                "entity": {"name": entity.name if entity else ""},
+            },
         )
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    if not pdf_bytes:
+        raise HTTPException(404, "Template PDF 'pid.export' introuvable. Creez-le dans Parametres > Modeles PDF.")
 
     revision_label = pid.revision or "0"
     filename = f"{pid.number}_rev{revision_label}.pdf"

@@ -2588,6 +2588,128 @@
       "emails": "Emails",
       "rbac": "RBAC"
     },
+    "pdf_templates_editor": {
+      "create": {
+        "title": "New PDF template",
+        "subtitle": "Creation"
+      },
+      "sections": {
+        "metadata": "Metadata",
+        "template_metadata": "Template metadata",
+        "versions": "Versions ({{count}})",
+        "new_multilingual_version": "New multilingual version",
+        "edit_version": "Edit {{language}} v{{version}}",
+        "version": "Version",
+        "preview": "Preview",
+        "validation": "Template validation"
+      },
+      "fields": {
+        "slug": "Slug",
+        "slug_placeholder": "e.g. cargo.lt",
+        "object_type": "Object type",
+        "page_size": "Page size",
+        "template_enabled": "Template enabled",
+        "language": "Language",
+        "use_as_published": "Use this version as the published version"
+      },
+      "actions": {
+        "save_metadata": "Save metadata",
+        "delete_template": "Delete template",
+        "new_version": "New version",
+        "create_version": "Create version",
+        "save_version": "Save version",
+        "validate_template": "Validate template",
+        "delete_version": "Delete version",
+        "preview_html": "HTML preview",
+        "preview_pdf": "PDF preview"
+      },
+      "toasts": {
+        "template_created": "PDF template created",
+        "template_create_error": "Could not create the PDF template",
+        "metadata_updated": "PDF metadata updated",
+        "template_error": "PDF template error",
+        "version_created": "PDF version created",
+        "version_updated": "PDF version updated",
+        "version_save_error": "Could not save the version",
+        "select_version_before_preview": "Save or select a version before previewing",
+        "html_preview_error": "HTML preview failed",
+        "template_valid": "Template valid",
+        "template_invalid": "Template needs fixes",
+        "template_valid_description": "No blocking errors detected.",
+        "template_invalid_description": "{{count}} diagnostic(s) returned.",
+        "template_validation_error": "Template validation failed",
+        "pdf_preview_error": "PDF preview failed",
+        "version_published": "Version published",
+        "publish_error": "Could not publish",
+        "version_deleted": "Version deleted",
+        "version_delete_error": "Could not delete the version",
+        "template_deleted": "PDF template deleted",
+        "template_delete_error": "Could not delete the template"
+      },
+      "not_found": {
+        "title": "PDF template not found",
+        "load_error": "The requested template could not be loaded.",
+        "missing_id": "No PDF template identifier was provided."
+      },
+      "available_variables": "Available variables: {{variables}}",
+      "no_declared_variables": "no declared variables",
+      "preview_empty": "Run an HTML or PDF preview to verify the template rendering with sample variables.",
+      "validation": {
+        "valid": "The template is syntactically valid.",
+        "invalid": "The template contains diagnostics to review or fix.",
+        "referenced_variables": "Referenced variables: {{variables}}",
+        "empty": "Run validation to verify Jinja syntax, HTML structure, simple CSS, and referenced variables before publishing."
+      },
+      "version_badges": {
+        "published": "published"
+      },
+      "object_types": {
+        "system": "System",
+        "document": "Document",
+        "ads": "PaxLog",
+        "project": "Project",
+        "travelwiz": "TravelWiz",
+        "voyage": "Voyage"
+      },
+      "languages": {
+        "fr": "French",
+        "en": "English"
+      },
+      "orientation": {
+        "portrait": "portrait",
+        "landscape": "landscape"
+      },
+      "editors": {
+        "body_tab": "Body",
+        "header_tab": "Header",
+        "footer_tab": "Footer",
+        "body_label": "HTML body",
+        "header_label": "HTML header",
+        "footer_label": "HTML footer"
+      },
+      "placeholders": {
+        "body": "Compose the PDF document body here...",
+        "header": "Optional document header...",
+        "footer": "Optional footer..."
+      },
+      "rich_editor": {
+        "insert_link_title": "Insert a link",
+        "bold": "Bold",
+        "italic": "Italic",
+        "underline": "Underline",
+        "heading": "Heading",
+        "paragraph": "Paragraph",
+        "bulleted_list": "List",
+        "numbered_list": "Numbered list",
+        "link": "Link",
+        "align_left": "Align left",
+        "align_center": "Center",
+        "undo": "Undo",
+        "redo": "Redo",
+        "visual_editor": "Visual editor",
+        "html_code": "HTML code"
+      }
+    },
     "default_imputation": {
       "saved": "Default imputation saved",
       "save_error": "Could not save the default imputation.",

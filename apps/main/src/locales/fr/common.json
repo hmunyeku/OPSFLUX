@@ -2592,6 +2592,128 @@
       "emails": "Emails",
       "rbac": "RBAC"
     },
+    "pdf_templates_editor": {
+      "create": {
+        "title": "Nouveau modèle PDF",
+        "subtitle": "Création"
+      },
+      "sections": {
+        "metadata": "Métadonnées",
+        "template_metadata": "Métadonnées du modèle",
+        "versions": "Versions ({{count}})",
+        "new_multilingual_version": "Nouvelle version multilingue",
+        "edit_version": "Édition {{language}} v{{version}}",
+        "version": "Version",
+        "preview": "Prévisualisation",
+        "validation": "Validation du template"
+      },
+      "fields": {
+        "slug": "Slug",
+        "slug_placeholder": "ex: cargo.lt",
+        "object_type": "Type objet",
+        "page_size": "Taille page",
+        "template_enabled": "Modèle activé",
+        "language": "Langue",
+        "use_as_published": "Utiliser cette version comme version publiée"
+      },
+      "actions": {
+        "save_metadata": "Enregistrer méta",
+        "delete_template": "Supprimer modèle",
+        "new_version": "Nouvelle version",
+        "create_version": "Créer version",
+        "save_version": "Enregistrer version",
+        "validate_template": "Valider template",
+        "delete_version": "Supprimer version",
+        "preview_html": "Aperçu HTML",
+        "preview_pdf": "Aperçu PDF"
+      },
+      "toasts": {
+        "template_created": "Modèle PDF créé",
+        "template_create_error": "Impossible de créer le modèle PDF",
+        "metadata_updated": "Métadonnées PDF mises à jour",
+        "template_error": "Erreur sur le modèle PDF",
+        "version_created": "Version PDF créée",
+        "version_updated": "Version PDF mise à jour",
+        "version_save_error": "Impossible d'enregistrer la version",
+        "select_version_before_preview": "Enregistre ou sélectionne une version avant aperçu",
+        "html_preview_error": "Prévisualisation HTML impossible",
+        "template_valid": "Template valide",
+        "template_invalid": "Template à corriger",
+        "template_valid_description": "Aucune erreur bloquante détectée.",
+        "template_invalid_description": "{{count}} diagnostic(s) retourné(s).",
+        "template_validation_error": "Validation du template impossible",
+        "pdf_preview_error": "Prévisualisation PDF impossible",
+        "version_published": "Version publiée",
+        "publish_error": "Impossible de publier",
+        "version_deleted": "Version supprimée",
+        "version_delete_error": "Impossible de supprimer la version",
+        "template_deleted": "Modèle PDF supprimé",
+        "template_delete_error": "Impossible de supprimer le modèle"
+      },
+      "not_found": {
+        "title": "Modèle PDF introuvable",
+        "load_error": "Le modèle demandé n'a pas pu être chargé.",
+        "missing_id": "Aucun identifiant de modèle PDF n'a été fourni."
+      },
+      "available_variables": "Variables disponibles: {{variables}}",
+      "no_declared_variables": "aucune variable déclarée",
+      "preview_empty": "Lance un aperçu HTML ou PDF pour vérifier le rendu du modèle avec les variables d'exemple.",
+      "validation": {
+        "valid": "Le template est syntaxiquement valide.",
+        "invalid": "Le template contient des diagnostics à corriger ou vérifier.",
+        "referenced_variables": "Variables référencées: {{variables}}",
+        "empty": "Lance la validation pour vérifier la syntaxe Jinja, la structure HTML, le CSS simple et les variables référencées avant publication."
+      },
+      "version_badges": {
+        "published": "publié"
+      },
+      "object_types": {
+        "system": "Système",
+        "document": "Document",
+        "ads": "PaxLog",
+        "project": "Projet",
+        "travelwiz": "TravelWiz",
+        "voyage": "Voyage"
+      },
+      "languages": {
+        "fr": "Français",
+        "en": "English"
+      },
+      "orientation": {
+        "portrait": "portrait",
+        "landscape": "paysage"
+      },
+      "editors": {
+        "body_tab": "Corps",
+        "header_tab": "En-tête",
+        "footer_tab": "Pied de page",
+        "body_label": "Corps HTML",
+        "header_label": "En-tête HTML",
+        "footer_label": "Pied de page HTML"
+      },
+      "placeholders": {
+        "body": "Compose le corps du document PDF ici...",
+        "header": "En-tête optionnel du document...",
+        "footer": "Pied de page optionnel..."
+      },
+      "rich_editor": {
+        "insert_link_title": "Insérer un lien",
+        "bold": "Gras",
+        "italic": "Italique",
+        "underline": "Souligné",
+        "heading": "Titre",
+        "paragraph": "Paragraphe",
+        "bulleted_list": "Liste",
+        "numbered_list": "Liste numérotée",
+        "link": "Lien",
+        "align_left": "Aligner à gauche",
+        "align_center": "Centrer",
+        "undo": "Annuler",
+        "redo": "Rétablir",
+        "visual_editor": "Éditeur visuel",
+        "html_code": "Code HTML"
+      }
+    },
     "default_imputation": {
       "saved": "Imputation par défaut enregistrée",
       "save_error": "Impossible d'enregistrer l'imputation par défaut.",

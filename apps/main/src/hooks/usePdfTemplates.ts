@@ -60,6 +60,19 @@ export interface PdfTemplateFull {
   versions: PdfTemplateVersion[]
 }
 
+export interface PdfTemplateValidationIssue {
+  level: string
+  area: string
+  message: string
+}
+
+export interface PdfTemplateValidationResult {
+  valid: boolean
+  issues: PdfTemplateValidationIssue[]
+  referenced_variables: string[]
+  unknown_variables: string[]
+}
+
 // ── Query hooks ────────────────────────────────────────────
 
 /** List all PDF templates for the current entity. */
@@ -193,6 +206,32 @@ export function useCreatePdfVersion() {
   })
 }
 
+/** Update an existing PDF template version. */
+export function useUpdatePdfVersion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ templateId, versionId, ...body }: {
+      templateId: string
+      versionId: string
+      body_html?: string
+      header_html?: string
+      footer_html?: string
+      is_published?: boolean
+    }) => {
+      const { data } = await api.patch<PdfTemplateVersion>(
+        `/api/v1/pdf-templates/${templateId}/versions/${versionId}`,
+        body,
+      )
+      return data
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['pdf-templates', vars.templateId] })
+      qc.invalidateQueries({ queryKey: ['pdf-templates', vars.templateId, 'versions'] })
+      qc.invalidateQueries({ queryKey: ['pdf-templates'] })
+    },
+  })
+}
+
 /** Publish a specific version (make it the active one for its language). */
 export function usePublishPdfVersion() {
   const qc = useQueryClient()
@@ -264,6 +303,25 @@ export function usePreviewPdfTemplate() {
         { version_id: versionId, variables, output: 'html' },
       )
       return { rendered_html: data.rendered_html }
+    },
+  })
+}
+
+/** Validate a PDF template source before publishing. */
+export function useValidatePdfTemplate() {
+  return useMutation({
+    mutationFn: async ({ templateId, body_html, header_html, footer_html, variables_schema }: {
+      templateId: string
+      body_html: string
+      header_html?: string
+      footer_html?: string
+      variables_schema?: Record<string, unknown> | null
+    }) => {
+      const { data } = await api.post<PdfTemplateValidationResult>(
+        `/api/v1/pdf-templates/${templateId}/validate`,
+        { body_html, header_html, footer_html, variables_schema },
+      )
+      return data
     },
   })
 }

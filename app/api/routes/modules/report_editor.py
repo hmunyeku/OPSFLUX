@@ -578,18 +578,12 @@ async def export_pdf(
     entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
-    """Export document as PDF using WeasyPrint.
-
-    Renders the current (or specified) revision content as HTML
-    and converts it to PDF via WeasyPrint.
-    """
-    if WeasyHTML is None:
-        raise HTTPException(
-            status_code=501,
-            detail="PDF export not available — install weasyprint",
-        )
+    """Export document as PDF via the centralized PDF template engine."""
 
     from app.services.modules.report_service import get_document, get_revision
+    from app.core.pdf_templates import render_pdf
+    from app.models.common import Entity, User
+    from app.models.report_editor import DocType
 
     doc = await get_document(doc_id, entity_id, db)
 
@@ -608,39 +602,39 @@ async def export_pdf(
     html_body = _render_content_to_html(content_json)
     form_html = _render_form_data_to_html(form_data)
 
-    html_string = f"""<!DOCTYPE html>
-<html lang="{getattr(doc, 'language', 'fr')}">
-<head>
-    <meta charset="utf-8">
-    <style>
-        body {{ font-family: Arial, Helvetica, sans-serif; margin: 40px; color: #222; }}
-        h1 {{ font-size: 22px; border-bottom: 2px solid #333; padding-bottom: 8px; }}
-        h2 {{ font-size: 18px; color: #555; margin-top: 24px; }}
-        .meta {{ font-size: 12px; color: #777; margin-bottom: 20px; }}
-        .meta span {{ margin-right: 16px; }}
-        table {{ border-collapse: collapse; width: 100%; margin: 12px 0; }}
-        th, td {{ border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 13px; }}
-        th {{ background: #f5f5f5; }}
-        p {{ line-height: 1.6; }}
-    </style>
-</head>
-<body>
-    <h1>{doc.title}</h1>
-    <div class="meta">
-        <span>N&deg; {doc.number}</span>
-        <span>Rev. {revision.rev_code if revision else '-'}</span>
-        <span>Status: {doc.status}</span>
-    </div>
-    {form_html}
-    {html_body}
-</body>
-</html>"""
+    entity = await db.get(Entity, entity_id)
+    author = await db.get(User, doc.created_by) if doc.created_by else None
+    doc_type = await db.get(DocType, doc.doc_type_id) if doc.doc_type_id else None
+    variables = {
+        "document_number": doc.number,
+        "document_title": doc.title,
+        "document_body": f"{form_html}{html_body}",
+        "author_name": f"{author.first_name} {author.last_name}".strip() if author else "--",
+        "revision": revision.rev_code if revision else "-",
+        "status": doc.status,
+        "entity": {"name": entity.name if entity else ""},
+        "generated_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M"),
+        "document_language": getattr(doc, "language", "fr"),
+        "classification": getattr(doc, "classification", ""),
+        "doc_type_name": doc_type.name if doc_type else "",
+    }
 
     try:
-        pdf_bytes = WeasyHTML(string=html_string).write_pdf()
-    except Exception as exc:
-        logger.exception("WeasyPrint PDF generation failed for doc %s", doc_id)
-        raise HTTPException(500, f"PDF generation failed: {exc}") from exc
+        pdf_bytes = await render_pdf(
+            db,
+            slug="document.export",
+            entity_id=entity_id,
+            language=getattr(doc, "language", "fr") or "fr",
+            variables=variables,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    if not pdf_bytes:
+        raise HTTPException(
+            status_code=404,
+            detail="Template PDF 'document.export' introuvable. Creez-le dans Parametres > Modeles PDF.",
+        )
 
     return Response(
         content=pdf_bytes,

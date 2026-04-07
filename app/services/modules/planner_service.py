@@ -124,15 +124,30 @@ async def get_current_capacity(
             "changed_by": row[6],
         }
 
-    # Fallback: no capacity record yet — return defaults
-    # Installation model doesn't have max_pax fields; capacities are stored in asset_capacities
+    # Fallback hierarchy: Installation.pob_max → Site.pob_capacity → 0
+    from app.models.asset_registry import OilSite
+
+    asset = await db.get(Installation, asset_id)
+    if not asset:
+        return None
+
+    pob = asset.pob_max
+    source = "installation"
+
+    # If not set on installation, try the parent site
+    if pob is None and asset.site_id:
+        site = await db.get(OilSite, asset.site_id)
+        if site and site.pob_capacity is not None:
+            pob = site.pob_capacity
+            source = "site"
+
     return {
         "id": None,
-        "max_pax_total": 0,
+        "max_pax_total": pob or 0,
         "permanent_ops_quota": 0,
         "max_pax_per_company": {},
         "effective_date": None,
-        "reason": "Aucune capacité configurée",
+        "reason": f"Défaut {source} (pob)",
         "changed_by": None,
     }
 

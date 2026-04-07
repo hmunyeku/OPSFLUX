@@ -27,6 +27,10 @@ export const usersService = {
     return data
   },
 
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/api/v1/users/${id}`)
+  },
+
   update: async (id: string, payload: UserUpdate): Promise<UserRead> => {
     const { data } = await api.patch(`/api/v1/users/${id}`, payload)
     return data

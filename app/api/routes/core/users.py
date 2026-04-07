@@ -1000,6 +1000,80 @@ async def unlink_user_from_tier(
     await db.commit()
 
 
+# ── Delete User (hard delete, only if no dependencies) ──────
+
+
+@router.delete("/{user_id}", status_code=204)
+async def delete_user(
+    user_id: UUID,
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("core.users.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Permanently delete a user — only allowed if the user has no activity in the system.
+
+    If the user has created projects, tasks, planner activities, AdS, audit entries,
+    comments, notes, or is assigned to anything, deletion is refused and the client
+    should deactivate the user instead.
+    """
+    if user_id == current_user.id:
+        raise HTTPException(400, "Vous ne pouvez pas supprimer votre propre compte.")
+
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "Utilisateur introuvable")
+
+    # ── Check all dependency tables ──
+    from app.models.common import AuditLog, Note, ProjectTask, UserGroupMember
+    from app.models.planner import PlannerActivity
+
+    dependency_checks = [
+        (AuditLog, "actor_id", "journal d'audit"),
+        (Note, "author_id", "notes"),
+        (ProjectTask, "assignee_id", "tâches assignées"),
+        (PlannerActivity, "created_by", "activités planner"),
+        (UserGroupMember, "user_id", "groupes"),
+    ]
+
+    # Also check Project.created_by
+    from app.models.common import Project
+    dependency_checks.append((Project, "created_by", "projets créés"))
+
+    blockers: list[str] = []
+    for model, col_name, label in dependency_checks:
+        col = getattr(model, col_name, None)
+        if col is None:
+            continue
+        count_result = await db.execute(
+            select(func.count()).where(col == user_id)
+        )
+        count = count_result.scalar() or 0
+        if count > 0:
+            blockers.append(f"{count} {label}")
+
+    if blockers:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "Cet utilisateur a de l'activité dans le système et ne peut pas être supprimé. Désactivez-le à la place.",
+                "blockers": blockers,
+            },
+        )
+
+    # No dependencies — safe to hard-delete
+    # Remove group memberships first (composite PK)
+    await db.execute(delete(UserGroupMember).where(UserGroupMember.user_id == user_id))
+    # Remove user permission overrides
+    from app.models.common import UserPermissionOverride
+    await db.execute(delete(UserPermissionOverride).where(UserPermissionOverride.user_id == user_id))
+
+    await db.delete(user)
+    await db.commit()
+
+    from app.core.rbac import invalidate_rbac_cache
+    await invalidate_rbac_cache(user_id)
+
+
 # ── Admin Avatar Upload ──────────────────────────────────────
 AVATAR_DIR = os.path.join("static", "avatars")
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp"}

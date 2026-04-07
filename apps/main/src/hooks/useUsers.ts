@@ -43,6 +43,16 @@ export function useUpdateUser() {
   })
 }
 
+export function useDeleteUser() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => usersService.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] })
+    },
+  })
+}
+
 export function useRevokeAllSessions() {
   const qc = useQueryClient()
   return useMutation({

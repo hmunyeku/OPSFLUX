@@ -41,7 +41,7 @@ import {
 } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
-import { useUsers, useUser, useCreateUser, useUpdateUser, useRevokeAllSessions, useUserEntities, useAssignUserToEntity, useRemoveUserFromEntity, useSendPasswordReset, useUsersStats, useRecentActivity, useUserTierLinks, useLinkUserToTier, useUnlinkUserFromTier, useProfileCompleteness, useAdminUploadAvatar, useAdminSetAvatarFromURL } from '@/hooks/useUsers'
+import { useUsers, useUser, useCreateUser, useUpdateUser, useDeleteUser, useRevokeAllSessions, useUserEntities, useAssignUserToEntity, useRemoveUserFromEntity, useSendPasswordReset, useUsersStats, useRecentActivity, useUserTierLinks, useLinkUserToTier, useUnlinkUserFromTier, useProfileCompleteness, useAdminUploadAvatar, useAdminSetAvatarFromURL } from '@/hooks/useUsers'
 import { useAllEntities } from '@/hooks/useEntities'
 import { usePageSize } from '@/hooks/usePageSize'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
@@ -1036,6 +1036,7 @@ function UserDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const { data: user } = useUser(id)
   const updateUser = useUpdateUser()
+  const deleteUser = useDeleteUser()
   const revokeAllSessions = useRevokeAllSessions()
   const sendPasswordReset = useSendPasswordReset()
   const { toast } = useToast()
@@ -1096,10 +1097,38 @@ function UserDetailPanel({ id }: { id: string }) {
     updateUser.mutate({ id, payload: normalizeNames({ [field]: value }) })
   }, [id, updateUser])
 
+  const confirm = useConfirm()
+
   const handleToggleActive = useCallback(() => {
     if (!user) return
     updateUser.mutate({ id, payload: { active: !user.active } })
   }, [id, user, updateUser])
+
+  const handleDelete = useCallback(async () => {
+    if (!user) return
+    const ok = await confirm({
+      title: 'Supprimer cet utilisateur ?',
+      message: `L'utilisateur "${user.first_name} ${user.last_name}" sera définitivement supprimé. Cette action est irréversible. Si l'utilisateur a de l'activité dans le système, la suppression sera refusée.`,
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+    })
+    if (!ok) return
+    deleteUser.mutate(id, {
+      onSuccess: () => toast({ title: 'Utilisateur supprimé', variant: 'success' }),
+      onError: (err) => {
+        const detail = (err as { response?: { data?: { detail?: { message?: string; blockers?: string[] } | string } } })?.response?.data?.detail
+        if (typeof detail === 'object' && detail?.blockers) {
+          toast({
+            title: detail.message || 'Suppression impossible',
+            description: detail.blockers.join(', '),
+            variant: 'error',
+          })
+        } else {
+          toast({ title: String(detail || 'Erreur lors de la suppression'), variant: 'error' })
+        }
+      },
+    })
+  }, [id, user, confirm, deleteUser, toast])
 
   const handleRevokeSessions = useCallback(() => {
     revokeAllSessions.mutate()
@@ -1171,6 +1200,13 @@ function UserDetailPanel({ id }: { id: string }) {
             ) : (
               <><UserCheck size={12} className="mr-1" /> Activer</>
             )}
+          </PanelActionButton>
+          <PanelActionButton
+            variant="danger"
+            onClick={handleDelete}
+            disabled={deleteUser.isPending}
+          >
+            <Trash2 size={12} className="mr-1" /> Supprimer
           </PanelActionButton>
         </>
       }

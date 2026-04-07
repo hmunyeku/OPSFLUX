@@ -120,7 +120,11 @@ export function ModuleDashboard({ module, title, className, children }: ModuleDa
 
   // ── Render ──
   const content = (
-    <div className={cn('flex flex-col flex-1 min-h-0', className)}>
+    <div className={cn('flex flex-col flex-1 min-h-0 relative', className)}>
+      {/* Floating toolbar — overlays top-right of grid area */}
+      {!editMode && toolbarJsx && (
+        <div className="absolute top-2 right-4 z-10">{toolbarJsx}</div>
+      )}
       {editMode && tab ? (
         <DashboardEditorLayout
           ref={editorRef}
@@ -130,7 +134,7 @@ export function ModuleDashboard({ module, title, className, children }: ModuleDa
           onExitEdit={() => setEditMode(false)}
         />
       ) : (
-        <div className="p-4">
+        <div className="p-4 pt-2">
           <DashboardGrid widgets={widgets} mode="view" />
         </div>
       )}
@@ -147,13 +151,9 @@ export function ModuleDashboard({ module, title, className, children }: ModuleDa
     )
   }
 
-  // Default: toolbar inline above content
+  // Default: no separate toolbar bar — it floats inside content
   return (
     <div className={cn('flex flex-col', className)}>
-      <div className="flex items-center h-9 px-4 border-b border-border shrink-0">
-        {title && <span className="text-sm font-semibold text-foreground">{title}</span>}
-        {toolbarJsx}
-      </div>
       {content}
     </div>
   )

@@ -87,7 +87,7 @@ export function EChartsWidget({
     }
 
     const toolbox = {
-      show: true,
+      show: false, // hidden — actions are in widget header
       right: 4,
       top: 0,
       iconStyle: {

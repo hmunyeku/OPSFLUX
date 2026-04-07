@@ -145,32 +145,33 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
         )}
         style={cssVars}
       >
-        {/* Compact header — visible on hover or edit mode */}
+        {/* Compact header */}
         <div className={cn(
-          'flex items-center h-8 px-3 gap-2 shrink-0 transition-opacity',
+          'flex items-center h-7 px-3 gap-1.5 shrink-0',
           hideHeader && mode !== 'edit' ? 'opacity-0 group-hover:opacity-100' : 'opacity-100',
         )}>
           {mode === 'edit' && (
             <div {...(dragHandleProps || {})} className="cursor-grab active:cursor-grabbing shrink-0">
-              <GripVertical className="h-3 w-3 text-muted-foreground/50" />
+              <GripVertical className="h-3 w-3 text-muted-foreground/40" />
             </div>
           )}
-          <WidgetTypeIcon type={widget.type} className="h-3 w-3 text-muted-foreground/60 shrink-0" />
-          <span className={cn('text-[11px] font-medium truncate flex-1', hasBgColor ? 'text-white/80' : 'text-muted-foreground')}>
+          <span className={cn('text-[11px] font-semibold truncate flex-1', hasBgColor ? 'text-white/90' : 'text-foreground/70')}>
             {widget.title}
           </span>
-          <span className={cn('text-[9px] shrink-0', hasBgColor ? 'text-white/40' : 'text-muted-foreground/40')}>
-            {formatRelativeTime(dataUpdatedAt)}
+          {/* Clock icon with relative time as tooltip */}
+          <span className={cn('shrink-0 cursor-default', hasBgColor ? 'text-white/30' : 'text-muted-foreground/30')} title={formatRelativeTime(dataUpdatedAt)}>
+            <Clock className="h-2.5 w-2.5" />
           </span>
+          {/* Action buttons — visible on hover */}
           <div className={cn('flex items-center gap-0.5 transition-opacity', mode !== 'edit' ? 'opacity-0 group-hover:opacity-100' : '')}>
-            <button onClick={() => refetch()} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-              <RefreshCw className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/60' : 'text-muted-foreground/60', isLoading && 'animate-spin')} />
+            <button onClick={() => refetch()} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Actualiser">
+              <RefreshCw className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/60' : 'text-muted-foreground/50', isLoading && 'animate-spin')} />
             </button>
-            <button onClick={() => setFullscreen(true)} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-              <Maximize2 className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/60' : 'text-muted-foreground/60')} />
+            <button onClick={() => setFullscreen(true)} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Plein ecran">
+              <Maximize2 className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/60' : 'text-muted-foreground/50')} />
             </button>
             {mode === 'edit' && onRemove && (
-              <button onClick={onRemove} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-destructive/20 transition-colors">
+              <button onClick={onRemove} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-destructive/20 transition-colors" title="Supprimer">
                 <X className="h-2.5 w-2.5 text-destructive/60" />
               </button>
             )}

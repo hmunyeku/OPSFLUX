@@ -44,7 +44,7 @@ export function ModuleDashboard({ module, title, className }: ModuleDashboardPro
 
   // Get the first mandatory tab for this module, or personal tab
   const tab = tabsData?.mandatory?.[0] || tabsData?.personal?.[0] || null
-  const widgets: DashboardWidget[] = tab?.widgets || []
+  const widgets: DashboardWidget[] = Array.isArray(tab?.widgets) ? tab.widgets : []
 
   // Create a personal module tab if none exists
   const handleCreateModuleTab = useCallback(async () => {

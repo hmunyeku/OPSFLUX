@@ -36,7 +36,9 @@ interface DashboardGridProps {
   onUpdateWidgets?: (widgets: DashboardWidget[]) => void
 }
 
-export function DashboardGrid({ widgets, mode, onRemoveWidget, onUpdateWidget, onUpdateWidgets }: DashboardGridProps) {
+export function DashboardGrid({ widgets: rawWidgets, mode, onRemoveWidget, onUpdateWidget, onUpdateWidgets }: DashboardGridProps) {
+  // Guard: ensure widgets is always an array (backend may return null/object)
+  const widgets = Array.isArray(rawWidgets) ? rawWidgets : []
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   )

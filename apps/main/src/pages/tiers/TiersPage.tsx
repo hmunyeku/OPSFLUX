@@ -20,12 +20,14 @@ import {
   Building2, Plus, Loader2, Trash2, MapPin, Paperclip, MessageSquare,
   Phone, Mail, Users, ArrowLeft, Star, Pencil, Globe, Clock,
   ChevronDown, FileText, Search, ShieldBan, ShieldCheck, Link2, X,
+  LayoutDashboard,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef, ImportExportConfig } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
 import { TabBar } from '@/components/ui/Tabs'
+import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { normalizeNames } from '@/lib/normalize'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePageSize } from '@/hooks/usePageSize'
@@ -1325,9 +1327,10 @@ function ContactDetailPanel({
 
 // -- Main Page ----------------------------------------------------------------
 
-type TiersTab = 'entreprises' | 'contacts'
+type TiersTab = 'dashboard' | 'entreprises' | 'contacts'
 
 const TABS: { id: TiersTab; label: string; icon: typeof Building2 }[] = [
+  { id: 'dashboard', label: 'tiers.tab_dashboard', icon: LayoutDashboard },
   { id: 'entreprises', label: 'tiers.tab_companies', icon: Building2 },
   { id: 'contacts', label: 'tiers.tab_contacts', icon: Users },
 ]
@@ -1416,7 +1419,7 @@ function useContactColumns() {
 
 export function TiersPage() {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState<TiersTab>('entreprises')
+  const [activeTab, setActiveTab] = useState<TiersTab>('dashboard')
   const tierTypeOptions = useDictionaryOptions('tier_type')
   const tierTypeLabels = useDictionaryLabels('tier_type')
   const legalFormLabels = useDictionaryLabels('legal_form')
@@ -1681,7 +1684,9 @@ export function TiersPage() {
         />
 
         <PanelContent>
-          {activeTab === 'entreprises' ? (
+          {activeTab === 'dashboard' ? (
+            <div className="p-4"><ModuleDashboard module="tiers" /></div>
+          ) : activeTab === 'entreprises' ? (
             <DataTable<Tier>
               columns={tierColumns}
               data={tiersData?.items ?? []}

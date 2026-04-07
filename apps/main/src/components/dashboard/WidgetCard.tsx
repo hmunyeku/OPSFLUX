@@ -84,7 +84,7 @@ interface WidgetCardProps {
 }
 
 export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _badge }: WidgetCardProps) {
-  const { t } = useTranslation()
+  useTranslation() // keep hook call for consistency
   // Use config.widget_id (provider ID) for data fetching, fallback to widget.id
   const dataWidgetId = (widget.config?.widget_id as string) || widget.id
   const { data, error, refetch, dataUpdatedAt, isLoading } = useWidgetData(

@@ -104,6 +104,7 @@ import {
   useUpdateRotation,
 } from '@/hooks/useTravelWiz'
 import { usePermission } from '@/hooks/usePermission'
+import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { FleetMap } from '@/components/travelwiz/FleetMap'
 import type {
   VoyageCreate, VoyageUpdate,
@@ -135,44 +136,43 @@ const TABS: { id: TravelWizTab; label: string; icon: typeof Plane }[] = [
 
 // ── Constants ─────────────────────────────────────────────────
 
-const VOYAGE_STATUS_OPTIONS = [
-  { value: '', label: 'Tous' },
-  { value: 'planned', label: 'Planifié' },
-  { value: 'confirmed', label: 'Confirmé' },
-  { value: 'boarding', label: 'Embarquement' },
-  { value: 'departed', label: 'En route' },
-  { value: 'arrived', label: 'Arrivé' },
-  { value: 'closed', label: 'Clôturé' },
-  { value: 'cancelled', label: 'Annulé' },
-  { value: 'delayed', label: 'Retardé' },
-]
-
-const VOYAGE_STATUS_MAP: Record<string, { label: string; badge: string }> = {
-  planned:   { label: 'Planifié',      badge: 'gl-badge-neutral' },
-  confirmed: { label: 'Confirmé',      badge: 'gl-badge-info' },
-  boarding:  { label: 'Embarquement',  badge: 'gl-badge-warning' },
-  departed:  { label: 'En route',      badge: 'gl-badge-warning' },
-  arrived:   { label: 'Arrivé',        badge: 'gl-badge-success' },
-  closed:    { label: 'Clôturé',       badge: 'gl-badge-success' },
-  cancelled: { label: 'Annulé',        badge: 'gl-badge-danger' },
-  delayed:   { label: 'Retardé',       badge: 'gl-badge-danger' },
+const VOYAGE_STATUS_LABELS_FALLBACK: Record<string, string> = {
+  planned: 'Planifié',
+  confirmed: 'Confirmé',
+  boarding: 'Embarquement',
+  departed: 'En route',
+  arrived: 'Arrivé',
+  closed: 'Clôturé',
+  cancelled: 'Annulé',
+  delayed: 'Retardé',
 }
 
-const MANIFEST_STATUS_MAP: Record<string, { label: string; badge: string }> = {
-  draft:              { label: 'Brouillon',       badge: 'gl-badge-neutral' },
-  pending_validation: { label: 'En validation',   badge: 'gl-badge-warning' },
-  validated:          { label: 'Validé',           badge: 'gl-badge-success' },
-  requires_review:    { label: 'À revoir',        badge: 'gl-badge-danger' },
-  closed:             { label: 'Clôturé',          badge: 'gl-badge-success' },
+const VOYAGE_STATUS_BADGES: Record<string, string> = {
+  planned: 'gl-badge-neutral',
+  confirmed: 'gl-badge-info',
+  boarding: 'gl-badge-warning',
+  departed: 'gl-badge-warning',
+  arrived: 'gl-badge-success',
+  closed: 'gl-badge-success',
+  cancelled: 'gl-badge-danger',
+  delayed: 'gl-badge-danger',
 }
 
-const MANIFEST_STATUS_OPTIONS = [
-  { value: '', label: 'Tous' },
-  { value: 'draft', label: 'Brouillon' },
-  { value: 'pending_validation', label: 'En validation' },
-  { value: 'validated', label: 'Validé' },
-  { value: 'closed', label: 'Clôturé' },
-]
+const MANIFEST_STATUS_LABELS_FALLBACK: Record<string, string> = {
+  draft: 'Brouillon',
+  pending_validation: 'En validation',
+  validated: 'Validé',
+  requires_review: 'À revoir',
+  closed: 'Clôturé',
+}
+
+const MANIFEST_STATUS_BADGES: Record<string, string> = {
+  draft: 'gl-badge-neutral',
+  pending_validation: 'gl-badge-warning',
+  validated: 'gl-badge-success',
+  requires_review: 'gl-badge-danger',
+  closed: 'gl-badge-success',
+}
 
 const VECTOR_TYPE_MAP: Record<string, { label: string; badge: string; icon: typeof Plane }> = {
   helicopter:        { label: 'Hélicoptère',   badge: 'gl-badge-info', icon: Plane },
@@ -187,32 +187,40 @@ const VECTOR_TYPE_MAP: Record<string, { label: string; badge: string; icon: type
   vehicle:           { label: 'Véhicule',      badge: 'gl-badge-neutral', icon: Truck },
 }
 
-const CARGO_STATUS_OPTIONS = [
-  { value: '', label: 'Tous' },
-  { value: 'registered', label: 'Enregistré' },
-  { value: 'ready', label: 'Prêt' },
-  { value: 'loaded', label: 'Chargé' },
-  { value: 'in_transit', label: 'En transit' },
-  { value: 'delivered', label: 'Livré' },
-  { value: 'return_declared', label: 'Retour déclaré' },
-]
+const CARGO_STATUS_LABELS_FALLBACK: Record<string, string> = {
+  registered: 'Enregistré',
+  ready: 'Prêt',
+  ready_for_loading: 'Prêt au chargement',
+  loaded: 'Chargé',
+  in_transit: 'En transit',
+  delivered: 'Livré',
+  delivered_intermediate: 'Livré (inter.)',
+  delivered_final: 'Livré (final)',
+  return_declared: 'Retour déclaré',
+  return_in_transit: 'Retour en transit',
+  returned: 'Retourné',
+  reintegrated: 'Réintégré',
+  scrapped: 'Mis au rebut',
+  damaged: 'Endommagé',
+  missing: 'Manquant',
+}
 
-const CARGO_STATUS_MAP: Record<string, { label: string; badge: string }> = {
-  registered:        { label: 'Enregistré',        badge: 'gl-badge-neutral' },
-  ready:             { label: 'Prêt',              badge: 'gl-badge-info' },
-  ready_for_loading: { label: 'Prêt au chargement', badge: 'gl-badge-info' },
-  loaded:            { label: 'Chargé',            badge: 'gl-badge-warning' },
-  in_transit:        { label: 'En transit',        badge: 'gl-badge-warning' },
-  delivered:         { label: 'Livré',             badge: 'gl-badge-success' },
-  delivered_intermediate: { label: 'Livré (inter.)', badge: 'gl-badge-info' },
-  delivered_final:   { label: 'Livré (final)',     badge: 'gl-badge-success' },
-  return_declared:   { label: 'Retour déclaré',    badge: 'gl-badge-warning' },
-  return_in_transit: { label: 'Retour en transit', badge: 'gl-badge-warning' },
-  returned:          { label: 'Retourné',          badge: 'gl-badge-success' },
-  reintegrated:      { label: 'Réintégré',         badge: 'gl-badge-success' },
-  scrapped:          { label: 'Mis au rebut',      badge: 'gl-badge-danger' },
-  damaged:           { label: 'Endommagé',         badge: 'gl-badge-danger' },
-  missing:           { label: 'Manquant',          badge: 'gl-badge-danger' },
+const CARGO_STATUS_BADGES: Record<string, string> = {
+  registered: 'gl-badge-neutral',
+  ready: 'gl-badge-info',
+  ready_for_loading: 'gl-badge-info',
+  loaded: 'gl-badge-warning',
+  in_transit: 'gl-badge-warning',
+  delivered: 'gl-badge-success',
+  delivered_intermediate: 'gl-badge-info',
+  delivered_final: 'gl-badge-success',
+  return_declared: 'gl-badge-warning',
+  return_in_transit: 'gl-badge-warning',
+  returned: 'gl-badge-success',
+  reintegrated: 'gl-badge-success',
+  scrapped: 'gl-badge-danger',
+  damaged: 'gl-badge-danger',
+  missing: 'gl-badge-danger',
 }
 
 const PACKAGE_DISPOSITION_VALUES: PackageElementDispositionUpdate['return_status'][] = [
@@ -224,11 +232,10 @@ const PACKAGE_DISPOSITION_VALUES: PackageElementDispositionUpdate['return_status
 
 // ── Helpers ───────────────────────────────────────────────────
 
-function StatusBadge({ status, map }: { status: string; map: Record<string, { label: string; badge: string }> }) {
-  const entry = map[status]
+function StatusBadge({ status, labels, badges }: { status: string; labels: Record<string, string>; badges: Record<string, string> }) {
   return (
-    <span className={cn('gl-badge', entry?.badge || 'gl-badge-neutral')}>
-      {entry?.label || status.replace(/_/g, ' ')}
+    <span className={cn('gl-badge', badges[status] || 'gl-badge-neutral')}>
+      {labels[status] || status.replace(/_/g, ' ')}
     </span>
   )
 }
@@ -258,6 +265,13 @@ function buildPickupMapEmbedUrl(latitude: number | null | undefined, longitude: 
     latitude + delta,
   ].join('%2C')
   return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitude}%2C${longitude}`
+}
+
+function buildStatusOptions(labels: Record<string, string>, values: string[]) {
+  return [
+    { value: '', label: 'Tous' },
+    ...values.map((value) => ({ value, label: labels[value] ?? value })),
+  ]
 }
 
 function StatCard({ label, value, icon: Icon, accent }: { label: string; value: string | number; icon: typeof Plane; accent?: string }) {
@@ -296,6 +310,7 @@ function DashboardTab() {
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { data: tripsToday, isLoading: loadingTrips } = useTripsToday()
   const { data: fleetKpis, isLoading: loadingKpis } = useFleetKpis()
+  const voyageStatusLabels = useDictionaryLabels('travelwiz_voyage_status', VOYAGE_STATUS_LABELS_FALLBACK)
 
   const trips = tripsToday?.trips ?? []
   const kpis = fleetKpis
@@ -343,7 +358,7 @@ function DashboardTab() {
       accessorKey: 'status',
       header: 'Statut',
       size: 110,
-      cell: ({ row }) => <StatusBadge status={row.original.status} map={VOYAGE_STATUS_MAP} />,
+      cell: ({ row }) => <StatusBadge status={row.original.status} labels={voyageStatusLabels} badges={VOYAGE_STATUS_BADGES} />,
     },
     {
       accessorKey: 'pax_count',
@@ -356,7 +371,7 @@ function DashboardTab() {
         </span>
       ),
     },
-  ], [])
+  ], [voyageStatusLabels])
 
   // Fleet utilization bars
   const utilizationEntries = useMemo(() => {
@@ -449,6 +464,11 @@ function VoyagesTab() {
   const canExport = hasPermission('travelwiz.voyage.read')
   const canImport = hasPermission('travelwiz.voyage.create')
   const { data: rotationsData, isLoading: loadingRotations } = useRotations({ page: 1, page_size: 100 })
+  const voyageStatusLabels = useDictionaryLabels('travelwiz_voyage_status', VOYAGE_STATUS_LABELS_FALLBACK)
+  const voyageStatusOptions = useMemo(
+    () => buildStatusOptions(voyageStatusLabels, ['planned', 'confirmed', 'boarding', 'departed', 'arrived', 'closed', 'cancelled', 'delayed']),
+    [voyageStatusLabels],
+  )
 
   const { data, isLoading } = useVoyages({
     page,
@@ -512,7 +532,7 @@ function VoyagesTab() {
       accessorKey: 'status',
       header: 'Statut',
       size: 110,
-      cell: ({ row }) => <StatusBadge status={row.original.status} map={VOYAGE_STATUS_MAP} />,
+      cell: ({ row }) => <StatusBadge status={row.original.status} labels={voyageStatusLabels} badges={VOYAGE_STATUS_BADGES} />,
     },
     {
       accessorKey: 'pax_count',
@@ -553,7 +573,7 @@ function VoyagesTab() {
         </button>
       ),
     }] : []),
-  ], [deleteVoyage, canDelete])
+  ], [deleteVoyage, canDelete, voyageStatusLabels])
 
   return (
     <>
@@ -566,7 +586,7 @@ function VoyagesTab() {
 
       <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
         <div className="flex items-center gap-1 overflow-x-auto">
-          {VOYAGE_STATUS_OPTIONS.map((opt) => (
+          {voyageStatusOptions.map((opt) => (
             <button
               key={opt.value}
               onClick={() => { setStatusFilter(opt.value); setPage(1) }}
@@ -992,7 +1012,7 @@ function CargoPackageElementsSection({
                   </DynamicPanelField>
                   <div className="flex items-center text-xs text-muted-foreground">
                     {hasReturn
-                      ? `Statut cargo actuel: ${cargoStatusLabels[cargoStatus] ?? CARGO_STATUS_MAP[cargoStatus]?.label ?? cargoStatus}`
+                      ? `Statut cargo actuel: ${cargoStatusLabels[cargoStatus] ?? CARGO_STATUS_LABELS_FALLBACK[cargoStatus] ?? cargoStatus}`
                       : 'Déclare d’abord une quantité retournée avant le dispatch base.'}
                   </div>
                   <div className="flex items-end">
@@ -1479,6 +1499,11 @@ function ManifestesTab() {
   const [statusFilter, setStatusFilter] = useState('')
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const validateManifest = useValidateManifest()
+  const manifestStatusLabels = useDictionaryLabels('travelwiz_manifest_status', MANIFEST_STATUS_LABELS_FALLBACK)
+  const manifestStatusOptions = useMemo(
+    () => buildStatusOptions(manifestStatusLabels, ['draft', 'pending_validation', 'validated', 'requires_review', 'closed']),
+    [manifestStatusLabels],
+  )
 
   const { data, isLoading } = useAllManifests({
     page,
@@ -1514,7 +1539,7 @@ function ManifestesTab() {
       accessorKey: 'status',
       header: 'Statut',
       size: 120,
-      cell: ({ row }) => <StatusBadge status={row.original.status} map={MANIFEST_STATUS_MAP} />,
+      cell: ({ row }) => <StatusBadge status={row.original.status} labels={manifestStatusLabels} badges={MANIFEST_STATUS_BADGES} />,
     },
     {
       accessorKey: 'passenger_count',
@@ -1561,7 +1586,7 @@ function ManifestesTab() {
         )
       },
     },
-  ], [validateManifest])
+  ], [manifestStatusLabels, validateManifest])
 
   return (
     <>
@@ -1574,7 +1599,7 @@ function ManifestesTab() {
 
       <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
         <div className="flex items-center gap-1 overflow-x-auto">
-          {MANIFEST_STATUS_OPTIONS.map((opt) => (
+          {manifestStatusOptions.map((opt) => (
             <button
               key={opt.value}
               onClick={() => { setStatusFilter(opt.value); setPage(1) }}
@@ -1624,6 +1649,11 @@ function CargoTab() {
   const updateCargoStatus = useUpdateCargoStatus()
   const { data: cargoRequestsData } = useCargoRequests({ page: 1, page_size: 8 })
   const cargoRequestStatusLabels = useDictionaryLabels('travelwiz_cargo_request_status')
+  const cargoStatusLabels = useDictionaryLabels('travelwiz_cargo_status', CARGO_STATUS_LABELS_FALLBACK)
+  const cargoStatusOptions = useMemo(
+    () => buildStatusOptions(cargoStatusLabels, ['registered', 'ready', 'ready_for_loading', 'loaded', 'in_transit', 'delivered', 'delivered_intermediate', 'delivered_final', 'return_declared', 'return_in_transit', 'returned', 'reintegrated', 'scrapped', 'damaged', 'missing']),
+    [cargoStatusLabels],
+  )
 
   const { data, isLoading } = useCargo({
     page,
@@ -1683,7 +1713,7 @@ function CargoTab() {
       accessorKey: 'status',
       header: 'Statut',
       size: 120,
-      cell: ({ row }) => <StatusBadge status={row.original.status} map={CARGO_STATUS_MAP} />,
+      cell: ({ row }) => <StatusBadge status={row.original.status} labels={cargoStatusLabels} badges={CARGO_STATUS_BADGES} />,
     },
     {
       id: 'flags',
@@ -1726,7 +1756,7 @@ function CargoTab() {
         )
       },
     },
-  ], [updateCargoStatus])
+  ], [cargoStatusLabels, updateCargoStatus])
 
   return (
     <>
@@ -1762,7 +1792,7 @@ function CargoTab() {
 
       <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
         <div className="flex items-center gap-1 overflow-x-auto">
-          {CARGO_STATUS_OPTIONS.map((opt) => (
+          {cargoStatusOptions.map((opt) => (
             <button
               key={opt.value}
               onClick={() => { setStatusFilter(opt.value); setPage(1) }}
@@ -2053,19 +2083,18 @@ function FleetMapTab() {
 // ── PICKUP (RAMASSAGE) TAB ───────────────────────────────────
 // ══════════════════════════════════════════════════════════════
 
-const PICKUP_STATUS_OPTIONS = [
-  { value: '', label: 'Tous' },
-  { value: 'planned', label: 'Planifie' },
-  { value: 'in_progress', label: 'En cours' },
-  { value: 'completed', label: 'Termine' },
-  { value: 'cancelled', label: 'Annule' },
-]
+const PICKUP_STATUS_LABELS_FALLBACK: Record<string, string> = {
+  planned: 'Planifié',
+  in_progress: 'En cours',
+  completed: 'Terminé',
+  cancelled: 'Annulé',
+}
 
-const PICKUP_STATUS_MAP: Record<string, { label: string; badge: string }> = {
-  planned:     { label: 'Planifie',  badge: 'gl-badge-neutral' },
-  in_progress: { label: 'En cours',  badge: 'gl-badge-warning' },
-  completed:   { label: 'Termine',   badge: 'gl-badge-success' },
-  cancelled:   { label: 'Annule',    badge: 'gl-badge-danger' },
+const PICKUP_STATUS_BADGES: Record<string, string> = {
+  planned: 'gl-badge-neutral',
+  in_progress: 'gl-badge-warning',
+  completed: 'gl-badge-success',
+  cancelled: 'gl-badge-danger',
 }
 
 function PickupTab() {
@@ -2075,6 +2104,11 @@ function PickupTab() {
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const closeRound = useClosePickupRound()
+  const pickupStatusLabels = useDictionaryLabels('travelwiz_pickup_status', PICKUP_STATUS_LABELS_FALLBACK)
+  const pickupStatusOptions = useMemo(
+    () => buildStatusOptions(pickupStatusLabels, ['planned', 'in_progress', 'completed', 'cancelled']),
+    [pickupStatusLabels],
+  )
 
   const { data, isLoading } = usePickupRounds({
     page,
@@ -2132,15 +2166,15 @@ function PickupTab() {
       accessorKey: 'status',
       header: 'Statut',
       size: 110,
-      cell: ({ row }) => <StatusBadge status={row.original.status} map={PICKUP_STATUS_MAP} />,
+      cell: ({ row }) => <StatusBadge status={row.original.status} labels={pickupStatusLabels} badges={PICKUP_STATUS_BADGES} />,
     },
-  ], [])
+  ], [pickupStatusLabels])
 
   return (
     <>
       <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
         <div className="flex items-center gap-1 overflow-x-auto">
-          {PICKUP_STATUS_OPTIONS.map((opt) => (
+          {pickupStatusOptions.map((opt) => (
             <button
               key={opt.value}
               onClick={() => { setStatusFilter(opt.value); setPage(1) }}
@@ -2189,7 +2223,7 @@ function PickupTab() {
                 Fermer
               </button>
             </div>
-            <StatusBadge status={roundDetail.status} map={PICKUP_STATUS_MAP} />
+            <StatusBadge status={roundDetail.status} labels={pickupStatusLabels} badges={PICKUP_STATUS_BADGES} />
 
             <div className="space-y-1.5">
               <h4 className="text-xs font-medium text-foreground uppercase tracking-wide">Arrets</h4>
@@ -2273,7 +2307,11 @@ function WeatherTab() {
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">{w.site_name}</h3>
             {w.flight_status && (
-              <StatusBadge status={w.flight_status} map={FLIGHT_STATUS_MAP} />
+              <StatusBadge
+                status={w.flight_status}
+                labels={Object.fromEntries(Object.entries(FLIGHT_STATUS_MAP).map(([key, value]) => [key, value.label]))}
+                badges={Object.fromEntries(Object.entries(FLIGHT_STATUS_MAP).map(([key, value]) => [key, value.badge]))}
+              />
             )}
           </div>
 
@@ -2433,7 +2471,7 @@ export function TravelWizPage() {
             })}
           </div>
 
-          {activeTab === 'dashboard' && <DashboardTab />}
+          {activeTab === 'dashboard' && <div className="space-y-4"><ModuleDashboard module="travelwiz" /><DashboardTab /></div>}
           {activeTab === 'voyages' && <VoyagesTab />}
           {activeTab === 'manifests' && <ManifestesTab />}
           {activeTab === 'cargo' && <CargoTab />}
@@ -3727,9 +3765,15 @@ function VoyageDetailPanel({ id }: { id: string }) {
   const { data: events } = useVoyageEvents(id)
   const { data: kpis } = useTripKpis(id)
   const { data: cargoOperationsReport } = useVoyageCargoOperationsReport(id)
-  const cargoStatusLabels = useDictionaryLabels('travelwiz_cargo_status')
+  const voyageStatusLabels = useDictionaryLabels('travelwiz_voyage_status', VOYAGE_STATUS_LABELS_FALLBACK)
+  const manifestStatusLabels = useDictionaryLabels('travelwiz_manifest_status', MANIFEST_STATUS_LABELS_FALLBACK)
+  const cargoStatusLabels = useDictionaryLabels('travelwiz_cargo_status', CARGO_STATUS_LABELS_FALLBACK)
   const cargoWorkflowLabels = useDictionaryLabels('travelwiz_cargo_workflow_status')
   const packageReturnStatusLabels = useDictionaryLabels('travelwiz_package_return_status')
+  const voyageStatusOptions = useMemo(
+    () => buildStatusOptions(voyageStatusLabels, ['planned', 'confirmed', 'boarding', 'departed', 'arrived', 'closed', 'cancelled', 'delayed']).filter((option) => option.value),
+    [voyageStatusLabels],
+  )
   const { toast } = useToast()
   const [editing, setEditing] = useState(false)
   const [cargoReportExportOpen, setCargoReportExportOpen] = useState(false)
@@ -3836,7 +3880,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
           <select className="text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground h-7" value=""
             onChange={(e) => { if (e.target.value) updateStatus.mutate({ id, status: e.target.value }) }}>
             <option value="">Statut...</option>
-            {Object.entries(VOYAGE_STATUS_MAP).filter(([k]) => k !== voyage.status).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            {voyageStatusOptions.filter((option) => option.value !== voyage.status).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         )}
         {!editing && canUpdate && (voyage.status as string) === 'arrived' && (
@@ -3850,7 +3894,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
       <PanelContentLayout>
         {/* Status badge */}
         <div className="flex items-center gap-2 flex-wrap">
-          <StatusBadge status={voyage.status} map={VOYAGE_STATUS_MAP} />
+          <StatusBadge status={voyage.status} labels={voyageStatusLabels} badges={VOYAGE_STATUS_BADGES} />
         </div>
 
         {editing ? (
@@ -3980,7 +4024,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
                         <p className="text-sm text-foreground truncate">{m.reference || m.manifest_type || 'Manifeste'}</p>
                         <p className="text-xs text-muted-foreground">{m.passenger_count ?? 0} passagers</p>
                       </div>
-                      <StatusBadge status={m.status} map={MANIFEST_STATUS_MAP} />
+                      <StatusBadge status={m.status} labels={manifestStatusLabels} badges={MANIFEST_STATUS_BADGES} />
                     </div>
                   ))}
                 </div>
@@ -4430,7 +4474,7 @@ function CargoDetailPanel({ id }: { id: string }) {
   const packageReturnStatusOptions = useDictionaryOptions('travelwiz_package_return_status')
   const cargoTypeLabels = useDictionaryLabels('travelwiz_cargo_type')
   const ownershipLabels = useDictionaryLabels('travelwiz_cargo_ownership_type')
-  const cargoStatusLabels = useDictionaryLabels('travelwiz_cargo_status')
+  const cargoStatusLabels = useDictionaryLabels('travelwiz_cargo_status', CARGO_STATUS_LABELS_FALLBACK)
   const cargoWorkflowLabels = useDictionaryLabels('travelwiz_cargo_workflow_status')
   const cargoRequestStatusLabels = useDictionaryLabels('travelwiz_cargo_request_status')
   const backCargoReturnTypeLabels = useDictionaryLabels('travelwiz_back_cargo_return_type')
@@ -4700,7 +4744,7 @@ function CargoDetailPanel({ id }: { id: string }) {
       <PanelContentLayout>
         {/* Status + HAZMAT warning */}
         <div className="flex items-center gap-2 flex-wrap">
-          <StatusBadge status={cargo.status} map={CARGO_STATUS_MAP} />
+          <StatusBadge status={cargo.status} labels={cargoStatusLabels} badges={CARGO_STATUS_BADGES} />
           <span className="gl-badge gl-badge-info">{cargoWorkflowLabels[cargo.workflow_status] ?? cargo.workflow_status}</span>
           {cargo.hazmat_validated && (
             <span className="inline-flex items-center gap-1 text-xs text-destructive font-medium">
@@ -4712,7 +4756,9 @@ function CargoDetailPanel({ id }: { id: string }) {
             <select className="text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground" value=""
               onChange={(e) => { if (e.target.value) updateCargoSt.mutate({ id, status: e.target.value }) }}>
               <option value="">Changer statut...</option>
-              {Object.entries(CARGO_STATUS_MAP).filter(([k]) => k !== cargo.status).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              {buildStatusOptions(cargoStatusLabels, ['registered', 'ready', 'ready_for_loading', 'loaded', 'in_transit', 'delivered', 'delivered_intermediate', 'delivered_final', 'return_declared', 'return_in_transit', 'returned', 'reintegrated', 'scrapped', 'damaged', 'missing'])
+                .filter((option) => option.value && option.value !== cargo.status)
+                .map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           )}
           {!editing && (

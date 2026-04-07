@@ -45,7 +45,7 @@ export function ModuleDashboard({ module, title, className, children }: ModuleDa
   const { hasPermission } = usePermission()
   const canEdit = hasPermission('dashboard.customize') || hasPermission('dashboard.admin')
 
-  const { data: tabsData } = useDashboardTabs(module)
+  const { data: tabsData, isLoading: tabsLoading } = useDashboardTabs(module)
   const { data: catalog } = useWidgetCatalog()
   const createTab = useCreateDashboardTab()
 
@@ -102,7 +102,9 @@ export function ModuleDashboard({ module, title, className, children }: ModuleDa
     </div>
   ) : null
 
-  // ── No tab state ──
+  // ── No tab state — wait for data before deciding ──
+  if (tabsLoading) return null
+
   if (!tab && !canEdit) return null
 
   if (!tab && canEdit) {

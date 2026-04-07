@@ -4096,17 +4096,19 @@ function _OldDashboardView_REMOVED() {
   )
 }
 
+void _OldDashboardView_REMOVED
+
 // -- View Tab Selector --------------------------------------------------------
 
 type ViewTab = 'projets' | 'tableur' | 'kanban' | 'planning' | 'dashboard'
 
 function ViewTabSelector({ active, onChange }: { active: ViewTab; onChange: (tab: ViewTab) => void }) {
   const tabs: { id: ViewTab; label: string; icon: typeof FolderKanban }[] = [
+    { id: 'dashboard', label: 'Dashboard', icon: Target },
     { id: 'projets', label: 'Projets', icon: FolderKanban },
     { id: 'tableur', label: 'Tableur', icon: Sheet },
     { id: 'kanban', label: 'Kanban', icon: Layers },
     { id: 'planning', label: 'Planning', icon: CalendarRange },
-    { id: 'dashboard', label: 'Dashboard', icon: Target },
   ]
 
   return (
@@ -4306,7 +4308,7 @@ function ProjectsListView() {
 
 export function ProjetsPage() {
   useTranslation()
-  const [viewTab, setViewTab] = useState<ViewTab>('projets')
+  const [viewTab, setViewTab] = useState<ViewTab>('dashboard')
 
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)

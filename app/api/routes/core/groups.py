@@ -524,7 +524,7 @@ async def remove_member(
     if not member:
         raise HTTPException(status_code=404, detail="Member not found in group")
 
-    await delete_entity(member, db, "user_group_member", entity_id=member.id, user_id=current_user.id)
+    await db.delete(member)
     await db.commit()
 
     await invalidate_rbac_cache(user_id)

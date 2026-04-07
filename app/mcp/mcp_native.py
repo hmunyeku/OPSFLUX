@@ -12,11 +12,23 @@ the McpGatewayBackend.config column on first request.
 
 import json
 import logging
+from dataclasses import dataclass, field
 from typing import Any, Callable, Awaitable
 
 from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class NativeToolContext:
+    """Execution context for user-scoped native MCP calls."""
+
+    user_id: str | None = None
+    entity_id: str | None = None
+    tenant_schema: str | None = None
+    permissions: set[str] = field(default_factory=set)
+    token_id: str | None = None
 
 
 class NativeBackend:
@@ -28,17 +40,36 @@ class NativeBackend:
         version: str,
         tools_list: list[dict[str, Any]],
         call_tool: Callable[[str, dict], Awaitable[dict]],
+        list_tools_fn: Callable[[NativeToolContext | None], Awaitable[list[dict[str, Any]]]] | None = None,
+        call_tool_with_context: Callable[[str, dict, NativeToolContext | None], Awaitable[dict]] | None = None,
         close_fn: Callable[[], Awaitable[None]] | None = None,
     ):
         self.name = name
         self.version = version
         self.tools_list = tools_list
         self.call_tool = call_tool
+        self._list_tools_fn = list_tools_fn
+        self._call_tool_with_context = call_tool_with_context
         self._close_fn = close_fn
 
     async def close(self):
         if self._close_fn:
             await self._close_fn()
+
+    async def list_tools(self, context: NativeToolContext | None = None) -> list[dict[str, Any]]:
+        if self._list_tools_fn is not None:
+            return await self._list_tools_fn(context)
+        return self.tools_list
+
+    async def execute_tool(
+        self,
+        name: str,
+        arguments: dict,
+        context: NativeToolContext | None = None,
+    ) -> dict:
+        if self._call_tool_with_context is not None:
+            return await self._call_tool_with_context(name, arguments, context)
+        return await self.call_tool(name, arguments)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -98,7 +129,11 @@ async def close_all_backends() -> None:
 # MCP Streamable HTTP protocol handler
 # ═══════════════════════════════════════════════════════════════════════════════
 
-async def handle_mcp_request(backend: NativeBackend, body: bytes) -> JSONResponse:
+async def handle_mcp_request(
+    backend: NativeBackend,
+    body: bytes,
+    context: NativeToolContext | None = None,
+) -> JSONResponse:
     """Handle a single MCP Streamable HTTP request (JSON-RPC 2.0).
 
     Returns a JSONResponse with Content-Type: application/json.
@@ -127,7 +162,8 @@ async def handle_mcp_request(backend: NativeBackend, body: bytes) -> JSONRespons
 
     # ── tools/list ─────────────────────────────────────────────────────
     if method == "tools/list":
-        return _jsonrpc_ok(req_id, {"tools": backend.tools_list})
+        tools = await backend.list_tools(context)
+        return _jsonrpc_ok(req_id, {"tools": tools})
 
     # ── tools/call ─────────────────────────────────────────────────────
     if method == "tools/call":
@@ -135,7 +171,7 @@ async def handle_mcp_request(backend: NativeBackend, body: bytes) -> JSONRespons
         arguments = params.get("arguments", {})
 
         try:
-            result = await backend.call_tool(tool_name, arguments)
+            result = await backend.execute_tool(tool_name, arguments, context)
             return _jsonrpc_ok(req_id, result)
         except ValueError as exc:
             # Validation error → return as tool error (not protocol error)

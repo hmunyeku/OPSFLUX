@@ -26,8 +26,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
 from app.core.database import get_db, async_session_factory
+from app.core.rbac import get_user_permissions
 from app.models.common import User
 from app.models.mcp_gateway import McpGatewayBackend, McpGatewayToken
+from app.mcp.mcp_native import NativeToolContext
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +69,17 @@ async def close_http_client():
 
 def _hash_token(raw: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _backend_is_internal(backend: McpGatewayBackend) -> bool:
+    return backend.upstream_url.startswith("internal://")
+
+
+def _get_request_tenant_schema(request: Request) -> str | None:
+    schema = getattr(request.state, "tenant_schema", None)
+    if not isinstance(schema, str) or not schema or not schema.isidentifier():
+        return None
+    return schema
 
 
 async def _verify_mcp_token(
@@ -109,6 +122,55 @@ async def _verify_mcp_token(
         await session.commit()
 
         return token
+
+
+async def _build_native_tool_context(
+    *,
+    token: McpGatewayToken,
+    request: Request,
+) -> NativeToolContext | None:
+    """Build tenant/user/permission context for a native MCP call.
+
+    For legacy admin tokens or requests without a tenant schema, we return None
+    and keep the historical unrestricted behavior.
+    """
+    if token.created_by is None:
+        return None
+
+    tenant_schema = _get_request_tenant_schema(request)
+    if tenant_schema in (None, "public"):
+        logger.warning(
+            "MCP gateway: missing tenant schema for personal token %s, keeping legacy native access mode",
+            token.id,
+        )
+        return None
+
+    async with async_session_factory() as session:
+        await session.execute(text(f"SET search_path TO {tenant_schema}, public"))
+        result = await session.execute(
+            select(User).where(
+                User.id == token.created_by,
+                User.active == True,  # noqa: E712
+            )
+        )
+        user = result.scalar_one_or_none()
+        if user is None or user.default_entity_id is None:
+            logger.warning(
+                "MCP gateway: user context unavailable for token %s in schema %s",
+                token.id,
+                tenant_schema,
+            )
+            return None
+
+        permissions = await get_user_permissions(user.id, user.default_entity_id, session)
+
+    return NativeToolContext(
+        user_id=str(user.id),
+        entity_id=str(user.default_entity_id),
+        tenant_schema=tenant_schema,
+        permissions=permissions,
+        token_id=str(token.id),
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -185,6 +247,19 @@ class TokenCreated(BaseModel):
     expires_at: datetime | None
 
 
+def _token_out_from_model(token: McpGatewayToken) -> TokenOut:
+    return TokenOut(
+        id=token.id,
+        name=token.name,
+        scopes=token.scopes,
+        created_at=token.created_at,
+        expires_at=token.expires_at,
+        revoked=token.revoked,
+        last_used_at=token.last_used_at,
+        token_preview=token.token_hash[:8] + "...",
+    )
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Admin router (JWT auth)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -192,6 +267,11 @@ class TokenCreated(BaseModel):
 admin_router = APIRouter(
     prefix="/api/v1/mcp-gateway",
     tags=["mcp-gateway"],
+)
+
+user_router = APIRouter(
+    prefix="/api/v1/mcp",
+    tags=["mcp"],
 )
 
 
@@ -321,7 +401,7 @@ async def list_backend_tools(
             raise HTTPException(503, f"Backend init failed: {str(exc)[:300]}")
         if native is None:
             raise HTTPException(503, f"Backend '{backend_slug}' not configured")
-        return {"backend": backend_slug, "tools": native.tools_list}
+        return {"backend": backend_slug, "tools": await native.list_tools()}
 
     # External backend — proxy tools/list via MCP protocol
     client = _get_http_client()
@@ -352,19 +432,7 @@ async def list_tokens(
             select(McpGatewayToken).order_by(McpGatewayToken.created_at.desc())
         )
         tokens = result.scalars().all()
-        return [
-            TokenOut(
-                id=t.id,
-                name=t.name,
-                scopes=t.scopes,
-                created_at=t.created_at,
-                expires_at=t.expires_at,
-                revoked=t.revoked,
-                last_used_at=t.last_used_at,
-                token_preview=t.token_hash[:8] + "...",
-            )
-            for t in tokens
-        ]
+        return [_token_out_from_model(t) for t in tokens]
 
 
 @admin_router.post("/tokens", response_model=TokenCreated, status_code=201)
@@ -431,6 +499,133 @@ async def delete_token(
         await pub_session.execute(text("SET search_path TO public"))
         result = await pub_session.execute(
             select(McpGatewayToken).where(McpGatewayToken.id == token_id)
+        )
+        token = result.scalar_one_or_none()
+        if not token:
+            raise HTTPException(404, "Token not found")
+        await pub_session.delete(token)
+        await pub_session.commit()
+
+
+@user_router.get("/backends", response_model=list[BackendOut])
+async def list_my_backends(
+    current_user: User = Depends(get_current_user),
+):
+    del current_user
+    async with async_session_factory() as pub_session:
+        await pub_session.execute(text("SET search_path TO public"))
+        query = select(McpGatewayBackend).where(
+            McpGatewayBackend.active == True  # noqa: E712
+        )
+        result = await pub_session.execute(query.order_by(McpGatewayBackend.slug))
+        backends = result.scalars().all()
+        backends = [b for b in backends if not _backend_is_internal(b)]
+        return [BackendOut.from_model(b) for b in backends]
+
+
+@user_router.get("/tokens", response_model=list[TokenOut])
+async def list_my_tokens(
+    current_user: User = Depends(get_current_user),
+):
+    async with async_session_factory() as pub_session:
+        await pub_session.execute(text("SET search_path TO public"))
+        result = await pub_session.execute(
+            select(McpGatewayToken)
+            .where(McpGatewayToken.created_by == current_user.id)
+            .order_by(McpGatewayToken.created_at.desc())
+        )
+        return [_token_out_from_model(t) for t in result.scalars().all()]
+
+
+@user_router.post("/tokens", response_model=TokenCreated, status_code=201)
+async def create_my_token(
+    body: TokenCreate,
+    current_user: User = Depends(get_current_user),
+):
+    requested_scopes = [s.strip() for s in body.scopes.split(",") if s.strip()]
+
+    async with async_session_factory() as pub_session:
+        await pub_session.execute(text("SET search_path TO public"))
+        result = await pub_session.execute(
+            select(McpGatewayBackend).where(McpGatewayBackend.active == True)  # noqa: E712
+        )
+        backends = {b.slug: b for b in result.scalars().all()}
+
+    if body.scopes.strip() == "*":
+        raise HTTPException(
+            status_code=403,
+            detail="Les tokens personnels ne peuvent pas cibler tous les backends.",
+        )
+    forbidden = [
+        slug for slug in requested_scopes
+        if slug in backends and _backend_is_internal(backends[slug])
+    ]
+    if forbidden:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Backends internes non autorisés pour les tokens personnels: {', '.join(forbidden)}",
+        )
+
+    raw_token = secrets.token_hex(32)
+    expires_at = None
+    if body.expires_in_days:
+        expires_at = datetime.now(UTC) + timedelta(days=body.expires_in_days)
+
+    async with async_session_factory() as pub_session:
+        await pub_session.execute(text("SET search_path TO public"))
+        token = McpGatewayToken(
+            name=body.name,
+            token_hash=_hash_token(raw_token),
+            scopes=body.scopes,
+            created_by=current_user.id,
+            expires_at=expires_at,
+        )
+        pub_session.add(token)
+        await pub_session.commit()
+        await pub_session.refresh(token)
+
+    return TokenCreated(
+        id=token.id,
+        name=token.name,
+        token=raw_token,
+        scopes=token.scopes,
+        expires_at=token.expires_at,
+    )
+
+
+@user_router.post("/tokens/{token_id}/revoke", status_code=200)
+async def revoke_my_token(
+    token_id: UUID,
+    current_user: User = Depends(get_current_user),
+):
+    async with async_session_factory() as pub_session:
+        await pub_session.execute(text("SET search_path TO public"))
+        result = await pub_session.execute(
+            select(McpGatewayToken).where(
+                McpGatewayToken.id == token_id,
+                McpGatewayToken.created_by == current_user.id,
+            )
+        )
+        token = result.scalar_one_or_none()
+        if not token:
+            raise HTTPException(404, "Token not found")
+        token.revoked = True
+        await pub_session.commit()
+    return {"status": "revoked"}
+
+
+@user_router.delete("/tokens/{token_id}", status_code=204)
+async def delete_my_token(
+    token_id: UUID,
+    current_user: User = Depends(get_current_user),
+):
+    async with async_session_factory() as pub_session:
+        await pub_session.execute(text("SET search_path TO public"))
+        result = await pub_session.execute(
+            select(McpGatewayToken).where(
+                McpGatewayToken.id == token_id,
+                McpGatewayToken.created_by == current_user.id,
+            )
         )
         token = result.scalar_one_or_none()
         if not token:
@@ -858,7 +1053,8 @@ async def _proxy_backend_call(backend_slug: str, request: Request, path: str = "
                 status_code=500,
             )
         body = await request.body()
-        return await handle_mcp_request(native, body)
+        native_context = await _build_native_tool_context(token=token, request=request)
+        return await handle_mcp_request(native, body, context=native_context)
 
     # 5. Build upstream request
     upstream_url = f"{backend.upstream_url}/{path}"
@@ -990,6 +1186,7 @@ async def root_authorize_submit(request: Request):
 
 # Combined router for main.py registration
 router = APIRouter()
+router.include_router(user_router)
 router.include_router(admin_router)
 router.include_router(proxy_router)
 router.include_router(short_mcp_router)

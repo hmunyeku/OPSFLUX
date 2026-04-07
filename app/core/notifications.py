@@ -4,10 +4,113 @@ import logging
 from datetime import UTC, datetime
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
+
+_USER_PREFS_KEY = "user.preferences"
+
+
+def _normalize_notification_module(category: str | None) -> str | None:
+    raw = (category or "").strip().lower()
+    if not raw:
+        return None
+    aliases = {
+        "paxlog": "paxlog",
+        "ads": "paxlog",
+        "travelwiz": "travelwiz",
+        "planner": "planner",
+        "project": "projects",
+        "projets": "projects",
+        "projects": "projects",
+        "workflow": "workflow",
+        "document": "workflow",
+        "conformite": "conformite",
+        "support": "support",
+        "messaging": "messaging",
+        "core": "core",
+        "info": "core",
+    }
+    return aliases.get(raw, raw)
+
+
+async def _is_notification_channel_enabled(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    category: str | None,
+    channel: str,
+) -> bool:
+    from app.models.common import Setting
+
+    module_key = _normalize_notification_module(category)
+    if not module_key:
+        return True
+
+    result = await db.execute(
+        select(Setting).where(
+            Setting.key == _USER_PREFS_KEY,
+            Setting.scope == "user",
+            Setting.scope_id == str(user_id),
+        )
+    )
+    setting = result.scalar_one_or_none()
+    if setting is None or not isinstance(setting.value, dict):
+        return True
+
+    matrix = setting.value.get("notifications_matrix")
+    if not isinstance(matrix, dict):
+        return True
+
+    module_settings = matrix.get(module_key)
+    if not isinstance(module_settings, dict):
+        return True
+
+    return module_settings.get(channel, True) is not False
+
+
+async def _is_in_app_notification_enabled(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    category: str | None,
+) -> bool:
+    return await _is_notification_channel_enabled(
+        db,
+        user_id=user_id,
+        category=category,
+        channel="in_app",
+    )
+
+
+async def _is_email_notification_enabled(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    category: str | None,
+) -> bool:
+    return await _is_notification_channel_enabled(
+        db,
+        user_id=user_id,
+        category=category,
+        channel="email",
+    )
+
+
+async def _is_digest_notification_enabled(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    category: str | None,
+) -> bool:
+    return await _is_notification_channel_enabled(
+        db,
+        user_id=user_id,
+        category=category,
+        channel="digest",
+    )
 
 
 async def send_in_app(
@@ -26,6 +129,13 @@ async def send_in_app(
     2. Publish via Redis pub/sub so every worker with an open WebSocket
        for this user can forward the notification in real-time.
     """
+    if not await _is_in_app_notification_enabled(
+        db,
+        user_id=user_id,
+        category=category,
+    ):
+        return
+
     # Use RETURNING to get the generated id and created_at
     result = await db.execute(
         text(
@@ -176,6 +286,10 @@ async def send_email(
     subject: str,
     body_html: str,
     from_name: str | None = None,
+    db: AsyncSession | None = None,
+    user_id: UUID | None = None,
+    category: str | None = None,
+    channel: str = "email",
 ) -> None:
     """Send an email via SMTP. Uses DB integration settings if configured, .env as fallback.
 
@@ -183,6 +297,30 @@ async def send_email(
     when the configured host is unreachable (hairpin NAT workaround).
     """
     try:
+        if db is not None and user_id is not None:
+            channel_allowed = True
+            if channel == "digest":
+                channel_allowed = await _is_digest_notification_enabled(
+                    db,
+                    user_id=user_id,
+                    category=category,
+                )
+            else:
+                channel_allowed = await _is_email_notification_enabled(
+                    db,
+                    user_id=user_id,
+                    category=category,
+                )
+
+            if not channel_allowed:
+                logger.info(
+                    "Email notification skipped by user preference (user=%s, category=%s, channel=%s)",
+                    user_id,
+                    category,
+                    channel,
+                )
+                return
+
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
 

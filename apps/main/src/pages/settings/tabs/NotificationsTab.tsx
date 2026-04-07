@@ -9,6 +9,7 @@
 import { useState, useEffect } from 'react'
 import { Bell, Loader2 } from 'lucide-react'
 import { useNotificationPreferences, useUpdateNotificationPreferences, useUserEmails, useUserGroups } from '@/hooks/useSettings'
+import { useUserPreferences } from '@/hooks/useUserPreferences'
 import {
   useToast,
   TOAST_POSITIONS,
@@ -34,17 +35,40 @@ const allLevels = [
   ...notificationLevels,
 ]
 
+const notificationModules = [
+  { key: 'paxlog', label: 'PaxLog' },
+  { key: 'projects', label: 'Projects' },
+  { key: 'planner', label: 'Planner' },
+  { key: 'travelwiz', label: 'TravelWiz' },
+  { key: 'conformite', label: 'Conformité' },
+  { key: 'workflow', label: 'Workflow' },
+  { key: 'support', label: 'Support' },
+  { key: 'messaging', label: 'Messaging' },
+  { key: 'core', label: 'Core' },
+]
+
+const defaultNotificationMatrix = Object.fromEntries(
+  notificationModules.map((module) => [
+    module.key,
+    { in_app: true, email: true, digest: true },
+  ]),
+)
+
 export function NotificationsTab() {
   const { toast } = useToast()
   const { data: prefs, isLoading: prefsLoading } = useNotificationPreferences()
   const { data: emails } = useUserEmails()
   const { data: groups } = useUserGroups()
   const updatePrefs = useUpdateNotificationPreferences()
+  const { getPref, setPref } = useUserPreferences()
 
   const [globalLevel, setGlobalLevel] = useState('participate')
   const [notifySelf, setNotifySelf] = useState(false)
   const [notificationEmailId, setNotificationEmailId] = useState<string>('')
   const [groupOverrides, setGroupOverrides] = useState<Record<string, { level: string }>>({})
+  const [notificationMatrix, setNotificationMatrix] = useState<Record<string, { in_app: boolean; email: boolean; digest: boolean }>>(
+    () => getPref('notifications_matrix', defaultNotificationMatrix),
+  )
 
   // Sync state from API data
   useEffect(() => {
@@ -58,6 +82,10 @@ export function NotificationsTab() {
     }
   }, [prefs])
 
+  useEffect(() => {
+    setNotificationMatrix(getPref('notifications_matrix', defaultNotificationMatrix))
+  }, [getPref])
+
   const handleSave = async () => {
     try {
       await updatePrefs.mutateAsync({
@@ -66,6 +94,7 @@ export function NotificationsTab() {
         notification_email_id: notificationEmailId || null,
         group_overrides: Object.keys(groupOverrides).length > 0 ? groupOverrides : null,
       })
+      setPref('notifications_matrix', notificationMatrix)
       toast({ title: 'Préférences enregistrées', variant: 'success' })
     } catch {
       toast({ title: 'Erreur', description: 'Impossible d\'enregistrer les préférences.', variant: 'error' })
@@ -179,6 +208,50 @@ export function NotificationsTab() {
       </CollapsibleSection>
 
       <CollapsibleSection
+        id="notifications-matrix"
+        title="Matrice par module"
+        description="Définissez les canaux autorisés par module. Les canaux in-app, email et digest sont pris en compte via les préférences utilisateur."
+        storageKey="settings.notifications.collapse"
+      >
+        <div className="border border-border/60 rounded-lg bg-card overflow-hidden">
+          <div className="grid grid-cols-[1.5fr_repeat(3,minmax(0,140px))] gap-0 px-4 py-3 border-b border-border/40 bg-muted/30 text-xs font-semibold text-muted-foreground">
+            <span>Module</span>
+            <span>In-app</span>
+            <span>Email</span>
+            <span>Digest</span>
+          </div>
+          {notificationModules.map((module) => {
+            const value = notificationMatrix[module.key] || defaultNotificationMatrix[module.key]
+            return (
+              <div key={module.key} className="grid grid-cols-[1.5fr_repeat(3,minmax(0,140px))] gap-0 px-4 py-3 border-b border-border/20 last:border-b-0 items-center">
+                <span className="text-sm text-foreground">{module.label}</span>
+                {(['in_app', 'email', 'digest'] as const).map((channel) => (
+                  <label key={channel} className="flex items-center gap-2 text-sm text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(value?.[channel])}
+                      onChange={(e) => {
+                        const next = {
+                          ...notificationMatrix,
+                          [module.key]: {
+                            ...(notificationMatrix[module.key] || defaultNotificationMatrix[module.key]),
+                            [channel]: e.target.checked,
+                          },
+                        }
+                        setNotificationMatrix(next)
+                      }}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    <span>{europeanChannelLabel(channel)}</span>
+                  </label>
+                ))}
+              </div>
+            )
+          })}
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
         id="notifications-display"
         title="Affichage des notifications"
         description="Position, durée et opacité des notifications toast. Ces réglages sont personnels et remplacent les valeurs par défaut de l'administrateur."
@@ -189,6 +262,12 @@ export function NotificationsTab() {
       </CollapsibleSection>
     </>
   )
+}
+
+function europeanChannelLabel(channel: 'in_app' | 'email' | 'digest') {
+  if (channel === 'in_app') return 'Autorisé'
+  if (channel === 'email') return 'Autorisé'
+  return 'Autorisé'
 }
 
 // ── Toast configuration section ────────────────────────────

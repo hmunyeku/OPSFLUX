@@ -23,9 +23,6 @@ class TenantSchemaMiddleware(BaseHTTPMiddleware):
         "/api/v1/auth/sso/providers",
         "/api/v1/auth/sso/authorize",
         "/api/v1/auth/sso/callback",
-        "/mcp-gw/",
-        "/mcp",          # short MCP URL (canonical, default backend)
-        "/mcp/",         # /mcp/{slug} sub-backend routing
         "/.well-known/",
         "/authorize",
     }

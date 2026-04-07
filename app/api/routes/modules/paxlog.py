@@ -19,7 +19,13 @@ from pydantic import BaseModel
 from sqlalchemy import and_, func, literal, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_permission
+from app.api.deps import (
+    get_current_entity,
+    get_current_user,
+    has_user_permission,
+    require_any_permission,
+    require_permission,
+)
 from app.core.audit import record_audit
 from app.core.config import settings
 from app.core.database import get_db
@@ -118,6 +124,14 @@ AVM_ENTITY_TYPE = "avm"
 EXTERNAL_OTP_TTL_MINUTES = 10
 EXTERNAL_SESSION_TTL_MINUTES = 30
 EXTERNAL_OTP_MAX_ATTEMPTS = 3
+ADS_READ_ENTRY_PERMISSIONS = (
+    "paxlog.ads.read",
+    "paxlog.ads.create",
+    "paxlog.ads.update",
+    "paxlog.ads.approve",
+    "paxlog.ads.submit",
+    "paxlog.ads.cancel",
+)
 
 
 def _build_external_portal_url(token: str) -> str:
@@ -2122,7 +2136,7 @@ async def list_ads(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.read"),
+    _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
     db: AsyncSession = Depends(get_db),
 ):
     """List Avis de Séjour for the current entity.
@@ -2256,7 +2270,7 @@ async def get_ads(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.read"),
+    _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
     db: AsyncSession = Depends(get_db),
 ):
     """Get an AdS by ID."""
@@ -2807,7 +2821,7 @@ async def approve_ads(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.read"),
+    _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
     db: AsyncSession = Depends(get_db),
 ):
     """Approve an AdS (pending_validation → approved).
@@ -3209,7 +3223,7 @@ async def reject_ads(
     reason: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.read"),
+    _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
     db: AsyncSession = Depends(get_db),
 ):
     """Reject an AdS."""
@@ -3612,7 +3626,7 @@ async def list_ads_events(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.read"),
+    _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
     db: AsyncSession = Depends(get_db),
 ):
     ads_result = await db.execute(
@@ -3722,7 +3736,7 @@ async def list_ads_pax(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.read"),
+    _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
     db: AsyncSession = Depends(get_db),
 ):
     """List PAX entries for an AdS with profile details (User + TierContact)."""
@@ -4105,7 +4119,7 @@ async def get_ads_by_reference(
     reference: str,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.read"),
+    _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
     db: AsyncSession = Depends(get_db),
 ):
     """Lookup an AdS by its unique reference number (e.g. ADS-2026-0001)."""
@@ -4128,7 +4142,7 @@ async def download_ads_pdf(
     language: str = "fr",
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.read"),
+    _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
     db: AsyncSession = Depends(get_db),
 ):
     """Generate and download the canonical AdS PDF ticket."""
@@ -4453,7 +4467,7 @@ async def list_imputations(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.read"),
+    _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
     db: AsyncSession = Depends(get_db),
 ):
     """List cost imputations for an AdS — delegates to core cost_imputations."""
@@ -4478,7 +4492,7 @@ async def get_imputation_suggestion(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.read"),
+    _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
     db: AsyncSession = Depends(get_db),
 ):
     """Return the default imputation suggestion for an AdS."""
@@ -5419,7 +5433,7 @@ async def list_ads_external_links(
     ads_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.read"),
+    _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
     db: AsyncSession = Depends(get_db),
 ):
     ads_result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
@@ -6722,7 +6736,7 @@ async def list_stay_programs(
     status_filter: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.read"),
+    _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
     db: AsyncSession = Depends(get_db),
 ):
     """List stay programs (intra-field movement plans)."""

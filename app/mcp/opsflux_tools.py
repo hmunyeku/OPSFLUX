@@ -40,7 +40,7 @@ from app.models.asset_registry import Installation, OilSite, OilField, RegistryE
 from app.models.paxlog import PaxGroup, Ads, AdsPax
 from app.models.planner import PlannerActivity, PlannerConflict
 from app.models.travelwiz import TransportVector, Voyage
-from app.mcp.mcp_native import NativeBackend
+from app.mcp.mcp_native import NativeBackend, NativeToolContext
 
 logger = logging.getLogger(__name__)
 
@@ -3345,8 +3345,102 @@ OPSFLUX_TOOLS: list[tuple[str, str, dict, Any]] = [
      }), _list_project_templates),
 ]
 
+def _resolve_tool_permissions(name: str) -> list[str]:
+    """Return the minimum permission set required for an OpsFlux native tool.
+
+    This is intentionally conservative for user-scoped MCP tokens. Unknown tools
+    stay hidden until they are mapped explicitly.
+    """
+    if name in {"list_tiers", "get_tier", "list_contacts", "get_contact", "list_phones", "list_emails",
+                "list_addresses", "list_notes", "list_tags", "list_legal_identifiers",
+                "list_external_refs", "list_tier_blocks", "list_contact_transfers"}:
+        return ["tier.read"]
+    if name in {"create_tier"}:
+        return ["tier.create"]
+    if name in {"update_tier", "block_tier", "unblock_tier"}:
+        return ["tier.update"]
+    if name in {"archive_tier"}:
+        return ["tier.delete"]
+    if name in {"create_contact", "update_contact", "archive_contact", "transfer_contact"}:
+        return ["tier.contact.manage"]
+    if name in {"add_phone", "delete_phone", "add_email", "delete_email", "add_address", "delete_address",
+                "add_note", "delete_note", "add_tag", "delete_tag", "add_legal_identifier",
+                "delete_legal_identifier", "add_external_ref"}:
+        return ["tier.update"]
+
+    if name in {"check_compliance"}:
+        return ["conformite.check"]
+    if name in {"list_compliance_records"}:
+        return ["conformite.record.read"]
+    if name in {"add_compliance_record"}:
+        return ["conformite.record.create"]
+    if name in {"list_compliance_types"}:
+        return ["conformite.type.read"]
+    if name in {"create_compliance_type"}:
+        return ["conformite.type.create"]
+    if name in {"list_compliance_rules"}:
+        return ["conformite.rule.read"]
+    if name in {"create_compliance_rule"}:
+        return ["conformite.rule.create"]
+
+    if name in {"list_sites", "list_assets", "get_asset", "list_fields", "get_field",
+                "list_equipment", "get_equipment", "get_asset_hierarchy"}:
+        return ["asset.read"]
+
+    if name in {"list_ads", "get_ads", "list_pax_groups"}:
+        return ["paxlog.ads.read"]
+
+    if name in {"list_planner_activities", "get_planner_activity"}:
+        return ["planner.activity.read"]
+    if name in {"list_planner_conflicts"}:
+        return ["planner.conflict.read"]
+
+    if name in {"list_vectors", "get_vector"}:
+        return ["travelwiz.vector.read"]
+    if name in {"list_voyages", "get_voyage"}:
+        return ["travelwiz.voyage.read"]
+
+    if name in {"list_cost_centers", "list_imputation_references", "list_imputations"}:
+        return ["imputation.read"]
+    if name in {"add_imputation", "delete_imputation"}:
+        return ["imputation.assignment.manage"]
+
+    if name in {"list_users", "get_user"}:
+        return ["user.read"]
+
+    if name in {"list_settings", "get_setting", "set_setting", "delete_setting"}:
+        return ["core.settings.manage"]
+
+    if name in {"list_projects", "get_project", "list_project_tasks", "list_project_milestones",
+                "get_project_cpm", "get_project_activity_feed", "list_project_templates"}:
+        return ["project.read"]
+    if name in {"create_project"}:
+        return ["project.create"]
+    if name in {"update_project"}:
+        return ["project.update"]
+    if name in {"create_project_task"}:
+        return ["project.task.create"]
+
+    return []
+
+
+def _tool_visible_for_context(tool_name: str, context: NativeToolContext | None) -> bool:
+    if context is None:
+        return True
+    required = _resolve_tool_permissions(tool_name)
+    if not required:
+        return False
+    return "*" in context.permissions or all(code in context.permissions for code in required)
+
+
 OPSFLUX_TOOLS_LIST = [
-    {"name": n, "description": d, "inputSchema": s} for n, d, s, _ in OPSFLUX_TOOLS
+    {
+        "name": n,
+        "description": d,
+        "inputSchema": s,
+        "permissions": _resolve_tool_permissions(n),
+    }
+    for n, d, s, _ in OPSFLUX_TOOLS
 ]
 OPSFLUX_HANDLERS: dict[str, Any] = {n: h for n, _, _, h in OPSFLUX_TOOLS}
 
@@ -3367,10 +3461,26 @@ async def create_opsflux_backend(config: dict) -> NativeBackend:
             raise ValueError(f"Outil inconnu: {name}")
         return await handler(arguments)
 
+    async def list_tools_for_context(context: NativeToolContext | None) -> list[dict[str, Any]]:
+        if context is None:
+            return OPSFLUX_TOOLS_LIST
+        return [tool for tool in OPSFLUX_TOOLS_LIST if _tool_visible_for_context(tool["name"], context)]
+
+    async def call_tool_with_context(
+        name: str,
+        arguments: dict,
+        context: NativeToolContext | None,
+    ) -> dict:
+        if not _tool_visible_for_context(name, context):
+            raise ValueError(f"Outil non autorisé: {name}")
+        return await call_tool(name, arguments)
+
     return NativeBackend(
         name="opsflux",
         version="1.0.0",
         tools_list=OPSFLUX_TOOLS_LIST,
         call_tool=call_tool,
+        list_tools_fn=list_tools_for_context,
+        call_tool_with_context=call_tool_with_context,
         close_fn=None,
     )

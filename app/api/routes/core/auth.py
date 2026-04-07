@@ -657,32 +657,22 @@ async def forgot_password(body: ForgotPasswordRequest, request: Request, db: Asy
                         "entity": {"name": "OpsFlux"},
                     },
                 )
-                if not sent:
-                    # Fallback: direct email send if template not configured
-                    from app.core.notifications import send_email
-                    await send_email(
-                        to=user.email,
-                        subject="OpsFlux — Réinitialisation de votre mot de passe",
-                        body_html=(
-                            f"<p>Bonjour {user.first_name},</p>"
-                            f"<p>Cliquez sur le lien suivant pour réinitialiser votre mot de passe :</p>"
-                            f'<p><a href="{reset_url}">Réinitialiser mon mot de passe</a></p>'
-                            f"<p>Ce lien expire dans 1 heure.</p>"
-                            f"<p>Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>"
-                        ),
-                    )
             else:
-                # No entity — fallback direct send
-                from app.core.notifications import send_email
-                await send_email(
+                sent = await render_and_send_email(
+                    db,
+                    slug="password_reset",
+                    entity_id=None,
+                    language=user.language or "fr",
                     to=user.email,
-                    subject="OpsFlux — Réinitialisation de votre mot de passe",
-                    body_html=(
-                        f"<p>Bonjour {user.first_name},</p>"
-                        f'<p><a href="{reset_url}">Réinitialiser mon mot de passe</a></p>'
-                        f"<p>Ce lien expire dans 1 heure.</p>"
-                    ),
+                    variables={
+                        "reset_url": reset_url,
+                        "user": {"first_name": user.first_name, "email": user.email},
+                        "entity": {"name": "OpsFlux"},
+                    },
                 )
+
+            if not sent:
+                logger.warning("Template central 'password_reset' indisponible pour %s", body.email)
 
             logger.info("Password reset email sent to %s", body.email)
         except Exception:

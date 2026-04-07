@@ -1,7 +1,7 @@
 """User email routes — list, add, remove, set primary, resend verification.
 
-Email content is driven by the email template system (email_templates slug: 'email_verification').
-If no template is configured, falls back to a minimal built-in message.
+Email content is driven by the centralized email template system
+(`email_templates` slug: `email_verification`).
 """
 
 import logging
@@ -18,7 +18,6 @@ from app.core.audit import record_audit
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.email_templates import render_and_send_email
-from app.core.notifications import send_email
 from app.models.common import User, UserEmail
 from app.schemas.common import UserEmailCreate, UserEmailRead
 from app.services.core.delete_service import delete_entity
@@ -37,12 +36,9 @@ async def _send_verification_email(
     user: User,
 ) -> None:
     """Send a verification email using the template system.
-
-    Falls back to a minimal built-in message if no template is configured.
     """
     verification_url = f"{settings.FRONTEND_URL}/verify-email?token={token}"
 
-    # Try template-based email first
     sent = await render_and_send_email(
         db,
         slug="email_verification",
@@ -61,18 +57,7 @@ async def _send_verification_email(
     )
 
     if not sent:
-        # Fallback: minimal built-in email (should never happen once templates are seeded)
-        logger.warning("No email template for 'email_verification' — using built-in fallback")
-        await send_email(
-            to=email_address,
-            subject="OpsFlux — Vérification de votre adresse email",
-            body_html=(
-                f"<p>Bonjour,</p>"
-                f"<p>Veuillez cliquer sur le lien ci-dessous pour vérifier votre adresse email :</p>"
-                f'<p><a href="{verification_url}">{verification_url}</a></p>'
-                f"<p>Merci,<br/>OpsFlux</p>"
-            ),
-        )
+        raise HTTPException(status_code=503, detail="Email template unavailable for verification flow")
 
 
 @router.get("", response_model=list[UserEmailRead])

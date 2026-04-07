@@ -130,6 +130,22 @@ def _route_requires_permission(path: str, method: str, permission_code: str) -> 
     return False
 
 
+def _route_declares_permission(path: str, method: str, permission_code: str) -> bool:
+    route = _get_route(path, method)
+    for dependency in route.dependant.dependencies:
+        call = dependency.call
+        if not call:
+            continue
+        closure = getattr(call, "__closure__", None) or ()
+        for cell in closure:
+            value = cell.cell_contents
+            if value == permission_code:
+                return True
+            if isinstance(value, tuple) and permission_code in value:
+                return True
+    return False
+
+
 class FakeAsyncSessionContext:
     def __init__(self, db):
         self.db = db
@@ -262,6 +278,13 @@ async def test_list_avm_normalizes_in_preparation_to_ready(monkeypatch):
     assert response["items"][0].status == "ready"
     assert response["items"][0].ready_for_approval is True
     assert response["items"][0].open_preparation_tasks == 0
+
+
+def test_ads_read_routes_allow_create_permission_as_entry_point():
+    assert _route_declares_permission("/ads", "GET", "paxlog.ads.create")
+    assert _route_declares_permission("/ads/{ads_id}", "GET", "paxlog.ads.create")
+    assert _route_declares_permission("/ads/{ads_id}/events", "GET", "paxlog.ads.create")
+    assert _route_declares_permission("/ads/{ads_id}/pax", "GET", "paxlog.ads.create")
 
 
 @pytest.mark.asyncio
@@ -3694,17 +3717,23 @@ async def test_complete_ads_transitions_in_progress_ads(monkeypatch):
 
 
 def test_ads_routes_use_expected_permissions():
-    assert _route_requires_permission("/ads", "GET", "paxlog.ads.read")
-    assert _route_requires_permission("/ads/{ads_id}", "GET", "paxlog.ads.read")
-    assert _route_requires_permission("/ads/{ads_id}/events", "GET", "paxlog.ads.read")
-    assert _route_requires_permission("/ads/{ads_id}/pax", "GET", "paxlog.ads.read")
+    assert _route_declares_permission("/ads", "GET", "paxlog.ads.read")
+    assert _route_declares_permission("/ads", "GET", "paxlog.ads.create")
+    assert _route_declares_permission("/ads/{ads_id}", "GET", "paxlog.ads.read")
+    assert _route_declares_permission("/ads/{ads_id}", "GET", "paxlog.ads.create")
+    assert _route_declares_permission("/ads/{ads_id}/events", "GET", "paxlog.ads.read")
+    assert _route_declares_permission("/ads/{ads_id}/events", "GET", "paxlog.ads.create")
+    assert _route_declares_permission("/ads/{ads_id}/pax", "GET", "paxlog.ads.read")
+    assert _route_declares_permission("/ads/{ads_id}/pax", "GET", "paxlog.ads.create")
     assert _route_requires_permission("/ads/{ads_id}/submit", "POST", "paxlog.ads.submit")
-    assert _route_requires_permission("/ads/{ads_id}/approve", "POST", "paxlog.ads.read")
+    assert _route_declares_permission("/ads/{ads_id}/approve", "POST", "paxlog.ads.read")
+    assert _route_declares_permission("/ads/{ads_id}/approve", "POST", "paxlog.ads.create")
     assert _route_requires_permission("/ads/{ads_id}/start-progress", "POST", "paxlog.ads.approve")
     assert _route_requires_permission("/ads/{ads_id}/complete", "POST", "paxlog.ads.approve")
-    assert _route_requires_permission("/ads/{ads_id}/reject", "POST", "paxlog.ads.read")
+    assert _route_declares_permission("/ads/{ads_id}/reject", "POST", "paxlog.ads.read")
     assert _route_requires_permission("/ads/{ads_id}/cancel", "POST", "paxlog.ads.cancel")
-    assert _route_requires_permission("/stay-programs", "GET", "paxlog.ads.read")
+    assert _route_declares_permission("/stay-programs", "GET", "paxlog.ads.read")
+    assert _route_declares_permission("/stay-programs", "GET", "paxlog.ads.create")
 
 
 def test_avm_routes_use_expected_permissions():
@@ -3725,12 +3754,16 @@ def test_profile_and_compliance_routes_use_expected_permissions():
 
 def test_secondary_paxlog_routes_use_expected_permissions():
     assert _route_requires_permission("/compliance-matrix", "GET", "paxlog.compliance.read")
-    assert _route_requires_permission("/ads/by-reference/{reference}", "GET", "paxlog.ads.read")
-    assert _route_requires_permission("/ads/{ads_id}/pdf", "GET", "paxlog.ads.read")
+    assert _route_declares_permission("/ads/by-reference/{reference}", "GET", "paxlog.ads.read")
+    assert _route_declares_permission("/ads/by-reference/{reference}", "GET", "paxlog.ads.create")
+    assert _route_declares_permission("/ads/{ads_id}/pdf", "GET", "paxlog.ads.read")
+    assert _route_declares_permission("/ads/{ads_id}/pdf", "GET", "paxlog.ads.create")
     assert _route_requires_permission("/ads/{ads_id}/pax/{entry_id}/decision", "POST", "paxlog.ads.approve")
     assert _route_requires_permission("/incidents", "GET", "paxlog.incident.read")
-    assert _route_requires_permission("/ads/{ads_id}/imputations", "GET", "paxlog.ads.read")
-    assert _route_requires_permission("/ads/{ads_id}/imputation-suggestion", "GET", "paxlog.ads.read")
+    assert _route_declares_permission("/ads/{ads_id}/imputations", "GET", "paxlog.ads.read")
+    assert _route_declares_permission("/ads/{ads_id}/imputations", "GET", "paxlog.ads.create")
+    assert _route_declares_permission("/ads/{ads_id}/imputation-suggestion", "GET", "paxlog.ads.read")
+    assert _route_declares_permission("/ads/{ads_id}/imputation-suggestion", "GET", "paxlog.ads.create")
     assert _route_requires_permission("/rotation-cycles", "GET", "paxlog.rotation.manage")
     assert _route_requires_permission("/compliance/expiring", "GET", "paxlog.compliance.read")
     assert _route_requires_permission("/compliance/stats", "GET", "paxlog.compliance.read")
@@ -5754,27 +5787,44 @@ async def test_ads_completed_cascade_completes_linked_planner_activity(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_planner_activity_completed_syncs_project_task_to_done(monkeypatch):
+async def test_planner_activity_completed_suggests_project_task_closure(monkeypatch):
     activity_id = uuid4()
     task_id = uuid4()
+    entity_id = uuid4()
+    manager_id = uuid4()
+    project_id = uuid4()
     activity = SimpleNamespace(id=activity_id, source_task_id=task_id, status="completed")
-    task = SimpleNamespace(id=task_id, status="in_progress", completed_at=None)
+    task = SimpleNamespace(id=task_id, project_id=project_id, assignee_id=None, title="Mobilisation site", status="in_progress", completed_at=None)
+    project = SimpleNamespace(id=project_id, manager_id=manager_id)
     db = FakeDB([
         FakeResult(scalar_one_or_none=activity),
         FakeResult(scalar_one_or_none=task),
     ])
+    notifications = []
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    async def fake_get(model, key):
+        if key == project_id:
+            return project
+        return None
 
     monkeypatch.setattr(module_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+    db.get = fake_get  # type: ignore[attr-defined]
 
     await module_handlers.on_planner_activity_completed_bundle(
         OpsFluxEvent(
             event_type="planner.activity.completed",
-            payload={"activity_id": str(activity_id)},
+            payload={"activity_id": str(activity_id), "entity_id": str(entity_id), "ads_id": str(uuid4())},
         )
     )
 
-    assert task.status == "done"
-    assert task.completed_at is not None
+    assert task.status == "in_progress"
+    assert task.completed_at is None
+    assert notifications and notifications[0]["user_id"] == manager_id
+    assert notifications[0]["category"] == "projets"
     assert db.commits == 1
 
 

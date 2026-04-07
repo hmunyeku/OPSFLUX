@@ -35,6 +35,26 @@ from app.models.common import EmailTemplate, EmailTemplateVersion
 
 logger = logging.getLogger(__name__)
 
+
+def _infer_notification_category_from_slug(slug: str) -> str | None:
+    raw = (slug or "").strip().lower()
+    if not raw:
+        return None
+    if "." in raw:
+        return raw.split(".", 1)[0]
+
+    aliases = {
+        "ticket_comment": "support",
+        "ticket_resolved": "support",
+        "record_verified": "conformite",
+        "welcome": "core",
+        "user_invitation": "core",
+        "password_reset": "core",
+        "email_verification": "core",
+        "paxlog_external_link_otp": None,
+    }
+    return aliases.get(raw)
+
 # Jinja2 env with sandboxed auto-escape (safe for HTML emails)
 _jinja_env = Environment(
     loader=BaseLoader(),
@@ -1459,6 +1479,13 @@ DEFAULT_TEMPLATES: list[dict] = [
 ]
 
 
+def _get_default_template_def(slug: str) -> dict | None:
+    for template in DEFAULT_TEMPLATES:
+        if template.get("slug") == slug:
+            return template
+    return None
+
+
 # ── Rendering helpers ──────────────────────────────────────────────────────
 
 def _flatten_variables(variables: dict, prefix: str = "") -> dict[str, str]:
@@ -1502,7 +1529,7 @@ async def resolve_template_version(
     db: AsyncSession,
     *,
     slug: str,
-    entity_id: UUID,
+    entity_id: UUID | None,
     language: str = "fr",
 ) -> EmailTemplateVersion | None:
     """Find the active version for a slug + entity + language.
@@ -1513,6 +1540,9 @@ async def resolve_template_version(
       3. Fallback to any active version (other language)
       4. None if nothing found
     """
+    if entity_id is None:
+        return None
+
     now = datetime.now(UTC)
 
     # Get the template
@@ -1556,7 +1586,7 @@ async def render_email(
     db: AsyncSession,
     *,
     slug: str,
-    entity_id: UUID,
+    entity_id: UUID | None,
     language: str = "fr",
     variables: dict | None = None,
 ) -> tuple[str, str] | None:
@@ -1564,12 +1594,23 @@ async def render_email(
     version = await resolve_template_version(
         db, slug=slug, entity_id=entity_id, language=language,
     )
-    if not version:
+    ctx = variables or {}
+    if version:
+        subject = render_template_string(version.subject, ctx)
+        body_html = render_template_string(version.body_html, ctx)
+        return subject, body_html
+
+    default_tpl = _get_default_template_def(slug)
+    if not default_tpl:
         return None
 
-    ctx = variables or {}
-    subject = render_template_string(version.subject, ctx)
-    body_html = render_template_string(version.body_html, ctx)
+    default_versions = default_tpl.get("default_versions", {})
+    version_payload = default_versions.get(language) or default_versions.get("fr")
+    if not isinstance(version_payload, dict):
+        return None
+
+    subject = render_template_string(version_payload.get("subject", ""), ctx)
+    body_html = render_template_string(version_payload.get("body_html", ""), ctx)
     return subject, body_html
 
 
@@ -1577,11 +1618,13 @@ async def render_and_send_email(
     db: AsyncSession,
     *,
     slug: str,
-    entity_id: UUID,
+    entity_id: UUID | None,
     language: str = "fr",
     to: str,
     variables: dict | None = None,
     from_name: str | None = None,
+    user_id: UUID | None = None,
+    category: str | None = None,
 ) -> bool:
     """Resolve, render, and send a templated email.
 
@@ -1596,8 +1639,30 @@ async def render_and_send_email(
 
     subject, body_html = result
 
+    if user_id is None:
+        from app.models.common import User
+
+        resolved_user = await db.execute(
+            select(User.id).where(
+                User.email == to,
+                User.active == True,  # noqa: E712
+            )
+        )
+        user_id = resolved_user.scalar_one_or_none()
+
+    inferred_category = category or _infer_notification_category_from_slug(slug)
+
     from app.core.notifications import send_email
-    await send_email(to=to, subject=subject, body_html=body_html, from_name=from_name)
+    await send_email(
+        to=to,
+        subject=subject,
+        body_html=body_html,
+        from_name=from_name,
+        db=db,
+        user_id=user_id,
+        category=inferred_category,
+        channel="email",
+    )
     return True
 
 

@@ -89,6 +89,10 @@ async def send_notification_digest() -> None:
                         to=email,
                         subject=subject,
                         body_html=body_html,
+                        db=db,
+                        user_id=user_id,
+                        category="core",
+                        channel="digest",
                     )
                     logger.info(
                         "notification_digest: sent digest to %s (%d unread)",

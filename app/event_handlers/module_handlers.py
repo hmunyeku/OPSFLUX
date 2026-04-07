@@ -1216,7 +1216,7 @@ async def on_planner_activity_status_sync(event: OpsFluxEvent) -> None:
     When a PlannerActivity has source_task_id and its status changes,
     mirror the status to the ProjectTask:
       validated → in_progress, in_progress → in_progress,
-      completed → done, cancelled → cancelled
+      cancelled → cancelled
     """
     payload = event.payload
     activity_id = payload.get("activity_id")
@@ -1226,7 +1226,6 @@ async def on_planner_activity_status_sync(event: OpsFluxEvent) -> None:
     STATUS_MAP = {
         "validated": "in_progress",
         "in_progress": "in_progress",
-        "completed": "done",
         "cancelled": "cancelled",
     }
 
@@ -1253,8 +1252,6 @@ async def on_planner_activity_status_sync(event: OpsFluxEvent) -> None:
                 return
 
             task.status = new_task_status
-            if new_task_status == "done":
-                task.completed_at = datetime.now(timezone.utc)
             await db.commit()
             logger.info(
                 "Planner→Projets sync: task %s → %s (from activity %s)",
@@ -1262,6 +1259,64 @@ async def on_planner_activity_status_sync(event: OpsFluxEvent) -> None:
             )
     except Exception:
         logger.exception("Error in on_planner_activity_status_sync for %s", activity_id)
+
+
+async def on_planner_activity_completed_suggest_task_closure(event: OpsFluxEvent) -> None:
+    """Notify project leadership that task closure may be appropriate after AdS completion."""
+    payload = event.payload
+    activity_id = payload.get("activity_id")
+    ads_id = payload.get("ads_id")
+    entity_id = payload.get("entity_id")
+    if not activity_id or not entity_id:
+        return
+
+    try:
+        from sqlalchemy import select
+        from app.core.notifications import send_in_app
+        from app.models.common import Project, ProjectTask
+        from app.models.planner import PlannerActivity
+
+        async with async_session_factory() as db:
+            activity = (await db.execute(
+                select(PlannerActivity).where(PlannerActivity.id == UUID(str(activity_id)))
+            )).scalar_one_or_none()
+            if not activity or not activity.source_task_id:
+                return
+
+            task = (await db.execute(
+                select(ProjectTask).where(ProjectTask.id == activity.source_task_id)
+            )).scalar_one_or_none()
+            if not task or task.status in {"done", "cancelled"}:
+                return
+
+            project = await db.get(Project, task.project_id) if task.project_id else None
+            recipient_id = None
+            if project and project.manager_id:
+                recipient_id = project.manager_id
+            elif task.assignee_id:
+                recipient_id = task.assignee_id
+            if recipient_id is None:
+                return
+
+            await send_in_app(
+                db,
+                user_id=recipient_id,
+                entity_id=UUID(str(entity_id)),
+                title="Cloture de tache a confirmer",
+                body=(
+                    f"La tache projet '{task.title}' est liee a une activite Planner terminee "
+                    f"apres cloture de l'AdS {ads_id or ''}. Verifiez si la tache doit etre cloturee."
+                ).strip(),
+                category="projets",
+                link=f"/projets?task={task.id}",
+            )
+            await db.commit()
+            logger.info(
+                "Planner completion suggestion sent for task %s (activity %s)",
+                task.id, activity_id,
+            )
+    except Exception:
+        logger.exception("Error in on_planner_activity_completed_suggest_task_closure for %s", activity_id)
 
 
 async def on_planner_activity_validated_bundle(event: OpsFluxEvent) -> None:
@@ -1278,7 +1333,7 @@ async def on_planner_activity_cancelled_bundle(event: OpsFluxEvent) -> None:
 
 async def on_planner_activity_completed_bundle(event: OpsFluxEvent) -> None:
     """Execute all side effects attached to planner.activity.completed once."""
-    await on_planner_activity_status_sync(event)
+    await on_planner_activity_completed_suggest_task_closure(event)
 
 
 def register_module_handlers(event_bus: EventBus) -> None:

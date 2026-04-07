@@ -181,20 +181,27 @@ async def send_email_verification(
                 "entity": {"name": "OpsFlux"},
             },
         )
-        if not sent:
-            # Template not configured — send raw email as fallback
-            from app.core.notifications import send_email
-            await send_email(
-                to=contact_email.email,
-                subject="OpsFlux — Vérification de votre adresse email",
-                body_html=(
-                    f"<p>Bonjour,</p>"
-                    f"<p>Veuillez cliquer sur le lien ci-dessous pour vérifier votre adresse email :</p>"
-                    f'<p><a href="{verification_url}">{verification_url}</a></p>'
-                    f"<p>Ce lien expire dans 24 heures.</p>"
-                    f"<p>Merci,<br/>OpsFlux</p>"
-                ),
-            )
+    else:
+        from app.core.email_templates import render_and_send_email
+        sent = await render_and_send_email(
+            db,
+            slug="email_verification",
+            entity_id=None,
+            language="fr",
+            to=contact_email.email,
+            variables={
+                "verification_url": verification_url,
+                "user": {
+                    "first_name": current_user.first_name or "",
+                    "last_name": current_user.last_name or "",
+                    "email": current_user.email,
+                },
+                "entity": {"name": "OpsFlux"},
+            },
+        )
+
+    if not sent:
+        raise HTTPException(status_code=503, detail="Email template unavailable for verification flow")
 
     return {"message": "Verification email sent", "email_id": str(email_id)}
 

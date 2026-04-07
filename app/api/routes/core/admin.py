@@ -702,34 +702,27 @@ async def admin_force_password_reset(
     token = create_password_reset_token(user_id=user.id, email=user.email)
     reset_url = f"{settings.APP_URL}/reset-password?token={token}"
 
-    # Try email template engine, fallback to direct send
+    # Centralized email template flow only
     try:
         from app.core.email_templates import render_and_send_email
 
-        if user.default_entity_id:
-            sent = await render_and_send_email(
-                db,
-                slug="password_reset",
-                entity_id=user.default_entity_id,
-                to=user.email,
-                context={"user": user, "reset_url": reset_url},
-            )
-            if not sent:
-                raise Exception("Template send returned False")
-        else:
-            raise Exception("No entity for template")
-    except Exception:
-        from app.core.notifications import send_email
-        await send_email(
+        sent = await render_and_send_email(
+            db,
+            slug="password_reset",
+            entity_id=user.default_entity_id,
+            language=user.language or "fr",
             to=user.email,
-            subject="OpsFlux — Réinitialisation de votre mot de passe",
-            body_html=(
-                f"<p>Bonjour {user.first_name},</p>"
-                f'<p>Un administrateur a demandé la réinitialisation de votre mot de passe.</p>'
-                f'<p><a href="{reset_url}">Réinitialiser mon mot de passe</a></p>'
-                f"<p>Ce lien expire dans 1 heure.</p>"
-            ),
+            variables={
+                "reset_url": reset_url,
+                "user": {"first_name": user.first_name, "email": user.email},
+                "entity": {"name": "OpsFlux"},
+            },
         )
+        if not sent:
+            raise RuntimeError("Template send returned False")
+    except Exception:
+        logger.exception("Failed to send centralized password reset email to %s", user.email)
+        raise HTTPException(503, "Central email template unavailable for password reset flow")
 
     from app.core.audit import record_audit
     await record_audit(

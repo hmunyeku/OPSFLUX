@@ -3,7 +3,7 @@
 import logging
 from collections.abc import AsyncGenerator
 
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings
@@ -24,6 +24,25 @@ async_session_factory = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False,
 )
+
+
+@event.listens_for(engine.sync_engine, "checkout")
+def _apply_tenant_search_path(dbapi_connection, connection_record, connection_proxy):
+    """Ensure pooled connections follow the current tenant context.
+
+    This keeps raw ``async_session_factory()`` sessions tenant-aware too,
+    not only the ones yielded through ``get_db()``.
+    """
+    del connection_record, connection_proxy
+    schema = get_tenant_schema()
+    if not isinstance(schema, str) or not schema.isidentifier():
+        schema = "public"
+
+    cursor = dbapi_connection.cursor()
+    try:
+        cursor.execute(f"SET search_path TO {schema}, public")
+    finally:
+        cursor.close()
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

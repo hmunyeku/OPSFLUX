@@ -62,6 +62,7 @@ const SECTION_TAB_MAP: Record<string, string> = {
   // NotificationsTab sections
   'notifications-global': 'notifications',
   'notifications-groups': 'notifications',
+  'notifications-matrix': 'notifications',
   // PreferencesTab sections
   'theme': 'preferences',
   'language-pref': 'preferences',
@@ -101,7 +102,7 @@ const SECTION_TAB_MAP: Record<string, string> = {
   // AuditTab sections
   'audit-log': 'audit-log',
   // McpGatewayTab sections
-  'mcp-tokens': 'mcp-gateway',
+  'mcp-tokens': 'mcp',
   // EntitiesTab sections
   'entity-users': 'entities',
   // SystemHealthTab sections
@@ -112,6 +113,7 @@ const SECTION_TAB_MAP: Record<string, string> = {
 import { ProfileTab } from './tabs/ProfileTab'
 import { AccessTab } from './tabs/AccessTab'
 import { NotificationsTab } from './tabs/NotificationsTab'
+import { UserMcpTab } from './tabs/UserMcpTab'
 import { RolesTab } from './tabs/RolesTab'
 import { ActivityTab } from './tabs/ActivityTab'
 import { PreferencesTab } from './tabs/PreferencesTab'
@@ -147,9 +149,10 @@ registerSettingsSection({ id: 'access', label: 'Accès', icon: Lock, component: 
 // More top-level items
 // Emails and Addresses are now integrated into the ProfileTab directly
 registerSettingsSection({ id: 'notifications', label: 'Notifications', icon: Bell, component: NotificationsTab, category: 'user', order: 40 })
-registerSettingsSection({ id: 'preferences', label: 'Préférences', icon: Palette, component: PreferencesTab, category: 'user', order: 50 })
-registerSettingsSection({ id: 'roles', label: 'Rôles & Permissions', icon: Shield, component: RolesTab, category: 'user', order: 60 })
-registerSettingsSection({ id: 'activity', label: 'Activité', icon: Clock, component: ActivityTab, category: 'user', order: 70 })
+registerSettingsSection({ id: 'mcp', label: 'MCP', icon: Plug, component: UserMcpTab, category: 'user', order: 50 })
+registerSettingsSection({ id: 'preferences', label: 'Préférences', icon: Palette, component: PreferencesTab, category: 'user', order: 60 })
+registerSettingsSection({ id: 'roles', label: 'Rôles & Permissions', icon: Shield, component: RolesTab, category: 'user', order: 70 })
+registerSettingsSection({ id: 'activity', label: 'Activité', icon: Clock, component: ActivityTab, category: 'user', order: 80 })
 
 // ── Register general (admin) settings — ordered by usage frequency ───
 // Most used first, system/advanced last
@@ -162,7 +165,7 @@ registerSettingsSection({ id: 'numbering', label: 'Numérotation', icon: Hash, c
 
 registerSettingsSection({ id: 'security-policy', label: 'Sécurité & Authentification', icon: ShieldCheck, component: SecurityPolicyTab, category: 'general', order: 45, requiredPermission: 'admin.system' })
 registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppression', icon: Trash2, component: DeletePoliciesTab, category: 'general', order: 50, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'mcp-gateway', label: 'MCP Gateway', icon: Plug, component: McpGatewayTab, category: 'general', order: 55, requiredPermission: 'admin.system' })
+registerSettingsSection({ id: 'mcp-gateway', label: 'Backends MCP', icon: Plug, component: McpGatewayTab, category: 'general', order: 55, requiredPermission: 'admin.system' })
 registerSettingsSection({ id: 'system', label: 'Système', icon: Activity, component: SystemTab, category: 'general', order: 60, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'adminer', label: 'Base de données', icon: Database, component: AdminerTab, category: 'general', order: 80, requiredPermission: 'admin.system' })
 
@@ -426,6 +429,7 @@ export function SettingsPage() {
         {dynamicPanel?.module === 'settings-app' && dynamicPanel.type === 'create' && <CreateAppPanel />}
         {dynamicPanel?.module === 'settings-address' && (dynamicPanel.type === 'create' || dynamicPanel.type === 'edit') && <CreateAddressPanel />}
         {dynamicPanel?.module === 'settings-email-template' && <EditEmailTemplatePanel />}
+        {dynamicPanel?.module === 'settings-pdf-template' && <EditPdfTemplatePanel />}
       </div>
     </div>
   )

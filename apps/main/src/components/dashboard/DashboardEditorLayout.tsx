@@ -98,8 +98,9 @@ export const DashboardEditorLayout = forwardRef<DashboardEditorHandle, Dashboard
         onDrop={handleDrop}
       />
 
-      {/* Right: Settings (conditional) */}
+      {/* Right: Settings (conditional) — stopPropagation prevents background click from deselecting */}
       {editor.selectedWidget && (
+        <div onClick={(e) => e.stopPropagation()}>
         <WidgetSettingsPanel
           widget={editor.selectedWidget}
           onUpdateConfig={editor.updateWidgetConfig}
@@ -107,6 +108,7 @@ export const DashboardEditorLayout = forwardRef<DashboardEditorHandle, Dashboard
           onDelete={editor.removeWidget}
           onClose={() => editor.selectWidget(null)}
         />
+        </div>
       )}
     </div>
   )

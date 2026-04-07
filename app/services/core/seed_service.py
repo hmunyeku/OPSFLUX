@@ -459,14 +459,25 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
         key = f"tab:{entity_id_str}:{tab_name}:{role or ''}:{module or ''}"
         return str(uuid5(_SEED_NS, key))
 
+    # Map widget IDs → render types (must match WidgetCard.tsx switch cases)
+    _RENDER_TYPES: dict[str, str] = {
+        "alerts_urgent": "kpi", "pax_on_site": "kpi", "kpi_fleet": "kpi",
+        "pickup_progress": "kpi", "weather_sites": "kpi",
+        "ads_pending": "table", "compliance_expiry": "table", "signalements_actifs": "table",
+        "project_status": "table", "my_ads": "table", "trips_today": "table", "cargo_pending": "table",
+        "planner_gantt_mini": "chart", "capacity_heatmap": "chart",
+        "fleet_map": "map",
+    }
+
     def _make_widget(widget_type: str, title: str, config: dict, position: dict) -> dict:
         """Build a widget dict matching the JSONB schema."""
         suffix = hashlib.md5(f"{entity_id_str}:{widget_type}:{title}".encode()).hexdigest()[:8]
+        render_type = _RENDER_TYPES.get(widget_type, "table")
         return {
             "id": f"w_{widget_type}_{suffix}",
-            "type": widget_type,
+            "type": render_type,
             "title": title,
-            "config": config,
+            "config": {**config, "widget_id": widget_type},
             "position": position,
             "options": {"refreshInterval": 60000, "showHeader": True, "showLastRefreshed": True},
         }
@@ -695,13 +706,13 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
         },
     ]
 
-    # ── Bulk INSERT via raw SQL — ON CONFLICT (id) DO NOTHING ─────────
+    # ── Bulk UPSERT via raw SQL — updates widgets on re-seed ──────────
     insert_sql = text("""
         INSERT INTO dashboard_tabs (id, entity_id, name, is_mandatory, target_role,
                                     target_module, tab_order, widgets, is_active)
         VALUES (:id, :entity_id, :name, TRUE, :target_role,
                 :target_module, :tab_order, CAST(:widgets AS jsonb), TRUE)
-        ON CONFLICT (id) DO NOTHING
+        ON CONFLICT (id) DO UPDATE SET widgets = EXCLUDED.widgets, name = EXCLUDED.name
     """)
 
     inserted = 0
@@ -1005,6 +1016,20 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("travelwiz_cargo_workflow_status", "in_transit", "En transit", 7),
         ("travelwiz_cargo_workflow_status", "delivered", "Livré", 8),
         ("travelwiz_cargo_workflow_status", "cancelled", "Annulé", 9),
+        ("travelwiz_cargo_status", "registered", "Enregistré", 1),
+        ("travelwiz_cargo_status", "ready", "Prêt", 2),
+        ("travelwiz_cargo_status", "ready_for_loading", "Prêt au chargement", 3),
+        ("travelwiz_cargo_status", "loaded", "Chargé", 4),
+        ("travelwiz_cargo_status", "in_transit", "En transit", 5),
+        ("travelwiz_cargo_status", "delivered_intermediate", "Livré en escale", 6),
+        ("travelwiz_cargo_status", "delivered_final", "Livré destination finale", 7),
+        ("travelwiz_cargo_status", "damaged", "Signalé endommagé", 8),
+        ("travelwiz_cargo_status", "missing", "Signalé manquant", 9),
+        ("travelwiz_cargo_status", "return_declared", "Retour déclaré", 10),
+        ("travelwiz_cargo_status", "return_in_transit", "Retour en transit", 11),
+        ("travelwiz_cargo_status", "returned", "Retourné base", 12),
+        ("travelwiz_cargo_status", "reintegrated", "Réintégré stock", 13),
+        ("travelwiz_cargo_status", "scrapped", "Mis au rebut", 14),
         ("travelwiz_cargo_request_status", "draft", "Brouillon", 1),
         ("travelwiz_cargo_request_status", "submitted", "Soumis", 2),
         ("travelwiz_cargo_request_status", "approved", "Validé", 3),
@@ -1012,6 +1037,17 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         ("travelwiz_cargo_request_status", "in_progress", "En cours", 5),
         ("travelwiz_cargo_request_status", "closed", "Clôturé", 6),
         ("travelwiz_cargo_request_status", "cancelled", "Annulé", 7),
+        ("travelwiz_back_cargo_return_type", "waste", "Déchet", 1),
+        ("travelwiz_back_cargo_return_type", "contractor_return", "Retour sous-traitant", 2),
+        ("travelwiz_back_cargo_return_type", "stock_reintegration", "Réintégration stock", 3),
+        ("travelwiz_back_cargo_return_type", "scrap", "Ferraille", 4),
+        ("travelwiz_back_cargo_return_type", "yard_storage", "Stockage yard", 5),
+        ("travelwiz_package_return_status", "pending", "Aucun retour", 1),
+        ("travelwiz_package_return_status", "partial", "Retour partiel", 2),
+        ("travelwiz_package_return_status", "returned", "Retourné base", 3),
+        ("travelwiz_package_return_status", "reintegrated", "Réintégré stock", 4),
+        ("travelwiz_package_return_status", "scrapped", "Mis au rebut", 5),
+        ("travelwiz_package_return_status", "yard_storage", "Stockage yard", 6),
         ("travelwiz_cargo_evidence_type", "cargo_photo", "Photo du colis", 1),
         ("travelwiz_cargo_evidence_type", "weight_ticket", "Ticket de pesée", 2),
         ("travelwiz_cargo_evidence_type", "lifting_certificate", "Certification levage", 3),

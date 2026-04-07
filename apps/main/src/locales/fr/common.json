@@ -1222,6 +1222,8 @@
     "users_active": "actifs",
     "tiers_active": "actifs",
     "trend_assets": "en progression",
+    "active_workflows": "Workflows actifs",
+    "recent_activity_count": "Activité récente",
     "recent_activity": "Activité récente",
     "refresh": "Actualiser",
     "no_activity": "Aucune activité récente",

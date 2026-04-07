@@ -593,6 +593,8 @@ export interface DashboardStats {
   assets_count: number
   users_count: number
   tiers_count: number
+  active_workflows: number
+  recent_activity_count: number
 }
 
 // ── Profile ────────────────────────────────────────────────

@@ -675,6 +675,24 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
                              {"x": 0, "y": 4, "w": 4, "h": 3}),
             ],
         },
+        # Projets module dashboard
+        {
+            "name": "Projets",
+            "target_role": None,
+            "target_module": "projets",
+            "tab_order": 0,
+            "widgets": [
+                _make_widget("project_status", "Projets actifs",
+                             {"source": "projets"},
+                             {"x": 0, "y": 0, "w": 8, "h": 4}),
+                _make_widget("alerts_urgent", "Alertes",
+                             {"source": "core"},
+                             {"x": 8, "y": 0, "w": 4, "h": 2}),
+                _make_widget("planner_gantt_mini", "Gantt compact",
+                             {"source": "planner"},
+                             {"x": 0, "y": 4, "w": 12, "h": 4}),
+            ],
+        },
     ]
 
     # ── Bulk INSERT via raw SQL — ON CONFLICT (id) DO NOTHING ─────────

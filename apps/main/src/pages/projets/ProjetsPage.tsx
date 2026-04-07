@@ -2381,10 +2381,20 @@ function ActivityFeedSection({ projectId }: { projectId: string }) {
     }
   }
 
+  const fmtVal = (v: unknown): string => {
+    if (v == null) return ''
+    const s = String(v)
+    // Detect ISO date strings and format as readable date
+    if (/^\d{4}-\d{2}-\d{2}[ T]/.test(s)) {
+      try { return new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) } catch { /* */ }
+    }
+    return s.length > 40 ? s.slice(0, 40) + '...' : s
+  }
+
   const labelForItem = (item: ActivityFeedItem) => {
     switch (item.type) {
       case 'status_change': return item.detail || 'Changement de statut'
-      case 'task_change': return `${item.task_title || 'Tache'}: ${item.field} ${item.old ? `${item.old} →` : '→'} ${item.new || ''}`
+      case 'task_change': return `${item.task_title || 'Tache'}: ${item.field} ${item.old ? `${fmtVal(item.old)} →` : '→'} ${fmtVal(item.new)}`
       case 'comment': return `${item.user || 'Utilisateur'}: ${(item.body || '').slice(0, 80)}${(item.body?.length ?? 0) > 80 ? '...' : ''}`
       default: return 'Activite'
     }

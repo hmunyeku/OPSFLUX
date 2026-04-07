@@ -133,6 +133,8 @@ export const dashboardService = {
         assets_count: assets.data.total ?? 0,
         users_count: users.data.total ?? 0,
         tiers_count: tiers.data.total ?? 0,
+        active_workflows: 0,
+        recent_activity_count: 0,
       }
     }
   },

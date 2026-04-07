@@ -26,6 +26,8 @@ import {
   ClipboardList,
   BarChart3,
   GripVertical,
+  Undo2,
+  Redo2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
@@ -264,6 +266,8 @@ export function DashboardPage() {
     { labelKey: 'dashboard.active_assets', value: stats?.assets_count, icon: MapPin, trendKey: 'dashboard.trend_assets' },
     { labelKey: 'dashboard.users', value: stats?.users_count, icon: Users, sublabelKey: 'dashboard.users_active' },
     { labelKey: 'dashboard.companies', value: stats?.tiers_count, icon: Building2, sublabelKey: 'dashboard.tiers_active' },
+    { labelKey: 'dashboard.active_workflows', value: stats?.active_workflows, icon: ClipboardList },
+    { labelKey: 'dashboard.recent_activity', value: stats?.recent_activity_count, icon: BarChart3 },
   ]
 
   // Determine what to render in content area
@@ -330,6 +334,27 @@ export function DashboardPage() {
             </button>
           )}
           {canCustomize && !isBuiltin && editMode && (
+            <>
+              <button
+                onClick={() => editorRef.current?.undo()}
+                disabled={!editorRef.current?.canUndo}
+                className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs font-medium transition-colors hover:bg-muted text-muted-foreground disabled:opacity-30"
+                title="Annuler (Ctrl+Z)"
+              >
+                <Undo2 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => editorRef.current?.redo()}
+                disabled={!editorRef.current?.canRedo}
+                className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs font-medium transition-colors hover:bg-muted text-muted-foreground disabled:opacity-30"
+                title="Refaire (Ctrl+Y)"
+              >
+                <Redo2 className="h-3.5 w-3.5" />
+              </button>
+              <div className="w-px h-4 bg-border mx-1" />
+            </>
+          )}
+          {canCustomize && !isBuiltin && editMode && (
             <button
               onClick={() => {
                 editorRef.current?.flushSave()
@@ -375,7 +400,7 @@ export function DashboardPage() {
         {isBuiltinOverview && (
           <div className="space-y-6">
             {/* Stats cards */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
               {statsCards.map((card) => {
                 const Icon = card.icon
                 return (

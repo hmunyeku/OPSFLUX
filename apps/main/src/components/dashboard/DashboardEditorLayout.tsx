@@ -18,6 +18,10 @@ import type { DashboardWidget, WidgetCatalogEntry } from '@/services/dashboardSe
 export interface DashboardEditorHandle {
   flushSave: () => void
   discardChanges: () => void
+  undo: () => void
+  redo: () => void
+  canUndo: boolean
+  canRedo: boolean
 }
 
 interface DashboardEditorLayoutProps {
@@ -34,7 +38,11 @@ export const DashboardEditorLayout = forwardRef<DashboardEditorHandle, Dashboard
   useImperativeHandle(ref, () => ({
     flushSave: editor.flushSave,
     discardChanges: editor.discardChanges,
-  }), [editor.flushSave, editor.discardChanges])
+    undo: editor.undo,
+    redo: editor.redo,
+    canUndo: editor.canUndo,
+    canRedo: editor.canRedo,
+  }), [editor.flushSave, editor.discardChanges, editor.undo, editor.redo, editor.canUndo, editor.canRedo])
 
   // Track the catalog entry currently being dragged (for droppingItem)
   const [droppingItem, setDroppingItem] = useState<LayoutItem | undefined>(undefined)

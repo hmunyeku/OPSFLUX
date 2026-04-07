@@ -52,6 +52,8 @@ interface UseDashboardEditorOptions {
   initialWidgets: DashboardWidget[]
 }
 
+const HISTORY_LIMIT = 50
+
 export function useDashboardEditor({ tabId, initialWidgets }: UseDashboardEditorOptions) {
   const [widgets, setWidgets] = useState<DashboardWidget[]>(initialWidgets)
   const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null)
@@ -59,16 +61,42 @@ export function useDashboardEditor({ tabId, initialWidgets }: UseDashboardEditor
   const updateTab = useUpdateDashboardTab()
   const debouncedSave = useRef<ReturnType<typeof setTimeout>>()
 
+  // Undo/redo history
+  const historyRef = useRef<DashboardWidget[][]>([initialWidgets])
+  const historyIndexRef = useRef(0)
+  const skipHistoryRef = useRef(false)
+
+  const pushHistory = useCallback((newWidgets: DashboardWidget[]) => {
+    if (skipHistoryRef.current) { skipHistoryRef.current = false; return }
+    const idx = historyIndexRef.current
+    const stack = historyRef.current.slice(0, idx + 1)
+    stack.push(newWidgets)
+    if (stack.length > HISTORY_LIMIT) stack.shift()
+    historyRef.current = stack
+    historyIndexRef.current = stack.length - 1
+  }, [])
+
   // Keep refs in sync so the unmount effect can read latest values
   const latestRef = useRef({ tabId, widgets, isDirty })
   latestRef.current = { tabId, widgets, isDirty }
   const saveOnUnmountRef = useRef(true)
+
+  // Helper: setWidgets + push to history stack
+  const setWidgetsWithHistory = useCallback((updater: DashboardWidget[] | ((prev: DashboardWidget[]) => DashboardWidget[])) => {
+    setWidgets((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      pushHistory(next)
+      return next
+    })
+  }, [pushHistory])
 
   // Sync when tab changes
   useEffect(() => {
     setWidgets(initialWidgets)
     setSelectedWidgetId(null)
     setIsDirty(false)
+    historyRef.current = [initialWidgets]
+    historyIndexRef.current = 0
   }, [tabId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-save with debounce
@@ -110,19 +138,19 @@ export function useDashboardEditor({ tabId, initialWidgets }: UseDashboardEditor
       config: { ...entry.default_config },
       position: pos,
     }
-    setWidgets((prev) => [...prev, newWidget])
+    setWidgetsWithHistory((prev) => [...prev, newWidget])
     setSelectedWidgetId(newWidget.id)
     setIsDirty(true)
-  }, [widgets])
+  }, [widgets, setWidgetsWithHistory])
 
   const removeWidget = useCallback((widgetId: string) => {
-    setWidgets((prev) => prev.filter((w) => w.id !== widgetId))
+    setWidgetsWithHistory((prev) => prev.filter((w) => w.id !== widgetId))
     if (selectedWidgetId === widgetId) setSelectedWidgetId(null)
     setIsDirty(true)
-  }, [selectedWidgetId])
+  }, [selectedWidgetId, setWidgetsWithHistory])
 
   const moveWidget = useCallback((activeId: string, overId: string) => {
-    setWidgets((prev) => {
+    setWidgetsWithHistory((prev) => {
       const activeIdx = prev.findIndex((w) => w.id === activeId)
       const overIdx = prev.findIndex((w) => w.id === overId)
       if (activeIdx === -1 || overIdx === -1) return prev
@@ -134,10 +162,10 @@ export function useDashboardEditor({ tabId, initialWidgets }: UseDashboardEditor
       return updated
     })
     setIsDirty(true)
-  }, [])
+  }, [setWidgetsWithHistory])
 
   const resizeWidget = useCallback((widgetId: string, w: number, h: number) => {
-    setWidgets((prev) =>
+    setWidgetsWithHistory((prev) =>
       prev.map((widget) =>
         widget.id === widgetId
           ? { ...widget, position: { ...widget.position, w, h } }
@@ -145,10 +173,10 @@ export function useDashboardEditor({ tabId, initialWidgets }: UseDashboardEditor
       )
     )
     setIsDirty(true)
-  }, [])
+  }, [setWidgetsWithHistory])
 
   const updateWidgetConfig = useCallback((widgetId: string, configPatch: Record<string, unknown>) => {
-    setWidgets((prev) =>
+    setWidgetsWithHistory((prev) =>
       prev.map((widget) =>
         widget.id === widgetId
           ? { ...widget, config: { ...widget.config, ...configPatch } }
@@ -156,10 +184,10 @@ export function useDashboardEditor({ tabId, initialWidgets }: UseDashboardEditor
       )
     )
     setIsDirty(true)
-  }, [])
+  }, [setWidgetsWithHistory])
 
   const updateWidgetMeta = useCallback((widgetId: string, metaPatch: Partial<Pick<DashboardWidget, 'title' | 'description' | 'permissions'>>) => {
-    setWidgets((prev) =>
+    setWidgetsWithHistory((prev) =>
       prev.map((widget) =>
         widget.id === widgetId
           ? { ...widget, ...metaPatch }
@@ -167,7 +195,7 @@ export function useDashboardEditor({ tabId, initialWidgets }: UseDashboardEditor
       )
     )
     setIsDirty(true)
-  }, [])
+  }, [setWidgetsWithHistory])
 
   const selectWidget = useCallback((id: string | null) => {
     setSelectedWidgetId(id)
@@ -196,9 +224,31 @@ export function useDashboardEditor({ tabId, initialWidgets }: UseDashboardEditor
 
   // Update a full widget (from DashboardGrid resize callback)
   const updateWidget = useCallback((updated: DashboardWidget) => {
-    setWidgets((prev) =>
+    setWidgetsWithHistory((prev) =>
       prev.map((w) => (w.id === updated.id ? updated : w))
     )
+    setIsDirty(true)
+  }, [setWidgetsWithHistory])
+
+  // ── Undo / Redo ──
+  const canUndo = historyIndexRef.current > 0
+  const canRedo = historyIndexRef.current < historyRef.current.length - 1
+
+  const undo = useCallback(() => {
+    if (historyIndexRef.current <= 0) return
+    historyIndexRef.current -= 1
+    const prev = historyRef.current[historyIndexRef.current]
+    skipHistoryRef.current = true
+    setWidgets(prev)
+    setIsDirty(true)
+  }, [])
+
+  const redo = useCallback(() => {
+    if (historyIndexRef.current >= historyRef.current.length - 1) return
+    historyIndexRef.current += 1
+    const next = historyRef.current[historyIndexRef.current]
+    skipHistoryRef.current = true
+    setWidgets(next)
     setIsDirty(true)
   }, [])
 
@@ -218,5 +268,9 @@ export function useDashboardEditor({ tabId, initialWidgets }: UseDashboardEditor
     flushSave,
     discardChanges,
     setWidgets,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   }
 }

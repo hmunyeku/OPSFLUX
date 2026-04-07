@@ -256,7 +256,7 @@ _SUMMARY_FIELDS = {
     "description", "description_ta", "description_ac", "description_is",
 }
 
-_MAX_LIST_ITEMS = 50
+_MAX_LIST_ITEMS = 200
 
 
 def _summarise_list(items: list, max_items: int = _MAX_LIST_ITEMS) -> dict:
@@ -266,7 +266,6 @@ def _summarise_list(items: list, max_items: int = _MAX_LIST_ITEMS) -> dict:
     compact = []
     for item in truncated:
         if isinstance(item, dict):
-            # Keep only essential fields + any field containing "name" or "id"
             row = {
                 k: v for k, v in item.items()
                 if k in _SUMMARY_FIELDS or "name" in k.lower() or k.lower() == "id"
@@ -276,49 +275,44 @@ def _summarise_list(items: list, max_items: int = _MAX_LIST_ITEMS) -> dict:
             compact.append(item)
     result: dict = {"count": total, "items": compact}
     if total > max_items:
-        result["note"] = f"Affichage limité à {max_items}/{total} éléments. Utilisez limit=0 pour tout récupérer ou affinez votre requête."
+        result["note"] = f"{max_items}/{total} éléments affichés. Utilisez search ou limit pour affiner."
     return result
 
 
-_MAX_RESPONSE_CHARS = 12_000  # ~3 000 tokens — keeps Claude context manageable
+_MAX_RESPONSE_CHARS = 80_000  # MCP clients handle up to ~100K comfortably
 
 
 def _ok(data: Any) -> dict:
-    """Format a successful MCP tool result, truncating if too large.
-
-    When the payload exceeds ``_MAX_RESPONSE_CHARS`` we wrap it in a safe
-    text envelope explaining the truncation rather than cutting raw JSON
-    (which would produce broken output).
-    """
+    """Format a successful MCP tool result, truncating if too large."""
     text = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     if len(text) > _MAX_RESPONSE_CHARS:
-        # For list-shaped payloads we can give a much better truncation
-        # by reducing the number of items instead of slicing mid-character.
         if isinstance(data, dict) and isinstance(data.get("items"), list):
             items = data["items"]
-            # Binary search-ish reduction: halve until it fits
-            truncated_items = list(items)
-            while truncated_items and len(json.dumps(
-                {**data, "items": truncated_items},
-                ensure_ascii=False, separators=(",", ":"),
-            )) > _MAX_RESPONSE_CHARS - 200:
-                truncated_items = truncated_items[:max(1, len(truncated_items) // 2)]
+            keep = len(items)
+            while keep > 1:
+                candidate = json.dumps(
+                    {**data, "items": items[:keep]},
+                    ensure_ascii=False, separators=(",", ":"),
+                )
+                if len(candidate) <= _MAX_RESPONSE_CHARS - 200:
+                    break
+                keep = max(1, keep - max(1, keep // 4))
             reduced = {
                 **data,
-                "items": truncated_items,
-                "truncated": True,
-                "truncation_note": (
-                    f"Affichage réduit à {len(truncated_items)}/{len(items)} éléments "
-                    f"(réponse trop longue). Utilisez search ou limit plus petit."
-                ),
+                "items": items[:keep],
+                "total_available": len(items),
+                "truncated": keep < len(items),
+                **({"truncation_note": (
+                    f"{keep}/{len(items)} éléments affichés. "
+                    "Utilisez search ou limit pour affiner."
+                )} if keep < len(items) else {}),
             }
             text = json.dumps(reduced, ensure_ascii=False, separators=(",", ":"))
         else:
-            # Fallback: wrap a sliced preview in a valid JSON envelope
             preview = text[:_MAX_RESPONSE_CHARS - 300]
             text = json.dumps({
                 "truncated": True,
-                "truncation_note": "Réponse trop longue — aperçu seulement. Utilisez un filtre pour affiner.",
+                "truncation_note": "Réponse trop longue — aperçu seulement.",
                 "preview": preview,
             }, ensure_ascii=False)
     return {"content": [{"type": "text", "text": text}]}

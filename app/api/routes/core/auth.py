@@ -883,18 +883,20 @@ async def list_sso_providers(
         if eid is not None:
             cfg = await _get_sso_settings(db, eid, provider_def["settings_prefix"])
         else:
-            # Fetch without entity filter (any entity that has it configured)
-            result = await db.execute(
-                select(Setting).where(
-                    Setting.key.startswith(provider_def["settings_prefix"]),
+            # No entity context — only show providers configured for the
+            # first entity (deterministic) rather than scanning all entities
+            # which can leak providers from other tenants.
+            first_entity = await db.execute(
+                select(Setting.scope_id).where(
+                    Setting.key == provider_def["settings_prefix"] + ".client_id",
                     Setting.scope == "entity",
-                )
+                ).limit(1)
             )
-            cfg: dict[str, str] = {}
-            for s in result.scalars().all():
-                field = s.key.replace(provider_def["settings_prefix"] + ".", "")
-                val = s.value.get("v", "") if isinstance(s.value, dict) else str(s.value)
-                cfg[field] = str(val) if val else ""
+            first_eid = first_entity.scalar_one_or_none()
+            if first_eid:
+                cfg = await _get_sso_settings(db, first_eid, provider_def["settings_prefix"])
+            else:
+                cfg = {}
         if cfg.get("client_id"):
             providers.append({
                 "id": provider_id,

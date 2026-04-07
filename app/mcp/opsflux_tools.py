@@ -47,8 +47,8 @@ logger = logging.getLogger(__name__)
 
 # ─── Response envelopes ──────────────────────────────────────────────────────
 
-_MAX_RESPONSE_CHARS = 12_000
-_MAX_LIST_ITEMS = 50
+_MAX_RESPONSE_CHARS = 80_000  # MCP clients (Claude.ai) handle up to ~100K comfortably
+_MAX_LIST_ITEMS = 200
 
 
 def _ok(data: Any) -> dict:
@@ -57,20 +57,25 @@ def _ok(data: Any) -> dict:
     if len(text) > _MAX_RESPONSE_CHARS:
         if isinstance(data, dict) and isinstance(data.get("items"), list):
             items = data["items"]
-            truncated = list(items)
-            while truncated and len(json.dumps(
-                {**data, "items": truncated},
-                ensure_ascii=False, separators=(",", ":"), default=str,
-            )) > _MAX_RESPONSE_CHARS - 200:
-                truncated = truncated[:max(1, len(truncated) // 2)]
+            # Remove items from the end one by one until we fit
+            keep = len(items)
+            while keep > 1:
+                candidate = json.dumps(
+                    {**data, "items": items[:keep]},
+                    ensure_ascii=False, separators=(",", ":"), default=str,
+                )
+                if len(candidate) <= _MAX_RESPONSE_CHARS - 200:
+                    break
+                keep = max(1, keep - max(1, keep // 4))
             data = {
                 **data,
-                "items": truncated,
-                "truncated": True,
-                "truncation_note": (
-                    f"Affichage réduit à {len(truncated)}/{len(items)} éléments. "
-                    "Utilisez search ou un limit plus petit."
-                ),
+                "items": items[:keep],
+                "total_available": len(items),
+                "truncated": keep < len(items),
+                **({"truncation_note": (
+                    f"{keep}/{len(items)} éléments affichés. "
+                    "Utilisez search ou limit pour affiner."
+                )} if keep < len(items) else {}),
             }
             text = json.dumps(data, ensure_ascii=False, separators=(",", ":"), default=str)
         else:

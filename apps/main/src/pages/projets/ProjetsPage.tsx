@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePageSize } from '@/hooks/usePageSize'
+import { useDictionaryLabels } from '@/hooks/useDictionary'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
   DynamicPanelShell,
@@ -102,43 +103,65 @@ import type {
 
 // -- Constants ----------------------------------------------------------------
 
-const STATUS_OPTIONS = [
-  { value: 'draft', label: 'Brouillon' },
-  { value: 'planned', label: 'Planifié' },
-  { value: 'active', label: 'Actif' },
-  { value: 'on_hold', label: 'Suspendu' },
-  { value: 'completed', label: 'Terminé' },
-  { value: 'cancelled', label: 'Annulé' },
-]
+const PROJECT_STATUS_VALUES = ['draft', 'planned', 'active', 'on_hold', 'completed', 'cancelled'] as const
+const PROJECT_PRIORITY_VALUES = ['low', 'medium', 'high', 'critical'] as const
+const PROJECT_WEATHER_VALUES = ['sunny', 'cloudy', 'rainy', 'stormy'] as const
+const PROJECT_TASK_STATUS_VALUES = ['todo', 'in_progress', 'review', 'done', 'cancelled'] as const
+const PROJECT_MEMBER_ROLE_VALUES = ['manager', 'member', 'reviewer', 'stakeholder'] as const
+const PROJECT_DELIVERABLE_STATUS_VALUES = ['pending', 'in_progress', 'delivered', 'accepted', 'rejected'] as const
 
-const PRIORITY_OPTIONS = [
-  { value: 'low', label: 'Basse' },
-  { value: 'medium', label: 'Moyenne' },
-  { value: 'high', label: 'Haute' },
-  { value: 'critical', label: 'Critique' },
-]
+const PROJECT_STATUS_LABELS_FALLBACK: Record<string, string> = {
+  draft: 'Brouillon',
+  planned: 'Planifié',
+  active: 'Actif',
+  on_hold: 'Suspendu',
+  completed: 'Terminé',
+  cancelled: 'Annulé',
+}
 
-const WEATHER_OPTIONS = [
-  { value: 'sunny', label: 'Ensoleille', icon: Sun },
-  { value: 'cloudy', label: 'Nuageux', icon: Cloud },
-  { value: 'rainy', label: 'Pluvieux', icon: CloudRain },
-  { value: 'stormy', label: 'Orageux', icon: CloudLightning },
-]
+const PROJECT_PRIORITY_LABELS_FALLBACK: Record<string, string> = {
+  low: 'Basse',
+  medium: 'Moyenne',
+  high: 'Haute',
+  critical: 'Critique',
+}
 
-const TASK_STATUS_OPTIONS = [
-  { value: 'todo', label: 'A faire', icon: Circle, color: 'text-muted-foreground' },
-  { value: 'in_progress', label: 'En cours', icon: CircleDot, color: 'text-primary' },
-  { value: 'review', label: 'Revue', icon: Clock, color: 'text-yellow-500' },
-  { value: 'done', label: 'Terminee', icon: CheckCircle2, color: 'text-green-500' },
-  { value: 'cancelled', label: 'Annulee', icon: CircleSlash, color: 'text-red-500' },
-]
+const PROJECT_WEATHER_LABELS_FALLBACK: Record<string, string> = {
+  sunny: 'Ensoleillé',
+  cloudy: 'Nuageux',
+  rainy: 'Pluvieux',
+  stormy: 'Orageux',
+}
 
-const MEMBER_ROLE_OPTIONS = [
-  { value: 'manager', label: 'Chef de projet' },
-  { value: 'member', label: 'Membre' },
-  { value: 'reviewer', label: 'Reviseur' },
-  { value: 'stakeholder', label: 'Partie prenante' },
-]
+const WEATHER_ICON_MAP = {
+  sunny: Sun,
+  cloudy: Cloud,
+  rainy: CloudRain,
+  stormy: CloudLightning,
+} as const
+
+const TASK_STATUS_META: Record<string, { icon: typeof Circle; color: string }> = {
+  todo: { icon: Circle, color: 'text-muted-foreground' },
+  in_progress: { icon: CircleDot, color: 'text-primary' },
+  review: { icon: Clock, color: 'text-yellow-500' },
+  done: { icon: CheckCircle2, color: 'text-green-500' },
+  cancelled: { icon: CircleSlash, color: 'text-red-500' },
+}
+
+const PROJECT_TASK_STATUS_LABELS_FALLBACK: Record<string, string> = {
+  todo: 'À faire',
+  in_progress: 'En cours',
+  review: 'Revue',
+  done: 'Terminée',
+  cancelled: 'Annulée',
+}
+
+const PROJECT_MEMBER_ROLE_LABELS_FALLBACK: Record<string, string> = {
+  manager: 'Chef de projet',
+  member: 'Membre',
+  reviewer: 'Réviseur',
+  stakeholder: 'Partie prenante',
+}
 
 // Dismissible warning banner shown on Gouti-imported projects. The
 // dismissal is persisted in localStorage so the same user sees it at
@@ -200,6 +223,10 @@ function GoutiBadge({ className = '' }: { className?: string }) {
       <Download size={8} /> Gouti
     </span>
   )
+}
+
+function buildDictionaryOptions(labels: Record<string, string>, values: readonly string[]) {
+  return values.map((value) => ({ value, label: labels[value] ?? value }))
 }
 
 // ── Gouti Import Modal ──────────────────────────────────────────────────
@@ -471,6 +498,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
   const saveSelection = useGoutiSaveSelection()
   const syncSelected = useGoutiSyncSelected()
   const { toast } = useToast()
+  const projectStatusLabels = useDictionaryLabels('project_status', PROJECT_STATUS_LABELS_FALLBACK)
 
   const [filters, setFilters] = useState<GoutiCatalogFilters>({})
   const [search, setSearch] = useState('')
@@ -727,7 +755,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                   <div className="flex flex-wrap gap-1">
                     {facets.statuses.map(s => {
                       const active = filters.status?.includes(s.value)
-                      const label = STATUS_OPTIONS.find(o => o.value === s.value)?.label || s.value
+                      const label = projectStatusLabels[s.value] || s.value
                       return (
                         <button
                           key={s.value}
@@ -1030,9 +1058,8 @@ function GoutiSyncToolbar() {
 }
 
 function WeatherIcon({ weather, size = 14 }: { weather: string; size?: number }) {
-  const opt = WEATHER_OPTIONS.find(w => w.value === weather)
-  if (!opt) return null
-  const Icon = opt.icon
+  const Icon = WEATHER_ICON_MAP[weather as keyof typeof WEATHER_ICON_MAP]
+  if (!Icon) return null
   const color = weather === 'sunny' ? 'text-yellow-500' : weather === 'cloudy' ? 'text-gray-400' : weather === 'rainy' ? 'text-blue-400' : 'text-red-500'
   return <Icon size={size} className={color} />
 }
@@ -1045,6 +1072,10 @@ function CreateProjectPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
   const { data: projectsData } = useProjects({ page_size: 100 })
+  const projectStatusLabels = useDictionaryLabels('project_status', PROJECT_STATUS_LABELS_FALLBACK)
+  const projectPriorityLabels = useDictionaryLabels('project_priority', PROJECT_PRIORITY_LABELS_FALLBACK)
+  const projectStatusOptions = useMemo(() => buildDictionaryOptions(projectStatusLabels, PROJECT_STATUS_VALUES), [projectStatusLabels])
+  const projectPriorityOptions = useMemo(() => buildDictionaryOptions(projectPriorityLabels, PROJECT_PRIORITY_VALUES), [projectPriorityLabels])
   const [form, setForm] = useState<ProjectCreate>({
     name: '',
     description: null,
@@ -1138,11 +1169,11 @@ function CreateProjectPanel() {
 
             <div className="@container space-y-5">
               <FormSection title="Statut">
-                <TagSelector options={STATUS_OPTIONS} value={form.status || 'draft'} onChange={(v) => setForm({ ...form, status: v })} />
+                <TagSelector options={projectStatusOptions} value={form.status || 'draft'} onChange={(v) => setForm({ ...form, status: v })} />
               </FormSection>
 
               <FormSection title="Priorité">
-                <TagSelector options={PRIORITY_OPTIONS} value={form.priority || 'medium'} onChange={(v) => setForm({ ...form, priority: v })} />
+                <TagSelector options={projectPriorityOptions} value={form.priority || 'medium'} onChange={(v) => setForm({ ...form, priority: v })} />
               </FormSection>
 
               <FormSection title="Description" collapsible defaultExpanded={false}>
@@ -1165,10 +1196,10 @@ function CreateProjectPanel() {
 // -- Task Status Cycle (click to advance) ------------------------------------
 
 function TaskStatusIcon({ status, size = 13 }: { status: string; size?: number }) {
-  const opt = TASK_STATUS_OPTIONS.find(s => s.value === status)
-  if (!opt) return <Circle size={size} className="text-muted-foreground" />
-  const Icon = opt.icon
-  return <Icon size={size} className={opt.color} />
+  const meta = TASK_STATUS_META[status]
+  if (!meta) return <Circle size={size} className="text-muted-foreground" />
+  const Icon = meta.icon
+  return <Icon size={size} className={meta.color} />
 }
 
 function nextTaskStatus(current: string): string {
@@ -1183,6 +1214,10 @@ function nextTaskStatus(current: string): string {
 function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: () => void }) {
   const createTask = useCreateProjectTask()
   const { toast } = useToast()
+  const taskStatusLabels = useDictionaryLabels('project_task_status', PROJECT_TASK_STATUS_LABELS_FALLBACK)
+  const projectPriorityLabels = useDictionaryLabels('project_priority', PROJECT_PRIORITY_LABELS_FALLBACK)
+  const taskStatusOptions = useMemo(() => buildDictionaryOptions(taskStatusLabels, PROJECT_TASK_STATUS_VALUES), [taskStatusLabels])
+  const projectPriorityOptions = useMemo(() => buildDictionaryOptions(projectPriorityLabels, PROJECT_PRIORITY_VALUES), [projectPriorityLabels])
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -1243,13 +1278,13 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
         <div>
           <label className="text-[10px] text-muted-foreground mb-0.5 block">Statut</label>
           <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={`${panelInputClass} w-full text-xs`}>
-            {TASK_STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+            {taskStatusOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </div>
         <div>
           <label className="text-[10px] text-muted-foreground mb-0.5 block">Priorite</label>
           <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className={`${panelInputClass} w-full text-xs`}>
-            {PRIORITY_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+            {projectPriorityOptions.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
         </div>
       </div>
@@ -1290,13 +1325,21 @@ const DEPENDENCY_TYPE_LABELS: Record<DependencyType, string> = {
   start_to_finish: 'SF — Début → Fin',
 }
 
-const DELIVERABLE_STATUS_OPTIONS = [
-  { value: 'pending', label: 'En attente', color: 'text-muted-foreground' },
-  { value: 'in_progress', label: 'En cours', color: 'text-primary' },
-  { value: 'delivered', label: 'Livré', color: 'text-blue-500' },
-  { value: 'accepted', label: 'Accepté', color: 'text-green-500' },
-  { value: 'rejected', label: 'Rejeté', color: 'text-red-500' },
-]
+const PROJECT_DELIVERABLE_STATUS_LABELS_FALLBACK: Record<string, string> = {
+  pending: 'En attente',
+  in_progress: 'En cours',
+  delivered: 'Livré',
+  accepted: 'Accepté',
+  rejected: 'Rejeté',
+}
+
+const DELIVERABLE_STATUS_COLOR_MAP: Record<string, string> = {
+  pending: 'text-muted-foreground',
+  in_progress: 'text-primary',
+  delivered: 'text-blue-500',
+  accepted: 'text-green-500',
+  rejected: 'text-red-500',
+}
 
 type SubTab = 'deps' | 'deliverables' | 'actions' | 'history'
 
@@ -1435,6 +1478,8 @@ function TaskDeliverablesSection({ task, projectId }: { task: ProjectTask; proje
   const createD = useCreateDeliverable()
   const updateD = useUpdateDeliverable()
   const deleteD = useDeleteDeliverable()
+  const deliverableStatusLabels = useDictionaryLabels('project_deliverable_status', PROJECT_DELIVERABLE_STATUS_LABELS_FALLBACK)
+  const deliverableStatusOptions = useMemo(() => buildDictionaryOptions(deliverableStatusLabels, PROJECT_DELIVERABLE_STATUS_VALUES), [deliverableStatusLabels])
   const [newName, setNewName] = useState('')
 
   const handleAdd = async () => {
@@ -1450,10 +1495,10 @@ function TaskDeliverablesSection({ task, projectId }: { task: ProjectTask; proje
         <div className="text-[10px] text-muted-foreground italic">Aucun livrable</div>
       )}
       {deliverables.map((d: TaskDeliverable) => {
-        const statusOpt = DELIVERABLE_STATUS_OPTIONS.find(o => o.value === d.status)
+        const statusColor = DELIVERABLE_STATUS_COLOR_MAP[d.status] ?? 'text-muted-foreground'
         return (
           <div key={d.id} className="flex items-center gap-1.5 text-[11px] group">
-            <Package size={10} className={cn('shrink-0', statusOpt?.color)} />
+            <Package size={10} className={cn('shrink-0', statusColor)} />
             <span className="flex-1 truncate">{d.name}</span>
             <select
               value={d.status}
@@ -1464,7 +1509,7 @@ function TaskDeliverablesSection({ task, projectId }: { task: ProjectTask; proje
               className={`${panelInputClass} text-[10px] w-[90px] py-0`}
               onClick={e => e.stopPropagation()}
             >
-              {DELIVERABLE_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {deliverableStatusOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             <button
               onClick={() => deleteD.mutate({ projectId, taskId: task.id, deliverableId: d.id })}
@@ -1650,6 +1695,10 @@ function TaskRow({
   const deleteTask = useDeleteProjectTask()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const taskStatusLabels = useDictionaryLabels('project_task_status', PROJECT_TASK_STATUS_LABELS_FALLBACK)
+  const projectPriorityLabels = useDictionaryLabels('project_priority', PROJECT_PRIORITY_LABELS_FALLBACK)
+  const taskStatusOptions = useMemo(() => buildDictionaryOptions(taskStatusLabels, PROJECT_TASK_STATUS_VALUES), [taskStatusLabels])
+  const projectPriorityOptions = useMemo(() => buildDictionaryOptions(projectPriorityLabels, PROJECT_PRIORITY_VALUES), [projectPriorityLabels])
 
   const handleStatusChange = (newStatus: string) => {
     updateTask.mutate({ projectId, taskId: task.id, payload: { status: newStatus } })
@@ -1664,8 +1713,8 @@ function TaskRow({
     setConfirmDelete(false)
   }
 
-  const statusOpt = TASK_STATUS_OPTIONS.find(s => s.value === task.status)
-  const priorityOpt = PRIORITY_OPTIONS.find(p => p.value === task.priority)
+  const statusOpt = taskStatusOptions.find(s => s.value === task.status)
+  const priorityOpt = projectPriorityOptions.find(p => p.value === task.priority)
   const hasChildren = allTasks.some(t => t.parent_id === task.id)
 
   return (
@@ -1723,13 +1772,13 @@ function TaskRow({
             <div>
               <label className="text-[10px] text-muted-foreground block mb-0.5">Statut</label>
               <select value={task.status} onChange={(e) => handleStatusChange(e.target.value)} className={`${panelInputClass} w-full text-xs`}>
-                {TASK_STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                {taskStatusOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
             </div>
             <div>
               <label className="text-[10px] text-muted-foreground block mb-0.5">Priorite</label>
               <select value={task.priority} onChange={(e) => handleFieldSave('priority', e.target.value)} className={`${panelInputClass} w-full text-xs`}>
-                {PRIORITY_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                {projectPriorityOptions.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
               </select>
             </div>
           </div>
@@ -1908,8 +1957,9 @@ function MilestoneQuickAdd({ projectId }: { projectId: string }) {
 function MemberRow({ member, projectId }: { member: ProjectMemberType; projectId: string }) {
   const removeMember = useRemoveProjectMember()
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const memberRoleLabels = useDictionaryLabels('project_member_role', PROJECT_MEMBER_ROLE_LABELS_FALLBACK)
 
-  const roleLbl = MEMBER_ROLE_OPTIONS.find(r => r.value === member.role)?.label ?? member.role
+  const roleLbl = memberRoleLabels[member.role] ?? member.role
 
   return (
     <div className="group flex items-center gap-2 text-xs py-1.5 border-b border-border/40 last:border-0">
@@ -1937,6 +1987,8 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
   const [userId, setUserId] = useState('')
   const [role, setRole] = useState('member')
   const addMember = useAddProjectMember()
+  const memberRoleLabels = useDictionaryLabels('project_member_role', PROJECT_MEMBER_ROLE_LABELS_FALLBACK)
+  const memberRoleOptions = useMemo(() => buildDictionaryOptions(memberRoleLabels, PROJECT_MEMBER_ROLE_VALUES), [memberRoleLabels])
 
   const handleSubmit = async () => {
     if (!userId.trim()) return
@@ -1968,7 +2020,7 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
         autoFocus
       />
       <select value={role} onChange={(e) => setRole(e.target.value)} className={`${panelInputClass} w-[100px] text-xs`}>
-        {MEMBER_ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+        {memberRoleOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
       </select>
       <button onClick={handleSubmit} disabled={addMember.isPending || !userId.trim()} className="p-1 rounded hover:bg-primary/10 text-primary disabled:opacity-40">
         {addMember.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
@@ -2444,6 +2496,12 @@ function ProjectDetailPanel({ id }: { id: string }) {
   const { data: goutiStatus } = useGoutiStatus()
   const { toast } = useToast()
   const capabilities = goutiStatus?.capabilities ?? null
+  const projectStatusLabels = useDictionaryLabels('project_status', PROJECT_STATUS_LABELS_FALLBACK)
+  const projectPriorityLabels = useDictionaryLabels('project_priority', PROJECT_PRIORITY_LABELS_FALLBACK)
+  const projectWeatherLabels = useDictionaryLabels('project_weather', PROJECT_WEATHER_LABELS_FALLBACK)
+  const projectStatusOptions = useMemo(() => buildDictionaryOptions(projectStatusLabels, PROJECT_STATUS_VALUES), [projectStatusLabels])
+  const projectPriorityOptions = useMemo(() => buildDictionaryOptions(projectPriorityLabels, PROJECT_PRIORITY_VALUES), [projectPriorityLabels])
+  const projectWeatherOptions = useMemo(() => buildDictionaryOptions(projectWeatherLabels, PROJECT_WEATHER_VALUES), [projectWeatherLabels])
 
   const handleSave = useCallback((field: string, value: string) => {
     updateProject.mutate({ id, payload: normalizeNames({ [field]: value }) })
@@ -2537,7 +2595,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
 
         {/* Quick stats — inspired by Gouti "Donnees quantitatives et acces rapide" */}
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1"><WeatherIcon weather={project.weather} size={14} /> {WEATHER_OPTIONS.find(w => w.value === project.weather)?.label}</div>
+          <div className="flex items-center gap-1"><WeatherIcon weather={project.weather} size={14} /> {projectWeatherLabels[project.weather] ?? project.weather}</div>
           <div className="flex items-center gap-1"><Target size={11} /> {project.progress}%</div>
           <div className="flex items-center gap-1"><ListTodo size={11} /> {tasks?.length ?? 0} taches</div>
           <div className="flex items-center gap-1"><Users size={11} /> {members?.length ?? 0} personnes</div>
@@ -2553,12 +2611,12 @@ function ProjectDetailPanel({ id }: { id: string }) {
                   : <ReadOnlyRow label="Nom" value={<span className="text-sm text-foreground">{project.name}</span>} />}
                 <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{project.code || '—'}</span>} />
                 {isProjectFieldEditable(project, 'status', capabilities)
-                  ? <InlineEditableTags label="Statut" value={project.status} options={STATUS_OPTIONS} onSave={(v) => handleSave('status', v)} />
-                  : <ReadOnlyRow label="Statut" value={<span className="text-sm">{STATUS_OPTIONS.find(s => s.value === project.status)?.label || project.status}</span>} />}
+                  ? <InlineEditableTags label="Statut" value={project.status} options={projectStatusOptions} onSave={(v) => handleSave('status', v)} />
+                  : <ReadOnlyRow label="Statut" value={<span className="text-sm">{projectStatusLabels[project.status] || project.status}</span>} />}
                 {isProjectFieldEditable(project, 'priority', capabilities)
-                  ? <InlineEditableTags label="Priorité" value={project.priority} options={PRIORITY_OPTIONS} onSave={(v) => handleSave('priority', v)} />
-                  : <ReadOnlyRow label="Priorité" value={<span className="text-sm">{PRIORITY_OPTIONS.find(p => p.value === project.priority)?.label || project.priority}</span>} />}
-                <InlineEditableTags label="Météo" value={project.weather} options={WEATHER_OPTIONS.map(w => ({ value: w.value, label: w.label }))} onSave={(v) => handleSave('weather', v)} />
+                  ? <InlineEditableTags label="Priorité" value={project.priority} options={projectPriorityOptions} onSave={(v) => handleSave('priority', v)} />
+                  : <ReadOnlyRow label="Priorité" value={<span className="text-sm">{projectPriorityLabels[project.priority] || project.priority}</span>} />}
+                <InlineEditableTags label="Météo" value={project.weather} options={projectWeatherOptions} onSave={(v) => handleSave('weather', v)} />
               </DetailFieldGrid>
               <DetailFieldGrid>
                 <ReadOnlyRow label="Chef de projet" value={project.manager_name || '--'} />
@@ -3121,6 +3179,10 @@ function SpreadsheetView() {
   const [showSelector, setShowSelector] = useState(false)
   const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
   const { toast } = useToast()
+  const taskStatusLabels = useDictionaryLabels('project_task_status', PROJECT_TASK_STATUS_LABELS_FALLBACK)
+  const projectPriorityLabels = useDictionaryLabels('project_priority', PROJECT_PRIORITY_LABELS_FALLBACK)
+  const taskStatusOptions = useMemo(() => buildDictionaryOptions(taskStatusLabels, PROJECT_TASK_STATUS_VALUES), [taskStatusLabels])
+  const projectPriorityOptions = useMemo(() => buildDictionaryOptions(projectPriorityLabels, PROJECT_PRIORITY_VALUES), [projectPriorityLabels])
 
   const statusFilter = typeof activeFilters.status === 'string' ? activeFilters.status : undefined
   const priorityFilter = typeof activeFilters.priority === 'string' ? activeFilters.priority : undefined
@@ -3164,9 +3226,9 @@ function SpreadsheetView() {
   }, [])
 
   const filters = useMemo<DataTableFilterDef[]>(() => [
-    { id: 'status', label: 'Statut', type: 'multi-select', operators: ['is', 'is_not'], options: TASK_STATUS_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
-    { id: 'priority', label: 'Priorité', type: 'select', options: PRIORITY_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
-  ], [])
+    { id: 'status', label: 'Statut', type: 'multi-select', operators: ['is', 'is_not'], options: taskStatusOptions },
+    { id: 'priority', label: 'Priorité', type: 'select', options: projectPriorityOptions },
+  ], [projectPriorityOptions, taskStatusOptions])
 
   const inlineEdit = useMemo<InlineEditConfig<ProjectTaskEnriched>>(() => ({
     editableColumns: ['title', 'status', 'priority', 'start_date', 'due_date', 'progress', 'estimated_hours', 'actual_hours'],
@@ -3174,22 +3236,11 @@ function SpreadsheetView() {
     columnEditors: {
       status: {
         type: 'select',
-        options: [
-          { value: 'todo', label: 'À faire' },
-          { value: 'in_progress', label: 'En cours' },
-          { value: 'review', label: 'Revue' },
-          { value: 'done', label: 'Terminé' },
-          { value: 'cancelled', label: 'Annulé' },
-        ],
+        options: taskStatusOptions,
       },
       priority: {
         type: 'select',
-        options: [
-          { value: 'low', label: 'Basse' },
-          { value: 'medium', label: 'Moyenne' },
-          { value: 'high', label: 'Haute' },
-          { value: 'critical', label: 'Critique' },
-        ],
+        options: projectPriorityOptions,
       },
       start_date: { type: 'date' },
       due_date: { type: 'date' },
@@ -3197,7 +3248,7 @@ function SpreadsheetView() {
       estimated_hours: { type: 'hours', min: 0, step: 0.5, placeholder: '0' },
       actual_hours: { type: 'hours', min: 0, step: 0.5, placeholder: '0' },
     },
-  }), [handleInlineSave])
+  }), [handleInlineSave, projectPriorityOptions, taskStatusOptions])
 
   const columns = useMemo<ColumnDef<ProjectTaskEnriched, unknown>[]>(() => [
     {
@@ -3222,8 +3273,8 @@ function SpreadsheetView() {
     {
       accessorKey: 'status', header: 'Statut', size: 100,
       cell: ({ row }) => {
-        const opt = TASK_STATUS_OPTIONS.find(s => s.value === row.original.status)
-        return <span className={cn('text-xs', opt?.color)}>{opt?.label ?? row.original.status}</span>
+        const meta = TASK_STATUS_META[row.original.status]
+        return <span className={cn('text-xs', meta?.color)}>{taskStatusLabels[row.original.status] ?? row.original.status}</span>
       },
     },
     {
@@ -3231,7 +3282,7 @@ function SpreadsheetView() {
       cell: ({ row }) => {
         const p = row.original.priority
         const cls = p === 'critical' ? 'gl-badge-danger' : p === 'high' ? 'gl-badge-warning' : 'gl-badge-neutral'
-        return <span className={cn('gl-badge', cls)}>{PRIORITY_OPTIONS.find(o => o.value === p)?.label ?? p}</span>
+        return <span className={cn('gl-badge', cls)}>{projectPriorityLabels[p] ?? p}</span>
       },
     },
     {
@@ -3269,7 +3320,7 @@ function SpreadsheetView() {
       accessorKey: 'assignee_name', header: 'Responsable', size: 130,
       cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.assignee_name || '--'}</span>,
     },
-  ], [])
+  ], [projectPriorityLabels, taskStatusLabels])
 
   const pagination: DataTablePagination | undefined = data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined
 
@@ -3591,6 +3642,7 @@ function PlanningProjectRow({
 function SubProjectsSection({ projectId }: { projectId: string }) {
   const { data: children, isLoading } = useSubProjects(projectId)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const projectStatusLabels = useDictionaryLabels('project_status', PROJECT_STATUS_LABELS_FALLBACK)
 
   if (isLoading) return <div className="text-xs text-muted-foreground py-2"><Loader2 size={12} className="animate-spin inline mr-1" />Chargement...</div>
   if (!children || children.length === 0) return <EmptyState icon={Layers} title="Aucun sous-projet" variant="search" size="compact" />
@@ -3607,7 +3659,7 @@ function SubProjectsSection({ projectId }: { projectId: string }) {
           <span className="font-medium">{child.code}</span>
           <span className="text-muted-foreground truncate flex-1">{child.name}</span>
           <span className={cn('gl-badge', child.status === 'active' ? 'gl-badge-success' : 'gl-badge-neutral')}>
-            {STATUS_OPTIONS.find(s => s.value === child.status)?.label ?? child.status}
+            {projectStatusLabels[child.status] ?? child.status}
           </span>
           <span className="text-[10px] text-muted-foreground tabular-nums">{child.progress}%</span>
           <ChevronRight size={12} className="text-muted-foreground" />
@@ -3627,7 +3679,7 @@ const KANBAN_COLUMNS: { status: string; label: string; color: string }[] = [
 ]
 
 function KanbanCard({ task }: { task: ProjectTaskEnriched }) {
-  const priorityOpt = PRIORITY_OPTIONS.find(p => p.value === task.priority)
+  const projectPriorityLabels = useDictionaryLabels('project_priority', PROJECT_PRIORITY_LABELS_FALLBACK)
   const dueDate = task.due_date ? new Date(task.due_date) : null
   const isOverdue = dueDate && dueDate.getTime() < Date.now() && task.status !== 'done'
 
@@ -3654,7 +3706,7 @@ function KanbanCard({ task }: { task: ProjectTaskEnriched }) {
           'inline-block text-[8px] px-1 rounded',
           task.priority === 'critical' ? 'bg-red-500/10 text-red-500' : 'bg-orange-500/10 text-orange-500',
         )}>
-          {priorityOpt?.label}
+          {projectPriorityLabels[task.priority] ?? task.priority}
         </span>
       )}
       <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
@@ -3837,12 +3889,19 @@ function DashboardKpiCard({ icon: Icon, label, value, hint, tone = 'default' }: 
   )
 }
 
+/** @deprecated Replaced by ModuleDashboard module="projets" */
 export function DashboardView() {
+  return <ModuleDashboard module="projets" />
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _OldDashboardView_REMOVED() {
   const { data: projectsData, isLoading: projLoading } = useProjects({ page_size: 200 })
   const { data: tasksData, isLoading: tasksLoading } = useAllProjectTasks({ page: 1, page_size: 1000 })
   const openDynamicPanel = useUIStore(s => s.openDynamicPanel)
   const { selection, setSelection, filteredProjectIds, isFiltered } = useProjectFilter()
   const [showSelector, setShowSelector] = useState(false)
+  const projectWeatherLabels = useDictionaryLabels('project_weather', PROJECT_WEATHER_LABELS_FALLBACK)
 
   const allProjects = projectsData?.items ?? []
   const allTasks = tasksData?.items ?? []
@@ -3947,24 +4006,25 @@ export function DashboardView() {
             <Sun size={12} className="text-yellow-500" /> Santé des projets (météo)
           </div>
           <div className="space-y-1.5">
-            {WEATHER_OPTIONS.map(w => {
-              const count = stats.byWeather[w.value] ?? 0
+            {PROJECT_WEATHER_VALUES.map((weather) => {
+              const count = stats.byWeather[weather] ?? 0
               const pct = stats.total > 0 ? (count / stats.total) * 100 : 0
+              const Icon = WEATHER_ICON_MAP[weather]
               return (
-                <div key={w.value} className="flex items-center gap-2 text-[11px]">
-                  <w.icon size={12} className={
-                    w.value === 'sunny' ? 'text-yellow-500' :
-                    w.value === 'cloudy' ? 'text-gray-400' :
-                    w.value === 'rainy' ? 'text-blue-400' : 'text-red-500'
+                <div key={weather} className="flex items-center gap-2 text-[11px]">
+                  <Icon size={12} className={
+                    weather === 'sunny' ? 'text-yellow-500' :
+                    weather === 'cloudy' ? 'text-gray-400' :
+                    weather === 'rainy' ? 'text-blue-400' : 'text-red-500'
                   } />
-                  <span className="w-16">{w.label}</span>
+                  <span className="w-16">{projectWeatherLabels[weather] ?? weather}</span>
                   <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                     <div
                       className={cn(
                         'h-full rounded-full',
-                        w.value === 'sunny' ? 'bg-yellow-500' :
-                        w.value === 'cloudy' ? 'bg-gray-400' :
-                        w.value === 'rainy' ? 'bg-blue-400' : 'bg-red-500',
+                        weather === 'sunny' ? 'bg-yellow-500' :
+                        weather === 'cloudy' ? 'bg-gray-400' :
+                        weather === 'rainy' ? 'bg-blue-400' : 'bg-red-500',
                       )}
                       style={{ width: `${pct}%` }}
                     />
@@ -4088,6 +4148,10 @@ function ProjectsListView() {
   const canExport = hasPermission('project.export') || hasPermission('project.read')
   const { selection: projSelection, setSelection: setProjSelection, filteredProjectIds: projFilterIds, isFiltered: isProjFiltered } = useProjectFilter()
   const [showProjSelector, setShowProjSelector] = useState(false)
+  const projectStatusLabels = useDictionaryLabels('project_status', PROJECT_STATUS_LABELS_FALLBACK)
+  const projectPriorityLabels = useDictionaryLabels('project_priority', PROJECT_PRIORITY_LABELS_FALLBACK)
+  const projectStatusOptions = useMemo(() => buildDictionaryOptions(projectStatusLabels, PROJECT_STATUS_VALUES), [projectStatusLabels])
+  const projectPriorityOptions = useMemo(() => buildDictionaryOptions(projectPriorityLabels, PROJECT_PRIORITY_VALUES), [projectPriorityLabels])
 
   const statusFilter = typeof activeFilters.status === 'string' ? activeFilters.status : undefined
   const priorityFilter = typeof activeFilters.priority === 'string' ? activeFilters.priority : undefined
@@ -4111,13 +4175,13 @@ function ProjectsListView() {
   }, [data?.items, setNavItems])
 
   const filters = useMemo<DataTableFilterDef[]>(() => [
-    { id: 'status', label: 'Statut', type: 'multi-select', operators: ['is', 'is_not'], options: STATUS_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
-    { id: 'priority', label: 'Priorité', type: 'select', options: PRIORITY_OPTIONS.map(o => ({ value: o.value, label: o.label })) },
+    { id: 'status', label: 'Statut', type: 'multi-select', operators: ['is', 'is_not'], options: projectStatusOptions },
+    { id: 'priority', label: 'Priorité', type: 'select', options: projectPriorityOptions },
     { id: 'source', label: 'Source', type: 'select', options: [
       { value: 'opsflux', label: 'OpsFlux (natif)' },
       { value: 'gouti', label: 'Importé de Gouti' },
     ]},
-  ], [])
+  ], [projectPriorityOptions, projectStatusOptions])
 
   const handleFilterChange = useCallback((filterId: string, value: unknown) => {
     setActiveFilters(prev => {
@@ -4142,7 +4206,7 @@ function ProjectsListView() {
       cell: ({ row }) => {
         const s = row.original.status
         const cls = s === 'active' ? 'gl-badge-success' : s === 'completed' ? 'gl-badge-info' : s === 'on_hold' || s === 'cancelled' ? 'gl-badge-danger' : 'gl-badge-neutral'
-        return <span className={cn('gl-badge', cls)}>{STATUS_OPTIONS.find(o => o.value === s)?.label ?? s}</span>
+        return <span className={cn('gl-badge', cls)}>{projectStatusLabels[s] ?? s}</span>
       },
     },
     { accessorKey: 'weather', header: 'Météo', size: 60, cell: ({ row }) => <WeatherIcon weather={row.original.weather} /> },
@@ -4162,7 +4226,7 @@ function ProjectsListView() {
       cell: ({ row }) => {
         const p = row.original.priority
         const cls = p === 'critical' ? 'gl-badge-danger' : p === 'high' ? 'gl-badge-warning' : 'gl-badge-neutral'
-        return <span className={cn('gl-badge', cls)}>{PRIORITY_OPTIONS.find(o => o.value === p)?.label ?? p}</span>
+        return <span className={cn('gl-badge', cls)}>{projectPriorityLabels[p] ?? p}</span>
       },
     },
     { accessorKey: 'manager_name', header: 'Chef de projet', size: 140, cell: ({ row }) => row.original.manager_id
@@ -4186,7 +4250,7 @@ function ProjectsListView() {
         ? <span className="text-muted-foreground text-xs">{new Date(row.original.end_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
         : <span className="text-muted-foreground/40">--</span>,
     },
-  ], [])
+  ], [projectPriorityLabels, projectStatusLabels])
 
   const pagination: DataTablePagination | undefined = data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined
 

@@ -163,38 +163,37 @@ import type {
 
 // ── Constants ──────────────────────────────────────────────────
 
-const PAX_STATUS_OPTIONS = [
-  { value: '', labelKey: 'common.all' },
-  { value: 'active', labelKey: 'paxlog.status.generic.active' },
-  { value: 'incomplete', labelKey: 'paxlog.status.generic.incomplete' },
-  { value: 'suspended', labelKey: 'paxlog.status.generic.suspended' },
-  { value: 'archived', labelKey: 'paxlog.status.generic.archived' },
-]
+const PAX_STATUS_LABELS_FALLBACK: Record<string, string> = {
+  active: 'Actif',
+  incomplete: 'Incomplet',
+  suspended: 'Suspendu',
+  archived: 'Archivé',
+}
 
-const ADS_STATUS_OPTIONS = [
-  { value: '', labelKey: 'common.all' },
-  { value: 'draft', labelKey: 'paxlog.status.ads.draft' },
-  { value: 'submitted', labelKey: 'paxlog.status.ads.submitted' },
-  { value: 'pending_compliance', labelKey: 'paxlog.status.ads.pending_compliance' },
-  { value: 'pending_validation', labelKey: 'paxlog.status.ads.pending_validation' },
-  { value: 'approved', labelKey: 'paxlog.status.ads.approved' },
-  { value: 'rejected', labelKey: 'paxlog.status.ads.rejected' },
-  { value: 'in_progress', labelKey: 'paxlog.status.ads.in_progress' },
-  { value: 'completed', labelKey: 'paxlog.status.ads.completed' },
-  { value: 'cancelled', labelKey: 'paxlog.status.ads.cancelled' },
-]
+const ADS_STATUS_LABELS_FALLBACK: Record<string, string> = {
+  draft: 'Brouillon',
+  submitted: 'Soumis',
+  pending_compliance: 'En conformité',
+  pending_validation: 'En validation',
+  approved: 'Approuvé',
+  rejected: 'Rejeté',
+  cancelled: 'Annulé',
+  requires_review: 'À revoir',
+  in_progress: 'En cours',
+  completed: 'Terminé',
+}
 
-const ADS_STATUS_MAP: Record<string, { labelKey: string; badge: string }> = {
-  draft: { labelKey: 'paxlog.status.ads.draft', badge: 'gl-badge-neutral' },
-  submitted: { labelKey: 'paxlog.status.ads.submitted', badge: 'gl-badge-info' },
-  pending_compliance: { labelKey: 'paxlog.status.ads.pending_compliance', badge: 'gl-badge-warning' },
-  pending_validation: { labelKey: 'paxlog.status.ads.pending_validation', badge: 'gl-badge-warning' },
-  approved: { labelKey: 'paxlog.status.ads.approved', badge: 'gl-badge-success' },
-  rejected: { labelKey: 'paxlog.status.ads.rejected', badge: 'gl-badge-danger' },
-  cancelled: { labelKey: 'paxlog.status.ads.cancelled', badge: 'gl-badge-neutral' },
-  requires_review: { labelKey: 'paxlog.status.ads.requires_review', badge: 'gl-badge-info' },
-  in_progress: { labelKey: 'paxlog.status.ads.in_progress', badge: 'gl-badge-success' },
-  completed: { labelKey: 'paxlog.status.ads.completed', badge: 'gl-badge-success' },
+const ADS_STATUS_BADGES: Record<string, string> = {
+  draft: 'gl-badge-neutral',
+  submitted: 'gl-badge-info',
+  pending_compliance: 'gl-badge-warning',
+  pending_validation: 'gl-badge-warning',
+  approved: 'gl-badge-success',
+  rejected: 'gl-badge-danger',
+  cancelled: 'gl-badge-neutral',
+  requires_review: 'gl-badge-info',
+  in_progress: 'gl-badge-success',
+  completed: 'gl-badge-success',
 }
 
 const SEVERITY_COLOR_MAP: Record<string, string> = {
@@ -205,29 +204,34 @@ const SEVERITY_COLOR_MAP: Record<string, string> = {
   permanent_ban: 'gl-badge-danger',
 }
 
-const ROTATION_STATUS_MAP: Record<string, { labelKey: string; badge: string }> = {
-  active: { labelKey: 'paxlog.status.rotation.active', badge: 'gl-badge-success' },
-  paused: { labelKey: 'paxlog.status.rotation.paused', badge: 'gl-badge-warning' },
-  completed: { labelKey: 'paxlog.status.rotation.completed', badge: 'gl-badge-neutral' },
+const ROTATION_STATUS_LABELS_FALLBACK: Record<string, string> = {
+  active: 'Actif',
+  paused: 'Suspendu',
+  completed: 'Terminé',
 }
 
-const AVM_STATUS_OPTIONS = [
-  { value: '', labelKey: 'common.all' },
-  { value: 'draft', labelKey: 'paxlog.status.avm.draft' },
-  { value: 'in_preparation', labelKey: 'paxlog.status.avm.in_preparation' },
-  { value: 'active', labelKey: 'paxlog.status.avm.active' },
-  { value: 'ready', labelKey: 'paxlog.status.avm.ready' },
-  { value: 'completed', labelKey: 'paxlog.status.avm.completed' },
-  { value: 'cancelled', labelKey: 'paxlog.status.avm.cancelled' },
-]
+const ROTATION_STATUS_BADGES: Record<string, string> = {
+  active: 'gl-badge-success',
+  paused: 'gl-badge-warning',
+  completed: 'gl-badge-neutral',
+}
 
-const AVM_STATUS_MAP: Record<string, { labelKey: string; badge: string }> = {
-  draft: { labelKey: 'paxlog.status.avm.draft', badge: 'gl-badge-neutral' },
-  in_preparation: { labelKey: 'paxlog.status.avm.in_preparation', badge: 'gl-badge-warning' },
-  active: { labelKey: 'paxlog.status.avm.active', badge: 'gl-badge-info' },
-  ready: { labelKey: 'paxlog.status.avm.ready', badge: 'gl-badge-success' },
-  completed: { labelKey: 'paxlog.status.avm.completed', badge: 'gl-badge-success' },
-  cancelled: { labelKey: 'paxlog.status.avm.cancelled', badge: 'gl-badge-neutral' },
+const AVM_STATUS_LABELS_FALLBACK: Record<string, string> = {
+  draft: 'Brouillon',
+  in_preparation: 'En préparation',
+  active: 'Active',
+  ready: 'Prête',
+  completed: 'Terminée',
+  cancelled: 'Annulée',
+}
+
+const AVM_STATUS_BADGES: Record<string, string> = {
+  draft: 'gl-badge-neutral',
+  in_preparation: 'gl-badge-warning',
+  active: 'gl-badge-info',
+  ready: 'gl-badge-success',
+  completed: 'gl-badge-success',
+  cancelled: 'gl-badge-neutral',
 }
 
 const ALL_TABS = [
@@ -244,8 +248,11 @@ type MainTabId = (typeof ALL_TABS)[number]['id']
 
 // ── Helpers ────────────────────────────────────────────────────
 
-function StatusBadge({ status, map, className }: { status: string; map?: Record<string, { labelKey: string; badge: string }>; className?: string }) {
+function StatusBadge({ status, map, labels, badges, className }: { status: string; map?: Record<string, { labelKey: string; badge: string }>; labels?: Record<string, string>; badges?: Record<string, string>; className?: string }) {
   const { t } = useTranslation()
+  if (labels) {
+    return <span className={cn('gl-badge', badges?.[status] || 'gl-badge-neutral', className)}>{labels[status] ?? status.replace(/_/g, ' ')}</span>
+  }
   if (map) {
     const entry = map[status]
     return <span className={cn('gl-badge', entry?.badge || 'gl-badge-neutral', className)}>{entry ? t(entry.labelKey) : status.replace(/_/g, ' ')}</span>
@@ -259,6 +266,13 @@ function StatusBadge({ status, map, className }: { status: string; map?: Record<
     pending_compliance: 'gl-badge-warning', requires_review: 'gl-badge-info',
   }
   return <span className={cn('gl-badge', colorMap[status] || 'gl-badge-neutral', className)}>{status.replace(/_/g, ' ')}</span>
+}
+
+function buildStatusFilterOptions(labels: Record<string, string>, values: string[], allLabel: string) {
+  return [
+    { value: '', label: allLabel },
+    ...values.map((value) => ({ value, label: labels[value] ?? value })),
+  ]
 }
 
 function SeverityBadge({ severity }: { severity: string }) {
@@ -517,6 +531,7 @@ function DashboardTab() {
   const { data: expiringCreds } = useExpiringCredentials(30)
   const { data: incidentsData } = usePaxIncidents({ page: 1, page_size: 5, active_only: true })
   const visitCategoryLabels = useDictionaryLabels('visit_category')
+  const adsStatusLabels = useDictionaryLabels('pax_ads_status', ADS_STATUS_LABELS_FALLBACK)
 
   const paxOnSite = profilesData?.total ?? 0
   const adsPending = useMemo(() => {
@@ -552,10 +567,9 @@ function DashboardTab() {
         <CollapsibleSection id="dash-ads-status" title={t('paxlog.dashboard.sections.ads_by_status')} defaultExpanded>
           <div className="flex flex-wrap gap-2">
             {Object.entries(adsStatusCounts).map(([status, count]) => {
-              const entry = ADS_STATUS_MAP[status]
               return (
                 <div key={status} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-background">
-                  <span className={cn('gl-badge', entry?.badge || 'gl-badge-neutral')}>{entry ? t(entry.labelKey) : status}</span>
+                  <span className={cn('gl-badge', ADS_STATUS_BADGES[status] || 'gl-badge-neutral')}>{adsStatusLabels[status] ?? status}</span>
                   <span className="text-sm font-semibold tabular-nums">{count}</span>
                 </div>
               )
@@ -586,7 +600,7 @@ function DashboardTab() {
                     <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                       <Users size={11} /> {ads.pax_count}
                     </span>
-                    <StatusBadge status={ads.status} map={ADS_STATUS_MAP} />
+                    <StatusBadge status={ads.status} labels={adsStatusLabels} badges={ADS_STATUS_BADGES} />
                   </div>
                 </div>
               ))}
@@ -637,6 +651,8 @@ function DashboardTab() {
   )
 }
 
+void DashboardTab
+
 function RequesterHomeTab({
   onCreateAds,
   onCreateAvm,
@@ -649,6 +665,8 @@ function RequesterHomeTab({
   onOpenAvm: (id: string) => void
 }) {
   const { t } = useTranslation()
+  const adsStatusLabels = useDictionaryLabels('pax_ads_status', ADS_STATUS_LABELS_FALLBACK)
+  const avmStatusLabels = useDictionaryLabels('pax_avm_status', AVM_STATUS_LABELS_FALLBACK)
   const { data: myAds, isLoading: adsLoading } = useAdsList({
     page: 1,
     page_size: 8,
@@ -717,7 +735,7 @@ function RequesterHomeTab({
                         {formatDateShort(item.start_date)} → {formatDateShort(item.end_date)} • {item.pax_count} PAX
                       </p>
                     </div>
-                    <StatusBadge status={item.status} map={ADS_STATUS_MAP} className="shrink-0" />
+                    <StatusBadge status={item.status} labels={adsStatusLabels} badges={ADS_STATUS_BADGES} className="shrink-0" />
                   </div>
                 </button>
               ))}
@@ -745,7 +763,7 @@ function RequesterHomeTab({
                           {formatDateShort(item.planned_start_date)} → {formatDateShort(item.planned_end_date)} • {item.pax_count} PAX
                         </p>
                       </div>
-                      <StatusBadge status={item.status} map={AVM_STATUS_MAP} className="shrink-0" />
+                      <StatusBadge status={item.status} labels={avmStatusLabels} badges={AVM_STATUS_BADGES} className="shrink-0" />
                     </div>
                   </button>
                 ))}
@@ -780,6 +798,8 @@ function ValidatorHomeTab({
   const { data: avmData, isLoading: avmLoading } = useAvmList({ page: 1, page_size: 8 })
   const { data: expiringCreds, isLoading: expiringLoading } = useExpiringCredentials(30)
   const visitCategoryLabels = useDictionaryLabels('visit_category')
+  const adsStatusLabels = useDictionaryLabels('pax_ads_status', ADS_STATUS_LABELS_FALLBACK)
+  const avmStatusLabels = useDictionaryLabels('pax_avm_status', AVM_STATUS_LABELS_FALLBACK)
 
   const adsItems = adsData?.items ?? []
   const avmItems = avmData?.items ?? []
@@ -826,7 +846,7 @@ function ValidatorHomeTab({
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-mono text-xs font-medium text-foreground">{item.reference}</p>
-                        <StatusBadge status={item.status} map={ADS_STATUS_MAP} className="shrink-0" />
+                        <StatusBadge status={item.status} labels={adsStatusLabels} badges={ADS_STATUS_BADGES} className="shrink-0" />
                       </div>
                       <p className="truncate text-sm text-foreground">{item.site_name || t('paxlog.common.site_not_specified')}</p>
                       <p className="text-[11px] text-muted-foreground">
@@ -861,7 +881,7 @@ function ValidatorHomeTab({
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="font-mono text-xs font-medium text-foreground">{item.reference}</p>
-                          <StatusBadge status={item.status} map={AVM_STATUS_MAP} className="shrink-0" />
+                          <StatusBadge status={item.status} labels={avmStatusLabels} badges={AVM_STATUS_BADGES} className="shrink-0" />
                         </div>
                         <p className="truncate text-sm text-foreground">{item.title}</p>
                         <p className="text-[11px] text-muted-foreground">
@@ -930,6 +950,11 @@ function AdsTab({ openDetail, requesterOnly = false, validatorOnly = false }: { 
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState(validatorOnly ? 'pending_validation' : '')
   const visitCategoryLabels = useDictionaryLabels('visit_category')
+  const adsStatusLabels = useDictionaryLabels('pax_ads_status', ADS_STATUS_LABELS_FALLBACK)
+  const adsStatusOptions = useMemo(
+    () => buildStatusFilterOptions(adsStatusLabels, ['draft', 'submitted', 'pending_compliance', 'pending_validation', 'approved', 'rejected', 'in_progress', 'completed', 'cancelled'], t('common.all')),
+    [adsStatusLabels, t],
+  )
 
   const { data, isLoading } = useAdsList({
     page,
@@ -1005,10 +1030,10 @@ function AdsTab({ openDetail, requesterOnly = false, validatorOnly = false }: { 
     {
       accessorKey: 'status',
       header: t('common.status'),
-      cell: ({ row }) => <StatusBadge status={row.original.status} map={ADS_STATUS_MAP} />,
+      cell: ({ row }) => <StatusBadge status={row.original.status} labels={adsStatusLabels} badges={ADS_STATUS_BADGES} />,
       size: 110,
     },
-  ], [t, visitCategoryLabels])
+  ], [adsStatusLabels, t, visitCategoryLabels])
 
   return (
     <>
@@ -1030,10 +1055,10 @@ function AdsTab({ openDetail, requesterOnly = false, validatorOnly = false }: { 
       {/* Filter bar */}
       <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
         <div className="flex items-center gap-1 overflow-x-auto">
-          {ADS_STATUS_OPTIONS.map((opt) => (
+          {adsStatusOptions.map((opt) => (
             <button key={opt.value} onClick={() => { setStatusFilter(opt.value); setPage(1) }}
               className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap', statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-              {t(opt.labelKey)}
+              {opt.label}
             </button>
           ))}
         </div>
@@ -1073,6 +1098,11 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string, meta?: Record<st
   const [statusFilter, setStatusFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const { hasPermission } = usePermission()
+  const paxStatusLabels = useDictionaryLabels('pax_profile_status', PAX_STATUS_LABELS_FALLBACK)
+  const paxStatusOptions = useMemo(
+    () => buildStatusFilterOptions(paxStatusLabels, ['active', 'incomplete', 'suspended', 'archived'], t('common.all')),
+    [paxStatusLabels, t],
+  )
   const paxTypeOptions = useDictionaryOptions('pax_type')
   const paxTypeLabels = useDictionaryLabels('pax_type', { internal: t('paxlog.internal'), external: t('paxlog.external') })
   const canImport = hasPermission('paxlog.import')
@@ -1128,10 +1158,10 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string, meta?: Record<st
     <>
       <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
         <div className="flex items-center gap-1">
-          {PAX_STATUS_OPTIONS.map((opt) => (
+          {paxStatusOptions.map((opt) => (
             <button key={opt.value} onClick={() => { setStatusFilter(opt.value); setPage(1) }}
               className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors', statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-              {t(opt.labelKey)}
+              {opt.label}
             </button>
           ))}
           <span className="mx-1 h-3 w-px bg-border" />
@@ -1477,11 +1507,7 @@ function RotationsTab() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const rotationStatusOptions = useDictionaryOptions('pax_rotation_status')
-  const rotationStatusLabels = useDictionaryLabels('pax_rotation_status', {
-    active: t('paxlog.status.rotation.active'),
-    paused: t('paxlog.status.rotation.paused'),
-    completed: t('paxlog.status.rotation.completed'),
-  })
+  const rotationStatusLabels = useDictionaryLabels('pax_rotation_status', ROTATION_STATUS_LABELS_FALLBACK)
   const endCycle = useEndRotationCycle()
 
   const { data, isLoading } = useRotationCycles({
@@ -1565,7 +1591,7 @@ function RotationsTab() {
     {
       accessorKey: 'status',
       header: t('common.status'),
-      cell: ({ row }) => <StatusBadge status={row.original.status} map={ROTATION_STATUS_MAP} />,
+      cell: ({ row }) => <StatusBadge status={row.original.status} labels={rotationStatusLabels} badges={ROTATION_STATUS_BADGES} />,
       size: 90,
     },
     {
@@ -1602,7 +1628,7 @@ function RotationsTab() {
       ) : null,
       size: 80,
     },
-  ], [endCycle, t])
+  ], [endCycle, rotationStatusLabels, t])
 
   return (
     <>
@@ -2255,6 +2281,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   const { data: assetTree = [] } = useAssetTree()
   const visitCategoryLabels = useDictionaryLabels('visit_category')
   const transportModeLabels = useDictionaryLabels('transport_mode')
+  const adsStatusLabels = useDictionaryLabels('pax_ads_status', ADS_STATUS_LABELS_FALLBACK)
 
   const [rejectReason, setRejectReason] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
@@ -2916,7 +2943,7 @@ function AdsDetailPanel({ id }: { id: string }) {
 
         {/* Status badges */}
         <div className="flex items-center gap-2 flex-wrap">
-          <StatusBadge status={ads.status} map={ADS_STATUS_MAP} />
+          <StatusBadge status={ads.status} labels={adsStatusLabels} badges={ADS_STATUS_BADGES} />
           <span className={cn('gl-badge', ads.type === 'team' ? 'gl-badge-info' : 'gl-badge-neutral')}>
             {ads.type === 'individual' ? t('paxlog.create_ads.type.individual') : t('paxlog.create_ads.type.team')}
           </span>
@@ -3992,6 +4019,11 @@ function AvmTab({ openDetail, requesterOnly = false, validatorOnly = false }: { 
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState(validatorOnly ? 'in_preparation' : '')
   const missionTypeLabels = useDictionaryLabels('mission_type')
+  const avmStatusLabels = useDictionaryLabels('pax_avm_status', AVM_STATUS_LABELS_FALLBACK)
+  const avmStatusOptions = useMemo(
+    () => buildStatusFilterOptions(avmStatusLabels, ['draft', 'in_preparation', 'active', 'ready', 'completed', 'cancelled'], t('common.all')),
+    [avmStatusLabels, t],
+  )
 
   const { data, isLoading } = useAvmList({
     page,
@@ -4055,7 +4087,7 @@ function AvmTab({ openDetail, requesterOnly = false, validatorOnly = false }: { 
     {
       accessorKey: 'status',
       header: t('common.status'),
-      cell: ({ row }) => <StatusBadge status={row.original.status} map={AVM_STATUS_MAP} />,
+      cell: ({ row }) => <StatusBadge status={row.original.status} labels={avmStatusLabels} badges={AVM_STATUS_BADGES} />,
       size: 120,
     },
     {
@@ -4064,7 +4096,7 @@ function AvmTab({ openDetail, requesterOnly = false, validatorOnly = false }: { 
       cell: ({ row }) => <CompletenessBar value={row.original.preparation_progress} />,
       size: 110,
     },
-  ], [missionTypeLabels, openDetail, t])
+  ], [avmStatusLabels, missionTypeLabels, openDetail, t])
 
   return (
     <>
@@ -4083,10 +4115,10 @@ function AvmTab({ openDetail, requesterOnly = false, validatorOnly = false }: { 
       </div>
       <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
         <div className="flex items-center gap-1">
-          {AVM_STATUS_OPTIONS.map((opt) => (
+          {avmStatusOptions.map((opt) => (
             <button key={opt.value} onClick={() => { setStatusFilter(opt.value); setPage(1) }}
               className={cn('px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap', statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-              {t(opt.labelKey)}
+              {opt.label}
             </button>
           ))}
         </div>
@@ -4451,6 +4483,8 @@ function AvmDetailPanel({ id }: { id?: string }) {
   const updateVisaFollowupMut = useUpdateAvmVisaFollowup()
   const updateAllowanceRequestMut = useUpdateAvmAllowanceRequest()
   const { hasPermission } = usePermission()
+  const adsStatusLabels = useDictionaryLabels('pax_ads_status', ADS_STATUS_LABELS_FALLBACK)
+  const avmStatusLabels = useDictionaryLabels('pax_avm_status', AVM_STATUS_LABELS_FALLBACK)
   const missionTypeLabels = useDictionaryLabels('mission_type')
   const missionActivityTypeLabels = useDictionaryLabels('mission_activity_type')
   const preparationTaskTypeLabels = useDictionaryLabels('pax_preparation_task_type')
@@ -4818,7 +4852,7 @@ function AvmDetailPanel({ id }: { id?: string }) {
           <div className="space-y-2">
             <ReadOnlyRow label={t('paxlog.reference')} value={avm.reference} />
             <ReadOnlyRow label={t('common.title')} value={avm.title} />
-            <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={avm.status} map={AVM_STATUS_MAP} />} />
+            <ReadOnlyRow label={t('common.status')} value={<StatusBadge status={avm.status} labels={avmStatusLabels} badges={AVM_STATUS_BADGES} />} />
             <ReadOnlyRow label={t('paxlog.mission_type')} value={missionTypeLabels[avm.mission_type] || avm.mission_type} />
             <ReadOnlyRow label={t('paxlog.avm_detail.fields.creator')} value={avm.creator_name || '—'} />
             <ReadOnlyRow label={t('paxlog.avm_detail.fields.planned_dates')} value={`${formatDateShort(avm.planned_start_date)} — ${formatDateShort(avm.planned_end_date)}`} />
@@ -5250,7 +5284,7 @@ function AvmDetailPanel({ id }: { id?: string }) {
                         <Link2 size={10} /> {prog.generated_ads_reference || t('paxlog.avm_detail.program.generated_ads')}
                       </button>
                       {prog.generated_ads_status && (
-                        <StatusBadge status={prog.generated_ads_status} map={ADS_STATUS_MAP} />
+                        <StatusBadge status={prog.generated_ads_status} labels={adsStatusLabels} badges={ADS_STATUS_BADGES} />
                       )}
                     </div>
                   )}
@@ -5358,7 +5392,7 @@ export function PaxLogPage() {
               ? <RequesterHomeTab onCreateAds={() => openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'ads' } })} onCreateAvm={() => openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'avm' } })} onOpenAds={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'ads' } })} onOpenAvm={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'avm' } })} />
               : isValidatorProfile
                 ? <ValidatorHomeTab onOpenAds={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'ads' } })} onOpenAvm={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'avm' } })} />
-                : <div className="space-y-4"><ModuleDashboard module="paxlog" /><DashboardTab /></div>
+                : <ModuleDashboard module="paxlog" />
           )}
           {effectiveTab === 'ads' && <AdsTab openDetail={handleOpenDetail} requesterOnly={isRequesterProfile} validatorOnly={isValidatorProfile} />}
           {effectiveTab === 'profiles' && <ProfilesTab openDetail={handleOpenDetail} />}

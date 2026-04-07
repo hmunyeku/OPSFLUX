@@ -446,6 +446,8 @@ function DashboardTab() {
   )
 }
 
+void DashboardTab
+
 // ══════════════════════════════════════════════════════════════
 // ── VOYAGES TAB ──────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════
@@ -2471,7 +2473,7 @@ export function TravelWizPage() {
             })}
           </div>
 
-          {activeTab === 'dashboard' && <div className="space-y-4"><ModuleDashboard module="travelwiz" /><DashboardTab /></div>}
+          {activeTab === 'dashboard' && <ModuleDashboard module="travelwiz" />}
           {activeTab === 'voyages' && <VoyagesTab />}
           {activeTab === 'manifests' && <ManifestesTab />}
           {activeTab === 'cargo' && <CargoTab />}

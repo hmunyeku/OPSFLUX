@@ -6,6 +6,7 @@ export const STRUCTURE_LOCKED_WORKFLOW_SLUGS = new Set([
   'ads-workflow',
   'planner-activity',
   'voyage-workflow',
+  'packlog-cargo-workflow',
   'travelwiz-cargo-workflow',
   'avm-workflow',
 ])

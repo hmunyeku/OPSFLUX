@@ -4,7 +4,7 @@
  * Static Panel: tab bar + DataTable per tab.
  * Dynamic Panel: create/detail forms per entity.
  */
-import { useState, useEffect, useCallback, useMemo, useRef, Component, type ReactNode, type ErrorInfo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext, Component, type ReactNode, type ErrorInfo } from 'react'
 import {
   Plane, Ship, Package, FileText, Plus, LayoutDashboard,
   Anchor, Truck, Users, ArrowRight, Calendar, Weight,
@@ -103,6 +103,28 @@ import {
   useCreateRotation,
   useUpdateRotation,
 } from '@/hooks/useTravelWiz'
+import {
+  useCargoRequests as usePackLogCargoRequests,
+  useCargoRequest as usePackLogCargoRequest,
+  useCargoRequestLtPdf as usePackLogCargoRequestLtPdf,
+  useCargoRequestLoadingOptions as usePackLogCargoRequestLoadingOptions,
+  useCreateCargoRequest as useCreatePackLogCargoRequest,
+  useCargo as usePackLogCargo,
+  useCargoItem as usePackLogCargoItem,
+  useCreateCargo as useCreatePackLogCargo,
+  useUpdateCargo as useUpdatePackLogCargo,
+  useUpdateCargoStatus as useUpdatePackLogCargoStatus,
+  useUpdateCargoRequest as useUpdatePackLogCargoRequest,
+  useCargoAttachmentEvidence as usePackLogCargoAttachmentEvidence,
+  useUpdateCargoWorkflowStatus as useUpdatePackLogCargoWorkflowStatus,
+  useUpdateCargoAttachmentEvidence as useUpdatePackLogCargoAttachmentEvidence,
+  useInitiateCargoReturn as useInitiatePackLogCargoReturn,
+  usePackageElements as usePackLogPackageElements,
+  useUpdatePackageElementDisposition as useUpdatePackLogPackageElementDisposition,
+  useUpdatePackageElementReturn as useUpdatePackLogPackageElementReturn,
+  useCargoHistory as usePackLogCargoHistory,
+} from '@/hooks/usePackLog'
+import { useApplyPackLogCargoRequestLoadingOption } from '@/hooks/usePackLog'
 import { usePermission } from '@/hooks/usePermission'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { FleetMap } from '@/components/travelwiz/FleetMap'
@@ -133,6 +155,139 @@ const TABS: { id: TravelWizTab; label: string; icon: typeof Plane }[] = [
   { id: 'pickup', label: 'Ramassage', icon: Route },
   { id: 'weather', label: 'Météo', icon: CloudSun },
 ]
+
+type CargoWorkspaceModule = 'travelwiz' | 'packlog'
+
+const CargoWorkspaceContext = createContext<{ panelModule: CargoWorkspaceModule; moduleLabel: string; queryNamespace: 'travelwiz' | 'packlog' }>({
+  panelModule: 'travelwiz',
+  moduleLabel: 'TravelWiz',
+  queryNamespace: 'travelwiz',
+})
+
+export function CargoWorkspaceProvider({
+  module,
+  label,
+  children,
+}: {
+  module: CargoWorkspaceModule
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <CargoWorkspaceContext.Provider value={{ panelModule: module, moduleLabel: label, queryNamespace: module === 'packlog' ? 'packlog' : 'travelwiz' }}>
+      {children}
+    </CargoWorkspaceContext.Provider>
+  )
+}
+
+function useCargoWorkspace() {
+  return useContext(CargoWorkspaceContext)
+}
+
+function useWorkspaceCargoRequests(params: Parameters<typeof useCargoRequests>[0]) {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? usePackLogCargoRequests(params) : useCargoRequests(params)
+}
+
+function useWorkspaceCargoRequest(id: string | undefined) {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? usePackLogCargoRequest(id) : useCargoRequest(id)
+}
+
+function useWorkspaceCargoRequestLtPdf() {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? usePackLogCargoRequestLtPdf() : useCargoRequestLtPdf()
+}
+
+function useWorkspaceCargoRequestLoadingOptions(id: string | undefined) {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? usePackLogCargoRequestLoadingOptions(id) : useCargoRequestLoadingOptions(id)
+}
+
+function useWorkspaceCreateCargoRequest() {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? useCreatePackLogCargoRequest() : useCreateCargoRequest()
+}
+
+function useWorkspaceUpdateCargoRequest() {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? useUpdatePackLogCargoRequest() : useUpdateCargoRequest()
+}
+
+function useWorkspaceApplyCargoRequestLoadingOption() {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? useApplyPackLogCargoRequestLoadingOption() : useApplyCargoRequestLoadingOption()
+}
+
+function useWorkspaceCargo(params: Parameters<typeof useCargo>[0]) {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? usePackLogCargo(params) : useCargo(params)
+}
+
+function useWorkspaceCargoItem(id: string | undefined) {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? usePackLogCargoItem(id) : useCargoItem(id)
+}
+
+function useWorkspaceCreateCargo() {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? useCreatePackLogCargo() : useCreateCargo()
+}
+
+function useWorkspaceUpdateCargo() {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? useUpdatePackLogCargo() : useUpdateCargo()
+}
+
+function useWorkspaceUpdateCargoStatus() {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? useUpdatePackLogCargoStatus() : useUpdateCargoStatus()
+}
+
+function useWorkspaceUpdateCargoWorkflowStatus() {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? useUpdatePackLogCargoWorkflowStatus() : useUpdateCargoWorkflowStatus()
+}
+
+function useWorkspaceCargoAttachmentEvidence(id: string | undefined) {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? usePackLogCargoAttachmentEvidence(id) : useCargoAttachmentEvidence(id)
+}
+
+function useWorkspaceUpdateCargoAttachmentEvidence() {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? useUpdatePackLogCargoAttachmentEvidence() : useUpdateCargoAttachmentEvidence()
+}
+
+function useWorkspaceInitiateCargoReturn() {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? useInitiatePackLogCargoReturn() : useInitiateCargoReturn()
+}
+
+function useWorkspacePackageElements(id: string | undefined) {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? usePackLogPackageElements(id) : usePackageElements(id)
+}
+
+function useWorkspaceUpdatePackageElementReturn() {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? useUpdatePackLogPackageElementReturn() : useUpdatePackageElementReturn()
+}
+
+function useWorkspaceUpdatePackageElementDisposition() {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? useUpdatePackLogPackageElementDisposition() : useUpdatePackageElementDisposition()
+}
+
+function useWorkspaceCargoHistory(id: string | undefined) {
+  const { queryNamespace } = useCargoWorkspace()
+  return queryNamespace === 'packlog' ? usePackLogCargoHistory(id) : useCargoHistory(id)
+}
+
+function useCargoDictionaryCategory(suffix: string) {
+  const { queryNamespace } = useCargoWorkspace()
+  return `${queryNamespace === 'packlog' ? 'packlog' : 'travelwiz'}_${suffix}`
+}
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -1641,23 +1796,26 @@ function ManifestesTab() {
 // ── CARGO TAB ────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════
 
-function CargoTab() {
+export function CargoTab() {
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('')
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
-  const updateCargoStatus = useUpdateCargoStatus()
-  const { data: cargoRequestsData } = useCargoRequests({ page: 1, page_size: 8 })
-  const cargoRequestStatusLabels = useDictionaryLabels('travelwiz_cargo_request_status')
-  const cargoStatusLabels = useDictionaryLabels('travelwiz_cargo_status', CARGO_STATUS_LABELS_FALLBACK)
+  const { panelModule } = useCargoWorkspace()
+  const cargoRequestStatusCategory = useCargoDictionaryCategory('cargo_request_status')
+  const cargoStatusCategory = useCargoDictionaryCategory('cargo_status')
+  const updateCargoStatus = useWorkspaceUpdateCargoStatus()
+  const { data: cargoRequestsData } = useWorkspaceCargoRequests({ page: 1, page_size: 8 })
+  const cargoRequestStatusLabels = useDictionaryLabels(cargoRequestStatusCategory)
+  const cargoStatusLabels = useDictionaryLabels(cargoStatusCategory, CARGO_STATUS_LABELS_FALLBACK)
   const cargoStatusOptions = useMemo(
     () => buildStatusOptions(cargoStatusLabels, ['registered', 'ready', 'ready_for_loading', 'loaded', 'in_transit', 'delivered', 'delivered_intermediate', 'delivered_final', 'return_declared', 'return_in_transit', 'returned', 'reintegrated', 'scrapped', 'damaged', 'missing']),
     [cargoStatusLabels],
   )
 
-  const { data, isLoading } = useCargo({
+  const { data, isLoading } = useWorkspaceCargo({
     page,
     page_size: pageSize,
     search: debouncedSearch || undefined,
@@ -1767,7 +1925,7 @@ function CargoTab() {
           {cargoRequests.map((request) => (
             <button
               key={request.id}
-              onClick={() => openDynamicPanel({ type: 'detail', module: 'travelwiz', id: request.id, meta: { subtype: 'cargo-request' } })}
+              onClick={() => openDynamicPanel({ type: 'detail', module: panelModule, id: request.id, meta: { subtype: 'cargo-request' } })}
               className="rounded-xl border border-border/70 bg-card px-3 py-3 text-left hover:bg-muted/40 transition-colors"
             >
               <div className="flex items-center justify-between gap-3">
@@ -1820,7 +1978,7 @@ function CargoTab() {
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
           searchPlaceholder="Rechercher par tracking, description..."
-          onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'travelwiz', id: row.id, meta: { subtype: 'cargo' } })}
+          onRowClick={(row) => openDynamicPanel({ type: 'detail', module: panelModule, id: row.id, meta: { subtype: 'cargo' } })}
           emptyIcon={Package}
           emptyTitle="Aucun colis"
           storageKey="travelwiz-cargo"
@@ -2872,10 +3030,11 @@ function CreateVectorPanel() {
 
 function CreateCargoRequestPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
-  const createCargoRequest = useCreateCargoRequest()
+  const createCargoRequest = useWorkspaceCreateCargoRequest()
   const { data: tiersData } = useTiers({ page: 1, page_size: 100 })
   const { data: imputationReferences } = useImputationReferences()
   const { toast } = useToast()
+  const { moduleLabel } = useCargoWorkspace()
   const [form, setForm] = useState<CargoRequestCreate>({
     title: '',
     description: null,
@@ -2902,7 +3061,7 @@ function CreateCargoRequestPanel() {
   return (
     <DynamicPanelShell
       title="Nouvelle demande d’expédition"
-      subtitle="TravelWiz"
+      subtitle={moduleLabel}
       icon={<FileText size={14} className="text-primary" />}
       actions={
         <>
@@ -2994,13 +3153,16 @@ function CreateCargoPanel() {
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
-  const createCargo = useCreateCargo()
-  const { data: cargoRequestsData } = useCargoRequests({ page: 1, page_size: 100 })
+  const { panelModule, moduleLabel } = useCargoWorkspace()
+  const cargoTypeCategory = useCargoDictionaryCategory('cargo_type')
+  const ownershipCategory = useCargoDictionaryCategory('cargo_ownership_type')
+  const createCargo = useWorkspaceCreateCargo()
+  const { data: cargoRequestsData } = useWorkspaceCargoRequests({ page: 1, page_size: 100 })
   const { data: tiersData } = useTiers({ page: 1, page_size: 100 })
   const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
   const { data: imputationReferences } = useImputationReferences()
-  const cargoTypeOptions = useDictionaryOptions('travelwiz_cargo_type')
-  const ownershipOptions = useDictionaryOptions('travelwiz_cargo_ownership_type')
+  const cargoTypeOptions = useDictionaryOptions(cargoTypeCategory)
+  const ownershipOptions = useDictionaryOptions(ownershipCategory)
   const { toast } = useToast()
   const [form, setForm] = useState<CargoItemCreate>({
     request_id: null,
@@ -3043,7 +3205,7 @@ function CreateCargoPanel() {
   const tiers = tiersData?.items ?? []
   const users = usersData?.items ?? []
   const { data: tierContacts } = useTierContacts(form.sender_tier_id ?? undefined)
-  const preselectedRequestId = dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'cargo'
+  const preselectedRequestId = dynamicPanel?.module === panelModule && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'cargo'
     ? ((dynamicPanel.meta as { requestId?: string }).requestId ?? null)
     : null
   const preselectedRequest = preselectedRequestId
@@ -3067,12 +3229,12 @@ function CreateCargoPanel() {
     try {
       const createdCargo = await createCargo.mutateAsync(form)
       toast({ title: 'Colis cree avec succes', description: 'Vous pouvez maintenant ajouter les photos et documents au colis.', variant: 'success' })
-      openDynamicPanel({ type: 'detail', module: 'travelwiz', id: createdCargo.id, meta: { subtype: 'cargo' } })
+      openDynamicPanel({ type: 'detail', module: panelModule, id: createdCargo.id, meta: { subtype: 'cargo' } })
     } catch { toast({ title: 'Erreur lors de la creation du colis', variant: 'error' }) }
   }
 
   return (
-    <DynamicPanelShell title="Nouveau colis" subtitle="TravelWiz" icon={<Package size={14} className="text-primary" />}
+    <DynamicPanelShell title="Nouveau colis" subtitle={moduleLabel} icon={<Package size={14} className="text-primary" />}
       actions={<>
         <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
         <PanelActionButton variant="primary" disabled={createCargo.isPending}
@@ -3326,16 +3488,18 @@ function CreateCargoPanel() {
 }
 
 function CargoRequestDetailPanel({ id }: { id: string }) {
-  const { data: cargoRequest, isLoading } = useCargoRequest(id)
-  const { data: requestCargoData } = useCargo({ page: 1, page_size: 100, request_id: id })
-  const { data: loadingOptions } = useCargoRequestLoadingOptions(id)
-  const downloadCargoRequestLtPdf = useCargoRequestLtPdf()
-  const updateCargoRequest = useUpdateCargoRequest()
-  const applyLoadingOption = useApplyCargoRequestLoadingOption()
+  const { panelModule } = useCargoWorkspace()
+  const cargoRequestStatusCategory = useCargoDictionaryCategory('cargo_request_status')
+  const { data: cargoRequest, isLoading } = useWorkspaceCargoRequest(id)
+  const { data: requestCargoData } = useWorkspaceCargo({ page: 1, page_size: 100, request_id: id })
+  const { data: loadingOptions } = useWorkspaceCargoRequestLoadingOptions(id)
+  const downloadCargoRequestLtPdf = useWorkspaceCargoRequestLtPdf()
+  const updateCargoRequest = useWorkspaceUpdateCargoRequest()
+  const applyLoadingOption = useWorkspaceApplyCargoRequestLoadingOption()
   const { data: tiersData } = useTiers({ page: 1, page_size: 100 })
   const { data: imputationReferences } = useImputationReferences()
-  const requestStatusOptions = useDictionaryOptions('travelwiz_cargo_request_status')
-  const requestStatusLabels = useDictionaryLabels('travelwiz_cargo_request_status')
+  const requestStatusOptions = useDictionaryOptions(cargoRequestStatusCategory)
+  const requestStatusLabels = useDictionaryLabels(cargoRequestStatusCategory)
   const { toast } = useToast()
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<CargoRequestUpdate>({})
@@ -3569,7 +3733,7 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
                   {requestCargo.map((cargo) => (
                     <button
                       key={cargo.id}
-                      onClick={() => useUIStore.getState().openDynamicPanel({ type: 'detail', module: 'travelwiz', id: cargo.id, meta: { subtype: 'cargo' } })}
+                      onClick={() => useUIStore.getState().openDynamicPanel({ type: 'detail', module: panelModule, id: cargo.id, meta: { subtype: 'cargo' } })}
                       className="w-full rounded-lg border border-border/60 bg-card px-3 py-2 text-left hover:bg-muted/40"
                     >
                       <div className="flex items-center justify-between gap-3">
@@ -3592,7 +3756,7 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
                     variant="primary"
                     onClick={() => useUIStore.getState().openDynamicPanel({
                       type: 'create',
-                      module: 'travelwiz',
+                      module: panelModule,
                       meta: { subtype: 'cargo', requestId: id, requestTitle: cargoRequest.title, requestCode: cargoRequest.request_code },
                     })}
                     icon={<Plus size={12} />}
@@ -4451,38 +4615,47 @@ function RotationDetailPanel({ id }: { id: string }) {
 // ── Cargo Detail Panel (enhanced with package elements, return workflow, SAP) ──
 
 function CargoDetailPanel({ id }: { id: string }) {
-  const { data: cargo, isLoading } = useCargoItem(id)
-  const { data: cargoRequestsData } = useCargoRequests({ page: 1, page_size: 100 })
+  const { panelModule } = useCargoWorkspace()
+  const cargoTypeCategory = useCargoDictionaryCategory('cargo_type')
+  const ownershipCategory = useCargoDictionaryCategory('cargo_ownership_type')
+  const backCargoReturnTypeCategory = useCargoDictionaryCategory('back_cargo_return_type')
+  const packageReturnStatusCategory = useCargoDictionaryCategory('package_return_status')
+  const cargoStatusCategory = useCargoDictionaryCategory('cargo_status')
+  const cargoWorkflowCategory = useCargoDictionaryCategory('cargo_workflow_status')
+  const cargoRequestStatusCategory = useCargoDictionaryCategory('cargo_request_status')
+  const cargoEvidenceCategory = useCargoDictionaryCategory('cargo_evidence_type')
+  const { data: cargo, isLoading } = useWorkspaceCargoItem(id)
+  const { data: cargoRequestsData } = useWorkspaceCargoRequests({ page: 1, page_size: 100 })
   const { data: tiers } = useTiers({ page: 1, page_size: 100 })
   const { data: projects } = useProjects({ page: 1, page_size: 100 })
   const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
   const { data: imputationReferences } = useImputationReferences()
   const { data: manifests } = useAllManifests({ page: 1, page_size: 100 })
-  const updateCargo = useUpdateCargo()
-  const updateCargoSt = useUpdateCargoStatus()
-  const updateCargoWorkflowStatus = useUpdateCargoWorkflowStatus()
+  const updateCargo = useWorkspaceUpdateCargo()
+  const updateCargoSt = useWorkspaceUpdateCargoStatus()
+  const updateCargoWorkflowStatus = useWorkspaceUpdateCargoWorkflowStatus()
   const { data: attachments } = useAttachments('cargo_item', id)
-  const { data: attachmentEvidence } = useCargoAttachmentEvidence(id)
-  const updateCargoAttachmentEvidence = useUpdateCargoAttachmentEvidence()
-  const initiateReturn = useInitiateCargoReturn()
-  const { data: packageElements } = usePackageElements(id)
-  const updatePackageElementReturn = useUpdatePackageElementReturn()
-  const updatePackageElementDisposition = useUpdatePackageElementDisposition()
-  const { data: cargoHistory } = useCargoHistory(id)
+  const { data: attachmentEvidence } = useWorkspaceCargoAttachmentEvidence(id)
+  const updateCargoAttachmentEvidence = useWorkspaceUpdateCargoAttachmentEvidence()
+  const initiateReturn = useWorkspaceInitiateCargoReturn()
+  const { data: packageElements } = useWorkspacePackageElements(id)
+  const updatePackageElementReturn = useWorkspaceUpdatePackageElementReturn()
+  const updatePackageElementDisposition = useWorkspaceUpdatePackageElementDisposition()
+  const { data: cargoHistory } = useWorkspaceCargoHistory(id)
   const sapMatch = useSapMatch()
-  const cargoTypeOptions = useDictionaryOptions('travelwiz_cargo_type')
-  const ownershipOptions = useDictionaryOptions('travelwiz_cargo_ownership_type')
-  const backCargoReturnTypeOptions = useDictionaryOptions('travelwiz_back_cargo_return_type')
-  const packageReturnStatusOptions = useDictionaryOptions('travelwiz_package_return_status')
-  const cargoTypeLabels = useDictionaryLabels('travelwiz_cargo_type')
-  const ownershipLabels = useDictionaryLabels('travelwiz_cargo_ownership_type')
-  const cargoStatusLabels = useDictionaryLabels('travelwiz_cargo_status', CARGO_STATUS_LABELS_FALLBACK)
-  const cargoWorkflowLabels = useDictionaryLabels('travelwiz_cargo_workflow_status')
-  const cargoRequestStatusLabels = useDictionaryLabels('travelwiz_cargo_request_status')
-  const backCargoReturnTypeLabels = useDictionaryLabels('travelwiz_back_cargo_return_type')
-  const packageReturnStatusLabels = useDictionaryLabels('travelwiz_package_return_status')
-  const cargoEvidenceOptions = useDictionaryOptions('travelwiz_cargo_evidence_type')
-  const cargoEvidenceLabels = useDictionaryLabels('travelwiz_cargo_evidence_type')
+  const cargoTypeOptions = useDictionaryOptions(cargoTypeCategory)
+  const ownershipOptions = useDictionaryOptions(ownershipCategory)
+  const backCargoReturnTypeOptions = useDictionaryOptions(backCargoReturnTypeCategory)
+  const packageReturnStatusOptions = useDictionaryOptions(packageReturnStatusCategory)
+  const cargoTypeLabels = useDictionaryLabels(cargoTypeCategory)
+  const ownershipLabels = useDictionaryLabels(ownershipCategory)
+  const cargoStatusLabels = useDictionaryLabels(cargoStatusCategory, CARGO_STATUS_LABELS_FALLBACK)
+  const cargoWorkflowLabels = useDictionaryLabels(cargoWorkflowCategory)
+  const cargoRequestStatusLabels = useDictionaryLabels(cargoRequestStatusCategory)
+  const backCargoReturnTypeLabels = useDictionaryLabels(backCargoReturnTypeCategory)
+  const packageReturnStatusLabels = useDictionaryLabels(packageReturnStatusCategory)
+  const cargoEvidenceOptions = useDictionaryOptions(cargoEvidenceCategory)
+  const cargoEvidenceLabels = useDictionaryLabels(cargoEvidenceCategory)
   const { toast } = useToast()
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<CargoItemUpdate>({})
@@ -4728,7 +4901,7 @@ function CargoDetailPanel({ id }: { id: string }) {
       actions={<>
         {!editing && cargoRequest && (
           <PanelActionButton
-            onClick={() => useUIStore.getState().openDynamicPanel({ type: 'detail', module: 'travelwiz', id: cargoRequest.id, meta: { subtype: 'cargo-request' } })}
+            onClick={() => useUIStore.getState().openDynamicPanel({ type: 'detail', module: panelModule, id: cargoRequest.id, meta: { subtype: 'cargo-request' } })}
             icon={<FileText size={12} />}
           >
             Ouvrir la demande
@@ -5148,15 +5321,27 @@ registerPanelRenderer('travelwiz', (view) => {
   if (view.type === 'create') {
     if (view.meta?.subtype === 'voyage') return <CreateVoyagePanel />
     if (view.meta?.subtype === 'vector') return <CreateVectorPanel />
-    if (view.meta?.subtype === 'cargo-request') return <CreateCargoRequestPanel />
-    if (view.meta?.subtype === 'cargo') return <CreateCargoPanel />
+    if (view.meta?.subtype === 'cargo-request') return <CargoWorkspaceProvider module="travelwiz" label="TravelWiz"><CreateCargoRequestPanel /></CargoWorkspaceProvider>
+    if (view.meta?.subtype === 'cargo') return <CargoWorkspaceProvider module="travelwiz" label="TravelWiz"><CreateCargoPanel /></CargoWorkspaceProvider>
     if (view.meta?.subtype === 'article') return <CreateArticlePanel />
   }
   if (view.type === 'detail' && 'id' in view) {
     if (view.meta?.subtype === 'voyage') return <VoyageDetailPanel id={view.id} />
     if (view.meta?.subtype === 'vector') return <VectorDetailPanel id={view.id} />
-    if (view.meta?.subtype === 'cargo-request') return <CargoRequestDetailPanel id={view.id} />
-    if (view.meta?.subtype === 'cargo') return <CargoDetailPanel id={view.id} />
+    if (view.meta?.subtype === 'cargo-request') return <CargoWorkspaceProvider module="travelwiz" label="TravelWiz"><CargoRequestDetailPanel id={view.id} /></CargoWorkspaceProvider>
+    if (view.meta?.subtype === 'cargo') return <CargoWorkspaceProvider module="travelwiz" label="TravelWiz"><CargoDetailPanel id={view.id} /></CargoWorkspaceProvider>
+  }
+  return null
+})
+
+registerPanelRenderer('packlog', (view) => {
+  if (view.type === 'create') {
+    if (view.meta?.subtype === 'cargo-request') return <CargoWorkspaceProvider module="packlog" label="PackLog"><CreateCargoRequestPanel /></CargoWorkspaceProvider>
+    if (view.meta?.subtype === 'cargo') return <CargoWorkspaceProvider module="packlog" label="PackLog"><CreateCargoPanel /></CargoWorkspaceProvider>
+  }
+  if (view.type === 'detail' && 'id' in view) {
+    if (view.meta?.subtype === 'cargo-request') return <CargoWorkspaceProvider module="packlog" label="PackLog"><CargoRequestDetailPanel id={view.id} /></CargoWorkspaceProvider>
+    if (view.meta?.subtype === 'cargo') return <CargoWorkspaceProvider module="packlog" label="PackLog"><CargoDetailPanel id={view.id} /></CargoWorkspaceProvider>
   }
   return null
 })

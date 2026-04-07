@@ -457,7 +457,14 @@ async def resolve_ticket(
     await _log_status_change(db, ticket.id, old, "resolved", current_user.id, body.resolution_notes)
 
     await db.commit()
-    await db.refresh(ticket, ["comments"])
+
+    # Re-fetch with comments eagerly loaded to avoid MissingGreenlet
+    refreshed = await db.execute(
+        select(SupportTicket)
+        .options(selectinload(SupportTicket.comments))
+        .where(SupportTicket.id == ticket_id)
+    )
+    ticket = refreshed.scalar_one()
 
     user_ids = {ticket.reporter_id}
     if ticket.assignee_id:

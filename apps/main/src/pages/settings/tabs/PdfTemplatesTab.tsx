@@ -35,6 +35,7 @@ import {
 const OBJECT_TYPE_LABELS: Record<string, string> = {
   system: 'Système',
   paxlog: 'PaxLog',
+  packlog: 'PackLog',
   travelwiz: 'TravelWiz',
   document: 'Document',
   asset: 'Actif',

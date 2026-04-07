@@ -19,6 +19,7 @@ import {
   FolderKanban,
   CalendarDays,
   Users,
+  Package,
   ShieldCheck,
   UserCircle,
 } from 'lucide-react'
@@ -35,6 +36,7 @@ const MODULE_LABELS: Record<string, string> = {
   projets: 'Projets',
   planner: 'Planner',
   paxlog: 'PaxLog',
+  packlog: 'PackLog',
   conformite: 'Conformite',
   travelwiz: 'TravelWiz',
   workflow: 'Workflow',
@@ -49,6 +51,7 @@ const MODULE_ROUTES: Record<string, string> = {
   projets: '/projets',
   planner: '/planner',
   paxlog: '/paxlog',
+  packlog: '/packlog',
   conformite: '/conformite',
   travelwiz: '/travelwiz',
   workflow: '/workflow',
@@ -65,6 +68,7 @@ const MODULE_ICONS: Record<string, typeof Building2> = {
   projets: FolderKanban,
   planner: CalendarDays,
   paxlog: Users,
+  packlog: Package,
   conformite: ShieldCheck,
   users: UserCircle,
 }
@@ -76,6 +80,7 @@ const PREVIEW_MODULES = new Set([
   'projets',
   'planner',
   'paxlog',
+  'packlog',
   'conformite',
   'users',
 ])

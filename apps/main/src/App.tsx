@@ -19,6 +19,7 @@ const WorkflowPage = lazy(() => import('@/pages/workflow/WorkflowPage').then(m =
 const PaxLogPage = lazy(() => import('@/pages/paxlog/PaxLogPage').then(m => ({ default: m.PaxLogPage })))
 const PlannerPage = lazy(() => import('@/pages/planner/PlannerPage').then(m => ({ default: m.PlannerPage })))
 const TravelWizPage = lazy(() => import('@/pages/travelwiz/TravelWizPage').then(m => ({ default: m.TravelWizPage })))
+const PackLogPage = lazy(() => import('@/pages/packlog/PackLogPage').then(m => ({ default: m.PackLogPage })))
 const ImputationsPage = lazy(() => import('@/pages/imputations/ImputationsPage').then(m => ({ default: m.ImputationsPage })))
 const ReportEditorPage = lazy(() => import('@/pages/report-editor/ReportEditorPage').then(m => ({ default: m.ReportEditorPage })))
 const PidPfdPage = lazy(() => import('@/pages/pid-pfd/PidPfdPage').then(m => ({ default: m.PidPfdPage })))
@@ -82,6 +83,7 @@ export default function App() {
                   <Route path="/paxlog/*" element={<RequireAnyPermission permissions={['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.ads.approve', 'paxlog.avm.read', 'paxlog.avm.create', 'paxlog.avm.update', 'paxlog.avm.approve', 'paxlog.avm.complete', 'paxlog.profile.read', 'paxlog.compliance.read']}><PaxLogPage /></RequireAnyPermission>} />
                   <Route path="/planner/*" element={<RequirePermission permission="planner.activity.read"><PlannerPage /></RequirePermission>} />
                   <Route path="/travelwiz/*" element={<RequirePermission permission="travelwiz.voyage.read"><TravelWizPage /></RequirePermission>} />
+                  <Route path="/packlog/*" element={<RequireAnyPermission permissions={['packlog.cargo.read', 'travelwiz.cargo.read']}><PackLogPage /></RequireAnyPermission>} />
                   <Route path="/imputations/*" element={<RequirePermission permission="imputation.read"><ImputationsPage /></RequirePermission>} />
                   <Route path="/report-editor/*" element={<RequirePermission permission="document.read"><ReportEditorPage /></RequirePermission>} />
                   <Route path="/pid-pfd/*" element={<RequirePermission permission="pid.read"><PidPfdPage /></RequirePermission>} />

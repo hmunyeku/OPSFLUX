@@ -633,7 +633,7 @@ function CreateAnnouncementPanel() {
               <DynamicPanelField label="Module">
                 <select className={panelInputClass} value={form.target_value || ''} onChange={e => setForm({ ...form, target_value: e.target.value || null })}>
                   <option value="">— Sélectionner un module —</option>
-                  {['dashboard', 'tiers', 'projets', 'planner', 'paxlog', 'travelwiz', 'conformite', 'asset-registry', 'support'].map((m) => <option key={m} value={m}>{m}</option>)}
+                  {['dashboard', 'tiers', 'projets', 'planner', 'paxlog', 'packlog', 'travelwiz', 'conformite', 'asset-registry', 'support'].map((m) => <option key={m} value={m}>{m}</option>)}
                 </select>
               </DynamicPanelField>
             )}

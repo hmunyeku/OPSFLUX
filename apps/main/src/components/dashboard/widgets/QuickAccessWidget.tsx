@@ -12,7 +12,7 @@
  */
 import { useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, Users, Building2, MapPin, FolderKanban, Ship,
+  LayoutDashboard, Users, Building2, MapPin, FolderKanban, Ship, Package,
   Shield, ClipboardList, FileText, Settings, Bookmark, Star,
   Zap, Search, Bell, Calendar, BarChart3, Globe, type LucideIcon,
 } from 'lucide-react'
@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils'
 
 const ICON_MAP: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard, users: Users, tiers: Building2, assets: MapPin,
-  projets: FolderKanban, travelwiz: Ship, conformite: Shield, planner: ClipboardList,
+  projets: FolderKanban, travelwiz: Ship, packlog: Package, conformite: Shield, planner: ClipboardList,
   documents: FileText, settings: Settings, bookmark: Bookmark, star: Star,
   zap: Zap, search: Search, bell: Bell, calendar: Calendar, chart: BarChart3, globe: Globe,
 }

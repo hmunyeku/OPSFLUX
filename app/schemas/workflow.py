@@ -19,6 +19,7 @@ STRUCTURE_LOCKED_WORKFLOW_SLUGS = frozenset({
     "ads-workflow",
     "planner-activity",
     "voyage-workflow",
+    "packlog-cargo-workflow",
     "travelwiz-cargo-workflow",
     "avm-workflow",
 })

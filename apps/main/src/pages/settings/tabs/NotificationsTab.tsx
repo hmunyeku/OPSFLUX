@@ -40,6 +40,7 @@ const notificationModules = [
   { key: 'projects', label: 'Projects' },
   { key: 'planner', label: 'Planner' },
   { key: 'travelwiz', label: 'TravelWiz' },
+  { key: 'packlog', label: 'PackLog' },
   { key: 'conformite', label: 'Conformité' },
   { key: 'workflow', label: 'Workflow' },
   { key: 'support', label: 'Support' },

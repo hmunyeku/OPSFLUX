@@ -98,10 +98,41 @@ from app.schemas.travelwiz import (
 from app.services.modules.travelwiz_service import (
     assess_manifest_weight,
     assess_voyage_delay,
-    update_cargo_status as apply_cargo_status_transition,
     get_weight_alert_ratio,
     rebalance_manifest_passenger_standby,
     reassign_voyage_passengers,
+)
+from app.services.modules.packlog_service import (
+    PACKLOG_WORKFLOW_ENTITY_TYPE,
+    PACKLOG_WORKFLOW_SLUG,
+    PACKLOG_PUBLIC_STATUS_LABELS,
+    build_packlog_operations_report,
+    estimate_packlog_surface_m2,
+    summarize_packlog_return_states,
+)
+from app.api.routes.modules.packlog_shared import (
+    add_package_element_impl,
+    apply_cargo_request_loading_option_impl,
+    create_cargo_impl,
+    create_cargo_request_impl,
+    download_cargo_request_lt_pdf_impl,
+    get_cargo_history_impl,
+    get_cargo_impl,
+    get_cargo_request_impl,
+    get_cargo_request_loading_options_impl,
+    initiate_return_impl,
+    list_cargo_attachment_evidence_impl,
+    list_cargo_impl,
+    list_cargo_requests_impl,
+    list_package_elements_impl,
+    receive_cargo_impl,
+    set_cargo_attachment_evidence_type_impl,
+    update_cargo_impl,
+    update_cargo_request_impl,
+    update_cargo_status_impl,
+    update_cargo_workflow_status_impl,
+    update_package_element_disposition_impl,
+    update_package_element_return_impl,
 )
 
 router = APIRouter(prefix="/api/v1/travelwiz", tags=["travelwiz"])
@@ -109,25 +140,10 @@ logger = logging.getLogger(__name__)
 
 VOYAGE_WORKFLOW_SLUG = "voyage-workflow"
 VOYAGE_ENTITY_TYPE = "voyage"
-CARGO_WORKFLOW_SLUG = "travelwiz-cargo-workflow"
-CARGO_WORKFLOW_ENTITY_TYPE = "cargo_item_workflow"
+CARGO_WORKFLOW_SLUG = PACKLOG_WORKFLOW_SLUG
+CARGO_WORKFLOW_ENTITY_TYPE = PACKLOG_WORKFLOW_ENTITY_TYPE
 
-CARGO_PUBLIC_STATUS_LABELS = {
-    "registered": "Enregistré",
-    "ready": "Prêt au départ",
-    "ready_for_loading": "Prêt au chargement",
-    "loaded": "Chargé",
-    "in_transit": "En transit",
-    "delivered_intermediate": "Livré en escale",
-    "delivered_final": "Livré",
-    "damaged": "Signalé endommagé",
-    "missing": "Signalé manquant",
-    "return_declared": "Retour déclaré",
-    "return_in_transit": "Retour en transit",
-    "returned": "Retourné base",
-    "reintegrated": "Réintégré stock",
-    "scrapped": "Mis au rebut",
-}
+CARGO_PUBLIC_STATUS_LABELS = PACKLOG_PUBLIC_STATUS_LABELS
 
 VOYAGE_PUBLIC_STATUS_LABELS = {
     "draft": "Brouillon",
@@ -191,17 +207,17 @@ def _serialize_cargo_history_entry(entry: AuditLog, actor_name: str | None) -> d
 
 def _build_public_cargo_tracking_event(entry: AuditLog) -> dict:
     details = entry.details or {}
-    if entry.action == "travelwiz.cargo.create":
+    if entry.action in {"travelwiz.cargo.create", "packlog.cargo.create"}:
         label = "Expédition enregistrée"
         description = details.get("cargo_type")
-    elif entry.action == "travelwiz.cargo.status":
+    elif entry.action in {"travelwiz.cargo.status", "packlog.cargo.status"}:
         next_status = details.get("to_status")
         label = CARGO_PUBLIC_STATUS_LABELS.get(str(next_status), "Statut mis à jour")
         description = details.get("damage_notes")
-    elif entry.action == "travelwiz.cargo.receive":
+    elif entry.action in {"travelwiz.cargo.receive", "packlog.cargo.receive"}:
         label = "Réception confirmée"
         description = None
-    elif entry.action == "travelwiz.cargo.update":
+    elif entry.action in {"travelwiz.cargo.update", "packlog.cargo.update"}:
         label = "Informations mises à jour"
         changed = details.get("changes")
         if isinstance(changed, dict) and changed:
@@ -218,13 +234,6 @@ def _build_public_cargo_tracking_event(entry: AuditLog) -> dict:
         "occurred_at": entry.created_at,
         "description": description,
     }
-
-
-def _normalize_cargo_status(value: str) -> str:
-    normalized = value.strip().lower()
-    if normalized == "ready":
-        return "ready_for_loading"
-    return normalized
 
 
 def _parse_csv_bool(value: str | None) -> bool:
@@ -295,95 +304,6 @@ async def _get_voyage_or_404(db: AsyncSession, voyage_id: UUID, entity_id: UUID)
     return voyage
 
 
-async def _get_cargo_or_404(db: AsyncSession, cargo_id: UUID, entity_id: UUID) -> CargoItem:
-    result = await db.execute(
-        select(CargoItem).where(
-            CargoItem.id == cargo_id,
-            CargoItem.entity_id == entity_id,
-            CargoItem.active == True,  # noqa: E712
-        )
-    )
-    cargo = result.scalars().first()
-    if not cargo:
-        raise HTTPException(404, "Cargo item not found")
-    return cargo
-
-
-async def _get_package_element_or_404(
-    db: AsyncSession,
-    *,
-    cargo_id: UUID,
-    element_id: UUID,
-) -> PackageElement:
-    result = await db.execute(
-        select(PackageElement).where(
-            PackageElement.id == element_id,
-            PackageElement.package_id == cargo_id,
-        )
-    )
-    element = result.scalars().first()
-    if not element:
-        raise HTTPException(404, "Package element not found")
-    return element
-
-
-async def _get_cargo_request_or_404(
-    db: AsyncSession,
-    request_id: UUID,
-    entity_id: UUID,
-) -> CargoRequest:
-    result = await db.execute(
-        select(CargoRequest).where(
-            CargoRequest.id == request_id,
-            CargoRequest.entity_id == entity_id,
-            CargoRequest.active == True,  # noqa: E712
-        )
-    )
-    cargo_request = result.scalars().first()
-    if not cargo_request:
-        raise HTTPException(404, "Cargo request not found")
-    return cargo_request
-
-
-async def _try_cargo_workflow_transition(
-    db: AsyncSession,
-    *,
-    cargo: CargoItem,
-    to_state: str,
-    actor_id: UUID,
-    entity_id: UUID,
-) -> None:
-    try:
-        instance = await fsm_service.get_instance(
-            db,
-            entity_type=CARGO_WORKFLOW_ENTITY_TYPE,
-            entity_id=str(cargo.id),
-        )
-        if not instance:
-            await fsm_service.get_or_create_instance(
-                db,
-                workflow_slug=CARGO_WORKFLOW_SLUG,
-                entity_type=CARGO_WORKFLOW_ENTITY_TYPE,
-                entity_id=str(cargo.id),
-                initial_state=cargo.workflow_status,
-                entity_id_scope=entity_id,
-                created_by=actor_id,
-            )
-        await fsm_service.transition(
-            db,
-            workflow_slug=CARGO_WORKFLOW_SLUG,
-            entity_type=CARGO_WORKFLOW_ENTITY_TYPE,
-            entity_id=str(cargo.id),
-            to_state=to_state,
-            actor_id=actor_id,
-            entity_id_scope=entity_id,
-            skip_role_check=True,
-        )
-    except FSMError as exc:
-        if "not found" not in str(exc).lower():
-            raise HTTPException(400, str(exc)) from exc
-
-
 async def _validate_cargo_dossier_refs(
     db: AsyncSession,
     *,
@@ -418,367 +338,6 @@ async def _validate_cargo_dossier_refs(
             voyage = await db.get(Voyage, manifest.voyage_id)
             if not voyage or zone.vector_id != voyage.vector_id:
                 raise HTTPException(400, "La zone de chargement ne correspond pas au vecteur du manifeste")
-
-
-def _ensure_cargo_request_parent(request_id: UUID | None) -> None:
-    if request_id is None:
-        raise HTTPException(
-            400,
-            {
-                "code": "CARGO_REQUEST_REQUIRED",
-                "message": "Chaque colis doit être rattaché à une demande d'expédition.",
-            },
-        )
-
-
-async def _build_cargo_read_data(
-    db: AsyncSession,
-    cargo: CargoItem,
-    *,
-    sender_name: str | None = None,
-    destination_name: str | None = None,
-    imputation_reference_code: str | None = None,
-    imputation_reference_name: str | None = None,
-) -> dict:
-    data = {c.key: getattr(cargo, c.key) for c in cargo.__table__.columns}
-    request_id = getattr(cargo, "request_id", None)
-    sender_tier_id = getattr(cargo, "sender_tier_id", None)
-    destination_asset_id = getattr(cargo, "destination_asset_id", None)
-    imputation_reference_id = getattr(cargo, "imputation_reference_id", None)
-    pickup_contact_user_id = getattr(cargo, "pickup_contact_user_id", None)
-    pickup_contact_tier_contact_id = getattr(cargo, "pickup_contact_tier_contact_id", None)
-    pickup_contact_name = getattr(cargo, "pickup_contact_name", None)
-    planned_zone_id = getattr(cargo, "planned_zone_id", None)
-
-    if sender_name is None and sender_tier_id:
-        tier = await db.get(Tier, sender_tier_id)
-        sender_name = tier.name if tier else None
-    if destination_name is None and destination_asset_id:
-        installation = await db.get(Installation, destination_asset_id)
-        destination_name = installation.name if installation else None
-    if imputation_reference_name is None and imputation_reference_id:
-        imputation = await db.get(ImputationReference, imputation_reference_id)
-        if imputation:
-            imputation_reference_name = imputation.name
-            imputation_reference_code = imputation.code
-
-    pickup_contact_display_name = None
-    if pickup_contact_user_id:
-        pickup_user = await db.get(User, pickup_contact_user_id)
-        if pickup_user:
-            pickup_contact_display_name = f"{pickup_user.first_name} {pickup_user.last_name}".strip()
-    elif pickup_contact_tier_contact_id:
-        pickup_contact = await db.get(TierContact, pickup_contact_tier_contact_id)
-        if pickup_contact:
-            pickup_contact_display_name = f"{pickup_contact.first_name} {pickup_contact.last_name}".strip()
-    elif pickup_contact_name:
-        pickup_contact_display_name = pickup_contact_name
-
-    request_code = None
-    request_title = None
-    if request_id:
-        cargo_request = await db.get(CargoRequest, request_id)
-        if cargo_request:
-            request_code = cargo_request.request_code
-            request_title = cargo_request.title
-    planned_zone_name = None
-    if planned_zone_id:
-        planned_zone = await db.get(TransportVectorZone, planned_zone_id)
-        planned_zone_name = planned_zone.name if planned_zone else None
-
-    attachment_result = await db.execute(
-        select(Attachment.id, Attachment.content_type).where(
-            Attachment.owner_type == "cargo_item",
-            Attachment.owner_id == cargo.id,
-        )
-    )
-    attachment_rows = attachment_result.all()
-    attachment_ids = [attachment_id for attachment_id, _content_type in attachment_rows]
-    evidence_counts: dict[str, int] = {}
-    if attachment_ids:
-        evidence_result = await db.execute(
-            select(CargoAttachmentEvidence.evidence_type, sqla_func.count(CargoAttachmentEvidence.id))
-            .where(CargoAttachmentEvidence.attachment_id.in_(attachment_ids))
-            .group_by(CargoAttachmentEvidence.evidence_type)
-        )
-        evidence_counts = {evidence_type: int(count) for evidence_type, count in evidence_result.all()}
-    image_count = evidence_counts.get("cargo_photo", 0)
-    document_count = sum(
-        count for evidence_type, count in evidence_counts.items() if evidence_type != "cargo_photo"
-    )
-
-    data["sender_name"] = sender_name
-    data["destination_name"] = destination_name
-    data["imputation_reference_code"] = imputation_reference_code
-    data["imputation_reference_name"] = imputation_reference_name
-    data["pickup_contact_display_name"] = pickup_contact_display_name
-    data["request_code"] = request_code
-    data["request_title"] = request_title
-    data["planned_zone_name"] = planned_zone_name
-    data["photo_evidence_count"] = max(int(getattr(cargo, "photo_evidence_count", 0) or 0), image_count)
-    data["document_attachment_count"] = max(int(getattr(cargo, "document_attachment_count", 0) or 0), document_count)
-    data["weight_ticket_provided"] = bool(getattr(cargo, "weight_ticket_provided", False) or evidence_counts.get("weight_ticket", 0) > 0)
-    data["lifting_points_certified"] = bool(getattr(cargo, "lifting_points_certified", False) or evidence_counts.get("lifting_certificate", 0) > 0)
-    data["_evidence_counts"] = evidence_counts
-    return data
-
-
-async def _build_cargo_request_read_data(
-    db: AsyncSession,
-    cargo_request: CargoRequest,
-    *,
-    cargo_count: int | None = None,
-) -> dict:
-    data = {c.key: getattr(cargo_request, c.key) for c in cargo_request.__table__.columns}
-    sender_name = None
-    destination_name = None
-    imputation_reference_code = None
-    imputation_reference_name = None
-    if cargo_request.sender_tier_id:
-        tier = await db.get(Tier, cargo_request.sender_tier_id)
-        sender_name = tier.name if tier else None
-    if cargo_request.destination_asset_id:
-        installation = await db.get(Installation, cargo_request.destination_asset_id)
-        destination_name = installation.name if installation else None
-    if cargo_request.imputation_reference_id:
-        imputation = await db.get(ImputationReference, cargo_request.imputation_reference_id)
-        if imputation:
-            imputation_reference_code = imputation.code
-            imputation_reference_name = imputation.name
-    request_cargo_result = await db.execute(
-        select(
-            CargoItem.id,
-            CargoItem.workflow_status,
-            CargoItem.manifest_id,
-            CargoItem.status,
-        ).where(
-            CargoItem.request_id == cargo_request.id,
-            CargoItem.active == True,  # noqa: E712
-        )
-    )
-    request_cargo = request_cargo_result.all()
-    if cargo_count is None:
-        cargo_count = len(request_cargo)
-    readiness = _assess_cargo_request_requirements(cargo_request, request_cargo)
-    data["cargo_count"] = cargo_count
-    data["sender_name"] = sender_name
-    data["destination_name"] = destination_name
-    data["imputation_reference_code"] = imputation_reference_code
-    data["imputation_reference_name"] = imputation_reference_name
-    data["is_ready_for_submission"] = readiness["is_complete"]
-    data["missing_requirements"] = readiness["missing_requirements"]
-    return data
-
-
-def _summarize_package_return_states(elements: list[PackageElement]) -> dict:
-    if not elements:
-        return {
-            "total_sent_units": 0.0,
-            "total_returned_units": 0.0,
-            "return_coverage_ratio": 0.0,
-            "aggregate_return_status": "no_elements",
-            "aggregate_disposition": "none",
-        }
-
-    total_sent_units = sum(float(element.quantity_sent or 0) for element in elements)
-    total_returned_units = sum(float(element.quantity_returned or 0) for element in elements)
-    finalized_statuses = {"reintegrated", "scrapped", "yard_storage"}
-    finalized = [element for element in elements if (element.return_status or "") in finalized_statuses]
-
-    aggregate_return_status = "not_started"
-    if total_returned_units > 0:
-        aggregate_return_status = "partial_return"
-    if total_sent_units > 0 and total_returned_units >= total_sent_units:
-        aggregate_return_status = "fully_returned"
-
-    aggregate_disposition = "not_dispatched"
-    if finalized:
-        distinct = {element.return_status for element in finalized}
-        aggregate_disposition = next(iter(distinct)) if len(distinct) == 1 and len(finalized) == len(elements) else "mixed"
-
-    return {
-        "total_sent_units": round(total_sent_units, 3),
-        "total_returned_units": round(total_returned_units, 3),
-        "return_coverage_ratio": round((total_returned_units / total_sent_units), 4) if total_sent_units > 0 else 0.0,
-        "aggregate_return_status": aggregate_return_status,
-        "aggregate_disposition": aggregate_disposition,
-    }
-
-
-async def _build_voyage_cargo_operations_report(
-    db: AsyncSession,
-    *,
-    voyage_id: UUID,
-    entity_id: UUID,
-) -> dict:
-    cargo_result = await db.execute(
-        select(CargoItem)
-        .join(VoyageManifest, CargoItem.manifest_id == VoyageManifest.id)
-        .where(
-            VoyageManifest.voyage_id == voyage_id,
-            VoyageManifest.manifest_type == "cargo",
-            VoyageManifest.active == True,  # noqa: E712
-            CargoItem.active == True,  # noqa: E712
-            CargoItem.entity_id == entity_id,
-        )
-        .order_by(CargoItem.created_at.asc())
-    )
-    cargo_items = cargo_result.scalars().all()
-
-    report_items: list[dict] = []
-    delivered_count = 0
-    damaged_count = 0
-    missing_count = 0
-    return_started_count = 0
-
-    for cargo in cargo_items:
-        destination_name = None
-        request_code = None
-        if cargo.destination_asset_id:
-            destination = await db.get(Installation, cargo.destination_asset_id)
-            destination_name = destination.name if destination else None
-        if cargo.request_id:
-            cargo_request = await db.get(CargoRequest, cargo.request_id)
-            request_code = cargo_request.request_code if cargo_request else None
-
-        element_result = await db.execute(
-            select(PackageElement).where(PackageElement.package_id == cargo.id)
-        )
-        package_elements = element_result.scalars().all()
-        return_summary = _summarize_package_return_states(package_elements)
-
-        if cargo.status in {"delivered_intermediate", "delivered_final"}:
-            delivered_count += 1
-        if cargo.status == "damaged":
-            damaged_count += 1
-        if cargo.status == "missing":
-            missing_count += 1
-        if cargo.status in {"return_declared", "return_in_transit", "returned", "reintegrated", "scrapped"} or return_summary["total_returned_units"] > 0:
-            return_started_count += 1
-
-        report_items.append(
-            {
-                "cargo_id": str(cargo.id),
-                "tracking_code": cargo.tracking_code,
-                "designation": cargo.designation,
-                "description": cargo.description,
-                "request_code": request_code,
-                "status": cargo.status,
-                "workflow_status": cargo.workflow_status,
-                "destination_name": destination_name,
-                "weight_kg": float(cargo.weight_kg or 0),
-                "package_count": int(cargo.package_count or 0),
-                "damage_notes": cargo.damage_notes,
-                "received_at": cargo.received_at.isoformat() if cargo.received_at else None,
-                "package_element_count": len(package_elements),
-                **return_summary,
-            }
-        )
-
-    return {
-        "voyage_id": str(voyage_id),
-        "cargo_count": len(report_items),
-        "delivered_count": delivered_count,
-        "damaged_count": damaged_count,
-        "missing_count": missing_count,
-        "return_started_count": return_started_count,
-        "items": report_items,
-    }
-
-
-def _assess_cargo_workflow_requirements(cargo: CargoItem | dict) -> dict:
-    def _required_evidence_types(cargo_type: str | None) -> list[str]:
-        required = ["cargo_photo", "weight_ticket", "transport_document"]
-        if cargo_type in {"unit", "bulk", "hazmat"}:
-            required.append("lifting_certificate")
-        if cargo_type == "hazmat":
-            required.append("hazmat_document")
-        return required
-
-    def _value(key: str):
-        if isinstance(cargo, dict):
-            return cargo.get(key)
-        return getattr(cargo, key, None)
-
-    missing: list[str] = []
-    if not _value("description"):
-        missing.append("description")
-    if not _value("designation"):
-        missing.append("designation")
-    if not _value("weight_kg"):
-        missing.append("weight_kg")
-    if not _value("destination_asset_id"):
-        missing.append("destination_asset_id")
-    if not _value("pickup_location_label"):
-        missing.append("pickup_location_label")
-    if not (_value("pickup_contact_user_id") or _value("pickup_contact_tier_contact_id") or _value("pickup_contact_name")):
-        missing.append("pickup_contact")
-    if not _value("available_from"):
-        missing.append("available_from")
-    if not _value("imputation_reference_id"):
-        missing.append("imputation_reference_id")
-    cargo_type = _value("cargo_type")
-    evidence_counts = _value("_evidence_counts") or {}
-    for evidence_type in _required_evidence_types(cargo_type):
-        if int(evidence_counts.get(evidence_type, 0) or 0) <= 0:
-            missing.append(evidence_type)
-    if cargo_type == "hazmat" and not _value("hazmat_validated"):
-        missing.append("hazmat_validated")
-    if cargo_type in {"unit", "bulk", "hazmat"} and not _value("lifting_points_certified"):
-        missing.append("lifting_points_certified")
-
-    return {
-        "is_complete": len(missing) == 0,
-        "missing_requirements": missing,
-    }
-
-
-def _assess_cargo_request_requirements(
-    cargo_request: CargoRequest | dict,
-    request_cargo: list | None = None,
-) -> dict:
-    def _value(key: str):
-        if isinstance(cargo_request, dict):
-            return cargo_request.get(key)
-        return getattr(cargo_request, key, None)
-
-    missing: list[str] = []
-    if not _value("title"):
-        missing.append("title")
-    if not _value("description"):
-        missing.append("description")
-    if not _value("sender_tier_id"):
-        missing.append("sender_tier_id")
-    if not _value("receiver_name"):
-        missing.append("receiver_name")
-    if not _value("destination_asset_id"):
-        missing.append("destination_asset_id")
-    if not _value("imputation_reference_id"):
-        missing.append("imputation_reference_id")
-    if not _value("requester_name"):
-        missing.append("requester_name")
-    if not request_cargo:
-        missing.append("cargo_items")
-
-    return {
-        "is_complete": len(missing) == 0,
-        "missing_requirements": missing,
-    }
-
-
-def _cargo_request_to_payload(cargo_request: CargoRequest | dict | object) -> dict:
-    if isinstance(cargo_request, dict):
-        return dict(cargo_request)
-    table = getattr(cargo_request, "__table__", None)
-    if table is not None:
-        return {column.key: getattr(cargo_request, column.key) for column in table.columns}
-    if hasattr(cargo_request, "__dict__"):
-        return {
-            key: value
-            for key, value in vars(cargo_request).items()
-            if not key.startswith("_")
-        }
-    raise TypeError("Unsupported cargo request payload object")
 
 
 def _format_pdf_datetime(value: datetime | None) -> str:
@@ -928,233 +487,6 @@ async def _build_voyage_cargo_manifest_variables(
         }
     )
     return variables
-
-
-async def _build_cargo_lt_variables(
-    db: AsyncSession,
-    *,
-    cargo_request: CargoRequest,
-    entity_id: UUID,
-) -> dict:
-    entity = await _get_entity_pdf_context(db, entity_id)
-    request_payload = await _build_cargo_request_read_data(db, cargo_request)
-    cargo_rows = (
-        await db.execute(
-            select(CargoItem)
-            .where(
-                CargoItem.request_id == cargo_request.id,
-                CargoItem.active == True,  # noqa: E712
-            )
-            .order_by(CargoItem.created_at.asc())
-        )
-    ).scalars().all()
-    cargo_items = []
-    total_weight = 0.0
-    total_packages = 0
-    for cargo in cargo_rows:
-        weight_value = float(cargo.weight_kg or 0)
-        package_count = int(cargo.package_count or 0)
-        total_weight += weight_value
-        total_packages += package_count
-        cargo_items.append(
-            {
-                "tracking_code": cargo.tracking_code,
-                "designation": cargo.designation,
-                "description": cargo.description,
-                "cargo_type": cargo.cargo_type,
-                "weight_kg": round(weight_value, 2),
-                "package_count": package_count,
-                "status": cargo.status,
-                "status_label": CARGO_PUBLIC_STATUS_LABELS.get(cargo.status, cargo.status),
-            }
-        )
-    return {
-        "entity": entity,
-        "request_code": request_payload.get("request_code"),
-        "request_title": request_payload.get("title"),
-        "request_status": request_payload.get("status"),
-        "sender_name": request_payload.get("sender_name"),
-        "receiver_name": request_payload.get("receiver_name"),
-        "destination_name": request_payload.get("destination_name"),
-        "requester_name": request_payload.get("requester_name"),
-        "description": request_payload.get("description"),
-        "imputation_reference": " ".join(
-            part
-            for part in [
-                request_payload.get("imputation_reference_code"),
-                request_payload.get("imputation_reference_name"),
-            ]
-            if part
-        ) or None,
-        "cargo_items": cargo_items,
-        "total_cargo_items": len(cargo_items),
-        "total_weight_kg": round(total_weight, 2),
-        "total_packages": total_packages,
-        "generated_at": _format_pdf_datetime(datetime.now(timezone.utc)),
-    }
-
-
-def _estimate_cargo_surface_m2(cargo: CargoItem | object) -> float:
-    explicit_surface = getattr(cargo, "surface_m2", None)
-    if explicit_surface is not None:
-        return float(explicit_surface or 0)
-    width_cm = getattr(cargo, "width_cm", None)
-    length_cm = getattr(cargo, "length_cm", None)
-    package_count = int(getattr(cargo, "package_count", 1) or 1)
-    if width_cm and length_cm:
-        return round((float(width_cm) / 100.0) * (float(length_cm) / 100.0) * package_count, 3)
-    return 0.0
-
-
-async def _build_cargo_loading_options(
-    db: AsyncSession,
-    *,
-    cargo_request: CargoRequest,
-    entity_id: UUID,
-) -> list[dict]:
-    cargo_result = await db.execute(
-        select(CargoItem).where(
-            CargoItem.request_id == cargo_request.id,
-            CargoItem.active == True,  # noqa: E712
-        )
-    )
-    request_cargo = cargo_result.scalars().all()
-    total_request_weight = float(sum(float(cargo.weight_kg or 0) for cargo in request_cargo))
-    total_request_surface = round(sum(_estimate_cargo_surface_m2(cargo) for cargo in request_cargo), 3)
-    all_items_stackable = all(bool(getattr(cargo, "stackable", False)) for cargo in request_cargo) if request_cargo else False
-
-    manifest_weight_sq = (
-        select(
-            VoyageManifest.voyage_id.label("voyage_id"),
-            sqla_func.sum(CargoItem.weight_kg).label("assigned_weight_kg"),
-        )
-        .join(CargoItem, CargoItem.manifest_id == VoyageManifest.id)
-        .where(
-            VoyageManifest.manifest_type == "cargo",
-            VoyageManifest.active == True,  # noqa: E712
-            CargoItem.active == True,  # noqa: E712
-        )
-        .group_by(VoyageManifest.voyage_id)
-        .subquery()
-    )
-
-    manifest_sq = (
-        select(
-            VoyageManifest.voyage_id.label("voyage_id"),
-            VoyageManifest.id.label("manifest_id"),
-            VoyageManifest.status.label("manifest_status"),
-        )
-        .where(
-            VoyageManifest.manifest_type == "cargo",
-            VoyageManifest.active == True,  # noqa: E712
-        )
-        .subquery()
-    )
-
-    voyage_result = await db.execute(
-        select(
-            Voyage,
-            TransportVector.name.label("vector_name"),
-            TransportVector.weight_capacity_kg.label("weight_capacity_kg"),
-            Installation.name.label("departure_base_name"),
-            manifest_sq.c.manifest_id,
-            manifest_sq.c.manifest_status,
-            sqla_func.coalesce(manifest_weight_sq.c.assigned_weight_kg, 0).label("assigned_weight_kg"),
-        )
-        .join(TransportVector, Voyage.vector_id == TransportVector.id)
-        .outerjoin(Installation, Voyage.departure_base_id == Installation.id)
-        .outerjoin(manifest_sq, manifest_sq.c.voyage_id == Voyage.id)
-        .outerjoin(manifest_weight_sq, manifest_weight_sq.c.voyage_id == Voyage.id)
-        .where(
-            Voyage.entity_id == entity_id,
-            Voyage.active == True,  # noqa: E712
-            Voyage.status.in_(["planned", "confirmed", "boarding", "delayed"]),
-        )
-        .order_by(Voyage.scheduled_departure.asc())
-    )
-    voyage_rows = voyage_result.all()
-    voyage_ids = [voyage.id for voyage, *_ in voyage_rows]
-    vector_ids = list({voyage.vector_id for voyage, *_ in voyage_rows})
-
-    stop_assets_by_voyage: dict[UUID, set[UUID]] = {}
-    if voyage_ids:
-        stop_result = await db.execute(
-            select(VoyageStop.voyage_id, VoyageStop.asset_id).where(
-                VoyageStop.voyage_id.in_(voyage_ids),
-                VoyageStop.active == True,  # noqa: E712
-            )
-        )
-        for voyage_id, asset_id in stop_result.all():
-            stop_assets_by_voyage.setdefault(voyage_id, set()).add(asset_id)
-
-    zones_by_vector: dict[UUID, list[TransportVectorZone]] = {}
-    if vector_ids:
-        zone_result = await db.execute(
-            select(TransportVectorZone).where(
-                TransportVectorZone.vector_id.in_(vector_ids),
-                TransportVectorZone.active == True,  # noqa: E712
-            ).order_by(TransportVectorZone.name.asc())
-        )
-        for zone in zone_result.scalars().all():
-            zones_by_vector.setdefault(zone.vector_id, []).append(zone)
-
-    destination_asset_id = cargo_request.destination_asset_id
-    options: list[dict] = []
-    for voyage, vector_name, weight_capacity_kg, departure_base_name, manifest_id, manifest_status, assigned_weight_kg in voyage_rows:
-        stop_assets = stop_assets_by_voyage.get(voyage.id, set())
-        destination_match = bool(destination_asset_id and destination_asset_id in stop_assets)
-        remaining_weight = None if weight_capacity_kg is None else max(float(weight_capacity_kg or 0) - float(assigned_weight_kg or 0), 0.0)
-        compatible_zones: list[dict] = []
-        for zone in zones_by_vector.get(voyage.vector_id, []):
-            zone_surface = None
-            if zone.width_m is not None and zone.length_m is not None:
-                zone_surface = round(float(zone.width_m) * float(zone.length_m), 3)
-            zone_weight_limit = float(zone.max_weight_kg) if zone.max_weight_kg is not None else None
-            surface_ok = zone_surface is None or total_request_surface <= zone_surface or (all_items_stackable and total_request_surface <= zone_surface * 1.25)
-            weight_ok = zone_weight_limit is None or total_request_weight <= zone_weight_limit
-            if surface_ok and weight_ok:
-                compatible_zones.append(
-                    {
-                        "zone_id": str(zone.id),
-                        "zone_name": zone.name,
-                        "zone_type": zone.zone_type,
-                        "surface_m2": zone_surface,
-                        "max_weight_kg": zone_weight_limit,
-                    }
-                )
-        blocking_reasons: list[str] = []
-        if destination_asset_id and not destination_match:
-            blocking_reasons.append("destination_mismatch")
-        if manifest_status and manifest_status != "draft":
-            blocking_reasons.append("manifest_not_draft")
-        if remaining_weight is not None and total_request_weight > remaining_weight:
-            blocking_reasons.append("insufficient_weight_capacity")
-        if zones_by_vector.get(voyage.vector_id) and not compatible_zones:
-            blocking_reasons.append("no_zone_capacity_match")
-        can_load = len(blocking_reasons) == 0
-        options.append(
-            {
-                "voyage_id": voyage.id,
-                "voyage_code": voyage.code,
-                "voyage_status": voyage.status,
-                "scheduled_departure": voyage.scheduled_departure,
-                "vector_id": voyage.vector_id,
-                "vector_name": vector_name,
-                "departure_base_name": departure_base_name,
-                "manifest_id": manifest_id,
-                "manifest_status": manifest_status,
-                "destination_match": destination_match,
-                "remaining_weight_kg": remaining_weight,
-                "total_request_weight_kg": total_request_weight,
-                "total_request_surface_m2": total_request_surface,
-                "all_items_stackable": all_items_stackable,
-                "compatible_zones": compatible_zones,
-                "requires_manifest_creation": manifest_id is None,
-                "can_load": can_load,
-                "blocking_reasons": blocking_reasons,
-            }
-        )
-    return options
 
 
 async def _generate_voyage_code(db: AsyncSession, entity_id: UUID) -> str:
@@ -2147,11 +1479,7 @@ async def get_voyage_cargo_operations_report(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
-    return await _build_voyage_cargo_operations_report(
-        db,
-        voyage_id=voyage_id,
-        entity_id=entity_id,
-    )
+    return await build_packlog_operations_report(db, voyage_id=voyage_id, entity_id=entity_id)
 
 
 @router.post("/voyages/{voyage_id}/manifests", response_model=ManifestRead, status_code=201)
@@ -2371,42 +1699,13 @@ async def list_cargo_requests(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    cargo_count_sq = (
-        select(
-            CargoItem.request_id.label("request_id"),
-            sqla_func.count(CargoItem.id).label("cargo_count"),
-        )
-        .where(CargoItem.active == True)  # noqa: E712
-        .group_by(CargoItem.request_id)
-        .subquery()
+    return await list_cargo_requests_impl(
+        status=status,
+        search=search,
+        pagination=pagination,
+        entity_id=entity_id,
+        db=db,
     )
-    query = (
-        select(
-            CargoRequest,
-            sqla_func.coalesce(cargo_count_sq.c.cargo_count, 0).label("cargo_count"),
-        )
-        .outerjoin(cargo_count_sq, cargo_count_sq.c.request_id == CargoRequest.id)
-        .where(
-            CargoRequest.entity_id == entity_id,
-            CargoRequest.active == True,  # noqa: E712
-        )
-        .order_by(CargoRequest.created_at.desc())
-    )
-    if status:
-        query = query.where(CargoRequest.status == status)
-    if search:
-        like = f"%{search}%"
-        query = query.where(
-            CargoRequest.request_code.ilike(like)
-            | CargoRequest.title.ilike(like)
-            | CargoRequest.description.ilike(like)
-        )
-
-    async def _transform(row):
-        cargo_request, cargo_count = row
-        return await _build_cargo_request_read_data(db, cargo_request, cargo_count=int(cargo_count or 0))
-
-    return await paginate(db, query, pagination, transform=_transform)
 
 
 @router.post("/cargo-requests", response_model=CargoRequestRead, status_code=201)
@@ -2417,31 +1716,12 @@ async def create_cargo_request(
     _: None = require_permission("travelwiz.cargo.create"),
     db: AsyncSession = Depends(get_db),
 ):
-    if body.imputation_reference_id:
-        imputation = await db.get(ImputationReference, body.imputation_reference_id)
-        if not imputation or imputation.entity_id != entity_id or not imputation.active:
-            raise HTTPException(400, "Imputation introuvable ou inactive")
-    request_code = await _generate_cargo_request_code(db, entity_id)
-    cargo_request = CargoRequest(
+    return await create_cargo_request_impl(
+        body=body,
         entity_id=entity_id,
-        request_code=request_code,
-        requested_by=current_user.id,
-        **body.model_dump(),
+        current_user=current_user,
+        db=db,
     )
-    db.add(cargo_request)
-    await db.commit()
-    await db.refresh(cargo_request)
-    await record_audit(
-        db,
-        action="travelwiz.cargo_request.create",
-        resource_type="cargo_request",
-        resource_id=str(cargo_request.id),
-        user_id=current_user.id,
-        entity_id=entity_id,
-        details={"request_code": cargo_request.request_code, "status": cargo_request.status},
-    )
-    await db.commit()
-    return await _build_cargo_request_read_data(db, cargo_request, cargo_count=0)
 
 
 @router.get("/cargo-requests/{request_id}", response_model=CargoRequestRead)
@@ -2451,8 +1731,7 @@ async def get_cargo_request(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    cargo_request = await _get_cargo_request_or_404(db, request_id, entity_id)
-    return await _build_cargo_request_read_data(db, cargo_request)
+    return await get_cargo_request_impl(request_id=request_id, entity_id=entity_id, db=db)
 
 
 @router.get("/cargo-requests/{request_id}/pdf/lt")
@@ -2463,24 +1742,11 @@ async def download_cargo_request_lt_pdf(
     _: None = require_permission("travelwiz.cargo.read"),
     db: AsyncSession = Depends(get_db),
 ):
-    from app.core.pdf_templates import render_pdf
-
-    cargo_request = await _get_cargo_request_or_404(db, request_id, entity_id)
-    variables = await _build_cargo_lt_variables(db, cargo_request=cargo_request, entity_id=entity_id)
-    pdf_bytes = await render_pdf(
-        db,
-        slug="cargo.lt",
-        entity_id=entity_id,
+    return await download_cargo_request_lt_pdf_impl(
+        request_id=request_id,
         language=language,
-        variables=variables,
-    )
-    if not pdf_bytes:
-        raise HTTPException(404, "Template PDF 'cargo.lt' introuvable. Initialisez-le dans Parametres > Modeles PDF.")
-    filename = f"{cargo_request.request_code}_lt.pdf"
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+        entity_id=entity_id,
+        db=db,
     )
 
 
@@ -2493,89 +1759,13 @@ async def update_cargo_request(
     _: None = require_permission("travelwiz.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    cargo_request = await _get_cargo_request_or_404(db, request_id, entity_id)
-    if body.imputation_reference_id:
-        imputation = await db.get(ImputationReference, body.imputation_reference_id)
-        if not imputation or imputation.entity_id != entity_id or not imputation.active:
-            raise HTTPException(400, "Imputation introuvable ou inactive")
-    target_status = body.status or cargo_request.status
-    request_payload = _cargo_request_to_payload(cargo_request)
-    request_payload.update(body.model_dump(exclude_unset=True))
-    cargo_result = await db.execute(
-        select(CargoItem).where(
-            CargoItem.request_id == cargo_request.id,
-            CargoItem.active == True,  # noqa: E712
-        )
-    )
-    request_cargo = cargo_result.scalars().all()
-    readiness = _assess_cargo_request_requirements(request_payload, request_cargo)
-    if target_status in {"submitted", "approved", "assigned", "closed"} and not readiness["is_complete"]:
-        raise HTTPException(
-            400,
-            {
-                "code": "CARGO_REQUEST_INCOMPLETE",
-                "message": "La demande d'expédition est incomplète.",
-                "missing_requirements": readiness["missing_requirements"],
-            },
-        )
-    if target_status == "approved":
-        invalid_cargo = [
-            cargo.tracking_code
-            for cargo in request_cargo
-            if cargo.workflow_status not in {"approved", "assigned", "in_transit", "delivered"}
-        ]
-        if invalid_cargo:
-            raise HTTPException(
-                400,
-                {
-                    "code": "CARGO_REQUEST_REQUIRES_APPROVED_ITEMS",
-                    "message": "Tous les colis doivent être validés avant approbation de la demande.",
-                    "tracking_codes": invalid_cargo,
-                },
-            )
-    if target_status == "assigned":
-        unassigned_cargo = [
-            cargo.tracking_code for cargo in request_cargo if not cargo.manifest_id
-        ]
-        if unassigned_cargo:
-            raise HTTPException(
-                400,
-                {
-                    "code": "CARGO_REQUEST_REQUIRES_ASSIGNED_ITEMS",
-                    "message": "Tous les colis doivent être affectés à un manifeste/voyage.",
-                    "tracking_codes": unassigned_cargo,
-                },
-            )
-    if target_status == "closed":
-        open_cargo = [
-            cargo.tracking_code
-            for cargo in request_cargo
-            if cargo.status not in {"delivered", "delivered_intermediate", "delivered_final"}
-        ]
-        if open_cargo:
-            raise HTTPException(
-                400,
-                {
-                    "code": "CARGO_REQUEST_REQUIRES_DELIVERED_ITEMS",
-                    "message": "Tous les colis doivent être livrés avant clôture de la demande.",
-                    "tracking_codes": open_cargo,
-                },
-            )
-    for field, value in body.model_dump(exclude_unset=True).items():
-        setattr(cargo_request, field, value)
-    await db.commit()
-    await db.refresh(cargo_request)
-    await record_audit(
-        db,
-        action="travelwiz.cargo_request.update",
-        resource_type="cargo_request",
-        resource_id=str(cargo_request.id),
-        user_id=current_user.id,
+    return await update_cargo_request_impl(
+        request_id=request_id,
+        body=body,
         entity_id=entity_id,
-        details={"status": cargo_request.status},
+        current_user=current_user,
+        db=db,
     )
-    await db.commit()
-    return await _build_cargo_request_read_data(db, cargo_request)
 
 
 @router.get("/cargo-requests/{request_id}/loading-options", response_model=list[CargoLoadingOptionRead])
@@ -2585,8 +1775,7 @@ async def get_cargo_request_loading_options(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    cargo_request = await _get_cargo_request_or_404(db, request_id, entity_id)
-    return await _build_cargo_loading_options(db, cargo_request=cargo_request, entity_id=entity_id)
+    return await get_cargo_request_loading_options_impl(request_id=request_id, entity_id=entity_id, db=db)
 
 
 @router.post("/cargo-requests/{request_id}/loading-options/{voyage_id}/apply", response_model=CargoRequestRead)
@@ -2598,87 +1787,13 @@ async def apply_cargo_request_loading_option(
     _: None = require_permission("travelwiz.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    cargo_request = await _get_cargo_request_or_404(db, request_id, entity_id)
-    if cargo_request.status not in {"approved", "assigned"}:
-        raise HTTPException(400, "La demande doit être approuvée avant affectation à un voyage")
-
-    loading_options = await _build_cargo_loading_options(db, cargo_request=cargo_request, entity_id=entity_id)
-    selected_option = next((option for option in loading_options if option["voyage_id"] == voyage_id), None)
-    if not selected_option:
-        raise HTTPException(404, "Voyage de chargement introuvable")
-    if not selected_option["can_load"]:
-        raise HTTPException(
-            400,
-            {
-                "code": "CARGO_REQUEST_LOADING_OPTION_BLOCKED",
-                "message": "Le voyage sélectionné ne peut pas recevoir cette demande.",
-                "blocking_reasons": selected_option["blocking_reasons"],
-            },
-        )
-
-    voyage = await _get_voyage_or_404(db, voyage_id, entity_id)
-    manifest_id = selected_option["manifest_id"]
-    manifest: VoyageManifest | None = None
-    if manifest_id:
-        manifest = await db.get(VoyageManifest, manifest_id)
-    if manifest is None:
-        manifest = VoyageManifest(voyage_id=voyage.id, manifest_type="cargo", status="draft")
-        db.add(manifest)
-        await db.flush()
-
-    cargo_result = await db.execute(
-        select(CargoItem).where(
-            CargoItem.request_id == cargo_request.id,
-            CargoItem.active == True,  # noqa: E712
-        )
-    )
-    request_cargo = cargo_result.scalars().all()
-    assigned_tracking_codes: list[str] = []
-    workflow_transitioned: list[tuple[CargoItem, str]] = []
-    for cargo in request_cargo:
-        cargo.manifest_id = manifest.id
-        if selected_option["compatible_zones"]:
-            cargo.planned_zone_id = UUID(selected_option["compatible_zones"][0]["zone_id"])
-        if cargo.workflow_status == "approved":
-            await _try_cargo_workflow_transition(
-                db,
-                cargo=cargo,
-                to_state="assigned",
-                actor_id=current_user.id,
-                entity_id=entity_id,
-            )
-            workflow_transitioned.append((cargo, cargo.workflow_status))
-            cargo.workflow_status = "assigned"
-        assigned_tracking_codes.append(cargo.tracking_code)
-
-    cargo_request.status = "assigned"
-    await db.commit()
-    await db.refresh(cargo_request)
-    for cargo, previous_status in workflow_transitioned:
-        await fsm_service.emit_transition_event(
-            entity_type=CARGO_WORKFLOW_ENTITY_TYPE,
-            entity_id=str(cargo.id),
-            from_state=previous_status,
-            to_state=cargo.workflow_status,
-            actor_id=current_user.id,
-            workflow_slug=CARGO_WORKFLOW_SLUG,
-        )
-    await record_audit(
-        db,
-        action="travelwiz.cargo_request.assign_to_voyage",
-        resource_type="cargo_request",
-        resource_id=str(cargo_request.id),
-        user_id=current_user.id,
+    return await apply_cargo_request_loading_option_impl(
+        request_id=request_id,
+        voyage_id=voyage_id,
         entity_id=entity_id,
-        details={
-            "voyage_id": str(voyage.id),
-            "voyage_code": voyage.code,
-            "manifest_id": str(manifest.id),
-            "tracking_codes": assigned_tracking_codes,
-        },
+        current_user=current_user,
+        db=db,
     )
-    await db.commit()
-    return await _build_cargo_request_read_data(db, cargo_request)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2701,64 +1816,20 @@ async def list_cargo(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
-    query = (
-        select(
-            CargoItem,
-            CargoRequest.request_code.label("request_code"),
-            CargoRequest.title.label("request_title"),
-            Tier.name.label("sender_name"),
-            Installation.name.label("destination_name"),
-            ImputationReference.code.label("imputation_reference_code"),
-            ImputationReference.name.label("imputation_reference_name"),
-        )
-        .outerjoin(CargoRequest, CargoItem.request_id == CargoRequest.id)
-        .outerjoin(Tier, CargoItem.sender_tier_id == Tier.id)
-        .outerjoin(Installation, CargoItem.destination_asset_id == Installation.id)
-        .outerjoin(ImputationReference, CargoItem.imputation_reference_id == ImputationReference.id)
-        .where(CargoItem.entity_id == entity_id, CargoItem.active == True)  # noqa: E712
+    return await list_cargo_impl(
+        request=request,
+        status=status,
+        cargo_type=cargo_type,
+        manifest_id=manifest_id,
+        destination_asset_id=destination_asset_id,
+        request_id=request_id,
+        search=search,
+        scope=scope,
+        pagination=pagination,
+        entity_id=entity_id,
+        current_user=current_user,
+        db=db,
     )
-
-    # ── User-scoped data visibility ──
-    if scope == "my":
-        query = query.where(CargoItem.registered_by == acting_user_id)
-    elif scope != "all":
-        can_read_all = await has_user_permission(
-            current_user, entity_id, "travelwiz.cargo.read_all", db
-        )
-        if not can_read_all:
-            query = query.where(CargoItem.registered_by == acting_user_id)
-
-    if status:
-        query = query.where(CargoItem.status == status)
-    if cargo_type:
-        query = query.where(CargoItem.cargo_type == cargo_type)
-    if manifest_id:
-        query = query.where(CargoItem.manifest_id == manifest_id)
-    if destination_asset_id:
-        query = query.where(CargoItem.destination_asset_id == destination_asset_id)
-    if request_id:
-        query = query.where(CargoItem.request_id == request_id)
-    if search:
-        like = f"%{search}%"
-        query = query.where(
-            CargoItem.tracking_code.ilike(like) | CargoItem.description.ilike(like)
-        )
-    query = query.order_by(CargoItem.created_at.desc())
-
-    def _transform(row):
-        item = row[0]
-        d = {c.key: getattr(item, c.key) for c in item.__table__.columns}
-        d["request_code"] = row[1]
-        d["request_title"] = row[2]
-        d["sender_name"] = row[3]
-        d["destination_name"] = row[4]
-        d["imputation_reference_code"] = row[5]
-        d["imputation_reference_name"] = row[6]
-        d["pickup_contact_display_name"] = item.pickup_contact_name
-        return d
-
-    return await paginate(db, query, pagination, transform=_transform)
 
 
 @router.post("/cargo", response_model=CargoRead, status_code=201)
@@ -2769,80 +1840,12 @@ async def create_cargo(
     _: None = require_permission("travelwiz.cargo.create"),
     db: AsyncSession = Depends(get_db),
 ):
-    _ensure_cargo_request_parent(body.request_id)
-    await _validate_cargo_dossier_refs(db, entity_id=entity_id, payload=body)
-    payload_data = body.model_dump()
-    cargo_request = await _get_cargo_request_or_404(db, body.request_id, entity_id)
-    for cargo_field, request_field in (
-        ("project_id", "project_id"),
-        ("imputation_reference_id", "imputation_reference_id"),
-        ("sender_tier_id", "sender_tier_id"),
-        ("receiver_name", "receiver_name"),
-        ("destination_asset_id", "destination_asset_id"),
-        ("requester_name", "requester_name"),
-    ):
-        if not payload_data.get(cargo_field):
-            payload_data[cargo_field] = getattr(cargo_request, request_field, None)
-    # ── Weight capacity validation (if assigning to a manifest) ────────
-    if payload_data.get("manifest_id"):
-        manifest_result = await db.execute(
-            select(VoyageManifest).where(VoyageManifest.id == payload_data["manifest_id"])
-        )
-        manifest = manifest_result.scalars().first()
-        if manifest:
-            voyage_result = await db.execute(
-                select(Voyage).where(Voyage.id == manifest.voyage_id)
-            )
-            voyage = voyage_result.scalars().first()
-            if voyage:
-                vector = await db.get(TransportVector, voyage.vector_id)
-                if vector and vector.weight_capacity_kg:
-                    # Sum existing cargo weight on all cargo manifests for this voyage
-                    weight_result = await db.execute(
-                        select(sqla_func.coalesce(sqla_func.sum(CargoItem.weight_kg), 0))
-                        .join(VoyageManifest, CargoItem.manifest_id == VoyageManifest.id)
-                        .where(
-                            VoyageManifest.voyage_id == voyage.id,
-                            VoyageManifest.manifest_type == "cargo",
-                            CargoItem.active == True,
-                        )
-                    )
-                    current_weight = float(weight_result.scalar() or 0)
-                    if current_weight + float(payload_data["weight_kg"]) > vector.weight_capacity_kg:
-                        raise HTTPException(
-                            400,
-                            f"Weight capacity exceeded: vector allows {vector.weight_capacity_kg} kg, "
-                            f"current load is {current_weight} kg, "
-                            f"new item weighs {payload_data['weight_kg']} kg",
-                        )
-
-    tracking_code = await _generate_cargo_code(db, entity_id)
-    cargo = CargoItem(
+    return await create_cargo_impl(
+        body=body,
         entity_id=entity_id,
-        tracking_code=tracking_code,
-        registered_by=current_user.id,
-        **payload_data,
+        current_user=current_user,
+        db=db,
     )
-    db.add(cargo)
-    await db.commit()
-    await db.refresh(cargo)
-    await record_audit(
-        db,
-        action="travelwiz.cargo.create",
-        resource_type="cargo_item",
-        resource_id=str(cargo.id),
-        user_id=current_user.id,
-        entity_id=entity_id,
-        details={
-            "tracking_code": cargo.tracking_code,
-            "status": cargo.status,
-            "manifest_id": str(cargo.manifest_id) if cargo.manifest_id else None,
-            "cargo_type": cargo.cargo_type,
-            "workflow_status": cargo.workflow_status,
-        },
-    )
-    await db.commit()
-    return await _build_cargo_read_data(db, cargo)
 
 
 @router.get("/cargo/{cargo_id}", response_model=CargoRead)
@@ -2852,8 +1855,7 @@ async def get_cargo(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
-    return await _build_cargo_read_data(db, cargo)
+    return await get_cargo_impl(cargo_id=cargo_id, entity_id=entity_id, db=db)
 
 
 @router.get("/cargo/{cargo_id}/attachment-evidence", response_model=list[CargoAttachmentEvidenceRead])
@@ -2863,33 +1865,7 @@ async def list_cargo_attachment_evidence(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_cargo_or_404(db, cargo_id, entity_id)
-    result = await db.execute(
-        select(
-            Attachment.id,
-            CargoAttachmentEvidence.evidence_type,
-            Attachment.original_name,
-            Attachment.content_type,
-            Attachment.created_at,
-        )
-        .select_from(Attachment)
-        .outerjoin(CargoAttachmentEvidence, CargoAttachmentEvidence.attachment_id == Attachment.id)
-        .where(
-            Attachment.owner_type == "cargo_item",
-            Attachment.owner_id == cargo_id,
-        )
-        .order_by(Attachment.created_at.desc())
-    )
-    return [
-        {
-            "attachment_id": attachment_id,
-            "evidence_type": evidence_type or "other",
-            "original_name": original_name,
-            "content_type": content_type,
-            "created_at": created_at,
-        }
-        for attachment_id, evidence_type, original_name, content_type, created_at in result.all()
-    ]
+    return await list_cargo_attachment_evidence_impl(cargo_id=cargo_id, entity_id=entity_id, db=db)
 
 
 @router.put("/cargo/{cargo_id}/attachments/{attachment_id}/evidence-type", response_model=CargoAttachmentEvidenceRead)
@@ -2902,42 +1878,14 @@ async def set_cargo_attachment_evidence_type(
     _: None = require_permission("travelwiz.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_cargo_or_404(db, cargo_id, entity_id)
-    attachment_result = await db.execute(
-        select(Attachment).where(
-            Attachment.id == attachment_id,
-            Attachment.owner_type == "cargo_item",
-            Attachment.owner_id == cargo_id,
-        )
+    return await set_cargo_attachment_evidence_type_impl(
+        cargo_id=cargo_id,
+        attachment_id=attachment_id,
+        body=body,
+        entity_id=entity_id,
+        current_user=current_user,
+        db=db,
     )
-    attachment = attachment_result.scalar_one_or_none()
-    if not attachment:
-        raise HTTPException(404, "Pièce jointe cargo introuvable")
-
-    evidence_result = await db.execute(
-        select(CargoAttachmentEvidence).where(CargoAttachmentEvidence.attachment_id == attachment_id)
-    )
-    evidence = evidence_result.scalar_one_or_none()
-    if evidence:
-        evidence.evidence_type = body.evidence_type
-    else:
-        evidence = CargoAttachmentEvidence(
-            entity_id=entity_id,
-            cargo_item_id=cargo_id,
-            attachment_id=attachment_id,
-            evidence_type=body.evidence_type,
-            created_by=current_user.id,
-        )
-        db.add(evidence)
-    await db.commit()
-    await db.refresh(evidence)
-    return {
-        "attachment_id": attachment.id,
-        "evidence_type": evidence.evidence_type,
-        "original_name": attachment.original_name,
-        "content_type": attachment.content_type,
-        "created_at": attachment.created_at,
-    }
 
 
 @router.get("/public/cargo/{tracking_code}", response_model=CargoTrackingRead)
@@ -3069,24 +2017,7 @@ async def get_cargo_history(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_cargo_or_404(db, cargo_id, entity_id)
-    result = await db.execute(
-        select(AuditLog, User.first_name, User.last_name)
-        .outerjoin(User, User.id == AuditLog.user_id)
-        .where(
-            AuditLog.entity_id == entity_id,
-            AuditLog.resource_type == "cargo_item",
-            AuditLog.resource_id == str(cargo_id),
-        )
-        .order_by(AuditLog.created_at.desc())
-    )
-    return [
-        _serialize_cargo_history_entry(
-            entry,
-            " ".join(part for part in [first_name, last_name] if part) or None,
-        )
-        for entry, first_name, last_name in result.all()
-    ]
+    return await get_cargo_history_impl(cargo_id=cargo_id, entity_id=entity_id, db=db)
 
 
 @router.patch("/cargo/{cargo_id}", response_model=CargoRead)
@@ -3097,27 +2028,7 @@ async def update_cargo(
     _: None = require_permission("travelwiz.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
-    await _validate_cargo_dossier_refs(db, entity_id=entity_id, payload=body)
-    changes = body.model_dump(exclude_unset=True)
-    resulting_request_id = changes["request_id"] if "request_id" in changes else cargo.request_id
-    _ensure_cargo_request_parent(resulting_request_id)
-    for field, value in changes.items():
-        setattr(cargo, field, value)
-    await db.commit()
-    await db.refresh(cargo)
-    if changes:
-        await record_audit(
-            db,
-            action="travelwiz.cargo.update",
-            resource_type="cargo_item",
-            resource_id=str(cargo.id),
-            user_id=None,
-            entity_id=entity_id,
-            details={"changes": changes},
-        )
-        await db.commit()
-    return await _build_cargo_read_data(db, cargo)
+    return await update_cargo_impl(cargo_id=cargo_id, body=body, entity_id=entity_id, db=db)
 
 
 @router.patch("/cargo/{cargo_id}/workflow-status", response_model=CargoRead)
@@ -3129,52 +2040,13 @@ async def update_cargo_workflow_status(
     _: None = require_permission("travelwiz.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
-    current_payload = await _build_cargo_read_data(db, cargo)
-    if body.workflow_status in {"ready_for_review", "approved"}:
-        readiness = _assess_cargo_workflow_requirements(current_payload)
-        if not readiness["is_complete"]:
-            raise HTTPException(
-                400,
-                {
-                    "code": "CARGO_DOSSIER_INCOMPLETE",
-                    "message": "Le dossier cargo est incomplet pour cette étape workflow.",
-                    "missing_requirements": readiness["missing_requirements"],
-                },
-            )
-    previous_status = cargo.workflow_status
-    await _try_cargo_workflow_transition(
-        db,
-        cargo=cargo,
-        to_state=body.workflow_status,
-        actor_id=current_user.id,
+    return await update_cargo_workflow_status_impl(
+        cargo_id=cargo_id,
+        body=body,
         entity_id=entity_id,
+        current_user=current_user,
+        db=db,
     )
-    cargo.workflow_status = body.workflow_status
-    await db.commit()
-    await db.refresh(cargo)
-    await fsm_service.emit_transition_event(
-        entity_type=CARGO_WORKFLOW_ENTITY_TYPE,
-        entity_id=str(cargo.id),
-        from_state=previous_status,
-        to_state=cargo.workflow_status,
-        actor_id=current_user.id,
-        workflow_slug=CARGO_WORKFLOW_SLUG,
-    )
-    await record_audit(
-        db,
-        action="travelwiz.cargo.workflow_status",
-        resource_type="cargo_item",
-        resource_id=str(cargo.id),
-        user_id=current_user.id,
-        entity_id=entity_id,
-        details={
-            "from_status": previous_status,
-            "to_status": cargo.workflow_status,
-        },
-    )
-    await db.commit()
-    return await _build_cargo_read_data(db, cargo)
 
 
 @router.patch("/cargo/{cargo_id}/status", response_model=CargoRead)
@@ -3186,44 +2058,13 @@ async def update_cargo_status(
     _: None = require_permission("travelwiz.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Transition cargo to a new status."""
-    cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
-    target_status = _normalize_cargo_status(body.status)
-    previous_status = cargo.status
-    if body.damage_notes is not None:
-        cargo.damage_notes = body.damage_notes
-    try:
-        await apply_cargo_status_transition(
-            db,
-            cargo_item_id=cargo.id,
-            new_status=target_status,
-            entity_id=entity_id,
-            user_id=current_user.id,
-            location_asset_id=cargo.destination_asset_id,
-        )
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
-
-    if body.damage_notes is not None:
-        cargo.damage_notes = body.damage_notes
-
-    await db.commit()
-    await db.refresh(cargo)
-    await record_audit(
-        db,
-        action="travelwiz.cargo.status",
-        resource_type="cargo_item",
-        resource_id=str(cargo.id),
-        user_id=current_user.id,
+    return await update_cargo_status_impl(
+        cargo_id=cargo_id,
+        body=body,
         entity_id=entity_id,
-        details={
-            "from_status": previous_status,
-            "to_status": cargo.status,
-            "damage_notes": body.damage_notes,
-        },
+        current_user=current_user,
+        db=db,
     )
-    await db.commit()
-    return await _build_cargo_read_data(db, cargo)
 
 
 @router.post("/cargo/{cargo_id}/receive", response_model=CargoRead)
@@ -3235,60 +2076,13 @@ async def receive_cargo(
     _: None = require_permission("travelwiz.cargo.receive"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Mark cargo as received at destination."""
-    cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
-    if cargo.status not in ("in_transit", "delivered_intermediate"):
-        raise HTTPException(400, f"Cannot receive cargo in status '{cargo.status}'")
-    receipt = body or CargoReceiptConfirm()
-    if receipt.damage_notes and receipt.photo_evidence_count <= 0:
-        raise HTTPException(
-            400,
-            {
-                "code": "CARGO_DAMAGE_EVIDENCE_REQUIRED",
-                "message": "Une photo de preuve est obligatoire en cas de dommage à la réception.",
-            },
-        )
-    previous_status = cargo.status
-    cargo.damage_notes = receipt.damage_notes
-    try:
-        await apply_cargo_status_transition(
-            db,
-            cargo_item_id=cargo.id,
-            new_status="delivered_final",
-            entity_id=entity_id,
-            user_id=current_user.id,
-            location_asset_id=cargo.destination_asset_id,
-        )
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
-    await db.commit()
-    await db.refresh(cargo)
-    await record_audit(
-        db,
-        action="travelwiz.cargo.receive",
-        resource_type="cargo_item",
-        resource_id=str(cargo.id),
-        user_id=current_user.id,
+    return await receive_cargo_impl(
+        cargo_id=cargo_id,
+        body=body,
         entity_id=entity_id,
-        details={
-            "from_status": previous_status,
-            "to_status": cargo.status,
-            "received_at": cargo.received_at.isoformat() if cargo.received_at else None,
-            "received_quantity": receipt.received_quantity,
-            "declared_quantity": (
-                receipt.declared_quantity
-                if receipt.declared_quantity is not None
-                else float(cargo.package_count or 0)
-            ),
-            "recipient_available": receipt.recipient_available,
-            "signature_collected": receipt.signature_collected,
-            "damage_notes": receipt.damage_notes,
-            "photo_evidence_count": receipt.photo_evidence_count,
-            "notes": receipt.notes,
-        },
+        current_user=current_user,
+        db=db,
     )
-    await db.commit()
-    return await _build_cargo_read_data(db, cargo)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -3738,31 +2532,13 @@ async def initiate_return(
     _: None = require_permission("travelwiz.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Initiate back cargo workflow."""
-    from app.services.modules.travelwiz_service import initiate_back_cargo as _back_cargo
-
-    try:
-        result = await _back_cargo(
-            db,
-            cargo_item_id=cargo_id,
-            entity_id=entity_id,
-            user_id=current_user.id,
-            return_type=body.return_type,
-            notes=body.notes,
-            return_metadata={
-                "waste_manifest_ref": body.waste_manifest_ref,
-                "pass_number": body.pass_number,
-                "inventory_reference": body.inventory_reference,
-                "sap_code_confirmed": body.sap_code_confirmed,
-                "photo_evidence_count": body.photo_evidence_count,
-                "double_signature_confirmed": body.double_signature_confirmed,
-                "yard_justification": body.yard_justification,
-            },
-        )
-        await db.commit()
-        return result
-    except ValueError as e:
-        raise HTTPException(400, str(e))
+    return await initiate_return_impl(
+        cargo_id=cargo_id,
+        body=body,
+        entity_id=entity_id,
+        current_user=current_user,
+        db=db,
+    )
 
 
 @router.get("/cargo/{cargo_id}/elements")
@@ -3772,14 +2548,7 @@ async def list_package_elements(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List elements of a package-type cargo item."""
-    await _get_cargo_or_404(db, cargo_id, entity_id)
-    result = await db.execute(
-        select(PackageElement)
-        .where(PackageElement.package_id == cargo_id)
-        .order_by(PackageElement.description.asc())
-    )
-    return [_serialize_package_element(element) for element in result.scalars().all()]
+    return await list_package_elements_impl(cargo_id=cargo_id, entity_id=entity_id, db=db)
 
 
 @router.post("/cargo/{cargo_id}/elements", status_code=201)
@@ -3794,33 +2563,16 @@ async def add_package_element(
     _: None = require_permission("travelwiz.cargo.create"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Add an element to a package-type cargo item."""
-    await _get_cargo_or_404(db, cargo_id, entity_id)
-    normalized_description = description.strip()
-    if not normalized_description:
-        raise HTTPException(400, "Description is required")
-    if quantity <= 0:
-        raise HTTPException(400, "Quantity must be greater than zero")
-
-    normalized_sap_code = sap_code.strip() if isinstance(sap_code, str) and sap_code.strip() else None
-    normalized_notes = notes.strip() if isinstance(notes, str) and notes.strip() else None
-
-    element = PackageElement(
-        package_id=cargo_id,
-        description=normalized_description,
-        quantity_sent=Decimal(str(quantity)),
-        unit_weight_kg=Decimal(str(weight_kg)) if weight_kg is not None else None,
-        sap_code=normalized_sap_code,
-        sap_code_status="matched" if normalized_sap_code else "unknown",
-        management_type="manual",
-        unit_of_measure="unit",
-        return_notes=normalized_notes,
+    return await add_package_element_impl(
+        cargo_id=cargo_id,
+        description=description,
+        quantity=quantity,
+        weight_kg=weight_kg,
+        sap_code=sap_code,
+        notes=notes,
+        entity_id=entity_id,
+        db=db,
     )
-    db.add(element)
-    await db.flush()
-    await db.commit()
-    await db.refresh(element)
-    return _serialize_package_element(element)
 
 
 @router.patch("/cargo/{cargo_id}/elements/{element_id}/return")
@@ -3833,64 +2585,14 @@ async def update_package_element_return(
     _: None = require_permission("travelwiz.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
-    element = await _get_package_element_or_404(db, cargo_id=cargo_id, element_id=element_id)
-
-    quantity_sent = float(element.quantity_sent or 0)
-    quantity_returned = float(body.quantity_returned)
-    if quantity_returned > quantity_sent:
-        raise HTTPException(
-            400,
-            {
-                "code": "PACKAGE_RETURN_EXCEEDS_SENT",
-                "message": "La quantité retournée ne peut pas dépasser la quantité expédiée.",
-            },
-        )
-
-    element.quantity_returned = Decimal(str(quantity_returned))
-    if quantity_returned <= 0:
-        element.return_status = "pending"
-    elif quantity_returned < quantity_sent:
-        element.return_status = "partial"
-    else:
-        element.return_status = "returned"
-    if body.return_notes is not None:
-        element.return_notes = body.return_notes
-
-    if quantity_returned > 0:
-        target_status = "returned" if quantity_returned >= quantity_sent else "return_in_transit"
-        if cargo.status != target_status:
-            try:
-                await apply_cargo_status_transition(
-                    db,
-                    cargo_item_id=cargo.id,
-                    new_status=target_status,
-                    entity_id=entity_id,
-                    user_id=current_user.id,
-                    location_asset_id=cargo.destination_asset_id,
-                )
-            except ValueError as exc:
-                raise HTTPException(400, str(exc)) from exc
-
-    await db.commit()
-    await db.refresh(element)
-    await record_audit(
-        db,
-        action="travelwiz.cargo.element_return",
-        resource_type="cargo_item",
-        resource_id=str(cargo.id),
-        user_id=current_user.id,
+    return await update_package_element_return_impl(
+        cargo_id=cargo_id,
+        element_id=element_id,
+        body=body,
         entity_id=entity_id,
-        details={
-            "element_id": str(element.id),
-            "quantity_sent": quantity_sent,
-            "quantity_returned": quantity_returned,
-            "return_status": element.return_status,
-            "return_notes": element.return_notes,
-        },
+        current_user=current_user,
+        db=db,
     )
-    await db.commit()
-    return _serialize_package_element(element)
 
 
 @router.patch("/cargo/{cargo_id}/elements/{element_id}/disposition")
@@ -3903,59 +2605,14 @@ async def update_package_element_disposition(
     _: None = require_permission("travelwiz.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    cargo = await _get_cargo_or_404(db, cargo_id, entity_id)
-    element = await _get_package_element_or_404(db, cargo_id=cargo_id, element_id=element_id)
-
-    if float(element.quantity_returned or 0) <= 0:
-        raise HTTPException(
-            400,
-            {
-                "code": "PACKAGE_RETURN_REQUIRED",
-                "message": "Aucun retour partiel ou complet n'a encore été déclaré pour cet élément.",
-            },
-        )
-
-    element.return_status = body.return_status
-    if body.return_notes is not None:
-        element.return_notes = body.return_notes
-
-    mapped_cargo_status = {
-        "returned": "returned",
-        "reintegrated": "reintegrated",
-        "scrapped": "scrapped",
-        "yard_storage": "returned",
-    }
-    target_status = mapped_cargo_status.get(body.return_status)
-    if target_status and cargo.status != target_status:
-        try:
-            await apply_cargo_status_transition(
-                db,
-                cargo_item_id=cargo.id,
-                new_status=target_status,
-                entity_id=entity_id,
-                user_id=current_user.id,
-                location_asset_id=cargo.destination_asset_id,
-            )
-        except ValueError as exc:
-            raise HTTPException(400, str(exc)) from exc
-
-    await db.commit()
-    await db.refresh(element)
-    await record_audit(
-        db,
-        action="travelwiz.cargo.element_disposition",
-        resource_type="cargo_item",
-        resource_id=str(cargo.id),
-        user_id=current_user.id,
+    return await update_package_element_disposition_impl(
+        cargo_id=cargo_id,
+        element_id=element_id,
+        body=body,
         entity_id=entity_id,
-        details={
-            "element_id": str(element.id),
-            "return_status": element.return_status,
-            "return_notes": element.return_notes,
-        },
+        current_user=current_user,
+        db=db,
     )
-    await db.commit()
-    return _serialize_package_element(element)
 
 
 @router.post("/cargo/sap-match")

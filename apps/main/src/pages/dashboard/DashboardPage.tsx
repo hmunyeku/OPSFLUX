@@ -263,13 +263,13 @@ export function DashboardPage() {
     { labelKey: 'dashboard.qa_reports', icon: BarChart3, path: '/settings' },
   ]
 
-  // Stats cards for built-in overview
+  // Stats cards for built-in overview — Kyubit style
   const statsCards = [
-    { labelKey: 'dashboard.active_assets', value: stats?.assets_count, icon: MapPin, trendKey: 'dashboard.trend_assets' },
-    { labelKey: 'dashboard.users', value: stats?.users_count, icon: Users, sublabelKey: 'dashboard.users_active' },
-    { labelKey: 'dashboard.companies', value: stats?.tiers_count, icon: Building2, sublabelKey: 'dashboard.tiers_active' },
-    { labelKey: 'dashboard.active_workflows', value: stats?.active_workflows, icon: ClipboardList },
-    { labelKey: 'dashboard.recent_activity', value: stats?.recent_activity_count, icon: BarChart3 },
+    { labelKey: 'dashboard.active_assets', value: stats?.assets_count, icon: MapPin, color: '#3b82f6', trendKey: 'dashboard.trend_assets' },
+    { labelKey: 'dashboard.users', value: stats?.users_count, icon: Users, color: '#8b5cf6', sublabelKey: 'dashboard.users_active' },
+    { labelKey: 'dashboard.companies', value: stats?.tiers_count, icon: Building2, color: '#f59e0b', sublabelKey: 'dashboard.tiers_active' },
+    { labelKey: 'dashboard.active_workflows', value: stats?.active_workflows, icon: ClipboardList, color: '#10b981' },
+    { labelKey: 'dashboard.recent_activity', value: stats?.recent_activity_count, icon: BarChart3, color: '#06b6d4' },
   ]
 
   // Determine what to render in content area
@@ -409,40 +409,45 @@ export function DashboardPage() {
         {/* Built-in Overview content */}
         {isBuiltinOverview && (
           <div className="space-y-6">
-            {/* Stats cards */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            {/* Stats cards — Kyubit-level with color accent */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               {statsCards.map((card) => {
                 const Icon = card.icon
                 return (
-                  <div key={card.labelKey} className="rounded border border-border bg-card p-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">{t(card.labelKey)}</span>
-                      <Icon size={16} className="text-muted-foreground" />
-                    </div>
-                    <div className="mt-2">
-                      {statsLoading ? (
-                        <Loader2 size={16} className="animate-spin text-muted-foreground" />
-                      ) : (
-                        <p className="text-3xl font-semibold text-foreground">{card.value ?? 0}</p>
-                      )}
-                    </div>
-                    {card.sublabelKey && !statsLoading && (
-                      <p className="mt-1 text-xs text-muted-foreground">{t(card.sublabelKey)}</p>
-                    )}
-                    {card.trendKey && !statsLoading && (card.value ?? 0) > 0 && (
-                      <div className="mt-1 flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-                        <TrendingUp size={12} />
-                        <span>{t(card.trendKey)}</span>
+                  <div key={card.labelKey} className="relative rounded-lg bg-card shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                    {/* Left color bar */}
+                    <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg" style={{ backgroundColor: card.color }} />
+                    <div className="flex items-center gap-3 p-4 pl-5">
+                      {/* Icon circle */}
+                      <div className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: card.color + '15' }}>
+                        <Icon size={18} style={{ color: card.color }} />
                       </div>
-                    )}
+                      <div className="min-w-0 flex-1">
+                        {statsLoading ? (
+                          <Loader2 size={16} className="animate-spin text-muted-foreground" />
+                        ) : (
+                          <p className="text-2xl font-bold text-foreground leading-none">{card.value ?? 0}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-1 truncate">{t(card.labelKey)}</p>
+                        {card.sublabelKey && !statsLoading && (
+                          <p className="text-[10px] text-muted-foreground/60">{t(card.sublabelKey)}</p>
+                        )}
+                        {card.trendKey && !statsLoading && (card.value ?? 0) > 0 && (
+                          <div className="flex items-center gap-1 text-[10px] text-emerald-600 mt-0.5">
+                            <TrendingUp size={10} />
+                            <span>{t(card.trendKey)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )
               })}
             </div>
 
             {/* Recent activity */}
-            <div className="rounded border border-border bg-card">
-              <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div className="rounded-lg bg-card shadow-sm">
+              <div className="flex items-center justify-between border-b border-border/50 px-5 py-3">
                 <h2 className="text-sm font-semibold text-foreground">{t('dashboard.recent_activity')}</h2>
                 <button
                   onClick={() => refetchAudit()}
@@ -486,21 +491,23 @@ export function DashboardPage() {
             </div>
 
             {/* Quick actions */}
-            <div className="rounded border border-border bg-card">
-              <div className="border-b border-border px-4 py-3">
+            <div className="rounded-lg bg-card shadow-sm">
+              <div className="border-b border-border/50 px-5 py-3">
                 <h2 className="text-sm font-semibold text-foreground">{t('dashboard.quick_actions')}</h2>
               </div>
-              <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
                 {quickActions.map((action) => {
                   const Icon = action.icon
                   return (
                     <button
                       key={action.labelKey}
                       onClick={() => navigate(action.path)}
-                      className="flex items-center gap-2 rounded border border-border p-3 text-sm text-foreground transition-colors hover:bg-accent"
+                      className="flex items-center gap-3 rounded-lg p-3 text-sm text-foreground transition-all hover:bg-primary/5 hover:shadow-sm"
                     >
-                      <Icon size={16} className="text-muted-foreground shrink-0" />
-                      <span className="truncate">{t(action.labelKey)}</span>
+                      <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <Icon size={15} className="text-primary" />
+                      </div>
+                      <span className="truncate text-xs font-medium">{t(action.labelKey)}</span>
                     </button>
                   )
                 })}
@@ -508,10 +515,10 @@ export function DashboardPage() {
             </div>
 
             {/* Widget zone placeholder */}
-            <div className="rounded border border-dashed border-border p-8 text-center">
-              <GripVertical size={32} className="mx-auto text-muted-foreground/30" />
-              <p className="mt-3 text-sm text-muted-foreground">{t('dashboard.widgets_zone')}</p>
-              <p className="mt-1 text-xs text-muted-foreground/70">{t('dashboard.widgets_hint')}</p>
+            <div className="rounded-lg border-2 border-dashed border-border/40 p-10 text-center bg-muted/10">
+              <GripVertical size={28} className="mx-auto text-muted-foreground/20" />
+              <p className="mt-3 text-sm text-muted-foreground/60">{t('dashboard.widgets_zone')}</p>
+              <p className="mt-1 text-xs text-muted-foreground/40">{t('dashboard.widgets_hint')}</p>
             </div>
           </div>
         )}

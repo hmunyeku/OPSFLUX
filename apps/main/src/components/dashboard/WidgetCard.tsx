@@ -31,6 +31,7 @@ import {
 import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
 import { useWidgetData } from '@/hooks/useDashboard'
+import { useUserPreferences } from '@/hooks/useUserPreferences'
 import { PerspectiveWidget } from './widgets/PerspectiveWidget'
 import type { PerspectiveConfig } from './widgets/PerspectiveWidget'
 import { QuickAccessWidget } from './widgets/QuickAccessWidget'
@@ -90,7 +91,14 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge }: W
     widget.config,
   )
 
-  const [fullscreen, setFullscreen] = useState(false)
+  // Fullscreen persisted in user preferences
+  const { getPref, setPref } = useUserPreferences()
+  const prefKey = `widget_fullscreen_${widget.id}`
+  const [fullscreen, setFullscreenLocal] = useState(() => getPref(prefKey, '') === 'true')
+  const setFullscreen = (val: boolean) => {
+    setFullscreenLocal(val)
+    setPref(prefKey, val ? 'true' : '')
+  }
 
   // Auto-refresh: read interval from widget.config.refresh_interval (seconds)
   const refreshInterval = (widget.config?.refresh_interval as number) || 0

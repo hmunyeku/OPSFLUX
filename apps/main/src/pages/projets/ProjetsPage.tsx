@@ -3915,20 +3915,26 @@ function DashboardKpiCard({ icon: Icon, label, value, hint, tone = 'default' }: 
   hint?: string
   tone?: 'default' | 'success' | 'warning' | 'danger' | 'primary'
 }) {
-  const toneClass = {
-    default: 'border-border text-foreground',
-    success: 'border-green-500/30 bg-green-500/5 text-green-700',
-    warning: 'border-orange-500/30 bg-orange-500/5 text-orange-700',
-    danger: 'border-red-500/30 bg-red-500/5 text-red-700',
-    primary: 'border-primary/30 bg-primary/5 text-primary',
+  const colors = {
+    default: { icon: '#6b7280', bg: '#6b728015' },
+    success: { icon: '#22c55e', bg: '#22c55e15' },
+    warning: { icon: '#f59e0b', bg: '#f59e0b15' },
+    danger:  { icon: '#ef4444', bg: '#ef444415' },
+    primary: { icon: '#3b82f6', bg: '#3b82f615' },
   }[tone]
   return (
-    <div className={cn('border rounded-md p-3', toneClass)}>
-      <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide opacity-70">
-        <Icon size={12} /> {label}
+    <div className="relative rounded-lg bg-card shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+      <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg" style={{ backgroundColor: colors.icon }} />
+      <div className="flex items-center gap-3 p-3.5 pl-4">
+        <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: colors.bg }}>
+          <Icon size={16} style={{ color: colors.icon }} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-xl font-bold tabular-nums leading-none text-foreground">{value}</div>
+          <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mt-1">{label}</div>
+          {hint && <div className="text-[9px] text-muted-foreground/50 mt-0.5">{hint}</div>}
+        </div>
       </div>
-      <div className="text-2xl font-semibold tabular-nums mt-1">{value}</div>
-      {hint && <div className="text-[10px] opacity-60 mt-0.5">{hint}</div>}
     </div>
   )
 }

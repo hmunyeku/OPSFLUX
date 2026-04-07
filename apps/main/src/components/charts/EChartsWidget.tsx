@@ -117,7 +117,7 @@ export function EChartsWidget({
           ...(hasLegend ? { legend: { bottom: 0, textStyle: baseTextStyle, icon: 'roundRect', itemWidth: 10, itemHeight: 6 } } : {}),
           grid: { left: 40, right: 16, top: title ? 32 : 16, bottom: hasLegend ? 36 : 24, containLabel: false },
           xAxis: { type: 'category', data: xData, ...axisCommon, axisLabel: { ...baseTextStyle, rotate: xData.length > 8 ? 30 : 0, hideOverlap: true } },
-          yAxis: { type: 'value', ...axisCommon },
+          yAxis: { type: 'value', ...axisCommon, minInterval: 1 },
           series: yFields.map((field, i) => ({
             name: field,
             type: 'bar',
@@ -140,7 +140,7 @@ export function EChartsWidget({
           ...(hasLegend ? { legend: { bottom: 0, textStyle: baseTextStyle, icon: 'roundRect', itemWidth: 10, itemHeight: 6 } } : {}),
           grid: { left: 40, right: 16, top: title ? 32 : 16, bottom: hasLegend ? 36 : 24, containLabel: false },
           xAxis: { type: 'category', data: xData, ...axisCommon, axisLabel: { ...baseTextStyle, rotate: xData.length > 8 ? 30 : 0, hideOverlap: true } },
-          yAxis: { type: 'value', ...axisCommon },
+          yAxis: { type: 'value', ...axisCommon, minInterval: 1 },
           series: yFields.map((field, i) => {
             const c = COLOR_PALETTE[i % COLOR_PALETTE.length]
             return {
@@ -170,7 +170,7 @@ export function EChartsWidget({
           ...(hasLegend ? { legend: { bottom: 0, textStyle: baseTextStyle, icon: 'roundRect', itemWidth: 10, itemHeight: 6 } } : {}),
           grid: { left: 40, right: 16, top: title ? 32 : 16, bottom: hasLegend ? 36 : 24, containLabel: false },
           xAxis: { type: 'category', data: xData, ...axisCommon, axisLabel: { ...baseTextStyle, rotate: xData.length > 8 ? 30 : 0, hideOverlap: true } },
-          yAxis: { type: 'value', ...axisCommon },
+          yAxis: { type: 'value', ...axisCommon, minInterval: 1 },
           series: yFields.map((field, i) => {
             const c = COLOR_PALETTE[i % COLOR_PALETTE.length]
             return {
@@ -253,7 +253,7 @@ export function EChartsWidget({
           toolbox,
           grid: { left: 40, right: 16, top: title ? 32 : 16, bottom: 24, containLabel: false },
           xAxis: { type: 'value', ...axisCommon },
-          yAxis: { type: 'value', ...axisCommon },
+          yAxis: { type: 'value', ...axisCommon, minInterval: 1 },
           series: yFields.map((field, i) => ({
             name: field,
             type: 'scatter',

@@ -146,7 +146,7 @@ export function DashboardCanvas({
         breakpoints={BREAKPOINTS}
         cols={COLS}
         rowHeight={ROW_HEIGHT}
-        margin={[8, 8] as const}
+        margin={[12, 12] as const}
         containerPadding={[0, 0] as const}
         dragConfig={{ enabled: isEditing, bounded: false, handle: '.react-grid-drag-handle' }}
         resizeConfig={{ enabled: isEditing, handles: ['se'] }}

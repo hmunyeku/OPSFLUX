@@ -97,17 +97,22 @@ async def get_current_capacity(
     """
     target = at_date or date.today()
 
-    result = await db.execute(
-        text(
-            "SELECT id, max_pax_total, permanent_ops_quota, max_pax_per_company, "
-            "effective_date, reason, changed_by "
-            "FROM asset_capacities "
-            "WHERE asset_id = :aid AND effective_date <= :dt "
-            "ORDER BY effective_date DESC LIMIT 1"
-        ),
-        {"aid": str(asset_id), "dt": target},
-    )
-    row = result.first()
+    try:
+        result = await db.execute(
+            text(
+                "SELECT id, max_pax_total, permanent_ops_quota, max_pax_per_company, "
+                "effective_date, reason, changed_by "
+                "FROM asset_capacities "
+                "WHERE asset_id = :aid AND effective_date <= :dt "
+                "ORDER BY effective_date DESC LIMIT 1"
+            ),
+            {"aid": str(asset_id), "dt": target},
+        )
+        row = result.first()
+    except Exception:
+        # Table may not exist yet (migration pending) — fall through to asset fallback
+        await db.rollback()
+        row = None
     if row:
         return {
             "id": row[0],
@@ -119,17 +124,15 @@ async def get_current_capacity(
             "changed_by": row[6],
         }
 
-    # Fallback: read from asset itself
-    asset = await db.get(Installation, asset_id)
-    if not asset:
-        return None
+    # Fallback: no capacity record yet — return defaults
+    # Installation model doesn't have max_pax fields; capacities are stored in asset_capacities
     return {
         "id": None,
-        "max_pax_total": asset.max_pax or 0,
-        "permanent_ops_quota": asset.permanent_ops_quota or 0,
+        "max_pax_total": 0,
+        "permanent_ops_quota": 0,
         "max_pax_per_company": {},
         "effective_date": None,
-        "reason": "Installation default",
+        "reason": "Aucune capacité configurée",
         "changed_by": None,
     }
 

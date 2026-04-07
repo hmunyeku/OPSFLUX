@@ -131,7 +131,6 @@ async def create_user(
 
         logger.info("Sending invitation email to %s (entity=%s, entity_id=%s)", user.email, entity_name, entity_id)
 
-        # Try template-based email first, fall back to direct SMTP if template not configured
         sent = await render_and_send_email(
             db=db,
             slug="user_invitation",
@@ -146,33 +145,10 @@ async def create_user(
             },
         )
 
-        # Fallback: send a direct email if template not found/disabled
         if not sent:
-            logger.warning("Template 'user_invitation' not found/disabled — using fallback email for %s", user.email)
-            from app.core.notifications import send_email
-            inviter_name = f"{current_user.first_name} {current_user.last_name}".strip() or "Un administrateur"
-            await send_email(
-                to=user.email,
-                subject=f"{entity_name} — Votre compte OpsFlux a été créé",
-                body_html=(
-                    f"<div style='font-family:sans-serif;max-width:600px;margin:0 auto;'>"
-                    f"<h2 style='color:#1e40af;'>Bienvenue sur OpsFlux</h2>"
-                    f"<p>Bonjour {user.first_name},</p>"
-                    f"<p>{inviter_name} vous a créé un compte sur <strong>{entity_name}</strong>.</p>"
-                    f"<p>Votre identifiant : <strong>{user.email}</strong></p>"
-                    f"<p>Pour définir votre mot de passe et accéder à la plateforme, cliquez sur le lien ci-dessous :</p>"
-                    f'<p><a href="{invitation_url}" style="display:inline-block;padding:10px 24px;'
-                    f'background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">'
-                    f'Créer mon mot de passe</a></p>'
-                    f"<p style='color:#6b7280;font-size:13px;'>Ce lien expire dans 24 heures.</p>"
-                    f"<hr style='border:none;border-top:1px solid #e5e7eb;margin:24px 0;'/>"
-                    f"<p style='color:#9ca3af;font-size:12px;'>OpsFlux — {entity_name}</p>"
-                    f"</div>"
-                ),
-                from_name=entity_name,
-            )
+            logger.warning("Template central 'user_invitation' indisponible pour %s", user.email)
         else:
-            logger.info("Invitation email sent successfully via template to %s", user.email)
+            logger.info("Invitation email sent successfully via central template to %s", user.email)
     except Exception:
         logger.warning("Failed to send invitation email to %s", user.email, exc_info=True)
 
@@ -1061,14 +1037,30 @@ async def delete_user(
         )
 
     # No dependencies — safe to hard-delete
-    # Remove group memberships first (composite PK)
+    # Clean up all FK references before deleting the user
     await db.execute(delete(UserGroupMember).where(UserGroupMember.user_id == user_id))
-    # Remove user permission overrides
     from app.models.common import UserPermissionOverride
     await db.execute(delete(UserPermissionOverride).where(UserPermissionOverride.user_id == user_id))
+    # Notifications, sessions, entity memberships
+    from sqlalchemy import text as sql_text
+    for table in ["notifications", "sessions", "user_entity_memberships"]:
+        try:
+            await db.execute(sql_text(f"DELETE FROM {table} WHERE user_id = :uid"), {"uid": str(user_id)})
+        except Exception:
+            pass  # Table may not exist
 
-    await db.delete(user)
-    await db.commit()
+    try:
+        await db.delete(user)
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": f"Impossible de supprimer : {str(exc)[:200]}. Désactivez l'utilisateur à la place.",
+                "blockers": [str(exc)[:200]],
+            },
+        )
 
     from app.core.rbac import invalidate_rbac_cache
     await invalidate_rbac_cache(user_id)

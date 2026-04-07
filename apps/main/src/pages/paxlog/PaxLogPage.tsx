@@ -3231,19 +3231,24 @@ function AdsDetailPanel({ id }: { id: string }) {
         )}
 
         {/* PAX list with compliance status + add/remove */}
-        <CollapsibleSection id="ads-pax" title={t('paxlog.ads_detail.sections.passengers', { count: adsPax?.length || 0 })} defaultExpanded>
-          {/* PAX Search & Add — only for draft/review status */}
-          {ads && ['draft', 'requires_review'].includes(ads.status) && (
+        <CollapsibleSection
+          id="ads-pax"
+          title={t('paxlog.ads_detail.sections.passengers', { count: adsPax?.length || 0 })}
+          defaultExpanded
+          headerAction={ads && ['draft', 'requires_review'].includes(ads.status) ? (
+            <button
+              className="h-5 w-5 rounded flex items-center justify-center text-primary hover:bg-primary/10 transition-colors"
+              onClick={() => setShowPaxPicker(true)}
+              title={t('paxlog.ads_detail.actions.add_passenger')}
+            >
+              <Plus size={13} />
+            </button>
+          ) : undefined}
+        >
+          {/* PAX Search & Add */}
+          {showPaxPicker && (
             <div className="mb-3">
-              {!showPaxPicker ? (
-                <button
-                  className="gl-button-sm gl-button-confirm w-full"
-                  onClick={() => setShowPaxPicker(true)}
-                >
-                  <Plus size={12} /> {t('paxlog.ads_detail.actions.add_passenger')}
-                </button>
-              ) : (
-                <div className="space-y-2 p-2 rounded-md border border-border bg-card">
+              <div className="space-y-2 p-2 rounded-md border border-border bg-card">
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
                       <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -3310,7 +3315,6 @@ function AdsDetailPanel({ id }: { id: string }) {
                     <p className="text-xs text-muted-foreground text-center py-2 italic">{t('paxlog.ads_detail.empty.pax_search', { search: paxSearch })}</p>
                   )}
                 </div>
-              )}
             </div>
           )}
 

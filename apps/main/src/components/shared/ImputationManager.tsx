@@ -176,14 +176,23 @@ export function ImputationManager({ ownerType, ownerId, editable = true, default
 
   return (
     <div className="space-y-2">
+      {/* Section header with + button on hover */}
+      <div className="flex items-center gap-2 group">
+        <h3 className="text-xs font-semibold text-foreground/70 uppercase tracking-wide">Imputations</h3>
+        {editable && !showForm && (
+          <button
+            className="h-5 w-5 rounded flex items-center justify-center text-primary hover:bg-primary/10 transition-colors opacity-0 group-hover:opacity-100"
+            onClick={() => setShowForm(true)}
+            title={t('settings.imputation_manager.add')}
+          >
+            <Plus size={13} />
+          </button>
+        )}
+      </div>
       {/* Add form */}
-      {editable && (
+      {editable && showForm && (
         <div className="mb-2">
-          {!showForm ? (
-            <button className="gl-button-sm gl-button-confirm w-full" onClick={() => setShowForm(true)}>
-              <Plus size={12} /> {t('settings.imputation_manager.add')}
-            </button>
-          ) : (
+          {(
             <div className="space-y-2 p-2 rounded-md border border-border bg-card">
               <p className="text-[10px] text-muted-foreground">
                 {defaultProjectId

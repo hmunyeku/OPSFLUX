@@ -81,8 +81,47 @@ def generate_qr_base64(data: str, box_size: int = 6, border: int = 2) -> str:
         return ""
 
 
-# Register QR helper as a Jinja2 global function
-_jinja_env.globals["qr_code"] = generate_qr_base64
+def build_image_tag(
+    src: str | None,
+    alt: str = "",
+    width: int | None = None,
+    height: int | None = None,
+    css_class: str | None = None,
+) -> str:
+    """Return a small HTML img tag string for template usage."""
+    if not src:
+        return ""
+    attrs = [f'src="{src}"', f'alt="{alt}"']
+    if width and width > 0:
+        attrs.append(f'width="{int(width)}"')
+    if height and height > 0:
+        attrs.append(f'height="{int(height)}"')
+    if css_class:
+        attrs.append(f'class="{css_class}"')
+    return f"<img {' '.join(attrs)} />"
+
+
+def build_link_tag(
+    href: str | None,
+    label: str | None = None,
+    css_class: str | None = None,
+) -> str:
+    """Return a small HTML anchor tag string for template usage."""
+    if not href:
+        return ""
+    text = label or href
+    attrs = [f'href="{href}"']
+    if css_class:
+        attrs.append(f'class="{css_class}"')
+    return f"<a {' '.join(attrs)}>{text}</a>"
+
+
+TEMPLATE_GLOBAL_HELPERS = {
+    "qr_code": generate_qr_base64,
+    "image_tag": build_image_tag,
+    "link_tag": build_link_tag,
+}
+_jinja_env.globals.update(TEMPLATE_GLOBAL_HELPERS)
 
 
 class _TemplateHtmlValidator(HTMLParser):
@@ -157,9 +196,12 @@ def validate_pdf_template_source(
             if css.count("(") != css.count(")"):
                 issues.append({"level": "warning", "area": "css", "message": f"Parentheses CSS non equilibrees dans {area}."})
 
+    helper_names = set(TEMPLATE_GLOBAL_HELPERS.keys())
     unknown = sorted(
         var_name for var_name in referenced
-        if var_name not in declared and not any(declared_name.startswith(f"{var_name}.") for declared_name in declared)
+        if var_name not in helper_names
+        and var_name not in declared
+        and not any(declared_name.startswith(f"{var_name}.") for declared_name in declared)
     )
     for var_name in unknown:
         issues.append({"level": "warning", "area": "variables", "message": f"Variable non declaree dans le schema: {var_name}."})
@@ -197,6 +239,81 @@ def _build_invalid_template_html(*, title: str, issues: list[dict[str, str]]) ->
     <p>Diagnostics:</p>
     <ul>{items or '<li>Aucun detail disponible.</li>'}</ul>
   </div>
+</body>
+</html>"""
+
+
+def _build_pdf_document_html(
+    *,
+    body_html: str,
+    header_html: str | None = None,
+    footer_html: str | None = None,
+    template: "PdfTemplate | None" = None,
+) -> str:
+    mt = max(0, min(int(getattr(template, "margin_top", 15) or 15), 100))
+    mr = max(0, min(int(getattr(template, "margin_right", 12) or 12), 100))
+    mb = max(0, min(int(getattr(template, "margin_bottom", 15) or 15), 100))
+    ml = max(0, min(int(getattr(template, "margin_left", 12) or 12), 100))
+
+    has_header = bool((header_html or "").strip())
+    has_footer = bool((footer_html or "").strip())
+    reserved_header_mm = 16 if has_header else 0
+    reserved_footer_mm = 14 if has_footer else 0
+
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    html, body {{
+      margin: 0;
+      padding: 0;
+    }}
+    body {{
+      font-family: Arial, Helvetica, sans-serif;
+      color: #111827;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }}
+    .pdf-shell {{
+      position: relative;
+      min-height: 100%;
+      box-sizing: border-box;
+      padding-top: {reserved_header_mm}mm;
+      padding-bottom: {reserved_footer_mm}mm;
+    }}
+    .pdf-header {{
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      box-sizing: border-box;
+      min-height: {reserved_header_mm}mm;
+      padding: 0 {mr}mm 2mm {ml}mm;
+      z-index: 20;
+    }}
+    .pdf-footer {{
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      box-sizing: border-box;
+      min-height: {reserved_footer_mm}mm;
+      padding: 2mm {mr}mm 0 {ml}mm;
+      z-index: 20;
+    }}
+    .pdf-body {{
+      box-sizing: border-box;
+      width: 100%;
+    }}
+  </style>
+</head>
+<body>
+  {f'<div class="pdf-header">{header_html}</div>' if has_header else ''}
+  {f'<div class="pdf-footer">{footer_html}</div>' if has_footer else ''}
+  <main class="pdf-shell">
+    <div class="pdf-body">{body_html}</div>
+  </main>
 </body>
 </html>"""
 
@@ -1950,16 +2067,15 @@ async def render_pdf_preview(
 
     ctx = variables or {}
     body_html = render_template_string(version.body_html, ctx)
+    header_html = render_template_string(version.header_html, ctx) if version.header_html else None
+    footer_html = render_template_string(version.footer_html, ctx) if version.footer_html else None
 
-    # If header/footer exist, combine them
-    full_html = ""
-    if version.header_html:
-        full_html += render_template_string(version.header_html, ctx)
-    full_html += body_html
-    if version.footer_html:
-        full_html += render_template_string(version.footer_html, ctx)
-
-    return full_html
+    return _build_pdf_document_html(
+        body_html=body_html,
+        header_html=header_html,
+        footer_html=footer_html,
+        template=template,
+    )
 
 
 async def render_pdf_from_version(
@@ -1985,15 +2101,18 @@ async def render_pdf_from_version(
 
     ctx = variables or {}
     body_html = render_template_string(version.body_html, ctx)
+    header_html = render_template_string(version.header_html, ctx) if version.header_html else None
+    footer_html = render_template_string(version.footer_html, ctx) if version.footer_html else None
 
-    full_html = ""
-    if version.header_html:
-        full_html += render_template_string(version.header_html, ctx)
-    full_html += body_html
-    if version.footer_html:
-        full_html += render_template_string(version.footer_html, ctx)
-
-    return _html_to_pdf(full_html, template)
+    return _html_to_pdf(
+        _build_pdf_document_html(
+            body_html=body_html,
+            header_html=header_html,
+            footer_html=footer_html,
+            template=template,
+        ),
+        template,
+    )
 
 
 async def render_html_from_version(
@@ -2014,15 +2133,14 @@ async def render_html_from_version(
 
     ctx = variables or {}
     body_html = render_template_string(version.body_html, ctx)
+    header_html = render_template_string(version.header_html, ctx) if version.header_html else None
+    footer_html = render_template_string(version.footer_html, ctx) if version.footer_html else None
 
-    full_html = ""
-    if version.header_html:
-        full_html += render_template_string(version.header_html, ctx)
-    full_html += body_html
-    if version.footer_html:
-        full_html += render_template_string(version.footer_html, ctx)
-
-    return full_html
+    return _build_pdf_document_html(
+        body_html=body_html,
+        header_html=header_html,
+        footer_html=footer_html,
+    )
 
 
 async def is_pdf_template_available(

@@ -1,37 +1,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  AlignCenter,
-  AlignLeft,
-  Bold,
   Check,
   Code2,
   Copy,
   Eye,
   FileOutput,
-  Heading2,
-  Italic,
   Languages,
-  Link,
-  List,
-  ListOrdered,
   Loader2,
   Pencil,
   Play,
   Plus,
-  Redo2,
   Save,
   Trash2,
-  Type,
-  Underline,
-  Undo2,
   X,
   Variable,
 } from 'lucide-react'
+import '@blocknote/core/fonts/inter.css'
+import '@blocknote/mantine/style.css'
+import { BlockNoteView } from '@blocknote/mantine'
+import { useCreateBlockNote } from '@blocknote/react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
-import { useConfirm, usePromptInput } from '@/components/ui/ConfirmDialog'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import {
   DynamicPanelShell,
   DynamicPanelField,
@@ -60,6 +52,25 @@ const OBJECT_TYPES = ['system', 'document', 'ads', 'project', 'travelwiz', 'voya
 const PAGE_SIZE_OPTIONS = ['A4', 'A5', 'A6', 'Letter'] as const
 const ORIENTATION_OPTIONS = ['portrait', 'landscape'] as const
 
+type PdfVariableKind = 'text' | 'image' | 'link' | 'qr' | 'group'
+
+type PdfVariableDescriptor = {
+  key: string
+  kind: PdfVariableKind
+  label: string
+  description?: string
+  example?: string
+}
+
+type PdfVariableSchemaRow = {
+  id: string
+  key: string
+  type: PdfVariableKind
+  label: string
+  description: string
+  example: string
+}
+
 function openBlob(blob: Blob) {
   const url = URL.createObjectURL(blob)
   window.open(url, '_blank')
@@ -73,6 +84,11 @@ function buildSampleVariables(
   const base: Record<string, unknown> = {
     entity: { name: 'OpsFlux Demo', code: 'OPS' },
     generated_at: '07/04/2026 12:00 UTC',
+    reference_url: 'https://opsflux.local/documents/OPS-2026-001',
+    support_url: 'https://opsflux.local/support',
+    support_email: 'support@opsflux.local',
+    logo_image: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="220" height="64"><rect width="220" height="64" rx="10" fill="%230f172a"/><text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="24" fill="%23ffffff">OPSFLUX</text></svg>',
+    signature_image: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="48"><path d="M8 34 C38 6, 62 52, 92 24 S142 38, 172 14" stroke="%23111827" stroke-width="3" fill="none" stroke-linecap="round"/></svg>',
   }
   if (slug === 'voyage.manifest') {
     return {
@@ -130,12 +146,192 @@ function buildSampleVariables(
       ],
     }
   }
+  if (slug === 'project.report') {
+    return {
+      ...base,
+      project: {
+        code: 'PRJ-2026-0042',
+        name: 'Extension ligne process',
+        status: 'in_progress',
+        priority: 'high',
+        progress: 68,
+        project_type: 'brownfield',
+        weather: 'clear',
+        start_date: '01/04/2026',
+        end_date: '28/04/2026',
+        budget: '125 000 000 XAF',
+        description: 'Projet d’extension et de remise en conformite de la ligne process.',
+        manager_name: 'Bastien Mukendi',
+      },
+      tasks: [
+        { title: 'Preparation du chantier', status: 'done', priority: 'high', progress: 100, start: '01/04/2026', end: '03/04/2026' },
+        { title: 'Installation des supports', status: 'in_progress', priority: 'high', progress: 70, start: '04/04/2026', end: '10/04/2026' },
+      ],
+      milestones: [
+        { name: 'Demarrage chantier', due_date: '02/04/2026', status: 'done' },
+        { name: 'Mise en service', due_date: '28/04/2026', status: 'planned' },
+      ],
+      wbs_nodes: [
+        { code: '1.0', name: 'Preparation', budget: '25 000 000' },
+        { code: '2.0', name: 'Execution', budget: '100 000 000' },
+      ],
+      task_count: 2,
+      milestone_count: 2,
+    }
+  }
+  if (slug === 'document.export') {
+    return {
+      ...base,
+      document_number: 'DOC-2026-0007',
+      document_title: 'Rapport hebdomadaire d’activite',
+      document_body: '<h2>Synthese</h2><p>Activite soutenue cette semaine avec progression conforme au plan.</p><h3>Points cles</h3><ul><li>2 actions critiques cloturees</li><li>1 reserve en cours de traitement</li></ul>',
+      author_name: 'A. User',
+      revision: '03',
+      status: 'approved',
+    }
+  }
+  if (slug === 'pid.export') {
+    return {
+      ...base,
+      document_code: 'PID-OPS-014',
+      document_title: 'Piping and Instrumentation Diagram',
+      revision: 'B',
+      status: 'approved',
+      equipment_count: 12,
+      line_count: 18,
+      notes: 'Apercu de demonstration avec donnees d’exemple pour validation du template.',
+    }
+  }
+  if (slug === 'ads.ticket' || slug === 'ads.manifest') {
+    return {
+      ...base,
+      reference: 'ADS-2026-001',
+      departure_date: '07/04/2026 06:30',
+      return_date: '09/04/2026 17:00',
+      departure_base: 'Base A',
+      destination_site: 'Site Bravo',
+      transport_mode: 'helicopter',
+      visit_purpose: 'Inspection terrain',
+      visit_category: 'routine',
+      approval_status: 'approved',
+      approver_name: 'Marie Kanku',
+      approved_at: '06/04/2026 18:10',
+      total_passengers: 3,
+      passengers: [
+        { name: 'Jean Dupont', company: 'Perenco', badge_number: 'BDG-001', compliance_status: 'boarded', seat_number: 'A1' },
+        { name: 'Paul Ilunga', company: 'SPIE', badge_number: 'BDG-002', compliance_status: 'approved', seat_number: 'A2' },
+        { name: 'Sarah Mbuyi', company: 'Perenco', badge_number: 'BDG-003', compliance_status: 'approved', seat_number: 'A3' },
+      ],
+      qr_data: 'ADS-2026-001',
+    }
+  }
   const schemaKeys = Object.keys(variablesSchema ?? {})
   for (const key of schemaKeys) {
     if (key.includes('.')) continue
     if (!(key in base)) base[key] = `Exemple ${key}`
   }
   return base
+}
+
+function inferVariableKind(key: string, value: unknown): PdfVariableKind {
+  const normalized = key.toLowerCase()
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) return 'group'
+  if (normalized.includes('qr')) return 'qr'
+  if (normalized.includes('image') || normalized.includes('logo') || normalized.includes('signature')) return 'image'
+  if (normalized.includes('url') || normalized.includes('link') || normalized.includes('href')) return 'link'
+  return 'text'
+}
+
+function humanizeVariableKey(key: string) {
+  return key
+    .replace(/\./g, ' / ')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (m) => m.toUpperCase())
+}
+
+function buildVariableDescriptors(
+  schema: Record<string, unknown> | null | undefined,
+  sampleVariables: Record<string, unknown>,
+): PdfVariableDescriptor[] {
+  if (!schema) return []
+  return Object.entries(schema).map(([key, rawValue]) => {
+    if (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
+      const meta = rawValue as Record<string, unknown>
+      const declaredType = typeof meta.type === 'string' ? meta.type.toLowerCase() : null
+      const kind = (declaredType === 'image' || declaredType === 'link' || declaredType === 'qr' || declaredType === 'group')
+        ? declaredType
+        : inferVariableKind(key, sampleVariables[key])
+      return {
+        key,
+        kind,
+        label: typeof meta.label === 'string' ? meta.label : humanizeVariableKey(key),
+        description: typeof meta.description === 'string' ? meta.description : undefined,
+        example: typeof meta.example === 'string' ? meta.example : undefined,
+      }
+    }
+    return {
+      key,
+      kind: inferVariableKind(key, sampleVariables[key]),
+      label: humanizeVariableKey(key),
+      description: typeof rawValue === 'string' ? rawValue : undefined,
+    }
+  })
+}
+
+function buildVariableSchemaRows(schema: Record<string, unknown> | null | undefined): PdfVariableSchemaRow[] {
+  if (!schema) return []
+  return Object.entries(schema).map(([key, rawValue], index) => {
+    if (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
+      const meta = rawValue as Record<string, unknown>
+      const declaredType = typeof meta.type === 'string' ? meta.type.toLowerCase() : 'text'
+      return {
+        id: `${key}-${index}`,
+        key,
+        type: (declaredType === 'image' || declaredType === 'link' || declaredType === 'qr' || declaredType === 'group' ? declaredType : 'text') as PdfVariableKind,
+        label: typeof meta.label === 'string' ? meta.label : '',
+        description: typeof meta.description === 'string' ? meta.description : '',
+        example: typeof meta.example === 'string' ? meta.example : '',
+      }
+    }
+    return {
+      id: `${key}-${index}`,
+      key,
+      type: inferVariableKind(key, rawValue),
+      label: '',
+      description: typeof rawValue === 'string' ? rawValue : '',
+      example: '',
+    }
+  })
+}
+
+function buildVariablesSchemaPayload(rows: PdfVariableSchemaRow[]): Record<string, unknown> {
+  return rows.reduce<Record<string, unknown>>((acc, row) => {
+    const key = row.key.trim()
+    if (!key) return acc
+    acc[key] = {
+      type: row.type,
+      ...(row.label.trim() ? { label: row.label.trim() } : {}),
+      ...(row.description.trim() ? { description: row.description.trim() } : {}),
+      ...(row.example.trim() ? { example: row.example.trim() } : {}),
+    }
+    return acc
+  }, {})
+}
+
+function VariableKindBadge({ kind, t }: { kind: PdfVariableKind; t: (key: string) => string }) {
+  const tone = {
+    text: 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300',
+    image: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300',
+    link: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
+    qr: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+    group: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  } satisfies Record<PdfVariableKind, string>
+
+  return (
+    <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold', tone[kind])}>
+      {t(`settings.pdf_templates_editor.variable_kinds.${kind}`)}
+    </span>
+  )
 }
 
 interface RichEditorProps {
@@ -146,81 +342,90 @@ interface RichEditorProps {
   minHeight?: number
 }
 
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ''))
+    reader.onerror = () => reject(reader.error ?? new Error('file-read-error'))
+    reader.readAsDataURL(file)
+  })
+}
+
 function RichEditor({ value, onChange, variables, placeholder, minHeight = 220 }: RichEditorProps) {
   const { t } = useTranslation()
-  const editorRef = useRef<HTMLDivElement>(null)
-  const promptInput = usePromptInput()
+  const lastSyncedHtmlRef = useRef('')
   const [isSource, setIsSource] = useState(false)
   const [sourceCode, setSourceCode] = useState(value)
-  const isUpdatingRef = useRef(false)
+  const editor = useCreateBlockNote({
+    uploadFile: async (file) => fileToDataUrl(file),
+  }, [])
 
   useEffect(() => {
-    if (editorRef.current && !isSource && !isUpdatingRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value || ''
+    const nextHtml = value || '<p></p>'
+    if (lastSyncedHtmlRef.current === nextHtml) return
+    try {
+      const blocks = editor.tryParseHTMLToBlocks(nextHtml)
+      editor.replaceBlocks(editor.document, blocks.length > 0 ? blocks : [{ type: 'paragraph' }])
+      lastSyncedHtmlRef.current = nextHtml
+      if (isSource) setSourceCode(nextHtml)
+    } catch {
+      if (isSource) setSourceCode(nextHtml)
     }
-  }, [value, isSource])
+  }, [editor, isSource, value])
 
-  const handleEditorInput = useCallback(() => {
-    if (!editorRef.current) return
-    isUpdatingRef.current = true
-    onChange(editorRef.current.innerHTML)
-    requestAnimationFrame(() => {
-      isUpdatingRef.current = false
-    })
-  }, [onChange])
-
-  const execCmd = useCallback((cmd: string, val?: string) => {
-    editorRef.current?.focus()
-    document.execCommand(cmd, false, val)
-    handleEditorInput()
-  }, [handleEditorInput])
+  const emitHtmlChange = useCallback(async () => {
+    const html = await editor.blocksToFullHTML(editor.document)
+    lastSyncedHtmlRef.current = html
+    onChange(html)
+  }, [editor, onChange])
 
   const toggleSource = useCallback(() => {
     if (isSource) {
-      onChange(sourceCode)
+      try {
+        const blocks = editor.tryParseHTMLToBlocks(sourceCode || '<p></p>')
+        editor.replaceBlocks(editor.document, blocks.length > 0 ? blocks : [{ type: 'paragraph' }])
+        lastSyncedHtmlRef.current = sourceCode
+        onChange(sourceCode)
+      } catch {
+        onChange(sourceCode)
+      }
     } else {
-      setSourceCode(editorRef.current?.innerHTML || value)
+      const html = editor.blocksToFullHTML(editor.document)
+      setSourceCode(html)
+      lastSyncedHtmlRef.current = html
     }
     setIsSource((current) => !current)
-  }, [isSource, onChange, sourceCode, value])
+  }, [editor, isSource, onChange, sourceCode])
 
   const insertVariable = useCallback((varKey: string) => {
-    editorRef.current?.focus()
-    document.execCommand('insertText', false, `{{ ${varKey} }}`)
-    handleEditorInput()
-  }, [handleEditorInput])
-
-  const insertLink = useCallback(async () => {
-    const url = await promptInput({
-      title: t('settings.pdf_templates_editor.rich_editor.insert_link_title'),
-      placeholder: 'https://...',
-    })
-    if (url) execCmd('createLink', url)
-  }, [execCmd, promptInput, t])
+    if (isSource) {
+      setSourceCode((current) => `${current}{{ ${varKey} }}`)
+      return
+    }
+    editor.insertInlineContent(`{{ ${varKey} }}`)
+  }, [editor, isSource])
 
   const variableEntries = Object.entries(variables ?? {})
 
   return (
     <div className="rounded-lg border border-border overflow-hidden bg-card">
-      <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border bg-muted/50 flex-wrap">
-        <ToolbarBtn onClick={() => execCmd('bold')} title={t('settings.pdf_templates_editor.rich_editor.bold')} disabled={isSource}><Bold size={13} /></ToolbarBtn>
-        <ToolbarBtn onClick={() => execCmd('italic')} title={t('settings.pdf_templates_editor.rich_editor.italic')} disabled={isSource}><Italic size={13} /></ToolbarBtn>
-        <ToolbarBtn onClick={() => execCmd('underline')} title={t('settings.pdf_templates_editor.rich_editor.underline')} disabled={isSource}><Underline size={13} /></ToolbarBtn>
-        <ToolbarSep />
-        <ToolbarBtn onClick={() => execCmd('formatBlock', 'h2')} title={t('settings.pdf_templates_editor.rich_editor.heading')} disabled={isSource}><Heading2 size={13} /></ToolbarBtn>
-        <ToolbarBtn onClick={() => execCmd('formatBlock', 'p')} title={t('settings.pdf_templates_editor.rich_editor.paragraph')} disabled={isSource}><Type size={13} /></ToolbarBtn>
-        <ToolbarSep />
-        <ToolbarBtn onClick={() => execCmd('insertUnorderedList')} title={t('settings.pdf_templates_editor.rich_editor.bulleted_list')} disabled={isSource}><List size={13} /></ToolbarBtn>
-        <ToolbarBtn onClick={() => execCmd('insertOrderedList')} title={t('settings.pdf_templates_editor.rich_editor.numbered_list')} disabled={isSource}><ListOrdered size={13} /></ToolbarBtn>
-        <ToolbarSep />
-        <ToolbarBtn onClick={insertLink} title={t('settings.pdf_templates_editor.rich_editor.link')} disabled={isSource}><Link size={13} /></ToolbarBtn>
-        <ToolbarBtn onClick={() => execCmd('justifyLeft')} title={t('settings.pdf_templates_editor.rich_editor.align_left')} disabled={isSource}><AlignLeft size={13} /></ToolbarBtn>
-        <ToolbarBtn onClick={() => execCmd('justifyCenter')} title={t('settings.pdf_templates_editor.rich_editor.align_center')} disabled={isSource}><AlignCenter size={13} /></ToolbarBtn>
-        <ToolbarSep />
-        <ToolbarBtn onClick={() => execCmd('undo')} title={t('settings.pdf_templates_editor.rich_editor.undo')} disabled={isSource}><Undo2 size={13} /></ToolbarBtn>
-        <ToolbarBtn onClick={() => execCmd('redo')} title={t('settings.pdf_templates_editor.rich_editor.redo')} disabled={isSource}><Redo2 size={13} /></ToolbarBtn>
+      <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border bg-muted/50 flex-wrap">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {t('settings.pdf_templates_editor.rich_editor.engine_label')}
+        </span>
         <div className="flex-1" />
-        <ToolbarBtn onClick={toggleSource} title={isSource ? t('settings.pdf_templates_editor.rich_editor.visual_editor') : t('settings.pdf_templates_editor.rich_editor.html_code')} active={isSource}><Code2 size={13} /></ToolbarBtn>
+        <button
+          type="button"
+          onClick={toggleSource}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors',
+            isSource ? 'border-primary bg-primary/5 text-foreground' : 'border-border/60 text-muted-foreground hover:bg-accent/40',
+          )}
+          title={isSource ? t('settings.pdf_templates_editor.rich_editor.visual_editor') : t('settings.pdf_templates_editor.rich_editor.html_code')}
+        >
+          <Code2 size={13} />
+          {isSource ? t('settings.pdf_templates_editor.rich_editor.visual_editor') : t('settings.pdf_templates_editor.rich_editor.html_code')}
+        </button>
       </div>
 
       {variableEntries.length > 0 && !isSource && (
@@ -244,59 +449,30 @@ function RichEditor({ value, onChange, variables, placeholder, minHeight = 220 }
         <textarea
           value={sourceCode}
           onChange={(e) => setSourceCode(e.target.value)}
-          onBlur={() => onChange(sourceCode)}
+          onBlur={() => {
+            lastSyncedHtmlRef.current = sourceCode
+            onChange(sourceCode)
+          }}
           className="w-full p-3 font-mono text-xs bg-zinc-950 text-green-400 resize-none focus:outline-none"
           style={{ minHeight }}
           spellCheck={false}
         />
       ) : (
-        <div
-          ref={editorRef}
-          contentEditable
-          onInput={handleEditorInput}
-          className="p-3 text-sm focus:outline-none prose prose-sm max-w-none dark:prose-invert [&:empty]:before:content-[attr(data-placeholder)] [&:empty]:before:text-muted-foreground [&:empty]:before:pointer-events-none"
-          style={{ minHeight }}
-          data-placeholder={placeholder}
-          suppressContentEditableWarning
-          dangerouslySetInnerHTML={{ __html: value || '' }}
-        />
+        <div className="pdf-blocknote-editor min-h-[220px]" style={{ minHeight }}>
+          <BlockNoteView
+            editor={editor}
+            editable
+            onChange={() => { void emitHtmlChange() }}
+            className={cn(
+              '[&_.bn-container]:border-0 [&_.bn-container]:shadow-none',
+              '[&_.bn-editor]:min-h-[220px]',
+            )}
+            data-placeholder={placeholder}
+          />
+        </div>
       )}
     </div>
   )
-}
-
-function ToolbarBtn({
-  children,
-  onClick,
-  title,
-  disabled,
-  active,
-}: {
-  children: ReactNode
-  onClick: () => void
-  title: string
-  disabled?: boolean
-  active?: boolean
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className={cn(
-        'p-1.5 rounded transition-colors',
-        active ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-        disabled && 'opacity-40 pointer-events-none',
-      )}
-    >
-      {children}
-    </button>
-  )
-}
-
-function ToolbarSep() {
-  return <div className="w-px h-4 bg-border/60 mx-0.5" />
 }
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
@@ -304,6 +480,63 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
     <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
       <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="mt-1 text-sm text-foreground">{value}</p>
+    </div>
+  )
+}
+
+function MetadataRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-3 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <div className="text-right text-foreground">{value}</div>
+    </div>
+  )
+}
+
+function PreviewLayoutGuide({
+  headerEnabled,
+  footerEnabled,
+  marginsLabel,
+  t,
+}: {
+  headerEnabled: boolean
+  footerEnabled: boolean
+  marginsLabel: string
+  t: (key: string) => string
+}) {
+  return (
+    <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {t('settings.pdf_templates_editor.preview_layout.title')}
+      </div>
+      <div className="mt-3 rounded-xl border border-border/60 bg-background p-3">
+        <div className="mx-auto w-full max-w-[220px] rounded-[20px] border border-border bg-white shadow-sm overflow-hidden">
+          <div className={cn(
+            'px-3 py-2 text-[10px] border-b border-border/60',
+            headerEnabled ? 'bg-sky-50 text-sky-700' : 'bg-muted/40 text-muted-foreground',
+          )}>
+            {headerEnabled
+              ? t('settings.pdf_templates_editor.preview_layout.header_enabled')
+              : t('settings.pdf_templates_editor.preview_layout.header_disabled')}
+          </div>
+          <div className="px-3 py-4 bg-[linear-gradient(to_bottom,rgba(15,23,42,0.03),rgba(15,23,42,0.01))]">
+            <div className="rounded-md border border-dashed border-border/70 px-2 py-6 text-center text-[10px] text-muted-foreground">
+              {t('settings.pdf_templates_editor.preview_layout.body_area')}
+            </div>
+          </div>
+          <div className={cn(
+            'px-3 py-2 text-[10px] border-t border-border/60',
+            footerEnabled ? 'bg-amber-50 text-amber-700' : 'bg-muted/40 text-muted-foreground',
+          )}>
+            {footerEnabled
+              ? t('settings.pdf_templates_editor.preview_layout.footer_enabled')
+              : t('settings.pdf_templates_editor.preview_layout.footer_disabled')}
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 text-xs text-muted-foreground">
+        {t('settings.pdf_templates_editor.preview_layout.margins')}: {marginsLabel}
+      </div>
     </div>
   )
 }
@@ -442,6 +675,14 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
     }),
     [template?.versions],
   )
+  const versionsByLanguage = useMemo(() => {
+    const groups: Record<string, PdfTemplateVersion[]> = {}
+    for (const version of versions) {
+      if (!groups[version.language]) groups[version.language] = []
+      groups[version.language].push(version)
+    }
+    return groups
+  }, [versions])
 
   const [metaForm, setMetaForm] = useState({
     name: '',
@@ -468,6 +709,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
   const [previewHtml, setPreviewHtml] = useState<string | null>(null)
   const [validationResult, setValidationResult] = useState<PdfTemplateValidationResult | null>(null)
   const [showMetadataEdit, setShowMetadataEdit] = useState(false)
+  const [variableSchemaRows, setVariableSchemaRows] = useState<PdfVariableSchemaRow[]>([])
 
   useEffect(() => {
     if (!template) return
@@ -483,6 +725,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
       margin_bottom: template.margin_bottom,
       margin_left: template.margin_left,
     })
+    setVariableSchemaRows(buildVariableSchemaRows(template.variables_schema))
     const preferredVersion = template.versions.find((version) => version.is_published) ?? template.versions[0] ?? null
     if (preferredVersion) setSelectedVersionId(preferredVersion.id)
   }, [template])
@@ -507,6 +750,10 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
   const sampleVariables = useMemo(
     () => buildSampleVariables(template?.slug, template?.variables_schema),
     [template?.slug, template?.variables_schema],
+  )
+  const variableDescriptors = useMemo(
+    () => buildVariableDescriptors(template?.variables_schema, sampleVariables),
+    [template?.variables_schema, sampleVariables],
   )
 
   const startNewVersion = useCallback((prefill?: Partial<typeof versionForm>) => {
@@ -537,6 +784,8 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
   const selectedVersionLabel = selectedVersion
     ? `${selectedVersion.language.toUpperCase()} v${selectedVersion.version_number}`
     : t('settings.pdf_templates_editor.no_version_selected')
+  const hasHeader = versionForm.header_html.trim().length > 0
+  const hasFooter = versionForm.footer_html.trim().length > 0
 
   const handleSaveMeta = async () => {
     try {
@@ -546,6 +795,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
         description: metaForm.description || undefined,
         object_type: metaForm.object_type,
         enabled: metaForm.enabled,
+        variables_schema: buildVariablesSchemaPayload(variableSchemaRows),
         page_size: metaForm.page_size,
         orientation: metaForm.orientation,
         margin_top: metaForm.margin_top,
@@ -603,6 +853,9 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
         output: 'html',
       })
       setPreviewHtml(result.rendered_html ?? null)
+      if (!result.rendered_html) {
+        toast({ title: t('settings.pdf_templates_editor.preview_empty'), variant: 'warning' })
+      }
     } catch {
       toast({ title: t('settings.pdf_templates_editor.toasts.html_preview_error'), variant: 'error' })
     }
@@ -645,6 +898,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
         output: 'pdf',
       })
       if (result.pdf) openBlob(result.pdf)
+      else toast({ title: t('settings.pdf_templates_editor.preview_empty'), variant: 'warning' })
     } catch {
       toast({ title: t('settings.pdf_templates_editor.toasts.pdf_preview_error'), variant: 'error' })
     }
@@ -730,122 +984,204 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
         </>
       }
     >
-      <div className="space-y-5">
-        <FormSection title={t('settings.pdf_templates_editor.sections.template_overview')}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-            <SummaryCard label={t('settings.pdf_templates_editor.fields.slug')} value={template.slug} />
-            <SummaryCard label={t('settings.pdf_templates_editor.fields.object_type')} value={objectTypeOptions.find((option) => option.value === metaForm.object_type)?.label ?? metaForm.object_type} />
-            <SummaryCard label={t('settings.pdf_templates_editor.fields.page_size')} value={pageFormatLabel} />
-            <SummaryCard label={t('settings.pdf_templates_editor.fields.margins')} value={marginsLabel} />
-          </div>
-          <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={cn(
-                'inline-flex items-center gap-1 rounded-full px-2 py-0.5',
-                metaForm.enabled ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-muted text-muted-foreground',
-              )}>
-                {metaForm.enabled ? <Check size={11} /> : <X size={11} />}
-                {metaForm.enabled ? t('common.active') : t('common.inactive')}
-              </span>
-              <span>{selectedVersionLabel}</span>
-            </div>
-            {metaForm.description && <p className="mt-2">{metaForm.description}</p>}
-          </div>
-        </FormSection>
+      <div className="p-4 space-y-4">
+        <div className="rounded-lg border border-border overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowMetadataEdit((current) => !current)}
+            className="w-full flex items-center justify-between px-3 py-2 bg-muted/30 hover:bg-muted/50 transition-colors"
+          >
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              {showMetadataEdit
+                ? t('settings.pdf_templates_editor.sections.template_metadata')
+                : t('settings.pdf_templates_editor.sections.template_overview')}
+            </span>
+            {showMetadataEdit ? <X size={11} className="text-muted-foreground" /> : <Pencil size={11} className="text-muted-foreground" />}
+          </button>
 
-        {showMetadataEdit && (
-          <FormSection title={t('settings.pdf_templates_editor.sections.template_metadata')}>
-            <FormGrid>
-              <DynamicPanelField label={t('settings.pdf_templates_editor.fields.slug')}>
-                <input type="text" value={template.slug} disabled className={`${panelInputClass} font-mono bg-muted/40`} />
-              </DynamicPanelField>
-              <DynamicPanelField label={t('common.name')}>
-                <input type="text" value={metaForm.name} onChange={(e) => setMetaForm((current) => ({ ...current, name: e.target.value }))} className={panelInputClass} />
-              </DynamicPanelField>
-              <DynamicPanelField label={t('settings.pdf_templates_editor.fields.object_type')}>
-                <select className="gl-form-select" value={metaForm.object_type} onChange={(e) => setMetaForm((current) => ({ ...current, object_type: e.target.value }))}>
-                  {objectTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </DynamicPanelField>
-              <DynamicPanelField label={t('settings.pdf_templates_editor.fields.page_size')}>
-                <select className="gl-form-select" value={metaForm.page_size} onChange={(e) => setMetaForm((current) => ({ ...current, page_size: e.target.value }))}>
-                  {PAGE_SIZE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-                </select>
-              </DynamicPanelField>
-              <DynamicPanelField label={t('common.orientation')}>
-                <select className="gl-form-select" value={metaForm.orientation} onChange={(e) => setMetaForm((current) => ({ ...current, orientation: e.target.value }))}>
-                  {ORIENTATION_OPTIONS.map((option) => <option key={option} value={option}>{t(`settings.pdf_templates_editor.orientation.${option}`)}</option>)}
-                </select>
-              </DynamicPanelField>
-              <DynamicPanelField label={t('common.active')}>
-                <label className="inline-flex items-center gap-2 text-xs">
-                  <input type="checkbox" checked={metaForm.enabled} onChange={(e) => setMetaForm((current) => ({ ...current, enabled: e.target.checked }))} />
-                  {t('settings.pdf_templates_editor.fields.template_enabled')}
-                </label>
-              </DynamicPanelField>
-              <DynamicPanelField label={t('settings.pdf_templates_editor.fields.margin_top')}>
-                <input type="number" value={metaForm.margin_top} onChange={(e) => setMetaForm((current) => ({ ...current, margin_top: Number(e.target.value) || 0 }))} className={panelInputClass} />
-              </DynamicPanelField>
-              <DynamicPanelField label={t('settings.pdf_templates_editor.fields.margin_right')}>
-                <input type="number" value={metaForm.margin_right} onChange={(e) => setMetaForm((current) => ({ ...current, margin_right: Number(e.target.value) || 0 }))} className={panelInputClass} />
-              </DynamicPanelField>
-              <DynamicPanelField label={t('settings.pdf_templates_editor.fields.margin_bottom')}>
-                <input type="number" value={metaForm.margin_bottom} onChange={(e) => setMetaForm((current) => ({ ...current, margin_bottom: Number(e.target.value) || 0 }))} className={panelInputClass} />
-              </DynamicPanelField>
-              <DynamicPanelField label={t('settings.pdf_templates_editor.fields.margin_left')}>
-                <input type="number" value={metaForm.margin_left} onChange={(e) => setMetaForm((current) => ({ ...current, margin_left: Number(e.target.value) || 0 }))} className={panelInputClass} />
-              </DynamicPanelField>
-              <DynamicPanelField label={t('common.description')} span="full">
-                <textarea value={metaForm.description} onChange={(e) => setMetaForm((current) => ({ ...current, description: e.target.value }))} className={`${panelInputClass} min-h-[72px]`} />
-              </DynamicPanelField>
-            </FormGrid>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <PanelActionButton onClick={handleSaveMeta} disabled={updateTemplate.isPending} icon={<Save size={12} />}>
-                {t('settings.pdf_templates_editor.actions.save_metadata')}
-              </PanelActionButton>
-              <PanelActionButton onClick={() => setShowMetadataEdit(false)}>
-                {t('common.cancel')}
-              </PanelActionButton>
+          {!showMetadataEdit ? (
+            <div className="px-3 py-3 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                <SummaryCard label={t('settings.pdf_templates_editor.fields.slug')} value={template.slug} />
+                <SummaryCard label={t('settings.pdf_templates_editor.fields.object_type')} value={objectTypeOptions.find((option) => option.value === metaForm.object_type)?.label ?? metaForm.object_type} />
+                <SummaryCard label={t('settings.pdf_templates_editor.fields.page_size')} value={pageFormatLabel} />
+                <SummaryCard label={t('settings.pdf_templates_editor.fields.margins')} value={marginsLabel} />
+              </div>
+              <div className="space-y-1.5 text-sm">
+                <MetadataRow
+                  label={t('common.status')}
+                  value={
+                    <span className={cn(
+                      'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold',
+                      metaForm.enabled ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-muted text-muted-foreground',
+                    )}>
+                      {metaForm.enabled ? <Check size={11} /> : <X size={11} />}
+                      {metaForm.enabled ? t('common.active') : t('common.inactive')}
+                    </span>
+                  }
+                />
+                <MetadataRow label={t('settings.pdf_templates_editor.sections.version')} value={selectedVersionLabel} />
+                {metaForm.description && <MetadataRow label={t('common.description')} value={metaForm.description} />}
+              </div>
             </div>
-          </FormSection>
-        )}
-
-        <FormSection title={t('settings.pdf_templates_editor.sections.versions', { count: versions.length })}>
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {versions.map((version) => (
-                <button
-                  key={version.id}
-                  type="button"
-                  onClick={() => setSelectedVersionId(version.id)}
-                  className={cn(
-                    'rounded-lg border px-3 py-3 text-left text-xs transition-colors',
-                    selectedVersionId === version.id && !isCreatingVersion
-                      ? 'border-primary bg-primary/5 text-foreground'
-                      : 'border-border/60 bg-card text-muted-foreground',
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1.5">
-                        <Languages size={12} />
-                        <span className="font-medium">{version.language.toUpperCase()} v{version.version_number}</span>
-                      </div>
-                      <div className="text-[11px] text-muted-foreground">
-                        {version.is_published
-                          ? t('settings.pdf_templates_editor.version_badges.published')
-                          : t('settings.pdf_templates_editor.version_badges.draft')}
-                      </div>
-                    </div>
-                    {version.is_published && (
-                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                        {t('common.publish')}
-                      </span>
-                    )}
+          ) : (
+            <div className="px-3 py-3 space-y-4">
+              <FormGrid>
+                <DynamicPanelField label={t('settings.pdf_templates_editor.fields.slug')}>
+                  <input type="text" value={template.slug} disabled className={`${panelInputClass} font-mono bg-muted/40`} />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('common.name')}>
+                  <input type="text" value={metaForm.name} onChange={(e) => setMetaForm((current) => ({ ...current, name: e.target.value }))} className={panelInputClass} />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('settings.pdf_templates_editor.fields.object_type')}>
+                  <select className="gl-form-select" value={metaForm.object_type} onChange={(e) => setMetaForm((current) => ({ ...current, object_type: e.target.value }))}>
+                    {objectTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </DynamicPanelField>
+                <DynamicPanelField label={t('settings.pdf_templates_editor.fields.page_size')}>
+                  <select className="gl-form-select" value={metaForm.page_size} onChange={(e) => setMetaForm((current) => ({ ...current, page_size: e.target.value }))}>
+                    {PAGE_SIZE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+                  </select>
+                </DynamicPanelField>
+                <DynamicPanelField label={t('common.orientation')}>
+                  <select className="gl-form-select" value={metaForm.orientation} onChange={(e) => setMetaForm((current) => ({ ...current, orientation: e.target.value }))}>
+                    {ORIENTATION_OPTIONS.map((option) => <option key={option} value={option}>{t(`settings.pdf_templates_editor.orientation.${option}`)}</option>)}
+                  </select>
+                </DynamicPanelField>
+                <DynamicPanelField label={t('common.active')}>
+                  <label className="inline-flex items-center gap-2 text-xs">
+                    <input type="checkbox" checked={metaForm.enabled} onChange={(e) => setMetaForm((current) => ({ ...current, enabled: e.target.checked }))} />
+                    {t('settings.pdf_templates_editor.fields.template_enabled')}
+                  </label>
+                </DynamicPanelField>
+                <DynamicPanelField label={t('settings.pdf_templates_editor.fields.margin_top')}>
+                  <input type="number" value={metaForm.margin_top} onChange={(e) => setMetaForm((current) => ({ ...current, margin_top: Number(e.target.value) || 0 }))} className={panelInputClass} />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('settings.pdf_templates_editor.fields.margin_right')}>
+                  <input type="number" value={metaForm.margin_right} onChange={(e) => setMetaForm((current) => ({ ...current, margin_right: Number(e.target.value) || 0 }))} className={panelInputClass} />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('settings.pdf_templates_editor.fields.margin_bottom')}>
+                  <input type="number" value={metaForm.margin_bottom} onChange={(e) => setMetaForm((current) => ({ ...current, margin_bottom: Number(e.target.value) || 0 }))} className={panelInputClass} />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('settings.pdf_templates_editor.fields.margin_left')}>
+                  <input type="number" value={metaForm.margin_left} onChange={(e) => setMetaForm((current) => ({ ...current, margin_left: Number(e.target.value) || 0 }))} className={panelInputClass} />
+                </DynamicPanelField>
+                <DynamicPanelField label={t('common.description')} span="full">
+                  <textarea value={metaForm.description} onChange={(e) => setMetaForm((current) => ({ ...current, description: e.target.value }))} className={`${panelInputClass} min-h-[72px]`} />
+                </DynamicPanelField>
+              </FormGrid>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-xs font-semibold text-foreground">
+                    {t('settings.pdf_templates_editor.schema_editor.title')}
                   </div>
-                </button>
-              ))}
+                  <button
+                    type="button"
+                    onClick={() => setVariableSchemaRows((current) => [
+                      ...current,
+                      {
+                        id: `row-${Date.now()}-${current.length}`,
+                        key: '',
+                        type: 'text',
+                        label: '',
+                        description: '',
+                        example: '',
+                      },
+                    ])}
+                    className="rounded-md border border-dashed border-border/70 px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent/40"
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <Plus size={12} />
+                      {t('settings.pdf_templates_editor.schema_editor.add')}
+                    </span>
+                  </button>
+                </div>
+                <div className="rounded-lg border border-border/60 bg-muted/10 p-3 space-y-3">
+                  {variableSchemaRows.length === 0 ? (
+                    <div className="text-xs text-muted-foreground">
+                      {t('settings.pdf_templates_editor.schema_editor.empty')}
+                    </div>
+                  ) : (
+                    variableSchemaRows.map((row) => (
+                      <div key={row.id} className="rounded-lg border border-border/60 bg-card p-3 space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+                          <DynamicPanelField label={t('settings.pdf_templates_editor.schema_editor.key')}>
+                            <input
+                              type="text"
+                              value={row.key}
+                              onChange={(e) => setVariableSchemaRows((current) => current.map((item) => item.id === row.id ? { ...item, key: e.target.value } : item))}
+                              className={`${panelInputClass} font-mono`}
+                            />
+                          </DynamicPanelField>
+                          <DynamicPanelField label={t('settings.pdf_templates_editor.schema_editor.type')}>
+                            <select
+                              value={row.type}
+                              onChange={(e) => setVariableSchemaRows((current) => current.map((item) => item.id === row.id ? { ...item, type: e.target.value as PdfVariableKind } : item))}
+                              className="gl-form-select"
+                            >
+                              {(['text', 'image', 'link', 'qr', 'group'] as PdfVariableKind[]).map((kind) => (
+                                <option key={kind} value={kind}>{t(`settings.pdf_templates_editor.variable_kinds.${kind}`)}</option>
+                              ))}
+                            </select>
+                          </DynamicPanelField>
+                          <DynamicPanelField label={t('settings.pdf_templates_editor.schema_editor.label')}>
+                            <input
+                              type="text"
+                              value={row.label}
+                              onChange={(e) => setVariableSchemaRows((current) => current.map((item) => item.id === row.id ? { ...item, label: e.target.value } : item))}
+                              className={panelInputClass}
+                            />
+                          </DynamicPanelField>
+                          <DynamicPanelField label={t('settings.pdf_templates_editor.schema_editor.example')}>
+                            <input
+                              type="text"
+                              value={row.example}
+                              onChange={(e) => setVariableSchemaRows((current) => current.map((item) => item.id === row.id ? { ...item, example: e.target.value } : item))}
+                              className={panelInputClass}
+                            />
+                          </DynamicPanelField>
+                          <DynamicPanelField label={t('common.delete')}>
+                            <button
+                              type="button"
+                              onClick={() => setVariableSchemaRows((current) => current.filter((item) => item.id !== row.id))}
+                              className="w-full rounded-md border border-border/70 px-3 py-2 text-xs text-destructive hover:bg-destructive/5"
+                            >
+                              {t('settings.pdf_templates_editor.schema_editor.remove')}
+                            </button>
+                          </DynamicPanelField>
+                        </div>
+                        <DynamicPanelField label={t('common.description')}>
+                          <textarea
+                            value={row.description}
+                            onChange={(e) => setVariableSchemaRows((current) => current.map((item) => item.id === row.id ? { ...item, description: e.target.value } : item))}
+                            className={`${panelInputClass} min-h-[60px]`}
+                          />
+                        </DynamicPanelField>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <PanelActionButton onClick={handleSaveMeta} disabled={updateTemplate.isPending} icon={<Save size={12} />}>
+                  {t('settings.pdf_templates_editor.actions.save_metadata')}
+                </PanelActionButton>
+                <PanelActionButton onClick={() => setShowMetadataEdit(false)}>
+                  {t('common.cancel')}
+                </PanelActionButton>
+              </div>
+              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                {t('settings.pdf_templates_editor.editors.margins_help')}
+              </div>
             </div>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-border overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-3 py-2 bg-muted/30">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              {t('settings.pdf_templates_editor.sections.versions', { count: versions.length })}
+            </span>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -854,13 +1190,13 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
                   'rounded-md border border-dashed px-3 py-2 text-xs',
                   isCreatingVersion ? 'border-primary bg-primary/5 text-foreground' : 'border-border/70 text-muted-foreground',
                 )}
-              >
-                <span className="inline-flex items-center gap-1.5">
-                  <Plus size={12} />
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <Plus size={12} />
                   {t('settings.pdf_templates_editor.actions.new_version')}
-                </span>
-              </button>
-              {selectedVersion && (
+                  </span>
+                </button>
+              {!!selectedVersion && (
                 <button
                   type="button"
                   onClick={() => startNewVersion({
@@ -879,114 +1215,236 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
                 </button>
               )}
             </div>
-
+          </div>
+          <div className="px-3 py-3 space-y-3">
             <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
               {t('settings.pdf_templates_editor.available_variables', {
                 variables: Object.keys(template.variables_schema ?? {}).join(', ') || t('settings.pdf_templates_editor.no_declared_variables'),
               })}
             </div>
+            {variableDescriptors.length > 0 && (
+              <div className="rounded-lg border border-border/60 bg-card px-3 py-3 space-y-2">
+                <div className="text-xs font-semibold text-foreground">
+                  {t('settings.pdf_templates_editor.variable_catalog.title')}
+                </div>
+                <div className="space-y-2">
+                  {variableDescriptors.map((descriptor) => (
+                    <div key={descriptor.key} className="rounded-lg border border-border/50 bg-muted/10 px-3 py-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <code className="font-mono text-[11px] text-foreground">{descriptor.key}</code>
+                        <VariableKindBadge kind={descriptor.kind} t={t} />
+                      </div>
+                      <div className="mt-1 text-xs text-foreground">{descriptor.label}</div>
+                      {descriptor.description && (
+                        <div className="mt-1 text-xs text-muted-foreground">{descriptor.description}</div>
+                      )}
+                      {descriptor.example && (
+                        <div className="mt-1 text-[11px] text-muted-foreground">
+                          {t('settings.pdf_templates_editor.variable_catalog.example')}: {descriptor.example}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3 text-xs text-muted-foreground space-y-2">
+              <div className="font-semibold text-foreground">{t('settings.pdf_templates_editor.helper_snippets.title')}</div>
+              <code className="block whitespace-pre-wrap rounded bg-background px-2 py-1 font-mono text-[11px] text-foreground">
+                {`<img src="{{ qr_code(reference) }}" alt="QR" />`}
+              </code>
+              <code className="block whitespace-pre-wrap rounded bg-background px-2 py-1 font-mono text-[11px] text-foreground">
+                {`{{ image_tag(logo_image, 'Logo', 180) | safe }}`}
+              </code>
+              <code className="block whitespace-pre-wrap rounded bg-background px-2 py-1 font-mono text-[11px] text-foreground">
+                {`{{ link_tag(reference_url, project.code) | safe }}`}
+              </code>
+            </div>
+            <div className="space-y-3">
+              {Object.entries(versionsByLanguage).map(([language, languageVersions]) => (
+                <div key={language} className="space-y-2">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {languageOptions.find((option) => option.value === language)?.label ?? language.toUpperCase()}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {languageVersions.map((version) => (
+                      <button
+                        key={version.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedVersionId(version.id)
+                          setIsCreatingVersion(false)
+                          setPreviewHtml(null)
+                          setValidationResult(null)
+                        }}
+                        className={cn(
+                          'rounded-lg border px-3 py-3 text-left text-xs transition-colors',
+                          selectedVersionId === version.id && !isCreatingVersion
+                            ? 'border-primary bg-primary/5 text-foreground shadow-sm'
+                            : 'border-border/60 bg-card text-muted-foreground hover:border-border',
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              <Languages size={12} />
+                              <span className="font-medium">{language.toUpperCase()} v{version.version_number}</span>
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {version.is_published
+                                ? t('settings.pdf_templates_editor.version_badges.published')
+                                : t('settings.pdf_templates_editor.version_badges.draft')}
+                            </div>
+                          </div>
+                          {version.is_published && (
+                            <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                              {t('common.publish')}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {versions.length === 0 && !isCreatingVersion && (
+              <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-center text-xs text-muted-foreground">
+                {t('settings.pdf_templates_editor.no_versions_yet')}
+              </div>
+            )}
           </div>
-        </FormSection>
+        </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.95fr)] gap-5">
-          <FormSection title={isCreatingVersion
-            ? t('settings.pdf_templates_editor.sections.new_multilingual_version')
-            : selectedVersion
-              ? t('settings.pdf_templates_editor.sections.edit_version', { language: selectedVersion.language.toUpperCase(), version: selectedVersion.version_number })
-              : t('settings.pdf_templates_editor.sections.version')}>
-            <div className="space-y-4">
-            <FormGrid>
-              <DynamicPanelField label={t('settings.pdf_templates_editor.fields.language')}>
-                <select value={versionForm.language} onChange={(e) => setVersionForm((current) => ({ ...current, language: e.target.value }))} className="gl-form-select" disabled={!isCreatingVersion && !!selectedVersion}>
-                  {languageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </DynamicPanelField>
-              <DynamicPanelField label={t('common.publish')}>
-                <label className="inline-flex items-center gap-2 text-xs">
-                  <input type="checkbox" checked={versionForm.is_published} onChange={(e) => setVersionForm((current) => ({ ...current, is_published: e.target.checked }))} />
-                  {t('settings.pdf_templates_editor.fields.use_as_published')}
-                </label>
-              </DynamicPanelField>
-            </FormGrid>
-
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setActiveEditor('body')} className={cn('rounded-md border px-3 py-1.5 text-xs', activeEditor === 'body' ? 'border-primary bg-primary/5 text-foreground' : 'border-border/60 text-muted-foreground')}>
-                <span className="inline-flex items-center gap-1.5"><Pencil size={12} /> {t('settings.pdf_templates_editor.editors.body_tab')}</span>
-              </button>
-              <button type="button" onClick={() => setActiveEditor('header')} className={cn('rounded-md border px-3 py-1.5 text-xs', activeEditor === 'header' ? 'border-primary bg-primary/5 text-foreground' : 'border-border/60 text-muted-foreground')}>
-                {t('settings.pdf_templates_editor.editors.header_tab')}
-              </button>
-              <button type="button" onClick={() => setActiveEditor('footer')} className={cn('rounded-md border px-3 py-1.5 text-xs', activeEditor === 'footer' ? 'border-primary bg-primary/5 text-foreground' : 'border-border/60 text-muted-foreground')}>
-                {t('settings.pdf_templates_editor.editors.footer_tab')}
-              </button>
-            </div>
-            {activeEditor === 'body' && (
-              <DynamicPanelField label={t('settings.pdf_templates_editor.editors.body_label')}>
-                <RichEditor
-                  value={versionForm.body_html}
-                  onChange={(body_html) => setVersionForm((current) => ({ ...current, body_html }))}
-                  variables={template.variables_schema}
-                  placeholder={t('settings.pdf_templates_editor.placeholders.body')}
-                  minHeight={340}
-                />
-              </DynamicPanelField>
-            )}
-            {activeEditor === 'header' && (
-              <DynamicPanelField label={t('settings.pdf_templates_editor.editors.header_label')}>
-                <RichEditor
-                  value={versionForm.header_html}
-                  onChange={(header_html) => setVersionForm((current) => ({ ...current, header_html }))}
-                  variables={template.variables_schema}
-                  placeholder={t('settings.pdf_templates_editor.placeholders.header')}
-                  minHeight={180}
-                />
-              </DynamicPanelField>
-            )}
-            {activeEditor === 'footer' && (
-              <DynamicPanelField label={t('settings.pdf_templates_editor.editors.footer_label')}>
-                <RichEditor
-                  value={versionForm.footer_html}
-                  onChange={(footer_html) => setVersionForm((current) => ({ ...current, footer_html }))}
-                  variables={template.variables_schema}
-                  placeholder={t('settings.pdf_templates_editor.placeholders.footer')}
-                  minHeight={180}
-                />
-              </DynamicPanelField>
-            )}
-
-            <div className="flex flex-wrap gap-2">
-              <PanelActionButton
-                onClick={handleSaveVersion}
-                disabled={(createVersion.isPending || updateVersion.isPending) || !versionForm.body_html.trim()}
-                icon={<Save size={12} />}
-              >
-                {isCreatingVersion || !selectedVersion ? t('settings.pdf_templates_editor.actions.create_version') : t('settings.pdf_templates_editor.actions.save_version')}
-              </PanelActionButton>
-              <PanelActionButton onClick={handleValidateTemplate} disabled={validateTemplate.isPending || !versionForm.body_html.trim()} icon={<Code2 size={12} />}>
-                {t('settings.pdf_templates_editor.actions.validate_template')}
-              </PanelActionButton>
-              {selectedVersion && (
-                <>
-                  <PanelActionButton onClick={() => handlePublish(selectedVersion)} disabled={publishVersion.isPending} icon={<Play size={12} />}>
-                    {t('common.publish')}
-                  </PanelActionButton>
-                  <PanelActionButton onClick={() => handleDeleteVersion(selectedVersion)} disabled={deleteVersion.isPending} icon={<Trash2 size={12} />}>
-                    {t('settings.pdf_templates_editor.actions.delete_version')}
-                  </PanelActionButton>
-                </>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <div className="flex items-center justify-between gap-3 px-3 py-2 bg-muted/30 border-b border-border">
+              <div className="flex items-center gap-1.5">
+                <Pencil size={11} className="text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  {isCreatingVersion
+                    ? t('settings.pdf_templates_editor.sections.new_multilingual_version')
+                    : selectedVersion
+                      ? t('settings.pdf_templates_editor.sections.edit_version', { language: selectedVersion.language.toUpperCase(), version: selectedVersion.version_number })
+                      : t('settings.pdf_templates_editor.sections.version')}
+                </span>
+              </div>
+              {!isCreatingVersion && selectedVersion?.is_published && (
+                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                  {t('common.publish')}
+                </span>
               )}
-              <PanelActionButton onClick={handlePreviewHtml} disabled={previewTemplate.isPending || !selectedVersionId} icon={<Eye size={12} />}>
-                {t('settings.pdf_templates_editor.actions.preview_html')}
-              </PanelActionButton>
-              <PanelActionButton onClick={handlePreviewPdf} disabled={previewTemplate.isPending || !selectedVersionId} icon={<FileOutput size={12} />}>
-                {t('settings.pdf_templates_editor.actions.preview_pdf')}
-              </PanelActionButton>
             </div>
+            <div className="p-3 space-y-4">
+              <FormGrid>
+                <DynamicPanelField label={t('settings.pdf_templates_editor.fields.language')}>
+                  <select value={versionForm.language} onChange={(e) => setVersionForm((current) => ({ ...current, language: e.target.value }))} className="gl-form-select" disabled={!isCreatingVersion && !!selectedVersion}>
+                    {languageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </DynamicPanelField>
+                <DynamicPanelField label={t('common.publish')}>
+                  <label className="inline-flex items-center gap-2 text-xs">
+                    <input type="checkbox" checked={versionForm.is_published} onChange={(e) => setVersionForm((current) => ({ ...current, is_published: e.target.checked }))} />
+                    {t('settings.pdf_templates_editor.fields.use_as_published')}
+                  </label>
+                </DynamicPanelField>
+              </FormGrid>
+
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => setActiveEditor('body')} className={cn('rounded-md border px-3 py-1.5 text-xs', activeEditor === 'body' ? 'border-primary bg-primary/5 text-foreground' : 'border-border/60 text-muted-foreground hover:bg-accent/40')}>
+                  <span className="inline-flex items-center gap-1.5"><Pencil size={12} /> {t('settings.pdf_templates_editor.editors.body_tab')}</span>
+                </button>
+                <button type="button" onClick={() => setActiveEditor('header')} className={cn('rounded-md border px-3 py-1.5 text-xs', activeEditor === 'header' ? 'border-primary bg-primary/5 text-foreground' : 'border-border/60 text-muted-foreground hover:bg-accent/40')}>
+                  {t('settings.pdf_templates_editor.editors.header_tab')}
+                </button>
+                <button type="button" onClick={() => setActiveEditor('footer')} className={cn('rounded-md border px-3 py-1.5 text-xs', activeEditor === 'footer' ? 'border-primary bg-primary/5 text-foreground' : 'border-border/60 text-muted-foreground hover:bg-accent/40')}>
+                  {t('settings.pdf_templates_editor.editors.footer_tab')}
+                </button>
+              </div>
+              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                {activeEditor === 'body' && t('settings.pdf_templates_editor.editors.body_help')}
+                {activeEditor === 'header' && t('settings.pdf_templates_editor.editors.header_help')}
+                {activeEditor === 'footer' && t('settings.pdf_templates_editor.editors.footer_help')}
+              </div>
+
+              {activeEditor === 'body' && (
+                <DynamicPanelField label={t('settings.pdf_templates_editor.editors.body_label')}>
+                  <RichEditor
+                    value={versionForm.body_html}
+                    onChange={(body_html) => setVersionForm((current) => ({ ...current, body_html }))}
+                    variables={template.variables_schema}
+                    placeholder={t('settings.pdf_templates_editor.placeholders.body')}
+                    minHeight={340}
+                  />
+                </DynamicPanelField>
+              )}
+              {activeEditor === 'header' && (
+                <DynamicPanelField label={t('settings.pdf_templates_editor.editors.header_label')}>
+                  <RichEditor
+                    value={versionForm.header_html}
+                    onChange={(header_html) => setVersionForm((current) => ({ ...current, header_html }))}
+                    variables={template.variables_schema}
+                    placeholder={t('settings.pdf_templates_editor.placeholders.header')}
+                    minHeight={180}
+                  />
+                </DynamicPanelField>
+              )}
+              {activeEditor === 'footer' && (
+                <DynamicPanelField label={t('settings.pdf_templates_editor.editors.footer_label')}>
+                  <RichEditor
+                    value={versionForm.footer_html}
+                    onChange={(footer_html) => setVersionForm((current) => ({ ...current, footer_html }))}
+                    variables={template.variables_schema}
+                    placeholder={t('settings.pdf_templates_editor.placeholders.footer')}
+                    minHeight={180}
+                  />
+                </DynamicPanelField>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                <PanelActionButton
+                  onClick={handleSaveVersion}
+                  disabled={(createVersion.isPending || updateVersion.isPending) || !versionForm.body_html.trim()}
+                  icon={<Save size={12} />}
+                >
+                  {isCreatingVersion || !selectedVersion ? t('settings.pdf_templates_editor.actions.create_version') : t('settings.pdf_templates_editor.actions.save_version')}
+                </PanelActionButton>
+                <PanelActionButton onClick={handleValidateTemplate} disabled={validateTemplate.isPending || !versionForm.body_html.trim()} icon={<Code2 size={12} />}>
+                  {t('settings.pdf_templates_editor.actions.validate_template')}
+                </PanelActionButton>
+                {selectedVersion && (
+                  <>
+                    <PanelActionButton onClick={() => handlePublish(selectedVersion)} disabled={publishVersion.isPending} icon={<Play size={12} />}>
+                      {t('common.publish')}
+                    </PanelActionButton>
+                    <PanelActionButton onClick={() => handleDeleteVersion(selectedVersion)} disabled={deleteVersion.isPending} icon={<Trash2 size={12} />}>
+                      {t('settings.pdf_templates_editor.actions.delete_version')}
+                    </PanelActionButton>
+                  </>
+                )}
+                <PanelActionButton onClick={handlePreviewHtml} disabled={previewTemplate.isPending || !selectedVersionId} icon={<Eye size={12} />}>
+                  {t('settings.pdf_templates_editor.actions.preview_html')}
+                </PanelActionButton>
+                <PanelActionButton onClick={handlePreviewPdf} disabled={previewTemplate.isPending || !selectedVersionId} icon={<FileOutput size={12} />}>
+                  {t('settings.pdf_templates_editor.actions.preview_pdf')}
+                </PanelActionButton>
+              </div>
             </div>
-          </FormSection>
+          </div>
 
           <div className="space-y-5">
             <FormSection title={t('settings.pdf_templates_editor.sections.preview')}>
+              <div className="mb-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                {t('settings.pdf_templates_editor.preview_uses_sample_data')}
+              </div>
+              <div className="mb-3">
+                <PreviewLayoutGuide
+                  headerEnabled={hasHeader}
+                  footerEnabled={hasFooter}
+                  marginsLabel={marginsLabel}
+                  t={t}
+                />
+              </div>
               {previewHtml ? (
                 <div className="rounded-lg border border-border/60 bg-white overflow-hidden">
                   <iframe title="PDF template HTML preview" srcDoc={previewHtml} className="h-[420px] w-full bg-white" />

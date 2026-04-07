@@ -26,6 +26,7 @@ from app.api.deps import (
     require_any_permission,
     require_permission,
 )
+from app.core.acting_context import get_effective_actor_user_id
 from app.core.audit import record_audit
 from app.core.config import settings
 from app.core.database import get_db
@@ -1205,7 +1206,7 @@ async def _require_external_scope(
     db: AsyncSession,
     *,
     token: str,
-    request: Request,
+    request: Request = None,
     session_token: str | None,
 ) -> tuple[ExternalAccessLink, Ads, UUID, list[UUID], list[str], UUID | None, str | None]:
     link = await _require_external_session(db, token=token, session_token=session_token, request=request)
@@ -2129,6 +2130,7 @@ async def check_compliance(
 
 @router.get("/ads", response_model=PaginatedResponse[AdsSummary])
 async def list_ads(
+    request: Request = None,
     status_filter: str | None = None,
     visit_category: str | None = None,
     site_asset_id: UUID | None = None,
@@ -2146,6 +2148,7 @@ async def list_ads(
       - scope=all → all ADS in the entity (requires paxlog.ads.read_all)
       - omitted   → auto-detected: if user has read_all → all, else → my
     """
+    acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
     query = (
         select(Ads)
         .where(Ads.entity_id == entity_id, Ads.archived == False)
@@ -2153,21 +2156,21 @@ async def list_ads(
 
     # ── User-scoped data visibility ──
     if scope == "my":
-        query = query.where(or_(Ads.requester_id == current_user.id, Ads.created_by == current_user.id))
+        query = query.where(or_(Ads.requester_id == acting_user_id, Ads.created_by == acting_user_id))
     elif scope == "all":
         # Explicit "all" requires read_all permission
         can_read_all = await has_user_permission(
             current_user, entity_id, "paxlog.ads.read_all", db
         )
         if not can_read_all:
-            query = query.where(or_(Ads.requester_id == current_user.id, Ads.created_by == current_user.id))
+            query = query.where(or_(Ads.requester_id == acting_user_id, Ads.created_by == acting_user_id))
     else:
         # Auto-detect: default to own data unless user has read_all
         can_read_all = await has_user_permission(
             current_user, entity_id, "paxlog.ads.read_all", db
         )
         if not can_read_all:
-            query = query.where(or_(Ads.requester_id == current_user.id, Ads.created_by == current_user.id))
+            query = query.where(or_(Ads.requester_id == acting_user_id, Ads.created_by == acting_user_id))
 
     if status_filter:
         query = query.where(Ads.status == status_filter)
@@ -2182,6 +2185,7 @@ async def list_ads(
 @router.post("/ads", response_model=AdsRead, status_code=201)
 async def create_ads(
     body: AdsCreate,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.ads.create"),
@@ -2189,7 +2193,8 @@ async def create_ads(
 ):
     """Create an Avis de Séjour (draft)."""
     reference = await generate_reference("ADS", db, entity_id=entity_id)
-    requester_id = body.requester_id or current_user.id
+    acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
+    requester_id = body.requester_id or acting_user_id
     requester = await db.get(User, requester_id)
     if not requester or not requester.active:
         raise HTTPException(status_code=400, detail="Demandeur invalide pour cette entité.")
@@ -2268,6 +2273,7 @@ async def create_ads(
 @router.get("/ads/{ads_id}", response_model=AdsRead)
 async def get_ads(
     ads_id: UUID,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
@@ -2288,6 +2294,7 @@ async def get_ads(
 async def update_ads(
     ads_id: UUID,
     body: AdsUpdate,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.ads.update"),
@@ -2300,8 +2307,9 @@ async def update_ads(
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
+    acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
     can_approve = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
-    if ads.requester_id != current_user.id and not can_approve:
+    if ads.requester_id != acting_user_id and not can_approve:
         raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier cette AdS.")
     if ads.status not in {"draft", "requires_review"}:
         raise HTTPException(
@@ -2533,6 +2541,7 @@ async def request_ads_stay_change(
 @router.post("/ads/{ads_id}/submit", response_model=AdsRead)
 async def submit_ads(
     ads_id: UUID,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.ads.submit"),
@@ -2550,7 +2559,7 @@ async def submit_ads(
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
-    if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+    if not await _can_manage_ads(ads, current_user=current_user, request=request, entity_id=entity_id, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Vous ne pouvez pas soumettre cette AdS.",
@@ -2819,6 +2828,7 @@ async def submit_ads(
 @router.post("/ads/{ads_id}/approve", response_model=AdsRead)
 async def approve_ads(
     ads_id: UUID,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
@@ -2841,6 +2851,7 @@ async def approve_ads(
         await _assert_ads_initiator_review_access(
             ads,
             current_user=current_user,
+            request=request,
             entity_id=entity_id,
             db=db,
         )
@@ -2935,6 +2946,7 @@ async def approve_ads(
         project_reviewer = await _assert_ads_project_review_access(
             ads,
             current_user=current_user,
+            request=request,
             entity_id=entity_id,
             db=db,
         )
@@ -3220,6 +3232,7 @@ async def approve_ads(
 @router.post("/ads/{ads_id}/reject", response_model=AdsRead)
 async def reject_ads(
     ads_id: UUID,
+    request: Request = None,
     reason: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -3238,6 +3251,7 @@ async def reject_ads(
         await _assert_ads_initiator_review_access(
             ads,
             current_user=current_user,
+            request=request,
             entity_id=entity_id,
             db=db,
         )
@@ -3245,6 +3259,7 @@ async def reject_ads(
         await _assert_ads_project_review_access(
             ads,
             current_user=current_user,
+            request=request,
             entity_id=entity_id,
             db=db,
         )
@@ -3412,6 +3427,7 @@ async def request_ads_review(
 @router.post("/ads/{ads_id}/cancel", response_model=AdsRead)
 async def cancel_ads(
     ads_id: UUID,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.ads.cancel"),
@@ -3424,7 +3440,7 @@ async def cancel_ads(
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
-    if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+    if not await _can_manage_ads(ads, current_user=current_user, request=request, entity_id=entity_id, db=db):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Vous ne pouvez pas annuler cette AdS.",
@@ -3624,6 +3640,7 @@ async def complete_ads(
 @router.get("/ads/{ads_id}/events", response_model=list[AdsEventRead])
 async def list_ads_events(
     ads_id: UUID,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
@@ -3635,7 +3652,7 @@ async def list_ads_events(
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
-    await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
+    await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
 
     result = await db.execute(
         select(AdsEvent).where(
@@ -3649,6 +3666,7 @@ async def list_ads_events(
 @router.post("/ads/{ads_id}/resubmit", response_model=AdsRead)
 async def resubmit_ads(
     ads_id: UUID,
+    request: Request = None,
     reason: str = Body(..., min_length=1, embed=True),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -3662,7 +3680,7 @@ async def resubmit_ads(
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
-    if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+    if not await _can_manage_ads(ads, current_user=current_user, request=request, entity_id=entity_id, db=db):
         raise HTTPException(status_code=403, detail="Vous ne pouvez pas re-soumettre cette AdS.")
     if ads.status != "requires_review":
         raise HTTPException(status_code=400, detail=f"Cannot resubmit AdS with status '{ads.status}'")
@@ -3734,6 +3752,7 @@ async def resubmit_ads(
 @router.get("/ads/{ads_id}/pax", response_model=list[dict])
 async def list_ads_pax(
     ads_id: UUID,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
@@ -3749,7 +3768,7 @@ async def list_ads_pax(
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
-    await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
+    await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
 
     pax_result = await db.execute(
         select(AdsPax).where(AdsPax.ads_id == ads_id)
@@ -4008,6 +4027,7 @@ async def search_pax_candidates(
 async def add_pax_to_ads(
     ads_id: UUID,
     body: AddPaxBody,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.ads.update"),
@@ -4021,7 +4041,7 @@ async def add_pax_to_ads(
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
-    if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+    if not await _can_manage_ads(ads, current_user=current_user, request=request, entity_id=entity_id, db=db):
         raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier les PAX de cette AdS.")
     if ads.status not in ("draft", "requires_review"):
         raise HTTPException(
@@ -4039,7 +4059,8 @@ async def add_pax_to_ads(
         u = await db.get(User, body.user_id)
         if not u:
             raise HTTPException(status_code=404, detail="User not found")
-        if current_user.user_type == "external" and u.id != current_user.id:
+        acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
+        if current_user.user_type == "external" and u.id != acting_user_id:
             raise HTTPException(status_code=404, detail="User not found")
         pax_name = f"{u.first_name} {u.last_name}"
         # Check not already in this AdS
@@ -4080,6 +4101,7 @@ async def add_pax_to_ads(
 async def remove_pax_from_ads(
     ads_id: UUID,
     entry_id: UUID,
+    request: Request,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.ads.update"),
@@ -4092,7 +4114,7 @@ async def remove_pax_from_ads(
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
-    if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+    if not await _can_manage_ads(ads, current_user=current_user, request=request, entity_id=entity_id, db=db):
         raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier les PAX de cette AdS.")
     result = await db.execute(
         select(AdsPax).where(
@@ -4117,6 +4139,7 @@ async def remove_pax_from_ads(
 @router.get("/ads/by-reference/{reference}", response_model=AdsRead)
 async def get_ads_by_reference(
     reference: str,
+    request: Request,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
@@ -4132,13 +4155,14 @@ async def get_ads_by_reference(
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail=f"AdS «{reference}» introuvable")
-    await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
+    await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
     return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
 
 @router.get("/ads/{ads_id}/pdf")
 async def download_ads_pdf(
     ads_id: UUID,
+    request: Request,
     language: str = "fr",
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -4151,6 +4175,7 @@ async def download_ads_pdf(
         ads_id=ads_id,
         entity_id=entity_id,
         current_user=current_user,
+        request=request,
     )
     return await _build_ads_pdf_response(
         db,
@@ -4166,6 +4191,7 @@ async def _get_ads_pdf_accessible(
     ads_id: UUID,
     entity_id: UUID,
     current_user: User,
+    request: Request | None = None,
 ) -> Ads:
     result = await db.execute(
         select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
@@ -4173,7 +4199,7 @@ async def _get_ads_pdf_accessible(
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS introuvable")
-    await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
+    await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
     return ads
 
 
@@ -4465,6 +4491,7 @@ async def resolve_incident(
 @router.get("/ads/{ads_id}/imputations")
 async def list_imputations(
     ads_id: UUID,
+    request: Request,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
@@ -4480,7 +4507,7 @@ async def list_imputations(
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
-    await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
+    await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
 
     return await list_cost_imputations(
         owner_type="ads", owner_id=ads_id, current_user=current_user, db=db
@@ -4490,6 +4517,7 @@ async def list_imputations(
 @router.get("/ads/{ads_id}/imputation-suggestion", response_model=AdsImputationSuggestionRead)
 async def get_imputation_suggestion(
     ads_id: UUID,
+    request: Request,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
@@ -4502,7 +4530,7 @@ async def get_imputation_suggestion(
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
-    await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
+    await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
 
     return await _resolve_ads_imputation_suggestion(db, ads=ads, entity_id=entity_id)
 
@@ -4514,6 +4542,7 @@ async def add_imputation(
     cost_center_id: UUID | None = None,
     percentage: float = 100.0,
     wbs_id: UUID | None = None,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.ads.update"),
@@ -4530,7 +4559,15 @@ async def add_imputation(
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
-    if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+    if request is not None:
+        can_manage_ads = await _can_manage_ads(
+            ads, current_user=current_user, request=request, entity_id=entity_id, db=db
+        )
+    else:
+        can_manage_ads = await _can_manage_ads(
+            ads, current_user=current_user, entity_id=entity_id, db=db
+        )
+    if not can_manage_ads:
         raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier les imputations de cette AdS.")
 
     body = CostImputationCreate(
@@ -4554,6 +4591,7 @@ async def add_imputation(
 async def delete_imputation(
     ads_id: UUID,
     imputation_id: UUID,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.ads.update"),
@@ -4569,7 +4607,15 @@ async def delete_imputation(
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
-    if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+    if request is not None:
+        can_manage_ads = await _can_manage_ads(
+            ads, current_user=current_user, request=request, entity_id=entity_id, db=db
+        )
+    else:
+        can_manage_ads = await _can_manage_ads(
+            ads, current_user=current_user, entity_id=entity_id, db=db
+        )
+    if not can_manage_ads:
         raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier les imputations de cette AdS.")
 
     await delete_cost_imputation(
@@ -5352,6 +5398,7 @@ async def _resolve_external_link_destination(
 async def create_external_link(
     ads_id: UUID,
     body: ExternalLinkCreateBody,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.ads.update"),
@@ -5367,7 +5414,15 @@ async def create_external_link(
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
-    if not await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+    if request is not None:
+        can_manage_ads = await _can_manage_ads(
+            ads, current_user=current_user, request=request, entity_id=entity_id, db=db
+        )
+    else:
+        can_manage_ads = await _can_manage_ads(
+            ads, current_user=current_user, entity_id=entity_id, db=db
+        )
+    if not can_manage_ads:
         raise HTTPException(status_code=403, detail="Vous ne pouvez pas créer de lien externe pour cette AdS.")
 
     otp_sent_to, otp_meta = await _resolve_external_link_destination(
@@ -5431,6 +5486,7 @@ async def create_external_link(
 @router.get("/ads/{ads_id}/external-links", response_model=list[AdsExternalLinkSecurityRead])
 async def list_ads_external_links(
     ads_id: UUID,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
@@ -5440,7 +5496,7 @@ async def list_ads_external_links(
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
-    await _assert_ads_read_access(ads, current_user=current_user, entity_id=entity_id, db=db)
+    await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
     result = await db.execute(
         select(ExternalAccessLink)
         .where(ExternalAccessLink.ads_id == ads_id)
@@ -6300,12 +6356,16 @@ async def _can_read_ads(
     ads: Ads,
     *,
     current_user: User,
+    request: Request | None = None,
     entity_id: UUID,
     db: AsyncSession,
 ) -> bool:
-    if ads.requester_id == current_user.id:
+    acting_user_id = current_user.id
+    if request is not None:
+        acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
+    if ads.requester_id == acting_user_id:
         return True
-    if ads.created_by == current_user.id:
+    if ads.created_by == acting_user_id:
         return True
     return await has_user_permission(current_user, entity_id, "paxlog.ads.read_all", db)
 
@@ -6314,10 +6374,11 @@ async def _assert_ads_read_access(
     ads: Ads,
     *,
     current_user: User,
+    request: Request | None = None,
     entity_id: UUID,
     db: AsyncSession,
 ) -> None:
-    if not await _can_read_ads(ads, current_user=current_user, entity_id=entity_id, db=db):
+    if not await _can_read_ads(ads, current_user=current_user, request=request, entity_id=entity_id, db=db):
         raise HTTPException(status_code=404, detail="AdS not found")
 
 
@@ -6325,12 +6386,16 @@ async def _can_manage_ads(
     ads: Ads,
     *,
     current_user: User,
+    request: Request | None = None,
     entity_id: UUID,
     db: AsyncSession,
 ) -> bool:
-    if ads.requester_id == current_user.id:
+    acting_user_id = current_user.id
+    if request is not None:
+        acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
+    if ads.requester_id == acting_user_id:
         return True
-    if ads.created_by == current_user.id:
+    if ads.created_by == acting_user_id:
         return True
     return await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
 
@@ -6339,11 +6404,15 @@ async def _assert_ads_initiator_review_access(
     ads: Ads,
     *,
     current_user: User,
+    request: Request | None = None,
     entity_id: UUID,
     db: AsyncSession,
 ) -> None:
+    acting_user_id = current_user.id
+    if request is not None:
+        acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
     can_approve = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
-    if current_user.id != ads.requester_id and not can_approve:
+    if acting_user_id != ads.requester_id and not can_approve:
         raise HTTPException(status_code=403, detail="Vous ne pouvez pas valider cette revue initiateur.")
 
 
@@ -6351,16 +6420,20 @@ async def _assert_ads_project_review_access(
     ads: Ads,
     *,
     current_user: User,
+    request: Request | None = None,
     entity_id: UUID,
     db: AsyncSession,
 ) -> Project | None:
+    acting_user_id = current_user.id
+    if request is not None:
+        acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
     pending_targets = await _get_ads_pending_project_review_targets(db, ads=ads, entity_id=entity_id)
     if not pending_targets:
         raise HTTPException(status_code=400, detail="Aucune validation projet n'est attendue sur cette AdS.")
     can_update_project = await has_user_permission(current_user, entity_id, "project.update", db)
     can_approve = await has_user_permission(current_user, entity_id, "paxlog.ads.approve", db)
     current_target = next(
-        (target for target in pending_targets if target.get("project_manager_id") == current_user.id),
+        (target for target in pending_targets if target.get("project_manager_id") == acting_user_id),
         None,
     )
     if current_target is None and not can_update_project and not can_approve:

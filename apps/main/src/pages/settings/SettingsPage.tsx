@@ -63,6 +63,9 @@ const SECTION_TAB_MAP: Record<string, string> = {
   'notifications-global': 'notifications',
   'notifications-groups': 'notifications',
   'notifications-matrix': 'notifications',
+  'delegations-outgoing': 'delegations',
+  'delegations-incoming': 'delegations',
+  'delegations-simulation': 'delegations',
   // PreferencesTab sections
   'theme': 'preferences',
   'language-pref': 'preferences',
@@ -113,6 +116,7 @@ const SECTION_TAB_MAP: Record<string, string> = {
 import { ProfileTab } from './tabs/ProfileTab'
 import { AccessTab } from './tabs/AccessTab'
 import { NotificationsTab } from './tabs/NotificationsTab'
+import { DelegationsTab } from './tabs/DelegationsTab'
 import { UserMcpTab } from './tabs/UserMcpTab'
 import { RolesTab } from './tabs/RolesTab'
 import { ActivityTab } from './tabs/ActivityTab'
@@ -149,10 +153,11 @@ registerSettingsSection({ id: 'access', label: 'Accès', icon: Lock, component: 
 // More top-level items
 // Emails and Addresses are now integrated into the ProfileTab directly
 registerSettingsSection({ id: 'notifications', label: 'Notifications', icon: Bell, component: NotificationsTab, category: 'user', order: 40 })
-registerSettingsSection({ id: 'mcp', label: 'MCP', icon: Plug, component: UserMcpTab, category: 'user', order: 50 })
-registerSettingsSection({ id: 'preferences', label: 'Préférences', icon: Palette, component: PreferencesTab, category: 'user', order: 60 })
-registerSettingsSection({ id: 'roles', label: 'Rôles & Permissions', icon: Shield, component: RolesTab, category: 'user', order: 70 })
-registerSettingsSection({ id: 'activity', label: 'Activité', icon: Clock, component: ActivityTab, category: 'user', order: 80 })
+registerSettingsSection({ id: 'delegations', label: 'Délégations', icon: Shield, component: DelegationsTab, category: 'user', order: 50 })
+registerSettingsSection({ id: 'mcp', label: 'MCP', icon: Plug, component: UserMcpTab, category: 'user', order: 60 })
+registerSettingsSection({ id: 'preferences', label: 'Préférences', icon: Palette, component: PreferencesTab, category: 'user', order: 70 })
+registerSettingsSection({ id: 'roles', label: 'Rôles & Permissions', icon: Shield, component: RolesTab, category: 'user', order: 80 })
+registerSettingsSection({ id: 'activity', label: 'Activité', icon: Clock, component: ActivityTab, category: 'user', order: 90 })
 
 // ── Register general (admin) settings — ordered by usage frequency ───
 // Most used first, system/advanced last

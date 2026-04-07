@@ -23,6 +23,8 @@ import {
   contactEmailsService,
   notificationPrefsService,
   auditLogService,
+  actingContextService,
+  delegationsService,
   rolesService,
   mfaService,
   socialNetworkService,
@@ -36,6 +38,8 @@ import {
   scopedSettingsService,
 } from '@/services/settingsService'
 import type {
+  UserDelegationCreate,
+  UserDelegationUpdate,
   ProfileUpdate,
   ChangePasswordRequest,
   AccessTokenCreate,
@@ -384,6 +388,87 @@ export function useUserRoles() {
     queryKey: ['user-roles'],
     queryFn: () => rolesService.getUserRoles(),
     staleTime: 5 * 60_000, // roles rarely change, cache 5min
+  })
+}
+
+export function useActingContexts() {
+  const { isAuthenticated, actingContext } = useAuthStore()
+  return useQuery({
+    queryKey: ['acting-contexts', actingContext],
+    queryFn: () => actingContextService.listAvailable(),
+    enabled: isAuthenticated,
+  })
+}
+
+export function useCurrentActingContext() {
+  const { isAuthenticated, actingContext } = useAuthStore()
+  return useQuery({
+    queryKey: ['acting-context', actingContext],
+    queryFn: () => actingContextService.current(),
+    enabled: isAuthenticated,
+  })
+}
+
+export function useDelegationCandidates(search?: string) {
+  return useQuery({
+    queryKey: ['delegation-candidates', search],
+    queryFn: () => delegationsService.candidates(search),
+  })
+}
+
+export function useSimulationCandidates(search?: string, enabled = true) {
+  return useQuery({
+    queryKey: ['simulation-candidates', search],
+    queryFn: () => actingContextService.simulationCandidates(search),
+    enabled,
+  })
+}
+
+export function useOutgoingDelegations() {
+  return useQuery({
+    queryKey: ['delegations', 'outgoing'],
+    queryFn: () => delegationsService.outgoing(),
+  })
+}
+
+export function useIncomingDelegations() {
+  return useQuery({
+    queryKey: ['delegations', 'incoming'],
+    queryFn: () => delegationsService.incoming(),
+  })
+}
+
+export function useCreateDelegation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: UserDelegationCreate) => delegationsService.create(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['delegations'] })
+      qc.invalidateQueries({ queryKey: ['acting-contexts'] })
+    },
+  })
+}
+
+export function useUpdateDelegation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: UserDelegationUpdate }) =>
+      delegationsService.update(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['delegations'] })
+      qc.invalidateQueries({ queryKey: ['acting-contexts'] })
+    },
+  })
+}
+
+export function useDeleteDelegation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => delegationsService.remove(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['delegations'] })
+      qc.invalidateQueries({ queryKey: ['acting-contexts'] })
+    },
   })
 }
 

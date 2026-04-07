@@ -745,10 +745,24 @@ async def update_personal_tab(
         )
     )
     tab = result.scalar_one_or_none()
+
+    # Fallback: if not a personal tab, try mandatory tabs (admin edit)
+    is_mandatory = False
+    if not tab:
+        mandatory_result = await db.execute(
+            select(DashboardTab).where(
+                DashboardTab.id == tab_id,
+                DashboardTab.entity_id == entity_id,
+                DashboardTab.is_active == True,
+            )
+        )
+        tab = mandatory_result.scalar_one_or_none()
+        is_mandatory = tab is not None
+
     if not tab:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Personal tab not found",
+            detail="Tab not found",
         )
 
     update_data = body.model_dump(exclude_unset=True)
@@ -762,10 +776,23 @@ async def update_personal_tab(
         update_data["widgets"] = [w.model_dump() for w in body.widgets]
 
     for field, value in update_data.items():
-        setattr(tab, field, value)
+        if hasattr(tab, field):
+            setattr(tab, field, value)
 
     await db.commit()
     await db.refresh(tab)
+
+    if is_mandatory:
+        return PersonalTabRead(
+            id=tab.id,
+            user_id=None,
+            entity_id=tab.entity_id,
+            name=tab.name,
+            tab_order=tab.tab_order,
+            widgets=tab.widgets or [],
+            created_at=tab.created_at.isoformat() if tab.created_at else None,
+        )
+
     return PersonalTabRead(
         id=tab.id,
         user_id=tab.user_id,

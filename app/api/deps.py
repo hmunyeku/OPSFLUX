@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.core.acting_context import resolve_acting_context
 from app.core.redis_client import get_redis
 from app.core.security import JWTError, decode_token
 from app.models.common import (
@@ -104,13 +105,13 @@ def require_permission(permission_code: str):
     """
 
     async def _check_permission(
+        request: Request,
         current_user: User = Depends(get_current_user),
         entity_id: UUID = Depends(get_current_entity),
         db: AsyncSession = Depends(get_db),
     ) -> None:
-        from app.core.rbac import get_user_permissions
-
-        permissions = await get_user_permissions(current_user.id, entity_id, db)
+        context = await resolve_acting_context(request, current_user, entity_id, db)
+        permissions = context.permissions
 
         if permission_code not in permissions and "*" not in permissions:
             raise HTTPException(
@@ -128,13 +129,13 @@ def require_any_permission(*permission_codes: str):
     """
 
     async def _check_permissions(
+        request: Request,
         current_user: User = Depends(get_current_user),
         entity_id: UUID = Depends(get_current_entity),
         db: AsyncSession = Depends(get_db),
     ) -> None:
-        from app.core.rbac import get_user_permissions
-
-        permissions = await get_user_permissions(current_user.id, entity_id, db)
+        context = await resolve_acting_context(request, current_user, entity_id, db)
+        permissions = context.permissions
 
         if "*" not in permissions and not any(
             code in permissions for code in permission_codes
@@ -257,7 +258,21 @@ async def check_polymorphic_owner_access(
                 detail="AdS not found",
             )
 
-        if ads.requester_id == current_user.id or ads.created_by == current_user.id:
+        acting_user_id: UUID | None = None
+        if request and entity_id:
+            try:
+                acting_context = await resolve_acting_context(
+                    request, current_user, entity_id, db
+                )
+                acting_user_id = acting_context.target_user_id
+            except HTTPException:
+                acting_user_id = None
+
+        if (
+            ads.requester_id == current_user.id
+            or ads.created_by == current_user.id
+            or (acting_user_id and (ads.requester_id == acting_user_id or ads.created_by == acting_user_id))
+        ):
             return
 
         if write:
@@ -308,6 +323,14 @@ async def check_user_data_access(
                 pass
     if not entity_id and current_user.default_entity_id:
         entity_id = current_user.default_entity_id
+
+    if request and entity_id:
+        try:
+            acting_context = await resolve_acting_context(request, current_user, entity_id, db)
+            if acting_context.target_user_id == user_id:
+                return
+        except HTTPException:
+            pass
 
     if entity_id and await has_user_permission(current_user, entity_id, "core.users.manage", db):
         return

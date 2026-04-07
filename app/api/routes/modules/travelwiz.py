@@ -14,12 +14,13 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import select, func as sqla_func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_permission
+from app.core.acting_context import get_effective_actor_user_id
 from app.core.audit import record_audit
 from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
@@ -2687,6 +2688,7 @@ async def apply_cargo_request_loading_option(
 
 @router.get("/cargo", response_model=PaginatedResponse[CargoRead])
 async def list_cargo(
+    request: Request,
     status: str | None = None,
     cargo_type: str | None = None,
     manifest_id: UUID | None = None,
@@ -2699,6 +2701,7 @@ async def list_cargo(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
     query = (
         select(
             CargoItem,
@@ -2718,13 +2721,13 @@ async def list_cargo(
 
     # ── User-scoped data visibility ──
     if scope == "my":
-        query = query.where(CargoItem.registered_by == current_user.id)
+        query = query.where(CargoItem.registered_by == acting_user_id)
     elif scope != "all":
         can_read_all = await has_user_permission(
             current_user, entity_id, "travelwiz.cargo.read_all", db
         )
         if not can_read_all:
-            query = query.where(CargoItem.registered_by == current_user.id)
+            query = query.where(CargoItem.registered_by == acting_user_id)
 
     if status:
         query = query.where(CargoItem.status == status)

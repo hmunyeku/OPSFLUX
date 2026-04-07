@@ -340,6 +340,64 @@ export interface UserRead {
   updated_at: string | null
 }
 
+export interface UserBrief {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  avatar_url: string | null
+}
+
+export interface UserDelegation {
+  id: string
+  delegator_id: string
+  delegate_id: string
+  entity_id: string
+  permissions: string[]
+  start_date: string
+  end_date: string
+  active: boolean
+  reason: string | null
+  delegator: UserBrief | null
+  delegate: UserBrief | null
+}
+
+export interface UserDelegationCreate {
+  delegate_id: string
+  start_date: string
+  end_date: string
+  reason?: string | null
+  scope_type?: 'all' | 'role' | 'permissions'
+  role_code?: string | null
+  permission_codes?: string[]
+}
+
+export interface UserDelegationUpdate {
+  start_date?: string
+  end_date?: string
+  reason?: string | null
+  active?: boolean
+}
+
+export interface ActingContext {
+  key: string
+  mode: 'own' | 'delegate' | 'simulate'
+  label: string
+  target_user_id?: string | null
+  target_user?: UserBrief | null
+  cumulative: boolean
+  permission_count?: number | null
+}
+
+export interface ActingContextStatus {
+  key: string
+  mode: 'own' | 'delegate' | 'simulate'
+  cumulative: boolean
+  target_user_id?: string | null
+  target_user?: UserBrief | null
+  permission_count: number
+}
+
 export interface UserCreate {
   email: string
   first_name: string

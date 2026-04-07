@@ -26,6 +26,11 @@ api.interceptors.request.use((config) => {
     config.headers['X-Entity-ID'] = entityId
   }
 
+  const actingContext = localStorage.getItem('acting_context')
+  if (actingContext && actingContext !== 'own') {
+    config.headers['X-Acting-Context'] = actingContext
+  }
+
   return config
 })
 

@@ -85,7 +85,13 @@ import type {
   NotificationPreference,
   NotificationPreferenceUpdate,
   AuditLogEntry,
+  ActingContext,
+  ActingContextStatus,
   RoleRead,
+  UserBrief,
+  UserDelegation,
+  UserDelegationCreate,
+  UserDelegationUpdate,
   UserGroupRead,
   PermissionMatrix,
   MFASetupResponse,
@@ -442,6 +448,59 @@ export const rolesService = {
   /** Get effective permissions matrix. */
   getUserPermissions: async (): Promise<PermissionMatrix[]> => {
     const { data } = await api.get('/api/v1/users/me/permissions')
+    return data
+  },
+}
+
+// ── Delegations / Acting Context ───────────────────────────
+export const delegationsService = {
+  outgoing: async (): Promise<UserDelegation[]> => {
+    const { data } = await api.get('/api/v1/users/me/delegations/outgoing')
+    return data
+  },
+
+  incoming: async (): Promise<UserDelegation[]> => {
+    const { data } = await api.get('/api/v1/users/me/delegations/incoming')
+    return data
+  },
+
+  create: async (payload: UserDelegationCreate): Promise<UserDelegation> => {
+    const { data } = await api.post('/api/v1/users/me/delegations', payload)
+    return data
+  },
+
+  update: async (id: string, payload: UserDelegationUpdate): Promise<UserDelegation> => {
+    const { data } = await api.patch(`/api/v1/users/me/delegations/${id}`, payload)
+    return data
+  },
+
+  remove: async (id: string): Promise<void> => {
+    await api.delete(`/api/v1/users/me/delegations/${id}`)
+  },
+
+  candidates: async (search?: string): Promise<UserBrief[]> => {
+    const { data } = await api.get('/api/v1/users/me/delegation-candidates', {
+      params: search ? { search } : {},
+    })
+    return data
+  },
+}
+
+export const actingContextService = {
+  listAvailable: async (): Promise<ActingContext[]> => {
+    const { data } = await api.get('/api/v1/auth/me/acting-contexts')
+    return data
+  },
+
+  current: async (): Promise<ActingContextStatus> => {
+    const { data } = await api.get('/api/v1/auth/me/acting-context')
+    return data
+  },
+
+  simulationCandidates: async (search?: string): Promise<UserBrief[]> => {
+    const { data } = await api.get('/api/v1/users/me/simulation-candidates', {
+      params: search ? { search } : {},
+    })
     return data
   },
 }

@@ -68,6 +68,7 @@ interface AuthState {
   isAuthenticated: boolean
   isLoading: boolean
   currentEntityId: string | null
+  actingContext: string
 
   // MFA challenge state
   mfaToken: string | null
@@ -79,6 +80,7 @@ interface AuthState {
   logout: () => void
   fetchUser: () => Promise<void>
   setCurrentEntity: (entityId: string) => void
+  setActingContext: (contextKey: string) => void
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -86,6 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: !!localStorage.getItem('access_token'),
   isLoading: false,
   currentEntityId: localStorage.getItem('entity_id'),
+  actingContext: localStorage.getItem('acting_context') || 'own',
   mfaToken: null,
   mfaPending: false,
 
@@ -141,6 +144,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ currentEntityId: entityId })
   },
 
+  setActingContext: (contextKey: string) => {
+    const value = contextKey || 'own'
+    localStorage.setItem('acting_context', value)
+    set({ actingContext: value })
+  },
+
   logout: () => {
     const refreshToken = localStorage.getItem('refresh_token')
     if (refreshToken) {
@@ -149,7 +158,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
     localStorage.removeItem('entity_id')
-    set({ user: null, isAuthenticated: false, currentEntityId: null, mfaToken: null, mfaPending: false })
+    localStorage.removeItem('acting_context')
+    set({ user: null, isAuthenticated: false, currentEntityId: null, actingContext: 'own', mfaToken: null, mfaPending: false })
   },
 
   fetchUser: async () => {
@@ -166,9 +176,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Only logout on explicit 401 (unauthorized) — NOT on network errors or 500s
       const status = (err as { response?: { status?: number } })?.response?.status
       if (status === 401) {
-        set({ user: null, isAuthenticated: false, currentEntityId: null })
+        set({ user: null, isAuthenticated: false, currentEntityId: null, actingContext: 'own' })
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
+        localStorage.removeItem('acting_context')
       }
       // For other errors (500, network), keep current auth state — don't force logout
     } finally {

@@ -717,6 +717,66 @@ class SessionRead(OpsFluxSchema):
     is_current: bool = False
 
 
+# ─── Delegation / Acting Context ───────────────────────────────────────────
+
+class UserBriefRead(OpsFluxSchema):
+    id: UUID
+    first_name: str
+    last_name: str
+    email: str
+    avatar_url: str | None = None
+
+
+class UserDelegationCreate(BaseModel):
+    delegate_id: UUID
+    start_date: datetime
+    end_date: datetime
+    reason: str | None = None
+    scope_type: str = Field(default="all", pattern="^(all|role|permissions)$")
+    role_code: str | None = None
+    permission_codes: list[str] = Field(default_factory=list)
+
+
+class UserDelegationUpdate(BaseModel):
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    reason: str | None = None
+    active: bool | None = None
+
+
+class UserDelegationRead(OpsFluxSchema):
+    id: UUID
+    delegator_id: UUID
+    delegate_id: UUID
+    entity_id: UUID
+    permissions: list[str]
+    start_date: datetime
+    end_date: datetime
+    active: bool
+    reason: str | None = None
+    delegator: UserBriefRead | None = None
+    delegate: UserBriefRead | None = None
+
+
+class ActingContextRead(OpsFluxSchema):
+    key: str
+    mode: str
+    label: str
+    target_user_id: UUID | None = None
+    target_user: UserBriefRead | None = None
+    cumulative: bool = False
+    permission_count: int | None = None
+
+
+class ActingContextStatusRead(OpsFluxSchema):
+    key: str
+    mode: str
+    cumulative: bool
+    target_user_id: UUID | None = None
+    target_user: UserBriefRead | None = None
+    permission_count: int
+
+
 # ─── User Emails ────────────────────────────────────────────────────────────
 
 class UserEmailCreate(BaseModel):

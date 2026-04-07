@@ -2,12 +2,13 @@
 
 import logging
 import os
+from datetime import UTC, datetime
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,15 +26,121 @@ from app.models.common import (
     RolePermission,
     Tier,
     User,
+    UserDelegation,
     UserGroup,
     UserGroupMember,
     UserGroupRole,
     UserPermissionOverride,
     UserTierLink,
 )
-from app.schemas.common import OpsFluxSchema, PaginatedResponse, UserCreate, UserRead, UserUpdate
+from app.schemas.common import (
+    OpsFluxSchema,
+    PaginatedResponse,
+    UserBriefRead,
+    UserCreate,
+    UserDelegationCreate,
+    UserDelegationRead,
+    UserDelegationUpdate,
+    UserRead,
+    UserUpdate,
+)
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
+
+
+async def _get_current_effective_permissions(
+    current_user: User,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> set[str]:
+    from app.core.rbac import get_user_permissions
+
+    return await get_user_permissions(current_user.id, entity_id, db)
+
+
+async def _get_current_role_codes(
+    current_user: User,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> set[str]:
+    result = await db.execute(
+        select(UserGroupRole.role_code)
+        .join(UserGroup, UserGroup.id == UserGroupRole.group_id)
+        .join(UserGroupMember, UserGroupMember.group_id == UserGroup.id)
+        .where(
+            UserGroupMember.user_id == current_user.id,
+            UserGroup.entity_id == entity_id,
+            UserGroup.active == True,  # noqa: E712
+        )
+    )
+    return {row[0] for row in result.all()}
+
+
+async def _resolve_delegation_permissions(
+    body: UserDelegationCreate,
+    current_user: User,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> list[str]:
+    own_permissions = await _get_current_effective_permissions(current_user, entity_id, db)
+
+    if body.scope_type == "all":
+        return sorted(own_permissions)
+
+    if body.scope_type == "permissions":
+        requested = set(body.permission_codes or [])
+        if not requested:
+            raise HTTPException(status_code=400, detail="No permission selected")
+        if not requested.issubset(own_permissions):
+            raise HTTPException(status_code=400, detail="You can only delegate permissions you have")
+        return sorted(requested)
+
+    if body.scope_type == "role":
+        if not body.role_code:
+            raise HTTPException(status_code=400, detail="Role code is required")
+
+        current_roles = await _get_current_role_codes(current_user, entity_id, db)
+        if body.role_code not in current_roles and "*" not in own_permissions:
+            raise HTTPException(status_code=400, detail="You can only delegate a role you currently hold")
+
+        result = await db.execute(
+            select(RolePermission.permission_code).where(RolePermission.role_code == body.role_code)
+        )
+        role_permissions = {row[0] for row in result.all()}
+        return sorted(role_permissions.intersection(own_permissions))
+
+    raise HTTPException(status_code=400, detail="Unsupported delegation scope")
+
+
+def _serialize_delegation(
+    delegation: UserDelegation,
+    delegator: User | None = None,
+    delegate: User | None = None,
+) -> UserDelegationRead:
+    def _brief(user: User | None) -> UserBriefRead | None:
+        if user is None:
+            return None
+        return UserBriefRead(
+            id=user.id,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            email=user.email,
+            avatar_url=user.avatar_url,
+        )
+
+    return UserDelegationRead(
+        id=delegation.id,
+        delegator_id=delegation.delegator_id,
+        delegate_id=delegation.delegate_id,
+        entity_id=delegation.entity_id,
+        permissions=delegation.permissions or [],
+        start_date=delegation.start_date,
+        end_date=delegation.end_date,
+        active=delegation.active,
+        reason=delegation.reason,
+        delegator=_brief(delegator),
+        delegate=_brief(delegate),
+    )
 
 
 @router.get("", response_model=PaginatedResponse[UserRead])
@@ -795,6 +902,228 @@ async def get_user_effective_permissions(
         {"permission_code": code, "source": source}
         for code, source in sorted(perms.items())
     ]
+
+
+@router.get("/me/delegation-candidates", response_model=list[UserBriefRead])
+async def list_delegation_candidates(
+    search: str | None = Query(None),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    query = (
+        select(User)
+        .join(UserGroupMember, UserGroupMember.user_id == User.id)
+        .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+        .where(
+            User.id != current_user.id,
+            User.active == True,  # noqa: E712
+            UserGroup.entity_id == entity_id,
+            UserGroup.active == True,  # noqa: E712
+        )
+        .distinct()
+        .order_by(User.first_name, User.last_name)
+        .limit(50)
+    )
+    if search:
+        like = f"%{search}%"
+        query = query.where(
+            User.first_name.ilike(like) | User.last_name.ilike(like) | User.email.ilike(like)
+        )
+
+    result = await db.execute(query)
+    return [
+        UserBriefRead(
+            id=user.id,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            email=user.email,
+            avatar_url=user.avatar_url,
+        )
+        for user in result.scalars().all()
+    ]
+
+
+@router.get("/me/simulation-candidates", response_model=list[UserBriefRead])
+async def list_simulation_candidates(
+    search: str | None = Query(None),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    own_permissions = await _get_current_effective_permissions(current_user, entity_id, db)
+    if "*" not in own_permissions and "admin.system" not in own_permissions:
+        raise HTTPException(status_code=403, detail="Simulation not allowed")
+
+    query = (
+        select(User)
+        .where(User.id != current_user.id, User.active == True)  # noqa: E712
+        .order_by(User.first_name, User.last_name)
+        .limit(50)
+    )
+    if search:
+        like = f"%{search}%"
+        query = query.where(
+            User.first_name.ilike(like) | User.last_name.ilike(like) | User.email.ilike(like)
+        )
+
+    result = await db.execute(query)
+    return [
+        UserBriefRead(
+            id=user.id,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            email=user.email,
+            avatar_url=user.avatar_url,
+        )
+        for user in result.scalars().all()
+    ]
+
+
+@router.get("/me/delegations/outgoing", response_model=list[UserDelegationRead])
+async def list_my_outgoing_delegations(
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(UserDelegation, User)
+        .join(User, User.id == UserDelegation.delegate_id)
+        .where(
+            UserDelegation.delegator_id == current_user.id,
+            UserDelegation.entity_id == entity_id,
+        )
+        .order_by(UserDelegation.created_at.desc())
+    )
+    return [
+        _serialize_delegation(delegation, delegator=current_user, delegate=delegate)
+        for delegation, delegate in result.all()
+    ]
+
+
+@router.get("/me/delegations/incoming", response_model=list[UserDelegationRead])
+async def list_my_incoming_delegations(
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(UserDelegation, User)
+        .join(User, User.id == UserDelegation.delegator_id)
+        .where(
+            UserDelegation.delegate_id == current_user.id,
+            UserDelegation.entity_id == entity_id,
+        )
+        .order_by(UserDelegation.created_at.desc())
+    )
+    return [
+        _serialize_delegation(delegation, delegator=delegator, delegate=current_user)
+        for delegation, delegator in result.all()
+    ]
+
+
+@router.post("/me/delegations", response_model=UserDelegationRead, status_code=201)
+async def create_my_delegation(
+    body: UserDelegationCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.delegate_id == current_user.id:
+        raise HTTPException(status_code=400, detail="You cannot delegate to yourself")
+    if body.end_date <= body.start_date:
+        raise HTTPException(status_code=400, detail="Invalid delegation period")
+
+    delegate = await db.get(User, body.delegate_id)
+    if not delegate or not delegate.active:
+        raise HTTPException(status_code=404, detail="Delegate not found")
+    delegate_access = await db.execute(
+        select(UserGroup.id)
+        .join(UserGroupMember, UserGroupMember.group_id == UserGroup.id)
+        .where(
+            UserGroupMember.user_id == body.delegate_id,
+            UserGroup.entity_id == entity_id,
+            UserGroup.active == True,  # noqa: E712
+        )
+        .limit(1)
+    )
+    if delegate_access.scalar_one_or_none() is None and delegate.default_entity_id != entity_id:
+        raise HTTPException(status_code=400, detail="Delegate has no access to this entity")
+
+    permissions = await _resolve_delegation_permissions(body, current_user, entity_id, db)
+    delegation = UserDelegation(
+        delegator_id=current_user.id,
+        delegate_id=body.delegate_id,
+        entity_id=entity_id,
+        permissions=permissions,
+        start_date=body.start_date,
+        end_date=body.end_date,
+        active=True,
+        reason=body.reason,
+    )
+    db.add(delegation)
+    await db.commit()
+    await db.refresh(delegation)
+    return _serialize_delegation(delegation, delegator=current_user, delegate=delegate)
+
+
+@router.patch("/me/delegations/{delegation_id}", response_model=UserDelegationRead)
+async def update_my_delegation(
+    delegation_id: UUID,
+    body: UserDelegationUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(UserDelegation, User)
+        .join(User, User.id == UserDelegation.delegate_id)
+        .where(
+            UserDelegation.id == delegation_id,
+            UserDelegation.delegator_id == current_user.id,
+            UserDelegation.entity_id == entity_id,
+        )
+    )
+    row = result.one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Delegation not found")
+
+    delegation, delegate = row
+    if body.start_date is not None:
+        delegation.start_date = body.start_date
+    if body.end_date is not None:
+        delegation.end_date = body.end_date
+    if delegation.end_date <= delegation.start_date:
+        raise HTTPException(status_code=400, detail="Invalid delegation period")
+    if body.reason is not None:
+        delegation.reason = body.reason
+    if body.active is not None:
+        delegation.active = body.active
+
+    await db.commit()
+    await db.refresh(delegation)
+    return _serialize_delegation(delegation, delegator=current_user, delegate=delegate)
+
+
+@router.delete("/me/delegations/{delegation_id}", status_code=204)
+async def delete_my_delegation(
+    delegation_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(UserDelegation).where(
+            UserDelegation.id == delegation_id,
+            UserDelegation.delegator_id == current_user.id,
+            UserDelegation.entity_id == entity_id,
+        )
+    )
+    delegation = result.scalar_one_or_none()
+    if delegation is None:
+        raise HTTPException(status_code=404, detail="Delegation not found")
+    await db.delete(delegation)
+    await db.commit()
 
 
 @router.get("/{user_id}/ip-location")

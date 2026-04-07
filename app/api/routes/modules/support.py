@@ -6,7 +6,7 @@ import logging
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -17,6 +17,7 @@ from app.api.deps import (
     has_user_permission,
     require_permission,
 )
+from app.core.acting_context import get_effective_actor_user_id
 from app.core.database import get_db
 from app.models.common import User
 from app.models.support import SupportTicket, TicketComment, TicketStatusHistory, TicketTodo
@@ -68,6 +69,21 @@ async def _users_map(db: AsyncSession, user_ids: set[UUID]) -> dict[UUID, str]:
         select(User.id, User.first_name, User.last_name).where(User.id.in_(user_ids))
     )
     return {r.id: f"{r.first_name} {r.last_name}".strip() for r in result.all()}
+
+
+async def _can_access_ticket(
+    *,
+    ticket: SupportTicket,
+    request: Request | None,
+    current_user: User,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> bool:
+    is_admin = await has_user_permission(current_user, entity_id, "support.ticket.manage", db)
+    if is_admin:
+        return True
+    acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
+    return ticket.reporter_id == acting_user_id
 
 
 async def _log_status_change(
@@ -154,6 +170,7 @@ async def _notify_ticket_event(
 
 @router.get("/tickets", response_model=PaginatedResponse[TicketRead])
 async def list_tickets(
+    request: Request = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     status: str | None = None,
@@ -167,8 +184,6 @@ async def list_tickets(
     db: AsyncSession = Depends(get_db),
 ):
     """List tickets. Regular users see own tickets only. Admins see all."""
-    is_admin = await has_user_permission(current_user, entity_id, "support.ticket.manage", db)
-
     query = (
         select(SupportTicket)
         .options(selectinload(SupportTicket.comments))
@@ -176,8 +191,9 @@ async def list_tickets(
     )
 
     # Non-admin: only own tickets
-    if not is_admin:
-        query = query.where(SupportTicket.reporter_id == current_user.id)
+    if not await has_user_permission(current_user, entity_id, "support.ticket.manage", db):
+        acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
+        query = query.where(SupportTicket.reporter_id == acting_user_id)
 
     # Filters
     if status:
@@ -226,6 +242,7 @@ async def list_tickets(
 @router.post("/tickets", response_model=TicketRead, status_code=201)
 async def create_ticket(
     body: TicketCreate,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("support.ticket.create"),
@@ -233,6 +250,7 @@ async def create_ticket(
 ):
     """Submit a new support ticket."""
     ref = await _next_reference(db, entity_id)
+    acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
 
     ticket = SupportTicket(
         entity_id=entity_id,
@@ -243,7 +261,7 @@ async def create_ticket(
         priority=body.priority,
         source_url=body.source_url,
         browser_info=body.browser_info,
-        reporter_id=current_user.id,
+        reporter_id=acting_user_id,
         tags=body.tags,
     )
     db.add(ticket)
@@ -252,14 +270,14 @@ async def create_ticket(
     # Initial status history
     db.add(TicketStatusHistory(
         ticket_id=ticket.id, old_status=None, new_status="open",
-        changed_by=current_user.id, note="Ticket créé",
+        changed_by=acting_user_id, note="Ticket créé",
     ))
 
     await db.commit()
     await db.refresh(ticket, ["comments"])
 
-    umap = await _users_map(db, {current_user.id})
-    await _notify_ticket_event(db, "created", ticket, entity_id, current_user.id)
+    umap = await _users_map(db, {acting_user_id})
+    await _notify_ticket_event(db, "created", ticket, entity_id, acting_user_id)
 
     return _enrich_ticket(ticket, umap)
 
@@ -267,6 +285,7 @@ async def create_ticket(
 @router.get("/tickets/{ticket_id}", response_model=TicketRead)
 async def get_ticket(
     ticket_id: UUID,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("support.ticket.read"),
@@ -283,8 +302,13 @@ async def get_ticket(
         raise HTTPException(status_code=404, detail="Ticket not found")
 
     # Non-admin can only view own tickets
-    is_admin = await has_user_permission(current_user, entity_id, "support.ticket.manage", db)
-    if not is_admin and ticket.reporter_id != current_user.id:
+    if not await _can_access_ticket(
+        ticket=ticket,
+        request=request,
+        current_user=current_user,
+        entity_id=entity_id,
+        db=db,
+    ):
         raise HTTPException(status_code=403, detail="Access denied")
 
     user_ids = {ticket.reporter_id}
@@ -299,6 +323,7 @@ async def get_ticket(
 async def update_ticket(
     ticket_id: UUID,
     body: TicketUpdate,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("support.ticket.update"),
@@ -315,7 +340,14 @@ async def update_ticket(
         raise HTTPException(status_code=404, detail="Ticket not found")
 
     is_admin = await has_user_permission(current_user, entity_id, "support.ticket.manage", db)
-    if not is_admin and ticket.reporter_id != current_user.id:
+    acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
+    if not await _can_access_ticket(
+        ticket=ticket,
+        request=request,
+        current_user=current_user,
+        entity_id=entity_id,
+        db=db,
+    ):
         raise HTTPException(status_code=403, detail="Access denied")
 
     update_data = body.model_dump(exclude_unset=True)
@@ -324,7 +356,7 @@ async def update_ticket(
     if "status" in update_data and update_data["status"] != ticket.status:
         if not is_admin:
             raise HTTPException(status_code=403, detail="Only admins can change ticket status")
-        await _log_status_change(db, ticket.id, ticket.status, update_data["status"], current_user.id)
+        await _log_status_change(db, ticket.id, ticket.status, update_data["status"], acting_user_id)
 
     for field, value in update_data.items():
         setattr(ticket, field, value)
@@ -527,6 +559,7 @@ async def reopen_ticket(
 @router.get("/tickets/{ticket_id}/comments", response_model=list[CommentRead])
 async def list_comments(
     ticket_id: UUID,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("support.ticket.read"),
@@ -542,6 +575,14 @@ async def list_comments(
     t = ticket.scalar_one_or_none()
     if not t:
         raise HTTPException(status_code=404, detail="Ticket not found")
+    if not await _can_access_ticket(
+        ticket=t,
+        request=request,
+        current_user=current_user,
+        entity_id=entity_id,
+        db=db,
+    ):
+        raise HTTPException(status_code=403, detail="Access denied")
 
     is_admin = await has_user_permission(current_user, entity_id, "support.comment.internal", db)
 
@@ -572,12 +613,14 @@ async def list_comments(
 async def add_comment(
     ticket_id: UUID,
     body: CommentCreate,
+    request: Request = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("support.comment.create"),
     db: AsyncSession = Depends(get_db),
 ):
     """Add a comment to a ticket."""
+    acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
     ticket = await db.execute(
         select(SupportTicket).where(
             SupportTicket.id == ticket_id, SupportTicket.entity_id == entity_id,
@@ -586,6 +629,14 @@ async def add_comment(
     t = ticket.scalar_one_or_none()
     if not t:
         raise HTTPException(status_code=404, detail="Ticket not found")
+    if not await _can_access_ticket(
+        ticket=t,
+        request=request,
+        current_user=current_user,
+        entity_id=entity_id,
+        db=db,
+    ):
+        raise HTTPException(status_code=403, detail="Access denied")
 
     # Internal comments require special permission
     if body.is_internal:
@@ -595,7 +646,7 @@ async def add_comment(
 
     comment = TicketComment(
         ticket_id=ticket_id,
-        author_id=current_user.id,
+        author_id=acting_user_id,
         body=body.body,
         is_internal=body.is_internal,
         attachment_ids=[str(a) for a in body.attachment_ids] if body.attachment_ids else None,
@@ -604,15 +655,15 @@ async def add_comment(
     await db.commit()
     await db.refresh(comment)
 
-    umap = await _users_map(db, {current_user.id})
-    await _notify_ticket_event(db, "commented", t, entity_id, current_user.id)
+    umap = await _users_map(db, {acting_user_id})
+    await _notify_ticket_event(db, "commented", t, entity_id, acting_user_id)
 
     return CommentRead(
         id=comment.id, ticket_id=comment.ticket_id, author_id=comment.author_id,
         body=comment.body, is_internal=comment.is_internal,
         attachment_ids=comment.attachment_ids,
         created_at=comment.created_at, updated_at=comment.updated_at,
-        author_name=umap.get(current_user.id),
+        author_name=umap.get(acting_user_id),
     )
 
 

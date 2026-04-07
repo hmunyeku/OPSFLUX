@@ -75,6 +75,10 @@
     "server_online": "Serveur connecté",
     "server_offline": "Serveur injoignable"
   },
+  "topbar": {
+    "acting_as": "Contexte d'action",
+    "simulation": "Simulation"
+  },
   "common": {
     "save": "Enregistrer",
     "cancel": "Annuler",
@@ -2673,7 +2677,9 @@
       "available_variables": "Variables disponibles: {{variables}}",
       "no_declared_variables": "aucune variable déclarée",
       "no_version_selected": "Aucune version sélectionnée",
+      "no_versions_yet": "Aucune version disponible pour ce modèle.",
       "preview_empty": "Lance un aperçu HTML ou PDF pour vérifier le rendu du modèle avec les variables d'exemple.",
+      "preview_uses_sample_data": "Cet aperçu utilise des données d’exemple quand aucun objet réel n’est sélectionné.",
       "validation": {
         "valid": "Le template est syntaxiquement valide.",
         "invalid": "Le template contient des diagnostics à corriger ou vérifier.",
@@ -2688,6 +2694,39 @@
         "sandbox": "Le template s’exécute dans une sandbox contrôlée : une erreur de template ne doit jamais faire tomber le logiciel.",
         "preview": "L’aperçu HTML aide à relire rapidement, mais l’aperçu PDF reste la référence finale de rendu.",
         "publish": "La publication est bloquée si la validation remonte des erreurs bloquantes."
+      },
+      "preview_layout": {
+        "title": "Repère de mise en page",
+        "header_enabled": "En-tête actif en haut de page",
+        "header_disabled": "Aucun en-tête actif",
+        "body_area": "Zone de contenu utile",
+        "footer_enabled": "Pied de page actif en bas de page",
+        "footer_disabled": "Aucun pied de page actif",
+        "margins": "Marges"
+      },
+      "helper_snippets": {
+        "title": "Helpers template"
+      },
+      "variable_catalog": {
+        "title": "Catalogue des variables",
+        "example": "Exemple"
+      },
+      "schema_editor": {
+        "title": "Schéma des variables",
+        "add": "Ajouter variable",
+        "empty": "Aucune variable définie. Ajoute ici les variables pilotées par le template.",
+        "key": "Clé",
+        "type": "Type",
+        "label": "Libellé",
+        "example": "Exemple",
+        "remove": "Retirer"
+      },
+      "variable_kinds": {
+        "text": "texte",
+        "image": "image",
+        "link": "lien",
+        "qr": "qr",
+        "group": "objet"
       },
       "object_types": {
         "system": "Système",
@@ -2711,7 +2750,11 @@
         "footer_tab": "Pied de page",
         "body_label": "Corps HTML",
         "header_label": "En-tête HTML",
-        "footer_label": "Pied de page HTML"
+        "footer_label": "Pied de page HTML",
+        "body_help": "Zone principale du document. Le contenu respecte les marges configurées.",
+        "header_help": "Zone répétée en haut de chaque page, collée au bord haut de la page imprimée.",
+        "footer_help": "Zone répétée en bas de chaque page, collée au bord bas de la page imprimée.",
+        "margins_help": "Les marges haute et basse réservent l’espace utile autour du contenu, de l’en-tête et du pied de page."
       },
       "placeholders": {
         "body": "Compose le corps du document PDF ici...",
@@ -2719,7 +2762,11 @@
         "footer": "Pied de page optionnel..."
       },
       "rich_editor": {
+        "engine_label": "Éditeur riche",
         "insert_link_title": "Insérer un lien",
+        "insert_image_title": "Insérer une image",
+        "insert_table_rows_title": "Nombre de lignes du tableau",
+        "insert_table_cols_title": "Nombre de colonnes du tableau",
         "bold": "Gras",
         "italic": "Italique",
         "underline": "Souligné",
@@ -2728,13 +2775,56 @@
         "bulleted_list": "Liste",
         "numbered_list": "Liste numérotée",
         "link": "Lien",
+        "image": "Image",
+        "table": "Tableau",
+        "quote": "Citation",
         "align_left": "Aligner à gauche",
         "align_center": "Centrer",
+        "text_color": "Texte",
+        "highlight": "Fond",
+        "horizontal_rule": "Ligne horizontale",
         "undo": "Annuler",
         "redo": "Rétablir",
         "visual_editor": "Éditeur visuel",
-        "html_code": "Code HTML"
+        "html_code": "Code HTML",
+        "table_header": "Colonne",
+        "table_cell": "Cellule"
       }
+    },
+    "delegations": {
+      "outgoing_title": "Mes délégations",
+      "outgoing_description": "Délègue une partie de tes droits à un autre utilisateur pendant une période donnée.",
+      "incoming_title": "Délégations reçues",
+      "incoming_description": "Choisis ici les contextes de délégation actuellement disponibles pour toi.",
+      "simulation_title": "Simulation administrateur",
+      "simulation_description": "Les profils admin peuvent réduire leurs permissions pour simuler ce qu’un autre utilisateur voit réellement.",
+      "delegate": "Destinataire",
+      "select_delegate": "Sélectionner un utilisateur",
+      "scope": "Portée",
+      "scope_all": "Tout mon profil actuel",
+      "scope_role": "Un rôle précis",
+      "scope_permissions": "Permissions spécifiques",
+      "role": "Rôle à déléguer",
+      "select_role": "Sélectionner un rôle",
+      "permissions": "Permissions à déléguer",
+      "permissions_count": "permissions",
+      "start": "Début",
+      "end": "Fin",
+      "reason": "Motif",
+      "create_action": "Créer la délégation",
+      "created": "Délégation créée",
+      "create_error": "Impossible de créer la délégation.",
+      "validation": "Sélectionne un utilisateur et une période valide.",
+      "no_reason": "Aucun motif renseigné",
+      "no_outgoing": "Aucune délégation émise.",
+      "no_incoming": "Aucune délégation reçue.",
+      "activate_context": "Activer",
+      "active_context": "Actif",
+      "back_to_self": "Revenir à moi-même",
+      "current_simulation": "Simulation active",
+      "simulate_action": "Simuler",
+      "no_simulation_candidates": "Aucun utilisateur trouvé pour la simulation.",
+      "manage_link": "Gérer les délégations"
     },
     "default_imputation": {
       "saved": "Imputation par défaut enregistrée",

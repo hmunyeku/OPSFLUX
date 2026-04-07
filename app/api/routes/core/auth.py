@@ -29,6 +29,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user
+from app.core.acting_context import resolve_acting_context
 from app.core.audit import record_audit
 from app.core.config import settings
 from app.core.auth_settings import get_security_settings
@@ -47,6 +48,8 @@ from app.core.security import (
 )
 from app.models.common import Entity, RefreshToken, Setting, User, UserGroup, UserGroupMember, UserGroupRole, UserSession, UserSSOProvider
 from app.schemas.common import (
+    ActingContextRead,
+    ActingContextStatusRead,
     LoginRequest,
     LoginResponse,
     MFALoginRequest,
@@ -511,15 +514,85 @@ async def get_me(current_user: User = Depends(get_current_user)):
 
 @router.get("/me/permissions", response_model=list[str])
 async def get_my_permissions(
+    request: Request,
     current_user: User = Depends(get_current_user),
     entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Get all permission codes for the current user in the current entity."""
+    context = await resolve_acting_context(request, current_user, entity_id, db)
+    return sorted(context.permissions)
+
+
+@router.get("/me/acting-context", response_model=ActingContextStatusRead)
+async def get_my_acting_context(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    context = await resolve_acting_context(request, current_user, entity_id, db)
+    target = context.target_user
+    return ActingContextStatusRead(
+        key=context.key,
+        mode=context.mode,
+        cumulative=context.cumulative,
+        target_user_id=context.target_user_id,
+        target_user=target,
+        permission_count=len(context.permissions),
+    )
+
+
+@router.get("/me/acting-contexts", response_model=list[ActingContextRead])
+async def get_my_available_acting_contexts(
+    current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    from datetime import UTC, datetime
+    from app.models.common import UserDelegation
     from app.core.rbac import get_user_permissions
 
-    perms = await get_user_permissions(current_user.id, entity_id, db)
-    return sorted(perms)
+    own_permissions = await get_user_permissions(current_user.id, entity_id, db)
+    contexts: list[ActingContextRead] = [
+        ActingContextRead(
+            key="own",
+            mode="own",
+            label=f"{current_user.first_name} {current_user.last_name}",
+            target_user_id=None,
+            target_user=None,
+            cumulative=False,
+            permission_count=len(own_permissions),
+        )
+    ]
+
+    now = datetime.now(UTC)
+    rows = await db.execute(
+        select(UserDelegation, User)
+        .join(User, User.id == UserDelegation.delegator_id)
+        .where(
+            UserDelegation.delegate_id == current_user.id,
+            UserDelegation.entity_id == entity_id,
+            UserDelegation.active == True,  # noqa: E712
+            UserDelegation.start_date <= now,
+            UserDelegation.end_date >= now,
+        )
+        .order_by(User.first_name, User.last_name)
+    )
+    for delegation, target in rows.all():
+        contexts.append(
+            ActingContextRead(
+                key=f"delegate:{delegation.delegator_id}",
+                mode="delegate",
+                label=f"{target.first_name} {target.last_name}",
+                target_user_id=delegation.delegator_id,
+                target_user=target,
+                cumulative=True,
+                permission_count=len(delegation.permissions or []),
+            )
+        )
+
+    return contexts
 
 
 # ── Entity management ────────────────────────────────────────────────────────

@@ -12,10 +12,10 @@ import { rbacService } from '@/services/rbacService'
 import { useAuthStore } from '@/stores/authStore'
 
 export function usePermission() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, actingContext, currentEntityId } = useAuthStore()
 
   const { data: permissions = [], isLoading } = useQuery({
-    queryKey: ['rbac', 'my-permissions'],
+    queryKey: ['rbac', 'my-permissions', currentEntityId, actingContext],
     queryFn: () => rbacService.getMyPermissions(),
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000, // 5 min — matches backend Redis TTL

@@ -75,6 +75,10 @@
     "server_online": "Server connected",
     "server_offline": "Server unreachable"
   },
+  "topbar": {
+    "acting_as": "Acting context",
+    "simulation": "Simulation"
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",
@@ -2669,7 +2673,9 @@
       "available_variables": "Available variables: {{variables}}",
       "no_declared_variables": "no declared variables",
       "no_version_selected": "No version selected",
+      "no_versions_yet": "No version is available for this template yet.",
       "preview_empty": "Run an HTML or PDF preview to verify the template rendering with sample variables.",
+      "preview_uses_sample_data": "This preview uses sample data when no real record is selected.",
       "validation": {
         "valid": "The template is syntactically valid.",
         "invalid": "The template contains diagnostics to review or fix.",
@@ -2684,6 +2690,39 @@
         "sandbox": "The template runs inside a controlled sandbox: a broken template must never crash the software.",
         "preview": "HTML preview is useful for quick review, but PDF preview remains the final rendering reference.",
         "publish": "Publishing is blocked when validation reports blocking errors."
+      },
+      "preview_layout": {
+        "title": "Page layout guide",
+        "header_enabled": "Header active at the top of each page",
+        "header_disabled": "No active header",
+        "body_area": "Usable content area",
+        "footer_enabled": "Footer active at the bottom of each page",
+        "footer_disabled": "No active footer",
+        "margins": "Margins"
+      },
+      "helper_snippets": {
+        "title": "Template helpers"
+      },
+      "variable_catalog": {
+        "title": "Variable catalog",
+        "example": "Example"
+      },
+      "schema_editor": {
+        "title": "Variable schema",
+        "add": "Add variable",
+        "empty": "No variable is defined yet. Add here the variables managed by the template.",
+        "key": "Key",
+        "type": "Type",
+        "label": "Label",
+        "example": "Example",
+        "remove": "Remove"
+      },
+      "variable_kinds": {
+        "text": "text",
+        "image": "image",
+        "link": "link",
+        "qr": "qr",
+        "group": "object"
       },
       "object_types": {
         "system": "System",
@@ -2707,7 +2746,11 @@
         "footer_tab": "Footer",
         "body_label": "HTML body",
         "header_label": "HTML header",
-        "footer_label": "HTML footer"
+        "footer_label": "HTML footer",
+        "body_help": "Main document area. The content respects the configured page margins.",
+        "header_help": "Repeated area at the top of each page, pinned to the printed page top edge.",
+        "footer_help": "Repeated area at the bottom of each page, pinned to the printed page bottom edge.",
+        "margins_help": "Top and bottom margins reserve usable space around the content, header, and footer."
       },
       "placeholders": {
         "body": "Compose the PDF document body here...",
@@ -2715,7 +2758,11 @@
         "footer": "Optional footer..."
       },
       "rich_editor": {
+        "engine_label": "Rich editor",
         "insert_link_title": "Insert a link",
+        "insert_image_title": "Insert an image",
+        "insert_table_rows_title": "Number of table rows",
+        "insert_table_cols_title": "Number of table columns",
         "bold": "Bold",
         "italic": "Italic",
         "underline": "Underline",
@@ -2724,13 +2771,56 @@
         "bulleted_list": "List",
         "numbered_list": "Numbered list",
         "link": "Link",
+        "image": "Image",
+        "table": "Table",
+        "quote": "Quote",
         "align_left": "Align left",
         "align_center": "Center",
+        "text_color": "Text",
+        "highlight": "Highlight",
+        "horizontal_rule": "Horizontal rule",
         "undo": "Undo",
         "redo": "Redo",
         "visual_editor": "Visual editor",
-        "html_code": "HTML code"
+        "html_code": "HTML code",
+        "table_header": "Column",
+        "table_cell": "Cell"
       }
+    },
+    "delegations": {
+      "outgoing_title": "My delegations",
+      "outgoing_description": "Delegate part of your rights to another user for a defined period.",
+      "incoming_title": "Received delegations",
+      "incoming_description": "Choose here the delegation contexts currently available to you.",
+      "simulation_title": "Administrator simulation",
+      "simulation_description": "Admin profiles can reduce their permissions to simulate what another user actually sees.",
+      "delegate": "Delegate user",
+      "select_delegate": "Select a user",
+      "scope": "Scope",
+      "scope_all": "My full current profile",
+      "scope_role": "A specific role",
+      "scope_permissions": "Specific permissions",
+      "role": "Role to delegate",
+      "select_role": "Select a role",
+      "permissions": "Permissions to delegate",
+      "permissions_count": "permissions",
+      "start": "Start",
+      "end": "End",
+      "reason": "Reason",
+      "create_action": "Create delegation",
+      "created": "Delegation created",
+      "create_error": "Could not create delegation.",
+      "validation": "Select a user and a valid period.",
+      "no_reason": "No reason provided",
+      "no_outgoing": "No outgoing delegation.",
+      "no_incoming": "No incoming delegation.",
+      "activate_context": "Activate",
+      "active_context": "Active",
+      "back_to_self": "Back to self",
+      "current_simulation": "Active simulation",
+      "simulate_action": "Simulate",
+      "no_simulation_candidates": "No user found for simulation.",
+      "manage_link": "Manage delegations"
     },
     "default_imputation": {
       "saved": "Default imputation saved",

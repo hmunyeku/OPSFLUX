@@ -12,11 +12,12 @@ import logging
 from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select, func as sqla_func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_permission
+from app.core.acting_context import get_effective_actor_user_id
 from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.core.events import OpsFluxEvent, event_bus
@@ -320,6 +321,7 @@ async def _detect_and_create_conflicts(
 
 @router.get("/activities", response_model=PaginatedResponse[ActivityRead])
 async def list_activities(
+    request: Request,
     asset_id: UUID | None = None,
     type: str | None = None,
     status: str | None = None,
@@ -335,6 +337,7 @@ async def list_activities(
     _: None = require_permission("planner.activity.read"),
     db: AsyncSession = Depends(get_db),
 ):
+    acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
     query = (
         select(
             PlannerActivity,
@@ -348,13 +351,13 @@ async def list_activities(
 
     # ── User-scoped data visibility ──
     if scope == "my":
-        query = query.where(PlannerActivity.created_by == current_user.id)
+        query = query.where(PlannerActivity.created_by == acting_user_id)
     elif scope != "all":
         can_read_all = await has_user_permission(
             current_user, entity_id, "planner.activity.read_all", db
         )
         if not can_read_all:
-            query = query.where(PlannerActivity.created_by == current_user.id)
+            query = query.where(PlannerActivity.created_by == acting_user_id)
 
     if asset_id:
         query = query.where(PlannerActivity.asset_id == asset_id)

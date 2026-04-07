@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
+import { useActingContexts, useCurrentActingContext } from '@/hooks/useSettings'
 import { resolveApiBaseUrl } from '@/lib/runtimeUrls'
 import {
   Search,
@@ -25,6 +26,7 @@ import {
   X,
 } from 'lucide-react'
 import { useState, useRef, useEffect, useSyncExternalStore, useCallback, useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { offlineQueue } from '@/lib/offlineQueue'
 import { CommandPalette, useCommandPalette } from '@/components/ui/CommandPalette'
 import { EntitySwitcher } from '@/components/layout/EntitySwitcher'
@@ -260,7 +262,8 @@ function ConnectivityLED() {
 export function Topbar({ onToggleSidebar }: TopbarProps) {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
-  const { user, logout } = useAuthStore()
+  const { user, logout, actingContext, setActingContext } = useAuthStore()
+  const qc = useQueryClient()
   const globalSearch = useUIStore((s) => s.globalSearch)
   const setGlobalSearch = useUIStore((s) => s.setGlobalSearch)
   const [showUserMenu, setShowUserMenu] = useState(false)
@@ -268,6 +271,15 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const { open: paletteOpen, setOpen: setPaletteOpen } = useCommandPalette()
   const placeholder = useSearchPlaceholder()
+  const { data: availableContexts = [] } = useActingContexts()
+  const { data: currentActingContext } = useCurrentActingContext()
+
+  const handleActingContextChange = (nextKey: string) => {
+    setActingContext(nextKey)
+    qc.invalidateQueries({ queryKey: ['rbac', 'my-permissions'] })
+    qc.invalidateQueries({ queryKey: ['acting-contexts'] })
+    qc.invalidateQueries({ queryKey: ['acting-context'] })
+  }
 
   const toggleLanguage = () => {
     const newLang = i18n.language === 'fr' ? 'en' : 'fr'
@@ -418,6 +430,35 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
                     </div>
                   </div>
                 )}
+                <div className="px-3 py-2 border-b border-border">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-2">
+                    {t('topbar.acting_as')}
+                  </p>
+                  <select
+                    value={actingContext}
+                    onChange={(e) => handleActingContextChange(e.target.value)}
+                    className="gl-form-input h-8 text-xs"
+                  >
+                    {availableContexts.map((context) => (
+                      <option key={context.key} value={context.key}>
+                        {context.mode === 'simulate'
+                          ? `${t('topbar.simulation')} — ${currentActingContext?.mode === 'simulate' && currentActingContext.target_user ? `${currentActingContext.target_user.first_name} ${currentActingContext.target_user.last_name}` : context.label}`
+                          : context.label}
+                      </option>
+                    ))}
+                    {actingContext.startsWith('simulate:') && currentActingContext?.target_user && (
+                      <option value={actingContext}>
+                        {t('topbar.simulation')} — {currentActingContext.target_user.first_name} {currentActingContext.target_user.last_name}
+                      </option>
+                    )}
+                  </select>
+                  <button
+                    onClick={() => { setShowUserMenu(false); navigate('/settings#delegations') }}
+                    className="mt-2 text-xs text-primary hover:underline"
+                  >
+                    {t('settings.delegations.manage_link')}
+                  </button>
+                </div>
                 <div className="py-1">
                   <button
                     onClick={() => { setShowUserMenu(false); navigate('/settings') }}

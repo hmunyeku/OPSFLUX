@@ -41,14 +41,14 @@ class PersonalTabUpdate(BaseModel):
 
 class PersonalTabRead(OpsFluxSchema):
     id: UUID
-    user_id: UUID
+    user_id: UUID | None = None
     entity_id: UUID
     name: str
     tab_order: int
     widgets: list[dict[str, Any]]
-    created_at: datetime
-    updated_at: datetime | None
-    is_mandatory: bool = False  # Always False for personal tabs
+    created_at: datetime | str | None = None
+    updated_at: datetime | str | None = None
+    is_mandatory: bool = False
 
 
 # ─── Admin (Mandatory) Tab schemas ────────────────────────────────────────

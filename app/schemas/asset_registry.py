@@ -236,7 +236,7 @@ class InstallationCreate(BaseModel):
     design_life_years: int | None = None
     is_manned: bool = True
     is_normally_unmanned: bool = False
-    pob_max: int | None = None
+    pob_capacity: int | None = None
     helideck_available: bool = False
     lifeboat_capacity: int | None = None
     total_area_m2: Decimal | None = None
@@ -269,7 +269,7 @@ class InstallationUpdate(BaseModel):
     # Characteristics
     is_manned: bool | None = None
     is_normally_unmanned: bool | None = None
-    pob_max: int | None = None
+    pob_capacity: int | None = None
     helideck_available: bool | None = None
     lifeboat_capacity: int | None = None
     total_area_m2: Decimal | None = None

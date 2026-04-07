@@ -31,6 +31,7 @@ from app.schemas.common import (
     PdfTemplateUpdate,
     PdfTemplateVersionCreate,
     PdfTemplateVersionRead,
+    PdfTemplateVersionUpdate,
 )
 from app.services.core.delete_service import delete_entity
 
@@ -279,6 +280,47 @@ async def create_version(
         created_by=current_user.id,
     )
     db.add(version)
+    await db.commit()
+    await db.refresh(version)
+    return version
+
+
+@router.patch("/{template_id}/versions/{version_id}", response_model=PdfTemplateVersionRead)
+async def update_version(
+    template_id: UUID,
+    version_id: UUID,
+    body: PdfTemplateVersionUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update an existing PDF template version."""
+    tpl = await db.execute(
+        select(PdfTemplate.id).where(
+            PdfTemplate.id == template_id,
+            PdfTemplate.entity_id == entity_id,
+        )
+    )
+    if not tpl.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="PDF template not found")
+
+    result = await db.execute(
+        select(PdfTemplateVersion).where(
+            PdfTemplateVersion.id == version_id,
+            PdfTemplateVersion.template_id == template_id,
+        )
+    )
+    version = result.scalar_one_or_none()
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    payload = body.model_dump(exclude_unset=True)
+    if payload.get("is_published"):
+        await _unpublish_language_versions(db, template_id, version.language)
+
+    for field, value in payload.items():
+        setattr(version, field, value)
+
     await db.commit()
     await db.refresh(version)
     return version

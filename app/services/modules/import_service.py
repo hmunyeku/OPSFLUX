@@ -1189,7 +1189,7 @@ class ARInstallationHandler(TargetObjectHandler):
             status=_safe_str(row.get("status")) or "OPERATIONAL",
             is_manned=_safe_bool(row.get("is_manned")) if row.get("is_manned") is not None else True,
             water_depth_m=_safe_float(row.get("water_depth_m")),
-            pob_max=_safe_int(row.get("max_pob")),
+            pob_capacity=_safe_int(row.get("max_pob")),
             latitude=_safe_float(row.get("latitude")),
             longitude=_safe_float(row.get("longitude")),
             commissioning_date=_safe_date(row.get("commissioning_date")),
@@ -1209,7 +1209,7 @@ class ARInstallationHandler(TargetObjectHandler):
             if row.get(key) is not None:
                 setattr(obj, key, _safe_float(row[key]))
         if row.get("max_pob") is not None:
-            obj.pob_max = _safe_int(row["max_pob"])
+            obj.pob_capacity = _safe_int(row["max_pob"])
         if row.get("commissioning_date") is not None:
             obj.commissioning_date = _safe_date(row["commissioning_date"])
         if row.get("is_manned") is not None:

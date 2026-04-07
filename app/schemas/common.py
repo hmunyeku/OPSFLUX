@@ -2029,6 +2029,13 @@ class PdfTemplateVersionCreate(BaseModel):
     is_published: bool = False
 
 
+class PdfTemplateVersionUpdate(BaseModel):
+    body_html: str | None = Field(default=None, min_length=1)
+    header_html: str | None = None
+    footer_html: str | None = None
+    is_published: bool | None = None
+
+
 class PdfTemplateVersionRead(OpsFluxSchema):
     id: UUID
     template_id: UUID

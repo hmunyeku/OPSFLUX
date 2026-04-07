@@ -548,7 +548,7 @@ export function CreateInstallationPanel() {
       installation_date: form.installation_date || null, commissioning_date: form.commissioning_date || null,
       first_oil_date: form.first_oil_date || null, design_life_years: form.design_life_years ?? null,
       is_manned: form.is_manned ?? true, is_normally_unmanned: form.is_normally_unmanned ?? false,
-      pob_max: form.pob_max ?? null, helideck_available: form.helideck_available ?? false,
+      pob_capacity: form.pob_capacity ?? null, helideck_available: form.helideck_available ?? false,
       lifeboat_capacity: form.lifeboat_capacity ?? null,
       total_area_m2: form.total_area_m2 ?? null, footprint_length_m: form.footprint_length_m ?? null,
       footprint_width_m: form.footprint_width_m ?? null,
@@ -664,7 +664,7 @@ export function CreateInstallationPanel() {
           </FormGrid>
           <FormGrid>
             <DynamicPanelField label="POB max">
-              <input type="number" min={0} value={form.pob_max ?? ''} onChange={numChange(set, 'pob_max')} className={panelInputClass} />
+              <input type="number" min={0} value={form.pob_capacity ?? ''} onChange={numChange(set, 'pob_capacity')} className={panelInputClass} />
             </DynamicPanelField>
             <DynamicPanelField label="Hélipad disponible">{boolSelect(form.helideck_available, (v) => set({ helideck_available: v }), panelInputClass)}</DynamicPanelField>
           </FormGrid>

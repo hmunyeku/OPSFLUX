@@ -30,7 +30,7 @@ export interface Asset {
   longitude?: number | null
   water_depth_m?: number | null
   is_manned: boolean
-  pob_max?: number | null
+  pob_capacity?: number | null
   design_life_years?: number | null
   notes?: string | null
   created_at: string

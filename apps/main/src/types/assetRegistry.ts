@@ -135,7 +135,7 @@ export interface Installation {
   design_life_years?: number | null
   is_manned: boolean
   is_normally_unmanned: boolean
-  pob_max?: number | null
+  pob_capacity?: number | null
   helideck_available: boolean
   lifeboat_capacity?: number | null
   total_area_m2?: number | null

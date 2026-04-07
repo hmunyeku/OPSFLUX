@@ -124,14 +124,14 @@ async def get_current_capacity(
             "changed_by": row[6],
         }
 
-    # Fallback hierarchy: Installation.pob_max → Site.pob_capacity → Field.pob_capacity → 0
+    # Fallback hierarchy: Installation.pob_capacity → Site.pob_capacity → Field.pob_capacity → 0
     from app.models.asset_registry import OilField, OilSite
 
     asset = await db.get(Installation, asset_id)
     if not asset:
         return None
 
-    pob = asset.pob_max
+    pob = asset.pob_capacity
     source = "installation"
 
     # If not set on installation, try the parent site
@@ -496,7 +496,7 @@ async def get_capacity_heatmap(
         asset_query = asset_query.where(Installation.id.in_(asset_ids))
     else:
         # Only assets with max_pax > 0 (sites)
-        asset_query = asset_query.where(Installation.pob_max > 0)
+        asset_query = asset_query.where(Installation.pob_capacity > 0)
 
     assets_result = await db.execute(asset_query)
     assets = assets_result.scalars().all()

@@ -374,7 +374,7 @@ class Installation(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     # Characteristics
     is_manned: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_normally_unmanned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    pob_max: Mapped[int | None] = mapped_column(Integer)
+    pob_capacity: Mapped[int | None] = mapped_column(Integer)
     helideck_available: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     lifeboat_capacity: Mapped[int | None] = mapped_column(Integer)
     total_area_m2: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))

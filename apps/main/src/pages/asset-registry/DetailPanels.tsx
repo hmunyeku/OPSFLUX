@@ -728,8 +728,8 @@ export function InstallationDetailPanel({ id }: { id: string }) {
                 : <ReadOnlyRow label={t('assets.is_normally_unmanned')} value={fmtBool(inst.is_normally_unmanned, t)} />
               }
               {canUpdate
-                ? <InlineEditableRow label={t('assets.pob_capacity')} value={String(inst.pob_max ?? '')} onSave={(v) => handleSave('pob_max', v ? parseInt(v) : null)} type="text" />
-                : <ReadOnlyRow label={t('assets.pob_capacity')} value={inst.pob_max ?? '—'} />
+                ? <InlineEditableRow label={t('assets.pob_capacity')} value={String(inst.pob_capacity ?? '')} onSave={(v) => handleSave('pob_capacity', v ? parseInt(v) : null)} type="text" />
+                : <ReadOnlyRow label={t('assets.pob_capacity')} value={inst.pob_capacity ?? '—'} />
               }
               {canUpdate
                 ? <InlineEditableSelect label={t('assets.helideck_available')} value={inst.helideck_available ? 'true' : 'false'} options={BOOL_OPTIONS} onSave={(v) => handleSave('helideck_available', v === 'true')} />

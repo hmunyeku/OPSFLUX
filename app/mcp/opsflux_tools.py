@@ -1327,7 +1327,7 @@ def _installation_to_dict(inst: Installation, *, compact: bool = False) -> dict:
         "status": inst.status,
         "is_manned": inst.is_manned,
         "is_normally_unmanned": inst.is_normally_unmanned,
-        "pob_max": inst.pob_max,
+        "pob_capacity": inst.pob_capacity,
         "helideck_available": inst.helideck_available,
         "latitude": float(inst.latitude) if inst.latitude is not None else None,
         "longitude": float(inst.longitude) if inst.longitude is not None else None,

@@ -28,6 +28,7 @@ import {
   Zap,
   Clock,
   LayoutGrid,
+  Download,
 } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
@@ -116,6 +117,22 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
     return () => clearInterval(timer)
   }, [refreshInterval, refetch])
 
+  // Export widget as image
+  const cardRef = useRef<HTMLDivElement>(null)
+  const handleExport = useCallback(async () => {
+    const el = cardRef.current
+    if (!el) return
+    try {
+      const { default: html2canvas } = await import('html2canvas')
+      const canvas = await html2canvas(el, { backgroundColor: null, scale: 2 })
+      const url = canvas.toDataURL('image/png')
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${widget.title.replace(/[^a-zA-Z0-9]/g, '_')}.png`
+      a.click()
+    } catch { /* silent */ }
+  }, [widget.title])
+
   const widgetContent = (
     <>
       {error ? (
@@ -144,6 +161,7 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
   if (!fullscreen) {
     return (
       <div
+        ref={cardRef}
         className={cn(
           'group flex flex-col h-full rounded-xl overflow-hidden transition-all duration-200',
           'shadow-[0_1px_3px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)]',
@@ -172,6 +190,9 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
           <div className={cn('flex items-center gap-0.5 transition-opacity', mode !== 'edit' ? 'opacity-0 group-hover:opacity-100' : '')}>
             <button onClick={() => refetch()} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Actualiser">
               <RefreshCw className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/60' : 'text-muted-foreground/50', isLoading && 'animate-spin')} />
+            </button>
+            <button onClick={handleExport} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Exporter en image">
+              <Download className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/60' : 'text-muted-foreground/50')} />
             </button>
             <button onClick={() => setFullscreen(true)} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors" title="Plein ecran">
               <Maximize2 className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/60' : 'text-muted-foreground/50')} />
@@ -980,31 +1001,113 @@ function TextWidget({
     )
   }
 
+  // Parse inline markdown: **bold**, *italic*, `code`, [link](url)
+  const renderInline = (text: string) => {
+    const parts: React.ReactNode[] = []
+    let remaining = text
+    let keyIdx = 0
+    const rx = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|\[(.+?)\]\((.+?)\))/g
+    let lastIndex = 0
+    let match: RegExpExecArray | null
+    while ((match = rx.exec(remaining)) !== null) {
+      if (match.index > lastIndex) parts.push(remaining.slice(lastIndex, match.index))
+      if (match[2]) parts.push(<strong key={keyIdx++} className="font-semibold">{match[2]}</strong>)
+      else if (match[3]) parts.push(<em key={keyIdx++} className="italic">{match[3]}</em>)
+      else if (match[4]) parts.push(<code key={keyIdx++} className="px-1 py-0.5 bg-muted rounded text-[10px] font-mono">{match[4]}</code>)
+      else if (match[5] && match[6]) parts.push(<a key={keyIdx++} href={match[6]} target="_blank" rel="noopener noreferrer" className="text-primary underline">{match[5]}</a>)
+      lastIndex = match.index + match[0].length
+    }
+    if (lastIndex < remaining.length) parts.push(remaining.slice(lastIndex))
+    return parts.length > 0 ? parts : text
+  }
+
+  // Split into lines and render blocks
+  const lines = content.split('\n')
+
   return (
     <div className="h-full overflow-auto prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed">
-      {/* Basic markdown-like rendering: bold, italic, headings, paragraphs */}
-      {content.split('\n').map((line, i) => {
-        if (line.startsWith('### ')) {
-          return <h4 key={i} className="text-sm font-semibold mt-2 mb-1">{line.slice(4)}</h4>
+      {lines.map((line, i) => {
+        // Code block (``` fenced)
+        if (line.startsWith('```')) {
+          // Collect lines until closing ```
+          const codeLines: string[] = []
+          let j = i + 1
+          while (j < lines.length && !lines[j].startsWith('```')) {
+            codeLines.push(lines[j])
+            j++
+          }
+          if (codeLines.length > 0) {
+            return (
+              <pre key={i} className="bg-muted/50 border border-border/30 rounded-md p-2 text-[10px] font-mono overflow-x-auto my-1.5">
+                {codeLines.join('\n')}
+              </pre>
+            )
+          }
+          return null // skip closing ```
         }
-        if (line.startsWith('## ')) {
-          return <h3 key={i} className="text-sm font-bold mt-2 mb-1">{line.slice(3)}</h3>
+        // Skip lines inside code blocks (rendered by opening ```)
+        if (i > 0) {
+          let inBlock = false
+          for (let k = 0; k < i; k++) {
+            if (lines[k].startsWith('```')) inBlock = !inBlock
+          }
+          if (inBlock) return null
         }
-        if (line.startsWith('# ')) {
-          return <h2 key={i} className="text-base font-bold mt-2 mb-1">{line.slice(2)}</h2>
-        }
-        if (line.startsWith('- ')) {
+        // Headings
+        if (line.startsWith('### ')) return <h4 key={i} className="text-sm font-semibold mt-2 mb-1">{renderInline(line.slice(4))}</h4>
+        if (line.startsWith('## ')) return <h3 key={i} className="text-sm font-bold mt-2 mb-1">{renderInline(line.slice(3))}</h3>
+        if (line.startsWith('# ')) return <h2 key={i} className="text-base font-bold mt-2 mb-1">{renderInline(line.slice(2))}</h2>
+        // Horizontal rule
+        if (/^-{3,}$/.test(line.trim())) return <hr key={i} className="border-border/40 my-2" />
+        // Numbered list
+        if (/^\d+\.\s/.test(line)) {
+          const text = line.replace(/^\d+\.\s/, '')
           return (
             <div key={i} className="flex gap-1.5 ml-2">
-              <span className="text-muted-foreground shrink-0">&bull;</span>
-              <span>{line.slice(2)}</span>
+              <span className="text-muted-foreground shrink-0 w-3 text-right">{line.match(/^\d+/)?.[0]}.</span>
+              <span>{renderInline(text)}</span>
             </div>
           )
         }
-        if (line.trim() === '') {
-          return <div key={i} className="h-2" />
+        // Bullet list
+        if (line.startsWith('- ') || line.startsWith('* ')) {
+          return (
+            <div key={i} className="flex gap-1.5 ml-2">
+              <span className="text-muted-foreground shrink-0">&bull;</span>
+              <span>{renderInline(line.slice(2))}</span>
+            </div>
+          )
         }
-        return <p key={i} className="mb-1">{line}</p>
+        // Blockquote
+        if (line.startsWith('> ')) {
+          return <blockquote key={i} className="border-l-2 border-primary/40 pl-2 text-muted-foreground italic my-1">{renderInline(line.slice(2))}</blockquote>
+        }
+        // Table row (| col | col |)
+        if (line.includes('|') && line.trim().startsWith('|')) {
+          // Check if separator row
+          if (/^\|[\s:-]+\|/.test(line.trim())) return null // skip separator
+          const cells = line.split('|').filter(Boolean).map((c) => c.trim())
+          // Detect if header (next line is separator)
+          const nextLine = lines[i + 1]?.trim() || ''
+          const isHeader = /^\|[\s:-]+\|/.test(nextLine)
+          const Tag = isHeader ? 'th' : 'td'
+          return (
+            <div key={i} className="flex">
+              {cells.map((cell, ci) => (
+                <Tag key={ci} className={cn(
+                  'px-2 py-1 border border-border/30 text-[10px]',
+                  isHeader ? 'font-bold bg-muted/30' : '',
+                )} style={{ minWidth: '60px' }}>
+                  {renderInline(cell)}
+                </Tag>
+              ))}
+            </div>
+          )
+        }
+        // Empty line
+        if (line.trim() === '') return <div key={i} className="h-2" />
+        // Regular paragraph
+        return <p key={i} className="mb-1">{renderInline(line)}</p>
       })}
     </div>
   )

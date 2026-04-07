@@ -14,6 +14,7 @@ import { WidgetSettingsOther } from './settings/WidgetSettingsOther'
 import { WidgetSettingsPerspective } from './settings/WidgetSettingsPerspective'
 import { WidgetSettingsGroup } from './settings/WidgetSettingsGroup'
 import { WidgetSettingsQuickAccess } from './settings/WidgetSettingsQuickAccess'
+import { WidgetSettingsClock } from './settings/WidgetSettingsClock'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { DashboardWidget } from '@/services/dashboardService'
 
@@ -91,6 +92,12 @@ export function WidgetSettingsPanel({
         )}
         {widget.type === 'quick_access' && (
           <WidgetSettingsQuickAccess
+            config={widget.config}
+            onChange={(patch) => onUpdateConfig(widget.id, patch)}
+          />
+        )}
+        {widget.type === 'clock' && (
+          <WidgetSettingsClock
             config={widget.config}
             onChange={(patch) => onUpdateConfig(widget.id, patch)}
           />

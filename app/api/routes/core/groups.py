@@ -151,6 +151,89 @@ async def _set_group_roles(group_id: UUID, role_codes: list[str], db: AsyncSessi
     return [(code, valid_roles[code]) for code in role_codes]
 
 
+async def _build_group_detail(
+    group_id: UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+    members_page: int = 1,
+    members_page_size: int = 50,
+) -> GroupDetail:
+    """Shared helper — build GroupDetail from DB. Used by get_group and add_members."""
+    stmt = (
+        select(
+            UserGroup,
+            Installation.name.label("asset_scope_name"),
+            Entity.name.label("entity_name"),
+        )
+        .outerjoin(Installation, Installation.id == UserGroup.asset_scope)
+        .outerjoin(Entity, Entity.id == UserGroup.entity_id)
+        .where(UserGroup.id == group_id, UserGroup.entity_id == entity_id)
+    )
+    result = await db.execute(stmt)
+    row = result.one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    group = row.UserGroup
+
+    # Load roles
+    roles_map = await _load_group_roles([group_id], db)
+    role_pairs = roles_map.get(group_id, [])
+
+    # Count total members
+    member_count_result = await db.execute(
+        select(func.count()).where(UserGroupMember.group_id == group_id)
+    )
+    member_count = member_count_result.scalar() or 0
+
+    # Load paginated members with user info
+    members_offset = (members_page - 1) * members_page_size
+    members_result = await db.execute(
+        select(UserGroupMember, User)
+        .join(User, User.id == UserGroupMember.user_id)
+        .where(UserGroupMember.group_id == group_id)
+        .order_by(User.last_name, User.first_name)
+        .offset(members_offset)
+        .limit(members_page_size)
+    )
+    members = [
+        GroupMemberRead(
+            user_id=m.User.id,
+            first_name=m.User.first_name,
+            last_name=m.User.last_name,
+            email=m.User.email,
+            joined_at=m.UserGroupMember.joined_at.isoformat() if m.UserGroupMember.joined_at else None,
+        )
+        for m in members_result.all()
+    ]
+
+    # Load permission overrides
+    overrides_result = await db.execute(
+        select(GroupPermissionOverride)
+        .where(GroupPermissionOverride.group_id == group_id)
+        .order_by(GroupPermissionOverride.permission_code)
+    )
+    perm_overrides = [
+        PermissionOverrideRead(permission_code=o.permission_code, granted=o.granted)
+        for o in overrides_result.scalars().all()
+    ]
+
+    return GroupDetail(
+        id=group.id,
+        entity_id=group.entity_id,
+        entity_name=row.entity_name,
+        name=group.name,
+        role_codes=[r[0] for r in role_pairs],
+        role_names=[r[1] for r in role_pairs],
+        asset_scope=group.asset_scope,
+        asset_scope_name=row.asset_scope_name,
+        active=group.active,
+        member_count=member_count,
+        members=members,
+        permission_overrides=perm_overrides,
+    )
+
+
 # ── Group endpoints ────────────────────────────────────────────────────────
 
 
@@ -301,78 +384,8 @@ async def get_group(
     db: AsyncSession = Depends(get_db),
 ):
     """Get group detail with paginated members."""
-    stmt = (
-        select(
-            UserGroup,
-            Installation.name.label("asset_scope_name"),
-            Entity.name.label("entity_name"),
-        )
-        .outerjoin(Installation, Installation.id == UserGroup.asset_scope)
-        .outerjoin(Entity, Entity.id == UserGroup.entity_id)
-        .where(UserGroup.id == group_id, UserGroup.entity_id == entity_id)
-    )
-    result = await db.execute(stmt)
-    row = result.one_or_none()
-    if not row:
-        raise HTTPException(status_code=404, detail="Group not found")
-
-    group = row.UserGroup
-
-    # Load roles
-    roles_map = await _load_group_roles([group_id], db)
-    role_pairs = roles_map.get(group_id, [])
-
-    # Count total members
-    member_count_result = await db.execute(
-        select(func.count()).where(UserGroupMember.group_id == group_id)
-    )
-    member_count = member_count_result.scalar() or 0
-
-    # Load paginated members with user info
-    members_offset = (members_page - 1) * members_page_size
-    members_result = await db.execute(
-        select(UserGroupMember, User)
-        .join(User, User.id == UserGroupMember.user_id)
-        .where(UserGroupMember.group_id == group_id)
-        .order_by(User.last_name, User.first_name)
-        .offset(members_offset)
-        .limit(members_page_size)
-    )
-    members = [
-        GroupMemberRead(
-            user_id=m.User.id,
-            first_name=m.User.first_name,
-            last_name=m.User.last_name,
-            email=m.User.email,
-            joined_at=m.UserGroupMember.joined_at.isoformat() if m.UserGroupMember.joined_at else None,
-        )
-        for m in members_result.all()
-    ]
-
-    # Load permission overrides
-    overrides_result = await db.execute(
-        select(GroupPermissionOverride)
-        .where(GroupPermissionOverride.group_id == group_id)
-        .order_by(GroupPermissionOverride.permission_code)
-    )
-    perm_overrides = [
-        PermissionOverrideRead(permission_code=o.permission_code, granted=o.granted)
-        for o in overrides_result.scalars().all()
-    ]
-
-    return GroupDetail(
-        id=group.id,
-        entity_id=group.entity_id,
-        entity_name=row.entity_name,
-        name=group.name,
-        role_codes=[r[0] for r in role_pairs],
-        role_names=[r[1] for r in role_pairs],
-        asset_scope=group.asset_scope,
-        asset_scope_name=row.asset_scope_name,
-        active=group.active,
-        member_count=member_count,
-        members=members,
-        permission_overrides=perm_overrides,
+    return await _build_group_detail(
+        group_id, entity_id, db, members_page, members_page_size
     )
 
 
@@ -480,7 +493,7 @@ async def add_members(
     for user_id in body.user_ids:
         await invalidate_rbac_cache(user_id)
 
-    return await get_group(group_id, entity_id=entity_id, db=db)
+    return await _build_group_detail(group_id, entity_id, db)
 
 
 @router.delete("/{group_id}/members/{user_id}", status_code=204)

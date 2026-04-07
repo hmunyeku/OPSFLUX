@@ -83,7 +83,7 @@ interface WidgetCardProps {
   badge?: number
 }
 
-export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge }: WidgetCardProps) {
+export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _badge }: WidgetCardProps) {
   const { t } = useTranslation()
   // Use config.widget_id (provider ID) for data fetching, fallback to widget.id
   const dataWidgetId = (widget.config?.widget_id as string) || widget.id
@@ -122,53 +122,7 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge }: W
     </>
   )
 
-  const headerBar = (
-    <div className="flex items-center h-9 px-3 border-b flex-shrink-0 gap-2">
-      {mode === 'edit' && (
-        <div
-          {...(dragHandleProps || {})}
-          className={cn('cursor-grab active:cursor-grabbing shrink-0', (dragHandleProps as Record<string, string>)?.className)}
-        >
-          <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
-        </div>
-      )}
-      <WidgetTypeIcon type={widget.type} className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-      <span className="text-xs font-medium truncate flex-1">{widget.title}</span>
-      {badge != null && badge > 0 && (
-        <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold shrink-0">
-          {badge > 99 ? '99+' : badge}
-        </span>
-      )}
-      <span className="text-[10px] text-muted-foreground shrink-0">
-        {formatRelativeTime(dataUpdatedAt)}
-      </span>
-      <button
-        onClick={() => refetch()}
-        className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted transition-colors shrink-0"
-        title={t('common.refresh')}
-      >
-        <RefreshCw className={cn('h-3 w-3 text-muted-foreground', isLoading && 'animate-spin')} />
-      </button>
-      <button
-        onClick={() => setFullscreen(!fullscreen)}
-        className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted transition-colors shrink-0"
-        title={fullscreen ? t('common.minimize') : t('common.fullscreen')}
-      >
-        {fullscreen
-          ? <Minimize2 className="h-3 w-3 text-muted-foreground" />
-          : <Maximize2 className="h-3 w-3 text-muted-foreground" />}
-      </button>
-      {mode === 'edit' && onRemove && (
-        <button
-          onClick={onRemove}
-          className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-destructive/10 transition-colors shrink-0"
-          title={t('common.remove')}
-        >
-          <X className="h-3 w-3 text-muted-foreground" />
-        </button>
-      )}
-    </div>
-  )
+  // headerBar removed — modern card uses inline compact header
 
   // Visual customization from config
   const bgColor = (widget.config?.bg_color as string) || ''

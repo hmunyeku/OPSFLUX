@@ -1162,7 +1162,7 @@ async def update_dashboard_layout(
 @router.post(
     "/dashboard/seed-tabs",
     status_code=201,
-    dependencies=[Depends(require_permission("dashboard.admin"))],
+    dependencies=[require_permission("dashboard.admin")],
 )
 async def seed_mandatory_dashboard_tabs(
     entity_id: UUID = Depends(get_current_entity),

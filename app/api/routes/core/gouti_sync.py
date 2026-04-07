@@ -635,12 +635,40 @@ def _project_matches_filters(gp: dict, filters: dict) -> bool:
         if crit_int not in [int(c) for c in wanted_crit]:
             return False
 
-    # Search (name / ref)
+    # Search — fuzzy multi-word: each word must match at least one searchable field
+    # Searches: project name, ref, description, manager name, category names,
+    # and task names (from Tasks nested objects)
     search = (filters.get("search") or "").strip().lower()
     if search:
-        name = str(gp.get("Name") or "").lower()
-        ref = str(gp.get("Ref") or "").lower()
-        if search not in name and search not in ref:
+        # Build a combined searchable string from all relevant fields
+        parts = [
+            str(gp.get("Name") or ""),
+            str(gp.get("Ref") or ""),
+            str(gp.get("Description") or ""),
+            str((gp.get("Project_manager") or {}).get("name_us") or ""),
+        ]
+        # Category names
+        for cat in (gp.get("Enterprise_categories") or []):
+            if isinstance(cat, dict):
+                parts.append(str(cat.get("name") or ""))
+        # Task names (if Tasks is a dict with nested items)
+        tasks_obj = gp.get("Tasks") or {}
+        if isinstance(tasks_obj, dict):
+            # Gouti sometimes has tasks as a list or keyed by ID
+            task_items = tasks_obj.get("items") or tasks_obj.get("data") or []
+            if isinstance(task_items, list):
+                for task in task_items[:50]:  # limit to avoid perf issues
+                    if isinstance(task, dict):
+                        parts.append(str(task.get("Name") or task.get("name") or ""))
+            elif isinstance(task_items, dict):
+                for task in list(task_items.values())[:50]:
+                    if isinstance(task, dict):
+                        parts.append(str(task.get("Name") or task.get("name") or ""))
+
+        haystack = " ".join(parts).lower()
+        # Each search word must be found somewhere in the haystack
+        words = search.split()
+        if not all(word in haystack for word in words):
             return False
 
     return True

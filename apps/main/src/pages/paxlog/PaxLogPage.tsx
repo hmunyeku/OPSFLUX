@@ -1694,7 +1694,7 @@ function CreateProfilePanel() {
 
   const [userSearch, setUserSearch] = useState('')
   const { data: usersData, isLoading: usersLoading } = useUsers({
-    page: 1, page_size: 20, search: userSearch || undefined,
+    page: 1, page_size: 20, search: userSearch || undefined, active: true,
   })
 
   const handleSubmit = async (e: React.FormEvent) => {

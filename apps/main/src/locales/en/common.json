@@ -2596,24 +2596,33 @@
       "sections": {
         "metadata": "Metadata",
         "template_metadata": "Template metadata",
+        "template_overview": "Template overview",
         "versions": "Versions ({{count}})",
         "new_multilingual_version": "New multilingual version",
         "edit_version": "Edit {{language}} v{{version}}",
         "version": "Version",
         "preview": "Preview",
-        "validation": "Template validation"
+        "validation": "Template validation",
+        "runtime_notes": "Runtime notes"
       },
       "fields": {
         "slug": "Slug",
         "slug_placeholder": "e.g. cargo.lt",
         "object_type": "Object type",
         "page_size": "Page size",
+        "margins": "Margins",
+        "margin_top": "Top margin (mm)",
+        "margin_right": "Right margin (mm)",
+        "margin_bottom": "Bottom margin (mm)",
+        "margin_left": "Left margin (mm)",
         "template_enabled": "Template enabled",
         "language": "Language",
         "use_as_published": "Use this version as the published version"
       },
       "actions": {
         "save_metadata": "Save metadata",
+        "edit_metadata": "Edit metadata",
+        "close_metadata": "Close metadata",
         "delete_template": "Delete template",
         "new_version": "New version",
         "create_version": "Create version",
@@ -2646,6 +2655,12 @@
         "template_deleted": "PDF template deleted",
         "template_delete_error": "Could not delete the template"
       },
+      "confirm": {
+        "delete_template_title": "Delete PDF template",
+        "delete_template_message": "Delete this PDF template and all its versions? This action cannot be undone.",
+        "delete_version_title": "Delete PDF version",
+        "delete_version_message": "Delete this PDF template version?"
+      },
       "not_found": {
         "title": "PDF template not found",
         "load_error": "The requested template could not be loaded.",
@@ -2653,6 +2668,7 @@
       },
       "available_variables": "Available variables: {{variables}}",
       "no_declared_variables": "no declared variables",
+      "no_version_selected": "No version selected",
       "preview_empty": "Run an HTML or PDF preview to verify the template rendering with sample variables.",
       "validation": {
         "valid": "The template is syntactically valid.",
@@ -2661,7 +2677,13 @@
         "empty": "Run validation to verify Jinja syntax, HTML structure, simple CSS, and referenced variables before publishing."
       },
       "version_badges": {
-        "published": "published"
+        "published": "published",
+        "draft": "draft"
+      },
+      "runtime_notes": {
+        "sandbox": "The template runs inside a controlled sandbox: a broken template must never crash the software.",
+        "preview": "HTML preview is useful for quick review, but PDF preview remains the final rendering reference.",
+        "publish": "Publishing is blocked when validation reports blocking errors."
       },
       "object_types": {
         "system": "System",

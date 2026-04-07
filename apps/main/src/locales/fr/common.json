@@ -2600,24 +2600,33 @@
       "sections": {
         "metadata": "Métadonnées",
         "template_metadata": "Métadonnées du modèle",
+        "template_overview": "Vue d’ensemble du modèle",
         "versions": "Versions ({{count}})",
         "new_multilingual_version": "Nouvelle version multilingue",
         "edit_version": "Édition {{language}} v{{version}}",
         "version": "Version",
         "preview": "Prévisualisation",
-        "validation": "Validation du template"
+        "validation": "Validation du template",
+        "runtime_notes": "Notes d’exécution"
       },
       "fields": {
         "slug": "Slug",
         "slug_placeholder": "ex: cargo.lt",
         "object_type": "Type objet",
         "page_size": "Taille page",
+        "margins": "Marges",
+        "margin_top": "Marge haute (mm)",
+        "margin_right": "Marge droite (mm)",
+        "margin_bottom": "Marge basse (mm)",
+        "margin_left": "Marge gauche (mm)",
         "template_enabled": "Modèle activé",
         "language": "Langue",
         "use_as_published": "Utiliser cette version comme version publiée"
       },
       "actions": {
         "save_metadata": "Enregistrer méta",
+        "edit_metadata": "Modifier méta",
+        "close_metadata": "Fermer méta",
         "delete_template": "Supprimer modèle",
         "new_version": "Nouvelle version",
         "create_version": "Créer version",
@@ -2650,6 +2659,12 @@
         "template_deleted": "Modèle PDF supprimé",
         "template_delete_error": "Impossible de supprimer le modèle"
       },
+      "confirm": {
+        "delete_template_title": "Supprimer le modèle PDF",
+        "delete_template_message": "Supprimer ce modèle PDF et toutes ses versions ? Cette action est irréversible.",
+        "delete_version_title": "Supprimer la version PDF",
+        "delete_version_message": "Supprimer cette version du modèle PDF ?"
+      },
       "not_found": {
         "title": "Modèle PDF introuvable",
         "load_error": "Le modèle demandé n'a pas pu être chargé.",
@@ -2657,6 +2672,7 @@
       },
       "available_variables": "Variables disponibles: {{variables}}",
       "no_declared_variables": "aucune variable déclarée",
+      "no_version_selected": "Aucune version sélectionnée",
       "preview_empty": "Lance un aperçu HTML ou PDF pour vérifier le rendu du modèle avec les variables d'exemple.",
       "validation": {
         "valid": "Le template est syntaxiquement valide.",
@@ -2665,7 +2681,13 @@
         "empty": "Lance la validation pour vérifier la syntaxe Jinja, la structure HTML, le CSS simple et les variables référencées avant publication."
       },
       "version_badges": {
-        "published": "publié"
+        "published": "publié",
+        "draft": "brouillon"
+      },
+      "runtime_notes": {
+        "sandbox": "Le template s’exécute dans une sandbox contrôlée : une erreur de template ne doit jamais faire tomber le logiciel.",
+        "preview": "L’aperçu HTML aide à relire rapidement, mais l’aperçu PDF reste la référence finale de rendu.",
+        "publish": "La publication est bloquée si la validation remonte des erreurs bloquantes."
       },
       "object_types": {
         "system": "Système",

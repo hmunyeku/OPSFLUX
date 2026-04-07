@@ -3,7 +3,9 @@ import {
   AlignCenter,
   AlignLeft,
   Bold,
+  Check,
   Code2,
+  Copy,
   Eye,
   FileOutput,
   Heading2,
@@ -14,6 +16,7 @@ import {
   ListOrdered,
   Loader2,
   Pencil,
+  Play,
   Plus,
   Redo2,
   Save,
@@ -21,14 +24,14 @@ import {
   Type,
   Underline,
   Undo2,
-  Upload,
+  X,
   Variable,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
-import { usePromptInput } from '@/components/ui/ConfirmDialog'
+import { useConfirm, usePromptInput } from '@/components/ui/ConfirmDialog'
 import {
   DynamicPanelShell,
   DynamicPanelField,
@@ -296,6 +299,15 @@ function ToolbarSep() {
   return <div className="w-px h-4 bg-border/60 mx-0.5" />
 }
 
+function SummaryCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm text-foreground">{value}</p>
+    </div>
+  )
+}
+
 function CreatePdfTemplatePanel() {
   const { t } = useTranslation()
   const { toast } = useToast()
@@ -411,6 +423,7 @@ function CreatePdfTemplatePanel() {
 function EditPdfTemplateInner({ templateId }: { templateId: string }) {
   const { t } = useTranslation()
   const { toast } = useToast()
+  const confirm = useConfirm()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { data: template, isLoading } = usePdfTemplate(templateId)
   const updateTemplate = useUpdatePdfTemplate()
@@ -454,6 +467,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
   const [activeEditor, setActiveEditor] = useState<'body' | 'header' | 'footer'>('body')
   const [previewHtml, setPreviewHtml] = useState<string | null>(null)
   const [validationResult, setValidationResult] = useState<PdfTemplateValidationResult | null>(null)
+  const [showMetadataEdit, setShowMetadataEdit] = useState(false)
 
   useEffect(() => {
     if (!template) return
@@ -518,6 +532,11 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
     value,
     label: t(`settings.pdf_templates_editor.languages.${value}`),
   }))
+  const pageFormatLabel = `${metaForm.page_size} · ${t(`settings.pdf_templates_editor.orientation.${metaForm.orientation}`)}`
+  const marginsLabel = `${metaForm.margin_top}/${metaForm.margin_right}/${metaForm.margin_bottom}/${metaForm.margin_left} mm`
+  const selectedVersionLabel = selectedVersion
+    ? `${selectedVersion.language.toUpperCase()} v${selectedVersion.version_number}`
+    : t('settings.pdf_templates_editor.no_version_selected')
 
   const handleSaveMeta = async () => {
     try {
@@ -535,6 +554,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
         margin_left: metaForm.margin_left,
       })
       toast({ title: t('settings.pdf_templates_editor.toasts.metadata_updated'), variant: 'success' })
+      setShowMetadataEdit(false)
     } catch {
       toast({ title: t('settings.pdf_templates_editor.toasts.template_error'), variant: 'error' })
     }
@@ -640,6 +660,13 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
   }
 
   const handleDeleteVersion = async (version: PdfTemplateVersion) => {
+    const ok = await confirm({
+      title: t('settings.pdf_templates_editor.confirm.delete_version_title'),
+      message: t('settings.pdf_templates_editor.confirm.delete_version_message'),
+      confirmLabel: t('common.delete'),
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await deleteVersion.mutateAsync({ templateId, versionId: version.id })
       if (selectedVersionId === version.id) {
@@ -653,6 +680,13 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
   }
 
   const handleDeleteTemplate = async () => {
+    const ok = await confirm({
+      title: t('settings.pdf_templates_editor.confirm.delete_template_title'),
+      message: t('settings.pdf_templates_editor.confirm.delete_template_message'),
+      confirmLabel: t('common.delete'),
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await deleteTemplate.mutateAsync(templateId)
       toast({ title: t('settings.pdf_templates_editor.toasts.template_deleted'), variant: 'success' })
@@ -687,8 +721,8 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
       icon={<FileOutput size={14} className="text-primary" />}
       actions={
         <>
-          <PanelActionButton onClick={handleSaveMeta} disabled={updateTemplate.isPending} icon={<Save size={12} />}>
-            {t('settings.pdf_templates_editor.actions.save_metadata')}
+          <PanelActionButton onClick={() => setShowMetadataEdit((current) => !current)} icon={showMetadataEdit ? <X size={12} /> : <Pencil size={12} />}>
+            {showMetadataEdit ? t('settings.pdf_templates_editor.actions.close_metadata') : t('settings.pdf_templates_editor.actions.edit_metadata')}
           </PanelActionButton>
           <PanelActionButton onClick={handleDeleteTemplate} disabled={deleteTemplate.isPending} icon={<Trash2 size={12} />}>
             {t('settings.pdf_templates_editor.actions.delete_template')}
@@ -697,62 +731,122 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
       }
     >
       <div className="space-y-5">
-        <FormSection title={t('settings.pdf_templates_editor.sections.template_metadata')}>
-          <FormGrid>
-            <DynamicPanelField label={t('settings.pdf_templates_editor.fields.slug')}>
-              <input type="text" value={template.slug} disabled className={`${panelInputClass} font-mono bg-muted/40`} />
-            </DynamicPanelField>
-            <DynamicPanelField label={t('common.name')}>
-              <input type="text" value={metaForm.name} onChange={(e) => setMetaForm((current) => ({ ...current, name: e.target.value }))} className={panelInputClass} />
-            </DynamicPanelField>
-            <DynamicPanelField label={t('settings.pdf_templates_editor.fields.object_type')}>
-              <select className="gl-form-select" value={metaForm.object_type} onChange={(e) => setMetaForm((current) => ({ ...current, object_type: e.target.value }))}>
-                {objectTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-            </DynamicPanelField>
-            <DynamicPanelField label={t('settings.pdf_templates_editor.fields.page_size')}>
-              <select className="gl-form-select" value={metaForm.page_size} onChange={(e) => setMetaForm((current) => ({ ...current, page_size: e.target.value }))}>
-                {PAGE_SIZE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </DynamicPanelField>
-            <DynamicPanelField label={t('common.orientation')}>
-              <select className="gl-form-select" value={metaForm.orientation} onChange={(e) => setMetaForm((current) => ({ ...current, orientation: e.target.value }))}>
-                {ORIENTATION_OPTIONS.map((option) => <option key={option} value={option}>{t(`settings.pdf_templates_editor.orientation.${option}`)}</option>)}
-              </select>
-            </DynamicPanelField>
-            <DynamicPanelField label={t('common.active')}>
-              <label className="inline-flex items-center gap-2 text-xs">
-                <input type="checkbox" checked={metaForm.enabled} onChange={(e) => setMetaForm((current) => ({ ...current, enabled: e.target.checked }))} />
-                {t('settings.pdf_templates_editor.fields.template_enabled')}
-              </label>
-            </DynamicPanelField>
-            <DynamicPanelField label={t('common.description')} span="full">
-              <textarea value={metaForm.description} onChange={(e) => setMetaForm((current) => ({ ...current, description: e.target.value }))} className={`${panelInputClass} min-h-[72px]`} />
-            </DynamicPanelField>
-          </FormGrid>
+        <FormSection title={t('settings.pdf_templates_editor.sections.template_overview')}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+            <SummaryCard label={t('settings.pdf_templates_editor.fields.slug')} value={template.slug} />
+            <SummaryCard label={t('settings.pdf_templates_editor.fields.object_type')} value={objectTypeOptions.find((option) => option.value === metaForm.object_type)?.label ?? metaForm.object_type} />
+            <SummaryCard label={t('settings.pdf_templates_editor.fields.page_size')} value={pageFormatLabel} />
+            <SummaryCard label={t('settings.pdf_templates_editor.fields.margins')} value={marginsLabel} />
+          </div>
+          <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={cn(
+                'inline-flex items-center gap-1 rounded-full px-2 py-0.5',
+                metaForm.enabled ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-muted text-muted-foreground',
+              )}>
+                {metaForm.enabled ? <Check size={11} /> : <X size={11} />}
+                {metaForm.enabled ? t('common.active') : t('common.inactive')}
+              </span>
+              <span>{selectedVersionLabel}</span>
+            </div>
+            {metaForm.description && <p className="mt-2">{metaForm.description}</p>}
+          </div>
         </FormSection>
+
+        {showMetadataEdit && (
+          <FormSection title={t('settings.pdf_templates_editor.sections.template_metadata')}>
+            <FormGrid>
+              <DynamicPanelField label={t('settings.pdf_templates_editor.fields.slug')}>
+                <input type="text" value={template.slug} disabled className={`${panelInputClass} font-mono bg-muted/40`} />
+              </DynamicPanelField>
+              <DynamicPanelField label={t('common.name')}>
+                <input type="text" value={metaForm.name} onChange={(e) => setMetaForm((current) => ({ ...current, name: e.target.value }))} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label={t('settings.pdf_templates_editor.fields.object_type')}>
+                <select className="gl-form-select" value={metaForm.object_type} onChange={(e) => setMetaForm((current) => ({ ...current, object_type: e.target.value }))}>
+                  {objectTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label={t('settings.pdf_templates_editor.fields.page_size')}>
+                <select className="gl-form-select" value={metaForm.page_size} onChange={(e) => setMetaForm((current) => ({ ...current, page_size: e.target.value }))}>
+                  {PAGE_SIZE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label={t('common.orientation')}>
+                <select className="gl-form-select" value={metaForm.orientation} onChange={(e) => setMetaForm((current) => ({ ...current, orientation: e.target.value }))}>
+                  {ORIENTATION_OPTIONS.map((option) => <option key={option} value={option}>{t(`settings.pdf_templates_editor.orientation.${option}`)}</option>)}
+                </select>
+              </DynamicPanelField>
+              <DynamicPanelField label={t('common.active')}>
+                <label className="inline-flex items-center gap-2 text-xs">
+                  <input type="checkbox" checked={metaForm.enabled} onChange={(e) => setMetaForm((current) => ({ ...current, enabled: e.target.checked }))} />
+                  {t('settings.pdf_templates_editor.fields.template_enabled')}
+                </label>
+              </DynamicPanelField>
+              <DynamicPanelField label={t('settings.pdf_templates_editor.fields.margin_top')}>
+                <input type="number" value={metaForm.margin_top} onChange={(e) => setMetaForm((current) => ({ ...current, margin_top: Number(e.target.value) || 0 }))} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label={t('settings.pdf_templates_editor.fields.margin_right')}>
+                <input type="number" value={metaForm.margin_right} onChange={(e) => setMetaForm((current) => ({ ...current, margin_right: Number(e.target.value) || 0 }))} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label={t('settings.pdf_templates_editor.fields.margin_bottom')}>
+                <input type="number" value={metaForm.margin_bottom} onChange={(e) => setMetaForm((current) => ({ ...current, margin_bottom: Number(e.target.value) || 0 }))} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label={t('settings.pdf_templates_editor.fields.margin_left')}>
+                <input type="number" value={metaForm.margin_left} onChange={(e) => setMetaForm((current) => ({ ...current, margin_left: Number(e.target.value) || 0 }))} className={panelInputClass} />
+              </DynamicPanelField>
+              <DynamicPanelField label={t('common.description')} span="full">
+                <textarea value={metaForm.description} onChange={(e) => setMetaForm((current) => ({ ...current, description: e.target.value }))} className={`${panelInputClass} min-h-[72px]`} />
+              </DynamicPanelField>
+            </FormGrid>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <PanelActionButton onClick={handleSaveMeta} disabled={updateTemplate.isPending} icon={<Save size={12} />}>
+                {t('settings.pdf_templates_editor.actions.save_metadata')}
+              </PanelActionButton>
+              <PanelActionButton onClick={() => setShowMetadataEdit(false)}>
+                {t('common.cancel')}
+              </PanelActionButton>
+            </div>
+          </FormSection>
+        )}
+
         <FormSection title={t('settings.pdf_templates_editor.sections.versions', { count: versions.length })}>
           <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {versions.map((version) => (
                 <button
                   key={version.id}
                   type="button"
                   onClick={() => setSelectedVersionId(version.id)}
                   className={cn(
-                    'rounded-md border px-3 py-2 text-left text-xs',
+                    'rounded-lg border px-3 py-3 text-left text-xs transition-colors',
                     selectedVersionId === version.id && !isCreatingVersion
                       ? 'border-primary bg-primary/5 text-foreground'
                       : 'border-border/60 bg-card text-muted-foreground',
                   )}
                 >
-                  <div className="flex items-center gap-1.5">
-                    <Languages size={12} />
-                    {version.language.toUpperCase()} v{version.version_number}
-                    {version.is_published ? ` · ${t('settings.pdf_templates_editor.version_badges.published')}` : ''}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <Languages size={12} />
+                        <span className="font-medium">{version.language.toUpperCase()} v{version.version_number}</span>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {version.is_published
+                          ? t('settings.pdf_templates_editor.version_badges.published')
+                          : t('settings.pdf_templates_editor.version_badges.draft')}
+                      </div>
+                    </div>
+                    {version.is_published && (
+                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                        {t('common.publish')}
+                      </span>
+                    )}
                   </div>
                 </button>
               ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => startNewVersion()}
@@ -779,7 +873,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
                   className="rounded-md border border-border/70 px-3 py-2 text-xs text-muted-foreground"
                 >
                   <span className="inline-flex items-center gap-1.5">
-                    <Languages size={12} />
+                    <Copy size={12} />
                     {t('common.clone')}
                   </span>
                 </button>
@@ -794,12 +888,13 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
           </div>
         </FormSection>
 
-        <FormSection title={isCreatingVersion
-          ? t('settings.pdf_templates_editor.sections.new_multilingual_version')
-          : selectedVersion
-            ? t('settings.pdf_templates_editor.sections.edit_version', { language: selectedVersion.language.toUpperCase(), version: selectedVersion.version_number })
-            : t('settings.pdf_templates_editor.sections.version')}>
-          <div className="space-y-4">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.95fr)] gap-5">
+          <FormSection title={isCreatingVersion
+            ? t('settings.pdf_templates_editor.sections.new_multilingual_version')
+            : selectedVersion
+              ? t('settings.pdf_templates_editor.sections.edit_version', { language: selectedVersion.language.toUpperCase(), version: selectedVersion.version_number })
+              : t('settings.pdf_templates_editor.sections.version')}>
+            <div className="space-y-4">
             <FormGrid>
               <DynamicPanelField label={t('settings.pdf_templates_editor.fields.language')}>
                 <select value={versionForm.language} onChange={(e) => setVersionForm((current) => ({ ...current, language: e.target.value }))} className="gl-form-select" disabled={!isCreatingVersion && !!selectedVersion}>
@@ -872,7 +967,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
               </PanelActionButton>
               {selectedVersion && (
                 <>
-                  <PanelActionButton onClick={() => handlePublish(selectedVersion)} disabled={publishVersion.isPending} icon={<Upload size={12} />}>
+                  <PanelActionButton onClick={() => handlePublish(selectedVersion)} disabled={publishVersion.isPending} icon={<Play size={12} />}>
                     {t('common.publish')}
                   </PanelActionButton>
                   <PanelActionButton onClick={() => handleDeleteVersion(selectedVersion)} disabled={deleteVersion.isPending} icon={<Trash2 size={12} />}>
@@ -887,54 +982,64 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
                 {t('settings.pdf_templates_editor.actions.preview_pdf')}
               </PanelActionButton>
             </div>
-          </div>
-        </FormSection>
+            </div>
+          </FormSection>
 
-        <FormSection title={t('settings.pdf_templates_editor.sections.preview')}>
-          {previewHtml ? (
-            <div className="rounded-lg border border-border/60 bg-white overflow-hidden">
-              <iframe title="PDF template HTML preview" srcDoc={previewHtml} className="h-[420px] w-full bg-white" />
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-xs text-muted-foreground">
-              {t('settings.pdf_templates_editor.preview_empty')}
-            </div>
-          )}
-        </FormSection>
-        <FormSection title={t('settings.pdf_templates_editor.sections.validation')}>
-          {validationResult ? (
-            <div className="space-y-3">
-              <div className={cn(
-                'rounded-lg border px-3 py-2 text-xs',
-                validationResult.valid ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-900',
-              )}>
-                {validationResult.valid ? t('settings.pdf_templates_editor.validation.valid') : t('settings.pdf_templates_editor.validation.invalid')}
-              </div>
-              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                {t('settings.pdf_templates_editor.validation.referenced_variables', {
-                  variables: validationResult.referenced_variables.join(', ') || t('common.none'),
-                })}
-              </div>
-              {validationResult.issues.length > 0 && (
-                <div className="space-y-2">
-                  {validationResult.issues.map((issue, index) => (
-                    <div key={`${issue.area}-${index}`} className={cn(
-                      'rounded-lg border px-3 py-2 text-xs',
-                      issue.level === 'error' ? 'border-red-200 bg-red-50 text-red-800' : 'border-amber-200 bg-amber-50 text-amber-900',
-                    )}>
-                      <div className="font-medium uppercase tracking-wide">{issue.level} · {issue.area}</div>
-                      <div className="mt-1">{issue.message}</div>
-                    </div>
-                  ))}
+          <div className="space-y-5">
+            <FormSection title={t('settings.pdf_templates_editor.sections.preview')}>
+              {previewHtml ? (
+                <div className="rounded-lg border border-border/60 bg-white overflow-hidden">
+                  <iframe title="PDF template HTML preview" srcDoc={previewHtml} className="h-[420px] w-full bg-white" />
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-xs text-muted-foreground">
+                  {t('settings.pdf_templates_editor.preview_empty')}
                 </div>
               )}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-xs text-muted-foreground">
-              {t('settings.pdf_templates_editor.validation.empty')}
-            </div>
-          )}
-        </FormSection>
+            </FormSection>
+            <FormSection title={t('settings.pdf_templates_editor.sections.validation')}>
+              {validationResult ? (
+                <div className="space-y-3">
+                  <div className={cn(
+                    'rounded-lg border px-3 py-2 text-xs',
+                    validationResult.valid ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-900',
+                  )}>
+                    {validationResult.valid ? t('settings.pdf_templates_editor.validation.valid') : t('settings.pdf_templates_editor.validation.invalid')}
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    {t('settings.pdf_templates_editor.validation.referenced_variables', {
+                      variables: validationResult.referenced_variables.join(', ') || t('common.none'),
+                    })}
+                  </div>
+                  {validationResult.issues.length > 0 && (
+                    <div className="space-y-2">
+                      {validationResult.issues.map((issue, index) => (
+                        <div key={`${issue.area}-${index}`} className={cn(
+                          'rounded-lg border px-3 py-2 text-xs',
+                          issue.level === 'error' ? 'border-red-200 bg-red-50 text-red-800' : 'border-amber-200 bg-amber-50 text-amber-900',
+                        )}>
+                          <div className="font-medium uppercase tracking-wide">{issue.level} · {issue.area}</div>
+                          <div className="mt-1">{issue.message}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-xs text-muted-foreground">
+                  {t('settings.pdf_templates_editor.validation.empty')}
+                </div>
+              )}
+            </FormSection>
+            <FormSection title={t('settings.pdf_templates_editor.sections.runtime_notes')}>
+              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3 text-xs text-muted-foreground space-y-2">
+                <p>{t('settings.pdf_templates_editor.runtime_notes.sandbox')}</p>
+                <p>{t('settings.pdf_templates_editor.runtime_notes.preview')}</p>
+                <p>{t('settings.pdf_templates_editor.runtime_notes.publish')}</p>
+              </div>
+            </FormSection>
+          </div>
+        </div>
       </div>
     </DynamicPanelShell>
   )

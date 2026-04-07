@@ -3,6 +3,7 @@
  *
  * Uses @dnd-kit for drag-and-drop repositioning in edit mode.
  * Resize handle in bottom-right corner (edit mode only).
+ * Widgets prop is guarded with Array.isArray to prevent .map() crash.
  * Positions stored as { x, y, w, h } in widget objects.
  */
 import { useState, useCallback, useRef, useEffect } from 'react'

@@ -41,6 +41,7 @@ import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+import { ActivityPicker } from '@/components/shared/ActivityPicker'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useToast } from '@/components/ui/Toast'
@@ -1610,17 +1611,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
   // Dependency add form
   const [depForm, setDepForm] = useState({ predecessor_id: '', dependency_type: 'FS', lag_days: 0 })
   const [showDepAdd, setShowDepAdd] = useState(false)
-  const [depSearch, setDepSearch] = useState('')
-  const debouncedDepSearch = useDebounce(depSearch, 250)
-  const { data: depSearchResults } = useActivities({
-    page: 1,
-    page_size: 15,
-    search: debouncedDepSearch || undefined,
-  })
-  const [showDepDropdown, setShowDepDropdown] = useState(false)
-  const depCandidates = useMemo(() => {
-    return (depSearchResults?.items ?? []).filter(a => a.id !== id)
-  }, [depSearchResults, id])
+  // (ActivityPicker handles search/dropdown internally)
 
   // Impact modal
   const [showImpact, setShowImpact] = useState(false)
@@ -2202,47 +2193,12 @@ function ActivityDetailPanel({ id }: { id: string }) {
               {showDepAdd ? (
                 <div className="mt-3 space-y-2 p-2.5 rounded-lg border border-border bg-background-subtle">
                   <div className="grid grid-cols-1 gap-2">
-                    <div className="relative">
-                      <label className="text-xs font-medium text-muted-foreground">Activité prédécesseur</label>
-                      <input
-                        type="text"
-                        value={depSearch}
-                        onChange={(e) => { setDepSearch(e.target.value); setShowDepDropdown(true); setDepForm({ ...depForm, predecessor_id: '' }) }}
-                        onFocus={() => setShowDepDropdown(true)}
-                        className={panelInputClass}
-                        placeholder="Rechercher une activite..."
-                      />
-                      {depForm.predecessor_id && (
-                        <div className="mt-1 text-[10px] text-primary font-medium truncate">
-                          ✓ {depCandidates.find(a => a.id === depForm.predecessor_id)?.title || depForm.predecessor_id.slice(0, 8)}
-                        </div>
-                      )}
-                      {showDepDropdown && depSearch.length > 0 && depCandidates.length > 0 && (
-                        <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-[180px] overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
-                          {depCandidates.map(a => (
-                            <button
-                              key={a.id}
-                              type="button"
-                              className="w-full text-left px-3 py-2 text-xs hover:bg-muted/50 flex items-center gap-2 border-b border-border/30 last:border-0"
-                              onClick={() => {
-                                setDepForm({ ...depForm, predecessor_id: a.id })
-                                setDepSearch(a.title)
-                                setShowDepDropdown(false)
-                              }}
-                            >
-                              <span className="font-medium text-foreground truncate flex-1">{a.title}</span>
-                              <span className="text-muted-foreground shrink-0">{a.type}</span>
-                              <span className="text-muted-foreground shrink-0">{a.status}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {showDepDropdown && depSearch.length > 0 && depCandidates.length === 0 && (
-                        <div className="absolute z-50 left-0 right-0 top-full mt-1 rounded-lg border border-border bg-card shadow-lg p-3 text-xs text-muted-foreground text-center">
-                          Aucune activite trouvee
-                        </div>
-                      )}
-                    </div>
+                    <ActivityPicker
+                      value={depForm.predecessor_id || null}
+                      onChange={(actId) => setDepForm({ ...depForm, predecessor_id: actId || '' })}
+                      excludeId={id}
+                      label="Activité prédécesseur"
+                    />
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="text-xs font-medium text-muted-foreground">Type</label>

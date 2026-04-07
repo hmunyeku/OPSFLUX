@@ -46,6 +46,8 @@ import { useAuditLog } from '@/hooks/useSettings'
 import { DashboardGrid } from '@/components/dashboard/DashboardGrid'
 import { DashboardEditorLayout } from '@/components/dashboard/DashboardEditorLayout'
 import type { DashboardEditorHandle } from '@/components/dashboard/DashboardEditorLayout'
+import { DashboardFilterProvider } from '@/components/dashboard/DashboardFilterContext'
+import { DashboardFilterBar } from '@/components/dashboard/DashboardFilterBar'
 import type { DashboardWidget, DashboardTab, UserDashboardTab } from '@/services/dashboardService'
 
 // ── Relative time formatting ──────────────────────────────────
@@ -381,7 +383,9 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Content area */}
+      {/* Content area — wrapped in filter context for cross-filtering */}
+      <DashboardFilterProvider>
+      <DashboardFilterBar />
       <PanelContent className="p-4">
         {/* Loading state — show while fetching tabs */}
         {tabsLoading && (
@@ -580,6 +584,7 @@ export function DashboardPage() {
           onExitEdit={() => setEditMode(false)}
         />
       )}
+      </DashboardFilterProvider>
     </div>
   )
 }

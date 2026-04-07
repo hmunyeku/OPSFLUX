@@ -71,6 +71,17 @@ export function WidgetSettingsChart({ config, onChange }: WidgetSettingsChartPro
           <span className="text-sm text-foreground">Afficher la legende</span>
         </label>
       </DynamicPanelField>
+      <DynamicPanelField label="Filtrage croise">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            className="gl-checkbox"
+            checked={config.cross_filter !== false}
+            onChange={(e) => onChange({ cross_filter: e.target.checked })}
+          />
+          <span className="text-xs text-foreground">Clic sur element = filtre global</span>
+        </label>
+      </DynamicPanelField>
     </FormSection>
   )
 }

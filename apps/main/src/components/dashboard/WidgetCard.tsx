@@ -5,7 +5,7 @@
  * Content is delegated to WidgetRenderer which picks the right sub-component
  * based on widget.type (kpi, chart, table, map, text).
  */
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import L from 'leaflet'
 import {
@@ -89,12 +89,14 @@ interface WidgetCardProps {
 
 export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _badge }: WidgetCardProps) {
   useTranslation() // keep hook call for consistency
+  const { filterParams } = useDashboardFilters()
   // Use config.widget_id (provider ID) for data fetching, fallback to widget.id
   const dataWidgetId = (widget.config?.widget_id as string) || widget.id
   const { data, error, refetch, dataUpdatedAt, isLoading } = useWidgetData(
     dataWidgetId,
     widget.type,
     widget.config,
+    filterParams,
   )
 
   // Fullscreen persisted in user preferences
@@ -256,9 +258,9 @@ function WidgetRenderer({
     case 'kpi':
       return <KPIWidget config={widget.config} data={data} meta={meta} />
     case 'chart':
-      return <ChartWidget config={widget.config} data={data} />
+      return <ChartWidget widgetId={widget.id} config={widget.config} data={data} />
     case 'table':
-      return <TableWidget config={widget.config} data={data} />
+      return <TableWidget widgetId={widget.id} config={widget.config} data={data} />
     case 'map':
       return <MapWidget config={widget.config} data={data} />
     case 'text':
@@ -514,15 +516,20 @@ function GroupChildTile({ child }: { child: GroupChild }) {
 // ── Chart Widget ────────────────────────────────────────────────
 
 function ChartWidget({
+  widgetId,
   config,
   data,
 }: {
+  widgetId: string
   config: Record<string, unknown>
   data: unknown[]
 }) {
+  const { toggleFilter } = useDashboardFilters()
   const chartType = (config.chart_type as string) || 'bar'
   const xField = (config.x_field as string) || 'name'
   const yFields = (config.y_fields as string[]) || ['value']
+  const crossFilterEnabled = config.cross_filter !== false
+
   // Provider may return {data: [...], series: [...]} or a flat array
   const firstItem = data?.[0] as Record<string, unknown> | undefined
   const chartData = (firstItem && Array.isArray(firstItem.data))
@@ -536,6 +543,15 @@ function ChartWidget({
     ? (chartType as ChartType)
     : 'bar'
 
+  // Cross-filter: click on chart element → toggle filter
+  const handleChartClick = useCallback((params: Record<string, unknown>) => {
+    if (!crossFilterEnabled) return
+    const name = params.name as string
+    if (name) {
+      toggleFilter({ field: xField, value: name, source: widgetId, label: xField.replace(/_/g, ' ') })
+    }
+  }, [crossFilterEnabled, xField, widgetId, toggleFilter])
+
   return (
     <EChartsWidget
       chartType={resolvedType}
@@ -543,6 +559,7 @@ function ChartWidget({
       xField={xField}
       yFields={yFields}
       height="100%"
+      onChartClick={handleChartClick}
     />
   )
 }
@@ -550,12 +567,17 @@ function ChartWidget({
 // ── Table Widget ────────────────────────────────────────────────
 
 function TableWidget({
+  widgetId,
   config,
   data: rawData,
 }: {
+  widgetId: string
   config: Record<string, unknown>
   data: unknown[]
 }) {
+  const { toggleFilter, isFilterActive } = useDashboardFilters()
+  const crossFilterEnabled = config.cross_filter !== false
+
   // Provider may return {columns, rows} or a flat array of row objects
   const providerData = rawData?.[0] as Record<string, unknown> | undefined
   const hasProviderShape = providerData && Array.isArray(providerData.rows)
@@ -568,12 +590,36 @@ function TableWidget({
   const pageSize = (config.page_size as number) || 10
   const [page, setPage] = useState(0)
 
+  // Hidden columns from config
+  const hiddenColumns = (config.hidden_columns as string[]) || []
+
   // Auto-detect columns from first row if not configured
-  const effectiveColumns = columns.length > 0
+  const allColumns = columns.length > 0
     ? columns
     : rows.length > 0
-      ? Object.keys(rows[0]).slice(0, 6).map((key) => ({ key, label: key }))
+      ? Object.keys(rows[0]).slice(0, 12).map((key) => ({ key, label: key }))
       : []
+
+  // Store available column keys in config for the settings panel column picker
+  const availableColKeys = allColumns.map((c) => c.key)
+  const prevAvailable = (config._available_columns as string[]) || []
+  useEffect(() => {
+    if (availableColKeys.length > 0 && JSON.stringify(availableColKeys) !== JSON.stringify(prevAvailable)) {
+      // Silently patch config — this is read-only metadata for the settings panel
+      ;(config as Record<string, unknown>)._available_columns = availableColKeys
+    }
+  }, [availableColKeys, prevAvailable, config])
+
+  // Apply column visibility filter
+  const effectiveColumns = hiddenColumns.length > 0
+    ? allColumns.filter((c) => !hiddenColumns.includes(c.key))
+    : allColumns
+
+  // Click handler for cross-filtering
+  const handleCellClick = (key: string, value: unknown) => {
+    if (!crossFilterEnabled || value == null) return
+    toggleFilter({ field: key, value, source: widgetId, label: key.replace(/_/g, ' ') })
+  }
 
   // ── Smart cell rendering ──
 
@@ -715,11 +761,23 @@ function TableWidget({
                 'transition-colors hover:bg-primary/[0.03] border-b border-border/20',
                 rowIdx % 2 === 1 && 'bg-muted/15',
               )}>
-                {effectiveColumns.map((col, colIdx) => (
-                  <td key={col.key} className="px-2.5 py-2 whitespace-nowrap max-w-[220px]">
-                    {renderCell(row[col.key], col.key, colIdx)}
-                  </td>
-                ))}
+                {effectiveColumns.map((col, colIdx) => {
+                  const cellValue = row[col.key]
+                  const isActive = isFilterActive(col.key, cellValue)
+                  return (
+                    <td
+                      key={col.key}
+                      className={cn(
+                        'px-2.5 py-2 whitespace-nowrap max-w-[220px]',
+                        crossFilterEnabled && 'cursor-pointer hover:bg-primary/5',
+                        isActive && 'bg-primary/10 ring-1 ring-inset ring-primary/30',
+                      )}
+                      onClick={() => handleCellClick(col.key, cellValue)}
+                    >
+                      {renderCell(cellValue, col.key, colIdx)}
+                    </td>
+                  )
+                })}
               </tr>
             ))}
           </tbody>

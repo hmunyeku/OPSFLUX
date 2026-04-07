@@ -15,6 +15,8 @@ export interface EChartsWidgetProps {
   yFields?: string[]
   title?: string
   height?: number | string
+  /** Click handler for cross-filtering — receives ECharts event params */
+  onChartClick?: (params: Record<string, unknown>) => void
 }
 
 // OpsFlux design-system palette — rich, distinct, high-contrast
@@ -62,6 +64,7 @@ export function EChartsWidget({
   yFields = ['value'],
   title,
   height = '100%',
+  onChartClick,
 }: EChartsWidgetProps) {
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme)
   const isDark = resolvedTheme === 'dark'
@@ -352,6 +355,7 @@ export function EChartsWidget({
       opts={{ renderer: 'canvas' }}
       notMerge
       lazyUpdate
+      onEvents={onChartClick ? { click: onChartClick } : undefined}
     />
   )
 }

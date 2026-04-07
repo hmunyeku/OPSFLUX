@@ -73,17 +73,9 @@ export function DashboardCanvas({
     return { lg: lgLayout, md: lgLayout, sm: lgLayout, xs: lgLayout, xxs: lgLayout }
   }, [widgets])
 
-  // Guard: skip the first layout change (mount) to preserve saved positions
-  const isFirstLayoutChange = useRef(true)
-
   // When layout changes (drag or resize), sync positions back to widgets
   const handleLayoutChange = useCallback(
     (currentLayout: Layout, _allLayouts: ResponsiveLayouts) => {
-      // Skip the initial mount layout change — react-grid-layout compacts on first render
-      if (isFirstLayoutChange.current) {
-        isFirstLayoutChange.current = false
-        return
-      }
       for (const item of currentLayout) {
         const widget = widgets.find((w) => w.id === item.i)
         if (!widget) continue

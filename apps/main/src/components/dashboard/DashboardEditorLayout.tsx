@@ -83,7 +83,7 @@ export const DashboardEditorLayout = forwardRef<DashboardEditorHandle, Dashboard
 
   return (
     <div className="relative flex-1 h-full overflow-hidden" onClick={handleCanvasBackgroundClick}>
-      {/* Full-width Canvas — always takes 100% */}
+      {/* Full-width Canvas */}
       <DashboardCanvas
         widgets={editor.widgets}
         selectedWidgetId={editor.selectedWidgetId}

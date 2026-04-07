@@ -357,18 +357,17 @@ function KPIWidget({
   const TrendIcon = trend === null ? null : trendUp ? TrendingUp : trendDown ? TrendingDown : Minus
   const trendColor = trend === null ? 'text-muted-foreground' : trendUp ? 'text-emerald-600' : trendDown ? 'text-red-500' : 'text-muted-foreground'
 
-  // Sparkline
-  // Sparkline: use data from meta/config, or generate a simple pattern from the value
+  // Sparkline: use data from meta/config, or always generate a pattern
   const rawSparkline = (meta?.sparkline as number[]) || (config.sparkline as number[]) || null
-  const sparklineData = rawSparkline || (numValue > 0 ? (() => {
-    // Generate 8-point smooth sparkline based on value seed
-    const seed = numValue % 17 + 3
+  const sparklineData = rawSparkline || (() => {
+    // Always generate sparkline — even for 0 values, show a subtle variation
+    const base = Math.max(numValue, 1)
+    const seed = (numValue * 7 + 13) % 19 + 2
     return Array.from({ length: 8 }, (_, i) => {
-      const base = numValue * 0.7
-      const wave = Math.sin(i * 0.8 + seed) * numValue * 0.2
-      return Math.max(0, Math.round(base + wave + i * numValue * 0.04))
+      const wave = Math.sin(i * 0.9 + seed) * base * 0.25
+      return Math.max(0, Math.round(base * 0.8 + wave + i * base * 0.03))
     })
-  })() : null)
+  })()
   const sparklineColor = trend === null ? '#3b82f6' : trendUp ? '#10b981' : trendDown ? '#ef4444' : '#94a3b8'
 
   // Details

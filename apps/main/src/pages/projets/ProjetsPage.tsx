@@ -285,23 +285,59 @@ function GoutiTaskTree({
   const disabled = taskMode !== 'some' || !included
   const selectedSet = useMemo(() => new Set(selectedTaskIds), [selectedTaskIds])
 
+  // Collect all non-macro leaf descendants of a macro task
+  const getLeafDescendants = useCallback((parentId: string): string[] => {
+    const children = childrenOf.get(parentId) || []
+    if (children.length === 0) return []
+    const leaves: string[] = []
+    for (const child of children) {
+      if (!child.is_macro) leaves.push(child.gouti_id)
+      leaves.push(...getLeafDescendants(child.gouti_id))
+    }
+    return leaves
+  }, [childrenOf])
+
+  // Toggle all non-macro descendants of a macro task
+  const toggleMacro = useCallback((macroId: string) => {
+    const leafIds = getLeafDescendants(macroId)
+    if (leafIds.length === 0) return
+    const allSelected = leafIds.every(id => selectedSet.has(id))
+    for (const id of leafIds) {
+      if (allSelected || !selectedSet.has(id)) onToggleTaskId(id)
+    }
+  }, [getLeafDescendants, selectedSet, onToggleTaskId])
+
   const renderRow = (task: GoutiCatalogTask, depth: number): React.ReactNode => {
     const children = childrenOf.get(task.gouti_id) || []
     const hasChildren = children.length > 0
     const isCollapsed = collapsed.has(task.gouti_id)
     const checked = taskMode === 'all' || selectedSet.has(task.gouti_id)
 
+    // For macro tasks: check if all/some/none leaf descendants are selected
+    let macroState: 'all' | 'some' | 'none' = 'none'
+    if (task.is_macro) {
+      const leafIds = getLeafDescendants(task.gouti_id)
+      if (leafIds.length > 0) {
+        const count = leafIds.filter(id => selectedSet.has(id)).length
+        macroState = count === leafIds.length ? 'all' : count > 0 ? 'some' : 'none'
+      }
+    }
+
     return (
       <div key={task.gouti_id} role="treeitem" aria-level={depth + 1} aria-expanded={hasChildren ? !isCollapsed : undefined}>
         <div
           className={cn(
             'flex items-center gap-1.5 px-2 py-1 text-[10px] border-b border-border/30',
-            !disabled && !task.is_macro && 'cursor-pointer hover:bg-muted/40',
+            !disabled && 'cursor-pointer hover:bg-muted/40',
             disabled && 'opacity-70',
             task.is_macro && 'bg-muted/30 font-medium',
           )}
           style={{ paddingLeft: `${8 + depth * 14}px` }}
-          onClick={() => { if (!disabled && !task.is_macro) onToggleTaskId(task.gouti_id) }}
+          onClick={() => {
+            if (disabled) return
+            if (task.is_macro) toggleMacro(task.gouti_id)
+            else onToggleTaskId(task.gouti_id)
+          }}
         >
           {/* Expand/collapse chevron */}
           {hasChildren ? (
@@ -317,7 +353,7 @@ function GoutiTaskTree({
             <span className="w-[14px] shrink-0" />
           )}
 
-          {/* Checkbox (hidden for macro grouping rows which aren't real tasks) */}
+          {/* Checkbox — macro tasks show tri-state, normal tasks show regular checkbox */}
           {!task.is_macro ? (
             <input
               type="checkbox"
@@ -328,7 +364,15 @@ function GoutiTaskTree({
               className="w-3 h-3 shrink-0"
             />
           ) : (
-            <span className="w-3 h-3 shrink-0" />
+            <input
+              type="checkbox"
+              checked={macroState === 'all'}
+              ref={(el) => { if (el) el.indeterminate = macroState === 'some' }}
+              disabled={disabled}
+              onChange={(e) => { e.stopPropagation(); toggleMacro(task.gouti_id) }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-3 h-3 shrink-0"
+            />
           )}
 
           {/* Type icon */}

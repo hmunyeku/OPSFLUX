@@ -1564,10 +1564,10 @@ async def override_priority(
 async def get_gantt(
     start_date: date = Query(...),
     end_date: date = Query(...),
-    asset_id: UUID | None = None,
+    asset_id: UUID | None = Query(None),
     types: str | None = Query(None, description="Comma-separated activity types"),
     statuses: str | None = Query(None, description="Comma-separated statuses"),
-    show_permanent_ops: bool = True,
+    show_permanent_ops: bool = Query(True),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("planner.activity.read"),

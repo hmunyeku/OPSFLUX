@@ -43,7 +43,7 @@ export function EChartsWidget({
   const isDark = resolvedTheme === 'dark'
 
   const option = useMemo(() => {
-    if (!data || data.length === 0) return null
+    if (!Array.isArray(data) || data.length === 0) return null
 
     const baseTextStyle = {
       color: isDark ? '#a1a1aa' : '#71717a',

@@ -117,7 +117,7 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge }: W
       ) : isLoading && !data ? (
         <WidgetSkeleton type={widget.type} />
       ) : (
-        <WidgetRenderer widget={widget} data={data?.data || []} meta={data?.meta} />
+        <WidgetRenderer widget={widget} data={Array.isArray(data?.data) ? data.data : data?.data ? [data.data] : []} meta={data?.meta ?? (typeof data?.data === 'object' && !Array.isArray(data?.data) ? data.data as Record<string, unknown> : undefined)} />
       )}
     </>
   )

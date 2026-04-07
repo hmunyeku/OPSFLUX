@@ -383,18 +383,30 @@ function GoutiTaskTree({
           ) : null}
 
           {/* Code + name */}
-          <span className="font-mono text-[9px] text-muted-foreground shrink-0">{task.code}</span>
+          <span className="font-mono text-[8px] text-muted-foreground/60 shrink-0">{task.code}</span>
           <span className="flex-1 truncate">{task.name}</span>
 
-          {/* Meta */}
+          {/* Rich meta: dates, status, progress, workload */}
+          {task.start_date && (
+            <span className="text-[8px] text-muted-foreground tabular-nums shrink-0">
+              {new Date(task.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+            </span>
+          )}
+          {task.end_date && (
+            <span className="text-[8px] text-muted-foreground tabular-nums shrink-0">
+              → {new Date(task.end_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+            </span>
+          )}
           {task.progress != null && task.progress > 0 && (
-            <span className="text-[9px] text-muted-foreground tabular-nums">{task.progress}%</span>
+            <span className={cn('text-[8px] font-semibold tabular-nums shrink-0', task.progress >= 80 ? 'text-emerald-600' : task.progress >= 40 ? 'text-blue-600' : 'text-orange-600')}>
+              {task.progress}%
+            </span>
           )}
           {task.status_raw && (
-            <span className="text-[9px] px-1 rounded bg-muted">{task.status_raw}</span>
+            <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-muted/60 text-muted-foreground shrink-0">{task.status_raw}</span>
           )}
           {task.workload != null && task.workload > 0 && (
-            <span className="text-[9px] text-muted-foreground tabular-nums">{task.workload}h</span>
+            <span className="text-[8px] text-muted-foreground/50 tabular-nums shrink-0">{task.workload}h</span>
           )}
         </div>
 

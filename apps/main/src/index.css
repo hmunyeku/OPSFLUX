@@ -138,8 +138,8 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    /* Pajamas-like neutral sans stack without external font dependency */
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', Ubuntu, Cantarell, sans-serif;
+    /* Inter for clean BI dashboard look, with system font fallbacks */
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', Ubuntu, Cantarell, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

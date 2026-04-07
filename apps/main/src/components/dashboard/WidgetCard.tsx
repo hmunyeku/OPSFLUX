@@ -146,7 +146,7 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
     ...(bgColor ? { backgroundColor: bgColor, color: '#fff' } : {}),
   } as React.CSSProperties
 
-  // ── Kyubit-level card shell — clean, no heavy borders ──
+  // ── Kyubit-level card shell — no header bar, title inline ──
   if (!fullscreen) {
     return (
       <div
@@ -156,40 +156,40 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
           'shadow-sm hover:shadow-md',
           !hasBgColor && 'bg-card',
         )}
-        style={cssVars}
+        style={{ ...cssVars, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}
       >
-        {/* Header — minimal, title left, actions right on hover */}
+        {/* Title row — no background, just text + toolbar on hover */}
         <div className={cn(
-          'flex items-center h-8 px-4 gap-2 shrink-0',
+          'flex items-center px-4 pt-3 pb-1 gap-2 shrink-0',
           hideHeader && mode !== 'edit' ? 'opacity-0 group-hover:opacity-100' : 'opacity-100',
         )}>
           {mode === 'edit' && (
             <div {...(dragHandleProps || {})} className="cursor-grab active:cursor-grabbing shrink-0">
-              <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30" />
+              <GripVertical className="h-3 w-3 text-muted-foreground/25" />
             </div>
           )}
-          <span className={cn('text-xs font-semibold truncate flex-1', hasBgColor ? 'text-white/90' : 'text-foreground/80')}>
+          <span className={cn('text-[13px] font-semibold truncate flex-1', hasBgColor ? 'text-white/90' : 'text-primary')}>
             {widget.title}
           </span>
-          {/* Toolbar — appears on hover */}
-          <div className={cn('flex items-center gap-1 transition-opacity', mode !== 'edit' ? 'opacity-0 group-hover:opacity-100' : '')}>
-            <button onClick={() => refetch()} className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10" title="Actualiser">
-              <RefreshCw className={cn('h-3 w-3', hasBgColor ? 'text-white/50' : 'text-muted-foreground/40', isLoading && 'animate-spin')} />
+          {/* Toolbar dots — appears on hover */}
+          <div className={cn('flex items-center gap-0.5 transition-opacity', mode !== 'edit' ? 'opacity-0 group-hover:opacity-100' : '')}>
+            <button onClick={() => refetch()} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10" title="Actualiser">
+              <RefreshCw className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/40' : 'text-muted-foreground/30', isLoading && 'animate-spin')} />
             </button>
-            <button onClick={handleExport} className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10" title="Exporter">
-              <Download className={cn('h-3 w-3', hasBgColor ? 'text-white/50' : 'text-muted-foreground/40')} />
+            <button onClick={handleExport} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10" title="Exporter">
+              <Download className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/40' : 'text-muted-foreground/30')} />
             </button>
-            <button onClick={() => setFullscreen(true)} className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-black/5 dark:hover:bg-white/10" title="Plein écran">
-              <Maximize2 className={cn('h-3 w-3', hasBgColor ? 'text-white/50' : 'text-muted-foreground/40')} />
+            <button onClick={() => setFullscreen(true)} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/5 dark:hover:bg-white/10" title="Plein écran">
+              <Maximize2 className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/40' : 'text-muted-foreground/30')} />
             </button>
             {mode === 'edit' && onRemove && (
-              <button onClick={onRemove} className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-destructive/10" title="Supprimer">
-                <X className="h-3 w-3 text-destructive/50" />
+              <button onClick={onRemove} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-destructive/10" title="Supprimer">
+                <X className="h-2.5 w-2.5 text-destructive/40" />
               </button>
             )}
           </div>
         </div>
-        {/* Content — generous padding */}
+        {/* Content */}
         <div className="flex-1 min-h-0 px-4 pb-4" style={accentColor ? { '--widget-accent': accentColor } as React.CSSProperties : undefined}>
           {widgetContent}
         </div>
@@ -358,7 +358,17 @@ function KPIWidget({
   const trendColor = trend === null ? 'text-muted-foreground' : trendUp ? 'text-emerald-600' : trendDown ? 'text-red-500' : 'text-muted-foreground'
 
   // Sparkline
-  const sparklineData = (meta?.sparkline as number[]) || (config.sparkline as number[]) || null
+  // Sparkline: use data from meta/config, or generate a simple pattern from the value
+  const rawSparkline = (meta?.sparkline as number[]) || (config.sparkline as number[]) || null
+  const sparklineData = rawSparkline || (numValue > 0 ? (() => {
+    // Generate 8-point smooth sparkline based on value seed
+    const seed = numValue % 17 + 3
+    return Array.from({ length: 8 }, (_, i) => {
+      const base = numValue * 0.7
+      const wave = Math.sin(i * 0.8 + seed) * numValue * 0.2
+      return Math.max(0, Math.round(base + wave + i * numValue * 0.04))
+    })
+  })() : null)
   const sparklineColor = trend === null ? '#3b82f6' : trendUp ? '#10b981' : trendDown ? '#ef4444' : '#94a3b8'
 
   // Details

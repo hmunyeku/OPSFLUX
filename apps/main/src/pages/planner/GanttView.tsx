@@ -179,7 +179,7 @@ export function GanttView({ typeFilter, statusFilter }: GanttViewProps = {}) {
   }, [openDynamicPanel])
 
   return (
-    <div className="h-[calc(100vh-200px)] min-h-[400px]">
+    <div className="flex-1 min-h-[400px]">
       <GanttCore
         rows={rows}
         bars={bars}

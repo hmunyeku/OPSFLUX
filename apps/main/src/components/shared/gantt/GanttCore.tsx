@@ -372,7 +372,7 @@ export function GanttCore(props: GanttCoreProps) {
   return (
     <div
       ref={containerRef}
-      className={cn('relative flex flex-col border rounded-lg bg-background overflow-hidden select-none', className)}
+      className={cn('relative flex flex-col border rounded-lg bg-background overflow-hidden select-none h-full', className)}
       style={{ minHeight }}
       onWheel={onWheel}
     >

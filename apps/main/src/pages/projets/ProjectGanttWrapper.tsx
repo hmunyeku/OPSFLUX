@@ -187,6 +187,7 @@ export function ProjectGanttWrapper() {
           progress: project.progress ?? 0,
           color,
           status: project.status,
+          isSummary: true,
           meta: { projectId: project.id },
           tooltipLines: [
             ['Code', project.code],
@@ -244,6 +245,7 @@ export function ProjectGanttWrapper() {
                 status: task.status,
                 priority: task.priority,
                 isDraft: task.status === 'todo',
+                isSummary: hasKids,
                 draggable: true,
                 resizable: true,
                 meta: { projectId: project.id, taskId: task.id },
@@ -469,7 +471,7 @@ export function ProjectGanttWrapper() {
         <span className="text-xs text-muted-foreground">{projects.length} projets · {rows.length - projects.length} tâches</span>
       </div>
 
-      <div className="h-[calc(100vh-220px)] min-h-[400px]">
+      <div className="flex-1 min-h-[400px]">
         <GanttCore
           rows={rows}
           bars={bars}

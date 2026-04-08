@@ -134,6 +134,53 @@ export function GanttBarComponent({
     )
   }
 
+  // ── Summary bar (parent/grouping — bracket style like MS Project) ──
+  if (bar.isSummary) {
+    const bracketH = 6
+    const bracketTop = top + barHeight - bracketH
+    return (
+      <>
+        <div
+          className="absolute z-20 cursor-pointer"
+          style={{ left, top: bracketTop, width: Math.max(4, width), height: bracketH }}
+          onClick={onClick}
+          onMouseMove={onHover}
+          onMouseLeave={onLeave}
+        >
+          {/* Horizontal bar */}
+          <div className="absolute inset-x-0 top-0 h-[3px] rounded-sm" style={{ backgroundColor: color }} />
+          {/* Left bracket */}
+          <div className="absolute left-0 top-0 w-[3px] rounded-sm" style={{ height: bracketH, backgroundColor: color }} />
+          {/* Right bracket */}
+          <div className="absolute right-0 top-0 w-[3px] rounded-sm" style={{ height: bracketH, backgroundColor: color }} />
+        </div>
+        {/* Summary label */}
+        {showLabels && (
+          <div
+            className="absolute z-10 text-[10px] font-semibold text-foreground/70 truncate pointer-events-none"
+            style={{ left, top: bracketTop - 14, width: Math.max(60, width) }}
+          >
+            {bar.title}
+          </div>
+        )}
+        {/* Progress fill on summary */}
+        {showProgress && bar.progress != null && bar.progress > 0 && (
+          <div
+            className="absolute z-19 rounded-sm"
+            style={{
+              left,
+              top: bracketTop,
+              width: Math.max(2, width * bar.progress / 100),
+              height: 3,
+              backgroundColor: color,
+              opacity: 0.6,
+            }}
+          />
+        )}
+      </>
+    )
+  }
+
   // ── Regular bar ──
   return (
     <>

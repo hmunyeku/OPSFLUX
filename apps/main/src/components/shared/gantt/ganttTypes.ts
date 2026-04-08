@@ -79,6 +79,8 @@ export interface GanttBarData {
   type?: string
   /** Render as diamond milestone */
   isMilestone?: boolean
+  /** Render as summary/parent bar (bracket style, not a filled bar) */
+  isSummary?: boolean
   /** 50% opacity for draft items */
   isDraft?: boolean
   /** Red ring for critical path items */

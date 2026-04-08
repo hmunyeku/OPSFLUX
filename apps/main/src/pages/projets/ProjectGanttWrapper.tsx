@@ -1,13 +1,11 @@
 /**
- * ProjectGanttWrapper — Wrapper that feeds project data into GanttCore.
+ * ProjectGanttWrapper — Feeds project + task data into GanttCore.
  *
- * Loads projects, tasks, milestones, dependencies, CPM, baselines
- * and transforms them into the generic GanttCore interfaces.
- *
- * This replaces the monolithic ProjectGanttView (1385 lines) with
- * a thin adapter (~250 lines) + the shared GanttCore component.
+ * Uses useQueries to load tasks/milestones/dependencies for each
+ * expanded project in parallel, then combines into GanttCore format.
  */
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useQueries } from '@tanstack/react-query'
 import { useUIStore } from '@/stores/uiStore'
 import { useProjects } from '@/hooks/useProjets'
 import { projetsService, isGoutiProject } from '@/services/projetsService'
@@ -17,190 +15,55 @@ import { ProjectSelectorModal } from '@/components/shared/ProjectSelectorModal'
 import type { ProjectSelection } from '@/components/shared/ProjectSelectorModal'
 import { GanttCore } from '@/components/shared/gantt/GanttCore'
 import type { GanttRow, GanttBarData, GanttDependencyData, GanttColumn } from '@/components/shared/gantt/GanttCore'
-// ganttEngine utilities available via GanttCore
-import type { Project, ProjectTask } from '@/types/api'
+import { daysB } from '@/components/shared/gantt/ganttEngine'
+import type { ProjectTask } from '@/types/api'
 
-// ── Color maps ──────────────────────────────────────────────────
+// ── Colors ──────────────────────────────────────────────────────
 
-const S_CLR: Record<string, string> = {
+const PROJECT_COLORS: Record<string, string> = {
   draft: '#9ca3af', planned: '#60a5fa', active: '#22c55e',
   on_hold: '#fbbf24', completed: '#10b981', cancelled: '#ef4444',
 }
-const T_CLR: Record<string, string> = {
-  todo: '#9ca3af', in_progress: '#3b82f6', review: '#eab308',
+const TASK_COLORS: Record<string, string> = {
+  todo: '#94a3b8', in_progress: '#3b82f6', review: '#eab308',
   done: '#22c55e', cancelled: '#ef4444',
+}
+const PRIORITY_COLORS: Record<string, string> = {
+  low: '#94a3b8', medium: '#3b82f6', high: '#f59e0b', critical: '#ef4444',
 }
 
 const STATUS_OPTIONS = [
-  { value: 'todo', label: 'À faire', color: T_CLR.todo },
-  { value: 'in_progress', label: 'En cours', color: T_CLR.in_progress },
-  { value: 'review', label: 'Revue', color: T_CLR.review },
-  { value: 'done', label: 'Terminé', color: T_CLR.done },
-  { value: 'cancelled', label: 'Annulé', color: T_CLR.cancelled },
+  { value: 'todo', label: 'À faire', color: TASK_COLORS.todo },
+  { value: 'in_progress', label: 'En cours', color: TASK_COLORS.in_progress },
+  { value: 'review', label: 'Revue', color: TASK_COLORS.review },
+  { value: 'done', label: 'Terminé', color: TASK_COLORS.done },
+  { value: 'cancelled', label: 'Annulé', color: TASK_COLORS.cancelled },
 ]
 const PRIORITY_OPTIONS = [
-  { value: 'low', label: 'Basse', color: '#9ca3af' },
-  { value: 'medium', label: 'Moyenne', color: '#3b82f6' },
-  { value: 'high', label: 'Haute', color: '#f59e0b' },
-  { value: 'critical', label: 'Critique', color: '#ef4444' },
+  { value: 'low', label: 'Basse', color: PRIORITY_COLORS.low },
+  { value: 'medium', label: 'Moyenne', color: PRIORITY_COLORS.medium },
+  { value: 'high', label: 'Haute', color: PRIORITY_COLORS.high },
+  { value: 'critical', label: 'Critique', color: PRIORITY_COLORS.critical },
 ]
+
+// ── Grid columns ────────────────────────────────────────────────
 
 const COLUMNS: GanttColumn[] = [
-  { id: 'status', label: 'Statut', width: 70, align: 'center' },
-  { id: 'progress', label: '%', width: 40, align: 'right' },
+  { id: 'start', label: 'Début', width: 75, align: 'center' },
+  { id: 'end', label: 'Fin', width: 75, align: 'center' },
+  { id: 'duration', label: 'Durée', width: 45, align: 'right' },
+  { id: 'progress', label: '%', width: 35, align: 'right' },
 ]
 
-// ── Helper: flatten project tasks into rows + bars ──────────────
-
-function buildProjectData(
-  project: Project,
-  tasks: ProjectTask[] | undefined,
-  milestones: { id: string; name: string; due_date: string; status: string }[] | undefined,
-  criticalTaskIds: Set<string>,
-  baselineMap: Map<string, { start: string; end: string }>,
-  isGouti: boolean,
-): { rows: GanttRow[]; bars: GanttBarData[] } {
-  const rows: GanttRow[] = []
-  const bars: GanttBarData[] = []
-  const projectColor = isGouti ? '#f97316' : (S_CLR[project.status] || '#9ca3af')
-
-  // Project row
-  rows.push({
-    id: project.id,
-    label: project.code,
-    sublabel: project.name,
-    level: 0,
-    hasChildren: true,
-    color: projectColor,
-    columns: {
-      status: project.status,
-      progress: project.progress ?? 0,
-    },
-  })
-
-  // Project summary bar
-  if (project.start_date && project.end_date) {
-    bars.push({
-      id: `proj-${project.id}`,
-      rowId: project.id,
-      title: `${project.code} — ${project.progress ?? 0}%`,
-      startDate: project.start_date.split('T')[0],
-      endDate: project.end_date.split('T')[0],
-      progress: project.progress ?? 0,
-      color: projectColor,
-      status: project.status,
-      meta: { projectId: project.id },
-      tooltipLines: [
-        ['Code', project.code],
-        ['Statut', project.status],
-        ['Priorité', project.priority || '—'],
-        ...(project.manager_name ? [['Chef de projet', project.manager_name] as [string, string]] : []),
-        ...(project.task_count ? [['Tâches', String(project.task_count)] as [string, string]] : []),
-      ],
-    })
-  }
-
-  // Task rows (hierarchical)
-  if (tasks) {
-    const tree = new Map<string | null, ProjectTask[]>()
-    for (const t of tasks) {
-      const k = t.parent_id ?? null
-      if (!tree.has(k)) tree.set(k, [])
-      tree.get(k)!.push(t)
-    }
-    for (const arr of tree.values()) arr.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-
-    function addTaskRows(parentId: string | null, level: number) {
-      const children = tree.get(parentId) || []
-      for (const task of children) {
-        const hasKids = (tree.get(task.id) || []).length > 0
-        const isCrit = criticalTaskIds.has(task.id)
-        const bl = baselineMap.get(task.id)
-
-        rows.push({
-          id: task.id,
-          label: task.title,
-          sublabel: task.assignee_name || undefined,
-          level,
-          hasChildren: hasKids,
-          color: T_CLR[task.status] || '#9ca3af',
-          columns: {
-            status: task.status,
-            progress: task.progress ?? 0,
-          },
-        })
-
-        if (task.start_date && task.due_date) {
-          bars.push({
-            id: task.id,
-            rowId: task.id,
-            title: task.title,
-            startDate: task.start_date.split('T')[0],
-            endDate: task.due_date.split('T')[0],
-            progress: task.progress ?? 0,
-            color: T_CLR[task.status] || '#9ca3af',
-            status: task.status,
-            priority: task.priority,
-            isCritical: isCrit,
-            isDraft: task.status === 'todo',
-            draggable: true,
-            resizable: true,
-            baselineStart: bl?.start,
-            baselineEnd: bl?.end,
-            meta: { projectId: project.id, taskId: task.id },
-            tooltipLines: [
-              ['Statut', task.status],
-              ['Priorité', task.priority || '—'],
-              ...(task.assignee_name ? [['Assigné', task.assignee_name] as [string, string]] : []),
-              ...(task.estimated_hours ? [['Estimé', `${task.estimated_hours}h`] as [string, string]] : []),
-              ...(task.actual_hours ? [['Réel', `${task.actual_hours}h`] as [string, string]] : []),
-            ],
-          })
-        }
-
-        if (hasKids) addTaskRows(task.id, level + 1)
-      }
-    }
-    addTaskRows(null, 1)
-  }
-
-  // Milestones
-  if (milestones) {
-    for (const m of milestones) {
-      if (!m.due_date) continue
-      const mId = `ms-${m.id}`
-      rows.push({
-        id: mId,
-        label: `◆ ${m.name}`,
-        level: 1,
-        hasChildren: false,
-        color: m.status === 'completed' ? '#22c55e' : '#eab308',
-      })
-      bars.push({
-        id: mId,
-        rowId: mId,
-        title: m.name,
-        startDate: m.due_date.split('T')[0],
-        endDate: m.due_date.split('T')[0],
-        isMilestone: true,
-        color: m.status === 'completed' ? '#22c55e' : '#eab308',
-        status: m.status,
-        tooltipLines: [
-          ['Type', 'Jalon'],
-          ['Statut', m.status],
-          ['Échéance', m.due_date],
-        ],
-      })
-    }
-  }
-
-  return { rows, bars }
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  try { return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) } catch { return '—' }
 }
 
 // ── Main Component ──────────────────────────────────────────────
 
 export function ProjectGanttWrapper() {
-  const { data: pd, isLoading } = useProjects({ page_size: 200 })
+  const { data: pd, isLoading: projLoading } = useProjects({ page_size: 200 })
   const openPanel = useUIStore(s => s.openDynamicPanel)
   const { toast } = useToast()
   const { getPref, setPref } = useUserPreferences()
@@ -208,9 +71,6 @@ export function ProjectGanttWrapper() {
   // Project selection
   const [showProjectSelector, setShowProjectSelector] = useState(false)
   const projectSelection: ProjectSelection = getPref('gantt_project_selection', { mode: 'all', projectIds: [] })
-  const handleProjectSelectionChange = useCallback((sel: ProjectSelection) => {
-    setPref('gantt_project_selection', sel)
-  }, [setPref])
 
   const allProjects = pd?.items ?? []
   const projects = useMemo(() => {
@@ -220,7 +80,7 @@ export function ProjectGanttWrapper() {
   }, [allProjects, projectSelection])
 
   // Expand/collapse
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(projects.map(p => p.id)))
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const toggleRow = useCallback((id: string) => {
     setExpanded(prev => {
       const next = new Set(prev)
@@ -229,16 +89,63 @@ export function ProjectGanttWrapper() {
     })
   }, [])
 
-  // Auto-expand all projects on first load
-  useMemo(() => {
+  // Auto-expand all on first load
+  useEffect(() => {
     if (projects.length > 0 && expanded.size === 0) {
       setExpanded(new Set(projects.map(p => p.id)))
     }
-  }, [projects.length])
+  }, [projects.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Build data for all projects
-  // For now: only load tasks for expanded projects (lazy)
-  // TODO: useProjectTasks for each expanded project
+  // ── Load tasks for each expanded project in parallel ──────────
+
+  const expandedIds = useMemo(() => [...expanded], [expanded])
+
+  const taskQueries = useQueries({
+    queries: expandedIds.map(pid => ({
+      queryKey: ['project-tasks', pid],
+      queryFn: () => projetsService.listTasks(pid),
+      enabled: expanded.has(pid),
+      staleTime: 30_000,
+    })),
+  })
+
+  const depQueries = useQueries({
+    queries: expandedIds.map(pid => ({
+      queryKey: ['task-dependencies', pid],
+      queryFn: () => projetsService.listDependencies(pid),
+      enabled: expanded.has(pid),
+      staleTime: 60_000,
+    })),
+  })
+
+  // Map projectId → tasks
+  const tasksByProject = useMemo(() => {
+    const m = new Map<string, ProjectTask[]>()
+    expandedIds.forEach((pid, i) => {
+      const q = taskQueries[i]
+      if (q.data) {
+        const items = Array.isArray(q.data) ? q.data : (q.data as { items?: ProjectTask[] }).items ?? []
+        m.set(pid, items)
+      }
+    })
+    return m
+  }, [expandedIds, taskQueries])
+
+  // Map projectId → dependencies
+  const depsByProject = useMemo(() => {
+    const m = new Map<string, { id: string; from_task_id: string; to_task_id: string; dependency_type: string }[]>()
+    expandedIds.forEach((pid, i) => {
+      const q = depQueries[i]
+      if (q.data) {
+        const items = Array.isArray(q.data) ? q.data : (q.data as { items?: unknown[] }).items ?? []
+        m.set(pid, items as { id: string; from_task_id: string; to_task_id: string; dependency_type: string }[])
+      }
+    })
+    return m
+  }, [expandedIds, depQueries])
+
+  // ── Build GanttCore data ──────────────────────────────────────
+
   const { rows, bars, deps } = useMemo(() => {
     const allRows: GanttRow[] = []
     const allBars: GanttBarData[] = []
@@ -246,56 +153,175 @@ export function ProjectGanttWrapper() {
 
     for (const project of projects) {
       const isGouti = isGoutiProject(project)
+      const color = isGouti ? '#f97316' : (PROJECT_COLORS[project.status] || '#9ca3af')
+      const isExp = expanded.has(project.id)
+      const tasks = tasksByProject.get(project.id) || []
+      const projectDeps = depsByProject.get(project.id) || []
 
-      // Build minimal project data (tasks only if expanded — loaded by sub-hooks)
-      const data = buildProjectData(project, undefined, undefined, new Set(), new Map(), isGouti)
+      // ── Project row ──
+      allRows.push({
+        id: project.id,
+        label: project.name,
+        sublabel: project.code,
+        level: 0,
+        hasChildren: true,
+        color,
+        columns: {
+          start: fmtDate(project.start_date),
+          end: fmtDate(project.end_date),
+          duration: project.start_date && project.end_date
+            ? `${daysB(project.start_date.split('T')[0], project.end_date.split('T')[0])}j`
+            : '—',
+          progress: project.progress ?? 0,
+        },
+      })
 
-      // Project row always visible
-      allRows.push(data.rows[0])
-      allBars.push(...data.bars)
+      // Project summary bar
+      if (project.start_date && project.end_date) {
+        allBars.push({
+          id: `proj-${project.id}`,
+          rowId: project.id,
+          title: `${project.name} — ${project.progress ?? 0}%`,
+          startDate: project.start_date.split('T')[0],
+          endDate: project.end_date.split('T')[0],
+          progress: project.progress ?? 0,
+          color,
+          status: project.status,
+          meta: { projectId: project.id },
+          tooltipLines: [
+            ['Code', project.code],
+            ['Statut', project.status],
+            ['Priorité', project.priority || '—'],
+            ...(project.manager_name ? [['Chef de projet', project.manager_name] as [string, string]] : []),
+            ...(project.task_count ? [['Tâches', String(project.task_count)] as [string, string]] : []),
+          ],
+        })
+      }
 
-      // If expanded, we need task data — but hooks can't be conditional.
-      // For now, just show the project bar. Task data will be loaded
-      // when we implement per-project data loading.
+      // ── Task rows (only if expanded and tasks loaded) ──
+      if (isExp && tasks.length > 0) {
+        // Build tree
+        const tree = new Map<string | null, ProjectTask[]>()
+        for (const t of tasks) {
+          const k = t.parent_id ?? null
+          if (!tree.has(k)) tree.set(k, [])
+          tree.get(k)!.push(t)
+        }
+        for (const arr of tree.values()) arr.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+
+        function addTaskRows(parentId: string | null, level: number) {
+          const children = tree.get(parentId) || []
+          for (const task of children) {
+            const hasKids = (tree.get(task.id) || []).length > 0
+            const taskColor = TASK_COLORS[task.status] || '#94a3b8'
+
+            allRows.push({
+              id: task.id,
+              label: task.title,
+              sublabel: task.assignee_name || undefined,
+              level,
+              hasChildren: hasKids,
+              color: taskColor,
+              columns: {
+                start: fmtDate(task.start_date),
+                end: fmtDate(task.due_date),
+                duration: task.start_date && task.due_date
+                  ? `${daysB(task.start_date.split('T')[0], task.due_date.split('T')[0])}j`
+                  : '—',
+                progress: task.progress ?? 0,
+              },
+            })
+
+            if (task.start_date && task.due_date) {
+              allBars.push({
+                id: task.id,
+                rowId: task.id,
+                title: task.title,
+                startDate: task.start_date.split('T')[0],
+                endDate: task.due_date.split('T')[0],
+                progress: task.progress ?? 0,
+                color: taskColor,
+                status: task.status,
+                priority: task.priority,
+                isDraft: task.status === 'todo',
+                draggable: true,
+                resizable: true,
+                meta: { projectId: project.id, taskId: task.id },
+                tooltipLines: [
+                  ['Statut', task.status],
+                  ['Priorité', task.priority || '—'],
+                  ...(task.assignee_name ? [['Assigné', task.assignee_name] as [string, string]] : []),
+                  ...(task.estimated_hours ? [['Estimé', `${task.estimated_hours}h`] as [string, string]] : []),
+                ],
+              })
+            }
+
+            // Recurse into children
+            if (hasKids) addTaskRows(task.id, level + 1)
+          }
+        }
+        addTaskRows(null, 1)
+
+        // Dependencies
+        for (const dep of projectDeps) {
+          const typeMap: Record<string, 'FS' | 'SS' | 'FF' | 'SF'> = {
+            finish_to_start: 'FS', start_to_start: 'SS',
+            finish_to_finish: 'FF', start_to_finish: 'SF',
+          }
+          allDeps.push({
+            fromId: dep.from_task_id,
+            toId: dep.to_task_id,
+            type: typeMap[dep.dependency_type] || 'FS',
+          })
+        }
+      }
     }
 
     return { rows: allRows, bars: allBars, deps: allDeps }
-  }, [projects, expanded])
+  }, [projects, expanded, tasksByProject, depsByProject])
 
-  // Callbacks
+  // ── Callbacks ─────────────────────────────────────────────────
+
   const handleBarClick = useCallback((_barId: string, meta?: Record<string, unknown>) => {
     const projectId = meta?.projectId as string
-    if (projectId) {
-      openPanel({ type: 'detail', module: 'projets', id: projectId })
-    }
+    if (projectId) openPanel({ type: 'detail', module: 'projets', id: projectId })
   }, [openPanel])
 
   const handleBarDrag = useCallback(async (barId: string, newStart: string, newEnd: string) => {
-    // Extract projectId from bar meta — for now handle project bars
-    if (barId.startsWith('proj-')) return // can't drag project summary bars
-    // Task drag needs projectId — stored in bar.meta
+    if (barId.startsWith('proj-')) return
     const bar = bars.find(b => b.id === barId)
     const projectId = bar?.meta?.projectId as string
     if (!projectId) return
     try {
       await projetsService.updateTask(projectId, barId, { start_date: newStart, due_date: newEnd })
       toast({ title: 'Tâche replanifiée', variant: 'success' })
-    } catch {
-      toast({ title: 'Erreur de replanification', variant: 'error' })
-    }
+    } catch { toast({ title: 'Erreur', variant: 'error' }) }
   }, [bars, toast])
 
-  const handleBarTitleEdit = useCallback(async (editBarId: string, newTitle: string) => {
-    const bar = bars.find(b => b.id === editBarId)
+  const handleBarResize = useCallback(async (barId: string, edge: 'left' | 'right', newDate: string) => {
+    if (barId.startsWith('proj-')) return
+    const bar = bars.find(b => b.id === barId)
     const projectId = bar?.meta?.projectId as string
-    if (!projectId || editBarId.startsWith('proj-') || editBarId.startsWith('ms-')) return
+    if (!projectId) return
     try {
-      await projetsService.updateTask(projectId, editBarId, { title: newTitle })
-      toast({ title: 'Titre modifié', variant: 'success' })
-    } catch {
-      toast({ title: 'Erreur', variant: 'error' })
-    }
+      const patch = edge === 'left' ? { start_date: newDate } : { due_date: newDate }
+      await projetsService.updateTask(projectId, barId, patch)
+      toast({ title: edge === 'left' ? 'Début modifié' : 'Fin modifiée', variant: 'success' })
+    } catch { toast({ title: 'Erreur', variant: 'error' }) }
   }, [bars, toast])
+
+  const handleBarTitleEdit = useCallback(async (barId: string, newTitle: string) => {
+    if (barId.startsWith('proj-') || barId.startsWith('ms-')) return
+    const bar = bars.find(b => b.id === barId)
+    const projectId = bar?.meta?.projectId as string
+    if (!projectId) return
+    try {
+      await projetsService.updateTask(projectId, barId, { title: newTitle })
+      toast({ title: 'Titre modifié', variant: 'success' })
+    } catch { toast({ title: 'Erreur', variant: 'error' }) }
+  }, [bars, toast])
+
+  const isLoading = projLoading || taskQueries.some(q => q.isLoading)
 
   return (
     <>
@@ -306,7 +332,7 @@ export function ProjectGanttWrapper() {
         >
           {projectSelection.mode === 'all' ? 'Tous les projets' : `${projectSelection.projectIds.length} projet(s)`}
         </button>
-        <span className="text-xs text-muted-foreground">{projects.length} projets</span>
+        <span className="text-xs text-muted-foreground">{projects.length} projets · {rows.length - projects.length} tâches</span>
       </div>
 
       <div className="h-[calc(100vh-220px)] min-h-[400px]">
@@ -319,13 +345,14 @@ export function ProjectGanttWrapper() {
           initialSettings={{ barHeight: 20, rowHeight: 34, showBaselines: true }}
           onBarClick={handleBarClick}
           onBarDrag={handleBarDrag}
+          onBarResize={handleBarResize}
           onBarTitleEdit={handleBarTitleEdit}
           expandedRows={expanded}
           onToggleRow={toggleRow}
           isLoading={isLoading}
           statusOptions={STATUS_OPTIONS}
           priorityOptions={PRIORITY_OPTIONS}
-          emptyMessage="Aucun projet à afficher. Créez un projet ou modifiez les filtres."
+          emptyMessage="Aucun projet. Créez un projet ou modifiez les filtres."
         />
       </div>
 
@@ -333,7 +360,7 @@ export function ProjectGanttWrapper() {
         open={showProjectSelector}
         onClose={() => setShowProjectSelector(false)}
         selection={projectSelection}
-        onSelectionChange={handleProjectSelectionChange}
+        onSelectionChange={(sel) => setPref('gantt_project_selection', sel)}
       />
     </>
   )

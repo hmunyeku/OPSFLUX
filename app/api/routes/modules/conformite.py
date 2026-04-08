@@ -591,7 +591,7 @@ async def list_compliance_records(
         )
         .where(
             Attachment.owner_type == "compliance_record",
-            Attachment.active == True,
+            Attachment.archived == False,
         )
         .group_by(Attachment.owner_id)
         .subquery()

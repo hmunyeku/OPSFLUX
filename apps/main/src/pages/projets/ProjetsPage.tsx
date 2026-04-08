@@ -1252,11 +1252,11 @@ function CreateProjectPanel() {
 
 // -- Task Status Cycle (click to advance) ------------------------------------
 
-function TaskStatusIcon({ status, size = 13 }: { status: string; size?: number }) {
+function TaskStatusIcon({ status, size = 13, className }: { status: string; size?: number; className?: string }) {
   const meta = TASK_STATUS_META[status]
-  if (!meta) return <Circle size={size} className="text-muted-foreground" />
+  if (!meta) return <Circle size={size} className={cn('text-muted-foreground', className)} />
   const Icon = meta.icon
-  return <Icon size={size} className={meta.color} />
+  return <Icon size={size} className={cn(meta.color, className)} />
 }
 
 function nextTaskStatus(current: string): string {
@@ -3252,78 +3252,171 @@ function PlanningRevisionsSection({ projectId }: { projectId: string }) {
 
 // -- Spreadsheet View (MS Project-like) ----------------------------------------
 
+/** Tree row type for spreadsheet — extends task with depth/group info */
+type SpreadsheetRow = ProjectTaskEnriched & {
+  _depth: number
+  _isGroupHeader?: boolean
+  _groupLabel?: string
+  _groupTaskCount?: number
+  _hasChildren?: boolean
+}
+
+/** Build tree-ordered flat array from tasks grouped by project */
+function buildSpreadsheetTree(
+  tasks: ProjectTaskEnriched[],
+  expandedProjects: Set<string>,
+  expandedTasks: Set<string>,
+): SpreadsheetRow[] {
+  // Group by project
+  const byProject = new Map<string, { code: string; name: string; tasks: ProjectTaskEnriched[] }>()
+  for (const t of tasks) {
+    const key = t.project_id
+    if (!byProject.has(key)) {
+      byProject.set(key, { code: t.project_code || key.slice(0, 8), name: t.project_name || '', tasks: [] })
+    }
+    byProject.get(key)!.tasks.push(t)
+  }
+
+  const result: SpreadsheetRow[] = []
+
+  for (const [projectId, group] of byProject) {
+    // Project header row
+    result.push({
+      id: `__project__${projectId}`,
+      project_id: projectId,
+      project_code: group.code,
+      project_name: group.name,
+      parent_id: null,
+      code: group.code,
+      title: group.name || group.code,
+      description: null,
+      status: 'todo',
+      priority: 'medium',
+      assignee_id: null,
+      progress: 0,
+      start_date: null,
+      due_date: null,
+      completed_at: null,
+      estimated_hours: null,
+      actual_hours: null,
+      order: 0,
+      active: true,
+      created_at: '',
+      _depth: 0,
+      _isGroupHeader: true,
+      _groupLabel: `${group.code}${group.name ? ' — ' + group.name : ''}`,
+      _groupTaskCount: group.tasks.length,
+    } as SpreadsheetRow)
+
+    if (!expandedProjects.has(projectId)) continue
+
+    // Build task tree within project
+    const taskMap = new Map(group.tasks.map(t => [t.id, t]))
+    const childrenMap = new Map<string | null, ProjectTaskEnriched[]>()
+    for (const t of group.tasks) {
+      const parentKey = t.parent_id && taskMap.has(t.parent_id) ? t.parent_id : null
+      if (!childrenMap.has(parentKey)) childrenMap.set(parentKey, [])
+      childrenMap.get(parentKey)!.push(t)
+    }
+
+    // DFS to build ordered flat list
+    function addChildren(parentId: string | null, depth: number) {
+      const children = childrenMap.get(parentId) ?? []
+      for (const child of children) {
+        const hasKids = (childrenMap.get(child.id) ?? []).length > 0
+        result.push({
+          ...child,
+          _depth: depth,
+          _hasChildren: hasKids,
+        })
+        if (hasKids && expandedTasks.has(child.id)) {
+          addChildren(child.id, depth + 1)
+        }
+      }
+    }
+
+    addChildren(null, 1)
+  }
+
+  return result
+}
+
 function SpreadsheetView() {
-  const [page, setPage] = useState(1)
-  const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const { selection, setSelection, filteredProjectIds, isFiltered } = useProjectFilter()
   const [showSelector, setShowSelector] = useState(false)
-  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set())
+  const [allExpanded, setAllExpanded] = useState(false)
   const { toast } = useToast()
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const taskStatusLabels = useDictionaryLabels('project_task_status', PROJECT_TASK_STATUS_LABELS_FALLBACK)
   const projectPriorityLabels = useDictionaryLabels('project_priority', PROJECT_PRIORITY_LABELS_FALLBACK)
   const taskStatusOptions = useMemo(() => buildDictionaryOptions(taskStatusLabels, PROJECT_TASK_STATUS_VALUES), [taskStatusLabels])
   const projectPriorityOptions = useMemo(() => buildDictionaryOptions(projectPriorityLabels, PROJECT_PRIORITY_VALUES), [projectPriorityLabels])
 
-  const statusFilter = typeof activeFilters.status === 'string' ? activeFilters.status : undefined
-  const priorityFilter = typeof activeFilters.priority === 'string' ? activeFilters.priority : undefined
-
-  // When filtered to a single project, pass project_id to API for server-side filtering
-  const singleProjectId = isFiltered && selection.projectIds.length === 1 ? selection.projectIds[0] : undefined
-
+  // Fetch ALL tasks for tree building (no pagination — tree needs all data)
   const { data, isLoading } = useAllProjectTasks({
-    page, page_size: pageSize,
+    page: 1, page_size: 500,
     search: debouncedSearch || undefined,
-    project_id: singleProjectId,
-    status: statusFilter,
-    priority: priorityFilter,
   })
 
-  useEffect(() => { setPage(1) }, [debouncedSearch, activeFilters, singleProjectId])
+  const allTasks = useMemo(() => {
+    const items = data?.items ?? []
+    if (!filteredProjectIds) return items
+    return items.filter(t => filteredProjectIds.has(t.project_id))
+  }, [data, filteredProjectIds])
 
-  // Client-side filter for multi-project selection (when >1 project selected)
-  const filteredData = useMemo(() => {
-    if (!data?.items || !filteredProjectIds || selection.projectIds.length <= 1) return data
-    const filtered = data.items.filter(t => filteredProjectIds.has(t.project_id))
-    return { ...data, items: filtered, total: filtered.length }
-  }, [data, filteredProjectIds, selection.projectIds.length])
+  // Auto-expand all projects on first load
+  useEffect(() => {
+    if (allTasks.length > 0 && expandedProjects.size === 0 && !allExpanded) {
+      const projectIds = new Set(allTasks.map(t => t.project_id))
+      setExpandedProjects(projectIds)
+      setAllExpanded(true)
+    }
+  }, [allTasks, expandedProjects.size, allExpanded])
 
-  const handleInlineSave = useCallback(async (row: ProjectTaskEnriched, columnId: string, value: unknown) => {
+  // Build tree rows
+  const treeRows = useMemo(
+    () => buildSpreadsheetTree(allTasks, expandedProjects, expandedTasks),
+    [allTasks, expandedProjects, expandedTasks],
+  )
+
+  const toggleProject = useCallback((projectId: string) => {
+    setExpandedProjects(prev => {
+      const next = new Set(prev)
+      if (next.has(projectId)) next.delete(projectId)
+      else next.add(projectId)
+      return next
+    })
+  }, [])
+
+  const toggleTask = useCallback((taskId: string) => {
+    setExpandedTasks(prev => {
+      const next = new Set(prev)
+      if (next.has(taskId)) next.delete(taskId)
+      else next.add(taskId)
+      return next
+    })
+  }, [])
+
+  const handleInlineSave = useCallback(async (row: SpreadsheetRow, columnId: string, value: unknown) => {
+    if (row._isGroupHeader) return
     try {
       await projetsService.updateTask(row.project_id, row.id, { [columnId]: value })
-      toast({ title: 'Modifie', variant: 'success' })
+      toast({ title: 'Modifié', variant: 'success' })
     } catch {
       toast({ title: 'Erreur', variant: 'error' })
     }
   }, [toast])
 
-  const handleFilterChange = useCallback((filterId: string, value: unknown) => {
-    setActiveFilters(prev => {
-      const next = { ...prev }
-      if (value === undefined || value === null) delete next[filterId]
-      else next[filterId] = value
-      return next
-    })
-  }, [])
-
-  const filters = useMemo<DataTableFilterDef[]>(() => [
-    { id: 'status', label: 'Statut', type: 'multi-select', operators: ['is', 'is_not'], options: taskStatusOptions },
-    { id: 'priority', label: 'Priorité', type: 'select', options: projectPriorityOptions },
-  ], [projectPriorityOptions, taskStatusOptions])
-
-  const inlineEdit = useMemo<InlineEditConfig<ProjectTaskEnriched>>(() => ({
+  const inlineEdit = useMemo<InlineEditConfig<SpreadsheetRow>>(() => ({
     editableColumns: ['title', 'status', 'priority', 'start_date', 'due_date', 'progress', 'estimated_hours', 'actual_hours'],
     onSave: handleInlineSave,
     columnEditors: {
-      status: {
-        type: 'select',
-        options: taskStatusOptions,
-      },
-      priority: {
-        type: 'select',
-        options: projectPriorityOptions,
-      },
+      status: { type: 'select', options: taskStatusOptions },
+      priority: { type: 'select', options: projectPriorityOptions },
       start_date: { type: 'date' },
       due_date: { type: 'date' },
       progress: { type: 'percent', min: 0, max: 100, step: 5 },
@@ -3332,29 +3425,59 @@ function SpreadsheetView() {
     },
   }), [handleInlineSave, projectPriorityOptions, taskStatusOptions])
 
-  const columns = useMemo<ColumnDef<ProjectTaskEnriched, unknown>[]>(() => [
+  const columns = useMemo<ColumnDef<SpreadsheetRow, unknown>[]>(() => [
     {
-      accessorKey: 'project_code', header: 'Projet', size: 90, enableResizing: true,
-      cell: ({ row }) => <span className="font-mono text-[10px] text-muted-foreground">{row.original.project_code}</span>,
+      accessorKey: 'title', header: 'Tâche', size: 380, enableResizing: true,
+      cell: ({ row }) => {
+        const r = row.original
+        if (r._isGroupHeader) {
+          const projectId = r.project_id
+          const isOpen = expandedProjects.has(projectId)
+          return (
+            <div
+              className="flex items-center gap-1.5 cursor-pointer select-none font-semibold text-xs"
+              onClick={() => toggleProject(projectId)}
+            >
+              <ChevronRight size={12} className={cn('transition-transform text-muted-foreground', isOpen && 'rotate-90')} />
+              <FolderKanban size={12} className="text-primary" />
+              <span className="truncate">{r._groupLabel}</span>
+              <span className="text-[10px] text-muted-foreground font-normal ml-1">({r._groupTaskCount})</span>
+            </div>
+          )
+        }
+        const depth = r._depth
+        const hasChildren = r._hasChildren
+        const isOpen = expandedTasks.has(r.id)
+        return (
+          <div
+            className="flex items-center gap-1.5"
+            style={{ paddingLeft: depth * 16 }}
+          >
+            {hasChildren ? (
+              <button type="button" onClick={(e) => { e.stopPropagation(); toggleTask(r.id) }} className="p-0.5 -ml-1">
+                <ChevronRight size={10} className={cn('transition-transform text-muted-foreground', isOpen && 'rotate-90')} />
+              </button>
+            ) : (
+              <span className="w-3" />
+            )}
+            <TaskStatusIcon status={r.status} size={12} />
+            <span className={cn('truncate', r.status === 'done' && 'line-through text-muted-foreground')}>
+              {r.title}
+            </span>
+          </div>
+        )
+      },
     },
     {
-      accessorKey: 'code', header: 'Ref', size: 70,
-      cell: ({ row }) => <span className="font-mono text-[10px] text-muted-foreground">{row.original.code || '--'}</span>,
-    },
-    {
-      accessorKey: 'title', header: 'Tache', size: 280, enableResizing: true,
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1.5">
-          <TaskStatusIcon status={row.original.status} size={12} />
-          <span className={cn('truncate', row.original.status === 'done' && 'line-through text-muted-foreground')}>
-            {row.original.title}
-          </span>
-        </div>
-      ),
+      accessorKey: 'code', header: 'Réf', size: 80,
+      cell: ({ row }) => row.original._isGroupHeader
+        ? null
+        : <span className="font-mono text-[10px] text-muted-foreground">{row.original.code || '--'}</span>,
     },
     {
       accessorKey: 'status', header: 'Statut', size: 100,
       cell: ({ row }) => {
+        if (row.original._isGroupHeader) return null
         const meta = TASK_STATUS_META[row.original.status]
         return <span className={cn('text-xs', meta?.color)}>{taskStatusLabels[row.original.status] ?? row.original.status}</span>
       },
@@ -3362,49 +3485,57 @@ function SpreadsheetView() {
     {
       accessorKey: 'priority', header: 'Priorité', size: 80,
       cell: ({ row }) => {
+        if (row.original._isGroupHeader) return null
         const p = row.original.priority
         const cls = p === 'critical' ? 'gl-badge-danger' : p === 'high' ? 'gl-badge-warning' : 'gl-badge-neutral'
         return <span className={cn('gl-badge', cls)}>{projectPriorityLabels[p] ?? p}</span>
       },
     },
     {
-      accessorKey: 'start_date', header: 'Debut', size: 100,
-      cell: ({ row }) => row.original.start_date
-        ? <span className="text-xs tabular-nums">{new Date(row.original.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>
-        : <span className="text-muted-foreground/40">--</span>,
+      accessorKey: 'start_date', header: 'Début', size: 90,
+      cell: ({ row }) => {
+        if (row.original._isGroupHeader) return null
+        return row.original.start_date
+          ? <span className="text-xs tabular-nums">{new Date(row.original.start_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>
+          : <span className="text-muted-foreground/40">--</span>
+      },
     },
     {
-      accessorKey: 'due_date', header: 'Fin', size: 100,
-      cell: ({ row }) => row.original.due_date
-        ? <span className="text-xs tabular-nums">{new Date(row.original.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>
-        : <span className="text-muted-foreground/40">--</span>,
+      accessorKey: 'due_date', header: 'Fin', size: 90,
+      cell: ({ row }) => {
+        if (row.original._isGroupHeader) return null
+        return row.original.due_date
+          ? <span className="text-xs tabular-nums">{new Date(row.original.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>
+          : <span className="text-muted-foreground/40">--</span>
+      },
     },
     {
       accessorKey: 'progress', header: '%', size: 70,
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1">
-          <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-primary rounded-full" style={{ width: `${row.original.progress}%` }} />
+      cell: ({ row }) => {
+        if (row.original._isGroupHeader) return null
+        return (
+          <div className="flex items-center gap-1">
+            <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-primary rounded-full" style={{ width: `${row.original.progress}%` }} />
+            </div>
+            <span className="text-[10px] tabular-nums text-muted-foreground">{row.original.progress}%</span>
           </div>
-          <span className="text-[10px] tabular-nums text-muted-foreground">{row.original.progress}%</span>
-        </div>
-      ),
+        )
+      },
     },
     {
       accessorKey: 'estimated_hours', header: 'H.Est', size: 60,
-      cell: ({ row }) => <span className="text-xs tabular-nums text-muted-foreground">{row.original.estimated_hours ?? '--'}</span>,
+      cell: ({ row }) => row.original._isGroupHeader ? null : <span className="text-xs tabular-nums text-muted-foreground">{row.original.estimated_hours ?? '--'}</span>,
     },
     {
-      accessorKey: 'actual_hours', header: 'H.Reel', size: 60,
-      cell: ({ row }) => <span className="text-xs tabular-nums text-muted-foreground">{row.original.actual_hours ?? '--'}</span>,
+      accessorKey: 'actual_hours', header: 'H.Réel', size: 60,
+      cell: ({ row }) => row.original._isGroupHeader ? null : <span className="text-xs tabular-nums text-muted-foreground">{row.original.actual_hours ?? '--'}</span>,
     },
     {
       accessorKey: 'assignee_name', header: 'Responsable', size: 130,
-      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.assignee_name || '--'}</span>,
+      cell: ({ row }) => row.original._isGroupHeader ? null : <span className="text-xs text-muted-foreground truncate">{row.original.assignee_name || '--'}</span>,
     },
-  ], [projectPriorityLabels, taskStatusLabels])
-
-  const pagination: DataTablePagination | undefined = data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined
+  ], [projectPriorityLabels, taskStatusLabels, expandedProjects, expandedTasks, toggleProject, toggleTask])
 
   return (
     <div className="flex flex-col h-full">
@@ -3417,31 +3548,32 @@ function SpreadsheetView() {
         >
           {isFiltered ? `${selection.projectIds.length} projet(s)` : 'Tous les projets'}
         </button>
+        <span className="text-xs text-muted-foreground">{treeRows.length} lignes</span>
         <span className="text-xs text-muted-foreground ml-auto">Double-clic sur une cellule pour éditer</span>
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <DataTable<ProjectTaskEnriched>
+        <DataTable<SpreadsheetRow>
           columns={columns}
-          data={(filteredData ?? data)?.items ?? []}
+          data={treeRows}
           isLoading={isLoading}
-          pagination={pagination}
-          onPaginationChange={(p, size) => { if (size !== pageSize) { setPageSize(size); setPage(1) } else setPage(p) }}
           searchValue={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Rechercher par tache ou code projet..."
-          filters={filters}
-          activeFilters={activeFilters}
-          onFilterChange={handleFilterChange}
+          searchPlaceholder="Rechercher par tâche ou code projet..."
           inlineEdit={inlineEdit}
           emptyIcon={Sheet}
-          emptyTitle="Aucune tache"
+          emptyTitle="Aucune tâche"
           columnResizing
-          columnPinning
           columnVisibility
-          defaultPinnedColumns={{ left: ['project_code', 'title'] }}
           compact
-          storageKey="projets-spreadsheet"
+          storageKey="projets-spreadsheet-v2"
+          onRowClick={(row) => {
+            if (row._isGroupHeader) {
+              openDynamicPanel({ type: 'detail', module: 'projets', id: row.project_id })
+            } else {
+              openDynamicPanel({ type: 'task-detail', module: 'projets', id: row.id, meta: { projectId: row.project_id } })
+            }
+          }}
         />
       </div>
       <ProjectSelectorModal open={showSelector} onClose={() => setShowSelector(false)} selection={selection} onSelectionChange={setSelection} />
@@ -3762,6 +3894,7 @@ const KANBAN_COLUMNS: { status: string; label: string; color: string }[] = [
 
 function KanbanCard({ task }: { task: ProjectTaskEnriched }) {
   const projectPriorityLabels = useDictionaryLabels('project_priority', PROJECT_PRIORITY_LABELS_FALLBACK)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const dueDate = task.due_date ? new Date(task.due_date) : null
   const isOverdue = dueDate && dueDate.getTime() < Date.now() && task.status !== 'done'
 
@@ -3770,35 +3903,55 @@ function KanbanCard({ task }: { task: ProjectTaskEnriched }) {
     e.dataTransfer.effectAllowed = 'move'
   }
 
+  const handleClick = () => {
+    openDynamicPanel({ type: 'task-detail', module: 'projets', id: task.id, meta: { projectId: task.project_id } })
+  }
+
   return (
     <div
       draggable
       onDragStart={handleDragStart}
-      className="bg-background border border-border rounded-md p-2 shadow-sm hover:shadow cursor-move space-y-1"
+      onClick={handleClick}
+      className="bg-background border border-border rounded-lg p-2.5 shadow-sm hover:shadow-md hover:border-primary/30 cursor-pointer space-y-1.5 transition-all"
     >
       <div className="flex items-start gap-1.5">
-        <TaskStatusIcon status={task.status} size={11} />
+        <TaskStatusIcon status={task.status} size={12} className="mt-0.5" />
         <div className="flex-1 min-w-0">
-          <div className="text-[11px] font-medium line-clamp-2">{task.title}</div>
-          <div className="text-[9px] text-muted-foreground font-mono truncate mt-0.5">{task.project_code}</div>
+          <div className="text-xs font-medium line-clamp-2 leading-snug">{task.title}</div>
+          <div className="text-[10px] text-muted-foreground font-mono truncate mt-0.5">
+            {task.project_code}{task.project_name ? ` · ${task.project_name}` : ''}
+          </div>
         </div>
       </div>
-      {(task.priority === 'high' || task.priority === 'critical') && (
-        <span className={cn(
-          'inline-block text-[8px] px-1 rounded',
-          task.priority === 'critical' ? 'bg-red-500/10 text-red-500' : 'bg-orange-500/10 text-orange-500',
-        )}>
-          {projectPriorityLabels[task.priority] ?? task.priority}
-        </span>
+      {/* Progress bar */}
+      {task.progress > 0 && (
+        <div className="flex items-center gap-1.5">
+          <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-primary rounded-full" style={{ width: `${task.progress}%` }} />
+          </div>
+          <span className="text-[9px] tabular-nums text-muted-foreground font-medium">{task.progress}%</span>
+        </div>
       )}
-      <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+        {(task.priority === 'high' || task.priority === 'critical') && (
+          <span className={cn(
+            'inline-block text-[9px] px-1.5 py-0.5 rounded-full font-medium',
+            task.priority === 'critical' ? 'bg-red-500/10 text-red-600' : 'bg-orange-500/10 text-orange-600',
+          )}>
+            {projectPriorityLabels[task.priority] ?? task.priority}
+          </span>
+        )}
         {dueDate && (
           <span className={cn('tabular-nums', isOverdue && 'text-red-500 font-medium')}>
             {dueDate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
           </span>
         )}
-        {task.assignee_name && <span className="truncate">· {task.assignee_name}</span>}
-        {task.progress > 0 && <span className="ml-auto tabular-nums">{task.progress}%</span>}
+        {task.assignee_name && (
+          <span className="truncate ml-auto flex items-center gap-1">
+            <Users size={9} />
+            {task.assignee_name.split(' ')[0]}
+          </span>
+        )}
       </div>
     </div>
   )
@@ -3837,7 +3990,7 @@ function KanbanColumn({
   return (
     <div
       className={cn(
-        'flex flex-col w-[260px] shrink-0 rounded-lg border-t-2 bg-muted/30 transition-colors',
+        'flex flex-col min-w-[200px] flex-1 rounded-lg border-t-2 bg-muted/30 transition-colors',
         color,
         isOver && 'bg-primary/5 ring-2 ring-primary/30',
       )}
@@ -3925,7 +4078,7 @@ function KanbanView() {
           <Loader2 size={16} className="animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="flex-1 overflow-x-auto p-3">
+        <div className="flex-1 overflow-hidden p-3">
           <div className="flex gap-3 h-full">
             {KANBAN_COLUMNS.map(col => (
               <KanbanColumn

@@ -188,6 +188,100 @@ class ConflictAuditRead(PlannerSchema):
     created_at: datetime
 
 
+class RevisionSignalRead(PlannerSchema):
+    id: UUID
+    created_at: datetime
+    task_id: UUID | None = None
+    task_title: str | None = None
+    task_status: str | None = None
+    project_id: UUID | None = None
+    project_code: str | None = None
+    project_name: str | None = None
+    changed_fields: list[str] = Field(default_factory=list)
+    planner_activity_ids: list[UUID] = Field(default_factory=list)
+    planner_activity_count: int = 0
+    actor_id: UUID | None = None
+    actor_name: str | None = None
+
+
+class RevisionSignalAcknowledgeRead(BaseModel):
+    acknowledged: bool
+    signal_id: UUID
+
+
+class RevisionSignalImpactActivityRead(PlannerSchema):
+    activity_id: UUID
+    activity_title: str | None = None
+    activity_status: str | None = None
+    ads_affected: int = 0
+    manifests_affected: int = 0
+    open_conflict_days: int = 0
+
+
+class RevisionSignalImpactRead(PlannerSchema):
+    signal_id: UUID
+    activity_count: int = 0
+    total_ads_affected: int = 0
+    total_manifests_affected: int = 0
+    total_open_conflict_days: int = 0
+    activities: list[RevisionSignalImpactActivityRead] = Field(default_factory=list)
+
+
+class RevisionDecisionRequestCreate(BaseModel):
+    note: str | None = Field(default=None, max_length=4000)
+    due_at: datetime | None = None
+    proposed_start_date: datetime | None = None
+    proposed_end_date: datetime | None = None
+    proposed_pax_quota: int | None = Field(default=None, ge=0)
+    proposed_status: str | None = Field(default=None, max_length=50)
+
+
+class RevisionDecisionRespond(BaseModel):
+    response: str = Field(pattern=r"^(accepted|counter_proposed)$")
+    response_note: str | None = Field(default=None, max_length=4000)
+    counter_start_date: datetime | None = None
+    counter_end_date: datetime | None = None
+    counter_pax_quota: int | None = Field(default=None, ge=0)
+    counter_status: str | None = Field(default=None, max_length=50)
+
+
+class RevisionDecisionForce(BaseModel):
+    reason: str | None = Field(default=None, max_length=2000)
+
+
+class RevisionDecisionRequestRead(PlannerSchema):
+    id: UUID
+    signal_id: UUID
+    created_at: datetime
+    due_at: datetime | None = None
+    status: str
+    project_id: UUID | None = None
+    project_code: str | None = None
+    project_name: str | None = None
+    task_id: UUID | None = None
+    task_title: str | None = None
+    planner_activity_ids: list[UUID] = Field(default_factory=list)
+    requester_user_id: UUID | None = None
+    requester_user_name: str | None = None
+    target_user_id: UUID | None = None
+    target_user_name: str | None = None
+    note: str | None = None
+    proposed_start_date: datetime | None = None
+    proposed_end_date: datetime | None = None
+    proposed_pax_quota: int | None = None
+    proposed_status: str | None = None
+    response: str | None = None
+    response_note: str | None = None
+    counter_start_date: datetime | None = None
+    counter_end_date: datetime | None = None
+    counter_pax_quota: int | None = None
+    counter_status: str | None = None
+    responded_at: datetime | None = None
+    forced_at: datetime | None = None
+    forced_reason: str | None = None
+    application_result: dict | None = None
+
+
 # ─── Capacity schemas ────────────────────────────────────────────────────────
 
 class CapacityRead(BaseModel):
@@ -198,6 +292,34 @@ class CapacityRead(BaseModel):
     used_capacity: int
     residual_capacity: int
     saturation_pct: float
+
+
+class CapacityHeatmapDayRead(BaseModel):
+    asset_id: UUID
+    asset_name: str | None = None
+    date: date
+    saturation_pct: float
+    forecast_pax: int
+    real_pob: int
+    remaining_capacity: int
+    capacity_limit: int
+
+
+class CapacityHeatmapConfigRead(BaseModel):
+    threshold_low: float
+    threshold_medium: float
+    threshold_high: float
+    threshold_critical: float
+    color_low: str
+    color_medium: str
+    color_high: str
+    color_critical: str
+    color_overflow: str
+
+
+class CapacityHeatmapResponse(BaseModel):
+    days: list[CapacityHeatmapDayRead] = Field(default_factory=list)
+    config: CapacityHeatmapConfigRead
 
 
 # ─── Dependency schemas ──────────────────────────────────────────────────────
@@ -333,6 +455,32 @@ class ScenarioRequest(BaseModel):
 class ForecastRequest(BaseModel):
     asset_id: UUID
     horizon_days: int = Field(90, ge=7, le=365)
+
+
+class ForecastDayRead(BaseModel):
+    date: date
+    projected_load: float
+    scheduled_load: int
+    combined_load: float
+    real_pob: int
+    max_capacity: int
+    at_risk: bool
+    saturation_pct: float
+
+
+class ForecastSummaryRead(BaseModel):
+    at_risk_days: int
+    avg_projected_load: float
+    avg_real_pob: float
+    peak_date: date | None = None
+    peak_load: float
+    max_capacity: int
+    horizon_days: int
+
+
+class ForecastResponse(BaseModel):
+    forecast: list[ForecastDayRead] = Field(default_factory=list)
+    summary: ForecastSummaryRead
 
 
 # ─── Recurrence schemas ─────────────────────────────────────────────────────

@@ -13,17 +13,19 @@ from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import select, func as sqla_func, and_
+from sqlalchemy import select, func as sqla_func, and_, String
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 
 from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_permission
+from app.core.audit import record_audit
 from app.core.acting_context import get_effective_actor_user_id
 from app.core.database import get_db
 from app.services.core.delete_service import delete_entity
 from app.core.events import OpsFluxEvent, event_bus
 from app.core.pagination import PaginationParams, paginate
 from app.models.asset_registry import Installation
-from app.models.common import Project, User
+from app.models.common import AuditLog, Project, ProjectTask, Setting, User
 from app.models.planner import (
     PlannerActivity,
     PlannerConflict,
@@ -41,10 +43,19 @@ from app.schemas.planner import (
     BulkConflictResolveResult,
     ConflictAuditRead,
     CapacityRead,
+    CapacityHeatmapResponse,
+    RevisionSignalRead,
+    RevisionSignalAcknowledgeRead,
+    RevisionSignalImpactRead,
+    RevisionDecisionRequestCreate,
+    RevisionDecisionRequestRead,
+    RevisionDecisionRespond,
+    RevisionDecisionForce,
     DependencyCreate,
     DependencyRead,
     ScenarioRequest,
     ForecastRequest,
+    ForecastResponse,
 )
 from app.schemas.common import PaginatedResponse
 from app.services.core.fsm_service import fsm_service, FSMError, FSMPermissionError
@@ -54,6 +65,51 @@ logger = logging.getLogger(__name__)
 
 PLANNER_WORKFLOW_SLUG = "planner-activity"
 PLANNER_ENTITY_TYPE = "planner_activity"
+
+_DEFAULT_HEATMAP_CONFIG = {
+    "threshold_low": 40.0,
+    "threshold_medium": 70.0,
+    "threshold_high": 90.0,
+    "threshold_critical": 100.0,
+    "color_low": "#86efac",
+    "color_medium": "#4ade80",
+    "color_high": "#fbbf24",
+    "color_critical": "#ef4444",
+    "color_overflow": "#991b1b",
+}
+
+
+async def _get_capacity_heatmap_config(db: AsyncSession, entity_id: UUID) -> dict[str, float | str]:
+    keys = tuple(f"planner.capacity_heatmap_{suffix}" for suffix in (
+        "threshold_low",
+        "threshold_medium",
+        "threshold_high",
+        "threshold_critical",
+        "color_low",
+        "color_medium",
+        "color_high",
+        "color_critical",
+        "color_overflow",
+    ))
+    result = await db.execute(
+        select(Setting).where(
+            Setting.scope == "entity",
+            Setting.scope_id == str(entity_id),
+            Setting.key.in_(keys),
+        )
+    )
+    config = dict(_DEFAULT_HEATMAP_CONFIG)
+    for setting in result.scalars().all():
+        key = setting.key.removeprefix("planner.capacity_heatmap_")
+        raw_value = setting.value.get("v") if isinstance(setting.value, dict) else setting.value
+        if key.startswith("threshold_"):
+            try:
+                config[key] = float(raw_value)
+            except (TypeError, ValueError):
+                continue
+        elif isinstance(raw_value, str) and raw_value.strip():
+            config[key] = raw_value.strip()
+    return config
 
 
 async def _try_workflow_transition(
@@ -1209,6 +1265,701 @@ async def list_conflict_audit(
     return [_to_dict(r) for r in rows]
 
 
+async def _get_planner_revision_response_delay_hours(db: AsyncSession, entity_id: UUID) -> int:
+    result = await db.execute(
+        select(Setting).where(
+            Setting.key == "planner.revision_response_delay_hours",
+            Setting.scope.in_(["entity", "tenant"]),
+        )
+    )
+    settings_rows = result.scalars().all()
+
+    entity_setting = next(
+        (row for row in settings_rows if row.scope == "entity" and row.scope_id == str(entity_id)),
+        None,
+    )
+    tenant_setting = next(
+        (row for row in settings_rows if row.scope == "tenant" and row.scope_id in (None, "")),
+        None,
+    )
+    setting = entity_setting or tenant_setting
+    if not setting or not isinstance(setting.value, dict):
+        return 72
+
+    payload = setting.value.get("v", setting.value)
+    try:
+        hours = int(payload)
+    except (TypeError, ValueError):
+        return 72
+    return max(1, hours)
+
+
+async def _resolve_revision_signal_target(
+    db: AsyncSession,
+    *,
+    signal: AuditLog,
+    entity_id: UUID,
+) -> tuple[UUID, str | None]:
+    details = signal.details or {}
+    project_id = details.get("project_id")
+    task_id = details.get("task_id")
+
+    if project_id:
+        project = await db.get(Project, UUID(str(project_id)))
+        if project and project.entity_id == entity_id and project.manager_id:
+            manager = await db.get(User, project.manager_id)
+            manager_name = None
+            if manager:
+                manager_name = f"{manager.first_name} {manager.last_name}".strip() or manager.email
+            return project.manager_id, manager_name
+
+    if task_id:
+        task = await db.get(ProjectTask, UUID(str(task_id)))
+        if task and task.assignee_id:
+            assignee = await db.get(User, task.assignee_id)
+            assignee_name = None
+            if assignee:
+                assignee_name = f"{assignee.first_name} {assignee.last_name}".strip() or assignee.email
+            return task.assignee_id, assignee_name
+
+    raise HTTPException(400, "No eligible project manager or assignee found for this revision signal")
+
+
+async def _get_latest_revision_request_resolution(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    request_id: UUID,
+) -> AuditLog | None:
+    result = await db.execute(
+        select(AuditLog)
+        .where(
+            AuditLog.entity_id == entity_id,
+            AuditLog.resource_type == "planner_revision_request",
+            AuditLog.resource_id == str(request_id),
+            AuditLog.action.in_(["planner.revision.responded", "planner.revision.forced"]),
+        )
+        .order_by(AuditLog.created_at.desc())
+    )
+    return result.scalars().first()
+
+
+def _build_revision_request_read(request_row: AuditLog, resolution_row: AuditLog | None) -> dict:
+    request_details = request_row.details or {}
+    resolution_details = resolution_row.details or {} if resolution_row else {}
+    status = "pending"
+    if resolution_row:
+        status = "forced" if resolution_row.action == "planner.revision.forced" else "responded"
+
+    return {
+        "id": request_row.id,
+        "signal_id": UUID(str(request_row.resource_id)),
+        "created_at": request_row.created_at,
+        "due_at": request_details.get("due_at"),
+        "status": status,
+        "project_id": request_details.get("project_id"),
+        "project_code": request_details.get("project_code"),
+        "project_name": request_details.get("project_name"),
+        "task_id": request_details.get("task_id"),
+        "task_title": request_details.get("task_title"),
+        "planner_activity_ids": request_details.get("planner_activity_ids") or [],
+        "requester_user_id": request_details.get("requester_user_id"),
+        "requester_user_name": request_details.get("requester_user_name"),
+        "target_user_id": request_details.get("target_user_id"),
+        "target_user_name": request_details.get("target_user_name"),
+        "note": request_details.get("note"),
+        "proposed_start_date": request_details.get("proposed_start_date"),
+        "proposed_end_date": request_details.get("proposed_end_date"),
+        "proposed_pax_quota": request_details.get("proposed_pax_quota"),
+        "proposed_status": request_details.get("proposed_status"),
+        "response": resolution_details.get("response"),
+        "response_note": resolution_details.get("response_note"),
+        "counter_start_date": resolution_details.get("counter_start_date"),
+        "counter_end_date": resolution_details.get("counter_end_date"),
+        "counter_pax_quota": resolution_details.get("counter_pax_quota"),
+        "counter_status": resolution_details.get("counter_status"),
+        "responded_at": resolution_details.get("responded_at"),
+        "forced_at": resolution_details.get("forced_at"),
+        "forced_reason": resolution_details.get("reason"),
+        "application_result": resolution_details.get("application_result"),
+    }
+
+
+async def _apply_accepted_revision_request(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    request_details: dict,
+) -> dict:
+    result = {
+        "applied_to_task": False,
+        "task_requires_manual_breakdown": False,
+        "applied_activity_count": 0,
+        "applied_fields": [],
+    }
+
+    proposed_start_date = request_details.get("proposed_start_date")
+    proposed_end_date = request_details.get("proposed_end_date")
+    proposed_pax_quota = request_details.get("proposed_pax_quota")
+    proposed_status = request_details.get("proposed_status")
+    activity_ids = [UUID(str(v)) for v in (request_details.get("planner_activity_ids") or [])]
+
+    task_id_raw = request_details.get("task_id")
+    if task_id_raw:
+        task = await db.get(ProjectTask, UUID(str(task_id_raw)))
+        if task and task.project_id and task.active:
+            child_count = (
+                await db.execute(
+                    select(sqla_func.count()).select_from(ProjectTask).where(
+                        ProjectTask.parent_id == task.id,
+                        ProjectTask.active == True,  # noqa: E712
+                    )
+                )
+            ).scalar() or 0
+
+            if child_count > 0:
+                result["task_requires_manual_breakdown"] = True
+            else:
+                if proposed_start_date:
+                    task.start_date = datetime.fromisoformat(str(proposed_start_date))
+                    result["applied_fields"].append("task.start_date")
+                if proposed_end_date:
+                    task.due_date = datetime.fromisoformat(str(proposed_end_date))
+                    result["applied_fields"].append("task.due_date")
+                if proposed_status:
+                    task.status = str(proposed_status)
+                    result["applied_fields"].append("task.status")
+                if result["applied_fields"]:
+                    result["applied_to_task"] = True
+
+    for activity_id in activity_ids:
+        activity = await db.get(PlannerActivity, activity_id)
+        if not activity or activity.entity_id != entity_id or not activity.active:
+            continue
+        changed = False
+        if proposed_start_date:
+            activity.start_date = datetime.fromisoformat(str(proposed_start_date))
+            changed = True
+        if proposed_end_date:
+            activity.end_date = datetime.fromisoformat(str(proposed_end_date))
+            changed = True
+        if proposed_pax_quota is not None:
+            activity.pax_quota = int(proposed_pax_quota)
+            changed = True
+        if proposed_status:
+            activity.status = str(proposed_status)
+            changed = True
+        if changed:
+            result["applied_activity_count"] += 1
+
+    return result
+
+
+@router.get("/revision-signals", response_model=PaginatedResponse[RevisionSignalRead])
+async def list_revision_signals(
+    pagination: PaginationParams = Depends(),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """List project-driven Planner revision signals captured in audit_log."""
+    query = (
+        select(AuditLog, User.first_name, User.last_name)
+        .outerjoin(User, AuditLog.user_id == User.id)
+        .where(
+            AuditLog.entity_id == entity_id,
+            AuditLog.action == "project.task.planner_sync_required",
+            AuditLog.resource_type == "planner_activity",
+            ~sqla_func.cast(AuditLog.id, String).in_(
+                select(AuditLog.resource_id).where(
+                    AuditLog.entity_id == entity_id,
+                    AuditLog.action == "project.task.planner_sync_reviewed",
+                    AuditLog.resource_type == "planner_revision_signal",
+                    AuditLog.resource_id.is_not(None),
+                )
+            ),
+        )
+        .order_by(AuditLog.created_at.desc())
+    )
+
+    def _transform(row):
+        audit = row[0]
+        details = audit.details or {}
+        planner_activity_ids = details.get("planner_activity_ids") or []
+        return {
+            "id": audit.id,
+            "created_at": audit.created_at,
+            "task_id": details.get("task_id"),
+            "task_title": details.get("task_title"),
+            "task_status": details.get("task_status"),
+            "project_id": details.get("project_id"),
+            "project_code": details.get("project_code"),
+            "project_name": details.get("project_name"),
+            "changed_fields": details.get("changed_fields") or [],
+            "planner_activity_ids": planner_activity_ids,
+            "planner_activity_count": details.get("planner_activity_count") or len(planner_activity_ids),
+            "actor_id": audit.user_id,
+            "actor_name": f"{row[1]} {row[2]}".strip() if row[1] else None,
+        }
+
+    return await paginate(db, query, pagination, transform=_transform)
+
+
+@router.post(
+    "/revision-signals/{signal_id}/acknowledge",
+    response_model=RevisionSignalAcknowledgeRead,
+)
+async def acknowledge_revision_signal(
+    signal_id: UUID,
+    request: Request,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.validate"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Mark a project-driven revision signal as reviewed by a Planner arbiter."""
+    signal = await db.get(AuditLog, signal_id)
+    if not signal or signal.entity_id != entity_id:
+        raise HTTPException(404, "Revision signal not found")
+    if signal.action != "project.task.planner_sync_required" or signal.resource_type != "planner_activity":
+        raise HTTPException(400, "Invalid revision signal")
+
+    existing = await db.execute(
+        select(AuditLog).where(
+            AuditLog.entity_id == entity_id,
+            AuditLog.action == "project.task.planner_sync_reviewed",
+            AuditLog.resource_type == "planner_revision_signal",
+            AuditLog.resource_id == str(signal_id),
+        )
+    )
+    if not existing.scalars().first():
+        await record_audit(
+            db,
+            action="project.task.planner_sync_reviewed",
+            resource_type="planner_revision_signal",
+            resource_id=str(signal_id),
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details={
+                "source_action": signal.action,
+                "source_resource_type": signal.resource_type,
+                "source_resource_id": signal.resource_id,
+                "reviewed_at": datetime.now(timezone.utc).isoformat(),
+            },
+            ip_address=getattr(request.client, "host", None) if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+        await db.commit()
+
+    return RevisionSignalAcknowledgeRead(acknowledged=True, signal_id=signal_id)
+
+
+@router.get(
+    "/revision-signals/{signal_id}/impact-summary",
+    response_model=RevisionSignalImpactRead,
+)
+async def get_revision_signal_impact_summary(
+    signal_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return current downstream impact summary for a project-driven revision signal."""
+    signal = await db.get(AuditLog, signal_id)
+    if not signal or signal.entity_id != entity_id:
+        raise HTTPException(404, "Revision signal not found")
+    if signal.action != "project.task.planner_sync_required" or signal.resource_type != "planner_activity":
+        raise HTTPException(400, "Invalid revision signal")
+
+    details = signal.details or {}
+    activity_ids = [UUID(str(v)) for v in (details.get("planner_activity_ids") or [])]
+    activities_summary = []
+    total_ads_affected = 0
+    total_manifests_affected = 0
+    total_open_conflict_days = 0
+
+    for activity_id in activity_ids:
+        activity = await db.get(PlannerActivity, activity_id)
+        if not activity or activity.entity_id != entity_id or not activity.active:
+            continue
+
+        ads_count_result = await db.execute(
+            text(
+                "SELECT COUNT(*) FROM ads "
+                "WHERE planner_activity_id = :aid "
+                "AND status IN ('approved', 'in_progress')"
+            ),
+            {"aid": str(activity_id)},
+        )
+        ads_affected = ads_count_result.scalar() or 0
+
+        manifests_result = await db.execute(
+            text(
+                "SELECT COUNT(DISTINCT pm.id) "
+                "FROM pax_manifests pm "
+                "JOIN pax_manifest_entries pme ON pme.manifest_id = pm.id "
+                "JOIN ads_pax ap ON ap.id = pme.ads_pax_id "
+                "JOIN ads a ON a.id = ap.ads_id "
+                "WHERE a.planner_activity_id = :aid "
+                "AND pm.status IN ('draft', 'pending_validation', 'validated')"
+            ),
+            {"aid": str(activity_id)},
+        )
+        manifests_affected = manifests_result.scalar() or 0
+
+        conflict_days_result = await db.execute(
+            select(sqla_func.count(sqla_func.distinct(PlannerConflict.conflict_date)))
+            .select_from(PlannerConflict)
+            .join(
+                PlannerConflictActivity,
+                PlannerConflictActivity.conflict_id == PlannerConflict.id,
+            )
+            .where(
+                PlannerConflict.entity_id == entity_id,
+                PlannerConflictActivity.activity_id == activity_id,
+                PlannerConflict.status == "open",
+                PlannerConflict.active == True,  # noqa: E712
+            )
+        )
+        open_conflict_days = conflict_days_result.scalar() or 0
+
+        total_ads_affected += ads_affected
+        total_manifests_affected += manifests_affected
+        total_open_conflict_days += open_conflict_days
+        activities_summary.append(
+            {
+                "activity_id": activity.id,
+                "activity_title": activity.title,
+                "activity_status": activity.status,
+                "ads_affected": ads_affected,
+                "manifests_affected": manifests_affected,
+                "open_conflict_days": open_conflict_days,
+            }
+        )
+
+    return RevisionSignalImpactRead(
+        signal_id=signal_id,
+        activity_count=len(activities_summary),
+        total_ads_affected=total_ads_affected,
+        total_manifests_affected=total_manifests_affected,
+        total_open_conflict_days=total_open_conflict_days,
+        activities=activities_summary,
+    )
+
+
+@router.get(
+    "/revision-decision-requests",
+    response_model=PaginatedResponse[RevisionDecisionRequestRead],
+)
+async def list_revision_decision_requests(
+    direction: str = Query("incoming", pattern=r"^(incoming|outgoing)$"),
+    status: str = Query("pending", pattern=r"^(pending|responded|forced|all)$"),
+    project_id: UUID | None = None,
+    task_id: UUID | None = None,
+    pagination: PaginationParams = Depends(),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    query = (
+        select(AuditLog)
+        .where(
+            AuditLog.entity_id == entity_id,
+            AuditLog.action == "planner.revision.requested",
+            AuditLog.resource_type == "planner_revision_signal",
+        )
+        .order_by(AuditLog.created_at.desc())
+    )
+
+    if direction == "incoming":
+        query = query.where(text("details->>'target_user_id' = :uid")).params(uid=str(current_user.id))
+    else:
+        query = query.where(AuditLog.user_id == current_user.id)
+    if project_id:
+        query = query.where(text("details->>'project_id' = :project_id")).params(project_id=str(project_id))
+    if task_id:
+        query = query.where(text("details->>'task_id' = :task_id")).params(task_id=str(task_id))
+
+    rows = (await db.execute(query)).scalars().all()
+
+    items = []
+    for request_row in rows:
+        resolution_row = await _get_latest_revision_request_resolution(
+            db,
+            entity_id=entity_id,
+            request_id=request_row.id,
+        )
+        item = _build_revision_request_read(request_row, resolution_row)
+        if status != "all" and item["status"] != status:
+            continue
+        items.append(item)
+
+    total = len(items)
+    items = items[pagination.offset: pagination.offset + pagination.page_size]
+    pages = (total + pagination.page_size - 1) // pagination.page_size if total > 0 else 0
+    return {
+        "items": items,
+        "total": total,
+        "page": pagination.page,
+        "page_size": pagination.page_size,
+        "pages": pages,
+    }
+
+
+@router.post(
+    "/revision-signals/{signal_id}/request-decision",
+    response_model=RevisionDecisionRequestRead,
+)
+async def request_revision_decision(
+    signal_id: UUID,
+    body: RevisionDecisionRequestCreate,
+    request: Request,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.validate"),
+    db: AsyncSession = Depends(get_db),
+):
+    signal = await db.get(AuditLog, signal_id)
+    if not signal or signal.entity_id != entity_id:
+        raise HTTPException(404, "Revision signal not found")
+    if signal.action != "project.task.planner_sync_required" or signal.resource_type != "planner_activity":
+        raise HTTPException(400, "Invalid revision signal")
+
+    target_user_id, target_user_name = await _resolve_revision_signal_target(db, signal=signal, entity_id=entity_id)
+    requester_name = f"{current_user.first_name} {current_user.last_name}".strip() or current_user.email
+    due_at = body.due_at or (
+        datetime.now(timezone.utc) + timedelta(hours=await _get_planner_revision_response_delay_hours(db, entity_id))
+    )
+    details = signal.details or {}
+
+    await record_audit(
+        db,
+        action="planner.revision.requested",
+        resource_type="planner_revision_signal",
+        resource_id=str(signal_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "signal_id": str(signal_id),
+            "project_id": details.get("project_id"),
+            "project_code": details.get("project_code"),
+            "project_name": details.get("project_name"),
+            "task_id": details.get("task_id"),
+            "task_title": details.get("task_title"),
+            "planner_activity_ids": details.get("planner_activity_ids") or [],
+            "requester_user_id": str(current_user.id),
+            "requester_user_name": requester_name,
+            "target_user_id": str(target_user_id),
+            "target_user_name": target_user_name,
+            "note": body.note,
+            "due_at": due_at.isoformat(),
+            "proposed_start_date": body.proposed_start_date.isoformat() if body.proposed_start_date else None,
+            "proposed_end_date": body.proposed_end_date.isoformat() if body.proposed_end_date else None,
+            "proposed_pax_quota": body.proposed_pax_quota,
+            "proposed_status": body.proposed_status,
+        },
+        ip_address=getattr(request.client, "host", None) if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
+
+    latest_request = await db.execute(
+        select(AuditLog)
+        .where(
+            AuditLog.entity_id == entity_id,
+            AuditLog.action == "planner.revision.requested",
+            AuditLog.resource_type == "planner_revision_signal",
+            AuditLog.resource_id == str(signal_id),
+            AuditLog.user_id == current_user.id,
+        )
+        .order_by(AuditLog.created_at.desc())
+    )
+    request_row = latest_request.scalars().first()
+
+    await event_bus.publish(OpsFluxEvent(
+        event_type="planner.revision.requested",
+        payload={
+            "entity_id": str(entity_id),
+            "signal_id": str(signal_id),
+            "request_id": str(request_row.id) if request_row else "",
+            "target_user_id": str(target_user_id),
+            "target_user_name": target_user_name,
+            "requester_user_id": str(current_user.id),
+            "requester_user_name": requester_name,
+            "project_id": details.get("project_id"),
+            "project_code": details.get("project_code"),
+            "task_id": details.get("task_id"),
+            "task_title": details.get("task_title"),
+            "due_at": due_at.isoformat(),
+            "note": body.note,
+        },
+    ))
+    return _build_revision_request_read(request_row, None)
+
+
+@router.post(
+    "/revision-decision-requests/{request_id}/respond",
+    response_model=RevisionDecisionRequestRead,
+)
+async def respond_revision_decision_request(
+    request_id: UUID,
+    body: RevisionDecisionRespond,
+    request: Request,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    request_row = await db.get(AuditLog, request_id)
+    if not request_row or request_row.entity_id != entity_id:
+        raise HTTPException(404, "Revision decision request not found")
+    if request_row.action != "planner.revision.requested" or request_row.resource_type != "planner_revision_signal":
+        raise HTTPException(400, "Invalid revision decision request")
+
+    request_details = request_row.details or {}
+    target_user_id = request_details.get("target_user_id")
+    if str(current_user.id) != str(target_user_id):
+        raise HTTPException(403, "Only the targeted reviewer can answer this revision request")
+
+    existing_resolution = await _get_latest_revision_request_resolution(
+        db,
+        entity_id=entity_id,
+        request_id=request_id,
+    )
+    if existing_resolution:
+        raise HTTPException(400, "Revision decision request already resolved")
+
+    if body.response == "counter_proposed" and not any([
+        body.response_note,
+        body.counter_start_date,
+        body.counter_end_date,
+        body.counter_pax_quota is not None,
+        body.counter_status,
+    ]):
+        raise HTTPException(400, "Counter proposal details are required")
+
+    application_result = None
+    if body.response == "accepted":
+        application_result = await _apply_accepted_revision_request(
+            db,
+            entity_id=entity_id,
+            request_details=request_details,
+        )
+
+    await record_audit(
+        db,
+        action="planner.revision.responded",
+        resource_type="planner_revision_request",
+        resource_id=str(request_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "signal_id": request_details.get("signal_id") or request_row.resource_id,
+            "response": body.response,
+            "response_note": body.response_note,
+            "counter_start_date": body.counter_start_date.isoformat() if body.counter_start_date else None,
+            "counter_end_date": body.counter_end_date.isoformat() if body.counter_end_date else None,
+            "counter_pax_quota": body.counter_pax_quota,
+            "counter_status": body.counter_status,
+            "responded_at": datetime.now(timezone.utc).isoformat(),
+            "application_result": application_result,
+        },
+        ip_address=getattr(request.client, "host", None) if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
+
+    await event_bus.publish(OpsFluxEvent(
+        event_type="planner.revision.responded",
+        payload={
+            "entity_id": str(entity_id),
+            "request_id": str(request_id),
+            "signal_id": request_details.get("signal_id") or request_row.resource_id,
+            "requester_user_id": request_details.get("requester_user_id"),
+            "requester_user_name": request_details.get("requester_user_name"),
+            "target_user_id": request_details.get("target_user_id"),
+            "target_user_name": request_details.get("target_user_name"),
+            "response": body.response,
+            "response_note": body.response_note,
+            "application_result": application_result,
+        },
+    ))
+
+    resolution_row = await _get_latest_revision_request_resolution(db, entity_id=entity_id, request_id=request_id)
+    return _build_revision_request_read(request_row, resolution_row)
+
+
+@router.post(
+    "/revision-decision-requests/{request_id}/force",
+    response_model=RevisionDecisionRequestRead,
+)
+async def force_revision_decision_request(
+    request_id: UUID,
+    body: RevisionDecisionForce,
+    request: Request,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.validate"),
+    db: AsyncSession = Depends(get_db),
+):
+    request_row = await db.get(AuditLog, request_id)
+    if not request_row or request_row.entity_id != entity_id:
+        raise HTTPException(404, "Revision decision request not found")
+    if request_row.action != "planner.revision.requested" or request_row.resource_type != "planner_revision_signal":
+        raise HTTPException(400, "Invalid revision decision request")
+
+    existing_resolution = await _get_latest_revision_request_resolution(
+        db,
+        entity_id=entity_id,
+        request_id=request_id,
+    )
+    if existing_resolution:
+        raise HTTPException(400, "Revision decision request already resolved")
+
+    request_details = request_row.details or {}
+    due_at_raw = request_details.get("due_at")
+    due_at = datetime.fromisoformat(due_at_raw) if isinstance(due_at_raw, str) else None
+    now = datetime.now(timezone.utc)
+    if due_at and due_at > now:
+        raise HTTPException(400, "Revision decision request is not yet overdue")
+
+    await record_audit(
+        db,
+        action="planner.revision.forced",
+        resource_type="planner_revision_request",
+        resource_id=str(request_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "signal_id": request_details.get("signal_id") or request_row.resource_id,
+            "reason": body.reason,
+            "forced_at": now.isoformat(),
+        },
+        ip_address=getattr(request.client, "host", None) if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
+
+    await event_bus.publish(OpsFluxEvent(
+        event_type="planner.revision.forced",
+        payload={
+            "entity_id": str(entity_id),
+            "request_id": str(request_id),
+            "signal_id": request_details.get("signal_id") or request_row.resource_id,
+            "requester_user_id": request_details.get("requester_user_id"),
+            "requester_user_name": request_details.get("requester_user_name"),
+            "target_user_id": request_details.get("target_user_id"),
+            "target_user_name": request_details.get("target_user_name"),
+            "reason": body.reason,
+            "due_at": due_at_raw,
+        },
+    ))
+
+    resolution_row = await _get_latest_revision_request_resolution(db, entity_id=entity_id, request_id=request_id)
+    return _build_revision_request_read(request_row, resolution_row)
+
+
 # ── Capacity ─────────────────────────────────────────────────────────────
 
 
@@ -1596,7 +2347,7 @@ async def get_gantt(
 # ── Capacity Heatmap ─────────────────────────────────────────────────────
 
 
-@router.get("/capacity-heatmap")
+@router.get("/capacity-heatmap", response_model=CapacityHeatmapResponse)
 async def get_heatmap(
     start_date: date = Query(...),
     end_date: date = Query(...),
@@ -1610,7 +2361,10 @@ async def get_heatmap(
     from app.services.modules.planner_service import get_capacity_heatmap
 
     asset_ids = [asset_id] if asset_id else None
-    return await get_capacity_heatmap(db, entity_id, start_date, end_date, asset_ids=asset_ids)
+    return {
+        "days": await get_capacity_heatmap(db, entity_id, start_date, end_date, asset_ids=asset_ids),
+        "config": await _get_capacity_heatmap_config(db, entity_id),
+    }
 
 
 # ── Calendar View ────────────────────────────────────────────────────────
@@ -1830,7 +2584,7 @@ async def simulate(
 # ── Capacity forecast ────────────────────────────────────────────────────
 
 
-@router.post("/forecast")
+@router.post("/forecast", response_model=ForecastResponse)
 async def forecast(
     body: ForecastRequest,
     entity_id: UUID = Depends(get_current_entity),

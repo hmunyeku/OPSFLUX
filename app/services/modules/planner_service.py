@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.asset_registry import Installation
 from app.models.common import Project, User
+from app.models.paxlog import Ads, AdsPax
 from app.models.planner import (
     PlannerActivity,
     PlannerConflict,
@@ -189,6 +190,31 @@ async def get_effective_capacity(
 # Callers that only want confirmed load can pass include_submitted=False.
 _CAPACITY_STATUSES_CONFIRMED = ["validated", "in_progress"]
 _CAPACITY_STATUSES_ALL = ["submitted", "validated", "in_progress"]
+
+
+async def count_real_pob_for_asset_day(
+    db: AsyncSession,
+    entity_id: UUID,
+    asset_id: UUID,
+    target_date: date,
+) -> int:
+    """Count physically onboard pax for an asset on a given day."""
+    result = await db.execute(
+        select(sqla_func.count())
+        .select_from(AdsPax)
+        .join(Ads, Ads.id == AdsPax.ads_id)
+        .where(
+            Ads.entity_id == entity_id,
+            Ads.site_entry_asset_id == asset_id,
+            Ads.active == True,  # noqa: E712
+            AdsPax.current_onboard == True,  # noqa: E712
+            Ads.start_date.isnot(None),
+            Ads.end_date.isnot(None),
+            Ads.start_date <= target_date,
+            Ads.end_date >= target_date,
+        )
+    )
+    return int(result.scalar() or 0)
 
 
 async def compute_daily_load(
@@ -480,7 +506,7 @@ async def get_capacity_heatmap(
 ) -> list[dict]:
     """Get capacity heatmap data — daily saturation per asset.
 
-    Returns a flat list of {asset_id, asset_name, date, saturation_pct, residual}.
+    Returns a flat list of daily entries with forecast and real POB.
     """
     # Get relevant assets
     asset_query = select(Installation).where(
@@ -501,14 +527,16 @@ async def get_capacity_heatmap(
         current = start_date
         while current <= end_date:
             load = await compute_daily_load(db, entity_id, asset.id, current)
+            real_pob = await count_real_pob_for_asset_day(db, entity_id, asset.id, current)
             heatmap.append({
                 "asset_id": str(asset.id),
                 "asset_name": asset.name,
                 "date": current.isoformat(),
                 "saturation_pct": load["saturation_pct"],
-                "residual": load["residual"],
-                "total_used": load["total_used"],
-                "max_pax": load["max_pax_total"],
+                "forecast_pax": load["total_used"],
+                "real_pob": real_pob,
+                "remaining_capacity": load["residual"],
+                "capacity_limit": load["max_pax_total"],
             })
             current += timedelta(days=1)
 
@@ -655,7 +683,18 @@ async def forecast_capacity(
     max_cap = cap["max_pax_total"] if cap else 0
 
     if max_cap <= 0:
-        return {"forecast": [], "summary": {"at_risk_days": 0, "avg_projected_load": 0}}
+        return {
+            "forecast": [],
+            "summary": {
+                "at_risk_days": 0,
+                "avg_projected_load": 0,
+                "avg_real_pob": 0,
+                "peak_date": None,
+                "peak_load": 0,
+                "max_capacity": 0,
+                "horizon_days": horizon_days,
+            },
+        }
 
     # Compute historical daily loads (last 90 days)
     historical: dict[int, list[int]] = {i: [] for i in range(7)}  # weekday -> loads
@@ -684,6 +723,7 @@ async def forecast_capacity(
         # Scheduled load from already-planned activities
         scheduled_load = await compute_daily_load(db, entity_id, asset_id, current, include_submitted=True)
         scheduled = scheduled_load["total_used"]
+        real_pob = await count_real_pob_for_asset_day(db, entity_id, asset_id, current)
         # Combined: max of projected trend and scheduled (don't double-count)
         combined = max(projected, float(scheduled))
         at_risk = combined > (max_cap * 0.8)
@@ -699,6 +739,7 @@ async def forecast_capacity(
             "projected_load": round(projected, 1),
             "scheduled_load": scheduled,
             "combined_load": round(combined, 1),
+            "real_pob": real_pob,
             "max_capacity": max_cap,
             "at_risk": at_risk,
             "saturation_pct": round(combined / max_cap * 100, 2) if max_cap > 0 else 0,
@@ -711,6 +752,7 @@ async def forecast_capacity(
         "summary": {
             "at_risk_days": at_risk_days,
             "avg_projected_load": round(total_combined / days_counted, 1),
+            "avg_real_pob": round(sum(day["real_pob"] for day in forecast) / days_counted, 1),
             "peak_date": peak_date.isoformat() if peak_date else None,
             "peak_load": round(peak_load, 1),
             "max_capacity": max_cap,

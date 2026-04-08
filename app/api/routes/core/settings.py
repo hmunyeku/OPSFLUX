@@ -11,6 +11,7 @@ from app.api.deps import get_current_entity, get_current_user, has_user_permissi
 from app.core.database import get_db
 from app.models.common import CostCenter, Project, Setting, User
 from app.schemas.common import SettingRead, SettingWrite
+from app.services.core.settings_service import upsert_scoped_setting
 
 router = APIRouter(prefix="/api/v1/settings", tags=["settings"])
 
@@ -260,24 +261,11 @@ async def upsert_setting(
         await _require_settings_manage(current_user, entity_id, db)
         scope_id = None
 
-    result = await db.execute(
-        select(Setting).where(
-            Setting.key == body.key,
-            Setting.scope == scope,
-            Setting.scope_id == scope_id if scope_id is not None else Setting.scope_id.is_(None),
-        )
+    await upsert_scoped_setting(
+        db,
+        key=body.key,
+        value=body.value,
+        scope=scope,
+        scope_id=scope_id,
     )
-    existing = result.scalar_one_or_none()
-
-    if existing:
-        existing.value = body.value
-    else:
-        db.add(Setting(
-            key=body.key,
-            value=body.value,
-            scope=scope,
-            scope_id=scope_id,
-        ))
-
-    await db.commit()
     return {"detail": "Setting saved"}

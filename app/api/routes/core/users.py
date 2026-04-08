@@ -33,6 +33,7 @@ from app.models.common import (
     UserPermissionOverride,
     UserTierLink,
 )
+from app.services.core.settings_service import get_scoped_setting_row, upsert_scoped_setting
 from app.schemas.common import (
     OpsFluxSchema,
     PaginatedResponse,
@@ -1505,15 +1506,13 @@ async def get_my_preferences(
     db: AsyncSession = Depends(get_db),
 ):
     """Return the current user's full preferences blob (or {} if none)."""
-    from app.models.common import Setting
-    result = await db.execute(
-        select(Setting).where(
-            Setting.key == PREFS_KEY,
-            Setting.scope == "user",
-            Setting.scope_id == str(current_user.id),
-        )
+    row = await get_scoped_setting_row(
+        db,
+        key=PREFS_KEY,
+        scope="user",
+        scope_id=str(current_user.id),
+        include_legacy_fallback=True,
     )
-    row = result.scalar_one_or_none()
     return row.value if row and isinstance(row.value, dict) else {}
 
 
@@ -1524,25 +1523,13 @@ async def set_my_preferences(
     db: AsyncSession = Depends(get_db),
 ):
     """Replace the current user's full preferences blob."""
-    from app.models.common import Setting
-    result = await db.execute(
-        select(Setting).where(
-            Setting.key == PREFS_KEY,
-            Setting.scope == "user",
-            Setting.scope_id == str(current_user.id),
-        )
+    await upsert_scoped_setting(
+        db,
+        key=PREFS_KEY,
+        value=body,
+        scope="user",
+        scope_id=str(current_user.id),
     )
-    existing = result.scalar_one_or_none()
-    if existing:
-        existing.value = body
-    else:
-        db.add(Setting(
-            key=PREFS_KEY,
-            value=body,
-            scope="user",
-            scope_id=str(current_user.id),
-        ))
-    await db.commit()
     return body
 
 
@@ -1557,20 +1544,22 @@ async def patch_my_preferences(
     Top-level keys are merged; nested keys within each namespace are
     replaced entirely (e.g. {"gantt": {...}} replaces the whole gantt block).
     """
-    from app.models.common import Setting
-    result = await db.execute(
-        select(Setting).where(
-            Setting.key == PREFS_KEY,
-            Setting.scope == "user",
-            Setting.scope_id == str(current_user.id),
-        )
+    existing = await get_scoped_setting_row(
+        db,
+        key=PREFS_KEY,
+        scope="user",
+        scope_id=str(current_user.id),
+        include_legacy_fallback=True,
     )
-    existing = result.scalar_one_or_none()
     if existing:
         merged = {**(existing.value if isinstance(existing.value, dict) else {}), **body}
-        existing.value = merged
     else:
-        db.add(Setting(key=PREFS_KEY, value=body, scope="user", scope_id=str(current_user.id)))
         merged = body
-    await db.commit()
+    await upsert_scoped_setting(
+        db,
+        key=PREFS_KEY,
+        value=merged,
+        scope="user",
+        scope_id=str(current_user.id),
+    )
     return merged

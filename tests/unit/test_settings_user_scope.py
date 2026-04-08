@@ -10,11 +10,15 @@ from app.schemas.common import SettingWrite
 
 
 class FakeResult:
-    def __init__(self, *, scalar_one_or_none=None):
+    def __init__(self, *, scalar_one_or_none=None, scalars_all=None):
         self._scalar_one_or_none = scalar_one_or_none
+        self._scalars_all = list(scalars_all or [])
 
     def scalar_one_or_none(self):
         return self._scalar_one_or_none
+
+    def scalars(self):
+        return SimpleNamespace(all=lambda: list(self._scalars_all))
 
 
 class FakeDB:
@@ -39,7 +43,10 @@ class FakeDB:
 async def test_upsert_setting_allows_user_scope_without_settings_admin_permission():
     user_id = uuid4()
     entity_id = uuid4()
-    db = FakeDB([FakeResult(scalar_one_or_none=None)])
+    db = FakeDB([
+        FakeResult(scalar_one_or_none=None),
+        FakeResult(scalars_all=[]),
+    ])
 
     response = await settings_routes.upsert_setting(
         body=SettingWrite(key="datatable.page_size", value={"v": 50}),

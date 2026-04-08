@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
 from app.models.common import Setting, User
+from app.services.core.settings_service import upsert_scoped_setting
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
@@ -63,20 +64,13 @@ async def _save_test_result(
         (f"integration.{connector_id}.last_test_at", now),
         (f"integration.{connector_id}.last_test_error", message if status == "error" else ""),
     ]:
-        result = await db.execute(
-            select(Setting).where(
-                Setting.key == key,
-                Setting.scope == "entity",
-                Setting.scope_id == str(entity_id),
-            )
+        await upsert_scoped_setting(
+            db,
+            key=key,
+            value={"v": value},
+            scope="entity",
+            scope_id=str(entity_id),
         )
-        existing = result.scalar_one_or_none()
-        if existing:
-            existing.value = {"v": value}
-        else:
-            db.add(Setting(key=key, value={"v": value}, scope="entity", scope_id=str(entity_id)))
-
-    await db.commit()
 
 
 # ── Connector-specific test functions ────────────────────────

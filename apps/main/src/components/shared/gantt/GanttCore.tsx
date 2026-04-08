@@ -217,19 +217,33 @@ export function GanttCore(props: GanttCoreProps) {
     } catch { /* silent */ }
   }, [])
 
-  // ── Drag-scroll on header ──────────────────────────────────────
+  // ── Drag-scroll on header AND body (middle-click or click on empty area) ──
 
-  const onHeaderDrag = useCallback((e: React.MouseEvent) => {
+  const onDragScroll = useCallback((e: React.MouseEvent) => {
+    // Only drag-scroll on left button, and only if target is not a bar
+    if (e.button !== 0) return
+    const target = e.target as HTMLElement
+    // Don't drag-scroll when clicking on bars, buttons, inputs
+    if (target.closest('[data-gantt-bar], button, input, [role="button"]')) return
+
     if (!bodyScrollRef.current) return
     e.preventDefault()
     const startX = e.clientX
-    const startScroll = bodyScrollRef.current.scrollLeft
+    const startY = e.clientY
+    const startScrollX = bodyScrollRef.current.scrollLeft
+    const startScrollY = bodyScrollRef.current.scrollTop
+
+    // Change cursor on body
+    document.body.style.cursor = 'grabbing'
+
     const onMove = (ev: MouseEvent) => {
       if (bodyScrollRef.current) {
-        bodyScrollRef.current.scrollLeft = startScroll - (ev.clientX - startX)
+        bodyScrollRef.current.scrollLeft = startScrollX - (ev.clientX - startX)
+        bodyScrollRef.current.scrollTop = startScrollY - (ev.clientY - startY)
       }
     }
     const onUp = () => {
+      document.body.style.cursor = ''
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup', onUp)
     }
@@ -485,7 +499,7 @@ export function GanttCore(props: GanttCoreProps) {
         {/* ── Grid area ──────────────────────────────────────── */}
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
           {/* Header (synced horizontal scroll + drag to pan) */}
-          <div onMouseDown={onHeaderDrag} className="cursor-grab active:cursor-grabbing">
+          <div onMouseDown={onDragScroll} className="cursor-grab active:cursor-grabbing">
           <GanttHeader
             ref={headerScrollRef}
             cells={cells}
@@ -496,11 +510,12 @@ export function GanttCore(props: GanttCoreProps) {
           />
           </div>
 
-          {/* Grid body */}
+          {/* Grid body — drag to pan on empty areas */}
           <div
             ref={bodyScrollRef}
-            className="flex-1 overflow-auto"
+            className="flex-1 overflow-auto cursor-grab active:cursor-grabbing"
             onScroll={onBodyScroll}
+            onMouseDown={onDragScroll}
           >
             <div className="relative" style={{ width: totalWidth, height: bodyH }}>
 

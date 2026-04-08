@@ -1140,6 +1140,225 @@ async def provider_tiers_recent(
 #  Registration
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Users (Accounts) Module Providers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def provider_users_overview(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """KPI: user counts (active, inactive, online, MFA enabled)."""
+    r = await db.execute(text("""
+        SELECT
+            COUNT(*) FILTER (WHERE active = TRUE) AS active_count,
+            COUNT(*) FILTER (WHERE active = FALSE) AS inactive_count,
+            COUNT(*) FILTER (WHERE last_login_at > NOW() - INTERVAL '5 minutes') AS online_count,
+            COUNT(*) FILTER (WHERE mfa_enabled = TRUE) AS mfa_count,
+            COUNT(*) AS total_count
+        FROM users
+    """))
+    row = r.mappings().first()
+    return {
+        "value": row["active_count"] if row else 0,
+        "label": "Utilisateurs actifs",
+        "unit": "comptes",
+        "trend": None,
+        "details": {
+            "active": row["active_count"] if row else 0,
+            "inactive": row["inactive_count"] if row else 0,
+            "online": row["online_count"] if row else 0,
+            "mfa_enabled": row["mfa_count"] if row else 0,
+            "total": row["total_count"] if row else 0,
+        },
+    }
+
+
+async def provider_users_by_role(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Chart: users grouped by role."""
+    r = await db.execute(text("""
+        SELECT r.name AS role_name, COUNT(DISTINCT ugm.user_id) AS user_count
+        FROM user_group_roles ugr
+        JOIN roles r ON r.code = ugr.role_code
+        JOIN user_group_members ugm ON ugm.group_id = ugr.group_id
+        JOIN user_groups ug ON ug.id = ugr.group_id AND ug.entity_id = :eid AND ug.active = TRUE
+        GROUP BY r.name ORDER BY user_count DESC
+    """), {"eid": str(entity_id)})
+    rows = [dict(row) for row in r.mappings().all()]
+    return {
+        "data": rows,
+        "series": ["user_count"],
+    }
+
+
+async def provider_users_by_group(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Chart: users per group."""
+    r = await db.execute(text("""
+        SELECT ug.name AS group_name, COUNT(ugm.user_id) AS member_count
+        FROM user_groups ug
+        LEFT JOIN user_group_members ugm ON ugm.group_id = ug.id
+        WHERE ug.entity_id = :eid AND ug.active = TRUE
+        GROUP BY ug.name ORDER BY member_count DESC
+    """), {"eid": str(entity_id)})
+    rows = [dict(row) for row in r.mappings().all()]
+    return {
+        "data": rows,
+        "series": ["member_count"],
+    }
+
+
+async def provider_users_recent_activity(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Table: recently active users (last login)."""
+    r = await db.execute(text("""
+        SELECT u.first_name || ' ' || u.last_name AS name,
+               u.email, u.last_login_at,
+               CASE WHEN u.active THEN 'active' ELSE 'inactive' END AS status,
+               CASE WHEN u.mfa_enabled THEN 'oui' ELSE 'non' END AS mfa
+        FROM users u
+        WHERE u.last_login_at IS NOT NULL
+        ORDER BY u.last_login_at DESC LIMIT 15
+    """))
+    return {
+        "columns": [
+            {"key": "name", "label": "Nom"},
+            {"key": "email", "label": "Email"},
+            {"key": "status", "label": "Statut"},
+            {"key": "mfa", "label": "MFA"},
+            {"key": "last_login_at", "label": "Dernière connexion"},
+        ],
+        "rows": [dict(row) for row in r.mappings().all()],
+    }
+
+
+async def provider_users_mfa_stats(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """KPI: MFA adoption rate."""
+    r = await db.execute(text("""
+        SELECT
+            COUNT(*) FILTER (WHERE mfa_enabled = TRUE) AS mfa_enabled,
+            COUNT(*) FILTER (WHERE mfa_enabled = FALSE) AS mfa_disabled,
+            COUNT(*) AS total
+        FROM users WHERE active = TRUE
+    """))
+    row = r.mappings().first()
+    total = row["total"] if row else 1
+    enabled = row["mfa_enabled"] if row else 0
+    rate = round(enabled / max(total, 1) * 100, 1)
+    return {
+        "value": rate,
+        "label": "Taux MFA",
+        "unit": "%",
+        "trend": None,
+        "comparison": f"{enabled}/{total} utilisateurs",
+    }
+
+
+async def provider_users_orphans(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Table: users without any group membership (orphans)."""
+    r = await db.execute(text("""
+        SELECT u.first_name || ' ' || u.last_name AS name,
+               u.email, u.created_at,
+               CASE WHEN u.active THEN 'active' ELSE 'inactive' END AS status
+        FROM users u
+        LEFT JOIN user_group_members ugm ON ugm.user_id = u.id
+        WHERE ugm.user_id IS NULL AND u.active = TRUE
+        ORDER BY u.created_at DESC
+    """))
+    return {
+        "columns": [
+            {"key": "name", "label": "Nom"},
+            {"key": "email", "label": "Email"},
+            {"key": "status", "label": "Statut"},
+            {"key": "created_at", "label": "Créé le"},
+        ],
+        "rows": [dict(row) for row in r.mappings().all()],
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Support Module Providers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def provider_support_overview(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """KPI: support ticket counts."""
+    r = await db.execute(text("""
+        SELECT
+            COUNT(*) FILTER (WHERE status IN ('open', 'in_progress')) AS open_count,
+            COUNT(*) FILTER (WHERE status = 'resolved') AS resolved_count,
+            COUNT(*) FILTER (WHERE priority IN ('high', 'critical') AND status NOT IN ('resolved', 'closed')) AS critical_count,
+            COUNT(*) AS total_count
+        FROM support_tickets WHERE entity_id = :eid
+    """), {"eid": str(entity_id)})
+    row = r.mappings().first()
+    return {
+        "value": row["open_count"] if row else 0,
+        "label": "Tickets ouverts",
+        "unit": "tickets",
+        "trend": None,
+        "details": {
+            "open": row["open_count"] if row else 0,
+            "resolved": row["resolved_count"] if row else 0,
+            "critical": row["critical_count"] if row else 0,
+            "total": row["total_count"] if row else 0,
+        },
+    }
+
+
+async def provider_support_tickets_recent(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Table: recent support tickets."""
+    r = await db.execute(text("""
+        SELECT reference, title, status, priority, ticket_type, created_at
+        FROM support_tickets WHERE entity_id = :eid
+        ORDER BY created_at DESC LIMIT 15
+    """), {"eid": str(entity_id)})
+    return {
+        "columns": [
+            {"key": "reference", "label": "Ref"},
+            {"key": "title", "label": "Titre"},
+            {"key": "status", "label": "Statut"},
+            {"key": "priority", "label": "Priorité"},
+            {"key": "ticket_type", "label": "Type"},
+            {"key": "created_at", "label": "Créé le"},
+        ],
+        "rows": [dict(row) for row in r.mappings().all()],
+    }
+
+
+async def provider_support_by_status(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Chart: tickets by status."""
+    r = await db.execute(text("""
+        SELECT status AS name, COUNT(*) AS value
+        FROM support_tickets WHERE entity_id = :eid
+        GROUP BY status ORDER BY value DESC
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()]}
+
+
 _PROVIDER_MAP: dict[str, Any] = {
     # ── Core / cross-module ──
     "pax_on_site": provider_pax_on_site,
@@ -1180,6 +1399,17 @@ _PROVIDER_MAP: dict[str, Any] = {
     "tiers_overview": provider_tiers_overview,
     "tiers_by_type": provider_tiers_by_type,
     "tiers_recent": provider_tiers_recent,
+    # ── Users module ──
+    "users_overview": provider_users_overview,
+    "users_by_role": provider_users_by_role,
+    "users_by_group": provider_users_by_group,
+    "users_recent_activity": provider_users_recent_activity,
+    "users_mfa_stats": provider_users_mfa_stats,
+    "users_orphans": provider_users_orphans,
+    # ── Support module ──
+    "support_overview": provider_support_overview,
+    "support_tickets_recent": provider_support_tickets_recent,
+    "support_by_status": provider_support_by_status,
 }
 
 

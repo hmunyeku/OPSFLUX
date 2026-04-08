@@ -541,6 +541,11 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
         "conformite_kpis": "kpi", "conformite_by_category": "chart",
         # Tiers module
         "tiers_overview": "kpi", "tiers_by_type": "chart", "tiers_recent": "table",
+        # Users module
+        "users_overview": "kpi", "users_by_role": "chart", "users_by_group": "chart",
+        "users_recent_activity": "table", "users_mfa_stats": "kpi", "users_orphans": "table",
+        # Support module
+        "support_overview": "kpi", "support_tickets_recent": "table", "support_by_status": "chart",
     }
 
     def _make_widget(widget_type: str, title: str, config: dict, position: dict) -> dict:
@@ -878,46 +883,52 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
                              {"x": 0, "y": 2, "w": 4, "h": 2}),
             ],
         },
-        # Users module dashboard
+        # Users module dashboard — intelligent widgets
         {
             "name": "Comptes",
             "target_role": None,
             "target_module": "users",
             "tab_order": 0,
             "widgets": [
-                _make_widget("alerts_urgent", "Utilisateurs actifs",
-                             {"source": "core"},
-                             {"x": 0, "y": 0, "w": 3, "h": 2}),
-                _make_widget("alerts_urgent", "Groupes",
-                             {"source": "core"},
-                             {"x": 3, "y": 0, "w": 3, "h": 2}),
-                _make_widget("alerts_urgent", "Roles",
-                             {"source": "core"},
-                             {"x": 6, "y": 0, "w": 3, "h": 2}),
-                _make_widget("alerts_urgent", "Alertes",
-                             {"source": "core"},
-                             {"x": 9, "y": 0, "w": 3, "h": 2}),
+                _make_widget("users_overview", "Utilisateurs",
+                             {"source": "users"},
+                             {"x": 0, "y": 0, "w": 3, "h": 3}),
+                _make_widget("users_mfa_stats", "Securite MFA",
+                             {"source": "users"},
+                             {"x": 3, "y": 0, "w": 3, "h": 3}),
+                _make_widget("users_by_role", "Par role",
+                             {"source": "users", "chart_type": "pie", "x_field": "role_name", "y_fields": ["user_count"]},
+                             {"x": 6, "y": 0, "w": 3, "h": 4}),
+                _make_widget("users_by_group", "Par groupe",
+                             {"source": "users", "chart_type": "bar", "x_field": "group_name", "y_fields": ["member_count"]},
+                             {"x": 9, "y": 0, "w": 3, "h": 4}),
+                _make_widget("users_recent_activity", "Connexions recentes",
+                             {"source": "users"},
+                             {"x": 0, "y": 3, "w": 6, "h": 4}),
+                _make_widget("users_orphans", "Sans groupe",
+                             {"source": "users"},
+                             {"x": 6, "y": 4, "w": 6, "h": 3}),
             ],
         },
-        # Support module dashboard
+        # Support module dashboard — intelligent widgets
         {
             "name": "Support",
             "target_role": None,
             "target_module": "support",
             "tab_order": 0,
             "widgets": [
-                _make_widget("alerts_urgent", "Tickets ouverts",
-                             {"source": "core"},
-                             {"x": 0, "y": 0, "w": 3, "h": 2}),
-                _make_widget("alerts_urgent", "En attente",
-                             {"source": "core"},
-                             {"x": 3, "y": 0, "w": 3, "h": 2}),
-                _make_widget("alerts_urgent", "Resolus ce mois",
-                             {"source": "core"},
-                             {"x": 6, "y": 0, "w": 3, "h": 2}),
+                _make_widget("support_overview", "Vue d'ensemble",
+                             {"source": "support"},
+                             {"x": 0, "y": 0, "w": 4, "h": 3}),
                 _make_widget("alerts_urgent", "Alertes",
                              {"source": "core"},
-                             {"x": 9, "y": 0, "w": 3, "h": 2}),
+                             {"x": 4, "y": 0, "w": 4, "h": 2}),
+                _make_widget("support_by_status", "Par statut",
+                             {"source": "support", "chart_type": "pie", "x_field": "name", "y_fields": ["value"]},
+                             {"x": 8, "y": 0, "w": 4, "h": 4}),
+                _make_widget("support_tickets_recent", "Tickets recents",
+                             {"source": "support"},
+                             {"x": 0, "y": 3, "w": 8, "h": 4}),
             ],
         },
         # Workflow module dashboard

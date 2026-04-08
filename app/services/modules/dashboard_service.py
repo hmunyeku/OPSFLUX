@@ -278,6 +278,71 @@ PREDEFINED_WIDGETS: dict[str, dict[str, Any]] = {
         "source": "tiers",
         "roles": ["*"],
     },
+    # ── Users module ──
+    "users_overview": {
+        "type": "kpi",
+        "title": "Vue d'ensemble utilisateurs",
+        "description": "Actifs, inactifs, en ligne, MFA",
+        "source": "users",
+        "roles": ["*"],
+    },
+    "users_by_role": {
+        "type": "chart",
+        "title": "Utilisateurs par rôle",
+        "description": "Répartition des utilisateurs par rôle attribué",
+        "source": "users",
+        "roles": ["*"],
+    },
+    "users_by_group": {
+        "type": "chart",
+        "title": "Utilisateurs par groupe",
+        "description": "Nombre de membres par groupe",
+        "source": "users",
+        "roles": ["*"],
+    },
+    "users_recent_activity": {
+        "type": "table",
+        "title": "Activité récente",
+        "description": "Dernières connexions utilisateurs",
+        "source": "users",
+        "roles": ["*"],
+    },
+    "users_mfa_stats": {
+        "type": "kpi",
+        "title": "Taux MFA",
+        "description": "Pourcentage d'utilisateurs avec MFA activé",
+        "source": "users",
+        "roles": ["*"],
+    },
+    "users_orphans": {
+        "type": "table",
+        "title": "Utilisateurs sans groupe",
+        "description": "Comptes actifs sans appartenance à un groupe",
+        "source": "users",
+        "roles": ["*"],
+    },
+    # ── Support module ──
+    "support_overview": {
+        "type": "kpi",
+        "title": "Vue d'ensemble support",
+        "description": "Tickets ouverts, résolus, critiques",
+        "source": "support",
+        "roles": ["*"],
+    },
+    "support_tickets_recent": {
+        "type": "table",
+        "title": "Tickets récents",
+        "description": "Derniers tickets de support",
+        "source": "support",
+        "roles": ["*"],
+    },
+    "support_by_status": {
+        "type": "chart",
+        "title": "Tickets par statut",
+        "description": "Répartition des tickets par statut",
+        "source": "support",
+        "roles": ["*"],
+    },
 }
 
 

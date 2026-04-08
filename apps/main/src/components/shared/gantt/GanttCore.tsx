@@ -208,10 +208,15 @@ export function GanttCore(props: GanttCoreProps) {
   const headerScrollRef = useRef<HTMLDivElement>(null)
   const bodyScrollRef = useRef<HTMLDivElement>(null)
   const panelBodyRef = useRef<HTMLDivElement>(null)
-  // Panel width: task name (180px min) + all visible column widths
+  // Panel width: task name (200px min) + all visible column widths
   const columnsWidth = columns.reduce((sum, c) => sum + c.width, 0)
-  const [panelWidth, setPanelWidth] = useState(() => Math.max(280, 180 + columnsWidth))
+  const minPanelWidth = columnsWidth + 200  // 200px min for task name
+  const [panelWidth, setPanelWidth] = useState(() => Math.max(minPanelWidth, columnsWidth + 250))
   const resizingPanel = useRef(false)
+  // Ensure panel never goes below min when columns change
+  useEffect(() => {
+    if (panelWidth < minPanelWidth) setPanelWidth(minPanelWidth)
+  }, [minPanelWidth]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived data ───────────────────────────────────────────────
 
@@ -273,7 +278,7 @@ export function GanttCore(props: GanttCoreProps) {
     const startW = panelWidth
     const onMove = (ev: MouseEvent) => {
       if (!resizingPanel.current) return
-      setPanelWidth(Math.max(140, Math.min(500, startW + ev.clientX - startX)))
+      setPanelWidth(Math.max(minPanelWidth, Math.min(900, startW + ev.clientX - startX)))
     }
     const onUp = () => {
       resizingPanel.current = false
@@ -396,27 +401,32 @@ export function GanttCore(props: GanttCoreProps) {
     // Only drag-scroll on left button, and only if target is not a bar
     if (e.button !== 0) return
     const target = e.target as HTMLElement
-    // Don't drag-scroll when clicking on bars, buttons, inputs
-    if (target.closest('[data-gantt-bar], button, input, [role="button"]')) return
+    // Don't drag-scroll when clicking on bars, buttons, inputs, resize handles
+    if (target.closest('[data-bar-id], [data-gantt-bar], button, input, [role="button"], .cursor-crosshair, .cursor-ew-resize, .cursor-w-resize, .cursor-e-resize')) return
 
     if (!bodyScrollRef.current) return
-    e.preventDefault()
     const startX = e.clientX
     const startY = e.clientY
     const startScrollX = bodyScrollRef.current.scrollLeft
     const startScrollY = bodyScrollRef.current.scrollTop
-
-    // Change cursor on body
-    document.body.style.cursor = 'grabbing'
+    let dragging = false
 
     const onMove = (ev: MouseEvent) => {
+      const dx = Math.abs(ev.clientX - startX)
+      const dy = Math.abs(ev.clientY - startY)
+      // Only start drag-scroll after 5px movement threshold (to allow clicks)
+      if (!dragging && dx + dy < 5) return
+      if (!dragging) {
+        dragging = true
+        document.body.style.cursor = 'grabbing'
+      }
       if (bodyScrollRef.current) {
         bodyScrollRef.current.scrollLeft = startScrollX - (ev.clientX - startX)
         bodyScrollRef.current.scrollTop = startScrollY - (ev.clientY - startY)
       }
     }
     const onUp = () => {
-      document.body.style.cursor = ''
+      if (dragging) document.body.style.cursor = ''
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup', onUp)
     }

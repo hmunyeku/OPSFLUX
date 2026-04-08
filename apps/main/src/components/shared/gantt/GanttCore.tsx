@@ -532,6 +532,12 @@ export function GanttCore(props: GanttCoreProps) {
                     )}
                     style={{ height: settings.rowHeight, paddingLeft: 8 + row.level * 18 }}
                     onClick={() => { onRowClick?.(row.id); onSelectRow?.(row.id) }}
+                    onMouseEnter={(e) => {
+                      // Show tooltip for the first bar of this row
+                      const rowBar = bars.find(b => b.rowId === row.id)
+                      if (rowBar) showTooltipFor(e, rowBar)
+                    }}
+                    onMouseLeave={hideTooltip}
                   >
                     {/* Expand/collapse */}
                     {row.hasChildren ? (

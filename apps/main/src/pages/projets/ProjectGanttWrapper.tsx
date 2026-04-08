@@ -343,6 +343,118 @@ export function ProjectGanttWrapper() {
     }
   }, [bars, toast])
 
+  // ── Row selection (for indent/delete context) ──────────────────
+
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null)
+
+  // Find which project a row belongs to
+  const findProjectForRow = useCallback((rowId: string): string | null => {
+    const bar = bars.find(b => b.rowId === rowId)
+    return (bar?.meta?.projectId as string) || null
+  }, [bars])
+
+  // ── Add task ──────────────────────────────────────────────────
+
+  const handleAddTask = useCallback(async () => {
+    // Add to the first expanded project, or the selected row's project
+    const projectId = selectedRowId ? findProjectForRow(selectedRowId) : projects[0]?.id
+    if (!projectId) { toast({ title: 'Sélectionnez un projet', variant: 'warning' }); return }
+
+    const today = new Date().toISOString().slice(0, 10)
+    const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
+    try {
+      await projetsService.createTask(projectId, {
+        title: 'Nouvelle tâche',
+        status: 'todo',
+        priority: 'medium',
+        start_date: today,
+        due_date: nextWeek,
+        parent_id: selectedRowId && !selectedRowId.startsWith('proj-') ? selectedRowId : undefined,
+      })
+      toast({ title: 'Tâche créée', variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur', variant: 'error' })
+    }
+  }, [selectedRowId, projects, findProjectForRow, toast])
+
+  // ── Add milestone ─────────────────────────────────────────────
+
+  const handleAddMilestone = useCallback(async () => {
+    const projectId = selectedRowId ? findProjectForRow(selectedRowId) : projects[0]?.id
+    if (!projectId) { toast({ title: 'Sélectionnez un projet', variant: 'warning' }); return }
+
+    const nextMonth = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
+    try {
+      await projetsService.createMilestone(projectId, {
+        name: 'Nouveau jalon',
+        due_date: nextMonth,
+      })
+      toast({ title: 'Jalon créé', variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur', variant: 'error' })
+    }
+  }, [selectedRowId, projects, findProjectForRow, toast])
+
+  // ── Indent (make child of previous sibling) ───────────────────
+
+  const handleIndent = useCallback(async (rowId: string) => {
+    const projectId = findProjectForRow(rowId)
+    if (!projectId || rowId.startsWith('proj-')) return
+
+    // Find the previous sibling at same level
+    const idx = rows.findIndex(r => r.id === rowId)
+    if (idx <= 0) return
+    const myLevel = rows[idx].level
+    let prevSibling: string | null = null
+    for (let i = idx - 1; i >= 0; i--) {
+      if (rows[i].level === myLevel && rows[i].id !== rowId) { prevSibling = rows[i].id; break }
+      if (rows[i].level < myLevel) break
+    }
+    if (!prevSibling || prevSibling.startsWith('proj-')) return
+
+    try {
+      await projetsService.updateTask(projectId, rowId, { parent_id: prevSibling } as Record<string, unknown>)
+      toast({ title: 'Tâche indentée', variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur', variant: 'error' })
+    }
+  }, [rows, findProjectForRow, toast])
+
+  // ── Outdent (move to parent's level) ──────────────────────────
+
+  const handleOutdent = useCallback(async (rowId: string) => {
+    const projectId = findProjectForRow(rowId)
+    if (!projectId || rowId.startsWith('proj-')) return
+
+    // Find this task's current parent, then set parent to grandparent
+    const tasks = tasksByProject.get(projectId) || []
+    const task = tasks.find(t => t.id === rowId)
+    if (!task?.parent_id) return
+
+    const parent = tasks.find(t => t.id === task.parent_id)
+    try {
+      await projetsService.updateTask(projectId, rowId, { parent_id: parent?.parent_id || null } as Record<string, unknown>)
+      toast({ title: 'Tâche désindentée', variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur', variant: 'error' })
+    }
+  }, [tasksByProject, findProjectForRow, toast])
+
+  // ── Delete row ────────────────────────────────────────────────
+
+  const handleDeleteRow = useCallback(async (rowId: string) => {
+    const projectId = findProjectForRow(rowId)
+    if (!projectId || rowId.startsWith('proj-')) return
+
+    try {
+      await projetsService.deleteTask(projectId, rowId)
+      toast({ title: 'Tâche supprimée', variant: 'success' })
+      setSelectedRowId(null)
+    } catch {
+      toast({ title: 'Erreur', variant: 'error' })
+    }
+  }, [findProjectForRow, toast])
+
   const isLoading = projLoading || taskQueries.some(q => q.isLoading)
 
   return (
@@ -375,6 +487,14 @@ export function ProjectGanttWrapper() {
           isLoading={isLoading}
           statusOptions={STATUS_OPTIONS}
           priorityOptions={PRIORITY_OPTIONS}
+          showActions={true}
+          onAddTask={handleAddTask}
+          onAddMilestone={handleAddMilestone}
+          onIndent={handleIndent}
+          onOutdent={handleOutdent}
+          onDeleteRow={handleDeleteRow}
+          selectedRowId={selectedRowId}
+          onSelectRow={setSelectedRowId}
           emptyMessage="Aucun projet. Créez un projet ou modifiez les filtres."
         />
       </div>

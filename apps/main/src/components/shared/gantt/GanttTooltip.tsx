@@ -52,40 +52,34 @@ export function GanttTooltip({ bar, x, y, containerRect, showProgress = true }: 
       style={{ left, top }}
     >
       <div
-        className={cn(
-          'bg-popover border border-border rounded-xl shadow-2xl overflow-hidden',
-          'backdrop-blur-sm',
-        )}
+        className="bg-popover border border-border rounded-lg shadow-2xl overflow-hidden backdrop-blur-sm"
         style={{ width: tipW }}
       >
-        {/* Color accent bar at top */}
-        <div className="h-1" style={{ backgroundColor: color }} />
-
         <div className="p-3 space-y-2">
-          {/* Title */}
-          <div>
-            <div className="font-semibold text-sm text-foreground leading-tight truncate">{bar.title}</div>
-            {bar.type && (
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{bar.type.replace(/_/g, ' ')}</span>
-            )}
+          {/* Title row: color dot + title + type */}
+          <div className="flex items-start gap-2">
+            <div className="w-2.5 h-2.5 rounded-full mt-1 shrink-0" style={{ backgroundColor: color }} />
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-sm text-foreground leading-tight">{bar.title}</div>
+              {bar.type && (
+                <span className="text-[10px] text-muted-foreground">{bar.type.replace(/_/g, ' ')}</span>
+              )}
+            </div>
           </div>
 
-          {/* Status badge + priority */}
-          <div className="flex items-center gap-2">
+          {/* Status + priority badges */}
+          <div className="flex items-center gap-1.5 flex-wrap">
             {bar.status && (
               <span
-                className="text-[11px] px-2 py-0.5 rounded-full font-medium"
-                style={{
-                  backgroundColor: color + '18',
-                  color,
-                }}
+                className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                style={{ backgroundColor: color + '18', color }}
               >
                 {bar.status.replace(/_/g, ' ')}
               </span>
             )}
             {bar.priority && (
               <span className={cn(
-                'text-[10px] px-1.5 py-0.5 rounded font-medium uppercase',
+                'text-[10px] px-1.5 py-0.5 rounded-full font-medium',
                 bar.priority === 'critical' ? 'bg-red-100 text-red-700' :
                 bar.priority === 'high' ? 'bg-orange-100 text-orange-700' :
                 bar.priority === 'medium' ? 'bg-blue-100 text-blue-700' :

@@ -430,35 +430,37 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
                     </div>
                   </div>
                 )}
-                <div className="px-3 py-2 border-b border-border">
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-2">
-                    {t('topbar.acting_as')}
-                  </p>
-                  <select
-                    value={actingContext}
-                    onChange={(e) => handleActingContextChange(e.target.value)}
-                    className="gl-form-input h-8 text-xs"
-                  >
-                    {availableContexts.map((context) => (
-                      <option key={context.key} value={context.key}>
-                        {context.mode === 'simulate'
-                          ? `${t('topbar.simulation')} — ${currentActingContext?.mode === 'simulate' && currentActingContext.target_user ? `${currentActingContext.target_user.first_name} ${currentActingContext.target_user.last_name}` : context.label}`
-                          : context.label}
-                      </option>
-                    ))}
-                    {actingContext.startsWith('simulate:') && currentActingContext?.target_user && (
-                      <option value={actingContext}>
-                        {t('topbar.simulation')} — {currentActingContext.target_user.first_name} {currentActingContext.target_user.last_name}
-                      </option>
-                    )}
-                  </select>
-                  <button
-                    onClick={() => { setShowUserMenu(false); navigate('/settings#delegations') }}
-                    className="mt-2 text-xs text-primary hover:underline"
-                  >
-                    {t('settings.delegations.manage_link')}
-                  </button>
-                </div>
+                {(availableContexts.length > 1 || actingContext !== 'own') && (
+                  <div className="px-3 py-2 border-b border-border">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-2">
+                      {t('topbar.acting_as')}
+                    </p>
+                    <select
+                      value={actingContext}
+                      onChange={(e) => handleActingContextChange(e.target.value)}
+                      className="gl-form-input h-8 text-xs"
+                    >
+                      {availableContexts.map((context) => (
+                        <option key={context.key} value={context.key}>
+                          {context.mode === 'simulate'
+                            ? `${t('topbar.simulation')} — ${currentActingContext?.mode === 'simulate' && currentActingContext.target_user ? `${currentActingContext.target_user.first_name} ${currentActingContext.target_user.last_name}` : context.label}`
+                            : context.label}
+                        </option>
+                      ))}
+                      {actingContext.startsWith('simulate:') && currentActingContext?.target_user && (
+                        <option value={actingContext}>
+                          {t('topbar.simulation')} — {currentActingContext.target_user.first_name} {currentActingContext.target_user.last_name}
+                        </option>
+                      )}
+                    </select>
+                    <button
+                      onClick={() => { setShowUserMenu(false); navigate('/settings#delegations') }}
+                      className="mt-2 text-xs text-primary hover:underline"
+                    >
+                      {t('settings.delegations.manage_link')}
+                    </button>
+                  </div>
+                )}
                 <div className="py-1">
                   <button
                     onClick={() => { setShowUserMenu(false); navigate('/settings') }}

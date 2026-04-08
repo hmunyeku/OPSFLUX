@@ -410,17 +410,20 @@ export function useCurrentActingContext() {
 }
 
 export function useDelegationCandidates(search?: string) {
+  const trimmed = (search ?? '').trim()
   return useQuery({
-    queryKey: ['delegation-candidates', search],
-    queryFn: () => delegationsService.candidates(search),
+    queryKey: ['delegation-candidates', trimmed],
+    queryFn: () => delegationsService.candidates(trimmed),
+    enabled: trimmed.length >= 2,
   })
 }
 
 export function useSimulationCandidates(search?: string, enabled = true) {
+  const trimmed = (search ?? '').trim()
   return useQuery({
-    queryKey: ['simulation-candidates', search],
-    queryFn: () => actingContextService.simulationCandidates(search),
-    enabled,
+    queryKey: ['simulation-candidates', trimmed],
+    queryFn: () => actingContextService.simulationCandidates(trimmed),
+    enabled: enabled && trimmed.length >= 2,
   })
 }
 

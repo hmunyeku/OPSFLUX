@@ -87,6 +87,7 @@
     "edit": "Modifier",
     "create": "Créer",
     "search": "Rechercher...",
+    "min_chars": "min. {{count}} car.",
     "loading": "Chargement...",
     "default": "défaut",
     "no_results": "Aucun résultat",

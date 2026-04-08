@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQueryClient } from '@tanstack/react-query'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { useToast } from '@/components/ui/Toast'
 import { usePermission } from '@/hooks/usePermission'
@@ -19,18 +20,32 @@ export function DelegationsTab() {
   const { t } = useTranslation()
   const { toast } = useToast()
   const { permissions } = usePermission()
+  const qc = useQueryClient()
   const { data: roles = [] } = useUserRoles()
   const { data: outgoing = [] } = useOutgoingDelegations()
   const { data: incoming = [] } = useIncomingDelegations()
   const { data: currentContext } = useCurrentActingContext()
   const createDelegation = useCreateDelegation()
   const deleteDelegation = useDeleteDelegation()
-  const setActingContext = useAuthStore((s) => s.setActingContext)
+  const setActingContextRaw = useAuthStore((s) => s.setActingContext)
   const actingContext = useAuthStore((s) => s.actingContext)
+
+  /** Set acting context AND invalidate caches so permissions/context are refreshed. */
+  const setActingContext = (key: string) => {
+    setActingContextRaw(key)
+    qc.invalidateQueries({ queryKey: ['rbac', 'my-permissions'] })
+    qc.invalidateQueries({ queryKey: ['acting-contexts'] })
+    qc.invalidateQueries({ queryKey: ['acting-context'] })
+  }
 
   const [candidateSearch, setCandidateSearch] = useState('')
   const [simulationSearch, setSimulationSearch] = useState('')
   const [delegateId, setDelegateId] = useState('')
+  const [delegateLabel, setDelegateLabel] = useState('')
+  const [showCandidateDropdown, setShowCandidateDropdown] = useState(false)
+  const [showSimulationDropdown, setShowSimulationDropdown] = useState(false)
+  const candidateRef = useRef<HTMLDivElement>(null)
+  const simulationRef = useRef<HTMLDivElement>(null)
   const [scopeType, setScopeType] = useState<'all' | 'role' | 'permissions'>('all')
   const [roleCode, setRoleCode] = useState('')
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([])
@@ -49,6 +64,8 @@ export function DelegationsTab() {
 
   const resetForm = () => {
     setDelegateId('')
+    setDelegateLabel('')
+    setCandidateSearch('')
     setScopeType('all')
     setRoleCode('')
     setSelectedPermissions([])
@@ -89,17 +106,54 @@ export function DelegationsTab() {
         storageKey="settings.delegations"
       >
         <div className="grid gap-4 md:grid-cols-2 max-w-5xl">
-          <div className="space-y-2">
+          <div className="space-y-2" ref={candidateRef}>
             <label className="gl-label">{t('settings.delegations.delegate')}</label>
-            <input value={candidateSearch} onChange={(e) => setCandidateSearch(e.target.value)} className="gl-form-input" placeholder={t('common.search')} />
-            <select value={delegateId} onChange={(e) => setDelegateId(e.target.value)} className="gl-form-input">
-              <option value="">{t('settings.delegations.select_delegate')}</option>
-              {candidates.map((candidate) => (
-                <option key={candidate.id} value={candidate.id}>
-                  {candidate.first_name} {candidate.last_name} ({candidate.email})
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <input
+                value={delegateId ? delegateLabel : candidateSearch}
+                onChange={(e) => {
+                  setCandidateSearch(e.target.value)
+                  setDelegateId('')
+                  setDelegateLabel('')
+                  setShowCandidateDropdown(e.target.value.trim().length >= 2)
+                }}
+                onFocus={() => {
+                  if (delegateId) {
+                    setCandidateSearch(delegateLabel)
+                    setDelegateId('')
+                    setDelegateLabel('')
+                  }
+                  if (candidateSearch.trim().length >= 2) setShowCandidateDropdown(true)
+                }}
+                onBlur={() => setTimeout(() => setShowCandidateDropdown(false), 200)}
+                className="gl-form-input"
+                placeholder={`${t('settings.delegations.select_delegate')} (${t('common.min_chars', { count: 2 })})`}
+                autoComplete="off"
+              />
+              {showCandidateDropdown && candidates.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-border bg-popover shadow-lg">
+                  {candidates.map((candidate) => (
+                    <button
+                      key={candidate.id}
+                      type="button"
+                      className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-accent transition-colors"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        setDelegateId(candidate.id)
+                        setDelegateLabel(`${candidate.first_name} ${candidate.last_name} (${candidate.email})`)
+                        setCandidateSearch('')
+                        setShowCandidateDropdown(false)
+                      }}
+                    >
+                      <div>
+                        <p className="font-medium">{candidate.first_name} {candidate.last_name}</p>
+                        <p className="text-xs text-muted-foreground">{candidate.email}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -235,30 +289,58 @@ export function DelegationsTab() {
           storageKey="settings.delegations"
         >
           <div className="max-w-4xl space-y-4">
-            <div className="flex items-center gap-2">
-              <input value={simulationSearch} onChange={(e) => setSimulationSearch(e.target.value)} className="gl-form-input" placeholder={t('common.search')} />
-              <button onClick={() => setActingContext('own')} className="gl-button-secondary">
-                {t('settings.delegations.back_to_self')}
-              </button>
-            </div>
             {currentContext?.mode === 'simulate' && currentContext.target_user && (
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
-                {t('settings.delegations.current_simulation')}: {currentContext.target_user.first_name} {currentContext.target_user.last_name}
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm flex items-center justify-between gap-4">
+                <span>
+                  {t('settings.delegations.current_simulation')}: <strong>{currentContext.target_user.first_name} {currentContext.target_user.last_name}</strong>
+                </span>
+                <button onClick={() => setActingContext('own')} className="gl-button-secondary">
+                  {t('settings.delegations.back_to_self')}
+                </button>
               </div>
             )}
-            <div className="space-y-2">
-              {simulationCandidates.map((candidate) => (
-                <div key={candidate.id} className="rounded-lg border border-border bg-card p-4 flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-medium">{candidate.first_name} {candidate.last_name}</p>
-                    <p className="text-xs text-muted-foreground">{candidate.email}</p>
-                  </div>
-                  <button onClick={() => setActingContext(`simulate:${candidate.id}`)} className="gl-button-secondary">
-                    {t('settings.delegations.simulate_action')}
-                  </button>
+            <div className="relative" ref={simulationRef}>
+              <label className="gl-label mb-2 block">{t('settings.delegations.simulate_action')}</label>
+              <input
+                value={simulationSearch}
+                onChange={(e) => {
+                  setSimulationSearch(e.target.value)
+                  setShowSimulationDropdown(e.target.value.trim().length >= 2)
+                }}
+                onFocus={() => {
+                  if (simulationSearch.trim().length >= 2) setShowSimulationDropdown(true)
+                }}
+                onBlur={() => setTimeout(() => setShowSimulationDropdown(false), 200)}
+                className="gl-form-input"
+                placeholder={`${t('common.search')} (${t('common.min_chars', { count: 2 })})`}
+                autoComplete="off"
+              />
+              {showSimulationDropdown && simulationCandidates.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-border bg-popover shadow-lg">
+                  {simulationCandidates.map((candidate) => (
+                    <button
+                      key={candidate.id}
+                      type="button"
+                      className="flex w-full items-center justify-between gap-4 px-3 py-2 text-left text-sm hover:bg-accent transition-colors"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        setActingContext(`simulate:${candidate.id}`)
+                        setSimulationSearch('')
+                        setShowSimulationDropdown(false)
+                      }}
+                    >
+                      <div>
+                        <p className="font-medium">{candidate.first_name} {candidate.last_name}</p>
+                        <p className="text-xs text-muted-foreground">{candidate.email}</p>
+                      </div>
+                      <span className="text-xs text-primary font-medium shrink-0">{t('settings.delegations.simulate_action')}</span>
+                    </button>
+                  ))}
                 </div>
-              ))}
-              {simulationCandidates.length === 0 && <p className="text-sm text-muted-foreground">{t('settings.delegations.no_simulation_candidates')}</p>}
+              )}
+              {simulationSearch.trim().length >= 2 && simulationCandidates.length === 0 && (
+                <p className="mt-2 text-sm text-muted-foreground">{t('settings.delegations.no_simulation_candidates')}</p>
+              )}
             </div>
           </div>
         </CollapsibleSection>

@@ -87,6 +87,7 @@
     "edit": "Edit",
     "create": "Create",
     "search": "Search...",
+    "min_chars": "min. {{count}} chars",
     "loading": "Loading...",
     "default": "default",
     "no_results": "No results",

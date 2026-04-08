@@ -17,7 +17,7 @@
  * - Keyboard: arrow keys to navigate, +/- to zoom
  */
 
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronRight as ChevronCollapsed,
   Loader2, ZoomIn, ZoomOut, Maximize, Download,
@@ -45,10 +45,12 @@ const SCALES: TimeScale[] = ['day', 'week', 'month', 'quarter', 'semester']
 
 export function GanttCore(props: GanttCoreProps) {
   const {
-    rows, bars, dependencies = [], markers = [],
+    rows, bars, dependencies = [], markers = [], columns = [],
     initialScale, initialStart, initialEnd, initialSettings,
-    onBarClick, onBarDrag, onBarResize,
+    onBarClick, onBarDrag, onBarResize, onBarTitleEdit,
     onRowClick,
+    statusOptions, priorityOptions,
+    presets: _presets, onPresetsChange: _onPresetsChange,
     expandedRows, onToggleRow,
     onSettingsChange,
     emptyMessage = 'Aucune donnée à afficher',
@@ -244,6 +246,34 @@ export function GanttCore(props: GanttCoreProps) {
     }
   }, [zoom])
 
+  // ── Keyboard shortcuts ──────────────────────────────────────────
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Only when Gantt container is focused or no input is focused
+      const active = document.activeElement
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return
+
+      switch (e.key) {
+        case 'ArrowLeft': shift(-1); e.preventDefault(); break
+        case 'ArrowRight': shift(1); e.preventDefault(); break
+        case '+': case '=': zoom(1); e.preventDefault(); break
+        case '-': zoom(-1); e.preventDefault(); break
+        case 't': case 'T': {
+          const range = getDefaultDateRange(settings.scale)
+          setViewStart(range.start); setViewEnd(range.end)
+          e.preventDefault()
+          break
+        }
+        case 'f': case 'F':
+          if (!e.ctrlKey && !e.metaKey) { fitAll(); e.preventDefault() }
+          break
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [shift, zoom, fitAll, settings.scale])
+
   // ── Loading / empty ────────────────────────────────────────────
 
   if (isLoading) {
@@ -347,6 +377,8 @@ export function GanttCore(props: GanttCoreProps) {
           <GanttSettingsPanel
             settings={settings}
             onChange={updateSettings}
+            statuses={statusOptions}
+            priorities={priorityOptions}
           />
         </div>
       )}
@@ -358,12 +390,23 @@ export function GanttCore(props: GanttCoreProps) {
         {showGrid && (
           <>
             <div className="flex flex-col shrink-0 border-r" style={{ width: panelWidth }}>
-              {/* Panel header */}
+              {/* Panel header — with custom column headers */}
               <div
-                className="flex items-center px-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide border-b bg-muted/20"
+                className="flex items-center border-b bg-muted/20"
                 style={{ height: HEADER_ROW_H * 2 }}
               >
-                Tâche
+                <div className="flex-1 px-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Tâche
+                </div>
+                {columns.map(col => (
+                  <div
+                    key={col.id}
+                    className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1 shrink-0 text-center border-l border-border/30"
+                    style={{ width: col.width }}
+                  >
+                    {col.label}
+                  </div>
+                ))}
               </div>
 
               {/* Panel rows — synced vertical scroll */}
@@ -411,6 +454,21 @@ export function GanttCore(props: GanttCoreProps) {
                         <span className="ml-1.5 text-[10px] text-muted-foreground">{row.sublabel}</span>
                       )}
                     </div>
+
+                    {/* Custom column values */}
+                    {columns.map(col => (
+                      <div
+                        key={col.id}
+                        className={cn(
+                          'text-[10px] text-muted-foreground px-1 shrink-0 truncate border-l border-border/20',
+                          col.align === 'right' && 'text-right',
+                          col.align === 'center' && 'text-center',
+                        )}
+                        style={{ width: col.width }}
+                      >
+                        {col.render ? col.render(row) : (row.columns?.[col.id] ?? '—')}
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
@@ -553,6 +611,7 @@ export function GanttCore(props: GanttCoreProps) {
                     onClick={() => onBarClick?.(bar.id, bar.meta)}
                     onDrag={onBarDrag ? (s, e) => onBarDrag(bar.id, s, e) : undefined}
                     onResize={onBarResize ? (edge, date) => onBarResize(bar.id, edge, date) : undefined}
+                    onTitleEdit={onBarTitleEdit ? (title) => onBarTitleEdit(bar.id, title) : undefined}
                     onHover={(e) => showTooltipFor(e, bar)}
                     onLeave={hideTooltip}
                   />

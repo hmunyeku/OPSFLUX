@@ -11,7 +11,7 @@
  * - Label on bar when space permits
  * - Hover shadow effect
  */
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { addD, STATUS_COLORS, PRIORITY_COLORS, TYPE_COLORS } from './ganttEngine'
 import type { GanttBarData } from './ganttTypes'
@@ -41,6 +41,7 @@ interface GanttBarProps {
   onClick?: () => void
   onDrag?: (newStart: string, newEnd: string) => void
   onResize?: (edge: 'left' | 'right', newDate: string) => void
+  onTitleEdit?: (newTitle: string) => void
   onHover?: (e: React.MouseEvent) => void
   onLeave?: () => void
 }
@@ -49,10 +50,12 @@ export function GanttBarComponent({
   bar, left, width, top, barHeight, pxPerDay,
   showProgress, showLabels, showBaselines,
   baselineLeft, baselineWidth,
-  onClick, onDrag, onResize, onHover, onLeave,
+  onClick, onDrag, onResize, onTitleEdit, onHover, onLeave,
 }: GanttBarProps) {
   const color = resolveBarColor(bar)
   const dragRef = useRef<{ originX: number; mode: 'move' | 'left' | 'right' } | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [editValue, setEditValue] = useState(bar.title)
 
   // ── Drag handler (move whole bar or resize edge) ──
   const handleMouseDown = useCallback((e: React.MouseEvent, mode: 'move' | 'left' | 'right') => {
@@ -181,12 +184,38 @@ export function GanttBarComponent({
           />
         )}
 
-        {/* Bar label */}
+        {/* Bar label — double-click to edit */}
         {showLabels && width >= MIN_LABEL_PX && (
-          <div className="absolute inset-0 flex items-center px-2 min-w-0">
-            <span className="truncate text-[10px] font-semibold text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)] leading-tight">
-              {bar.title}
-            </span>
+          <div
+            className="absolute inset-0 flex items-center px-2 min-w-0"
+            onDoubleClick={(e) => {
+              if (!onTitleEdit) return
+              e.stopPropagation()
+              setEditing(true)
+              setEditValue(bar.title)
+            }}
+          >
+            {editing ? (
+              <input
+                autoFocus
+                value={editValue}
+                onChange={e => setEditValue(e.target.value)}
+                onBlur={() => {
+                  setEditing(false)
+                  if (editValue.trim() && editValue !== bar.title) onTitleEdit?.(editValue.trim())
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { setEditing(false); if (editValue.trim() && editValue !== bar.title) onTitleEdit?.(editValue.trim()) }
+                  if (e.key === 'Escape') { setEditing(false); setEditValue(bar.title) }
+                }}
+                onClick={e => e.stopPropagation()}
+                className="w-full bg-transparent text-[10px] font-semibold text-white outline-none border-b border-white/50"
+              />
+            ) : (
+              <span className="truncate text-[10px] font-semibold text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)] leading-tight">
+                {bar.title}
+              </span>
+            )}
           </div>
         )}
 

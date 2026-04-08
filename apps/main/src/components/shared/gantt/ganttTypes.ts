@@ -177,6 +177,15 @@ export const DEFAULT_SETTINGS: GanttSettings = {
   filterAssignee: null,
 }
 
+// ── Presets ──────────────────────────────────────────────────────
+
+export interface GanttPreset {
+  name: string
+  settings: Omit<GanttSettings, 'filterAssignee'>
+  viewStart: string
+  viewEnd: string
+}
+
 // ── Props ────────────────────────────────────────────────────────
 
 export interface GanttCoreProps {
@@ -196,10 +205,24 @@ export interface GanttCoreProps {
   // ── Callbacks ──
   onBarClick?: (barId: string, meta?: Record<string, unknown>) => void
   onBarDoubleClick?: (barId: string) => void
+  /** Called when bar title is edited inline (double-click on bar label) */
+  onBarTitleEdit?: (barId: string, newTitle: string) => void
   onBarDrag?: (barId: string, newStart: string, newEnd: string) => void
   onBarResize?: (barId: string, edge: 'left' | 'right', newDate: string) => void
   onRowClick?: (rowId: string) => void
   onContextMenu?: (barId: string, x: number, y: number) => void
+
+  // ── Filters config ──
+  /** Available status values for settings filter */
+  statusOptions?: { value: string; label: string; color?: string }[]
+  /** Available priority values for settings filter */
+  priorityOptions?: { value: string; label: string; color?: string }[]
+
+  // ── Presets ──
+  /** Saved presets (loaded from user preferences) */
+  presets?: GanttPreset[]
+  /** Called when a preset is saved/deleted */
+  onPresetsChange?: (presets: GanttPreset[]) => void
 
   // ── Expand/collapse ──
   expandedRows?: Set<string>

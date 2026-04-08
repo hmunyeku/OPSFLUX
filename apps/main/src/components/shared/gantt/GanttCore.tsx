@@ -208,7 +208,9 @@ export function GanttCore(props: GanttCoreProps) {
   const headerScrollRef = useRef<HTMLDivElement>(null)
   const bodyScrollRef = useRef<HTMLDivElement>(null)
   const panelBodyRef = useRef<HTMLDivElement>(null)
-  const [panelWidth, setPanelWidth] = useState(240)
+  // Panel width: task name (180px min) + all visible column widths
+  const columnsWidth = columns.reduce((sum, c) => sum + c.width, 0)
+  const [panelWidth, setPanelWidth] = useState(() => Math.max(280, 180 + columnsWidth))
   const resizingPanel = useRef(false)
 
   // ── Derived data ───────────────────────────────────────────────

@@ -5,11 +5,12 @@
  * Dynamic Panel: create/detail forms per entity.
  */
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   CalendarRange, ListTodo, AlertTriangle, BarChart3, Plus,
   Calendar, Clock, Users, CheckCircle2, XCircle, Send, Ban,
   Wrench, HardHat, Gauge, Shield, Drill, Pencil, Trash2, Link2, Loader2,
-  ChevronLeft, ChevronRight, GanttChart, Eye, Repeat, ArrowUpDown,
+  ChevronLeft, ChevronRight, ChevronDown, GanttChart, Eye, Repeat, ArrowUpDown,
   FlaskConical, TrendingUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -36,6 +37,8 @@ import {
 } from '@/components/layout/DynamicPanel'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { GanttView } from './GanttView'
+import { buildCells, buildHeaderGroups, getDefaultDateRange } from '@/components/shared/gantt/ganttEngine'
+import type { TimeScale } from '@/components/shared/gantt/ganttEngine'
 import { TagManager } from '@/components/shared/TagManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
@@ -46,6 +49,7 @@ import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm, usePromptInput } from '@/components/ui/ConfirmDialog'
+import { useAssetHierarchy } from '@/hooks/useAssetRegistry'
 import {
   useActivities,
   useActivity,
@@ -60,9 +64,16 @@ import {
   useAddDependency,
   useRemoveDependency,
   useConflicts,
+  useRevisionSignals,
+  useRevisionSignalImpactSummary,
+  useAcknowledgeRevisionSignal,
+  useRevisionDecisionRequests,
+  useRequestRevisionDecision,
+  useRespondRevisionDecisionRequest,
+  useForceRevisionDecisionRequest,
   useResolveConflict,
+  useConflictAudit,
   // useBulkResolveConflicts — available, wired into ConflitsTab in a future pass
-  // useConflictAudit — available, wired into conflict detail panel in a future pass
   useGanttData,
   useCapacityHeatmap,
   useAssetCapacities,
@@ -78,10 +89,13 @@ import { usePermission } from '@/hooks/usePermission'
 import type {
   PlannerActivity, PlannerActivityCreate,
   PlannerConflict, PlannerDependency,
+  PlannerRevisionSignal,
+  PlannerRevisionDecisionRequest,
   GanttActivity, GanttAsset,
   AssetCapacity,
   ProposedActivity, ScenarioResult, ForecastDay,
 } from '@/types/api'
+import type { HierarchyFieldNode } from '@/types/assetRegistry'
 
 // ── Tab definitions ───────────────────────────────────────────
 
@@ -276,6 +290,28 @@ function addDays(d: string, n: number): string {
 
 function toISODate(d: Date): string {
   return d.toISOString().split('T')[0]
+}
+
+function shiftTimelineRange(scale: TimeScale, start: string, end: string, direction: -1 | 1): { start: string; end: string } {
+  const startDate = new Date(start)
+  const endDate = new Date(end)
+  if (scale === 'day') {
+    startDate.setDate(startDate.getDate() + direction)
+    endDate.setDate(endDate.getDate() + direction)
+  } else if (scale === 'week') {
+    startDate.setDate(startDate.getDate() + 7 * direction)
+    endDate.setDate(endDate.getDate() + 7 * direction)
+  } else if (scale === 'month') {
+    startDate.setMonth(startDate.getMonth() + direction)
+    endDate.setMonth(endDate.getMonth() + direction)
+  } else if (scale === 'quarter') {
+    startDate.setMonth(startDate.getMonth() + 3 * direction)
+    endDate.setMonth(endDate.getMonth() + 3 * direction)
+  } else {
+    startDate.setMonth(startDate.getMonth() + 6 * direction)
+    endDate.setMonth(endDate.getMonth() + 6 * direction)
+  }
+  return { start: toISODate(startDate), end: toISODate(endDate) }
 }
 
 // ── Gantt Tab ─────────────────────────────────────────────────
@@ -843,10 +879,34 @@ function ActivitiesTab() {
 // ── Conflicts Tab ─────────────────────────────────────────────
 
 function ConflitsTab() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [statusFilter, setStatusFilter] = useState('')
+  const [expandedRevisionSignalId, setExpandedRevisionSignalId] = useState<string | null>(null)
+  const [requestDecisionModal, setRequestDecisionModal] = useState<PlannerRevisionSignal | null>(null)
+  const [requestDecisionNote, setRequestDecisionNote] = useState('')
+  const [requestDecisionDueAt, setRequestDecisionDueAt] = useState('')
+  const [requestDecisionPaxQuota, setRequestDecisionPaxQuota] = useState('')
+  const [requestDecisionStartDate, setRequestDecisionStartDate] = useState('')
+  const [requestDecisionEndDate, setRequestDecisionEndDate] = useState('')
+  const [requestDecisionStatus, setRequestDecisionStatus] = useState('')
+  const [respondDecisionModal, setRespondDecisionModal] = useState<PlannerRevisionDecisionRequest | null>(null)
+  const [respondDecisionMode, setRespondDecisionMode] = useState<'accepted' | 'counter_proposed'>('accepted')
+  const [respondDecisionNote, setRespondDecisionNote] = useState('')
+  const [respondDecisionPaxQuota, setRespondDecisionPaxQuota] = useState('')
+  const [respondDecisionStartDate, setRespondDecisionStartDate] = useState('')
+  const [respondDecisionEndDate, setRespondDecisionEndDate] = useState('')
+  const [respondDecisionStatus, setRespondDecisionStatus] = useState('')
   const resolveConflict = useResolveConflict()
+  const acknowledgeRevisionSignal = useAcknowledgeRevisionSignal()
+  const requestRevisionDecision = useRequestRevisionDecision()
+  const respondRevisionDecisionRequest = useRespondRevisionDecisionRequest()
+  const forceRevisionDecisionRequest = useForceRevisionDecisionRequest()
+  const { data: revisionSignalsData, isLoading: revisionSignalsLoading } = useRevisionSignals({ page: 1, page_size: 6 })
+  const { data: incomingRevisionRequestsData, isLoading: incomingRevisionRequestsLoading } = useRevisionDecisionRequests({ page: 1, page_size: 6, direction: 'incoming', status: 'pending' })
+  const { data: outgoingRevisionRequestsData, isLoading: outgoingRevisionRequestsLoading } = useRevisionDecisionRequests({ page: 1, page_size: 6, direction: 'outgoing', status: 'all' })
+  const { data: revisionImpactSummary, isLoading: revisionImpactLoading } = useRevisionSignalImpactSummary(expandedRevisionSignalId ?? undefined)
   const conflictStatusLabels = useDictionaryLabels('planner_conflict_status', CONFLICT_STATUS_LABELS_FALLBACK)
   const resolutionLabels = useDictionaryLabels('planner_conflict_resolution', RESOLUTION_LABELS_FALLBACK)
   const conflictStatusOptions = useMemo(() => buildDictionaryOptions(conflictStatusLabels, PLANNER_CONFLICT_STATUS_VALUES, 'Tous'), [conflictStatusLabels])
@@ -859,6 +919,9 @@ function ConflitsTab() {
   })
 
   const items: PlannerConflict[] = data?.items ?? []
+  const revisionSignals: PlannerRevisionSignal[] = revisionSignalsData?.items ?? []
+  const incomingRevisionRequests: PlannerRevisionDecisionRequest[] = incomingRevisionRequestsData?.items ?? []
+  const outgoingRevisionRequests: PlannerRevisionDecisionRequest[] = outgoingRevisionRequestsData?.items ?? []
   const total = data?.total ?? 0
 
   const stats = useMemo(() => {
@@ -871,6 +934,7 @@ function ConflitsTab() {
   const [resolveModal, setResolveModal] = useState<string | null>(null)
   const [resolution, setResolution] = useState('')
   const [resolutionNote, setResolutionNote] = useState('')
+  const { data: conflictAudit, isLoading: conflictAuditLoading } = useConflictAudit(resolveModal ?? undefined)
 
   const handleResolve = useCallback(() => {
     if (!resolveModal || !resolution) return
@@ -879,6 +943,70 @@ function ConflitsTab() {
       { onSuccess: () => { setResolveModal(null); setResolution(''); setResolutionNote('') } },
     )
   }, [resolveModal, resolution, resolutionNote, resolveConflict])
+
+  const handleRequestDecision = useCallback(() => {
+    if (!requestDecisionModal) return
+    requestRevisionDecision.mutate(
+      {
+        signalId: requestDecisionModal.id,
+        payload: {
+          note: requestDecisionNote || undefined,
+          due_at: requestDecisionDueAt ? new Date(requestDecisionDueAt).toISOString() : undefined,
+          proposed_pax_quota: requestDecisionPaxQuota ? Number(requestDecisionPaxQuota) : undefined,
+          proposed_start_date: requestDecisionStartDate ? new Date(requestDecisionStartDate).toISOString() : undefined,
+          proposed_end_date: requestDecisionEndDate ? new Date(requestDecisionEndDate).toISOString() : undefined,
+          proposed_status: requestDecisionStatus || undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          setRequestDecisionModal(null)
+          setRequestDecisionNote('')
+          setRequestDecisionDueAt('')
+          setRequestDecisionPaxQuota('')
+          setRequestDecisionStartDate('')
+          setRequestDecisionEndDate('')
+          setRequestDecisionStatus('')
+        },
+      },
+    )
+  }, [requestDecisionDueAt, requestDecisionEndDate, requestDecisionModal, requestDecisionNote, requestDecisionPaxQuota, requestDecisionStartDate, requestDecisionStatus, requestRevisionDecision])
+
+  const handleRespondDecision = useCallback(() => {
+    if (!respondDecisionModal) return
+    respondRevisionDecisionRequest.mutate(
+      {
+        requestId: respondDecisionModal.id,
+        payload: {
+          response: respondDecisionMode,
+          response_note: respondDecisionNote || undefined,
+          counter_pax_quota: respondDecisionMode === 'counter_proposed' && respondDecisionPaxQuota
+            ? Number(respondDecisionPaxQuota)
+            : undefined,
+          counter_start_date: respondDecisionMode === 'counter_proposed' && respondDecisionStartDate
+            ? new Date(respondDecisionStartDate).toISOString()
+            : undefined,
+          counter_end_date: respondDecisionMode === 'counter_proposed' && respondDecisionEndDate
+            ? new Date(respondDecisionEndDate).toISOString()
+            : undefined,
+          counter_status: respondDecisionMode === 'counter_proposed'
+            ? (respondDecisionStatus || undefined)
+            : undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          setRespondDecisionModal(null)
+          setRespondDecisionMode('accepted')
+          setRespondDecisionNote('')
+          setRespondDecisionPaxQuota('')
+          setRespondDecisionStartDate('')
+          setRespondDecisionEndDate('')
+          setRespondDecisionStatus('')
+        },
+      },
+    )
+  }, [respondDecisionEndDate, respondDecisionMode, respondDecisionModal, respondDecisionNote, respondDecisionPaxQuota, respondDecisionStartDate, respondDecisionStatus, respondRevisionDecisionRequest])
 
   const columns = useMemo<ColumnDef<PlannerConflict, unknown>[]>(() => [
     {
@@ -932,7 +1060,7 @@ function ConflitsTab() {
       id: 'actions',
       header: '',
       size: 80,
-      cell: ({ row }) => {
+          cell: ({ row }) => {
         if (row.original.status !== 'open') return null
         return (
           <button
@@ -943,12 +1071,12 @@ function ConflitsTab() {
             }}
             disabled={resolveConflict.isPending}
           >
-            Resoudre
+            {t('planner.resolve_conflict_action')}
           </button>
         )
       },
     },
-  ], [conflictStatusLabels, resolutionLabels, resolveConflict.isPending])
+  ], [conflictStatusLabels, resolutionLabels, resolveConflict.isPending, t])
 
   return (
     <>
@@ -979,6 +1107,254 @@ function ConflitsTab() {
         {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{total} conflits</span>}
       </div>
 
+      <div className="border-b border-border px-4 py-3">
+        <div className="rounded-lg border border-border bg-background p-3">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('planner.revision_signals.title')}</p>
+              <p className="text-xs text-muted-foreground">{t('planner.revision_signals.description')}</p>
+            </div>
+            <span className="gl-badge gl-badge-info">{revisionSignals.length}</span>
+          </div>
+          <div className="space-y-2">
+            {revisionSignalsLoading && <p className="text-xs text-muted-foreground">{t('common.loading')}</p>}
+            {!revisionSignalsLoading && revisionSignals.length === 0 && (
+              <p className="text-xs italic text-muted-foreground">{t('planner.revision_signals.empty')}</p>
+            )}
+            {revisionSignals.map((signal) => (
+              <div key={signal.id} className="rounded-md border border-border bg-muted/30 px-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {signal.project_code || t('planner.revision_signals.project_fallback')} · {signal.task_title || t('planner.revision_signals.task_fallback')}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {t('planner.revision_signals.summary', {
+                        fields: (signal.changed_fields ?? []).join(', ') || t('planner.revision_signals.critical_fields'),
+                        count: signal.planner_activity_count,
+                      })}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {signal.actor_name || t('planner.revision_signals.actor_fallback')} · {formatDateShort(signal.created_at)}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      className="gl-button-sm gl-button-default text-xs"
+                      onClick={() => setRequestDecisionModal(signal)}
+                    >
+                      {t('planner.revision_signals.request_decision')}
+                    </button>
+                    <button
+                      type="button"
+                      className="gl-button-sm gl-button-default text-xs"
+                      onClick={() => setExpandedRevisionSignalId((prev) => prev === signal.id ? null : signal.id)}
+                    >
+                      {expandedRevisionSignalId === signal.id
+                        ? t('planner.revision_signals.hide_impact')
+                        : t('planner.revision_signals.show_impact')}
+                    </button>
+                    {signal.project_id && (
+                      <CrossModuleLink
+                        module="projets"
+                        id={signal.project_id}
+                        label={signal.project_code || t('planner.revision_signals.open_project')}
+                        className="text-xs"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      className="gl-button-sm gl-button-default text-xs"
+                      onClick={() => acknowledgeRevisionSignal.mutate(signal.id)}
+                      disabled={acknowledgeRevisionSignal.isPending}
+                    >
+                      {t('planner.revision_signals.acknowledge')}
+                    </button>
+                  </div>
+                </div>
+                {expandedRevisionSignalId === signal.id && (
+                  <div className="mt-3 rounded-md border border-border bg-background/80 p-3">
+                    {revisionImpactLoading && (
+                      <p className="text-xs text-muted-foreground">{t('common.loading')}</p>
+                    )}
+                    {!revisionImpactLoading && revisionImpactSummary && (
+                      <div className="space-y-2">
+                        <div className="grid gap-2 md:grid-cols-3">
+                          <div className="rounded border border-border px-2 py-1.5 text-xs">
+                            <span className="text-muted-foreground">{t('planner.revision_signals.ads_affected')}</span>
+                            <div className="font-semibold tabular-nums">{revisionImpactSummary.total_ads_affected}</div>
+                          </div>
+                          <div className="rounded border border-border px-2 py-1.5 text-xs">
+                            <span className="text-muted-foreground">{t('planner.revision_signals.manifests_affected')}</span>
+                            <div className="font-semibold tabular-nums">{revisionImpactSummary.total_manifests_affected}</div>
+                          </div>
+                          <div className="rounded border border-border px-2 py-1.5 text-xs">
+                            <span className="text-muted-foreground">{t('planner.revision_signals.open_conflict_days')}</span>
+                            <div className="font-semibold tabular-nums">{revisionImpactSummary.total_open_conflict_days}</div>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          {revisionImpactSummary.activities.map((activity) => (
+                            <div key={activity.activity_id} className="rounded border border-border px-2 py-1.5 text-xs">
+                              <p className="font-medium text-foreground">{activity.activity_title || activity.activity_id}</p>
+                              <p className="text-muted-foreground">
+                                {t('planner.revision_signals.impact_activity_summary', {
+                                  ads: activity.ads_affected,
+                                  manifests: activity.manifests_affected,
+                                  conflicts: activity.open_conflict_days,
+                                })}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="border-b border-border px-4 py-3">
+        <div className="grid gap-3 lg:grid-cols-2">
+          <div className="rounded-lg border border-border bg-background p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('planner.revision_requests.incoming_title')}</p>
+                <p className="text-xs text-muted-foreground">{t('planner.revision_requests.incoming_description')}</p>
+              </div>
+              <span className="gl-badge gl-badge-info">{incomingRevisionRequests.length}</span>
+            </div>
+            <div className="space-y-2">
+              {incomingRevisionRequestsLoading && <p className="text-xs text-muted-foreground">{t('common.loading')}</p>}
+              {!incomingRevisionRequestsLoading && incomingRevisionRequests.length === 0 && (
+                <p className="text-xs italic text-muted-foreground">{t('planner.revision_requests.empty_incoming')}</p>
+              )}
+              {incomingRevisionRequests.map((item) => (
+                <div key={item.id} className="rounded border border-border bg-muted/20 px-3 py-2">
+                  <p className="text-sm font-medium text-foreground">{item.project_code || t('planner.revision_signals.project_fallback')} · {item.task_title || t('planner.revision_signals.task_fallback')}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {item.requester_user_name || t('planner.revision_signals.actor_fallback')}
+                    {item.due_at ? ` · ${t('planner.revision_requests.due_at')} ${formatDateShort(item.due_at)}` : ''}
+                  </p>
+                  {(item.proposed_start_date || item.proposed_end_date || item.proposed_pax_quota != null || item.proposed_status) && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {t('planner.revision_requests.proposed_summary', {
+                        start: item.proposed_start_date ? formatDateShort(item.proposed_start_date) : '—',
+                        end: item.proposed_end_date ? formatDateShort(item.proposed_end_date) : '—',
+                        pax: item.proposed_pax_quota ?? '—',
+                        status: item.proposed_status || '—',
+                      })}
+                    </p>
+                  )}
+                  {item.note && <p className="mt-1 text-xs text-muted-foreground">{item.note}</p>}
+                  <div className="mt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="gl-button-sm gl-button-confirm text-xs"
+                      onClick={() => {
+                        setRespondDecisionModal(item)
+                        setRespondDecisionMode('accepted')
+                        setRespondDecisionNote('')
+                        setRespondDecisionPaxQuota('')
+                        setRespondDecisionStartDate('')
+                        setRespondDecisionEndDate('')
+                        setRespondDecisionStatus('')
+                      }}
+                    >
+                      {t('planner.revision_requests.accept')}
+                    </button>
+                    <button
+                      type="button"
+                      className="gl-button-sm gl-button-default text-xs"
+                      onClick={() => {
+                        setRespondDecisionModal(item)
+                        setRespondDecisionMode('counter_proposed')
+                        setRespondDecisionNote(item.response_note || '')
+                        setRespondDecisionPaxQuota(item.counter_pax_quota != null ? String(item.counter_pax_quota) : '')
+                        setRespondDecisionStartDate(item.counter_start_date ? item.counter_start_date.slice(0, 16) : '')
+                        setRespondDecisionEndDate(item.counter_end_date ? item.counter_end_date.slice(0, 16) : '')
+                        setRespondDecisionStatus(item.counter_status || item.proposed_status || '')
+                      }}
+                    >
+                      {t('planner.revision_requests.counter_propose')}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-background p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('planner.revision_requests.outgoing_title')}</p>
+                <p className="text-xs text-muted-foreground">{t('planner.revision_requests.outgoing_description')}</p>
+              </div>
+              <span className="gl-badge gl-badge-info">{outgoingRevisionRequests.length}</span>
+            </div>
+            <div className="space-y-2">
+              {outgoingRevisionRequestsLoading && <p className="text-xs text-muted-foreground">{t('common.loading')}</p>}
+              {!outgoingRevisionRequestsLoading && outgoingRevisionRequests.length === 0 && (
+                <p className="text-xs italic text-muted-foreground">{t('planner.revision_requests.empty_outgoing')}</p>
+              )}
+              {outgoingRevisionRequests.map((item) => (
+                <div key={item.id} className="rounded border border-border bg-muted/20 px-3 py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{item.project_code || t('planner.revision_signals.project_fallback')} · {item.task_title || t('planner.revision_signals.task_fallback')}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {item.target_user_name || t('planner.revision_signals.actor_fallback')}
+                        {item.due_at ? ` · ${t('planner.revision_requests.due_at')} ${formatDateShort(item.due_at)}` : ''}
+                      </p>
+                    </div>
+                    <span className="gl-badge gl-badge-default">{t(`planner.revision_requests.status_${item.status}`)}</span>
+                  </div>
+                  {(item.response_note || item.forced_reason) && (
+                    <p className="mt-1 text-xs text-muted-foreground">{item.response_note || item.forced_reason}</p>
+                  )}
+                  {item.application_result && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {item.application_result.task_requires_manual_breakdown
+                        ? t('planner.revision_requests.application_manual_breakdown')
+                        : t('planner.revision_requests.application_summary', {
+                          task: item.application_result.applied_to_task ? t('common.yes') : t('common.no'),
+                          activities: item.application_result.applied_activity_count ?? 0,
+                        })}
+                    </p>
+                  )}
+                  {(item.counter_start_date || item.counter_end_date || item.counter_pax_quota != null || item.counter_status) && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {t('planner.revision_requests.counter_summary', {
+                        start: item.counter_start_date ? formatDateShort(item.counter_start_date) : '—',
+                        end: item.counter_end_date ? formatDateShort(item.counter_end_date) : '—',
+                        pax: item.counter_pax_quota ?? '—',
+                        status: item.counter_status || '—',
+                      })}
+                    </p>
+                  )}
+                  {item.status === 'pending' && (
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        className="gl-button-sm gl-button-default text-xs"
+                        onClick={() => forceRevisionDecisionRequest.mutate({ requestId: item.id })}
+                        disabled={forceRevisionDecisionRequest.isPending}
+                      >
+                        {t('planner.revision_requests.force')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <PanelContent>
         <DataTable<PlannerConflict>
           columns={columns}
@@ -987,7 +1363,7 @@ function ConflitsTab() {
           pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
           emptyIcon={AlertTriangle}
-          emptyTitle="Aucun conflit"
+          emptyTitle={t('planner.no_conflict')}
           storageKey="planner-conflicts"
         />
       </PanelContent>
@@ -996,37 +1372,232 @@ function ConflitsTab() {
       {resolveModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setResolveModal(null)}>
           <div className="bg-background rounded-lg border border-border shadow-lg w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-foreground">Resoudre le conflit</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t('planner.resolve_conflict_title')}</h3>
             <div>
-              <label className="text-xs font-medium text-muted-foreground block mb-1">Resolution</label>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.resolve_conflict_field')}</label>
               <select
                 value={resolution}
                 onChange={(e) => setResolution(e.target.value)}
                 className="w-full h-8 px-2 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               >
-                <option value="">Choisir...</option>
+                <option value="">{t('planner.resolve_conflict_placeholder')}</option>
                 {resolutionOptions.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground block mb-1">Note (optionnel)</label>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label className="text-xs font-medium text-muted-foreground">{t('planner.resolve_conflict_history')}</label>
+                {conflictAuditLoading && <span className="text-[11px] text-muted-foreground">{t('common.loading')}</span>}
+              </div>
+              <div className="max-h-40 space-y-2 overflow-y-auto rounded border border-border bg-muted/20 p-2">
+                {!conflictAuditLoading && (!conflictAudit || conflictAudit.length === 0) && (
+                  <p className="text-xs italic text-muted-foreground">{t('planner.resolve_conflict_history_empty')}</p>
+                )}
+                {(conflictAudit ?? []).map((entry) => (
+                  <div key={entry.id} className="rounded border border-border bg-background px-2 py-1.5 text-xs">
+                    <p className="font-medium text-foreground">
+                      {(entry.actor_name || t('planner.revision_signals.actor_fallback'))} · {formatDateShort(entry.created_at)}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {entry.new_resolution
+                        ? `${resolutionLabels[entry.new_resolution] || entry.new_resolution}`
+                        : (entry.action || '—')}
+                    </p>
+                    {entry.resolution_note && (
+                      <p className="mt-1 text-muted-foreground">{entry.resolution_note}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.resolve_conflict_note')}</label>
               <textarea
                 value={resolutionNote}
                 onChange={(e) => setResolutionNote(e.target.value)}
                 className="w-full min-h-[60px] px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="Commentaire de resolution..."
+                placeholder={t('planner.resolve_conflict_note_placeholder')}
               />
             </div>
             <div className="flex items-center gap-2 justify-end">
-              <button className="gl-button-sm gl-button-default" onClick={() => setResolveModal(null)}>Annuler</button>
+              <button className="gl-button-sm gl-button-default" onClick={() => setResolveModal(null)}>{t('common.cancel')}</button>
               <button
                 className="gl-button-sm gl-button-confirm"
                 onClick={handleResolve}
                 disabled={!resolution || resolveConflict.isPending}
               >
-                {resolveConflict.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Confirmer'}
+                {resolveConflict.isPending ? <Loader2 size={12} className="animate-spin" /> : t('planner.confirm_resolution')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {requestDecisionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setRequestDecisionModal(null)}>
+          <div className="bg-background rounded-lg border border-border shadow-lg w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-foreground">{t('planner.revision_requests.request_title')}</h3>
+            <p className="text-xs text-muted-foreground">
+              {requestDecisionModal.project_code || t('planner.revision_signals.project_fallback')} · {requestDecisionModal.task_title || t('planner.revision_signals.task_fallback')}
+            </p>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.revision_requests.note')}</label>
+              <textarea
+                value={requestDecisionNote}
+                onChange={(e) => setRequestDecisionNote(e.target.value)}
+                className="w-full min-h-[72px] px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder={t('planner.revision_requests.note_placeholder')}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.revision_requests.due_at_label')}</label>
+                <input
+                  type="datetime-local"
+                  value={requestDecisionDueAt}
+                  onChange={(e) => setRequestDecisionDueAt(e.target.value)}
+                  className={panelInputClass}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.revision_requests.proposed_pax')}</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={requestDecisionPaxQuota}
+                  onChange={(e) => setRequestDecisionPaxQuota(e.target.value)}
+                  className={panelInputClass}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.revision_requests.proposed_start')}</label>
+                <input
+                  type="datetime-local"
+                  value={requestDecisionStartDate}
+                  onChange={(e) => setRequestDecisionStartDate(e.target.value)}
+                  className={panelInputClass}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.revision_requests.proposed_end')}</label>
+                <input
+                  type="datetime-local"
+                  value={requestDecisionEndDate}
+                  onChange={(e) => setRequestDecisionEndDate(e.target.value)}
+                  className={panelInputClass}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.revision_requests.proposed_status')}</label>
+              <select
+                value={requestDecisionStatus}
+                onChange={(e) => setRequestDecisionStatus(e.target.value)}
+                className="w-full h-8 px-2 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">{t('planner.resolve_conflict_placeholder')}</option>
+                {PLANNER_ACTIVITY_STATUS_VALUES.map((status) => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2 justify-end">
+              <button className="gl-button-sm gl-button-default" onClick={() => setRequestDecisionModal(null)}>{t('common.cancel')}</button>
+              <button
+                className="gl-button-sm gl-button-confirm"
+                onClick={handleRequestDecision}
+                disabled={requestRevisionDecision.isPending}
+              >
+                {requestRevisionDecision.isPending ? <Loader2 size={12} className="animate-spin" /> : t('planner.revision_requests.send_request')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {respondDecisionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setRespondDecisionModal(null)}>
+          <div className="bg-background rounded-lg border border-border shadow-lg w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-foreground">{t('planner.revision_requests.respond_title')}</h3>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.revision_requests.response')}</label>
+              <select
+                value={respondDecisionMode}
+                onChange={(e) => setRespondDecisionMode(e.target.value as 'accepted' | 'counter_proposed')}
+                className="w-full h-8 px-2 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="accepted">{t('planner.revision_requests.accept')}</option>
+                <option value="counter_proposed">{t('planner.revision_requests.counter_propose')}</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.revision_requests.note')}</label>
+              <textarea
+                value={respondDecisionNote}
+                onChange={(e) => setRespondDecisionNote(e.target.value)}
+                className="w-full min-h-[72px] px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder={t('planner.revision_requests.response_note_placeholder')}
+              />
+            </div>
+            {respondDecisionMode === 'counter_proposed' && (
+              <>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.revision_requests.counter_pax')}</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={respondDecisionPaxQuota}
+                    onChange={(e) => setRespondDecisionPaxQuota(e.target.value)}
+                    className={panelInputClass}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.revision_requests.counter_start')}</label>
+                    <input
+                      type="datetime-local"
+                      value={respondDecisionStartDate}
+                      onChange={(e) => setRespondDecisionStartDate(e.target.value)}
+                      className={panelInputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.revision_requests.counter_end')}</label>
+                    <input
+                      type="datetime-local"
+                      value={respondDecisionEndDate}
+                      onChange={(e) => setRespondDecisionEndDate(e.target.value)}
+                      className={panelInputClass}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.revision_requests.counter_status')}</label>
+                  <select
+                    value={respondDecisionStatus}
+                    onChange={(e) => setRespondDecisionStatus(e.target.value)}
+                    className="w-full h-8 px-2 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="">{t('planner.resolve_conflict_placeholder')}</option>
+                    {PLANNER_ACTIVITY_STATUS_VALUES.map((status) => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+            <div className="flex items-center gap-2 justify-end">
+              <button className="gl-button-sm gl-button-default" onClick={() => setRespondDecisionModal(null)}>{t('common.cancel')}</button>
+              <button
+                className="gl-button-sm gl-button-confirm"
+                onClick={handleRespondDecision}
+                disabled={respondRevisionDecisionRequest.isPending}
+              >
+                {respondRevisionDecisionRequest.isPending ? <Loader2 size={12} className="animate-spin" /> : t('planner.confirm_resolution')}
               </button>
             </div>
           </div>
@@ -1038,14 +1609,24 @@ function ConflitsTab() {
 
 // ── Capacity Tab ──────────────────────────────────────────────
 
-function CapacityTab() {
+function CapacityTab({
+  timelineScale,
+  timelineStartDate,
+  timelineEndDate,
+  onTimelineScaleChange,
+  onTimelineRangeChange,
+}: {
+  timelineScale: TimeScale
+  timelineStartDate: string
+  timelineEndDate: string
+  onTimelineScaleChange: (scale: TimeScale) => void
+  onTimelineRangeChange: (from: string, to: string) => void
+}) {
+  const { t } = useTranslation()
   const [assetId, setAssetId] = useState('')
-  const [dateRange_, setDateRange_] = useState(() => {
-    const today = new Date()
-    const from = toISODate(today)
-    const to = toISODate(new Date(today.getTime() + 30 * 86400000))
-    return { from, to }
-  })
+  const [expandedFieldIds, setExpandedFieldIds] = useState<Set<string>>(new Set())
+  const [expandedSiteIds, setExpandedSiteIds] = useState<Set<string>>(new Set())
+  const dateRange_ = useMemo(() => ({ from: timelineStartDate, to: timelineEndDate }), [timelineEndDate, timelineStartDate])
 
   // Heatmap data
   const { data: heatmapData, isLoading: heatmapLoading } = useCapacityHeatmap(
@@ -1053,6 +1634,7 @@ function CapacityTab() {
     dateRange_.to,
     assetId || undefined,
   )
+  const { data: assetHierarchy = [] } = useAssetHierarchy()
 
   // Asset capacity history
   const { data: capacityHistory } = useAssetCapacities(assetId || undefined)
@@ -1079,33 +1661,203 @@ function CapacityTab() {
   }, [assetId, capForm, createAssetCapacity, toast])
 
   const heatmapDays = heatmapData?.days ?? []
+  const heatmapConfig = heatmapData?.config ?? {
+    threshold_low: 40,
+    threshold_medium: 70,
+    threshold_high: 90,
+    threshold_critical: 100,
+    color_low: '#86efac',
+    color_medium: '#4ade80',
+    color_high: '#fbbf24',
+    color_critical: '#ef4444',
+    color_overflow: '#991b1b',
+  }
+  const capacityCells = useMemo(
+    () => buildCells(timelineScale, new Date(dateRange_.from), new Date(dateRange_.to)),
+    [timelineScale, dateRange_.from, dateRange_.to],
+  )
+  const capacityHeaderGroups = useMemo(
+    () => buildHeaderGroups(timelineScale, capacityCells),
+    [timelineScale, capacityCells],
+  )
+  const capacityCellWidthClass = timelineScale === 'day'
+    ? 'w-14'
+    : timelineScale === 'week'
+      ? 'w-16'
+      : timelineScale === 'month'
+        ? 'w-20'
+        : 'w-24'
 
-  // Group heatmap by week for calendar layout
-  const weeks = useMemo(() => {
-    if (heatmapDays.length === 0) return []
-    const grouped: typeof heatmapDays[] = []
-    let currentWeek: typeof heatmapDays = []
-    for (const day of heatmapDays) {
-      const d = new Date(day.date)
-      if (currentWeek.length > 0 && d.getDay() === 1) {
-        grouped.push(currentWeek)
-        currentWeek = []
-      }
-      currentWeek.push(day)
+  function saturationColor(pct: number): { backgroundColor: string; color: string } {
+    if (pct > heatmapConfig.threshold_critical) {
+      return { backgroundColor: heatmapConfig.color_overflow, color: '#ffffff' }
     }
-    if (currentWeek.length > 0) grouped.push(currentWeek)
-    return grouped
-  }, [heatmapDays])
-
-  function saturationColor(pct: number): string {
-    if (pct > 100) return 'bg-destructive text-destructive-foreground'
-    if (pct > 90) return 'bg-red-500/80 text-white'
-    if (pct > 70) return 'bg-amber-500/70 text-foreground'
-    if (pct > 40) return 'bg-emerald-500/40 text-foreground'
-    return 'bg-emerald-500/20 text-foreground'
+    if (pct > heatmapConfig.threshold_high) {
+      return { backgroundColor: heatmapConfig.color_critical, color: '#ffffff' }
+    }
+    if (pct > heatmapConfig.threshold_medium) {
+      return { backgroundColor: heatmapConfig.color_high, color: '#111827' }
+    }
+    if (pct > heatmapConfig.threshold_low) {
+      return { backgroundColor: heatmapConfig.color_medium, color: '#111827' }
+    }
+    return { backgroundColor: heatmapConfig.color_low, color: '#111827' }
   }
 
   const capacityItems: AssetCapacity[] = capacityHistory ?? []
+  const heatmapSections = useMemo(() => {
+    const byAsset = new Map<string, { assetName: string; days: typeof heatmapDays }>()
+    for (const day of heatmapDays) {
+      const key = day.asset_id || 'unknown'
+      const existing = byAsset.get(key)
+      if (existing) {
+        existing.days.push(day)
+      } else {
+        byAsset.set(key, {
+          assetName: day.asset_name || t('planner.capacity.unknown_site'),
+          days: [day],
+        })
+      }
+    }
+
+    return Array.from(byAsset.entries())
+      .map(([assetIdKey, section]) => ({
+        assetId: assetIdKey,
+        assetName: section.assetName,
+        days: section.days.sort((a, b) => a.date.localeCompare(b.date)),
+        buckets: capacityCells.map((cell) => {
+          const bucketDays = section.days.filter((day) => {
+            const value = new Date(day.date).getTime()
+            return value >= cell.startDate.getTime() && value <= cell.endDate.getTime()
+          })
+          if (bucketDays.length === 0) {
+            return {
+              key: cell.key,
+              label: cell.label,
+              forecast_pax: 0,
+              real_pob: 0,
+              capacity_limit: 0,
+              remaining_capacity: 0,
+              saturation_pct: 0,
+              start_date: cell.startDate.toISOString().slice(0, 10),
+              end_date: cell.endDate.toISOString().slice(0, 10),
+            }
+          }
+          return {
+            key: cell.key,
+            label: cell.label,
+            forecast_pax: Math.max(...bucketDays.map((day) => day.forecast_pax)),
+            real_pob: Math.max(...bucketDays.map((day) => day.real_pob)),
+            capacity_limit: Math.max(...bucketDays.map((day) => day.capacity_limit)),
+            remaining_capacity: Math.min(...bucketDays.map((day) => day.remaining_capacity)),
+            saturation_pct: Math.max(...bucketDays.map((day) => day.saturation_pct)),
+            start_date: cell.startDate.toISOString().slice(0, 10),
+            end_date: cell.endDate.toISOString().slice(0, 10),
+          }
+        }),
+      }))
+      .sort((a, b) => a.assetName.localeCompare(b.assetName))
+  }, [capacityCells, heatmapDays, t])
+  const heatmapHierarchy = useMemo(() => {
+    if (assetId) {
+      return [{ key: assetId, label: null, sites: [{ key: assetId, label: null, sections: heatmapSections }] }]
+    }
+
+    const sectionMap = new Map(heatmapSections.map((section) => [section.assetId, section]))
+    const fields: Array<{
+      key: string
+      label: string
+      sites: Array<{ key: string; label: string; sections: typeof heatmapSections }>
+    }> = []
+    const assignedAssetIds = new Set<string>()
+
+    for (const field of assetHierarchy as HierarchyFieldNode[]) {
+      const sites = field.sites
+        .map((site) => {
+          const sections = site.installations
+            .map((installation) => {
+              const section = sectionMap.get(installation.id)
+              if (section) assignedAssetIds.add(installation.id)
+              return section ?? null
+            })
+            .filter((section): section is (typeof heatmapSections)[number] => Boolean(section))
+          if (sections.length === 0) return null
+          return {
+            key: site.id,
+            label: site.name,
+            sections,
+          }
+        })
+        .filter(Boolean) as Array<{ key: string; label: string; sections: typeof heatmapSections }>
+
+      if (sites.length > 0) {
+        fields.push({
+          key: field.id,
+          label: field.name,
+          sites,
+        })
+      }
+    }
+
+    const unassignedSections = heatmapSections.filter((section) => !assignedAssetIds.has(section.assetId))
+    if (unassignedSections.length > 0) {
+      fields.push({
+        key: 'unassigned',
+        label: t('planner.capacity.unassigned_field'),
+        sites: [{
+          key: 'unassigned-site',
+          label: t('planner.capacity.unassigned_site'),
+          sections: unassignedSections,
+        }],
+      })
+    }
+
+    return fields
+  }, [assetHierarchy, assetId, heatmapSections, t])
+
+  useEffect(() => {
+    if (assetId || heatmapHierarchy.length === 0) return
+    setExpandedFieldIds((prev) => {
+      if (prev.size > 0) return prev
+      return new Set(heatmapHierarchy.map((fieldGroup) => fieldGroup.key))
+    })
+    setExpandedSiteIds((prev) => {
+      if (prev.size > 0) return prev
+      return new Set(
+        heatmapHierarchy.flatMap((fieldGroup) =>
+          fieldGroup.sites.map((siteGroup) => `${fieldGroup.key}:${siteGroup.key}`),
+        ),
+      )
+    })
+  }, [assetId, heatmapHierarchy])
+
+  const toggleField = useCallback((fieldKey: string) => {
+    setExpandedFieldIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(fieldKey)) next.delete(fieldKey)
+      else next.add(fieldKey)
+      return next
+    })
+  }, [])
+
+  const toggleSite = useCallback((siteCompositeKey: string) => {
+    setExpandedSiteIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(siteCompositeKey)) next.delete(siteCompositeKey)
+      else next.add(siteCompositeKey)
+      return next
+    })
+  }, [])
+
+  const goToday = useCallback(() => {
+    const range = getDefaultDateRange(timelineScale)
+    onTimelineRangeChange(range.start, range.end)
+  }, [onTimelineRangeChange, timelineScale])
+
+  const shiftRange = useCallback((direction: -1 | 1) => {
+    const next = shiftTimelineRange(timelineScale, dateRange_.from, dateRange_.to, direction)
+    onTimelineRangeChange(next.start, next.end)
+  }, [dateRange_.from, dateRange_.to, onTimelineRangeChange, timelineScale])
 
   return (
     <>
@@ -1121,11 +1873,36 @@ function CapacityTab() {
         <DateRangePicker
           startDate={dateRange_.from || null}
           endDate={dateRange_.to || null}
-          onStartChange={(v) => setDateRange_((prev) => ({ ...prev, from: v }))}
-          onEndChange={(v) => setDateRange_((prev) => ({ ...prev, to: v }))}
+          onStartChange={(v) => onTimelineRangeChange(v || dateRange_.from, dateRange_.to)}
+          onEndChange={(v) => onTimelineRangeChange(dateRange_.from, v || dateRange_.to)}
           startLabel="Du"
           endLabel="Au"
         />
+        <div className="flex items-end gap-1">
+          <button
+            type="button"
+            className="gl-button-sm gl-button-default inline-flex items-center gap-1"
+            onClick={() => shiftRange(-1)}
+            title={t('planner.capacity.previous_period')}
+          >
+            <ChevronLeft size={12} />
+          </button>
+          <button
+            type="button"
+            className="gl-button-sm gl-button-default"
+            onClick={goToday}
+          >
+            {t('planner.capacity.today')}
+          </button>
+          <button
+            type="button"
+            className="gl-button-sm gl-button-default inline-flex items-center gap-1"
+            onClick={() => shiftRange(1)}
+            title={t('planner.capacity.next_period')}
+          >
+            <ChevronRight size={12} />
+          </button>
+        </div>
         {assetId && (
           <div className="flex flex-col gap-1 ml-auto">
             <label className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">&nbsp;</label>
@@ -1151,57 +1928,169 @@ function CapacityTab() {
               <BarChart3 size={24} className="text-primary" />
             </div>
             <h3 className="text-base font-semibold text-foreground mb-1">
-              {assetId ? 'Aucune donnee' : 'Consulter la capacite'}
+              {assetId ? t('planner.capacity.empty_title') : t('planner.capacity.empty_idle_title')}
             </h3>
             <p className="text-sm text-muted-foreground max-w-sm">
               {assetId
-                ? 'Aucune donnee de capacite trouvee pour ce site et cette periode.'
-                : "Saisissez l'identifiant du site et la plage de dates pour visualiser la carte de chaleur."}
+                ? t('planner.capacity.empty_description')
+                : t('planner.capacity.empty_idle_description')}
             </p>
           </div>
         ) : (
           <div className="space-y-6 p-4">
-            {/* Heatmap calendar */}
             <div>
-              <h3 className="text-sm font-semibold text-foreground mb-3">Carte de chaleur — Saturation journaliere</h3>
-              <div className="space-y-1">
-                {/* Day-of-week header */}
-                <div className="flex gap-1 pl-0">
-                  {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((d) => (
-                    <div key={d} className="w-10 text-center text-[9px] text-muted-foreground font-medium">{d}</div>
-                  ))}
+              <h3 className="text-sm font-semibold text-foreground mb-1">{t('planner.capacity.heatmap_title')}</h3>
+              <p className="text-xs text-muted-foreground mb-3">{t('planner.capacity.heatmap_description')}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {t('planner.capacity.scale_label')}
+                </span>
+                {(['day', 'week', 'month', 'quarter', 'semester'] as TimeScale[]).map((scale) => (
+                  <button
+                    key={scale}
+                    type="button"
+                    onClick={() => onTimelineScaleChange(scale)}
+                    className={cn(
+                      'px-2 py-1 rounded text-xs font-medium transition-colors',
+                      timelineScale === scale
+                        ? 'bg-primary/[0.16] text-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/40',
+                    )}
+                  >
+                    {t(`planner.capacity.scale.${scale}`)}
+                  </button>
+                ))}
+              </div>
+              {timelineScale !== 'day' && (
+                <p className="mt-2 text-[10px] text-muted-foreground">
+                  {t('planner.capacity.scale_aggregation_note')}
+                </p>
+              )}
+            </div>
+
+            <div className="overflow-x-auto rounded-lg border border-border/50">
+              <div className="min-w-max">
+                <div className="border-b border-border/50 bg-muted/20">
+                  <div className="flex">
+                    <div className="w-40 shrink-0 border-r border-border/50 px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      {t('planner.capacity.axis_asset')}
+                    </div>
+                    <div className="flex">
+                      {capacityHeaderGroups.map((group) => (
+                        <div
+                          key={group.key}
+                          className="border-r border-border/30 px-2 py-2 text-center text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+                          style={{ width: `${group.spanCells * (timelineScale === 'day' ? 56 : timelineScale === 'week' ? 64 : timelineScale === 'month' ? 80 : 96)}px` }}
+                        >
+                          {group.label}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex">
+                    <div className="w-40 shrink-0 border-r border-border/50 px-3 py-2 text-[10px] text-muted-foreground">
+                      {t('planner.capacity.axis_value_hint')}
+                    </div>
+                    <div className="flex">
+                      {capacityCells.map((cell) => (
+                        <div key={cell.key} className={cn('shrink-0 border-r border-border/20 px-1 py-2 text-center text-[10px] text-muted-foreground', capacityCellWidthClass)}>
+                          {cell.label}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                {weeks.map((week, wi) => (
-                  <div key={wi} className="flex gap-1">
-                    {/* Pad start of first week */}
-                    {wi === 0 && Array.from({ length: (new Date(week[0].date).getDay() + 6) % 7 }).map((_, i) => (
-                      <div key={`pad-${i}`} className="w-10 h-10" />
-                    ))}
-                    {week.map((day) => (
-                      <div
-                        key={day.date}
-                        className={cn(
-                          'w-10 h-10 rounded flex flex-col items-center justify-center cursor-default',
-                          saturationColor(day.saturation_pct),
-                        )}
-                        title={`${day.date}: ${day.used}/${day.max} (${day.saturation_pct.toFixed(0)}%)`}
+              </div>
+            </div>
+
+            {heatmapHierarchy.map((fieldGroup) => (
+              <div key={fieldGroup.key} className="space-y-3">
+                {!assetId && (
+                  <button
+                    type="button"
+                    onClick={() => toggleField(fieldGroup.key)}
+                    className="flex w-full items-center gap-2 px-1 text-left"
+                  >
+                    {expandedFieldIds.has(fieldGroup.key) ? (
+                      <ChevronDown size={14} className="text-muted-foreground" />
+                    ) : (
+                      <ChevronRight size={14} className="text-muted-foreground" />
+                    )}
+                    <h4 className="text-sm font-semibold text-foreground">{fieldGroup.label}</h4>
+                  </button>
+                )}
+                {(assetId || expandedFieldIds.has(fieldGroup.key)) && fieldGroup.sites.map((siteGroup) => {
+                  const siteCompositeKey = `${fieldGroup.key}:${siteGroup.key}`
+                  const siteExpanded = assetId ? true : expandedSiteIds.has(siteCompositeKey)
+                  return (
+                  <div key={siteGroup.key} className="space-y-3">
+                    {!assetId && (
+                      <button
+                        type="button"
+                        onClick={() => toggleSite(siteCompositeKey)}
+                        className="flex w-full items-center gap-2 px-1 text-left"
                       >
-                        <span className="text-[9px] font-medium leading-none">{new Date(day.date).getDate()}</span>
-                        <span className="text-[8px] leading-none mt-0.5">{day.saturation_pct.toFixed(0)}%</span>
+                        {siteExpanded ? (
+                          <ChevronDown size={12} className="text-muted-foreground" />
+                        ) : (
+                          <ChevronRight size={12} className="text-muted-foreground" />
+                        )}
+                        <h5 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{siteGroup.label}</h5>
+                      </button>
+                    )}
+                    {siteExpanded && siteGroup.sections.map((section) => (
+                      <div key={section.assetId} className="rounded-lg border border-border/60 p-3">
+                        {!assetId && (
+                          <div className="mb-3 flex items-center justify-between gap-3">
+                            <h6 className="text-sm font-medium text-foreground">{section.assetName}</h6>
+                            <span className="text-[10px] text-muted-foreground">
+                              {section.days.length} {t('planner.capacity.days_suffix')}
+                            </span>
+                          </div>
+                        )}
+                        <div className="overflow-x-auto">
+                          <div className="flex min-w-max gap-1">
+                            {section.buckets.map((bucket) => (
+                              <div
+                                key={`${section.assetId}-${bucket.key}`}
+                                className={cn(
+                                  'h-12 rounded flex shrink-0 flex-col items-center justify-center cursor-default px-1',
+                                  capacityCellWidthClass,
+                                )}
+                                style={saturationColor(bucket.saturation_pct)}
+                                title={t('planner.capacity.heatmap_day_tooltip', {
+                                  date: `${bucket.start_date} → ${bucket.end_date}`,
+                                  forecast: bucket.forecast_pax,
+                                  real: bucket.real_pob,
+                                  capacity: bucket.capacity_limit,
+                                  saturation: bucket.saturation_pct.toFixed(0),
+                                })}
+                              >
+                                <span className="text-[9px] font-medium leading-none">{bucket.label}</span>
+                                <span className="text-[8px] leading-none mt-0.5">
+                                  {bucket.forecast_pax}/{bucket.real_pob}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
-                ))}
+                )})}
               </div>
-              {/* Legend */}
-              <div className="flex items-center gap-3 mt-3">
-                <span className="text-[10px] text-muted-foreground">Legende:</span>
-                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-emerald-500/20" /><span className="text-[10px] text-muted-foreground">&lt;40%</span></div>
-                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-emerald-500/40" /><span className="text-[10px] text-muted-foreground">40-70%</span></div>
-                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-amber-500/70" /><span className="text-[10px] text-muted-foreground">70-90%</span></div>
-                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-red-500/80" /><span className="text-[10px] text-muted-foreground">90-100%</span></div>
-                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-destructive" /><span className="text-[10px] text-muted-foreground">&gt;100%</span></div>
-              </div>
+            ))}
+
+            <div className="mt-2 text-[10px] text-muted-foreground">
+              {t('planner.capacity.heatmap_cell_legend')}
+            </div>
+            <div className="flex items-center gap-3 mt-3">
+              <span className="text-[10px] text-muted-foreground">{t('planner.capacity.legend_label')}</span>
+              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded" style={{ backgroundColor: heatmapConfig.color_low }} /><span className="text-[10px] text-muted-foreground">{`≤${heatmapConfig.threshold_low}%`}</span></div>
+              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded" style={{ backgroundColor: heatmapConfig.color_medium }} /><span className="text-[10px] text-muted-foreground">{`${heatmapConfig.threshold_low}-${heatmapConfig.threshold_medium}%`}</span></div>
+              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded" style={{ backgroundColor: heatmapConfig.color_high }} /><span className="text-[10px] text-muted-foreground">{`${heatmapConfig.threshold_medium}-${heatmapConfig.threshold_high}%`}</span></div>
+              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded" style={{ backgroundColor: heatmapConfig.color_critical }} /><span className="text-[10px] text-muted-foreground">{`${heatmapConfig.threshold_high}-${heatmapConfig.threshold_critical}%`}</span></div>
+              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded" style={{ backgroundColor: heatmapConfig.color_overflow }} /><span className="text-[10px] text-muted-foreground">{`>${heatmapConfig.threshold_critical}%`}</span></div>
             </div>
 
             {/* Capacity history table */}
@@ -1425,6 +2314,7 @@ function ScenariosTab() {
 // ── Forecast Tab (capacity trends) ─────────────────────────────────────
 
 function ForecastTab() {
+  const { t } = useTranslation()
   const [assetId, setAssetId] = useState('')
   const [horizon, setHorizon] = useState(90)
   const { data, isLoading } = useForecast(assetId || undefined, horizon)
@@ -1433,7 +2323,7 @@ function ForecastTab() {
     <div className="p-4 space-y-4 overflow-y-auto">
       <div className="text-xs text-muted-foreground mb-2">
         <TrendingUp size={12} className="inline mr-1 text-primary" />
-        Prévision de charge basée sur les 90 derniers jours + activités planifiées.
+        {t('planner.forecast.description')}
       </div>
 
       <div className="flex items-end gap-3">
@@ -1464,7 +2354,7 @@ function ForecastTab() {
 
       {data && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <div className={cn('border rounded p-2 text-center', data.summary.at_risk_days > 0 ? 'border-orange-500/30 bg-orange-500/5' : '')}>
               <div className="text-[9px] uppercase text-muted-foreground">Jours à risque (&gt;80%)</div>
               <div className={cn('text-lg font-semibold tabular-nums', data.summary.at_risk_days > 0 && 'text-orange-600')}>{data.summary.at_risk_days}</div>
@@ -1472,6 +2362,10 @@ function ForecastTab() {
             <div className="border rounded p-2 text-center">
               <div className="text-[9px] uppercase text-muted-foreground">Charge moy. projetée</div>
               <div className="text-lg font-semibold tabular-nums">{data.summary.avg_projected_load}</div>
+            </div>
+            <div className="border rounded p-2 text-center">
+              <div className="text-[9px] uppercase text-muted-foreground">{t('planner.forecast.avg_real_pob')}</div>
+              <div className="text-lg font-semibold tabular-nums">{data.summary.avg_real_pob}</div>
             </div>
             <div className="border rounded p-2 text-center">
               <div className="text-[9px] uppercase text-muted-foreground">Pic de charge</div>
@@ -1500,6 +2394,9 @@ function ForecastTab() {
                     </div>
                     <span className="w-[40px] text-right tabular-nums">{Math.round(day.combined_load)}</span>
                     <span className="w-[30px] text-right tabular-nums text-muted-foreground">/{day.max_capacity}</span>
+                    <span className="w-[52px] text-right tabular-nums text-muted-foreground">
+                      {t('planner.forecast.real_pob_short', { count: day.real_pob })}
+                    </span>
                     {day.at_risk && <AlertTriangle size={9} className="text-orange-500 shrink-0" />}
                   </div>
                 )
@@ -1514,6 +2411,8 @@ function ForecastTab() {
 
 export function PlannerPage() {
   const [activeTab, setActiveTab] = useState<PlannerTab>('gantt')
+  const [sharedTimelineScale, setSharedTimelineScale] = useState<TimeScale>('month')
+  const [sharedTimelineRange, setSharedTimelineRange] = useState(() => getDefaultDateRange('month'))
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
@@ -1526,6 +2425,20 @@ export function PlannerPage() {
   const handleCreate = useCallback(() => {
     openDynamicPanel({ type: 'create', module: 'planner', meta: { subtype: 'activity' } })
   }, [openDynamicPanel])
+
+  const handleTimelineScaleChange = useCallback((scale: TimeScale) => {
+    setSharedTimelineScale(scale)
+    setSharedTimelineRange(getDefaultDateRange(scale))
+  }, [])
+
+  const handleTimelineRangeChange = useCallback((from: string, to: string) => {
+    setSharedTimelineRange({ start: from, end: to })
+  }, [])
+
+  const handleGanttViewChange = useCallback((scale: TimeScale, start: string, end: string) => {
+    setSharedTimelineScale(scale)
+    setSharedTimelineRange({ start, end })
+  }, [])
 
   return (
     <div className="flex h-full">
@@ -1559,10 +2472,25 @@ export function PlannerPage() {
             })}
           </div>
 
-          {activeTab === 'gantt' && <GanttView />}
+          {activeTab === 'gantt' && (
+            <GanttView
+              scale={sharedTimelineScale}
+              startDate={sharedTimelineRange.start}
+              endDate={sharedTimelineRange.end}
+              onViewChange={handleGanttViewChange}
+            />
+          )}
           {activeTab === 'activities' && <ActivitiesTab />}
           {activeTab === 'conflicts' && <ConflitsTab />}
-          {activeTab === 'capacity' && <CapacityTab />}
+          {activeTab === 'capacity' && (
+            <CapacityTab
+              timelineScale={sharedTimelineScale}
+              timelineStartDate={sharedTimelineRange.start}
+              timelineEndDate={sharedTimelineRange.end}
+              onTimelineScaleChange={handleTimelineScaleChange}
+              onTimelineRangeChange={handleTimelineRangeChange}
+            />
+          )}
           {activeTab === 'scenarios' && <ScenariosTab />}
           {activeTab === 'forecast' && <ForecastTab />}
         </div>

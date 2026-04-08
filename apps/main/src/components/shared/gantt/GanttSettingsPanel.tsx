@@ -8,7 +8,7 @@
 import { useState } from 'react'
 import { Settings2, X, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { GanttSettings } from './ganttTypes'
+import type { GanttSettings, GanttPreset } from './ganttTypes'
 import { DEFAULT_SETTINGS } from './ganttTypes'
 
 import type { GanttColumn } from './ganttTypes'
@@ -22,9 +22,14 @@ interface GanttSettingsPanelProps {
   priorities?: { value: string; label: string; color?: string }[]
   /** Available columns for show/hide toggles */
   columns?: GanttColumn[]
+  /** Saved presets */
+  presets?: GanttPreset[]
+  onSavePreset?: (name: string) => void
+  onLoadPreset?: (preset: GanttPreset) => void
+  onDeletePreset?: (name: string) => void
 }
 
-export function GanttSettingsPanel({ settings, onChange, statuses = [], priorities = [], columns = [] }: GanttSettingsPanelProps) {
+export function GanttSettingsPanel({ settings, onChange, statuses = [], priorities = [], columns = [], presets = [], onSavePreset, onLoadPreset, onDeletePreset }: GanttSettingsPanelProps) {
   const [open, setOpen] = useState(false)
 
   if (!open) {
@@ -237,6 +242,42 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
                 )
               })}
             </div>
+          </section>
+        )}
+        {/* ── Presets ─────────────────────────────────────── */}
+        {onSavePreset && (
+          <section>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Préréglages</h4>
+            <div className="space-y-1 mb-2">
+              {presets.map(p => (
+                <div key={p.name} className="flex items-center gap-1">
+                  <button
+                    onClick={() => onLoadPreset?.(p)}
+                    className="flex-1 text-left text-xs px-2 py-1 rounded hover:bg-muted truncate"
+                  >
+                    {p.name}
+                  </button>
+                  <button
+                    onClick={() => onDeletePreset?.(p.name)}
+                    className="p-0.5 rounded hover:bg-destructive/10 text-destructive/50 shrink-0"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              {presets.length === 0 && (
+                <p className="text-[10px] text-muted-foreground italic">Aucun préréglage</p>
+              )}
+            </div>
+            <button
+              onClick={() => {
+                const name = prompt('Nom du préréglage :')
+                if (name?.trim()) onSavePreset(name.trim())
+              }}
+              className="w-full text-[10px] px-2 py-1 rounded border border-border hover:bg-muted text-center"
+            >
+              + Sauvegarder la vue actuelle
+            </button>
           </section>
         )}
       </div>

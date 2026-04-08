@@ -42,15 +42,17 @@ interface GanttBarProps {
   onDrag?: (newStart: string, newEnd: string) => void
   onResize?: (edge: 'left' | 'right', newDate: string) => void
   onTitleEdit?: (newTitle: string) => void
+  onProgressChange?: (newProgress: number) => void
   onHover?: (e: React.MouseEvent) => void
   onLeave?: () => void
+  onRightClick?: (e: React.MouseEvent) => void
 }
 
 export function GanttBarComponent({
   bar, left, width, top, barHeight, pxPerDay,
   showProgress, showLabels, showBaselines,
   baselineLeft, baselineWidth,
-  onClick, onDrag, onResize, onTitleEdit, onHover, onLeave,
+  onClick, onDrag, onResize, onTitleEdit, onProgressChange, onHover, onLeave, onRightClick,
 }: GanttBarProps) {
   const color = resolveBarColor(bar)
   const dragRef = useRef<{ originX: number; mode: 'move' | 'left' | 'right' } | null>(null)
@@ -219,6 +221,7 @@ export function GanttBarComponent({
             : `0 1px 3px ${color}30`,
         }}
         onClick={onClick}
+        onContextMenu={onRightClick}
         onMouseDown={e => handleMouseDown(e, 'move')}
         onMouseMove={onHover}
         onMouseLeave={onLeave}
@@ -289,6 +292,34 @@ export function GanttBarComponent({
             className="absolute right-0 top-0 bottom-0 w-2 cursor-e-resize z-30 opacity-0 hover:opacity-100 bg-white/30 rounded-r-[5px]"
             onMouseDown={e => handleMouseDown(e, 'right')}
           />
+        )}
+
+        {/* Progress drag handle — small triangle at the progress boundary */}
+        {showProgress && bar.progress != null && onProgressChange && width >= 30 && (
+          <div
+            className="absolute bottom-0 z-30 cursor-ew-resize group/prog"
+            style={{ left: `${Math.min(100, bar.progress)}%`, transform: 'translateX(-4px)' }}
+            onMouseDown={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              const startX = e.clientX
+              const startProg = bar.progress ?? 0
+              const onMove = (ev: MouseEvent) => {
+                const dx = ev.clientX - startX
+                const deltaPct = Math.round((dx / width) * 100)
+                const newProg = Math.max(0, Math.min(100, startProg + deltaPct))
+                onProgressChange(newProg)
+              }
+              const onUp = () => {
+                document.removeEventListener('mousemove', onMove)
+                document.removeEventListener('mouseup', onUp)
+              }
+              document.addEventListener('mousemove', onMove)
+              document.addEventListener('mouseup', onUp)
+            }}
+          >
+            <div className="w-2 h-2 bg-white border border-black/20 rounded-sm shadow-sm opacity-0 group-hover/prog:opacity-100 transition-opacity" />
+          </div>
         )}
       </div>
     </>

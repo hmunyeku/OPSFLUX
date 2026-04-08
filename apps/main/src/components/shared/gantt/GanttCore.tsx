@@ -31,6 +31,8 @@ import {
 import { GanttHeader, HEADER_ROW_H } from './GanttHeader'
 import { GanttBarComponent } from './GanttBar'
 import { GanttSettingsPanel } from './GanttSettingsPanel'
+import { GanttContextMenu, buildBarContextActions } from './GanttContextMenu'
+import type { ContextMenuAction } from './GanttContextMenu'
 import { GanttDependencies } from './GanttDependencies'
 import { GanttTooltip } from './GanttTooltip'
 import { DEFAULT_SETTINGS } from './ganttTypes'
@@ -190,6 +192,7 @@ export function GanttCore(props: GanttCoreProps) {
   // ── Tooltip state ──────────────────────────────────────────────
 
   const [tooltip, setTooltip] = useState<{ bar: GanttBarData; x: number; y: number } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; actions: ContextMenuAction[] } | null>(null)
 
   // ── Refs ────────────────────────────────────────────────────────
 
@@ -295,6 +298,28 @@ export function GanttCore(props: GanttCoreProps) {
     setTooltip({ bar, x: e.clientX, y: e.clientY })
   }, [])
   const hideTooltip = useCallback(() => setTooltip(null), [])
+
+  // ── Context menu ───────────────────────────────────────────────
+
+  const showContextMenuFor = useCallback((e: React.MouseEvent, bar: GanttBarData) => {
+    e.preventDefault()
+    e.stopPropagation()
+    hideTooltip()
+
+    const actions = buildBarContextActions({
+      barId: bar.id,
+      isSummary: bar.isSummary,
+      isMilestone: bar.isMilestone,
+      onEdit: () => onBarClick?.(bar.id, bar.meta),
+      onDelete: onDeleteRow ? () => onDeleteRow(bar.id) : undefined,
+      onAddTaskBelow: onAddTask,
+      onAddMilestone: onAddMilestone,
+      onIndent: onIndent ? () => onIndent(bar.id) : undefined,
+      onOutdent: onOutdent ? () => onOutdent(bar.id) : undefined,
+    })
+
+    setContextMenu({ x: e.clientX, y: e.clientY, actions })
+  }, [onBarClick, onDeleteRow, onAddTask, onAddMilestone, onIndent, onOutdent, hideTooltip])
 
   // ── Fit all ─────────────────────────────────────────────────────
 
@@ -806,6 +831,7 @@ export function GanttCore(props: GanttCoreProps) {
                     onTitleEdit={onBarTitleEdit ? (title) => onBarTitleEdit(bar.id, title) : undefined}
                     onHover={(e) => showTooltipFor(e, bar)}
                     onLeave={hideTooltip}
+                    onRightClick={(e) => showContextMenuFor(e, bar)}
                   />
                 )
               })}
@@ -815,13 +841,23 @@ export function GanttCore(props: GanttCoreProps) {
       </div>
 
       {/* Tooltip */}
-      {tooltip && containerRef.current && (
+      {tooltip && !contextMenu && containerRef.current && (
         <GanttTooltip
           bar={tooltip.bar}
           x={tooltip.x}
           y={tooltip.y}
           containerRect={containerRef.current.getBoundingClientRect()}
           showProgress={settings.showProgress}
+        />
+      )}
+
+      {/* Context menu */}
+      {contextMenu && (
+        <GanttContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          actions={contextMenu.actions}
+          onClose={() => setContextMenu(null)}
         />
       )}
     </div>

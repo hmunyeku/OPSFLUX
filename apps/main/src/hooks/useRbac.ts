@@ -52,6 +52,16 @@ export function useUpdateRole() {
   })
 }
 
+export function useDeleteRole() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (code: string) => rbacService.deleteRole(code),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['rbac', 'roles'] })
+    },
+  })
+}
+
 export function useSetRolePermissions() {
   const qc = useQueryClient()
   return useMutation({
@@ -113,6 +123,16 @@ export function useUpdateGroup() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: GroupUpdate }) =>
       rbacService.updateGroup(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['rbac', 'groups'] })
+    },
+  })
+}
+
+export function useDeleteGroup() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => rbacService.deleteGroup(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['rbac', 'groups'] })
     },

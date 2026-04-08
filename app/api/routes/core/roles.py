@@ -327,6 +327,33 @@ async def set_role_permissions(
     return await get_role(role_code, db=db)
 
 
+@router.delete("/roles/{role_code}", status_code=204)
+async def delete_role(
+    role_code: str,
+    _: None = require_permission("core.rbac.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a role and all its permission/group associations."""
+    result = await db.execute(select(Role).where(Role.code == role_code))
+    role = result.scalar_one_or_none()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+
+    # Prevent deleting built-in SUPER_ADMIN role
+    if role_code == "SUPER_ADMIN":
+        raise HTTPException(status_code=400, detail="Cannot delete the SUPER_ADMIN role")
+
+    # Delete role-permission associations
+    await db.execute(delete(RolePermission).where(RolePermission.role_code == role_code))
+    # Delete group-role associations
+    await db.execute(delete(UserGroupRole).where(UserGroupRole.role_code == role_code))
+    # Delete role
+    await db.delete(role)
+    await db.commit()
+
+    await invalidate_rbac_cache()
+
+
 # ── Permission endpoints ───────────────────────────────────────────────────
 
 

@@ -25,6 +25,7 @@ import {
   useRole,
   useCreateRole,
   useUpdateRole,
+  useDeleteRole,
   useSetRolePermissions,
   usePermissions,
   useModules,
@@ -32,6 +33,7 @@ import {
   useGroup,
   useCreateGroup,
   useUpdateGroup,
+  useDeleteGroup,
   useAddGroupMembers,
   useRemoveGroupMember,
   useSetGroupPermissionOverrides,
@@ -473,6 +475,7 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
   const { data: allPermissions } = usePermissions()
   const setPermsMut = useSetRolePermissions()
   const updateMut = useUpdateRole()
+  const deleteRoleMut = useDeleteRole()
   const [permSearch, setPermSearch] = useState('')
   const [pendingPerms, setPendingPerms] = useState<Set<string> | null>(null)
 
@@ -567,6 +570,24 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
   if (!role) return null
 
   const isProtected = role.code === 'SUPER_ADMIN'
+
+  const handleDeleteRole = () => {
+    deleteRoleMut.mutate(code, {
+      onSuccess: () => {
+        toast({ title: 'Rôle supprimé', variant: 'success' })
+        onClose()
+      },
+      onError: (err: Error) => {
+        toast({ title: 'Erreur', description: err.message, variant: 'error' })
+      },
+    })
+  }
+
+  const roleActions = !isProtected ? (
+    <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDeleteRole} confirmLabel="Supprimer ?">
+      Supprimer
+    </DangerConfirmButton>
+  ) : undefined
 
   // ── Tab bar ──
   const tabBar = (
@@ -732,6 +753,7 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
         subtitle={role.code}
         icon={<ShieldCheck size={16} className="text-primary" />}
         onClose={onClose}
+        actions={roleActions}
       >
         {panelContent}
       </InlineDetailPanel>
@@ -743,6 +765,7 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
       title={role.name}
       subtitle={role.code}
       icon={<ShieldCheck size={14} className="text-primary" />}
+      actions={roleActions}
     >
       <div className="px-4 py-3">
         {panelContent}
@@ -1577,6 +1600,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
   const removeMemberMut = useRemoveGroupMember()
   const addMembersMut = useAddGroupMembers()
   const setGroupOverridesMut = useSetGroupPermissionOverrides()
+  const deleteGroupMut = useDeleteGroup()
   const [activeTab, setActiveTab] = useState<GroupSubTab>('fiche')
   const [showAddUser, setShowAddUser] = useState(false)
   const [userSearch, setUserSearch] = useState('')
@@ -1757,6 +1781,18 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
     )
   }
 
+  const handleDeleteGroup = () => {
+    deleteGroupMut.mutate(groupId, {
+      onSuccess: () => {
+        toast({ title: 'Groupe supprimé', variant: 'success' })
+        onClose()
+      },
+      onError: (err: Error) => {
+        toast({ title: 'Erreur', description: err.message, variant: 'error' })
+      },
+    })
+  }
+
   if (isLoading) {
     return inline ? (
       <div className="w-[360px] shrink-0 border-l border-border flex items-center justify-center">
@@ -1798,6 +1834,11 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
       >
         {group.active ? 'Désactiver' : 'Activer'}
       </button>
+      {!isProtected && (
+        <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDeleteGroup} confirmLabel="Supprimer ?">
+          Supprimer
+        </DangerConfirmButton>
+      )}
     </div>
   )
 

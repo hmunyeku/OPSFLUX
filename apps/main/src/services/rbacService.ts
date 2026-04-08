@@ -163,6 +163,10 @@ export const rbacService = {
     return data
   },
 
+  deleteRole: async (code: string): Promise<void> => {
+    await api.delete(`/api/v1/rbac/roles/${code}`)
+  },
+
   setRolePermissions: async (code: string, permissionCodes: string[]): Promise<RoleWithPermissions> => {
     const { data } = await api.put(`/api/v1/rbac/roles/${code}/permissions`, {
       permission_codes: permissionCodes,
@@ -209,6 +213,10 @@ export const rbacService = {
   updateGroup: async (id: string, payload: GroupUpdate): Promise<GroupRead> => {
     const { data } = await api.patch(`/api/v1/rbac/groups/${id}`, payload)
     return data
+  },
+
+  deleteGroup: async (id: string): Promise<void> => {
+    await api.delete(`/api/v1/rbac/groups/${id}`)
   },
 
   addMembers: async (groupId: string, userIds: string[]): Promise<GroupDetail> => {

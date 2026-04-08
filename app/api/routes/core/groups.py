@@ -449,6 +449,36 @@ async def update_group(
     )
 
 
+@router.delete("/{group_id}", status_code=204)
+async def delete_group(
+    group_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("core.rbac.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a group and all its memberships/overrides."""
+    result = await db.execute(
+        select(UserGroup).where(
+            UserGroup.id == group_id, UserGroup.entity_id == entity_id
+        )
+    )
+    group = result.scalar_one_or_none()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    # Delete memberships
+    await db.execute(delete(UserGroupMember).where(UserGroupMember.group_id == group_id))
+    # Delete role associations
+    await db.execute(delete(UserGroupRole).where(UserGroupRole.group_id == group_id))
+    # Delete permission overrides
+    await db.execute(delete(GroupPermissionOverride).where(GroupPermissionOverride.group_id == group_id))
+    # Delete group
+    await db.delete(group)
+    await db.commit()
+
+    await invalidate_rbac_cache()
+
+
 # ── Member management ──────────────────────────────────────────────────────
 
 

@@ -45,7 +45,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
   }
 
   return (
-    <div className="absolute top-10 right-4 z-50 w-[320px] max-h-[500px] overflow-y-auto rounded-lg border bg-card shadow-xl">
+    <div className="fixed top-16 right-8 z-[9999] w-[320px] max-h-[500px] overflow-y-auto rounded-lg border bg-card shadow-xl">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b sticky top-0 bg-card z-10">
         <span className="text-xs font-semibold">Paramètres Gantt</span>

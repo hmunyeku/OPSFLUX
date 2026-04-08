@@ -32,23 +32,23 @@ function formatDate(iso: string): string {
   }
 }
 
-export function GanttTooltip({ bar, x, y, containerRect, showProgress = true }: GanttTooltipProps) {
+export function GanttTooltip({ bar, x, y, showProgress = true }: GanttTooltipProps) {
   const tipW = 300
   const tipH = 220
 
-  // Keep tooltip in viewport
+  // Keep tooltip in viewport (fixed positioning = viewport coords)
   const left = x + tipW + 20 > window.innerWidth
-    ? Math.max(8, x - tipW - 10 - containerRect.left)
-    : x - containerRect.left + 14
+    ? Math.max(8, x - tipW - 10)
+    : x + 14
   const top = y + tipH > window.innerHeight
-    ? Math.max(8, y - tipH - containerRect.top)
-    : y - containerRect.top - 8
+    ? Math.max(8, y - tipH)
+    : y - 8
 
   const color = resolveColor(bar)
 
   return (
     <div
-      className="absolute z-[100] pointer-events-none"
+      className="fixed z-[9998] pointer-events-none"
       style={{ left, top }}
     >
       <div

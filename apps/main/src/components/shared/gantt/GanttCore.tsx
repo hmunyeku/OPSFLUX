@@ -210,13 +210,14 @@ export function GanttCore(props: GanttCoreProps) {
   const panelBodyRef = useRef<HTMLDivElement>(null)
   // Panel width: task name (200px min) + all visible column widths
   const columnsWidth = columns.reduce((sum, c) => sum + c.width, 0)
-  const minPanelWidth = columnsWidth + 200  // 200px min for task name
-  const [panelWidth, setPanelWidth] = useState(() => Math.max(minPanelWidth, columnsWidth + 250))
+  const [taskColWidth, setTaskColWidth] = useState(250) // task name column width
+  const minPanelWidth = columnsWidth + taskColWidth
+  const [panelWidth, setPanelWidth] = useState(() => minPanelWidth)
   const resizingPanel = useRef(false)
-  // Ensure panel never goes below min when columns change
+  // Keep panel in sync with column widths
   useEffect(() => {
-    if (panelWidth < minPanelWidth) setPanelWidth(minPanelWidth)
-  }, [minPanelWidth]) // eslint-disable-line react-hooks/exhaustive-deps
+    setPanelWidth(columnsWidth + taskColWidth)
+  }, [columnsWidth, taskColWidth])
 
   // ── Derived data ───────────────────────────────────────────────
 
@@ -372,13 +373,28 @@ export function GanttCore(props: GanttCoreProps) {
   // ── Fit all ─────────────────────────────────────────────────────
 
   const fitAll = useCallback(() => {
-    if (!bodyScrollRef.current || totalDays === 0) return
+    if (!bodyScrollRef.current) return
     const viewportW = bodyScrollRef.current.clientWidth
-    if (viewportW <= 0) return
-    const newPpd = viewportW / totalDays
+    if (viewportW <= 0 || bars.length === 0) return
+
+    // Find min/max dates from all bars
+    const allStarts = bars.map(b => b.startDate).filter(Boolean).sort()
+    const allEnds = bars.map(b => b.endDate).filter(Boolean).sort().reverse()
+    if (allStarts.length === 0) return
+
+    const minDate = addD(allStarts[0], -7) // 1 week padding
+    const maxDate = addD(allEnds[0], 7)
+    const rangeDays = daysB(minDate, maxDate)
+    if (rangeDays <= 0) return
+
+    // Adjust zoom to fit this range in viewport
+    const newPpd = viewportW / rangeDays
     const newZoom = newPpd / meta.pxPerDay
+
+    setViewStart(minDate)
+    setViewEnd(maxDate)
     updateSettings({ zoomFactor: Math.max(0.1, Math.min(6, newZoom)) })
-  }, [totalDays, meta.pxPerDay, updateSettings])
+  }, [bars, meta.pxPerDay, updateSettings])
 
   // ── Export PNG ──────────────────────────────────────────────────
 
@@ -643,8 +659,30 @@ export function GanttCore(props: GanttCoreProps) {
                 className="flex items-center border-b bg-muted/20"
                 style={{ height: HEADER_ROW_H * 2 }}
               >
-                <div className="flex-1 px-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                <div
+                  className="relative px-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide shrink-0"
+                  style={{ width: taskColWidth }}
+                >
                   Tâche
+                  {/* Resize handle for task column */}
+                  <div
+                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/30 active:bg-primary/50"
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      const startX = e.clientX
+                      const startW = taskColWidth
+                      const onMove = (ev: MouseEvent) => {
+                        setTaskColWidth(Math.max(120, startW + ev.clientX - startX))
+                      }
+                      const onUp = () => {
+                        document.removeEventListener('mousemove', onMove)
+                        document.removeEventListener('mouseup', onUp)
+                      }
+                      document.addEventListener('mousemove', onMove)
+                      document.addEventListener('mouseup', onUp)
+                    }}
+                  />
                 </div>
                 {columns.map(col => (
                   <div

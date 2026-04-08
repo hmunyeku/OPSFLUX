@@ -263,7 +263,12 @@ class AdsManualDepartureRequest(BaseModel):
 
 
 class AdsPaxDecision(BaseModel):
-    action: str = Field(pattern=r"^(approve|reject)$")
+    action: str = Field(pattern=r"^(approve|reject|waitlist)$")
+    reason: str | None = None
+
+
+class AdsWaitlistPriorityUpdate(BaseModel):
+    priority_score: int = Field(ge=0, le=9999)
     reason: str | None = None
 
 
@@ -278,6 +283,33 @@ class AdsPaxRead(OpsFluxSchema):
     booking_request_sent: bool
     current_onboard: bool
     priority_score: int
+    priority_source: str | None = None
+
+
+class AdsWaitlistItemRead(OpsFluxSchema):
+    ads_id: UUID
+    ads_reference: str
+    ads_status: str
+    ads_pax_id: UUID
+    planner_activity_id: UUID | None = None
+    planner_activity_title: str | None = None
+    site_entry_asset_id: UUID | None = None
+    site_name: str | None = None
+    requester_id: UUID | None = None
+    requester_name: str | None = None
+    user_id: UUID | None = None
+    contact_id: UUID | None = None
+    pax_first_name: str
+    pax_last_name: str
+    pax_company_name: str | None = None
+    priority_score: int
+    priority_source: str | None = None
+    capacity_scope: str | None = None
+    capacity_limit: int | None = None
+    reserved_pax_count: int | None = None
+    remaining_capacity: int | None = None
+    submitted_at: datetime | None = None
+    waitlisted_at: datetime | None = None
 
 
 class AdsRead(OpsFluxSchema):
@@ -346,6 +378,44 @@ class AdsSummary(OpsFluxSchema):
     allowed_company_names: list[str] = []
     pax_count: int = 0
     created_at: datetime
+
+
+class AdsValidationQueueItemRead(OpsFluxSchema):
+    id: UUID
+    reference: str
+    status: str
+    requester_id: UUID
+    requester_name: str | None = None
+    site_entry_asset_id: UUID
+    site_name: str | None = None
+    visit_category: str
+    start_date: date
+    end_date: date
+    pax_count: int = 0
+    planner_activity_id: UUID | None = None
+    planner_activity_title: str | None = None
+    capacity_scope: str | None = None
+    capacity_limit: int | None = None
+    reserved_pax_count: int | None = None
+    remaining_capacity: int | None = None
+    forecast_pax: int | None = None
+    real_pob: int | None = None
+    blocked_pax_count: int = 0
+    linked_project_count: int = 0
+    linked_project_names: list[str] = []
+    stay_program_count: int = 0
+    daily_capacity_preview: list["AdsValidationDailyPreviewItemRead"] = []
+    created_at: datetime
+
+
+class AdsValidationDailyPreviewItemRead(OpsFluxSchema):
+    date: date
+    forecast_pax: int | None = None
+    real_pob: int | None = None
+    capacity_limit: int | None = None
+    remaining_capacity: int | None = None
+    saturation_pct: float | None = None
+    is_critical: bool = False
 
 
 class AdsEventRead(OpsFluxSchema):

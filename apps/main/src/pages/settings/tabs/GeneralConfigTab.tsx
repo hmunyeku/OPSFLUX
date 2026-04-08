@@ -219,6 +219,93 @@ export function GeneralConfigTab() {
         </div>
       </CollapsibleSection>
 
+      <CollapsibleSection
+        id="planner-capacity-heatmap"
+        title="Planner - Heatmap capacité"
+        description="Seuils et couleurs utilisés dans la heatmap de saturation Planner."
+        storageKey="settings.general-config.collapse"
+      >
+        <div className="mt-2 space-y-0">
+          <SettingRow label="Seuil bas (%)" description="Au-delà de ce seuil, la couleur passe au niveau suivant.">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              className="gl-form-input w-24 text-sm text-right font-mono"
+              defaultValue={(s['planner.capacity_heatmap_threshold_low'] as number) ?? 40}
+              onBlur={(e) => save('planner.capacity_heatmap_threshold_low', Math.max(0, Math.min(100, Number(e.target.value) || 40)))}
+            />
+          </SettingRow>
+          <SettingRow label="Seuil moyen (%)" description="Niveau d’alerte intermédiaire.">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              className="gl-form-input w-24 text-sm text-right font-mono"
+              defaultValue={(s['planner.capacity_heatmap_threshold_medium'] as number) ?? 70}
+              onBlur={(e) => save('planner.capacity_heatmap_threshold_medium', Math.max(0, Math.min(100, Number(e.target.value) || 70)))}
+            />
+          </SettingRow>
+          <SettingRow label="Seuil haut (%)" description="Début de zone critique avant dépassement.">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              className="gl-form-input w-24 text-sm text-right font-mono"
+              defaultValue={(s['planner.capacity_heatmap_threshold_high'] as number) ?? 90}
+              onBlur={(e) => save('planner.capacity_heatmap_threshold_high', Math.max(0, Math.min(100, Number(e.target.value) || 90)))}
+            />
+          </SettingRow>
+          <SettingRow label="Seuil dépassement (%)" description="Au-delà, la capacité est considérée dépassée.">
+            <input
+              type="number"
+              min={0}
+              max={200}
+              className="gl-form-input w-24 text-sm text-right font-mono"
+              defaultValue={(s['planner.capacity_heatmap_threshold_critical'] as number) ?? 100}
+              onBlur={(e) => save('planner.capacity_heatmap_threshold_critical', Math.max(0, Math.min(200, Number(e.target.value) || 100)))}
+            />
+          </SettingRow>
+
+          {[
+            ['planner.capacity_heatmap_color_low', 'Couleur niveau bas'],
+            ['planner.capacity_heatmap_color_medium', 'Couleur niveau moyen'],
+            ['planner.capacity_heatmap_color_high', 'Couleur niveau haut'],
+            ['planner.capacity_heatmap_color_critical', 'Couleur niveau critique'],
+            ['planner.capacity_heatmap_color_overflow', 'Couleur dépassement'],
+          ].map(([key, label]) => (
+            <SettingRow key={key} label={label} description="Couleur affichée dans la heatmap Planner.">
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  className="h-8 w-10 rounded border border-border bg-background p-1"
+                  defaultValue={(s[key] as string) ?? (
+                    key.endsWith('low') ? '#86efac'
+                      : key.endsWith('medium') ? '#4ade80'
+                        : key.endsWith('high') ? '#fbbf24'
+                          : key.endsWith('critical') ? '#ef4444'
+                            : '#991b1b'
+                  )}
+                  onChange={(e) => save(key, e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="gl-form-input w-24 text-sm font-mono"
+                  defaultValue={(s[key] as string) ?? (
+                    key.endsWith('low') ? '#86efac'
+                      : key.endsWith('medium') ? '#4ade80'
+                        : key.endsWith('high') ? '#fbbf24'
+                          : key.endsWith('critical') ? '#ef4444'
+                            : '#991b1b'
+                  )}
+                  onBlur={(e) => save(key, e.target.value)}
+                />
+              </div>
+            </SettingRow>
+          ))}
+        </div>
+      </CollapsibleSection>
+
       {/* ── Cartographie ── */}
       <CollapsibleSection
         id="cartographie"

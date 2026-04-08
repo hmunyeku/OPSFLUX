@@ -261,6 +261,65 @@ async def test_on_voyage_delayed_notifies_admins_and_passengers(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_on_voyage_cancelled_notifies_operators_and_passengers(monkeypatch):
+    entity_id = uuid4()
+    user_id = uuid4()
+    passenger = SimpleNamespace(user_id=user_id, contact_id=None)
+    operator_id = uuid4()
+    db = FakeDB([FakeResult(all_rows=[passenger])])
+    notifications = []
+    emails = []
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    async def fake_render_and_send_email(*args, **kwargs):
+        emails.append(kwargs)
+
+    async def fake_get_user_email_and_name(_user_id, _db):
+        return "pax@example.com", "Bastien"
+
+    async def fake_get_user_ids_for_role(*_args, **_kwargs):
+        return [operator_id]
+
+    monkeypatch.setattr(travelwiz_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+    monkeypatch.setattr("app.core.email_templates.render_and_send_email", fake_render_and_send_email)
+    monkeypatch.setattr(travelwiz_handlers, "_get_user_ids_for_role", fake_get_user_ids_for_role)
+    monkeypatch.setattr(travelwiz_handlers, "_get_user_email_and_name", fake_get_user_email_and_name)
+
+    await travelwiz_handlers.on_voyage_cancelled(
+        OpsFluxEvent(
+            event_type="travelwiz.voyage.cancelled",
+            payload={
+                "voyage_id": str(uuid4()),
+                "entity_id": str(entity_id),
+                "code": "VYG-404",
+                "reason": "Meteo severe",
+                "replan_hint": "Replanification requise",
+            },
+        )
+    )
+
+    assert len(notifications) == 2
+    assert any(item["user_id"] == operator_id for item in notifications)
+    assert any(item["user_id"] == user_id for item in notifications)
+    assert emails and emails[0]["slug"] == "travelwiz.voyage.cancelled"
+
+
+def test_register_travelwiz_handlers_includes_voyage_cancelled():
+    subscribed = []
+
+    class FakeBus:
+        def subscribe(self, event_type, handler):
+            subscribed.append((event_type, handler))
+
+    travelwiz_handlers.register_travelwiz_handlers(FakeBus())
+
+    assert ("travelwiz.voyage.cancelled", travelwiz_handlers.on_voyage_cancelled) in subscribed
+
+
+@pytest.mark.asyncio
 async def test_update_voyage_status_cancelled_emits_event(monkeypatch):
     entity_id = uuid4()
     user_id = uuid4()

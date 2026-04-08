@@ -10,6 +10,7 @@ from sqlalchemy import delete as sql_delete, select, func as sqla_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
+from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.event_contracts import PROJECT_STATUS_CHANGED_EVENT
 from app.core.references import generate_reference
@@ -172,6 +173,93 @@ async def _get_project_or_404(db: AsyncSession, project_id: UUID, entity_id: UUI
     if not project:
         raise HTTPException(404, "Project not found")
     return project
+
+
+async def _sync_linked_planner_activities_for_project_task(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    project: Project,
+    task: ProjectTask,
+    current_user: User,
+    changed_fields: set[str],
+) -> None:
+    """Synchronize linked Planner activities after critical project task changes.
+
+    Source-of-truth rules:
+    - task title / description / dates are mirrored directly to linked Planner activities
+    - task status is not force-mapped to Planner status, but it triggers a revision suggestion
+    """
+    if not changed_fields:
+        return
+
+    critical_fields = {"title", "description", "start_date", "due_date", "status"}
+    impacted_fields = sorted(changed_fields & critical_fields)
+    if not impacted_fields:
+        return
+
+    from app.models.planner import PlannerActivity
+
+    linked_activities = (
+        await db.execute(
+            select(PlannerActivity).where(
+                PlannerActivity.project_id == project.id,
+                PlannerActivity.source_task_id == task.id,
+                PlannerActivity.active == True,
+            )
+        )
+    ).scalars().all()
+    if not linked_activities:
+        return
+
+    for activity in linked_activities:
+        if "title" in changed_fields:
+            activity.title = f"{project.code} — {task.title}"
+        if "description" in changed_fields:
+            activity.description = task.description
+        if "start_date" in changed_fields:
+            activity.start_date = task.start_date
+        if "due_date" in changed_fields:
+            activity.end_date = task.due_date
+
+    await db.flush()
+
+    await record_audit(
+        db,
+        action="project.task.planner_sync_required",
+        resource_type="planner_activity",
+        resource_id=str(linked_activities[0].id) if len(linked_activities) == 1 else str(task.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "project_id": str(project.id),
+            "project_code": project.code,
+            "project_name": project.name,
+            "task_id": str(task.id),
+            "task_title": task.title,
+            "task_status": task.status,
+            "changed_fields": impacted_fields,
+            "planner_activity_ids": [str(activity.id) for activity in linked_activities],
+            "planner_activity_count": len(linked_activities),
+        },
+    )
+
+    await emit_event(
+        "project.task.planner_sync_required",
+        {
+            "entity_id": str(entity_id),
+            "project_id": str(project.id),
+            "project_code": project.code,
+            "project_name": project.name,
+            "task_id": str(task.id),
+            "task_title": task.title,
+            "task_status": task.status,
+            "changed_fields": impacted_fields,
+            "planner_activity_ids": [str(activity.id) for activity in linked_activities],
+            "planner_activity_count": len(linked_activities),
+            "triggered_by": str(current_user.id),
+        },
+    )
 
 
 # ── Projects CRUD ─────────────────────────────────────────────────────────
@@ -724,7 +812,7 @@ async def update_project_task(
     _: None = require_permission("project.task.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    await _get_project_or_404(db, project_id, entity_id)
+    project = await _get_project_or_404(db, project_id, entity_id)
     result = await db.execute(
         select(ProjectTask).where(ProjectTask.id == task_id, ProjectTask.project_id == project_id)
     )
@@ -760,6 +848,15 @@ async def update_project_task(
     update_fields = set(body.model_dump(exclude_unset=True).keys())
     if update_fields & {"start_date", "due_date"}:
         await _rollup_parent_dates(db, task)
+
+    await _sync_linked_planner_activities_for_project_task(
+        db,
+        entity_id=entity_id,
+        project=project,
+        task=task,
+        current_user=current_user,
+        changed_fields=update_fields,
+    )
 
     await _update_project_progress(db, project_id)
     await db.commit()

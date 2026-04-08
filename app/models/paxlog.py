@@ -282,7 +282,7 @@ class AdsPax(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             name="ck_ads_pax_pax_xor",
         ),
         CheckConstraint(
-            "status IN ('pending_check','compliant','blocked','approved','rejected','no_show')",
+            "status IN ('pending_check','compliant','blocked','approved','waitlisted','rejected','no_show')",
             name="ck_ads_pax_status",
         ),
     )

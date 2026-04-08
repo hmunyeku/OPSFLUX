@@ -106,6 +106,36 @@ def _validate_travelwiz_numeric_setting(body: SettingWrite) -> None:
         raise HTTPException(status_code=400, detail=f"{body.key} must be <= {maximum}")
 
 
+def _validate_planner_capacity_heatmap_setting(body: SettingWrite) -> None:
+    numeric_constraints: dict[str, tuple[float, float]] = {
+        "planner.capacity_heatmap_threshold_low": (0.0, 100.0),
+        "planner.capacity_heatmap_threshold_medium": (0.0, 100.0),
+        "planner.capacity_heatmap_threshold_high": (0.0, 100.0),
+        "planner.capacity_heatmap_threshold_critical": (0.0, 200.0),
+    }
+    color_keys = {
+        "planner.capacity_heatmap_color_low",
+        "planner.capacity_heatmap_color_medium",
+        "planner.capacity_heatmap_color_high",
+        "planner.capacity_heatmap_color_critical",
+        "planner.capacity_heatmap_color_overflow",
+    }
+    if body.key in numeric_constraints:
+        payload = body.value.get("v", body.value)
+        try:
+            numeric_value = float(payload)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid numeric value for {body.key}") from exc
+        minimum, maximum = numeric_constraints[body.key]
+        if numeric_value < minimum or numeric_value > maximum:
+            raise HTTPException(status_code=400, detail=f"{body.key} must be between {minimum} and {maximum}")
+        return
+    if body.key in color_keys:
+        payload = body.value.get("v", body.value)
+        if not isinstance(payload, str) or not payload.startswith("#") or len(payload) not in {4, 7}:
+            raise HTTPException(status_code=400, detail=f"Invalid color value for {body.key}")
+
+
 async def _require_settings_manage(current_user: User, entity_id: UUID, db: AsyncSession) -> None:
     if not await has_user_permission(current_user, entity_id, "core.settings.manage", db):
         raise HTTPException(status_code=403, detail="Permission denied: core.settings.manage")
@@ -218,6 +248,8 @@ async def upsert_setting(
         _validate_paxlog_compliance_sequence_setting(body.value)
     elif body.key.startswith("travelwiz."):
         _validate_travelwiz_numeric_setting(body)
+    elif body.key.startswith("planner.capacity_heatmap_"):
+        _validate_planner_capacity_heatmap_setting(body)
 
     if scope == "user":
         scope_id = str(current_user.id)

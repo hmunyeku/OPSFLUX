@@ -261,6 +261,79 @@ async def on_planner_conflict_detected(event: OpsFluxEvent) -> None:
         logger.exception("Error in on_planner_conflict_detected for %s", conflict_id)
 
 
+async def on_planner_conflict_resolved(event: OpsFluxEvent) -> None:
+    """Notify impacted project managers or activity requesters after arbitration."""
+    payload = event.payload
+    conflict_id = payload.get("conflict_id")
+    entity_id = payload.get("entity_id")
+    activity_ids = payload.get("activity_ids") or []
+    resolution = payload.get("resolution") or "resolved"
+    resolution_note = payload.get("resolution_note") or ""
+    asset_name = payload.get("asset_name") or ""
+    conflict_date = payload.get("conflict_date") or ""
+
+    if not entity_id or not activity_ids:
+        return
+
+    try:
+        from app.core.notifications import send_in_app
+        from app.models.common import Project
+        from app.models.planner import PlannerActivity
+
+        eid = UUID(str(entity_id))
+        resolution_labels = {
+            "approve_both": "approbation simultanée",
+            "reschedule": "replanification",
+            "reduce_pax": "réduction du POB",
+            "cancel": "annulation",
+            "deferred": "report",
+        }
+        recipient_activity_titles: dict[UUID, list[str]] = {}
+
+        async with async_session_factory() as db:
+            for raw_activity_id in activity_ids:
+                try:
+                    activity_id = UUID(str(raw_activity_id))
+                except Exception:
+                    continue
+                activity = await db.get(PlannerActivity, activity_id)
+                if not activity or activity.entity_id != eid or not activity.active:
+                    continue
+
+                recipient_id = None
+                if activity.project_id:
+                    project = await db.get(Project, activity.project_id)
+                    if project and project.manager_id:
+                        recipient_id = project.manager_id
+                if recipient_id is None:
+                    recipient_id = activity.submitted_by or activity.created_by
+                if recipient_id is None:
+                    continue
+                recipient_activity_titles.setdefault(recipient_id, []).append(activity.title)
+
+            resolution_label = resolution_labels.get(str(resolution), str(resolution))
+            for recipient_id, titles in recipient_activity_titles.items():
+                await send_in_app(
+                    db,
+                    user_id=recipient_id,
+                    entity_id=eid,
+                    title="Arbitrage Planner rendu",
+                    body=(
+                        f"Le conflit Planner du {conflict_date} sur {asset_name or 'le site concerné'} "
+                        f"a été traité ({resolution_label}). "
+                        f"Activités concernées: {', '.join(titles[:3])}"
+                        f"{'…' if len(titles) > 3 else ''}."
+                        f"{f' Note: {resolution_note}' if resolution_note else ''}"
+                    ),
+                    category="planner",
+                    link=f"/planner/conflicts/{conflict_id}",
+                )
+
+            await db.commit()
+    except Exception:
+        logger.exception("Error in on_planner_conflict_resolved for %s", conflict_id)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Handler: on_ads_approved
 # When AdS is approved — auto-add PAX to TravelWiz manifest
@@ -1381,6 +1454,188 @@ async def on_planner_activity_completed_suggest_task_closure(event: OpsFluxEvent
         logger.exception("Error in on_planner_activity_completed_suggest_task_closure for %s", activity_id)
 
 
+async def on_project_task_planner_sync_required(event: OpsFluxEvent) -> None:
+    """Notify Planner arbiters when a linked project task changed critically."""
+    payload = event.payload
+    entity_id = payload.get("entity_id")
+    project_id = payload.get("project_id")
+    task_id = payload.get("task_id")
+    task_title = payload.get("task_title") or ""
+    project_code = payload.get("project_code") or ""
+    changed_fields = payload.get("changed_fields") or []
+    planner_activity_count = payload.get("planner_activity_count") or 0
+    if not entity_id or not task_id:
+        return
+
+    try:
+        from sqlalchemy import select
+        from app.api.deps import has_user_permission
+        from app.core.notifications import send_in_app
+        from app.models.common import User
+
+        eid = UUID(str(entity_id))
+        async with async_session_factory() as db:
+            users = (
+                await db.execute(
+                    select(User).where(
+                        User.default_entity_id == eid,
+                        User.active == True,
+                    )
+                )
+            ).scalars().all()
+
+            recipient_ids: list[UUID] = []
+            for user in users:
+                if await has_user_permission(user, eid, "planner.activity.validate", db):
+                    recipient_ids.append(user.id)
+
+            if not recipient_ids:
+                return
+
+            field_labels = {
+                "title": "titre",
+                "description": "description",
+                "start_date": "date de debut",
+                "due_date": "date de fin",
+                "status": "statut",
+            }
+            changed_label = ", ".join(
+                field_labels.get(str(field), str(field)) for field in changed_fields
+            ) or "donnees critiques"
+            title = "Revision Planner suggeree"
+            body = (
+                f"La tache projet '{task_title}' du projet {project_code or project_id} a change "
+                f"({changed_label}). {planner_activity_count} activite(s) Planner liee(s) ont ete resynchronisees. "
+                "Une revision d'arbitrage peut etre necessaire."
+            )
+
+            for recipient_id in recipient_ids:
+                await send_in_app(
+                    db,
+                    user_id=recipient_id,
+                    entity_id=eid,
+                    title=title,
+                    body=body,
+                    category="planner",
+                    link=f"/planner?project={project_id}&task={task_id}",
+                )
+
+            await db.commit()
+            logger.info(
+                "project.task.planner_sync_required: notified %d planner arbiters for task %s",
+                len(recipient_ids),
+                task_id,
+            )
+    except Exception:
+        logger.exception("Error in on_project_task_planner_sync_required for %s", task_id)
+
+
+async def on_planner_revision_requested(event: OpsFluxEvent) -> None:
+    """Notify the targeted project manager/assignee about a Planner revision request."""
+    payload = event.payload
+    entity_id = payload.get("entity_id")
+    request_id = payload.get("request_id")
+    target_user_id = payload.get("target_user_id")
+    requester_user_name = payload.get("requester_user_name") or "Planner"
+    task_title = payload.get("task_title") or "Tache liee"
+    project_code = payload.get("project_code") or payload.get("project_id") or ""
+    due_at = payload.get("due_at")
+    if not entity_id or not target_user_id:
+        return
+
+    try:
+        from app.core.notifications import send_in_app
+
+        async with async_session_factory() as db:
+            body = (
+                f"{requester_user_name} demande votre arbitrage sur la revision Planner "
+                f"de '{task_title}' ({project_code})."
+            ).strip()
+            if due_at:
+                body += f" Reponse attendue avant le {due_at[:10]}."
+            await send_in_app(
+                db,
+                user_id=UUID(str(target_user_id)),
+                entity_id=UUID(str(entity_id)),
+                title="Decision Planner requise",
+                body=body,
+                category="planner",
+                link=f"/planner?revisionRequest={request_id}" if request_id else "/planner",
+            )
+            await db.commit()
+    except Exception:
+        logger.exception("Error in on_planner_revision_requested for %s", request_id)
+
+
+async def on_planner_revision_responded(event: OpsFluxEvent) -> None:
+    """Notify the arbiter who requested the Planner revision decision."""
+    payload = event.payload
+    entity_id = payload.get("entity_id")
+    request_id = payload.get("request_id")
+    requester_user_id = payload.get("requester_user_id")
+    target_user_name = payload.get("target_user_name") or "Le relecteur"
+    response = payload.get("response") or "responded"
+    response_note = payload.get("response_note")
+    if not entity_id or not requester_user_id:
+        return
+
+    try:
+        from app.core.notifications import send_in_app
+
+        response_labels = {
+            "accepted": "a accepte la proposition",
+            "counter_proposed": "a soumis une contre-proposition",
+        }
+
+        async with async_session_factory() as db:
+            body = f"{target_user_name} {response_labels.get(str(response), 'a repondu a la demande')}."
+            if response_note:
+                body += f" {response_note}"
+            await send_in_app(
+                db,
+                user_id=UUID(str(requester_user_id)),
+                entity_id=UUID(str(entity_id)),
+                title="Reponse a une revision Planner",
+                body=body,
+                category="planner",
+                link=f"/planner?revisionRequest={request_id}" if request_id else "/planner",
+            )
+            await db.commit()
+    except Exception:
+        logger.exception("Error in on_planner_revision_responded for %s", request_id)
+
+
+async def on_planner_revision_forced(event: OpsFluxEvent) -> None:
+    """Notify the targeted reviewer that the Planner decision was forced after expiry."""
+    payload = event.payload
+    entity_id = payload.get("entity_id")
+    request_id = payload.get("request_id")
+    target_user_id = payload.get("target_user_id")
+    reason = payload.get("reason")
+    if not entity_id or not target_user_id:
+        return
+
+    try:
+        from app.core.notifications import send_in_app
+
+        async with async_session_factory() as db:
+            body = "La decision Planner a ete forcee apres echeance."
+            if reason:
+                body += f" {reason}"
+            await send_in_app(
+                db,
+                user_id=UUID(str(target_user_id)),
+                entity_id=UUID(str(entity_id)),
+                title="Decision Planner forcee",
+                body=body,
+                category="planner",
+                link=f"/planner?revisionRequest={request_id}" if request_id else "/planner",
+            )
+            await db.commit()
+    except Exception:
+        logger.exception("Error in on_planner_revision_forced for %s", request_id)
+
+
 async def on_planner_activity_validated_bundle(event: OpsFluxEvent) -> None:
     """Execute all side effects attached to planner.activity.validated once."""
     await on_planner_activity_validated(event)
@@ -1405,6 +1660,7 @@ def register_module_handlers(event_bus: EventBus) -> None:
     event_bus.subscribe("planner.activity.cancelled", on_planner_activity_cancelled_bundle)
     event_bus.subscribe("planner.activity.completed", on_planner_activity_completed_bundle)
     event_bus.subscribe("planner.conflict.detected", on_planner_conflict_detected)
+    event_bus.subscribe("planner.conflict.resolved", on_planner_conflict_resolved)
     # PaxLog → Planner: when an AdS actually starts, auto-mark the linked
     # planner activity as in_progress so the arbitration dashboard reflects
     # reality without the manager having to move it manually.
@@ -1414,6 +1670,10 @@ def register_module_handlers(event_bus: EventBus) -> None:
     event_bus.subscribe("travelwiz.manifest.closed", on_travelwiz_manifest_closed)
     event_bus.subscribe("travelwiz.trip.closed", on_travelwiz_trip_closed)
     event_bus.subscribe("travelwiz.voyage.cancelled", on_travelwiz_voyage_cancelled_packlog)
+    event_bus.subscribe("project.task.planner_sync_required", on_project_task_planner_sync_required)
+    event_bus.subscribe("planner.revision.requested", on_planner_revision_requested)
+    event_bus.subscribe("planner.revision.responded", on_planner_revision_responded)
+    event_bus.subscribe("planner.revision.forced", on_planner_revision_forced)
     # Conformite & Projets events
     event_bus.subscribe("conformite.rule.created", on_compliance_rule_changed)
     event_bus.subscribe("conformite.rule.updated", on_compliance_rule_changed)

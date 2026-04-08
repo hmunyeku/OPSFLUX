@@ -792,6 +792,397 @@ async def test_submit_ads_routes_to_pending_project_review_when_project_manager_
 
 
 @pytest.mark.asyncio
+async def test_submit_ads_places_pax_on_waitlist_when_planner_capacity_is_exceeded(monkeypatch):
+    activity_id = uuid4()
+    ads = _build_ads(status="draft", planner_activity_id=activity_id)
+    pax_entry_1 = SimpleNamespace(id=uuid4(), ads_id=ads.id, status="compliant")
+    pax_entry_2 = SimpleNamespace(id=uuid4(), ads_id=ads.id, status="compliant")
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=ads),
+            FakeResult(scalar_one_or_none=1),
+            FakeResult(scalar=1),
+        ]
+    )
+    transition_calls = []
+    emitted_events = []
+    audits = []
+    notifications = []
+    published_events = []
+
+    async def fake_can_manage_ads(*_args, **_kwargs):
+        return True
+
+    async def fake_get_pending_targets(*_args, **_kwargs):
+        return []
+
+    async def fake_get_project_reviewer(*_args, **_kwargs):
+        return None
+
+    async def fake_resolve_auto_transition(*_args, **_kwargs):
+        return None
+
+    async def fake_run_submission_checks(*_args, **_kwargs):
+        return [pax_entry_1, pax_entry_2], False, "pending_compliance"
+
+    async def fake_transition(*args, **kwargs):
+        transition_calls.append(kwargs)
+
+    async def fake_emit_transition_event(**kwargs):
+        emitted_events.append(kwargs)
+
+    async def fake_record_audit(*args, **kwargs):
+        audits.append(kwargs)
+
+    async def fake_build_ads_read_data(_db, *, ads, entity_id):
+        return _ads_read_payload(ads, entity_id)
+
+    async def fake_compute_priority(_db, ads_pax_id):
+        if ads_pax_id == pax_entry_1.id:
+            pax_entry_1.priority_score = 20
+            pax_entry_1.priority_source = "auto_computed"
+        if ads_pax_id == pax_entry_2.id:
+            pax_entry_2.priority_score = 10
+            pax_entry_2.priority_source = "auto_computed"
+        return 20
+
+    async def fake_send_in_app(_db, **kwargs):
+        notifications.append(kwargs)
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    monkeypatch.setattr(paxlog, "_can_manage_ads", fake_can_manage_ads)
+    monkeypatch.setattr(paxlog, "_get_ads_pending_project_review_targets", fake_get_pending_targets)
+    monkeypatch.setattr(paxlog, "_get_ads_project_reviewer", fake_get_project_reviewer)
+    monkeypatch.setattr(paxlog, "_resolve_ads_auto_transition", fake_resolve_auto_transition)
+    monkeypatch.setattr(paxlog, "_run_ads_submission_checks", fake_run_submission_checks)
+    monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
+    monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "_build_ads_read_data", fake_build_ads_read_data)
+    monkeypatch.setattr("app.services.modules.paxlog_service.compute_pax_priority", fake_compute_priority)
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+    monkeypatch.setattr("app.core.events.event_bus", FakeEventBus())
+
+    response = await paxlog.submit_ads(
+        ads.id,
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=ads.requester_id),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "pending_arbitration"
+    assert pax_entry_1.status == "waitlisted"
+    assert pax_entry_2.status == "waitlisted"
+    assert transition_calls and transition_calls[0]["to_state"] == "pending_arbitration"
+    assert emitted_events and emitted_events[0]["to_state"] == "pending_arbitration"
+    assert audits and audits[0]["details"]["waitlist_applied"] is True
+    assert notifications and notifications[0]["user_id"] == ads.requester_id
+    assert any(event.event_type == "ads.waitlisted" for event in published_events)
+    submitted_event = next(obj for obj in db.added if isinstance(obj, AdsEvent) and obj.event_type == "submitted")
+    assert submitted_event.metadata_json["waitlist_applied"] is True
+    assert submitted_event.metadata_json["waitlisted_pax_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_submit_ads_places_pax_on_waitlist_when_site_capacity_is_exceeded_without_planner_activity(monkeypatch):
+    ads = _build_ads(status="draft", planner_activity_id=None, start_date=date(2026, 4, 10), end_date=date(2026, 4, 10))
+    pax_entry_1 = SimpleNamespace(id=uuid4(), ads_id=ads.id, status="compliant")
+    pax_entry_2 = SimpleNamespace(id=uuid4(), ads_id=ads.id, status="compliant")
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=ads),
+            FakeResult(scalar=1),
+        ]
+    )
+    transition_calls = []
+    audits = []
+
+    async def fake_can_manage_ads(*_args, **_kwargs):
+        return True
+
+    async def fake_get_pending_targets(*_args, **_kwargs):
+        return []
+
+    async def fake_get_project_reviewer(*_args, **_kwargs):
+        return None
+
+    async def fake_resolve_auto_transition(*_args, **_kwargs):
+        return None
+
+    async def fake_run_submission_checks(*_args, **_kwargs):
+        return [pax_entry_1, pax_entry_2], False, "pending_compliance"
+
+    async def fake_transition(*args, **kwargs):
+        transition_calls.append(kwargs)
+
+    async def fake_emit_transition_event(**_kwargs):
+        return None
+
+    async def fake_record_audit(*args, **kwargs):
+        audits.append(kwargs)
+
+    async def fake_build_ads_read_data(_db, *, ads, entity_id):
+        return _ads_read_payload(ads, entity_id)
+
+    async def fake_compute_priority(_db, ads_pax_id):
+        if ads_pax_id == pax_entry_1.id:
+            pax_entry_1.priority_score = 20
+            pax_entry_1.priority_source = "auto_computed"
+        if ads_pax_id == pax_entry_2.id:
+            pax_entry_2.priority_score = 10
+            pax_entry_2.priority_source = "auto_computed"
+        return 20
+
+    class FakeEventBus:
+        async def publish(self, _event):
+            return None
+
+    async def fake_send_in_app(_db, **_kwargs):
+        return None
+
+    async def fake_get_effective_capacity(_db, _asset_id, _target_date):
+        return 1
+
+    monkeypatch.setattr(paxlog, "_can_manage_ads", fake_can_manage_ads)
+    monkeypatch.setattr(paxlog, "_get_ads_pending_project_review_targets", fake_get_pending_targets)
+    monkeypatch.setattr(paxlog, "_get_ads_project_reviewer", fake_get_project_reviewer)
+    monkeypatch.setattr(paxlog, "_resolve_ads_auto_transition", fake_resolve_auto_transition)
+    monkeypatch.setattr(paxlog, "_run_ads_submission_checks", fake_run_submission_checks)
+    monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
+    monkeypatch.setattr(paxlog.fsm_service, "emit_transition_event", fake_emit_transition_event)
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+    monkeypatch.setattr(paxlog, "_build_ads_read_data", fake_build_ads_read_data)
+    monkeypatch.setattr("app.services.modules.paxlog_service.compute_pax_priority", fake_compute_priority)
+    monkeypatch.setattr("app.services.modules.planner_service.get_effective_capacity", fake_get_effective_capacity)
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+    monkeypatch.setattr("app.core.events.event_bus", FakeEventBus())
+
+    response = await paxlog.submit_ads(
+        ads.id,
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=ads.requester_id),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "pending_arbitration"
+    assert pax_entry_1.status == "waitlisted"
+    assert pax_entry_2.status == "waitlisted"
+    assert transition_calls and transition_calls[0]["to_state"] == "pending_arbitration"
+    assert audits and audits[0]["details"]["waitlist_applied"] is True
+    assert "Capacité site atteinte" in (ads.rejection_reason or "")
+
+
+@pytest.mark.asyncio
+async def test_list_ads_waitlist_returns_prioritized_rows(monkeypatch):
+    entity_id = uuid4()
+    ads_id = uuid4()
+    ads_pax_id = uuid4()
+    activity_id = uuid4()
+    site_id = uuid4()
+    requester_id = uuid4()
+    db = FakeDB(
+        [
+            FakeResult(scalar=1),
+            FakeResult(
+                all_rows=[
+                    (
+                        ads_id,
+                        "ADS-900",
+                        "pending_arbitration",
+                        ads_pax_id,
+                        activity_id,
+                        "Inspection ligne 12",
+                        site_id,
+                        "Onshore Alpha",
+                        requester_id,
+                        "Bastien User",
+                        None,
+                        uuid4(),
+                        "Aline",
+                        "Mukeba",
+                        "Vendor X",
+                        42,
+                        "auto_computed",
+                        date(2026, 4, 10),
+                        date(2026, 4, 12),
+                        datetime(2026, 4, 1, tzinfo=timezone.utc),
+                        datetime(2026, 4, 2, tzinfo=timezone.utc),
+                    ),
+                ]
+            ),
+        ]
+    )
+
+    async def fake_waitlist_capacity_summary(*_args, **_kwargs):
+        return {
+            "capacity_scope": "planner_activity",
+            "capacity_limit": 1,
+            "reserved_pax_count": 1,
+            "remaining_capacity": 0,
+        }
+
+    monkeypatch.setattr(paxlog, "_get_ads_waitlist_capacity_summary", fake_waitlist_capacity_summary)
+
+    response = await paxlog.list_ads_waitlist(
+        pagination=SimpleNamespace(page=1, page_size=20),
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        _=None,
+        db=db,
+    )
+
+    assert response["total"] == 1
+    assert response["items"][0]["ads_reference"] == "ADS-900"
+    assert response["items"][0]["planner_activity_title"] == "Inspection ligne 12"
+    assert response["items"][0]["priority_score"] == 42
+    assert response["items"][0]["priority_source"] == "auto_computed"
+    assert response["items"][0]["capacity_scope"] == "planner_activity"
+    assert response["items"][0]["remaining_capacity"] == 0
+    assert "manual_override" in str(db.executed[1][0])
+
+
+@pytest.mark.asyncio
+async def test_list_ads_validation_queue_returns_capacity_and_review_context(monkeypatch):
+    entity_id = uuid4()
+    ads_id = uuid4()
+    requester_id = uuid4()
+    activity_id = uuid4()
+    site_id = uuid4()
+    db = FakeDB(
+        [
+            FakeResult(scalar=1),
+            FakeResult(
+                all_rows=[
+                    (
+                        ads_id,
+                        "ADS-901",
+                        "pending_validation",
+                        requester_id,
+                        "Bastien User",
+                        site_id,
+                        "Onshore Alpha",
+                        "mission",
+                        date(2026, 4, 10),
+                        date(2026, 4, 12),
+                        3,
+                        1,
+                        2,
+                        ["Projet Alpha", "Projet Beta"],
+                        1,
+                        activity_id,
+                        "Inspection ligne 12",
+                        datetime(2026, 4, 1, tzinfo=timezone.utc),
+                    ),
+                ]
+            ),
+        ]
+    )
+
+    async def fake_validation_context(*_args, **_kwargs):
+        return {
+            "capacity_scope": "planner_activity",
+            "capacity_limit": 6,
+            "reserved_pax_count": 5,
+            "remaining_capacity": 1,
+            "forecast_pax": 5,
+            "real_pob": 2,
+        }
+
+    async def fake_daily_preview(*_args, **_kwargs):
+        return [
+            {
+                "date": date(2026, 4, 10),
+                "forecast_pax": 5,
+                "real_pob": 2,
+                "capacity_limit": 6,
+                "remaining_capacity": 1,
+                "saturation_pct": 83.33,
+                "is_critical": False,
+            },
+            {
+                "date": date(2026, 4, 11),
+                "forecast_pax": 6,
+                "real_pob": 2,
+                "capacity_limit": 6,
+                "remaining_capacity": 0,
+                "saturation_pct": 100.0,
+                "is_critical": True,
+            },
+        ]
+
+    monkeypatch.setattr(paxlog, "_get_ads_validation_context", fake_validation_context)
+    monkeypatch.setattr(paxlog, "_build_ads_validation_daily_preview", fake_daily_preview)
+
+    response = await paxlog.list_ads_validation_queue(
+        pagination=SimpleNamespace(page=1, page_size=20),
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        _=None,
+        db=db,
+    )
+
+    assert response["total"] == 1
+    item = response["items"][0]
+    assert item["reference"] == "ADS-901"
+    assert item["capacity_scope"] == "planner_activity"
+    assert item["capacity_limit"] == 6
+    assert item["forecast_pax"] == 5
+    assert item["real_pob"] == 2
+    assert item["blocked_pax_count"] == 1
+    assert item["linked_project_count"] == 2
+    assert item["linked_project_names"] == ["Projet Alpha", "Projet Beta"]
+    assert item["stay_program_count"] == 1
+    assert len(item["daily_capacity_preview"]) == 2
+    assert item["daily_capacity_preview"][1]["is_critical"] is True
+
+
+@pytest.mark.asyncio
+async def test_update_ads_waitlist_priority_applies_manual_override(monkeypatch):
+    entity_id = uuid4()
+    actor_id = uuid4()
+    ads = _build_ads(entity_id=entity_id, status="pending_arbitration")
+    entry = SimpleNamespace(
+        id=uuid4(),
+        ads_id=ads.id,
+        status="waitlisted",
+        priority_score=15,
+        priority_source="auto_computed",
+    )
+    db = FakeDB([FakeResult(first=(entry, ads))])
+    audits = []
+
+    async def fake_record_audit(*_args, **kwargs):
+        audits.append(kwargs)
+
+    monkeypatch.setattr(paxlog, "record_audit", fake_record_audit)
+
+    response = await paxlog.update_ads_waitlist_priority(
+        entry.id,
+        body=SimpleNamespace(priority_score=90, reason="override"),
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=actor_id),
+        _=None,
+        db=db,
+    )
+
+    assert response["priority_score"] == 90
+    assert response["priority_source"] == "manual_override"
+    assert entry.priority_score == 90
+    assert entry.priority_source == "manual_override"
+    assert db.commits == 1
+    waitlist_event = next(evt for evt in db.added if isinstance(evt, AdsEvent))
+    assert waitlist_event.event_type == "pax_waitlist_priority_updated"
+    assert waitlist_event.metadata_json["old_priority_score"] == 15
+    assert waitlist_event.metadata_json["new_priority_score"] == 90
+    assert audits and audits[0]["action"] == "paxlog.ads.waitlist_priority_update"
+
+
+@pytest.mark.asyncio
 async def test_approve_ads_from_initiator_review_runs_next_step(monkeypatch):
     requester_id = uuid4()
     creator_id = uuid4()
@@ -1727,6 +2118,7 @@ async def test_decide_ads_pax_finalizes_ads_as_approved_when_at_least_one_passen
             FakeResult(scalar_one_or_none=ads),
             FakeResult(scalar_one_or_none=target_entry),
             FakeScalarResult([approved_entry, target_entry]),
+            FakeResult(all_rows=[]),
             FakeScalarResult([approved_entry]),
         ]
     )
@@ -1769,6 +2161,7 @@ async def test_decide_ads_pax_finalizes_ads_as_rejected_when_all_passengers_are_
             FakeResult(scalar_one_or_none=ads),
             FakeResult(scalar_one_or_none=target_entry),
             FakeScalarResult([rejected_entry, target_entry]),
+            FakeResult(all_rows=[]),
         ]
     )
     transition_calls = []
@@ -1798,6 +2191,187 @@ async def test_decide_ads_pax_finalizes_ads_as_rejected_when_all_passengers_are_
     assert target_entry.status == "rejected"
     assert transition_calls and transition_calls[0]["to_state"] == "rejected"
     assert published_events and published_events[0].event_type == "ads.rejected"
+
+
+@pytest.mark.asyncio
+async def test_decide_ads_pax_can_waitlist_one_passenger_and_keep_approved_ads(monkeypatch):
+    ads = _build_ads(status="pending_validation")
+    approved_entry = SimpleNamespace(id=uuid4(), ads_id=ads.id, status="approved")
+    target_entry = SimpleNamespace(
+        id=uuid4(),
+        ads_id=ads.id,
+        status="pending_check",
+        priority_score=0,
+        priority_source=None,
+    )
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=ads),
+            FakeResult(scalar_one_or_none=target_entry),
+            FakeScalarResult([approved_entry, target_entry]),
+            FakeResult(all_rows=[]),
+            FakeScalarResult([approved_entry]),
+        ]
+    )
+    transition_calls = []
+    published_events = []
+
+    async def fake_transition(*args, **kwargs):
+        transition_calls.append(kwargs)
+
+    async def fake_compute_priority(_db, _ads_pax_id):
+        target_entry.priority_score = 42
+        target_entry.priority_source = "auto_computed"
+        return 42
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
+    monkeypatch.setattr("app.services.modules.paxlog_service.compute_pax_priority", fake_compute_priority)
+    monkeypatch.setattr("app.core.events.event_bus", FakeEventBus())
+
+    response = await paxlog.decide_ads_pax(
+        ads.id,
+        target_entry.id,
+        paxlog.AdsPaxDecision(action="waitlist", reason="Capacité atteinte"),
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "approved"
+    assert target_entry.status == "waitlisted"
+    assert target_entry.priority_score == 42
+    assert transition_calls and transition_calls[0]["to_state"] == "approved"
+    assert published_events and published_events[0].event_type == "ads.approved"
+    ads_event = next(obj for obj in db.added if isinstance(obj, AdsEvent) and obj.ads_pax_id == target_entry.id)
+    assert ads_event.event_type == "pax_waitlisted"
+
+
+@pytest.mark.asyncio
+async def test_decide_ads_pax_finalizes_ads_as_pending_arbitration_when_all_remaining_are_waitlisted(monkeypatch):
+    ads = _build_ads(status="pending_validation")
+    waitlisted_entry = SimpleNamespace(id=uuid4(), ads_id=ads.id, status="waitlisted")
+    target_entry = SimpleNamespace(
+        id=uuid4(),
+        ads_id=ads.id,
+        status="pending_check",
+        priority_score=0,
+        priority_source=None,
+    )
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=ads),
+            FakeResult(scalar_one_or_none=target_entry),
+            FakeScalarResult([waitlisted_entry, target_entry]),
+            FakeResult(all_rows=[]),
+        ]
+    )
+    transition_calls = []
+    published_events = []
+
+    async def fake_transition(*args, **kwargs):
+        transition_calls.append(kwargs)
+
+    async def fake_compute_priority(_db, _ads_pax_id):
+        target_entry.priority_score = 12
+        target_entry.priority_source = "auto_computed"
+        return 12
+
+    class FakeEventBus:
+        async def publish(self, event):
+            published_events.append(event)
+
+    monkeypatch.setattr(paxlog, "_try_ads_workflow_transition", fake_transition)
+    monkeypatch.setattr("app.services.modules.paxlog_service.compute_pax_priority", fake_compute_priority)
+    monkeypatch.setattr("app.core.events.event_bus", FakeEventBus())
+
+    response = await paxlog.decide_ads_pax(
+        ads.id,
+        target_entry.id,
+        paxlog.AdsPaxDecision(action="waitlist", reason="Priorité plus faible"),
+        entity_id=ads.entity_id,
+        current_user=SimpleNamespace(id=uuid4()),
+        _=None,
+        db=db,
+    )
+
+    assert response.status == "pending_arbitration"
+    assert target_entry.status == "waitlisted"
+    assert transition_calls and transition_calls[0]["to_state"] == "pending_arbitration"
+    assert published_events == []
+    ads_event = next(obj for obj in db.added if isinstance(obj, AdsEvent) and obj.ads_pax_id is None)
+    assert ads_event.event_type == "pending_arbitration"
+
+
+@pytest.mark.asyncio
+async def test_promote_waitlisted_ads_pax_if_capacity_available_promotes_oldest_entries(monkeypatch):
+    entity_id = uuid4()
+    activity_id = uuid4()
+    requester_id = uuid4()
+    ads_id = uuid4()
+    ads_pax_id = uuid4()
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=2),
+            FakeResult(scalar=1),
+            FakeResult(all_rows=[(ads_pax_id, ads_id, "ADS-200", requester_id)]),
+            FakeResult(),
+            FakeResult(),
+        ]
+    )
+    notifications = []
+
+    async def fake_send_in_app(_db, **kwargs):
+        notifications.append(kwargs)
+
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+
+    promoted = await paxlog._promote_waitlisted_ads_pax_if_capacity_available(
+        db,
+        entity_id=entity_id,
+        ads=_build_ads(planner_activity_id=activity_id),
+        actor_id=uuid4(),
+    )
+
+    assert len(promoted) == 1
+    assert promoted[0]["ads_id"] == ads_id
+    assert notifications and notifications[0]["user_id"] == requester_id
+    assert any(isinstance(obj, AdsEvent) and obj.event_type == "pax_waitlist_promoted" for obj in db.added)
+    assert any(isinstance(obj, AdsEvent) and obj.event_type == "waitlist_released" for obj in db.added)
+    assert "manual_override" in str(db.executed[2][0])
+
+
+@pytest.mark.asyncio
+async def test_promote_waitlisted_ads_pax_if_capacity_available_skips_when_no_slot_exists(monkeypatch):
+    entity_id = uuid4()
+    activity_id = uuid4()
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=2),
+            FakeResult(scalar=2),
+        ]
+    )
+    notifications = []
+
+    async def fake_send_in_app(_db, **kwargs):
+        notifications.append(kwargs)
+
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+
+    promoted = await paxlog._promote_waitlisted_ads_pax_if_capacity_available(
+        db,
+        entity_id=entity_id,
+        ads=_build_ads(planner_activity_id=activity_id),
+        actor_id=uuid4(),
+    )
+
+    assert promoted == []
+    assert notifications == []
+    assert db.added == []
 
 
 @pytest.mark.asyncio
@@ -5891,6 +6465,73 @@ async def test_planner_activity_completed_suggests_project_task_closure(monkeypa
     assert notifications and notifications[0]["user_id"] == manager_id
     assert notifications[0]["category"] == "projets"
     assert db.commits == 1
+
+
+@pytest.mark.asyncio
+async def test_planner_conflict_resolved_notifies_project_manager_or_requester(monkeypatch):
+    entity_id = uuid4()
+    activity_id = uuid4()
+    project_id = uuid4()
+    manager_id = uuid4()
+    requester_id = uuid4()
+    activity = SimpleNamespace(
+        id=activity_id,
+        entity_id=entity_id,
+        active=True,
+        title="Inspection ligne 12",
+        project_id=project_id,
+        submitted_by=requester_id,
+        created_by=requester_id,
+    )
+    project = SimpleNamespace(id=project_id, manager_id=manager_id)
+    db = FakeDBWithGet([])
+    notifications = []
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    async def fake_get(model, key):
+        if model.__name__ == "PlannerActivity" and key == activity_id:
+            return activity
+        if model.__name__ == "Project" and key == project_id:
+            return project
+        return None
+
+    monkeypatch.setattr(module_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+    db.get = fake_get  # type: ignore[attr-defined]
+
+    await module_handlers.on_planner_conflict_resolved(
+        OpsFluxEvent(
+            event_type="planner.conflict.resolved",
+            payload={
+                "conflict_id": str(uuid4()),
+                "entity_id": str(entity_id),
+                "asset_name": "Onshore Alpha",
+                "conflict_date": "2026-04-10",
+                "resolution": "reschedule",
+                "resolution_note": "Décalage de 48h",
+                "activity_ids": [str(activity_id)],
+            },
+        )
+    )
+
+    assert notifications and notifications[0]["user_id"] == manager_id
+    assert notifications[0]["category"] == "planner"
+    assert "replanification" in notifications[0]["body"]
+    assert db.commits == 1
+
+
+def test_register_module_handlers_includes_planner_conflict_resolved():
+    subscribed = []
+
+    class FakeBus:
+        def subscribe(self, event_type, handler):
+            subscribed.append((event_type, handler))
+
+    module_handlers.register_module_handlers(FakeBus())
+
+    assert ("planner.conflict.resolved", module_handlers.on_planner_conflict_resolved) in subscribed
 
 
 @pytest.mark.asyncio

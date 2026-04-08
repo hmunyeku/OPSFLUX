@@ -292,6 +292,44 @@ export interface AdsSummary {
   site_name?: string | null
 }
 
+export interface AdsValidationQueueItem {
+  id: string
+  reference: string
+  status: string
+  requester_id: string
+  requester_name: string | null
+  site_entry_asset_id: string
+  site_name: string | null
+  visit_category: string
+  start_date: string
+  end_date: string
+  pax_count: number
+  planner_activity_id: string | null
+  planner_activity_title: string | null
+  capacity_scope: string | null
+  capacity_limit: number | null
+  reserved_pax_count: number | null
+  remaining_capacity: number | null
+  forecast_pax: number | null
+  real_pob: number | null
+  blocked_pax_count: number
+  linked_project_count: number
+  linked_project_names: string[]
+  stay_program_count: number
+  daily_capacity_preview: AdsValidationDailyPreviewItem[]
+  created_at: string
+}
+
+export interface AdsValidationDailyPreviewItem {
+  date: string
+  forecast_pax: number | null
+  real_pob: number | null
+  capacity_limit: number | null
+  remaining_capacity: number | null
+  saturation_pct: number | null
+  is_critical: boolean
+}
+
 export interface AdsEvent {
   id: string
   entity_id: string
@@ -392,6 +430,7 @@ export interface AdsPax {
   booking_request_sent: boolean
   current_onboard: boolean
   priority_score: number
+  priority_source?: string | null
   // Enriched
   pax_company_id?: string | null
   pax_first_name?: string | null
@@ -405,7 +444,38 @@ export interface AdsPax {
 }
 
 export interface AdsPaxDecision {
-  action: 'approve' | 'reject'
+  action: 'approve' | 'reject' | 'waitlist'
+  reason?: string | null
+}
+
+export interface AdsWaitlistItem {
+  ads_id: string
+  ads_reference: string
+  ads_status: string
+  ads_pax_id: string
+  planner_activity_id: string | null
+  planner_activity_title: string | null
+  site_entry_asset_id: string | null
+  site_name: string | null
+  requester_id: string | null
+  requester_name: string | null
+  user_id: string | null
+  contact_id: string | null
+  pax_first_name: string
+  pax_last_name: string
+  pax_company_name: string | null
+  priority_score: number
+  priority_source: string | null
+  capacity_scope: string | null
+  capacity_limit: number | null
+  reserved_pax_count: number | null
+  remaining_capacity: number | null
+  submitted_at: string | null
+  waitlisted_at: string | null
+}
+
+export interface AdsWaitlistPriorityUpdate {
+  priority_score: number
   reason?: string | null
 }
 
@@ -999,6 +1069,21 @@ export const paxlogService = {
 
   listAds: async (params: AdsListParams = {}): Promise<PaginatedResponse<AdsSummary>> => {
     const { data } = await api.get('/api/v1/pax/ads', { params })
+    return data
+  },
+
+  listAdsValidationQueue: async (params: PaginationParams = {}): Promise<PaginatedResponse<AdsValidationQueueItem>> => {
+    const { data } = await api.get('/api/v1/pax/ads-validation-queue', { params })
+    return data
+  },
+
+  listAdsWaitlist: async (params: { page?: number; page_size?: number; search?: string; planner_activity_id?: string; site_entry_asset_id?: string } = {}): Promise<PaginatedResponse<AdsWaitlistItem>> => {
+    const { data } = await api.get('/api/v1/pax/ads-waitlist', { params })
+    return data
+  },
+
+  updateAdsWaitlistPriority: async (entryId: string, payload: AdsWaitlistPriorityUpdate): Promise<{ ads_pax_id: string; ads_id: string; priority_score: number; priority_source: string | null }> => {
+    const { data } = await api.post(`/api/v1/pax/ads-waitlist/${entryId}/priority`, payload)
     return data
   },
 

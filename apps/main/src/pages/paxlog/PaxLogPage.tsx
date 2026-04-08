@@ -79,6 +79,9 @@ import {
   usePaxCredentials,
   useCredentialTypes,
   useAdsList,
+  useAdsValidationQueue,
+  useAdsWaitlist,
+  useUpdateAdsWaitlistPriority,
   useAds,
   useCreateAds,
   useUpdateAds,
@@ -143,6 +146,7 @@ import { AdsExternalLinksAudit } from '@/pages/paxlog/components/AdsExternalLink
 import type {
   PaxProfileSummary,
   AdsSummary,
+  AdsValidationQueueItem,
   AdsStayChangeRequest,
   PaxIncident,
   PaxCredential,
@@ -151,6 +155,7 @@ import type {
   StayProgramCreate,
   ExpiringCredential,
   AdsPax,
+  AdsWaitlistItem,
   ComplianceMatrixEntry,
   MissionNoticeSummary,
   MissionNoticeModifyRequest,
@@ -176,6 +181,7 @@ const ADS_STATUS_LABELS_FALLBACK: Record<string, string> = {
   submitted: 'Soumis',
   pending_compliance: 'En conformité',
   pending_validation: 'En validation',
+  pending_arbitration: 'En arbitrage',
   approved: 'Approuvé',
   rejected: 'Rejeté',
   cancelled: 'Annulé',
@@ -189,6 +195,7 @@ const ADS_STATUS_BADGES: Record<string, string> = {
   submitted: 'gl-badge-info',
   pending_compliance: 'gl-badge-warning',
   pending_validation: 'gl-badge-warning',
+  pending_arbitration: 'gl-badge-warning',
   approved: 'gl-badge-success',
   rejected: 'gl-badge-danger',
   cancelled: 'gl-badge-neutral',
@@ -238,6 +245,7 @@ const AVM_STATUS_BADGES: Record<string, string> = {
 const ALL_TABS = [
   { id: 'dashboard' as const, labelKey: 'paxlog.tabs.dashboard', icon: LayoutDashboard },
   { id: 'ads' as const, labelKey: 'paxlog.tabs.ads', icon: ClipboardList },
+  { id: 'waitlist' as const, labelKey: 'paxlog.tabs.waitlist', icon: Clock },
   { id: 'profiles' as const, labelKey: 'paxlog.tabs.profiles', icon: Users },
   { id: 'compliance' as const, labelKey: 'paxlog.tabs.compliance', icon: Shield },
   { id: 'signalements' as const, labelKey: 'paxlog.tabs.signalements', icon: AlertTriangle },
@@ -795,20 +803,62 @@ function ValidatorHomeTab({
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
   const canSeeCompliance = hasPermission('paxlog.compliance.read')
-  const { data: adsData, isLoading: adsLoading } = useAdsList({ page: 1, page_size: 12 })
+  const { data: adsData, isLoading: adsLoading } = useAdsValidationQueue({ page: 1, page_size: 12 })
   const { data: avmData, isLoading: avmLoading } = useAvmList({ page: 1, page_size: 8 })
   const { data: expiringCreds, isLoading: expiringLoading } = useExpiringCredentials(30)
   const visitCategoryLabels = useDictionaryLabels('visit_category')
   const adsStatusLabels = useDictionaryLabels('pax_ads_status', ADS_STATUS_LABELS_FALLBACK)
   const avmStatusLabels = useDictionaryLabels('pax_avm_status', AVM_STATUS_LABELS_FALLBACK)
 
-  const adsItems = adsData?.items ?? []
+  const adsItems: AdsValidationQueueItem[] = adsData?.items ?? []
   const avmItems = avmData?.items ?? []
-  const adsToValidate = adsItems.filter((item) => ['submitted', 'pending_project_review', 'pending_compliance', 'pending_validation', 'requires_review'].includes(item.status))
+  const adsToValidate = adsItems
+    .filter((item) => ['submitted', 'pending_project_review', 'pending_compliance', 'pending_validation', 'requires_review'].includes(item.status))
+    .sort((a, b) => {
+      const score = (item: AdsValidationQueueItem) =>
+        (item.blocked_pax_count > 0 ? 100 : 0)
+        + (item.remaining_capacity !== null && item.remaining_capacity <= 0 ? 60 : 0)
+        + (item.linked_project_count > 1 ? 30 : 0)
+        + (item.stay_program_count > 0 ? 20 : 0)
+      return score(b) - score(a)
+    })
+  const adsValidationGroups = useMemo(() => {
+    const groups = new Map<string, { key: string; label: string; helper: string | null; items: AdsValidationQueueItem[] }>()
+    for (const item of adsToValidate) {
+      const projectNames = (item.linked_project_names ?? []).filter(Boolean)
+      const groupKey = item.planner_activity_id
+        ? `activity:${item.planner_activity_id}`
+        : projectNames.length > 0
+          ? `projects:${projectNames.join('|')}:${item.site_entry_asset_id}`
+          : `site:${item.site_entry_asset_id}`
+      const groupLabel = item.planner_activity_title
+        || (projectNames.length > 0 ? projectNames.join(', ') : (item.site_name || t('paxlog.common.site_not_specified')))
+      const helper = item.planner_activity_title
+        ? (projectNames.length > 0 ? t('paxlog.validator.group_helper_projects', { projects: projectNames.join(', ') }) : null)
+        : t('paxlog.validator.group_helper_site', { site: item.site_name || t('paxlog.common.site_not_specified') })
+
+      const existing = groups.get(groupKey)
+      if (existing) existing.items.push(item)
+      else groups.set(groupKey, { key: groupKey, label: groupLabel, helper, items: [item] })
+    }
+    return Array.from(groups.values())
+  }, [adsToValidate, t])
   const adsAwaitingApproval = adsItems.filter((item) => ['submitted', 'pending_project_review', 'pending_validation'].includes(item.status))
   const adsAwaitingCompliance = adsItems.filter((item) => item.status === 'pending_compliance')
   const avmToArbitrate = avmItems.filter((item) => ['in_preparation', 'active', 'ready'].includes(item.status))
   const urgentCreds = (expiringCreds ?? []).filter((item) => item.days_remaining <= 7).slice(0, 6)
+  const getCapacityScopeLabel = useCallback((scope: string | null) => {
+    if (!scope) return '—'
+    if (scope === 'planner_activity' || scope === 'site') {
+      return t(`paxlog.waitlist.capacity.scope.${scope}`)
+    }
+    return scope
+  }, [t])
+  const getDailyPreviewTone = useCallback((item: AdsValidationQueueItem['daily_capacity_preview'][number]) => {
+    if (item.is_critical) return 'border-destructive/30 bg-destructive/10 text-destructive'
+    if ((item.saturation_pct ?? 0) >= 85) return 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+    return 'border-border bg-muted/40 text-muted-foreground'
+  }, [])
 
   return (
     <PanelContent>
@@ -837,30 +887,107 @@ function ValidatorHomeTab({
               {!adsLoading && adsToValidate.length === 0 && (
                 <p className="text-xs text-muted-foreground italic">{t('paxlog.validator.empty.ads_priority')}</p>
               )}
-              {adsToValidate.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => onOpenAds(item.id)}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left hover:bg-accent"
-                >
-                  <div className="flex items-start justify-between gap-3">
+              {adsValidationGroups.map((group) => (
+                <div key={group.key} className="rounded-xl border border-border bg-muted/20 p-2.5">
+                  <div className="mb-2 flex items-start justify-between gap-3 px-1">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-mono text-xs font-medium text-foreground">{item.reference}</p>
-                        <StatusBadge status={item.status} labels={adsStatusLabels} badges={ADS_STATUS_BADGES} className="shrink-0" />
-                      </div>
-                      <p className="truncate text-sm text-foreground">{item.site_name || t('paxlog.common.site_not_specified')}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {visitCategoryLabels[item.visit_category] || item.visit_category}
-                        {' • '}
-                        {formatDateShort(item.start_date)} → {formatDateShort(item.end_date)}
-                        {' • '}
-                        {item.pax_count} PAX
-                      </p>
-                      {item.requester_name && <p className="text-[11px] text-muted-foreground">{t('paxlog.validator.requester_label', { name: item.requester_name })}</p>}
+                      <p className="truncate text-sm font-semibold text-foreground">{group.label}</p>
+                      {group.helper && <p className="text-[11px] text-muted-foreground">{group.helper}</p>}
                     </div>
+                    <span className="gl-badge gl-badge-info">{t('paxlog.validator.group_count', { count: group.items.length })}</span>
                   </div>
-                </button>
+                  <div className="space-y-2">
+                    {group.items.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => onOpenAds(item.id)}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left hover:bg-accent"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-mono text-xs font-medium text-foreground">{item.reference}</p>
+                              <StatusBadge status={item.status} labels={adsStatusLabels} badges={ADS_STATUS_BADGES} className="shrink-0" />
+                            </div>
+                            <p className="truncate text-sm text-foreground">{item.site_name || t('paxlog.common.site_not_specified')}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {visitCategoryLabels[item.visit_category] || item.visit_category}
+                              {' • '}
+                              {formatDateShort(item.start_date)} → {formatDateShort(item.end_date)}
+                              {' • '}
+                              {item.pax_count} PAX
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {t('paxlog.validator.capacity_context', {
+                                scope: getCapacityScopeLabel(item.capacity_scope),
+                                forecast: item.forecast_pax ?? '—',
+                                real: item.real_pob ?? '—',
+                                remaining: item.remaining_capacity ?? '—',
+                                limit: item.capacity_limit ?? '—',
+                              })}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {t('paxlog.validator.review_context', {
+                                blocked: item.blocked_pax_count ?? 0,
+                                projects: item.linked_project_count ?? 0,
+                                stayPrograms: item.stay_program_count ?? 0,
+                              })}
+                            </p>
+                            {(item.linked_project_names ?? []).length > 0 && (
+                              <p className="text-[11px] text-muted-foreground">
+                                {t('paxlog.validator.projects_label', { projects: item.linked_project_names.join(', ') })}
+                              </p>
+                            )}
+                            {(item.daily_capacity_preview ?? []).length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                <p className="text-[11px] font-medium text-muted-foreground">
+                                  {t('paxlog.validator.daily_preview')}
+                                </p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {(item.daily_capacity_preview ?? []).map((day) => (
+                                    <div
+                                      key={day.date}
+                                      className={cn('min-w-[86px] rounded-md border px-2 py-1', getDailyPreviewTone(day))}
+                                    >
+                                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em]">
+                                        {formatDateShort(day.date)}
+                                      </p>
+                                      <p className="text-[10px]">
+                                        {t('paxlog.validator.daily_preview_values', {
+                                          forecast: day.forecast_pax ?? '—',
+                                          real: day.real_pob ?? '—',
+                                          limit: day.capacity_limit ?? '—',
+                                        })}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {(item.blocked_pax_count ?? 0) > 0 && (
+                                <span className="gl-badge gl-badge-danger">{t('paxlog.validator.badges.compliance_blocked', { count: item.blocked_pax_count })}</span>
+                              )}
+                              {(item.linked_project_count ?? 0) > 1 && (
+                                <span className="gl-badge gl-badge-warning">{t('paxlog.validator.badges.multi_project', { count: item.linked_project_count })}</span>
+                              )}
+                              {(item.stay_program_count ?? 0) > 0 && (
+                                <span className="gl-badge gl-badge-info">{t('paxlog.validator.badges.stay_program', { count: item.stay_program_count })}</span>
+                              )}
+                              {item.remaining_capacity !== null && item.remaining_capacity <= 0 && (
+                                <span className="gl-badge gl-badge-warning">{t('paxlog.validator.badges.capacity_full')}</span>
+                              )}
+                            </div>
+                            {item.planner_activity_title && (
+                              <p className="text-[11px] text-muted-foreground">{item.planner_activity_title}</p>
+                            )}
+                            {item.requester_name && <p className="text-[11px] text-muted-foreground">{t('paxlog.validator.requester_label', { name: item.requester_name })}</p>}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </CollapsibleSection>
@@ -1080,6 +1207,262 @@ function AdsTab({ openDetail, requesterOnly = false, validatorOnly = false }: { 
           emptyIcon={ClipboardList}
           emptyTitle={validatorOnly ? t('paxlog.ads.empty.validator') : t('paxlog.ads.empty.default')}
           storageKey="paxlog-ads"
+        />
+      </PanelContent>
+    </>
+  )
+}
+
+function WaitlistTab({ openDetail }: { openDetail: (id: string) => void }) {
+  const { t } = useTranslation()
+  const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
+  const [search, setSearch] = useState('')
+  const [editingPriorityId, setEditingPriorityId] = useState<string | null>(null)
+  const [editingPriorityValue, setEditingPriorityValue] = useState('')
+  const debouncedSearch = useDebounce(search, 300)
+  const decideAdsPax = useDecideAdsPax()
+  const updateWaitlistPriority = useUpdateAdsWaitlistPriority()
+  const adsStatusLabels = useDictionaryLabels('pax_ads_status', ADS_STATUS_LABELS_FALLBACK)
+  const { toast } = useToast()
+
+  const { data, isLoading } = useAdsWaitlist({
+    page,
+    page_size: pageSize,
+    search: debouncedSearch || undefined,
+  })
+
+  const items = data?.items ?? []
+  const waitlistedCount = items.length
+  const highestPriority = items[0]?.priority_score ?? 0
+
+  const getPrioritySourceLabel = useCallback((source: string | null) => {
+    if (!source) return '—'
+    if (source === 'auto_computed' || source === 'manual_override') {
+      return t(`paxlog.waitlist.sources.${source}`)
+    }
+    return source
+  }, [t])
+
+  const getCapacityScopeLabel = useCallback((scope: string | null) => {
+    if (!scope) return '—'
+    if (scope === 'planner_activity' || scope === 'site') {
+      return t(`paxlog.waitlist.capacity.scope.${scope}`)
+    }
+    return scope
+  }, [t])
+
+  const handleDecision = (row: AdsWaitlistItem, action: 'approve' | 'reject') => {
+    decideAdsPax.mutate(
+      {
+        adsId: row.ads_id,
+        entryId: row.ads_pax_id,
+        payload: {
+          action,
+          reason: action === 'approve'
+            ? t('paxlog.waitlist.actions.approve_reason')
+            : t('paxlog.waitlist.actions.reject_reason'),
+        },
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: action === 'approve'
+              ? t('paxlog.waitlist.toasts.approved')
+              : t('paxlog.waitlist.toasts.rejected'),
+            variant: 'success',
+          })
+        },
+      },
+    )
+  }
+
+  const startPriorityEdit = useCallback((row: AdsWaitlistItem) => {
+    setEditingPriorityId(row.ads_pax_id)
+    setEditingPriorityValue(String(row.priority_score ?? 0))
+  }, [])
+
+  const cancelPriorityEdit = useCallback(() => {
+    setEditingPriorityId(null)
+    setEditingPriorityValue('')
+  }, [])
+
+  const savePriorityEdit = useCallback((row: AdsWaitlistItem) => {
+    const nextValue = Number.parseInt(editingPriorityValue, 10)
+    if (!Number.isFinite(nextValue) || nextValue < 0) {
+      toast({
+        title: t('paxlog.waitlist.validation.invalid_priority'),
+        variant: 'error',
+      })
+      return
+    }
+    updateWaitlistPriority.mutate(
+      {
+        entryId: row.ads_pax_id,
+        payload: {
+          priority_score: nextValue,
+          reason: t('paxlog.waitlist.actions.priority_reason'),
+        },
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: t('paxlog.waitlist.toasts.priority_updated'),
+            variant: 'success',
+          })
+          cancelPriorityEdit()
+        },
+      },
+    )
+  }, [cancelPriorityEdit, editingPriorityValue, t, toast, updateWaitlistPriority])
+
+  const waitlistColumns = useMemo<ColumnDef<AdsWaitlistItem, unknown>[]>(() => [
+    {
+      accessorKey: 'ads_reference',
+      header: t('paxlog.waitlist.columns.ads'),
+      cell: ({ row }) => (
+        <div className="min-w-0">
+          <span className="font-medium text-foreground font-mono text-xs">{row.original.ads_reference}</span>
+          {row.original.planner_activity_title && (
+            <span className="text-[10px] text-muted-foreground block truncate">{row.original.planner_activity_title}</span>
+          )}
+          <span className="text-[10px] text-muted-foreground block truncate">
+            {t('paxlog.waitlist.capacity.summary', {
+              scope: getCapacityScopeLabel(row.original.capacity_scope),
+              remaining: row.original.remaining_capacity ?? '—',
+              limit: row.original.capacity_limit ?? '—',
+            })}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'pax',
+      header: t('paxlog.waitlist.columns.pax'),
+      cell: ({ row }) => (
+        <div className="min-w-0">
+          <span className="font-medium text-foreground text-xs block truncate">
+            {`${row.original.pax_last_name} ${row.original.pax_first_name}`.trim()}
+          </span>
+          <span className="text-[10px] text-muted-foreground block truncate">{row.original.pax_company_name || '—'}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'priority_score',
+      header: t('paxlog.waitlist.columns.priority'),
+      cell: ({ row }) => (
+        <div className="text-xs min-w-[180px]">
+          {editingPriorityId === row.original.ads_pax_id ? (
+            <div className="flex flex-col gap-1">
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={editingPriorityValue}
+                onChange={(e) => setEditingPriorityValue(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="h-8 rounded border border-border bg-background px-2 text-xs tabular-nums"
+              />
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); savePriorityEdit(row.original) }}
+                  className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-foreground hover:bg-accent"
+                >
+                  {t('common.save')}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); cancelPriorityEdit() }}
+                  className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-foreground hover:bg-accent"
+                >
+                  {t('common.cancel')}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="font-medium tabular-nums">{row.original.priority_score}</div>
+                <div className="text-[10px] text-muted-foreground">{getPrioritySourceLabel(row.original.priority_source)}</div>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); startPriorityEdit(row.original) }}
+                className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-foreground hover:bg-accent"
+              >
+                {t('paxlog.waitlist.actions.edit_priority')}
+              </button>
+            </div>
+          )}
+        </div>
+      ),
+      size: 210,
+    },
+    {
+      accessorKey: 'submitted_at',
+      header: t('paxlog.waitlist.columns.submitted_at'),
+      cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDateTime(row.original.submitted_at)}</span>,
+    },
+    {
+      accessorKey: 'ads_status',
+      header: t('common.status'),
+      cell: ({ row }) => <StatusBadge status={row.original.ads_status} labels={adsStatusLabels} badges={ADS_STATUS_BADGES} />,
+      size: 120,
+    },
+    {
+      id: 'actions',
+      header: t('common.actions'),
+      cell: ({ row }) => (
+        <div className="flex items-center justify-end gap-1">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); handleDecision(row.original, 'approve') }}
+            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-foreground hover:bg-accent"
+          >
+            <ThumbsUp size={11} />
+            {t('common.approve')}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); handleDecision(row.original, 'reject') }}
+            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-foreground hover:bg-accent"
+          >
+            <ThumbsDown size={11} />
+            {t('common.reject')}
+          </button>
+        </div>
+      ),
+      size: 180,
+    },
+  ], [adsStatusLabels, cancelPriorityEdit, decideAdsPax, editingPriorityId, editingPriorityValue, getCapacityScopeLabel, getPrioritySourceLabel, savePriorityEdit, startPriorityEdit, t])
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3 px-4 py-3 border-b border-border">
+        <StatCard label={t('paxlog.waitlist.kpis.items')} value={data?.total ?? 0} icon={Clock} />
+        <StatCard label={t('paxlog.waitlist.kpis.priority_peak')} value={highestPriority} icon={Shield} accent="text-amber-600 dark:text-amber-400" />
+      </div>
+      <div className="px-4 py-3 border-b border-border bg-amber-500/[0.06]">
+        <p className="text-xs text-muted-foreground">
+          {t('paxlog.waitlist.hint', { count: waitlistedCount })}
+        </p>
+      </div>
+      <PanelContent>
+        <DataTable<AdsWaitlistItem>
+          columns={waitlistColumns}
+          data={items}
+          isLoading={isLoading}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
+          onPaginationChange={(p) => setPage(p)}
+          searchValue={search}
+          onSearchChange={(v) => { setSearch(v); setPage(1) }}
+          searchPlaceholder={t('paxlog.waitlist.search')}
+          onRowClick={(row) => openDetail(row.ads_id)}
+          emptyIcon={Clock}
+          emptyTitle={t('paxlog.waitlist.empty')}
+          storageKey="paxlog-waitlist"
         />
       </PanelContent>
     </>
@@ -5475,6 +5858,7 @@ export function PaxLogPage() {
     const tabs = ALL_TABS.filter((tab) => {
       if (tab.id === 'dashboard') return true
       if (tab.id === 'ads') return hasAny(['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.ads.update', 'paxlog.ads.approve'])
+      if (tab.id === 'waitlist') return hasPermission('paxlog.ads.approve')
       if (tab.id === 'avm') return hasAny(['paxlog.avm.create', 'paxlog.avm.update', 'paxlog.avm.approve', 'paxlog.avm.complete'])
       if (tab.id === 'profiles') return hasPermission('paxlog.profile.read')
       if (tab.id === 'compliance') return hasPermission('paxlog.compliance.read')
@@ -5542,6 +5926,7 @@ export function PaxLogPage() {
                 : <ModuleDashboard module="paxlog" />
           )}
           {effectiveTab === 'ads' && <AdsTab openDetail={handleOpenDetail} requesterOnly={isRequesterProfile} validatorOnly={isValidatorProfile} />}
+          {effectiveTab === 'waitlist' && <WaitlistTab openDetail={handleOpenDetail} />}
           {effectiveTab === 'profiles' && <ProfilesTab openDetail={handleOpenDetail} />}
           {effectiveTab === 'compliance' && <ComplianceTab />}
           {effectiveTab === 'signalements' && <SignalementsTab />}

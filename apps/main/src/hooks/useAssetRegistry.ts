@@ -6,7 +6,12 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { assetRegistryService } from '@/services/assetRegistryService'
-import type { InstallationDeckCreate, InstallationDeckUpdate, FieldLicenseCreate, FieldLicenseUpdate } from '@/types/assetRegistry'
+import type {
+  InstallationDeckCreate,
+  InstallationDeckUpdate,
+  FieldLicenseCreate,
+  FieldLicenseUpdate,
+} from '@/types/assetRegistry'
 
 // ── Fields ──
 
@@ -183,6 +188,14 @@ export function useDeleteInstallation() {
   return useMutation({
     mutationFn: assetRegistryService.deleteInstallation,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['ar-installations'] }) },
+  })
+}
+
+export function useAssetHierarchy() {
+  return useQuery({
+    queryKey: ['ar-hierarchy'],
+    queryFn: () => assetRegistryService.getHierarchy(),
+    staleTime: 5 * 60_000,
   })
 }
 

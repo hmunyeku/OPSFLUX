@@ -29,6 +29,7 @@ import type {
   MissionNoticeUpdate,
   AddPaxBody,
   AdsPaxDecision,
+  AdsWaitlistPriorityUpdate,
 } from '@/services/paxlogService'
 
 // ── PAX Profiles ──
@@ -196,11 +197,37 @@ export function useAdsList(params: { page?: number; page_size?: number; status?:
   })
 }
 
+export function useAdsValidationQueue(params: { page?: number; page_size?: number } = {}) {
+  return useQuery({
+    queryKey: ['paxlog', 'ads-validation-queue', params],
+    queryFn: () => paxlogService.listAdsValidationQueue(params),
+  })
+}
+
+export function useAdsWaitlist(params: { page?: number; page_size?: number; search?: string; planner_activity_id?: string; site_entry_asset_id?: string } = {}) {
+  return useQuery({
+    queryKey: ['paxlog', 'ads-waitlist', params],
+    queryFn: () => paxlogService.listAdsWaitlist(params),
+  })
+}
+
 export function useAds(id: string) {
   return useQuery({
     queryKey: ['paxlog', 'ads', id],
     queryFn: () => paxlogService.getAds(id),
     enabled: !!id,
+  })
+}
+
+export function useUpdateAdsWaitlistPriority() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ entryId, payload }: { entryId: string; payload: AdsWaitlistPriorityUpdate }) =>
+      paxlogService.updateAdsWaitlistPriority(entryId, payload),
+    onSuccess: (_data) => {
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads-waitlist'] })
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+    },
   })
 }
 
@@ -231,6 +258,7 @@ export function useSubmitAds() {
     mutationFn: (id: string) => paxlogService.submitAds(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads-waitlist'] })
     },
   })
 }
@@ -241,6 +269,7 @@ export function useCancelAds() {
     mutationFn: (id: string) => paxlogService.cancelAds(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads-waitlist'] })
     },
   })
 }
@@ -272,6 +301,7 @@ export function useDecideAdsPax() {
       paxlogService.decideAdsPax(adsId, entryId, payload),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads-waitlist'] })
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads', vars.adsId] })
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads-pax', vars.adsId] })
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads-events', vars.adsId] })
@@ -285,6 +315,7 @@ export function useRejectAds() {
     mutationFn: ({ id, reason }: { id: string; reason?: string }) => paxlogService.rejectAds(id, reason),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads-waitlist'] })
     },
   })
 }
@@ -393,6 +424,7 @@ export function useRemovePaxFromAds() {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads', vars.adsId, 'pax'] })
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads-waitlist'] })
     },
   })
 }

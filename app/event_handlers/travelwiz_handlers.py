@@ -511,6 +511,106 @@ async def on_voyage_delayed(event: OpsFluxEvent) -> None:
         logger.exception("Error in on_voyage_delayed for voyage %s", voyage_id)
 
 
+async def on_voyage_cancelled(event: OpsFluxEvent) -> None:
+    """Notify operators and impacted passengers when a voyage is cancelled."""
+    payload = event.payload
+    entity_id = payload.get("entity_id")
+    voyage_id = payload.get("voyage_id")
+    code = payload.get("code", "")
+    reason = payload.get("reason") or payload.get("delay_reason") or ""
+    replan_hint = payload.get("replan_hint") or ""
+
+    if not entity_id or not voyage_id:
+        return
+
+    try:
+        from sqlalchemy import select
+        from app.core.notifications import send_in_app
+        from app.core.email_templates import render_and_send_email
+        from app.event_handlers.core_handlers import _get_admin_user_ids
+        from app.models.travelwiz import ManifestPassenger, VoyageManifest
+
+        eid = UUID(str(entity_id))
+        vid = UUID(str(voyage_id))
+
+        async with async_session_factory() as db:
+            recipients = await _get_user_ids_for_role("LOG_BASE", eid, db)
+            if not recipients:
+                recipients = await _get_admin_user_ids(entity_id)
+
+            operator_body = (
+                f"Le voyage {code or voyage_id} est annulé. "
+                f"{reason or 'Une replanification est requise.'}"
+            ).strip()
+            if replan_hint:
+                operator_body = f"{operator_body} {replan_hint}".strip()
+
+            for user_id in recipients:
+                await send_in_app(
+                    db,
+                    user_id=user_id,
+                    entity_id=eid,
+                    title="Voyage annulé",
+                    body=operator_body,
+                    category="travelwiz",
+                    link=f"/travelwiz/voyages/{voyage_id}",
+                )
+
+            pax_result = await db.execute(
+                select(ManifestPassenger).join(
+                    VoyageManifest, ManifestPassenger.manifest_id == VoyageManifest.id
+                ).where(
+                    VoyageManifest.voyage_id == vid,
+                    VoyageManifest.manifest_type == "pax",
+                    VoyageManifest.active == True,  # noqa: E712
+                    ManifestPassenger.active == True,  # noqa: E712
+                )
+            )
+            notified: set[str] = set()
+            for passenger in pax_result.scalars().all():
+                recipient_id = passenger.user_id or passenger.contact_id
+                if recipient_id is None:
+                    continue
+                recipient_key = str(recipient_id)
+                if recipient_key in notified:
+                    continue
+                notified.add(recipient_key)
+                if passenger.user_id:
+                    email, name = await _get_user_email_and_name(passenger.user_id, db)
+                    await send_in_app(
+                        db,
+                        user_id=passenger.user_id,
+                        entity_id=eid,
+                        title="Voyage annulé",
+                        body=(
+                            f"Le voyage {code or voyage_id} a été annulé. "
+                            f"{reason or 'Votre déplacement doit être replanifié.'}"
+                        ).strip(),
+                        category="travelwiz",
+                        link=f"/travelwiz/voyages/{voyage_id}",
+                    )
+                else:
+                    email, name = await _get_contact_email_and_name(passenger.contact_id, db)
+                if email:
+                    await render_and_send_email(
+                        db,
+                        slug="travelwiz.voyage.cancelled",
+                        entity_id=eid,
+                        language="fr",
+                        to=email,
+                        variables={
+                            "code": code or str(voyage_id),
+                            "voyage_id": str(voyage_id),
+                            "reason": reason,
+                            "replan_hint": replan_hint,
+                            "user": {"first_name": name},
+                        },
+                    )
+            await db.commit()
+    except Exception:
+        logger.exception("Error in on_voyage_cancelled for voyage %s", voyage_id)
+
+
 async def on_pickup_no_show(event: OpsFluxEvent) -> None:
     """Alert LOG_BASE operators when a chauffeur reports a no-show."""
     payload = event.payload
@@ -766,6 +866,7 @@ def register_travelwiz_handlers(event_bus: EventBus) -> None:
     # TravelWiz lifecycle
     event_bus.subscribe("travelwiz.voyage.confirmed", on_voyage_confirmed)
     event_bus.subscribe("travelwiz.voyage.delayed", on_voyage_delayed)
+    event_bus.subscribe("travelwiz.voyage.cancelled", on_voyage_cancelled)
     event_bus.subscribe("travelwiz.manifest.validated", on_manifest_validated)
     event_bus.subscribe("travelwiz.pickup.no_show", on_pickup_no_show)
 

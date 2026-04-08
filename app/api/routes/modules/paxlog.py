@@ -16,7 +16,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel
-from sqlalchemy import and_, func, literal, or_, select, text
+from sqlalchemy import and_, bindparam, func, literal, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
@@ -80,6 +80,8 @@ from app.schemas.paxlog import (
     AdsRead,
     AdsStayChangeRequest,
     AdsSummary,
+    AdsValidationQueueItemRead,
+    AdsWaitlistPriorityUpdate,
     AdsUpdate,
     ComplianceCheckResult,
     ComplianceMatrixCreate,
@@ -768,6 +770,741 @@ async def _run_ads_submission_checks(
     target_status = "pending_compliance"
     ads.rejection_reason = build_compliance_issues_summary(issues_for_summary) if has_compliance_issues else None
     return pax_entries, has_compliance_issues, target_status
+
+
+async def _apply_ads_planner_waitlist_if_needed(
+    db: AsyncSession,
+    *,
+    ads: Ads,
+    pax_entries: list[AdsPax],
+    entity_id: UUID,
+) -> dict[str, object]:
+    """Apply waitlist state when a linked Planner activity has no remaining capacity."""
+    if not ads.planner_activity_id:
+        return {
+            "waitlist_applied": False,
+            "waitlisted_count": 0,
+            "activity_quota": None,
+            "reserved_pax_count": 0,
+            "remaining_capacity": None,
+        }
+
+    activity_result = await db.execute(
+        select(PlannerActivity.pax_quota).where(
+            PlannerActivity.id == ads.planner_activity_id,
+            PlannerActivity.entity_id == entity_id,
+        )
+    )
+    activity_quota = activity_result.scalar_one_or_none()
+    if activity_quota is None:
+        return {
+            "waitlist_applied": False,
+            "waitlisted_count": 0,
+            "activity_quota": None,
+            "reserved_pax_count": 0,
+            "remaining_capacity": None,
+        }
+
+    reserved_statuses = (
+        "submitted",
+        "pending_initiator_review",
+        "pending_project_review",
+        "pending_compliance",
+        "pending_validation",
+        "pending_arbitration",
+        "approved",
+        "in_progress",
+    )
+    reserved_result = await db.execute(
+        text(
+            """
+            SELECT COUNT(*)
+            FROM ads_pax ap
+            JOIN ads a ON a.id = ap.ads_id
+            WHERE a.entity_id = :entity_id
+              AND a.planner_activity_id = :activity_id
+              AND a.id <> :ads_id
+              AND a.status IN :ads_statuses
+              AND ap.status NOT IN ('blocked', 'waitlisted', 'rejected', 'no_show')
+            """
+        ).bindparams(bindparam("ads_statuses", expanding=True)),
+        {
+            "entity_id": entity_id,
+            "activity_id": ads.planner_activity_id,
+            "ads_id": ads.id,
+            "ads_statuses": reserved_statuses,
+        },
+    )
+    reserved_pax_count = int(reserved_result.scalar() or 0)
+
+    candidate_entries = [
+        entry for entry in pax_entries
+        if entry.status not in {"blocked", "waitlisted", "rejected", "no_show"}
+    ]
+    requested_pax_count = len(candidate_entries)
+    remaining_capacity = int(activity_quota) - reserved_pax_count
+
+    if requested_pax_count == 0 or reserved_pax_count + requested_pax_count <= int(activity_quota):
+        return {
+            "waitlist_applied": False,
+            "waitlisted_count": 0,
+            "activity_quota": int(activity_quota),
+            "reserved_pax_count": reserved_pax_count,
+            "remaining_capacity": remaining_capacity,
+        }
+
+    from app.services.modules.paxlog_service import compute_pax_priority
+
+    for entry in candidate_entries:
+        entry.status = "waitlisted"
+        await compute_pax_priority(db, entry.id)
+
+    return {
+        "waitlist_applied": True,
+        "waitlisted_count": requested_pax_count,
+        "activity_quota": int(activity_quota),
+        "reserved_pax_count": reserved_pax_count,
+        "remaining_capacity": max(remaining_capacity, 0),
+    }
+
+
+async def _count_reserved_site_pax_for_day(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    site_asset_id: UUID,
+    target_date: date,
+    exclude_ads_id: UUID | None = None,
+) -> int:
+    reserved_statuses = (
+        "submitted",
+        "pending_initiator_review",
+        "pending_project_review",
+        "pending_compliance",
+        "pending_validation",
+        "pending_arbitration",
+        "approved",
+        "in_progress",
+    )
+    filters = [
+        "a.entity_id = :entity_id",
+        "a.site_entry_asset_id = :site_asset_id",
+        "a.status IN :ads_statuses",
+        "a.start_date <= :target_date",
+        "a.end_date >= :target_date",
+        "ap.status NOT IN ('blocked', 'waitlisted', 'rejected', 'no_show')",
+    ]
+    params: dict[str, object] = {
+        "entity_id": entity_id,
+        "site_asset_id": site_asset_id,
+        "ads_statuses": reserved_statuses,
+        "target_date": target_date,
+    }
+    if exclude_ads_id:
+        filters.append("a.id <> :exclude_ads_id")
+        params["exclude_ads_id"] = exclude_ads_id
+
+    result = await db.execute(
+        text(
+            f"""
+            SELECT COUNT(*)
+            FROM ads_pax ap
+            JOIN ads a ON a.id = ap.ads_id
+            WHERE {' AND '.join(filters)}
+            """
+        ).bindparams(bindparam("ads_statuses", expanding=True)),
+        params,
+    )
+    return int(result.scalar() or 0)
+
+
+async def _apply_ads_site_waitlist_if_needed(
+    db: AsyncSession,
+    *,
+    ads: Ads,
+    pax_entries: list[AdsPax],
+    entity_id: UUID,
+) -> dict[str, object]:
+    """Apply waitlist state against site capacity for AdS not linked to Planner."""
+    if ads.planner_activity_id or not ads.site_entry_asset_id or not ads.start_date or not ads.end_date:
+        return {
+            "waitlist_applied": False,
+            "waitlisted_count": 0,
+            "activity_quota": None,
+            "reserved_pax_count": 0,
+            "remaining_capacity": None,
+        }
+
+    from app.services.modules.paxlog_service import compute_pax_priority
+    from app.services.modules.planner_service import get_effective_capacity
+
+    candidate_entries = [
+        entry for entry in pax_entries
+        if entry.status not in {"blocked", "waitlisted", "rejected", "no_show"}
+    ]
+    requested_pax_count = len(candidate_entries)
+    if requested_pax_count == 0:
+        return {
+            "waitlist_applied": False,
+            "waitlisted_count": 0,
+            "activity_quota": None,
+            "reserved_pax_count": 0,
+            "remaining_capacity": None,
+        }
+
+    current_day = ads.start_date
+    min_remaining_capacity: int | None = None
+    min_capacity_limit: int | None = None
+    reserved_pax_peak = 0
+    while current_day <= ads.end_date:
+        capacity_limit = int(await get_effective_capacity(db, ads.site_entry_asset_id, current_day) or 0)
+        reserved_pax_count = await _count_reserved_site_pax_for_day(
+            db,
+            entity_id=entity_id,
+            site_asset_id=ads.site_entry_asset_id,
+            target_date=current_day,
+            exclude_ads_id=ads.id,
+        )
+        remaining_capacity = capacity_limit - reserved_pax_count
+        reserved_pax_peak = max(reserved_pax_peak, reserved_pax_count)
+        min_capacity_limit = capacity_limit if min_capacity_limit is None else min(min_capacity_limit, capacity_limit)
+        min_remaining_capacity = remaining_capacity if min_remaining_capacity is None else min(min_remaining_capacity, remaining_capacity)
+        current_day += timedelta(days=1)
+
+    if min_remaining_capacity is None or requested_pax_count <= min_remaining_capacity:
+        return {
+            "waitlist_applied": False,
+            "waitlisted_count": 0,
+            "activity_quota": min_capacity_limit,
+            "reserved_pax_count": reserved_pax_peak,
+            "remaining_capacity": min_remaining_capacity,
+        }
+
+    for entry in candidate_entries:
+        entry.status = "waitlisted"
+        await compute_pax_priority(db, entry.id)
+
+    return {
+        "waitlist_applied": True,
+        "waitlisted_count": requested_pax_count,
+        "activity_quota": min_capacity_limit,
+        "reserved_pax_count": reserved_pax_peak,
+        "remaining_capacity": max(min_remaining_capacity, 0),
+    }
+
+
+async def _get_ads_waitlist_capacity_summary(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    planner_activity_id: UUID | None,
+    site_entry_asset_id: UUID | None,
+    start_date: date | None,
+    end_date: date | None,
+) -> dict[str, int | str | None]:
+    if planner_activity_id:
+        activity_result = await db.execute(
+            select(PlannerActivity.pax_quota).where(
+                PlannerActivity.id == planner_activity_id,
+                PlannerActivity.entity_id == entity_id,
+            )
+        )
+        activity_quota = activity_result.scalar_one_or_none()
+        if activity_quota is None:
+            return {
+                "capacity_scope": "planner_activity",
+                "capacity_limit": None,
+                "reserved_pax_count": None,
+                "remaining_capacity": None,
+            }
+
+        reserved_statuses = (
+            "submitted",
+            "pending_initiator_review",
+            "pending_project_review",
+            "pending_compliance",
+            "pending_validation",
+            "pending_arbitration",
+            "approved",
+            "in_progress",
+        )
+        reserved_result = await db.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM ads_pax ap
+                JOIN ads a ON a.id = ap.ads_id
+                WHERE a.entity_id = :entity_id
+                  AND a.planner_activity_id = :activity_id
+                  AND a.status IN :ads_statuses
+                  AND ap.status NOT IN ('blocked', 'waitlisted', 'rejected', 'no_show')
+                """
+            ).bindparams(bindparam("ads_statuses", expanding=True)),
+            {
+                "entity_id": entity_id,
+                "activity_id": planner_activity_id,
+                "ads_statuses": reserved_statuses,
+            },
+        )
+        reserved_pax_count = int(reserved_result.scalar() or 0)
+        return {
+            "capacity_scope": "planner_activity",
+            "capacity_limit": int(activity_quota),
+            "reserved_pax_count": reserved_pax_count,
+            "remaining_capacity": max(int(activity_quota) - reserved_pax_count, 0),
+        }
+
+    if not site_entry_asset_id or not start_date or not end_date:
+        return {
+            "capacity_scope": None,
+            "capacity_limit": None,
+            "reserved_pax_count": None,
+            "remaining_capacity": None,
+        }
+
+    from app.services.modules.planner_service import get_effective_capacity
+
+    current_day = start_date
+    min_remaining_capacity: int | None = None
+    min_capacity_limit: int | None = None
+    reserved_pax_peak = 0
+    while current_day <= end_date:
+        capacity_limit = int(await get_effective_capacity(db, site_entry_asset_id, current_day) or 0)
+        reserved_pax_count = await _count_reserved_site_pax_for_day(
+            db,
+            entity_id=entity_id,
+            site_asset_id=site_entry_asset_id,
+            target_date=current_day,
+        )
+        remaining_capacity = capacity_limit - reserved_pax_count
+        reserved_pax_peak = max(reserved_pax_peak, reserved_pax_count)
+        min_capacity_limit = capacity_limit if min_capacity_limit is None else min(min_capacity_limit, capacity_limit)
+        min_remaining_capacity = remaining_capacity if min_remaining_capacity is None else min(min_remaining_capacity, remaining_capacity)
+        current_day += timedelta(days=1)
+
+    return {
+        "capacity_scope": "site",
+        "capacity_limit": min_capacity_limit,
+        "reserved_pax_count": reserved_pax_peak,
+        "remaining_capacity": min_remaining_capacity,
+    }
+
+
+async def _get_ads_validation_context(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    ads: Ads,
+) -> dict[str, int | str | None]:
+    capacity_summary = await _get_ads_waitlist_capacity_summary(
+        db,
+        entity_id=entity_id,
+        planner_activity_id=ads.planner_activity_id,
+        site_entry_asset_id=ads.site_entry_asset_id,
+        start_date=ads.start_date if not ads.planner_activity_id else None,
+        end_date=ads.end_date if not ads.planner_activity_id else None,
+    )
+
+    if ads.planner_activity_id:
+        real_pob_result = await db.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM ads_pax ap
+                JOIN ads a ON a.id = ap.ads_id
+                WHERE a.entity_id = :entity_id
+                  AND a.planner_activity_id = :activity_id
+                  AND ap.current_onboard = TRUE
+                """
+            ),
+            {"entity_id": entity_id, "activity_id": ads.planner_activity_id},
+        )
+    else:
+        real_pob_result = await db.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM ads_pax ap
+                JOIN ads a ON a.id = ap.ads_id
+                WHERE a.entity_id = :entity_id
+                  AND a.site_entry_asset_id = :site_asset_id
+                  AND ap.current_onboard = TRUE
+                  AND a.start_date <= :end_date
+                  AND a.end_date >= :start_date
+                """
+            ),
+            {
+                "entity_id": entity_id,
+                "site_asset_id": ads.site_entry_asset_id,
+                "start_date": ads.start_date,
+                "end_date": ads.end_date,
+            },
+        )
+
+    real_pob = int(real_pob_result.scalar() or 0)
+    forecast_pax = capacity_summary["reserved_pax_count"]
+    return {
+        **capacity_summary,
+        "forecast_pax": forecast_pax,
+        "real_pob": real_pob,
+    }
+
+
+async def _build_ads_validation_daily_preview(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    ads: Ads,
+    max_days: int = 5,
+) -> list[dict[str, object]]:
+    if not ads.start_date or not ads.end_date:
+        return []
+
+    preview: list[dict[str, object]] = []
+    current_day = ads.start_date
+    end_day = ads.end_date
+    preview_limit = max(1, min(max_days, 7))
+
+    while current_day <= end_day and len(preview) < preview_limit:
+        if ads.planner_activity_id:
+            activity_result = await db.execute(
+                select(PlannerActivity.pax_quota).where(
+                    PlannerActivity.id == ads.planner_activity_id,
+                    PlannerActivity.entity_id == entity_id,
+                )
+            )
+            capacity_limit = activity_result.scalar_one_or_none()
+            if capacity_limit is None:
+                preview.append(
+                    {
+                        "date": current_day,
+                        "forecast_pax": None,
+                        "real_pob": None,
+                        "capacity_limit": None,
+                        "remaining_capacity": None,
+                        "saturation_pct": None,
+                        "is_critical": False,
+                    }
+                )
+                current_day += timedelta(days=1)
+                continue
+
+            reserved_statuses = (
+                "submitted",
+                "pending_initiator_review",
+                "pending_project_review",
+                "pending_compliance",
+                "pending_validation",
+                "pending_arbitration",
+                "approved",
+                "in_progress",
+            )
+            reserved_result = await db.execute(
+                text(
+                    """
+                    SELECT COUNT(*)
+                    FROM ads_pax ap
+                    JOIN ads a ON a.id = ap.ads_id
+                    WHERE a.entity_id = :entity_id
+                      AND a.planner_activity_id = :activity_id
+                      AND a.status IN :ads_statuses
+                      AND a.start_date <= :target_date
+                      AND a.end_date >= :target_date
+                      AND ap.status NOT IN ('blocked', 'waitlisted', 'rejected', 'no_show')
+                    """
+                ).bindparams(bindparam("ads_statuses", expanding=True)),
+                {
+                    "entity_id": entity_id,
+                    "activity_id": ads.planner_activity_id,
+                    "ads_statuses": reserved_statuses,
+                    "target_date": current_day,
+                },
+            )
+            forecast_pax = int(reserved_result.scalar() or 0)
+            real_pob_result = await db.execute(
+                text(
+                    """
+                    SELECT COUNT(*)
+                    FROM ads_pax ap
+                    JOIN ads a ON a.id = ap.ads_id
+                    WHERE a.entity_id = :entity_id
+                      AND a.planner_activity_id = :activity_id
+                      AND a.start_date <= :target_date
+                      AND a.end_date >= :target_date
+                      AND ap.current_onboard = TRUE
+                    """
+                ),
+                {
+                    "entity_id": entity_id,
+                    "activity_id": ads.planner_activity_id,
+                    "target_date": current_day,
+                },
+            )
+            real_pob = int(real_pob_result.scalar() or 0)
+            capacity_limit = int(capacity_limit)
+        else:
+            if not ads.site_entry_asset_id:
+                break
+
+            from app.services.modules.planner_service import get_effective_capacity
+
+            capacity_limit = int(await get_effective_capacity(db, ads.site_entry_asset_id, current_day) or 0)
+            forecast_pax = await _count_reserved_site_pax_for_day(
+                db,
+                entity_id=entity_id,
+                site_asset_id=ads.site_entry_asset_id,
+                target_date=current_day,
+            )
+            real_pob_result = await db.execute(
+                text(
+                    """
+                    SELECT COUNT(*)
+                    FROM ads_pax ap
+                    JOIN ads a ON a.id = ap.ads_id
+                    WHERE a.entity_id = :entity_id
+                      AND a.site_entry_asset_id = :site_asset_id
+                      AND a.start_date <= :target_date
+                      AND a.end_date >= :target_date
+                      AND ap.current_onboard = TRUE
+                    """
+                ),
+                {
+                    "entity_id": entity_id,
+                    "site_asset_id": ads.site_entry_asset_id,
+                    "target_date": current_day,
+                },
+            )
+            real_pob = int(real_pob_result.scalar() or 0)
+
+        remaining_capacity = max(capacity_limit - forecast_pax, 0) if capacity_limit >= 0 else None
+        saturation_pct = round((forecast_pax / capacity_limit * 100), 2) if capacity_limit > 0 else None
+        preview.append(
+            {
+                "date": current_day,
+                "forecast_pax": forecast_pax,
+                "real_pob": real_pob,
+                "capacity_limit": capacity_limit,
+                "remaining_capacity": remaining_capacity,
+                "saturation_pct": saturation_pct,
+                "is_critical": bool(remaining_capacity is not None and remaining_capacity <= 0),
+            }
+        )
+        current_day += timedelta(days=1)
+
+    return preview
+
+
+async def _promote_waitlisted_ads_pax_if_capacity_available(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    ads: Ads,
+    actor_id: UUID,
+) -> list[dict[str, object]]:
+    planner_activity_id = ads.planner_activity_id
+    if not planner_activity_id and (not ads.site_entry_asset_id or not ads.start_date or not ads.end_date):
+        return []
+
+    site_mode = planner_activity_id is None
+    if site_mode:
+        waitlisted_result = await db.execute(
+            text(
+                """
+                SELECT ap.id, ap.ads_id, a.reference, a.requester_id, a.start_date, a.end_date
+                FROM ads_pax ap
+                JOIN ads a ON a.id = ap.ads_id
+                WHERE a.entity_id = :entity_id
+                  AND a.site_entry_asset_id = :site_asset_id
+                  AND a.status = 'pending_arbitration'
+                  AND ap.status = 'waitlisted'
+                  AND a.start_date <= :released_end_date
+                  AND a.end_date >= :released_start_date
+                ORDER BY
+                  CASE WHEN ap.priority_source = 'manual_override' THEN 0 ELSE 1 END ASC,
+                  ap.priority_score DESC,
+                  COALESCE(a.submitted_at, a.created_at) ASC,
+                  ap.created_at ASC
+                """
+            ),
+            {
+                "entity_id": str(entity_id),
+                "site_asset_id": str(ads.site_entry_asset_id),
+                "released_start_date": ads.start_date,
+                "released_end_date": ads.end_date,
+            },
+        )
+    else:
+        activity_result = await db.execute(
+            select(PlannerActivity.pax_quota).where(
+                PlannerActivity.id == planner_activity_id,
+                PlannerActivity.entity_id == entity_id,
+            )
+        )
+        activity_quota = activity_result.scalar_one_or_none()
+        if activity_quota is None:
+            return []
+
+        reserved_statuses = (
+            "submitted",
+            "pending_initiator_review",
+            "pending_project_review",
+            "pending_compliance",
+            "pending_validation",
+            "pending_arbitration",
+            "approved",
+            "in_progress",
+        )
+        reserved_result = await db.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM ads_pax ap
+                JOIN ads a ON a.id = ap.ads_id
+                WHERE a.entity_id = :entity_id
+                  AND a.planner_activity_id = :activity_id
+                  AND a.status IN :ads_statuses
+                  AND ap.status NOT IN ('blocked', 'waitlisted', 'rejected', 'no_show')
+                """
+            ).bindparams(bindparam("ads_statuses", expanding=True)),
+            {
+                "entity_id": entity_id,
+                "activity_id": planner_activity_id,
+                "ads_statuses": reserved_statuses,
+            },
+        )
+        reserved_pax_count = int(reserved_result.scalar() or 0)
+        slots_available = max(int(activity_quota) - reserved_pax_count, 0)
+        if slots_available <= 0:
+            return []
+
+        waitlisted_result = await db.execute(
+            text(
+                """
+                SELECT ap.id, ap.ads_id, a.reference, a.requester_id
+                FROM ads_pax ap
+                JOIN ads a ON a.id = ap.ads_id
+                WHERE a.entity_id = :entity_id
+                  AND a.planner_activity_id = :activity_id
+                  AND a.status = 'pending_arbitration'
+                  AND ap.status = 'waitlisted'
+                ORDER BY
+                  CASE WHEN ap.priority_source = 'manual_override' THEN 0 ELSE 1 END ASC,
+                  ap.priority_score DESC,
+                  COALESCE(a.submitted_at, a.created_at) ASC,
+                  ap.created_at ASC
+                LIMIT :limit
+                """
+            ),
+            {
+                "entity_id": str(entity_id),
+                "activity_id": str(planner_activity_id),
+                "limit": slots_available,
+            },
+        )
+    waitlisted_rows = waitlisted_result.all()
+    if not waitlisted_rows:
+        return []
+
+    promoted_ads_ids: set[UUID] = set()
+    promoted_entries: list[dict[str, object]] = []
+    from app.services.modules.planner_service import get_effective_capacity
+
+    for row in waitlisted_rows:
+        if site_mode:
+            ads_pax_id, ads_id, ads_reference, requester_id, candidate_start_date, candidate_end_date = row
+            can_promote = True
+            current_day = candidate_start_date
+            while current_day <= candidate_end_date:
+                capacity_limit = int(await get_effective_capacity(db, ads.site_entry_asset_id, current_day) or 0)
+                reserved_pax_count = await _count_reserved_site_pax_for_day(
+                    db,
+                    entity_id=entity_id,
+                    site_asset_id=ads.site_entry_asset_id,
+                    target_date=current_day,
+                )
+                if reserved_pax_count + 1 > capacity_limit:
+                    can_promote = False
+                    break
+                current_day += timedelta(days=1)
+            if not can_promote:
+                continue
+        else:
+            ads_pax_id, ads_id, ads_reference, requester_id = row
+        await db.execute(
+            update(AdsPax)
+            .where(AdsPax.id == ads_pax_id)
+            .values(status="compliant", booking_request_sent=False)
+        )
+        db.add(AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads_id,
+            ads_pax_id=ads_pax_id,
+            event_type="pax_waitlist_promoted",
+            old_status="waitlisted",
+            new_status="compliant",
+            actor_id=actor_id,
+            metadata_json={
+                "planner_activity_id": str(planner_activity_id) if planner_activity_id else None,
+                "site_entry_asset_id": str(ads.site_entry_asset_id) if ads.site_entry_asset_id else None,
+            },
+        ))
+        promoted_ads_ids.add(ads_id)
+        promoted_entries.append(
+            {
+                "ads_id": ads_id,
+                "ads_pax_id": ads_pax_id,
+                "reference": ads_reference,
+                "requester_id": requester_id,
+            }
+        )
+
+    for ads_id in promoted_ads_ids:
+        await db.execute(
+            update(Ads)
+            .where(Ads.id == ads_id, Ads.entity_id == entity_id, Ads.status == "pending_arbitration")
+            .values(status="pending_validation", rejection_reason=None)
+        )
+        db.add(AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads_id,
+            event_type="waitlist_released",
+            old_status="pending_arbitration",
+            new_status="pending_validation",
+            actor_id=actor_id,
+            metadata_json={
+                "planner_activity_id": str(planner_activity_id) if planner_activity_id else None,
+                "site_entry_asset_id": str(ads.site_entry_asset_id) if ads.site_entry_asset_id else None,
+            },
+        ))
+
+    if promoted_entries:
+        from app.core.notifications import send_in_app
+
+        notified_ads_ids: set[UUID] = set()
+        for item in promoted_entries:
+            ads_id = item["ads_id"]
+            if ads_id in notified_ads_ids or not item["requester_id"]:
+                continue
+            notified_ads_ids.add(ads_id)
+            release_message = (
+                "Une place s'est libérée sur l'activité liée."
+                if planner_activity_id
+                else "Une place s'est libérée sur le site concerné."
+            )
+            await send_in_app(
+                db,
+                user_id=item["requester_id"],
+                entity_id=entity_id,
+                title="Place libérée sur activité Planner" if planner_activity_id else "Place libérée sur site",
+                body=(
+                    f"{release_message} "
+                    f"L'AdS {item['reference']} revient dans le flux de validation."
+                ),
+                category="paxlog",
+                link=f"/paxlog/ads/{ads_id}",
+            )
+
+    return promoted_entries
 
 
 async def _get_ads_workflow_definition(db: AsyncSession, *, entity_id: UUID) -> WorkflowDefinition | None:
@@ -2182,6 +2919,376 @@ async def list_ads(
     return await paginate(db, query, pagination)
 
 
+@router.get("/ads-validation-queue", response_model=PaginatedResponse[AdsValidationQueueItemRead])
+async def list_ads_validation_queue(
+    pagination: PaginationParams = Depends(),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.approve"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Validator-oriented AdS queue with capacity and POB context."""
+    statuses = (
+        "submitted",
+        "pending_project_review",
+        "pending_compliance",
+        "pending_validation",
+        "requires_review",
+    )
+    total_result = await db.execute(
+        text(
+            """
+            SELECT COUNT(*)
+            FROM ads a
+            WHERE a.entity_id = :entity_id
+              AND a.archived = FALSE
+              AND a.status IN :statuses
+            """
+        ).bindparams(bindparam("statuses", expanding=True)),
+        {"entity_id": entity_id, "statuses": statuses},
+    )
+    total = int(total_result.scalar() or 0)
+
+    rows = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                    a.id,
+                    a.reference,
+                    a.status,
+                    a.requester_id,
+                    CONCAT_WS(' ', requester.first_name, requester.last_name) AS requester_name,
+                    a.site_entry_asset_id,
+                    site.name AS site_name,
+                    a.visit_category,
+                    a.start_date,
+                    a.end_date,
+                    COUNT(ap.id) FILTER (WHERE ap.id IS NOT NULL) AS pax_count,
+                    COUNT(ap.id) FILTER (WHERE ap.status = 'blocked') AS blocked_pax_count,
+                    COUNT(DISTINCT ci.project_id) FILTER (WHERE ci.project_id IS NOT NULL) AS linked_project_count,
+                    ARRAY_REMOVE(ARRAY_AGG(DISTINCT p.name) FILTER (WHERE p.name IS NOT NULL), NULL) AS linked_project_names,
+                    COUNT(DISTINCT sp.id) FILTER (WHERE sp.id IS NOT NULL) AS stay_program_count,
+                    a.planner_activity_id,
+                    pa.title AS planner_activity_title,
+                    a.created_at
+                FROM ads a
+                LEFT JOIN users requester ON requester.id = a.requester_id
+                LEFT JOIN ar_installations site ON site.id = a.site_entry_asset_id
+                LEFT JOIN planner_activities pa ON pa.id = a.planner_activity_id
+                LEFT JOIN ads_pax ap ON ap.ads_id = a.id
+                LEFT JOIN cost_imputations ci ON ci.owner_type = 'ads' AND ci.owner_id = a.id
+                LEFT JOIN projects p ON p.id = ci.project_id
+                LEFT JOIN stay_programs sp ON sp.ads_id = a.id
+                WHERE a.entity_id = :entity_id
+                  AND a.archived = FALSE
+                  AND a.status IN :statuses
+                GROUP BY
+                    a.id, a.reference, a.status, a.requester_id, requester.first_name, requester.last_name,
+                    a.site_entry_asset_id, site.name, a.visit_category, a.start_date, a.end_date,
+                    a.planner_activity_id, pa.title, a.created_at
+                ORDER BY a.submitted_at ASC NULLS LAST, a.created_at ASC
+                LIMIT :limit OFFSET :offset
+                """
+            ).bindparams(bindparam("statuses", expanding=True)),
+            {
+                "entity_id": entity_id,
+                "statuses": statuses,
+                "limit": pagination.page_size,
+                "offset": (pagination.page - 1) * pagination.page_size,
+            },
+        )
+    ).all()
+
+    items = []
+    for row in rows:
+        ads_stub = Ads(
+            id=row[0],
+            entity_id=entity_id,
+            reference=row[1],
+            status=row[2],
+            requester_id=row[3],
+            site_entry_asset_id=row[5],
+            visit_category=row[7],
+            start_date=row[8],
+            end_date=row[9],
+            planner_activity_id=row[15],
+            created_by=row[3],
+            type="team",
+            visit_purpose="",
+            created_at=row[17],
+            updated_at=row[17],
+        )
+        context = await _get_ads_validation_context(db, entity_id=entity_id, ads=ads_stub)
+        daily_preview = await _build_ads_validation_daily_preview(db, entity_id=entity_id, ads=ads_stub)
+        items.append(
+            {
+                "id": str(row[0]),
+                "reference": row[1],
+                "status": row[2],
+                "requester_id": str(row[3]),
+                "requester_name": row[4],
+                "site_entry_asset_id": str(row[5]),
+                "site_name": row[6],
+                "visit_category": row[7],
+                "start_date": row[8],
+                "end_date": row[9],
+                "pax_count": int(row[10] or 0),
+                "blocked_pax_count": int(row[11] or 0),
+                "linked_project_count": int(row[12] or 0),
+                "linked_project_names": list(row[13] or []),
+                "stay_program_count": int(row[14] or 0),
+                "planner_activity_id": str(row[15]) if row[15] else None,
+                "planner_activity_title": row[16],
+                "capacity_scope": context["capacity_scope"],
+                "capacity_limit": context["capacity_limit"],
+                "reserved_pax_count": context["reserved_pax_count"],
+                "remaining_capacity": context["remaining_capacity"],
+                "forecast_pax": context["forecast_pax"],
+                "real_pob": context["real_pob"],
+                "daily_capacity_preview": daily_preview,
+                "created_at": row[17],
+            }
+        )
+
+    return {
+        "items": items,
+        "total": total,
+        "page": pagination.page,
+        "page_size": pagination.page_size,
+        "pages": max(1, -(-total // pagination.page_size)),
+    }
+
+
+@router.get("/ads-waitlist")
+async def list_ads_waitlist(
+    search: str | None = None,
+    planner_activity_id: UUID | None = None,
+    site_asset_id: UUID | None = None,
+    pagination: PaginationParams = Depends(),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.approve"),
+    db: AsyncSession = Depends(get_db),
+):
+    """List waitlisted PAX entries pending manual arbitration."""
+    filters = [
+        "a.entity_id = :entity_id",
+        "a.status = 'pending_arbitration'",
+        "ap.status = 'waitlisted'",
+    ]
+    params: dict[str, object] = {
+        "entity_id": str(entity_id),
+        "limit": pagination.page_size,
+        "offset": (pagination.page - 1) * pagination.page_size,
+    }
+    if planner_activity_id:
+        filters.append("a.planner_activity_id = :planner_activity_id")
+        params["planner_activity_id"] = str(planner_activity_id)
+    if site_asset_id:
+        filters.append("a.site_entry_asset_id = :site_asset_id")
+        params["site_asset_id"] = str(site_asset_id)
+    if search:
+        filters.append(
+            "("
+            "a.reference ILIKE :search OR "
+            "pa.title ILIKE :search OR "
+            "COALESCE(u.first_name, tc.first_name, '') ILIKE :search OR "
+            "COALESCE(u.last_name, tc.last_name, '') ILIKE :search OR "
+            "COALESCE(tier.name, '') ILIKE :search"
+            ")"
+        )
+        params["search"] = f"%{search}%"
+
+    where_clause = " AND ".join(filters)
+    count_result = await db.execute(
+        text(
+            f"""
+            SELECT COUNT(*)
+            FROM ads_pax ap
+            JOIN ads a ON a.id = ap.ads_id
+            LEFT JOIN users u ON u.id = ap.user_id
+            LEFT JOIN tier_contacts tc ON tc.id = ap.contact_id
+            LEFT JOIN tiers tier ON tier.id = tc.tier_id
+            LEFT JOIN planner_activities pa ON pa.id = a.planner_activity_id
+            WHERE {where_clause}
+            """
+        ),
+        params,
+    )
+    total = int(count_result.scalar() or 0)
+
+    rows = (
+        await db.execute(
+            text(
+                f"""
+                SELECT
+                    a.id,
+                    a.reference,
+                    a.status,
+                    ap.id,
+                    a.planner_activity_id,
+                    pa.title,
+                    a.site_entry_asset_id,
+                    asset.name,
+                    a.requester_id,
+                    CONCAT_WS(' ', requester.first_name, requester.last_name) AS requester_name,
+                    ap.user_id,
+                    ap.contact_id,
+                    COALESCE(u.first_name, tc.first_name, '') AS pax_first_name,
+                    COALESCE(u.last_name, tc.last_name, '') AS pax_last_name,
+                    tier.name AS pax_company_name,
+                    ap.priority_score,
+                    ap.priority_source,
+                    a.start_date,
+                    a.end_date,
+                    a.submitted_at,
+                    ap.updated_at
+                FROM ads_pax ap
+                JOIN ads a ON a.id = ap.ads_id
+                LEFT JOIN users u ON u.id = ap.user_id
+                LEFT JOIN tier_contacts tc ON tc.id = ap.contact_id
+                LEFT JOIN tiers tier ON tier.id = tc.tier_id
+                LEFT JOIN planner_activities pa ON pa.id = a.planner_activity_id
+                LEFT JOIN ar_installations asset ON asset.id = a.site_entry_asset_id
+                LEFT JOIN users requester ON requester.id = a.requester_id
+                WHERE {where_clause}
+                ORDER BY
+                  CASE WHEN ap.priority_source = 'manual_override' THEN 0 ELSE 1 END ASC,
+                  ap.priority_score DESC,
+                  COALESCE(a.submitted_at, a.created_at) ASC,
+                  ap.updated_at ASC
+                LIMIT :limit OFFSET :offset
+                """
+            ),
+            params,
+        )
+    ).all()
+
+    items = []
+    for row in rows:
+        capacity_summary = await _get_ads_waitlist_capacity_summary(
+            db,
+            entity_id=entity_id,
+            planner_activity_id=row[4],
+            site_entry_asset_id=row[6],
+            start_date=row[17] if not row[4] else None,
+            end_date=row[18] if not row[4] else None,
+        )
+        items.append(
+            {
+                "ads_id": str(row[0]),
+                "ads_reference": row[1],
+                "ads_status": row[2],
+                "ads_pax_id": str(row[3]),
+                "planner_activity_id": str(row[4]) if row[4] else None,
+                "planner_activity_title": row[5],
+                "site_entry_asset_id": str(row[6]) if row[6] else None,
+                "site_name": row[7],
+                "requester_id": str(row[8]) if row[8] else None,
+                "requester_name": row[9],
+                "user_id": str(row[10]) if row[10] else None,
+                "contact_id": str(row[11]) if row[11] else None,
+                "pax_first_name": row[12] or "",
+                "pax_last_name": row[13] or "",
+                "pax_company_name": row[14],
+                "priority_score": int(row[15] or 0),
+                "priority_source": row[16],
+                "capacity_scope": capacity_summary["capacity_scope"],
+                "capacity_limit": capacity_summary["capacity_limit"],
+                "reserved_pax_count": capacity_summary["reserved_pax_count"],
+                "remaining_capacity": capacity_summary["remaining_capacity"],
+                "submitted_at": row[19],
+                "waitlisted_at": row[20],
+            }
+        )
+    return {
+        "items": items,
+        "total": total,
+        "page": pagination.page,
+        "page_size": pagination.page_size,
+        "pages": max(1, -(-total // pagination.page_size)),
+    }
+
+
+@router.post("/ads-waitlist/{entry_id}/priority")
+async def update_ads_waitlist_priority(
+    entry_id: UUID,
+    body: AdsWaitlistPriorityUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.ads.approve"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Override the priority score of a waitlisted PAX entry."""
+    result = await db.execute(
+        select(AdsPax, Ads)
+        .join(Ads, Ads.id == AdsPax.ads_id)
+        .where(
+            AdsPax.id == entry_id,
+            Ads.entity_id == entity_id,
+        )
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Entrée de liste d'attente introuvable.")
+
+    entry, ads = row
+    if ads.status != "pending_arbitration" or entry.status != "waitlisted":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Seuls les PAX actuellement en liste d'attente peuvent etre repriorises.",
+        )
+
+    old_priority_score = int(entry.priority_score or 0)
+    old_priority_source = entry.priority_source
+    entry.priority_score = body.priority_score
+    entry.priority_source = "manual_override"
+
+    db.add(AdsEvent(
+        entity_id=entity_id,
+        ads_id=ads.id,
+        ads_pax_id=entry.id,
+        event_type="pax_waitlist_priority_updated",
+        old_status=entry.status,
+        new_status=entry.status,
+        actor_id=current_user.id,
+        reason=body.reason,
+        metadata_json={
+            "old_priority_score": old_priority_score,
+            "new_priority_score": body.priority_score,
+            "old_priority_source": old_priority_source,
+            "new_priority_source": "manual_override",
+        },
+    ))
+
+    await record_audit(
+        db,
+        entity_id=entity_id,
+        actor_id=current_user.id,
+        action="paxlog.ads.waitlist_priority_update",
+        module="paxlog",
+        target_type="ads_pax",
+        target_id=str(entry.id),
+        details={
+            "ads_id": str(ads.id),
+            "old_priority_score": old_priority_score,
+            "new_priority_score": body.priority_score,
+            "old_priority_source": old_priority_source,
+            "new_priority_source": "manual_override",
+            "reason": body.reason,
+        },
+    )
+
+    await db.commit()
+    return {
+        "ads_pax_id": str(entry.id),
+        "ads_id": str(ads.id),
+        "priority_score": int(entry.priority_score or 0),
+        "priority_source": entry.priority_source,
+    }
+
+
 @router.post("/ads", response_model=AdsRead, status_code=201)
 async def create_ads(
     body: AdsCreate,
@@ -2721,6 +3828,34 @@ async def submit_ads(
         ads=ads,
         entity_id=entity_id,
     )
+    waitlist_meta = {
+        "waitlist_applied": False,
+        "waitlisted_count": 0,
+        "activity_quota": None,
+        "reserved_pax_count": 0,
+        "remaining_capacity": None,
+    }
+    if not has_compliance_issues:
+        waitlist_meta = await _apply_ads_planner_waitlist_if_needed(
+            db,
+            ads=ads,
+            pax_entries=pax_entries,
+            entity_id=entity_id,
+        )
+        if not waitlist_meta["waitlist_applied"]:
+            waitlist_meta = await _apply_ads_site_waitlist_if_needed(
+                db,
+                ads=ads,
+                pax_entries=pax_entries,
+                entity_id=entity_id,
+            )
+        if waitlist_meta["waitlist_applied"]:
+            target_status = "pending_arbitration"
+            ads.rejection_reason = (
+                "Capacité Planner atteinte. Les PAX de cette AdS sont placés en liste d'attente."
+                if ads.planner_activity_id
+                else "Capacité site atteinte. Les PAX de cette AdS sont placés en liste d'attente."
+            )
 
     # FSM transition: draft → pending_compliance or pending_validation
     from_state = ads.status
@@ -2744,6 +3879,13 @@ async def submit_ads(
         old_status=from_state,
         new_status=target_status,
         actor_id=current_user.id,
+        metadata_json={
+            "waitlist_applied": waitlist_meta["waitlist_applied"],
+            "waitlisted_pax_count": waitlist_meta["waitlisted_count"],
+            "activity_quota": waitlist_meta["activity_quota"],
+            "reserved_pax_count": waitlist_meta["reserved_pax_count"],
+            "remaining_capacity": waitlist_meta["remaining_capacity"],
+        },
     ))
 
     await db.commit()
@@ -2760,6 +3902,8 @@ async def submit_ads(
         extra_payload={
             "reference": ads.reference,
             "compliance_issues": has_compliance_issues,
+            "waitlist_applied": waitlist_meta["waitlist_applied"],
+            "waitlisted_pax_count": waitlist_meta["waitlisted_count"],
             "entity_scope_id": str(entity_id),
             "assigned_to": workflow_instance.metadata_.get("assigned_to") if workflow_instance and workflow_instance.metadata_ else None,
             "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code") if workflow_instance and workflow_instance.metadata_ else None,
@@ -2777,6 +3921,8 @@ async def submit_ads(
             "reference": ads.reference,
             "pax_count": len(pax_entries),
             "compliance_issues": has_compliance_issues,
+            "waitlist_applied": waitlist_meta["waitlist_applied"],
+            "waitlisted_pax_count": waitlist_meta["waitlisted_count"],
         },
     )
     await db.commit()
@@ -2795,8 +3941,39 @@ async def submit_ads(
             "start_date": str(ads.start_date),
             "end_date": str(ads.end_date),
             "pax_count": len(pax_entries),
+            "waitlist_applied": waitlist_meta["waitlist_applied"],
+            "waitlisted_pax_count": waitlist_meta["waitlisted_count"],
         },
     ))
+
+    if waitlist_meta["waitlist_applied"] and ads.requester_id:
+        from app.core.notifications import send_in_app
+
+        await send_in_app(
+            db,
+            user_id=ads.requester_id,
+            entity_id=entity_id,
+            title="AdS en liste d'attente",
+            body=(
+                f"L'AdS {ads.reference} dépasse la capacité validée de l'activité liée. "
+                "Les passagers ont été placés en liste d'attente."
+            ),
+            category="paxlog",
+            link=f"/paxlog/ads/{ads.id}",
+        )
+        await _event_bus.publish(OpsFluxEvent(
+            event_type="ads.waitlisted",
+            payload={
+                "ads_id": str(ads.id),
+                "entity_id": str(entity_id),
+                "reference": ads.reference,
+                "requester_id": str(ads.requester_id),
+                "planner_activity_id": str(ads.planner_activity_id) if ads.planner_activity_id else None,
+                "waitlisted_pax_count": waitlist_meta["waitlisted_count"],
+                "activity_quota": waitlist_meta["activity_quota"],
+                "remaining_capacity": waitlist_meta["remaining_capacity"],
+            },
+        ))
 
     if has_compliance_issues:
         # Count blocked PAX
@@ -3286,7 +4463,10 @@ async def reject_ads(
     pax_result = await db.execute(
         select(AdsPax).where(AdsPax.ads_id == ads_id)
     )
+    release_slot = False
     for entry in pax_result.scalars().all():
+        if entry.status not in {"blocked", "waitlisted", "rejected", "no_show"}:
+            release_slot = True
         entry.status = "rejected"
 
     target_state = "cancelled" if ads.status == "pending_initiator_review" else "rejected"
@@ -3315,6 +4495,14 @@ async def reject_ads(
         actor_id=current_user.id,
         reason=reason,
     ))
+
+    if release_slot:
+        await _promote_waitlisted_ads_pax_if_capacity_available(
+            db,
+            entity_id=entity_id,
+            ads=ads,
+            actor_id=current_user.id,
+        )
 
     await db.commit()
     await db.refresh(ads)
@@ -3452,6 +4640,12 @@ async def cancel_ads(
             detail=f"Impossible d'annuler un AdS avec le statut '{ads.status}'.",
         )
 
+    pax_result = await db.execute(select(AdsPax).where(AdsPax.ads_id == ads_id))
+    release_slot = any(
+        entry.status not in {"blocked", "waitlisted", "rejected", "no_show"}
+        for entry in pax_result.scalars().all()
+    )
+
     from_state = ads.status
     await _try_ads_workflow_transition(
         db,
@@ -3471,6 +4665,14 @@ async def cancel_ads(
         new_status="cancelled",
         actor_id=current_user.id,
     ))
+
+    if release_slot:
+        await _promote_waitlisted_ads_pax_if_capacity_available(
+            db,
+            entity_id=entity_id,
+            ads=ads,
+            actor_id=current_user.id,
+        )
 
     await db.commit()
     await db.refresh(ads)
@@ -3775,6 +4977,16 @@ async def list_ads_pax(
     )
     entries = pax_result.scalars().all()
 
+    status_rank = {
+        "waitlisted": 0,
+        "approved": 1,
+        "compliant": 2,
+        "pending_check": 3,
+        "blocked": 4,
+        "rejected": 5,
+        "no_show": 6,
+    }
+
     items = []
     for ads_pax in entries:
         if ads_pax.user_id:
@@ -3801,6 +5013,7 @@ async def list_ads_pax(
                 "status": ads_pax.status,
                 "compliance_summary": ads_pax.compliance_summary,
                 "priority_score": ads_pax.priority_score,
+                "priority_source": getattr(ads_pax, "priority_source", None),
                 "pax_first_name": u.first_name if u else "?",
                 "pax_last_name": u.last_name if u else "?",
                 "pax_company_id": str(linked_contact.tier_id) if linked_contact else None,
@@ -3821,6 +5034,7 @@ async def list_ads_pax(
                 "status": ads_pax.status,
                 "compliance_summary": ads_pax.compliance_summary,
                 "priority_score": ads_pax.priority_score,
+                "priority_source": getattr(ads_pax, "priority_source", None),
                 "pax_first_name": c.first_name if c else "?",
                 "pax_last_name": c.last_name if c else "?",
                 "pax_company_id": str(c.tier_id) if c else None,
@@ -3830,8 +5044,15 @@ async def list_ads_pax(
                 "pax_phone": c.phone if c else None,
             })
 
-    # Sort by last_name, first_name
-    items.sort(key=lambda x: (x["pax_last_name"].lower(), x["pax_first_name"].lower()))
+    # Waitlisted PAX are surfaced first, then ordered by priority.
+    items.sort(
+        key=lambda x: (
+            status_rank.get(x["status"], 99),
+            -(x.get("priority_score") or 0),
+            x["pax_last_name"].lower(),
+            x["pax_first_name"].lower(),
+        )
+    )
     return items
 
 
@@ -3854,7 +5075,7 @@ async def decide_ads_pax(
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
-    if ads.status not in {"submitted", "pending_validation"}:
+    if ads.status not in {"submitted", "pending_validation", "pending_arbitration", "approved"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Impossible de traiter un PAX avec le statut AdS '{ads.status}'.",
@@ -3871,22 +5092,39 @@ async def decide_ads_pax(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Impossible de traiter un PAX avec le statut '{entry.status}'.",
         )
-    if body.action == "approve" and entry.status == "blocked":
+    if body.action in {"approve", "waitlist"} and entry.status == "blocked":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Un PAX bloque en conformite ne peut pas etre approuve individuellement.",
+            detail="Un PAX bloque en conformite ne peut pas etre approuve ou place en attente individuellement.",
         )
 
     previous_ads_status = ads.status
     old_status = entry.status
-    new_status = "approved" if body.action == "approve" else "rejected"
+    release_slot = old_status not in {"blocked", "waitlisted", "rejected", "no_show"}
+    if body.action == "approve":
+        new_status = "approved"
+    elif body.action == "waitlist":
+        new_status = "waitlisted"
+    else:
+        new_status = "rejected"
     entry.status = new_status
+
+    if body.action == "waitlist":
+        from app.services.modules.paxlog_service import compute_pax_priority
+
+        await compute_pax_priority(db, entry.id)
 
     db.add(AdsEvent(
         entity_id=entity_id,
         ads_id=ads.id,
         ads_pax_id=entry.id,
-        event_type="pax_approved" if body.action == "approve" else "pax_rejected",
+        event_type=(
+            "pax_approved"
+            if body.action == "approve"
+            else "pax_waitlisted"
+            if body.action == "waitlist"
+            else "pax_rejected"
+        ),
         old_status=old_status,
         new_status=new_status,
         actor_id=current_user.id,
@@ -3899,6 +5137,13 @@ async def decide_ads_pax(
         entity_id=entity_id,
         actor_id=current_user.id,
     )
+    if release_slot and new_status in {"waitlisted", "rejected", "no_show"}:
+        await _promote_waitlisted_ads_pax_if_capacity_available(
+            db,
+            entity_id=entity_id,
+            ads=ads,
+            actor_id=current_user.id,
+        )
     await db.commit()
     await db.refresh(ads)
     if previous_ads_status != ads.status:
@@ -4125,8 +5370,16 @@ async def remove_pax_from_ads(
     entry = result.scalar_one_or_none()
     if not entry:
         raise HTTPException(status_code=404, detail="PAX entry not found in this AdS")
+    release_slot = entry.status not in {"blocked", "waitlisted", "rejected", "no_show"}
     # Junction record — physical delete (not policy-managed)
     await db.delete(entry)
+    if release_slot:
+        await _promote_waitlisted_ads_pax_if_capacity_available(
+            db,
+            entity_id=entity_id,
+            ads=ads,
+            actor_id=current_user.id,
+        )
     await db.commit()
     return None
 
@@ -6700,54 +7953,83 @@ async def _finalize_ads_after_pax_decision(
         select(AdsPax).where(AdsPax.ads_id == ads.id)
     )
     pax_entries = result.scalars().all()
-    terminal_statuses = {"approved", "rejected", "no_show"}
+    terminal_statuses = {"approved", "waitlisted", "rejected", "no_show"}
     if not pax_entries or any(entry.status not in terminal_statuses for entry in pax_entries):
         return ads
 
     approved_entries = [entry for entry in pax_entries if entry.status == "approved"]
+    waitlisted_entries = [entry for entry in pax_entries if entry.status == "waitlisted"]
     from_state = ads.status
     if approved_entries:
         ads.status = "approved"
         ads.approved_at = func.now()
         ads.rejected_at = None
         ads.rejection_reason = None
-        db.add(AdsEvent(
-            entity_id=entity_id,
-            ads_id=ads.id,
-            event_type="approved",
-            old_status=from_state,
-            new_status="approved",
-            actor_id=actor_id,
-            metadata_json={"approved_pax_count": len(approved_entries)},
-        ))
-        await _try_ads_workflow_transition(
-            db,
-            entity_id_str=str(ads.id),
-            to_state="approved",
-            actor_id=actor_id,
-            entity_id_scope=entity_id,
-        )
+        if from_state != "approved":
+            db.add(AdsEvent(
+                entity_id=entity_id,
+                ads_id=ads.id,
+                event_type="approved",
+                old_status=from_state,
+                new_status="approved",
+                actor_id=actor_id,
+                metadata_json={
+                    "approved_pax_count": len(approved_entries),
+                    "waitlisted_pax_count": len(waitlisted_entries),
+                },
+            ))
+            await _try_ads_workflow_transition(
+                db,
+                entity_id_str=str(ads.id),
+                to_state="approved",
+                actor_id=actor_id,
+                entity_id_scope=entity_id,
+            )
+    elif waitlisted_entries:
+        ads.status = "pending_arbitration"
+        ads.rejected_at = None
+        ads.rejection_reason = "Tous les PAX restants sont en liste d'attente."
+        if from_state != "pending_arbitration":
+            db.add(AdsEvent(
+                entity_id=entity_id,
+                ads_id=ads.id,
+                event_type="pending_arbitration",
+                old_status=from_state,
+                new_status="pending_arbitration",
+                actor_id=actor_id,
+                metadata_json={"waitlisted_pax_count": len(waitlisted_entries)},
+                reason=ads.rejection_reason,
+            ))
+            await _try_ads_workflow_transition(
+                db,
+                entity_id_str=str(ads.id),
+                to_state="pending_arbitration",
+                actor_id=actor_id,
+                entity_id_scope=entity_id,
+                comment=ads.rejection_reason,
+            )
     else:
         ads.status = "rejected"
         ads.rejected_at = func.now()
         ads.rejection_reason = "Tous les PAX de l'AdS ont été rejetés."
-        db.add(AdsEvent(
-            entity_id=entity_id,
-            ads_id=ads.id,
-            event_type="rejected",
-            old_status=from_state,
-            new_status="rejected",
-            actor_id=actor_id,
-            reason=ads.rejection_reason,
-        ))
-        await _try_ads_workflow_transition(
-            db,
-            entity_id_str=str(ads.id),
-            to_state="rejected",
-            actor_id=actor_id,
-            entity_id_scope=entity_id,
-            comment=ads.rejection_reason,
-        )
+        if from_state != "rejected":
+            db.add(AdsEvent(
+                entity_id=entity_id,
+                ads_id=ads.id,
+                event_type="rejected",
+                old_status=from_state,
+                new_status="rejected",
+                actor_id=actor_id,
+                reason=ads.rejection_reason,
+            ))
+            await _try_ads_workflow_transition(
+                db,
+                entity_id_str=str(ads.id),
+                to_state="rejected",
+                actor_id=actor_id,
+                entity_id_scope=entity_id,
+                comment=ads.rejection_reason,
+            )
     return ads
 
 

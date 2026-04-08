@@ -46,6 +46,47 @@ import { useDashboardFilters } from './DashboardFilterContext'
 
 
 
+// ── Common label translations (enum values → French) ────────────
+// Centralised mapping so all charts/tables display translated labels
+const LABEL_FR: Record<string, string> = {
+  // Statuses
+  open: 'Ouvert', closed: 'Fermé', resolved: 'Résolu', pending: 'En attente',
+  active: 'Actif', inactive: 'Inactif', archived: 'Archivé',
+  draft: 'Brouillon', planned: 'Planifié', cancelled: 'Annulé',
+  todo: 'À faire', in_progress: 'En cours', review: 'Revue', done: 'Terminé',
+  valid: 'Valide', expired: 'Expiré', non_compliant: 'Non conforme',
+  approved: 'Approuvé', rejected: 'Rejeté', submitted: 'Soumis',
+  // Priorities
+  low: 'Basse', medium: 'Moyenne', high: 'Haute', critical: 'Critique',
+  // Types
+  client: 'Client', supplier: 'Fournisseur', subcontractor: 'Sous-traitant',
+  partner: 'Partenaire', prospect: 'Prospect',
+  bug: 'Bug', improvement: 'Amélioration', question: 'Question', feature: 'Fonctionnalité',
+  // Weather
+  sunny: 'Ensoleillé', cloudy: 'Nuageux', rainy: 'Pluvieux', stormy: 'Orageux',
+  // Boolean / misc
+  true: 'Oui', false: 'Non', yes: 'Oui', no: 'Non', oui: 'Oui', non: 'Non',
+  male: 'Homme', female: 'Femme',
+  internal: 'Interne', external: 'Externe',
+}
+
+/** Translate a raw label to French if a mapping exists */
+function tLabel(raw: string): string {
+  const key = raw.toLowerCase().replace(/[\s-]+/g, '_')
+  return LABEL_FR[key] || raw
+}
+
+/** Translate labels in chart data arrays (xField values) */
+function translateChartData(data: Record<string, unknown>[], xField: string): Record<string, unknown>[] {
+  return data.map(row => {
+    const val = row[xField]
+    if (typeof val === 'string') {
+      return { ...row, [xField]: tLabel(val) }
+    }
+    return row
+  })
+}
+
 // ── Widget Type Icon ────────────────────────────────────────────
 
 export function WidgetTypeIcon({ type, className }: { type: string; className?: string }) {
@@ -597,10 +638,13 @@ function ChartWidget({
     }
   }, [crossFilterEnabled, xField, widgetId, toggleFilter])
 
+  // Translate enum labels in chart data (open→Ouvert, supplier→Fournisseur, etc.)
+  const translatedData = useMemo(() => translateChartData(chartData, xField), [chartData, xField])
+
   return (
     <EChartsWidget
       chartType={resolvedType}
-      data={chartData}
+      data={translatedData}
       xField={xField}
       yFields={yFields}
       height="100%"
@@ -703,13 +747,13 @@ function TableWidget({
     // Status badge
     if (isStatusCol(key)) {
       const colors = STATUS_COLORS[s.toLowerCase().replace(/[^a-z_]/g, '_')] || STATUS_COLORS.draft
-      return <span className={cn('inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold', colors?.bg, colors?.text)}>{s}</span>
+      return <span className={cn('inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold', colors?.bg, colors?.text)}>{tLabel(s)}</span>
     }
 
     // Priority with color
     if (isPriorityCol(key)) {
       const color = PRIORITY_COLORS[s.toLowerCase()] || ''
-      return <span className={cn('font-semibold text-[10px] uppercase', color)}>{s}</span>
+      return <span className={cn('font-semibold text-[10px] uppercase', color)}>{tLabel(s)}</span>
     }
 
     // Progress circle

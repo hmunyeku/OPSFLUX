@@ -214,7 +214,7 @@ export function DashboardPage() {
 
   // Handlers
   const handleAddTab = useCallback(() => {
-    const newName = `${t('dashboard.personal_tab')} ${(tabsData?.personal?.length || 0) + 1}`
+    const newName = `Onglet ${(tabsData?.personal?.length || 0) + 1}`
     createTab.mutate({ name: newName }, {
       onSuccess: (newTab) => {
         setActiveTabId(newTab.id)
@@ -225,9 +225,9 @@ export function DashboardPage() {
   const confirm = useConfirm()
   const handleDeleteTab = useCallback(async (tabId: string) => {
     const ok = await confirm({
-      title: 'Supprimer cet onglet ?',
-      message: 'Cette action est irréversible. Tous les widgets de cet onglet seront perdus.',
-      confirmLabel: 'Supprimer',
+      title: t('dashboard.delete_tab_confirm_title'),
+      message: t('dashboard.delete_tab_confirm_message'),
+      confirmLabel: t('common.delete'),
       variant: 'danger',
     })
     if (!ok) return
@@ -377,7 +377,7 @@ export function DashboardPage() {
               className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium transition-colors hover:bg-muted text-muted-foreground"
             >
               <X className="h-3.5 w-3.5" />
-              Annuler
+              {t('common.cancel')}
             </button>
           )}
         </div>
@@ -386,6 +386,8 @@ export function DashboardPage() {
       {/* Content area — wrapped in filter context for cross-filtering */}
       <DashboardFilterProvider>
       <DashboardFilterBar />
+      {/* PanelContent only renders in view mode or for built-in tabs — in edit mode the editor takes over */}
+      {(!editMode || isBuiltin) && (
       <PanelContent className="p-4">
         {/* Loading state — show while fetching tabs */}
         {tabsLoading && (
@@ -398,9 +400,9 @@ export function DashboardPage() {
           <div className="space-y-3 mb-4">
             <Banner
               variant="promo"
-              title="Bienvenue sur OpsFlux"
-              description="Explorez les fonctionnalites de gestion d'assets, tiers et workflows. Utilisez Ctrl+K pour la recherche rapide."
-              action={{ label: 'Découvrir', onClick: () => navigate('/search') }}
+              title={t('dashboard.welcome_title')}
+              description={t('dashboard.welcome_description')}
+              action={{ label: t('dashboard.discover'), onClick: () => navigate('/search') }}
               dismissKey="banner:welcome-v1"
             />
           </div>
@@ -580,6 +582,7 @@ export function DashboardPage() {
           />
         )}
       </PanelContent>
+      )}
 
       {/* Full-height editor layout (edit mode) — replaces PanelContent */}
       {canCustomize && !isBuiltin && editMode && activeTab && catalog && (

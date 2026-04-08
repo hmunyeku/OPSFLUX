@@ -132,11 +132,22 @@ export function FeedbackWidget() {
   useEffect(() => { installConsoleIntercept() }, [])
 
   // ── Screenshot capture (html2canvas) ──
+  // Hides the feedback widget before capturing so it doesn't appear in the screenshot.
+  const widgetRef = useRef<HTMLDivElement>(null)
   const captureScreenshot = useCallback(async () => {
     setCapturing(true)
     try {
+      // Temporarily hide the widget
+      if (widgetRef.current) widgetRef.current.style.visibility = 'hidden'
+      // Small delay to let the browser repaint without the widget
+      await new Promise(r => setTimeout(r, 100))
+
       const html2canvas = (await import('html2canvas')).default
       const canvas = await html2canvas(document.body, { useCORS: true, scale: 0.5, logging: false })
+
+      // Restore visibility
+      if (widgetRef.current) widgetRef.current.style.visibility = ''
+
       canvas.toBlob((blob) => {
         if (blob) {
           const file = new File([blob], `screenshot-${Date.now()}.png`, { type: 'image/png' })
@@ -146,6 +157,7 @@ export function FeedbackWidget() {
         setCapturing(false)
       }, 'image/png')
     } catch {
+      if (widgetRef.current) widgetRef.current.style.visibility = ''
       toast({ title: 'Capture d\'écran impossible', variant: 'error' })
       setCapturing(false)
     }
@@ -295,7 +307,7 @@ export function FeedbackWidget() {
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`
 
   return (
-    <>
+    <div ref={widgetRef}>
       {/* Floating button */}
       {!open && !recording && (
         <button
@@ -481,6 +493,6 @@ export function FeedbackWidget() {
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }

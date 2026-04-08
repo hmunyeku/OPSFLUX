@@ -118,14 +118,33 @@ export function EChartsWidget({
           grid: { left: 40, right: 16, top: title ? 32 : 16, bottom: hasLegend ? 36 : 24, containLabel: false },
           xAxis: { type: 'category', data: xData, ...axisCommon, axisLabel: { ...baseTextStyle, rotate: xData.length > 8 ? 30 : 0, hideOverlap: true } },
           yAxis: { type: 'value', ...axisCommon, minInterval: 1 },
-          series: yFields.map((field, i) => ({
-            name: field,
-            type: 'bar',
-            data: data.map((d) => d[field] ?? 0),
-            barMaxWidth: 32,
-            itemStyle: { borderRadius: [4, 4, 0, 0], color: COLOR_PALETTE[i % COLOR_PALETTE.length] },
-            label: { show: data.length <= 12, position: 'top' as const, fontSize: 9, color: baseTextStyle.color, formatter: (p: { value: number }) => p.value >= 1000 ? `${(p.value / 1000).toFixed(1)}k` : String(p.value) },
-          })),
+          series: yFields.map((field, i) => {
+            const isSingleSeries = yFields.length === 1
+            return {
+              name: field,
+              type: 'bar',
+              data: data.map((d, j) => ({
+                value: d[field] ?? 0,
+                // Single series: each bar gets a different color from palette
+                ...(isSingleSeries ? { itemStyle: { color: getDataColor(String(d[xField] ?? ''), j) } } : {}),
+              })),
+              barMaxWidth: 36,
+              itemStyle: {
+                borderRadius: [4, 4, 0, 0],
+                ...(isSingleSeries ? {} : { color: COLOR_PALETTE[i % COLOR_PALETTE.length] }),
+              },
+              emphasis: {
+                itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.15)' },
+              },
+              label: {
+                show: data.length <= 12,
+                position: 'top' as const,
+                fontSize: 9,
+                color: baseTextStyle.color,
+                formatter: (p: { value: number }) => p.value >= 1000 ? `${(p.value / 1000).toFixed(1)}k` : String(p.value),
+              },
+            }
+          }),
           ...(title ? { title: { text: title, ...baseTextStyle, left: 'center', top: 0 } } : {}),
         }
       }
@@ -433,7 +452,7 @@ export function EChartsWidget({
 
   return (
     <ReactECharts
-      option={option}
+      option={{ ...option, animation: true, animationDuration: 800, animationEasing: 'cubicOut', animationDurationUpdate: 400 }}
       style={{ width: '100%', height }}
       theme={isDark ? 'dark' : undefined}
       opts={{ renderer: 'canvas' }}

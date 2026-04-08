@@ -83,7 +83,7 @@ import type {
   GoutiProjectSelection, GoutiTaskSelection,
 } from '@/services/projetsService'
 import { projetsService, isGoutiProject, goutiProjectId, isProjectFieldEditable } from '@/services/projetsService'
-import { ProjectGanttView } from './ProjectGanttView'
+import { ProjectGanttWrapper } from './ProjectGanttWrapper'
 import { ProjectSelectorModal } from '@/components/shared/ProjectSelectorModal'
 import { PlannerLinkModal } from '@/components/shared/PlannerLinkModal'
 import { useProjectFilter } from '@/hooks/useProjectFilter'
@@ -4391,7 +4391,7 @@ export function ProjetsPage() {
           {viewTab === 'projets' && <ProjectsListView />}
           {viewTab === 'tableur' && <SpreadsheetView />}
           {viewTab === 'kanban' && <KanbanView />}
-          {viewTab === 'planning' && <ProjectGanttView />}
+          {viewTab === 'planning' && <ProjectGanttWrapper />}
           {viewTab === 'dashboard' && <ModuleDashboard module="projets" />}
         </PanelContent>
       </div>}

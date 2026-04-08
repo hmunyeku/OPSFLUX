@@ -113,7 +113,7 @@ export function GanttCore(props: GanttCoreProps) {
     statusOptions, priorityOptions,
     presets: _presets, onPresetsChange: _onPresetsChange,
     showActions, onAddTask, onAddMilestone, onIndent, onOutdent, onDeleteRow,
-    onCreateDependency, onUndo, onRedo,
+    onCreateDependency, onUndo, onRedo, onViewChange,
     selectedRowId, onSelectRow,
     expandedRows, onToggleRow,
     onSettingsChange,
@@ -253,16 +253,17 @@ export function GanttCore(props: GanttCoreProps) {
 
   const shift = useCallback((dir: -1 | 1) => {
     const days = meta.shiftDays * dir
-    setViewStart(s => addD(s, days))
+    setViewStart(s => { const n = addD(s, days); onViewChange?.(settings.scale, n, addD(viewEnd, days)); return n })
     setViewEnd(s => addD(s, days))
-  }, [meta.shiftDays])
+  }, [meta.shiftDays, settings.scale, viewEnd, onViewChange])
 
   const changeScale = useCallback((newScale: TimeScale) => {
     updateSettings({ scale: newScale })
     const range = getDefaultDateRange(newScale)
     setViewStart(range.start)
     setViewEnd(range.end)
-  }, [updateSettings])
+    onViewChange?.(newScale, range.start, range.end)
+  }, [updateSettings, onViewChange])
 
   const zoom = useCallback((dir: 1 | -1) => {
     updateSettings({

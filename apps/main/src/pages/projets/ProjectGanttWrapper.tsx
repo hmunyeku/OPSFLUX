@@ -81,14 +81,16 @@ export function ProjectGanttWrapper() {
   }, [allProjects, projectSelection])
 
   // Expand/collapse
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const savedExpanded: string[] = getPref('gantt_expanded', [])
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(savedExpanded))
   const toggleRow = useCallback((id: string) => {
     setExpanded(prev => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id); else next.add(id)
+      setPref('gantt_expanded', [...next])
       return next
     })
-  }, [])
+  }, [setPref])
 
   // Auto-expand all on first load
   useEffect(() => {
@@ -494,9 +496,16 @@ export function ProjectGanttWrapper() {
           bars={bars}
           dependencies={deps}
           columns={COLUMNS}
-          initialScale="month"
+          initialScale={getPref('gantt_scale', 'month')}
+          initialStart={getPref('gantt_viewStart', undefined)}
+          initialEnd={getPref('gantt_viewEnd', undefined)}
           initialSettings={getPref('gantt_settings', { barHeight: 20, rowHeight: 34, showBaselines: true })}
           onSettingsChange={(s) => setPref('gantt_settings', s)}
+          onViewChange={(scale, start, end) => {
+            setPref('gantt_scale', scale)
+            setPref('gantt_viewStart', start)
+            setPref('gantt_viewEnd', end)
+          }}
           onBarClick={handleBarClick}
           onRowClick={(rowId) => {
             // Double-click: projects → project detail, tasks → task detail

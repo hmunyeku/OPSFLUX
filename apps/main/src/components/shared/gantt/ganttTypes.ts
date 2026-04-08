@@ -247,6 +247,8 @@ export interface GanttCoreProps {
 
   // ── Settings ──
   onSettingsChange?: (settings: GanttSettings) => void
+  /** Called when scale or date range changes (for persistence) */
+  onViewChange?: (scale: string, viewStart: string, viewEnd: string) => void
 
   // ── UI ──
   emptyMessage?: string

@@ -16,7 +16,7 @@ from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
     ComplianceType, ComplianceRule, ComplianceRuleHistory, ComplianceRecord, ComplianceExemption,
-    Entity, JobPosition, TierContactTransfer, TierContact, Tier,
+    Entity, JobPosition, TierContactTransfer, TierContact, Tier, Attachment,
     User, UserEmail, Phone, Setting,
 )
 from app.schemas.common import (
@@ -50,6 +50,36 @@ def _snapshot_rule(rule: ComplianceRule) -> dict:
     }
 
 router = APIRouter(prefix="/api/v1/conformite", tags=["conformite"])
+
+
+async def _count_record_proof(
+    db: AsyncSession,
+    *,
+    record_type: str,
+    record: object,
+) -> int:
+    """Count supporting proof for a verifiable record.
+
+    Proof can come from polymorphic attachments or from legacy document_url fields
+    still used by several compliance-related sub-models.
+    """
+    attachment_count = 0
+    record_id = getattr(record, "id", None)
+    if record_id is not None:
+        attachment_count = int(
+            (
+                await db.scalar(
+                    select(sqla_func.count()).select_from(Attachment).where(
+                        Attachment.owner_type == record_type,
+                        Attachment.owner_id == record_id,
+                        Attachment.active == True,
+                    )
+                )
+            )
+            or 0
+        )
+    legacy_document_count = 1 if getattr(record, "document_url", None) else 0
+    return attachment_count + legacy_document_count
 
 
 async def _get_external_user_tier_ids(
@@ -554,13 +584,27 @@ async def list_compliance_records(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    attachment_sq = (
+        select(
+            Attachment.owner_id.label("record_id"),
+            sqla_func.count(Attachment.id).label("attachment_count"),
+        )
+        .where(
+            Attachment.owner_type == "compliance_record",
+            Attachment.active == True,
+        )
+        .group_by(Attachment.owner_id)
+        .subquery()
+    )
     query = (
         select(
             ComplianceRecord,
             ComplianceType.name.label("type_name"),
             ComplianceType.category.label("type_category"),
+            sqla_func.coalesce(attachment_sq.c.attachment_count, 0).label("attachment_count"),
         )
         .join(ComplianceType, ComplianceRecord.compliance_type_id == ComplianceType.id)
+        .outerjoin(attachment_sq, attachment_sq.c.record_id == ComplianceRecord.id)
         .where(ComplianceRecord.entity_id == entity_id, ComplianceRecord.active == True)
     )
     query = _apply_external_record_scope(query, current_user, entity_id)
@@ -612,6 +656,7 @@ async def list_compliance_records(
             d = {c.key: getattr(rec, c.key) for c in rec.__table__.columns}
             d["type_name"] = row[1] if hasattr(row, '__getitem__') else getattr(row, 'type_name', None)
             d["type_category"] = row[2] if hasattr(row, '__getitem__') else getattr(row, 'type_category', None)
+            d["attachment_count"] = int((row[3] if hasattr(row, '__getitem__') else getattr(row, 'attachment_count', 0)) or 0)
             return d
         except (IndexError, AttributeError):
             # Fallback: return the record as-is if row format is unexpected
@@ -704,6 +749,7 @@ async def create_compliance_record(
     d = {c.key: getattr(rec, c.key) for c in rec.__table__.columns}
     d["type_name"] = ct.name if ct else None
     d["type_category"] = ct.category if ct else None
+    d["attachment_count"] = 0
     return d
 
 
@@ -747,6 +793,7 @@ async def update_compliance_record(
     d = {c.key: getattr(rec, c.key) for c in rec.__table__.columns}
     d["type_name"] = ct.name if ct else None
     d["type_category"] = ct.category if ct else None
+    d["attachment_count"] = 0
     return d
 
 
@@ -1475,6 +1522,17 @@ async def list_pending_verifications(
     )
     for rec in cr_result.scalars().all():
         ct = await db.get(ComplianceType, rec.compliance_type_id)
+        pj_required = True
+        rule_q = await db.execute(
+            select(ComplianceRule).where(
+                ComplianceRule.compliance_type_id == rec.compliance_type_id,
+                ComplianceRule.entity_id == entity_id,
+                ComplianceRule.active == True,
+            ).limit(1)
+        )
+        rule = rule_q.scalar_one_or_none()
+        if rule:
+            pj_required = rule.attachment_required
         items.append({
             "id": str(rec.id),
             "record_type": "compliance_record",
@@ -1490,7 +1548,8 @@ async def list_pending_verifications(
             "reference_number": rec.reference_number or None,
             "category": ct.category if ct else None,
             "type_name": ct.name if ct else None,
-            "attachment_count": 0,
+            "attachment_count": await _count_record_proof(db, record_type="compliance_record", record=rec),
+            "attachment_required": pj_required,
         })
 
     # User sub-models — scoped to users in current entity
@@ -1567,7 +1626,8 @@ async def list_pending_verifications(
                 "verification_status": rec.verification_status,
                 "category": None,
                 "type_name": None,
-                "attachment_count": 0,
+                "attachment_count": await _count_record_proof(db, record_type=rtype, record=rec),
+                "attachment_required": True,
             }
             item.update(extra_fn(rec))
             items.append(item)
@@ -1595,7 +1655,8 @@ async def list_pending_verifications(
             "reference_number": None,
             "category": None,
             "type_name": None,
-            "attachment_count": 0,
+            "attachment_count": await _count_record_proof(db, record_type="medical_check", record=rec),
+            "attachment_required": True,
         })
 
     # Enrich owner names
@@ -1613,25 +1674,6 @@ async def list_pending_verifications(
         for item in items:
             if item["owner_type"] == "user":
                 item["owner_name"] = user_names.get(item["owner_id"])
-
-    # Bulk-count attachments per record
-    if items:
-        from app.models.common import Attachment
-
-        att_q = (
-            select(
-                Attachment.owner_type,
-                Attachment.owner_id,
-                sqla_func.count().label("cnt"),
-            )
-            .group_by(Attachment.owner_type, Attachment.owner_id)
-        )
-        att_result = await db.execute(att_q)
-        att_map = {(r.owner_type, str(r.owner_id)): r.cnt for r in att_result.all()}
-        for item in items:
-            item["attachment_count"] = att_map.get(
-                (item["record_type"], item["id"]), 0
-            )
 
     # Sort by submitted_at desc
     items.sort(key=lambda x: x["submitted_at"], reverse=True)
@@ -1846,7 +1888,6 @@ async def verify_record(
 
     # ── Check attachment_required rule before allowing verification ──
     if body.action == "verify":
-        from app.models.common import Attachment
         # Find applicable rule to check attachment_required
         pj_required = True  # default: PJ required
         if record_type == "compliance_record" and hasattr(record, "compliance_type_id"):
@@ -1862,14 +1903,8 @@ async def verify_record(
                 pj_required = rule.attachment_required
 
         if pj_required:
-            att_count = await db.scalar(
-                select(sqla_func.count()).select_from(Attachment).where(
-                    Attachment.owner_type == record_type,
-                    Attachment.owner_id == record_id,
-                    Attachment.active == True,
-                )
-            )
-            if not att_count:
+            proof_count = await _count_record_proof(db, record_type=record_type, record=record)
+            if proof_count <= 0:
                 raise HTTPException(
                     422,
                     "Impossible de vérifier : aucune pièce jointe. La règle exige au moins un document attaché."

@@ -50,12 +50,12 @@ export function CreateAddressPanel() {
   const updateAddress = useUpdateAddress()
 
   // Determine owner from panel meta, default to current user
-  const ownerType = dynamicPanel?.meta?.ownerType ?? 'user'
-  const ownerId = dynamicPanel?.meta?.ownerId ?? userId ?? ''
+  const ownerType = typeof dynamicPanel?.meta?.ownerType === 'string' ? dynamicPanel.meta.ownerType : 'user'
+  const ownerId = typeof dynamicPanel?.meta?.ownerId === 'string' ? dynamicPanel.meta.ownerId : (userId ?? '')
 
   const isEdit = dynamicPanel?.type === 'edit'
   const editId = dynamicPanel?.type === 'edit' ? dynamicPanel.id : null
-  const { data: addresses } = useAddresses(ownerType, ownerId || undefined)
+  const { data: addresses } = useAddresses(ownerType, (ownerId || undefined) as string | undefined)
   const editingAddress = isEdit && addresses ? addresses.find((a) => a.id === editId) : null
 
   const [label, setLabel] = useState('domicile')

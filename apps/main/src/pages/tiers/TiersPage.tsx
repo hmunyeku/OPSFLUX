@@ -1749,7 +1749,10 @@ export function TiersPage() {
 
       {dynamicPanel?.module === 'tiers' && dynamicPanel.type === 'create' && <CreateTierPanel />}
       {dynamicPanel?.module === 'tiers' && dynamicPanel.type === 'detail' && (
-        <TierDetailPanel id={dynamicPanel.id} initialContactId={dynamicPanel.meta?.contact_id} />
+        <TierDetailPanel
+          id={dynamicPanel.id}
+          initialContactId={typeof dynamicPanel.meta?.contact_id === 'string' ? dynamicPanel.meta.contact_id as string : undefined}
+        />
       )}
     </div>
   )
@@ -1759,7 +1762,9 @@ export function TiersPage() {
 registerPanelRenderer('tiers', (view) => {
   if (view.type === 'create') return <CreateTierPanel />
   if (view.type === 'detail' && 'id' in view) {
-    const initialContactId = 'meta' in view ? view.meta?.contact_id : undefined
+    const initialContactId = 'meta' in view && typeof view.meta?.contact_id === 'string'
+      ? view.meta.contact_id as string
+      : undefined
     return <TierDetailPanel id={view.id} initialContactId={initialContactId} />
   }
   return null

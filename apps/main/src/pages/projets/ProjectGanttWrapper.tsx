@@ -492,11 +492,18 @@ export function ProjectGanttWrapper() {
           initialSettings={{ barHeight: 20, rowHeight: 34, showBaselines: true }}
           onBarClick={handleBarClick}
           onRowClick={(rowId) => {
-            // Double-click on row opens detail panel
-            if (rowId.startsWith('proj-')) return
+            // Double-click: projects → open project detail, tasks → open parent project
+            const isProject = projects.some(p => p.id === rowId)
+            if (isProject) {
+              openPanel({ type: 'detail', module: 'projets', id: rowId })
+              return
+            }
+            // Task — find parent project and open it
             const bar = bars.find(b => b.rowId === rowId)
-            const projectId = bar?.meta?.projectId as string || projects.find(p => p.id === rowId)?.id
-            if (projectId) openPanel({ type: 'detail', module: 'projets', id: projectId })
+            const projectId = bar?.meta?.projectId as string
+            if (projectId) {
+              openPanel({ type: 'detail', module: 'projets', id: projectId, meta: { scrollToTask: rowId } })
+            }
           }}
           onBarDrag={handleBarDrag}
           onBarResize={handleBarResize}

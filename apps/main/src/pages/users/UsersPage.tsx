@@ -48,7 +48,7 @@ import { usePageSize } from '@/hooks/usePageSize'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
 import { RolesTab, GroupsTab, GroupDetailPanel, RoleDetailPanel, CreateGroupForm } from '@/pages/settings/tabs/RbacAdminTab'
-import { useRoles, useGroups, useAddGroupMembers } from '@/hooks/useRbac'
+import { useRoles, useGroups, useAddGroupMembers, useUserPermissionOverrides, useSetUserPermissionOverrides } from '@/hooks/useRbac'
 import { usePermission } from '@/hooks/usePermission'
 import { usePhones, useContactEmails, useAddresses, useNotes, useAttachments } from '@/hooks/useSettings'
 import { useSSOProviders, useDeleteSSOProvider, useUserIPLocation } from '@/hooks/useUserSubModels'
@@ -1933,7 +1933,49 @@ function UserJournalTab({ userId }: { userId: string }) {
 import { PermissionMatrix } from '@/components/shared/PermissionMatrix'
 
 function UserPermissionsTab({ userId }: { userId: string }) {
-  return <PermissionMatrix userId={userId} />
+  const { hasPermission } = usePermission()
+  const canEdit = hasPermission('admin.rbac')
+  const { data: overridesData } = useUserPermissionOverrides(userId)
+  const setOverrides = useSetUserPermissionOverrides()
+  const { toast } = useToast()
+
+  const userOverrideSet = useMemo(() => {
+    return new Set((overridesData ?? []).map((o: { permission_code: string }) => o.permission_code))
+  }, [overridesData])
+
+  const handleToggle = useCallback((code: string, granted: boolean) => {
+    const current = (overridesData ?? []) as { permission_code: string; granted: boolean }[]
+    const existing = current.find(o => o.permission_code === code)
+
+    let newOverrides: { permission_code: string; granted: boolean }[]
+    if (existing) {
+      if (existing.granted === granted) {
+        // Remove override (revert to role/group default)
+        newOverrides = current.filter(o => o.permission_code !== code)
+      } else {
+        newOverrides = current.map(o => o.permission_code === code ? { ...o, granted } : o)
+      }
+    } else {
+      newOverrides = [...current, { permission_code: code, granted }]
+    }
+
+    setOverrides.mutate(
+      { userId, overrides: newOverrides },
+      {
+        onSuccess: () => toast({ title: `Permission ${granted ? 'accordée' : 'retirée'}`, variant: 'success' }),
+        onError: () => toast({ title: 'Erreur', variant: 'error' }),
+      },
+    )
+  }, [userId, overridesData, setOverrides, toast])
+
+  return (
+    <PermissionMatrix
+      userId={userId}
+      editable={canEdit}
+      onToggle={handleToggle}
+      userOverrides={userOverrideSet}
+    />
+  )
 }
 // ── Overview Dashboard ─────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

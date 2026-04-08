@@ -109,9 +109,15 @@ export interface PermissionMatrixProps {
   maxHeight?: string
   /** Compact mode — hide search bar */
   compact?: boolean
+  /** Enable editing — cells become clickable to toggle user permission overrides */
+  editable?: boolean
+  /** Called when a permission is toggled in edit mode */
+  onToggle?: (code: string, granted: boolean) => void
+  /** Set of permission codes that have user-level overrides (to show override indicator) */
+  userOverrides?: Set<string>
 }
 
-export function PermissionMatrix({ userId, maxHeight = '500px', compact = false }: PermissionMatrixProps) {
+export function PermissionMatrix({ userId, maxHeight = '500px', compact = false, editable = false, onToggle, userOverrides }: PermissionMatrixProps) {
   const { data: allPermissions, isLoading: permsLoading } = usePermissions()
   const { data: effectivePerms, isLoading: effectiveLoading } = useUserEffectivePermissions(userId)
 
@@ -279,22 +285,40 @@ export function PermissionMatrix({ userId, maxHeight = '500px', compact = false 
                                 const checked = activePerms.has(code)
                                 const source = permSources.get(code)
                                 const badge = source ? SOURCE_BADGE[source] : null
+                                const isUserOverride = userOverrides?.has(code)
+                                const tooltipText = `${a.label}: ${code}${badge ? ` (${badge.label})` : ''}${isUserOverride ? ' [override utilisateur]' : ''}`
+                                const cellContent = (
+                                  <span
+                                    className={cn(
+                                      'relative inline-flex items-center justify-center h-6 w-6 rounded',
+                                      checked
+                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                        : 'bg-muted/50 text-muted-foreground/30',
+                                      editable && 'cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all',
+                                      isUserOverride && 'ring-1 ring-violet-400/50',
+                                    )}
+                                  >
+                                    {checked ? <Check size={12} strokeWidth={3} /> : <X size={10} />}
+                                    {badge && checked && (
+                                      <badge.icon size={7} className={cn('absolute -top-0.5 -right-0.5', badge.color)} />
+                                    )}
+                                    {isUserOverride && (
+                                      <UserIcon size={6} className="absolute -bottom-0.5 -right-0.5 text-violet-500" />
+                                    )}
+                                  </span>
+                                )
                                 return (
                                   <td key={a.key} className="text-center px-1.5 py-1.5">
-                                    <Tooltip content={`${a.label}: ${code}${badge ? ` (${badge.label})` : ''}`}>
-                                      <span
-                                        className={cn(
-                                          'relative inline-flex items-center justify-center h-6 w-6 rounded',
-                                          checked
-                                            ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                                            : 'bg-muted/50 text-muted-foreground/30',
-                                        )}
-                                      >
-                                        {checked ? <Check size={12} strokeWidth={3} /> : <X size={10} />}
-                                        {badge && checked && (
-                                          <badge.icon size={7} className={cn('absolute -top-0.5 -right-0.5', badge.color)} />
-                                        )}
-                                      </span>
+                                    <Tooltip content={tooltipText}>
+                                      {editable ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => onToggle?.(code, !checked)}
+                                          className="inline-flex"
+                                        >
+                                          {cellContent}
+                                        </button>
+                                      ) : cellContent}
                                     </Tooltip>
                                   </td>
                                 )
@@ -305,18 +329,21 @@ export function PermissionMatrix({ userId, maxHeight = '500px', compact = false 
                                     {row.extras.map((extra) => {
                                       const checked = activePerms.has(extra.code)
                                       const actionLabel = extra.code.split('.').pop() || extra.code
+                                      const Tag = editable ? 'button' as const : 'span' as const
                                       return (
                                         <Tooltip key={extra.code} content={extra.name || extra.code}>
-                                          <span
+                                          <Tag
+                                            {...(editable ? { type: 'button' as const, onClick: () => onToggle?.(extra.code, !checked) } : {})}
                                             className={cn(
                                               'px-1.5 py-0.5 rounded text-[9px] font-medium',
                                               checked
                                                 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
                                                 : 'bg-muted text-muted-foreground',
+                                              editable && 'cursor-pointer hover:ring-2 hover:ring-primary/40',
                                             )}
                                           >
                                             {actionLabel}
-                                          </span>
+                                          </Tag>
                                         </Tooltip>
                                       )
                                     })}

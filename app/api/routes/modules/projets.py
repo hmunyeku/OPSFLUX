@@ -347,6 +347,25 @@ async def list_all_tasks(
     return await paginate(db, query, pagination, transform=_transform)
 
 
+# ── Templates (MUST be before /{project_id} to avoid UUID parse error) ──
+
+@router.get("/templates")
+async def list_templates_early(
+    category: str | None = Query(None),
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """List project templates — declared early to avoid /{project_id} match."""
+    from app.models.common import ProjectTemplate
+    query = select(ProjectTemplate).where(ProjectTemplate.entity_id == entity_id, ProjectTemplate.active == True)  # noqa: E712
+    if category:
+        query = query.where(ProjectTemplate.category == category)
+    query = query.order_by(ProjectTemplate.usage_count.desc(), ProjectTemplate.name)
+    rows = (await db.execute(query)).scalars().all()
+    return [{c.key: getattr(r, c.key) for c in r.__table__.columns} for r in rows]
+
+
 @router.get("/{project_id}", response_model=ProjectRead)
 async def get_project(
     project_id: UUID,
@@ -1858,20 +1877,7 @@ async def send_tasks_to_planner(
 # ── Project Templates ──────────────────────────────────────────────────
 
 
-@router.get("/templates")
-async def list_templates(
-    category: str | None = Query(None),
-    entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.read"),
-    db: AsyncSession = Depends(get_db),
-):
-    from app.models.common import ProjectTemplate
-    query = select(ProjectTemplate).where(ProjectTemplate.entity_id == entity_id, ProjectTemplate.active == True)
-    if category:
-        query = query.where(ProjectTemplate.category == category)
-    query = query.order_by(ProjectTemplate.usage_count.desc(), ProjectTemplate.name)
-    rows = (await db.execute(query)).scalars().all()
-    return [{c.key: getattr(r, c.key) for c in r.__table__.columns} for r in rows]
+# list_templates moved above /{project_id} to avoid route conflict
 
 
 @router.post("/templates", status_code=201)

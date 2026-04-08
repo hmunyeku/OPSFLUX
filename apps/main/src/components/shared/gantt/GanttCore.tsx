@@ -20,7 +20,7 @@
 import { useState, useMemo, useCallback, useRef } from 'react'
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronRight as ChevronCollapsed,
-  Loader2, ZoomIn, ZoomOut,
+  Loader2, ZoomIn, ZoomOut, Maximize, Download,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -29,6 +29,7 @@ import {
 } from './ganttEngine'
 import { GanttHeader, HEADER_ROW_H } from './GanttHeader'
 import { GanttBarComponent } from './GanttBar'
+import { GanttSettingsPanel } from './GanttSettingsPanel'
 import { GanttDependencies } from './GanttDependencies'
 import { GanttTooltip } from './GanttTooltip'
 import { DEFAULT_SETTINGS } from './ganttTypes'
@@ -188,6 +189,52 @@ export function GanttCore(props: GanttCoreProps) {
   }, [])
   const hideTooltip = useCallback(() => setTooltip(null), [])
 
+  // ── Fit all ─────────────────────────────────────────────────────
+
+  const fitAll = useCallback(() => {
+    if (!bodyScrollRef.current || totalDays === 0) return
+    const viewportW = bodyScrollRef.current.clientWidth
+    if (viewportW <= 0) return
+    const newPpd = viewportW / totalDays
+    const newZoom = newPpd / meta.pxPerDay
+    updateSettings({ zoomFactor: Math.max(0.1, Math.min(6, newZoom)) })
+  }, [totalDays, meta.pxPerDay, updateSettings])
+
+  // ── Export PNG ──────────────────────────────────────────────────
+
+  const exportPNG = useCallback(async () => {
+    if (!containerRef.current) return
+    try {
+      const { default: html2canvas } = await import('html2canvas')
+      const canvas = await html2canvas(containerRef.current, { backgroundColor: null, scale: 2 })
+      const url = canvas.toDataURL('image/png')
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `gantt-${toISO(new Date())}.png`
+      a.click()
+    } catch { /* silent */ }
+  }, [])
+
+  // ── Drag-scroll on header ──────────────────────────────────────
+
+  const onHeaderDrag = useCallback((e: React.MouseEvent) => {
+    if (!bodyScrollRef.current) return
+    e.preventDefault()
+    const startX = e.clientX
+    const startScroll = bodyScrollRef.current.scrollLeft
+    const onMove = (ev: MouseEvent) => {
+      if (bodyScrollRef.current) {
+        bodyScrollRef.current.scrollLeft = startScroll - (ev.clientX - startX)
+      }
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [])
+
   // ── Wheel zoom ─────────────────────────────────────────────────
 
   const onWheel = useCallback((e: React.WheelEvent) => {
@@ -274,6 +321,16 @@ export function GanttCore(props: GanttCoreProps) {
             {new Date(viewEnd).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
           </span>
 
+          {/* Fit all */}
+          <button onClick={fitAll} className="p-1 rounded hover:bg-muted" title="Ajuster à l'écran">
+            <Maximize className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+
+          {/* Export PNG */}
+          <button onClick={exportPNG} className="p-1 rounded hover:bg-muted" title="Exporter PNG">
+            <Download className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+
           {/* Today button */}
           <button
             onClick={() => {
@@ -285,6 +342,12 @@ export function GanttCore(props: GanttCoreProps) {
           >
             Aujourd'hui
           </button>
+
+          {/* Settings panel trigger */}
+          <GanttSettingsPanel
+            settings={settings}
+            onChange={updateSettings}
+          />
         </div>
       )}
 
@@ -363,7 +426,8 @@ export function GanttCore(props: GanttCoreProps) {
 
         {/* ── Grid area ──────────────────────────────────────── */}
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-          {/* Header (synced horizontal scroll) */}
+          {/* Header (synced horizontal scroll + drag to pan) */}
+          <div onMouseDown={onHeaderDrag} className="cursor-grab active:cursor-grabbing">
           <GanttHeader
             ref={headerScrollRef}
             cells={cells}
@@ -372,6 +436,7 @@ export function GanttCore(props: GanttCoreProps) {
             totalWidth={totalWidth}
             showWeekends={settings.showWeekends}
           />
+          </div>
 
           {/* Grid body */}
           <div

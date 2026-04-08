@@ -29,6 +29,8 @@ import type { ProjectSelection } from '@/components/shared/ProjectSelectorModal'
 import { useToast } from '@/components/ui/Toast'
 import { useUserPreferences } from '@/hooks/useUserPreferences'
 import type { Project, ProjectTask, TaskDependency } from '@/types/api'
+// NOTE: This file will be migrated to GanttCore once GanttCore reaches feature parity.
+// For now, it uses its own inline engine which is functionally equivalent.
 
 // ═══════════════════════════════════════════════════════════════════════
 // Time scale engine

@@ -1359,6 +1359,322 @@ async def provider_support_by_status(
     return {"data": [dict(row) for row in r.mappings().all()]}
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Support Module — Advanced Providers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def provider_support_by_type(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Chart: tickets by type (bug, improvement, question)."""
+    r = await db.execute(text("""
+        SELECT ticket_type AS name, COUNT(*) AS value
+        FROM support_tickets WHERE entity_id = :eid
+        GROUP BY ticket_type ORDER BY value DESC
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()]}
+
+
+async def provider_support_by_priority(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Chart: open tickets by priority — shows urgency distribution."""
+    r = await db.execute(text("""
+        SELECT priority AS name, COUNT(*) AS value
+        FROM support_tickets WHERE entity_id = :eid AND status NOT IN ('resolved', 'closed')
+        GROUP BY priority ORDER BY CASE priority
+            WHEN 'critical' THEN 1 WHEN 'high' THEN 2
+            WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()]}
+
+
+async def provider_support_trend(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Chart: tickets opened vs resolved per week (last 8 weeks)."""
+    r = await db.execute(text("""
+        SELECT
+            TO_CHAR(DATE_TRUNC('week', created_at), 'DD/MM') AS week,
+            COUNT(*) FILTER (WHERE TRUE) AS opened,
+            COUNT(*) FILTER (WHERE status IN ('resolved', 'closed')) AS resolved
+        FROM support_tickets WHERE entity_id = :eid
+            AND created_at >= NOW() - INTERVAL '8 weeks'
+        GROUP BY DATE_TRUNC('week', created_at)
+        ORDER BY DATE_TRUNC('week', created_at)
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()]}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Conformité Module — Advanced Providers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def provider_conformite_urgency(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Chart: items expiring by urgency band (7j, 30j, 90j, >90j)."""
+    r = await db.execute(text("""
+        SELECT
+            CASE
+                WHEN expires_at <= NOW() THEN 'Expiré'
+                WHEN expires_at <= NOW() + INTERVAL '7 days' THEN '< 7 jours'
+                WHEN expires_at <= NOW() + INTERVAL '30 days' THEN '< 30 jours'
+                WHEN expires_at <= NOW() + INTERVAL '90 days' THEN '< 90 jours'
+                ELSE '> 90 jours'
+            END AS name,
+            COUNT(*) AS value
+        FROM compliance_records
+        WHERE entity_id = :eid AND expires_at IS NOT NULL AND status != 'expired'
+        GROUP BY 1
+        ORDER BY MIN(expires_at)
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()]}
+
+
+async def provider_conformite_by_status(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Chart: compliance records by status (donut)."""
+    r = await db.execute(text("""
+        SELECT status AS name, COUNT(*) AS value
+        FROM compliance_records WHERE entity_id = :eid
+        GROUP BY status ORDER BY value DESC
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()]}
+
+
+async def provider_conformite_matrix(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Table: compliance matrix — type × status counts."""
+    r = await db.execute(text("""
+        SELECT ct.name AS type_name,
+               COUNT(*) FILTER (WHERE cr.status = 'valid') AS valid,
+               COUNT(*) FILTER (WHERE cr.status = 'pending') AS pending,
+               COUNT(*) FILTER (WHERE cr.status = 'expired') AS expired,
+               COUNT(*) FILTER (WHERE cr.status = 'non_compliant') AS non_compliant,
+               COUNT(*) AS total
+        FROM compliance_records cr
+        JOIN compliance_types ct ON ct.id = cr.compliance_type_id
+        WHERE cr.entity_id = :eid
+        GROUP BY ct.name ORDER BY total DESC
+    """), {"eid": str(entity_id)})
+    return {
+        "columns": [
+            {"key": "type_name", "label": "Type"},
+            {"key": "valid", "label": "Valide"},
+            {"key": "pending", "label": "En attente"},
+            {"key": "expired", "label": "Expiré"},
+            {"key": "non_compliant", "label": "Non conforme"},
+            {"key": "total", "label": "Total"},
+        ],
+        "rows": [dict(row) for row in r.mappings().all()],
+    }
+
+
+async def provider_conformite_trend(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Chart: compliance score trend over last 6 months (area)."""
+    r = await db.execute(text("""
+        SELECT
+            TO_CHAR(DATE_TRUNC('month', cr.updated_at), 'Mon YY') AS month,
+            ROUND(
+                100.0 * COUNT(*) FILTER (WHERE cr.status = 'valid') / NULLIF(COUNT(*), 0),
+                1
+            ) AS score
+        FROM compliance_records cr
+        WHERE cr.entity_id = :eid AND cr.updated_at >= NOW() - INTERVAL '6 months'
+        GROUP BY DATE_TRUNC('month', cr.updated_at)
+        ORDER BY DATE_TRUNC('month', cr.updated_at)
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()]}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Planner Module — Advanced Providers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def provider_planner_overview(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """KPI: planner activity summary."""
+    r = await db.execute(text("""
+        SELECT
+            COUNT(*) AS total,
+            COUNT(*) FILTER (WHERE status = 'draft') AS draft,
+            COUNT(*) FILTER (WHERE status = 'submitted') AS submitted,
+            COUNT(*) FILTER (WHERE status = 'validated') AS validated,
+            COUNT(*) FILTER (WHERE status = 'in_progress') AS in_progress,
+            COUNT(*) FILTER (WHERE status = 'completed') AS completed,
+            COALESCE(SUM(pax_quota), 0) AS total_pax
+        FROM planner_activities
+        WHERE entity_id = :eid AND active = TRUE
+    """), {"eid": str(entity_id)})
+    row = r.mappings().first()
+    return {
+        "value": row["total"] if row else 0,
+        "label": "Activités planifiées",
+        "unit": "activités",
+        "details": {
+            "draft": row["draft"] if row else 0,
+            "submitted": row["submitted"] if row else 0,
+            "validated": row["validated"] if row else 0,
+            "in_progress": row["in_progress"] if row else 0,
+            "completed": row["completed"] if row else 0,
+        },
+    }
+
+
+async def provider_planner_by_type(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Chart: activities by type (project, workover, drilling, etc.)."""
+    r = await db.execute(text("""
+        SELECT type AS name, COUNT(*) AS value
+        FROM planner_activities
+        WHERE entity_id = :eid AND active = TRUE
+        GROUP BY type ORDER BY value DESC
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()]}
+
+
+async def provider_planner_by_status(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Chart: activities by status (funnel-style)."""
+    r = await db.execute(text("""
+        SELECT status AS name, COUNT(*) AS value
+        FROM planner_activities
+        WHERE entity_id = :eid AND active = TRUE
+        GROUP BY status ORDER BY CASE status
+            WHEN 'draft' THEN 1 WHEN 'submitted' THEN 2 WHEN 'validated' THEN 3
+            WHEN 'in_progress' THEN 4 WHEN 'completed' THEN 5 ELSE 6 END
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()]}
+
+
+async def provider_planner_conflicts_kpi(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """KPI: active conflicts count."""
+    r = await db.execute(text("""
+        SELECT COUNT(*) AS cnt
+        FROM planner_conflicts
+        WHERE entity_id = :eid AND resolution_status IN ('unresolved', 'deferred')
+    """), {"eid": str(entity_id)})
+    row = r.mappings().first()
+    return {
+        "value": row["cnt"] if row else 0,
+        "label": "Conflits actifs",
+        "unit": "conflits",
+    }
+
+
+async def provider_planner_pax_by_site(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Chart: PAX quota by site (top 10)."""
+    r = await db.execute(text("""
+        SELECT i.name AS name, COALESCE(SUM(pa.pax_quota), 0) AS value
+        FROM planner_activities pa
+        JOIN ar_installations i ON i.id = pa.asset_id
+        WHERE pa.entity_id = :eid AND pa.active = TRUE
+            AND pa.status IN ('draft', 'submitted', 'validated', 'in_progress')
+        GROUP BY i.name ORDER BY value DESC LIMIT 10
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()]}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Workflow Module — Providers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def provider_workflow_overview(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """KPI: workflow instance summary."""
+    r = await db.execute(text("""
+        SELECT
+            COUNT(*) FILTER (WHERE current_state NOT IN ('completed', 'cancelled', 'rejected')) AS active,
+            COUNT(*) FILTER (WHERE current_state = 'completed') AS completed,
+            COUNT(*) FILTER (WHERE current_state IN ('cancelled', 'rejected')) AS cancelled,
+            COUNT(*) AS total
+        FROM workflow_instances
+        WHERE entity_id = :eid
+    """), {"eid": str(entity_id)})
+    row = r.mappings().first()
+    return {
+        "value": row["active"] if row else 0,
+        "label": "Workflows actifs",
+        "unit": "instances",
+        "details": {
+            "active": row["active"] if row else 0,
+            "completed": row["completed"] if row else 0,
+            "cancelled": row["cancelled"] if row else 0,
+            "total": row["total"] if row else 0,
+        },
+    }
+
+
+async def provider_workflow_by_definition(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Chart: workflow instances by definition name."""
+    r = await db.execute(text("""
+        SELECT wd.name AS name, COUNT(*) AS value
+        FROM workflow_instances wi
+        JOIN workflow_definitions wd ON wd.id = wi.definition_id
+        WHERE wi.entity_id = :eid
+        GROUP BY wd.name ORDER BY value DESC
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()]}
+
+
+async def provider_workflow_pending(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Table: pending workflow instances awaiting action."""
+    r = await db.execute(text("""
+        SELECT wd.name AS definition, wi.current_state AS state,
+               wi.created_at, wi.entity_type, wi.entity_id AS ref_id
+        FROM workflow_instances wi
+        JOIN workflow_definitions wd ON wd.id = wi.definition_id
+        WHERE wi.entity_id = :eid
+            AND wi.current_state NOT IN ('completed', 'cancelled', 'rejected')
+        ORDER BY wi.created_at DESC LIMIT 15
+    """), {"eid": str(entity_id)})
+    return {
+        "columns": [
+            {"key": "definition", "label": "Workflow"},
+            {"key": "state", "label": "État"},
+            {"key": "entity_type", "label": "Type"},
+            {"key": "created_at", "label": "Créé le"},
+        ],
+        "rows": [dict(row) for row in r.mappings().all()],
+    }
+
+
 _PROVIDER_MAP: dict[str, Any] = {
     # ── Core / cross-module ──
     "pax_on_site": provider_pax_on_site,
@@ -1410,6 +1726,24 @@ _PROVIDER_MAP: dict[str, Any] = {
     "support_overview": provider_support_overview,
     "support_tickets_recent": provider_support_tickets_recent,
     "support_by_status": provider_support_by_status,
+    "support_by_type": provider_support_by_type,
+    "support_by_priority": provider_support_by_priority,
+    "support_trend": provider_support_trend,
+    # ── Conformité module (advanced) ──
+    "conformite_urgency": provider_conformite_urgency,
+    "conformite_by_status": provider_conformite_by_status,
+    "conformite_matrix": provider_conformite_matrix,
+    "conformite_trend": provider_conformite_trend,
+    # ── Planner module (advanced) ──
+    "planner_overview": provider_planner_overview,
+    "planner_by_type": provider_planner_by_type,
+    "planner_by_status": provider_planner_by_status,
+    "planner_conflicts_kpi": provider_planner_conflicts_kpi,
+    "planner_pax_by_site": provider_planner_pax_by_site,
+    # ── Workflow module ──
+    "workflow_overview": provider_workflow_overview,
+    "workflow_by_definition": provider_workflow_by_definition,
+    "workflow_pending": provider_workflow_pending,
 }
 
 

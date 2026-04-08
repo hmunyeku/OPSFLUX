@@ -336,13 +336,25 @@ PREDEFINED_WIDGETS: dict[str, dict[str, Any]] = {
         "source": "support",
         "roles": ["*"],
     },
-    "support_by_status": {
-        "type": "chart",
-        "title": "Tickets par statut",
-        "description": "Répartition des tickets par statut",
-        "source": "support",
-        "roles": ["*"],
-    },
+    "support_by_status": {"type": "chart", "title": "Tickets par statut", "source": "support", "roles": ["*"]},
+    "support_by_type": {"type": "chart", "title": "Tickets par type", "source": "support", "roles": ["*"]},
+    "support_by_priority": {"type": "chart", "title": "Tickets par priorité", "source": "support", "roles": ["*"]},
+    "support_trend": {"type": "chart", "title": "Tendance tickets", "source": "support", "roles": ["*"]},
+    # ── Conformité (advanced) ──
+    "conformite_urgency": {"type": "chart", "title": "Expirations par urgence", "source": "conformite", "roles": ["*"]},
+    "conformite_by_status": {"type": "chart", "title": "Records par statut", "source": "conformite", "roles": ["*"]},
+    "conformite_matrix": {"type": "table", "title": "Matrice conformité", "source": "conformite", "roles": ["*"]},
+    "conformite_trend": {"type": "chart", "title": "Tendance conformité", "source": "conformite", "roles": ["*"]},
+    # ── Planner (advanced) ──
+    "planner_overview": {"type": "kpi", "title": "Vue d'ensemble planner", "source": "planner", "roles": ["*"]},
+    "planner_by_type": {"type": "chart", "title": "Activités par type", "source": "planner", "roles": ["*"]},
+    "planner_by_status": {"type": "chart", "title": "Activités par statut", "source": "planner", "roles": ["*"]},
+    "planner_conflicts_kpi": {"type": "kpi", "title": "Conflits actifs", "source": "planner", "roles": ["*"]},
+    "planner_pax_by_site": {"type": "chart", "title": "PAX par site", "source": "planner", "roles": ["*"]},
+    # ── Workflow ──
+    "workflow_overview": {"type": "kpi", "title": "Vue d'ensemble workflow", "source": "workflow", "roles": ["*"]},
+    "workflow_by_definition": {"type": "chart", "title": "Par workflow", "source": "workflow", "roles": ["*"]},
+    "workflow_pending": {"type": "table", "title": "En attente", "source": "workflow", "roles": ["*"]},
 }
 
 

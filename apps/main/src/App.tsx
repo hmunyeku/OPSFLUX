@@ -70,6 +70,7 @@ export default function App() {
               <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/comptes" element={<Navigate to="/users" replace />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/assets/*" element={<RequirePermission permission="asset.read"><AssetRegistryPage /></RequirePermission>} />

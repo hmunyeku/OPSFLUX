@@ -4,7 +4,7 @@
  * User view: own tickets + submit form.
  * Admin view: all tickets + filters + stats + assignment.
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LifeBuoy, Plus, Loader2, Trash2, Bug, Lightbulb, HelpCircle, MoreHorizontal,
@@ -253,9 +253,9 @@ function TicketDetailPanel({ id }: { id: string }) {
   const [isDeleting, setIsDeleting] = useState(false)
 
   // Auto-close panel if ticket was deleted or returns 404
-  if (isError && !isDeleting) {
-    closeDynamicPanel()
-  }
+  useEffect(() => {
+    if (isError && !isDeleting) closeDynamicPanel()
+  }, [isError, isDeleting, closeDynamicPanel])
 
   const handleSave = useCallback((field: string, value: string) => {
     updateTicket.mutate({ id, payload: normalizeNames({ [field]: value }) })

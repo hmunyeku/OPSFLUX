@@ -110,11 +110,11 @@ export function ModuleDashboard({ module, title, className, children }: ModuleDa
   if (!tab && canEdit) {
     return (
       <div className={cn('rounded-lg border border-dashed border-border p-6 text-center', className)}>
-        <p className="text-sm text-muted-foreground mb-3">Aucun dashboard configure pour ce module.</p>
+        <p className="text-sm text-muted-foreground mb-3">{t('dashboard.no_module_dashboard')}</p>
         <button onClick={handleCreateModuleTab} disabled={createTab.isPending}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
           <Plus className="h-3.5 w-3.5" />
-          Creer le dashboard {title || module}
+          {t('dashboard.create_module_dashboard', { module: title || module })}
         </button>
       </div>
     )

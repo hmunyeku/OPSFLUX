@@ -1307,7 +1307,14 @@
     "no_position": "No position",
     "no_content": "No content",
     "widget_error": "Loading error",
-    "search_widgets": "Search..."
+    "search_widgets": "Search...",
+    "delete_tab_confirm_title": "Delete this tab?",
+    "delete_tab_confirm_message": "This action is irreversible. All widgets in this tab will be lost.",
+    "welcome_title": "Welcome to OpsFlux",
+    "welcome_description": "Explore asset management, third-party and workflow features. Use Ctrl+K for quick search.",
+    "discover": "Discover",
+    "no_module_dashboard": "No dashboard configured for this module.",
+    "create_module_dashboard": "Create dashboard {{module}}"
   },
   "workflow": {
     "title": "Workflows",

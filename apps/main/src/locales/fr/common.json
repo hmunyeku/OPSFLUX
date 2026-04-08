@@ -1311,7 +1311,14 @@
     "no_position": "Aucune position",
     "no_content": "Aucun contenu",
     "widget_error": "Erreur de chargement",
-    "search_widgets": "Rechercher..."
+    "search_widgets": "Rechercher...",
+    "delete_tab_confirm_title": "Supprimer cet onglet ?",
+    "delete_tab_confirm_message": "Cette action est irréversible. Tous les widgets de cet onglet seront perdus.",
+    "welcome_title": "Bienvenue sur OpsFlux",
+    "welcome_description": "Explorez les fonctionnalités de gestion d'assets, tiers et workflows. Utilisez Ctrl+K pour la recherche rapide.",
+    "discover": "Découvrir",
+    "no_module_dashboard": "Aucun dashboard configuré pour ce module.",
+    "create_module_dashboard": "Créer le dashboard {{module}}"
   },
   "workflow": {
     "title": "Workflows",

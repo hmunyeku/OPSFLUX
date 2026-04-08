@@ -810,14 +810,17 @@ export function InlineEditableRow({
   onSave,
   type = 'text',
   disabled,
+  suffix,
 }: {
   label: string
   value: string
   /** Optional formatted label shown in read mode (e.g. resolved dictionary label). */
   displayValue?: string
   onSave: (newValue: string) => void
-  type?: 'text' | 'email' | 'tel' | 'date'
+  type?: 'text' | 'email' | 'tel' | 'date' | 'number'
   disabled?: boolean
+  /** Optional suffix displayed after the value in read mode (e.g. "XAF"). */
+  suffix?: string
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
@@ -887,7 +890,7 @@ export function InlineEditableRow({
       title={disabled ? undefined : "Double-cliquer pour modifier"}
     >
       <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
-      <span className="text-sm text-foreground flex-1 min-w-0 break-words">{displayValue || value || '—'}</span>
+      <span className="text-sm text-foreground flex-1 min-w-0 break-words">{displayValue || value || '—'}{suffix && value ? ` ${suffix}` : ''}</span>
       {!disabled && <Pencil size={12} className="shrink-0 text-transparent group-hover:text-muted-foreground transition-colors" />}
     </div>
   )

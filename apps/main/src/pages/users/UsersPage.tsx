@@ -10,6 +10,7 @@
  * - Rich create & detail panels
  */
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { useDebounce } from '@/hooks/useDebounce'
 import { useTranslation } from 'react-i18next'
 import {
   Users, Plus, Loader2,
@@ -2278,16 +2279,21 @@ export function UsersPage() {
   const [createTrigger, setCreateTrigger] = useState(0)
 
   const search = useUIStore((s) => s.globalSearch)
+  const setGlobalSearch = useUIStore((s) => s.setGlobalSearch)
+  const debouncedSearch = useDebounce(search, 300)
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
   const setNavItems = useUIStore((s) => s.setDynamicPanelNavItems)
 
+  // Reset pagination when search changes
+  useEffect(() => { setPage(1) }, [debouncedSearch])
+
   // Server-side filters
   const activeFilter = statusFilterValue === 'active' ? true : statusFilterValue === 'archived' ? false : undefined
   const userTypeParam = userTypeFilter && userTypeFilter !== 'all' ? userTypeFilter : undefined
   const mfaParam = mfaFilter === 'enabled' ? true : mfaFilter === 'disabled' ? false : undefined
-  const { data, isLoading } = useUsers({ page, page_size: pageSize, search: search || undefined, active: activeFilter, user_type: userTypeParam, mfa_enabled: mfaParam })
+  const { data, isLoading } = useUsers({ page, page_size: pageSize, search: debouncedSearch || undefined, active: activeFilter, user_type: userTypeParam, mfa_enabled: mfaParam })
 
   // Deep link: /users#create
   useEffect(() => {
@@ -2534,6 +2540,9 @@ export function UsersPage() {
             isLoading={isLoading}
             getRowId={(row) => row.id}
             storageKey="users"
+
+            searchValue={search || ''}
+            onSearchChange={(v) => { setGlobalSearch(v); setPage(1) }}
 
             pagination={data ? {
               page: data.page,

@@ -67,7 +67,7 @@ import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer
 import { EmptyState } from '@/components/ui/EmptyState'
 import {
   useTiers, useCreateTier, useUpdateTier, useArchiveTier,
-  useTierContacts, useCreateTierContact, useUpdateTierContact,
+  useTier, useTierContacts, useCreateTierContact, useUpdateTierContact,
   useDeleteTierContact, useAllTierContacts, usePromoteTierContactToUser,
   useTierBlocks, useBlockTier, useUnblockTier,
   useTierExternalRefs, useCreateTierExternalRef, useDeleteTierExternalRef,
@@ -330,8 +330,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
   const { t, i18n } = useTranslation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const archiveTier = useArchiveTier()
-  const { data } = useTiers({ page: 1, page_size: 100 })
-  const tier = data?.items.find((t) => t.id === id)
+  const { data: tier } = useTier(id)
   const updateTier = useUpdateTier()
   const { hasPermission } = usePermission()
   const canEdit = hasPermission('tier.update')

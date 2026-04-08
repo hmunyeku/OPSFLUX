@@ -55,7 +55,6 @@ import { usePermission } from '@/hooks/usePermission'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
-import { useAsset } from '@/hooks/useAssets'
 import {
   useProjects, useProject, useCreateProject, useUpdateProject, useArchiveProject,
   useProjectTasks, useCreateProjectTask, useUpdateProjectTask, useDeleteProjectTask,
@@ -2546,7 +2545,6 @@ function ProjectDetailPanel({ id }: { id: string }) {
   const { data: tasks } = useProjectTasks(id)
   const { data: members } = useProjectMembers(id)
   const { data: milestones } = useProjectMilestones(id)
-  const { data: linkedAsset } = useAsset(project?.asset_id ?? '')
   const goutiSyncOne = useGoutiSyncOne()
   const [showPlannerLink, setShowPlannerLink] = useState(false)
   const exportPdf = useExportProjectPdf()
@@ -2560,9 +2558,11 @@ function ProjectDetailPanel({ id }: { id: string }) {
   const projectPriorityOptions = useMemo(() => buildDictionaryOptions(projectPriorityLabels, PROJECT_PRIORITY_VALUES), [projectPriorityLabels])
   const projectWeatherOptions = useMemo(() => buildDictionaryOptions(projectWeatherLabels, PROJECT_WEATHER_VALUES), [projectWeatherLabels])
 
-  const handleSave = useCallback((field: string, value: string) => {
-    updateProject.mutate({ id, payload: normalizeNames({ [field]: value }) })
-  }, [id, updateProject])
+  const handleSave = useCallback((field: string, value: string | number | null) => {
+    updateProject.mutate({ id, payload: normalizeNames({ [field]: value }) }, {
+      onError: () => toast({ title: t('common.error'), variant: 'error' }),
+    })
+  }, [id, updateProject, toast, t])
 
   const handleArchive = useCallback(async () => {
     await archiveProject.mutateAsync(id)
@@ -2682,45 +2682,24 @@ function ProjectDetailPanel({ id }: { id: string }) {
                     <CrossModuleLink module="tiers" id={project.tier_id} label={project.tier_name || project.tier_id} mode="navigate" />
                   ) : (project.tier_name || '--')
                 } />
-                <ReadOnlyRow label="Budget" value={project.budget ? `${project.budget.toLocaleString('fr-FR')} XAF` : '--'} />
-                {true ? ( /* asset always editable */
-                  <div>
-                    <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Site / Asset</label>
-                    <AssetPicker
-                      value={project.asset_id || null}
-                      onChange={(id) => updateProject.mutate({ id: project.id, payload: { asset_id: id || null } })}
-                      placeholder="Sélectionner un site..."
-                      clearable
-                    />
-                  </div>
-                ) : (
-                  <ReadOnlyRow label="Site / Asset" value={(() => {
-                    const assetId = project?.asset_id ?? null
-                    if (!assetId) return '--'
-                    const assetIdValue: string = String(assetId)
-                    const linkedAssetCode = linkedAsset?.code ?? ''
-                    const linkedAssetName = linkedAsset?.name ?? ''
-                    const assetLabel = linkedAssetCode && linkedAssetName
-                      ? `${linkedAssetCode} — ${linkedAssetName}`
-                      : `${assetIdValue.slice(0, 8)}…`
-                    return (
-                      <CrossModuleLink
-                        module="assets"
-                        id={assetIdValue}
-                        label={assetLabel}
-                        mode="navigate"
-                      />
-                    )
-                  })()} />
-                )}
+                <InlineEditableRow label="Budget" value={project.budget != null ? String(project.budget) : ''} onSave={(v) => handleSave('budget', v ? Number(v) : null)} type="number" suffix="XAF" />
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Site / Asset</label>
+                  <AssetPicker
+                    value={project.asset_id || null}
+                    onChange={(id) => updateProject.mutate({ id: project.id, payload: { asset_id: id || null } }, { onError: () => toast({ title: t('common.error'), variant: 'error' }) })}
+                    placeholder="Sélectionner un site..."
+                    clearable
+                  />
+                </div>
               </DetailFieldGrid>
             </FormSection>
 
             <FormSection title="Planning" collapsible defaultExpanded storageKey="project-detail-planning">
               <DetailFieldGrid>
-                <ReadOnlyRow label="Debut" value={project.start_date ? new Date(project.start_date).toLocaleDateString('fr-FR') : '--'} />
-                <ReadOnlyRow label="Fin prevue" value={project.end_date ? new Date(project.end_date).toLocaleDateString('fr-FR') : '--'} />
-                <ReadOnlyRow label="Fin reelle" value={project.actual_end_date ? new Date(project.actual_end_date).toLocaleDateString('fr-FR') : '--'} />
+                <InlineEditableRow label="Début" value={project.start_date || ''} onSave={(v) => handleSave('start_date', v || null)} type="date" />
+                <InlineEditableRow label="Fin prévue" value={project.end_date || ''} onSave={(v) => handleSave('end_date', v || null)} type="date" />
+                <InlineEditableRow label="Fin réelle" value={project.actual_end_date || ''} onSave={(v) => handleSave('actual_end_date', v || null)} type="date" />
               </DetailFieldGrid>
             </FormSection>
 

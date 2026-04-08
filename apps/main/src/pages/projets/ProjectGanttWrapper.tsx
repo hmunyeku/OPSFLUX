@@ -49,12 +49,11 @@ const PRIORITY_OPTIONS = [
 // ── Grid columns ────────────────────────────────────────────────
 
 const COLUMNS: GanttColumn[] = [
-  { id: 'assignee', label: 'Assigné', width: 90, align: 'left' },
-  { id: 'start', label: 'Début', width: 75, align: 'center', editable: true, editType: 'date' },
-  { id: 'end', label: 'Fin', width: 75, align: 'center', editable: true, editType: 'date' },
-  { id: 'duration', label: 'Durée', width: 42, align: 'right' },
-  { id: 'progress', label: '%', width: 32, align: 'right', editable: true, editType: 'number' },
-  { id: 'predecessors', label: 'Préd.', width: 50, align: 'center' },
+  { id: 'start', label: 'Début', width: 62, align: 'center', editable: true, editType: 'date' },
+  { id: 'end', label: 'Fin', width: 62, align: 'center', editable: true, editType: 'date' },
+  { id: 'duration', label: 'Jrs', width: 32, align: 'right' },
+  { id: 'progress', label: '%', width: 28, align: 'right', editable: true, editType: 'number' },
+  { id: 'predecessors', label: 'Préd.', width: 40, align: 'center' },
 ]
 
 function fmtDate(iso: string | null | undefined): string {
@@ -169,7 +168,7 @@ export function ProjectGanttWrapper() {
         hasChildren: true,
         color,
         columns: {
-          assignee: project.manager_name || '—',
+
           start: fmtDate(project.start_date),
           end: fmtDate(project.end_date),
           duration: project.start_date && project.end_date
@@ -228,7 +227,7 @@ export function ProjectGanttWrapper() {
               hasChildren: hasKids,
               color: taskColor,
               columns: {
-                assignee: task.assignee_name || '—',
+
                 start: fmtDate(task.start_date),
                 end: fmtDate(task.due_date),
                 duration: task.start_date && task.due_date
@@ -489,7 +488,8 @@ export function ProjectGanttWrapper() {
           dependencies={deps}
           columns={COLUMNS}
           initialScale="month"
-          initialSettings={{ barHeight: 20, rowHeight: 34, showBaselines: true }}
+          initialSettings={getPref('gantt_settings', { barHeight: 20, rowHeight: 34, showBaselines: true })}
+          onSettingsChange={(s) => setPref('gantt_settings', s)}
           onBarClick={handleBarClick}
           onRowClick={(rowId) => {
             // Double-click: projects → open project detail, tasks → open parent project

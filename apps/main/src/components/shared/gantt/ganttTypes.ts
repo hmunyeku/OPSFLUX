@@ -170,6 +170,8 @@ export interface GanttSettings {
   filterAssignee: string | null
   /** Hidden column IDs */
   hiddenColumns: string[]
+  /** Custom column widths (overrides default) */
+  columnWidths: Record<string, number>
 }
 
 export const DEFAULT_SETTINGS: GanttSettings = {
@@ -187,6 +189,7 @@ export const DEFAULT_SETTINGS: GanttSettings = {
   hiddenPriorities: [],
   filterAssignee: null,
   hiddenColumns: [],
+  columnWidths: {},
 }
 
 // ── Presets ──────────────────────────────────────────────────────

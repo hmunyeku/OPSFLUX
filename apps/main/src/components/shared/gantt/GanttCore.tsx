@@ -140,9 +140,47 @@ export function GanttCore(props: GanttCoreProps) {
   // ── Visible columns (filtered by hiddenColumns) ────────────────
 
   const columns = useMemo(() =>
-    rawColumns.filter(c => !(settings.hiddenColumns || []).includes(c.id)),
-    [rawColumns, settings.hiddenColumns],
+    rawColumns
+      .filter(c => !(settings.hiddenColumns || []).includes(c.id))
+      .map(c => ({
+        ...c,
+        width: (settings.columnWidths || {})[c.id] || c.width,
+      })),
+    [rawColumns, settings.hiddenColumns, settings.columnWidths],
   )
+
+  // Column resize handler (drag on header separator)
+  const onColumnResize = useCallback((colId: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const col = columns.find(c => c.id === colId)
+    if (!col) return
+    const startW = col.width
+
+    const onMove = (ev: MouseEvent) => {
+      const newW = Math.max(col.minWidth || 30, startW + ev.clientX - startX)
+      updateSettings({ columnWidths: { ...(settings.columnWidths || {}), [colId]: newW } })
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [columns, settings.columnWidths, updateSettings])
+
+  // Double-click to auto-fit column width
+  const onColumnAutoFit = useCallback((colId: string) => {
+    // Measure max content width — approximate based on longest value
+    let maxLen = 0
+    for (const row of rows) {
+      const val = String(row.columns?.[colId] ?? '')
+      if (val.length > maxLen) maxLen = val.length
+    }
+    const autoW = Math.max(40, Math.min(200, maxLen * 7 + 16))
+    updateSettings({ columnWidths: { ...(settings.columnWidths || {}), [colId]: autoW } })
+  }, [rows, settings.columnWidths, updateSettings])
 
   // ── View range state ───────────────────────────────────────────
 
@@ -514,10 +552,16 @@ export function GanttCore(props: GanttCoreProps) {
                 {columns.map(col => (
                   <div
                     key={col.id}
-                    className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1 shrink-0 text-center border-l border-border/30"
+                    className="relative text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-1 shrink-0 text-center border-l border-border/30 select-none"
                     style={{ width: col.width }}
+                    onDoubleClick={() => onColumnAutoFit(col.id)}
                   >
                     {col.label}
+                    {/* Resize handle */}
+                    <div
+                      className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/30 active:bg-primary/50"
+                      onMouseDown={(e) => onColumnResize(col.id, e)}
+                    />
                   </div>
                 ))}
               </div>

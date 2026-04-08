@@ -693,7 +693,7 @@ function TableWidget({
   const isStatusCol = (key: string) => /status|statut/i.test(key)
   const isPriorityCol = (key: string) => /priority|priorite|priorité/i.test(key)
   const isProgressCol = (key: string) => /progress|pct|avancement|%/i.test(key)
-  const isDateCol = (key: string) => /date|echeance|échéance|deadline|start|end|debut|fin|created|updated/i.test(key)
+  const isDateCol = (key: string) => /date|echeance|échéance|deadline|start|end|debut|fin|created|updated|_at$|login|connexion|expire|expir/i.test(key)
   const isRefCol = (key: string, colIdx: number) => colIdx === 0 || /code|ref|reference|id$/i.test(key)
 
   const renderCell = (value: unknown, key: string, colIdx: number) => {
@@ -755,9 +755,19 @@ function TableWidget({
       )
     }
 
-    // Date formatting
-    if (isDateCol(key) && /^\d{4}-\d{2}-\d{2}/.test(s)) {
-      try { return <span>{new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span> } catch { /* */ }
+    // Date formatting — explicit date columns OR any ISO datetime string
+    const looksLikeIsoDate = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?/.test(s)
+    if ((isDateCol(key) || looksLikeIsoDate) && looksLikeIsoDate) {
+      try {
+        const d = new Date(s)
+        if (!isNaN(d.getTime())) {
+          const hasTime = s.includes('T')
+          const formatted = hasTime
+            ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+            : d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+          return <span title={s}>{formatted}</span>
+        }
+      } catch { /* */ }
     }
 
     // Reference / code — first column or ref-like columns — bold + primary color

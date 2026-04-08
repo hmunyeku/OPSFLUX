@@ -2683,11 +2683,36 @@ function ProjectDetailPanel({ id }: { id: string }) {
                   ) : (project.tier_name || '--')
                 } />
                 <ReadOnlyRow label="Budget" value={project.budget ? `${project.budget.toLocaleString('fr-FR')} XAF` : '--'} />
-                <ReadOnlyRow label="Site / Asset" value={
-                  project.asset_id ? (
-                    <CrossModuleLink module="assets" id={project.asset_id} label={linkedAsset ? `${linkedAsset.code} — ${linkedAsset.name}` : project.asset_id.slice(0, 8) + '…'} mode="navigate" />
-                  ) : '--'
-                } />
+                {true ? ( /* asset always editable */
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Site / Asset</label>
+                    <AssetPicker
+                      value={project.asset_id || null}
+                      onChange={(id) => updateProject.mutate({ id: project.id, payload: { asset_id: id || null } })}
+                      placeholder="Sélectionner un site..."
+                      clearable
+                    />
+                  </div>
+                ) : (
+                  <ReadOnlyRow label="Site / Asset" value={(() => {
+                    const assetId = project?.asset_id ?? null
+                    if (!assetId) return '--'
+                    const assetIdValue: string = String(assetId)
+                    const linkedAssetCode = linkedAsset?.code ?? ''
+                    const linkedAssetName = linkedAsset?.name ?? ''
+                    const assetLabel = linkedAssetCode && linkedAssetName
+                      ? `${linkedAssetCode} — ${linkedAssetName}`
+                      : `${assetIdValue.slice(0, 8)}…`
+                    return (
+                      <CrossModuleLink
+                        module="assets"
+                        id={assetIdValue}
+                        label={assetLabel}
+                        mode="navigate"
+                      />
+                    )
+                  })()} />
+                )}
               </DetailFieldGrid>
             </FormSection>
 

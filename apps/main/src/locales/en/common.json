@@ -1558,6 +1558,7 @@
     "tabs": {
       "dashboard": "Dashboard",
       "ads": "Visit notices",
+      "waitlist": "Waitlist",
       "profiles": "PAX profiles",
       "compliance": "Compliance",
       "signalements": "Incidents",
@@ -1582,6 +1583,7 @@
         "submitted": "Submitted",
         "pending_compliance": "Compliance",
         "pending_validation": "Validation",
+        "pending_arbitration": "Arbitration",
         "approved": "Approved",
         "rejected": "Rejected",
         "cancelled": "Cancelled",
@@ -1655,6 +1657,46 @@
     "search_rotation": "Search by PAX, site...",
     "search_company": "Search company...",
     "search_user": "Search user...",
+    "waitlist": {
+      "search": "Search by AdS, passenger, activity...",
+      "empty": "No waitlisted passenger",
+      "hint": "{{count}} passenger(s) awaiting manual arbitration.",
+      "columns": {
+        "ads": "AdS / activity",
+        "pax": "Passenger",
+        "priority": "Priority",
+        "submitted_at": "Submitted on"
+      },
+      "kpis": {
+        "items": "Waitlisted",
+        "priority_peak": "Top priority"
+      },
+      "actions": {
+        "approve_reason": "Promoted from waitlist",
+        "reject_reason": "Rejected from waitlist",
+        "edit_priority": "Adjust",
+        "priority_reason": "Manual waitlist reprioritization"
+      },
+      "sources": {
+        "auto_computed": "Auto computed",
+        "manual_override": "Manual override"
+      },
+      "capacity": {
+        "summary": "{{scope}} · remaining {{remaining}} / {{limit}}",
+        "scope": {
+          "planner_activity": "Planner activity",
+          "site": "Site capacity"
+        }
+      },
+      "validation": {
+        "invalid_priority": "Priority score must be a non-negative integer."
+      },
+      "toasts": {
+        "approved": "Passenger promoted from waitlist",
+        "rejected": "Passenger removed from waitlist",
+        "priority_updated": "Waitlist priority updated"
+      }
+    },
     "confirm_reject": "Confirm rejection",
     "cancel_question": "Cancel?",
     "no_passenger": "No passenger",
@@ -1730,6 +1772,20 @@
       },
       "requester_label": "Requester: {{name}}",
       "creator_label": "Creator: {{name}}",
+      "group_count": "{{count}} item(s)",
+      "group_helper_projects": "Linked projects: {{projects}}",
+      "group_helper_site": "Grouped by site: {{site}}",
+      "projects_label": "Projects: {{projects}}",
+      "capacity_context": "{{scope}} · Forecast {{forecast}} · Real POB {{real}} · remaining {{remaining}} / {{limit}}",
+      "review_context": "{{blocked}} compliance-blocked · {{projects}} linked project(s) · {{stayPrograms}} stay program(s)",
+      "daily_preview": "Daily preview",
+      "daily_preview_values": "F {{forecast}} · R {{real}} · C {{limit}}",
+      "badges": {
+        "compliance_blocked": "{{count}} blocked",
+        "multi_project": "{{count}} projects",
+        "stay_program": "{{count}} stays",
+        "capacity_full": "Capacity full"
+      },
       "avm_planned_pax": "{{count}} planned PAX",
       "preparation_progress": "preparation {{progress}}%",
       "guidance": {
@@ -2490,7 +2546,163 @@
     "error_reject": "Error rejecting",
     "error_cancel": "Error cancelling",
     "error_add_dependency": "Error adding dependency",
-    "error_create": "Error creating activity"
+    "error_create": "Error creating activity",
+    "resolve_conflict_action": "Resolve",
+    "resolve_conflict_title": "Resolve conflict",
+    "resolve_conflict_field": "Resolution",
+    "resolve_conflict_placeholder": "Choose...",
+    "resolve_conflict_history": "Conflict history",
+    "resolve_conflict_history_empty": "No previous decision for this conflict.",
+    "resolve_conflict_note": "Note (optional)",
+    "resolve_conflict_note_placeholder": "Resolution comment...",
+    "confirm_resolution": "Confirm",
+    "revision_requests": {
+      "incoming_title": "Incoming requests",
+      "incoming_description": "Planner revisions waiting for your answer.",
+      "outgoing_title": "Outgoing requests",
+      "outgoing_description": "Planner revisions already sent to project managers or responsible users.",
+      "empty_incoming": "No pending revision request.",
+      "empty_outgoing": "No revision request sent yet.",
+      "request_title": "Request a decision",
+      "respond_title": "Reply to request",
+      "request_decision": "Request decision",
+      "send_request": "Send request",
+      "accept": "Accept",
+      "counter_propose": "Counter-propose",
+      "force": "Force",
+      "projects_section_title": "Planner revisions",
+      "projects_section_empty": "No Planner revision request linked to this task.",
+      "accepted_from_projects": "Accepted from the project task sheet.",
+      "counter_from_projects": "Counter-proposal sent from the project task sheet.",
+      "response": "Response",
+      "note": "Note",
+      "note_placeholder": "Explain the requested adjustment...",
+      "response_note_placeholder": "Explain your answer or counter-proposal...",
+      "due_at": "Due",
+      "due_at_label": "Response due by",
+      "proposed_pax": "Proposed POB",
+      "proposed_start": "Proposed start",
+      "proposed_end": "Proposed end",
+      "proposed_status": "Proposed status",
+      "proposed_summary": "Proposal · start {{start}} · end {{end}} · POB {{pax}} · status {{status}}",
+      "counter_pax": "Counter POB",
+      "counter_start": "Counter start",
+      "counter_end": "Counter end",
+      "counter_status": "Counter status",
+      "counter_summary": "Counter-proposal · start {{start}} · end {{end}} · POB {{pax}} · status {{status}}",
+      "application_summary": "Automatic application · task updated: {{task}} · activities updated: {{activities}}",
+      "application_manual_breakdown": "Acceptance recorded, but the parent task still requires a manual detailed plan breakdown.",
+      "child_tasks_to_review": "{{count}} child task(s) to review in the detailed plan",
+      "status_pending": "Pending",
+      "status_responded": "Responded",
+      "status_forced": "Forced"
+    },
+    "capacity": {
+      "empty_title": "No data",
+      "empty_idle_title": "Review capacity",
+      "empty_description": "No capacity data found for this site and period.",
+      "empty_idle_description": "Select a site and date range to view the heatmap.",
+      "heatmap_title": "Heatmap — Forecast Pax and real POB",
+      "heatmap_description": "Color reflects Forecast Pax saturation against capacity. Each cell shows Forecast/real POB.",
+      "heatmap_day_tooltip": "{{date}} · Forecast {{forecast}} · Real POB {{real}} · Capacity {{capacity}} · Saturation {{saturation}}%",
+      "heatmap_cell_legend": "Each cell shows: Forecast Pax / real POB",
+      "legend_label": "Legend:",
+      "unknown_site": "Unnamed site",
+      "unassigned_field": "Unmapped hierarchy",
+      "unassigned_site": "Installations outside hierarchy",
+      "scale_label": "Granularity",
+      "scale": {
+        "day": "Day",
+        "week": "Week",
+        "month": "Month",
+        "quarter": "Quarter",
+        "semester": "Semester"
+      },
+      "scale_aggregation_note": "For scales above day, each cell shows the peak observed over the period.",
+      "axis_asset": "Installation",
+      "axis_value_hint": "Forecast / real POB",
+      "days_suffix": "d",
+      "previous_period": "Previous period",
+      "next_period": "Next period",
+      "today": "Today"
+    },
+    "forecast": {
+      "description": "Load forecast based on the last 90 days and scheduled activities, with the observed real POB shown as a secondary signal.",
+      "avg_real_pob": "Average real POB",
+      "real_pob_short": "R {{count}}"
+    },
+    "revision_signals": {
+      "title": "Suggested revisions",
+      "description": "Project changes synchronized into Planner that may require a new arbitration pass.",
+      "empty": "No recent suggested revision.",
+      "project_fallback": "Project",
+      "task_fallback": "Linked task",
+      "actor_fallback": "User",
+      "open_project": "Open project",
+      "acknowledge": "Acknowledge",
+      "request_decision": "Request decision",
+      "show_impact": "Show impact",
+      "hide_impact": "Hide impact",
+      "ads_affected": "Affected AdS",
+      "manifests_affected": "Affected manifests",
+      "open_conflict_days": "Open conflict days",
+      "impact_activity_summary": "{{ads}} AdS · {{manifests}} manifests · {{conflicts}} conflict days",
+      "critical_fields": "critical fields",
+      "summary": "{{fields}} · {{count}} linked activit(y/ies)"
+    },
+    "gantt": {
+      "unassigned_asset": "Unassigned",
+      "activity_count_one": "{{count}} activity",
+      "activity_count_other": "{{count}} activities",
+      "proposal_title": "Proposal · {{title}}",
+      "legend_label": "Legend:",
+      "legend_confirmed": "Current version",
+      "legend_pending_proposal": "Pending proposal",
+      "empty_message": "No activity in this period. Adjust filters or date range.",
+      "columns": {
+        "type": "Type",
+        "pax": "PAX",
+        "start": "Start",
+        "end": "End",
+        "aggregate": "Aggregate"
+      },
+      "status": {
+        "draft": "Draft",
+        "submitted": "Submitted",
+        "validated": "Validated",
+        "in_progress": "In progress",
+        "completed": "Completed",
+        "rejected": "Rejected",
+        "cancelled": "Cancelled"
+      },
+      "tooltip": {
+        "type": "Type",
+        "status": "Status",
+        "pax": "PAX",
+        "priority": "Priority",
+        "well": "Well",
+        "rig": "Rig",
+        "work_order": "WO",
+        "revision": "Revision",
+        "pending_proposal": "Pending proposal",
+        "current_status": "Current status",
+        "proposed_status": "Proposed status",
+        "current_pax": "Current PAX",
+        "proposed_pax": "Proposed PAX",
+        "current_start": "Current start",
+        "current_end": "Current end",
+        "proposed_start": "Proposed start",
+        "proposed_end": "Proposed end",
+        "note": "Note",
+        "site": "Site",
+        "activities": "Activities",
+        "max_pax_capacity": "Max PAX capacity"
+      },
+      "toasts": {
+        "rescheduled": "Activity rescheduled",
+        "drag_error": "Error while moving activity"
+      }
+    }
   },
   "travelwiz": {
     "title": "TravelWiz",

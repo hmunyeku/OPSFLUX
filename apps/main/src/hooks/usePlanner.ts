@@ -11,6 +11,8 @@ import type {
   AssetCapacityCreate,
   RecurrenceCreate,
   BulkConflictResolveItem,
+  PlannerRevisionDecisionRequestCreate,
+  PlannerRevisionDecisionRespond,
   ScenarioRequest,
 } from '@/types/api'
 
@@ -161,6 +163,79 @@ export function useConflicts(params: PaginationParams & {
     queryKey: ['planner', 'conflicts', params],
     queryFn: () => plannerService.listConflicts(params),
     placeholderData: keepPreviousData,
+  })
+}
+
+export function useRevisionSignals(params: PaginationParams = {}) {
+  return useQuery({
+    queryKey: ['planner', 'revision-signals', params],
+    queryFn: () => plannerService.listRevisionSignals(params),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useAcknowledgeRevisionSignal() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => plannerService.acknowledgeRevisionSignal(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['planner', 'revision-signals'] })
+    },
+  })
+}
+
+export function useRevisionSignalImpactSummary(signalId: string | undefined) {
+  return useQuery({
+    queryKey: ['planner', 'revision-signals', signalId, 'impact-summary'],
+    queryFn: () => plannerService.getRevisionSignalImpactSummary(signalId!),
+    enabled: !!signalId,
+  })
+}
+
+export function useRevisionDecisionRequests(params: PaginationParams & {
+  direction?: 'incoming' | 'outgoing'
+  status?: 'pending' | 'responded' | 'forced' | 'all'
+  project_id?: string
+  task_id?: string
+} = {}) {
+  return useQuery({
+    queryKey: ['planner', 'revision-decision-requests', params],
+    queryFn: () => plannerService.listRevisionDecisionRequests(params),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useRequestRevisionDecision() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ signalId, payload }: { signalId: string; payload: PlannerRevisionDecisionRequestCreate }) =>
+      plannerService.requestRevisionDecision(signalId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['planner', 'revision-decision-requests'] })
+      qc.invalidateQueries({ queryKey: ['planner', 'revision-signals'] })
+    },
+  })
+}
+
+export function useRespondRevisionDecisionRequest() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ requestId, payload }: { requestId: string; payload: PlannerRevisionDecisionRespond }) =>
+      plannerService.respondRevisionDecisionRequest(requestId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['planner', 'revision-decision-requests'] })
+    },
+  })
+}
+
+export function useForceRevisionDecisionRequest() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ requestId, reason }: { requestId: string; reason?: string }) =>
+      plannerService.forceRevisionDecisionRequest(requestId, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['planner', 'revision-decision-requests'] })
+    },
   })
 }
 

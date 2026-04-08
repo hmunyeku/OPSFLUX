@@ -2364,6 +2364,96 @@ export interface PlannerConflictResolve {
   resolution_note?: string | null
 }
 
+export interface PlannerRevisionSignal {
+  id: string
+  created_at: string
+  task_id: string | null
+  task_title: string | null
+  task_status: string | null
+  project_id: string | null
+  project_code: string | null
+  project_name: string | null
+  changed_fields: string[]
+  planner_activity_ids: string[]
+  planner_activity_count: number
+  actor_id: string | null
+  actor_name: string | null
+}
+
+export interface PlannerRevisionSignalImpactActivity {
+  activity_id: string
+  activity_title: string | null
+  activity_status: string | null
+  ads_affected: number
+  manifests_affected: number
+  open_conflict_days: number
+}
+
+export interface PlannerRevisionSignalImpactSummary {
+  signal_id: string
+  activity_count: number
+  total_ads_affected: number
+  total_manifests_affected: number
+  total_open_conflict_days: number
+  activities: PlannerRevisionSignalImpactActivity[]
+}
+
+export interface PlannerRevisionDecisionRequest {
+  id: string
+  signal_id: string
+  created_at: string
+  due_at: string | null
+  status: 'pending' | 'responded' | 'forced'
+  project_id: string | null
+  project_code: string | null
+  project_name: string | null
+  task_id: string | null
+  task_title: string | null
+  planner_activity_ids: string[]
+  requester_user_id: string | null
+  requester_user_name: string | null
+  target_user_id: string | null
+  target_user_name: string | null
+  note: string | null
+  proposed_start_date: string | null
+  proposed_end_date: string | null
+  proposed_pax_quota: number | null
+  proposed_status: string | null
+  response: 'accepted' | 'counter_proposed' | null
+  response_note: string | null
+  counter_start_date: string | null
+  counter_end_date: string | null
+  counter_pax_quota: number | null
+  counter_status: string | null
+  responded_at: string | null
+  forced_at: string | null
+  forced_reason: string | null
+  application_result: {
+    applied_to_task?: boolean
+    task_requires_manual_breakdown?: boolean
+    applied_activity_count?: number
+    applied_fields?: string[]
+  } | null
+}
+
+export interface PlannerRevisionDecisionRequestCreate {
+  note?: string | null
+  due_at?: string | null
+  proposed_start_date?: string | null
+  proposed_end_date?: string | null
+  proposed_pax_quota?: number | null
+  proposed_status?: string | null
+}
+
+export interface PlannerRevisionDecisionRespond {
+  response: 'accepted' | 'counter_proposed'
+  response_note?: string | null
+  counter_start_date?: string | null
+  counter_end_date?: string | null
+  counter_pax_quota?: number | null
+  counter_status?: string | null
+}
+
 // ── Planner — Capacity ───────────────────────────────────────
 
 export interface PlannerCapacity {
@@ -2477,12 +2567,27 @@ export interface CapacityHeatmapDay {
   asset_id: string
   asset_name: string | null
   saturation_pct: number
-  used: number
-  max: number
+  forecast_pax: number
+  real_pob: number
+  remaining_capacity: number
+  capacity_limit: number
+}
+
+export interface CapacityHeatmapConfig {
+  threshold_low: number
+  threshold_medium: number
+  threshold_high: number
+  threshold_critical: number
+  color_low: string
+  color_medium: string
+  color_high: string
+  color_critical: string
+  color_overflow: string
 }
 
 export interface CapacityHeatmapResponse {
   days: CapacityHeatmapDay[]
+  config: CapacityHeatmapConfig
 }
 
 // ── Planner — Impact Preview ─────────────────────────────────
@@ -2598,6 +2703,7 @@ export interface ForecastDay {
   projected_load: number
   scheduled_load: number
   combined_load: number
+  real_pob: number
   max_capacity: number
   at_risk: boolean
   saturation_pct: number
@@ -2608,6 +2714,7 @@ export interface ForecastResult {
   summary: {
     at_risk_days: number
     avg_projected_load: number
+    avg_real_pob: number
     peak_date: string | null
     peak_load: number
     max_capacity: number

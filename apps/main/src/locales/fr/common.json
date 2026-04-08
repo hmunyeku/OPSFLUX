@@ -1562,6 +1562,7 @@
     "tabs": {
       "dashboard": "Tableau de bord",
       "ads": "Avis de séjour",
+      "waitlist": "Liste d'attente",
       "profiles": "Profils PAX",
       "compliance": "Compliance",
       "signalements": "Signalements",
@@ -1586,6 +1587,7 @@
         "submitted": "Soumis",
         "pending_compliance": "Compliance",
         "pending_validation": "Validation",
+        "pending_arbitration": "Arbitrage",
         "approved": "Approuvé",
         "rejected": "Rejeté",
         "cancelled": "Annulé",
@@ -1659,6 +1661,46 @@
     "search_rotation": "Rechercher par PAX, site...",
     "search_company": "Rechercher une entreprise...",
     "search_user": "Rechercher un utilisateur...",
+    "waitlist": {
+      "search": "Rechercher par AdS, passager, activité...",
+      "empty": "Aucun passager en attente",
+      "hint": "{{count}} passager(s) en attente d'arbitrage manuel.",
+      "columns": {
+        "ads": "AdS / activité",
+        "pax": "Passager",
+        "priority": "Priorité",
+        "submitted_at": "Soumis le"
+      },
+      "kpis": {
+        "items": "En attente",
+        "priority_peak": "Priorité max"
+      },
+      "actions": {
+        "approve_reason": "Promotion depuis la liste d'attente",
+        "reject_reason": "Refus depuis la liste d'attente",
+        "edit_priority": "Ajuster",
+        "priority_reason": "Repriorisation manuelle de la liste d'attente"
+      },
+      "sources": {
+        "auto_computed": "Calcul automatique",
+        "manual_override": "Override manuel"
+      },
+      "capacity": {
+        "summary": "{{scope}} · reste {{remaining}} / {{limit}}",
+        "scope": {
+          "planner_activity": "Activité Planner",
+          "site": "Capacité site"
+        }
+      },
+      "validation": {
+        "invalid_priority": "Le score de priorité doit être un entier positif ou nul."
+      },
+      "toasts": {
+        "approved": "Passager promu depuis la liste d'attente",
+        "rejected": "Passager retiré de la liste d'attente",
+        "priority_updated": "Priorité de liste d'attente mise à jour"
+      }
+    },
     "confirm_reject": "Confirmer le rejet",
     "cancel_question": "Annuler ?",
     "no_passenger": "Aucun passager",
@@ -1734,6 +1776,20 @@
       },
       "requester_label": "Demandeur : {{name}}",
       "creator_label": "Créateur : {{name}}",
+      "group_count": "{{count}} dossier(s)",
+      "group_helper_projects": "Projets liés : {{projects}}",
+      "group_helper_site": "Regroupé par site : {{site}}",
+      "projects_label": "Projets : {{projects}}",
+      "capacity_context": "{{scope}} · Forecast {{forecast}} · POB réel {{real}} · reste {{remaining}} / {{limit}}",
+      "review_context": "{{blocked}} bloqué(s) conformité · {{projects}} projet(s) lié(s) · {{stayPrograms}} programme(s) de séjour",
+      "daily_preview": "Aperçu journalier",
+      "daily_preview_values": "F {{forecast}} · R {{real}} · C {{limit}}",
+      "badges": {
+        "compliance_blocked": "{{count}} bloqué(s)",
+        "multi_project": "{{count}} projets",
+        "stay_program": "{{count}} séjours",
+        "capacity_full": "Capacité pleine"
+      },
       "avm_planned_pax": "{{count}} PAX prévus",
       "preparation_progress": "préparation {{progress}}%",
       "guidance": {
@@ -2494,7 +2550,163 @@
     "error_reject": "Erreur lors du rejet",
     "error_cancel": "Erreur lors de l'annulation",
     "error_add_dependency": "Erreur lors de l'ajout de la dépendance",
-    "error_create": "Erreur lors de la création de l'activité"
+    "error_create": "Erreur lors de la création de l'activité",
+    "resolve_conflict_action": "Résoudre",
+    "resolve_conflict_title": "Résoudre le conflit",
+    "resolve_conflict_field": "Résolution",
+    "resolve_conflict_placeholder": "Choisir...",
+    "resolve_conflict_history": "Historique du conflit",
+    "resolve_conflict_history_empty": "Aucune décision antérieure pour ce conflit.",
+    "resolve_conflict_note": "Note (optionnelle)",
+    "resolve_conflict_note_placeholder": "Commentaire de résolution...",
+    "confirm_resolution": "Confirmer",
+    "revision_requests": {
+      "incoming_title": "Demandes reçues",
+      "incoming_description": "Révisions Planner qui attendent votre réponse.",
+      "outgoing_title": "Demandes envoyées",
+      "outgoing_description": "Révisions Planner déjà émises vers les chefs de projet ou responsables.",
+      "empty_incoming": "Aucune demande de révision en attente.",
+      "empty_outgoing": "Aucune demande de révision émise.",
+      "request_title": "Demander une décision",
+      "respond_title": "Répondre à la demande",
+      "request_decision": "Demander réponse",
+      "send_request": "Envoyer la demande",
+      "accept": "Accepter",
+      "counter_propose": "Contre-proposer",
+      "force": "Forcer",
+      "projects_section_title": "Révisions Planner",
+      "projects_section_empty": "Aucune demande de révision Planner liée à cette tâche.",
+      "accepted_from_projects": "Accepté depuis la fiche tâche projet.",
+      "counter_from_projects": "Contre-proposition envoyée depuis la fiche tâche projet.",
+      "response": "Réponse",
+      "note": "Note",
+      "note_placeholder": "Expliquez l'ajustement demandé...",
+      "response_note_placeholder": "Expliquez votre réponse ou votre contre-proposition...",
+      "due_at": "Échéance",
+      "due_at_label": "Réponse attendue avant",
+      "proposed_pax": "POB proposé",
+      "proposed_start": "Début proposé",
+      "proposed_end": "Fin proposée",
+      "proposed_status": "Statut proposé",
+      "proposed_summary": "Proposition · début {{start}} · fin {{end}} · POB {{pax}} · statut {{status}}",
+      "counter_pax": "POB contre-proposé",
+      "counter_start": "Début contre-proposé",
+      "counter_end": "Fin contre-proposée",
+      "counter_status": "Statut contre-proposé",
+      "counter_summary": "Contre-proposition · début {{start}} · fin {{end}} · POB {{pax}} · statut {{status}}",
+      "application_summary": "Application automatique · tâche mise à jour: {{task}} · activités mises à jour: {{activities}}",
+      "application_manual_breakdown": "Acceptation enregistrée, mais la tâche parent doit être redécoupée manuellement dans le planning détaillé.",
+      "child_tasks_to_review": "{{count}} sous-tâche(s) à revoir dans le planning détaillé",
+      "status_pending": "En attente",
+      "status_responded": "Répondu",
+      "status_forced": "Forcé"
+    },
+    "capacity": {
+      "empty_title": "Aucune donnée",
+      "empty_idle_title": "Consulter la capacité",
+      "empty_description": "Aucune donnée de capacité trouvée pour ce site et cette période.",
+      "empty_idle_description": "Sélectionnez un site et une plage de dates pour visualiser la carte de chaleur.",
+      "heatmap_title": "Carte de chaleur — Forecast Pax et POB réel",
+      "heatmap_description": "La couleur reflète la saturation du Forecast Pax par rapport à la capacité. Chaque case affiche Forecast/POB réel.",
+      "heatmap_day_tooltip": "{{date}} · Forecast {{forecast}} · POB réel {{real}} · Capacité {{capacity}} · Saturation {{saturation}}%",
+      "heatmap_cell_legend": "Dans chaque case: Forecast Pax / POB réel",
+      "legend_label": "Légende:",
+      "unknown_site": "Site non renseigné",
+      "unassigned_field": "Hiérarchie non rattachée",
+      "unassigned_site": "Installations hors hiérarchie",
+      "scale_label": "Granularité",
+      "scale": {
+        "day": "Jour",
+        "week": "Semaine",
+        "month": "Mois",
+        "quarter": "Trimestre",
+        "semester": "Semestre"
+      },
+      "scale_aggregation_note": "Pour une granularité supérieure au jour, chaque cellule affiche le pic observé sur la période.",
+      "axis_asset": "Installation",
+      "axis_value_hint": "Forecast / POB réel",
+      "days_suffix": "j",
+      "previous_period": "Période précédente",
+      "next_period": "Période suivante",
+      "today": "Aujourd’hui"
+    },
+    "forecast": {
+      "description": "Prévision de charge basée sur les 90 derniers jours et les activités planifiées, avec rappel du POB réel constaté.",
+      "avg_real_pob": "POB réel moyen",
+      "real_pob_short": "R {{count}}"
+    },
+    "revision_signals": {
+      "title": "Révisions suggérées",
+      "description": "Changements projet resynchronisés qui peuvent nécessiter un nouvel arbitrage Planner.",
+      "empty": "Aucune révision suggérée récente.",
+      "project_fallback": "Projet",
+      "task_fallback": "Tâche liée",
+      "actor_fallback": "Utilisateur",
+      "open_project": "Ouvrir projet",
+      "acknowledge": "Traité",
+      "request_decision": "Demander réponse",
+      "show_impact": "Voir impact",
+      "hide_impact": "Masquer impact",
+      "ads_affected": "AdS impactées",
+      "manifests_affected": "Manifestes impactés",
+      "open_conflict_days": "Jours de conflit ouverts",
+      "impact_activity_summary": "{{ads}} AdS · {{manifests}} manifestes · {{conflicts}} jours de conflit",
+      "critical_fields": "champs critiques",
+      "summary": "{{fields}} · {{count}} activité(s) liée(s)"
+    },
+    "gantt": {
+      "unassigned_asset": "Non affecté",
+      "activity_count_one": "{{count}} activité",
+      "activity_count_other": "{{count}} activités",
+      "proposal_title": "Proposition · {{title}}",
+      "legend_label": "Légende:",
+      "legend_confirmed": "Version actuelle",
+      "legend_pending_proposal": "Proposition en attente",
+      "empty_message": "Aucune activité dans cette période. Ajustez les filtres ou la plage de dates.",
+      "columns": {
+        "type": "Type",
+        "pax": "PAX",
+        "start": "Début",
+        "end": "Fin",
+        "aggregate": "Agrégé"
+      },
+      "status": {
+        "draft": "Brouillon",
+        "submitted": "Soumis",
+        "validated": "Validé",
+        "in_progress": "En cours",
+        "completed": "Terminé",
+        "rejected": "Rejeté",
+        "cancelled": "Annulé"
+      },
+      "tooltip": {
+        "type": "Type",
+        "status": "Statut",
+        "pax": "PAX",
+        "priority": "Priorité",
+        "well": "Puits",
+        "rig": "Rig",
+        "work_order": "WO",
+        "revision": "Révision",
+        "pending_proposal": "Proposition en attente",
+        "current_status": "Statut courant",
+        "proposed_status": "Statut proposé",
+        "current_pax": "PAX courant",
+        "proposed_pax": "PAX proposé",
+        "current_start": "Début courant",
+        "current_end": "Fin courante",
+        "proposed_start": "Début proposé",
+        "proposed_end": "Fin proposée",
+        "note": "Note",
+        "site": "Site",
+        "activities": "Activités",
+        "max_pax_capacity": "Capacité max PAX"
+      },
+      "toasts": {
+        "rescheduled": "Activité replanifiée",
+        "drag_error": "Erreur lors du déplacement"
+      }
+    }
   },
   "travelwiz": {
     "title": "TravelWiz",

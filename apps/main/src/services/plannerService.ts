@@ -5,6 +5,11 @@ import api from '@/lib/api'
 import type {
   PlannerActivity, PlannerActivityCreate, PlannerActivityUpdate,
   PlannerConflict, PlannerConflictResolve,
+  PlannerRevisionSignal,
+  PlannerRevisionSignalImpactSummary,
+  PlannerRevisionDecisionRequest,
+  PlannerRevisionDecisionRequestCreate,
+  PlannerRevisionDecisionRespond,
   PlannerCapacity,
   PlannerDependency, PlannerDependencyCreate,
   PaginatedResponse, PaginationParams,
@@ -129,6 +134,46 @@ export const plannerService = {
   // ── Conflicts ──
   listConflicts: async (params: ConflictListParams = {}): Promise<PaginatedResponse<PlannerConflict>> => {
     const { data } = await api.get(`${BASE}/conflicts`, { params })
+    return data
+  },
+
+  listRevisionSignals: async (params: PaginationParams = {}): Promise<PaginatedResponse<PlannerRevisionSignal>> => {
+    const { data } = await api.get(`${BASE}/revision-signals`, { params })
+    return data
+  },
+
+  acknowledgeRevisionSignal: async (id: string): Promise<{ acknowledged: boolean; signal_id: string }> => {
+    const { data } = await api.post(`${BASE}/revision-signals/${id}/acknowledge`)
+    return data
+  },
+
+  getRevisionSignalImpactSummary: async (id: string): Promise<PlannerRevisionSignalImpactSummary> => {
+    const { data } = await api.get(`${BASE}/revision-signals/${id}/impact-summary`)
+    return data
+  },
+
+  listRevisionDecisionRequests: async (params: PaginationParams & {
+    direction?: 'incoming' | 'outgoing'
+    status?: 'pending' | 'responded' | 'forced' | 'all'
+    project_id?: string
+    task_id?: string
+  } = {}): Promise<PaginatedResponse<PlannerRevisionDecisionRequest>> => {
+    const { data } = await api.get(`${BASE}/revision-decision-requests`, { params })
+    return data
+  },
+
+  requestRevisionDecision: async (signalId: string, payload: PlannerRevisionDecisionRequestCreate): Promise<PlannerRevisionDecisionRequest> => {
+    const { data } = await api.post(`${BASE}/revision-signals/${signalId}/request-decision`, payload)
+    return data
+  },
+
+  respondRevisionDecisionRequest: async (requestId: string, payload: PlannerRevisionDecisionRespond): Promise<PlannerRevisionDecisionRequest> => {
+    const { data } = await api.post(`${BASE}/revision-decision-requests/${requestId}/respond`, payload)
+    return data
+  },
+
+  forceRevisionDecisionRequest: async (requestId: string, reason?: string): Promise<PlannerRevisionDecisionRequest> => {
+    const { data } = await api.post(`${BASE}/revision-decision-requests/${requestId}/force`, reason ? { reason } : {})
     return data
   },
 

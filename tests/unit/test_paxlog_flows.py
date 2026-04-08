@@ -5853,6 +5853,8 @@ async def test_workflow_transition_semantic_bridge_emits_cargo_aliases(monkeypat
     )
 
     assert [event.event_type for event in published] == [
+        "packlog.cargo.workflow.assigned",
+        "packlog.cargo.workflow.changed",
         "travelwiz.cargo.workflow.assigned",
         "travelwiz.cargo.workflow.changed",
     ]

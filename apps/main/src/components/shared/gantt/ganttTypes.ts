@@ -45,9 +45,16 @@ export interface GanttColumn {
   align?: 'left' | 'center' | 'right'
   /** Whether this column is sortable */
   sortable?: boolean
+  /** Whether cells in this column are editable (double-click to edit) */
+  editable?: boolean
+  /** Input type for editing: text, date, number */
+  editType?: 'text' | 'date' | 'number'
   /** Custom cell renderer */
   render?: (row: GanttRow) => ReactNode
 }
+
+/** Callback when a grid cell is edited */
+export type OnCellEdit = (rowId: string, columnId: string, value: string) => void
 
 // ── Bar (timeline) ───────────────────────────────────────────────
 
@@ -211,6 +218,8 @@ export interface GanttCoreProps {
   onBarResize?: (barId: string, edge: 'left' | 'right', newDate: string) => void
   onRowClick?: (rowId: string) => void
   onContextMenu?: (barId: string, x: number, y: number) => void
+  /** Called when a grid cell is edited inline */
+  onCellEdit?: OnCellEdit
 
   // ── Filters config ──
   /** Available status values for settings filter */
@@ -242,4 +251,16 @@ export interface GanttCoreProps {
   minHeight?: number | string
   /** Class name for the outer container */
   className?: string
+
+  // ── Toolbar actions ──
+  /** Show action buttons (add task, milestone, indent) in toolbar */
+  showActions?: boolean
+  onAddTask?: () => void
+  onAddMilestone?: () => void
+  onIndent?: (rowId: string) => void
+  onOutdent?: (rowId: string) => void
+  onDeleteRow?: (rowId: string) => void
+  /** Currently selected row (for indent/outdent context) */
+  selectedRowId?: string | null
+  onSelectRow?: (rowId: string | null) => void
 }

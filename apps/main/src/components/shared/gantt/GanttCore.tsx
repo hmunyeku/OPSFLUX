@@ -21,6 +21,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronRight as ChevronCollapsed,
   Loader2, ZoomIn, ZoomOut, Maximize, Download,
+  Plus, Diamond, IndentIncrease, IndentDecrease, Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -41,6 +42,63 @@ export type { TimeScale } from './ganttEngine'
 
 const SCALES: TimeScale[] = ['day', 'week', 'month', 'quarter', 'semester']
 
+// ── Editable Cell (inline edit on double-click) ─────────────────
+
+import type { GanttColumn, OnCellEdit } from './ganttTypes'
+
+function EditableCell({ rowId, col, value, renderContent, onEdit }: {
+  rowId: string
+  col: GanttColumn
+  value: string | number | null
+  renderContent?: React.ReactNode
+  onEdit?: OnCellEdit
+}) {
+  const [editing, setEditing] = useState(false)
+  const [editVal, setEditVal] = useState(String(value ?? ''))
+
+  const canEdit = col.editable && onEdit
+
+  const handleSave = () => {
+    setEditing(false)
+    if (editVal !== String(value ?? '') && canEdit) {
+      onEdit(rowId, col.id, editVal)
+    }
+  }
+
+  return (
+    <div
+      className={cn(
+        'text-[10px] text-muted-foreground px-1 shrink-0 truncate border-l border-border/20',
+        col.align === 'right' && 'text-right',
+        col.align === 'center' && 'text-center',
+        canEdit && !editing && 'cursor-pointer hover:bg-primary/5',
+      )}
+      style={{ width: col.width }}
+      onDoubleClick={() => {
+        if (!canEdit) return
+        setEditing(true)
+        setEditVal(String(value ?? ''))
+      }}
+    >
+      {editing ? (
+        <input
+          autoFocus
+          type={col.editType || 'text'}
+          value={editVal}
+          onChange={e => setEditVal(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={e => {
+            if (e.key === 'Enter') handleSave()
+            if (e.key === 'Escape') setEditing(false)
+          }}
+          className="w-full h-full bg-background border border-primary/30 rounded px-0.5 text-[10px] outline-none"
+          onClick={e => e.stopPropagation()}
+        />
+      ) : renderContent ?? (String(value ?? '—'))}
+    </div>
+  )
+}
+
 // ── Main Component ──────────────────────────────────────────────
 
 export function GanttCore(props: GanttCoreProps) {
@@ -48,9 +106,11 @@ export function GanttCore(props: GanttCoreProps) {
     rows, bars, dependencies = [], markers = [], columns = [],
     initialScale, initialStart, initialEnd, initialSettings,
     onBarClick, onBarDrag, onBarResize, onBarTitleEdit,
-    onRowClick,
+    onRowClick, onCellEdit,
     statusOptions, priorityOptions,
     presets: _presets, onPresetsChange: _onPresetsChange,
+    showActions, onAddTask, onAddMilestone, onIndent, onOutdent, onDeleteRow,
+    selectedRowId, onSelectRow,
     expandedRows, onToggleRow,
     onSettingsChange,
     emptyMessage = 'Aucune donnée à afficher',
@@ -345,6 +405,37 @@ export function GanttCore(props: GanttCoreProps) {
             ))}
           </div>
 
+          {/* Action buttons */}
+          {showActions && (
+            <div className="flex items-center gap-0.5 ml-2 border-l border-border/40 pl-2">
+              {onAddTask && (
+                <button onClick={onAddTask} className="h-6 px-2 rounded text-[10px] font-medium flex items-center gap-1 hover:bg-muted" title="Ajouter une tâche">
+                  <Plus className="h-3 w-3" /> Tâche
+                </button>
+              )}
+              {onAddMilestone && (
+                <button onClick={onAddMilestone} className="h-6 px-2 rounded text-[10px] font-medium flex items-center gap-1 hover:bg-muted" title="Ajouter un jalon">
+                  <Diamond className="h-3 w-3" /> Jalon
+                </button>
+              )}
+              {selectedRowId && onIndent && (
+                <button onClick={() => onIndent(selectedRowId)} className="p-1 rounded hover:bg-muted" title="Indenter">
+                  <IndentIncrease className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              )}
+              {selectedRowId && onOutdent && (
+                <button onClick={() => onOutdent(selectedRowId)} className="p-1 rounded hover:bg-muted" title="Désindenter">
+                  <IndentDecrease className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              )}
+              {selectedRowId && onDeleteRow && (
+                <button onClick={() => onDeleteRow(selectedRowId)} className="p-1 rounded hover:bg-destructive/10" title="Supprimer">
+                  <Trash2 className="h-3.5 w-3.5 text-destructive/60" />
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Zoom */}
           <div className="flex items-center gap-0.5 ml-1">
             <button onClick={() => zoom(-1)} className="p-1 rounded hover:bg-muted" title="Zoom -">
@@ -437,9 +528,10 @@ export function GanttCore(props: GanttCoreProps) {
                       'flex items-center gap-1.5 px-2 border-b text-xs cursor-pointer',
                       'hover:bg-primary/5 transition-colors',
                       idx % 2 === 0 ? 'bg-background' : 'bg-muted/15',
+                      selectedRowId === row.id && 'bg-primary/10 ring-1 ring-inset ring-primary/30',
                     )}
                     style={{ height: settings.rowHeight, paddingLeft: 8 + row.level * 18 }}
-                    onClick={() => onRowClick?.(row.id)}
+                    onClick={() => { onRowClick?.(row.id); onSelectRow?.(row.id) }}
                   >
                     {/* Expand/collapse */}
                     {row.hasChildren ? (
@@ -469,19 +561,16 @@ export function GanttCore(props: GanttCoreProps) {
                       )}
                     </div>
 
-                    {/* Custom column values */}
+                    {/* Custom column values — editable on double-click */}
                     {columns.map(col => (
-                      <div
+                      <EditableCell
                         key={col.id}
-                        className={cn(
-                          'text-[10px] text-muted-foreground px-1 shrink-0 truncate border-l border-border/20',
-                          col.align === 'right' && 'text-right',
-                          col.align === 'center' && 'text-center',
-                        )}
-                        style={{ width: col.width }}
-                      >
-                        {col.render ? col.render(row) : (row.columns?.[col.id] ?? '—')}
-                      </div>
+                        rowId={row.id}
+                        col={col}
+                        value={col.render ? null : (row.columns?.[col.id] ?? null)}
+                        renderContent={col.render ? col.render(row) : undefined}
+                        onEdit={onCellEdit}
+                      />
                     ))}
                   </div>
                 ))}

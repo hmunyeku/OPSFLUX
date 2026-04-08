@@ -49,10 +49,10 @@ const PRIORITY_OPTIONS = [
 // ── Grid columns ────────────────────────────────────────────────
 
 const COLUMNS: GanttColumn[] = [
-  { id: 'start', label: 'Début', width: 75, align: 'center' },
-  { id: 'end', label: 'Fin', width: 75, align: 'center' },
+  { id: 'start', label: 'Début', width: 80, align: 'center', editable: true, editType: 'date' },
+  { id: 'end', label: 'Fin', width: 80, align: 'center', editable: true, editType: 'date' },
   { id: 'duration', label: 'Durée', width: 45, align: 'right' },
-  { id: 'progress', label: '%', width: 35, align: 'right' },
+  { id: 'progress', label: '%', width: 35, align: 'right', editable: true, editType: 'number' },
 ]
 
 function fmtDate(iso: string | null | undefined): string {
@@ -321,6 +321,28 @@ export function ProjectGanttWrapper() {
     } catch { toast({ title: 'Erreur', variant: 'error' }) }
   }, [bars, toast])
 
+  // ── Cell edit (inline grid editing) ────────────────────────────
+
+  const handleCellEdit = useCallback(async (rowId: string, columnId: string, value: string) => {
+    // Find which project this row belongs to
+    const bar = bars.find(b => b.rowId === rowId)
+    const projectId = bar?.meta?.projectId as string
+    if (!projectId || rowId.startsWith('proj-')) return
+
+    try {
+      const patch: Record<string, unknown> = {}
+      if (columnId === 'start') patch.start_date = value
+      if (columnId === 'end') patch.due_date = value
+      if (columnId === 'progress') patch.progress = Number(value)
+      if (Object.keys(patch).length > 0) {
+        await projetsService.updateTask(projectId, rowId, patch)
+        toast({ title: 'Mis à jour', variant: 'success' })
+      }
+    } catch {
+      toast({ title: 'Erreur de mise à jour', variant: 'error' })
+    }
+  }, [bars, toast])
+
   const isLoading = projLoading || taskQueries.some(q => q.isLoading)
 
   return (
@@ -347,6 +369,7 @@ export function ProjectGanttWrapper() {
           onBarDrag={handleBarDrag}
           onBarResize={handleBarResize}
           onBarTitleEdit={handleBarTitleEdit}
+          onCellEdit={handleCellEdit}
           expandedRows={expanded}
           onToggleRow={toggleRow}
           isLoading={isLoading}

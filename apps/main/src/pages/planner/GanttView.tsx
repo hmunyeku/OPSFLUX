@@ -13,8 +13,9 @@ import { plannerService } from '@/services/plannerService'
 import { useToast } from '@/components/ui/Toast'
 import { GanttCore } from '@/components/shared/gantt/GanttCore'
 import { toISO } from '@/components/shared/gantt/ganttEngine'
-import type { GanttRow, GanttBarData } from '@/components/shared/gantt/GanttCore'
+import type { GanttRow, GanttBarData, GanttColumn } from '@/components/shared/gantt/GanttCore'
 import type { TimeScale } from '@/components/shared/gantt/ganttEngine'
+// ganttEngine utilities available via GanttCore
 
 // ── Type colors for Planner activity types ──────────────────────
 
@@ -28,6 +29,18 @@ const STATUS_LABELS: Record<string, string> = {
   draft: 'Brouillon', submitted: 'Soumis', validated: 'Validé',
   in_progress: 'En cours', completed: 'Terminé', rejected: 'Rejeté', cancelled: 'Annulé',
 }
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  try { return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) } catch { return '—' }
+}
+
+const PLANNER_COLUMNS: GanttColumn[] = [
+  { id: 'type', label: 'Type', width: 65, align: 'center' },
+  { id: 'pax', label: 'PAX', width: 40, align: 'right' },
+  { id: 'start', label: 'Début', width: 75, align: 'center', editable: true, editType: 'date' },
+  { id: 'end', label: 'Fin', width: 75, align: 'center', editable: true, editType: 'date' },
+]
 
 // ── Component ───────────────────────────────────────────────────
 
@@ -93,6 +106,12 @@ export function GanttView({ typeFilter, statusFilter }: GanttViewProps = {}) {
             sublabel: STATUS_LABELS[act.status] || act.status,
             level: 1,
             hasChildren: false,
+            columns: {
+              type: act.type,
+              pax: act.pax_quota ?? 0,
+              start: fmtDate(act.start_date),
+              end: fmtDate(act.end_date),
+            },
             color: TYPE_COLORS[act.type] || '#3b82f6',
           })
 
@@ -186,6 +205,7 @@ export function GanttView({ typeFilter, statusFilter }: GanttViewProps = {}) {
         initialScale={scale}
         initialStart={startDate}
         initialEnd={endDate}
+        columns={PLANNER_COLUMNS}
         initialSettings={{ barHeight: 20, rowHeight: 32, showProgress: false }}
         onBarClick={handleBarClick}
         onBarDrag={handleBarDrag}

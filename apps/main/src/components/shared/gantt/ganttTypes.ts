@@ -168,6 +168,8 @@ export interface GanttSettings {
   hiddenPriorities: string[]
   /** Filter by assignee substring */
   filterAssignee: string | null
+  /** Hidden column IDs */
+  hiddenColumns: string[]
 }
 
 export const DEFAULT_SETTINGS: GanttSettings = {
@@ -184,6 +186,7 @@ export const DEFAULT_SETTINGS: GanttSettings = {
   hiddenStatuses: [],
   hiddenPriorities: [],
   filterAssignee: null,
+  hiddenColumns: [],
 }
 
 // ── Presets ──────────────────────────────────────────────────────

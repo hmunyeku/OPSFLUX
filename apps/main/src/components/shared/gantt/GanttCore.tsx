@@ -103,7 +103,7 @@ function EditableCell({ rowId, col, value, renderContent, onEdit }: {
 
 export function GanttCore(props: GanttCoreProps) {
   const {
-    rows, bars, dependencies = [], markers = [], columns = [],
+    rows, bars, dependencies = [], markers = [], columns: rawColumns = [],
     initialScale, initialStart, initialEnd, initialSettings,
     onBarClick, onBarDrag, onBarResize, onBarTitleEdit,
     onRowClick, onCellEdit,
@@ -136,6 +136,13 @@ export function GanttCore(props: GanttCoreProps) {
       return next
     })
   }, [onSettingsChange])
+
+  // ── Visible columns (filtered by hiddenColumns) ────────────────
+
+  const columns = useMemo(() =>
+    rawColumns.filter(c => !(settings.hiddenColumns || []).includes(c.id)),
+    [rawColumns, settings.hiddenColumns],
+  )
 
   // ── View range state ───────────────────────────────────────────
 
@@ -484,6 +491,7 @@ export function GanttCore(props: GanttCoreProps) {
             onChange={updateSettings}
             statuses={statusOptions}
             priorities={priorityOptions}
+            columns={rawColumns}
           />
         </div>
       )}
@@ -527,10 +535,20 @@ export function GanttCore(props: GanttCoreProps) {
                     className={cn(
                       'flex items-center gap-1.5 px-2 border-b text-xs cursor-pointer',
                       'hover:bg-primary/5 transition-colors',
-                      idx % 2 === 0 ? 'bg-background' : 'bg-muted/15',
+                      row.level === 0 && (idx % 2 === 0 ? 'bg-background' : 'bg-muted/15'),
                       selectedRowId === row.id && 'bg-primary/10 ring-1 ring-inset ring-primary/30',
                     )}
-                    style={{ height: settings.rowHeight, paddingLeft: 8 + row.level * 18 }}
+                    style={{
+                      height: settings.rowHeight,
+                      paddingLeft: 8 + row.level * 18,
+                      ...(row.level > 0 ? (() => {
+                        let parentColor: string | undefined
+                        for (let i = idx - 1; i >= 0; i--) {
+                          if (rows[i].level < row.level) { parentColor = rows[i].color; break }
+                        }
+                        return parentColor ? { backgroundColor: parentColor + '08', borderLeft: `2px solid ${parentColor}30` } : {}
+                      })() : {}),
+                    }}
                     onClick={() => { onRowClick?.(row.id); onSelectRow?.(row.id) }}
                     onMouseEnter={(e) => {
                       // Show tooltip for the first bar of this row
@@ -614,17 +632,36 @@ export function GanttCore(props: GanttCoreProps) {
           >
             <div className="relative" style={{ width: totalWidth, height: bodyH }}>
 
-              {/* Row stripes */}
-              {rows.map((_, idx) => (
-                <div
-                  key={idx}
-                  className={cn(
-                    'absolute left-0 border-b border-border/20',
-                    idx % 2 === 0 ? 'bg-background' : 'bg-muted/10',
-                  )}
-                  style={{ top: idx * settings.rowHeight, width: totalWidth, height: settings.rowHeight }}
-                />
-              ))}
+              {/* Row stripes with parent grouping background */}
+              {rows.map((row, idx) => {
+                // Find parent color for group tinting
+                let groupColor: string | undefined
+                if (row.level > 0) {
+                  // Walk back to find the nearest level-0 ancestor
+                  for (let i = idx - 1; i >= 0; i--) {
+                    if (rows[i].level < row.level) {
+                      groupColor = rows[i].color
+                      break
+                    }
+                  }
+                }
+                return (
+                  <div
+                    key={idx}
+                    className={cn(
+                      'absolute left-0 border-b border-border/20',
+                      !groupColor && (idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'),
+                    )}
+                    style={{
+                      top: idx * settings.rowHeight,
+                      width: totalWidth,
+                      height: settings.rowHeight,
+                      backgroundColor: groupColor ? groupColor + '08' : undefined,
+                      borderLeft: groupColor ? `2px solid ${groupColor}30` : undefined,
+                    }}
+                  />
+                )
+              })}
 
               {/* Column separators */}
               {(() => {

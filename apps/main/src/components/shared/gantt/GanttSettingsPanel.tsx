@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils'
 import type { GanttSettings } from './ganttTypes'
 import { DEFAULT_SETTINGS } from './ganttTypes'
 
+import type { GanttColumn } from './ganttTypes'
+
 interface GanttSettingsPanelProps {
   settings: GanttSettings
   onChange: (patch: Partial<GanttSettings>) => void
@@ -18,9 +20,11 @@ interface GanttSettingsPanelProps {
   statuses?: { value: string; label: string; color?: string }[]
   /** Available priority values for filter checkboxes */
   priorities?: { value: string; label: string; color?: string }[]
+  /** Available columns for show/hide toggles */
+  columns?: GanttColumn[]
 }
 
-export function GanttSettingsPanel({ settings, onChange, statuses = [], priorities = [] }: GanttSettingsPanelProps) {
+export function GanttSettingsPanel({ settings, onChange, statuses = [], priorities = [], columns = [] }: GanttSettingsPanelProps) {
   const [open, setOpen] = useState(false)
 
   if (!open) {
@@ -204,6 +208,34 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
                 placeholder="Filtrer par nom..."
                 className="w-full mt-1 h-7 px-2 text-xs border rounded bg-background"
               />
+            </div>
+          </section>
+        )}
+
+        {/* ── Columns ─────────────────────────────────────── */}
+        {columns.length > 0 && (
+          <section>
+            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Colonnes</h4>
+            <div className="space-y-1">
+              {columns.map(col => {
+                const hidden = (settings.hiddenColumns || []).includes(col.id)
+                return (
+                  <label key={col.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!hidden}
+                      onChange={() => {
+                        const next = hidden
+                          ? (settings.hiddenColumns || []).filter(c => c !== col.id)
+                          : [...(settings.hiddenColumns || []), col.id]
+                        onChange({ hiddenColumns: next })
+                      }}
+                      className="gl-checkbox"
+                    />
+                    {col.label}
+                  </label>
+                )
+              })}
             </div>
           </section>
         )}

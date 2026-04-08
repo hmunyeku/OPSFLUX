@@ -43,6 +43,7 @@ interface GanttBarProps {
   onResize?: (edge: 'left' | 'right', newDate: string) => void
   onTitleEdit?: (newTitle: string) => void
   onProgressChange?: (newProgress: number) => void
+  onLinkStart?: (barId: string, edge: 'start' | 'end', x: number, y: number) => void
   onHover?: (e: React.MouseEvent) => void
   onLeave?: () => void
   onRightClick?: (e: React.MouseEvent) => void
@@ -52,7 +53,7 @@ export function GanttBarComponent({
   bar, left, width, top, barHeight, pxPerDay,
   showProgress, showLabels, showBaselines,
   baselineLeft, baselineWidth,
-  onClick, onDrag, onResize, onTitleEdit, onProgressChange, onHover, onLeave, onRightClick,
+  onClick, onDrag, onResize, onTitleEdit, onProgressChange, onLinkStart, onHover, onLeave, onRightClick,
 }: GanttBarProps) {
   const color = resolveBarColor(bar)
   const dragRef = useRef<{ originX: number; mode: 'move' | 'left' | 'right' } | null>(null)
@@ -320,6 +321,31 @@ export function GanttBarComponent({
           >
             <div className="w-2 h-2 bg-white border border-black/20 rounded-sm shadow-sm opacity-0 group-hover/prog:opacity-100 transition-opacity" />
           </div>
+        )}
+        {/* Connection points — drag to create dependency */}
+        {onLinkStart && (
+          <>
+            {/* Left (start) connection point */}
+            <div
+              className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary border-2 border-white shadow-sm z-40 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                const rect = (e.target as HTMLElement).getBoundingClientRect()
+                onLinkStart(bar.id, 'start', rect.left + rect.width / 2, rect.top + rect.height / 2)
+              }}
+            />
+            {/* Right (end) connection point */}
+            <div
+              className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary border-2 border-white shadow-sm z-40 cursor-crosshair opacity-0 group-hover:opacity-100 transition-opacity"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                const rect = (e.target as HTMLElement).getBoundingClientRect()
+                onLinkStart(bar.id, 'end', rect.left + rect.width / 2, rect.top + rect.height / 2)
+              }}
+            />
+          </>
         )}
       </div>
     </>

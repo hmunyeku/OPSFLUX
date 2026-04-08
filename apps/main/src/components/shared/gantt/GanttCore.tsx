@@ -22,6 +22,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronRight as ChevronCollapsed,
   Loader2, ZoomIn, ZoomOut, Maximize, Download,
   Plus, Diamond, IndentIncrease, IndentDecrease, Trash2,
+  Undo2, Redo2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -112,6 +113,7 @@ export function GanttCore(props: GanttCoreProps) {
     statusOptions, priorityOptions,
     presets: _presets, onPresetsChange: _onPresetsChange,
     showActions, onAddTask, onAddMilestone, onIndent, onOutdent, onDeleteRow,
+    onCreateDependency, onUndo, onRedo,
     selectedRowId, onSelectRow,
     expandedRows, onToggleRow,
     onSettingsChange,
@@ -193,6 +195,12 @@ export function GanttCore(props: GanttCoreProps) {
 
   const [tooltip, setTooltip] = useState<{ bar: GanttBarData; x: number; y: number } | null>(null)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; actions: ContextMenuAction[] } | null>(null)
+
+  // Linking state — dragging a dependency arrow
+  const [linking, setLinking] = useState<{
+    fromBarId: string; fromEdge: 'start' | 'end'
+    startX: number; startY: number; curX: number; curY: number
+  } | null>(null)
 
   // ── Refs ────────────────────────────────────────────────────────
 
@@ -298,6 +306,39 @@ export function GanttCore(props: GanttCoreProps) {
     setTooltip({ bar, x: e.clientX, y: e.clientY })
   }, [])
   const hideTooltip = useCallback(() => setTooltip(null), [])
+
+  // ── Linking (drag arrow to create dependency) ───────────────────
+
+  const handleLinkStart = useCallback((barId: string, edge: 'start' | 'end', x: number, y: number) => {
+    if (!onCreateDependency) return
+    setLinking({ fromBarId: barId, fromEdge: edge, startX: x, startY: y, curX: x, curY: y })
+
+    const onMove = (ev: MouseEvent) => {
+      setLinking(prev => prev ? { ...prev, curX: ev.clientX, curY: ev.clientY } : null)
+    }
+
+    const onUp = (ev: MouseEvent) => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+
+      // Find which bar the mouse is over
+      const el = document.elementFromPoint(ev.clientX, ev.clientY)
+      const barEl = el?.closest('[data-bar-id]') as HTMLElement | null
+      const targetBarId = barEl?.dataset.barId
+
+      if (targetBarId && targetBarId !== barId) {
+        // Determine dependency type based on which edges were connected
+        // fromEdge=end → FS (Finish-to-Start) is most common
+        const type = edge === 'end' ? 'FS' : 'SS'
+        onCreateDependency(barId, targetBarId, type as 'FS' | 'SS' | 'FF' | 'SF')
+      }
+
+      setLinking(null)
+    }
+
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [onCreateDependency])
 
   // ── Context menu ───────────────────────────────────────────────
 
@@ -412,6 +453,13 @@ export function GanttCore(props: GanttCoreProps) {
         case 'f': case 'F':
           if (!e.ctrlKey && !e.metaKey) { fitAll(); e.preventDefault() }
           break
+        case 'z': case 'Z':
+          if ((e.ctrlKey || e.metaKey) && !e.shiftKey && onUndo) { onUndo(); e.preventDefault() }
+          if ((e.ctrlKey || e.metaKey) && e.shiftKey && onRedo) { onRedo(); e.preventDefault() }
+          break
+        case 'y': case 'Y':
+          if ((e.ctrlKey || e.metaKey) && onRedo) { onRedo(); e.preventDefault() }
+          break
       }
     }
     window.addEventListener('keydown', handler)
@@ -456,6 +504,18 @@ export function GanttCore(props: GanttCoreProps) {
           <button onClick={() => shift(1)} className="p-1 rounded hover:bg-muted" title="Suivant">
             <ChevronRight className="h-4 w-4" />
           </button>
+
+          {/* Undo/Redo */}
+          {(onUndo || onRedo) && (
+            <div className="flex items-center gap-0.5 ml-1 border-l border-border/40 pl-1">
+              <button onClick={onUndo} disabled={!onUndo} className="p-1 rounded hover:bg-muted disabled:opacity-30" title="Annuler (Ctrl+Z)">
+                <Undo2 className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+              <button onClick={onRedo} disabled={!onRedo} className="p-1 rounded hover:bg-muted disabled:opacity-30" title="Refaire (Ctrl+Y)">
+                <Redo2 className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            </div>
+          )}
 
           {/* Scale selector */}
           <div className="flex items-center gap-0.5 ml-1 bg-muted/60 rounded-md p-0.5">
@@ -812,8 +872,8 @@ export function GanttCore(props: GanttCoreProps) {
                 }
 
                 return (
+                  <div key={bar.id} data-bar-id={bar.id} className="contents">
                   <GanttBarComponent
-                    key={bar.id}
                     bar={bar}
                     left={left}
                     width={width}
@@ -829,10 +889,12 @@ export function GanttCore(props: GanttCoreProps) {
                     onDrag={onBarDrag ? (s, e) => onBarDrag(bar.id, s, e) : undefined}
                     onResize={onBarResize ? (edge, date) => onBarResize(bar.id, edge, date) : undefined}
                     onTitleEdit={onBarTitleEdit ? (title) => onBarTitleEdit(bar.id, title) : undefined}
+                    onLinkStart={onCreateDependency ? handleLinkStart : undefined}
                     onHover={(e) => showTooltipFor(e, bar)}
                     onLeave={hideTooltip}
                     onRightClick={(e) => showContextMenuFor(e, bar)}
                   />
+                  </div>
                 )
               })}
             </div>
@@ -849,6 +911,22 @@ export function GanttCore(props: GanttCoreProps) {
           containerRect={containerRef.current.getBoundingClientRect()}
           showProgress={settings.showProgress}
         />
+      )}
+
+      {/* Linking line (temporary SVG while dragging) */}
+      {linking && (
+        <svg
+          className="fixed inset-0 z-[150] pointer-events-none"
+          width="100%" height="100%"
+        >
+          <line
+            x1={linking.startX} y1={linking.startY}
+            x2={linking.curX} y2={linking.curY}
+            stroke="#3b82f6" strokeWidth={2} strokeDasharray="6 3"
+          />
+          <circle cx={linking.startX} cy={linking.startY} r={4} fill="#3b82f6" />
+          <circle cx={linking.curX} cy={linking.curY} r={4} fill="#3b82f6" opacity={0.5} />
+        </svg>
       )}
 
       {/* Context menu */}

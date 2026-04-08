@@ -268,6 +268,12 @@ export interface GanttCoreProps {
   onIndent?: (rowId: string) => void
   onOutdent?: (rowId: string) => void
   onDeleteRow?: (rowId: string) => void
+  /** Called when user drags a link between two bars */
+  onCreateDependency?: (fromBarId: string, toBarId: string, type: 'FS' | 'SS' | 'FF' | 'SF') => void
+  /** Called when user presses Ctrl+Z */
+  onUndo?: () => void
+  /** Called when user presses Ctrl+Y */
+  onRedo?: () => void
   /** Currently selected row (for indent/outdent context) */
   selectedRowId?: string | null
   onSelectRow?: (rowId: string | null) => void

@@ -3259,6 +3259,9 @@ type SpreadsheetRow = ProjectTaskEnriched & {
   _groupLabel?: string
   _groupTaskCount?: number
   _hasChildren?: boolean
+  _childCount?: number
+  _durationDays?: number | null
+  _predecessorLabels?: string
 }
 
 /** Build tree-ordered flat array from tasks grouped by project */
@@ -3266,6 +3269,7 @@ function buildSpreadsheetTree(
   tasks: ProjectTaskEnriched[],
   expandedProjects: Set<string>,
   expandedTasks: Set<string>,
+  depsMap?: Map<string, { from_task_id: string; dependency_type: string }[]>,
 ): SpreadsheetRow[] {
   // Group by project
   const byProject = new Map<string, { code: string; name: string; tasks: ProjectTaskEnriched[] }>()
@@ -3323,11 +3327,26 @@ function buildSpreadsheetTree(
     function addChildren(parentId: string | null, depth: number) {
       const children = childrenMap.get(parentId) ?? []
       for (const child of children) {
-        const hasKids = (childrenMap.get(child.id) ?? []).length > 0
+        const kids = childrenMap.get(child.id) ?? []
+        const hasKids = kids.length > 0
+        // Duration
+        const dur = child.start_date && child.due_date
+          ? Math.ceil((new Date(child.due_date).getTime() - new Date(child.start_date).getTime()) / 86400000)
+          : null
+        // Predecessors from depsMap
+        const taskDeps = depsMap?.get(child.id) ?? []
+        const predLabels = taskDeps.map(d => {
+          const pred = taskMap.get(d.from_task_id)
+          return pred ? (pred.code || pred.title.slice(0, 15)) : d.from_task_id.slice(0, 6)
+        }).join(', ')
+
         result.push({
           ...child,
           _depth: depth,
           _hasChildren: hasKids,
+          _childCount: kids.length,
+          _durationDays: dur,
+          _predecessorLabels: predLabels,
         })
         if (hasKids && expandedTasks.has(child.id)) {
           addChildren(child.id, depth + 1)
@@ -3535,6 +3554,61 @@ function SpreadsheetView() {
       accessorKey: 'assignee_name', header: 'Responsable', size: 130,
       cell: ({ row }) => row.original._isGroupHeader ? null : <span className="text-xs text-muted-foreground truncate">{row.original.assignee_name || '--'}</span>,
     },
+    // ── Extra columns (hidden by default, toggle via column visibility) ──
+    {
+      id: 'duration', header: 'Durée', size: 60,
+      accessorFn: (row) => row._durationDays,
+      cell: ({ row }) => {
+        if (row.original._isGroupHeader) return null
+        const d = row.original._durationDays
+        return d != null ? <span className="text-xs tabular-nums text-muted-foreground">{d}j</span> : <span className="text-muted-foreground/40">--</span>
+      },
+    },
+    {
+      id: 'predecessors', header: 'Antécédents', size: 140,
+      accessorFn: (row) => row._predecessorLabels,
+      cell: ({ row }) => {
+        if (row.original._isGroupHeader) return null
+        const v = row.original._predecessorLabels
+        return v ? <span className="text-[10px] text-muted-foreground truncate font-mono">{v}</span> : <span className="text-muted-foreground/40">--</span>
+      },
+    },
+    {
+      id: 'child_count', header: 'Sous-tâches', size: 80,
+      accessorFn: (row) => row._childCount,
+      cell: ({ row }) => {
+        if (row.original._isGroupHeader) return null
+        const c = row.original._childCount ?? 0
+        return c > 0 ? <span className="text-xs tabular-nums text-muted-foreground">{c}</span> : <span className="text-muted-foreground/40">--</span>
+      },
+    },
+    {
+      accessorKey: 'description', header: 'Description', size: 200,
+      cell: ({ row }) => {
+        if (row.original._isGroupHeader) return null
+        const d = row.original.description
+        return d ? <span className="text-[10px] text-muted-foreground truncate">{d.slice(0, 60)}{d.length > 60 ? '…' : ''}</span> : <span className="text-muted-foreground/40">--</span>
+      },
+    },
+    {
+      id: 'project_code', header: 'Projet', size: 100,
+      accessorFn: (row) => row.project_code,
+      cell: ({ row }) => row.original._isGroupHeader ? null : <span className="font-mono text-[10px] text-muted-foreground">{row.original.project_code}</span>,
+    },
+    {
+      accessorKey: 'created_at', header: 'Créé le', size: 90,
+      cell: ({ row }) => {
+        if (row.original._isGroupHeader || !row.original.created_at) return null
+        return <span className="text-[10px] tabular-nums text-muted-foreground">{new Date(row.original.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>
+      },
+    },
+    {
+      accessorKey: 'completed_at', header: 'Terminé le', size: 90,
+      cell: ({ row }) => {
+        if (row.original._isGroupHeader || !row.original.completed_at) return null
+        return <span className="text-[10px] tabular-nums text-muted-foreground">{new Date(row.original.completed_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>
+      },
+    },
   ], [projectPriorityLabels, taskStatusLabels, expandedProjects, expandedTasks, toggleProject, toggleTask])
 
   return (
@@ -3565,8 +3639,9 @@ function SpreadsheetView() {
           emptyTitle="Aucune tâche"
           columnResizing
           columnVisibility
+          defaultHiddenColumns={['duration', 'predecessors', 'child_count', 'description', 'project_code', 'created_at', 'completed_at']}
           compact
-          storageKey="projets-spreadsheet-v2"
+          storageKey="projets-spreadsheet-v3"
           onRowClick={(row) => {
             if (row._isGroupHeader) {
               openDynamicPanel({ type: 'detail', module: 'projets', id: row.project_id })

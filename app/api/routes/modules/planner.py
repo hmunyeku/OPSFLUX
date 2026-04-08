@@ -1,7 +1,7 @@
 """Planner module routes — activities, conflicts, capacity scheduling.
 
 Integrates with:
-- Asset Registry: reads max_pax / permanent_ops_quota for capacity
+- Asset Registry: reads pob_capacity for capacity fallback
 - Projets: accepts push-to-planner from project tasks
 - PaxLog: emits events on activity validation/cancellation
 - Workflow Engine: FSM service manages status transitions with row-level
@@ -204,8 +204,11 @@ async def _compute_daily_capacity(
     db: AsyncSession, asset: Installation, entity_id: UUID, target_date: date
 ) -> dict:
     """Compute capacity for a specific asset on a specific date."""
-    total = asset.max_pax or 0
-    perm_ops = asset.permanent_ops_quota or 0
+    from app.services.modules.planner_service import get_current_capacity
+
+    cap = await get_current_capacity(db, asset.id, target_date)
+    total = int(cap["max_pax_total"]) if cap else 0
+    perm_ops = int(cap["permanent_ops_quota"]) if cap else 0
 
     # Sum pax_quota from all validated/in_progress activities overlapping target_date
     result = await db.execute(
@@ -246,7 +249,7 @@ async def _detect_and_create_conflicts(
     each day where capacity is exceeded.
     """
     asset = await db.get(Installation, activity.asset_id)
-    if not asset or not asset.max_pax:
+    if not asset:
         return []
 
     if not activity.start_date or not activity.end_date:
@@ -710,7 +713,7 @@ async def submit_activity(
                 "conflict_type": conflict.conflict_type,
                 "overflow_amount": conflict.overflow_amount,
                 "total_pax_requested": activity.pax_quota,
-                "max_capacity": asset.max_pax if asset else 0,
+                "max_capacity": asset.pob_capacity if asset and asset.pob_capacity is not None else 0,
             },
         ))
 
@@ -1975,14 +1978,17 @@ async def get_capacity(
 ):
     """Compute daily capacity usage for an asset over a date range.
 
-    Formula: residual = max_pax - permanent_ops_quota - sum(validated activities pax_quota)
+    Formula: residual = capacity - permanent_ops_quota - sum(validated activities pax_quota)
     """
     asset = await db.get(Installation, asset_id)
     if not asset:
         raise HTTPException(404, "Installation not found")
 
-    total = asset.max_pax or 0
-    perm_ops = asset.permanent_ops_quota or 0
+    from app.services.modules.planner_service import get_current_capacity
+
+    base_cap = await get_current_capacity(db, asset_id, date_from)
+    total = int(base_cap["max_pax_total"]) if base_cap else 0
+    perm_ops = int(base_cap["permanent_ops_quota"]) if base_cap else 0
 
     # Query all validated/in_progress activities for this asset in the date range
     activities_result = await db.execute(
@@ -2243,9 +2249,8 @@ async def create_asset_capacity(
         },
     )
 
-    # Also update the asset itself for backward compatibility
-    asset.max_pax = max_pax_total
-    asset.permanent_ops_quota = permanent_ops_quota
+    # Keep installation fallback aligned with the latest explicit capacity baseline.
+    asset.pob_capacity = max_pax_total
     await db.commit()
 
     # Emit capacity changed event

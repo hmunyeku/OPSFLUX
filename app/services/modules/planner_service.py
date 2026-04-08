@@ -3,7 +3,7 @@ recurrence generation, Gantt data, and inter-module integration endpoints.
 
 This service implements the spec rules:
 - Historized capacities (never UPDATE, always INSERT)
-- Capacity = max_pax - permanent_ops - Σ(approved pax_quota)
+- Capacity = pob_capacity - permanent_ops - Σ(approved pax_quota)
 - Hierarchy inheritance: effective limit = min(self, all parents)
 - Conflict detection on submit
 - Impact preview before modifying approved activities
@@ -94,7 +94,7 @@ async def get_current_capacity(
     """Get the most recent capacity record for an asset as of a given date.
 
     Reads from asset_capacities (historized table — never UPDATE, always INSERT).
-    Falls back to asset.max_pax / permanent_ops_quota if no capacity record exists.
+    Falls back to installation/site/field pob_capacity if no capacity record exists.
     """
     target = at_date or date.today()
 
@@ -176,7 +176,7 @@ async def get_effective_capacity(
         parent = await db.get(Installation, current.parent_id)
         if parent:
             parent_cap = await get_current_capacity(db, parent.id, target)
-            parent_max = parent_cap["max_pax_total"] if parent_cap else (parent.max_pax or 0)
+            parent_max = parent_cap["max_pax_total"] if parent_cap else (parent.pob_capacity or 0)
             if parent_max > 0:
                 effective = min(effective, parent_max)
         current = parent
@@ -516,7 +516,7 @@ async def get_capacity_heatmap(
     if asset_ids:
         asset_query = asset_query.where(Installation.id.in_(asset_ids))
     else:
-        # Only assets with max_pax > 0 (sites)
+        # Only assets with pob_capacity > 0 (sites)
         asset_query = asset_query.where(Installation.pob_capacity > 0)
 
     assets_result = await db.execute(asset_query)

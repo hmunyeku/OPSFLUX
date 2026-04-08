@@ -4,12 +4,13 @@
  * Features:
  * - Screenshot capture (html2canvas)
  * - Screen recording (getDisplayMedia + MediaRecorder)
+ * - Console log capture (circular buffer, auto-attached for bug reports)
  * - File attachment
  * - Auto-captures current URL + browser info
  *
  * Always visible for authenticated users with support.ticket.create permission.
  */
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { MessageSquarePlus, X, Send, Bug, Lightbulb, HelpCircle, Loader2, Camera, Paperclip, Video, Square } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermission } from '@/hooks/usePermission'
@@ -17,6 +18,86 @@ import { useCreateTicket } from '@/hooks/useSupport'
 import { useToast } from '@/components/ui/Toast'
 import api from '@/lib/api'
 import type { TicketCreate, TicketType } from '@/services/supportService'
+
+// ── Console Log Capture (circular buffer) ─────────────────────
+// Intercepts console.log/warn/error/info and keeps the last N entries.
+// Used to auto-attach a .log file when a bug report is submitted.
+
+interface ConsoleLogEntry {
+  ts: string
+  level: string
+  message: string
+}
+
+const MAX_LOG_ENTRIES = 500
+const consoleLogBuffer: ConsoleLogEntry[] = []
+let consoleInterceptInstalled = false
+
+function installConsoleIntercept() {
+  if (consoleInterceptInstalled) return
+  consoleInterceptInstalled = true
+
+  const levels = ['log', 'warn', 'error', 'info', 'debug'] as const
+  for (const level of levels) {
+    const original = console[level].bind(console)
+    console[level] = (...args: unknown[]) => {
+      try {
+        const message = args.map(a => {
+          if (a instanceof Error) return `${a.name}: ${a.message}\n${a.stack || ''}`
+          if (typeof a === 'object') try { return JSON.stringify(a, null, 0)?.slice(0, 500) } catch { return String(a) }
+          return String(a)
+        }).join(' ')
+
+        consoleLogBuffer.push({
+          ts: new Date().toISOString(),
+          level: level.toUpperCase(),
+          message: message.slice(0, 1000),
+        })
+        // Trim buffer
+        if (consoleLogBuffer.length > MAX_LOG_ENTRIES) {
+          consoleLogBuffer.splice(0, consoleLogBuffer.length - MAX_LOG_ENTRIES)
+        }
+      } catch { /* never break the app */ }
+      original(...args)
+    }
+  }
+
+  // Also capture unhandled errors and promise rejections
+  window.addEventListener('error', (e) => {
+    consoleLogBuffer.push({
+      ts: new Date().toISOString(),
+      level: 'UNCAUGHT_ERROR',
+      message: `${e.message} at ${e.filename}:${e.lineno}:${e.colno}`,
+    })
+  })
+  window.addEventListener('unhandledrejection', (e) => {
+    consoleLogBuffer.push({
+      ts: new Date().toISOString(),
+      level: 'UNHANDLED_REJECTION',
+      message: String(e.reason).slice(0, 1000),
+    })
+  })
+}
+
+function buildConsoleLogFile(): File {
+  const header = [
+    `=== OpsFlux Console Log ===`,
+    `Date: ${new Date().toISOString()}`,
+    `URL: ${window.location.href}`,
+    `UserAgent: ${navigator.userAgent}`,
+    `Viewport: ${window.innerWidth}x${window.innerHeight}`,
+    `Entries: ${consoleLogBuffer.length}`,
+    `${'='.repeat(50)}`,
+    '',
+  ].join('\n')
+
+  const lines = consoleLogBuffer.map(e =>
+    `[${e.ts}] [${e.level.padEnd(7)}] ${e.message}`
+  ).join('\n')
+
+  const content = header + lines
+  return new File([content], `console-${Date.now()}.log`, { type: 'text/plain' })
+}
 
 const TYPE_OPTIONS: { value: TicketType; label: string; icon: typeof Bug }[] = [
   { value: 'bug', label: 'Bug', icon: Bug },
@@ -46,6 +127,9 @@ export function FeedbackWidget() {
     ticket_type: 'bug',
     priority: 'medium',
   })
+
+  // Install console intercept once on mount
+  useEffect(() => { installConsoleIntercept() }, [])
 
   // ── Screenshot capture (html2canvas) ──
   const captureScreenshot = useCallback(async () => {
@@ -168,19 +252,35 @@ export function FeedbackWidget() {
         },
       })
 
-      // Upload all attachments
-      for (const file of attachments) {
+      // Build list of files to upload: user attachments + auto console log for bugs
+      const filesToUpload: { file: File; description: string }[] = attachments.map(f => ({
+        file: f,
+        description: f.type.startsWith('video/') ? 'Enregistrement écran' : f.type.startsWith('image/') ? 'Capture d\'écran' : 'Pièce jointe',
+      }))
+
+      // Auto-attach console log for bug reports
+      if (form.ticket_type === 'bug' && consoleLogBuffer.length > 0) {
+        filesToUpload.push({
+          file: buildConsoleLogFile(),
+          description: 'Console log (auto-capturé)',
+        })
+      }
+
+      // Upload all files
+      for (const { file, description } of filesToUpload) {
         try {
           const fd = new FormData()
           fd.append('file', file)
           fd.append('owner_type', 'support_ticket')
           fd.append('owner_id', ticket.id)
-          fd.append('description', file.type.startsWith('video/') ? 'Enregistrement écran' : 'Capture d\'écran')
+          fd.append('description', description)
           await api.post('/api/v1/attachments', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
         } catch { /* non-blocking */ }
       }
 
-      toast({ title: 'Feedback envoyé !', description: `Ticket créé avec ${attachments.length} pièce(s) jointe(s).`, variant: 'success' })
+      const totalFiles = filesToUpload.length
+      const logNote = form.ticket_type === 'bug' ? ' (console log inclus)' : ''
+      toast({ title: 'Feedback envoyé !', description: `Ticket créé avec ${totalFiles} pièce(s) jointe(s)${logNote}.`, variant: 'success' })
       setOpen(false)
       setForm({ title: '', description: '', ticket_type: 'bug', priority: 'medium' })
       setAttachments([])
@@ -251,21 +351,36 @@ export function FeedbackWidget() {
             </div>
 
             {/* Title */}
-            <input
-              className="gl-form-input text-sm w-full"
-              placeholder="Titre du problème..."
-              value={form.title}
-              onChange={e => setForm({ ...form, title: e.target.value })}
-              autoFocus
-            />
+            <div>
+              <input
+                className={cn('gl-form-input text-sm w-full', form.title.trim().length > 0 && form.title.trim().length < 10 && 'border-orange-400')}
+                placeholder="Titre clair et précis (min. 10 caractères)..."
+                value={form.title}
+                onChange={e => setForm({ ...form, title: e.target.value })}
+                autoFocus
+              />
+              {form.title.trim().length > 0 && form.title.trim().length < 10 && (
+                <p className="text-[9px] text-orange-500 mt-0.5">Titre trop court — soyez précis ({form.title.trim().length}/10)</p>
+              )}
+            </div>
 
             {/* Description */}
-            <textarea
-              className="gl-form-input text-sm w-full min-h-[60px] resize-y"
-              placeholder="Décrivez le problème..."
-              value={form.description || ''}
-              onChange={e => setForm({ ...form, description: e.target.value })}
-            />
+            <div>
+              <textarea
+                className={cn(
+                  'gl-form-input text-sm w-full min-h-[60px] resize-y',
+                  form.ticket_type === 'bug' && (form.description || '').trim().length > 0 && (form.description || '').trim().length < 20 && 'border-orange-400',
+                )}
+                placeholder={form.ticket_type === 'bug'
+                  ? 'Décrivez précisément : que faisiez-vous ? que s\'est-il passé ? qu\'attendiez-vous ? (min. 20 car.)'
+                  : 'Décrivez votre demande...'}
+                value={form.description || ''}
+                onChange={e => setForm({ ...form, description: e.target.value })}
+              />
+              {form.ticket_type === 'bug' && (form.description || '').trim().length > 0 && (form.description || '').trim().length < 20 && (
+                <p className="text-[9px] text-orange-500 mt-0.5">Description trop courte — décrivez les étapes pour reproduire ({(form.description || '').trim().length}/20)</p>
+              )}
+            </div>
 
             {/* Priority */}
             <select
@@ -352,7 +467,12 @@ export function FeedbackWidget() {
             {/* Submit */}
             <button
               onClick={handleSubmit}
-              disabled={!form.title.trim() || createTicket.isPending || recording}
+              disabled={
+                form.title.trim().length < 10
+                || (form.ticket_type === 'bug' && (form.description || '').trim().length < 20)
+                || createTicket.isPending
+                || recording
+              }
               className="gl-button-sm gl-button-confirm w-full justify-center"
             >
               {createTicket.isPending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}

@@ -6,7 +6,7 @@
  * Widgets prop is guarded with Array.isArray to prevent .map() crash.
  * Positions stored as { x, y, w, h } in widget objects.
  */
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -25,9 +25,24 @@ import type { DashboardWidget } from '@/services/dashboardService'
 import { WidgetCard } from './WidgetCard'
 import { cn } from '@/lib/utils'
 
-const COLS = 12
+const COLS_DESKTOP = 12
+const COLS_TABLET = 6
+const COLS_MOBILE = 2
 const CELL_HEIGHT = 80 // px
-const GAP = 12 // px — slightly more breathing room between widgets
+const GAP = 12 // px
+
+/** Responsive column count based on container width */
+function useResponsiveCols(): { cols: number; scale: number } {
+  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200)
+  useEffect(() => {
+    const handler = () => setWidth(window.innerWidth)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  if (width < 640) return { cols: COLS_MOBILE, scale: COLS_MOBILE / COLS_DESKTOP }
+  if (width < 1024) return { cols: COLS_TABLET, scale: COLS_TABLET / COLS_DESKTOP }
+  return { cols: COLS_DESKTOP, scale: 1 }
+}
 
 interface DashboardGridProps {
   widgets: DashboardWidget[]
@@ -40,6 +55,29 @@ interface DashboardGridProps {
 export function DashboardGrid({ widgets: rawWidgets, mode, onRemoveWidget, onUpdateWidget, onUpdateWidgets }: DashboardGridProps) {
   // Guard: ensure widgets is always an array (backend may return null/object)
   const widgets = Array.isArray(rawWidgets) ? rawWidgets : []
+  const { cols, scale } = useResponsiveCols()
+
+  // On small screens, reflow widgets: scale x/w proportionally, stack vertically
+  const responsiveWidgets = useMemo(() => {
+    if (scale >= 1) return widgets // desktop — no change
+    // Sort by original position (top-to-bottom, left-to-right)
+    const sorted = [...widgets].sort((a, b) => {
+      const ay = a.position?.y ?? 0, by = b.position?.y ?? 0
+      if (ay !== by) return ay - by
+      return (a.position?.x ?? 0) - (b.position?.x ?? 0)
+    })
+    // Reflow: stack widgets in order, full-width on mobile, half on tablet
+    let currentY = 0
+    return sorted.map((w) => {
+      const origW = w.position?.w ?? 4
+      const origH = w.position?.h ?? 4
+      const newW = cols === COLS_MOBILE ? cols : Math.max(2, Math.min(cols, Math.round(origW * scale)))
+      const newX = 0 // stack left-aligned
+      const pos = { x: newX, y: currentY, w: newW, h: origH }
+      currentY += origH
+      return { ...w, position: pos }
+    })
+  }, [widgets, cols, scale])
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   )
@@ -77,17 +115,18 @@ export function DashboardGrid({ widgets: rawWidgets, mode, onRemoveWidget, onUpd
     )
   }
 
+  const displayWidgets = mode === 'edit' ? widgets : responsiveWidgets
+
+  const gridStyle = {
+    display: 'grid' as const,
+    gridTemplateColumns: `repeat(${cols}, 1fr)`,
+    gridAutoRows: `${CELL_HEIGHT}px`,
+    gap: `${GAP}px`,
+  }
+
   const gridContent = (
-    <div
-      className="relative"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(${COLS}, 1fr)`,
-        gridAutoRows: `${CELL_HEIGHT}px`,
-        gap: `${GAP}px`,
-      }}
-    >
-      {widgets.map((widget, idx) => (
+    <div className="relative" style={gridStyle}>
+      {displayWidgets.map((widget, idx) => (
         <GridCell
           key={widget.id || `widget-${idx}`}
           widget={widget}
@@ -104,15 +143,7 @@ export function DashboardGrid({ widgets: rawWidgets, mode, onRemoveWidget, onUpd
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={widgets.map((w, i) => w.id || `w-${i}`)} strategy={rectSortingStrategy}>
-        <div
-          className="relative"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(${COLS}, 1fr)`,
-            gridAutoRows: `${CELL_HEIGHT}px`,
-            gap: `${GAP}px`,
-          }}
-        >
+        <div className="relative" style={gridStyle}>
           {widgets.map((widget, idx) => (
             <SortableGridCell
               key={widget.id || `widget-${idx}`}
@@ -199,11 +230,11 @@ function SortableGridCell({ widget, mode, onRemove, onUpdate }: {
       const parent = cellRef.current.parentElement
       if (!parent) return
 
-      const colWidth = (parent.clientWidth - GAP * (COLS - 1)) / COLS
+      const colWidth = (parent.clientWidth - GAP * (COLS_DESKTOP - 1)) / COLS_DESKTOP
       const dx = e.clientX - resizeRef.current.startX
       const dy = e.clientY - resizeRef.current.startY
 
-      const newW = Math.max(2, Math.min(COLS - x, resizeRef.current.startW + Math.round(dx / (colWidth + GAP))))
+      const newW = Math.max(2, Math.min(COLS_DESKTOP - x, resizeRef.current.startW + Math.round(dx / (colWidth + GAP))))
       const newH = Math.max(2, resizeRef.current.startH + Math.round(dy / (CELL_HEIGHT + GAP)))
 
       if (newW !== w || newH !== h) {

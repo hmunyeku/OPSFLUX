@@ -72,7 +72,7 @@ async def _count_record_proof(
                     select(sqla_func.count()).select_from(Attachment).where(
                         Attachment.owner_type == record_type,
                         Attachment.owner_id == record_id,
-                        Attachment.active == True,
+                        Attachment.archived == False,
                     )
                 )
             )

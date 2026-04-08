@@ -1154,7 +1154,7 @@ class Note(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Attachments (polymorphic — files linked to any object) ──────────────────
 
-class Attachment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class Attachment(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     """Polymorphic file attachment — linked to any entity via owner_type + owner_id.
 
     Stores file metadata. Actual files live on disk/object storage.

@@ -294,9 +294,16 @@ export function ProjectGanttWrapper() {
 
   // ── Callbacks ─────────────────────────────────────────────────
 
-  const handleBarClick = useCallback((_barId: string, meta?: Record<string, unknown>) => {
+  const handleBarClick = useCallback((barId: string, meta?: Record<string, unknown>) => {
     const projectId = meta?.projectId as string
-    if (projectId) openPanel({ type: 'detail', module: 'projets', id: projectId })
+    if (!projectId) return
+    // Project summary bar → open project
+    if (barId.startsWith('proj-')) {
+      openPanel({ type: 'detail', module: 'projets', id: projectId })
+    } else {
+      // Task bar → open task detail
+      openPanel({ type: 'task-detail', module: 'projets', id: barId, meta: { projectId } })
+    }
   }, [openPanel])
 
   const handleBarDrag = useCallback(async (barId: string, newStart: string, newEnd: string) => {
@@ -492,17 +499,17 @@ export function ProjectGanttWrapper() {
           onSettingsChange={(s) => setPref('gantt_settings', s)}
           onBarClick={handleBarClick}
           onRowClick={(rowId) => {
-            // Double-click: projects → open project detail, tasks → open parent project
+            // Double-click: projects → project detail, tasks → task detail
             const isProject = projects.some(p => p.id === rowId)
             if (isProject) {
               openPanel({ type: 'detail', module: 'projets', id: rowId })
               return
             }
-            // Task — find parent project and open it
+            // Task — open dedicated task detail panel
             const bar = bars.find(b => b.rowId === rowId)
             const projectId = bar?.meta?.projectId as string
             if (projectId) {
-              openPanel({ type: 'detail', module: 'projets', id: projectId, meta: { scrollToTask: rowId } })
+              openPanel({ type: 'task-detail', module: 'projets', id: rowId, meta: { projectId } })
             }
           }}
           onBarDrag={handleBarDrag}

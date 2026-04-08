@@ -21,9 +21,10 @@ import { create } from 'zustand'
 
 // ── Panel content types ─────────────────────────────────────
 export type DynamicPanelView =
-  | { type: 'create'; module: string; meta?: Record<string, string>; data?: Record<string, unknown> }
-  | { type: 'edit'; module: string; id: string; meta?: Record<string, string>; data?: Record<string, unknown> }
-  | { type: 'detail'; module: string; id: string; meta?: Record<string, string>; data?: Record<string, unknown> }
+  | { type: 'create'; module: string; meta?: Record<string, unknown>; data?: Record<string, unknown> }
+  | { type: 'edit'; module: string; id: string; meta?: Record<string, unknown>; data?: Record<string, unknown> }
+  | { type: 'detail'; module: string; id: string; meta?: Record<string, unknown>; data?: Record<string, unknown> }
+  | { type: 'task-detail'; module: string; id: string; meta?: Record<string, unknown>; data?: Record<string, unknown> }
 
 export interface DetachedPanel {
   id: string

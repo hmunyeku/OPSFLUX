@@ -84,6 +84,7 @@ import type {
 } from '@/services/projetsService'
 import { projetsService, isGoutiProject, goutiProjectId, isProjectFieldEditable } from '@/services/projetsService'
 import { ProjectGanttWrapper } from './ProjectGanttWrapper'
+import { TaskDetailPanel } from './TaskDetailPanel'
 import { ProjectSelectorModal } from '@/components/shared/ProjectSelectorModal'
 import { PlannerLinkModal } from '@/components/shared/PlannerLinkModal'
 import { useProjectFilter } from '@/hooks/useProjectFilter'
@@ -4398,6 +4399,9 @@ export function ProjetsPage() {
 
       {dynamicPanel?.module === 'projets' && dynamicPanel.type === 'create' && <CreateProjectPanel />}
       {dynamicPanel?.module === 'projets' && dynamicPanel.type === 'detail' && <ProjectDetailPanel id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'projets' && dynamicPanel.type === 'task-detail' && 'id' in dynamicPanel && (
+        <TaskDetailPanel projectId={String(dynamicPanel.meta?.projectId ?? '')} taskId={dynamicPanel.id} />
+      )}
     </div>
   )
 }
@@ -4405,5 +4409,8 @@ export function ProjetsPage() {
 registerPanelRenderer('projets', (view) => {
   if (view.type === 'create') return <CreateProjectPanel />
   if (view.type === 'detail' && 'id' in view) return <ProjectDetailPanel id={view.id} />
+  if (view.type === 'task-detail' && 'id' in view && view.meta?.projectId) {
+    return <TaskDetailPanel projectId={view.meta.projectId as string} taskId={view.id} />
+  }
   return null
 })

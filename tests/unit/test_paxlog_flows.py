@@ -5598,6 +5598,71 @@ async def test_planner_activity_cancelled_creates_ads_event_and_notifies(monkeyp
 
 
 @pytest.mark.asyncio
+async def test_travelwiz_voyage_cancelled_creates_ads_event_and_notifies(monkeypatch):
+    entity_id = uuid4()
+    voyage_id = uuid4()
+    ads_id = uuid4()
+    requester_id = uuid4()
+    db = FakeDB([FakeResult(all_rows=[(ads_id, "ADS-987", requester_id)])])
+    notifications = []
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+    monkeypatch.setattr(paxlog_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+
+    await paxlog_handlers.on_travelwiz_voyage_cancelled(
+        OpsFluxEvent(
+            event_type="travelwiz.voyage.cancelled",
+            payload={
+                "voyage_id": str(voyage_id),
+                "entity_id": str(entity_id),
+                "code": "VYG-987",
+            },
+        )
+    )
+
+    voyage_events = [obj for obj in db.added if isinstance(obj, AdsEvent)]
+    assert len(voyage_events) == 1
+    assert voyage_events[0].event_type == "travelwiz_voyage_cancelled"
+    assert voyage_events[0].metadata_json["voyage_id"] == str(voyage_id)
+    assert notifications and notifications[0]["category"] == "paxlog"
+
+
+@pytest.mark.asyncio
+async def test_module_handler_voyage_cancelled_detaches_packlog_cargo_and_notifies(monkeypatch):
+    entity_id = uuid4()
+    voyage_id = uuid4()
+    cargo_id = uuid4()
+    requester_id = uuid4()
+    db = FakeDB([FakeResult(all_rows=[(cargo_id, "CGO-001", requester_id)])])
+    notifications = []
+
+    async def fake_send_in_app(*args, **kwargs):
+        notifications.append(kwargs)
+
+    monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
+    monkeypatch.setattr(module_handlers, "async_session_factory", lambda: FakeAsyncSessionContext(db))
+
+    await module_handlers.on_travelwiz_voyage_cancelled_packlog(
+        OpsFluxEvent(
+            event_type="travelwiz.voyage.cancelled",
+            payload={
+                "voyage_id": str(voyage_id),
+                "entity_id": str(entity_id),
+            },
+        )
+    )
+
+    sql_text = str(db.executed[0][0])
+    assert "UPDATE cargo_items c" in sql_text
+    assert "SET manifest_id = NULL" in sql_text
+    assert notifications and notifications[0]["category"] == "packlog"
+    assert notifications[0]["link"] == f"/packlog/cargo/{cargo_id}"
+
+
+@pytest.mark.asyncio
 async def test_project_status_changed_notifies_ads_linked_by_direct_project_id(monkeypatch):
     entity_id = uuid4()
     project_id = uuid4()

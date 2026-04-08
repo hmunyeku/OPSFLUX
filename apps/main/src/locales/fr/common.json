@@ -1007,11 +1007,55 @@
         "tier_type": "Type de tiers",
         "asset": "Asset",
         "department": "Département",
-        "job_position": "Fiche de poste"
+        "job_position": "Fiche de poste",
+        "packlog_cargo": "Colis PackLog"
+      },
+      "packlog": {
+        "scope_title": "Cadrage PackLog",
+        "target_value": "Type de colis visé",
+        "all_cargo_types": "Tous les types de colis",
+        "scope_help": "Les règles PackLog se configurent via le designer ci-dessous. Le type de colis ciblé remplace la saisie libre de valeur.",
+        "conditions_title": "Conditions d'application PackLog",
+        "conditions_help": "Définissez quand la règle s'applique: type de colis, étape workflow, poids, dimensions, surface ou flags métier.",
+        "requirements_title": "Exigences dossier",
+        "required_fields": "Champs obligatoires",
+        "required_fields_placeholder": "Ajouter les champs requis...",
+        "required_flags": "Cases / validations obligatoires",
+        "required_flags_placeholder": "Ajouter les validations requises...",
+        "required_evidence": "Pièces justificatives obligatoires",
+        "required_evidence_placeholder": "Ajouter les pièces requises...",
+        "thresholds_title": "Seuils numériques",
+        "min_values": "Valeurs minimales",
+        "max_values": "Valeurs maximales",
+        "conditions": {
+          "cargo_type": "Type de colis",
+          "target_workflow_status": "Étape workflow cible"
+        },
+        "fields": {
+          "designation": "Désignation",
+          "description": "Description",
+          "weight_kg": "Poids (kg)",
+          "width_cm": "Largeur (cm)",
+          "length_cm": "Longueur (cm)",
+          "height_cm": "Hauteur (cm)",
+          "surface_m2": "Surface (m²)",
+          "destination_asset_id": "Destination",
+          "pickup_location_label": "Localisation d'enlèvement",
+          "available_from": "Disponible à partir de",
+          "imputation_reference_id": "Imputation",
+          "receiver_name": "Destinataire",
+          "platform_crane_type": "Type de grue plateforme"
+        },
+        "flags": {
+          "hazmat_validated": "Validation HAZMAT",
+          "lifting_points_certified": "Points de levage certifiés",
+          "weight_ticket_provided": "Ticket de pesée fourni"
+        }
       },
       "target_tabs": {
         "job_position": "Par poste",
         "all": "Globales",
+        "packlog_cargo": "Par colis PackLog",
         "department": "Par département",
         "asset": "Par asset"
       },
@@ -1079,6 +1123,9 @@
       "pending": "En attente de vérification",
       "verified": "Vérifié",
       "rejected": "Rejeté",
+      "proof_present": "{{count}} PJ",
+      "proof_missing": "Preuve requise",
+      "proof_required_before_verify": "Ajoutez au moins une pièce justificative avant de vérifier ce dossier.",
       "search": "Rechercher par personne, type, description...",
       "verify_button": "Vérifier & Valider",
       "reject_button": "Rejeter",
@@ -2279,7 +2326,8 @@
         "profile_type": "Type de profil",
         "user_account": "Compte utilisateur",
         "identity": "Identité",
-        "additional_info": "Informations complémentaires"
+        "additional_info": "Informations complémentaires",
+        "reference_evidence": "Référentiel & justificatifs"
       },
       "fields": {
         "company": "Entreprise (tier)",
@@ -2307,13 +2355,56 @@
       "external_contact_profile": "Profil contact externe",
       "external_contact_promoted": "Profil contact externe promu en utilisateur externe",
       "credentials_title": "Certifications ({{count}})",
+      "compliance_records_title": "Enregistrements de conformité ({{count}})",
+      "compliance_records_empty": "Aucun enregistrement de conformité.",
       "credential_obtained": "Obtenu : {{date}}",
       "credential_expires": "Expire : {{date}}",
+      "proof_present": "{{count}} PJ",
+      "proof_missing": "Preuve absente",
       "site_presence_title": "Présences site ({{count}})",
       "site_presence_empty": "Aucune présence site connue.",
       "unknown_site": "Site inconnu",
       "boarding_status": "Boarding {{status}} le {{date}}",
-      "completed_at": "Clôturé le {{date}}"
+      "completed_at": "Clôturé le {{date}}",
+      "reference_evidence_help": "Ajoutez ici les pièces justificatives du profil et du référentiel, par exemple certificat médical, attestations, habilitations ou documents de preuve utiles à la vérification de conformité.",
+      "add_compliance_record": "Ajouter un enregistrement de conformité"
+    },
+    "records": {
+      "create": "Nouvel enregistrement",
+      "create_success": "Enregistrement créé",
+      "detail_title": "Enregistrement de conformité",
+      "sections": {
+        "general": "Général",
+        "reference": "Référence",
+        "attachments": "Pièces justificatives"
+      },
+      "fields": {
+        "type": "Type de conformité",
+        "owner_type": "Type de propriétaire",
+        "owner_id": "Identifiant du propriétaire",
+        "status": "Statut",
+        "issued_at": "Date d'émission",
+        "expires_at": "Date d'expiration",
+        "issuer": "Émetteur",
+        "reference_number": "Référence",
+        "notes": "Notes"
+      },
+      "placeholders": {
+        "type": "Rechercher un type...",
+        "owner_id": "UUID ou identifiant métier du propriétaire",
+        "notes": "Informations complémentaires..."
+      },
+      "owner_types": {
+        "user": "Utilisateur",
+        "tier_contact": "Contact tier",
+        "asset": "Asset",
+        "job_position": "Fiche de poste"
+      },
+      "errors": {
+        "missing_required": "Renseignez le type, le propriétaire et son identifiant."
+      },
+      "create_attachment_hint": "Après création, la fiche reste accessible pour déposer immédiatement les pièces justificatives requises.",
+      "attachments_help": "Déposez ici les preuves du référentiel déclaré: certificat, attestation, copie signée, scan, ou tout autre justificatif utile."
     },
     "incident_panel": {
       "create_title": "Nouveau signalement",
@@ -2558,6 +2649,18 @@
     "default_policy": "Politique par défaut"
   },
   "settings": {
+    "pdf_templates": {
+      "count_summary": "{{count}} modèle(s) PDF configuré(s)",
+      "seed_defaults": "Initialiser les modèles par défaut",
+      "new_template": "Nouveau modèle PDF",
+      "system_title": "Modèles système",
+      "system_description": "Modèles PDF système : exports de documents, rapports généraux, manifestes.",
+      "system_empty": "Aucun modèle système. Cliquez sur « Initialiser les modèles par défaut » pour créer les modèles de base.",
+      "modules_title": "Modèles par module",
+      "modules_description": "Modèles PDF spécifiques aux modules : ADS tickets, manifestes PaxLog, manifestes voyage, rapports projet, etc.",
+      "modules_empty": "Aucun modèle par module. Créez un modèle PDF pour vos besoins spécifiques ou initialisez les modèles par défaut.",
+      "modules_empty_only_system": "Aucun modèle par module n'est encore disponible. Les modèles actuellement présents sont uniquement des modèles système ou documentaires."
+    },
     "title": "Paramètres",
     "general": "Général",
     "appearance": "Apparence",

@@ -83,7 +83,7 @@ export default function App() {
                   <Route path="/paxlog/*" element={<RequireAnyPermission permissions={['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.ads.approve', 'paxlog.avm.read', 'paxlog.avm.create', 'paxlog.avm.update', 'paxlog.avm.approve', 'paxlog.avm.complete', 'paxlog.profile.read', 'paxlog.compliance.read']}><PaxLogPage /></RequireAnyPermission>} />
                   <Route path="/planner/*" element={<RequirePermission permission="planner.activity.read"><PlannerPage /></RequirePermission>} />
                   <Route path="/travelwiz/*" element={<RequirePermission permission="travelwiz.voyage.read"><TravelWizPage /></RequirePermission>} />
-                  <Route path="/packlog/*" element={<RequireAnyPermission permissions={['packlog.cargo.read', 'travelwiz.cargo.read']}><PackLogPage /></RequireAnyPermission>} />
+                  <Route path="/packlog/*" element={<RequirePermission permission="packlog.cargo.read"><PackLogPage /></RequirePermission>} />
                   <Route path="/imputations/*" element={<RequirePermission permission="imputation.read"><ImputationsPage /></RequirePermission>} />
                   <Route path="/report-editor/*" element={<RequirePermission permission="document.read"><ReportEditorPage /></RequirePermission>} />
                   <Route path="/pid-pfd/*" element={<RequirePermission permission="pid.read"><PidPfdPage /></RequirePermission>} />

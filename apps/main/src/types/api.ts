@@ -1146,6 +1146,7 @@ export interface ComplianceRecord {
   created_at: string
   type_name?: string | null
   type_category?: string | null
+  attachment_count?: number
 }
 
 export interface ComplianceRecordCreate {

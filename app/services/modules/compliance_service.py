@@ -36,6 +36,69 @@ DEFAULT_COMPLIANCE_SEQUENCE = [
 ]
 
 
+def _coerce_number(value):
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _evaluate_structured_condition(condition: dict | None, facts: dict) -> bool:
+    if not condition:
+        return True
+    if "all" in condition:
+        return all(_evaluate_structured_condition(item, facts) for item in condition["all"] or [])
+    if "any" in condition:
+        return any(_evaluate_structured_condition(item, facts) for item in condition["any"] or [])
+    if "not" in condition:
+        nested = condition.get("not")
+        return not _evaluate_structured_condition(nested, facts) if isinstance(nested, dict) else False
+
+    field = condition.get("field")
+    op = str(condition.get("op") or "eq").lower()
+    expected = condition.get("value")
+    actual = facts.get(field)
+
+    if op == "exists":
+        return actual is not None and actual != ""
+    if op == "missing":
+        return actual is None or actual == ""
+    if op == "true":
+        return bool(actual) is True
+    if op == "false":
+        return bool(actual) is False
+    if op == "eq":
+        return actual == expected
+    if op == "ne":
+        return actual != expected
+    if op == "in":
+        return actual in (expected or [])
+    if op == "not_in":
+        return actual not in (expected or [])
+    if op == "contains":
+        if isinstance(actual, (list, tuple, set)):
+            return expected in actual
+        if isinstance(actual, str):
+            return str(expected) in actual
+        return False
+
+    actual_num = _coerce_number(actual)
+    expected_num = _coerce_number(expected)
+    if actual_num is None or expected_num is None:
+        return False
+    if op == "gt":
+        return actual_num > expected_num
+    if op == "gte":
+        return actual_num >= expected_num
+    if op == "lt":
+        return actual_num < expected_num
+    if op == "lte":
+        return actual_num <= expected_num
+    return False
+
+
 async def get_compliance_verification_sequence(
     db: AsyncSession,
     *,
@@ -615,4 +678,107 @@ async def check_owner_compliance(
         "total_unverified": unverified_count,
         "is_compliant": account_verified and len(missing_type_ids) == 0 and expired_count == 0 and unverified_count == 0,
         "details": details,
+    }
+
+
+async def evaluate_packlog_cargo_compliance(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    cargo_context: dict,
+    include_contextual: bool = True,
+) -> dict:
+    """Evaluate configurable compliance rules for PackLog cargo dossiers.
+
+    Rules use target_type='packlog_cargo'. target_value may be empty/'all' or match
+    the cargo_type. condition_json supports:
+    - when: structured applicability condition
+    - required_fields: list[str]
+    - required_flags: list[str]
+    - required_evidence_types: list[str]
+    - min_values / max_values: {field: number}
+    """
+    applicability_filter = True  # noqa: E712
+    if not include_contextual:
+        applicability_filter = ComplianceRule.applicability == "permanent"
+
+    cargo_type = str(cargo_context.get("cargo_type") or "").strip().lower() or None
+    rules_result = await db.execute(
+        select(ComplianceRule, ComplianceType)
+        .join(ComplianceType, ComplianceType.id == ComplianceRule.compliance_type_id)
+        .where(
+            ComplianceRule.entity_id == entity_id,
+            ComplianceRule.active == True,  # noqa: E712
+            ComplianceRule.target_type == "packlog_cargo",
+            applicability_filter,
+        )
+        .order_by(ComplianceRule.created_at.asc())
+    )
+    now_date = datetime.now(timezone.utc).date()
+    blockers: list[dict] = []
+    evaluated_rules = 0
+
+    for rule, compliance_type in rules_result.all():
+        if rule.effective_from and rule.effective_from > now_date:
+            continue
+        if rule.effective_to and rule.effective_to < now_date:
+            continue
+
+        target_value = (rule.target_value or "").strip().lower()
+        if target_value and target_value not in {"all", cargo_type or ""}:
+            continue
+
+        config = rule.condition_json or {}
+        when = config.get("when") if isinstance(config, dict) else None
+        if when and not _evaluate_structured_condition(when, cargo_context):
+            continue
+
+        evaluated_rules += 1
+        missing_fields = [
+            field for field in (config.get("required_fields") or [])
+            if cargo_context.get(field) in (None, "", [], {})
+        ]
+        missing_flags = [
+            field for field in (config.get("required_flags") or [])
+            if not bool(cargo_context.get(field))
+        ]
+        evidence_counts = cargo_context.get("_evidence_counts") or {}
+        missing_evidence = [
+            evidence_type for evidence_type in (config.get("required_evidence_types") or [])
+            if int(evidence_counts.get(evidence_type, 0) or 0) <= 0
+        ]
+        min_failures = []
+        for field, minimum in (config.get("min_values") or {}).items():
+            value = _coerce_number(cargo_context.get(field))
+            threshold = _coerce_number(minimum)
+            if value is None or threshold is None or value < threshold:
+                min_failures.append({"field": field, "minimum": threshold, "actual": value})
+        max_failures = []
+        for field, maximum in (config.get("max_values") or {}).items():
+            value = _coerce_number(cargo_context.get(field))
+            threshold = _coerce_number(maximum)
+            if value is None or threshold is None or value > threshold:
+                max_failures.append({"field": field, "maximum": threshold, "actual": value})
+
+        if missing_fields or missing_flags or missing_evidence or min_failures or max_failures:
+            blockers.append(
+                {
+                    "rule_id": str(rule.id),
+                    "compliance_type_id": str(compliance_type.id),
+                    "compliance_type_code": compliance_type.code,
+                    "compliance_type_name": compliance_type.name,
+                    "priority": rule.priority,
+                    "description": rule.description,
+                    "missing_fields": missing_fields,
+                    "missing_flags": missing_flags,
+                    "missing_evidence_types": missing_evidence,
+                    "min_failures": min_failures,
+                    "max_failures": max_failures,
+                }
+            )
+
+    return {
+        "is_compliant": len(blockers) == 0,
+        "evaluated_rules": evaluated_rules,
+        "blockers": blockers,
     }

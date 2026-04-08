@@ -19,6 +19,7 @@ from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import select, func as sqla_func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.routes.modules import packlog_shared as packlog_shared_module
 from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_permission
 from app.core.acting_context import get_effective_actor_user_id
 from app.core.audit import record_audit
@@ -101,14 +102,22 @@ from app.services.modules.travelwiz_service import (
     get_weight_alert_ratio,
     rebalance_manifest_passenger_standby,
     reassign_voyage_passengers,
+    update_cargo_status as apply_cargo_status_transition,
 )
 from app.services.modules.packlog_service import (
     PACKLOG_WORKFLOW_ENTITY_TYPE,
     PACKLOG_WORKFLOW_SLUG,
     PACKLOG_PUBLIC_STATUS_LABELS,
     build_packlog_operations_report,
+    build_packlog_cargo_read_data,
+    build_packlog_loading_options,
+    build_packlog_request_read_data,
     estimate_packlog_surface_m2,
+    get_packlog_cargo_or_404,
+    get_packlog_package_element_or_404,
+    get_packlog_request_or_404,
     summarize_packlog_return_states,
+    try_packlog_workflow_transition,
 )
 from app.api.routes.modules.packlog_shared import (
     add_package_element_impl,
@@ -159,6 +168,73 @@ VOYAGE_PUBLIC_STATUS_LABELS = {
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────
+
+# Legacy private helper aliases kept for internal tests and migration
+# compatibility. Product/public cargo access now lives under PackLog.
+_get_cargo_or_404 = get_packlog_cargo_or_404
+_get_package_element_or_404 = get_packlog_package_element_or_404
+_get_cargo_request_or_404 = get_packlog_request_or_404
+_try_cargo_workflow_transition = try_packlog_workflow_transition
+_build_cargo_read_data = build_packlog_cargo_read_data
+_build_cargo_request_read_data = build_packlog_request_read_data
+_build_cargo_loading_options = build_packlog_loading_options
+
+
+async def _travelwiz_shared_get_cargo_or_404(*args, **kwargs):
+    return await _get_cargo_or_404(*args, **kwargs)
+
+
+async def _travelwiz_shared_get_package_element_or_404(*args, **kwargs):
+    return await _get_package_element_or_404(*args, **kwargs)
+
+
+async def _travelwiz_shared_get_cargo_request_or_404(*args, **kwargs):
+    return await _get_cargo_request_or_404(*args, **kwargs)
+
+
+async def _travelwiz_shared_get_voyage_or_404(*args, **kwargs):
+    return await _get_voyage_or_404(*args, **kwargs)
+
+
+async def _travelwiz_shared_try_cargo_workflow_transition(*args, **kwargs):
+    return await _try_cargo_workflow_transition(*args, **kwargs)
+
+
+async def _travelwiz_shared_build_cargo_read_data(*args, **kwargs):
+    return await _build_cargo_read_data(*args, **kwargs)
+
+
+async def _travelwiz_shared_build_cargo_request_read_data(*args, **kwargs):
+    return await _build_cargo_request_read_data(*args, **kwargs)
+
+
+async def _travelwiz_shared_build_cargo_loading_options(*args, **kwargs):
+    return await _build_cargo_loading_options(*args, **kwargs)
+
+
+async def _travelwiz_shared_generate_cargo_request_code(*args, **kwargs):
+    return await _generate_cargo_request_code(*args, **kwargs)
+
+
+async def _travelwiz_shared_record_audit(*args, **kwargs):
+    return await record_audit(*args, **kwargs)
+
+
+async def _travelwiz_shared_apply_cargo_status_transition(*args, **kwargs):
+    return await apply_cargo_status_transition(*args, **kwargs)
+
+
+packlog_shared_module.get_packlog_cargo_or_404 = _travelwiz_shared_get_cargo_or_404
+packlog_shared_module.get_packlog_package_element_or_404 = _travelwiz_shared_get_package_element_or_404
+packlog_shared_module.get_packlog_request_or_404 = _travelwiz_shared_get_cargo_request_or_404
+packlog_shared_module._get_voyage_or_404 = _travelwiz_shared_get_voyage_or_404
+packlog_shared_module.try_packlog_workflow_transition = _travelwiz_shared_try_cargo_workflow_transition
+packlog_shared_module.build_packlog_cargo_read_data = _travelwiz_shared_build_cargo_read_data
+packlog_shared_module.build_packlog_request_read_data = _travelwiz_shared_build_cargo_request_read_data
+packlog_shared_module.build_packlog_loading_options = _travelwiz_shared_build_cargo_loading_options
+packlog_shared_module._generate_cargo_request_code = _travelwiz_shared_generate_cargo_request_code
+packlog_shared_module.record_audit = _travelwiz_shared_record_audit
+packlog_shared_module.apply_cargo_status_transition = _travelwiz_shared_apply_cargo_status_transition
 
 
 def _normalize_article_description(description: str) -> str:
@@ -1179,6 +1255,20 @@ async def update_voyage_status(
                 "threshold_hours": delay_analysis["threshold_hours"],
                 "reassign_available": delay_analysis["reassign_available"],
                 "alternatives": delay_analysis["alternatives"],
+            },
+        ))
+
+    if body.status == "cancelled":
+        from app.core.events import OpsFluxEvent, event_bus
+
+        await event_bus.publish(OpsFluxEvent(
+            event_type="travelwiz.voyage.cancelled",
+            payload={
+                "voyage_id": str(voyage_id),
+                "entity_id": str(entity_id),
+                "code": voyage.code,
+                "from_status": from_state,
+                "delay_reason": voyage.delay_reason,
             },
         ))
 

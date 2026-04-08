@@ -11,6 +11,7 @@
  * API: GET/POST/PATCH/DELETE /api/v1/pdf-templates
  */
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   FileOutput,
   Plus,
@@ -56,6 +57,7 @@ const PAGE_SIZE_LABELS: Record<string, string> = {
 }
 
 export function PdfTemplatesTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data: templates, isLoading } = usePdfTemplates()
   const seedMutation = useSeedPdfTemplates()
@@ -125,8 +127,11 @@ export function PdfTemplatesTab() {
     )
   }
 
-  const systemTemplates = (templates ?? []).filter((t) => ['system', 'document'].includes(t.object_type))
-  const moduleTemplates = (templates ?? []).filter((t) => !['system', 'document'].includes(t.object_type))
+  const allTemplates = templates ?? []
+  const isModuleObjectType = (objectType: string | null | undefined) =>
+    !!objectType && !['system', 'document'].includes(objectType)
+  const systemTemplates = allTemplates.filter((template) => !isModuleObjectType(template.object_type))
+  const moduleTemplates = allTemplates.filter((template) => isModuleObjectType(template.object_type))
 
   // Stats
   const totalCount = templates?.length ?? 0
@@ -145,16 +150,16 @@ export function PdfTemplatesTab() {
       {/* ── Actions bar ── */}
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-muted-foreground">
-          {totalCount} modèle(s) PDF configuré(s)
+          {t('settings.pdf_templates.count_summary', { count: totalCount })}
         </p>
         <div className="flex items-center gap-2">
           <button onClick={handleSeed} disabled={seedMutation.isPending} className="gl-button-sm gl-button-default">
             {seedMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-            Initialiser les modèles par défaut
+            {t('settings.pdf_templates.seed_defaults')}
           </button>
           <button onClick={handleCreate} className="gl-button-sm gl-button-confirm">
             <Plus size={12} />
-            Nouveau modèle PDF
+            {t('settings.pdf_templates.new_template')}
           </button>
         </div>
       </div>
@@ -162,12 +167,12 @@ export function PdfTemplatesTab() {
       {/* ── System/document templates ── */}
       <CollapsibleSection
         id="pdf-templates-system"
-        title="Modèles système"
-        description="Modèles PDF système : exports de documents, rapports généraux, manifestes."
+        title={t('settings.pdf_templates.system_title')}
+        description={t('settings.pdf_templates.system_description')}
         storageKey="settings.pdf-templates.collapse"
       >
         {systemTemplates.length === 0 ? (
-          <PdfEmptyState message="Aucun modèle système. Cliquez sur « Initialiser les modèles par défaut » pour créer les modèles de base." />
+          <PdfEmptyState message={t('settings.pdf_templates.system_empty')} />
         ) : (
           <PdfTemplateGrid templates={systemTemplates} onEdit={handleEdit} onToggle={handleToggleEnabled} />
         )}
@@ -176,13 +181,13 @@ export function PdfTemplatesTab() {
       {/* ── Module-specific templates ── */}
       <CollapsibleSection
         id="pdf-templates-modules"
-        title="Modèles par module"
-        description="Modèles PDF spécifiques aux modules : ADS tickets, manifestes PaxLog, manifestes voyage, etc."
+        title={t('settings.pdf_templates.modules_title')}
+        description={t('settings.pdf_templates.modules_description')}
         storageKey="settings.pdf-templates.collapse"
         showSeparator={false}
       >
         {moduleTemplates.length === 0 ? (
-          <PdfEmptyState message="Aucun modèle par module. Créez un modèle PDF pour vos besoins spécifiques ou initialisez les modèles par défaut." />
+          <PdfEmptyState message={allTemplates.length > 0 ? t('settings.pdf_templates.modules_empty_only_system') : t('settings.pdf_templates.modules_empty')} />
         ) : (
           <PdfTemplateGrid templates={moduleTemplates} onEdit={handleEdit} onToggle={handleToggleEnabled} />
         )}

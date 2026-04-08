@@ -887,6 +887,7 @@ async def create_activity_from_project_task(
         entity_id=entity_id,
         asset_id=project.asset_id,
         project_id=project_id,
+        source_task_id=task.id,
         type="project",
         title=f"{project.code} — {task.title}",
         description=task.description,

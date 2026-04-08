@@ -40,6 +40,7 @@ from app.schemas.travelwiz import (
     VoyageCargoTrackingRead,
 )
 from app.services.core.fsm_service import fsm_service
+from app.services.modules import compliance_service
 from app.services.modules.packlog_service import (
     PACKLOG_WORKFLOW_ENTITY_TYPE,
     PACKLOG_WORKFLOW_SLUG,
@@ -726,6 +727,21 @@ async def update_cargo_impl(*, cargo_id: UUID, body: CargoUpdate, entity_id: UUI
     return await build_packlog_cargo_read_data(db, cargo)
 
 
+async def get_cargo_compliance_check_impl(
+    *,
+    cargo_id: UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+):
+    cargo = await get_packlog_cargo_or_404(db, cargo_id, entity_id)
+    cargo_payload = await build_packlog_cargo_read_data(db, cargo)
+    return await compliance_service.evaluate_packlog_cargo_compliance(
+        db,
+        entity_id=entity_id,
+        cargo_context=cargo_payload,
+    )
+
+
 async def update_cargo_workflow_status_impl(
     *,
     cargo_id: UUID,
@@ -745,6 +761,24 @@ async def update_cargo_workflow_status_impl(
                     "code": "CARGO_DOSSIER_INCOMPLETE",
                     "message": "Le dossier cargo est incomplet pour cette étape workflow.",
                     "missing_requirements": readiness["missing_requirements"],
+                },
+            )
+        compliance_payload = {
+            **current_payload,
+            "target_workflow_status": body.workflow_status,
+        }
+        compliance_verdict = await compliance_service.evaluate_packlog_cargo_compliance(
+            db,
+            entity_id=entity_id,
+            cargo_context=compliance_payload,
+        )
+        if not compliance_verdict["is_compliant"]:
+            raise HTTPException(
+                400,
+                {
+                    "code": "PACKLOG_COMPLIANCE_RULES_FAILED",
+                    "message": "Le dossier PackLog ne respecte pas les règles de conformité applicables.",
+                    "compliance": compliance_verdict,
                 },
             )
     previous_status = cargo.workflow_status

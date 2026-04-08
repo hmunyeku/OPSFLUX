@@ -269,7 +269,38 @@ export function useVerifyRecord() {
     mutationFn: ({ recordType, recordId, action, rejectionReason }: {
       recordType: string; recordId: string; action: 'verify' | 'reject'; rejectionReason?: string
     }) => conformiteService.verifyRecord(recordType, recordId, action, rejectionReason),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      qc.setQueriesData(
+        { queryKey: ['pending-verifications'] },
+        (existing: { items: Array<{ id: string }>; total: number } | undefined) => {
+          if (!existing) return existing
+          const nextItems = existing.items.filter((item) => item.id !== variables.recordId)
+          return { ...existing, items: nextItems, total: Math.max(0, (existing.total ?? nextItems.length) - 1) }
+        },
+      )
+      qc.setQueriesData(
+        { queryKey: ['verification-history'] },
+        (existing: { items: Array<Record<string, unknown>>; total: number } | undefined) => {
+          if (!existing) return existing
+          const alreadyPresent = existing.items.some((item) => item.id === variables.recordId)
+          if (alreadyPresent) return existing
+          const nowIso = new Date().toISOString()
+          return {
+            ...existing,
+            items: [
+              {
+                id: variables.recordId,
+                record_type: variables.recordType,
+                verification_status: variables.action === 'verify' ? 'verified' : 'rejected',
+                verified_at: nowIso,
+                verification_notes: variables.rejectionReason ?? null,
+              },
+              ...existing.items,
+            ],
+            total: (existing.total ?? existing.items.length) + 1,
+          }
+        },
+      )
       qc.invalidateQueries({ queryKey: ['pending-verifications'] })
       qc.invalidateQueries({ queryKey: ['verification-history'] })
       qc.invalidateQueries({ queryKey: ['compliance-records'] })

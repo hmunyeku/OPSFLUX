@@ -10,6 +10,7 @@ import pytest
 from fastapi import HTTPException
 from starlette.datastructures import UploadFile
 
+from app.api.routes.modules import packlog_shared as packlog_shared_routes
 from app.api.routes.modules import travelwiz as travelwiz_routes
 from app.api.routes.core import settings as settings_routes
 from app.core.events import OpsFluxEvent
@@ -257,6 +258,57 @@ async def test_on_voyage_delayed_notifies_admins_and_passengers(monkeypatch):
     assert notifications
     assert any(item["category"] == "travelwiz" for item in notifications)
     assert emails and emails[0]["slug"] == "travelwiz.voyage.delayed"
+
+
+@pytest.mark.asyncio
+async def test_update_voyage_status_cancelled_emits_event(monkeypatch):
+    entity_id = uuid4()
+    user_id = uuid4()
+    voyage_id = uuid4()
+    voyage = SimpleNamespace(
+        id=voyage_id,
+        entity_id=entity_id,
+        code="VYG-009",
+        status="confirmed",
+        delay_reason="Meteo",
+        actual_departure=None,
+        actual_arrival=None,
+        departure_base_id=None,
+        destination_asset_id=None,
+        scheduled_departure=None,
+        transport_mode="helicopter",
+        __table__=SimpleNamespace(columns=[]),
+    )
+    published = []
+
+    async def fake_get_voyage_or_404(_db, _voyage_id, _entity_id):
+        return voyage
+
+    async def fake_transition(*_args, **_kwargs):
+        return None
+
+    async def fake_publish(event):
+        published.append(event)
+
+    monkeypatch.setattr(travelwiz_routes, "_get_voyage_or_404", fake_get_voyage_or_404)
+    monkeypatch.setattr(travelwiz_routes.fsm_service, "transition", fake_transition)
+    monkeypatch.setattr("app.core.events.event_bus.publish", fake_publish)
+
+    response = await travelwiz_routes.update_voyage_status(
+        voyage_id=voyage_id,
+        body=SimpleNamespace(status="cancelled", delay_reason=None, actual_departure=None, actual_arrival=None),
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=user_id),
+        _=None,
+        db=FakeDB([]),
+    )
+
+    assert voyage.status == "cancelled"
+    assert isinstance(response, dict)
+    cancelled_events = [event for event in published if event.event_type == "travelwiz.voyage.cancelled"]
+    assert cancelled_events
+    assert cancelled_events[0].payload["voyage_id"] == str(voyage_id)
+    assert cancelled_events[0].payload["from_status"] == "confirmed"
 
 
 @pytest.mark.asyncio
@@ -613,7 +665,7 @@ async def test_update_cargo_status_records_audit(monkeypatch):
     )
 
     assert db.commits == 2
-    assert audits and audits[0]["action"] == "travelwiz.cargo.status"
+    assert audits and audits[0]["action"] == "packlog.cargo.status"
     assert audits[0]["resource_type"] == "cargo_item"
     assert audits[0]["resource_id"] == str(cargo_id)
     assert audits[0]["user_id"] == actor_id
@@ -820,7 +872,7 @@ async def test_update_package_element_return_tracks_partial_quantity(monkeypatch
     assert result["quantity_returned"] == 2
     assert result["return_status"] == "partial"
     assert cargo.status == "return_in_transit"
-    assert audits and audits[0]["action"] == "travelwiz.cargo.element_return"
+    assert audits and audits[0]["action"] == "packlog.cargo.element_return"
 
 
 @pytest.mark.asyncio
@@ -980,7 +1032,7 @@ async def test_update_package_element_disposition_updates_cargo_dispatch(monkeyp
 
     assert result["return_status"] == "reintegrated"
     assert cargo.status == "reintegrated"
-    assert audits and audits[0]["action"] == "travelwiz.cargo.element_disposition"
+    assert audits and audits[0]["action"] == "packlog.cargo.element_disposition"
 
 
 @pytest.mark.asyncio
@@ -1067,7 +1119,7 @@ async def test_update_cargo_workflow_status_records_audit(monkeypatch):
 
     assert result["workflow_status"] == "approved"
     assert db.commits == 2
-    assert audits and audits[0]["action"] == "travelwiz.cargo.workflow_status"
+    assert audits and audits[0]["action"] == "packlog.cargo.workflow_status"
     assert audits[0]["details"]["from_status"] == "draft"
     assert audits[0]["details"]["to_status"] == "approved"
     assert transition_events and transition_events[0]["to_state"] == "approved"
@@ -1130,6 +1182,82 @@ async def test_update_cargo_workflow_status_blocks_incomplete_dossier(monkeypatc
     assert "designation" in exc.value.detail["missing_requirements"]
     assert "imputation_reference_id" in exc.value.detail["missing_requirements"]
     assert "cargo_photo" in exc.value.detail["missing_requirements"]
+
+
+@pytest.mark.asyncio
+async def test_packlog_workflow_status_blocks_on_compliance_rules(monkeypatch):
+    entity_id = uuid4()
+    cargo_id = uuid4()
+    actor_id = uuid4()
+    cargo = SimpleNamespace(
+        id=cargo_id,
+        entity_id=entity_id,
+        workflow_status="prepared",
+    )
+    db = FakeDB([])
+
+    async def fake_get_cargo_or_404(_db, _cargo_id, _entity_id):
+        return cargo
+
+    async def fake_build_cargo_read_data(_db, _cargo):
+        return {
+            "id": _cargo.id,
+            "description": "Pompe",
+            "designation": "Pompe transfert",
+            "weight_kg": 120.0,
+            "destination_asset_id": uuid4(),
+            "pickup_location_label": "Yard A",
+            "pickup_contact_name": "Bastien",
+            "pickup_contact_user_id": None,
+            "pickup_contact_tier_contact_id": None,
+            "available_from": datetime.now(timezone.utc),
+            "imputation_reference_id": uuid4(),
+            "cargo_type": "hazmat",
+            "hazmat_validated": True,
+            "lifting_points_certified": True,
+            "_evidence_counts": {
+                "cargo_photo": 1,
+                "transport_document": 1,
+                "lifting_certificate": 1,
+                "weight_ticket": 1,
+                "hazmat_document": 1,
+            },
+        }
+
+    async def fake_compliance_check(_db, *, entity_id, cargo_context, include_contextual=True):
+        assert cargo_context["target_workflow_status"] == "ready_for_review"
+        return {
+            "is_compliant": False,
+            "evaluated_rules": 1,
+            "blockers": [
+                {
+                    "rule_id": str(uuid4()),
+                    "compliance_type_code": "PACKLOG_HAZMAT",
+                    "missing_fields": ["platform_crane_type"],
+                }
+            ],
+        }
+
+    monkeypatch.setattr(packlog_shared_routes, "get_packlog_cargo_or_404", fake_get_cargo_or_404)
+    monkeypatch.setattr(packlog_shared_routes, "build_packlog_cargo_read_data", fake_build_cargo_read_data)
+    monkeypatch.setattr(
+        packlog_shared_routes.compliance_service,
+        "evaluate_packlog_cargo_compliance",
+        fake_compliance_check,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await packlog_shared_routes.update_cargo_workflow_status_impl(
+            cargo_id=cargo_id,
+            body=packlog_shared_routes.CargoWorkflowStatusUpdate(workflow_status="ready_for_review"),
+            entity_id=entity_id,
+            current_user=SimpleNamespace(id=actor_id),
+            db=db,
+        )
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail["code"] == "PACKLOG_COMPLIANCE_RULES_FAILED"
+    assert exc.value.detail["compliance"]["blockers"][0]["compliance_type_code"] == "PACKLOG_HAZMAT"
 
 
 @pytest.mark.asyncio
@@ -1224,7 +1352,7 @@ async def test_create_cargo_request_generates_code_and_audits(monkeypatch):
     assert created.request_code == "CGR-2026-00001"
     assert created.requested_by == user_id
     assert result["request_code"] == "CGR-2026-00001"
-    assert audits and audits[0]["action"] == "travelwiz.cargo_request.create"
+    assert audits and audits[0]["action"] == "packlog.cargo_request.create"
 
 
 @pytest.mark.asyncio
@@ -1287,7 +1415,7 @@ async def test_update_cargo_request_updates_status_and_audits(monkeypatch):
 
     assert cargo_request.status == "submitted"
     assert result["status"] == "submitted"
-    assert audits and audits[0]["action"] == "travelwiz.cargo_request.update"
+    assert audits and audits[0]["action"] == "packlog.cargo_request.update"
 
 
 @pytest.mark.asyncio
@@ -1578,7 +1706,7 @@ async def test_apply_cargo_request_loading_option_assigns_request_children(monke
     assert cargo_a.workflow_status == "assigned"
     assert cargo_b.workflow_status == "assigned"
     assert result["status"] == "assigned"
-    assert audits and audits[0]["action"] == "travelwiz.cargo_request.assign_to_voyage"
+    assert audits and audits[0]["action"] == "packlog.cargo_request.assign_to_voyage"
     assert transition_events and transition_events[0]["to_state"] == "assigned"
 
 

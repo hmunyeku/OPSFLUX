@@ -655,6 +655,77 @@ async def on_travelwiz_manifest_closed(event: OpsFluxEvent) -> None:
         logger.exception("Error in on_travelwiz_manifest_closed for %s", manifest_id)
 
 
+async def on_travelwiz_voyage_cancelled(event: OpsFluxEvent) -> None:
+    """When a TravelWiz voyage is cancelled — linked AdS go back to requires_review."""
+    payload = event.payload
+    entity_id = payload.get("entity_id")
+    voyage_id = payload.get("voyage_id")
+    code = payload.get("code", "")
+
+    if not entity_id or not voyage_id:
+        return
+
+    try:
+        from sqlalchemy import text
+        from app.models.paxlog import AdsEvent
+
+        async with async_session_factory() as db:
+            result = await db.execute(
+                text(
+                    "UPDATE ads a SET status = 'requires_review', updated_at = NOW() "
+                    "WHERE a.status NOT IN ('completed', 'cancelled', 'rejected') "
+                    "AND EXISTS ("
+                    "  SELECT 1 "
+                    "  FROM ads_pax ap "
+                    "  JOIN manifest_passengers mp ON mp.ads_pax_id = ap.id "
+                    "  JOIN voyage_manifests vm ON vm.id = mp.manifest_id "
+                    "  WHERE ap.ads_id = a.id "
+                    "    AND vm.voyage_id = :voyage_id"
+                    ") "
+                    "RETURNING a.id, a.reference, a.requester_id"
+                ),
+                {"voyage_id": voyage_id},
+            )
+            affected = result.all()
+
+            for ads_id, reference, requester_id in affected:
+                from app.core.notifications import send_in_app
+
+                db.add(
+                    AdsEvent(
+                        entity_id=UUID(str(entity_id)),
+                        ads_id=UUID(str(ads_id)),
+                        event_type="travelwiz_voyage_cancelled",
+                        new_status="requires_review",
+                        reason=code or None,
+                        metadata_json={
+                            "voyage_id": str(voyage_id),
+                            "voyage_code": code or None,
+                        },
+                    )
+                )
+                await send_in_app(
+                    db,
+                    user_id=UUID(str(requester_id)),
+                    entity_id=UUID(str(entity_id)),
+                    title="AdS — Voyage annulé",
+                    body=(
+                        f"Le voyage {code or voyage_id} lié à l'AdS {reference} a été annulé. "
+                        f"Veuillez vérifier cette demande."
+                    ),
+                    category="paxlog",
+                    link=f"/paxlog/ads/{ads_id}",
+                )
+
+            await db.commit()
+            logger.info(
+                "travelwiz.voyage.cancelled → %d AdS set to requires_review",
+                len(affected),
+            )
+    except Exception:
+        logger.exception("Error in on_travelwiz_voyage_cancelled for %s", voyage_id)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Handler: on_project_status_changed
 # Projets → PaxLog: warn linked AdS when project cancelled/completed
@@ -742,6 +813,7 @@ def register_paxlog_handlers(event_bus: EventBus) -> None:
 
     # TravelWiz → PaxLog (manifest closure updates boarding)
     event_bus.subscribe("travelwiz.manifest.closed", on_travelwiz_manifest_closed)
+    event_bus.subscribe("travelwiz.voyage.cancelled", on_travelwiz_voyage_cancelled)
 
     # Projets → PaxLog (project lifecycle affects AdS)
     subscribe_with_aliases(event_bus, PROJECT_STATUS_CHANGED_SUBSCRIPTIONS, on_project_status_changed)

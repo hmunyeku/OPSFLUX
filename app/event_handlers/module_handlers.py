@@ -685,6 +685,68 @@ async def on_travelwiz_trip_closed(event: OpsFluxEvent) -> None:
         logger.exception("Error in on_travelwiz_trip_closed for voyage %s", voyage_id)
 
 
+async def on_travelwiz_voyage_cancelled_packlog(event: OpsFluxEvent) -> None:
+    """Detach PackLog cargo from a cancelled voyage so it can be replanned."""
+    payload = event.payload
+    voyage_id = payload.get("voyage_id")
+    entity_id = payload.get("entity_id")
+
+    if not voyage_id or not entity_id:
+        return
+
+    try:
+        from sqlalchemy import text
+        from app.core.notifications import send_in_app
+
+        async with async_session_factory() as db:
+            result = await db.execute(
+                text(
+                    "UPDATE cargo_items c "
+                    "SET manifest_id = NULL, "
+                    "    status = CASE "
+                    "        WHEN c.status IN ('loaded', 'in_transit') THEN 'ready_for_loading' "
+                    "        ELSE c.status "
+                    "    END, "
+                    "    workflow_status = CASE "
+                    "        WHEN c.workflow_status = 'assigned' THEN 'approved' "
+                    "        ELSE c.workflow_status "
+                    "    END, "
+                    "    updated_at = NOW() "
+                    "FROM voyage_manifests vm "
+                    "LEFT JOIN cargo_requests cr ON cr.id = c.request_id "
+                    "WHERE c.manifest_id = vm.id "
+                    "  AND vm.voyage_id = :voyage_id "
+                    "RETURNING c.id, c.tracking_code, COALESCE(cr.requested_by, c.registered_by) AS notify_user_id"
+                ),
+                {"voyage_id": voyage_id},
+            )
+            affected = result.all()
+
+            for cargo_id, tracking_code, notify_user_id in affected:
+                if not notify_user_id:
+                    continue
+                await send_in_app(
+                    db,
+                    user_id=UUID(str(notify_user_id)),
+                    entity_id=UUID(str(entity_id)),
+                    title="PackLog — Voyage annulé",
+                    body=(
+                        f"Le colis {tracking_code} a été retiré d'un voyage annulé et doit être replanifié."
+                    ),
+                    category="packlog",
+                    link=f"/packlog/cargo/{cargo_id}",
+                )
+
+            await db.commit()
+            logger.info(
+                "travelwiz.voyage.cancelled: detached %d PackLog cargo items from voyage %s",
+                len(affected),
+                voyage_id,
+            )
+    except Exception:
+        logger.exception("Error in on_travelwiz_voyage_cancelled_packlog for voyage %s", voyage_id)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Handler: on_compliance_rule_changed
 # Notify affected users when a compliance rule is created or updated
@@ -1351,6 +1413,7 @@ def register_module_handlers(event_bus: EventBus) -> None:
     event_bus.subscribe("ads.completed", on_paxlog_ads_completed)
     event_bus.subscribe("travelwiz.manifest.closed", on_travelwiz_manifest_closed)
     event_bus.subscribe("travelwiz.trip.closed", on_travelwiz_trip_closed)
+    event_bus.subscribe("travelwiz.voyage.cancelled", on_travelwiz_voyage_cancelled_packlog)
     # Conformite & Projets events
     event_bus.subscribe("conformite.rule.created", on_compliance_rule_changed)
     event_bus.subscribe("conformite.rule.updated", on_compliance_rule_changed)

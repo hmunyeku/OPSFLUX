@@ -142,13 +142,12 @@ import type {
 
 // ── Tab definitions ───────────────────────────────────────────
 
-type TravelWizTab = 'dashboard' | 'voyages' | 'manifests' | 'cargo' | 'vectors' | 'articles' | 'fleet_map' | 'pickup' | 'weather'
+type TravelWizTab = 'dashboard' | 'voyages' | 'manifests' | 'vectors' | 'articles' | 'fleet_map' | 'pickup' | 'weather'
 
 const TABS: { id: TravelWizTab; label: string; icon: typeof Plane }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'voyages', label: 'Voyages', icon: Plane },
   { id: 'manifests', label: 'Manifestes PAX', icon: FileText },
-  { id: 'cargo', label: 'Cargo', icon: Package },
   { id: 'vectors', label: 'Vecteurs', icon: Ship },
   { id: 'articles', label: 'Articles', icon: Boxes },
   { id: 'fleet_map', label: 'Carte flotte', icon: MapIcon },
@@ -2536,7 +2535,7 @@ export function TravelWizPage() {
   const canCreate =
     activeTab === 'voyages' ? hasPermission('travelwiz.voyage.create')
       : activeTab === 'vectors' ? hasPermission('travelwiz.vector.create')
-        : activeTab === 'cargo' || activeTab === 'articles' ? hasPermission('travelwiz.cargo.create')
+        : activeTab === 'articles' ? hasPermission('travelwiz.cargo.create')
           : false
 
   const handleCreate = useCallback(() => {
@@ -2544,10 +2543,6 @@ export function TravelWizPage() {
     else if (activeTab === 'vectors') openDynamicPanel({ type: 'create', module: 'travelwiz', meta: { subtype: 'vector' } })
     else if (activeTab === 'articles') openDynamicPanel({ type: 'create', module: 'travelwiz', meta: { subtype: 'article' } })
   }, [activeTab, openDynamicPanel])
-
-  const handleCreateCargoRequest = useCallback(() => {
-    openDynamicPanel({ type: 'create', module: 'travelwiz', meta: { subtype: 'cargo-request' } })
-  }, [openDynamicPanel])
 
   const createLabel =
     activeTab === 'voyages' ? 'Nouveau voyage'
@@ -2584,13 +2579,6 @@ export function TravelWizPage() {
       {!isFullPanel && (
         <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
           <PanelHeader icon={Plane} title="TravelWiz" subtitle="Transport et logistique">
-            {activeTab === 'cargo' && canCreate && (
-              <ToolbarButton
-                icon={FileText}
-                label="Nouvelle demande"
-                onClick={handleCreateCargoRequest}
-              />
-            )}
             {showArticleImport && (
               <ToolbarButton
                 icon={FileText}
@@ -2634,7 +2622,6 @@ export function TravelWizPage() {
           {activeTab === 'dashboard' && <ModuleDashboard module="travelwiz" />}
           {activeTab === 'voyages' && <VoyagesTab />}
           {activeTab === 'manifests' && <ManifestesTab />}
-          {activeTab === 'cargo' && <CargoTab />}
           {activeTab === 'vectors' && <VecteursTab />}
           {activeTab === 'articles' && <ArticlesTab />}
           {activeTab === 'fleet_map' && <FleetMapTab />}
@@ -2646,13 +2633,10 @@ export function TravelWizPage() {
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'voyage' && <CreateVoyagePanel />}
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'rotation' && <CreateRotationPanel />}
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'vector' && <CreateVectorPanel />}
-      {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'cargo-request' && <CreateCargoRequestPanel />}
-      {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'cargo' && <CreateCargoPanel />}
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'article' && <CreateArticlePanel />}
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'voyage' && <VoyageDetailPanel id={(dynamicPanel as { id: string }).id} />}
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'rotation' && <RotationDetailPanel id={(dynamicPanel as { id: string }).id} />}
       {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'vector' && <VectorDetailPanel id={(dynamicPanel as { id: string }).id} />}
-      {dynamicPanel?.module === 'travelwiz' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'cargo' && <CargoDetailPanel id={(dynamicPanel as { id: string }).id} />}
     </div>
   )
 }

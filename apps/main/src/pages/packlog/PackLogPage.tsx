@@ -1,5 +1,6 @@
 import { Package, FileText } from 'lucide-react'
 import { PanelHeader, ToolbarButton } from '@/components/layout/PanelHeader'
+import { renderRegisteredPanel } from '@/components/layout/DetachedPanelRenderer'
 import { useUIStore } from '@/stores/uiStore'
 import { usePermission } from '@/hooks/usePermission'
 import { CargoTab, CargoWorkspaceProvider } from '@/pages/travelwiz/TravelWizPage'
@@ -11,7 +12,7 @@ export function PackLogPage() {
   const { hasPermission } = usePermission()
 
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'packlog'
-  const canCreateRequest = hasPermission('packlog.cargo.create') || hasPermission('travelwiz.cargo.create')
+  const canCreateRequest = hasPermission('packlog.cargo.create')
 
   return (
     <CargoWorkspaceProvider module="packlog" label="PackLog">
@@ -30,6 +31,8 @@ export function PackLogPage() {
             <CargoTab />
           </div>
         )}
+
+        {dynamicPanel?.module === 'packlog' && renderRegisteredPanel(dynamicPanel)}
       </div>
     </CargoWorkspaceProvider>
   )

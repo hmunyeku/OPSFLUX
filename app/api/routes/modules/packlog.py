@@ -41,6 +41,7 @@ from app.api.routes.modules.packlog_shared import (
     create_cargo_impl,
     create_cargo_request_impl,
     download_cargo_request_lt_pdf_impl,
+    get_cargo_compliance_check_impl,
     get_cargo_history_impl,
     get_cargo_impl,
     get_cargo_request_impl,
@@ -317,6 +318,21 @@ async def update_cargo_workflow_status(
         body=body,
         entity_id=entity_id,
         current_user=current_user,
+        db=db,
+    )
+
+
+@router.get("/cargo/{cargo_id}/compliance-check")
+async def get_cargo_compliance_check(
+    cargo_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = PACKLOG_READ,
+    db: AsyncSession = Depends(get_db),
+):
+    return await get_cargo_compliance_check_impl(
+        cargo_id=cargo_id,
+        entity_id=entity_id,
         db=db,
     )
 

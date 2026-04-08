@@ -51,6 +51,7 @@ import {
   useComplianceTypes, useCreateComplianceType, useUpdateComplianceType, useDeleteComplianceType,
   useComplianceRecords,
   useComplianceRules, useCreateComplianceRule, useUpdateComplianceRule, useDeleteComplianceRule,
+  useCreateComplianceRecord, useUpdateComplianceRecord, useDeleteComplianceRecord,
   useRuleHistory,
   useJobPositions, useCreateJobPosition, useUpdateJobPosition, useDeleteJobPosition,
   useTransfers,
@@ -59,7 +60,7 @@ import {
 } from '@/hooks/useConformite'
 import type {
   ComplianceType, ComplianceTypeCreate,
-  ComplianceRecord,
+  ComplianceRecord, ComplianceRecordCreate, ComplianceRecordUpdate,
   ComplianceRule, ComplianceRuleCreate,
   ComplianceExemption, ComplianceExemptionCreate,
   JobPosition, JobPositionCreate,
@@ -121,6 +122,7 @@ function useConformiteDictionaryState() {
     asset: t('conformite.rules.targets.asset'),
     department: t('conformite.rules.targets.department'),
     job_position: t('conformite.rules.targets.job_position'),
+    packlog_cargo: t('conformite.rules.targets.packlog_cargo'),
   })
   const verificationStatusLabels = useDictionaryLabels('compliance_verification_status', {
     pending: t('conformite.verifications.pending'),
@@ -310,6 +312,237 @@ function TypeDetailPanel({ id }: { id: string }) {
 
         <FormSection title="Pièces jointes" collapsible defaultExpanded={false}>
           <AttachmentManager ownerType="compliance_type" ownerId={ct.id} compact />
+        </FormSection>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
+// -- Create Compliance Record Panel -------------------------------------------
+
+function CreateComplianceRecordPanel() {
+  const { t } = useTranslation()
+  const dynamicPanel = useUIStore((s) => s.dynamicPanel)
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const createRecord = useCreateComplianceRecord()
+  const { toast } = useToast()
+  const { data: typesData } = useComplianceTypes({ page: 1, page_size: 200 })
+  const { statusOptions } = useConformiteDictionaryState()
+
+  const prefillOwnerType = (dynamicPanel?.meta?.prefill_owner_type as string | undefined) ?? ''
+  const prefillOwnerId = (dynamicPanel?.meta?.prefill_owner_id as string | undefined) ?? ''
+  const prefillOwnerLabel = (dynamicPanel?.meta?.prefill_owner_label as string | undefined) ?? ''
+
+  const [form, setForm] = useState<ComplianceRecordCreate>({
+    compliance_type_id: '',
+    owner_type: prefillOwnerType,
+    owner_id: prefillOwnerId,
+    status: 'pending',
+    issued_at: null,
+    expires_at: null,
+    issuer: null,
+    reference_number: null,
+    notes: null,
+  })
+
+  const typeOptions = useMemo(
+    () =>
+      (typesData?.items ?? []).map((ct) => ({
+        value: ct.id,
+        label: `${ct.code} — ${ct.name}`,
+        group: ct.category,
+      })),
+    [typesData?.items],
+  )
+
+  const ownerTypeOptions = useMemo(
+    () => [
+      { value: 'user', label: t('conformite.records.owner_types.user') },
+      { value: 'tier_contact', label: t('conformite.records.owner_types.tier_contact') },
+      { value: 'asset', label: t('conformite.records.owner_types.asset') },
+      { value: 'job_position', label: t('conformite.records.owner_types.job_position') },
+    ],
+    [t],
+  )
+
+  const handleCreate = async () => {
+    if (!form.compliance_type_id || !form.owner_type || !form.owner_id) {
+      toast({ title: t('conformite.records.errors.missing_required'), variant: 'error' })
+      return
+    }
+    try {
+      const created = await createRecord.mutateAsync(form)
+      toast({ title: t('conformite.records.create_success'), variant: 'success' })
+      openDynamicPanel({ type: 'detail', module: 'conformite', id: created.id, meta: { subtype: 'record' } })
+    } catch {
+      toast({ title: t('common.error'), variant: 'error' })
+    }
+  }
+
+  return (
+    <DynamicPanelShell
+      title={t('conformite.records.create')}
+      subtitle={t('conformite.title')}
+      icon={<FileCheck size={14} className="text-primary" />}
+      actions={
+        <>
+          <PanelActionButton onClick={closeDynamicPanel}>{t('common.cancel')}</PanelActionButton>
+          <PanelActionButton variant="primary" disabled={createRecord.isPending} onClick={handleCreate}>
+            {createRecord.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.create')}
+          </PanelActionButton>
+        </>
+      }
+    >
+      <PanelContentLayout>
+        <FormSection title={t('conformite.records.sections.general')}>
+          <FormGrid>
+            <DynamicPanelField label={t('conformite.records.fields.type')} required span="full">
+              <SearchableSelect
+                value={form.compliance_type_id}
+                onChange={(value) => setForm({ ...form, compliance_type_id: value })}
+                options={typeOptions}
+                placeholder={t('conformite.records.placeholders.type')}
+              />
+            </DynamicPanelField>
+            <DynamicPanelField label={t('conformite.records.fields.owner_type')} required>
+              <TagSelector
+                options={ownerTypeOptions}
+                value={form.owner_type}
+                onChange={(value) => setForm({ ...form, owner_type: value })}
+              />
+            </DynamicPanelField>
+            <DynamicPanelField label={t('conformite.records.fields.status')}>
+              <TagSelector
+                options={statusOptions}
+                value={form.status || 'pending'}
+                onChange={(value) => setForm({ ...form, status: value })}
+              />
+            </DynamicPanelField>
+            <DynamicPanelField label={t('conformite.records.fields.owner_id')} required span="full">
+              <input
+                type="text"
+                value={form.owner_id}
+                onChange={(e) => setForm({ ...form, owner_id: e.target.value })}
+                className={panelInputClass}
+                placeholder={t('conformite.records.placeholders.owner_id')}
+              />
+              {prefillOwnerLabel && (
+                <p className="mt-1 text-[10px] text-muted-foreground">{prefillOwnerLabel}</p>
+              )}
+            </DynamicPanelField>
+          </FormGrid>
+        </FormSection>
+
+        <FormSection title={t('conformite.records.sections.reference')}>
+          <FormGrid>
+            <DynamicPanelField label={t('conformite.records.fields.issued_at')}>
+              <input type="date" value={form.issued_at ?? ''} onChange={(e) => setForm({ ...form, issued_at: e.target.value || null })} className={panelInputClass} />
+            </DynamicPanelField>
+            <DynamicPanelField label={t('conformite.records.fields.expires_at')}>
+              <input type="date" value={form.expires_at ?? ''} onChange={(e) => setForm({ ...form, expires_at: e.target.value || null })} className={panelInputClass} />
+            </DynamicPanelField>
+            <DynamicPanelField label={t('conformite.records.fields.issuer')}>
+              <input type="text" value={form.issuer ?? ''} onChange={(e) => setForm({ ...form, issuer: e.target.value || null })} className={panelInputClass} />
+            </DynamicPanelField>
+            <DynamicPanelField label={t('conformite.records.fields.reference_number')}>
+              <input type="text" value={form.reference_number ?? ''} onChange={(e) => setForm({ ...form, reference_number: e.target.value || null })} className={panelInputClass} />
+            </DynamicPanelField>
+            <DynamicPanelField label={t('conformite.records.fields.notes')} span="full">
+              <textarea
+                value={form.notes ?? ''}
+                onChange={(e) => setForm({ ...form, notes: e.target.value || null })}
+                className={cn(panelInputClass, 'min-h-[72px] resize-y')}
+                placeholder={t('conformite.records.placeholders.notes')}
+              />
+            </DynamicPanelField>
+          </FormGrid>
+        </FormSection>
+
+        <p className="px-1 text-xs text-muted-foreground italic">
+          {t('conformite.records.create_attachment_hint')}
+        </p>
+      </PanelContentLayout>
+    </DynamicPanelShell>
+  )
+}
+
+// -- Compliance Record Detail Panel ------------------------------------------
+
+function ComplianceRecordDetailPanel({ id }: { id: string }) {
+  const { t } = useTranslation()
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const { data } = useComplianceRecords({ page: 1, page_size: 200 })
+  const updateRecord = useUpdateComplianceRecord()
+  const deleteRecord = useDeleteComplianceRecord()
+  const { toast } = useToast()
+  const { statusLabels } = useConformiteDictionaryState()
+  const record = data?.items.find((item) => item.id === id)
+
+  const handleDelete = useCallback(async () => {
+    await deleteRecord.mutateAsync(id)
+    closeDynamicPanel()
+    toast({ title: t('common.deleted'), variant: 'success' })
+  }, [closeDynamicPanel, deleteRecord, id, t, toast])
+
+  const handleSave = useCallback((payload: ComplianceRecordUpdate) => {
+    updateRecord.mutate({ id, payload: normalizeNames(payload) })
+  }, [id, updateRecord])
+
+  if (!record) {
+    return (
+      <DynamicPanelShell title={t('common.loading')} icon={<FileCheck size={14} className="text-primary" />}>
+        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+      </DynamicPanelShell>
+    )
+  }
+
+  const statusClass =
+    record.status === 'valid'
+      ? 'gl-badge-success'
+      : record.status === 'expired'
+        ? 'gl-badge-danger'
+        : record.status === 'pending'
+          ? 'gl-badge-warning'
+          : 'gl-badge-neutral'
+
+  return (
+    <DynamicPanelShell
+      title={record.type_name || t('conformite.records.detail_title')}
+      subtitle={record.reference_number || record.owner_type}
+      icon={<FileCheck size={14} className="text-primary" />}
+      actions={
+        <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDelete} confirmLabel={t('common.delete')}>
+          {t('common.delete')}
+        </DangerConfirmButton>
+      }
+    >
+      <PanelContentLayout>
+        <FormSection title={t('conformite.records.sections.general')}>
+          <DetailFieldGrid>
+            <ReadOnlyRow label={t('conformite.records.fields.type')} value={record.type_name || '—'} />
+            <ReadOnlyRow label={t('conformite.records.fields.owner_type')} value={record.owner_type} />
+            <ReadOnlyRow label={t('conformite.records.fields.owner_id')} value={<span className="font-mono text-xs">{record.owner_id}</span>} />
+            <ReadOnlyRow label={t('conformite.records.fields.status')} value={<span className={cn('gl-badge', statusClass)}>{statusLabels[record.status] ?? record.status}</span>} />
+            <ReadOnlyRow label={t('common.created_at')} value={record.created_at ? new Date(record.created_at).toLocaleDateString('fr-FR') : '—'} />
+          </DetailFieldGrid>
+        </FormSection>
+
+        <FormSection title={t('conformite.records.sections.reference')} collapsible defaultExpanded>
+          <DetailFieldGrid>
+            <InlineEditableRow label={t('conformite.records.fields.issuer')} value={record.issuer || ''} onSave={(value) => handleSave({ issuer: value || null })} />
+            <InlineEditableRow label={t('conformite.records.fields.reference_number')} value={record.reference_number || ''} onSave={(value) => handleSave({ reference_number: value || null })} />
+            <ReadOnlyRow label={t('conformite.records.fields.issued_at')} value={record.issued_at ? new Date(record.issued_at).toLocaleDateString('fr-FR') : '—'} />
+            <ReadOnlyRow label={t('conformite.records.fields.expires_at')} value={record.expires_at ? new Date(record.expires_at).toLocaleDateString('fr-FR') : '—'} />
+          </DetailFieldGrid>
+          <div className="mt-3">
+            <InlineEditableRow label={t('conformite.records.fields.notes')} value={record.notes || ''} onSave={(value) => handleSave({ notes: value || null })} />
+          </div>
+        </FormSection>
+
+        <FormSection title={t('conformite.records.sections.attachments')} collapsible defaultExpanded>
+          <p className="mb-2 text-xs text-muted-foreground">{t('conformite.records.attachments_help')}</p>
+          <AttachmentManager ownerType="compliance_record" ownerId={record.id} compact />
         </FormSection>
       </PanelContentLayout>
     </DynamicPanelShell>
@@ -804,6 +1037,7 @@ export function ConformitePage() {
   const canExport = hasPermission('conformite.export') || hasPermission('conformite.record.read')
   // Granular permission checks for toolbar buttons, tab visibility, inline actions
   const canCreateType = hasPermission('conformite.type.create')
+  const canCreateRecord = hasPermission('conformite.record.create')
   const canCreateRule = hasPermission('conformite.rule.create')
   const canDeleteRule = hasPermission('conformite.rule.delete')
   const canCreateJP = hasPermission('conformite.jobposition.create')
@@ -1000,9 +1234,10 @@ export function ConformitePage() {
     if (activeTab === 'referentiel' && canCreateType) return <ToolbarButton icon={Plus} label={t('conformite.types.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite' })} />
     if (activeTab === 'fiches' && canCreateJP) return <ToolbarButton icon={Plus} label={t('conformite.job_positions.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'job-position' } })} />
     if (activeTab === 'exemptions' && canCreateExemption) return <ToolbarButton icon={Plus} label={t('conformite.exemptions.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'exemption' } })} />
+    if (activeTab === 'enregistrements' && canCreateRecord) return <ToolbarButton icon={Plus} label={t('conformite.records.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'record' } })} />
     if (activeTab === 'regles' && canCreateRule) return <ToolbarButton icon={Plus} label={t('conformite.rules.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'conformite', meta: { subtype: 'rule' } })} />
     return null
-  }, [activeTab, openDynamicPanel, canCreateType, canCreateJP, canCreateExemption, canCreateRule, t])
+  }, [activeTab, openDynamicPanel, canCreateType, canCreateRecord, canCreateJP, canCreateExemption, canCreateRule, t])
 
   // Render active tab content
   const renderTabContent = () => {
@@ -1051,6 +1286,7 @@ export function ConformitePage() {
               importWizardTarget: canImport ? 'compliance_record' : undefined,
               filenamePrefix: 'conformite',
             } : undefined}
+            onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'conformite', id: row.id, meta: { subtype: 'record' } })}
             emptyIcon={FileCheck}
             emptyTitle={t('conformite.no_record')}
             columnResizing
@@ -1161,6 +1397,8 @@ export function ConformitePage() {
 
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && !dynamicPanel.meta?.subtype && <CreateTypePanel />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && !dynamicPanel.meta?.subtype && <TypeDetailPanel id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'record' && <CreateComplianceRecordPanel />}
+      {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'record' && <ComplianceRecordDetailPanel id={dynamicPanel.id} />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'job-position' && <CreateJobPositionPanel />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'detail' && dynamicPanel.meta?.subtype === 'job-position' && <JobPositionDetailPanel id={dynamicPanel.id} />}
       {dynamicPanel?.module === 'conformite' && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'exemption' && <CreateExemptionPanel />}
@@ -1185,7 +1423,7 @@ const CATEGORY_COLORS_MAP: Record<string, string> = {
 
 const CATEGORY_ORDER: string[] = ['formation', 'certification', 'habilitation', 'medical', 'epi', 'audit']
 
-type TargetTab = 'job_position' | 'department' | 'asset' | 'all'
+type TargetTab = 'job_position' | 'department' | 'asset' | 'packlog_cargo' | 'all'
 
 function RulesMatrixView({
   rules,
@@ -1226,9 +1464,11 @@ function RulesMatrixView({
     ruleApplicabilityOptions,
     ruleApplicabilityLabels,
   } = useConformiteDictionaryState()
+  const packlogCargoTypeOptions = useDictionaryOptions('packlog_cargo_type')
   const targetTabs = useMemo<{ id: TargetTab; label: string }[]>(() => [
     { id: 'job_position', label: t('conformite.rules.target_tabs.job_position') },
     { id: 'all', label: t('conformite.rules.target_tabs.all') },
+    { id: 'packlog_cargo', label: t('conformite.rules.target_tabs.packlog_cargo') },
     { id: 'department', label: t('conformite.rules.target_tabs.department') },
     { id: 'asset', label: t('conformite.rules.target_tabs.asset') },
   ], [t])
@@ -1309,6 +1549,9 @@ function RulesMatrixView({
         : allJps
       return filtered.map(jp => ({ id: jp.id, label: `${jp.code}`, sub: `${jp.name}${jp.department ? ` (${jp.department})` : ''}` }))
     }
+    if (activeTargetTab === 'packlog_cargo') {
+      return packlogCargoTypeOptions.map(option => ({ id: option.value, label: option.label, sub: '' }))
+    }
     // For department/asset: extract unique values from existing rules
     const vals = new Set<string>()
     for (const r of rules) {
@@ -1319,11 +1562,11 @@ function RulesMatrixView({
       ? items.filter(v => v.toLowerCase().includes(searchFilter.toLowerCase()))
       : items
     return filtered.map(v => ({ id: v, label: v, sub: '' }))
-  }, [activeTargetTab, jobPositions, rules, searchFilter])
+  }, [activeTargetTab, jobPositions, rules, searchFilter, packlogCargoTypeOptions])
 
   // Count rules per target tab
   const tabCounts = useMemo(() => {
-    const counts: Record<string, number> = { job_position: 0, all: 0, department: 0, asset: 0 }
+    const counts: Record<string, number> = { job_position: 0, all: 0, department: 0, asset: 0, packlog_cargo: 0 }
     for (const r of rules) {
       if (r.target_type in counts) counts[r.target_type]++
     }
@@ -1622,7 +1865,15 @@ function RulesMatrixView({
                 <thead className="sticky top-0 z-20">
                   <tr className="bg-chrome">
                     <th className="sticky left-0 z-30 bg-chrome border-b border-r border-border px-2 sm:px-3 py-2 text-left font-semibold text-muted-foreground min-w-[120px] sm:min-w-[200px]">
-                      {activeTargetTab === 'all' ? t('conformite.rules.matrix.scope') : activeTargetTab === 'job_position' ? t('conformite.rules.targets.job_position') : activeTargetTab === 'department' ? t('conformite.rules.targets.department') : t('conformite.rules.targets.asset')}
+                      {activeTargetTab === 'all'
+                        ? t('conformite.rules.matrix.scope')
+                        : activeTargetTab === 'job_position'
+                          ? t('conformite.rules.targets.job_position')
+                          : activeTargetTab === 'department'
+                            ? t('conformite.rules.targets.department')
+                            : activeTargetTab === 'packlog_cargo'
+                              ? t('conformite.rules.targets.packlog_cargo')
+                              : t('conformite.rules.targets.asset')}
                     </th>
                     {filteredTypes.map((type) => (
                       <th
@@ -1870,6 +2121,257 @@ function MultiSearchableSelect({ values, onChange, options, placeholder, disable
   )
 }
 
+const PACKLOG_CONDITION_OPERATOR_TO_STRUCTURED: Record<string, string> = {
+  equals: 'eq',
+  not_equals: 'ne',
+  greater_than: 'gt',
+  less_than: 'lt',
+  greater_or_equal: 'gte',
+  less_or_equal: 'lte',
+  contains: 'contains',
+}
+
+const STRUCTURED_OPERATOR_TO_PACKLOG_CONDITION: Record<string, string> = {
+  eq: 'equals',
+  ne: 'not_equals',
+  gt: 'greater_than',
+  lt: 'less_than',
+  gte: 'greater_or_equal',
+  lte: 'less_or_equal',
+  contains: 'contains',
+}
+
+function buildPackLogConditionBuilderValue(value: Record<string, any> | null) {
+  const when = value?.when
+  if (!when || typeof when !== 'object') return null
+  const logic = Array.isArray((when as any).any) ? 'or' : 'and'
+  const conditions = (((when as any).all ?? (when as any).any) as Array<Record<string, any>> | undefined)?.map((item) => ({
+    field: item.field ?? '',
+    operator: STRUCTURED_OPERATOR_TO_PACKLOG_CONDITION[String(item.op ?? 'eq')] ?? 'equals',
+    value: item.value ?? '',
+  })) ?? []
+  if (conditions.some((item) => !item.field)) return null
+  return { logic, conditions }
+}
+
+function updatePackLogRuleConfig(
+  current: Record<string, any> | null | undefined,
+  patch: Record<string, unknown>,
+) {
+  const next = { ...(current ?? {}) }
+  for (const [key, value] of Object.entries(patch)) {
+    if (
+      value == null ||
+      value === '' ||
+      (Array.isArray(value) && value.length === 0) ||
+      (typeof value === 'object' && !Array.isArray(value) && Object.keys(value as Record<string, unknown>).length === 0)
+    ) {
+      delete next[key]
+    } else {
+      next[key] = value
+    }
+  }
+  return Object.keys(next).length > 0 ? next : null
+}
+
+function PackLogRuleDesigner({ form, setForm }: {
+  form: Record<string, any>
+  setForm: (f: Record<string, any>) => void
+}) {
+  const { t } = useTranslation()
+  const cargoTypeOptions = useDictionaryOptions('packlog_cargo_type')
+  const workflowStatusOptions = useDictionaryOptions('packlog_cargo_workflow_status')
+  const evidenceTypeOptions = useDictionaryOptions('packlog_cargo_evidence_type')
+
+  const packlogFields = useMemo(() => ([
+    { value: 'designation', label: t('conformite.rules.packlog.fields.designation') },
+    { value: 'description', label: t('conformite.rules.packlog.fields.description') },
+    { value: 'weight_kg', label: t('conformite.rules.packlog.fields.weight_kg') },
+    { value: 'width_cm', label: t('conformite.rules.packlog.fields.width_cm') },
+    { value: 'length_cm', label: t('conformite.rules.packlog.fields.length_cm') },
+    { value: 'height_cm', label: t('conformite.rules.packlog.fields.height_cm') },
+    { value: 'surface_m2', label: t('conformite.rules.packlog.fields.surface_m2') },
+    { value: 'destination_asset_id', label: t('conformite.rules.packlog.fields.destination_asset_id') },
+    { value: 'pickup_location_label', label: t('conformite.rules.packlog.fields.pickup_location_label') },
+    { value: 'available_from', label: t('conformite.rules.packlog.fields.available_from') },
+    { value: 'imputation_reference_id', label: t('conformite.rules.packlog.fields.imputation_reference_id') },
+    { value: 'receiver_name', label: t('conformite.rules.packlog.fields.receiver_name') },
+    { value: 'platform_crane_type', label: t('conformite.rules.packlog.fields.platform_crane_type') },
+  ]), [t])
+
+  const packlogFlagOptions = useMemo(() => ([
+    { value: 'hazmat_validated', label: t('conformite.rules.packlog.flags.hazmat_validated') },
+    { value: 'lifting_points_certified', label: t('conformite.rules.packlog.flags.lifting_points_certified') },
+    { value: 'weight_ticket_provided', label: t('conformite.rules.packlog.flags.weight_ticket_provided') },
+  ]), [t])
+
+  const thresholdFieldOptions = useMemo(() => ([
+    { value: 'weight_kg', label: t('conformite.rules.packlog.fields.weight_kg') },
+    { value: 'width_cm', label: t('conformite.rules.packlog.fields.width_cm') },
+    { value: 'length_cm', label: t('conformite.rules.packlog.fields.length_cm') },
+    { value: 'height_cm', label: t('conformite.rules.packlog.fields.height_cm') },
+    { value: 'surface_m2', label: t('conformite.rules.packlog.fields.surface_m2') },
+  ]), [t])
+
+  const conditionFields = useMemo(() => ([
+    { id: 'cargo_type', label: t('conformite.rules.packlog.conditions.cargo_type'), type: 'select' as const, options: cargoTypeOptions.map(o => o.label) },
+    { id: 'target_workflow_status', label: t('conformite.rules.packlog.conditions.target_workflow_status'), type: 'select' as const, options: workflowStatusOptions.map(o => o.value) },
+    { id: 'weight_kg', label: t('conformite.rules.packlog.fields.weight_kg'), type: 'number' as const },
+    { id: 'surface_m2', label: t('conformite.rules.packlog.fields.surface_m2'), type: 'number' as const },
+    { id: 'width_cm', label: t('conformite.rules.packlog.fields.width_cm'), type: 'number' as const },
+    { id: 'length_cm', label: t('conformite.rules.packlog.fields.length_cm'), type: 'number' as const },
+    { id: 'height_cm', label: t('conformite.rules.packlog.fields.height_cm'), type: 'number' as const },
+    { id: 'hazmat_validated', label: t('conformite.rules.packlog.flags.hazmat_validated'), type: 'boolean' as const },
+    { id: 'lifting_points_certified', label: t('conformite.rules.packlog.flags.lifting_points_certified'), type: 'boolean' as const },
+    { id: 'weight_ticket_provided', label: t('conformite.rules.packlog.flags.weight_ticket_provided'), type: 'boolean' as const },
+  ]), [cargoTypeOptions, workflowStatusOptions, t])
+
+  const ruleConfig = (form.condition_json as Record<string, any> | null) ?? null
+  const builderValue = useMemo(() => buildPackLogConditionBuilderValue(ruleConfig), [ruleConfig])
+  const requiredFields = Array.isArray(ruleConfig?.required_fields) ? ruleConfig.required_fields : []
+  const requiredFlags = Array.isArray(ruleConfig?.required_flags) ? ruleConfig.required_flags : []
+  const requiredEvidence = Array.isArray(ruleConfig?.required_evidence_types) ? ruleConfig.required_evidence_types : []
+  const minValues = (ruleConfig?.min_values && typeof ruleConfig.min_values === 'object') ? ruleConfig.min_values as Record<string, number | string> : {}
+  const maxValues = (ruleConfig?.max_values && typeof ruleConfig.max_values === 'object') ? ruleConfig.max_values as Record<string, number | string> : {}
+
+  const setRuleConfig = useCallback((patch: Record<string, unknown>) => {
+    setForm({ ...form, condition_json: updatePackLogRuleConfig(ruleConfig, patch) })
+  }, [form, setForm, ruleConfig])
+
+  const setThresholdValue = useCallback((kind: 'min_values' | 'max_values', field: string, raw: string) => {
+    const currentValues = (((ruleConfig?.[kind] as Record<string, unknown> | undefined) ?? {}))
+    const nextValues = { ...currentValues }
+    if (raw === '') {
+      delete nextValues[field]
+    } else {
+      nextValues[field] = Number(raw)
+    }
+    setRuleConfig({ [kind]: nextValues })
+  }, [ruleConfig, setRuleConfig])
+
+  const handleWhenChange = useCallback((value: Record<string, unknown> | null) => {
+    const group = value as { logic?: 'and' | 'or'; conditions?: Array<{ field: string; operator: string; value: unknown }> } | null
+    if (!group || !Array.isArray(group.conditions) || group.conditions.length === 0) {
+      setRuleConfig({ when: null })
+      return
+    }
+    const key = group.logic === 'or' ? 'any' : 'all'
+    const items = group.conditions
+      .filter((item) => item.field)
+      .map((item) => ({
+        field: item.field,
+        op: PACKLOG_CONDITION_OPERATOR_TO_STRUCTURED[item.operator] ?? 'eq',
+        value: item.value,
+      }))
+    setRuleConfig({ when: items.length > 0 ? { [key]: items } : null })
+  }, [setRuleConfig])
+
+  return (
+    <>
+      <FormSection title={t('conformite.rules.packlog.scope_title')} defaultExpanded>
+        <FormGrid>
+          <DynamicPanelField label={t('conformite.rules.packlog.target_value')} span="full">
+            <SearchableSelect
+              value={form.target_value ?? 'all'}
+              onChange={(v) => setForm({ ...form, target_value: v === 'all' ? '' : v })}
+              options={[
+                { value: 'all', label: t('conformite.rules.packlog.all_cargo_types') },
+                ...cargoTypeOptions.map(option => ({ value: option.value, label: option.label })),
+              ]}
+              placeholder={t('conformite.rules.packlog.all_cargo_types')}
+            />
+          </DynamicPanelField>
+        </FormGrid>
+      </FormSection>
+
+      <FormSection title={t('conformite.rules.packlog.conditions_title')} defaultExpanded={false}>
+        <div className="text-xs text-muted-foreground mb-3">{t('conformite.rules.packlog.conditions_help')}</div>
+        <ConditionBuilder
+          value={builderValue as Record<string, unknown> | null}
+          onChange={handleWhenChange}
+          fields={conditionFields}
+        />
+      </FormSection>
+
+      <FormSection title={t('conformite.rules.packlog.requirements_title')} defaultExpanded>
+        <FormGrid>
+          <DynamicPanelField label={t('conformite.rules.packlog.required_fields')} span="full">
+            <MultiSearchableSelect
+              values={requiredFields}
+              onChange={(values) => setRuleConfig({ required_fields: values })}
+              options={packlogFields}
+              placeholder={t('conformite.rules.packlog.required_fields_placeholder')}
+            />
+          </DynamicPanelField>
+          <DynamicPanelField label={t('conformite.rules.packlog.required_flags')} span="full">
+            <MultiSearchableSelect
+              values={requiredFlags}
+              onChange={(values) => setRuleConfig({ required_flags: values })}
+              options={packlogFlagOptions}
+              placeholder={t('conformite.rules.packlog.required_flags_placeholder')}
+            />
+          </DynamicPanelField>
+          <DynamicPanelField label={t('conformite.rules.packlog.required_evidence')} span="full">
+            <MultiSearchableSelect
+              values={requiredEvidence}
+              onChange={(values) => setRuleConfig({ required_evidence_types: values })}
+              options={evidenceTypeOptions.map(option => ({ value: option.value, label: option.label }))}
+              placeholder={t('conformite.rules.packlog.required_evidence_placeholder')}
+            />
+          </DynamicPanelField>
+        </FormGrid>
+      </FormSection>
+
+      <FormSection title={t('conformite.rules.packlog.thresholds_title')} defaultExpanded={false}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-foreground">{t('conformite.rules.packlog.min_values')}</div>
+            {thresholdFieldOptions.map((field) => (
+              <div key={`min-${field.value}`} className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground min-w-0 flex-1">{field.label}</span>
+                <input
+                  type="number"
+                  value={minValues[field.value] ?? ''}
+                  onChange={(e) => setThresholdValue('min_values', field.value, e.target.value)}
+                  className={cn(panelInputClass, 'w-28')}
+                  placeholder="—"
+                />
+              </div>
+            ))}
+          </div>
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-foreground">{t('conformite.rules.packlog.max_values')}</div>
+            {thresholdFieldOptions.map((field) => (
+              <div key={`max-${field.value}`} className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground min-w-0 flex-1">{field.label}</span>
+                <input
+                  type="number"
+                  value={maxValues[field.value] ?? ''}
+                  onChange={(e) => setThresholdValue('max_values', field.value, e.target.value)}
+                  className={cn(panelInputClass, 'w-28')}
+                  placeholder="—"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </FormSection>
+    </>
+  )
+}
+
+function RuleTargetSpecificDesigner({ form, setForm }: {
+  form: Record<string, any>
+  setForm: (f: Record<string, any>) => void
+}) {
+  switch (form.target_type) {
+    case 'packlog_cargo':
+      return <PackLogRuleDesigner form={form} setForm={setForm} />
+    default:
+      return null
+  }
+}
+
 // ── Rule Form Fields (shared between Create and Edit) ────────────────────
 
 function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
@@ -1879,6 +2381,7 @@ function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
   jpData: any
   typeReadOnly?: boolean
 }) {
+  const { t } = useTranslation()
   const { ruleTargetOptions, rulePriorityOptions, ruleApplicabilityOptions } = useConformiteDictionaryState()
   const typeOptions = useMemo(() =>
     (typesData?.items ?? []).map((t: any) => ({ value: t.id, label: `${t.code} — ${t.name}`, group: t.category })),
@@ -1923,6 +2426,13 @@ function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
                 options={jpOptions}
                 placeholder="Rechercher et ajouter des postes..."
               />
+            </DynamicPanelField>
+          )}
+          {form.target_type === 'packlog_cargo' && (
+            <DynamicPanelField label={t('conformite.rules.packlog.target_value')} span="full">
+              <div className={cn(panelInputClass, 'bg-accent/20 text-muted-foreground')}>
+                {t('conformite.rules.packlog.scope_help')}
+              </div>
             </DynamicPanelField>
           )}
           {(form.target_type === 'asset' || form.target_type === 'tier_type' || form.target_type === 'department') && (
@@ -1971,10 +2481,14 @@ function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
       </FormSection>
 
       <FormSection title="Conditions d'application" defaultExpanded={false} collapsible>
-        <ConditionBuilder
-          value={form.condition_json}
-          onChange={(v) => setForm({ ...form, condition_json: v })}
-        />
+        {form.target_type === 'packlog_cargo' ? (
+          <RuleTargetSpecificDesigner form={form} setForm={setForm} />
+        ) : (
+          <ConditionBuilder
+            value={form.condition_json}
+            onChange={(v) => setForm({ ...form, condition_json: v })}
+          />
+        )}
       </FormSection>
     </PanelContentLayout>
   )
@@ -2397,6 +2911,22 @@ function VerificationsTab() {
       },
     },
     {
+      accessorKey: 'attachment_count',
+      header: 'PJ',
+      size: 110,
+      cell: ({ row }) => {
+        const count = row.original.attachment_count ?? 0
+        const required = row.original.attachment_required !== false
+        if (count > 0) {
+          return <span className="gl-badge gl-badge-success text-[9px]">{t('conformite.verifications.proof_present', { count })}</span>
+        }
+        if (required) {
+          return <span className="gl-badge gl-badge-warning text-[9px]">{t('conformite.verifications.proof_missing')}</span>
+        }
+        return <span className="text-muted-foreground">—</span>
+      },
+    },
+    {
       accessorKey: 'verified_by_name',
       header: 'Par',
       size: 120,
@@ -2409,6 +2939,7 @@ function VerificationsTab() {
       cell: ({ row }) => {
         const item = row.original
         if (item.verification_status !== 'pending') return null
+        const proofMissing = (item.attachment_required !== false) && ((item.attachment_count ?? 0) <= 0)
         const isRejecting = rejectingId === item.id
         if (isRejecting) {
           return (
@@ -2425,7 +2956,7 @@ function VerificationsTab() {
         }
         return (
           <div className="flex items-center gap-1">
-            <button onClick={(e) => { e.stopPropagation(); handleVerify(item.record_type, item.id) }} className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20" title="Verifier"><Check size={13} /></button>
+            <button onClick={(e) => { e.stopPropagation(); if (!proofMissing) handleVerify(item.record_type, item.id) }} disabled={proofMissing} className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-40 disabled:cursor-not-allowed" title={proofMissing ? t('conformite.verifications.proof_required_before_verify') : 'Verifier'}><Check size={13} /></button>
             <button onClick={(e) => { e.stopPropagation(); setRejectingId(item.id) }} className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" title="Rejeter"><X size={13} /></button>
           </div>
         )
@@ -2503,6 +3034,7 @@ function VerificationHistorySection({ ownerId, recordType, currentId }: { ownerI
 }
 
 function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; recordType: string }) {
+  const { t } = useTranslation()
   const recordTypeLabels = useVerificationRecordTypeLabels()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { data } = usePendingVerifications()
@@ -2535,6 +3067,11 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
 
   const handleVerify = async () => {
     if (!item) return
+    const proofMissing = (item.attachment_required !== false) && ((item.attachment_count ?? 0) <= 0)
+    if (proofMissing) {
+      toast({ title: t('conformite.verifications.proof_required_before_verify'), variant: 'error' })
+      return
+    }
     try {
       await verifyRecord.mutateAsync({ recordType: item.record_type, recordId: item.id, action: 'verify' })
       toast({ title: 'Document verifie', variant: 'success' })
@@ -2580,7 +3117,7 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
           </button>
           <div className="w-px h-4 bg-border/60 mx-1" />
           {/* Action buttons */}
-          <button onClick={handleVerify} disabled={verifyRecord.isPending} className="gl-button-sm gl-button-confirm">
+          <button onClick={handleVerify} disabled={verifyRecord.isPending || ((item.attachment_required !== false) && ((item.attachment_count ?? 0) <= 0))} className="gl-button-sm gl-button-confirm disabled:opacity-50 disabled:cursor-not-allowed">
             {verifyRecord.isPending ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} Verifier
           </button>
           <button onClick={() => setShowReject(true)} className="gl-button-sm gl-button-danger">
@@ -2608,7 +3145,12 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
 
         {/* ── Attachments ── */}
         <FormSection title="Pieces jointes">
-          <AttachmentManager ownerType={item.record_type} ownerId={item.id} compact readOnly />
+          {(item.attachment_required !== false) && ((item.attachment_count ?? 0) <= 0) && (
+            <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              {t('conformite.verifications.proof_required_before_verify')}
+            </div>
+          )}
+          <AttachmentManager ownerType={item.record_type} ownerId={item.id} compact readOnly={item.verification_status !== 'pending'} />
         </FormSection>
 
         {/* ── Historique ── */}
@@ -2643,6 +3185,8 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
 registerPanelRenderer('conformite', (view) => {
   if (view.type === 'create' && !view.meta?.subtype) return <CreateTypePanel />
   if (view.type === 'detail' && 'id' in view && !view.meta?.subtype) return <TypeDetailPanel id={view.id} />
+  if (view.type === 'create' && view.meta?.subtype === 'record') return <CreateComplianceRecordPanel />
+  if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'record') return <ComplianceRecordDetailPanel id={view.id} />
   if (view.type === 'create' && view.meta?.subtype === 'job-position') return <CreateJobPositionPanel />
   if (view.type === 'detail' && 'id' in view && view.meta?.subtype === 'job-position') return <JobPositionDetailPanel id={view.id} />
   if (view.type === 'create' && view.meta?.subtype === 'rule') return <CreateRulePanel />

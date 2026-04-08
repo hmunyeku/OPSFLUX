@@ -22,6 +22,11 @@ export function registerPanelRenderer(module: string, renderer: PanelRenderer) {
   renderers.set(module, renderer)
 }
 
+export function renderRegisteredPanel(view: DynamicPanelView) {
+  const renderer = renderers.get(view.module)
+  return renderer ? renderer(view) : null
+}
+
 /** Unregister (for cleanup when page unmounts — optional). */
 export function unregisterPanelRenderer(module: string) {
   renderers.delete(module)
@@ -49,15 +54,15 @@ export function DetachedPanelsPortal() {
   return (
     <DetachedPanelsContainer>
       {(panel) => {
-        const renderer = renderers.get(panel.view.module)
-        if (!renderer) {
+        const rendered = renderRegisteredPanel(panel.view)
+        if (!rendered) {
           return (
             <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
               Module « {panel.view.module} » non disponible.
             </div>
           )
         }
-        return renderer(panel.view)
+        return rendered
       }}
     </DetachedPanelsContainer>
   )

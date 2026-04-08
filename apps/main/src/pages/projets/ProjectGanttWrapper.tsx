@@ -49,10 +49,12 @@ const PRIORITY_OPTIONS = [
 // ── Grid columns ────────────────────────────────────────────────
 
 const COLUMNS: GanttColumn[] = [
-  { id: 'start', label: 'Début', width: 80, align: 'center', editable: true, editType: 'date' },
-  { id: 'end', label: 'Fin', width: 80, align: 'center', editable: true, editType: 'date' },
-  { id: 'duration', label: 'Durée', width: 45, align: 'right' },
-  { id: 'progress', label: '%', width: 35, align: 'right', editable: true, editType: 'number' },
+  { id: 'assignee', label: 'Assigné', width: 90, align: 'left' },
+  { id: 'start', label: 'Début', width: 75, align: 'center', editable: true, editType: 'date' },
+  { id: 'end', label: 'Fin', width: 75, align: 'center', editable: true, editType: 'date' },
+  { id: 'duration', label: 'Durée', width: 42, align: 'right' },
+  { id: 'progress', label: '%', width: 32, align: 'right', editable: true, editType: 'number' },
+  { id: 'predecessors', label: 'Préd.', width: 50, align: 'center' },
 ]
 
 function fmtDate(iso: string | null | undefined): string {
@@ -167,12 +169,14 @@ export function ProjectGanttWrapper() {
         hasChildren: true,
         color,
         columns: {
+          assignee: project.manager_name || '—',
           start: fmtDate(project.start_date),
           end: fmtDate(project.end_date),
           duration: project.start_date && project.end_date
             ? `${daysB(project.start_date.split('T')[0], project.end_date.split('T')[0])}j`
             : '—',
           progress: project.progress ?? 0,
+          predecessors: '—',
         },
       })
 
@@ -224,12 +228,19 @@ export function ProjectGanttWrapper() {
               hasChildren: hasKids,
               color: taskColor,
               columns: {
+                assignee: task.assignee_name || '—',
                 start: fmtDate(task.start_date),
                 end: fmtDate(task.due_date),
                 duration: task.start_date && task.due_date
                   ? `${daysB(task.start_date.split('T')[0], task.due_date.split('T')[0])}j`
                   : '—',
                 progress: task.progress ?? 0,
+                predecessors: projectDeps.filter(d => d.to_task_id === task.id).length > 0
+                  ? projectDeps.filter(d => d.to_task_id === task.id).map(d => {
+                      const pred = tasks.find(t => t.id === d.from_task_id)
+                      return pred ? (pred.code || pred.title.slice(0, 8)) : '?'
+                    }).join(', ')
+                  : '—',
               },
             })
 
@@ -480,6 +491,13 @@ export function ProjectGanttWrapper() {
           initialScale="month"
           initialSettings={{ barHeight: 20, rowHeight: 34, showBaselines: true }}
           onBarClick={handleBarClick}
+          onRowClick={(rowId) => {
+            // Double-click on row opens detail panel
+            if (rowId.startsWith('proj-')) return
+            const bar = bars.find(b => b.rowId === rowId)
+            const projectId = bar?.meta?.projectId as string || projects.find(p => p.id === rowId)?.id
+            if (projectId) openPanel({ type: 'detail', module: 'projets', id: projectId })
+          }}
           onBarDrag={handleBarDrag}
           onBarResize={handleBarResize}
           onBarTitleEdit={handleBarTitleEdit}

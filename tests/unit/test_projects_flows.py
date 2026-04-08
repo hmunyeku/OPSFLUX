@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 
 from app.api.routes.modules import projets
+from app.api.routes.modules import planner
 from app.core.event_contracts import PROJECT_STATUS_CHANGED_EVENT
 from app.models.common import ProjectStatusHistory
 from app.schemas.common import ProjectUpdate
@@ -87,3 +88,73 @@ async def test_update_project_status_uses_fsm_and_emits_transition_event(monkeyp
     assert any(isinstance(obj, ProjectStatusHistory) for obj in db.added)
     assert transition_events and transition_events[0]["to_state"] == "planned"
     assert business_events and business_events[0][0] == PROJECT_STATUS_CHANGED_EVENT
+
+
+class _ScalarResult:
+    def __init__(self, value):
+        self._value = value
+
+    def scalar_one_or_none(self):
+        return self._value
+
+
+class PlannerRouteFakeDB(FakeDB):
+    def __init__(self, project, task):
+        super().__init__()
+        self.project = project
+        self.task = task
+
+    async def get(self, model, obj_id):
+        if model is planner.Project and obj_id == self.project.id:
+            return self.project
+        return None
+
+    async def execute(self, _query):
+        return _ScalarResult(self.task)
+
+
+@pytest.mark.asyncio
+async def test_create_activity_from_project_task_sets_source_task_id(monkeypatch):
+    entity_id = uuid4()
+    actor_id = uuid4()
+    project_id = uuid4()
+    task_id = uuid4()
+    asset_id = uuid4()
+    project = SimpleNamespace(
+        id=project_id,
+        entity_id=entity_id,
+        asset_id=asset_id,
+        code="PRJ-001",
+    )
+    task = SimpleNamespace(
+        id=task_id,
+        title="Mobilisation offshore",
+        description="Task description",
+        start_date=None,
+        due_date=None,
+    )
+    db = PlannerRouteFakeDB(project, task)
+
+    async def fake_enrich_activity(_db, activity):
+        return {"id": activity.id, "source_task_id": activity.source_task_id}
+
+    monkeypatch.setattr(planner, "_enrich_activity", fake_enrich_activity)
+
+    response = await planner.create_activity_from_project_task(
+        project_id=project_id,
+        task_id=task_id,
+        pax_quota=12,
+        priority="high",
+        entity_id=entity_id,
+        current_user=SimpleNamespace(id=actor_id),
+        _=None,
+        db=db,
+    )
+
+    assert db.commits == 1
+    assert len(db.added) == 1
+    activity = db.added[0]
+    assert activity.project_id == project_id
+    assert activity.source_task_id == task_id
+    assert activity.asset_id == asset_id
+    assert response["source_task_id"] == task_id

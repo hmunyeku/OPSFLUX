@@ -1005,11 +1005,55 @@
         "tier_type": "Tier type",
         "asset": "Asset",
         "department": "Department",
-        "job_position": "Job position"
+        "job_position": "Job position",
+        "packlog_cargo": "PackLog cargo"
+      },
+      "packlog": {
+        "scope_title": "PackLog scope",
+        "target_value": "Target cargo type",
+        "all_cargo_types": "All cargo types",
+        "scope_help": "PackLog rules are configured through the designer below. Target cargo type replaces free-text target values.",
+        "conditions_title": "PackLog applicability conditions",
+        "conditions_help": "Define when the rule applies: cargo type, workflow step, weight, dimensions, surface or business flags.",
+        "requirements_title": "Dossier requirements",
+        "required_fields": "Required fields",
+        "required_fields_placeholder": "Add required fields...",
+        "required_flags": "Required flags / validations",
+        "required_flags_placeholder": "Add required validations...",
+        "required_evidence": "Required supporting evidence",
+        "required_evidence_placeholder": "Add required evidence...",
+        "thresholds_title": "Numeric thresholds",
+        "min_values": "Minimum values",
+        "max_values": "Maximum values",
+        "conditions": {
+          "cargo_type": "Cargo type",
+          "target_workflow_status": "Target workflow step"
+        },
+        "fields": {
+          "designation": "Designation",
+          "description": "Description",
+          "weight_kg": "Weight (kg)",
+          "width_cm": "Width (cm)",
+          "length_cm": "Length (cm)",
+          "height_cm": "Height (cm)",
+          "surface_m2": "Surface (m²)",
+          "destination_asset_id": "Destination",
+          "pickup_location_label": "Pickup location",
+          "available_from": "Available from",
+          "imputation_reference_id": "Imputation",
+          "receiver_name": "Receiver",
+          "platform_crane_type": "Platform crane type"
+        },
+        "flags": {
+          "hazmat_validated": "HAZMAT validated",
+          "lifting_points_certified": "Certified lifting points",
+          "weight_ticket_provided": "Weight ticket provided"
+        }
       },
       "target_tabs": {
         "job_position": "By position",
         "all": "Global",
+        "packlog_cargo": "By PackLog cargo",
         "department": "By department",
         "asset": "By asset"
       },
@@ -1077,6 +1121,9 @@
       "pending": "Pending verification",
       "verified": "Verified",
       "rejected": "Rejected",
+      "proof_present": "{{count}} file(s)",
+      "proof_missing": "Proof required",
+      "proof_required_before_verify": "Add at least one supporting file before verifying this record.",
       "search": "Search by person, type, description...",
       "verify_button": "Verify & Approve",
       "reject_button": "Reject",
@@ -2275,7 +2322,8 @@
         "profile_type": "Profile type",
         "user_account": "User account",
         "identity": "Identity",
-        "additional_info": "Additional information"
+        "additional_info": "Additional information",
+        "reference_evidence": "Reference & supporting files"
       },
       "fields": {
         "company": "Company (tier)",
@@ -2303,13 +2351,56 @@
       "external_contact_profile": "External contact profile",
       "external_contact_promoted": "External contact profile promoted to external user",
       "credentials_title": "Credentials ({{count}})",
+      "compliance_records_title": "Compliance records ({{count}})",
+      "compliance_records_empty": "No compliance record.",
       "credential_obtained": "Obtained: {{date}}",
       "credential_expires": "Expires: {{date}}",
+      "proof_present": "{{count}} file(s)",
+      "proof_missing": "Missing proof",
       "site_presence_title": "Site presence ({{count}})",
       "site_presence_empty": "No known site presence.",
       "unknown_site": "Unknown site",
       "boarding_status": "Boarding {{status}} on {{date}}",
-      "completed_at": "Completed on {{date}}"
+      "completed_at": "Completed on {{date}}",
+      "reference_evidence_help": "Add the profile and reference supporting files here, for example a medical certificate, attestations, qualifications, or any proof required for compliance verification.",
+      "add_compliance_record": "Add compliance record"
+    },
+    "records": {
+      "create": "New record",
+      "create_success": "Record created",
+      "detail_title": "Compliance record",
+      "sections": {
+        "general": "General",
+        "reference": "Reference",
+        "attachments": "Supporting files"
+      },
+      "fields": {
+        "type": "Compliance type",
+        "owner_type": "Owner type",
+        "owner_id": "Owner identifier",
+        "status": "Status",
+        "issued_at": "Issue date",
+        "expires_at": "Expiry date",
+        "issuer": "Issuer",
+        "reference_number": "Reference",
+        "notes": "Notes"
+      },
+      "placeholders": {
+        "type": "Search a type...",
+        "owner_id": "UUID or business identifier of the owner",
+        "notes": "Additional information..."
+      },
+      "owner_types": {
+        "user": "User",
+        "tier_contact": "Tier contact",
+        "asset": "Asset",
+        "job_position": "Job position"
+      },
+      "errors": {
+        "missing_required": "Fill in the type, owner and owner identifier."
+      },
+      "create_attachment_hint": "After creation, the record stays open so the required supporting files can be uploaded immediately.",
+      "attachments_help": "Upload the proof for the declared reference here: certificate, attestation, signed copy, scan, or any other supporting evidence."
     },
     "incident_panel": {
       "create_title": "New incident",
@@ -2554,6 +2645,18 @@
     "default_policy": "Default policy"
   },
   "settings": {
+    "pdf_templates": {
+      "count_summary": "{{count}} PDF template(s) configured",
+      "seed_defaults": "Initialize default templates",
+      "new_template": "New PDF template",
+      "system_title": "System templates",
+      "system_description": "System PDF templates: document exports, generic reports, manifests.",
+      "system_empty": "No system template. Click “Initialize default templates” to create the base templates.",
+      "modules_title": "Module templates",
+      "modules_description": "Module-specific PDF templates: ADS tickets, PaxLog manifests, voyage manifests, project reports, and more.",
+      "modules_empty": "No module template yet. Create a PDF template for your specific needs or initialize the default templates.",
+      "modules_empty_only_system": "No module template is available yet. The existing templates are only system or document templates."
+    },
     "title": "Settings",
     "general": "General",
     "appearance": "Appearance",

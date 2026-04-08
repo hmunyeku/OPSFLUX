@@ -593,7 +593,8 @@ export function GanttCore(props: GanttCoreProps) {
                         return parentColor ? { backgroundColor: parentColor + '08', borderLeft: `2px solid ${parentColor}30` } : {}
                       })() : {}),
                     }}
-                    onClick={() => { onRowClick?.(row.id); onSelectRow?.(row.id) }}
+                    onClick={() => { onSelectRow?.(row.id) }}
+                    onDoubleClick={() => onRowClick?.(row.id)}
                     onMouseEnter={(e) => {
                       // Show tooltip for the first bar of this row
                       const rowBar = bars.find(b => b.rowId === row.id)

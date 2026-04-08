@@ -134,6 +134,7 @@ import type { AssetTreeNode } from '@/types/api'
 import { usePermission } from '@/hooks/usePermission'
 import { useDictionaryLabels, useDictionaryOptions } from '@/hooks/useDictionary'
 import { useProjects } from '@/hooks/useProjets'
+import { useComplianceRecords } from '@/hooks/useConformite'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { ImputationManager } from '@/components/shared/ImputationManager'
 import { AssetPicker } from '@/components/shared/AssetPicker'
@@ -1830,6 +1831,7 @@ function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSource: '
   const { data: profile, isLoading, isError, error } = usePaxProfile(id, paxSource)
   const updateProfile = useUpdatePaxProfile()
   const { data: credentials } = usePaxCredentials(id)
+  const { data: complianceRecordsData } = useComplianceRecords({ owner_type: profile?.pax_source === 'contact' ? 'tier_contact' : 'user', owner_id: profile?.entity_id || undefined, page: 1, page_size: 50 })
   const { data: sitePresenceHistory } = usePaxProfileSitePresenceHistory(id, profile?.pax_source)
   const { data: credentialTypes } = useCredentialTypes()
   const paxTypeLabels = useDictionaryLabels('pax_type', { internal: t('paxlog.internal'), external: t('paxlog.external') })
@@ -1868,6 +1870,8 @@ function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSource: '
   }
 
   const profileOwnerType = profile.pax_source === 'contact' ? 'tier_contact' : 'user'
+  const profileOwnerId = profile.entity_id
+  const complianceRecords = complianceRecordsData?.items ?? []
 
   return (
     <DynamicPanelShell
@@ -1990,6 +1994,41 @@ function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSource: '
               )}
             </FormSection>
 
+            <FormSection title={t('paxlog.profile_panel.compliance_records_title', { count: complianceRecords.length })}>
+              {complianceRecords.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-2 italic">{t('paxlog.profile_panel.compliance_records_empty')}</p>
+              ) : (
+                <div className="space-y-1">
+                  {complianceRecords.slice(0, 8).map((record) => (
+                    <button
+                      key={record.id}
+                      type="button"
+                      className="w-full rounded border border-border px-2 py-1.5 text-left hover:bg-accent/50 transition-colors"
+                      onClick={() => openDynamicPanel({ type: 'detail', module: 'conformite', id: record.id, meta: { subtype: 'record' } })}
+                    >
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium text-foreground">{record.type_name || record.compliance_type_id}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {(record.reference_number || t('common.none'))}
+                            {record.issuer ? ` • ${record.issuer}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={cn('gl-badge', (record.attachment_count ?? 0) > 0 ? 'gl-badge-success' : 'gl-badge-warning')}>
+                            {(record.attachment_count ?? 0) > 0
+                              ? t('paxlog.profile_panel.proof_present', { count: record.attachment_count ?? 0 })
+                              : t('paxlog.profile_panel.proof_missing')}
+                          </span>
+                          <StatusBadge status={record.status} />
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </FormSection>
+
             <FormSection title={t('paxlog.profile_panel.site_presence_title', { count: sitePresenceHistory?.length || 0 })}>
               {!sitePresenceHistory || sitePresenceHistory.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-2 italic">{t('paxlog.profile_panel.site_presence_empty')}</p>
@@ -2022,11 +2061,36 @@ function ProfileDetailPanel({ id, paxSource, adsId }: { id: string; paxSource: '
           </div>
         </SectionColumns>
 
+        <FormSection title={t('paxlog.profile_panel.sections.reference_evidence')} collapsible defaultExpanded={false}>
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              {t('paxlog.profile_panel.reference_evidence_help')}
+            </p>
+            <div>
+              <PanelActionButton
+                onClick={() => openDynamicPanel({
+                  type: 'create',
+                  module: 'conformite',
+                  meta: {
+                    subtype: 'record',
+                    prefill_owner_type: profileOwnerType,
+                    prefill_owner_id: profileOwnerId,
+                    prefill_owner_label: `${profile.first_name} ${profile.last_name}`,
+                  },
+                })}
+              >
+                <Plus size={12} /> {t('paxlog.profile_panel.add_compliance_record')}
+              </PanelActionButton>
+            </div>
+            <AttachmentManager ownerType={profileOwnerType} ownerId={profileOwnerId} compact />
+          </div>
+        </FormSection>
+
         <CollapsibleSection id="profile-tags-notes" title={t('paxlog.ads_detail.sections.tags_notes_files')}>
           <div className="space-y-3 p-3">
-            <TagManager ownerType={profileOwnerType} ownerId={profile.id} compact />
-            <AttachmentManager ownerType={profileOwnerType} ownerId={profile.id} compact />
-            <NoteManager ownerType={profileOwnerType} ownerId={profile.id} compact />
+            <TagManager ownerType={profileOwnerType} ownerId={profileOwnerId} compact />
+            <AttachmentManager ownerType={profileOwnerType} ownerId={profileOwnerId} compact />
+            <NoteManager ownerType={profileOwnerType} ownerId={profileOwnerId} compact />
           </div>
         </CollapsibleSection>
       </PanelContentLayout>

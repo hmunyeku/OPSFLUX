@@ -216,6 +216,7 @@ export interface PendingVerificationItem {
   category?: string | null
   type_name?: string | null
   attachment_count?: number
+  attachment_required?: boolean
 }
 
 export interface VerificationHistoryItem {

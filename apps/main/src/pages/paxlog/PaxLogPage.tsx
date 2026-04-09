@@ -3233,7 +3233,13 @@ function AdsDetailPanel({ id }: { id: string }) {
             </PanelActionButton>
           )}
           {canSubmit && (
-            <PanelActionButton variant="primary" disabled={submitAds.isPending} onClick={() => submitAds.mutate(id)}>
+            <PanelActionButton variant="primary" disabled={submitAds.isPending} onClick={() => submitAds.mutate(id, {
+              onSuccess: () => toast({ title: t('paxlog.ads_detail.toasts.submitted'), variant: 'success' }),
+              onError: (err: unknown) => {
+                const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+                toast({ title: t('common.error'), description: detail || t('paxlog.ads_detail.toasts.submit_error'), variant: 'error' })
+              },
+            })}>
               <Send size={12} /> {t('common.submit')}
             </PanelActionButton>
           )}

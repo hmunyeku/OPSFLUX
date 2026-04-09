@@ -210,17 +210,21 @@ async def check_pax_asset_compliance(
 
     pax_type = "internal" if user_id else "external"
 
+    # Build asset hierarchy: Installation → Site → Field
+    # ar_installations has site_id (FK to ar_sites), ar_sites has field_id (FK to ar_fields)
     asset_hierarchy = await db.execute(
         text(
             """
-            WITH RECURSIVE asset_tree AS (
-                SELECT id, parent_id FROM ar_installations WHERE id = :asset_id
-                UNION ALL
-                SELECT a.id, a.parent_id
-                FROM ar_installations a
-                JOIN asset_tree t ON a.id = t.parent_id
-            )
-            SELECT id FROM asset_tree
+            SELECT i.id FROM ar_installations i WHERE i.id = :asset_id
+            UNION
+            SELECT s.id FROM ar_sites s
+            JOIN ar_installations i ON i.site_id = s.id
+            WHERE i.id = :asset_id
+            UNION
+            SELECT f.id FROM ar_fields f
+            JOIN ar_sites s ON s.field_id = f.id
+            JOIN ar_installations i ON i.site_id = s.id
+            WHERE i.id = :asset_id
             """
         ),
         {"asset_id": str(asset_id)},

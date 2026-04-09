@@ -91,6 +91,11 @@ const SECTION_TAB_MAP: Record<string, string> = {
   'planner-capacity-heatmap': 'planner-config',
   // TravelWizConfigTab sections
   'travelwiz-operations': 'travelwiz-config',
+  // GdprTab sections
+  'gdpr-dpo': 'gdpr',
+  'gdpr-retention': 'gdpr',
+  'gdpr-consent': 'gdpr',
+  'gdpr-breaches': 'gdpr',
   // IntegrationsTab sections
   'services-connectes': 'integrations',
   'cartographie-integration': 'integrations',
@@ -144,6 +149,7 @@ import { SecurityPolicyTab } from './tabs/SecurityPolicyTab'
 import { PaxLogConfigTab } from './tabs/PaxLogConfigTab'
 import { PlannerConfigTab } from './tabs/PlannerConfigTab'
 import { TravelWizConfigTab } from './tabs/TravelWizConfigTab'
+import { GdprTab } from './tabs/GdprTab'
 import { AdminerTab } from './tabs/AdminerTab'
 import { SystemTab } from './tabs/SystemTab'
 // EntitiesTab moved to dedicated /entities sidebar page
@@ -185,6 +191,7 @@ registerSettingsSection({ id: 'paxlog-config', label: 'PaxLog', icon: Users, com
 registerSettingsSection({ id: 'planner-config', label: 'Planner', icon: CalendarClock, component: PlannerConfigTab, category: 'general', order: 37, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'travelwiz-config', label: 'TravelWiz', icon: Ship, component: TravelWizConfigTab, category: 'general', order: 38, requiredPermission: 'core.settings.manage' })
 
+registerSettingsSection({ id: 'gdpr', label: 'RGPD / Protection des donnees', icon: Shield, component: GdprTab, category: 'general', order: 40, requiredPermission: 'admin.system' })
 registerSettingsSection({ id: 'security-policy', label: 'Sécurité & Authentification', icon: ShieldCheck, component: SecurityPolicyTab, category: 'general', order: 45, requiredPermission: 'admin.system' })
 registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppression', icon: Trash2, component: DeletePoliciesTab, category: 'general', order: 50, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'system', label: 'Système', icon: Activity, component: SystemTab, category: 'general', order: 60, requiredPermission: 'core.settings.manage' })

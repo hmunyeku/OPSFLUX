@@ -12,7 +12,8 @@ import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/authStore'
 import { useUpdateProfile, useUploadAvatar } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
-import { Camera, Loader2, Pencil, Check, Plus } from 'lucide-react'
+import { Camera, Loader2, Pencil, Check, Plus, Download, Trash2 } from 'lucide-react'
+import api from '@/lib/api'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { ImageEditor } from '@/components/shared/ImageEditor'
 
@@ -781,6 +782,58 @@ export function ProfileTab() {
       >
         <div className="mt-2">
           <LinkedSSOAccounts />
+        </div>
+      </CollapsibleSection>
+
+      {/* RGPD — Mes données personnelles */}
+      <CollapsibleSection
+        id="gdpr-personal"
+        title="Mes donnees personnelles (RGPD)"
+        description="Exercez vos droits sur vos donnees personnelles conformement au RGPD."
+        storageKey="settings.profile.collapse"
+        showSeparator={false}
+      >
+        <div className="mt-3 space-y-3">
+          <div className="flex items-start gap-4 p-3 rounded-lg border border-border bg-muted/20">
+            <Download size={16} className="text-primary mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">Exporter mes donnees</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Demander un export de vos donnees personnelles (Art. 15 & 20). Vous recevrez une notification et un email quand l'export sera pret.</p>
+            </div>
+            <button
+              className="gl-button-sm gl-button-default shrink-0"
+              onClick={async () => {
+                try {
+                  await api.post('/api/v1/gdpr/request-export')
+                  toast({ title: 'Export demande', description: 'Vous recevrez une notification quand il sera pret.', variant: 'success' })
+                } catch { /* toast handled by interceptor */ }
+              }}
+            >
+              <Download size={12} /> Demander l'export
+            </button>
+          </div>
+
+          <div className="flex items-start gap-4 p-3 rounded-lg border border-red-500/30 bg-red-500/5">
+            <Trash2 size={16} className="text-red-500 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">Supprimer mon compte</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Anonymiser definitivement votre compte et supprimer vos donnees personnelles (Art. 17). Cette action est irreversible.</p>
+            </div>
+            <button
+              className="gl-button-sm bg-red-600 text-white hover:bg-red-700 shrink-0"
+              onClick={async () => {
+                const confirmation = prompt("Tapez 'SUPPRIMER MON COMPTE' pour confirmer :")
+                if (confirmation !== 'SUPPRIMER MON COMPTE') return
+                try {
+                  await api.post('/api/v1/gdpr/anonymize-my-account', { confirmation, reason: 'Demande utilisateur' })
+                  localStorage.clear()
+                  window.location.href = '/login'
+                } catch { /* toast handled by interceptor */ }
+              }}
+            >
+              <Trash2 size={12} /> Supprimer
+            </button>
+          </div>
         </div>
       </CollapsibleSection>
 

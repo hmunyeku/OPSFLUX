@@ -2040,16 +2040,30 @@ function MemberRow({ member, projectId }: { member: ProjectMemberType; projectId
 
 function MemberQuickAdd({ projectId }: { projectId: string }) {
   const [open, setOpen] = useState(false)
-  const [userId, setUserId] = useState('')
+  const [search, setSearch] = useState('')
+  const [selectedUserId, setSelectedUserId] = useState('')
   const [role, setRole] = useState('member')
+  const [showDropdown, setShowDropdown] = useState(false)
+  const debouncedSearch = useDebounce(search, 300)
+  const { data: usersData } = useUsers({ search: debouncedSearch || undefined, page_size: 10, active: true })
   const addMember = useAddProjectMember()
   const memberRoleLabels = useDictionaryLabels('project_member_role', PROJECT_MEMBER_ROLE_LABELS_FALLBACK)
   const memberRoleOptions = useMemo(() => buildDictionaryOptions(memberRoleLabels, PROJECT_MEMBER_ROLE_VALUES), [memberRoleLabels])
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const users = usersData?.items ?? []
+
+  const handleSelect = (userId: string, displayName: string) => {
+    setSelectedUserId(userId)
+    setSearch(displayName)
+    setShowDropdown(false)
+  }
 
   const handleSubmit = async () => {
-    if (!userId.trim()) return
-    await addMember.mutateAsync({ projectId, payload: { user_id: userId.trim(), role } })
-    setUserId('')
+    if (!selectedUserId) return
+    await addMember.mutateAsync({ projectId, payload: { user_id: selectedUserId, role } })
+    setSelectedUserId('')
+    setSearch('')
     setRole('member')
   }
 
@@ -2066,22 +2080,43 @@ function MemberQuickAdd({ projectId }: { projectId: string }) {
 
   return (
     <div className="flex items-center gap-1.5">
-      <input
-        type="text"
-        value={userId}
-        onChange={(e) => setUserId(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); if (e.key === 'Escape') { setOpen(false); setUserId('') } }}
-        className={`${panelInputClass} flex-1 text-xs`}
-        placeholder="ID utilisateur..."
-        autoFocus
-      />
+      <div className="relative flex-1" ref={dropdownRef}>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setSelectedUserId(''); setShowDropdown(true) }}
+          onFocus={() => setShowDropdown(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') { setOpen(false); setSearch(''); setSelectedUserId('') }
+          }}
+          className={`${panelInputClass} w-full text-xs`}
+          placeholder="Rechercher un utilisateur..."
+          autoFocus
+        />
+        {showDropdown && search.length > 0 && users.length > 0 && (
+          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-md max-h-[200px] overflow-y-auto">
+            {users.map(u => (
+              <button
+                key={u.id}
+                type="button"
+                className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted flex flex-col"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSelect(u.id, `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email)}
+              >
+                <span className="font-medium text-foreground">{u.first_name ?? ''} {u.last_name ?? ''}</span>
+                <span className="text-muted-foreground">{u.email}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
       <select value={role} onChange={(e) => setRole(e.target.value)} className={`${panelInputClass} w-[100px] text-xs`}>
         {memberRoleOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
       </select>
-      <button onClick={handleSubmit} disabled={addMember.isPending || !userId.trim()} className="p-1 rounded hover:bg-primary/10 text-primary disabled:opacity-40">
+      <button onClick={handleSubmit} disabled={addMember.isPending || !selectedUserId} className="p-1 rounded hover:bg-primary/10 text-primary disabled:opacity-40">
         {addMember.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
       </button>
-      <button onClick={() => { setOpen(false); setUserId('') }} className="p-1 rounded hover:bg-muted text-muted-foreground">
+      <button onClick={() => { setOpen(false); setSearch(''); setSelectedUserId('') }} className="p-1 rounded hover:bg-muted text-muted-foreground">
         <X size={12} />
       </button>
     </div>
@@ -2545,6 +2580,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
   const { data: tasks } = useProjectTasks(id)
   const { data: members } = useProjectMembers(id)
   const { data: milestones } = useProjectMilestones(id)
+  const { data: allUsersData } = useUsers({ page_size: 100, active: true })
   const goutiSyncOne = useGoutiSyncOne()
   const [showPlannerLink, setShowPlannerLink] = useState(false)
   const exportPdf = useExportProjectPdf()
@@ -2676,7 +2712,21 @@ function ProjectDetailPanel({ id }: { id: string }) {
                 <InlineEditableTags label="Météo" value={project.weather} options={projectWeatherOptions} onSave={(v) => handleSave('weather', v)} />
               </DetailFieldGrid>
               <DetailFieldGrid>
-                <ReadOnlyRow label="Chef de projet" value={project.manager_name || '--'} />
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Chef de projet</label>
+                  <select
+                    value={project.manager_id || ''}
+                    onChange={(e) => handleSave('manager_id', e.target.value || null)}
+                    className={`${panelInputClass} w-full text-xs mt-0.5`}
+                  >
+                    <option value="">-- Aucun --</option>
+                    {(allUsersData?.items ?? []).map(u => (
+                      <option key={u.id} value={u.id}>
+                        {`${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <ReadOnlyRow label="Entreprise" value={
                   project.tier_id ? (
                     <CrossModuleLink module="tiers" id={project.tier_id} label={project.tier_name || project.tier_id} mode="navigate" />
@@ -4078,6 +4128,7 @@ function KanbanView() {
     search: debouncedSearch || undefined,
   })
   const { toast } = useToast()
+  const updateTask = useUpdateProjectTask()
 
   const allTasks = tasksData?.items ?? []
   // Filter tasks by project selection (shared across views)
@@ -4096,16 +4147,17 @@ function KanbanView() {
     return map
   }, [tasks])
 
-  const handleTaskDrop = useCallback(async (taskId: string, newStatus: string) => {
+  const handleTaskDrop = useCallback((taskId: string, newStatus: string) => {
     const task = tasks.find(t => t.id === taskId)
     if (!task) return
-    try {
-      await projetsService.updateTask(task.project_id, taskId, { status: newStatus })
-      toast({ title: 'Statut mis à jour', variant: 'success' })
-    } catch {
-      toast({ title: 'Erreur mise à jour', variant: 'error' })
-    }
-  }, [tasks, toast])
+    updateTask.mutate(
+      { projectId: task.project_id, taskId, payload: { status: newStatus } },
+      {
+        onSuccess: () => toast({ title: 'Statut mis à jour', variant: 'success' }),
+        onError: () => toast({ title: 'Erreur mise à jour', variant: 'error' }),
+      },
+    )
+  }, [tasks, updateTask, toast])
 
   return (
     <div className="flex flex-col h-full">

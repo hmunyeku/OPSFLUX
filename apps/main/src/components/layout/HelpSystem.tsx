@@ -13,19 +13,68 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import { useLocation } from 'react-router-dom'
 import { X, ChevronDown, ChevronRight, Lightbulb, BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import mermaid from 'mermaid'
+
+// ── Mermaid initialisation ─────────────────────────────────
+
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'dark',
+  themeVariables: {
+    primaryColor: '#3b82f6',
+    primaryTextColor: '#fff',
+    primaryBorderColor: '#60a5fa',
+    secondaryColor: '#1e293b',
+    tertiaryColor: '#0f172a',
+    lineColor: '#64748b',
+    textColor: '#e2e8f0',
+    mainBkg: '#1e293b',
+    nodeBorder: '#3b82f6',
+    clusterBkg: '#0f172a',
+    edgeLabelBackground: '#1e293b',
+    fontSize: '12px',
+  },
+  flowchart: { curve: 'basis', padding: 10 },
+})
+
+function MermaidDiagram({ chart, className }: { chart: string; className?: string }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [svg, setSvg] = useState('')
+
+  useEffect(() => {
+    const id = 'mermaid-' + Math.random().toString(36).slice(2, 8)
+    mermaid.render(id, chart).then(({ svg: s }) => setSvg(s)).catch(() => setSvg(''))
+  }, [chart])
+
+  if (!svg) return null
+  return (
+    <div
+      ref={containerRef}
+      className={cn('overflow-x-auto', className)}
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
+  )
+}
 
 // ── Help content types ──────────────────────────────────────
+
+interface WorkflowHelp {
+  title: string
+  steps: string[]
+  diagram?: string // Mermaid flowchart string
+}
 
 interface ModuleHelp {
   title: string
   icon: string
   description: string
-  workflows: { title: string; steps: string[] }[]
+  workflows: WorkflowHelp[]
   tips: string[]
   elementHelp: Record<string, string>
 }
@@ -79,6 +128,22 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
           'Cliquez sur les cellules \u2713/\u2717 pour accorder ou retirer',
           'Les permissions heritees du role/groupe sont indiquees par un badge',
         ],
+        diagram: `graph TD
+    A["\u{1F464} Utilisateur"]:::user --> B["\u{1F465} Groupe"]:::group
+    B --> C["\u{1F6E1}\uFE0F R\u00f4le"]:::role
+    C --> D["\u{1F511} Permissions de base"]:::perm
+    B --> E["\u2699\uFE0F Overrides groupe"]:::override
+    A --> F["\u26A1 Overrides utilisateur"]:::override
+    D --> G["\u2705 Permissions effectives"]:::effective
+    E --> G
+    F --> G
+
+    classDef user fill:#8b5cf6,stroke:#a78bfa,color:#fff
+    classDef group fill:#06b6d4,stroke:#22d3ee,color:#fff
+    classDef role fill:#3b82f6,stroke:#60a5fa,color:#fff
+    classDef perm fill:#475569,stroke:#64748b,color:#fff
+    classDef override fill:#f59e0b,stroke:#fbbf24,color:#000
+    classDef effective fill:#22c55e,stroke:#4ade80,color:#fff`,
       },
       {
         title: 'Affecter un role via un groupe',
@@ -111,6 +176,15 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
           'Affectez un site/asset et un chef de projet',
           "Ajoutez des taches dans l'onglet Planning",
         ],
+        diagram: `graph LR
+    A["\u{1F4CB} Planifi\u00e9"]:::planned --> B["\u{1F504} Actif"]:::active
+    B --> C["\u2705 Termin\u00e9"]:::done
+    B --> D["\u274C Annul\u00e9"]:::cancelled
+
+    classDef planned fill:#475569,stroke:#64748b,color:#fff
+    classDef active fill:#3b82f6,stroke:#60a5fa,color:#fff
+    classDef done fill:#22c55e,stroke:#4ade80,color:#fff
+    classDef cancelled fill:#ef4444,stroke:#f87171,color:#fff`,
       },
       {
         title: "Suivre l'avancement",
@@ -120,6 +194,16 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
           "Le % d'avancement se met a jour automatiquement",
           "Le Tableur permet l'edition en masse",
         ],
+        diagram: `graph LR
+    A["\u{1F4DD} \u00C0 faire"]:::todo --> B["\u{1F504} En cours"]:::progress
+    B --> C["\u{1F441}\uFE0F Revue"]:::review
+    C --> D["\u2705 Termin\u00e9"]:::done
+    C -->|Corrections| B
+
+    classDef todo fill:#475569,stroke:#64748b,color:#fff
+    classDef progress fill:#3b82f6,stroke:#60a5fa,color:#fff
+    classDef review fill:#eab308,stroke:#facc15,color:#000
+    classDef done fill:#22c55e,stroke:#4ade80,color:#fff`,
       },
     ],
     tips: [
@@ -155,6 +239,26 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
           'Validation finale par le coordinateur',
           'Approuve \u2192 Mouvement possible',
         ],
+        diagram: `graph TD
+    A["\u{1F4DD} Brouillon"]:::draft --> |Soumettre| B["\u{1F4E4} Soumis"]:::submitted
+    B --> C{"\u{1F50D} Conformit\u00e9"}
+    C -->|OK| D["\u2705 En validation"]:::validation
+    C -->|Issues| E["\u26A0\uFE0F Bloqu\u00e9"]:::blocked
+    D -->|Approuver| F["\u{1F7E2} Approuv\u00e9"]:::approved
+    D -->|Rejeter| G["\u{1F534} Rejet\u00e9"]:::rejected
+    D -->|Escalader| H["\u2696\uFE0F Arbitrage"]:::arbitration
+    F -->|D\u00e9marrer| I["\u{1F504} En cours"]:::progress
+    I -->|Terminer| J["\u2714\uFE0F Termin\u00e9"]:::done
+
+    classDef draft fill:#475569,stroke:#64748b,color:#fff
+    classDef submitted fill:#3b82f6,stroke:#60a5fa,color:#fff
+    classDef validation fill:#8b5cf6,stroke:#a78bfa,color:#fff
+    classDef blocked fill:#f59e0b,stroke:#fbbf24,color:#000
+    classDef approved fill:#22c55e,stroke:#4ade80,color:#fff
+    classDef rejected fill:#ef4444,stroke:#f87171,color:#fff
+    classDef arbitration fill:#f97316,stroke:#fb923c,color:#fff
+    classDef progress fill:#06b6d4,stroke:#22d3ee,color:#fff
+    classDef done fill:#10b981,stroke:#34d399,color:#fff`,
       },
     ],
     tips: [
@@ -223,6 +327,18 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
           'Consultez ses certifications et leur statut',
           'Les expirations sont signalees en rouge',
         ],
+        diagram: `graph TD
+    A["\u{1F4CB} R\u00e8gles site"]:::rule --> D{"\u{1F50D} V\u00e9rification"}
+    B["\u{1F393} Profil / Habilitations"]:::rule --> D
+    C["\u{1F4DD} Auto-d\u00e9clarations"]:::rule --> D
+    D -->|Tout OK| E["\u2705 Conforme"]:::ok
+    D -->|Manquant| F["\u26A0\uFE0F Non conforme"]:::nok
+    D -->|Expir\u00e9| G["\u{1F534} Expir\u00e9"]:::expired
+
+    classDef rule fill:#475569,stroke:#64748b,color:#fff
+    classDef ok fill:#22c55e,stroke:#4ade80,color:#fff
+    classDef nok fill:#f59e0b,stroke:#fbbf24,color:#000
+    classDef expired fill:#ef4444,stroke:#f87171,color:#fff`,
       },
     ],
     tips: [
@@ -354,7 +470,7 @@ export function HelpProvider({ children }: { children: React.ReactNode }) {
 
 // ── Workflow accordion item ─────────────────────────────────
 
-function WorkflowItem({ title, steps }: { title: string; steps: string[] }) {
+function WorkflowItem({ workflow }: { workflow: WorkflowHelp }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -364,19 +480,24 @@ function WorkflowItem({ title, steps }: { title: string; steps: string[] }) {
         className="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors text-left"
       >
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        {title}
+        {workflow.title}
       </button>
       {open && (
-        <ol className="px-3 pb-3 pt-1 space-y-1.5 list-none">
-          {steps.map((step, i) => (
-            <li key={i} className="flex gap-2.5 text-xs text-muted-foreground leading-relaxed">
-              <span className="flex-shrink-0 h-5 w-5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold flex items-center justify-center">
-                {i + 1}
-              </span>
-              <span className="pt-0.5">{step}</span>
-            </li>
-          ))}
-        </ol>
+        <div className="px-3 pb-3 space-y-3">
+          {workflow.diagram && (
+            <MermaidDiagram chart={workflow.diagram} className="bg-slate-900/50 rounded-lg p-2" />
+          )}
+          <ol className="pt-1 space-y-1.5 list-none">
+            {workflow.steps.map((step, i) => (
+              <li key={i} className="flex gap-2.5 text-xs text-muted-foreground leading-relaxed">
+                <span className="flex-shrink-0 h-5 w-5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold flex items-center justify-center">
+                  {i + 1}
+                </span>
+                <span className="pt-0.5">{step}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
       )}
     </div>
   )
@@ -497,11 +618,7 @@ export function HelpPanel() {
                   </h3>
                   <div className="space-y-2">
                     {help.workflows.map((wf, i) => (
-                      <WorkflowItem
-                        key={i}
-                        title={wf.title}
-                        steps={wf.steps}
-                      />
+                      <WorkflowItem key={i} workflow={wf} />
                     ))}
                   </div>
                 </section>

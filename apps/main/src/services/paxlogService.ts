@@ -273,6 +273,61 @@ export interface Ads {
   pax_count?: number
 }
 
+export interface AdsBoardingUnassignedPax {
+  ads_pax_id: string
+  user_id: string | null
+  contact_id: string | null
+  name: string
+  company: string | null
+  badge_number: string | null
+  pax_status: string | null
+}
+
+export interface AdsBoardingPassenger {
+  id: string
+  ads_pax_id: string | null
+  manifest_id: string
+  voyage_id: string
+  user_id: string | null
+  contact_id: string | null
+  name: string
+  company: string | null
+  badge_number: string | null
+  pax_status: string | null
+  boarding_status: string
+  boarded_at: string | null
+  standby: boolean
+}
+
+export interface AdsBoardingManifest {
+  manifest_id: string
+  manifest_status: string
+  voyage_id: string
+  voyage_code: string
+  voyage_status: string
+  scheduled_departure: string | null
+  scheduled_arrival: string | null
+  passenger_count: number
+  boarded_count: number
+  passengers: AdsBoardingPassenger[]
+}
+
+export interface AdsBoardingContext {
+  ads_id: string
+  entity_id: string
+  reference: string
+  status: string
+  site_name: string | null
+  visit_purpose: string | null
+  visit_category: string | null
+  start_date: string | null
+  end_date: string | null
+  pax_count: number
+  qr_url: string | null
+  manifests: AdsBoardingManifest[]
+  unassigned_pax: AdsBoardingUnassignedPax[]
+}
+
 export interface AdsSummary {
   id: string
   entity_id: string
@@ -418,6 +473,10 @@ export interface AdsStayChangeRequest {
 
 export interface AdsManualDepartureRequest {
   reason: string
+}
+
+export interface AdsBoardingPassengerUpdate {
+  boarding_status: 'pending' | 'checked_in' | 'boarded' | 'no_show' | 'offloaded'
 }
 
 export interface AdsPax {
@@ -1166,6 +1225,16 @@ export const paxlogService = {
 
   getAdsPdf: async (id: string): Promise<Blob> => {
     const { data } = await api.get(`/api/v1/pax/ads/${id}/pdf`, { responseType: 'blob' })
+    return data
+  },
+
+  getAdsBoardingContext: async (token: string): Promise<AdsBoardingContext> => {
+    const { data } = await api.get(`/api/v1/pax/ads/boarding/scan/${token}`)
+    return data
+  },
+
+  updateAdsBoardingPassenger: async (token: string, passengerId: string, payload: AdsBoardingPassengerUpdate): Promise<AdsBoardingPassenger> => {
+    const { data } = await api.post(`/api/v1/pax/ads/boarding/scan/${token}/passengers/${passengerId}`, payload)
     return data
   },
 

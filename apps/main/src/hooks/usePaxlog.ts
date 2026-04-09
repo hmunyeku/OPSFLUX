@@ -30,6 +30,7 @@ import type {
   AddPaxBody,
   AdsPaxDecision,
   AdsWaitlistPriorityUpdate,
+  AdsBoardingPassengerUpdate,
 } from '@/services/paxlogService'
 
 // ── PAX Profiles ──
@@ -216,6 +217,26 @@ export function useAds(id: string) {
     queryKey: ['paxlog', 'ads', id],
     queryFn: () => paxlogService.getAds(id),
     enabled: !!id,
+  })
+}
+
+export function useAdsBoardingContext(token: string | undefined) {
+  return useQuery({
+    queryKey: ['paxlog', 'ads-boarding-scan', token],
+    queryFn: () => paxlogService.getAdsBoardingContext(token as string),
+    enabled: !!token,
+    refetchInterval: 30_000,
+  })
+}
+
+export function useUpdateAdsBoardingPassenger(token: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ passengerId, payload }: { passengerId: string; payload: AdsBoardingPassengerUpdate }) =>
+      paxlogService.updateAdsBoardingPassenger(token as string, passengerId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads-boarding-scan', token] })
+    },
   })
 }
 

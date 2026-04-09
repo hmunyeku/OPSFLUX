@@ -19,6 +19,7 @@ const ConformitePage = lazy(() => import('@/pages/conformite/ConformitePage').th
 const ProjetsPage = lazy(() => import('@/pages/projets/ProjetsPage').then(m => ({ default: m.ProjetsPage })))
 const WorkflowPage = lazy(() => import('@/pages/workflow/WorkflowPage').then(m => ({ default: m.WorkflowPage })))
 const PaxLogPage = lazy(() => import('@/pages/paxlog/PaxLogPage').then(m => ({ default: m.PaxLogPage })))
+const AdsBoardingScanPage = lazy(() => import('@/pages/paxlog/AdsBoardingScanPage').then(m => ({ default: m.AdsBoardingScanPage })))
 const PlannerPage = lazy(() => import('@/pages/planner/PlannerPage').then(m => ({ default: m.PlannerPage })))
 const TravelWizPage = lazy(() => import('@/pages/travelwiz/TravelWizPage').then(m => ({ default: m.TravelWizPage })))
 const PackLogPage = lazy(() => import('@/pages/packlog/PackLogPage').then(m => ({ default: m.PackLogPage })))
@@ -86,6 +87,7 @@ export default function App() {
                   <Route path="/conformite/*" element={<RequirePermission permission="conformite.record.read"><ConformitePage /></RequirePermission>} />
                   <Route path="/projets/*" element={<RequirePermission permission="project.read"><ProjetsPage /></RequirePermission>} />
                   <Route path="/workflow/*" element={<RequirePermission permission="workflow.definition.read"><WorkflowPage /></RequirePermission>} />
+                  <Route path="/paxlog/ads-boarding/:token" element={<RequirePermission permission="travelwiz.boarding.manage"><AdsBoardingScanPage /></RequirePermission>} />
                   <Route path="/paxlog/*" element={<RequireAnyPermission permissions={['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.ads.approve', 'paxlog.avm.read', 'paxlog.avm.create', 'paxlog.avm.update', 'paxlog.avm.approve', 'paxlog.avm.complete', 'paxlog.profile.read', 'paxlog.compliance.read']}><PaxLogPage /></RequireAnyPermission>} />
                   <Route path="/planner/*" element={<RequirePermission permission="planner.activity.read"><PlannerPage /></RequirePermission>} />
                   <Route path="/travelwiz/*" element={<RequirePermission permission="travelwiz.voyage.read"><TravelWizPage /></RequirePermission>} />

@@ -16,6 +16,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, status
+from jose import JWTError, jwt
 from pydantic import BaseModel
 from sqlalchemy import and_, bindparam, func, literal, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -71,7 +72,13 @@ from app.models.paxlog import (
     StayProgram,
 )
 from app.models.planner import PlannerActivity
+from app.models.travelwiz import ManifestPassenger, Voyage, VoyageManifest
 from app.schemas.paxlog import (
+    AdsBoardingContextRead,
+    AdsBoardingManifestRead,
+    AdsBoardingPassengerRead,
+    AdsBoardingPassengerUpdate,
+    AdsBoardingUnassignedPaxRead,
     AdsCreate,
     AdsExternalLinkSecurityRead,
     ExternalAdsDossierRead,
@@ -141,6 +148,40 @@ ADS_READ_ENTRY_PERMISSIONS = (
 
 def _build_external_portal_url(token: str) -> str:
     return f"{settings.external_paxlog_url}/?token={token}"
+
+
+def _build_ads_boarding_token(ads: Ads) -> str:
+    expiry = datetime.combine(
+        ads.end_date + timedelta(days=14),
+        datetime.min.time(),
+        tzinfo=timezone.utc,
+    )
+    payload = {
+        "purpose": "ads_boarding_qr",
+        "ads_id": str(ads.id),
+        "entity_id": str(ads.entity_id),
+        "reference": ads.reference,
+        "exp": expiry,
+    }
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def _decode_ads_boarding_token(token: str) -> dict[str, Any]:
+    try:
+        payload = jwt.decode(
+            token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
+        )
+    except JWTError as exc:
+        raise HTTPException(status_code=401, detail="QR AdS invalide ou expiré") from exc
+    if payload.get("purpose") != "ads_boarding_qr":
+        raise HTTPException(status_code=401, detail="QR AdS invalide")
+    return payload
+
+
+def _build_ads_boarding_url(token: str) -> str:
+    return f"{settings.APP_URL.rstrip('/')}/paxlog/ads-boarding/{token}"
 
 
 def _json_safe(value: object | None) -> object | None:
@@ -5646,6 +5687,8 @@ async def _build_ads_pdf_template_variables(
     entity = entity_row.first()
     entity_name = entity[0] if entity else "OpsFlux"
     entity_code = entity[1] if entity and len(entity) > 1 else None
+    boarding_token = _build_ads_boarding_token(ads)
+    boarding_url = _build_ads_boarding_url(boarding_token)
 
     variables = {
         "reference": ads.reference,
@@ -5665,9 +5708,176 @@ async def _build_ads_pdf_template_variables(
             "code": entity_code,
         },
         "entity_name": entity_name,
-        "qr_data": ads.reference,
+        "qr_data": boarding_url,
+        "qr_url": boarding_url,
     }
     return variables
+
+
+async def _resolve_ads_boarding_context(
+    db: AsyncSession,
+    *,
+    token: str,
+    current_entity_id: UUID,
+) -> tuple[Ads, str]:
+    payload = _decode_ads_boarding_token(token)
+    ads_id = UUID(str(payload["ads_id"]))
+    token_entity_id = UUID(str(payload["entity_id"]))
+    if token_entity_id != current_entity_id:
+        raise HTTPException(status_code=404, detail="QR AdS non disponible dans cette entité")
+    result = await db.execute(
+        select(Ads).where(
+            Ads.id == ads_id,
+            Ads.entity_id == current_entity_id,
+        )
+    )
+    ads = result.scalar_one_or_none()
+    if not ads:
+        raise HTTPException(status_code=404, detail="AdS introuvable")
+    return ads, _build_ads_boarding_url(token)
+
+
+async def _build_ads_boarding_context(
+    db: AsyncSession,
+    *,
+    ads: Ads,
+    entity_id: UUID,
+    qr_url: str,
+) -> AdsBoardingContextRead:
+    ads_data = await _build_ads_read_data(db, ads=ads, entity_id=entity_id)
+    pax_rows = (
+        await db.execute(
+            select(
+                ManifestPassenger,
+                AdsPax.status.label("ads_pax_status"),
+                VoyageManifest,
+                Voyage,
+                User.badge_number.label("user_badge_number"),
+                TierContact.badge_number.label("contact_badge_number"),
+            )
+            .join(AdsPax, AdsPax.id == ManifestPassenger.ads_pax_id)
+            .join(VoyageManifest, VoyageManifest.id == ManifestPassenger.manifest_id)
+            .join(Voyage, Voyage.id == VoyageManifest.voyage_id)
+            .outerjoin(User, User.id == ManifestPassenger.user_id)
+            .outerjoin(TierContact, TierContact.id == ManifestPassenger.contact_id)
+            .where(
+                AdsPax.ads_id == ads.id,
+                ManifestPassenger.active == True,  # noqa: E712
+                VoyageManifest.active == True,  # noqa: E712
+            )
+            .order_by(Voyage.scheduled_departure.asc(), ManifestPassenger.created_at.asc())
+        )
+    ).all()
+
+    manifests_index: dict[UUID, dict[str, Any]] = {}
+    for row in pax_rows:
+        passenger: ManifestPassenger = row[0]
+        pax_status = row[1]
+        manifest: VoyageManifest = row[2]
+        voyage: Voyage = row[3]
+        badge_number = row[4] or row[5]
+        if manifest.id not in manifests_index:
+            manifests_index[manifest.id] = {
+                "manifest_id": manifest.id,
+                "manifest_status": manifest.status,
+                "voyage_id": voyage.id,
+                "voyage_code": voyage.code,
+                "voyage_status": voyage.status,
+                "scheduled_departure": voyage.scheduled_departure,
+                "scheduled_arrival": voyage.scheduled_arrival,
+                "passengers": [],
+            }
+        manifests_index[manifest.id]["passengers"].append(
+            AdsBoardingPassengerRead(
+                id=passenger.id,
+                ads_pax_id=passenger.ads_pax_id,
+                manifest_id=manifest.id,
+                voyage_id=voyage.id,
+                user_id=passenger.user_id,
+                contact_id=passenger.contact_id,
+                name=passenger.name,
+                company=passenger.company,
+                badge_number=badge_number,
+                pax_status=pax_status,
+                boarding_status=passenger.boarding_status,
+                boarded_at=passenger.boarded_at,
+                standby=passenger.standby,
+            )
+        )
+
+    manifests = [
+        AdsBoardingManifestRead(
+            **manifest_row,
+            passenger_count=len(manifest_row["passengers"]),
+            boarded_count=sum(1 for passenger in manifest_row["passengers"] if passenger.boarding_status == "boarded"),
+        )
+        for manifest_row in manifests_index.values()
+    ]
+
+    unassigned_rows = (
+        await db.execute(
+            select(
+                AdsPax,
+                User.first_name.label("user_first_name"),
+                User.last_name.label("user_last_name"),
+                User.badge_number.label("user_badge_number"),
+                TierContact.first_name.label("contact_first_name"),
+                TierContact.last_name.label("contact_last_name"),
+                TierContact.badge_number.label("contact_badge_number"),
+                Tier.name.label("company_name"),
+            )
+            .outerjoin(User, User.id == AdsPax.user_id)
+            .outerjoin(TierContact, TierContact.id == AdsPax.contact_id)
+            .outerjoin(Tier, Tier.id == User.company_id)
+            .outerjoin(
+                ManifestPassenger,
+                and_(
+                    ManifestPassenger.ads_pax_id == AdsPax.id,
+                    ManifestPassenger.active == True,  # noqa: E712
+                ),
+            )
+            .where(
+                AdsPax.ads_id == ads.id,
+                ManifestPassenger.id.is_(None),
+            )
+            .order_by(AdsPax.created_at.asc())
+        )
+    ).all()
+
+    unassigned_pax = [
+        AdsBoardingUnassignedPaxRead(
+            ads_pax_id=row[0].id,
+            user_id=row[0].user_id,
+            contact_id=row[0].contact_id,
+            name=" ".join(
+                part for part in [
+                    row[1] if row[0].user_id else row[4],
+                    row[2] if row[0].user_id else row[5],
+                ]
+                if part
+            ) or "PAX",
+            company=row[7] or None,
+            badge_number=row[3] or row[6],
+            pax_status=row[0].status,
+        )
+        for row in unassigned_rows
+    ]
+
+    return AdsBoardingContextRead(
+        ads_id=ads.id,
+        entity_id=entity_id,
+        reference=ads.reference,
+        status=ads.status,
+        site_name=ads_data.get("site_name"),
+        visit_purpose=ads.visit_purpose,
+        visit_category=ads.visit_category,
+        start_date=ads.start_date,
+        end_date=ads.end_date,
+        pax_count=len(manifests and [p for m in manifests for p in m.passengers] or []) + len(unassigned_pax),
+        qr_url=qr_url,
+        manifests=manifests,
+        unassigned_pax=unassigned_pax,
+    )
 
 
 @router.get("/external/{token}/pdf")
@@ -5690,6 +5900,109 @@ async def download_external_ads_pdf(
         ads=ads,
         entity_id=ads.entity_id,
         language=language,
+    )
+
+
+@router.get("/ads/boarding/scan/{token}", response_model=AdsBoardingContextRead)
+async def get_ads_boarding_scan_context(
+    token: str,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.boarding.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Resolve a signed AdS boarding QR into a boarding-ready context."""
+    ads, qr_url = await _resolve_ads_boarding_context(
+        db,
+        token=token,
+        current_entity_id=entity_id,
+    )
+    return await _build_ads_boarding_context(
+        db,
+        ads=ads,
+        entity_id=entity_id,
+        qr_url=qr_url,
+    )
+
+
+@router.post(
+    "/ads/boarding/scan/{token}/passengers/{passenger_id}",
+    response_model=AdsBoardingPassengerRead,
+)
+async def update_ads_boarding_scan_passenger(
+    token: str,
+    passenger_id: UUID,
+    body: AdsBoardingPassengerUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.boarding.manage"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update boarding status for a manifest passenger reached from an AdS QR scan."""
+    ads, _qr_url = await _resolve_ads_boarding_context(
+        db,
+        token=token,
+        current_entity_id=entity_id,
+    )
+    result = await db.execute(
+        select(
+            ManifestPassenger,
+            AdsPax.status.label("ads_pax_status"),
+            VoyageManifest,
+            Voyage,
+            User.badge_number.label("user_badge_number"),
+            TierContact.badge_number.label("contact_badge_number"),
+        )
+        .join(AdsPax, AdsPax.id == ManifestPassenger.ads_pax_id)
+        .join(VoyageManifest, VoyageManifest.id == ManifestPassenger.manifest_id)
+        .join(Voyage, Voyage.id == VoyageManifest.voyage_id)
+        .outerjoin(User, User.id == ManifestPassenger.user_id)
+        .outerjoin(TierContact, TierContact.id == ManifestPassenger.contact_id)
+        .where(
+            ManifestPassenger.id == passenger_id,
+            AdsPax.ads_id == ads.id,
+            ManifestPassenger.active == True,  # noqa: E712
+        )
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Passager manifeste introuvable pour cet AdS")
+
+    passenger: ManifestPassenger = row[0]
+    passenger.boarding_status = body.boarding_status
+    passenger.boarded_at = datetime.now(timezone.utc) if body.boarding_status == "boarded" else None
+    await db.flush()
+    await record_audit(
+        db,
+        action="paxlog.ads.boarding.update",
+        resource_type="manifest_passenger",
+        resource_id=str(passenger.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "ads_id": str(ads.id),
+            "ads_reference": ads.reference,
+            "manifest_id": str(passenger.manifest_id),
+            "boarding_status": body.boarding_status,
+        },
+    )
+    await db.commit()
+    await db.refresh(passenger)
+
+    return AdsBoardingPassengerRead(
+        id=passenger.id,
+        ads_pax_id=passenger.ads_pax_id,
+        manifest_id=row[2].id,
+        voyage_id=row[3].id,
+        user_id=passenger.user_id,
+        contact_id=passenger.contact_id,
+        name=passenger.name,
+        company=passenger.company,
+        badge_number=row[4] or row[5],
+        pax_status=row[1],
+        boarding_status=passenger.boarding_status,
+        boarded_at=passenger.boarded_at,
+        standby=passenger.standby,
     )
 
 

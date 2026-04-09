@@ -356,6 +356,65 @@ class AdsRead(OpsFluxSchema):
     updated_at: datetime
 
 
+class AdsBoardingUnassignedPaxRead(OpsFluxSchema):
+    ads_pax_id: UUID
+    user_id: UUID | None = None
+    contact_id: UUID | None = None
+    name: str
+    company: str | None = None
+    badge_number: str | None = None
+    pax_status: str | None = None
+
+
+class AdsBoardingPassengerRead(OpsFluxSchema):
+    id: UUID
+    ads_pax_id: UUID | None = None
+    manifest_id: UUID
+    voyage_id: UUID
+    user_id: UUID | None = None
+    contact_id: UUID | None = None
+    name: str
+    company: str | None = None
+    badge_number: str | None = None
+    pax_status: str | None = None
+    boarding_status: str
+    boarded_at: datetime | None = None
+    standby: bool = False
+
+
+class AdsBoardingManifestRead(OpsFluxSchema):
+    manifest_id: UUID
+    manifest_status: str
+    voyage_id: UUID
+    voyage_code: str
+    voyage_status: str
+    scheduled_departure: datetime | None = None
+    scheduled_arrival: datetime | None = None
+    passenger_count: int = 0
+    boarded_count: int = 0
+    passengers: list[AdsBoardingPassengerRead] = []
+
+
+class AdsBoardingContextRead(OpsFluxSchema):
+    ads_id: UUID
+    entity_id: UUID
+    reference: str
+    status: str
+    site_name: str | None = None
+    visit_purpose: str | None = None
+    visit_category: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    pax_count: int = 0
+    qr_url: str | None = None
+    manifests: list[AdsBoardingManifestRead] = []
+    unassigned_pax: list[AdsBoardingUnassignedPaxRead] = []
+
+
+class AdsBoardingPassengerUpdate(BaseModel):
+    boarding_status: str = Field(pattern=r"^(pending|checked_in|boarded|no_show|offloaded)$")
+
+
 class AdsLinkedProjectRead(OpsFluxSchema):
     project_id: UUID
     project_name: str | None = None

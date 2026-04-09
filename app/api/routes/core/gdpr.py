@@ -109,7 +109,8 @@ async def _collect_user_data(db: AsyncSession, user: User) -> dict:
             if rows:
                 related[table_name] = rows
         except Exception:
-            # Table might not exist or column mismatch — skip silently
+            # Table/column might not exist — rollback to clear failed transaction
+            await db.rollback()
             continue
 
     return {"profile": profile, "related_data": related}

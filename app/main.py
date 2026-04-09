@@ -199,6 +199,8 @@ app = FastAPI(
 
 
 # ─── Middlewares (order matters: last added = first executed) ──────────────
+from app.core.middleware.sensitive_data_audit import SensitiveDataAuditMiddleware
+app.add_middleware(SensitiveDataAuditMiddleware)
 app.add_middleware(RateLimitMiddleware, max_requests=200, window_seconds=60)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(EntityScopeMiddleware)

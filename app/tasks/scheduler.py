@@ -211,6 +211,10 @@ def _register_jobs() -> None:
     from app.tasks.jobs.archived_purge import purge_archived_records
     scheduler.add_job(purge_archived_records, trigger=CronTrigger(hour=4, minute=0, day_of_week="sun"), id="archived_purge", name="Purge archived records past retention period", replace_existing=True, max_instances=1)
 
+    # GDPR retention enforcement — daily at 03:00
+    from app.tasks.jobs.gdpr_purge import gdpr_retention_purge
+    scheduler.add_job(gdpr_retention_purge, trigger=CronTrigger(hour=3, minute=0), id="gdpr_purge", name="RGPD: purge donnees hors retention", replace_existing=True, max_instances=1)
+
     # Asset inspection reminders — daily at 07:00
     from app.tasks.jobs.asset_inspection import check_asset_inspections
     scheduler.add_job(check_asset_inspections, trigger=CronTrigger(hour=7, minute=0), id="asset_inspection", name="Rappels inspections assets", replace_existing=True, max_instances=1)

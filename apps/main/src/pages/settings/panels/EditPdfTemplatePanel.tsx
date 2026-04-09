@@ -686,7 +686,10 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
     setValidationResult(null)
   }, [selectedVersionId, versions])
 
-  const selectedVersion = versions.find((item) => item.id === selectedVersionId) ?? null
+  // Auto-select first version if none selected yet
+  const effectiveVersionId = selectedVersionId ?? (versions.find(v => v.is_published)?.id ?? versions[0]?.id ?? null)
+  if (!selectedVersionId && effectiveVersionId) setSelectedVersionId(effectiveVersionId)
+  const selectedVersion = versions.find((item) => item.id === effectiveVersionId) ?? null
   const sampleVariables = useMemo(
     () => buildSampleVariables(template?.slug, template?.variables_schema),
     [template?.slug, template?.variables_schema],
@@ -782,7 +785,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
 
   const handlePreviewHtml = async () => {
     if (!selectedVersionId) {
-      toast({ title: t('settings.pdf_templates_editor.toasts.select_version_before_preview'), variant: 'warning' })
+      toast({ title: t('settings.pdf_templates_editor.toasts.select_version_before_preview'), variant: 'error' })
       return
     }
     try {
@@ -794,7 +797,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
       })
       setPreviewHtml(result.rendered_html ?? null)
       if (!result.rendered_html) {
-        toast({ title: t('settings.pdf_templates_editor.preview_empty'), variant: 'warning' })
+        toast({ title: t('settings.pdf_templates_editor.preview_empty'), variant: 'error' })
       }
     } catch {
       toast({ title: t('settings.pdf_templates_editor.toasts.html_preview_error'), variant: 'error' })
@@ -827,7 +830,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
 
   const handlePreviewPdf = async () => {
     if (!selectedVersionId) {
-      toast({ title: t('settings.pdf_templates_editor.toasts.select_version_before_preview'), variant: 'warning' })
+      toast({ title: t('settings.pdf_templates_editor.toasts.select_version_before_preview'), variant: 'error' })
       return
     }
     try {
@@ -838,7 +841,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
         output: 'pdf',
       })
       if (result.pdf) openBlob(result.pdf)
-      else toast({ title: t('settings.pdf_templates_editor.preview_empty'), variant: 'warning' })
+      else toast({ title: t('settings.pdf_templates_editor.preview_empty'), variant: 'error' })
     } catch {
       toast({ title: t('settings.pdf_templates_editor.toasts.pdf_preview_error'), variant: 'error' })
     }

@@ -3036,8 +3036,24 @@
       "no_declared_variables": "aucune variable déclarée",
       "no_version_selected": "Aucune version sélectionnée",
       "no_versions_yet": "Aucune version disponible pour ce modèle.",
+      "editor_structure_title": "Structure de page",
+      "editor_structure_help": "Travaille l’en-tête, le corps et le pied comme trois zones complémentaires d’une même page PDF.",
+      "preview_modes": {
+        "code": "Code",
+        "render": "Rendu",
+        "split": "Split"
+      },
       "preview_empty": "Lance un aperçu HTML ou PDF pour vérifier le rendu du modèle avec les variables d'exemple.",
+      "preview_unavailable": "L’aperçu n’a pas pu être généré pour ce draft. Corrige le HTML/Jinja puis réessaie.",
       "preview_uses_sample_data": "Cet aperçu utilise des données d’exemple quand aucun objet réel n’est sélectionné.",
+      "preview_live": "Le rendu HTML se met à jour automatiquement après une courte pause de frappe. L’aperçu PDF reste le rendu final de contrôle.",
+      "preview_status": {
+        "idle": "en attente",
+        "loading": "rendu en cours",
+        "ready": "aperçu à jour",
+        "error": "aperçu indisponible"
+      },
+      "preview_error": "Impossible de générer le rendu HTML du draft courant.",
       "validation": {
         "valid": "Le template est syntaxiquement valide.",
         "invalid": "Le template contient des diagnostics à corriger ou vérifier.",

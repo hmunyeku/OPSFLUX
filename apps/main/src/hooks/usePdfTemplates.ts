@@ -284,23 +284,34 @@ export function useSeedPdfTemplates() {
 /** Preview a rendered PDF template version with sample variables. */
 export function usePreviewPdfTemplate() {
   return useMutation({
-    mutationFn: async ({ templateId, versionId, variables, output = 'html' }: {
+    mutationFn: async ({ templateId, versionId, body_html, header_html, footer_html, variables, output = 'html' }: {
       templateId: string
-      versionId: string
+      versionId?: string | null
+      body_html?: string
+      header_html?: string
+      footer_html?: string
       variables: Record<string, unknown>
       output?: 'html' | 'pdf'
     }) => {
+      const payload = {
+        ...(versionId ? { version_id: versionId } : {}),
+        ...(body_html !== undefined ? { body_html } : {}),
+        ...(header_html !== undefined ? { header_html } : {}),
+        ...(footer_html !== undefined ? { footer_html } : {}),
+        variables,
+        output,
+      }
       if (output === 'pdf') {
         const resp = await api.post(
           `/api/v1/pdf-templates/${templateId}/preview`,
-          { version_id: versionId, variables, output: 'pdf' },
+          payload,
           { responseType: 'blob' },
         )
         return { pdf: resp.data as Blob }
       }
       const { data } = await api.post<{ rendered_html: string }>(
         `/api/v1/pdf-templates/${templateId}/preview`,
-        { version_id: versionId, variables, output: 'html' },
+        payload,
       )
       return { rendered_html: data.rendered_html }
     },

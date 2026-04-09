@@ -2149,7 +2149,10 @@ class PdfTemplateSummaryRead(OpsFluxSchema):
 
 class PdfPreviewRequest(BaseModel):
     """Request to preview a rendered PDF template."""
-    version_id: UUID
+    version_id: UUID | None = None
+    body_html: str | None = None
+    header_html: str | None = None
+    footer_html: str | None = None
     variables: dict[str, Any] = Field(default_factory=dict)
     output: str = Field(default="html", pattern="^(html|pdf)$")
 

@@ -490,16 +490,35 @@ async def preview_template(
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
 
-    # Fetch version
-    result = await db.execute(
-        select(PdfTemplateVersion).where(
-            PdfTemplateVersion.id == body.version_id,
-            PdfTemplateVersion.template_id == template_id,
+    version: PdfTemplateVersion | None = None
+    if body.version_id:
+        result = await db.execute(
+            select(PdfTemplateVersion).where(
+                PdfTemplateVersion.id == body.version_id,
+                PdfTemplateVersion.template_id == template_id,
+            )
         )
-    )
-    version = result.scalar_one_or_none()
-    if not version:
-        raise HTTPException(status_code=404, detail="Version not found")
+        version = result.scalar_one_or_none()
+        if not version:
+            raise HTTPException(status_code=404, detail="Version not found")
+    elif any(
+        section is not None
+        for section in (body.body_html, body.header_html, body.footer_html)
+    ):
+        version = PdfTemplateVersion(
+            template_id=template_id,
+            version_number=0,
+            language="preview",
+            body_html=body.body_html or "",
+            header_html=body.header_html,
+            footer_html=body.footer_html,
+            is_published=False,
+        )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Preview requires either version_id or draft HTML content",
+        )
 
     if body.output == "pdf":
         pdf_bytes = await render_pdf_from_version(version, template, body.variables)
@@ -511,7 +530,7 @@ async def preview_template(
             },
         )
     else:
-        html = await render_html_from_version(version, body.variables)
+        html = await render_html_from_version(version, template, body.variables)
         return {"rendered_html": html}
 
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   Check,
+  Columns2,
   Code2,
   Copy,
   Eye,
@@ -43,6 +44,7 @@ import {
   type PdfTemplateValidationResult,
   type PdfTemplateVersion,
 } from '@/hooks/usePdfTemplates'
+import { useDebounce } from '@/hooks/useDebounce'
 
 const LANG_OPTIONS = ['fr', 'en'] as const
 const OBJECT_TYPES = ['system', 'document', 'ads', 'project', 'travelwiz', 'voyage'] as const
@@ -506,6 +508,52 @@ function PreviewLayoutGuide({
   )
 }
 
+type PreviewMode = 'code' | 'render' | 'split'
+
+function EditorSectionCard({
+  label,
+  description,
+  active,
+  enabled,
+  statusLabel,
+  onClick,
+}: {
+  label: string
+  description: string
+  active: boolean
+  enabled: boolean
+  statusLabel: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'rounded-xl border px-3 py-3 text-left transition-colors',
+        active
+          ? 'border-primary bg-primary/5 text-foreground shadow-sm'
+          : 'border-border/60 bg-card text-muted-foreground hover:border-border hover:bg-accent/30',
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold">{label}</div>
+          <div className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{description}</div>
+        </div>
+        <span className={cn(
+          'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold',
+          enabled
+            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+            : 'bg-muted text-muted-foreground',
+        )}>
+          {statusLabel}
+        </span>
+      </div>
+    </button>
+  )
+}
+
 function CreatePdfTemplatePanel() {
   const { t } = useTranslation()
   const { toast } = useToast()
@@ -671,10 +719,19 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
     is_published: false,
   })
   const [activeEditor, setActiveEditor] = useState<'body' | 'header' | 'footer'>('body')
+  const [previewMode, setPreviewMode] = useState<PreviewMode>('split')
   const [previewHtml, setPreviewHtml] = useState<string | null>(null)
+  const [previewState, setPreviewState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [previewError, setPreviewError] = useState<string | null>(null)
   const [validationResult, setValidationResult] = useState<PdfTemplateValidationResult | null>(null)
   const [showMetadataEdit, setShowMetadataEdit] = useState(false)
   const [variableSchemaRows, setVariableSchemaRows] = useState<PdfVariableSchemaRow[]>([])
+  const debouncedPreviewDraft = useDebounce({
+    body_html: versionForm.body_html,
+    header_html: versionForm.header_html,
+    footer_html: versionForm.footer_html,
+    marginsLabel: `${metaForm.margin_top}/${metaForm.margin_right}/${metaForm.margin_bottom}/${metaForm.margin_left}`,
+  }, 500)
 
   useEffect(() => {
     if (!template) return
@@ -708,6 +765,8 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
     })
     setIsCreatingVersion(false)
     setPreviewHtml(null)
+    setPreviewState('idle')
+    setPreviewError(null)
     setValidationResult(null)
   }, [selectedVersionId, versions])
 
@@ -754,6 +813,52 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
     : t('settings.pdf_templates_editor.no_version_selected')
   const hasHeader = versionForm.header_html.trim().length > 0
   const hasFooter = versionForm.footer_html.trim().length > 0
+  const previewEnabled = previewMode !== 'code'
+
+  useEffect(() => {
+    if (!templateId || !previewEnabled) return
+    if (!debouncedPreviewDraft.body_html.trim()) {
+      setPreviewHtml(null)
+      setPreviewState('idle')
+      setPreviewError(null)
+      return
+    }
+
+    let cancelled = false
+    setPreviewState('loading')
+    setPreviewError(null)
+
+    previewTemplate.mutateAsync({
+      templateId,
+      body_html: debouncedPreviewDraft.body_html,
+      header_html: debouncedPreviewDraft.header_html || undefined,
+      footer_html: debouncedPreviewDraft.footer_html || undefined,
+      variables: sampleVariables,
+      output: 'html',
+    })
+      .then((result) => {
+        if (cancelled) return
+        setPreviewHtml(result.rendered_html ?? null)
+        setPreviewState(result.rendered_html ? 'ready' : 'idle')
+      })
+      .catch(() => {
+        if (cancelled) return
+        setPreviewHtml(null)
+        setPreviewState('error')
+        setPreviewError(t('settings.pdf_templates_editor.preview_error'))
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    debouncedPreviewDraft,
+    previewEnabled,
+    previewTemplate,
+    sampleVariables,
+    t,
+    templateId,
+  ])
 
   const handleSaveMeta = async () => {
     try {
@@ -808,27 +913,6 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
     }
   }
 
-  const handlePreviewHtml = async () => {
-    if (!selectedVersionId) {
-      toast({ title: t('settings.pdf_templates_editor.toasts.select_version_before_preview'), variant: 'error' })
-      return
-    }
-    try {
-      const result = await previewTemplate.mutateAsync({
-        templateId,
-        versionId: selectedVersionId,
-        variables: sampleVariables,
-        output: 'html',
-      })
-      setPreviewHtml(result.rendered_html ?? null)
-      if (!result.rendered_html) {
-        toast({ title: t('settings.pdf_templates_editor.preview_empty'), variant: 'error' })
-      }
-    } catch {
-      toast({ title: t('settings.pdf_templates_editor.toasts.html_preview_error'), variant: 'error' })
-    }
-  }
-
   const handleValidateTemplate = async () => {
     try {
       const result = await validateTemplate.mutateAsync({
@@ -854,14 +938,14 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
   }
 
   const handlePreviewPdf = async () => {
-    if (!selectedVersionId) {
-      toast({ title: t('settings.pdf_templates_editor.toasts.select_version_before_preview'), variant: 'error' })
-      return
-    }
+    if (!versionForm.body_html.trim()) return
     try {
       const result = await previewTemplate.mutateAsync({
         templateId,
-        versionId: selectedVersionId,
+        versionId: selectedVersionId ?? undefined,
+        body_html: versionForm.body_html,
+        header_html: versionForm.header_html || undefined,
+        footer_html: versionForm.footer_html || undefined,
         variables: sampleVariables,
         output: 'pdf',
       })
@@ -1298,7 +1382,62 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.95fr)] gap-5">
+        <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="text-xs font-semibold text-foreground">
+                {t('settings.pdf_templates_editor.editor_structure_title')}
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                {t('settings.pdf_templates_editor.editor_structure_help')}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setPreviewMode('code')}
+                className={cn(
+                  'rounded-md border px-3 py-1.5 text-xs',
+                  previewMode === 'code'
+                    ? 'border-primary bg-primary/5 text-foreground'
+                    : 'border-border/60 text-muted-foreground hover:bg-accent/40',
+                )}
+              >
+                <span className="inline-flex items-center gap-1.5"><Code2 size={12} /> {t('settings.pdf_templates_editor.preview_modes.code')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewMode('render')}
+                className={cn(
+                  'rounded-md border px-3 py-1.5 text-xs',
+                  previewMode === 'render'
+                    ? 'border-primary bg-primary/5 text-foreground'
+                    : 'border-border/60 text-muted-foreground hover:bg-accent/40',
+                )}
+              >
+                <span className="inline-flex items-center gap-1.5"><Eye size={12} /> {t('settings.pdf_templates_editor.preview_modes.render')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewMode('split')}
+                className={cn(
+                  'rounded-md border px-3 py-1.5 text-xs',
+                  previewMode === 'split'
+                    ? 'border-primary bg-primary/5 text-foreground'
+                    : 'border-border/60 text-muted-foreground hover:bg-accent/40',
+                )}
+              >
+                <span className="inline-flex items-center gap-1.5"><Columns2 size={12} /> {t('settings.pdf_templates_editor.preview_modes.split')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className={cn(
+          'grid grid-cols-1 gap-5',
+          previewMode === 'split' && 'xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.95fr)]',
+        )}>
+          {previewMode !== 'render' && (
           <div className="rounded-lg border border-border overflow-hidden">
             <div className="flex items-center justify-between gap-3 px-3 py-2 bg-muted/30 border-b border-border">
               <div className="flex items-center gap-1.5">
@@ -1332,21 +1471,31 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
                 </DynamicPanelField>
               </FormGrid>
 
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => setActiveEditor('body')} className={cn('rounded-md border px-3 py-1.5 text-xs', activeEditor === 'body' ? 'border-primary bg-primary/5 text-foreground' : 'border-border/60 text-muted-foreground hover:bg-accent/40')}>
-                  <span className="inline-flex items-center gap-1.5"><Pencil size={12} /> {t('settings.pdf_templates_editor.editors.body_tab')}</span>
-                </button>
-                <button type="button" onClick={() => setActiveEditor('header')} className={cn('rounded-md border px-3 py-1.5 text-xs', activeEditor === 'header' ? 'border-primary bg-primary/5 text-foreground' : 'border-border/60 text-muted-foreground hover:bg-accent/40')}>
-                  {t('settings.pdf_templates_editor.editors.header_tab')}
-                </button>
-                <button type="button" onClick={() => setActiveEditor('footer')} className={cn('rounded-md border px-3 py-1.5 text-xs', activeEditor === 'footer' ? 'border-primary bg-primary/5 text-foreground' : 'border-border/60 text-muted-foreground hover:bg-accent/40')}>
-                  {t('settings.pdf_templates_editor.editors.footer_tab')}
-                </button>
-              </div>
-              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                {activeEditor === 'body' && t('settings.pdf_templates_editor.editors.body_help')}
-                {activeEditor === 'header' && t('settings.pdf_templates_editor.editors.header_help')}
-                {activeEditor === 'footer' && t('settings.pdf_templates_editor.editors.footer_help')}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <EditorSectionCard
+                  label={t('settings.pdf_templates_editor.editors.body_tab')}
+                  description={t('settings.pdf_templates_editor.editors.body_help')}
+                  active={activeEditor === 'body'}
+                  enabled={versionForm.body_html.trim().length > 0}
+                  statusLabel={versionForm.body_html.trim().length > 0 ? t('common.enabled') : t('common.disabled')}
+                  onClick={() => setActiveEditor('body')}
+                />
+                <EditorSectionCard
+                  label={t('settings.pdf_templates_editor.editors.header_tab')}
+                  description={t('settings.pdf_templates_editor.editors.header_help')}
+                  active={activeEditor === 'header'}
+                  enabled={hasHeader}
+                  statusLabel={hasHeader ? t('common.enabled') : t('common.disabled')}
+                  onClick={() => setActiveEditor('header')}
+                />
+                <EditorSectionCard
+                  label={t('settings.pdf_templates_editor.editors.footer_tab')}
+                  description={t('settings.pdf_templates_editor.editors.footer_help')}
+                  active={activeEditor === 'footer'}
+                  enabled={hasFooter}
+                  statusLabel={hasFooter ? t('common.enabled') : t('common.disabled')}
+                  onClick={() => setActiveEditor('footer')}
+                />
               </div>
 
               {activeEditor === 'body' && (
@@ -1404,20 +1553,20 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
                     </PanelActionButton>
                   </>
                 )}
-                <PanelActionButton onClick={handlePreviewHtml} disabled={previewTemplate.isPending || !selectedVersionId} icon={<Eye size={12} />}>
-                  {t('settings.pdf_templates_editor.actions.preview_html')}
-                </PanelActionButton>
-                <PanelActionButton onClick={handlePreviewPdf} disabled={previewTemplate.isPending || !selectedVersionId} icon={<FileOutput size={12} />}>
+                <PanelActionButton onClick={handlePreviewPdf} disabled={previewTemplate.isPending || !versionForm.body_html.trim()} icon={<FileOutput size={12} />}>
                   {t('settings.pdf_templates_editor.actions.preview_pdf')}
                 </PanelActionButton>
               </div>
             </div>
           </div>
+          )}
 
+          {previewMode !== 'code' && (
           <div className="space-y-5">
             <FormSection title={t('settings.pdf_templates_editor.sections.preview')}>
-              <div className="mb-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                {t('settings.pdf_templates_editor.preview_uses_sample_data')}
+              <div className="mb-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground space-y-1">
+                <div>{t('settings.pdf_templates_editor.preview_uses_sample_data')}</div>
+                <div>{t('settings.pdf_templates_editor.preview_live')}</div>
               </div>
               <div className="mb-3">
                 <PreviewLayoutGuide
@@ -1427,13 +1576,30 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
                   t={t}
                 />
               </div>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className={cn(
+                  'inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide',
+                  previewState === 'ready' && 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+                  previewState === 'loading' && 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
+                  previewState === 'error' && 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+                  previewState === 'idle' && 'bg-muted text-muted-foreground',
+                )}>
+                  {previewState === 'ready' && t('settings.pdf_templates_editor.preview_status.ready')}
+                  {previewState === 'loading' && t('settings.pdf_templates_editor.preview_status.loading')}
+                  {previewState === 'error' && t('settings.pdf_templates_editor.preview_status.error')}
+                  {previewState === 'idle' && t('settings.pdf_templates_editor.preview_status.idle')}
+                </span>
+                {previewError && <span className="text-xs text-red-600 dark:text-red-400">{previewError}</span>}
+              </div>
               {previewHtml ? (
                 <div className="rounded-lg border border-border/60 bg-white overflow-hidden">
-                  <iframe title="PDF template HTML preview" srcDoc={previewHtml} className="h-[420px] w-full bg-white" />
+                  <iframe title="PDF template HTML preview" srcDoc={previewHtml} className="h-[520px] w-full bg-white" />
                 </div>
               ) : (
                 <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-6 text-xs text-muted-foreground">
-                  {t('settings.pdf_templates_editor.preview_empty')}
+                  {previewState === 'error'
+                    ? t('settings.pdf_templates_editor.preview_unavailable')
+                    : t('settings.pdf_templates_editor.preview_empty')}
                 </div>
               )}
             </FormSection>
@@ -1479,6 +1645,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
               </div>
             </FormSection>
           </div>
+          )}
         </div>
       </div>
     </DynamicPanelShell>

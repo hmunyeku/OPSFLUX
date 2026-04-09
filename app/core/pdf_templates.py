@@ -2341,6 +2341,7 @@ async def render_pdf_from_version(
 
 async def render_html_from_version(
     version: PdfTemplateVersion,
+    template: PdfTemplate | None = None,
     variables: dict | None = None,
 ) -> str:
     """Render a specific version to HTML (for admin preview)."""
@@ -2364,6 +2365,7 @@ async def render_html_from_version(
         body_html=body_html,
         header_html=header_html,
         footer_html=footer_html,
+        template=template,
     )
 
 

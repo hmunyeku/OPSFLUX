@@ -3032,8 +3032,24 @@
       "no_declared_variables": "no declared variables",
       "no_version_selected": "No version selected",
       "no_versions_yet": "No version is available for this template yet.",
+      "editor_structure_title": "Page structure",
+      "editor_structure_help": "Work on header, body, and footer as three coordinated zones of the same PDF page.",
+      "preview_modes": {
+        "code": "Code",
+        "render": "Render",
+        "split": "Split"
+      },
       "preview_empty": "Run an HTML or PDF preview to verify the template rendering with sample variables.",
+      "preview_unavailable": "Preview could not be generated for this draft. Fix the HTML/Jinja source and try again.",
       "preview_uses_sample_data": "This preview uses sample data when no real record is selected.",
+      "preview_live": "The HTML rendering refreshes automatically after a short typing pause. PDF preview remains the final rendering check.",
+      "preview_status": {
+        "idle": "idle",
+        "loading": "rendering",
+        "ready": "up to date",
+        "error": "unavailable"
+      },
+      "preview_error": "Could not generate the current draft HTML rendering.",
       "validation": {
         "valid": "The template is syntactically valid.",
         "invalid": "The template contains diagnostics to review or fix.",

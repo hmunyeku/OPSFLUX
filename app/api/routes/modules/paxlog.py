@@ -7094,6 +7094,12 @@ async def get_external_ads_dossier(
         ads_id=ads.id,
         allowed_company_ids=allowed_company_ids,
     )
+    submission_blockers = _build_external_submission_blockers(
+        ads=ads,
+        pax_summary=pax_summary,
+        allowed_pax=allowed_pax,
+    )
+    ready_for_submission = len(submission_blockers) == 0
     _append_external_access_log(link, action="view_dossier", request=request, otp_validated=True)
     await db.commit()
     return {
@@ -7126,8 +7132,10 @@ async def get_external_ads_dossier(
         "allowed_company_ids": [str(company_id) for company_id in allowed_company_ids],
         "allowed_company_names": allowed_company_names,
         "scope_label": ", ".join(allowed_company_names) if allowed_company_names else None,
-        "can_submit": ads.status == "draft" and len(allowed_pax) > 0,
-        "can_resubmit": ads.status == "requires_review",
+        "ready_for_submission": ready_for_submission,
+        "submission_blockers": submission_blockers,
+        "can_submit": ads.status == "draft" and ready_for_submission,
+        "can_resubmit": ads.status == "requires_review" and ready_for_submission,
         "pax_summary": pax_summary,
         "pax": allowed_pax,
     }
@@ -7598,6 +7606,42 @@ async def _finalize_external_ads_submission(
     return ads
 
 
+def _build_external_submission_blockers(
+    *,
+    ads: Ads,
+    pax_summary: dict | None,
+    allowed_pax: list[dict[str, object | None]] | None = None,
+) -> list[str]:
+    summary = pax_summary or {}
+    blockers: list[str] = []
+    pax_items = allowed_pax or []
+    if int(summary.get("total") or 0) <= 0:
+        blockers.append("Ajoutez au moins un PAX au dossier.")
+    blocked_pax = [
+        f"{str(item.get('first_name') or '').strip()} {str(item.get('last_name') or '').strip()}".strip()
+        for item in pax_items
+        if str(item.get("status") or "") == "blocked"
+    ]
+    pending_pax = [
+        f"{str(item.get('first_name') or '').strip()} {str(item.get('last_name') or '').strip()}".strip()
+        for item in pax_items
+        if str(item.get("status") or "") == "pending_check"
+    ]
+    if blocked_pax:
+        blockers.append(f"PAX bloqués en conformité: {', '.join(name for name in blocked_pax if name) }.")
+    elif int(summary.get("blocked") or 0) > 0:
+        blockers.append("Au moins un PAX présente des blocages de conformité.")
+    if pending_pax:
+        blockers.append(f"PAX encore en attente de vérification: {', '.join(name for name in pending_pax if name)}.")
+    elif int(summary.get("pending_check") or 0) > 0:
+        blockers.append("Certains PAX ont encore des éléments en attente de vérification.")
+    if getattr(ads, "outbound_transport_mode", None) and not getattr(ads, "outbound_departure_base_id", None):
+        blockers.append("Renseignez le point de départ aller.")
+    if getattr(ads, "return_transport_mode", None) and not getattr(ads, "return_departure_base_id", None):
+        blockers.append("Renseignez le point de départ retour.")
+    return blockers
+
+
 @router.post("/external/{token}/submit", response_model=AdsRead)
 async def submit_external_ads(
     token: str,
@@ -7609,6 +7653,20 @@ async def submit_external_ads(
     ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
     if ads.status != "draft":
         raise HTTPException(status_code=400, detail=f"Impossible de soumettre ce dossier avec le statut '{ads.status}'")
+    allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _resolve_external_allowed_companies(
+        db,
+        ads=ads,
+        link=link,
+        fallback_company_id=None,
+    )
+    allowed_pax, pax_summary = await paxlog_service.build_external_dossier_pax_data(
+        db,
+        ads_id=ads.id,
+        allowed_company_ids=allowed_company_ids,
+    )
+    blockers = _build_external_submission_blockers(ads=ads, pax_summary=pax_summary, allowed_pax=allowed_pax)
+    if blockers:
+        raise HTTPException(status_code=400, detail={"message": "Le dossier externe n'est pas prêt pour soumission.", "blockers": blockers})
     return await _finalize_external_ads_submission(
         link=link,
         ads=ads,
@@ -7633,6 +7691,20 @@ async def resubmit_external_ads(
     ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
     if ads.status != "requires_review":
         raise HTTPException(status_code=400, detail=f"Impossible de re-soumettre ce dossier avec le statut '{ads.status}'")
+    allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _resolve_external_allowed_companies(
+        db,
+        ads=ads,
+        link=link,
+        fallback_company_id=None,
+    )
+    allowed_pax, pax_summary = await paxlog_service.build_external_dossier_pax_data(
+        db,
+        ads_id=ads.id,
+        allowed_company_ids=allowed_company_ids,
+    )
+    blockers = _build_external_submission_blockers(ads=ads, pax_summary=pax_summary, allowed_pax=allowed_pax)
+    if blockers:
+        raise HTTPException(status_code=400, detail={"message": "Le dossier externe n'est pas prêt pour re-soumission.", "blockers": blockers})
     return await _finalize_external_ads_submission(
         link=link,
         ads=ads,

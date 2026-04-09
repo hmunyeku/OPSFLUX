@@ -36,6 +36,8 @@ const state = {
   departureBases: [],
   createPaxDraft: {},
   createPaxMatches: [],
+  createPaxMatchesLoading: false,
+  postActionAnchor: null,
   loading: false,
   message: null,
 }
@@ -259,9 +261,10 @@ async function handleCreatePax(event) {
   const formData = new FormData(event.currentTarget)
   const payload = objectFromFormData(formData)
   await wrapAction(async () => {
-    await createPaxAction(api, state.token, payload)
+    const result = await createPaxAction(api, state.token, payload)
     state.createPaxDraft = {}
     state.createPaxMatches = []
+    state.postActionAnchor = result?.contact_id ? `pax-${result.contact_id}` : "step-compliance"
     await loadDossier()
   }, async (error) => {
     const detail = parseApiErrorDetail(error)
@@ -276,15 +279,17 @@ async function handleUpdatePax(event, contactId) {
   const payload = objectFromFormData(new FormData(event.currentTarget))
   await wrapAction(async () => {
     await updatePaxAction(api, state.token, contactId, payload)
+    state.postActionAnchor = `pax-${contactId}`
     await loadDossier()
   })
 }
 
 async function handleAttachExistingPax(contactId) {
   await wrapAction(async () => {
-    await attachExistingPaxAction(api, state.token, contactId, state.createPaxDraft || {})
+    const result = await attachExistingPaxAction(api, state.token, contactId, state.createPaxDraft || {})
     state.createPaxDraft = {}
     state.createPaxMatches = []
+    state.postActionAnchor = result?.contact_id ? `pax-${result.contact_id}` : `pax-${contactId}`
     await loadDossier()
   })
 }
@@ -295,6 +300,7 @@ async function handleAddCredential(event, contactId) {
   const payload = objectFromFormData(formData)
   await wrapAction(async () => {
     await addCredentialAction(api, state.token, contactId, payload)
+    state.postActionAnchor = `pax-${contactId}`
     await loadDossier()
   })
 }
@@ -308,6 +314,11 @@ async function handleSubmitExternal() {
     await submitExternalAction(api, state.token)
     await loadLinkInfo()
     await loadDossier()
+  }, async (error) => {
+    const detail = parseApiErrorDetail(error)
+    if (detail?.blockers?.length) {
+      setMessage([detail.message || t("submission_blocked"), ...detail.blockers].join(" "), "warn")
+    }
   })
 }
 
@@ -319,6 +330,11 @@ async function handleResubmitExternal(event) {
     await resubmitExternalAction(api, state.token, reason)
     await loadLinkInfo()
     await loadDossier()
+  }, async (error) => {
+    const detail = parseApiErrorDetail(error)
+    if (detail?.blockers?.length) {
+      setMessage([detail.message || t("submission_blocked"), ...detail.blockers].join(" "), "warn")
+    }
   })
 }
 
@@ -365,9 +381,12 @@ async function lookupCreatePaxMatches() {
   const hasEnoughSignals = (firstName && lastName) || badge || email || phone
   if (!hasEnoughSignals) {
     state.createPaxMatches = []
+    state.createPaxMatchesLoading = false
     render()
     return
   }
+  state.createPaxMatchesLoading = true
+  render()
   try {
     state.createPaxMatches = await api(`/api/v1/pax/external/${state.token}/pax/matches`, {
       method: "POST",
@@ -376,6 +395,7 @@ async function lookupCreatePaxMatches() {
   } catch {
     state.createPaxMatches = []
   }
+  state.createPaxMatchesLoading = false
   render()
 }
 
@@ -404,6 +424,11 @@ function render() {
   app.innerHTML = renderPage({ state, link, dossier, authenticated, t, lang })
 
   bindEvents()
+  if (state.postActionAnchor) {
+    const target = document.getElementById(state.postActionAnchor)
+    if (target) target.scrollIntoView({ behavior: "smooth", block: "start" })
+    state.postActionAnchor = null
+  }
 }
 
 function bindTrackingEvents() {
@@ -439,8 +464,9 @@ function bindEvents() {
   const transportPreferencesForm = document.getElementById("transport-preferences-form")
   if (transportPreferencesForm) transportPreferencesForm.addEventListener("submit", handleUpdateTransportPreferences)
 
-  const downloadTicketBtn = document.getElementById("download-ticket")
-  if (downloadTicketBtn) downloadTicketBtn.addEventListener("click", handleDownloadTicket)
+  document.querySelectorAll('[id="download-ticket"]').forEach((button) => {
+    button.addEventListener("click", handleDownloadTicket)
+  })
 
   document.querySelectorAll(".pax-update-form").forEach((form) => {
     form.addEventListener("submit", (event) => handleUpdatePax(event, form.dataset.contactId))

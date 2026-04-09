@@ -18,6 +18,43 @@ function renderTrackingTimeline(events, t, lang) {
   `).join("")
 }
 
+function stepStatusClass(step) {
+  if (step.current) return "current"
+  if (step.done) return "done"
+  return "todo"
+}
+
+function renderWizardNav(steps, t) {
+  return `
+    <nav class="wizard-nav panel pad" aria-label="${escapeHtml(t("wizard_title"))}">
+      <div class="wizard-nav-head">
+        <div class="eyebrow eyebrow-dark">${t("wizard_title")}</div>
+        <h2>${t("wizard_subtitle")}</h2>
+      </div>
+      <div class="wizard-list">
+        ${steps.map((step, index) => `
+          <a href="#${step.id}" class="wizard-link ${stepStatusClass(step)}">
+            <span class="wizard-index">${index + 1}</span>
+            <span class="wizard-copy">
+              <strong>${escapeHtml(step.title)}</strong>
+              <small>${escapeHtml(step.description)}</small>
+            </span>
+          </a>
+        `).join("")}
+      </div>
+    </nav>
+  `
+}
+
+function renderLockedStep(message) {
+  return `<div class="step-locked"><div class="message warn">${escapeHtml(message)}</div></div>`
+}
+
+function renderStepFooter(nextId, label) {
+  if (!nextId) return ""
+  return `<div class="step-footer"><a class="primary step-next-link" href="#${nextId}">${escapeHtml(label)}</a></div>`
+}
+
 export function renderTrackingPage({ state, t, lang }) {
   const tracking = state.publicTracking
   const voyageTracking = state.publicVoyageTracking
@@ -38,13 +75,7 @@ export function renderTrackingPage({ state, t, lang }) {
             <div class="top-section-title">${t("cargo_tracking_code")}</div>
             <form id="tracking-form" class="stack">
               <label>
-                <input
-                  name="tracking_code"
-                  value="${escapeHtml(state.trackingCode || "")}"
-                  placeholder="TW-CARGO-2026-00421"
-                  autocomplete="off"
-                  spellcheck="false"
-                />
+                <input name="tracking_code" value="${escapeHtml(state.trackingCode || "")}" placeholder="TW-CARGO-2026-00421" autocomplete="off" spellcheck="false" />
               </label>
               <div class="button-row">
                 <button class="primary" ${state.loading ? "disabled" : ""}>${t("cargo_tracking_search")}</button>
@@ -54,29 +85,14 @@ export function renderTrackingPage({ state, t, lang }) {
           </section>
         </aside>
       </section>
-
       ${state.message ? `<div class="message ${state.message.tone}">${escapeHtml(state.message.text)}</div>` : ""}
-
       ${tracking ? `
         <section class="grid cards" style="margin-top:18px">
-          <div class="card">
-            <div class="card-label">${t("status")}</div>
-            <div class="card-value" style="font-size:18px">${escapeHtml(tracking.status_label || tracking.status || t("cargo_tracking_unknown"))}</div>
-          </div>
-          <div class="card">
-            <div class="card-label">${t("cargo_tracking_destination")}</div>
-            <div class="card-value" style="font-size:18px">${escapeHtml(tracking.destination_name || t("cargo_tracking_unknown"))}</div>
-          </div>
-          <div class="card">
-            <div class="card-label">${t("cargo_tracking_voyage")}</div>
-            <div class="card-value" style="font-size:18px">${escapeHtml(tracking.voyage_code || t("cargo_tracking_no_voyage"))}</div>
-          </div>
-          <div class="card">
-            <div class="card-label">${t("cargo_tracking_dimensions")}</div>
-            <div class="card-value" style="font-size:18px">${escapeHtml(dimensions)}</div>
-          </div>
+          <div class="card"><div class="card-label">${t("status")}</div><div class="card-value" style="font-size:18px">${escapeHtml(tracking.status_label || tracking.status || t("cargo_tracking_unknown"))}</div></div>
+          <div class="card"><div class="card-label">${t("cargo_tracking_destination")}</div><div class="card-value" style="font-size:18px">${escapeHtml(tracking.destination_name || t("cargo_tracking_unknown"))}</div></div>
+          <div class="card"><div class="card-label">${t("cargo_tracking_voyage")}</div><div class="card-value" style="font-size:18px">${escapeHtml(tracking.voyage_code || t("cargo_tracking_no_voyage"))}</div></div>
+          <div class="card"><div class="card-label">${t("cargo_tracking_dimensions")}</div><div class="card-value" style="font-size:18px">${escapeHtml(dimensions)}</div></div>
         </section>
-
         <section class="grid two" style="margin-top:18px">
           <div class="panel pad">
             <h2 class="section-title">${t("cargo_tracking_summary")}</h2>
@@ -92,58 +108,16 @@ export function renderTrackingPage({ state, t, lang }) {
           </div>
           <div class="panel pad">
             <h2 class="section-title">${t("cargo_tracking_history")}</h2>
-            <ol class="tracking-list">
-              ${renderTrackingTimeline(tracking.events, t, lang)}
-            </ol>
+            <ol class="tracking-list">${renderTrackingTimeline(tracking.events, t, lang)}</ol>
           </div>
         </section>
       ` : ""}
-
       ${voyageTracking ? `
         <section class="grid cards" style="margin-top:18px">
-          <div class="card">
-            <div class="card-label">${t("cargo_tracking_voyage")}</div>
-            <div class="card-value" style="font-size:18px">${escapeHtml(voyageTracking.voyage_code || t("cargo_tracking_unknown"))}</div>
-          </div>
-          <div class="card">
-            <div class="card-label">${t("status")}</div>
-            <div class="card-value" style="font-size:18px">${escapeHtml(voyageTracking.voyage_status_label || voyageTracking.voyage_status || t("cargo_tracking_unknown"))}</div>
-          </div>
-          <div class="card">
-            <div class="card-label">${t("dates")}</div>
-            <div class="card-value" style="font-size:18px">${escapeHtml(`${formatDateTime(voyageTracking.scheduled_departure, lang) || t("cargo_tracking_unknown")} → ${formatDateTime(voyageTracking.scheduled_arrival, lang) || t("cargo_tracking_unknown")}`)}</div>
-          </div>
-          <div class="card">
-            <div class="card-label">${t("cargo_tracking_shipments")}</div>
-            <div class="card-value" style="font-size:18px">${escapeHtml(String(voyageTracking.cargo_count || 0))}</div>
-          </div>
-        </section>
-
-        <section style="margin-top:18px" class="panel pad">
-          <h2 class="section-title">${t("cargo_tracking_voyage_result")}</h2>
-          ${(voyageTracking.items || []).length === 0 ? `
-            <div class="message subtle">${t("cargo_tracking_no_shipments_for_voyage")}</div>
-          ` : `
-            <div class="stack">
-              ${voyageTracking.items.map((item) => `
-                <div class="info-panel">
-                  <div class="button-row" style="justify-content:space-between; align-items:flex-start">
-                    <div>
-                      <div class="pax-name">${escapeHtml(item.tracking_code)}</div>
-                      <div class="muted">${escapeHtml(item.description || t("cargo_tracking_unknown"))}</div>
-                    </div>
-                    <div class="status-chip">${escapeHtml(item.status_label || item.status || t("cargo_tracking_unknown"))}</div>
-                  </div>
-                  <div class="meta-list" style="margin-top:12px">
-                    <div class="meta-item"><strong>${t("cargo_tracking_destination")}</strong>${escapeHtml(item.destination_name || t("cargo_tracking_unknown"))}</div>
-                    <div class="meta-item"><strong>${t("cargo_tracking_receiver")}</strong>${escapeHtml(item.receiver_name || t("cargo_tracking_unknown"))}</div>
-                    <div class="meta-item"><strong>${t("cargo_tracking_weight")}</strong>${escapeHtml(typeof item.weight_kg === "number" ? `${item.weight_kg.toFixed(1)} kg` : t("cargo_tracking_unknown"))}</div>
-                    <div class="meta-item"><strong>${t("cargo_tracking_updated")}</strong>${escapeHtml(formatDateTime(item.last_event_at, lang) || t("cargo_tracking_unknown"))}</div>
-                  </div>
-                </div>
-              `).join("")}
-            </div>
-          `}
+          <div class="card"><div class="card-label">${t("cargo_tracking_voyage")}</div><div class="card-value" style="font-size:18px">${escapeHtml(voyageTracking.voyage_code || t("cargo_tracking_unknown"))}</div></div>
+          <div class="card"><div class="card-label">${t("status")}</div><div class="card-value" style="font-size:18px">${escapeHtml(voyageTracking.voyage_status_label || voyageTracking.voyage_status || t("cargo_tracking_unknown"))}</div></div>
+          <div class="card"><div class="card-label">${t("dates")}</div><div class="card-value" style="font-size:18px">${escapeHtml(`${formatDateTime(voyageTracking.scheduled_departure, lang) || t("cargo_tracking_unknown")} → ${formatDateTime(voyageTracking.scheduled_arrival, lang) || t("cargo_tracking_unknown")}`)}</div></div>
+          <div class="card"><div class="card-label">${t("cargo_tracking_shipments")}</div><div class="card-value" style="font-size:18px">${escapeHtml(String(voyageTracking.cargo_count || 0))}</div></div>
         </section>
       ` : ""}
     </div>
@@ -159,44 +133,18 @@ function renderRequiredAction(item, contactId, t) {
   if (item?.kind === "identity") guidance = t("update_identity_action")
   else if (item?.status === "pending_validation") guidance = t("wait_validation_action")
   else guidance = t("add_credential_action")
-
   if (item?.kind === "identity") {
-    actionButton = `
-      <div style="margin-top:8px">
-        <button
-          type="button"
-          class="secondary required-action-btn"
-          data-contact-id="${escapeHtml(contactId)}"
-          data-action-kind="identity"
-          data-field="${escapeHtml(item?.field || "")}"
-        >${t("complete_now")}</button>
-      </div>
-    `
+    actionButton = `<div style="margin-top:8px"><button type="button" class="secondary required-action-btn" data-contact-id="${escapeHtml(contactId)}" data-action-kind="identity" data-field="${escapeHtml(item?.field || "")}">${t("complete_now")}</button></div>`
   } else if (item?.kind === "credential" && item?.status !== "pending_validation") {
-    actionButton = `
-      <div style="margin-top:8px">
-        <button
-          type="button"
-          class="secondary required-action-btn"
-          data-contact-id="${escapeHtml(contactId)}"
-          data-action-kind="credential"
-          data-credential-code="${escapeHtml(item?.credential_type_code || item?.field || "")}"
-        >${t("add_credential_now")}</button>
-      </div>
-    `
+    actionButton = `<div style="margin-top:8px"><button type="button" class="secondary required-action-btn" data-contact-id="${escapeHtml(contactId)}" data-action-kind="credential" data-credential-code="${escapeHtml(item?.credential_type_code || item?.field || "")}">${t("add_credential_now")}</button></div>`
   }
   return `${escapeHtml(label)}${escapeHtml(status)}${escapeHtml(layer)}${item?.message ? ` · ${escapeHtml(item.message)}` : ""}<br/><span class="muted">${escapeHtml(guidance)}</span>${actionButton}`
 }
 
 function renderPaxFields(prefix, values, t, jobPositions) {
-  const field = (name, label, type = "text", required = false) => `
-    <label>${label}<input type="${type}" name="${prefix}${name}" value="${escapeHtml(values[name] || "")}" ${required ? "required" : ""} /></label>
-  `
+  const field = (name, label, type = "text", required = false) => `<label>${label}<input type="${type}" name="${prefix}${name}" value="${escapeHtml(values[name] || "")}" ${required ? "required" : ""} /></label>`
   const selectedJobPositionId = values.job_position_id || ""
-  const jobPositionOptions = [
-    `<option value="">${escapeHtml(t("position"))}</option>`,
-    ...jobPositions.map((item) => `<option value="${item.id}" ${String(item.id) === String(selectedJobPositionId) ? "selected" : ""}>${escapeHtml(item.name)}${item.code ? ` (${escapeHtml(item.code)})` : ""}</option>`),
-  ].join("")
+  const jobPositionOptions = [`<option value="">${escapeHtml(t("position"))}</option>`, ...jobPositions.map((item) => `<option value="${item.id}" ${String(item.id) === String(selectedJobPositionId) ? "selected" : ""}>${escapeHtml(item.name)}${item.code ? ` (${escapeHtml(item.code)})` : ""}</option>`)].join("")
   return [
     field("first_name", t("first_name"), "text", true),
     field("last_name", t("last_name"), "text", true),
@@ -217,7 +165,170 @@ function renderPaxFields(prefix, values, t, jobPositions) {
   ].join("")
 }
 
-function renderPaxCard(pax, state, t) {
+function renderCreatePaxMatches(state, t) {
+  if (state.createPaxMatchesLoading) {
+    return `<div class="message subtle">${t("searching_existing_pax")}</div>`
+  }
+  if (!Array.isArray(state.createPaxMatches) || state.createPaxMatches.length === 0) return ""
+  return `
+    <div class="match-suggestions">
+      <div class="match-suggestions-head">
+        <strong>${t("duplicate_candidates")}</strong>
+        <span>${t("duplicate_candidates_hint")}</span>
+      </div>
+      <div class="match-suggestions-list">
+        ${state.createPaxMatches.map((match) => `
+          <button type="button" class="match-card attach-existing-pax" data-contact-id="${match.contact_id}" ${state.loading ? "disabled" : ""}>
+            <span class="match-card-main">
+              <strong>${escapeHtml(`${match.first_name} ${match.last_name}`)}</strong>
+              <small>${escapeHtml(match.job_position_name || match.position || "—")}</small>
+            </span>
+            <span class="match-card-meta">
+              <span>${t("match_score")}: ${escapeHtml(String(match.match_score))}</span>
+              <span>${escapeHtml((match.match_reasons || []).join(", ") || "—")}</span>
+            </span>
+          </button>
+        `).join("")}
+      </div>
+    </div>
+  `
+}
+
+function renderSecurityStep(link, authenticated, t, state) {
+  return `
+    <div class="step-grid">
+      <div class="step-copy">
+        <h3>${t("wizard_access_title")}</h3>
+        <p>${t("wizard_access_text")}</p>
+        <div class="stack">
+          <div class="status-chip ${authenticated ? "success" : "warn"}">
+            ${authenticated ? t("authenticated") : (link?.otp_required ? t("otp_required") : t("otp_not_required"))}
+          </div>
+          <div class="mini-meta">
+            <div><strong>${t("remaining_uses")}</strong><span>${link?.remaining_uses ?? "—"}</span></div>
+            <div><strong>${t("expires_at")}</strong><span>${escapeHtml(formatDateTime(link?.expires_at))}</span></div>
+            <div><strong>${t("otp_destination")}</strong><span>${escapeHtml(link?.otp_destination_masked || "—")}</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="step-panel">
+        ${link?.otp_required ? `
+          <div class="message warn">${t("otp_destination")}: ${link?.otp_destination_masked || "—"}</div>
+          <div class="button-row">
+            <button class="secondary" id="send-otp" ${state.loading ? "disabled" : ""}>${t("send_code")}</button>
+          </div>
+          <form id="verify-otp-form" class="stack form-panel">
+            <label>${t("otp_code")}<input name="code" inputmode="numeric" maxlength="6" placeholder="123456" /></label>
+            <div class="button-row">
+              <button class="primary" ${state.loading ? "disabled" : ""}>${t("verify_code")}</button>
+            </div>
+          </form>
+        ` : `<div class="message success">${t("otp_not_required")}</div>`}
+      </div>
+    </div>
+  `
+}
+
+function renderPublicInfoStep(dossier, state, t) {
+  if (!dossier) return `<p class="muted">${t("loading")}</p>`
+  const ads = dossier.ads
+  const linkedProjects = Array.isArray(ads.linked_projects) ? ads.linked_projects : []
+  const preconfigured = dossier.preconfigured_data || {}
+  const preconfiguredEntries = Object.entries(preconfigured).filter(([, value]) => value !== null && value !== "")
+  return `
+    <div class="stack">
+      <div class="section-header">
+        <div>
+          <h3>${t("wizard_ads_title")}</h3>
+          <p>${t("wizard_ads_text")}</p>
+        </div>
+        <div class="button-row">
+          <button class="secondary" id="download-ticket" ${state.loading ? "disabled" : ""}>${t("download_ticket")}</button>
+        </div>
+      </div>
+      <div class="overview-grid">
+        <div class="overview-card accent">
+          <div class="eyebrow eyebrow-dark">${t("dossier")}</div>
+          <h4>${escapeHtml(ads.reference)}</h4>
+          <p>${escapeHtml(ads.visit_purpose || "—")}</p>
+        </div>
+        <div class="overview-card"><strong>${t("company")}</strong><span>${escapeHtml(dossier.allowed_company_name || "—")}</span></div>
+        <div class="overview-card"><strong>${t("site")}</strong><span>${escapeHtml(ads.site_name || "—")}</span></div>
+        <div class="overview-card"><strong>${t("dates")}</strong><span>${escapeHtml(`${ads.start_date || "—"} → ${ads.end_date || "—"}`)}</span></div>
+      </div>
+      <div class="facts-grid">
+        <div class="fact-card"><strong>${t("status")}</strong><span>${escapeHtml(ads.status || "—")}</span></div>
+        <div class="fact-card"><strong>${t("category")}</strong><span>${escapeHtml(ads.visit_category || "—")}</span></div>
+        <div class="fact-card"><strong>${t("outbound_transport")}</strong><span>${escapeHtml(ads.outbound_transport_mode || "—")}</span></div>
+        <div class="fact-card"><strong>${t("return_transport")}</strong><span>${escapeHtml(ads.return_transport_mode || "—")}</span></div>
+        <div class="fact-card"><strong>${t("outbound_departure_base")}</strong><span>${escapeHtml(ads.outbound_departure_base_name || "—")}</span></div>
+        <div class="fact-card"><strong>${t("return_departure_base")}</strong><span>${escapeHtml(ads.return_departure_base_name || "—")}</span></div>
+      </div>
+      ${linkedProjects.length > 0 ? `<div class="info-panel"><h4>${t("linked_projects")}</h4><div class="tag-row">${linkedProjects.map((item) => `<span class="tag">${escapeHtml(item.project_name || item.project_id || "—")}</span>`).join("")}</div></div>` : ""}
+      ${preconfiguredEntries.length > 0 ? `<div class="info-panel"><h4>${t("preconfigured")}</h4><div class="tag-row">${preconfiguredEntries.map(([key, value]) => `<span class="tag">${escapeHtml(key)}: ${escapeHtml(Array.isArray(value) ? value.join(", ") : String(value))}</span>`).join("")}</div></div>` : ""}
+      ${ads.rejection_reason ? `<div class="message warn"><strong>${t("correction_reason")}</strong><br/>${escapeHtml(ads.rejection_reason)}</div>` : ""}
+      ${renderStepFooter("step-team", t("continue_to_team"))}
+    </div>
+  `
+}
+
+function renderCollaboratorStep(dossier, authenticated, state, t) {
+  if (!authenticated) return renderLockedStep(t("wizard_locked_access"))
+  if (!dossier) return `<p class="muted">${t("loading")}</p>`
+  const pax = dossier.pax || []
+  return `
+    <div class="stack">
+      <div class="section-header">
+        <div>
+          <h3>${t("wizard_team_title")}</h3>
+          <p>${t("wizard_team_text")}</p>
+        </div>
+        <div class="summary-pills compact">
+          <div class="summary-pill"><strong>${t("pax_count")}</strong><span>${escapeHtml(String(dossier?.pax_summary?.total ?? 0))}</span></div>
+          <div class="summary-pill"><strong>${t("approved")}</strong><span>${escapeHtml(String(dossier?.pax_summary?.approved ?? 0))}</span></div>
+        </div>
+      </div>
+      <form id="create-pax-form" class="step-form-card">
+        <div class="step-form-head">
+          <div>
+            <h4>${t("add_pax")}</h4>
+            <p>${t("wizard_team_helper")}</p>
+          </div>
+        </div>
+        <div class="field-grid">${renderPaxFields("", state.createPaxDraft || {}, t, state.jobPositions)}</div>
+        ${renderCreatePaxMatches(state, t)}
+        <div class="button-row" style="margin-top:12px">
+          <button class="primary" ${state.loading ? "disabled" : ""}>${t("add_pax")}</button>
+        </div>
+      </form>
+      ${pax.length === 0 ? `<div class="message">${t("no_pax")}</div>` : `
+        <div class="person-grid">
+          ${pax.map((item) => `
+            <article class="person-card">
+              <div class="person-card-head">
+                <div>
+                  <div class="pax-name">${escapeHtml(`${item.first_name} ${item.last_name}`)}</div>
+                  <div class="muted">${escapeHtml(item.job_position_name || item.position || "—")}</div>
+                </div>
+                <span class="status-chip ${(item.status === "blocked" ? "danger" : item.status === "pending_check" ? "warn" : "success")}">${escapeHtml(t(item.status || "pending_check"))}</span>
+              </div>
+              <div class="person-facts">
+                <span>${t("birth_date")}: ${escapeHtml(item.birth_date || "—")}</span>
+                <span>${t("badge_number")}: ${escapeHtml(item.badge_number || "—")}</span>
+                <span>${t("email")}: ${escapeHtml(item.email || "—")}</span>
+                <span>${t("phone")}: ${escapeHtml(item.phone || "—")}</span>
+              </div>
+              <a href="#pax-${item.contact_id}" class="secondary person-card-link">${t("open_compliance_dossier")}</a>
+            </article>
+          `).join("")}
+        </div>
+      `}
+      ${pax.length > 0 ? renderStepFooter("step-compliance", t("continue_to_compliance")) : ""}
+    </div>
+  `
+}
+
+function renderSinglePaxDossier(pax, state, t) {
   const missingIdentityFields = [
     !pax.birth_date ? t("birth_date") : null,
     !pax.nationality ? t("nationality") : null,
@@ -226,336 +337,198 @@ function renderPaxCard(pax, state, t) {
   const credentialOptions = state.credentialTypes
     .map((item) => `<option value="${item.id}">${escapeHtml(item.name)} (${escapeHtml(item.code)})</option>`)
     .join("")
-  const paxStatus = pax.status || "pending_check"
-  const paxStatusTone = paxStatus === "blocked" ? "danger" : paxStatus === "pending_check" ? "warn" : "success"
+  const blockers = pax.compliance_blockers || []
+  const requiredActions = pax.required_actions || []
+  const credentials = pax.credentials || []
+  const complianceOk = pax.compliance_ok && blockers.length === 0 && requiredActions.length === 0
+  const statusClass = complianceOk ? "success" : blockers.length > 0 ? "danger" : "warn"
   return `
-    <article class="pax-item">
-      <div class="pax-stack">
-      <div class="pax-head">
+    <details class="pax-dossier" id="pax-${pax.contact_id}" ${!complianceOk ? "open" : ""}>
+      <summary class="pax-dossier-summary">
         <div>
           <div class="pax-name">${escapeHtml(`${pax.first_name} ${pax.last_name}`)}</div>
-          <div class="pax-subhead">
-            <div class="pax-role">${escapeHtml(pax.job_position_name || pax.position || "—")}</div>
-            <div class="status-chip ${paxStatusTone}">${escapeHtml(t(paxStatus))}</div>
-          </div>
+          <div class="muted">${escapeHtml(pax.job_position_name || pax.position || "—")}</div>
+        </div>
+        <div class="pax-dossier-state">
+          <span class="status-chip ${statusClass}">${complianceOk ? t("compliance_ok") : t("dossier_needs_review_short")}</span>
+        </div>
+      </summary>
+      <div class="pax-dossier-body">
+        <div class="facts-grid">
+          <div class="fact-card"><strong>${t("birth_date")}</strong><span>${escapeHtml(pax.birth_date || "—")}</span></div>
+          <div class="fact-card"><strong>${t("nationality")}</strong><span>${escapeHtml(pax.nationality || "—")}</span></div>
+          <div class="fact-card"><strong>${t("badge_number")}</strong><span>${escapeHtml(pax.badge_number || "—")}</span></div>
+          <div class="fact-card"><strong>${t("compliance")}</strong><span>${pax.compliance_ok ? t("compliance_ok") : `${t("compliance_blockers")}: ${escapeHtml(String(pax.compliance_blocker_count || 0))}`}</span></div>
+        </div>
+        ${requiredActions.length > 0 ? `<div class="message warn"><strong>${t("required_actions")}</strong><ul>${requiredActions.map((item) => `<li>${renderRequiredAction(item, pax.contact_id, t)}</li>`).join("")}</ul></div>` : ""}
+        ${blockers.length > 0 ? `<div class="message warn"><strong>${t("compliance_issues")}</strong><ul>${blockers.map((item) => `<li>${escapeHtml(item.credential_type_name || item.credential_type_code || "—")} · ${escapeHtml(t(item.status || "—"))}${item.message ? ` · ${escapeHtml(item.message)}` : ""}</li>`).join("")}</ul></div>` : ""}
+        ${missingIdentityFields.length > 0 ? `<div class="message warn"><strong>${t("identity_missing")}</strong><div>${escapeHtml(missingIdentityFields.join(", "))}</div></div>` : ""}
+        <div class="compliance-grid">
+          <form class="stack pax-update-form step-form-card" data-contact-id="${pax.contact_id}">
+            <div class="step-form-head"><div><h4>${t("identity_and_logistics")}</h4><p>${t("identity_and_logistics_text")}</p></div></div>
+            <div class="field-grid">${renderPaxFields("", pax, t, state.jobPositions)}</div>
+            <div class="button-row"><button class="secondary" ${state.loading ? "disabled" : ""}>${t("save_changes")}</button></div>
+          </form>
+          <form class="stack credential-form step-form-card" data-contact-id="${pax.contact_id}">
+            <div class="step-form-head"><div><h4>${t("credentials")}</h4><p>${t("credentials_step_text")}</p></div></div>
+            <div class="field-grid">
+              <label>${t("credential_type")}<select name="credential_type_id" required><option value=""></option>${credentialOptions}</select></label>
+              <label>${t("obtained_date")}<input type="date" name="obtained_date" required /></label>
+              <label>${t("expiry_date")}<input type="date" name="expiry_date" /></label>
+              <label>${t("proof_url")}<input type="url" name="proof_url" /></label>
+              <label>${t("notes")}<textarea name="notes"></textarea></label>
+            </div>
+            <div class="button-row"><button class="secondary" ${state.loading ? "disabled" : ""}>${t("add_credential")}</button></div>
+            <div class="info-panel">
+              <h4>${t("current_credentials")}</h4>
+              ${credentials.length > 0 ? `<ul>${credentials.map((item) => `<li>${escapeHtml(item.credential_type_name || item.credential_type_code || "—")} · ${escapeHtml(t(item.status || "—"))}${item.expiry_date ? ` · ${escapeHtml(item.expiry_date)}` : ""}</li>`).join("")}</ul>` : `<div>${t("no_credentials")}</div>`}
+            </div>
+          </form>
         </div>
       </div>
-      <div class="meta-list">
-        <div class="meta-item"><strong>${t("birth_date")}</strong>${escapeHtml(pax.birth_date || "—")}</div>
-        <div class="meta-item"><strong>${t("nationality")}</strong>${escapeHtml(pax.nationality || "—")}</div>
-        <div class="meta-item"><strong>${t("badge_number")}</strong>${escapeHtml(pax.badge_number || "—")}</div>
-        <div class="meta-item"><strong>${t("email")}</strong>${escapeHtml(pax.email || "—")}</div>
-        <div class="meta-item"><strong>${t("phone")}</strong>${escapeHtml(pax.phone || "—")}</div>
-        <div class="meta-item"><strong>${t("photo_url")}</strong>${escapeHtml(pax.photo_url || "—")}</div>
-        <div class="meta-item"><strong>${t("compliance")}</strong>${pax.compliance_ok ? t("compliance_ok") : `${t("compliance_blockers")}: ${escapeHtml(String(pax.compliance_blocker_count || 0))}`}</div>
-      </div>
-      <div class="info-panel">
-        <h4>${t("pickup_address")}</h4>
-        <div class="meta-list">
-          <div class="meta-item"><strong>${t("pickup_address_line1")}</strong>${escapeHtml(pax.pickup_address_line1 || "—")}</div>
-          <div class="meta-item"><strong>${t("pickup_address_line2")}</strong>${escapeHtml(pax.pickup_address_line2 || "—")}</div>
-          <div class="meta-item"><strong>${t("pickup_city")}</strong>${escapeHtml(pax.pickup_city || "—")}</div>
-          <div class="meta-item"><strong>${t("pickup_state_province")}</strong>${escapeHtml(pax.pickup_state_province || "—")}</div>
-          <div class="meta-item"><strong>${t("pickup_postal_code")}</strong>${escapeHtml(pax.pickup_postal_code || "—")}</div>
-          <div class="meta-item"><strong>${t("pickup_country")}</strong>${escapeHtml(pax.pickup_country || "—")}</div>
-        </div>
-      </div>
-      ${(pax.compliance_blockers || []).length > 0 ? `
-        <div class="message warn">
-          <strong>${t("compliance_issues")}</strong>
-          <ul>
-            ${pax.compliance_blockers.map((item) => `<li>${escapeHtml(item.credential_type_name || item.credential_type_code || "—")} · ${escapeHtml(t(item.status || "—"))}${item.message ? ` · ${escapeHtml(item.message)}` : ""}</li>`).join("")}
-          </ul>
-        </div>
-      ` : ""}
-      ${(pax.required_actions || []).length > 0 ? `
-        <div class="message warn">
-          <strong>${t("required_actions")}</strong>
-          <ul>
-            ${(pax.required_actions || []).map((item) => `<li>${renderRequiredAction(item, pax.contact_id, t)}</li>`).join("")}
-          </ul>
-        </div>
-      ` : ""}
-      ${missingIdentityFields.length > 0 ? `
-        <div class="message warn">
-          <strong>${t("identity_missing")}</strong>
-          <div>${escapeHtml(missingIdentityFields.join(", "))}</div>
-        </div>
-      ` : ""}
-      <div class="info-panel">
-        <h4>${t("current_credentials")}</h4>
-        <strong>${t("current_credentials")}</strong>
-        ${(pax.credentials || []).length > 0 ? `
-          <ul>
-            ${pax.credentials.map((item) => `<li>${escapeHtml(item.credential_type_name || item.credential_type_code || "—")} · ${escapeHtml(t(item.status || "—"))}${item.expiry_date ? ` · ${escapeHtml(item.expiry_date)}` : ""}</li>`).join("")}
-          </ul>
-        ` : `<div>${t("no_credentials")}</div>`}
-      </div>
-      <form class="stack pax-update-form form-panel" data-contact-id="${pax.contact_id}">
-        <h3 class="section-title">${t("save_changes")}</h3>
-        <div class="field-grid">${renderPaxFields("", pax, t, state.jobPositions)}</div>
-        <div class="button-row">
-          <button class="secondary" ${state.loading ? "disabled" : ""}>${t("save_changes")}</button>
-        </div>
-      </form>
-      <form class="stack credential-form form-panel" data-contact-id="${pax.contact_id}">
-        <h3 class="section-title">${t("credentials")}</h3>
-        <div class="field-grid">
-          <label>${t("credential_type")}
-            <select name="credential_type_id" required>
-              <option value=""></option>
-              ${credentialOptions}
-            </select>
-          </label>
-          <label>${t("obtained_date")}<input type="date" name="obtained_date" required /></label>
-          <label>${t("expiry_date")}<input type="date" name="expiry_date" /></label>
-          <label>${t("proof_url")}<input type="url" name="proof_url" /></label>
-          <label>${t("notes")}<textarea name="notes"></textarea></label>
-        </div>
-        <div class="button-row">
-          <button class="secondary" ${state.loading ? "disabled" : ""}>${t("add_credential")}</button>
-        </div>
-      </form>
-      </div>
-    </article>
+    </details>
   `
 }
 
-function renderCreatePaxMatches(state, t) {
-  if (!Array.isArray(state.createPaxMatches) || state.createPaxMatches.length === 0) return ""
+function renderComplianceStep(dossier, authenticated, state, t) {
+  if (!authenticated) return renderLockedStep(t("wizard_locked_access"))
+  if (!dossier) return `<p class="muted">${t("loading")}</p>`
+  const pax = dossier.pax || []
+  if (pax.length === 0) return renderLockedStep(t("wizard_locked_team"))
   return `
-    <div class="message warn">
-      <strong>${t("duplicate_candidates")}</strong><br/>
-      ${t("duplicate_candidates_hint")}
-      <div class="stack" style="margin-top:12px">
-        ${state.createPaxMatches.map((match) => `
-          <div class="panel pad" style="background:var(--panel-strong)">
-            <div class="button-row" style="justify-content:space-between; align-items:flex-start">
-              <div>
-                <div class="pax-name">${escapeHtml(`${match.first_name} ${match.last_name}`)}</div>
-                <div class="muted">${escapeHtml(match.job_position_name || match.position || "—")}</div>
-              </div>
-              <button class="secondary attach-existing-pax" data-contact-id="${match.contact_id}" ${state.loading ? "disabled" : ""}>
-                ${t("confirm_existing_candidate")}
-              </button>
-            </div>
-            <div class="meta-list" style="margin-top:10px">
-              <div class="meta-item"><strong>${t("match_score")}</strong>${escapeHtml(String(match.match_score))}</div>
-              <div class="meta-item"><strong>${t("match_reasons")}</strong>${escapeHtml((match.match_reasons || []).join(", ") || "—")}</div>
-              <div class="meta-item"><strong>${t("birth_date")}</strong>${escapeHtml(match.birth_date || "—")}</div>
-              <div class="meta-item"><strong>${t("badge_number")}</strong>${escapeHtml(match.badge_number || "—")}</div>
-              <div class="meta-item"><strong>${t("email")}</strong>${escapeHtml(match.email || "—")}</div>
-              <div class="meta-item"><strong>${t("phone")}</strong>${escapeHtml(match.phone || "—")}</div>
-            </div>
-            ${match.already_linked_to_ads ? `<div class="message">${t("already_linked")}</div>` : ""}
-          </div>
-        `).join("")}
-      </div>
-    </div>
-  `
-}
-
-export function renderSecurity(link, authenticated, t, state) {
-  return `
-    <h2 class="section-title">${t("security")}</h2>
-    <p class="section-subtitle">${authenticated ? t("authenticated") : t("session_needed")}</p>
     <div class="stack">
-      ${link?.otp_required ? `
-        <div class="message warn">${t("otp_destination")}: ${link?.otp_destination_masked || "—"}</div>
-        <div class="button-row">
-          <button class="secondary" id="send-otp" ${state.loading ? "disabled" : ""}>${t("send_code")}</button>
+      <div class="section-header">
+        <div>
+          <h3>${t("wizard_compliance_title")}</h3>
+          <p>${t("wizard_compliance_text")}</p>
         </div>
-        <form id="verify-otp-form" class="stack">
-          <label>${t("otp_code")}<input name="code" inputmode="numeric" maxlength="6" placeholder="123456" /></label>
-          <div class="button-row">
-            <button class="primary" ${state.loading ? "disabled" : ""}>${t("verify_code")}</button>
-          </div>
-        </form>
-      ` : `
-        <div class="message success">${t("otp_not_required")}</div>
-      `}
+        <div class="summary-pills compact">
+          <div class="summary-pill"><strong>${t("pending_check")}</strong><span>${escapeHtml(String(dossier?.pax_summary?.pending_check ?? 0))}</span></div>
+          <div class="summary-pill"><strong>${t("blocked")}</strong><span>${escapeHtml(String(dossier?.pax_summary?.blocked ?? 0))}</span></div>
+        </div>
+      </div>
+      ${pax.map((item) => renderSinglePaxDossier(item, state, t)).join("")}
+      ${renderStepFooter("step-finalize", t("continue_to_finalize"))}
     </div>
   `
 }
 
-export function renderDossierSummary(dossier, authenticated, state, t) {
-  if (!dossier) {
-    return `<h2 class="section-title">${t("dossier")}</h2><p class="muted">${t("loading")}</p>`
-  }
+function renderFinalStep(dossier, authenticated, state, t) {
+  if (!authenticated) return renderLockedStep(t("wizard_locked_access"))
+  if (!dossier) return `<p class="muted">${t("loading")}</p>`
+  if ((dossier?.pax_summary?.total ?? 0) <= 0) return renderLockedStep(t("wizard_locked_team"))
   const ads = dossier.ads
-  const outboundBaseOptions = [
-    `<option value="">${escapeHtml(t("not_defined"))}</option>`,
-    ...state.departureBases.map((item) => `<option value="${item.id}" ${String(item.id) === String(ads.outbound_departure_base_id || "") ? "selected" : ""}>${escapeHtml(item.code ? `${item.code} — ${item.name}` : item.name)}</option>`),
-  ].join("")
-  const returnBaseOptions = [
-    `<option value="">${escapeHtml(t("not_defined"))}</option>`,
-    ...state.departureBases.map((item) => `<option value="${item.id}" ${String(item.id) === String(ads.return_departure_base_id || "") ? "selected" : ""}>${escapeHtml(item.code ? `${item.code} — ${item.name}` : item.name)}</option>`),
-  ].join("")
+  const blockers = Array.isArray(dossier?.submission_blockers) ? dossier.submission_blockers : []
+  const readyForSubmission = Boolean(dossier?.ready_for_submission)
+  const outboundBaseOptions = [`<option value="">${escapeHtml(t("not_defined"))}</option>`, ...state.departureBases.map((item) => `<option value="${item.id}" ${String(item.id) === String(ads.outbound_departure_base_id || "") ? "selected" : ""}>${escapeHtml(item.code ? `${item.code} — ${item.name}` : item.name)}</option>`)].join("")
+  const returnBaseOptions = [`<option value="">${escapeHtml(t("not_defined"))}</option>`, ...state.departureBases.map((item) => `<option value="${item.id}" ${String(item.id) === String(ads.return_departure_base_id || "") ? "selected" : ""}>${escapeHtml(item.code ? `${item.code} — ${item.name}` : item.name)}</option>`)].join("")
   return `
-    <h2 class="section-title">${t("dossier")}</h2>
-    <p class="section-subtitle">${escapeHtml(ads.reference)} · ${escapeHtml(ads.status)}</p>
-    <div class="summary-strip">
-      <div class="summary-pill">
-        <strong>${t("company")}</strong>
-        <span>${escapeHtml(dossier.allowed_company_name || "—")}</span>
+    <div class="stack">
+      <div class="section-header"><div><h3>${t("wizard_finalize_title")}</h3><p>${t("wizard_finalize_text")}</p></div></div>
+      <div class="review-banner ${readyForSubmission ? "success" : "warn"}">
+        <strong>${t("review_summary")}</strong><br/>
+        ${readyForSubmission ? t("dossier_ready") : t("dossier_needs_review")}
       </div>
-      <div class="summary-pill">
-        <strong>${t("site")}</strong>
-        <span>${escapeHtml(ads.site_name || "—")}</span>
-      </div>
-      <div class="summary-pill">
-        <strong>${t("project")}</strong>
-        <span>${escapeHtml(ads.project_name || "—")}</span>
-      </div>
-    </div>
-    <div class="grid cards">
-      <div class="card clean"><div class="card-label">${t("purpose")}</div><div class="card-value" style="font-size:16px">${escapeHtml(ads.visit_purpose || "—")}</div></div>
-      <div class="card clean"><div class="card-label">${t("category")}</div><div class="card-value" style="font-size:16px">${escapeHtml(ads.visit_category || "—")}</div></div>
-      <div class="card clean"><div class="card-label">${t("dates")}</div><div class="card-value" style="font-size:16px">${escapeHtml(`${ads.start_date} → ${ads.end_date}`)}</div></div>
-      <div class="card clean"><div class="card-label">${t("outbound_transport")}</div><div class="card-value" style="font-size:16px">${escapeHtml(ads.outbound_transport_mode || "—")}</div></div>
-      <div class="card clean"><div class="card-label">${t("return_transport")}</div><div class="card-value" style="font-size:16px">${escapeHtml(ads.return_transport_mode || "—")}</div></div>
-      <div class="card clean"><div class="card-label">${t("pax_count")}</div><div class="card-value" style="font-size:16px">${escapeHtml(String(dossier?.pax_summary?.total ?? 0))}</div></div>
-    </div>
-    <div class="meta-list" style="margin-top:14px">
-      <div class="meta-item"><strong>${t("outbound_departure_base")}</strong>${escapeHtml(ads.outbound_departure_base_name || "—")}</div>
-      <div class="meta-item"><strong>${t("return_departure_base")}</strong>${escapeHtml(ads.return_departure_base_name || "—")}</div>
-    </div>
-    <div class="review-banner ${(dossier?.pax_summary?.blocked ?? 0) > 0 || (dossier?.pax_summary?.pending_check ?? 0) > 0 ? "warn" : "success"}" style="margin-top:14px">
-      <strong>${t("review_summary")}</strong><br/>
-      ${((dossier?.pax_summary?.blocked ?? 0) > 0 || (dossier?.pax_summary?.pending_check ?? 0) > 0) ? t("dossier_needs_review") : t("dossier_ready")}
-    </div>
-    ${ads.rejection_reason ? `<div class="message warn" style="margin-top:14px"><strong>${t("correction_reason")}</strong><br/>${escapeHtml(ads.rejection_reason)}</div>` : ""}
-    ${authenticated ? `
-      <div class="divider"></div>
-      <form id="transport-preferences-form" class="stack">
-        <h3 class="section-title">${t("transport_preferences")}</h3>
+      ${!readyForSubmission && blockers.length > 0 ? `<div class="message warn"><strong>${t("submission_blockers_title")}</strong><ul>${blockers.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul><p class="muted" style="margin-top:10px">${t("submission_blockers_hint")}</p></div>` : ""}
+      ${readyForSubmission ? `<div class="message success">${t("wizard_finalize_ready")}</div>` : `<div class="message warn">${t("wizard_finalize_blocked")}</div>`}
+      <form id="transport-preferences-form" class="step-form-card">
+        <div class="step-form-head"><div><h4>${t("transport_preferences")}</h4><p>${t("transport_preferences_text")}</p></div></div>
         <div class="field-grid">
-          <label>${t("outbound_departure_base")}
-            <select name="outbound_departure_base_id">${outboundBaseOptions}</select>
-          </label>
-          <label>${t("return_departure_base")}
-            <select name="return_departure_base_id">${returnBaseOptions}</select>
-          </label>
+          <label>${t("outbound_departure_base")}<select name="outbound_departure_base_id">${outboundBaseOptions}</select></label>
+          <label>${t("return_departure_base")}<select name="return_departure_base_id">${returnBaseOptions}</select></label>
           <label>${t("outbound_notes")}<textarea name="outbound_notes">${escapeHtml(ads.outbound_notes || "")}</textarea></label>
           <label>${t("return_notes")}<textarea name="return_notes">${escapeHtml(ads.return_notes || "")}</textarea></label>
         </div>
-        <div class="button-row">
-          <button class="secondary" ${state.loading ? "disabled" : ""}>${t("save_transport_preferences")}</button>
-        </div>
+        <div class="button-row"><button class="secondary" ${state.loading ? "disabled" : ""}>${t("save_transport_preferences")}</button></div>
       </form>
-    ` : ""}
-    <div class="divider"></div>
-    <h3 class="section-title">${t("preconfigured")}</h3>
-    <pre class="code-block">${escapeHtml(JSON.stringify(dossier.preconfigured_data || {}, null, 2))}</pre>
-  `
-}
-
-export function renderPaxArea(dossier, authenticated, state, t) {
-  if (!authenticated) {
-    return `<h2 class="section-title">${t("pax")}</h2><div class="message warn">${t("session_needed")}</div>`
-  }
-  if (!dossier) {
-    return `<h2 class="section-title">${t("pax")}</h2><p class="muted">${t("loading")}</p>`
-  }
-  return `
-    <div class="stack">
-      <div class="button-row" style="justify-content:space-between; align-items:center">
-        <div>
-          <h2 class="section-title" style="margin-bottom:4px">${t("pax")}</h2>
-          <p class="section-subtitle">${dossier.allowed_company_name || dossier.allowed_company_id || t("scope")}</p>
-        </div>
-        <div class="button-row">
-          <button class="secondary" id="download-ticket" ${!authenticated || state.loading ? "disabled" : ""}>${t("download_ticket")}</button>
-          ${dossier.can_submit ? `<button class="primary" id="submit-dossier" ${state.loading ? "disabled" : ""}>${t("submit")}</button>` : ""}
-        </div>
+      ${dossier.can_resubmit ? `<form id="resubmit-form" class="message warn stack"><label>${t("resubmit_reason")}<textarea name="reason"></textarea></label><div class="button-row"><button class="warning" ${state.loading ? "disabled" : ""}>${t("resubmit")}</button></div></form>` : ""}
+      <div class="final-actions">
+        <button class="secondary" id="download-ticket" ${state.loading ? "disabled" : ""}>${t("download_ticket")}</button>
+        ${dossier.can_submit ? `<button class="primary" id="submit-dossier" ${state.loading ? "disabled" : ""}>${t("submit")}</button>` : ""}
       </div>
-
-      <div class="summary-strip">
-        <div class="meta-item"><strong>${t("pending_check")}</strong>${dossier?.pax_summary?.pending_check ?? 0}</div>
-        <div class="meta-item"><strong>${t("approved")}</strong>${dossier?.pax_summary?.approved ?? 0}</div>
-        <div class="meta-item"><strong>${t("blocked")}</strong>${dossier?.pax_summary?.blocked ?? 0}</div>
-      </div>
-
-      ${dossier.can_resubmit ? `
-        <form id="resubmit-form" class="message warn stack">
-          <label>${t("resubmit_reason")}<textarea name="reason"></textarea></label>
-          <div class="button-row">
-            <button class="warning" ${state.loading ? "disabled" : ""}>${t("resubmit")}</button>
-          </div>
-        </form>
-      ` : ""}
-
-      <form id="create-pax-form" class="panel pad" style="background:var(--panel-strong)">
-        <h3 class="section-title">${t("add_pax")}</h3>
-        <div class="field-grid">
-          ${renderPaxFields("", state.createPaxDraft || {}, t, state.jobPositions)}
-        </div>
-        <div class="button-row" style="margin-top:12px">
-          <button class="primary" ${state.loading ? "disabled" : ""}>${t("add_pax")}</button>
-        </div>
-      </form>
-
-      ${renderCreatePaxMatches(state, t)}
-
-      ${(dossier.pax || []).length === 0 ? `<div class="message">${t("no_pax")}</div>` : dossier.pax.map((pax) => renderPaxCard(pax, state, t)).join("")}
     </div>
   `
 }
 
+function buildSteps({ authenticated, dossier, t }) {
+  const totalPax = dossier?.pax_summary?.total ?? 0
+  const blocked = dossier?.pax_summary?.blocked ?? 0
+  const pending = dossier?.pax_summary?.pending_check ?? 0
+  const accessDone = authenticated
+  const publicInfoDone = authenticated && Boolean(dossier)
+  const teamDone = publicInfoDone && totalPax > 0
+  const complianceDone = teamDone && blocked === 0 && pending === 0
+  const finalizeDone = Boolean(dossier?.can_submit || dossier?.can_resubmit)
+  const steps = [
+    { id: "step-access", title: t("wizard_access_title"), description: t("wizard_access_nav"), done: accessDone, current: !accessDone },
+    { id: "step-ads", title: t("wizard_ads_title"), description: t("wizard_ads_nav"), done: publicInfoDone, current: accessDone && !publicInfoDone },
+    { id: "step-team", title: t("wizard_team_title"), description: t("wizard_team_nav"), done: teamDone, current: publicInfoDone && !teamDone },
+    { id: "step-compliance", title: t("wizard_compliance_title"), description: t("wizard_compliance_nav"), done: complianceDone, current: teamDone && !complianceDone },
+    { id: "step-finalize", title: t("wizard_finalize_title"), description: t("wizard_finalize_nav"), done: finalizeDone, current: complianceDone && !finalizeDone },
+  ]
+  if (!steps.some((step) => step.current)) {
+    const fallback = steps.find((step) => !step.done)
+    if (fallback) fallback.current = true
+    else steps[steps.length - 1].current = true
+  }
+  return steps
+}
+
 export function renderPage({ state, link, dossier, authenticated, t, lang }) {
+  const steps = buildSteps({ authenticated, dossier, t })
   return `
     <div class="page">
-      <section class="hero">
+      <section class="hero wizard-hero">
         <article class="panel hero-main">
-          <div class="eyebrow">OpsFlux External Flow</div>
+          <div class="eyebrow">OpsFlux External AdS</div>
           <h1>${t("app_title")}</h1>
           <p>${t("app_intro")}</p>
           <div class="hero-stats">
-            <div class="hero-stat">
-              <div class="hero-stat-label">${t("pax_count")}</div>
-              <div class="hero-stat-value">${escapeHtml(String(dossier?.pax_summary?.total ?? 0))}</div>
-            </div>
-            <div class="hero-stat">
-              <div class="hero-stat-label">${t("pending_check")}</div>
-              <div class="hero-stat-value">${escapeHtml(String(dossier?.pax_summary?.pending_check ?? 0))}</div>
-            </div>
-            <div class="hero-stat">
-              <div class="hero-stat-label">${t("blocked")}</div>
-              <div class="hero-stat-value">${escapeHtml(String(dossier?.pax_summary?.blocked ?? 0))}</div>
-            </div>
+            <div class="hero-stat"><div class="hero-stat-label">${t("pax_count")}</div><div class="hero-stat-value">${escapeHtml(String(dossier?.pax_summary?.total ?? 0))}</div></div>
+            <div class="hero-stat"><div class="hero-stat-label">${t("pending_check")}</div><div class="hero-stat-value">${escapeHtml(String(dossier?.pax_summary?.pending_check ?? 0))}</div></div>
+            <div class="hero-stat"><div class="hero-stat-label">${t("blocked")}</div><div class="hero-stat-value">${escapeHtml(String(dossier?.pax_summary?.blocked ?? 0))}</div></div>
           </div>
         </article>
         <aside class="panel pad top-panel">
           <section class="top-section">
             <div class="top-section-title">${t("access_state")}</div>
-            <div class="status-chip ${authenticated ? "success" : "warn"}">
-              ${authenticated ? t("authenticated") : (link?.otp_required ? t("otp_required") : t("otp_not_required"))}
-            </div>
+            <div class="status-chip ${authenticated ? "success" : "warn"}">${authenticated ? t("authenticated") : (link?.otp_required ? t("otp_required") : t("otp_not_required"))}</div>
           </section>
           <section class="top-section">
-            <div class="top-section-title">${t("security")}</div>
-            <div class="meta-list">
-              <div class="meta-item"><strong>${t("token_info")}</strong><span class="mono">${state.token}</span></div>
-              <div class="meta-item"><strong>${t("remaining_uses")}</strong>${link?.remaining_uses ?? "—"}</div>
-              <div class="meta-item"><strong>${t("expires_at")}</strong>${formatDateTime(link?.expires_at, lang)}</div>
-            </div>
+            <div class="top-section-title">${t("token_info")}</div>
+            <div class="mono token-box">${escapeHtml(state.token || "—")}</div>
+          </section>
+          <section class="top-section">
+            <div class="top-section-title">${t("expires_at")}</div>
+            <div>${escapeHtml(formatDateTime(link?.expires_at, lang))}</div>
           </section>
         </aside>
       </section>
-
       ${state.message ? `<div class="message ${state.message.tone}">${escapeHtml(state.message.text)}</div>` : ""}
-
-      <section class="grid two" style="margin-top:18px">
-        <div class="panel pad">
-          ${renderSecurity(link, authenticated, t, state)}
+      <section class="wizard-shell">
+        <div class="wizard-rail">${renderWizardNav(steps, t)}</div>
+        <div class="wizard-content">
+          <section class="panel pad wizard-step" id="step-access">
+            <div class="step-head"><span class="step-number">1</span><div><h2>${t("wizard_access_title")}</h2><p>${t("wizard_access_text")}</p></div></div>
+            ${renderSecurityStep(link, authenticated, t, state)}
+          </section>
+          <section class="panel pad wizard-step" id="step-ads">
+            <div class="step-head"><span class="step-number">2</span><div><h2>${t("wizard_ads_title")}</h2><p>${t("wizard_ads_text")}</p></div></div>
+            ${renderPublicInfoStep(dossier, state, t)}
+          </section>
+          <section class="panel pad wizard-step" id="step-team">
+            <div class="step-head"><span class="step-number">3</span><div><h2>${t("wizard_team_title")}</h2><p>${t("wizard_team_text")}</p></div></div>
+            ${renderCollaboratorStep(dossier, authenticated, state, t)}
+          </section>
+          <section class="panel pad wizard-step" id="step-compliance">
+            <div class="step-head"><span class="step-number">4</span><div><h2>${t("wizard_compliance_title")}</h2><p>${t("wizard_compliance_text")}</p></div></div>
+            ${renderComplianceStep(dossier, authenticated, state, t)}
+          </section>
+          <section class="panel pad wizard-step" id="step-finalize">
+            <div class="step-head"><span class="step-number">5</span><div><h2>${t("wizard_finalize_title")}</h2><p>${t("wizard_finalize_text")}</p></div></div>
+            ${renderFinalStep(dossier, authenticated, state, t)}
+          </section>
         </div>
-        <div class="panel pad">
-          ${renderDossierSummary(dossier, authenticated, state, t)}
-        </div>
-      </section>
-
-      <section style="margin-top:18px" class="panel pad">
-        ${renderPaxArea(dossier, authenticated, state, t)}
       </section>
     </div>
   `

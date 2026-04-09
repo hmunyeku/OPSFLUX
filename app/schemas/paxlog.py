@@ -574,6 +574,8 @@ class ExternalAdsDossierRead(BaseModel):
     allowed_company_ids: list[str] = []
     allowed_company_names: list[str] = []
     scope_label: str | None = None
+    ready_for_submission: bool = False
+    submission_blockers: list[str] = []
     can_submit: bool = False
     can_resubmit: bool = False
     preconfigured_data: dict = {}

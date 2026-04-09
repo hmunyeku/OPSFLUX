@@ -36,6 +36,7 @@ import { Topbar } from './Topbar'
 import { DetachedPanelsPortal } from './DetachedPanelRenderer'
 import { FeedbackWidget } from './FeedbackWidget'
 import { HelpProvider, HelpPanel } from './HelpSystem'
+import { AssistantPanel } from './AssistantPanel'
 
 // ── Active Banners — renders banner-type announcements at the top ──
 const BANNER_VARIANT_MAP: Record<string, 'info' | 'warning' | 'danger' | 'success'> = {
@@ -195,6 +196,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       <DetachedPanelsPortal />
       <FeedbackWidget />
       <HelpPanel />
+      <AssistantPanel />
     </div>
     </HelpProvider>
   )

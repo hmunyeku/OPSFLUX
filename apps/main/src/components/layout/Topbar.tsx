@@ -25,6 +25,7 @@ import {
   Settings,
   X,
   HelpCircle,
+  Sparkles,
 } from 'lucide-react'
 import { useState, useRef, useEffect, useSyncExternalStore, useCallback, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -274,6 +275,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const { open: paletteOpen, setOpen: setPaletteOpen } = useCommandPalette()
   const { isHelpOpen, toggleHelp } = useHelp()
+  const { aiPanelOpen, toggleAIPanel } = useUIStore()
   const placeholder = useSearchPlaceholder()
   const { data: availableContexts = [] } = useActingContexts()
   const { data: currentActingContext } = useCurrentActingContext()
@@ -423,6 +425,19 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
             data-help-id="help-button"
           >
             <HelpCircle size={15} />
+          </button>
+
+          <button
+            onClick={toggleAIPanel}
+            className={cn(
+              'relative h-7 w-7 rounded-lg flex items-center justify-center transition-colors',
+              aiPanelOpen
+                ? 'bg-primary/20 text-primary'
+                : 'text-muted-foreground hover:bg-chrome-hover hover:text-foreground',
+            )}
+            title="Assistant OpsFlux"
+          >
+            <Sparkles size={15} />
           </button>
 
           {/* User avatar + dropdown */}

@@ -108,6 +108,7 @@ from app.api.routes.core.user_sync import router as user_sync_router
 from app.api.routes.core.departments import router as departments_router
 from app.api.routes.core.preview import router as preview_router
 from app.api.routes.core.dictionary import router as dictionary_router
+from app.api.routes.core.ai_chat import router as ai_chat_router
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
@@ -325,6 +326,7 @@ app.include_router(social_networks_router)
 app.include_router(opening_hours_router)
 app.include_router(preview_router)
 app.include_router(dictionary_router)
+app.include_router(ai_chat_router)
 
 
 # ─── Static files (avatars, uploads) ──────────────────────────────────────

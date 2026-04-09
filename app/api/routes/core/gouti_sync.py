@@ -1176,6 +1176,19 @@ async def _import_project_tasks(
             continue
 
         is_milestone = str(gt.get("milestone_ta") or "0").strip() == "1"
+        is_macro = str(gt.get("macro_ta") or "0").strip() == "1"
+
+        # Skip empty macro/group rows — Gouti grouping headers with no real data
+        if is_macro:
+            raw_name = gt.get("name_ta") or gt.get("name") or gt.get("Name") or ""
+            raw_start = gt.get("initial_start_date_ta") or gt.get("actual_start_date_ta")
+            raw_end = gt.get("initial_end_date_ta") or gt.get("actual_end_date_ta")
+            has_name = isinstance(raw_name, str) and raw_name.strip() != ""
+            has_dates = bool(raw_start or raw_end)
+            if not has_name and not has_dates:
+                # Empty group header — skip entirely
+                continue
+
         title = _gouti_task_name(gt)
         description = _html_to_text(gt.get("description_ta") or gt.get("description"))
         progress = max(0, min(100, _as_int(gt.get("progress_ta"), 0)))

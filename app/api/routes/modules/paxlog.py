@@ -956,8 +956,11 @@ async def _apply_ads_site_waitlist_if_needed(
     min_remaining_capacity: int | None = None
     min_capacity_limit: int | None = None
     reserved_pax_peak = 0
+    has_capacity_configured = False
     while current_day <= ads.end_date:
         capacity_limit = int(await get_effective_capacity(db, ads.site_entry_asset_id, current_day) or 0)
+        if capacity_limit > 0:
+            has_capacity_configured = True
         reserved_pax_count = await _count_reserved_site_pax_for_day(
             db,
             entity_id=entity_id,
@@ -970,6 +973,16 @@ async def _apply_ads_site_waitlist_if_needed(
         min_capacity_limit = capacity_limit if min_capacity_limit is None else min(min_capacity_limit, capacity_limit)
         min_remaining_capacity = remaining_capacity if min_remaining_capacity is None else min(min_remaining_capacity, remaining_capacity)
         current_day += timedelta(days=1)
+
+    # If no capacity is configured for the site, treat as unlimited — no waitlist
+    if not has_capacity_configured:
+        return {
+            "waitlist_applied": False,
+            "waitlisted_count": 0,
+            "activity_quota": None,
+            "reserved_pax_count": reserved_pax_peak,
+            "remaining_capacity": None,
+        }
 
     if min_remaining_capacity is None or requested_pax_count <= min_remaining_capacity:
         return {

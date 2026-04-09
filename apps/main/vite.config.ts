@@ -40,7 +40,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg}'],
         // Precache navigated HTML routes (SPA fallback)
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api\//],

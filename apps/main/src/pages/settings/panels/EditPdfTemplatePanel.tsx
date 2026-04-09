@@ -246,7 +246,8 @@ function buildSampleVariables(
         { name: 'Paul Ilunga', company: 'SPIE', badge_number: 'BDG-002', compliance_status: 'approved', seat_number: 'A2' },
         { name: 'Sarah Mbuyi', company: 'Perenco', badge_number: 'BDG-003', compliance_status: 'approved', seat_number: 'A3' },
       ],
-      qr_data: 'ADS-2026-001',
+      qr_data: 'https://app.opsflux.io/paxlog/ads-boarding/demo-ads-token',
+      qr_url: 'https://app.opsflux.io/paxlog/ads-boarding/demo-ads-token',
     }
   }
   const schemaKeys = Object.keys(variablesSchema ?? {})

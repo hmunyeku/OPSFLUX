@@ -243,6 +243,53 @@ def _build_invalid_template_html(*, title: str, issues: list[dict[str, str]]) ->
 </html>"""
 
 
+def _has_rendered_qr_markup(section_html: str | None) -> bool:
+    if not section_html:
+        return False
+    normalized = section_html.lower()
+    return (
+        "data:image/png;base64" in normalized
+        or 'alt="qr code"' in normalized
+        or "scan-label" in normalized
+        or "qr-fallback" in normalized
+    )
+
+
+def _ensure_ads_ticket_operational_elements(
+    *,
+    body_html: str,
+    header_html: str | None,
+    footer_html: str | None,
+    variables: dict | None,
+) -> tuple[str, str | None, str | None]:
+    ctx = variables or {}
+    qr_payload = ctx.get("qr_data") or ctx.get("reference")
+    if not isinstance(qr_payload, str) or not qr_payload.strip():
+        return body_html, header_html, footer_html
+
+    if any(_has_rendered_qr_markup(section) for section in (body_html, header_html, footer_html)):
+        return body_html, header_html, footer_html
+
+    qr_label = "Scanner pour pointage embarquement"
+    qr_link = ctx.get("qr_url") or qr_payload
+    qr_image = generate_qr_base64(qr_payload)
+    if not qr_image:
+        return body_html, header_html, footer_html
+
+    fallback_panel = f"""
+<section class="qr-fallback" style="margin-top:12px;padding:12px;border:1px dashed #94a3b8;border-radius:10px;background:#f8fafc;">
+  <div style="display:flex;align-items:center;gap:14px;">
+    <img src="{qr_image}" alt="QR Code" style="width:96px;height:96px;flex:0 0 auto;border:1px solid #e2e8f0;background:#fff;padding:4px;border-radius:8px;" />
+    <div style="min-width:0;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#0f172a;">{qr_label}</div>
+      <div style="margin-top:4px;font-size:12px;color:#334155;">Ce QR ouvre directement la fiche de scan terrain pour confirmer les personnes reellement montees.</div>
+      <div style="margin-top:6px;font-size:10px;word-break:break-all;color:#64748b;">{qr_link}</div>
+    </div>
+  </div>
+</section>"""
+    return f"{body_html}{fallback_panel}", header_html, footer_html
+
+
 def _build_pdf_document_html(
     *,
     body_html: str,
@@ -351,6 +398,7 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
             "passengers": "List of passenger objects [{name, company, badge_number, compliance_status}]",
             "generated_at": "PDF generation timestamp",
             "qr_data": "Data to encode in QR code (defaults to reference)",
+            "qr_url": "Operational QR target URL for boarding scan",
         },
         "default_versions": {
             "fr": {
@@ -726,7 +774,7 @@ _ADS_TICKET_BODY_FR = """\
       <div class="entity-name">{{ entity.name | default('') }}</div>
     </div>
     <div class="ref-block">
-      <div class="ref-label">Autorisation de Sortie</div>
+      <div class="ref-label">Avis de sejour</div>
       <div class="ref-number">{{ reference }}</div>
     </div>
   </div>
@@ -835,7 +883,7 @@ _ADS_TICKET_BODY_FR = """\
   </div>
   <div class="ticket-footer">
     <span>Document genere le {{ generated_at | default('--') }}</span>
-    <span>{{ entity.name | default('OpsFlux') }} -- Autorisation de Sortie</span>
+    <span>{{ entity.name | default('OpsFlux') }} -- Avis de sejour</span>
   </div>
 </div>
 </body>
@@ -888,7 +936,7 @@ _ADS_TICKET_BODY_EN = """\
       <div class="entity-name">{{ entity.name | default('') }}</div>
     </div>
     <div class="ref-block">
-      <div class="ref-label">Travel Authorization</div>
+      <div class="ref-label">Stay Notice</div>
       <div class="ref-number">{{ reference }}</div>
     </div>
   </div>
@@ -997,7 +1045,7 @@ _ADS_TICKET_BODY_EN = """\
   </div>
   <div class="ticket-footer">
     <span>Generated on {{ generated_at | default('--') }}</span>
-    <span>{{ entity.name | default('OpsFlux') }} -- Travel Authorization</span>
+    <span>{{ entity.name | default('OpsFlux') }} -- Stay Notice</span>
   </div>
 </div>
 </body>
@@ -2293,6 +2341,13 @@ async def render_pdf_preview(
     body_html = render_template_string(version.body_html, ctx)
     header_html = render_template_string(version.header_html, ctx) if version.header_html else None
     footer_html = render_template_string(version.footer_html, ctx) if version.footer_html else None
+    if slug == "ads.ticket":
+        body_html, header_html, footer_html = _ensure_ads_ticket_operational_elements(
+            body_html=body_html,
+            header_html=header_html,
+            footer_html=footer_html,
+            variables=ctx,
+        )
 
     return _build_pdf_document_html(
         body_html=body_html,
@@ -2327,6 +2382,13 @@ async def render_pdf_from_version(
     body_html = render_template_string(version.body_html, ctx)
     header_html = render_template_string(version.header_html, ctx) if version.header_html else None
     footer_html = render_template_string(version.footer_html, ctx) if version.footer_html else None
+    if template.slug == "ads.ticket":
+        body_html, header_html, footer_html = _ensure_ads_ticket_operational_elements(
+            body_html=body_html,
+            header_html=header_html,
+            footer_html=footer_html,
+            variables=ctx,
+        )
 
     return _html_to_pdf(
         _build_pdf_document_html(
@@ -2360,6 +2422,13 @@ async def render_html_from_version(
     body_html = render_template_string(version.body_html, ctx)
     header_html = render_template_string(version.header_html, ctx) if version.header_html else None
     footer_html = render_template_string(version.footer_html, ctx) if version.footer_html else None
+    if template and template.slug == "ads.ticket":
+        body_html, header_html, footer_html = _ensure_ads_ticket_operational_elements(
+            body_html=body_html,
+            header_html=header_html,
+            footer_html=footer_html,
+            variables=ctx,
+        )
 
     return _build_pdf_document_html(
         body_html=body_html,

@@ -327,7 +327,7 @@ export default function WizardPage() {
 
   const STEP_ICONS = [Shield, FileText, Users, Check, Send]
   const STEP_TITLES = [t('wizard_access_title'), t('wizard_ads_title'), t('wizard_team_title'), t('wizard_compliance_title'), t('wizard_finalize_title')]
-  const STEP_SUBTITLES = [t('wizard_access_text'), t('wizard_ads_text'), t('wizard_team_text'), t('wizard_compliance_text'), t('wizard_finalize_text')]
+  const STEP_DESCS = ['Ouvrir la session OTP', 'Lire l\'AdS', 'Equipe', 'Conformite', 'Finaliser']
 
   const stepContent = [
     <SecurityStep key="s1" linkInfo={linkInfo} authenticated={authenticated} loading={loading} onSendOtp={handleSendOtp} onVerifyOtp={handleVerifyOtp} />,
@@ -337,67 +337,124 @@ export default function WizardPage() {
     <FinalizeStep key="s5" dossier={dossier} authenticated={authenticated} loading={loading} departureBases={departureBases} onSubmit={handleSubmit} onResubmit={handleResubmit} onUpdateTransport={handleUpdateTransport} onDownloadTicket={handleDownloadTicket} />,
   ]
 
-  const ActiveIcon = STEP_ICONS[activeStep]
-
   return (
     <Layout>
-      {/* ── Fixed progress rail ── */}
-      <div className="fixed top-14 left-0 right-0 z-40">
-        {/* Thin progress bar */}
-        <div className="h-[3px] bg-white/[0.04]">
-          <div
-            className="h-full bg-[var(--brand)] progress-glow transition-all duration-700 ease-out"
-            style={{ width: `${((activeStep + 1) / 5) * 100}%` }}
-          />
-        </div>
-      </div>
+      <div className="flex min-h-[calc(100vh-3.5rem)]">
 
-      <div className="min-h-[calc(100vh-3.5rem)] flex flex-col">
-        {/* ── Step indicator pills ── */}
-        <div className="pt-6 pb-2">
-          <div className="max-w-2xl mx-auto px-6">
-            <div className="flex items-center justify-center gap-2">
-              {steps.map((step, i) => (
-                <button
-                  key={i}
-                  onClick={() => goToStep(i)}
-                  className="group flex items-center gap-1.5 transition-all duration-300"
-                >
-                  {/* Dot / check */}
-                  <div className={`
-                    w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold
-                    transition-all duration-300
-                    ${i === activeStep
-                      ? 'bg-[var(--brand)] text-white scale-110 shadow-lg shadow-blue-500/30'
-                      : step.done
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'bg-white/[0.06] text-[var(--text-faint)]'
-                    }
-                  `}>
-                    {step.done && i !== activeStep ? <Check className="w-3 h-3" /> : i + 1}
-                  </div>
-                  {/* Label — only on active + desktop */}
-                  {i === activeStep && (
-                    <span className="hidden sm:inline text-xs font-medium text-[var(--brand)] animate-fade-in">
-                      {step.title}
-                    </span>
-                  )}
-                  {/* Connector line */}
-                  {i < 4 && (
-                    <div className={`
-                      w-6 sm:w-10 h-px transition-colors duration-300
-                      ${i < activeStep ? 'bg-emerald-500/40' : 'bg-white/[0.08]'}
-                    `} />
-                  )}
-                </button>
-              ))}
+        {/* ── Left sidebar — step rail ── */}
+        <aside className="hidden lg:flex flex-col w-[280px] shrink-0 bg-white border-r border-slate-200 sticky top-14 h-[calc(100vh-3.5rem)]">
+          {/* Sidebar header */}
+          <div className="px-6 pt-6 pb-4">
+            <p className="text-[10px] uppercase tracking-[0.15em] font-semibold text-blue-600 mb-1">Parcours dossier</p>
+            <p className="text-xs text-slate-400 leading-relaxed">Suivez les etapes pour completer l'AdS.</p>
+          </div>
+
+          {/* Step list */}
+          <nav className="flex-1 px-4 pb-6">
+            <div className="relative">
+              {/* Vertical line */}
+              <div className="absolute left-[19px] top-4 bottom-4 w-px bg-slate-200" />
+              {/* Progress line */}
+              <div
+                className="absolute left-[19px] top-4 w-px bg-blue-500 transition-all duration-500"
+                style={{ height: `${(activeStep / 4) * (100 - 16)}%` }}
+              />
+
+              <div className="relative space-y-1">
+                {steps.map((step, i) => {
+                  const Icon = STEP_ICONS[i]
+                  const isActive = i === activeStep
+                  const isDone = step.done && !isActive
+
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => goToStep(i)}
+                      className={`
+                        w-full flex items-center gap-3 px-2 py-3 rounded-lg text-left transition-all duration-200
+                        ${isActive
+                          ? 'bg-blue-50'
+                          : 'hover:bg-slate-50'
+                        }
+                      `}
+                    >
+                      {/* Circle indicator */}
+                      <div className={`
+                        w-[22px] h-[22px] rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold
+                        transition-all duration-300 relative z-10
+                        ${isActive
+                          ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30 scale-110'
+                          : isDone
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-white border-2 border-slate-200 text-slate-400'
+                        }
+                      `}>
+                        {isDone ? <Check className="w-3 h-3" /> : i + 1}
+                      </div>
+
+                      {/* Label */}
+                      <div className="min-w-0">
+                        <p className={`text-sm font-medium truncate ${
+                          isActive ? 'text-blue-700' : isDone ? 'text-slate-700' : 'text-slate-400'
+                        }`}>
+                          {STEP_TITLES[i]}
+                        </p>
+                        <p className={`text-[11px] truncate ${
+                          isActive ? 'text-blue-500' : 'text-slate-400'
+                        }`}>
+                          {STEP_DESCS[i]}
+                        </p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
+          </nav>
+
+          {/* Sidebar footer — stats */}
+          {dossier && (
+            <div className="px-6 py-4 border-t border-slate-100 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">PAX total</span>
+                <span className="font-semibold text-slate-700 mono">{dossier.pax_summary?.total ?? 0}</span>
+              </div>
+              {(dossier.pax_summary?.blocked ?? 0) > 0 && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-red-500">Bloques</span>
+                  <span className="ext-badge-danger">{dossier.pax_summary.blocked}</span>
+                </div>
+              )}
+              {(dossier.pax_summary?.pending_check ?? 0) > 0 && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-amber-600">A verifier</span>
+                  <span className="ext-badge-warning">{dossier.pax_summary.pending_check}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </aside>
+
+        {/* ── Mobile step bar (horizontal) ── */}
+        <div className="lg:hidden sticky top-14 z-30 bg-white border-b border-slate-200 px-4 py-3">
+          <div className="flex items-center gap-1 overflow-x-auto">
+            {steps.map((step, i) => (
+              <button key={i} onClick={() => goToStep(i)} className="flex items-center gap-1.5 shrink-0">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                  i === activeStep ? 'bg-blue-600 text-white' : step.done ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'
+                }`}>
+                  {step.done && i !== activeStep ? <Check className="w-3 h-3" /> : i + 1}
+                </div>
+                {i < 4 && <div className={`w-4 h-px ${i < activeStep ? 'bg-emerald-400' : 'bg-slate-200'}`} />}
+              </button>
+            ))}
+            <span className="ml-2 text-xs text-slate-500 truncate">{STEP_TITLES[activeStep]}</span>
           </div>
         </div>
 
-        {/* ── Main content area ── */}
-        <div className="flex-1 flex flex-col">
-          <div className="max-w-2xl w-full mx-auto px-6 py-6 flex-1">
+        {/* ── Main content ── */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          <div className="flex-1 max-w-3xl w-full mx-auto px-6 py-8">
             {/* Message */}
             {message && (
               <div className="mb-6 animate-fade-in-up">
@@ -406,70 +463,29 @@ export default function WizardPage() {
             )}
 
             {/* Step header */}
-            <div className="mb-8 animate-fade-in-up" key={`header-${activeStep}`}>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-[var(--brand)]/10 border border-[var(--brand)]/20 flex items-center justify-center">
-                  <ActiveIcon className="w-5 h-5 text-[var(--brand)]" />
-                </div>
-                <div>
-                  <p className="text-[10px] mono uppercase tracking-[0.2em] text-[var(--text-faint)]">
-                    Etape {activeStep + 1} sur 5
-                  </p>
-                  <h1 className="text-xl sm:text-2xl font-bold text-white leading-tight">{STEP_TITLES[activeStep]}</h1>
-                </div>
-              </div>
-              <p className="text-sm text-[var(--text-muted)] leading-relaxed max-w-xl">
-                {STEP_SUBTITLES[activeStep]}
+            <div className="mb-6" key={`h-${activeStep}`}>
+              <p className="text-[10px] mono uppercase tracking-[0.15em] text-slate-400 mb-1">
+                Etape {activeStep + 1}/5
               </p>
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">{STEP_TITLES[activeStep]}</h1>
             </div>
 
-            {/* Step body — single step with transition */}
-            <div key={`step-${activeStep}`} className="animate-slide-right">
+            {/* Step content — one at a time */}
+            <div key={`s-${activeStep}`} className="animate-fade-in-up">
               {stepContent[activeStep]}
             </div>
-          </div>
 
-          {/* ── Bottom navigation bar ── */}
-          <div className="border-t border-white/[0.06] bg-[var(--bg-card)]/80 backdrop-blur-sm">
-            <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
-              {/* Previous */}
-              <button
-                onClick={goPrev}
-                disabled={activeStep === 0}
-                className="ext-btn-secondary text-sm disabled:opacity-20 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Precedent</span>
+            {/* Navigation */}
+            <div className="flex items-center justify-between mt-10 pt-6 border-t border-slate-200">
+              <button onClick={goPrev} disabled={activeStep === 0}
+                className="ext-btn-secondary disabled:opacity-20 disabled:cursor-not-allowed">
+                <ChevronLeft className="w-4 h-4" /> Precedent
               </button>
-
-              {/* Center — quick stats */}
-              {dossier && (
-                <div className="hidden sm:flex items-center gap-4">
-                  <span className="text-xs text-[var(--text-faint)] mono">
-                    {dossier.pax_summary?.total ?? 0} PAX
-                  </span>
-                  {(dossier.pax_summary?.blocked ?? 0) > 0 && (
-                    <span className="ext-badge-danger text-[10px]">
-                      {dossier.pax_summary.blocked} bloques
-                    </span>
-                  )}
-                  {(dossier.pax_summary?.pending_check ?? 0) > 0 && (
-                    <span className="ext-badge-warning text-[10px]">
-                      {dossier.pax_summary.pending_check} a verifier
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Next */}
               {activeStep < 4 ? (
-                <button onClick={goNext} className="ext-btn-primary text-sm">
-                  <span>Continuer</span>
-                  <ChevronRight className="w-4 h-4" />
+                <button onClick={goNext} className="ext-btn-primary">
+                  Continuer <ChevronRight className="w-4 h-4" />
                 </button>
-              ) : (
-                <div />
-              )}
+              ) : <div />}
             </div>
           </div>
         </div>

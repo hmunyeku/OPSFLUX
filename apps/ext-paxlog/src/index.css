@@ -6,20 +6,19 @@
 
 :root {
   --brand: #3b82f6;
-  --brand-dark: #1d4ed8;
-  --brand-light: #93c5fd;
-  --brand-glow: rgba(59, 130, 246, 0.15);
+  --brand-dark: #2563eb;
+  --brand-light: #dbeafe;
 
-  --bg: #0a0e1a;
-  --bg-card: #111827;
-  --bg-elevated: #1a2235;
-  --bg-input: #0f1629;
-  --border: rgba(148, 163, 184, 0.12);
-  --border-focus: rgba(59, 130, 246, 0.5);
+  --bg: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-sidebar: #f1f5f9;
+  --bg-input: #ffffff;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
 
-  --text: #f1f5f9;
-  --text-muted: #94a3b8;
-  --text-faint: #64748b;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --text-faint: #94a3b8;
 
   --success: #10b981;
   --warning: #f59e0b;
@@ -27,180 +26,83 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-
 html { scroll-behavior: smooth; }
 
 body {
   font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
-  background-color: var(--bg);
+  background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
 }
 
-/* ── Background grid texture ─────────────────────────────── */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
-  background-size: 60px 60px;
-  pointer-events: none;
-  z-index: 0;
-}
+::selection { background: rgba(59, 130, 246, 0.15); }
 
-/* ── Selection ── */
-::selection {
-  background: rgba(59, 130, 246, 0.3);
-  color: #fff;
-}
-
-/* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.3); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; }
 
-/* ── Form inputs ── */
+/* ── Form components ── */
 @layer components {
   .ext-input {
-    @apply w-full rounded-lg border border-white/10 bg-[var(--bg-input)] px-4 py-3 text-sm text-[var(--text)]
-           placeholder:text-[var(--text-faint)] transition-all duration-200
-           focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/20;
+    @apply w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900
+           placeholder:text-slate-400 transition-all duration-150
+           focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10;
   }
-
   .ext-select {
-    @apply w-full rounded-lg border border-white/10 bg-[var(--bg-input)] px-4 py-3 text-sm text-[var(--text)]
-           transition-all duration-200 appearance-none
-           focus:outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/20;
-    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    @apply ext-input appearance-none pr-10;
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 14px center;
-    padding-right: 40px;
   }
-
   .ext-label {
-    @apply block text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider mb-2;
+    @apply block text-sm font-medium text-slate-700 mb-1.5;
   }
-
   .ext-btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold
-           transition-all duration-200 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold
+           transition-all duration-150 active:scale-[0.98];
   }
-
   .ext-btn-primary {
-    @apply ext-btn bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)]
-           shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30;
+    @apply ext-btn bg-blue-600 text-white hover:bg-blue-700 shadow-sm;
   }
-
   .ext-btn-secondary {
-    @apply ext-btn border border-white/10 text-[var(--text-muted)] hover:text-[var(--text)]
-           hover:border-white/20 hover:bg-white/5;
+    @apply ext-btn border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50;
   }
-
-  .ext-btn-danger {
-    @apply ext-btn bg-red-500/10 border border-red-500/20 text-red-400
-           hover:bg-red-500/20;
-  }
-
-  /* Card component */
   .ext-card {
-    @apply rounded-2xl border border-white/[0.06] bg-[var(--bg-card)] overflow-hidden;
+    @apply rounded-xl border border-slate-200 bg-white overflow-hidden;
   }
-
-  /* Status badge */
   .ext-badge {
-    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold tracking-wide;
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold;
   }
-
-  .ext-badge-success {
-    @apply ext-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20;
-  }
-
-  .ext-badge-warning {
-    @apply ext-badge bg-amber-500/10 text-amber-400 border border-amber-500/20;
-  }
-
-  .ext-badge-danger {
-    @apply ext-badge bg-red-500/10 text-red-400 border border-red-500/20;
-  }
-
-  .ext-badge-info {
-    @apply ext-badge bg-blue-500/10 text-blue-400 border border-blue-500/20;
-  }
+  .ext-badge-success { @apply ext-badge bg-emerald-50 text-emerald-700 border border-emerald-200; }
+  .ext-badge-warning { @apply ext-badge bg-amber-50 text-amber-700 border border-amber-200; }
+  .ext-badge-danger { @apply ext-badge bg-red-50 text-red-700 border border-red-200; }
+  .ext-badge-info { @apply ext-badge bg-blue-50 text-blue-700 border border-blue-200; }
 }
 
 /* ── Animations ── */
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-
-@keyframes slideInRight {
-  from { opacity: 0; transform: translateX(30px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes progressGlow {
-  0%, 100% { box-shadow: 0 0 8px rgba(59, 130, 246, 0.3); }
-  50% { box-shadow: 0 0 16px rgba(59, 130, 246, 0.5); }
-}
-
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(-16px) scale(0.96); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.animate-fade-in-up {
-  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
+.animate-fade-in-up { animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-fade-in { animation: fadeIn 0.3s ease-out both; }
+.animate-toast-in { animation: toast-in 0.3s ease-out; }
 
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-out both;
-}
-
-.animate-slide-right {
-  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.animate-toast-in {
-  animation: toast-in 0.3s ease-out;
-}
-
-/* Stagger children */
 .stagger > * { animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .stagger > *:nth-child(1) { animation-delay: 0ms; }
-.stagger > *:nth-child(2) { animation-delay: 60ms; }
-.stagger > *:nth-child(3) { animation-delay: 120ms; }
-.stagger > *:nth-child(4) { animation-delay: 180ms; }
-.stagger > *:nth-child(5) { animation-delay: 240ms; }
-.stagger > *:nth-child(6) { animation-delay: 300ms; }
-.stagger > *:nth-child(7) { animation-delay: 360ms; }
-.stagger > *:nth-child(8) { animation-delay: 420ms; }
+.stagger > *:nth-child(2) { animation-delay: 50ms; }
+.stagger > *:nth-child(3) { animation-delay: 100ms; }
+.stagger > *:nth-child(4) { animation-delay: 150ms; }
+.stagger > *:nth-child(5) { animation-delay: 200ms; }
+.stagger > *:nth-child(6) { animation-delay: 250ms; }
 
-/* Progress bar glow */
-.progress-glow {
-  animation: progressGlow 2s ease-in-out infinite;
-}
-
-/* Mono code-like text */
-.mono {
-  font-family: 'DM Mono', 'JetBrains Mono', monospace;
-  letter-spacing: 0.02em;
-}
-
-/* Gradient text */
-.text-gradient {
-  background: linear-gradient(135deg, var(--brand-light), var(--brand));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
+.mono { font-family: 'DM Mono', monospace; letter-spacing: 0.02em; }

@@ -46,6 +46,14 @@ class McpGatewayToken(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UUID(as_uuid=True), nullable=True,
         comment="User ID who created this token (no FK — users are in tenant schemas)",
     )
+    tenant_schema: Mapped[str | None] = mapped_column(
+        String(63), nullable=True,
+        comment="Tenant schema bound to this personal token",
+    )
+    entity_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True,
+        comment="Entity scope bound to this personal token",
+    )
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -104,8 +104,9 @@ const SECTION_TAB_MAP: Record<string, string> = {
   'delete-policies-child': 'delete-policies',
   // AuditTab sections
   'audit-log': 'audit-log',
-  // McpGatewayTab sections
-  'mcp-tokens': 'mcp',
+  // UserMcpTab sections
+  'mcp-personal-backends': 'mcp',
+  'mcp-personal-tokens': 'mcp',
   // EntitiesTab sections
   'entity-users': 'entities',
   // SystemHealthTab sections
@@ -131,7 +132,6 @@ import { DeletePoliciesTab } from './tabs/DeletePoliciesTab'
 import DictionaryTab from './tabs/DictionaryTab'
 import { SecurityPolicyTab } from './tabs/SecurityPolicyTab'
 
-import { McpGatewayTab } from './tabs/McpGatewayTab'
 import { AdminerTab } from './tabs/AdminerTab'
 import { SystemTab } from './tabs/SystemTab'
 // EntitiesTab moved to dedicated /entities sidebar page
@@ -170,7 +170,6 @@ registerSettingsSection({ id: 'numbering', label: 'Numérotation', icon: Hash, c
 
 registerSettingsSection({ id: 'security-policy', label: 'Sécurité & Authentification', icon: ShieldCheck, component: SecurityPolicyTab, category: 'general', order: 45, requiredPermission: 'admin.system' })
 registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppression', icon: Trash2, component: DeletePoliciesTab, category: 'general', order: 50, requiredPermission: 'core.settings.manage' })
-registerSettingsSection({ id: 'mcp-gateway', label: 'Backends MCP', icon: Plug, component: McpGatewayTab, category: 'general', order: 55, requiredPermission: 'admin.system' })
 registerSettingsSection({ id: 'system', label: 'Système', icon: Activity, component: SystemTab, category: 'general', order: 60, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'adminer', label: 'Base de données', icon: Database, component: AdminerTab, category: 'general', order: 80, requiredPermission: 'admin.system' })
 

@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_permission
+from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db, async_session_factory
 from app.core.rbac import get_user_permissions
 from app.models.common import User
@@ -32,6 +32,8 @@ from app.models.mcp_gateway import McpGatewayBackend, McpGatewayToken
 from app.mcp.mcp_native import NativeToolContext
 
 logger = logging.getLogger(__name__)
+
+_PERSONAL_PERMISSION_SCOPE = "__user_permissions__"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Shared httpx client (created lazily, closed at shutdown via lifespan)
@@ -81,7 +83,6 @@ def _get_request_tenant_schema(request: Request) -> str | None:
         return None
     return schema
 
-
 async def _verify_mcp_token(
     auth_header: str | None,
 ) -> McpGatewayToken | None:
@@ -127,20 +128,24 @@ async def _verify_mcp_token(
 async def _build_native_tool_context(
     *,
     token: McpGatewayToken,
-    request: Request,
 ) -> NativeToolContext | None:
     """Build tenant/user/permission context for a native MCP call.
 
-    For legacy admin tokens or requests without a tenant schema, we return None
-    and keep the historical unrestricted behavior.
+    Legacy admin tokens may still fall back to unrestricted native access.
+    Personal tokens must carry tenant/entity context; otherwise they are rejected.
     """
     if token.created_by is None:
         return None
 
-    tenant_schema = _get_request_tenant_schema(request)
-    if tenant_schema in (None, "public"):
+    tenant_schema = token.tenant_schema
+    if not tenant_schema or not tenant_schema.isidentifier() or token.entity_id is None:
+        if token.created_by is not None:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "This MCP token has no tenant/entity context. Recreate it from your profile.",
+            )
         logger.warning(
-            "MCP gateway: missing tenant schema for personal token %s, keeping legacy native access mode",
+            "MCP gateway: token %s has no tenant/entity context, keeping legacy native access mode",
             token.id,
         )
         return None
@@ -154,22 +159,49 @@ async def _build_native_tool_context(
             )
         )
         user = result.scalar_one_or_none()
-        if user is None or user.default_entity_id is None:
+        if user is None:
             logger.warning(
                 "MCP gateway: user context unavailable for token %s in schema %s",
                 token.id,
                 tenant_schema,
             )
+            if token.created_by is not None:
+                raise HTTPException(
+                    status.HTTP_403_FORBIDDEN,
+                    "User context unavailable for this MCP token.",
+                )
             return None
 
-        permissions = await get_user_permissions(user.id, user.default_entity_id, session)
+        permissions = await get_user_permissions(user.id, token.entity_id, session)
 
     return NativeToolContext(
         user_id=str(user.id),
-        entity_id=str(user.default_entity_id),
+        entity_id=str(token.entity_id),
         tenant_schema=tenant_schema,
         permissions=permissions,
         token_id=str(token.id),
+    )
+
+
+async def _build_authenticated_user_context(
+    *,
+    current_user: User,
+    entity_id: UUID,
+    request: Request,
+    db: AsyncSession,
+) -> NativeToolContext:
+    tenant_schema = _get_request_tenant_schema(request)
+    if not tenant_schema or tenant_schema == "public":
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Tenant context missing for MCP request.",
+        )
+    permissions = await get_user_permissions(current_user.id, entity_id, db)
+    return NativeToolContext(
+        user_id=str(current_user.id),
+        entity_id=str(entity_id),
+        tenant_schema=tenant_schema,
+        permissions=permissions,
     )
 
 
@@ -248,10 +280,11 @@ class TokenCreated(BaseModel):
 
 
 def _token_out_from_model(token: McpGatewayToken) -> TokenOut:
+    scopes = "permissions" if token.scopes == _PERSONAL_PERMISSION_SCOPE else token.scopes
     return TokenOut(
         id=token.id,
         name=token.name,
-        scopes=token.scopes,
+        scopes=scopes,
         created_at=token.created_at,
         expires_at=token.expires_at,
         revoked=token.revoked,
@@ -509,9 +542,17 @@ async def delete_token(
 
 @user_router.get("/backends", response_model=list[BackendOut])
 async def list_my_backends(
+    request: Request,
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
 ):
-    del current_user
+    user_context = await _build_authenticated_user_context(
+        current_user=current_user,
+        entity_id=entity_id,
+        request=request,
+        db=db,
+    )
     async with async_session_factory() as pub_session:
         await pub_session.execute(text("SET search_path TO public"))
         query = select(McpGatewayBackend).where(
@@ -519,8 +560,77 @@ async def list_my_backends(
         )
         result = await pub_session.execute(query.order_by(McpGatewayBackend.slug))
         backends = result.scalars().all()
-        backends = [b for b in backends if not _backend_is_internal(b)]
-        return [BackendOut.from_model(b) for b in backends]
+        visible_backends: list[McpGatewayBackend] = []
+        for backend in backends:
+            if not _backend_is_internal(backend):
+                visible_backends.append(backend)
+                continue
+
+            from app.mcp.mcp_native import get_or_create_backend
+
+            try:
+                native = await get_or_create_backend(backend.slug, backend.config or {})
+            except Exception:
+                logger.exception("MCP gateway: cannot initialize backend '%s' for user listing", backend.slug)
+                continue
+            if native is None:
+                continue
+            tools = await native.list_tools(user_context)
+            if tools:
+                visible_backends.append(backend)
+
+        return [BackendOut.from_model(b) for b in visible_backends]
+
+
+@user_router.get("/backends/{backend_slug}/tools")
+async def list_my_backend_tools(
+    backend_slug: str,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    user_context = await _build_authenticated_user_context(
+        current_user=current_user,
+        entity_id=entity_id,
+        request=request,
+        db=db,
+    )
+
+    async with async_session_factory() as pub_session:
+        await pub_session.execute(text("SET search_path TO public"))
+        result = await pub_session.execute(
+            select(McpGatewayBackend).where(
+                McpGatewayBackend.slug == backend_slug,
+                McpGatewayBackend.active == True,  # noqa: E712
+            )
+        )
+        backend = result.scalar_one_or_none()
+
+    if backend is None:
+        raise HTTPException(404, f"Backend '{backend_slug}' not found or inactive")
+
+    if backend.upstream_url.startswith("internal://"):
+        from app.mcp.mcp_native import get_or_create_backend
+
+        native = await get_or_create_backend(backend.slug, backend.config or {})
+        if native is None:
+            raise HTTPException(503, f"Backend '{backend_slug}' not configured")
+        return {"backend": backend_slug, "tools": await native.list_tools(user_context)}
+
+    client = _get_http_client()
+    try:
+        resp = await client.post(
+            f"{backend.upstream_url}/mcp",
+            json={"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1},
+            headers={"Content-Type": "application/json"},
+            timeout=10,
+        )
+        data = resp.json()
+        tools = data.get("result", {}).get("tools", [])
+        return {"backend": backend_slug, "tools": tools}
+    except Exception as exc:
+        raise HTTPException(502, f"Cannot reach backend: {str(exc)[:200]}")
 
 
 @user_router.get("/tokens", response_model=list[TokenOut])
@@ -539,31 +649,16 @@ async def list_my_tokens(
 
 @user_router.post("/tokens", response_model=TokenCreated, status_code=201)
 async def create_my_token(
+    request: Request,
     body: TokenCreate,
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
 ):
-    requested_scopes = [s.strip() for s in body.scopes.split(",") if s.strip()]
-
-    async with async_session_factory() as pub_session:
-        await pub_session.execute(text("SET search_path TO public"))
-        result = await pub_session.execute(
-            select(McpGatewayBackend).where(McpGatewayBackend.active == True)  # noqa: E712
-        )
-        backends = {b.slug: b for b in result.scalars().all()}
-
-    if body.scopes.strip() == "*":
+    tenant_schema = _get_request_tenant_schema(request)
+    if not tenant_schema or tenant_schema == "public":
         raise HTTPException(
-            status_code=403,
-            detail="Les tokens personnels ne peuvent pas cibler tous les backends.",
-        )
-    forbidden = [
-        slug for slug in requested_scopes
-        if slug in backends and _backend_is_internal(backends[slug])
-    ]
-    if forbidden:
-        raise HTTPException(
-            status_code=403,
-            detail=f"Backends internes non autorisés pour les tokens personnels: {', '.join(forbidden)}",
+            status_code=400,
+            detail="Tenant context missing. Create the MCP token from the tenant application.",
         )
 
     raw_token = secrets.token_hex(32)
@@ -576,8 +671,10 @@ async def create_my_token(
         token = McpGatewayToken(
             name=body.name,
             token_hash=_hash_token(raw_token),
-            scopes=body.scopes,
+            scopes=_PERSONAL_PERMISSION_SCOPE,
             created_by=current_user.id,
+            tenant_schema=tenant_schema,
+            entity_id=entity_id,
             expires_at=expires_at,
         )
         pub_session.add(token)
@@ -588,7 +685,7 @@ async def create_my_token(
         id=token.id,
         name=token.name,
         token=raw_token,
-        scopes=token.scopes,
+        scopes="permissions",
         expires_at=token.expires_at,
     )
 
@@ -690,6 +787,31 @@ def _get_base_url(request: Request) -> str:
     return f"{proto}://{host}"
 
 
+def _build_oauth_server_metadata(request: Request) -> dict[str, object]:
+    """Return OAuth/OIDC discovery metadata for MCP clients.
+
+    Copilot Studio expects dynamic client registration to be discoverable from
+    an OpenID-style configuration document. We expose the same metadata via the
+    OAuth authorization server endpoint and the OpenID configuration alias.
+    """
+    base = _get_base_url(request)
+    return {
+        "issuer": base,
+        "authorization_endpoint": f"{base}/authorize",
+        "token_endpoint": f"{base}/mcp-gw/oauth/token",
+        "registration_endpoint": f"{base}/mcp-gw/oauth/register",
+        "response_types_supported": ["code"],
+        "grant_types_supported": ["authorization_code"],
+        "code_challenge_methods_supported": ["S256", "plain"],
+        "token_endpoint_auth_methods_supported": ["none"],
+        "scopes_supported": ["mcp"],
+        # OIDC compatibility fields for clients that specifically look for
+        # /.well-known/openid-configuration before checking DCR support.
+        "subject_types_supported": ["public"],
+        "id_token_signing_alg_values_supported": ["RS256"],
+    }
+
+
 @proxy_router.get("/.well-known/oauth-protected-resource")
 async def oauth_protected_resource(request: Request):
     """RFC 9728 — OAuth 2.0 Protected Resource Metadata.
@@ -709,18 +831,13 @@ async def oauth_protected_resource(request: Request):
 @proxy_router.get("/.well-known/oauth-authorization-server")
 async def oauth_metadata(request: Request):
     """RFC 8414 — OAuth 2.0 Authorization Server Metadata."""
-    base = _get_base_url(request)
-    return JSONResponse({
-        "issuer": base,
-        "authorization_endpoint": f"{base}/authorize",
-        "token_endpoint": f"{base}/mcp-gw/oauth/token",
-        "registration_endpoint": f"{base}/mcp-gw/oauth/register",
-        "response_types_supported": ["code"],
-        "grant_types_supported": ["authorization_code"],
-        "code_challenge_methods_supported": ["S256", "plain"],
-        "token_endpoint_auth_methods_supported": ["none"],
-        "scopes_supported": ["mcp"],
-    })
+    return JSONResponse(_build_oauth_server_metadata(request))
+
+
+@proxy_router.get("/.well-known/openid-configuration")
+async def openid_metadata(request: Request):
+    """OIDC discovery alias for clients that require OpenID configuration."""
+    return JSONResponse(_build_oauth_server_metadata(request))
 
 
 @proxy_router.post("/oauth/register")
@@ -1010,8 +1127,8 @@ async def _proxy_backend_call(backend_slug: str, request: Request, path: str = "
             },
         )
 
-    # 2. Check scope
-    if token.scopes != "*":
+    # 2. Check legacy backend scopes for admin tokens only.
+    if token.scopes not in ("*", _PERSONAL_PERMISSION_SCOPE):
         allowed = {s.strip() for s in token.scopes.split(",")}
         if backend_slug not in allowed:
             return JSONResponse(
@@ -1053,7 +1170,7 @@ async def _proxy_backend_call(backend_slug: str, request: Request, path: str = "
                 status_code=500,
             )
         body = await request.body()
-        native_context = await _build_native_tool_context(token=token, request=request)
+        native_context = await _build_native_tool_context(token=token)
         return await handle_mcp_request(native, body, context=native_context)
 
     # 5. Build upstream request
@@ -1172,6 +1289,11 @@ async def root_protected_resource(request: Request):
 @root_oauth_router.get("/.well-known/oauth-authorization-server")
 async def root_oauth_metadata(request: Request):
     return await oauth_metadata(request)
+
+
+@root_oauth_router.get("/.well-known/openid-configuration")
+async def root_openid_metadata(request: Request):
+    return await openid_metadata(request)
 
 
 @root_oauth_router.get("/authorize")

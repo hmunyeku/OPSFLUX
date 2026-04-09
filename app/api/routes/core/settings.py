@@ -247,6 +247,11 @@ async def upsert_setting(
         await _validate_default_imputation_setting(body.value, entity_id=entity_id, db=db)
     elif body.key == "paxlog.compliance_sequence":
         _validate_paxlog_compliance_sequence_setting(body.value)
+    elif body.key == "paxlog.null_capacity_behavior":
+        allowed = {"unlimited", "blocking"}
+        v = body.value.get("v", body.value) if isinstance(body.value, dict) else body.value
+        if v not in allowed:
+            raise HTTPException(status_code=400, detail=f"paxlog.null_capacity_behavior must be one of: {allowed}")
     elif body.key.startswith("travelwiz."):
         _validate_travelwiz_numeric_setting(body)
     elif body.key.startswith("planner.capacity_heatmap_"):

@@ -2764,8 +2764,8 @@
     "status_cancelled": "Cancelled"
   },
   "report_editor": {
-    "title": "Report Editor",
-    "subtitle": "Document management and editorial workflows",
+    "title": "Papyrus",
+    "subtitle": "Writing, documentation and editorial workflows",
     "tabs": {
       "documents": "Documents",
       "templates": "Templates",
@@ -2919,6 +2919,12 @@
       "addresses": "Addresses",
       "emails": "Emails",
       "rbac": "RBAC"
+    },
+    "paxlog": {
+      "null_capacity_behavior": "Unconfigured site capacity behavior",
+      "null_capacity_behavior_desc": "What to do when a site's POB capacity is not defined",
+      "null_capacity_unlimited": "Unlimited (no restriction)",
+      "null_capacity_blocking": "Blocking (admin must configure)"
     },
     "pdf_templates_editor": {
       "create": {

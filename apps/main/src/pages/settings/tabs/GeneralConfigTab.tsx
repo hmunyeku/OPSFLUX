@@ -383,6 +383,20 @@ export function GeneralConfigTab() {
       >
         <div className="mt-2 space-y-0">
           <SettingRow
+            label="Comportement capacité site non configurée"
+            description="Que faire quand la capacité POB d'un site n'est pas définie dans le registre des assets."
+          >
+            <select
+              className="gl-form-select text-sm"
+              value={(s['paxlog.null_capacity_behavior'] as string) ?? 'unlimited'}
+              onChange={(e) => save('paxlog.null_capacity_behavior', e.target.value)}
+            >
+              <option value="unlimited">Illimitée (pas de restriction)</option>
+              <option value="blocking">Bloquante (admin doit configurer)</option>
+            </select>
+          </SettingRow>
+
+          <SettingRow
             label="Délai de grâce retour AdS"
             description="Nombre de jours après la date de fin d'une AdS en cours avant clôture automatique nocturne. Une alerte est envoyée avant clôture."
           >

@@ -12,6 +12,7 @@ import hashlib
 import re
 import secrets
 from datetime import date, datetime, timedelta, timezone
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, status
@@ -616,6 +617,22 @@ async def _sync_ads_project_from_imputations(
     ads.project_id = project_ids[0] if len(project_ids) == 1 else None
 
 
+async def _get_paxlog_setting(db: AsyncSession, entity_id: UUID, key: str, default: Any = None) -> Any:
+    """Read a PaxLog module setting from the settings table."""
+    from app.models.common import Setting
+    result = await db.execute(
+        select(Setting.value).where(
+            Setting.key == key,
+            Setting.scope == "entity",
+            Setting.scope_id == str(entity_id),
+        )
+    )
+    raw = result.scalar_one_or_none()
+    if raw is None:
+        return default
+    return raw.get("v", raw) if isinstance(raw, dict) else raw
+
+
 async def _try_ads_workflow_transition(
     db: AsyncSession,
     *,
@@ -974,8 +991,17 @@ async def _apply_ads_site_waitlist_if_needed(
         min_remaining_capacity = remaining_capacity if min_remaining_capacity is None else min(min_remaining_capacity, remaining_capacity)
         current_day += timedelta(days=1)
 
-    # If no capacity is configured for the site, treat as unlimited — no waitlist
+    # Check admin setting for behavior when capacity is not configured
     if not has_capacity_configured:
+        null_capacity_behavior = await _get_paxlog_setting(
+            db, entity_id, "paxlog.null_capacity_behavior", default="unlimited"
+        )
+        if null_capacity_behavior == "blocking":
+            raise HTTPException(
+                status_code=400,
+                detail="La capacité du site n'est pas configurée. Veuillez configurer la capacité POB dans le registre des assets avant de soumettre cette AdS."
+            )
+        # "unlimited" = no limit, skip waitlist
         return {
             "waitlist_applied": False,
             "waitlisted_count": 0,

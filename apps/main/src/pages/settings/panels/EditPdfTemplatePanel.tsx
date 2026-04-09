@@ -83,7 +83,7 @@ function buildSampleVariables(
     generated_at: '07/04/2026 12:00 UTC',
     reference_url: 'https://opsflux.local/documents/OPS-2026-001',
     support_url: 'https://opsflux.local/support',
-    support_email: 'support@opsflux.local',
+    support_email: 'support@example.com',
     logo_image: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="220" height="64"><rect width="220" height="64" rx="10" fill="%230f172a"/><text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="24" fill="%23ffffff">OPSFLUX</text></svg>',
     signature_image: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="48"><path d="M8 34 C38 6, 62 52, 92 24 S142 38, 172 14" stroke="%23111827" stroke-width="3" fill="none" stroke-linecap="round"/></svg>',
   }
@@ -185,6 +185,31 @@ function buildSampleVariables(
       author_name: 'A. User',
       revision: '03',
       status: 'approved',
+    }
+  }
+  if (slug === 'avm.ticket') {
+    return {
+      ...base,
+      reference: 'AVM-2026-004',
+      title: 'Inspection offshore multipoints',
+      description: 'Mission de cadrage et d inspection sur plusieurs sites avec coordination PAX et documents de preparation.',
+      status: 'in_preparation',
+      mission_type: 'standard',
+      planned_start_date: '08/04/2026',
+      planned_end_date: '14/04/2026',
+      creator_name: 'A. User',
+      pax_quota: 12,
+      requires_badge: true,
+      requires_epi: true,
+      requires_visa: false,
+      eligible_displacement_allowance: true,
+      preparation_progress: 58,
+      open_preparation_tasks: 4,
+      generated_ads_references: ['ADS-2026-117', 'ADS-2026-118'],
+      programs: [
+        { activity_description: 'Inspection plateforme Nord', site_name: 'KLF3', planned_start_date: '08/04/2026', planned_end_date: '10/04/2026', pax_count: 6, generated_ads_reference: 'ADS-2026-117' },
+        { activity_description: 'Revue de remise en service', site_name: 'BIPAGA', planned_start_date: '11/04/2026', planned_end_date: '14/04/2026', pax_count: 6, generated_ads_reference: 'ADS-2026-118' },
+      ],
     }
   }
   if (slug === 'pid.export') {

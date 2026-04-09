@@ -17,6 +17,7 @@
     "planner": "Planner",
     "travelwiz": "TravelWiz",
     "packlog": "PackLog",
+    "papyrus": "Papyrus",
     "report_editor": "Papyrus",
     "pid_pfd": "PID / PFD",
     "messaging": "Messagerie",
@@ -1509,9 +1510,9 @@
       "end_outgoing": "Le noeud de fin \"{{node}}\" ne devrait pas avoir de transitions sortantes"
     },
     "entity": {
-      "avis_sejour": "Avis de Séjour",
-      "ads": "Avis de Séjour",
-      "avm": "Avis de Mission",
+      "avis_sejour": "Avis de séjour",
+      "ads": "Avis de séjour",
+      "avm": "Avis de mission",
       "project": "Projet",
       "planner_activity": "Activité Planner",
       "voyage": "Voyage",
@@ -1522,8 +1523,8 @@
       "workflow": "Général"
     },
     "entity_option": {
-      "avis_sejour": "Avis de Séjour (AdS)",
-      "ads": "Avis de Séjour (FSM)"
+      "avis_sejour": "Avis de séjour (AdS)",
+      "ads": "Avis de séjour (FSM)"
     }
   },
   "search": {
@@ -1575,7 +1576,7 @@
       "compliance": "Compliance",
       "signalements": "Signalements",
       "rotations": "Rotations",
-      "avm": "Missions (AVM)"
+      "avm": "Avis de mission (AVM)"
     },
     "actions": {
       "new_profile": "Nouveau profil",
@@ -1642,8 +1643,8 @@
     "pax_count": "Passagers",
     "submit": "Soumettre",
     "resolve": "Résoudre",
-    "avm_label": "Missions (AVM)",
-    "new_avm": "Nouvelle mission",
+    "avm_label": "Avis de mission (AVM)",
+    "new_avm": "Nouvel avis de mission",
     "avm_reference": "Référence AVM",
     "avm_title": "Titre de la mission",
     "mission_type": "Type de mission",
@@ -1843,7 +1844,7 @@
       "validator_hint_middle": "puis les missions",
       "validator_hint_suffix": "avant déclenchement ou clôture.",
       "kpis": {
-        "my_avm": "Mes AVM",
+        "my_avm": "Mes avis de mission",
         "queue_avm": "File AVM",
         "to_arbitrate": "À arbitrer",
         "in_progress": "En cours",
@@ -1918,7 +1919,7 @@
     },
     "create_avm": {
       "title": "Nouvel avis de mission",
-      "subtitle": "PaxLog — Missions (AVM)",
+      "subtitle": "PaxLog — Avis de mission (AVM)",
       "intro": "L’AVM sert à cadrer une mission avant génération ou rattachement des AdS. Décrivez la mission, sa fenêtre et ses lignes de programme.",
       "sections": {
         "preparation": "Préparation mission",
@@ -2768,6 +2769,29 @@
     "status_cancelled": "Annulé"
   },
   "report_editor": {
+    "title": "Papyrus",
+    "subtitle": "Rédaction, documentation et workflows éditoriaux",
+    "tabs": {
+      "documents": "Documents",
+      "templates": "Modèles",
+      "arborescence": "Arborescence",
+      "distribution": "Distribution"
+    },
+    "create_document": "Nouveau document",
+    "create_template": "Nouveau modèle",
+    "doc_type": "Type de document",
+    "revision": "Révision",
+    "status_draft": "Brouillon",
+    "status_review": "En révision",
+    "status_approved": "Approuvé",
+    "status_published": "Publié",
+    "status_obsolete": "Obsolète",
+    "signature": "Signature",
+    "sign": "Signer",
+    "share": "Partager",
+    "distribution_list": "Liste de distribution"
+  },
+  "papyrus": {
     "title": "Papyrus",
     "subtitle": "Rédaction, documentation et workflows éditoriaux",
     "tabs": {

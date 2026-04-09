@@ -7,7 +7,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { useUIStore } from '@/stores/uiStore'
-import { useProjects } from '@/hooks/useProjets'
+import { useProjects, useUpdateProjectTask } from '@/hooks/useProjets'
 import { projetsService, isGoutiProject } from '@/services/projetsService'
 import { useToast } from '@/components/ui/Toast'
 import { useUserPreferences } from '@/hooks/useUserPreferences'
@@ -68,6 +68,7 @@ export function ProjectGanttWrapper() {
   const openPanel = useUIStore(s => s.openDynamicPanel)
   const { toast } = useToast()
   const { getPref, setPref } = useUserPreferences()
+  const updateTaskMutation = useUpdateProjectTask()
 
   // Project selection
   const [showProjectSelector, setShowProjectSelector] = useState(false)
@@ -308,61 +309,71 @@ export function ProjectGanttWrapper() {
     }
   }, [openPanel])
 
-  const handleBarDrag = useCallback(async (barId: string, newStart: string, newEnd: string) => {
+  const handleBarDrag = useCallback((barId: string, newStart: string, newEnd: string) => {
     if (barId.startsWith('proj-')) return
     const bar = bars.find(b => b.id === barId)
     const projectId = bar?.meta?.projectId as string
     if (!projectId) return
-    try {
-      await projetsService.updateTask(projectId, barId, { start_date: newStart, due_date: newEnd })
-      toast({ title: 'Tâche replanifiée', variant: 'success' })
-    } catch { toast({ title: 'Erreur', variant: 'error' }) }
-  }, [bars, toast])
+    updateTaskMutation.mutate(
+      { projectId, taskId: barId, payload: { start_date: newStart, due_date: newEnd } },
+      {
+        onSuccess: () => toast({ title: 'Tâche replanifiée', variant: 'success' }),
+        onError: () => toast({ title: 'Erreur', variant: 'error' }),
+      },
+    )
+  }, [bars, toast, updateTaskMutation])
 
-  const handleBarResize = useCallback(async (barId: string, edge: 'left' | 'right', newDate: string) => {
+  const handleBarResize = useCallback((barId: string, edge: 'left' | 'right', newDate: string) => {
     if (barId.startsWith('proj-')) return
     const bar = bars.find(b => b.id === barId)
     const projectId = bar?.meta?.projectId as string
     if (!projectId) return
-    try {
-      const patch = edge === 'left' ? { start_date: newDate } : { due_date: newDate }
-      await projetsService.updateTask(projectId, barId, patch)
-      toast({ title: edge === 'left' ? 'Début modifié' : 'Fin modifiée', variant: 'success' })
-    } catch { toast({ title: 'Erreur', variant: 'error' }) }
-  }, [bars, toast])
+    const patch = edge === 'left' ? { start_date: newDate } : { due_date: newDate }
+    updateTaskMutation.mutate(
+      { projectId, taskId: barId, payload: patch },
+      {
+        onSuccess: () => toast({ title: edge === 'left' ? 'Début modifié' : 'Fin modifiée', variant: 'success' }),
+        onError: () => toast({ title: 'Erreur', variant: 'error' }),
+      },
+    )
+  }, [bars, toast, updateTaskMutation])
 
-  const handleBarTitleEdit = useCallback(async (barId: string, newTitle: string) => {
+  const handleBarTitleEdit = useCallback((barId: string, newTitle: string) => {
     if (barId.startsWith('proj-') || barId.startsWith('ms-')) return
     const bar = bars.find(b => b.id === barId)
     const projectId = bar?.meta?.projectId as string
     if (!projectId) return
-    try {
-      await projetsService.updateTask(projectId, barId, { title: newTitle })
-      toast({ title: 'Titre modifié', variant: 'success' })
-    } catch { toast({ title: 'Erreur', variant: 'error' }) }
-  }, [bars, toast])
+    updateTaskMutation.mutate(
+      { projectId, taskId: barId, payload: { title: newTitle } },
+      {
+        onSuccess: () => toast({ title: 'Titre modifié', variant: 'success' }),
+        onError: () => toast({ title: 'Erreur', variant: 'error' }),
+      },
+    )
+  }, [bars, toast, updateTaskMutation])
 
   // ── Cell edit (inline grid editing) ────────────────────────────
 
-  const handleCellEdit = useCallback(async (rowId: string, columnId: string, value: string) => {
+  const handleCellEdit = useCallback((rowId: string, columnId: string, value: string) => {
     // Find which project this row belongs to
     const bar = bars.find(b => b.rowId === rowId)
     const projectId = bar?.meta?.projectId as string
     if (!projectId || rowId.startsWith('proj-')) return
 
-    try {
-      const patch: Record<string, unknown> = {}
-      if (columnId === 'start') patch.start_date = value
-      if (columnId === 'end') patch.due_date = value
-      if (columnId === 'progress') patch.progress = Number(value)
-      if (Object.keys(patch).length > 0) {
-        await projetsService.updateTask(projectId, rowId, patch)
-        toast({ title: 'Mis à jour', variant: 'success' })
-      }
-    } catch {
-      toast({ title: 'Erreur de mise à jour', variant: 'error' })
+    const patch: Record<string, unknown> = {}
+    if (columnId === 'start') patch.start_date = value
+    if (columnId === 'end') patch.due_date = value
+    if (columnId === 'progress') patch.progress = Number(value)
+    if (Object.keys(patch).length > 0) {
+      updateTaskMutation.mutate(
+        { projectId, taskId: rowId, payload: patch as Record<string, string | number | null> },
+        {
+          onSuccess: () => toast({ title: 'Mis à jour', variant: 'success' }),
+          onError: () => toast({ title: 'Erreur de mise à jour', variant: 'error' }),
+        },
+      )
     }
-  }, [bars, toast])
+  }, [bars, toast, updateTaskMutation])
 
   // ── Row selection (for indent/delete context) ──────────────────
 

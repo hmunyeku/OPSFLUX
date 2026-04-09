@@ -46,6 +46,7 @@ dependencies = [
     # Utilities
     "python-dateutil>=2.9.0",
     "orjson>=3.10.0",
+    "jsonpatch>=1.33",
     # LDAP
     "ldap3>=2.9",
 ]

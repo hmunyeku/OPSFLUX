@@ -74,7 +74,7 @@ const moduleNavItems: NavItemDef[] = [
   { path: '/travelwiz', icon: Ship, labelKey: 'nav.travelwiz', module: 'travelwiz', order: 42, requiredPermission: 'travelwiz.voyage.read' },
   { path: '/packlog', icon: Package, labelKey: 'nav.packlog', module: 'packlog', order: 43, requiredPermission: 'packlog.cargo.read' },
   { path: '/imputations', icon: Coins, labelKey: 'nav.imputations', module: 'core', order: 44, requiredPermission: 'imputation.read' },
-  { path: '/report-editor', icon: FileText, labelKey: 'nav.report_editor', module: 'report-editor', order: 55, requiredPermission: 'document.read' },
+  { path: '/papyrus', icon: FileText, labelKey: 'nav.papyrus', module: 'papyrus', order: 55, requiredPermission: 'document.read' },
   { path: '/pid-pfd', icon: Workflow, labelKey: 'nav.pid_pfd', module: 'pid-pfd', order: 58, requiredPermission: 'pid.read' },
   { path: '/workflow', icon: GitBranch, labelKey: 'nav.workflow', module: 'workflow', order: 60, requiredPermission: 'workflow.definition.read' },
 ]

@@ -92,7 +92,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 1025
     SMTP_USERNAME: str = ""
     SMTP_PASSWORD: str = ""
-    SMTP_FROM_ADDRESS: str = "noreply@opsflux.io"
+    SMTP_FROM_ADDRESS: str = "noreply@example.com"
     SMTP_FROM_NAME: str = "OpsFlux"
     SMTP_USE_TLS: bool = False
 

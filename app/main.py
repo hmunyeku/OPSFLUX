@@ -34,7 +34,7 @@ from app.modules.projets import MANIFEST as PROJETS_MANIFEST
 from app.modules.planner import MANIFEST as PLANNER_MANIFEST
 from app.modules.travelwiz import MANIFEST as TRAVELWIZ_MANIFEST
 from app.modules.packlog import MANIFEST as PACKLOG_MANIFEST
-from app.modules.report_editor import MANIFEST as REPORT_EDITOR_MANIFEST
+from app.modules.papyrus import MANIFEST as PAPYRUS_MANIFEST
 from app.modules.pid_pfd import MANIFEST as PID_PFD_MANIFEST
 from app.modules.messaging import MANIFEST as MESSAGING_MANIFEST
 from app.modules.support import MANIFEST as SUPPORT_MANIFEST
@@ -96,7 +96,7 @@ from app.api.routes.modules.paxlog import router as paxlog_router
 from app.api.routes.modules.planner import router as planner_router
 from app.api.routes.modules.travelwiz import router as travelwiz_router
 from app.api.routes.modules.packlog import router as packlog_router
-from app.api.routes.modules.report_editor import router as report_editor_router
+from app.api.routes.modules.papyrus import router as papyrus_router
 from app.api.routes.modules.pid_pfd import router as pid_pfd_router
 from app.api.routes.modules.asset_registry import router as asset_registry_router
 from app.api.routes.modules.messaging import router as messaging_router
@@ -135,7 +135,7 @@ async def lifespan(app: FastAPI):
 
     # Register modules (idempotent)
     registry = ModuleRegistry()
-    for manifest in [ASSET_MANIFEST, TIERS_MANIFEST, DASHBOARD_MANIFEST, WORKFLOW_MANIFEST, PAXLOG_MANIFEST, CONFORMITE_MANIFEST, PROJETS_MANIFEST, PLANNER_MANIFEST, TRAVELWIZ_MANIFEST, PACKLOG_MANIFEST, REPORT_EDITOR_MANIFEST, PID_PFD_MANIFEST, MESSAGING_MANIFEST, SUPPORT_MANIFEST]:
+    for manifest in [ASSET_MANIFEST, TIERS_MANIFEST, DASHBOARD_MANIFEST, WORKFLOW_MANIFEST, PAXLOG_MANIFEST, CONFORMITE_MANIFEST, PROJETS_MANIFEST, PLANNER_MANIFEST, TRAVELWIZ_MANIFEST, PACKLOG_MANIFEST, PAPYRUS_MANIFEST, PID_PFD_MANIFEST, MESSAGING_MANIFEST, SUPPORT_MANIFEST]:
         await registry.register(manifest)
 
     # Sync module permissions & roles to DB (idempotent upsert — D-021)
@@ -312,7 +312,7 @@ app.include_router(paxlog_router)
 app.include_router(planner_router)
 app.include_router(travelwiz_router)
 app.include_router(packlog_router)
-app.include_router(report_editor_router)
+app.include_router(papyrus_router)
 app.include_router(pid_pfd_router)
 app.include_router(messaging_router)
 app.include_router(support_router)

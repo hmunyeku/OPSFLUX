@@ -284,6 +284,16 @@ def _register_jobs() -> None:
         max_instances=1,
     )
 
+    from app.tasks.jobs.papyrus_dispatch import process_papyrus_dispatches
+    scheduler.add_job(
+        process_papyrus_dispatches,
+        trigger=IntervalTrigger(minutes=5),
+        id="papyrus_dispatch",
+        name="Executer les dispatchs automatiques Papyrus",
+        replace_existing=True,
+        max_instances=1,
+    )
+
     # Widget cache cleanup — every 30 min, delete expired WidgetCache rows
     from app.tasks.jobs.widget_cache_cleanup import cleanup_expired_widget_cache
     scheduler.add_job(

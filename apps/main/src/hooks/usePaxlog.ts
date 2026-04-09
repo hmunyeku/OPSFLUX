@@ -396,6 +396,23 @@ export function useAdsPdf() {
   })
 }
 
+export function useAvmPdf() {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const popup = window.open('', '_blank')
+      if (popup) {
+        popup.document.write('<html><body style="font-family: sans-serif; padding: 16px;">Chargement du PDF...</body></html>')
+        popup.document.close()
+      }
+      const blob = await paxlogService.getAvmPdf(id)
+      const url = URL.createObjectURL(blob)
+      if (popup && !popup.closed) popup.location.href = url
+      else window.open(url, '_blank')
+      setTimeout(() => URL.revokeObjectURL(url), 10_000)
+    },
+  })
+}
+
 export function useAdsPax(adsId: string) {
   return useQuery({
     queryKey: ['paxlog', 'ads', adsId, 'pax'],

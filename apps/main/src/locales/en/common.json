@@ -17,6 +17,7 @@
     "planner": "Planner",
     "travelwiz": "TravelWiz",
     "packlog": "PackLog",
+    "papyrus": "Papyrus",
     "report_editor": "Papyrus",
     "pid_pfd": "PID / PFD",
     "messaging": "Messaging",
@@ -1507,7 +1508,7 @@
     "entity": {
       "avis_sejour": "Visit Notice",
       "ads": "Visit Notice",
-      "avm": "Mission Notice",
+      "avm": "Mission notice",
       "project": "Project",
       "planner_activity": "Planner Activity",
       "voyage": "Voyage",
@@ -1571,7 +1572,7 @@
       "compliance": "Compliance",
       "signalements": "Incidents",
       "rotations": "Rotations",
-      "avm": "Missions (AVM)"
+      "avm": "Mission notices (AVM)"
     },
     "actions": {
       "new_profile": "New profile",
@@ -1638,8 +1639,8 @@
     "pax_count": "Passengers",
     "submit": "Submit",
     "resolve": "Resolve",
-    "avm_label": "Missions (AVM)",
-    "new_avm": "New mission",
+    "avm_label": "Mission notices (AVM)",
+    "new_avm": "New mission notice",
     "avm_reference": "AVM Reference",
     "avm_title": "Mission title",
     "mission_type": "Mission type",
@@ -1839,7 +1840,7 @@
       "validator_hint_middle": "then missions in",
       "validator_hint_suffix": "before launch or closure.",
       "kpis": {
-        "my_avm": "My AVMs",
+        "my_avm": "My mission notices",
         "queue_avm": "AVM queue",
         "to_arbitrate": "To arbitrate",
         "in_progress": "In progress",
@@ -1914,7 +1915,7 @@
     },
     "create_avm": {
       "title": "New mission notice",
-      "subtitle": "PaxLog — Missions (AVM)",
+      "subtitle": "PaxLog — Mission notices (AVM)",
       "intro": "The AVM is used to frame a mission before generating or linking visit notices. Describe the mission, its timeframe and its program lines.",
       "sections": {
         "preparation": "Mission preparation",
@@ -2764,6 +2765,29 @@
     "status_cancelled": "Cancelled"
   },
   "report_editor": {
+    "title": "Papyrus",
+    "subtitle": "Writing, documentation and editorial workflows",
+    "tabs": {
+      "documents": "Documents",
+      "templates": "Templates",
+      "arborescence": "File Tree",
+      "distribution": "Distribution"
+    },
+    "create_document": "New document",
+    "create_template": "New template",
+    "doc_type": "Document type",
+    "revision": "Revision",
+    "status_draft": "Draft",
+    "status_review": "Under review",
+    "status_approved": "Approved",
+    "status_published": "Published",
+    "status_obsolete": "Obsolete",
+    "signature": "Signature",
+    "sign": "Sign",
+    "share": "Share",
+    "distribution_list": "Distribution list"
+  },
+  "papyrus": {
     "title": "Papyrus",
     "subtitle": "Writing, documentation and editorial workflows",
     "tabs": {

@@ -6,7 +6,7 @@
  * - Search filter with debounce
  * - Recently/frequently used assets shown first
  * - Keyboard navigation support
- * - Used by: Planner, PaxLog, TravelWiz, PID/PFD, Report Editor, etc.
+ * - Used by: Planner, PaxLog, TravelWiz, PID/PFD, Papyrus, etc.
  */
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'

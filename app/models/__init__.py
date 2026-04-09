@@ -7,7 +7,7 @@ from app.models.dashboard import (  # noqa: F401
     UserDashboardTab,
     WidgetCache,
 )
-from app.models.report_editor import (  # noqa: F401
+from app.models.papyrus_document import (  # noqa: F401
     DocType,
     Document,
     Revision,
@@ -19,6 +19,14 @@ from app.models.report_editor import (  # noqa: F401
     DocumentSignature,
     DocumentAccessGrant,
     ShareLink,
+)
+from app.models.papyrus import (  # noqa: F401
+    PapyrusVersion,
+    PapyrusWorkflowEvent,
+    PapyrusForm,
+    PapyrusExternalLink,
+    PapyrusExternalSubmission,
+    PapyrusDispatchRun,
 )
 from app.models.pid_pfd import (  # noqa: F401
     PIDDocument,
@@ -78,3 +86,4 @@ from app.models.paxlog import (  # noqa: F401
     StayProgram,
 )
 from app.models.common import CostImputation, ImportMapping  # noqa: F401
+

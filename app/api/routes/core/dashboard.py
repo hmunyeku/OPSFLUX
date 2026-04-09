@@ -83,6 +83,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["dashboard"])
 
 
+def _normalize_module_slug(module: str | None) -> str | None:
+    if module in {"report_editor", "report-editor"}:
+        return "papyrus"
+    return module
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 #  Helper: get user role codes for the current entity
 # ═══════════════════════════════════════════════════════════════════════════
@@ -545,6 +551,7 @@ async def list_tabs(
     (e.g. "planner", "paxlog", "travelwiz"). If omitted returns global
     (target_module IS NULL) tabs only for backward compatibility.
     """
+    module = _normalize_module_slug(module)
     user_roles = await _get_user_role_codes(current_user.id, entity_id, db)
 
     # Mandatory tabs: active, matching entity, and either no target_role (visible
@@ -643,6 +650,7 @@ async def list_module_tabs(
     Each module page calls this on mount to render its configurable dashboard.
     The admin defines module-specific tabs via POST /admin/tabs with target_module.
     """
+    module_slug = _normalize_module_slug(module_slug) or module_slug
     user_roles = await _get_user_role_codes(current_user.id, entity_id, db)
 
     stmt = (
@@ -856,6 +864,7 @@ async def list_admin_tabs(
     Optional ``module`` filter: "planner", "paxlog", etc.
     Pass "global" to get tabs with target_module IS NULL.
     """
+    module = _normalize_module_slug(module)
     stmt = (
         select(DashboardTab)
         .where(
@@ -886,12 +895,13 @@ async def create_admin_tab(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a mandatory dashboard tab (admin only)."""
+    target_module = _normalize_module_slug(body.target_module)
     tab = DashboardTab(
         entity_id=entity_id,
         name=body.name,
         is_mandatory=body.is_mandatory,
         target_role=body.target_role,
-        target_module=body.target_module,
+        target_module=target_module,
         tab_order=body.tab_order,
         widgets=[w.model_dump() for w in body.widgets],
         created_by=current_user.id,
@@ -934,6 +944,8 @@ async def update_admin_tab(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No fields to update",
         )
+    if "target_module" in update_data:
+        update_data["target_module"] = _normalize_module_slug(update_data["target_module"])
 
     if "widgets" in update_data and update_data["widgets"] is not None:
         update_data["widgets"] = [w.model_dump() for w in body.widgets]

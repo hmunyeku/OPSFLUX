@@ -325,7 +325,7 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
     {
         "slug": "ads.ticket",
         "name": "ADS Ticket / Boarding Pass",
-        "description": "Travel authorization ticket for ADS (Autorisation De Sortie). "
+        "description": "Travel ticket for AdS (Avis de Sejour). "
                        "Used as boarding pass for helicopter, boat, or vehicle transport.",
         "object_type": "ads",
         "page_size": "A5",
@@ -403,8 +403,8 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
     },
     {
         "slug": "document.export",
-        "name": "Document Export (Report Editor)",
-        "description": "Export a Report Editor document as a styled PDF.",
+        "name": "Document Export (Papyrus)",
+        "description": "Export a Papyrus document as a styled PDF.",
         "object_type": "document",
         "page_size": "A4",
         "orientation": "portrait",
@@ -419,6 +419,51 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
             "author_name": "Author full name",
             "revision": "Revision number",
             "status": "Document status",
+            "entity.name": "Entity name",
+            "generated_at": "Generation timestamp",
+        },
+        "default_versions": {
+            "fr": {
+                "body_html": "",
+                "header_html": None,
+                "footer_html": None,
+            },
+            "en": {
+                "body_html": "",
+                "header_html": None,
+                "footer_html": None,
+            },
+        },
+    },
+    {
+        "slug": "avm.ticket",
+        "name": "AVM Mission Notice",
+        "description": "Mission notice summary for AVM (Avis de Mission).",
+        "object_type": "avm",
+        "page_size": "A4",
+        "orientation": "portrait",
+        "margin_top": 15,
+        "margin_right": 12,
+        "margin_bottom": 15,
+        "margin_left": 12,
+        "variables_schema": {
+            "reference": "AVM reference number",
+            "title": "Mission title",
+            "description": "Mission description",
+            "status": "Mission status",
+            "mission_type": "Mission type",
+            "planned_start_date": "Planned mission start date",
+            "planned_end_date": "Planned mission end date",
+            "creator_name": "Mission creator full name",
+            "pax_quota": "Planned pax quota",
+            "requires_badge": "Whether site badge is required",
+            "requires_epi": "Whether PPE is required",
+            "requires_visa": "Whether visa is required",
+            "eligible_displacement_allowance": "Whether mission is eligible to displacement allowance",
+            "preparation_progress": "Preparation progress percentage",
+            "open_preparation_tasks": "Open preparation tasks count",
+            "programs": "Mission program lines",
+            "generated_ads_references": "Generated AdS references",
             "entity.name": "Entity name",
             "generated_at": "Generation timestamp",
         },
@@ -1603,14 +1648,193 @@ DEFAULT_PDF_TEMPLATES[1]["default_versions"]["fr"]["body_html"] = _ADS_MANIFEST_
 DEFAULT_PDF_TEMPLATES[1]["default_versions"]["en"]["body_html"] = _ADS_MANIFEST_BODY_EN
 DEFAULT_PDF_TEMPLATES[2]["default_versions"]["fr"]["body_html"] = _DOCUMENT_EXPORT_BODY_FR
 DEFAULT_PDF_TEMPLATES[2]["default_versions"]["en"]["body_html"] = _DOCUMENT_EXPORT_BODY_EN
-DEFAULT_PDF_TEMPLATES[3]["default_versions"]["fr"]["body_html"] = _VOYAGE_MANIFEST_BODY_FR
-DEFAULT_PDF_TEMPLATES[3]["default_versions"]["en"]["body_html"] = _VOYAGE_MANIFEST_BODY_EN
-DEFAULT_PDF_TEMPLATES[4]["default_versions"]["fr"]["body_html"] = _VOYAGE_CARGO_MANIFEST_BODY_FR
-DEFAULT_PDF_TEMPLATES[4]["default_versions"]["en"]["body_html"] = _VOYAGE_CARGO_MANIFEST_BODY_EN
-DEFAULT_PDF_TEMPLATES[5]["default_versions"]["fr"]["body_html"] = _CARGO_LT_BODY_FR
-DEFAULT_PDF_TEMPLATES[5]["default_versions"]["en"]["body_html"] = _CARGO_LT_BODY_EN
+DEFAULT_PDF_TEMPLATES[4]["default_versions"]["fr"]["body_html"] = _VOYAGE_MANIFEST_BODY_FR
+DEFAULT_PDF_TEMPLATES[4]["default_versions"]["en"]["body_html"] = _VOYAGE_MANIFEST_BODY_EN
+DEFAULT_PDF_TEMPLATES[5]["default_versions"]["fr"]["body_html"] = _VOYAGE_CARGO_MANIFEST_BODY_FR
+DEFAULT_PDF_TEMPLATES[5]["default_versions"]["en"]["body_html"] = _VOYAGE_CARGO_MANIFEST_BODY_EN
+DEFAULT_PDF_TEMPLATES[6]["default_versions"]["fr"]["body_html"] = _CARGO_LT_BODY_FR
+DEFAULT_PDF_TEMPLATES[6]["default_versions"]["en"]["body_html"] = _CARGO_LT_BODY_EN
 
 # ── Project Report HTML ─────────────────────────────────────────────────
+
+_AVM_TICKET_BODY_FR = """\
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color: #1f2937; font-size: 11px; line-height: 1.45; }
+  h1 { margin: 0; font-size: 20px; color: #0f172a; }
+  h2 { margin: 18px 0 8px 0; font-size: 13px; color: #0f172a; }
+  .subtitle { margin-top: 4px; color: #6b7280; font-size: 11px; }
+  .hero { border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-bottom: 14px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+  .card { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
+  .meta { display: flex; gap: 6px; min-width: 220px; }
+  .meta strong { color: #111827; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10px; }
+  th { background: #f3f4f6; text-align: left; padding: 6px 8px; border: 1px solid #e5e7eb; }
+  td { padding: 6px 8px; border: 1px solid #e5e7eb; vertical-align: top; }
+  tr:nth-child(even) { background: #fafafa; }
+  ul { margin: 6px 0 0 18px; padding: 0; }
+  .footer { margin-top: 24px; font-size: 9px; color: #9ca3af; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 8px; }
+</style>
+</head>
+<body>
+  <div class="hero">
+    <h1>{{ reference }} — {{ title }}</h1>
+    <div class="subtitle">Avis de mission · {{ entity.name | default('OpsFlux') }}</div>
+  </div>
+
+  <div class="grid">
+    <div class="meta"><strong>Statut</strong><span>{{ status }}</span></div>
+    <div class="meta"><strong>Type</strong><span>{{ mission_type }}</span></div>
+    <div class="meta"><strong>Créateur</strong><span>{{ creator_name or '--' }}</span></div>
+    <div class="meta"><strong>Fenêtre</strong><span>{{ planned_start_date or '--' }} → {{ planned_end_date or '--' }}</span></div>
+    <div class="meta"><strong>PAX prévus</strong><span>{{ pax_quota }}</span></div>
+    <div class="meta"><strong>Préparation</strong><span>{{ preparation_progress }}% · {{ open_preparation_tasks }} tâche(s) ouverte(s)</span></div>
+  </div>
+
+  {% if description %}
+  <div class="card">
+    <strong>Description</strong>
+    <div>{{ description }}</div>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <strong>Exigences mission</strong>
+    <ul>
+      <li>Badge site requis : {{ 'Oui' if requires_badge else 'Non' }}</li>
+      <li>EPI requis : {{ 'Oui' if requires_epi else 'Non' }}</li>
+      <li>Visa requis : {{ 'Oui' if requires_visa else 'Non' }}</li>
+      <li>Indemnité de déplacement : {{ 'Oui' if eligible_displacement_allowance else 'Non' }}</li>
+    </ul>
+  </div>
+
+  <h2>Programme mission</h2>
+  {% if programs %}
+  <table>
+    <thead>
+      <tr><th>#</th><th>Activité</th><th>Site</th><th>Période</th><th>PAX</th><th>AdS générée</th></tr>
+    </thead>
+    <tbody>
+      {% for program in programs %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ program.activity_description }}</td>
+        <td>{{ program.site_name or '--' }}</td>
+        <td>{{ program.planned_start_date or '--' }} → {{ program.planned_end_date or '--' }}</td>
+        <td>{{ program.pax_count or 0 }}</td>
+        <td>{{ program.generated_ads_reference or '--' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Aucune ligne de programme.</p>
+  {% endif %}
+
+  {% if generated_ads_references %}
+  <h2>AdS générées</h2>
+  <p>{{ generated_ads_references | join(', ') }}</p>
+  {% endif %}
+
+  <div class="footer">OpsFlux — AVM générée le {{ generated_at }}</div>
+</body>
+</html>
+"""
+
+_AVM_TICKET_BODY_EN = """\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color: #1f2937; font-size: 11px; line-height: 1.45; }
+  h1 { margin: 0; font-size: 20px; color: #0f172a; }
+  h2 { margin: 18px 0 8px 0; font-size: 13px; color: #0f172a; }
+  .subtitle { margin-top: 4px; color: #6b7280; font-size: 11px; }
+  .hero { border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-bottom: 14px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+  .card { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
+  .meta { display: flex; gap: 6px; min-width: 220px; }
+  .meta strong { color: #111827; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10px; }
+  th { background: #f3f4f6; text-align: left; padding: 6px 8px; border: 1px solid #e5e7eb; }
+  td { padding: 6px 8px; border: 1px solid #e5e7eb; vertical-align: top; }
+  tr:nth-child(even) { background: #fafafa; }
+  ul { margin: 6px 0 0 18px; padding: 0; }
+  .footer { margin-top: 24px; font-size: 9px; color: #9ca3af; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 8px; }
+</style>
+</head>
+<body>
+  <div class="hero">
+    <h1>{{ reference }} — {{ title }}</h1>
+    <div class="subtitle">Mission notice · {{ entity.name | default('OpsFlux') }}</div>
+  </div>
+
+  <div class="grid">
+    <div class="meta"><strong>Status</strong><span>{{ status }}</span></div>
+    <div class="meta"><strong>Type</strong><span>{{ mission_type }}</span></div>
+    <div class="meta"><strong>Creator</strong><span>{{ creator_name or '--' }}</span></div>
+    <div class="meta"><strong>Window</strong><span>{{ planned_start_date or '--' }} → {{ planned_end_date or '--' }}</span></div>
+    <div class="meta"><strong>Planned PAX</strong><span>{{ pax_quota }}</span></div>
+    <div class="meta"><strong>Preparation</strong><span>{{ preparation_progress }}% · {{ open_preparation_tasks }} open task(s)</span></div>
+  </div>
+
+  {% if description %}
+  <div class="card">
+    <strong>Description</strong>
+    <div>{{ description }}</div>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <strong>Mission requirements</strong>
+    <ul>
+      <li>Site badge required: {{ 'Yes' if requires_badge else 'No' }}</li>
+      <li>PPE required: {{ 'Yes' if requires_epi else 'No' }}</li>
+      <li>Visa required: {{ 'Yes' if requires_visa else 'No' }}</li>
+      <li>Displacement allowance: {{ 'Yes' if eligible_displacement_allowance else 'No' }}</li>
+    </ul>
+  </div>
+
+  <h2>Mission program</h2>
+  {% if programs %}
+  <table>
+    <thead>
+      <tr><th>#</th><th>Activity</th><th>Site</th><th>Window</th><th>PAX</th><th>Generated visit notice</th></tr>
+    </thead>
+    <tbody>
+      {% for program in programs %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ program.activity_description }}</td>
+        <td>{{ program.site_name or '--' }}</td>
+        <td>{{ program.planned_start_date or '--' }} → {{ program.planned_end_date or '--' }}</td>
+        <td>{{ program.pax_count or 0 }}</td>
+        <td>{{ program.generated_ads_reference or '--' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No mission program line.</p>
+  {% endif %}
+
+  {% if generated_ads_references %}
+  <h2>Generated visit notices</h2>
+  <p>{{ generated_ads_references | join(', ') }}</p>
+  {% endif %}
+
+  <div class="footer">OpsFlux — AVM generated on {{ generated_at }}</div>
+</body>
+</html>
+"""
+
+DEFAULT_PDF_TEMPLATES[3]["default_versions"]["fr"]["body_html"] = _AVM_TICKET_BODY_FR
+DEFAULT_PDF_TEMPLATES[3]["default_versions"]["en"]["body_html"] = _AVM_TICKET_BODY_EN
 
 _PROJECT_REPORT_BODY_FR = """\
 <!DOCTYPE html>
@@ -1712,7 +1936,7 @@ _PROJECT_REPORT_BODY_FR = """\
 </html>
 """
 
-DEFAULT_PDF_TEMPLATES[6]["default_versions"]["fr"]["body_html"] = _PROJECT_REPORT_BODY_FR
+DEFAULT_PDF_TEMPLATES[7]["default_versions"]["fr"]["body_html"] = _PROJECT_REPORT_BODY_FR
 
 _PROJECT_REPORT_BODY_EN = """\
 <!DOCTYPE html>
@@ -1807,7 +2031,7 @@ _PROJECT_REPORT_BODY_EN = """\
 </html>
 """
 
-DEFAULT_PDF_TEMPLATES[6]["default_versions"]["en"]["body_html"] = _PROJECT_REPORT_BODY_EN
+DEFAULT_PDF_TEMPLATES[7]["default_versions"]["en"]["body_html"] = _PROJECT_REPORT_BODY_EN
 
 
 _PID_EXPORT_BODY_FR = """\
@@ -1866,8 +2090,8 @@ _PID_EXPORT_BODY_EN = """\
 </html>
 """
 
-DEFAULT_PDF_TEMPLATES[7]["default_versions"]["fr"]["body_html"] = _PID_EXPORT_BODY_FR
-DEFAULT_PDF_TEMPLATES[7]["default_versions"]["en"]["body_html"] = _PID_EXPORT_BODY_EN
+DEFAULT_PDF_TEMPLATES[8]["default_versions"]["fr"]["body_html"] = _PID_EXPORT_BODY_FR
+DEFAULT_PDF_TEMPLATES[8]["default_versions"]["en"]["body_html"] = _PID_EXPORT_BODY_EN
 
 
 # ── Rendering helpers ────────────────────────────────────────────────────

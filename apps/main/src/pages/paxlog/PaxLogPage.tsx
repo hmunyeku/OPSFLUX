@@ -98,6 +98,7 @@ import {
   useManualDepartureAds,
   useAdsEvents,
   useAdsPdf,
+  useAvmPdf,
   useAdsPax,
   useAdsImputationSuggestion,
   useAdsExternalLinks,
@@ -5027,6 +5028,7 @@ function AvmDetailPanel({ id }: { id?: string }) {
   const approveAvmMut = useApproveAvm()
   const completeAvmMut = useCompleteAvm()
   const cancelAvmMut = useCancelAvm()
+  const downloadAvmPdf = useAvmPdf()
   const updatePreparationTaskMut = useUpdateAvmPreparationTask()
   const updateVisaFollowupMut = useUpdateAvmVisaFollowup()
   const updateAllowanceRequestMut = useUpdateAvmAllowanceRequest()
@@ -5186,6 +5188,9 @@ function AvmDetailPanel({ id }: { id?: string }) {
       icon={<Briefcase size={14} className="text-primary" />}
       actions={
         <>
+          <PanelActionButton variant="default" disabled={downloadAvmPdf.isPending} onClick={() => downloadAvmPdf.mutate(avm.id)}>
+            {downloadAvmPdf.isPending ? <Loader2 size={12} className="animate-spin" /> : <><Download size={12} /> PDF</>}
+          </PanelActionButton>
           {canSubmit && (
             <PanelActionButton
               variant="primary"

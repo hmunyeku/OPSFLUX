@@ -11,7 +11,7 @@ def register_all_handlers(event_bus: EventBus) -> None:
     """Register all inter-module event handlers on the given EventBus."""
     from app.event_handlers.core_handlers import register_core_handlers
     from app.event_handlers.module_handlers import register_module_handlers
-    from app.event_handlers.report_pid_handlers import register_report_pid_handlers
+    from app.event_handlers.papyrus_pid_core_handlers import register_report_pid_handlers
     from app.event_handlers.paxlog_handlers import register_paxlog_handlers
     from app.event_handlers.travelwiz_handlers import register_travelwiz_handlers
 

@@ -21,7 +21,7 @@ const PlannerPage = lazy(() => import('@/pages/planner/PlannerPage').then(m => (
 const TravelWizPage = lazy(() => import('@/pages/travelwiz/TravelWizPage').then(m => ({ default: m.TravelWizPage })))
 const PackLogPage = lazy(() => import('@/pages/packlog/PackLogPage').then(m => ({ default: m.PackLogPage })))
 const ImputationsPage = lazy(() => import('@/pages/imputations/ImputationsPage').then(m => ({ default: m.ImputationsPage })))
-const ReportEditorPage = lazy(() => import('@/pages/report-editor/ReportEditorPage').then(m => ({ default: m.ReportEditorPage })))
+const PapyrusPage = lazy(() => import('@/pages/papyrus/PapyrusPage').then(m => ({ default: m.PapyrusPage })))
 const PidPfdPage = lazy(() => import('@/pages/pid-pfd/PidPfdPage').then(m => ({ default: m.PidPfdPage })))
 const UsersPage = lazy(() => import('@/pages/users/UsersPage').then(m => ({ default: m.UsersPage })))
 const EntitiesPage = lazy(() => import('@/pages/entities/EntitiesPage').then(m => ({ default: m.EntitiesPage })))
@@ -86,7 +86,8 @@ export default function App() {
                   <Route path="/travelwiz/*" element={<RequirePermission permission="travelwiz.voyage.read"><TravelWizPage /></RequirePermission>} />
                   <Route path="/packlog/*" element={<RequirePermission permission="packlog.cargo.read"><PackLogPage /></RequirePermission>} />
                   <Route path="/imputations/*" element={<RequirePermission permission="imputation.read"><ImputationsPage /></RequirePermission>} />
-                  <Route path="/report-editor/*" element={<RequirePermission permission="document.read"><ReportEditorPage /></RequirePermission>} />
+                  <Route path="/report-editor/*" element={<Navigate to="/papyrus" replace />} />
+                  <Route path="/papyrus/*" element={<RequirePermission permission="document.read"><PapyrusPage /></RequirePermission>} />
                   <Route path="/pid-pfd/*" element={<RequirePermission permission="pid.read"><PidPfdPage /></RequirePermission>} />
                   <Route path="/files/*" element={<RequirePermission permission="core.settings.manage"><Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}><FileManagerPage /></Suspense></RequirePermission>} />
                   <Route path="/support/*" element={<RequirePermission permission="support.ticket.read"><SupportPage /></RequirePermission>} />

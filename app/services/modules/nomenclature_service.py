@@ -50,7 +50,7 @@ async def generate_document_number(
 
     Thread-safe via FOR UPDATE lock on DocumentSequence row.
     """
-    from app.models.report_editor import DocumentSequence
+    from app.models.papyrus_document import DocumentSequence
 
     free_parts = free_parts or {}
     now = datetime.now(timezone.utc)
@@ -157,7 +157,7 @@ async def _get_next_sequence(
 
     Uses SELECT FOR UPDATE to prevent concurrent duplicates.
     """
-    from app.models.report_editor import DocumentSequence
+    from app.models.papyrus_document import DocumentSequence
 
     stmt = (
         select(DocumentSequence)
@@ -217,3 +217,4 @@ def validate_nomenclature_pattern(pattern: str) -> list[str]:
         errors.append("Pattern should contain a {SEQ:N} token for uniqueness")
 
     return errors
+

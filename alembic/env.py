@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import sys
 from logging.config import fileConfig
 
 from sqlalchemy import pool, text
@@ -17,6 +18,9 @@ from app.models import asset_registry  # noqa: F401
 from app.models import mcp_gateway  # noqa: F401
 
 config = context.config
+
+if sys.platform.startswith("win"):
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 # Override sqlalchemy.url from env var if available (Docker uses different hostname)
 database_url = os.environ.get("DATABASE_URL")

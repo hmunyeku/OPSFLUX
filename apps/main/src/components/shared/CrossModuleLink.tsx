@@ -40,7 +40,8 @@ const MODULE_LABELS: Record<string, string> = {
   conformite: 'Conformite',
   travelwiz: 'TravelWiz',
   workflow: 'Workflow',
-  'report-editor': 'Report Editor',
+  papyrus: 'Papyrus',
+  'report-editor': 'Papyrus',
   'pid-pfd': 'PID/PFD',
 }
 
@@ -57,7 +58,8 @@ const MODULE_ROUTES: Record<string, string> = {
   workflow: '/workflow',
   users: '/users',
   entities: '/entities',
-  'report-editor': '/report-editor',
+  papyrus: '/papyrus',
+  'report-editor': '/papyrus',
   'pid-pfd': '/pid-pfd',
 }
 

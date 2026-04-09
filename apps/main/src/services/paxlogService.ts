@@ -1341,6 +1341,11 @@ export const paxlogService = {
     return data
   },
 
+  getAvmPdf: async (id: string): Promise<Blob> => {
+    const { data } = await api.get(`/api/v1/pax/avm/${id}/pdf`, { responseType: 'blob' })
+    return data
+  },
+
   createAvm: async (payload: MissionNoticeCreate): Promise<MissionNoticeRead> => {
     const { data } = await api.post('/api/v1/pax/avm', payload)
     return data

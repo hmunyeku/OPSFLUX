@@ -38,6 +38,7 @@ from app.models.common import (
     AuditLog,
     CostCenter,
     CostImputation,
+    Entity,
     ImputationAssignment,
     ImputationReference,
     JobPosition,
@@ -9362,6 +9363,49 @@ async def get_avm(
     return await _build_avm_read(db, avm)
 
 
+@router.get("/avm/{avm_id}/pdf")
+async def get_avm_pdf(
+    avm_id: UUID,
+    language: str = "fr",
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("paxlog.avm.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Render an AVM PDF via the centralized PDF template engine."""
+    from fastapi.responses import Response
+    from app.core.pdf_templates import render_pdf
+
+    result = await db.execute(
+        select(MissionNotice).where(
+            MissionNotice.id == avm_id,
+            MissionNotice.entity_id == entity_id,
+        )
+    )
+    avm = result.scalar_one_or_none()
+    if not avm:
+        raise HTTPException(status_code=404, detail="AVM not found")
+    await _assert_avm_read_access(avm, current_user=current_user, entity_id=entity_id, db=db)
+
+    variables = await _build_avm_pdf_template_variables(db=db, avm=avm, entity_id=entity_id)
+    pdf_bytes = await render_pdf(
+        db,
+        slug="avm.ticket",
+        entity_id=entity_id,
+        language=language,
+        variables=variables,
+    )
+    if not pdf_bytes:
+        raise HTTPException(404, "Template PDF 'avm.ticket' introuvable. Creez-le dans Parametres > Modeles PDF.")
+
+    filename = f"AVM_{avm.reference.replace(' ', '_')}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
 @router.put("/avm/{avm_id}", response_model=MissionNoticeRead)
 async def update_avm(
     avm_id: UUID,
@@ -9983,6 +10027,60 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
         last_linked_ads_set_to_review=last_linked_ads_set_to_review,
         last_linked_ads_references=last_linked_ads_references,
     )
+
+
+async def _build_avm_pdf_template_variables(
+    db: AsyncSession,
+    *,
+    avm: MissionNotice,
+    entity_id: UUID,
+) -> dict[str, Any]:
+    entity = await db.get(Entity, entity_id)
+    avm_read = await _build_avm_read(db, avm)
+
+    generated_ads_references = [
+        program.generated_ads_reference
+        for program in avm_read.programs
+        if getattr(program, "generated_ads_reference", None)
+    ]
+
+    programs = []
+    for program in avm_read.programs:
+        programs.append(
+            {
+                "activity_description": program.activity_description,
+                "site_name": program.site_name,
+                "planned_start_date": program.planned_start_date.strftime("%d/%m/%Y") if program.planned_start_date else "--",
+                "planned_end_date": program.planned_end_date.strftime("%d/%m/%Y") if program.planned_end_date else "--",
+                "generated_ads_reference": program.generated_ads_reference,
+                "pax_count": len(program.pax_entries or []),
+            }
+        )
+
+    return {
+        "reference": avm.reference,
+        "title": avm.title,
+        "description": avm.description or "",
+        "status": avm.status,
+        "mission_type": avm.mission_type,
+        "planned_start_date": avm.planned_start_date.strftime("%d/%m/%Y") if avm.planned_start_date else "--",
+        "planned_end_date": avm.planned_end_date.strftime("%d/%m/%Y") if avm.planned_end_date else "--",
+        "creator_name": avm_read.creator_name or "--",
+        "pax_quota": avm.pax_quota,
+        "requires_badge": avm.requires_badge,
+        "requires_epi": avm.requires_epi,
+        "requires_visa": avm.requires_visa,
+        "eligible_displacement_allowance": avm.eligible_displacement_allowance,
+        "preparation_progress": avm_read.preparation_progress,
+        "open_preparation_tasks": avm_read.open_preparation_tasks,
+        "programs": programs,
+        "generated_ads_references": generated_ads_references,
+        "entity": {
+            "name": entity.name if entity else "",
+            "code": entity.code if entity else "",
+        },
+        "generated_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M"),
+    }
 
 
 @router.patch("/avm/{avm_id}/preparation-tasks/{task_id}", response_model=MissionPreparationTaskRead)

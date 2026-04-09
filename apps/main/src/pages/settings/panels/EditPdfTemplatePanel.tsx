@@ -1163,29 +1163,43 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
               })}
             </div>
             {variableDescriptors.length > 0 && (
-              <div className="rounded-lg border border-border/60 bg-card px-3 py-3 space-y-2">
-                <div className="text-xs font-semibold text-foreground">
-                  {t('settings.pdf_templates_editor.variable_catalog.title')}
+              <div className="rounded-lg border border-border/60 bg-card overflow-hidden">
+                <div className="px-3 py-2 border-b border-border/40 bg-muted/30">
+                  <span className="text-xs font-semibold text-foreground">
+                    {t('settings.pdf_templates_editor.variable_catalog.title')}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground ml-2">({variableDescriptors.length})</span>
                 </div>
-                <div className="space-y-2">
-                  {variableDescriptors.map((descriptor) => (
-                    <div key={descriptor.key} className="rounded-lg border border-border/50 bg-muted/10 px-3 py-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <code className="font-mono text-[11px] text-foreground">{descriptor.key}</code>
-                        <VariableKindBadge kind={descriptor.kind} t={t} />
-                      </div>
-                      <div className="mt-1 text-xs text-foreground">{descriptor.label}</div>
-                      {descriptor.description && (
-                        <div className="mt-1 text-xs text-muted-foreground">{descriptor.description}</div>
-                      )}
-                      {descriptor.example && (
-                        <div className="mt-1 text-[11px] text-muted-foreground">
-                          {t('settings.pdf_templates_editor.variable_catalog.example')}: {descriptor.example}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-border/30 bg-muted/10">
+                      <th className="text-left px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[35%]">Variable</th>
+                      <th className="text-left px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider w-[15%]">Type</th>
+                      <th className="text-left px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {variableDescriptors.map((descriptor) => (
+                      <tr key={descriptor.key} className="border-b border-border/20 hover:bg-muted/10 transition-colors">
+                        <td className="px-3 py-1.5">
+                          <code className="font-mono text-[11px] text-primary bg-primary/5 px-1.5 py-0.5 rounded">{`{{ ${descriptor.key} }}`}</code>
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <VariableKindBadge kind={descriptor.kind} t={t} />
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <div className="text-xs text-foreground">{descriptor.label}</div>
+                          {descriptor.description && descriptor.description !== descriptor.label && (
+                            <div className="text-[10px] text-muted-foreground mt-0.5">{descriptor.description}</div>
+                          )}
+                          {descriptor.example && (
+                            <div className="text-[10px] text-muted-foreground/70 mt-0.5 font-mono">ex: {descriptor.example}</div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
             <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3 text-xs text-muted-foreground space-y-2">

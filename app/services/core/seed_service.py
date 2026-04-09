@@ -365,64 +365,42 @@ async def seed_dev_data(db: AsyncSession) -> None:
         db.add(UserGroupMember(user_id=admin.id, group_id=admin_group.id))
         logger.info("Seed: assigned SUPER_ADMIN to admin")
 
-    # ── Sample assets ────────────────────────────────────────────
+    # ── Sample assets (ar_fields → ar_sites → ar_installations) ──
+    from app.models.asset_registry import Field, Site
+
     result = await db.execute(select(Installation).where(Installation.code == "EBOME"))
     if not result.scalar_one_or_none():
         # Field
-        ebome = Installation(
-            entity_id=entity.id,
-            type="field",
-            code="EBOME",
-            name="Champ Ebome",
-            path="per_cmr.ebome",
-            latitude=2.8,
-            longitude=9.8,
-        )
-        db.add(ebome)
+        field = Field(entity_id=entity.id, code="PCM", name="Perenco Cameroon",
+                      country="CM", operator="Perenco", environment="OFFSHORE", status="OPERATIONAL")
+        db.add(field)
         await db.flush()
 
-        # Sites under field
-        munja = Installation(
-            entity_id=entity.id,
-            parent_id=ebome.id,
-            type="site",
-            code="MUNJA",
-            name="Munja",
-            path="per_cmr.ebome.munja",
-            latitude=2.82,
-            longitude=9.78,
-        )
-        db.add(munja)
+        # Sites
+        site_ebome = Site(entity_id=entity.id, field_id=field.id, code="EBOME", name="Site Ebome",
+                          site_type="PRODUCTION", environment="OFFSHORE", country="CM", manned=True, status="OPERATIONAL")
+        site_munja = Site(entity_id=entity.id, field_id=field.id, code="MUNJA", name="Site Munja",
+                          site_type="PRODUCTION", environment="ONSHORE", country="CM", manned=True, status="OPERATIONAL")
+        site_wouri = Site(entity_id=entity.id, field_id=field.id, code="WOURI", name="Base Wouri",
+                          site_type="SHORE_BASE", environment="ONSHORE", country="CM", manned=True, status="OPERATIONAL")
+        db.add_all([site_ebome, site_munja, site_wouri])
         await db.flush()
 
-        # Platforms under Munja
-        for pf_code, pf_name, lat, lon in [
-            ("ESF1", "Plateforme ESF1", 2.83, 9.77),
-            ("KLF3", "Plateforme KLF3", 2.81, 9.76),
+        # Installations
+        for site, inst_code, inst_name, itype, env, lat, lon in [
+            (site_ebome, "EBOME", "Champ Ebome", "CPF", "OFFSHORE", 2.8, 9.8),
+            (site_ebome, "ESF1", "Plateforme ESF1", "FIXED_PLATFORM", "OFFSHORE", 2.83, 9.77),
+            (site_ebome, "KLF3", "Plateforme KLF3", "FIXED_PLATFORM", "OFFSHORE", 2.81, 9.76),
+            (site_munja, "MUNJA", "Munja", "ONSHORE_PLANT", "ONSHORE", 2.82, 9.78),
+            (site_wouri, "WOURI", "Base Logistique Wouri", "ONSHORE_PLANT", "ONSHORE", 4.05, 9.7),
         ]:
             db.add(Installation(
-                entity_id=entity.id,
-                parent_id=munja.id,
-                type="platform",
-                code=pf_code,
-                name=pf_name,
-                path=f"per_cmr.ebome.munja.{pf_code.lower()}",
-                latitude=lat,
-                longitude=lon,
+                entity_id=entity.id, site_id=site.id, code=inst_code, name=inst_name,
+                installation_type=itype, environment=env, status="OPERATIONAL",
+                is_manned=True, latitude=lat, longitude=lon,
             ))
 
-        # Base logistique
-        db.add(Installation(
-            entity_id=entity.id,
-            type="base",
-            code="WOURI",
-            name="Base Logistique Wouri",
-            path="per_cmr.wouri",
-            latitude=4.05,
-            longitude=9.7,
-        ))
-
-        logger.info("Seed: created sample assets")
+        logger.info("Seed: created sample assets (field → sites → installations)")
 
     # ── Workflow definitions ─────────────────────────────────────
     for workflow_definition in _default_workflow_definitions():

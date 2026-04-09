@@ -33,6 +33,7 @@ dependencies = [
     "jinja2>=3.1.0",
     # PDF rendering
     "weasyprint>=62.0",
+    "qrcode[pil]>=7.4.2",
     # Crypto
     "cryptography>=42.0.0",
     # MFA / TOTP

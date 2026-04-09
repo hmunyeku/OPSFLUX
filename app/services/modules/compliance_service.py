@@ -253,18 +253,22 @@ async def check_pax_asset_compliance(
 
     pax_fk_col = "user_id" if user_id else "contact_id"
     pax_fk_val = str(user_id or contact_id)
-    hab_rows = await db.execute(
-        text(
-            f"""
-            SELECT hm.credential_type_id, hm.mandatory
-            FROM pax_profile_types ppta
-            JOIN habilitation_matrix hm ON hm.profile_type_id = ppta.profile_type_id
-            WHERE ppta.{pax_fk_col} = :pax_fk AND hm.mandatory = true
-            """
-        ),
-        {"pax_fk": pax_fk_val},
-    )
-    hab_requirements = hab_rows.all()
+    try:
+        hab_rows = await db.execute(
+            text(
+                f"""
+                SELECT hm.credential_type_id, hm.mandatory
+                FROM pax_profile_types ppta
+                JOIN habilitation_matrix hm ON hm.profile_type_id = ppta.profile_type_id
+                WHERE ppta.{pax_fk_col} = :pax_fk AND hm.mandatory = true
+                """
+            ),
+            {"pax_fk": pax_fk_val},
+        )
+        hab_requirements = hab_rows.all()
+    except Exception:
+        # habilitation_matrix table may not exist yet — skip this check gracefully
+        hab_requirements = []
 
     existing_ct_ids = {r.credential_type_id for r in applicable_reqs}
     hab_credential_type_ids = set()

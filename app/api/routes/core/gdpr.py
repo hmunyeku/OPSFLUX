@@ -158,6 +158,13 @@ async def _async_export_user_data(user_id_str: str):
             if not user:
                 return
 
+            # Capture scalar values before collect_user_data (which may rollback)
+            uid = user.id
+            eid = user.default_entity_id
+            email = user.email
+            first_name = user.first_name or ""
+            last_name = user.last_name or ""
+
             data = await _collect_user_data(db, user)
             export = {
                 "user": data["profile"],
@@ -178,8 +185,8 @@ async def _async_export_user_data(user_id_str: str):
             # In-app notification (real-time via WebSocket)
             await send_in_app(
                 db,
-                user_id=user.id,
-                entity_id=user.default_entity_id,
+                user_id=uid,
+                entity_id=eid,
                 title="Export RGPD pret",
                 body="Votre export de donnees personnelles est pret au telechargement.",
                 category="system",
@@ -191,9 +198,9 @@ async def _async_export_user_data(user_id_str: str):
                 rendered = await render_email(
                     db,
                     slug="gdpr_export_ready",
-                    entity_id=user.default_entity_id,
+                    entity_id=eid,
                     variables={
-                        "user_name": f"{user.first_name} {user.last_name}".strip(),
+                        "user_name": f"{first_name} {last_name}".strip(),
                         "download_link": download_link,
                     },
                 )
@@ -202,20 +209,19 @@ async def _async_export_user_data(user_id_str: str):
                 body_html = None
 
             if not body_html:
-                # Fallback if template doesn't exist
                 body_html = f"""
                 <h2>Export RGPD pret</h2>
-                <p>Bonjour {user.first_name},</p>
+                <p>Bonjour {first_name},</p>
                 <p>Votre export de donnees personnelles est pret.</p>
                 <p>Connectez-vous a OpsFlux pour le telecharger depuis votre profil.</p>
                 """
 
             await send_email(
-                to=user.email,
+                to=email,
                 subject="OpsFlux — Votre export de donnees est pret",
                 body_html=body_html,
                 db=db,
-                user_id=user.id,
+                user_id=uid,
                 category="system",
             )
 

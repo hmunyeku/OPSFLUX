@@ -35,6 +35,7 @@ import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { DetachedPanelsPortal } from './DetachedPanelRenderer'
 import { FeedbackWidget } from './FeedbackWidget'
+import { HelpProvider, HelpPanel } from './HelpSystem'
 
 // ── Active Banners — renders banner-type announcements at the top ──
 const BANNER_VARIANT_MAP: Record<string, 'info' | 'warning' | 'danger' | 'success'> = {
@@ -136,6 +137,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   }, [setMobileSidebarOpen])
 
   return (
+    <HelpProvider>
     <div className="flex h-screen flex-col overflow-hidden bg-background">
       {/* ── Zone 1: Topbar ── */}
       <Topbar onToggleSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)} />
@@ -192,6 +194,8 @@ export function AppLayout({ children }: AppLayoutProps) {
       {/* Floating detached panels (rendered via portal to body) */}
       <DetachedPanelsPortal />
       <FeedbackWidget />
+      <HelpPanel />
     </div>
+    </HelpProvider>
   )
 }

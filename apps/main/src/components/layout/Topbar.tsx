@@ -24,11 +24,14 @@ import {
   GitPullRequest,
   Settings,
   X,
+  HelpCircle,
 } from 'lucide-react'
 import { useState, useRef, useEffect, useSyncExternalStore, useCallback, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { offlineQueue } from '@/lib/offlineQueue'
+import { cn } from '@/lib/utils'
 import { CommandPalette, useCommandPalette } from '@/components/ui/CommandPalette'
+import { useHelp } from '@/components/layout/HelpSystem'
 import { EntitySwitcher } from '@/components/layout/EntitySwitcher'
 import { NotificationCenter } from '@/components/layout/NotificationCenter'
 import { AnnouncementCenter } from '@/components/layout/AnnouncementCenter'
@@ -270,6 +273,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const { open: paletteOpen, setOpen: setPaletteOpen } = useCommandPalette()
+  const { isHelpOpen, toggleHelp } = useHelp()
   const placeholder = useSearchPlaceholder()
   const { data: availableContexts = [] } = useActingContexts()
   const { data: currentActingContext } = useCurrentActingContext()
@@ -405,6 +409,20 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
             title={i18n.language === 'fr' ? 'English' : 'Français'}
           >
             {i18n.language}
+          </button>
+
+          <button
+            onClick={() => toggleHelp()}
+            className={cn(
+              'relative h-7 w-7 rounded-lg flex items-center justify-center transition-colors',
+              isHelpOpen
+                ? 'bg-primary/20 text-primary'
+                : 'text-muted-foreground hover:bg-chrome-hover hover:text-foreground',
+            )}
+            title="Aide contextuelle (?)"
+            data-help-id="help-button"
+          >
+            <HelpCircle size={15} />
           </button>
 
           {/* User avatar + dropdown */}

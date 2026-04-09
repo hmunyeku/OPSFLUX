@@ -2916,7 +2916,59 @@ async def list_ads(
     if site_asset_id:
         query = query.where(Ads.site_entry_asset_id == site_asset_id)
     query = query.order_by(Ads.created_at.desc())
-    return await paginate(db, query, pagination)
+
+    # ── Enriched pagination with pax_display_name + imputation_label ──
+    async def _enrich_ads(row):
+        ads_obj = row[0]
+        ads_dict = {c.key: getattr(ads_obj, c.key) for c in ads_obj.__table__.columns}
+
+        # --- pax_display_name ---
+        pax_result = await db.execute(
+            text("""
+                SELECT
+                    COALESCE(u.last_name || ' ' || u.first_name, tc.last_name || ' ' || tc.first_name) AS pax_name,
+                    (SELECT COUNT(*) FROM ads_pax WHERE ads_id = :ads_id) AS total_pax
+                FROM ads_pax ap
+                LEFT JOIN users u ON u.id = ap.user_id
+                LEFT JOIN tier_contacts tc ON tc.id = ap.contact_id
+                WHERE ap.ads_id = :ads_id
+                ORDER BY ap.created_at ASC
+                LIMIT 1
+            """),
+            {"ads_id": ads_obj.id},
+        )
+        pax_row = pax_result.first()
+        if pax_row:
+            name = pax_row[0] or ""
+            total = int(pax_row[1] or 0)
+            if ads_obj.type == "team" and total > 1:
+                ads_dict["pax_display_name"] = f"{name} (+{total - 1})"
+            else:
+                ads_dict["pax_display_name"] = name or None
+        else:
+            ads_dict["pax_display_name"] = None
+
+        # --- imputation_label ---
+        imp_result = await db.execute(
+            text("""
+                SELECT
+                    COALESCE(p.name, ir.code || ' — ' || ir.name, cc.name) AS label
+                FROM cost_imputations ci
+                LEFT JOIN projects p ON p.id = ci.project_id
+                LEFT JOIN imputation_references ir ON ir.id = ci.imputation_reference_id
+                LEFT JOIN cost_centers cc ON cc.id = ci.cost_center_id
+                WHERE ci.owner_type = 'ads' AND ci.owner_id = :ads_id
+                ORDER BY ci.percentage DESC
+                LIMIT 1
+            """),
+            {"ads_id": ads_obj.id},
+        )
+        imp_row = imp_result.scalar()
+        ads_dict["imputation_label"] = imp_row or None
+
+        return ads_dict
+
+    return await paginate(db, query, pagination, transform=_enrich_ads)
 
 
 @router.get("/ads-validation-queue", response_model=PaginatedResponse[AdsValidationQueueItemRead])

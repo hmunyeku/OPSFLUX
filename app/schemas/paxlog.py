@@ -377,6 +377,8 @@ class AdsSummary(OpsFluxSchema):
     allowed_company_ids: list[UUID] = []
     allowed_company_names: list[str] = []
     pax_count: int = 0
+    pax_display_name: str | None = None
+    imputation_label: str | None = None
     created_at: datetime
 
 

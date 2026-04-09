@@ -17,7 +17,7 @@
     "planner": "Planner",
     "travelwiz": "TravelWiz",
     "packlog": "PackLog",
-    "report_editor": "Éditeur de rapports",
+    "report_editor": "Papyrus",
     "pid_pfd": "PID / PFD",
     "messaging": "Messagerie",
     "accounts": "Comptes",
@@ -1581,6 +1581,10 @@
       "new_profile": "Nouveau profil",
       "new_signalement": "Nouveau signalement",
       "new_rotation": "Nouvelle rotation"
+    },
+    "columns": {
+      "pax_name": "Nom",
+      "imputation": "Imputation"
     },
     "status": {
       "generic": {

@@ -1129,6 +1129,18 @@ function AdsTab({ openDetail, requesterOnly = false, validatorOnly = false }: { 
       size: 90,
     },
     {
+      id: 'pax_name',
+      header: t('paxlog.columns.pax_name'),
+      cell: ({ row }) => <span className="text-xs font-medium truncate">{row.original.pax_display_name || '\u2014'}</span>,
+      size: 160,
+    },
+    {
+      id: 'imputation',
+      header: t('paxlog.columns.imputation'),
+      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.imputation_label || '\u2014'}</span>,
+      size: 120,
+    },
+    {
       accessorKey: 'visit_category',
       header: t('paxlog.visit_category'),
       cell: ({ row }) => (
@@ -5850,9 +5862,10 @@ export function PaxLogPage() {
   const { hasPermission, hasAny } = usePermission()
 
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'paxlog'
-  const isRequesterProfile = hasAny(['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.avm.create', 'paxlog.avm.update']) &&
+  const isAdmin = hasPermission('*') || hasPermission('admin.system')
+  const isRequesterProfile = !isAdmin && hasAny(['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.avm.create', 'paxlog.avm.update']) &&
     !hasAny(['paxlog.profile.read', 'paxlog.compliance.read', 'paxlog.rotation.manage', 'paxlog.profile_type.manage', 'paxlog.credtype.manage'])
-  const isValidatorProfile = !isRequesterProfile && hasAny(['paxlog.ads.approve', 'paxlog.compliance.read', 'paxlog.avm.approve', 'paxlog.avm.complete'])
+  const isValidatorProfile = !isAdmin && !isRequesterProfile && hasAny(['paxlog.ads.approve', 'paxlog.compliance.read', 'paxlog.avm.approve', 'paxlog.avm.complete'])
 
   const visibleTabs = useMemo(() => {
     const tabs = ALL_TABS.filter((tab) => {

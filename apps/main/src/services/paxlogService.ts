@@ -287,6 +287,8 @@ export interface AdsSummary {
   allowed_company_ids?: string[]
   allowed_company_names?: string[]
   pax_count: number
+  pax_display_name?: string | null
+  imputation_label?: string | null
   created_at: string
   requester_name?: string | null
   site_name?: string | null

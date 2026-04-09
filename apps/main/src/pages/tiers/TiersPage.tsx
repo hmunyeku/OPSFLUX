@@ -18,7 +18,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Building2, Plus, Loader2, Trash2, MapPin, Paperclip, MessageSquare,
-  Phone, Mail, Users, ArrowLeft, Star, Pencil, Globe, Clock,
+  Phone, Mail, Users, ArrowLeft, Star, Globe, Clock,
   ChevronDown, FileText, Search, ShieldBan, ShieldCheck, Link2, X,
   LayoutDashboard,
 } from 'lucide-react'
@@ -1077,31 +1077,14 @@ function ContactDetailPanel({
   const updateContact = useUpdateTierContact()
   const deleteContact = useDeleteTierContact()
   const promoteContact = usePromoteTierContactToUser()
-  const [editMode, setEditMode] = useState(false)
-  const [editForm, setEditForm] = useState<TierContactUpdate>({})
-
-  const startEdit = useCallback(() => {
-    if (!contact) return
-    setEditForm({
-      civility: contact.civility,
-      first_name: contact.first_name,
-      last_name: contact.last_name,
-      position: contact.position,
-      department: contact.department,
-      is_primary: contact.is_primary,
-    })
-    setEditMode(true)
-  }, [contact])
-
-  const handleSave = useCallback(async () => {
+  const saveContactPatch = useCallback(async (patch: TierContactUpdate, successTitle?: string) => {
     try {
-      await updateContact.mutateAsync({ tierId, contactId, payload: normalizeNames(editForm) })
-      setEditMode(false)
-      toast({ title: t('tiers.ui.contact_updated'), variant: 'success' })
+      await updateContact.mutateAsync({ tierId, contactId, payload: normalizeNames(patch) })
+      toast({ title: successTitle || t('tiers.ui.contact_updated'), variant: 'success' })
     } catch {
       toast({ title: t('common.error'), variant: 'error' })
     }
-  }, [tierId, contactId, editForm, updateContact, toast, t])
+  }, [tierId, contactId, updateContact, toast, t])
 
   const handleDelete = useCallback(async () => {
     try {
@@ -1157,11 +1140,6 @@ function ContactDetailPanel({
         <>
           {canEdit && (
             <>
-              {!editMode && (
-                <PanelActionButton onClick={startEdit} icon={<Pencil size={11} />}>
-                  {t('common.edit')}
-                </PanelActionButton>
-              )}
               <DangerConfirmButton
                 icon={<Trash2 size={12} />}
                 onConfirm={handleDelete}
@@ -1198,50 +1176,42 @@ function ContactDetailPanel({
           {/* ── Left column: Fiche employe + Actions ── */}
           <div className="@container space-y-5">
             <FormSection title={t('tiers.ui.sections.contact_identity')} collapsible defaultExpanded storageKey="contact-detail-sections">
-              {editMode ? (
-                <div className="space-y-2">
-                  <FormGrid>
-                    <DynamicPanelField label={t('tiers.ui.civility')}>
-                      <select value={editForm.civility ?? ''} onChange={(e) => setEditForm({ ...editForm, civility: e.target.value || null })} className={panelInputClass}>
-                        <option value="">--</option>
-                        {civilityOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                      </select>
-                    </DynamicPanelField>
-                    <DynamicPanelField label={t('tiers.ui.first_name')} required>
-                      <input type="text" value={editForm.first_name ?? ''} onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })} className={panelInputClass} />
-                    </DynamicPanelField>
-                    <DynamicPanelField label={t('tiers.ui.last_name')} required>
-                      <input type="text" value={editForm.last_name ?? ''} onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })} className={panelInputClass} />
-                    </DynamicPanelField>
-                    <DynamicPanelField label={t('tiers.ui.position')}>
-                      <input type="text" value={editForm.position ?? ''} onChange={(e) => setEditForm({ ...editForm, position: e.target.value || null })} className={panelInputClass} />
-                    </DynamicPanelField>
-                    <DynamicPanelField label={t('tiers.ui.department')}>
-                      <input type="text" value={editForm.department ?? ''} onChange={(e) => setEditForm({ ...editForm, department: e.target.value || null })} className={panelInputClass} />
-                    </DynamicPanelField>
-                  </FormGrid>
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <button
-                      onClick={handleSave}
-                      disabled={!editForm.first_name?.trim() || !editForm.last_name?.trim() || updateContact.isPending}
-                      className="px-2.5 py-1 rounded text-[11px] font-medium bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
-                    >
-                      {updateContact.isPending ? <Loader2 size={11} className="animate-spin" /> : t('common.save')}
-                    </button>
-                    <button onClick={() => setEditMode(false)} className="px-2 py-1 rounded text-[11px] text-muted-foreground hover:text-foreground hover:bg-accent">
-                      {t('common.cancel')}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <DetailFieldGrid>
-                  <ReadOnlyRow label={t('tiers.ui.civility')} value={civilityLabel || '--'} />
-                  <ReadOnlyRow label={t('tiers.ui.first_name')} value={contact.first_name} />
-                  <ReadOnlyRow label={t('tiers.ui.last_name')} value={contact.last_name} />
-                  <ReadOnlyRow label={t('tiers.ui.position')} value={contact.position || '--'} />
-                  <ReadOnlyRow label={t('tiers.ui.department')} value={contact.department || '--'} />
-                </DetailFieldGrid>
-              )}
+              <DetailFieldGrid>
+                <InlineEditableSelect
+                  label={t('tiers.ui.civility')}
+                  value={contact.civility || ''}
+                  displayValue={civilityLabel || '--'}
+                  options={[{ value: '', label: '--' }, ...civilityOptions]}
+                  onSave={(newValue) => { void saveContactPatch({ civility: newValue || null }) }}
+                  disabled={!canEdit}
+                />
+                <InlineEditableRow
+                  label={t('tiers.ui.first_name')}
+                  value={contact.first_name}
+                  onSave={(newValue) => { if (newValue.trim()) void saveContactPatch({ first_name: newValue }) }}
+                  disabled={!canEdit}
+                />
+                <InlineEditableRow
+                  label={t('tiers.ui.last_name')}
+                  value={contact.last_name}
+                  onSave={(newValue) => { if (newValue.trim()) void saveContactPatch({ last_name: newValue }) }}
+                  disabled={!canEdit}
+                />
+                <InlineEditableRow
+                  label={t('tiers.ui.position')}
+                  value={contact.position || ''}
+                  displayValue={contact.position || '--'}
+                  onSave={(newValue) => { void saveContactPatch({ position: newValue.trim() || null }) }}
+                  disabled={!canEdit}
+                />
+                <InlineEditableRow
+                  label={t('tiers.ui.department')}
+                  value={contact.department || ''}
+                  displayValue={contact.department || '--'}
+                  onSave={(newValue) => { void saveContactPatch({ department: newValue.trim() || null }) }}
+                  disabled={!canEdit}
+                />
+              </DetailFieldGrid>
             </FormSection>
 
             <FormSection title={t('tiers.ui.sections.access')} collapsible defaultExpanded storageKey="contact-detail-sections">
@@ -1272,7 +1242,7 @@ function ContactDetailPanel({
             </FormSection>
 
             {/* Actions */}
-            {canEdit && !editMode && (
+            {canEdit && (
               <div className="flex items-center gap-2 flex-wrap">
                 {!contact.is_primary && (
                   <button

@@ -14,7 +14,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
   FileText, Plus, Loader2, Trash2, LayoutDashboard, Files, FileCode2, FolderCog,
-  Send, CheckCircle2, XCircle, Globe, Download, Link2, Clock, Eye,
+  Send, CheckCircle2, XCircle, Globe, Download, Link2, Clock,
   Archive, PenTool, GitCompare, ChevronDown, ChevronRight, Folder, PanelLeftClose, PanelLeft, Upload,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
@@ -22,6 +22,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
 import { TabBar } from '@/components/ui/Tabs'
+import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
@@ -47,7 +48,6 @@ import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { useToast } from '@/components/ui/Toast'
 import {
   useDocuments,
-  useDocumentCounts,
   useDocument,
   useDeleteDocument,
   useArchiveDocument,
@@ -228,137 +228,6 @@ function ClassificationBadge({ classification }: { classification: string }) {
 function formatDate(d: string | null | undefined) {
   if (!d) return '--'
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
-
-// -- KPI Card -----------------------------------------------------------------
-
-function KpiCard({ label, count, color, icon: Icon, onClick }: {
-  label: string
-  count: number
-  color: string
-  icon: typeof FileText
-  onClick?: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'flex flex-col gap-1 p-4 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-left min-w-[140px]',
-        onClick && 'cursor-pointer',
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <div className={cn('flex items-center justify-center w-8 h-8 rounded-md', color)}>
-          <Icon size={16} />
-        </div>
-        <span className="text-2xl font-bold tabular-nums">{count}</span>
-      </div>
-      <span className="text-xs text-muted-foreground">{label}</span>
-    </button>
-  )
-}
-
-// -- Dashboard Tab ------------------------------------------------------------
-
-function DashboardView({ documents, counts, onNavigateToDocuments }: {
-  documents: REDocument[]
-  counts: { draft: number; in_review: number; approved: number; published: number; obsolete: number; archived: number }
-  onNavigateToDocuments: (statusFilter?: string) => void
-}) {
-  const { t } = useTranslation()
-
-  const recentDocs = useMemo(
-    () => [...documents].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 10),
-    [documents],
-  )
-
-  return (
-    <div className="p-4 space-y-6">
-      {/* KPI Cards */}
-      <div>
-        <h2 className="text-sm font-semibold text-foreground mb-3">{t('common.overview', 'Vue d\'ensemble')}</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <KpiCard
-            label="Brouillons"
-            count={counts.draft}
-            color="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
-            icon={FileText}
-            onClick={() => onNavigateToDocuments('draft')}
-          />
-          <KpiCard
-            label="En revue"
-            count={counts.in_review}
-            color="bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300"
-            icon={Eye}
-            onClick={() => onNavigateToDocuments('in_review')}
-          />
-          <KpiCard
-            label="Approuves"
-            count={counts.approved}
-            color="bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-300"
-            icon={CheckCircle2}
-            onClick={() => onNavigateToDocuments('approved')}
-          />
-          <KpiCard
-            label="Publies"
-            count={counts.published}
-            color="bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300"
-            icon={Globe}
-            onClick={() => onNavigateToDocuments('published')}
-          />
-          <KpiCard
-            label="Obsoletes"
-            count={counts.obsolete}
-            color="bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300"
-            icon={XCircle}
-            onClick={() => onNavigateToDocuments('obsolete')}
-          />
-          <KpiCard
-            label="Archives"
-            count={counts.archived}
-            color="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-            icon={Archive}
-            onClick={() => onNavigateToDocuments('archived')}
-          />
-        </div>
-      </div>
-
-      {/* Recent Activity */}
-      <div>
-        <h2 className="text-sm font-semibold text-foreground mb-3">Activite recente</h2>
-        {recentDocs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <FileText size={32} className="mb-2 opacity-40" />
-            <p className="text-sm">Aucun document pour le moment</p>
-          </div>
-        ) : (
-          <div className="border border-border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Numero</th>
-                  <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Titre</th>
-                  <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Statut</th>
-                  <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Mis a jour</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentDocs.map((doc) => (
-                  <tr key={doc.id} className="border-b border-border last:border-0 hover:bg-muted/20">
-                    <td className="px-3 py-2 font-medium text-foreground">{doc.number}</td>
-                    <td className="px-3 py-2 text-foreground truncate max-w-[300px]">{doc.title}</td>
-                    <td className="px-3 py-2"><StatusBadge status={doc.status} /></td>
-                    <td className="px-3 py-2 text-muted-foreground text-xs tabular-nums">{formatDate(doc.updated_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  )
 }
 
 // -- Dynamic Workflow Actions (FSM-driven) ------------------------------------
@@ -1583,26 +1452,11 @@ export function ReportEditorPage() {
     setPage(1)
   }, [])
 
-  // Navigate to documents tab with optional status filter (from dashboard KPI cards)
-  const navigateToDocuments = useCallback((statusFilter?: string) => {
-    setActiveTab('documents')
-    setSearch('')
-    setPage(1)
-    if (statusFilter) {
-      setActiveFilters({ status: statusFilter })
-    } else {
-      setActiveFilters({})
-    }
-  }, [])
-
   // -- Data -------------------------------------------------------------------
 
   const statusFilter = typeof activeFilters.status === 'string' ? activeFilters.status : undefined
   const docTypeFilter = typeof activeFilters.doc_type_id === 'string' ? activeFilters.doc_type_id : undefined
   const classificationFilter = typeof activeFilters.classification === 'string' ? activeFilters.classification : undefined
-
-  // Fetch accurate document status counts via dedicated endpoint
-  const { data: documentCounts } = useDocumentCounts()
 
   // Paginated fetch for the documents tab
   const { data: docsData, isLoading: docsLoading } = useDocuments({
@@ -1775,11 +1629,7 @@ export function ReportEditorPage() {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <DashboardView
-            documents={docsData?.items ?? []}
-            counts={documentCounts ?? { draft: 0, in_review: 0, approved: 0, published: 0, obsolete: 0, archived: 0 }}
-            onNavigateToDocuments={navigateToDocuments}
-          />
+          <ModuleDashboard module="papyrus" />
         )
 
       case 'documents':

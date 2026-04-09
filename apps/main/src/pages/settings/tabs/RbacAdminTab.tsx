@@ -497,14 +497,13 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
     })
   }, [currentPermCodes])
 
-  const toggleAllCodes = useCallback((codes: string[]) => {
+  const toggleAllCodes = useCallback((codes: string[], granted: boolean) => {
     setPendingPerms((prev) => {
       const base = prev ?? new Set(currentPermCodes)
       const updated = new Set(base)
-      const allChecked = codes.every((c) => updated.has(c))
       for (const c of codes) {
-        if (allChecked) updated.delete(c)
-        else updated.add(c)
+        if (granted) updated.add(c)
+        else updated.delete(c)
       }
       return updated
     })
@@ -730,7 +729,7 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
           activePerms={activePerms}
           isProtected={isProtected}
           onToggle={togglePermission}
-          onToggleAll={toggleAllCodes}
+          onSetMany={toggleAllCodes}
           search={permSearch}
           onSearchChange={setPermSearch}
         />
@@ -1250,7 +1249,7 @@ function PermissionMatrix({
   activePerms,
   isProtected,
   onToggle,
-  onToggleAll,
+  onSetMany,
   search,
   onSearchChange,
   permSources,
@@ -1259,7 +1258,7 @@ function PermissionMatrix({
   activePerms: Set<string>
   isProtected: boolean
   onToggle: (code: string) => void
-  onToggleAll: (codes: string[]) => void
+  onSetMany: (codes: string[], granted: boolean) => void
   search: string
   onSearchChange: (v: string) => void
   /** Optional source tracking for badge display (code → source) */
@@ -1320,6 +1319,24 @@ function PermissionMatrix({
         >
           <ChevronRight size={12} />
         </button>
+        {!isProtected && (
+          <>
+            <button
+              type="button"
+              onClick={() => onSetMany(allPermissions.map((p) => p.code), true)}
+              className="text-[10px] text-primary hover:text-primary/80 font-medium px-2 py-1"
+            >
+              Tout accorder
+            </button>
+            <button
+              type="button"
+              onClick={() => onSetMany(allPermissions.map((p) => p.code), false)}
+              className="text-[10px] text-muted-foreground hover:text-foreground font-medium px-2 py-1"
+            >
+              Tout retirer
+            </button>
+          </>
+        )}
       </div>
 
       {/* Matrix table */}
@@ -1332,7 +1349,6 @@ function PermissionMatrix({
           matrix.map((mod) => {
             const isCollapsed = collapsedModules.has(mod.module)
             const checkedCount = mod.allCodes.filter((c) => activePerms.has(c)).length
-            const allChecked = checkedCount === mod.allCodes.length
 
             return (
               <div key={mod.module} className="border-b border-border/50 last:border-b-0">
@@ -1347,12 +1363,22 @@ function PermissionMatrix({
                     <span className="text-xs font-semibold text-foreground uppercase tracking-wider truncate">{mod.module}</span>
                   </button>
                   {!isProtected && (
-                    <button
-                      onClick={() => onToggleAll(mod.allCodes)}
-                      className="text-[10px] text-primary hover:text-primary/80 font-medium shrink-0 px-1"
-                    >
-                      {allChecked ? 'Aucun' : 'Tout'}
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => onSetMany(mod.allCodes, true)}
+                        className="text-[10px] text-primary hover:text-primary/80 font-medium px-1"
+                      >
+                        Tout
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onSetMany(mod.allCodes, false)}
+                        className="text-[10px] text-muted-foreground hover:text-foreground font-medium px-1"
+                      >
+                        Aucun
+                      </button>
+                    </div>
                   )}
                   <span className="text-[10px] text-muted-foreground shrink-0">
                     {checkedCount}/{mod.allCodes.length}
@@ -1682,28 +1708,19 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
     })
   }, [currentOverrides, rolePermCodes])
 
-  const toggleAllCodes = useCallback((codes: string[]) => {
+  const toggleAllCodes = useCallback((codes: string[], granted: boolean) => {
     setPendingOverrides((prev) => {
       const base = new Map(prev ?? currentOverrides)
-      // Check if all codes are currently active
-      const allActive = codes.every((c) => {
-        const isInRole = rolePermCodes.has(c)
-        const override = base.get(c)
-        if (override === true) return true
-        if (override === false) return false
-        return isInRole
-      })
-
       for (const c of codes) {
         const isInRole = rolePermCodes.has(c)
-        if (allActive) {
-          // Deselect all: revoke role perms, remove group grants
+        if (granted) {
+          // Select all: grant non-role perms, remove role revokes.
+          if (isInRole) base.delete(c)
+          else base.set(c, true)
+        } else {
+          // Deselect all: revoke role perms, remove group grants.
           if (isInRole) base.set(c, false)
           else base.delete(c)
-        } else {
-          // Select all: grant non-role perms, remove role revokes
-          if (isInRole) base.delete(c) // restore role grant
-          else base.set(c, true) // add via group
         }
       }
       return base
@@ -2112,7 +2129,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
           activePerms={activePerms}
           isProtected={isProtected}
           onToggle={togglePermission}
-          onToggleAll={toggleAllCodes}
+          onSetMany={toggleAllCodes}
           search={permSearch}
           onSearchChange={setPermSearch}
           permSources={permSources}

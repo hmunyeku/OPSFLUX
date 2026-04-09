@@ -165,6 +165,14 @@ export function PermissionMatrix({ userId, maxHeight = '500px', compact = false,
     })
   }
 
+  const applyBulkState = (codes: string[], granted: boolean) => {
+    if (!editable || !onToggle) return
+    for (const code of codes) {
+      const checked = activePerms.has(code)
+      if (checked !== granted) onToggle(code, granted)
+    }
+  }
+
   const isLoading = permsLoading || effectiveLoading
 
   if (isLoading) {
@@ -207,6 +215,26 @@ export function PermissionMatrix({ userId, maxHeight = '500px', compact = false,
           >
             <ChevronRight size={12} />
           </button>
+          {editable && (
+            <>
+              <button
+                type="button"
+                onClick={() => applyBulkState(allPermissions.map((p) => p.code), true)}
+                className="text-[10px] text-primary hover:text-primary/80 font-medium px-2 py-1"
+                title="Accorder toutes les permissions"
+              >
+                Tout accorder
+              </button>
+              <button
+                type="button"
+                onClick={() => applyBulkState(allPermissions.map((p) => p.code), false)}
+                className="text-[10px] text-muted-foreground hover:text-foreground font-medium px-2 py-1"
+                title="Retirer toutes les permissions"
+              >
+                Tout retirer
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -226,6 +254,7 @@ export function PermissionMatrix({ userId, maxHeight = '500px', compact = false,
           matrix.map((mod) => {
             const isCollapsed = collapsedModules.has(mod.module)
             const checkedCount = mod.allCodes.filter((c) => activePerms.has(c)).length
+            const allChecked = checkedCount === mod.allCodes.length && mod.allCodes.length > 0
 
             return (
               <div key={mod.module} className="border-b border-border/50 last:border-b-0">
@@ -239,8 +268,28 @@ export function PermissionMatrix({ userId, maxHeight = '500px', compact = false,
                     <FolderTree size={13} className="text-muted-foreground shrink-0" />
                     <span className="text-xs font-semibold text-foreground uppercase tracking-wider truncate">{mod.module}</span>
                   </button>
+                  {editable && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => applyBulkState(mod.allCodes, true)}
+                        className="text-[10px] text-primary hover:text-primary/80 font-medium px-1"
+                        title={`Accorder toutes les permissions du module ${mod.module}`}
+                      >
+                        Tout
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyBulkState(mod.allCodes, false)}
+                        className="text-[10px] text-muted-foreground hover:text-foreground font-medium px-1"
+                        title={`Retirer toutes les permissions du module ${mod.module}`}
+                      >
+                        Aucun
+                      </button>
+                    </div>
+                  )}
                   <span className="text-[10px] text-muted-foreground shrink-0">
-                    {checkedCount}/{mod.allCodes.length}
+                    {allChecked ? mod.allCodes.length : checkedCount}/{mod.allCodes.length}
                   </span>
                 </div>
 

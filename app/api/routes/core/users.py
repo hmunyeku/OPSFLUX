@@ -199,7 +199,7 @@ async def create_user(
     # Auto-assign user to entity's default group (if entity has one)
     target_entity_id = body.default_entity_id or entity_id
     if target_entity_id:
-        from app.models.common import UserGroup, UserGroupMember, EntityUserAssignment
+        from app.models.common import UserGroup, UserGroupMember
         # Find entity's default group (first group linked to this entity)
         default_group = await db.execute(
             select(UserGroup).where(

@@ -7072,6 +7072,16 @@ async def create_external_link(
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
+
+    # External links require at least one allowed company (for contact matching)
+    allowed_ids, _ = await _get_ads_allowed_company_scope(db, ads_id=ads.id)
+    if not allowed_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="Impossible de creer un lien externe : aucune entreprise autorisee n'est configuree sur cette AdS. "
+                   "Ajoutez au moins une entreprise dans les parametres de l'AdS avant de generer un lien.",
+        )
+
     if request is not None:
         can_manage_ads = await _can_manage_ads(
             ads, current_user=current_user, request=request, entity_id=entity_id, db=db

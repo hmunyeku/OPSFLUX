@@ -297,20 +297,36 @@ function TourSpotlight({
     h: targetRect.height + padding * 2,
   }
 
-  // Compute tooltip position: prefer bottom, fallback to top if near bottom edge
+  // Smart tooltip positioning: handles tall elements (sidebar), wide elements (topbar), small buttons
   const vw = window.innerWidth
   const vh = window.innerHeight
   const tooltipW = Math.min(300, vw - 32)
-  const spaceBelow = vh - (cutout.y + cutout.h)
-  const placeBelow = spaceBelow > 160
+  const tooltipH = 200 // estimated tooltip height
+  const gap = 12
 
-  const tooltipStyle: React.CSSProperties = {
-    position: 'fixed',
-    width: tooltipW,
-    zIndex: 10001,
-    ...(placeBelow
-      ? { top: cutout.y + cutout.h + 12, left: Math.max(16, Math.min(cutout.x, vw - tooltipW - 16)) }
-      : { bottom: vh - cutout.y + 12, left: Math.max(16, Math.min(cutout.x, vw - tooltipW - 16)) }),
+  const spaceRight = vw - (cutout.x + cutout.w)
+  const spaceBelow = vh - (cutout.y + cutout.h)
+  const spaceLeft = cutout.x
+  const isTall = cutout.h > vh * 0.5 // element taller than half viewport
+
+  const tooltipStyle: React.CSSProperties = { position: 'fixed', width: tooltipW, zIndex: 10001 }
+
+  if (isTall && spaceRight > tooltipW + gap) {
+    // Tall element (sidebar): place tooltip to the right, vertically centered
+    tooltipStyle.left = cutout.x + cutout.w + gap
+    tooltipStyle.top = Math.max(60, Math.min(cutout.y + cutout.h / 2 - tooltipH / 2, vh - tooltipH - 16))
+  } else if (isTall && spaceLeft > tooltipW + gap) {
+    // Tall element but no space right: place to the left
+    tooltipStyle.left = cutout.x - tooltipW - gap
+    tooltipStyle.top = Math.max(60, Math.min(cutout.y + cutout.h / 2 - tooltipH / 2, vh - tooltipH - 16))
+  } else if (spaceBelow > tooltipH) {
+    // Normal: place below
+    tooltipStyle.top = cutout.y + cutout.h + gap
+    tooltipStyle.left = Math.max(16, Math.min(cutout.x, vw - tooltipW - 16))
+  } else {
+    // Fallback: place above
+    tooltipStyle.bottom = vh - cutout.y + gap
+    tooltipStyle.left = Math.max(16, Math.min(cutout.x, vw - tooltipW - 16))
   }
 
   return ReactDOM.createPortal(

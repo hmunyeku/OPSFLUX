@@ -1603,6 +1603,154 @@ async def provider_planner_pax_by_site(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  Papyrus Module — Providers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def provider_papyrus_overview(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """KPI: Papyrus document summary with workflow and revision totals."""
+    r = await db.execute(text("""
+        SELECT
+            COUNT(*) AS total_documents,
+            COUNT(*) FILTER (WHERE status = 'draft') AS draft_count,
+            COUNT(*) FILTER (WHERE status = 'in_review') AS in_review_count,
+            COUNT(*) FILTER (WHERE status IN ('approved', 'published')) AS ready_count,
+            COUNT(*) FILTER (WHERE status = 'archived') AS archived_count
+        FROM documents
+        WHERE entity_id = :eid AND deleted_at IS NULL
+    """), {"eid": str(entity_id)})
+    row = r.mappings().first()
+
+    rev = await db.execute(text("""
+        SELECT COUNT(*) AS revision_count
+        FROM revisions
+        WHERE entity_id = :eid
+    """), {"eid": str(entity_id)})
+    rev_row = rev.mappings().first()
+
+    return {
+        "value": row["total_documents"] if row else 0,
+        "label": "Documents Papyrus",
+        "unit": "documents",
+        "trend": None,
+        "details": {
+            "draft": row["draft_count"] if row else 0,
+            "in_review": row["in_review_count"] if row else 0,
+            "ready": row["ready_count"] if row else 0,
+            "archived": row["archived_count"] if row else 0,
+            "revisions": rev_row["revision_count"] if rev_row else 0,
+        },
+    }
+
+
+async def provider_papyrus_by_status(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Chart: Papyrus documents by workflow status."""
+    r = await db.execute(text("""
+        SELECT status AS name, COUNT(*) AS value
+        FROM documents
+        WHERE entity_id = :eid AND deleted_at IS NULL
+        GROUP BY status
+        ORDER BY CASE status
+            WHEN 'draft' THEN 1
+            WHEN 'in_review' THEN 2
+            WHEN 'approved' THEN 3
+            WHEN 'published' THEN 4
+            WHEN 'obsolete' THEN 5
+            WHEN 'archived' THEN 6
+            ELSE 7
+        END
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()]}
+
+
+async def provider_papyrus_by_type(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Chart: Papyrus documents by document type."""
+    r = await db.execute(text("""
+        SELECT
+            COALESCE(dt.code, 'Sans type') AS name,
+            COUNT(*) AS value
+        FROM documents d
+        LEFT JOIN doc_types dt ON dt.id = d.doc_type_id
+        WHERE d.entity_id = :eid AND d.deleted_at IS NULL
+        GROUP BY COALESCE(dt.code, 'Sans type')
+        ORDER BY value DESC, name
+        LIMIT 12
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()]}
+
+
+async def provider_papyrus_recent_documents(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """Table: most recently updated Papyrus documents."""
+    r = await db.execute(text("""
+        SELECT
+            d.id,
+            d.number,
+            d.title,
+            d.status,
+            d.updated_at,
+            d.created_at,
+            COALESCE(dt.code, '-') AS doc_type_code,
+            COALESCE(rv.rev_code, '-') AS current_revision
+        FROM documents d
+        LEFT JOIN doc_types dt ON dt.id = d.doc_type_id
+        LEFT JOIN revisions rv ON rv.id = d.current_revision_id
+        WHERE d.entity_id = :eid AND d.deleted_at IS NULL
+        ORDER BY COALESCE(d.updated_at, d.created_at) DESC
+        LIMIT 15
+    """), {"eid": str(entity_id)})
+    return {
+        "columns": [
+            {"key": "number", "label": "Numero"},
+            {"key": "title", "label": "Titre"},
+            {"key": "doc_type_code", "label": "Type"},
+            {"key": "status", "label": "Statut"},
+            {"key": "current_revision", "label": "Revision"},
+            {"key": "updated_at", "label": "Mis a jour"},
+        ],
+        "rows": [dict(row) for row in r.mappings().all()],
+    }
+
+
+async def provider_papyrus_forms_overview(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    """KPI: Papyrus forms, pending external submissions, and failed dispatches."""
+    r = await db.execute(text("""
+        SELECT
+            (SELECT COUNT(*) FROM papyrus_forms WHERE entity_id = :eid AND is_active = TRUE) AS active_forms,
+            (SELECT COUNT(*) FROM papyrus_external_links WHERE entity_id = :eid AND is_revoked = FALSE) AS live_links,
+            (SELECT COUNT(*) FROM papyrus_external_submissions WHERE entity_id = :eid AND status = 'pending') AS pending_submissions,
+            (SELECT COUNT(*) FROM papyrus_dispatch_runs WHERE entity_id = :eid AND status = 'failed') AS failed_dispatches
+    """), {"eid": str(entity_id)})
+    row = r.mappings().first()
+    return {
+        "value": row["pending_submissions"] if row else 0,
+        "label": "Collecte a traiter",
+        "unit": "soumissions",
+        "trend": None,
+        "details": {
+            "forms": row["active_forms"] if row else 0,
+            "links": row["live_links"] if row else 0,
+            "pending_submissions": row["pending_submissions"] if row else 0,
+            "failed_dispatches": row["failed_dispatches"] if row else 0,
+        },
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Workflow Module — Providers
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1740,6 +1888,12 @@ _PROVIDER_MAP: dict[str, Any] = {
     "planner_by_status": provider_planner_by_status,
     "planner_conflicts_kpi": provider_planner_conflicts_kpi,
     "planner_pax_by_site": provider_planner_pax_by_site,
+    # ── Papyrus module ──
+    "papyrus_overview": provider_papyrus_overview,
+    "papyrus_by_status": provider_papyrus_by_status,
+    "papyrus_by_type": provider_papyrus_by_type,
+    "papyrus_recent_documents": provider_papyrus_recent_documents,
+    "papyrus_forms_overview": provider_papyrus_forms_overview,
     # ── Workflow module ──
     "workflow_overview": provider_workflow_overview,
     "workflow_by_definition": provider_workflow_by_definition,

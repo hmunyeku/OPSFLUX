@@ -351,6 +351,42 @@ PREDEFINED_WIDGETS: dict[str, dict[str, Any]] = {
     "planner_by_status": {"type": "chart", "title": "Activités par statut", "source": "planner", "roles": ["*"]},
     "planner_conflicts_kpi": {"type": "kpi", "title": "Conflits actifs", "source": "planner", "roles": ["*"]},
     "planner_pax_by_site": {"type": "chart", "title": "PAX par site", "source": "planner", "roles": ["*"]},
+    # ── Papyrus ──
+    "papyrus_overview": {
+        "type": "kpi",
+        "title": "Vue d'ensemble Papyrus",
+        "description": "Documents, brouillons, validations et révisions",
+        "source": "papyrus",
+        "roles": ["*"],
+    },
+    "papyrus_by_status": {
+        "type": "chart",
+        "title": "Documents par statut",
+        "description": "Répartition documentaire par état de workflow",
+        "source": "papyrus",
+        "roles": ["*"],
+    },
+    "papyrus_by_type": {
+        "type": "chart",
+        "title": "Documents par type",
+        "description": "Répartition documentaire par type Papyrus",
+        "source": "papyrus",
+        "roles": ["*"],
+    },
+    "papyrus_recent_documents": {
+        "type": "table",
+        "title": "Documents récents",
+        "description": "Derniers documents et révisions Papyrus",
+        "source": "papyrus",
+        "roles": ["*"],
+    },
+    "papyrus_forms_overview": {
+        "type": "kpi",
+        "title": "Collecte externe",
+        "description": "Formulaires, soumissions externes et dispatchs Papyrus",
+        "source": "papyrus",
+        "roles": ["*"],
+    },
     # ── Workflow ──
     "workflow_overview": {"type": "kpi", "title": "Vue d'ensemble workflow", "source": "workflow", "roles": ["*"]},
     "workflow_by_definition": {"type": "chart", "title": "Par workflow", "source": "workflow", "roles": ["*"]},

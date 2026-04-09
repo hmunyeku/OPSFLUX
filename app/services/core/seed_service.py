@@ -526,6 +526,9 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
         # Planner (advanced)
         "planner_overview": "kpi", "planner_by_type": "chart", "planner_by_status": "chart",
         "planner_conflicts_kpi": "kpi", "planner_pax_by_site": "chart",
+        # Papyrus
+        "papyrus_overview": "kpi", "papyrus_by_status": "chart", "papyrus_by_type": "chart",
+        "papyrus_recent_documents": "table", "papyrus_forms_overview": "kpi",
         # Workflow
         "workflow_overview": "kpi", "workflow_by_definition": "chart", "workflow_pending": "table",
     }
@@ -938,6 +941,30 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
                 _make_widget("support_tickets_recent", "Derniers tickets",
                              {"source": "support"},
                              {"x": 0, "y": 6, "w": 9, "h": 4}),
+            ],
+        },
+        # Papyrus module dashboard
+        {
+            "name": "Papyrus",
+            "target_role": None,
+            "target_module": "papyrus",
+            "tab_order": 0,
+            "widgets": [
+                _make_widget("papyrus_overview", "Documents",
+                             {"source": "papyrus", "icon_color": "amber"},
+                             {"x": 0, "y": 0, "w": 3, "h": 2}),
+                _make_widget("papyrus_forms_overview", "Collecte externe",
+                             {"source": "papyrus", "icon_color": "emerald"},
+                             {"x": 3, "y": 0, "w": 3, "h": 2}),
+                _make_widget("papyrus_by_status", "Par statut",
+                             {"source": "papyrus", "chart_type": "pie", "x_field": "name", "y_fields": ["value"]},
+                             {"x": 6, "y": 0, "w": 3, "h": 4}),
+                _make_widget("papyrus_by_type", "Par type",
+                             {"source": "papyrus", "chart_type": "bar", "x_field": "name", "y_fields": ["value"]},
+                             {"x": 9, "y": 0, "w": 3, "h": 4}),
+                _make_widget("papyrus_recent_documents", "Documents recents",
+                             {"source": "papyrus"},
+                             {"x": 0, "y": 2, "w": 12, "h": 5}),
             ],
         },
         # Workflow module dashboard — BI professional layout

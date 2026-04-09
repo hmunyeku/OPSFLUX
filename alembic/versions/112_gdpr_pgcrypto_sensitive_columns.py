@@ -8,14 +8,14 @@ Note: Actual column encryption (converting plaintext to pgp_sym_encrypt)
 is handled by a one-time migration script, not this DDL migration,
 because it requires the encryption key at runtime.
 
-Revision ID: 112
-Revises: 111
+Revision ID: 112_gdpr_pgcrypto_sensitive_columns
+Revises: 111_add_papyrus_dispatch_runs
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "112"
-down_revision = "111"
+revision = "112_gdpr_pgcrypto_sensitive_columns"
+down_revision = "111_add_papyrus_dispatch_runs"
 branch_labels = None
 depends_on = None
 

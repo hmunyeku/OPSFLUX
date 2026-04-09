@@ -1162,6 +1162,24 @@ async def _import_project_tasks(
 
     wanted_ids = set(task_selection.get("task_ids") or [])
 
+    # ── Auto-include ancestor tasks for selected children (spec §1.3) ──
+    # Build ref→parent_ref map, then walk up from each wanted_id to root
+    if mode == "some" and wanted_ids:
+        ref_to_parent: dict[str, str | None] = {}
+        for gt in tree_tasks:
+            ref = str(gt.get("ref_ta") or gt.get("_id") or "")
+            if ref:
+                ref_to_parent[ref] = gt.get("_parent_ref")
+        ancestors_to_add: set[str] = set()
+        for wid in wanted_ids:
+            current = ref_to_parent.get(wid)
+            while current:
+                ancestors_to_add.add(current)
+                current = ref_to_parent.get(current)
+        if ancestors_to_add:
+            logger.info("Gouti sync: auto-including %d ancestor tasks for %d selected", len(ancestors_to_add - wanted_ids), len(wanted_ids))
+            wanted_ids |= ancestors_to_add
+
     from app.models.common import ProjectTask, ProjectMilestone
 
     # Map Gouti ref → local ProjectTask.id so children can point to parents

@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_current_entity
 from app.core.database import get_db
-from app.core.audit import record_audit_event
+from app.core.audit import record_audit
 from app.core.security import hash_password
 from app.models.common import User
 
@@ -127,7 +127,7 @@ async def request_data_export(
     Queues a background job that collects all user data, writes a JSON
     file, and sends a notification when ready for download.
     """
-    await record_audit_event(
+    await record_audit(
         db, user_id=current_user.id,
         action="gdpr.data_export_requested",
         resource_type="user", resource_id=str(current_user.id),
@@ -276,7 +276,7 @@ async def anonymize_account(
     anon_email = f"anonymized_{anon_id}@deleted.opsflux.io"
 
     # Record audit BEFORE anonymizing
-    await record_audit_event(
+    await record_audit(
         db, user_id=current_user.id,
         action="gdpr.account_anonymized",
         resource_type="user", resource_id=str(current_user.id),
@@ -336,7 +336,7 @@ async def record_consent(
     db: AsyncSession = Depends(get_db),
 ):
     """Record a consent decision (RGPD Art. 7)."""
-    await record_audit_event(
+    await record_audit(
         db, user_id=current_user.id,
         action=f"gdpr.consent.{'granted' if body.granted else 'withdrawn'}",
         resource_type="consent", resource_id=body.consent_type,
@@ -395,7 +395,7 @@ async def create_breach_report(
     db: AsyncSession = Depends(get_db),
 ):
     """Record a data breach incident (RGPD Art. 33/34). Admin only."""
-    await record_audit_event(
+    await record_audit(
         db, user_id=current_user.id,
         action="gdpr.breach_report",
         resource_type="breach", resource_id=f"breach_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}",

@@ -272,54 +272,52 @@ async def _sync_default_workflow_definition(db: AsyncSession, *, entity_id: UUID
         logger.info("Seed: synced workflow definition '%s'", definition_data["slug"])
 
 
-async def seed_dev_data(db: AsyncSession) -> None:
-    """Seed development data — idempotent."""
+async def seed_production_essentials(db: AsyncSession) -> None:
+    """Seed production-essential data — idempotent, runs on EVERY startup.
 
-    # ── Entity: Perenco Cameroun ─────────────────────────────────
-    # Look for existing entity by multiple possible codes (handles legacy "CM" or new "PER_CMR")
+    Creates ONLY what the application needs to function:
+    - Default entity (from env vars)
+    - Admin superuser (from env vars)
+    - SUPER_ADMIN group + assignment
+    - Workflow definitions
+    - Dashboard tabs
+    - Email & PDF templates
+    - Reference numbering sequences
+    - Dictionary entries (visa types, health conditions, etc.)
+    - Compliance matrix
+    """
+
+    # ── Entity ──────────────────────────────────────────────────
+    entity_code = os.environ.get("FIRST_ENTITY_CODE", "PER_CMR")
+    entity_name = os.environ.get("FIRST_ENTITY_NAME", "Perenco Cameroun")
+
     result = await db.execute(
-        select(Entity).where(Entity.code.in_(["PER_CMR", "CM"])).order_by(Entity.created_at)
+        select(Entity).where(Entity.code == entity_code)
     )
     entity = result.scalars().first()
     if not entity:
         entity = Entity(
-            code="PER_CMR",
-            name="Perenco Cameroun",
-            trade_name="Perenco Cameroun S.A.",
-            legal_form="SA",
-            country="CM",
-            timezone="Africa/Douala",
+            code=entity_code,
+            name=entity_name,
+            country=os.environ.get("FIRST_ENTITY_COUNTRY", "CM"),
+            timezone=os.environ.get("FIRST_ENTITY_TIMEZONE", "Africa/Douala"),
             language="fr",
-            currency="XAF",
+            currency=os.environ.get("FIRST_ENTITY_CURRENCY", "XAF"),
             fiscal_year_start=1,
-            industry="Oil & Gas — Exploration & Production",
-            address_line1="Rue de la Chambre de Commerce",
-            city="Douala",
-            state="Littoral",
-            zip_code="BP 2199",
-            phone="+237 233 42 64 80",
-            email="contact@perenco-cam.com",
-            website="https://www.perenco.com",
-            social_networks={"linkedin": "https://www.linkedin.com/company/perenco"},
-            opening_hours={
-                "mon": {"open": "07:30", "close": "17:00"},
-                "tue": {"open": "07:30", "close": "17:00"},
-                "wed": {"open": "07:30", "close": "17:00"},
-                "thu": {"open": "07:30", "close": "17:00"},
-                "fri": {"open": "07:30", "close": "16:00"},
-            },
         )
         db.add(entity)
         await db.flush()
-        logger.info("Seed: created entity PER_CMR")
+        logger.info("Seed: created entity %s", entity_code)
 
-    # ── Admin user ───────────────────────────────────────────────
-    result = await db.execute(select(User).where(User.email == "admin@opsflux.io"))
-    admin = result.scalar_one_or_none()
+    # ── Admin user ──────────────────────────────────────────────
+    admin_email = os.environ.get("FIRST_SUPERUSER", "admin@opsflux.io")
     superuser_password = os.environ.get("FIRST_SUPERUSER_PASSWORD", "Admin@2026!")
+
+    result = await db.execute(select(User).where(User.email == admin_email))
+    admin = result.scalar_one_or_none()
     if not admin:
         admin = User(
-            email="admin@opsflux.io",
+            email=admin_email,
             first_name="Admin",
             last_name="OpsFlux",
             hashed_password=hash_password(superuser_password),
@@ -328,15 +326,15 @@ async def seed_dev_data(db: AsyncSession) -> None:
         )
         db.add(admin)
         await db.flush()
-        logger.info("Seed: created admin user admin@opsflux.io")
+        logger.info("Seed: created admin user %s", admin_email)
     else:
         # Validate hash integrity — fix if corrupted (e.g. shell $ escaping)
         pw_hash = admin.hashed_password or ""
         if not pw_hash.startswith("$2b$") or len(pw_hash) != 60:
             admin.hashed_password = hash_password(superuser_password)
-            logger.warning("Seed: admin password hash was corrupted — reset from FIRST_SUPERUSER_PASSWORD")
+            logger.warning("Seed: admin password hash was corrupted — reset")
 
-    # ── Assign SUPER_ADMIN role to admin ─────────────────────────
+    # ── SUPER_ADMIN group ───────────────────────────────────────
     result = await db.execute(
         select(UserGroup).where(
             UserGroup.entity_id == entity.id,
@@ -345,16 +343,12 @@ async def seed_dev_data(db: AsyncSession) -> None:
     )
     admin_group = result.scalars().first()
     if not admin_group:
-        admin_group = UserGroup(
-            entity_id=entity.id,
-            name="Super Administrators",
-        )
+        admin_group = UserGroup(entity_id=entity.id, name="Super Administrators")
         db.add(admin_group)
         await db.flush()
         db.add(UserGroupRole(group_id=admin_group.id, role_code="SUPER_ADMIN"))
         logger.info("Seed: created SUPER_ADMIN group")
 
-    # Always ensure admin is a member (handles user recreation with new UUID)
     result = await db.execute(
         select(UserGroupMember).where(
             UserGroupMember.user_id == admin.id,
@@ -365,52 +359,48 @@ async def seed_dev_data(db: AsyncSession) -> None:
         db.add(UserGroupMember(user_id=admin.id, group_id=admin_group.id))
         logger.info("Seed: assigned SUPER_ADMIN to admin")
 
-    # ── Sample assets (ar_fields → ar_sites → ar_installations) ──
-    from app.models.asset_registry import OilField as Field, OilSite as Site
-
-    result = await db.execute(select(Installation).where(Installation.code == "EBOME"))
-    if not result.scalar_one_or_none():
-        # Field
-        field = Field(entity_id=entity.id, code="PCM", name="Perenco Cameroon",
-                      country="CM", operator="Perenco", environment="OFFSHORE", status="OPERATIONAL")
-        db.add(field)
-        await db.flush()
-
-        # Sites
-        site_ebome = Site(entity_id=entity.id, field_id=field.id, code="EBOME", name="Site Ebome",
-                          site_type="PRODUCTION", environment="OFFSHORE", country="CM", manned=True, status="OPERATIONAL")
-        site_munja = Site(entity_id=entity.id, field_id=field.id, code="MUNJA", name="Site Munja",
-                          site_type="PRODUCTION", environment="ONSHORE", country="CM", manned=True, status="OPERATIONAL")
-        site_wouri = Site(entity_id=entity.id, field_id=field.id, code="WOURI", name="Base Wouri",
-                          site_type="SHORE_BASE", environment="ONSHORE", country="CM", manned=True, status="OPERATIONAL")
-        db.add_all([site_ebome, site_munja, site_wouri])
-        await db.flush()
-
-        # Installations
-        for site, inst_code, inst_name, itype, env, lat, lon in [
-            (site_ebome, "EBOME", "Champ Ebome", "CPF", "OFFSHORE", 2.8, 9.8),
-            (site_ebome, "ESF1", "Plateforme ESF1", "FIXED_PLATFORM", "OFFSHORE", 2.83, 9.77),
-            (site_ebome, "KLF3", "Plateforme KLF3", "FIXED_PLATFORM", "OFFSHORE", 2.81, 9.76),
-            (site_munja, "MUNJA", "Munja", "ONSHORE_PLANT", "ONSHORE", 2.82, 9.78),
-            (site_wouri, "WOURI", "Base Logistique Wouri", "ONSHORE_PLANT", "ONSHORE", 4.05, 9.7),
-        ]:
-            db.add(Installation(
-                entity_id=entity.id, site_id=site.id, code=inst_code, name=inst_name,
-                installation_type=itype, environment=env, status="OPERATIONAL",
-                is_manned=True, latitude=lat, longitude=lon,
-            ))
-
-        logger.info("Seed: created sample assets (field → sites → installations)")
-
-    # ── Workflow definitions ─────────────────────────────────────
+    # ── Workflow definitions ────────────────────────────────────
     for workflow_definition in _default_workflow_definitions():
-        await _sync_default_workflow_definition(
-            db,
-            entity_id=entity.id,
-            definition_data=workflow_definition,
-        )
+        await _sync_default_workflow_definition(db, entity_id=entity.id, definition_data=workflow_definition)
 
-    # ── Sample test users with different roles ─────────────────
+    # ── Dashboard tabs ──────────────────────────────────────────
+    await seed_dashboard_tabs(db, entity.id)
+
+    # ── Email templates ─────────────────────────────────────────
+    await seed_email_templates(db, entity.id, admin.id)
+
+    # ── PDF templates ───────────────────────────────────────────
+    await seed_pdf_templates(db, entity.id, admin.id)
+
+    # ── Reference numbering ─────────────────────────────────────
+    await seed_reference_numbering(db, entity.id)
+
+    # ── Dictionary entries ──────────────────────────────────────
+    await seed_dictionary_entries(db)
+
+    # ── Compliance matrix ───────────────────────────────────────
+    await seed_compliance_matrix(db, entity.id)
+
+    await db.commit()
+    logger.info("Seed: production essentials seeded successfully")
+
+
+async def seed_dev_data(db: AsyncSession) -> None:
+    """Seed development data — calls production essentials + adds test data.
+
+    Only runs when DEV_SEED_ON_STARTUP is enabled in development.
+    """
+    # First, seed all production essentials
+    await seed_production_essentials(db)
+
+    # ── Get entity + admin for test data ────────────────────────
+    entity_code = os.environ.get("FIRST_ENTITY_CODE", "PER_CMR")
+    result = await db.execute(select(Entity).where(Entity.code == entity_code))
+    entity = result.scalars().first()
+    if not entity:
+        return
+
+    # ── Sample test users with different roles ──────────────────
     test_users = [
         ("cds@opsflux.io", "Chef", "De Site", "CDS"),
         ("hse@opsflux.io", "Coordinateur", "HSE", "HSE_ADMIN"),
@@ -435,7 +425,6 @@ async def seed_dev_data(db: AsyncSession) -> None:
             await db.flush()
             logger.info("Seed: created test user %s", email)
 
-        # Create group for this role if not exists
         result = await db.execute(
             select(UserGroup).where(
                 UserGroup.entity_id == entity.id,
@@ -444,15 +433,11 @@ async def seed_dev_data(db: AsyncSession) -> None:
         )
         group = result.scalars().first()
         if not group:
-            group = UserGroup(
-                entity_id=entity.id,
-                name=f"Groupe {role_code}",
-            )
+            group = UserGroup(entity_id=entity.id, name=f"Groupe {role_code}")
             db.add(group)
             await db.flush()
             db.add(UserGroupRole(group_id=group.id, role_code=role_code))
 
-        # Add user to group if not member
         result = await db.execute(
             select(UserGroupMember).where(
                 UserGroupMember.user_id == user.id,
@@ -461,25 +446,35 @@ async def seed_dev_data(db: AsyncSession) -> None:
         )
         if not result.scalar_one_or_none():
             db.add(UserGroupMember(user_id=user.id, group_id=group.id))
-            logger.info("Seed: assigned %s to group %s", email, role_code)
 
-    # ── Dashboard mandatory tabs per role (spec section 11) ─────
-    await seed_dashboard_tabs(db, entity.id)
+    # ── Sample assets ───────────────────────────────────────────
+    from app.models.asset_registry import OilField as Field, OilSite as Site
 
-    # ── Email templates ────────────────────────────────────────────
-    await seed_email_templates(db, entity.id, admin.id)
-
-    # ── PDF templates ──────────────────────────────────────────────
-    await seed_pdf_templates(db, entity.id, admin.id)
-
-    # ── Reference numbering defaults ───────────────────────────────
-    await seed_reference_numbering(db, entity.id)
-
-    # ── Dictionary entries (visa types, health conditions, etc.) ──
-    await seed_dictionary_entries(db)
-
-    # ── Compliance matrix (postes, referentiels, rules) ──
-    await seed_compliance_matrix(db, entity.id)
+    result = await db.execute(select(Installation).where(Installation.code == "EBOME"))
+    if not result.scalar_one_or_none():
+        field = Field(entity_id=entity.id, code="PCM", name="Perenco Cameroon",
+                      country="CM", operator="Perenco", environment="OFFSHORE", status="OPERATIONAL")
+        db.add(field)
+        await db.flush()
+        site_ebome = Site(entity_id=entity.id, field_id=field.id, code="EBOME", name="Site Ebome",
+                          site_type="PRODUCTION", environment="OFFSHORE", country="CM", manned=True, status="OPERATIONAL")
+        site_munja = Site(entity_id=entity.id, field_id=field.id, code="MUNJA", name="Site Munja",
+                          site_type="PRODUCTION", environment="ONSHORE", country="CM", manned=True, status="OPERATIONAL")
+        site_wouri = Site(entity_id=entity.id, field_id=field.id, code="WOURI", name="Base Wouri",
+                          site_type="SHORE_BASE", environment="ONSHORE", country="CM", manned=True, status="OPERATIONAL")
+        db.add_all([site_ebome, site_munja, site_wouri])
+        await db.flush()
+        for site, code, name, itype, env, lat, lon in [
+            (site_ebome, "EBOME", "Champ Ebome", "CPF", "OFFSHORE", 2.8, 9.8),
+            (site_ebome, "ESF1", "Plateforme ESF1", "FIXED_PLATFORM", "OFFSHORE", 2.83, 9.77),
+            (site_ebome, "KLF3", "Plateforme KLF3", "FIXED_PLATFORM", "OFFSHORE", 2.81, 9.76),
+            (site_munja, "MUNJA", "Munja", "ONSHORE_PLANT", "ONSHORE", 2.82, 9.78),
+            (site_wouri, "WOURI", "Base Logistique Wouri", "ONSHORE_PLANT", "ONSHORE", 4.05, 9.7),
+        ]:
+            db.add(Installation(entity_id=entity.id, site_id=site.id, code=code, name=name,
+                                installation_type=itype, environment=env, status="OPERATIONAL",
+                                is_manned=True, latitude=lat, longitude=lon))
+        logger.info("Seed: created sample assets")
 
     await db.commit()
     logger.info("Seed: development data seeded successfully")

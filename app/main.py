@@ -154,30 +154,21 @@ async def lifespan(app: FastAPI):
     # MCP plugins
     await register_mcp_plugins()
 
-    # Seed dev data only when explicitly enabled.
-    if settings.is_dev and settings.DEV_SEED_ON_STARTUP:
-        from app.core.database import async_session_factory as async_session
-        from app.services.core.seed_service import seed_dev_data
-        logger.warning("DEV_SEED_ON_STARTUP enabled — seeding development data")
-        async with async_session() as session:
-            await seed_dev_data(session)
-    else:
-        logger.info("Development seed skipped at startup")
-
-    # Seed mandatory dashboard tabs (idempotent UPSERT — safe to run every startup)
+    # Production essentials — ALWAYS run (idempotent: entity, admin, workflows, templates, etc.)
     try:
         from app.core.database import async_session_factory
-        from app.services.core.seed_service import seed_dashboard_tabs
-        from sqlalchemy import text
-        async with async_session_factory() as db:
-            # Get all entity IDs
-            entities = (await db.execute(text("SELECT id FROM entities WHERE active = TRUE"))).scalars().all()
-            for eid in entities:
-                await seed_dashboard_tabs(db, eid)
-            await db.commit()
-            logger.info("Dashboard tabs seeded for %d entities", len(entities))
+        from app.services.core.seed_service import seed_production_essentials
+        async with async_session_factory() as session:
+            await seed_production_essentials(session)
     except Exception:
-        logger.exception("Failed to seed dashboard tabs at startup (non-fatal)")
+        logger.exception("Failed to seed production essentials (non-fatal)")
+
+    # Dev-only test data (sample users, sample assets) — only when explicitly enabled
+    if settings.is_dev and settings.DEV_SEED_ON_STARTUP:
+        from app.services.core.seed_service import seed_dev_data
+        logger.warning("DEV_SEED_ON_STARTUP enabled — seeding development test data")
+        async with async_session_factory() as session:
+            await seed_dev_data(session)
 
     # APScheduler
     await start_scheduler()

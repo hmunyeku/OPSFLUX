@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { Users, AlertCircle } from 'lucide-react'
+import { AlertCircle, ChevronLeft, ChevronRight, Check, Lock, FileText, Users, Shield, Send } from 'lucide-react'
 import { t, getLang } from '../lib/i18n'
 import { apiRequest, apiDownload, getTokenFromUrl, isSessionRequiredError, parseApiErrorDetail } from '../lib/api'
 import { sessionStorageKey, formatDateTime } from '../lib/utils'
 import Layout from '../components/Layout'
-import WizardNav, { buildSteps } from '../components/WizardNav'
+import { buildSteps } from '../components/WizardNav'
 import Message, { type MessageData } from '../components/Message'
 import Spinner from '../components/Spinner'
 import SecurityStep from '../steps/SecurityStep'
@@ -309,177 +309,171 @@ export default function WizardPage() {
   const authenticated = Boolean(linkInfo?.authenticated)
   const steps = buildSteps(authenticated, dossier)
 
-  const scrollToStep = (index: number) => {
+  const goToStep = (index: number) => {
     setActiveStep(index)
-    stepRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const goNext = () => goToStep(Math.min(activeStep + 1, 4))
+  const goPrev = () => goToStep(Math.max(activeStep - 1, 0))
+
   const openComplianceForPax = (contactId: string) => {
-    setActiveStep(3) // compliance step
+    goToStep(3)
     setTimeout(() => {
       const el = document.getElementById(`pax-${contactId}`)
       el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 100)
+    }, 200)
   }
+
+  const STEP_ICONS = [Shield, FileText, Users, Check, Send]
+  const STEP_TITLES = [t('wizard_access_title'), t('wizard_ads_title'), t('wizard_team_title'), t('wizard_compliance_title'), t('wizard_finalize_title')]
+  const STEP_SUBTITLES = [t('wizard_access_text'), t('wizard_ads_text'), t('wizard_team_text'), t('wizard_compliance_text'), t('wizard_finalize_text')]
+
+  const stepContent = [
+    <SecurityStep key="s1" linkInfo={linkInfo} authenticated={authenticated} loading={loading} onSendOtp={handleSendOtp} onVerifyOtp={handleVerifyOtp} />,
+    <AdsInfoStep key="s2" dossier={dossier} loading={loading} onDownloadTicket={handleDownloadTicket} onContinue={goNext} />,
+    <TeamStep key="s3" dossier={dossier} authenticated={authenticated} loading={loading} sessionToken={sessionToken} token={token} jobPositions={jobPositions} onCreatePax={handleCreatePax} onAttachExisting={handleAttachExisting} onContinue={goNext} onOpenCompliance={openComplianceForPax} />,
+    <ComplianceStep key="s4" dossier={dossier} authenticated={authenticated} loading={loading} credentialTypes={credentialTypes} jobPositions={jobPositions} onUpdatePax={handleUpdatePax} onAddCredential={handleAddCredential} onContinue={goNext} />,
+    <FinalizeStep key="s5" dossier={dossier} authenticated={authenticated} loading={loading} departureBases={departureBases} onSubmit={handleSubmit} onResubmit={handleResubmit} onUpdateTransport={handleUpdateTransport} onDownloadTicket={handleDownloadTicket} />,
+  ]
+
+  const ActiveIcon = STEP_ICONS[activeStep]
 
   return (
     <Layout>
-      <div className="flex flex-col lg:flex-row min-h-[calc(100vh-3.5rem)]">
-        <WizardNav steps={steps} onStepClick={scrollToStep} />
+      {/* ── Fixed progress rail ── */}
+      <div className="fixed top-14 left-0 right-0 z-40">
+        {/* Thin progress bar */}
+        <div className="h-[3px] bg-white/[0.04]">
+          <div
+            className="h-full bg-[var(--brand)] progress-glow transition-all duration-700 ease-out"
+            style={{ width: `${((activeStep + 1) / 5) * 100}%` }}
+          />
+        </div>
+      </div>
 
-        <div className="flex-1 min-w-0">
-          {/* Hero section */}
-          <div className="bg-gradient-to-br from-brand-600 via-brand-700 to-brand-800 text-white">
-            <div className="max-w-4xl mx-auto px-6 py-8 lg:py-10">
-              <p className="text-[10px] uppercase tracking-widest text-brand-200 font-semibold mb-2">OpsFlux External AdS</p>
-              <h1 className="text-2xl lg:text-3xl font-bold mb-2">{t('app_title')}</h1>
-              <p className="text-sm text-brand-100 max-w-2xl mb-6">{t('app_intro')}</p>
+      <div className="min-h-[calc(100vh-3.5rem)] flex flex-col">
+        {/* ── Step indicator pills ── */}
+        <div className="pt-6 pb-2">
+          <div className="max-w-2xl mx-auto px-6">
+            <div className="flex items-center justify-center gap-2">
+              {steps.map((step, i) => (
+                <button
+                  key={i}
+                  onClick={() => goToStep(i)}
+                  className="group flex items-center gap-1.5 transition-all duration-300"
+                >
+                  {/* Dot / check */}
+                  <div className={`
+                    w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold
+                    transition-all duration-300
+                    ${i === activeStep
+                      ? 'bg-[var(--brand)] text-white scale-110 shadow-lg shadow-blue-500/30'
+                      : step.done
+                        ? 'bg-emerald-500/20 text-emerald-400'
+                        : 'bg-white/[0.06] text-[var(--text-faint)]'
+                    }
+                  `}>
+                    {step.done && i !== activeStep ? <Check className="w-3 h-3" /> : i + 1}
+                  </div>
+                  {/* Label — only on active + desktop */}
+                  {i === activeStep && (
+                    <span className="hidden sm:inline text-xs font-medium text-[var(--brand)] animate-fade-in">
+                      {step.title}
+                    </span>
+                  )}
+                  {/* Connector line */}
+                  {i < 4 && (
+                    <div className={`
+                      w-6 sm:w-10 h-px transition-colors duration-300
+                      ${i < activeStep ? 'bg-emerald-500/40' : 'bg-white/[0.08]'}
+                    `} />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
 
-              {/* Quick stats */}
-              <div className="flex flex-wrap gap-6">
-                <HeroStat label={t('pax_count')} value={String(dossier?.pax_summary?.total ?? 0)} />
-                <HeroStat label={t('pending_check')} value={String(dossier?.pax_summary?.pending_check ?? 0)} />
-                <HeroStat label={t('blocked')} value={String(dossier?.pax_summary?.blocked ?? 0)} />
+        {/* ── Main content area ── */}
+        <div className="flex-1 flex flex-col">
+          <div className="max-w-2xl w-full mx-auto px-6 py-6 flex-1">
+            {/* Message */}
+            {message && (
+              <div className="mb-6 animate-fade-in-up">
+                <Message message={message} onDismiss={() => setMessage(null)} autoHide />
               </div>
+            )}
+
+            {/* Step header */}
+            <div className="mb-8 animate-fade-in-up" key={`header-${activeStep}`}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-[var(--brand)]/10 border border-[var(--brand)]/20 flex items-center justify-center">
+                  <ActiveIcon className="w-5 h-5 text-[var(--brand)]" />
+                </div>
+                <div>
+                  <p className="text-[10px] mono uppercase tracking-[0.2em] text-[var(--text-faint)]">
+                    Etape {activeStep + 1} sur 5
+                  </p>
+                  <h1 className="text-xl sm:text-2xl font-bold text-white leading-tight">{STEP_TITLES[activeStep]}</h1>
+                </div>
+              </div>
+              <p className="text-sm text-[var(--text-muted)] leading-relaxed max-w-xl">
+                {STEP_SUBTITLES[activeStep]}
+              </p>
+            </div>
+
+            {/* Step body — single step with transition */}
+            <div key={`step-${activeStep}`} className="animate-slide-right">
+              {stepContent[activeStep]}
             </div>
           </div>
 
-          {/* Content */}
-          <div className="max-w-4xl mx-auto px-6 py-6 space-y-8">
-            {/* Message */}
-            {message && (
-              <Message message={message} onDismiss={() => setMessage(null)} autoHide />
-            )}
+          {/* ── Bottom navigation bar ── */}
+          <div className="border-t border-white/[0.06] bg-[var(--bg-card)]/80 backdrop-blur-sm">
+            <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
+              {/* Previous */}
+              <button
+                onClick={goPrev}
+                disabled={activeStep === 0}
+                className="ext-btn-secondary text-sm disabled:opacity-20 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Precedent</span>
+              </button>
 
-            {/* Step 1: Security */}
-            <StepSection
-              ref={(el) => { stepRefs.current[0] = el }}
-              number={1}
-              title={t('wizard_access_title')}
-              subtitle={t('wizard_access_text')}
-            >
-              <SecurityStep
-                linkInfo={linkInfo}
-                authenticated={authenticated}
-                loading={loading}
-                onSendOtp={handleSendOtp}
-                onVerifyOtp={handleVerifyOtp}
-              />
-            </StepSection>
+              {/* Center — quick stats */}
+              {dossier && (
+                <div className="hidden sm:flex items-center gap-4">
+                  <span className="text-xs text-[var(--text-faint)] mono">
+                    {dossier.pax_summary?.total ?? 0} PAX
+                  </span>
+                  {(dossier.pax_summary?.blocked ?? 0) > 0 && (
+                    <span className="ext-badge-danger text-[10px]">
+                      {dossier.pax_summary.blocked} bloques
+                    </span>
+                  )}
+                  {(dossier.pax_summary?.pending_check ?? 0) > 0 && (
+                    <span className="ext-badge-warning text-[10px]">
+                      {dossier.pax_summary.pending_check} a verifier
+                    </span>
+                  )}
+                </div>
+              )}
 
-            {/* Step 2: AdS Info */}
-            <StepSection
-              ref={(el) => { stepRefs.current[1] = el }}
-              number={2}
-              title={t('wizard_ads_title')}
-              subtitle={t('wizard_ads_text')}
-            >
-              <AdsInfoStep
-                dossier={dossier}
-                loading={loading}
-                onDownloadTicket={handleDownloadTicket}
-                onContinue={() => scrollToStep(2)}
-              />
-            </StepSection>
-
-            {/* Step 3: Team */}
-            <StepSection
-              ref={(el) => { stepRefs.current[2] = el }}
-              number={3}
-              title={t('wizard_team_title')}
-              subtitle={t('wizard_team_text')}
-            >
-              <TeamStep
-                dossier={dossier}
-                authenticated={authenticated}
-                loading={loading}
-                sessionToken={sessionToken}
-                token={token}
-                jobPositions={jobPositions}
-                onCreatePax={handleCreatePax}
-                onAttachExisting={handleAttachExisting}
-                onContinue={() => scrollToStep(3)}
-                onOpenCompliance={openComplianceForPax}
-              />
-            </StepSection>
-
-            {/* Step 4: Compliance */}
-            <StepSection
-              ref={(el) => { stepRefs.current[3] = el }}
-              number={4}
-              title={t('wizard_compliance_title')}
-              subtitle={t('wizard_compliance_text')}
-            >
-              <ComplianceStep
-                dossier={dossier}
-                authenticated={authenticated}
-                loading={loading}
-                credentialTypes={credentialTypes}
-                jobPositions={jobPositions}
-                onUpdatePax={handleUpdatePax}
-                onAddCredential={handleAddCredential}
-                onContinue={() => scrollToStep(4)}
-              />
-            </StepSection>
-
-            {/* Step 5: Finalize */}
-            <StepSection
-              ref={(el) => { stepRefs.current[4] = el }}
-              number={5}
-              title={t('wizard_finalize_title')}
-              subtitle={t('wizard_finalize_text')}
-            >
-              <FinalizeStep
-                dossier={dossier}
-                authenticated={authenticated}
-                loading={loading}
-                departureBases={departureBases}
-                onSubmit={handleSubmit}
-                onResubmit={handleResubmit}
-                onUpdateTransport={handleUpdateTransport}
-                onDownloadTicket={handleDownloadTicket}
-              />
-            </StepSection>
+              {/* Next */}
+              {activeStep < 4 ? (
+                <button onClick={goNext} className="ext-btn-primary text-sm">
+                  <span>Continuer</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <div />
+              )}
+            </div>
           </div>
         </div>
       </div>
     </Layout>
-  )
-}
-
-// Step section wrapper
-const StepSection = React.forwardRef<HTMLDivElement, {
-  number: number
-  title: string
-  subtitle: string
-  children: React.ReactNode
-}>(({ number, title, subtitle, children }, ref) => (
-  <section ref={ref} id={`step-${['access', 'ads', 'team', 'compliance', 'finalize'][number - 1]}`} className="scroll-mt-32">
-    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl overflow-hidden shadow-soft">
-      {/* Step header */}
-      <div className="flex items-center gap-4 px-6 py-5 border-b border-[var(--border)] bg-[var(--surface-raised)]">
-        <div className="w-10 h-10 rounded-xl bg-brand-500 flex items-center justify-center shrink-0 shadow-sm shadow-brand-500/20">
-          <span className="text-sm font-bold text-white">{number}</span>
-        </div>
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold text-[var(--text-primary)]">{title}</h2>
-          <p className="text-xs text-[var(--text-tertiary)] mt-0.5">{subtitle}</p>
-        </div>
-      </div>
-      {/* Step body */}
-      <div className="p-6">
-        {children}
-      </div>
-    </div>
-  </section>
-))
-StepSection.displayName = 'StepSection'
-
-function HeroStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs text-brand-200">{label}</p>
-      <p className="text-2xl font-bold">{value}</p>
-    </div>
   )
 }

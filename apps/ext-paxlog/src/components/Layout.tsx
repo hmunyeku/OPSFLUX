@@ -1,6 +1,4 @@
 import React from 'react'
-import { Shield } from 'lucide-react'
-import { t } from '../lib/i18n'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -8,37 +6,29 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--surface-sunken)]">
-      {/* Header */}
-      <header className="sticky top-0 z-30 bg-[var(--surface)] border-b border-[var(--border)] backdrop-blur-sm bg-opacity-95">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+    <div className="relative min-h-screen flex flex-col" style={{ zIndex: 1 }}>
+      {/* Header — minimal, fixed */}
+      <header className="fixed top-0 left-0 right-0 z-50 h-14">
+        <div className="h-full max-w-screen-xl mx-auto px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-brand-500 flex items-center justify-center">
-              <Shield className="w-4.5 h-4.5 text-white" />
+            <div className="w-8 h-8 rounded-lg bg-[var(--brand)] flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <span className="text-xs font-bold text-white tracking-tight">OF</span>
             </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-[var(--text-primary)] leading-tight">OpsFlux</span>
-              <span className="text-[11px] text-[var(--text-tertiary)] leading-tight tracking-wide uppercase">External Portal</span>
+            <div className="flex flex-col leading-none">
+              <span className="text-sm font-semibold text-white">OpsFlux</span>
+              <span className="text-[10px] text-[var(--text-faint)] uppercase tracking-[0.15em]">Portail externe</span>
             </div>
           </div>
-          <div className="text-xs text-[var(--text-tertiary)] hidden sm:block">
-            {t('app_title')}
+          <div className="text-[11px] text-[var(--text-faint)] mono hidden sm:block">
+            PaxLog External
           </div>
         </div>
       </header>
 
       {/* Main content */}
-      <main className="flex-1">
+      <main className="flex-1 pt-14">
         {children}
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-[var(--border)] bg-[var(--surface)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between text-xs text-[var(--text-tertiary)]">
-          <span>OpsFlux &mdash; PaxLog External</span>
-          <span className="hidden sm:inline">Powered by OpsFlux ERP</span>
-        </div>
-      </footer>
     </div>
   )
 }

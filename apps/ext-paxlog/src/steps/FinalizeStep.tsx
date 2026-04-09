@@ -1,5 +1,8 @@
 import React, { useState } from 'react'
-import { CheckCircle2, AlertTriangle, Download, Send, RotateCcw, Truck } from 'lucide-react'
+import {
+  CheckCircle2, AlertTriangle, Download, Send, RotateCcw, Truck,
+  Lock, XCircle, ArrowRight, Plane, MessageSquare, ClipboardCheck,
+} from 'lucide-react'
 import { t } from '../lib/i18n'
 import { cn, objectFromFormData } from '../lib/utils'
 import Spinner from '../components/Spinner'
@@ -22,13 +25,23 @@ export default function FinalizeStep({
   const [resubmitReason, setResubmitReason] = useState('')
 
   if (!authenticated) {
-    return <LockedMessage text={t('wizard_locked_access')} />
+    return (
+      <div className="rounded-xl bg-amber-50 border border-amber-200 p-8 text-center animate-fade-in-up">
+        <Lock className="w-8 h-8 text-amber-500 mx-auto mb-3" />
+        <p className="text-sm font-semibold text-amber-800">{t('wizard_locked_access')}</p>
+      </div>
+    )
   }
   if (!dossier) {
     return <Spinner label={t('loading')} className="py-12" size="lg" />
   }
   if ((dossier?.pax_summary?.total ?? 0) <= 0) {
-    return <LockedMessage text={t('wizard_locked_team')} />
+    return (
+      <div className="rounded-xl bg-amber-50 border border-amber-200 p-8 text-center animate-fade-in-up">
+        <Lock className="w-8 h-8 text-amber-500 mx-auto mb-3" />
+        <p className="text-sm font-semibold text-amber-800">{t('wizard_locked_team')}</p>
+      </div>
+    )
   }
 
   const ads = dossier.ads
@@ -48,82 +61,100 @@ export default function FinalizeStep({
   }
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold text-[var(--text-primary)]">{t('wizard_finalize_title')}</h3>
-        <p className="text-sm text-[var(--text-secondary)] mt-1">{t('wizard_finalize_text')}</p>
-      </div>
-
-      {/* Review banner */}
+    <div className="animate-fade-in-up space-y-6">
+      {/* ── Review summary card ── */}
       <div className={cn(
-        'rounded-xl p-5 flex items-start gap-4 border',
-        readyForSubmission
-          ? 'bg-[var(--success-bg)] border-[var(--success-border)]'
-          : 'bg-[var(--warning-bg)] border-[var(--warning-border)]',
+        'ext-card overflow-hidden',
+        readyForSubmission ? 'border-emerald-200' : 'border-amber-200',
       )}>
-        {readyForSubmission
-          ? <CheckCircle2 className="w-6 h-6 text-[var(--success-text)] shrink-0 mt-0.5" />
-          : <AlertTriangle className="w-6 h-6 text-[var(--warning-text)] shrink-0 mt-0.5" />
-        }
-        <div>
-          <p className={cn(
-            'text-sm font-semibold',
-            readyForSubmission ? 'text-[var(--success-text)]' : 'text-[var(--warning-text)]',
+        <div className={cn(
+          'px-6 py-5 flex items-start gap-4',
+          readyForSubmission ? 'bg-emerald-50' : 'bg-amber-50',
+        )}>
+          <div className={cn(
+            'w-12 h-12 rounded-xl flex items-center justify-center shrink-0',
+            readyForSubmission ? 'bg-emerald-100' : 'bg-amber-100',
           )}>
-            {t('review_summary')}
-          </p>
-          <p className={cn(
-            'text-sm mt-1',
-            readyForSubmission ? 'text-[var(--success-text)]' : 'text-[var(--warning-text)]',
-          )}>
-            {readyForSubmission ? t('dossier_ready') : t('dossier_needs_review')}
-          </p>
+            {readyForSubmission
+              ? <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+              : <AlertTriangle className="w-6 h-6 text-amber-600" />
+            }
+          </div>
+          <div className="flex-1">
+            <h3 className={cn(
+              'text-base font-bold',
+              readyForSubmission ? 'text-emerald-800' : 'text-amber-800',
+            )}>
+              {t('review_summary')}
+            </h3>
+            <p className={cn(
+              'text-sm mt-1',
+              readyForSubmission ? 'text-emerald-700' : 'text-amber-700',
+            )}>
+              {readyForSubmission ? t('dossier_ready') : t('dossier_needs_review')}
+            </p>
+          </div>
+        </div>
+
+        {/* Status message bar */}
+        <div className={cn(
+          'px-6 py-3 border-t text-sm font-medium flex items-center gap-2',
+          readyForSubmission
+            ? 'bg-emerald-50/50 border-emerald-200 text-emerald-700'
+            : 'bg-amber-50/50 border-amber-200 text-amber-700',
+        )}>
+          {readyForSubmission
+            ? <CheckCircle2 className="w-4 h-4" />
+            : <AlertTriangle className="w-4 h-4" />
+          }
+          {readyForSubmission ? t('wizard_finalize_ready') : t('wizard_finalize_blocked')}
         </div>
       </div>
 
-      {/* Blockers */}
+      {/* ── Submission blockers checklist ── */}
       {!readyForSubmission && blockers.length > 0 && (
-        <div className="bg-[var(--warning-bg)] border border-[var(--warning-border)] rounded-xl p-5">
-          <p className="text-sm font-semibold text-[var(--warning-text)] mb-2">{t('submission_blockers_title')}</p>
-          <ul className="space-y-1 text-sm text-[var(--warning-text)]">
+        <div className="ext-card overflow-hidden border-red-200 animate-fade-in-up">
+          <div className="px-5 py-3 bg-red-50 border-b border-red-200 flex items-center gap-2">
+            <ClipboardCheck className="w-4 h-4 text-red-600" />
+            <p className="text-sm font-bold text-red-800">{t('submission_blockers_title')}</p>
+          </div>
+          <div className="divide-y divide-red-100">
             {blockers.map((item: string, i: number) => (
-              <li key={i} className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--warning-text)] mt-1.5 shrink-0" />
-                {item}
-              </li>
+              <div key={i} className="px-5 py-3 flex items-start gap-3">
+                <XCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-800">{item}</p>
+              </div>
             ))}
-          </ul>
-          <p className="text-xs text-[var(--warning-text)] opacity-70 mt-3">{t('submission_blockers_hint')}</p>
+          </div>
+          <div className="px-5 py-3 bg-red-50/50 border-t border-red-100">
+            <p className="text-xs text-red-600">{t('submission_blockers_hint')}</p>
+          </div>
         </div>
       )}
 
-      {/* Status message */}
-      <div className={cn(
-        'rounded-xl p-4 border text-sm',
-        readyForSubmission
-          ? 'bg-[var(--success-bg)] border-[var(--success-border)] text-[var(--success-text)]'
-          : 'bg-[var(--warning-bg)] border-[var(--warning-border)] text-[var(--warning-text)]',
-      )}>
-        {readyForSubmission ? t('wizard_finalize_ready') : t('wizard_finalize_blocked')}
-      </div>
-
-      {/* Transport preferences form */}
-      <form onSubmit={handleTransportSubmit} className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-[var(--border)] bg-[var(--surface-raised)] flex items-center gap-2">
-          <Truck className="w-4 h-4 text-brand-500" />
+      {/* ── Transport preferences ── */}
+      <form onSubmit={handleTransportSubmit} className="ext-card overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
+            <Truck className="w-4 h-4 text-blue-600" />
+          </div>
           <div>
-            <h4 className="text-sm font-semibold text-[var(--text-primary)]">{t('transport_preferences')}</h4>
-            <p className="text-xs text-[var(--text-tertiary)]">{t('transport_preferences_text')}</p>
+            <h4 className="text-sm font-bold text-slate-900">{t('transport_preferences')}</h4>
+            <p className="text-xs text-slate-500">{t('transport_preferences_text')}</p>
           </div>
         </div>
-        <div className="p-5">
+        <div className="p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Outbound departure base */}
             <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">{t('outbound_departure_base')}</label>
+              <label className="ext-label flex items-center gap-1.5">
+                <Plane className="w-3.5 h-3.5 text-slate-400" />
+                {t('outbound_departure_base')}
+              </label>
               <select
                 name="outbound_departure_base_id"
                 defaultValue={ads.outbound_departure_base_id || ''}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition-all"
+                className="ext-select"
               >
                 <option value="">{t('not_defined')}</option>
                 {departureBases.map((db) => (
@@ -131,12 +162,17 @@ export default function FinalizeStep({
                 ))}
               </select>
             </div>
+
+            {/* Return departure base */}
             <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">{t('return_departure_base')}</label>
+              <label className="ext-label flex items-center gap-1.5">
+                <Plane className="w-3.5 h-3.5 text-slate-400 rotate-180" />
+                {t('return_departure_base')}
+              </label>
               <select
                 name="return_departure_base_id"
                 defaultValue={ads.return_departure_base_id || ''}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition-all"
+                className="ext-select"
               >
                 <option value="">{t('not_defined')}</option>
                 {departureBases.map((db) => (
@@ -144,89 +180,107 @@ export default function FinalizeStep({
                 ))}
               </select>
             </div>
+
+            {/* Outbound notes */}
             <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">{t('outbound_notes')}</label>
+              <label className="ext-label flex items-center gap-1.5">
+                <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
+                {t('outbound_notes')}
+              </label>
               <textarea
                 name="outbound_notes"
                 rows={3}
                 defaultValue={ads.outbound_notes || ''}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition-all resize-none"
+                className="ext-input resize-none"
               />
             </div>
+
+            {/* Return notes */}
             <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">{t('return_notes')}</label>
+              <label className="ext-label flex items-center gap-1.5">
+                <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
+                {t('return_notes')}
+              </label>
               <textarea
                 name="return_notes"
                 rows={3}
                 defaultValue={ads.return_notes || ''}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition-all resize-none"
+                className="ext-input resize-none"
               />
             </div>
           </div>
-          <div className="flex justify-end mt-4">
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] text-[var(--text-primary)] transition-colors disabled:opacity-50"
-            >
+
+          <div className="flex justify-end pt-1">
+            <button type="submit" disabled={loading} className="ext-btn-secondary disabled:opacity-50">
               {t('save_transport_preferences')}
             </button>
           </div>
         </div>
       </form>
 
-      {/* Resubmit form */}
+      {/* ── Resubmit form ── */}
       {dossier.can_resubmit && (
-        <form onSubmit={handleResubmit} className="bg-[var(--warning-bg)] border border-[var(--warning-border)] rounded-xl p-5 space-y-3">
-          <label className="block text-sm font-medium text-[var(--warning-text)]">{t('resubmit_reason')}</label>
-          <textarea
-            value={resubmitReason}
-            onChange={(e) => setResubmitReason(e.target.value)}
-            rows={3}
-            className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--warning-border)] bg-white dark:bg-gray-900 text-[var(--text-primary)] text-sm placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-all resize-none"
-          />
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={loading || !resubmitReason.trim()}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium transition-colors disabled:opacity-50"
-            >
-              <RotateCcw className="w-4 h-4" />
-              {t('resubmit')}
-            </button>
+        <form onSubmit={handleResubmit} className="ext-card overflow-hidden border-amber-200 animate-fade-in-up">
+          <div className="px-5 py-4 border-b border-amber-200 bg-amber-50 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center">
+              <RotateCcw className="w-4 h-4 text-amber-600" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-amber-800">{t('resubmit_reason')}</h4>
+            </div>
+          </div>
+          <div className="p-5 space-y-4">
+            <textarea
+              value={resubmitReason}
+              onChange={(e) => setResubmitReason(e.target.value)}
+              rows={3}
+              placeholder="..."
+              className="ext-input resize-none"
+            />
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={loading || !resubmitReason.trim()}
+                className="ext-btn bg-amber-500 hover:bg-amber-600 text-white shadow-sm disabled:opacity-50"
+              >
+                <RotateCcw className="w-4 h-4" />
+                {t('resubmit')}
+              </button>
+            </div>
           </div>
         </form>
       )}
 
-      {/* Final actions */}
-      <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+      {/* ── Final action buttons ── */}
+      <div className="space-y-3 pt-2">
+        {/* Download ticket - secondary */}
         <button
           onClick={onDownloadTicket}
           disabled={loading}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] text-[var(--text-primary)] transition-colors disabled:opacity-50"
+          className="ext-btn-secondary w-full disabled:opacity-50"
         >
           <Download className="w-4 h-4" />
           {t('download_ticket')}
         </button>
+
+        {/* Submit - primary, full width */}
         {dossier.can_submit && (
           <button
             onClick={onSubmit}
             disabled={loading}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm"
+            className={cn(
+              'ext-btn w-full text-white shadow-md disabled:opacity-50',
+              readyForSubmission
+                ? 'bg-emerald-600 hover:bg-emerald-700'
+                : 'bg-blue-600 hover:bg-blue-700',
+            )}
           >
             {loading ? <Spinner size="sm" /> : <Send className="w-4 h-4" />}
             {t('submit')}
+            <ArrowRight className="w-4 h-4" />
           </button>
         )}
       </div>
-    </div>
-  )
-}
-
-function LockedMessage({ text }: { text: string }) {
-  return (
-    <div className="bg-[var(--warning-bg)] border border-[var(--warning-border)] rounded-xl p-6 text-center">
-      <p className="text-sm text-[var(--warning-text)]">{text}</p>
     </div>
   )
 }

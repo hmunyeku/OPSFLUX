@@ -1,5 +1,8 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react'
-import { UserPlus, Users, ArrowRight, Search, CheckCircle } from 'lucide-react'
+import React, { useState, useCallback, useRef } from 'react'
+import {
+  UserPlus, Users, ArrowRight, Search, CheckCircle2, Lock, User,
+  Mail, Phone, Briefcase, MapPin, ChevronRight, Percent,
+} from 'lucide-react'
 import { t } from '../lib/i18n'
 import { cn, objectFromFormData } from '../lib/utils'
 import { apiRequest } from '../lib/api'
@@ -29,13 +32,19 @@ export default function TeamStep({
   const matchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   if (!authenticated) {
-    return <LockedMessage text={t('wizard_locked_access')} />
+    return (
+      <div className="rounded-xl bg-amber-50 border border-amber-200 p-8 text-center animate-fade-in-up">
+        <Lock className="w-8 h-8 text-amber-500 mx-auto mb-3" />
+        <p className="text-sm font-semibold text-amber-800">{t('wizard_locked_access')}</p>
+      </div>
+    )
   }
   if (!dossier) {
     return <Spinner label={t('loading')} className="py-12" size="lg" />
   }
 
   const pax = dossier.pax || []
+  const summary = dossier?.pax_summary || {}
 
   const updateDraft = useCallback((name: string, value: string) => {
     setDraft((prev) => {
@@ -89,62 +98,87 @@ export default function TeamStep({
   }
 
   return (
-    <div className="animate-fade-in space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h3 className="text-lg font-semibold text-[var(--text-primary)]">{t('wizard_team_title')}</h3>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">{t('wizard_team_text')}</p>
-        </div>
-        <div className="flex gap-3">
-          <StatPill label={t('pax_count')} value={dossier?.pax_summary?.total ?? 0} />
-          <StatPill label={t('approved')} value={dossier?.pax_summary?.approved ?? 0} variant="success" />
+    <div className="animate-fade-in-up space-y-6">
+      {/* ── Summary bar ── */}
+      <div className="ext-card p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+              <Users className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">{t('wizard_team_title')}</h3>
+              <p className="text-xs text-slate-500 mt-0.5">{t('wizard_team_text')}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <StatChip label={t('pax_count')} value={summary.total ?? 0} color="blue" />
+            <StatChip label={t('approved')} value={summary.approved ?? 0} color="emerald" />
+            {(summary.pending_check ?? 0) > 0 && (
+              <StatChip label={t('pending_check')} value={summary.pending_check} color="amber" />
+            )}
+            {(summary.blocked ?? 0) > 0 && (
+              <StatChip label={t('blocked')} value={summary.blocked} color="red" />
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Add PAX form */}
-      <form onSubmit={handleSubmit} className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-[var(--border)] bg-[var(--surface-raised)]">
+      {/* ── Add PAX form ── */}
+      <form onSubmit={handleSubmit} className="ext-card">
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-brand-500/10 flex items-center justify-center">
-              <UserPlus className="w-4.5 h-4.5 text-brand-500" />
+            <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
+              <UserPlus className="w-4 h-4 text-blue-600" />
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-[var(--text-primary)]">{t('add_pax')}</h4>
-              <p className="text-xs text-[var(--text-tertiary)]">{t('wizard_team_helper')}</p>
+              <h4 className="text-sm font-bold text-slate-900">{t('add_pax')}</h4>
+              <p className="text-xs text-slate-500">{t('wizard_team_helper')}</p>
             </div>
           </div>
         </div>
-        <div className="p-6 space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <FormField name="first_name" label={t('first_name')} required value={draft.first_name || ''} onChange={updateDraft} />
-            <FormField name="last_name" label={t('last_name')} required value={draft.last_name || ''} onChange={updateDraft} />
-            <FormField name="birth_date" label={t('birth_date')} type="date" value={draft.birth_date || ''} onChange={updateDraft} />
-            <FormField name="nationality" label={t('nationality')} value={draft.nationality || ''} onChange={updateDraft} />
-            <FormField name="badge_number" label={t('badge_number')} value={draft.badge_number || ''} onChange={updateDraft} />
-            <FormField name="photo_url" label={t('photo_url')} type="url" value={draft.photo_url || ''} onChange={updateDraft} />
-            <FormField name="email" label={t('email')} type="email" value={draft.email || ''} onChange={updateDraft} />
-            <FormField name="phone" label={t('phone')} value={draft.phone || ''} onChange={updateDraft} />
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">{t('position')}</label>
-              <select
-                name="job_position_id"
-                value={draft.job_position_id || ''}
-                onChange={(e) => updateDraft('job_position_id', e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition-all"
-              >
-                <option value="">{t('position')}</option>
-                {jobPositions.map((jp) => (
-                  <option key={jp.id} value={jp.id}>{jp.name}{jp.code ? ` (${jp.code})` : ''}</option>
-                ))}
-              </select>
+
+        <div className="p-6 space-y-6">
+          {/* Section: Identity */}
+          <div>
+            <SectionHeader icon={User} title={t('first_name') + ' / ' + t('last_name')} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
+              <FormField name="first_name" label={t('first_name')} required value={draft.first_name || ''} onChange={updateDraft} />
+              <FormField name="last_name" label={t('last_name')} required value={draft.last_name || ''} onChange={updateDraft} />
+              <FormField name="birth_date" label={t('birth_date')} type="date" value={draft.birth_date || ''} onChange={updateDraft} />
+              <FormField name="nationality" label={t('nationality')} value={draft.nationality || ''} onChange={updateDraft} />
+              <FormField name="badge_number" label={t('badge_number')} value={draft.badge_number || ''} onChange={updateDraft} />
+              <FormField name="photo_url" label={t('photo_url')} type="url" value={draft.photo_url || ''} onChange={updateDraft} />
             </div>
           </div>
 
-          {/* Pickup address */}
+          {/* Section: Contact */}
           <div>
-            <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">{t('pickup_address')}</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <SectionHeader icon={Mail} title={t('email') + ' / ' + t('phone')} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
+              <FormField name="email" label={t('email')} type="email" value={draft.email || ''} onChange={updateDraft} />
+              <FormField name="phone" label={t('phone')} value={draft.phone || ''} onChange={updateDraft} />
+              <div>
+                <label className="ext-label">{t('position')}</label>
+                <select
+                  name="job_position_id"
+                  value={draft.job_position_id || ''}
+                  onChange={(e) => updateDraft('job_position_id', e.target.value)}
+                  className="ext-select"
+                >
+                  <option value="">{t('position')}</option>
+                  {jobPositions.map((jp) => (
+                    <option key={jp.id} value={jp.id}>{jp.name}{jp.code ? ` (${jp.code})` : ''}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Section: Pickup address */}
+          <div>
+            <SectionHeader icon={MapPin} title={t('pickup_address')} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
               <FormField name="pickup_address_line1" label={t('pickup_address_line1')} value={draft.pickup_address_line1 || ''} onChange={updateDraft} />
               <FormField name="pickup_address_line2" label={t('pickup_address_line2')} value={draft.pickup_address_line2 || ''} onChange={updateDraft} />
               <FormField name="pickup_city" label={t('pickup_city')} value={draft.pickup_city || ''} onChange={updateDraft} />
@@ -156,16 +190,19 @@ export default function TeamStep({
 
           {/* Duplicate matches */}
           {matchesLoading && (
-            <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-              <Search className="w-4 h-4 animate-pulse-soft" />
+            <div className="flex items-center gap-2 text-sm text-slate-500 py-2">
+              <Search className="w-4 h-4 animate-pulse" />
               {t('searching_existing_pax')}
             </div>
           )}
           {matches.length > 0 && (
-            <div className="border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 rounded-xl p-4 space-y-3">
-              <div>
-                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">{t('duplicate_candidates')}</p>
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">{t('duplicate_candidates_hint')}</p>
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-5 space-y-3 animate-fade-in-up">
+              <div className="flex items-center gap-2">
+                <Search className="w-4 h-4 text-amber-600" />
+                <div>
+                  <p className="text-sm font-bold text-amber-800">{t('duplicate_candidates')}</p>
+                  <p className="text-xs text-amber-600 mt-0.5">{t('duplicate_candidates_hint')}</p>
+                </div>
               </div>
               <div className="space-y-2">
                 {matches.map((match: any) => (
@@ -174,15 +211,28 @@ export default function TeamStep({
                     type="button"
                     onClick={() => onAttachExisting(match.contact_id)}
                     disabled={loading}
-                    className="w-full flex items-center justify-between gap-3 p-3 rounded-lg bg-white dark:bg-gray-900 border border-amber-200 dark:border-amber-800 hover:border-brand-400 transition-colors disabled:opacity-50"
+                    className="w-full ext-card p-4 flex items-center justify-between gap-3 hover:border-blue-300 hover:shadow-sm transition-all duration-150 disabled:opacity-50 text-left"
                   >
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-[var(--text-primary)]">{match.first_name} {match.last_name}</p>
-                      <p className="text-xs text-[var(--text-tertiary)]">{match.job_position_name || match.position || '\u2014'}</p>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                        <span className="text-sm font-bold text-amber-700">
+                          {(match.first_name?.[0] || '').toUpperCase()}{(match.last_name?.[0] || '').toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 truncate">{match.first_name} {match.last_name}</p>
+                        <p className="text-xs text-slate-500 truncate">{match.job_position_name || match.position || '\u2014'}</p>
+                      </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs text-[var(--text-tertiary)]">{t('match_score')}: {match.match_score}</p>
-                      <p className="text-xs text-[var(--text-tertiary)]">{(match.match_reasons || []).join(', ') || '\u2014'}</p>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="text-right">
+                        <div className="flex items-center gap-1 text-xs font-semibold text-amber-700">
+                          <Percent className="w-3 h-3" />
+                          {match.match_score}
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-0.5">{(match.match_reasons || []).join(', ') || '\u2014'}</p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
                     </div>
                   </button>
                 ))}
@@ -190,12 +240,9 @@ export default function TeamStep({
             </div>
           )}
 
+          {/* Submit */}
           <div className="flex justify-end pt-1">
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium transition-colors disabled:opacity-50"
-            >
+            <button type="submit" disabled={loading} className="ext-btn-primary disabled:opacity-50">
               <UserPlus className="w-4 h-4" />
               {t('add_pax')}
             </button>
@@ -203,36 +250,55 @@ export default function TeamStep({
         </div>
       </form>
 
-      {/* PAX list */}
+      {/* ── PAX list ── */}
       {pax.length === 0 ? (
-        <div className="text-center py-10">
-          <Users className="w-10 h-10 text-[var(--text-tertiary)] mx-auto mb-3" />
-          <p className="text-sm text-[var(--text-secondary)]">{t('no_pax')}</p>
+        <div className="ext-card p-12 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+            <Users className="w-7 h-7 text-slate-400" />
+          </div>
+          <p className="text-sm font-semibold text-slate-600">{t('no_pax')}</p>
+          <p className="text-xs text-slate-400 mt-1">{t('wizard_team_helper')}</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3 stagger">
           {pax.map((item: any) => (
             <div
               key={item.contact_id}
-              className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-4 hover:border-[var(--border-strong)] transition-colors"
+              className="ext-card p-4 flex flex-col sm:flex-row sm:items-center gap-4 hover:shadow-sm hover:border-slate-300 transition-all duration-150"
             >
+              {/* Avatar */}
+              <div className={cn(
+                'w-11 h-11 rounded-full flex items-center justify-center shrink-0 text-sm font-bold',
+                item.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                item.status === 'blocked' ? 'bg-red-100 text-red-700' :
+                'bg-blue-100 text-blue-700'
+              )}>
+                {(item.first_name?.[0] || '').toUpperCase()}{(item.last_name?.[0] || '').toUpperCase()}
+              </div>
+
+              {/* Info */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">{item.first_name} {item.last_name}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-bold text-slate-900">{item.first_name} {item.last_name}</p>
                   <StatusBadge status={item.status || 'pending_check'} />
                 </div>
-                <p className="text-xs text-[var(--text-tertiary)] mt-1">{item.job_position_name || item.position || '\u2014'}</p>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-[var(--text-secondary)]">
-                  <span>{t('birth_date')}: {item.birth_date || '\u2014'}</span>
-                  <span>{t('badge_number')}: {item.badge_number || '\u2014'}</span>
-                  <span>{t('email')}: {item.email || '\u2014'}</span>
+                <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                  <Briefcase className="w-3 h-3" />
+                  {item.job_position_name || item.position || '\u2014'}
+                </p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-slate-400">
+                  {item.birth_date && <span>{t('birth_date')}: {item.birth_date}</span>}
+                  {item.badge_number && <span className="mono">{t('badge_number')}: {item.badge_number}</span>}
+                  {item.email && <span>{item.email}</span>}
                 </div>
               </div>
+
+              {/* Action */}
               <button
                 onClick={() => onOpenCompliance(item.contact_id)}
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-raised)] text-[var(--text-primary)] transition-colors shrink-0"
+                className="ext-btn-secondary text-xs shrink-0"
               >
-                <CheckCircle className="w-3.5 h-3.5" />
+                <CheckCircle2 className="w-3.5 h-3.5" />
                 {t('open_compliance_dossier')}
               </button>
             </div>
@@ -240,13 +306,10 @@ export default function TeamStep({
         </div>
       )}
 
-      {/* Continue */}
+      {/* ── Continue ── */}
       {pax.length > 0 && (
         <div className="flex justify-end pt-2">
-          <button
-            onClick={onContinue}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium transition-colors"
-          >
+          <button onClick={onContinue} className="ext-btn-primary">
             {t('continue_to_compliance')}
             <ArrowRight className="w-4 h-4" />
           </button>
@@ -256,42 +319,49 @@ export default function TeamStep({
   )
 }
 
+/* ── Sub-components ── */
+
+function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
+  return (
+    <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+      <Icon className="w-3.5 h-3.5 text-slate-400" />
+      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{title}</p>
+    </div>
+  )
+}
+
 function FormField({ name, label, type = 'text', required = false, value, onChange }: {
   name: string; label: string; type?: string; required?: boolean; value: string; onChange: (name: string, val: string) => void
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">{label}</label>
+      <label className="ext-label">
+        {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
       <input
         type={type}
         name={name}
         required={required}
         value={value}
         onChange={(e) => onChange(name, e.target.value)}
-        className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] text-sm placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition-all"
+        className="ext-input"
       />
     </div>
   )
 }
 
-function StatPill({ label, value, variant }: { label: string; value: number; variant?: 'success' }) {
+function StatChip({ label, value, color }: { label: string; value: number; color: 'blue' | 'emerald' | 'amber' | 'red' }) {
+  const styles: Record<string, string> = {
+    blue: 'bg-blue-50 text-blue-700 border-blue-200',
+    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    amber: 'bg-amber-50 text-amber-700 border-amber-200',
+    red: 'bg-red-50 text-red-700 border-red-200',
+  }
   return (
-    <div className={cn(
-      'px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-2',
-      variant === 'success'
-        ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
-        : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)]',
-    )}>
-      <span>{label}</span>
+    <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border', styles[color])}>
+      {label}
       <span className="font-bold">{value}</span>
-    </div>
-  )
-}
-
-function LockedMessage({ text }: { text: string }) {
-  return (
-    <div className="bg-[var(--warning-bg)] border border-[var(--warning-border)] rounded-xl p-6 text-center">
-      <p className="text-sm text-[var(--warning-text)]">{text}</p>
-    </div>
+    </span>
   )
 }

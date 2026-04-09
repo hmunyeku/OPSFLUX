@@ -19,7 +19,7 @@
  *   - Dynamic panel = create/edit/detail (240px, rendered by the page)
  *   - The list ALWAYS stays visible — NO modals for CRUD.
  */
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
@@ -34,6 +34,7 @@ import { useActiveAnnouncements, useDismissAnnouncement } from '@/hooks/useAnnou
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { DetachedPanelsPortal } from './DetachedPanelRenderer'
+import { useUserPreferences } from '@/hooks/useUserPreferences'
 import { FeedbackWidget } from './FeedbackWidget'
 import { HelpProvider, HelpPanel } from './HelpSystem'
 import { AssistantPanel } from './AssistantPanel'
@@ -80,11 +81,31 @@ export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation()
   const {
     sidebarExpanded,
+    setSidebarExpanded,
     toggleSidebar,
     closeDynamicPanel,
     mobileSidebarOpen,
     setMobileSidebarOpen,
   } = useUIStore()
+
+  // ── Persist sidebar state via user preferences (DB-backed) ──
+  const { getPref, setPref } = useUserPreferences()
+
+  // Restore sidebar state from preferences on mount
+  useEffect(() => {
+    const saved = getPref<boolean>('sidebarExpanded', false)
+    if (saved !== sidebarExpanded) setSidebarExpanded(saved)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Sync sidebar state to preferences when it changes
+  const prevSidebar = useRef(sidebarExpanded)
+  useEffect(() => {
+    if (prevSidebar.current !== sidebarExpanded) {
+      setPref('sidebarExpanded', sidebarExpanded)
+      prevSidebar.current = sidebarExpanded
+    }
+  }, [sidebarExpanded, setPref])
 
   // ── Load admin toast defaults from entity settings ──
   const { data: entitySettings } = useQuery({

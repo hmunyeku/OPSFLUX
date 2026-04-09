@@ -53,9 +53,11 @@ import {
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
 import { usePermission } from '@/hooks/usePermission'
+import { useUserPreferences } from '@/hooks/useUserPreferences'
 import { useToast } from '@/components/ui/Toast'
 import { useCreateTicket } from '@/hooks/useSupport'
 import api from '@/lib/api'
+import { resolveApiBaseUrl } from '@/lib/runtimeUrls'
 import type { TicketCreate, TicketType } from '@/services/supportService'
 import mermaid from 'mermaid'
 
@@ -452,19 +454,15 @@ export function AssistantPanel() {
   const currentModule = useMemo(() => deriveModule(pathname), [pathname])
   const [activeTab, setActiveTab] = useState<TabId>('chat')
 
-  // ── Panel display mode: docked (side panel), floating (overlay), pop-out (moves to corner) ──
+  // ── Panel display mode (persisted via user preferences API) ──
   type PanelMode = 'docked' | 'floating' | 'compact'
-  const [panelMode, setPanelMode] = useState<PanelMode>(() => {
-    try { return (localStorage.getItem('opsflux:assistant-mode') as PanelMode) || 'docked' } catch { return 'docked' }
-  })
+  const { getPref, setPref } = useUserPreferences()
+  const panelMode = getPref<PanelMode>('assistantPanelMode', 'docked')
 
   const cyclePanelMode = useCallback(() => {
-    setPanelMode(prev => {
-      const next = prev === 'docked' ? 'floating' : prev === 'floating' ? 'compact' : 'docked'
-      try { localStorage.setItem('opsflux:assistant-mode', next) } catch { /* noop */ }
-      return next
-    })
-  }, [])
+    const next = panelMode === 'docked' ? 'floating' : panelMode === 'floating' ? 'compact' : 'docked'
+    setPref('assistantPanelMode', next)
+  }, [panelMode, setPref])
 
   // ── Tab visibility based on permissions ──
   const canChat = true // All authenticated users can use AI chat
@@ -607,7 +605,7 @@ function ChatTab({ currentModule }: { currentModule: string }) {
     try {
       const token = localStorage.getItem('access_token')
       const entityId = localStorage.getItem('entity_id')
-      const baseUrl = import.meta.env.VITE_API_URL || ''
+      const baseUrl = resolveApiBaseUrl()
 
       const response = await fetch(`${baseUrl}/api/v1/ai-chat/stream`, {
         method: 'POST',
@@ -846,19 +844,13 @@ function ToursTab({ currentModule }: { currentModule: string }) {
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
 
   // Completed tours stored in localStorage
-  const [completedTours, setCompletedTours] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('opsflux:completed-tours') || '[]')
-    } catch { return [] }
-  })
+  const { getPref: getTourPref, setPref: setTourPref } = useUserPreferences()
+  const completedTours = getTourPref<string[]>('completedTours', [])
 
   const markCompleted = useCallback((tourId: string) => {
-    setCompletedTours(prev => {
-      const next = [...new Set([...prev, tourId])]
-      localStorage.setItem('opsflux:completed-tours', JSON.stringify(next))
-      return next
-    })
-  }, [])
+    const next = [...new Set([...completedTours, tourId])]
+    setTourPref('completedTours', next)
+  }, [completedTours, setTourPref])
 
   // Filter tours: global ones + module-specific
   const availableTours = useMemo(() =>

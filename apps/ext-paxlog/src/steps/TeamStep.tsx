@@ -78,7 +78,11 @@ export default function TeamStep({
     try {
       const result = await apiRequest(sessionToken, `/api/v1/pax/external/${token}/pax/matches`, {
         method: 'POST',
-        body: JSON.stringify(currentDraft),
+        body: JSON.stringify({
+          first_name: currentDraft.first_name || '',
+          last_name: currentDraft.last_name || '',
+          ...currentDraft,
+        }),
       })
       setMatches(result)
     } catch {

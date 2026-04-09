@@ -366,7 +366,7 @@ async def seed_dev_data(db: AsyncSession) -> None:
         logger.info("Seed: assigned SUPER_ADMIN to admin")
 
     # ── Sample assets (ar_fields → ar_sites → ar_installations) ──
-    from app.models.asset_registry import Field, Site
+    from app.models.asset_registry import OilField as Field, OilSite as Site
 
     result = await db.execute(select(Installation).where(Installation.code == "EBOME"))
     if not result.scalar_one_or_none():

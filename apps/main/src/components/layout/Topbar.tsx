@@ -326,6 +326,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
     <>
       <header
         role="banner"
+        data-tour="topbar"
         className="flex h-11 items-center border-b border-border bg-chrome px-3 shrink-0"
         style={{ zIndex: 'var(--z-topbar)' }}
       >
@@ -354,7 +355,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
         </div>
 
         {/* ── Center: Contextual search input ── */}
-        <div className="flex-1 flex justify-center px-2 sm:px-4">
+        <div data-tour="search-bar" className="flex-1 flex justify-center px-2 sm:px-4">
           <div className="relative w-full max-w-lg">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
@@ -428,6 +429,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           </button>
 
           <button
+            data-tour="assistant-button"
             onClick={toggleAIPanel}
             className={cn(
               'relative h-7 w-7 rounded-lg flex items-center justify-center transition-colors',

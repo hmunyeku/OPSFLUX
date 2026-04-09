@@ -142,6 +142,7 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
 
   return (
     <aside
+      data-tour="sidebar"
       className={cn(
         'flex h-full flex-col border-r border-border bg-chrome',
         'transition-[width] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]',

@@ -186,6 +186,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <main
           role="main"
           id="main-content"
+          data-tour="main-content"
           className="flex-1 overflow-hidden min-w-0"
         >
           {children}

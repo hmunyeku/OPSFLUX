@@ -18,6 +18,7 @@ import React, {
   useEffect,
   useMemo,
 } from 'react'
+import ReactDOM from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -207,10 +208,9 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
 // ── Guided tours definitions ───────────────────────────────────
 
 interface TourStep {
-  target?: string // CSS selector or data-help-id
+  target: string // data-tour attribute value OR CSS selector
   title: string
   content: string
-  position?: 'top' | 'bottom' | 'left' | 'right'
 }
 
 interface GuidedTour {
@@ -228,10 +228,11 @@ const GUIDED_TOURS: GuidedTour[] = [
     description: 'Decouvrez les fonctionnalites principales de la plateforme.',
     module: null,
     steps: [
-      { title: 'Navigation', content: 'La barre laterale vous permet de naviguer entre les modules. Cliquez sur les icones pour acceder aux differentes sections.' },
-      { title: 'Barre superieure', content: 'Ici vous trouverez la recherche globale, les notifications, les preferences de langue et de theme.' },
-      { title: 'Panels dynamiques', content: 'Quand vous selectionnez un element, un panel de detail s\'ouvre sur le cote. Vous pouvez le detacher en fenetre flottante.' },
-      { title: 'Assistant', content: 'Ce panel que vous lisez est l\'assistant OpsFlux. Il vous accompagne avec de l\'aide contextuelle, un chatbot IA, des visites guidees et la creation rapide de tickets.' },
+      { target: 'sidebar', title: 'Navigation', content: 'La barre laterale vous permet de naviguer entre les modules. Cliquez sur les icones pour acceder aux differentes sections.' },
+      { target: 'topbar', title: 'Barre superieure', content: 'Recherche globale, notifications, preferences de langue et de theme sont accessibles ici.' },
+      { target: 'search-bar', title: 'Recherche', content: 'Tapez pour filtrer la page en cours, ou utilisez Ctrl+K pour la palette de commandes.' },
+      { target: 'main-content', title: 'Zone principale', content: 'Les pages affichent leur contenu ici. Quand vous selectionnez un element, un panel de detail s\'ouvre sur le cote.' },
+      { target: 'assistant-button', title: 'Assistant', content: 'Ce bouton ouvre l\'assistant OpsFlux : aide contextuelle, chatbot IA, visites guidees et tickets.' },
     ],
   },
   {
@@ -240,10 +241,9 @@ const GUIDED_TOURS: GuidedTour[] = [
     description: 'Apprenez a creer et gerer vos projets.',
     module: 'projets',
     steps: [
-      { title: 'Vue liste', content: 'La page Projets affiche tous vos projets. Utilisez les filtres et le tri pour trouver rapidement un projet.' },
-      { title: 'Creer un projet', content: 'Cliquez sur "+ Nouveau projet" pour ouvrir le formulaire de creation. Renseignez le nom, code, dates et budget.' },
-      { title: 'Vues multiples', content: 'Basculez entre la vue Liste, Kanban, Gantt et Tableur avec les onglets en haut de la page.' },
-      { title: 'Gestion des taches', content: 'Dans un projet, ajoutez des taches, definissez les dependances et suivez l\'avancement avec le Gantt.' },
+      { target: 'main-content', title: 'Vue liste', content: 'La page Projets affiche tous vos projets. Utilisez les filtres et le tri pour trouver rapidement un projet.' },
+      { target: 'search-bar', title: 'Recherche projets', content: 'Tapez le nom ou code d\'un projet pour le filtrer instantanement.' },
+      { target: 'sidebar', title: 'Modules lies', content: 'Le Planner et les Imputations dans la sidebar sont lies a vos projets pour la planification et le suivi des couts.' },
     ],
   },
   {
@@ -252,9 +252,8 @@ const GUIDED_TOURS: GuidedTour[] = [
     description: 'Gestion des avis de sejour et passagers.',
     module: 'paxlog',
     steps: [
-      { title: 'Avis de sejour', content: 'Un AdS est une demande de deplacement de passagers vers un site. Chaque AdS passe par un workflow de validation.' },
-      { title: 'Conformite', content: 'Le systeme verifie automatiquement que chaque passager possede les certifications et habilitations requises.' },
-      { title: 'Rotations', content: 'Les rotations planifient le transport physique des passagers vers les sites.' },
+      { target: 'main-content', title: 'Avis de sejour', content: 'Un AdS est une demande de deplacement de passagers vers un site. Chaque AdS passe par un workflow de validation.' },
+      { target: 'search-bar', title: 'Recherche PAX', content: 'Recherchez un passager, un site ou un numero d\'AdS pour le retrouver rapidement.' },
     ],
   },
   {
@@ -263,12 +262,129 @@ const GUIDED_TOURS: GuidedTour[] = [
     description: 'Comprendre le systeme RBAC d\'OpsFlux.',
     module: 'users',
     steps: [
-      { title: 'Roles', content: 'Un role est un ensemble de permissions. Creez des roles adaptes a chaque metier (operateur, manager, admin, etc.).' },
-      { title: 'Groupes', content: 'Les groupes rassemblent des utilisateurs. Assignez un role au groupe pour appliquer les permissions a tous ses membres.' },
-      { title: 'Overrides', content: 'Vous pouvez surcharger les permissions au niveau du groupe ou de l\'utilisateur pour des cas specifiques.' },
+      { target: 'main-content', title: 'Liste des utilisateurs', content: 'Tous les comptes utilisateurs sont affiches ici. Cliquez sur un utilisateur pour voir ses details et permissions.' },
+      { target: 'sidebar', title: 'Modules admin', content: 'Les modules Comptes, Entites et Parametres en bas de la sidebar contiennent les outils d\'administration.' },
     ],
   },
 ]
+
+// ── Tour Spotlight Overlay (renders outside the panel via portal) ──
+
+function TourSpotlight({
+  targetRect,
+  tooltipContent,
+  step,
+  totalSteps,
+  onNext,
+  onPrev,
+  onClose,
+  isLast,
+}: {
+  targetRect: DOMRect
+  tooltipContent: { title: string; content: string }
+  step: number
+  totalSteps: number
+  onNext: () => void
+  onPrev: () => void
+  onClose: () => void
+  isLast: boolean
+}) {
+  const padding = 8
+  const cutout = {
+    x: targetRect.x - padding,
+    y: targetRect.y - padding,
+    w: targetRect.width + padding * 2,
+    h: targetRect.height + padding * 2,
+  }
+
+  // Compute tooltip position: prefer bottom, fallback to top if near bottom edge
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const tooltipW = Math.min(300, vw - 32)
+  const spaceBelow = vh - (cutout.y + cutout.h)
+  const placeBelow = spaceBelow > 160
+
+  const tooltipStyle: React.CSSProperties = {
+    position: 'fixed',
+    width: tooltipW,
+    zIndex: 10001,
+    ...(placeBelow
+      ? { top: cutout.y + cutout.h + 12, left: Math.max(16, Math.min(cutout.x, vw - tooltipW - 16)) }
+      : { bottom: vh - cutout.y + 12, left: Math.max(16, Math.min(cutout.x, vw - tooltipW - 16)) }),
+  }
+
+  return ReactDOM.createPortal(
+    <>
+      {/* Full-screen overlay with cutout */}
+      <svg
+        className="fixed inset-0"
+        style={{ zIndex: 10000, pointerEvents: 'none' }}
+        width="100%" height="100%"
+      >
+        <defs>
+          <mask id="tour-spotlight-mask">
+            <rect width="100%" height="100%" fill="white" />
+            <rect
+              x={cutout.x} y={cutout.y}
+              width={cutout.w} height={cutout.h}
+              rx={8} fill="black"
+            />
+          </mask>
+        </defs>
+        <rect
+          width="100%" height="100%"
+          fill="rgba(0,0,0,0.55)"
+          mask="url(#tour-spotlight-mask)"
+          style={{ pointerEvents: 'auto' }}
+          onClick={onClose}
+        />
+      </svg>
+
+      {/* Highlight ring around target */}
+      <div
+        className="fixed rounded-lg ring-2 ring-primary ring-offset-2 ring-offset-transparent pointer-events-none animate-pulse"
+        style={{
+          zIndex: 10001,
+          left: cutout.x,
+          top: cutout.y,
+          width: cutout.w,
+          height: cutout.h,
+        }}
+      />
+
+      {/* Tooltip */}
+      <div style={tooltipStyle} className="bg-card border border-border rounded-xl shadow-2xl p-4 pointer-events-auto">
+        {/* Progress */}
+        <div className="flex items-center gap-1.5 mb-2">
+          {Array.from({ length: totalSteps }).map((_, i) => (
+            <div key={i} className={cn('h-1 flex-1 rounded-full', i <= step ? 'bg-primary' : 'bg-border')} />
+          ))}
+        </div>
+        <span className="text-[10px] text-muted-foreground block mb-2">Etape {step + 1} / {totalSteps}</span>
+
+        <h4 className="text-sm font-semibold text-foreground mb-1">{tooltipContent.title}</h4>
+        <p className="text-xs text-muted-foreground leading-relaxed mb-4">{tooltipContent.content}</p>
+
+        <div className="flex items-center justify-between">
+          <button onClick={onClose} className="text-[10px] text-muted-foreground hover:text-foreground">
+            Quitter
+          </button>
+          <div className="flex gap-2">
+            {step > 0 && (
+              <button onClick={onPrev} className="gl-button-sm gl-button-default text-[10px]">
+                Precedent
+              </button>
+            )}
+            <button onClick={onNext} className="gl-button-sm gl-button-confirm text-[10px] flex items-center gap-1">
+              {isLast ? <><CheckCircle2 size={10} /> Terminer</> : <><ArrowRight size={10} /> Suivant</>}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>,
+    document.body,
+  )
+}
 
 // ── Derive current module slug ─────────────────────────────────
 
@@ -343,7 +459,7 @@ export function AssistantPanel() {
   return (
     <aside
       className={cn(
-        'fixed top-0 right-0 z-50 h-full flex flex-col',
+        'fixed top-[44px] right-0 z-40 h-[calc(100vh-44px)] flex flex-col',
         'w-[360px] max-w-[90vw]',
         'bg-background/95 backdrop-blur-sm border-l border-border shadow-lg',
         'animate-in slide-in-from-right duration-200',
@@ -681,6 +797,7 @@ function HelpTab({ currentModule }: { currentModule: string }) {
 function ToursTab({ currentModule }: { currentModule: string }) {
   const [activeTour, setActiveTour] = useState<GuidedTour | null>(null)
   const [currentStep, setCurrentStep] = useState(0)
+  const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
 
   // Completed tours stored in localStorage
   const [completedTours, setCompletedTours] = useState<string[]>(() => {
@@ -703,9 +820,44 @@ function ToursTab({ currentModule }: { currentModule: string }) {
     [currentModule],
   )
 
+  // Find and highlight the target element for the current step
+  const highlightTarget = useCallback((step: TourStep) => {
+    // Try data-tour attribute first, then CSS selector
+    const el = document.querySelector(`[data-tour="${step.target}"]`) || document.querySelector(step.target)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      const rect = el.getBoundingClientRect()
+      setTargetRect(rect)
+      // Focus the element if it's focusable (input, button, etc.)
+      if (el instanceof HTMLElement && (el.tabIndex >= 0 || el.tagName === 'INPUT' || el.tagName === 'BUTTON' || el.tagName === 'TEXTAREA')) {
+        el.focus({ preventScroll: true })
+      }
+    } else {
+      setTargetRect(null)
+    }
+  }, [])
+
+  // Re-highlight on step change or window resize
+  useEffect(() => {
+    if (!activeTour) { setTargetRect(null); return }
+    const step = activeTour.steps[currentStep]
+    // Small delay for DOM to settle (e.g. after scrollIntoView)
+    const timer = setTimeout(() => highlightTarget(step), 150)
+
+    const onResize = () => highlightTarget(step)
+    window.addEventListener('resize', onResize)
+    return () => { clearTimeout(timer); window.removeEventListener('resize', onResize) }
+  }, [activeTour, currentStep, highlightTarget])
+
   const startTour = useCallback((tour: GuidedTour) => {
     setActiveTour(tour)
     setCurrentStep(0)
+  }, [])
+
+  const closeTour = useCallback(() => {
+    setActiveTour(null)
+    setCurrentStep(0)
+    setTargetRect(null)
   }, [])
 
   const nextStep = useCallback(() => {
@@ -714,122 +866,99 @@ function ToursTab({ currentModule }: { currentModule: string }) {
       setCurrentStep(s => s + 1)
     } else {
       markCompleted(activeTour.id)
-      setActiveTour(null)
-      setCurrentStep(0)
+      closeTour()
     }
-  }, [activeTour, currentStep, markCompleted])
+  }, [activeTour, currentStep, markCompleted, closeTour])
 
   const prevStep = useCallback(() => {
     setCurrentStep(s => Math.max(0, s - 1))
   }, [])
 
-  // Tour execution view
-  if (activeTour) {
-    const step = activeTour.steps[currentStep]
-    const isLast = currentStep === activeTour.steps.length - 1
-    return (
-      <div className="flex-1 flex flex-col">
-        {/* Tour header */}
-        <div className="px-4 py-3 border-b border-border bg-primary/5">
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-foreground">{activeTour.title}</h4>
-            <button onClick={() => { setActiveTour(null); setCurrentStep(0) }} className="text-xs text-muted-foreground hover:text-foreground">
-              Quitter
-            </button>
-          </div>
-          <div className="flex items-center gap-1.5 mt-2">
-            {activeTour.steps.map((_, i) => (
-              <div
-                key={i}
-                className={cn(
-                  'h-1 flex-1 rounded-full transition-colors',
-                  i <= currentStep ? 'bg-primary' : 'bg-border',
-                )}
-              />
-            ))}
-          </div>
-          <span className="text-[10px] text-muted-foreground mt-1 block">
-            Etape {currentStep + 1} / {activeTour.steps.length}
-          </span>
-        </div>
+  // Render spotlight overlay when a tour is active and target is found
+  const spotlightOverlay = activeTour && targetRect ? (
+    <TourSpotlight
+      targetRect={targetRect}
+      tooltipContent={activeTour.steps[currentStep]}
+      step={currentStep}
+      totalSteps={activeTour.steps.length}
+      onNext={nextStep}
+      onPrev={prevStep}
+      onClose={closeTour}
+      isLast={currentStep === activeTour.steps.length - 1}
+    />
+  ) : null
 
-        {/* Step content */}
-        <div className="flex-1 overflow-y-auto px-4 py-6">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-bold">
-              {currentStep + 1}
-            </div>
-            <h5 className="text-sm font-semibold text-foreground">{step.title}</h5>
-          </div>
-          <p className="text-sm text-muted-foreground leading-relaxed">{step.content}</p>
-        </div>
-
-        {/* Navigation */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/20 shrink-0">
-          <button
-            onClick={prevStep}
-            disabled={currentStep === 0}
-            className="gl-button-sm gl-button-default disabled:opacity-30"
-          >
-            Precedent
-          </button>
-          <button
-            onClick={nextStep}
-            className="gl-button-sm gl-button-confirm flex items-center gap-1"
-          >
-            {isLast ? (
-              <><CheckCircle2 size={12} /> Terminer</>
-            ) : (
-              <><ArrowRight size={12} /> Suivant</>
-            )}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // Tour list view
+  // Tour list view (always shown — spotlight is rendered via portal)
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-      <p className="text-xs text-muted-foreground mb-2">
-        Visites guidees interactives pour vous aider a demarrer.
-      </p>
-
-      {availableTours.length === 0 && (
-        <div className="text-center py-8 text-sm text-muted-foreground">
-          <Map size={24} className="mx-auto mb-2 text-muted-foreground/30" />
-          Aucune visite disponible pour ce module.
-        </div>
-      )}
-
-      {availableTours.map(tour => {
-        const isCompleted = completedTours.includes(tour.id)
-        return (
-          <div key={tour.id} className="border border-border rounded-lg p-3 hover:bg-muted/30 transition-colors">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-medium text-foreground truncate">{tour.title}</h4>
-                  {isCompleted && (
-                    <span className="shrink-0 text-[9px] bg-green-500/10 text-green-500 px-1.5 py-0.5 rounded-full font-medium">
-                      Fait
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">{tour.description}</p>
-                <p className="text-[10px] text-muted-foreground/60 mt-1">{tour.steps.length} etapes</p>
+    <>
+      {spotlightOverlay}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        {activeTour && (
+          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5 mb-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-primary">{activeTour.title}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Etape {currentStep + 1} / {activeTour.steps.length} — {activeTour.steps[currentStep].title}
+                </p>
               </div>
-              <button
-                onClick={() => startTour(tour)}
-                className="gl-button-sm gl-button-default shrink-0 flex items-center gap-1"
-              >
-                <Play size={10} /> {isCompleted ? 'Revoir' : 'Demarrer'}
+              <button onClick={closeTour} className="text-[10px] text-muted-foreground hover:text-foreground">
+                Quitter
               </button>
             </div>
           </div>
-        )
-      })}
-    </div>
+        )}
+
+        <p className="text-xs text-muted-foreground mb-2">
+          Visites guidees interactives avec spotlight sur les elements de la page.
+        </p>
+
+        {availableTours.length === 0 && (
+          <div className="text-center py-8 text-sm text-muted-foreground">
+            <Map size={24} className="mx-auto mb-2 text-muted-foreground/30" />
+            Aucune visite disponible pour ce module.
+          </div>
+        )}
+
+        {availableTours.map(tour => {
+          const isCompleted = completedTours.includes(tour.id)
+          const isActive = activeTour?.id === tour.id
+          return (
+            <div key={tour.id} className={cn(
+              'border rounded-lg p-3 transition-colors',
+              isActive ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/30',
+            )}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-medium text-foreground truncate">{tour.title}</h4>
+                    {isCompleted && (
+                      <span className="shrink-0 text-[9px] bg-green-500/10 text-green-500 px-1.5 py-0.5 rounded-full font-medium">
+                        Fait
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{tour.description}</p>
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">{tour.steps.length} etapes</p>
+                </div>
+                {isActive ? (
+                  <button onClick={closeTour} className="gl-button-sm gl-button-default shrink-0 flex items-center gap-1 text-red-500">
+                    <StopCircle size={10} /> Arreter
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => startTour(tour)}
+                    className="gl-button-sm gl-button-default shrink-0 flex items-center gap-1"
+                  >
+                    <Play size={10} /> {isCompleted ? 'Revoir' : 'Demarrer'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </>
   )
 }
 

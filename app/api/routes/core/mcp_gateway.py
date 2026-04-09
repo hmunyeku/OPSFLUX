@@ -191,11 +191,14 @@ async def _build_authenticated_user_context(
     db: AsyncSession,
 ) -> NativeToolContext:
     tenant_schema = _get_request_tenant_schema(request)
-    if not tenant_schema or tenant_schema == "public":
+    if not tenant_schema:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             "Tenant context missing for MCP request.",
         )
+    # Accept "public" schema in single-tenant deployments
+    if tenant_schema == "public":
+        tenant_schema = "public"
     permissions = await get_user_permissions(current_user.id, entity_id, db)
     return NativeToolContext(
         user_id=str(current_user.id),
@@ -654,8 +657,8 @@ async def create_my_token(
     current_user: User = Depends(get_current_user),
     entity_id: UUID = Depends(get_current_entity),
 ):
-    tenant_schema = _get_request_tenant_schema(request)
-    if not tenant_schema or tenant_schema == "public":
+    tenant_schema = _get_request_tenant_schema(request) or "public"
+    if not tenant_schema:
         raise HTTPException(
             status_code=400,
             detail="Tenant context missing. Create the MCP token from the tenant application.",

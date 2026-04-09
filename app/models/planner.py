@@ -16,7 +16,7 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
@@ -66,6 +66,10 @@ class PlannerActivity(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
         UUID(as_uuid=True), ForeignKey("project_tasks.id", ondelete="SET NULL"),
         comment="The project task this activity was created from (Projets → Planner link)",
     )
+    parent_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("planner_activities.id", ondelete="SET NULL"),
+        comment="Parent activity for hierarchy (POB sums up at each level)",
+    )
     type: Mapped[str] = mapped_column(String(30), nullable=False)
     subtype: Mapped[str | None] = mapped_column(String(30))
     title: Mapped[str] = mapped_column(String(300), nullable=False)
@@ -73,6 +77,14 @@ class PlannerActivity(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
     priority: Mapped[str] = mapped_column(String(10), nullable=False, default="medium")
     pax_quota: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    pax_quota_mode: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="constant",
+        comment="'constant' = single pax_quota for all days; 'variable' = per-day values in pax_quota_daily",
+    )
+    pax_quota_daily: Mapped[dict | None] = mapped_column(
+        JSONB, default=None,
+        comment="Per-day PAX quota: {'2026-04-10': 5, '2026-04-11': 8, ...}. Only used when pax_quota_mode='variable'.",
+    )
     start_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     actual_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

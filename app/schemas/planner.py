@@ -19,6 +19,7 @@ class ActivityRead(PlannerSchema):
     entity_id: UUID
     asset_id: UUID
     project_id: UUID | None = None
+    parent_id: UUID | None = None
     type: str
     subtype: str | None = None
     title: str
@@ -26,6 +27,8 @@ class ActivityRead(PlannerSchema):
     status: str
     priority: str
     pax_quota: int
+    pax_quota_mode: str = "constant"
+    pax_quota_daily: dict | None = None
     start_date: datetime | None = None
     end_date: datetime | None = None
     actual_start: datetime | None = None
@@ -82,12 +85,15 @@ class ActivityRead(PlannerSchema):
 class ActivityCreate(BaseModel):
     asset_id: UUID
     project_id: UUID | None = None
+    parent_id: UUID | None = None
     type: str = Field(..., pattern=r"^(project|workover|drilling|integrity|maintenance|permanent_ops|inspection|event)$")
     subtype: str | None = Field(None, pattern=r"^(preventive|corrective|regulatory)$")
     title: str = Field(..., min_length=1, max_length=300)
     description: str | None = None
     priority: str = Field(default="medium", pattern=r"^(low|medium|high|critical)$")
     pax_quota: int = Field(default=0, ge=0)
+    pax_quota_mode: str = Field(default="constant", pattern=r"^(constant|variable)$")
+    pax_quota_daily: dict | None = None
     start_date: datetime | None = None
     end_date: datetime | None = None
     # Workover

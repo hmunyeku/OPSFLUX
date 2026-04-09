@@ -239,9 +239,12 @@ async def compute_daily_load(
     statuses = _CAPACITY_STATUSES_ALL if include_submitted else _CAPACITY_STATUSES_CONFIRMED
 
     # Sum pax_quota of activities in the relevant statuses overlapping the date
-    result = await db.execute(
+    # Supports both constant mode (pax_quota) and variable mode (pax_quota_daily)
+    activities_result = await db.execute(
         select(
-            sqla_func.coalesce(sqla_func.sum(PlannerActivity.pax_quota), 0),
+            PlannerActivity.pax_quota,
+            PlannerActivity.pax_quota_mode,
+            PlannerActivity.pax_quota_daily,
         ).where(
             PlannerActivity.entity_id == entity_id,
             PlannerActivity.asset_id == asset_id,
@@ -253,7 +256,13 @@ async def compute_daily_load(
             PlannerActivity.end_date >= datetime.combine(target_date, datetime.min.time()),
         )
     )
-    used_by_activities = result.scalar() or 0
+    used_by_activities = 0
+    day_key = target_date.isoformat()
+    for row in activities_result.all():
+        if row.pax_quota_mode == "variable" and isinstance(row.pax_quota_daily, dict):
+            used_by_activities += int(row.pax_quota_daily.get(day_key, 0))
+        else:
+            used_by_activities += row.pax_quota or 0
     used = perm_ops + used_by_activities
     residual = total - used
     saturation = (used / total * 100) if total > 0 else 0.0

@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
-import ast
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
+from jinja2 import BaseLoader, Environment, StrictUndefined
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.asset_registry import Installation
-from app.models.common import Project, ProjectTask
+from app.models.common import Project, ProjectTask, ProjectTaskDependency
+from app.models.papyrus import PapyrusExternalSubmission, PapyrusForm
+from app.services.modules.papyrus_formula_service import evaluate_formula_expression
 from app.services.modules.papyrus_versioning_service import ensure_papyrus_document
+
+_template_env = Environment(loader=BaseLoader(), autoescape=False, undefined=StrictUndefined)
 
 
 async def render_papyrus_document(
@@ -70,6 +74,8 @@ async def _render_block(
                 current["display_value"] = current["resolved"].get("name")
             elif block_type == "opsflux_actions" and isinstance(current["resolved"], list):
                 current["display_value"] = len(current["resolved"])
+            elif block_type == "opsflux_gantt" and isinstance(current["resolved"], dict):
+                current["display_value"] = len(current["resolved"].get("tasks", []))
             elif block_type == "opsflux_kpi":
                 current["display_value"] = current["resolved"]
 
@@ -84,6 +90,20 @@ async def _render_block(
             )
             current["computed_value"] = value
             current["computed_at"] = datetime.utcnow().isoformat() + "Z"
+
+    if block_type == "html_template":
+        template_source = current.get("template") or current.get("html") or current.get("source")
+        if isinstance(template_source, str):
+            current["rendered_html"] = _render_html_template(
+                template_source,
+                {
+                    "refs": rendered_refs,
+                    "block": current,
+                    "document": {
+                        "resolved_refs": rendered_refs,
+                    },
+                },
+            )
 
     children = current.get("children")
     if isinstance(children, list):
@@ -107,9 +127,13 @@ async def evaluate_formula(
     """Evaluate a safe subset of formula expressions with ref support."""
 
     rendered_refs = rendered_refs or {}
-    runtime = _FormulaRuntime(db=db, entity_id=entity_id, rendered_refs=rendered_refs)
-    tree = ast.parse(expression, mode="eval")
-    return await runtime.eval(tree.body)
+    return await evaluate_formula_expression(
+        db=db,
+        entity_id=entity_id,
+        expression=expression,
+        rendered_refs=rendered_refs,
+        resolve_ref=lambda ref: resolve_ref(db=db, entity_id=entity_id, ref=ref),
+    )
 
 
 async def resolve_ref(
@@ -138,6 +162,10 @@ async def resolve_ref(
             "end_date": project.end_date.isoformat() if project.end_date else None,
             "asset_id": str(project.asset_id) if project.asset_id else None,
         }
+        if field == "actions":
+            return await _resolve_project_actions(db=db, project_id=project.id)
+        if field == "gantt":
+            return await _resolve_project_gantt(db=db, project_id=project.id)
         return payload.get(field) if field else payload
 
     if ref.startswith("asset://"):
@@ -172,21 +200,82 @@ async def resolve_ref(
             "priority": task.priority,
             "progress": task.progress,
             "due_date": task.due_date.isoformat() if task.due_date else None,
+            "start_date": task.start_date.isoformat() if task.start_date else None,
         }
         return payload.get(field) if field else payload
 
     if ref.startswith("kpi://"):
-        # Minimal KPI mapping backed by project fields for now.
         kpi_path = ref.removeprefix("kpi://")
         if kpi_path.startswith("project/"):
             _, project_id, metric = kpi_path.split("/", 2)
+            project_uuid = UUID(project_id)
             project_data = await resolve_ref(db=db, entity_id=entity_id, ref=f"project://{project_id}")
+            actions = await _resolve_project_actions(db=db, project_id=project_uuid)
+            today = datetime.now(timezone.utc)
+            open_actions = [
+                task for task in actions if task.get("status") not in {"done", "cancelled"}
+            ]
+            overdue_actions = [
+                task
+                for task in open_actions
+                if task.get("due_date") and _parse_iso_datetime(task["due_date"]) and _parse_iso_datetime(task["due_date"]) < today
+            ]
+            completed_actions = [
+                task for task in actions if task.get("status") in {"done", "cancelled"}
+            ]
             if not isinstance(project_data, dict):
-                return None
+                project_data = {}
             metric_map = {
                 "progress": project_data.get("progress"),
+                "status": project_data.get("status"),
+                "total_actions": len(actions),
+                "open_actions": len(open_actions),
+                "completed_actions": len(completed_actions),
+                "overdue_actions": len(overdue_actions),
+                "completion_ratio": (len(completed_actions) / len(actions)) if actions else 0,
             }
             return metric_map.get(metric)
+
+    if ref.startswith("form://"):
+        form_path = ref.removeprefix("form://")
+        form_id, _, field = form_path.partition("/")
+        form = await db.scalar(
+            select(PapyrusForm).where(PapyrusForm.id == UUID(form_id), PapyrusForm.entity_id == entity_id)
+        )
+        if form is None:
+            return None
+        submissions_result = await db.execute(
+            select(PapyrusExternalSubmission).where(PapyrusExternalSubmission.form_id == form.id)
+        )
+        submissions = list(submissions_result.scalars().all())
+        payload = {
+            "id": str(form.id),
+            "name": form.name,
+            "description": form.description,
+            "is_active": form.is_active,
+            "fields": (form.schema_json or {}).get("fields", []),
+            "submission_count": len(submissions),
+            "accepted_count": len([s for s in submissions if s.status == "accepted"]),
+            "pending_count": len([s for s in submissions if s.status == "pending"]),
+        }
+        return payload.get(field) if field else payload
+
+    if ref.startswith("file://"):
+        file_path = ref.removeprefix("file://")
+        filename = file_path.replace("\\", "/").rstrip("/").split("/")[-1]
+        payload = {
+            "uri": ref,
+            "path": file_path,
+            "filename": filename,
+            "extension": filename.rsplit(".", 1)[-1].lower() if "." in filename else None,
+        }
+        return payload.get("path") if file_path and "/" not in file_path and not filename else payload
+
+    if ref.startswith("formula://"):
+        expression = ref.removeprefix("formula://").strip()
+        if not expression:
+            return None
+        return await evaluate_formula(db=db, entity_id=entity_id, expression=expression)
 
     return None
 
@@ -214,67 +303,84 @@ async def get_renderable_papyrus_for_document(
     )
     return await render_papyrus_document(db=db, entity_id=entity_id, document=canonical)
 
-
-class _FormulaRuntime:
-    def __init__(self, *, db: AsyncSession, entity_id: UUID, rendered_refs: dict[str, Any]) -> None:
-        self.db = db
-        self.entity_id = entity_id
-        self.rendered_refs = rendered_refs
-
-    async def eval(self, node: ast.AST) -> Any:
-        if isinstance(node, ast.Constant):
-            return node.value
-        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
-            return -(await self.eval(node.operand))
-        if isinstance(node, ast.BinOp):
-            left = await self.eval(node.left)
-            right = await self.eval(node.right)
-            if isinstance(node.op, ast.Add):
-                return left + right
-            if isinstance(node.op, ast.Sub):
-                return left - right
-            if isinstance(node.op, ast.Mult):
-                return left * right
-            if isinstance(node.op, ast.Div):
-                return left / right
-            raise ValueError("Unsupported binary operator")
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-            func_name = node.func.id.upper()
-            args = [await self.eval(arg) for arg in node.args]
-            if func_name == "SUM":
-                values = _flatten(args)
-                return sum(v for v in values if isinstance(v, (int, float)))
-            if func_name == "MIN":
-                values = _flatten(args)
-                return min(v for v in values if isinstance(v, (int, float)))
-            if func_name == "MAX":
-                values = _flatten(args)
-                return max(v for v in values if isinstance(v, (int, float)))
-            if func_name == "ABS":
-                return abs(args[0])
-            if func_name == "ROUND":
-                if len(args) == 1:
-                    return round(args[0])
-                return round(args[0], int(args[1]))
-            if func_name == "REF":
-                ref = args[0]
-                if not isinstance(ref, str):
-                    raise ValueError("REF expects a string URI")
-                return await self._resolve_formula_ref(ref)
-            raise ValueError(f"Unsupported function {func_name}")
-        raise ValueError("Unsupported formula expression")
-
-    async def _resolve_formula_ref(self, ref: str) -> Any:
-        if ref not in self.rendered_refs:
-            self.rendered_refs[ref] = await resolve_ref(db=self.db, entity_id=self.entity_id, ref=ref)
-        return self.rendered_refs[ref]
+async def _resolve_project_actions(*, db: AsyncSession, project_id: UUID) -> list[dict[str, Any]]:
+    result = await db.execute(
+        select(ProjectTask)
+        .where(ProjectTask.project_id == project_id)
+        .order_by(ProjectTask.start_date.asc().nulls_last(), ProjectTask.created_at.asc())
+    )
+    tasks = list(result.scalars().all())
+    return [
+        {
+            "id": str(task.id),
+            "title": task.title,
+            "status": task.status,
+            "priority": task.priority,
+            "progress": task.progress,
+            "start_date": task.start_date.isoformat() if task.start_date else None,
+            "due_date": task.due_date.isoformat() if task.due_date else None,
+            "parent_id": str(task.parent_id) if task.parent_id else None,
+        }
+        for task in tasks
+    ]
 
 
-def _flatten(values: list[Any]) -> list[Any]:
-    flattened: list[Any] = []
-    for value in values:
-        if isinstance(value, list):
-            flattened.extend(_flatten(value))
-        else:
-            flattened.append(value)
-    return flattened
+async def _resolve_project_gantt(*, db: AsyncSession, project_id: UUID) -> dict[str, Any]:
+    tasks_result = await db.execute(
+        select(ProjectTask)
+        .where(ProjectTask.project_id == project_id)
+        .order_by(ProjectTask.start_date.asc().nulls_last(), ProjectTask.created_at.asc())
+    )
+    tasks = list(tasks_result.scalars().all())
+
+    dependencies_result = await db.execute(
+        select(ProjectTaskDependency)
+        .join(ProjectTask, ProjectTask.id == ProjectTaskDependency.from_task_id)
+        .where(ProjectTask.project_id == project_id)
+    )
+    dependencies = list(dependencies_result.scalars().all())
+
+    return {
+        "project_id": str(project_id),
+        "tasks": [
+            {
+                "id": str(task.id),
+                "title": task.title,
+                "status": task.status,
+                "priority": task.priority,
+                "progress": task.progress,
+                "start_date": task.start_date.isoformat() if task.start_date else None,
+                "due_date": task.due_date.isoformat() if task.due_date else None,
+                "parent_id": str(task.parent_id) if task.parent_id else None,
+                "wbs_node_id": str(task.wbs_node_id) if task.wbs_node_id else None,
+            }
+            for task in tasks
+        ],
+        "dependencies": [
+            {
+                "id": str(dep.id),
+                "from_task_id": str(dep.from_task_id),
+                "to_task_id": str(dep.to_task_id),
+                "dependency_type": dep.dependency_type,
+                "lag_days": dep.lag_days,
+            }
+            for dep in dependencies
+        ],
+    }
+
+
+def _render_html_template(template_source: str, context: dict[str, Any]) -> str:
+    try:
+        return _template_env.from_string(template_source).render(**context)
+    except Exception as exc:
+        return f"<div class='papyrus-template-error'>Template render error: {exc}</div>"
+
+
+def _parse_iso_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        normalized = value.replace("Z", "+00:00")
+        return datetime.fromisoformat(normalized)
+    except ValueError:
+        return None

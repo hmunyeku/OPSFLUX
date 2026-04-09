@@ -65,6 +65,7 @@ import {
   useRevisions,
   useRevision,
   usePapyrusDocument,
+  useRenderedPapyrusDocument,
   usePapyrusVersions,
   usePapyrusSchedule,
   useUpdatePapyrusSchedule,
@@ -72,6 +73,7 @@ import {
   useRunPapyrusDispatchNow,
   usePapyrusForms,
   useCreatePapyrusForm,
+  useUpdatePapyrusForm,
   useImportPapyrusEpiCollect,
   usePapyrusSubmissions,
   useCreatePapyrusExternalLink,
@@ -85,6 +87,7 @@ import {
 } from '@/hooks/usePapyrus'
 import { papyrusService } from '@/services/papyrusService'
 import { DocumentEditor } from '@/components/papyrus/DocumentEditor'
+import { PapyrusFormBuilder } from '@/components/papyrus/PapyrusFormBuilder'
 import { useProjects } from '@/hooks/useProjets'
 import type {
   Document as REDocument,
@@ -577,6 +580,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
     doc?.current_revision_id ?? undefined,
   )
   const { data: papyrusDocument } = usePapyrusDocument(id)
+  const { data: renderedPapyrusDocument } = useRenderedPapyrusDocument(id)
   const { data: papyrusVersions } = usePapyrusVersions(id)
   const { data: papyrusSchedule } = usePapyrusSchedule(id)
   const { data: papyrusDispatchRuns } = usePapyrusDispatchRuns(id)
@@ -597,6 +601,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
   const saveDraft = useSaveDraft()
   const createRevision = useCreateRevision()
   const createPapyrusForm = useCreatePapyrusForm()
+  const updatePapyrusForm = useUpdatePapyrusForm()
   const importPapyrusEpiCollect = useImportPapyrusEpiCollect()
   const createPapyrusExternalLink = useCreatePapyrusExternalLink()
   const exportPapyrusEpiCollect = useExportPapyrusEpiCollect()
@@ -834,6 +839,21 @@ function DocumentDetailPanel({ id }: { id: string }) {
     }
   }, [doc?.title, id, importPapyrusEpiCollect, epicollectImportJson, papyrusFormDescription, papyrusFormName, toast])
 
+  const handleSavePapyrusFormSchema = useCallback(async (schema: Record<string, unknown>) => {
+    if (!linkedPapyrusForm) return
+    try {
+      await updatePapyrusForm.mutateAsync({
+        formId: linkedPapyrusForm.id,
+        payload: {
+          schema_json: schema,
+        },
+      })
+      toast({ title: 'Schema du formulaire Papyrus enregistre', variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur lors de l’enregistrement du formulaire', variant: 'error' })
+    }
+  }, [linkedPapyrusForm, toast, updatePapyrusForm])
+
   const handleExportEpiCollect = useCallback(async () => {
     if (!linkedPapyrusForm) return
     try {
@@ -1006,6 +1026,35 @@ function DocumentDetailPanel({ id }: { id: string }) {
           )}
         </FormSection>
 
+        <FormSection title="Apercu rendu Papyrus" collapsible>
+          {!renderedPapyrusDocument ? (
+            <p className="text-sm text-muted-foreground">Rendu Papyrus indisponible.</p>
+          ) : (
+            <div className="space-y-3">
+              <DetailFieldGrid>
+                <ReadOnlyRow label="Version" value={String(renderedPapyrusDocument.version)} />
+                <ReadOnlyRow label="Rendu le" value={renderedPapyrusDocument.rendered_at ? formatDate(renderedPapyrusDocument.rendered_at) : '--'} />
+                <ReadOnlyRow label="Refs resolues" value={String(Object.keys(renderedPapyrusDocument.resolved_refs ?? {}).length)} />
+                <ReadOnlyRow label="Blocs" value={String(renderedPapyrusDocument.blocks?.length ?? 0)} />
+              </DetailFieldGrid>
+
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground">References resolues</div>
+                <pre className="rounded-md border border-border bg-muted/20 p-3 text-[11px] overflow-x-auto">
+{JSON.stringify(renderedPapyrusDocument.resolved_refs ?? {}, null, 2)}
+                </pre>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground">Blocs rendus</div>
+                <pre className="rounded-md border border-border bg-muted/20 p-3 text-[11px] overflow-x-auto">
+{JSON.stringify(renderedPapyrusDocument.blocks ?? [], null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
+        </FormSection>
+
         <FormSection title="Formulaire Papyrus" collapsible defaultExpanded={false}>
           {!linkedPapyrusForm ? (
             <div className="space-y-3">
@@ -1061,10 +1110,13 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 <ReadOnlyRow label="Cree le" value={formatDate(linkedPapyrusForm.created_at)} />
               </DetailFieldGrid>
               <div className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground">Schema JSON</div>
-                <pre className="rounded-md border border-border bg-muted/20 p-3 text-[11px] overflow-x-auto">
-{JSON.stringify(linkedPapyrusForm.schema_json, null, 2)}
-                </pre>
+                <div className="text-xs font-medium text-muted-foreground">Builder de formulaire</div>
+                <PapyrusFormBuilder
+                  schema={linkedPapyrusForm.schema_json}
+                  disabled={!hasPermission('document.update')}
+                  isSaving={updatePapyrusForm.isPending}
+                  onSave={handleSavePapyrusFormSchema}
+                />
               </div>
               <div className="flex flex-wrap gap-2">
                 <button

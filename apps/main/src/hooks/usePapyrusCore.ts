@@ -123,6 +123,14 @@ export function usePapyrusDocument(docId: string | undefined, version?: number) 
   })
 }
 
+export function useRenderedPapyrusDocument(docId: string | undefined) {
+  return useQuery({
+    queryKey: [...PAPYRUS_QUERY_ROOT, 'papyrus-document-rendered', docId],
+    queryFn: () => papyrusService.getRenderedPapyrusDocument(docId!),
+    enabled: !!docId,
+  })
+}
+
 export function usePapyrusVersions(docId: string | undefined) {
   return useQuery({
     queryKey: [...PAPYRUS_QUERY_ROOT, 'papyrus-versions', docId],

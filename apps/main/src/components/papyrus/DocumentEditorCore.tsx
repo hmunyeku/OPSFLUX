@@ -1,8 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Braces, Code2, FilePlus2, Heading1, Pilcrow, Plus, SeparatorHorizontal, Trash2 } from 'lucide-react'
+import { BarChart3, Braces, Code2, FileCode2, FilePlus2, Heading1, Pilcrow, Plus, SeparatorHorizontal, Sigma, TableProperties, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type PapyrusBlock = Record<string, unknown>
+type PapyrusBlockType =
+  | 'paragraph'
+  | 'heading'
+  | 'code'
+  | 'separator'
+  | 'formula'
+  | 'opsflux_kpi'
+  | 'opsflux_asset'
+  | 'opsflux_actions'
+  | 'opsflux_gantt'
+  | 'html_template'
 
 export interface PapyrusDocumentShape {
   id: string
@@ -115,7 +126,7 @@ function setBlockText(block: PapyrusBlock, text: string): PapyrusBlock {
   }
 }
 
-function createBlock(type: 'paragraph' | 'heading' | 'code' | 'separator'): PapyrusBlock {
+function createBlock(type: PapyrusBlockType): PapyrusBlock {
   if (type === 'separator') {
     return { id: `block_${Math.random().toString(36).slice(2, 10)}`, type: 'separator', locked: false }
   }
@@ -134,6 +145,59 @@ function createBlock(type: 'paragraph' | 'heading' | 'code' | 'separator'): Papy
       type: 'codeBlock',
       locked: false,
       content: [{ type: 'text', text: '' }],
+    }
+  }
+  if (type === 'formula') {
+    return {
+      id: `block_${Math.random().toString(36).slice(2, 10)}`,
+      type: 'formula',
+      locked: false,
+      label: 'Nouvelle formule',
+      expression: 'SUM(1, 2, 3)',
+    }
+  }
+  if (type === 'html_template') {
+    return {
+      id: `block_${Math.random().toString(36).slice(2, 10)}`,
+      type: 'html_template',
+      locked: false,
+      template: '<h2>{{ refs["project://PROJECT_ID"]?.name or "Projet" }}</h2>',
+    }
+  }
+  if (type === 'opsflux_kpi') {
+    return {
+      id: `block_${Math.random().toString(36).slice(2, 10)}`,
+      type: 'opsflux_kpi',
+      locked: false,
+      label: 'KPI projet',
+      ref: 'kpi://project/PROJECT_ID/progress',
+    }
+  }
+  if (type === 'opsflux_asset') {
+    return {
+      id: `block_${Math.random().toString(36).slice(2, 10)}`,
+      type: 'opsflux_asset',
+      locked: false,
+      label: 'Actif',
+      ref: 'asset://ASSET_ID',
+    }
+  }
+  if (type === 'opsflux_actions') {
+    return {
+      id: `block_${Math.random().toString(36).slice(2, 10)}`,
+      type: 'opsflux_actions',
+      locked: false,
+      label: 'Actions projet',
+      ref: 'project://PROJECT_ID/actions',
+    }
+  }
+  if (type === 'opsflux_gantt') {
+    return {
+      id: `block_${Math.random().toString(36).slice(2, 10)}`,
+      type: 'opsflux_gantt',
+      locked: false,
+      label: 'Gantt projet',
+      ref: 'project://PROJECT_ID/gantt',
     }
   }
   return {
@@ -174,7 +238,7 @@ export function DocumentEditor({ content, onChange, readOnly = false }: Document
     commit({ ...doc, blocks: nextBlocks, version: doc.version + 1, meta: { ...doc.meta, version: doc.version + 1 } })
   }
 
-  const addBlock = (type: 'paragraph' | 'heading' | 'code' | 'separator') => {
+  const addBlock = (type: PapyrusBlockType) => {
     commit({
       ...doc,
       blocks: [...doc.blocks, createBlock(type)],
@@ -223,6 +287,26 @@ export function DocumentEditor({ content, onChange, readOnly = false }: Document
               <SeparatorHorizontal size={12} />
               <span>Séparateur</span>
             </button>
+            <button type="button" className="gl-button-sm gl-button-default" onClick={() => addBlock('formula')}>
+              <Sigma size={12} />
+              <span>Formule</span>
+            </button>
+            <button type="button" className="gl-button-sm gl-button-default" onClick={() => addBlock('opsflux_kpi')}>
+              <BarChart3 size={12} />
+              <span>KPI</span>
+            </button>
+            <button type="button" className="gl-button-sm gl-button-default" onClick={() => addBlock('opsflux_actions')}>
+              <TableProperties size={12} />
+              <span>Actions</span>
+            </button>
+            <button type="button" className="gl-button-sm gl-button-default" onClick={() => addBlock('opsflux_gantt')}>
+              <TableProperties size={12} />
+              <span>Gantt</span>
+            </button>
+            <button type="button" className="gl-button-sm gl-button-default" onClick={() => addBlock('html_template')}>
+              <FileCode2 size={12} />
+              <span>HTML</span>
+            </button>
           </>
         )}
         <div className="ml-auto text-[11px] text-muted-foreground">
@@ -257,6 +341,9 @@ export function DocumentEditor({ content, onChange, readOnly = false }: Document
             const type = String(block.type ?? 'paragraph')
             const isSeparator = type === 'separator'
             const isCode = type === 'codeBlock'
+            const isFormula = type === 'formula'
+            const isLiveBlock = ['opsflux_kpi', 'opsflux_asset', 'opsflux_actions', 'opsflux_gantt'].includes(type)
+            const isHtmlTemplate = type === 'html_template'
             return (
               <div key={String(block.id ?? index)} className="rounded-md border border-border bg-muted/10 p-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
@@ -271,15 +358,64 @@ export function DocumentEditor({ content, onChange, readOnly = false }: Document
                 {isSeparator ? (
                   <div className="h-px bg-border my-3" />
                 ) : (
-                  <textarea
-                    value={blockText(block)}
-                    readOnly={readOnly}
-                    onChange={(event) => updateBlock(index, (current) => setBlockText(current, event.target.value))}
-                    className={cn(
-                      'w-full rounded-md border border-border bg-background px-3 py-2 text-sm',
-                      isCode ? 'font-mono min-h-[140px]' : 'min-h-[90px]',
-                    )}
-                  />
+                  <div className="space-y-2">
+                    {isFormula ? (
+                      <>
+                        <input
+                          value={typeof block.label === 'string' ? block.label : ''}
+                          readOnly={readOnly}
+                          onChange={(event) => updateBlock(index, (current) => ({ ...current, label: event.target.value }))}
+                          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                          placeholder="Libellé de formule"
+                        />
+                        <textarea
+                          value={typeof block.expression === 'string' ? block.expression : ''}
+                          readOnly={readOnly}
+                          onChange={(event) => updateBlock(index, (current) => ({ ...current, expression: event.target.value }))}
+                          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono min-h-[110px]"
+                          placeholder="Expression, ex: IF(REF('kpi://project/PROJECT_ID/progress') > 80, 'OK', 'Alerte')"
+                        />
+                      </>
+                    ) : null}
+                    {isLiveBlock ? (
+                      <>
+                        <input
+                          value={typeof block.label === 'string' ? block.label : ''}
+                          readOnly={readOnly}
+                          onChange={(event) => updateBlock(index, (current) => ({ ...current, label: event.target.value }))}
+                          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                          placeholder="Libellé"
+                        />
+                        <input
+                          value={typeof block.ref === 'string' ? block.ref : ''}
+                          readOnly={readOnly}
+                          onChange={(event) => updateBlock(index, (current) => ({ ...current, ref: event.target.value }))}
+                          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono"
+                          placeholder="URI de référence"
+                        />
+                      </>
+                    ) : null}
+                    {isHtmlTemplate ? (
+                      <textarea
+                        value={typeof block.template === 'string' ? block.template : typeof block.html === 'string' ? block.html : ''}
+                        readOnly={readOnly}
+                        onChange={(event) => updateBlock(index, (current) => ({ ...current, template: event.target.value }))}
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono min-h-[160px]"
+                        placeholder="<h2>{{ refs['project://PROJECT_ID']?.name }}</h2>"
+                      />
+                    ) : null}
+                    {!isFormula && !isLiveBlock && !isHtmlTemplate ? (
+                      <textarea
+                        value={blockText(block)}
+                        readOnly={readOnly}
+                        onChange={(event) => updateBlock(index, (current) => setBlockText(current, event.target.value))}
+                        className={cn(
+                          'w-full rounded-md border border-border bg-background px-3 py-2 text-sm',
+                          isCode ? 'font-mono min-h-[140px]' : 'min-h-[90px]',
+                        )}
+                      />
+                    ) : null}
+                  </div>
                 )}
               </div>
             )

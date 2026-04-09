@@ -114,6 +114,8 @@ export interface PapyrusDocument {
   workflow: Record<string, unknown>
   schedule: Record<string, unknown>
   render: Record<string, unknown>
+  resolved_refs?: Record<string, unknown>
+  rendered_at?: string
 }
 
 export interface PapyrusVersionSummary {
@@ -420,6 +422,11 @@ export const reportEditorService = {
     const { data } = await api.get(`/api/v1/documents/${docId}/papyrus`, {
       params: version ? { version } : undefined,
     })
+    return data
+  },
+
+  getRenderedPapyrusDocument: async (docId: string): Promise<PapyrusDocument> => {
+    const { data } = await api.get(`/api/v1/documents/${docId}/papyrus/render`)
     return data
   },
 

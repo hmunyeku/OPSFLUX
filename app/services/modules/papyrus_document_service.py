@@ -8,6 +8,7 @@ generation, export (PDF/DOCX), and distribution.
 import hashlib
 import logging
 import os
+import re
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -1430,6 +1431,39 @@ async def list_doc_types(
     return result.scalars().all()
 
 
+async def _resolve_doc_type_code(
+    *,
+    requested_code: str | None,
+    name: Any,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> str:
+    from app.models.papyrus_document import DocType
+
+    base_code = (requested_code or "").strip().upper()
+    if not base_code:
+        raw_label = ""
+        if isinstance(name, dict):
+            raw_label = str(name.get("fr") or name.get("en") or "").strip()
+        normalized = re.sub(r"[^A-Z0-9]+", "_", raw_label.upper()).strip("_")
+        base_code = normalized[:50] if normalized else "DOCUMENT"
+
+    candidate = base_code[:50]
+    suffix = 1
+    while True:
+        result = await db.execute(
+            select(DocType.id).where(
+                DocType.entity_id == entity_id,
+                DocType.code == candidate,
+            )
+        )
+        if not result.scalar_one_or_none():
+            return candidate
+        suffix += 1
+        tail = f"_{suffix}"
+        candidate = f"{base_code[: max(1, 50 - len(tail))]}{tail}"
+
+
 async def create_doc_type(
     *,
     body: Any,
@@ -1439,10 +1473,16 @@ async def create_doc_type(
 ) -> Any:
     """Create a new document type."""
     from app.models.papyrus_document import DocType
+    code = await _resolve_doc_type_code(
+        requested_code=getattr(body, "code", None),
+        name=getattr(body, "name", None),
+        entity_id=entity_id,
+        db=db,
+    )
 
     doc_type = DocType(
         entity_id=entity_id,
-        code=body.code,
+        code=code,
         name=body.name,
         nomenclature_pattern=body.nomenclature_pattern,
         discipline=getattr(body, "discipline", None),

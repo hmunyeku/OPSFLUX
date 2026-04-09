@@ -358,8 +358,13 @@ async def create_doc_type(
 ):
     from app.schemas.papyrus_document import DocTypeCreate
     from app.services.modules.papyrus_document_service import create_doc_type as svc_create
+    from fastapi import HTTPException
+    from pydantic import ValidationError
 
-    parsed = DocTypeCreate(**body)
+    try:
+        parsed = DocTypeCreate(**body)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors()) from exc
     return await svc_create(body=parsed, entity_id=entity_id, created_by=current_user.id, db=db)
 
 

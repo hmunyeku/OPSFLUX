@@ -19,7 +19,7 @@ from app.schemas.common import OpsFluxSchema
 
 
 class DocTypeCreate(BaseModel):
-    code: str = Field(..., min_length=1, max_length=50)
+    code: str | None = Field(None, min_length=1, max_length=50)
     name: dict[str, Any] = Field(
         ..., description="JSONB multilingual name, e.g. {'fr': 'Note technique', 'en': 'Technical Note'}"
     )

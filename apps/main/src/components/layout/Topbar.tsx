@@ -20,11 +20,8 @@ import {
   LogOut,
   User as UserIcon,
   Plus,
-  FileText,
-  GitPullRequest,
   Settings,
   X,
-  HelpCircle,
   Sparkles,
 } from 'lucide-react'
 import { useState, useRef, useEffect, useSyncExternalStore, useCallback, useMemo } from 'react'
@@ -32,10 +29,9 @@ import { useQueryClient } from '@tanstack/react-query'
 import { offlineQueue } from '@/lib/offlineQueue'
 import { cn } from '@/lib/utils'
 import { CommandPalette, useCommandPalette } from '@/components/ui/CommandPalette'
-import { useHelp } from '@/components/layout/HelpSystem'
+// HelpSystem context no longer needed — help is in AssistantPanel
 import { EntitySwitcher } from '@/components/layout/EntitySwitcher'
-import { NotificationCenter } from '@/components/layout/NotificationCenter'
-import { AnnouncementCenter } from '@/components/layout/AnnouncementCenter'
+// NotificationCenter and AnnouncementCenter removed — merged into AssistantPanel
 import { ThemeMenu } from '@/components/layout/ThemeMenu'
 
 interface TopbarProps {
@@ -274,7 +270,6 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const { open: paletteOpen, setOpen: setPaletteOpen } = useCommandPalette()
-  const { isHelpOpen, toggleHelp } = useHelp()
   const { aiPanelOpen, toggleAIPanel } = useUIStore()
   const placeholder = useSearchPlaceholder()
   const { data: availableContexts = [] } = useActingContexts()
@@ -394,15 +389,6 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           <div className="mx-1.5 h-4 w-px bg-border hidden sm:block" />
 
           <span className="hidden sm:flex items-center">
-            <TopbarIconButton icon={FileText} label={t('common.actions')} badge={0} />
-            <TopbarIconButton icon={GitPullRequest} label={t('workflow.title')} badge={0} />
-          </span>
-          <AnnouncementCenter />
-          <NotificationCenter />
-
-          <div className="mx-1.5 h-4 w-px bg-border hidden sm:block" />
-
-          <span className="hidden sm:flex items-center">
             <ThemeMenu />
           </span>
 
@@ -412,20 +398,6 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
             title={i18n.language === 'fr' ? 'English' : 'Français'}
           >
             {i18n.language}
-          </button>
-
-          <button
-            onClick={() => toggleHelp()}
-            className={cn(
-              'relative h-7 w-7 rounded-lg flex items-center justify-center transition-colors',
-              isHelpOpen
-                ? 'bg-primary/20 text-primary'
-                : 'text-muted-foreground hover:bg-chrome-hover hover:text-foreground',
-            )}
-            title="Aide contextuelle (?)"
-            data-help-id="help-button"
-          >
-            <HelpCircle size={15} />
           </button>
 
           <button

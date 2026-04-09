@@ -46,6 +46,9 @@ import {
   Play,
   ArrowRight,
   CheckCircle2,
+  PanelRight,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
@@ -449,6 +452,20 @@ export function AssistantPanel() {
   const currentModule = useMemo(() => deriveModule(pathname), [pathname])
   const [activeTab, setActiveTab] = useState<TabId>('chat')
 
+  // ── Panel display mode: docked (side panel), floating (overlay), pop-out (moves to corner) ──
+  type PanelMode = 'docked' | 'floating' | 'compact'
+  const [panelMode, setPanelMode] = useState<PanelMode>(() => {
+    try { return (localStorage.getItem('opsflux:assistant-mode') as PanelMode) || 'docked' } catch { return 'docked' }
+  })
+
+  const cyclePanelMode = useCallback(() => {
+    setPanelMode(prev => {
+      const next = prev === 'docked' ? 'floating' : prev === 'floating' ? 'compact' : 'docked'
+      try { localStorage.setItem('opsflux:assistant-mode', next) } catch { /* noop */ }
+      return next
+    })
+  }, [])
+
   // ── Tab visibility based on permissions ──
   const canChat = true // All authenticated users can use AI chat
   const canCreateTicket = hasPermission('support.ticket.create')
@@ -472,33 +489,46 @@ export function AssistantPanel() {
 
   if (!aiPanelOpen) return null
 
+  const modeIcon = panelMode === 'docked' ? PanelRight : panelMode === 'floating' ? Maximize2 : Minimize2
+  const modeLabel = panelMode === 'docked' ? 'Docke (clic: flottant)' : panelMode === 'floating' ? 'Flottant (clic: compact)' : 'Compact (clic: docke)'
+  const ModeIcon = modeIcon
+
   return (
     <aside
       className={cn(
-        'fixed top-[44px] right-0 z-40 h-[calc(100vh-44px)] flex flex-col',
-        'w-[360px] max-w-[90vw]',
-        'bg-background/95 backdrop-blur-sm border-l border-border shadow-lg',
+        'flex flex-col bg-background/95 backdrop-blur-sm border-border shadow-lg',
         'animate-in slide-in-from-right duration-200',
+        panelMode === 'docked' && 'fixed top-[44px] right-0 z-40 h-[calc(100vh-44px)] w-[360px] max-w-[90vw] border-l',
+        panelMode === 'floating' && 'fixed top-[56px] right-4 z-50 h-[calc(100vh-72px)] w-[380px] max-w-[90vw] rounded-xl border shadow-2xl',
+        panelMode === 'compact' && 'fixed bottom-4 right-4 z-50 h-[420px] w-[340px] max-w-[90vw] rounded-xl border shadow-2xl',
       )}
     >
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30 shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Sparkles size={14} className="text-primary" />
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-foreground leading-tight">OpsFlux Assistant</h2>
-            <span className="text-[10px] text-muted-foreground">Module: {HELP_CONTENT[currentModule]?.title || currentModule}</span>
-          </div>
+      {/* ── Header — height matches page header (h-[38px]) ── */}
+      <div className={cn(
+        'flex items-center justify-between px-3 h-[38px] border-b border-border bg-muted/30 shrink-0',
+        panelMode !== 'docked' && 'rounded-t-xl cursor-move',
+      )}>
+        <div className="flex items-center gap-2 min-w-0">
+          <Sparkles size={14} className="text-primary shrink-0" />
+          <h2 className="text-sm font-semibold text-foreground truncate">Assistant</h2>
+          <span className="text-[10px] text-muted-foreground truncate hidden sm:inline">· {HELP_CONTENT[currentModule]?.title || currentModule}</span>
         </div>
-        <button
-          onClick={toggleAIPanel}
-          className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          aria-label="Fermer l'assistant"
-        >
-          <X size={14} />
-        </button>
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button
+            onClick={cyclePanelMode}
+            className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            title={modeLabel}
+          >
+            <ModeIcon size={12} />
+          </button>
+          <button
+            onClick={toggleAIPanel}
+            className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            aria-label="Fermer l'assistant"
+          >
+            <X size={12} />
+          </button>
+        </div>
       </div>
 
       {/* ── Tab bar ── */}

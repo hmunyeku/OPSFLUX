@@ -15,10 +15,7 @@ import {
   X,
   Variable,
 } from 'lucide-react'
-import '@blocknote/core/fonts/inter.css'
-import '@blocknote/mantine/style.css'
-import { BlockNoteView } from '@blocknote/mantine'
-import { useCreateBlockNote } from '@blocknote/react'
+import MonacoEditor from '@monaco-editor/react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
@@ -342,135 +339,78 @@ interface RichEditorProps {
   minHeight?: number
 }
 
-function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result ?? ''))
-    reader.onerror = () => reject(reader.error ?? new Error('file-read-error'))
-    reader.readAsDataURL(file)
-  })
-}
+function RichEditor({ value, onChange, variables, minHeight = 280 }: RichEditorProps) {
+  const editorRef = useRef<any>(null)
 
-function RichEditor({ value, onChange, variables, placeholder, minHeight = 220 }: RichEditorProps) {
-  const { t } = useTranslation()
-  const lastSyncedHtmlRef = useRef('')
-  const [isSource, setIsSource] = useState(false)
-  const [sourceCode, setSourceCode] = useState(value)
-  const editor = useCreateBlockNote({
-    uploadFile: async (file) => fileToDataUrl(file),
+  const handleEditorMount = useCallback((editor: any) => {
+    editorRef.current = editor
   }, [])
 
-  useEffect(() => {
-    const nextHtml = value || '<p></p>'
-    if (lastSyncedHtmlRef.current === nextHtml) return
-    try {
-      const blocks = editor.tryParseHTMLToBlocks(nextHtml)
-      editor.replaceBlocks(editor.document, blocks.length > 0 ? blocks : [{ type: 'paragraph' }])
-      lastSyncedHtmlRef.current = nextHtml
-      if (isSource) setSourceCode(nextHtml)
-    } catch {
-      if (isSource) setSourceCode(nextHtml)
-    }
-  }, [editor, isSource, value])
-
-  const emitHtmlChange = useCallback(async () => {
-    const html = await editor.blocksToFullHTML(editor.document)
-    lastSyncedHtmlRef.current = html
-    onChange(html)
-  }, [editor, onChange])
-
-  const toggleSource = useCallback(() => {
-    if (isSource) {
-      try {
-        const blocks = editor.tryParseHTMLToBlocks(sourceCode || '<p></p>')
-        editor.replaceBlocks(editor.document, blocks.length > 0 ? blocks : [{ type: 'paragraph' }])
-        lastSyncedHtmlRef.current = sourceCode
-        onChange(sourceCode)
-      } catch {
-        onChange(sourceCode)
-      }
-    } else {
-      const html = editor.blocksToFullHTML(editor.document)
-      setSourceCode(html)
-      lastSyncedHtmlRef.current = html
-    }
-    setIsSource((current) => !current)
-  }, [editor, isSource, onChange, sourceCode])
-
   const insertVariable = useCallback((varKey: string) => {
-    if (isSource) {
-      setSourceCode((current) => `${current}{{ ${varKey} }}`)
-      return
-    }
-    editor.insertInlineContent(`{{ ${varKey} }}`)
-  }, [editor, isSource])
+    const editor = editorRef.current
+    if (!editor) return
+    const position = editor.getPosition()
+    if (!position) return
+    const text = `{{ ${varKey} }}`
+    editor.executeEdits('insert-variable', [{
+      range: {
+        startLineNumber: position.lineNumber,
+        startColumn: position.column,
+        endLineNumber: position.lineNumber,
+        endColumn: position.column,
+      },
+      text,
+    }])
+    editor.focus()
+  }, [])
 
   const variableEntries = Object.entries(variables ?? {})
 
   return (
     <div className="rounded-lg border border-border overflow-hidden bg-card">
-      <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border bg-muted/50 flex-wrap">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {t('settings.pdf_templates_editor.rich_editor.engine_label')}
-        </span>
-        <div className="flex-1" />
-        <button
-          type="button"
-          onClick={toggleSource}
-          className={cn(
-            'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors',
-            isSource ? 'border-primary bg-primary/5 text-foreground' : 'border-border/60 text-muted-foreground hover:bg-accent/40',
-          )}
-          title={isSource ? t('settings.pdf_templates_editor.rich_editor.visual_editor') : t('settings.pdf_templates_editor.rich_editor.html_code')}
-        >
-          <Code2 size={13} />
-          {isSource ? t('settings.pdf_templates_editor.rich_editor.visual_editor') : t('settings.pdf_templates_editor.rich_editor.html_code')}
-        </button>
-      </div>
-
-      {variableEntries.length > 0 && !isSource && (
-        <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border/50 bg-muted/30 flex-wrap">
+      {/* Variable insertion toolbar */}
+      {variableEntries.length > 0 && (
+        <div className="flex items-center gap-1 px-2.5 py-2 border-b border-border/50 bg-muted/30 flex-wrap">
           <Variable size={11} className="text-muted-foreground mr-0.5 shrink-0" />
+          <span className="text-[10px] text-muted-foreground mr-1">Variables :</span>
           {variableEntries.map(([key, desc]) => (
             <button
               key={key}
               type="button"
               onClick={() => insertVariable(key)}
-              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors"
               title={typeof desc === 'string' ? desc : key}
             >
-              {key}
+              <span className="opacity-50">{'{{ '}</span>{key}<span className="opacity-50">{' }}'}</span>
             </button>
           ))}
         </div>
       )}
 
-      {isSource ? (
-        <textarea
-          value={sourceCode}
-          onChange={(e) => setSourceCode(e.target.value)}
-          onBlur={() => {
-            lastSyncedHtmlRef.current = sourceCode
-            onChange(sourceCode)
-          }}
-          className="w-full p-3 font-mono text-xs bg-zinc-950 text-green-400 resize-none focus:outline-none"
-          style={{ minHeight }}
-          spellCheck={false}
-        />
-      ) : (
-        <div className="pdf-blocknote-editor min-h-[220px]" style={{ minHeight }}>
-          <BlockNoteView
-            editor={editor}
-            editable
-            onChange={() => { void emitHtmlChange() }}
-            className={cn(
-              '[&_.bn-container]:border-0 [&_.bn-container]:shadow-none',
-              '[&_.bn-editor]:min-h-[220px]',
-            )}
-            data-placeholder={placeholder}
-          />
-        </div>
-      )}
+      {/* Monaco Editor */}
+      <MonacoEditor
+        height={minHeight}
+        language="html"
+        theme="vs-dark"
+        value={value || ''}
+        onChange={(val) => onChange(val || '')}
+        onMount={handleEditorMount}
+        options={{
+          minimap: { enabled: false },
+          wordWrap: 'on',
+          lineNumbers: 'on',
+          fontSize: 12,
+          tabSize: 2,
+          scrollBeyondLastLine: false,
+          automaticLayout: true,
+          padding: { top: 8 },
+          suggestOnTriggerCharacters: true,
+          quickSuggestions: true,
+          folding: true,
+          bracketPairColorization: { enabled: true },
+          renderWhitespace: 'selection',
+        }}
+      />
     </div>
   )
 }

@@ -20,6 +20,7 @@ import {
   ChevronRight, ChevronDown,
   Globe, Plug, FileText, FileOutput, Trash2,
   Activity, Hash, BookOpen, ShieldCheck, Database,
+  Users, CalendarClock, Ship,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
@@ -79,9 +80,17 @@ const SECTION_TAB_MAP: Record<string, string> = {
   'admin-permissions': 'rbac-admin',
   // GeneralConfigTab sections
   'langue-region': 'general-config',
+  'datatable-config': 'general-config',
   'cartographie': 'general-config',
+  'notifications-config': 'general-config',
   'emails-config': 'general-config',
-  'imputations-admin': 'general-config',
+  // PaxLogConfigTab sections
+  'paxlog-compliance': 'paxlog-config',
+  'paxlog-operations': 'paxlog-config',
+  // PlannerConfigTab sections
+  'planner-capacity-heatmap': 'planner-config',
+  // TravelWizConfigTab sections
+  'travelwiz-operations': 'travelwiz-config',
   // IntegrationsTab sections
   'services-connectes': 'integrations',
   'cartographie-integration': 'integrations',
@@ -132,6 +141,9 @@ import { DeletePoliciesTab } from './tabs/DeletePoliciesTab'
 import DictionaryTab from './tabs/DictionaryTab'
 import { SecurityPolicyTab } from './tabs/SecurityPolicyTab'
 
+import { PaxLogConfigTab } from './tabs/PaxLogConfigTab'
+import { PlannerConfigTab } from './tabs/PlannerConfigTab'
+import { TravelWizConfigTab } from './tabs/TravelWizConfigTab'
 import { AdminerTab } from './tabs/AdminerTab'
 import { SystemTab } from './tabs/SystemTab'
 // EntitiesTab moved to dedicated /entities sidebar page
@@ -167,6 +179,11 @@ registerSettingsSection({ id: 'email-templates', label: 'Modèles d\'emails', ic
 registerSettingsSection({ id: 'pdf-templates', label: 'Modèles PDF', icon: FileOutput, component: PdfTemplatesTab, category: 'general', order: 25, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'dictionnaire', label: 'Dictionnaire', icon: BookOpen, component: DictionaryTab, category: 'general', order: 30, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'numbering', label: 'Numérotation', icon: Hash, component: NumberingTab, category: 'general', order: 35, requiredPermission: 'core.settings.manage' })
+
+// ── Module-specific configuration tabs ──
+registerSettingsSection({ id: 'paxlog-config', label: 'PaxLog', icon: Users, component: PaxLogConfigTab, category: 'general', order: 36, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'planner-config', label: 'Planner', icon: CalendarClock, component: PlannerConfigTab, category: 'general', order: 37, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'travelwiz-config', label: 'TravelWiz', icon: Ship, component: TravelWizConfigTab, category: 'general', order: 38, requiredPermission: 'core.settings.manage' })
 
 registerSettingsSection({ id: 'security-policy', label: 'Sécurité & Authentification', icon: ShieldCheck, component: SecurityPolicyTab, category: 'general', order: 45, requiredPermission: 'admin.system' })
 registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppression', icon: Trash2, component: DeletePoliciesTab, category: 'general', order: 50, requiredPermission: 'core.settings.manage' })

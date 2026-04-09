@@ -1855,6 +1855,7 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
     ]
 
     created = 0
+    updated = 0
     for category, code, label, sort_order in entries:
         existing = await db.execute(
             select(DictionaryEntry).where(

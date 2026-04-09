@@ -40,9 +40,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg}'],
-        // Prevent build failure when glob patterns match no files (e.g. no .ico in dist)
-        globStrict: false,
+        globPatterns: ['**/*.{js,css,html,svg,webmanifest}'],
         // Precache navigated HTML routes (SPA fallback)
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api\//],

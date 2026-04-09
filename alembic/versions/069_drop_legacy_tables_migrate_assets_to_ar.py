@@ -57,31 +57,41 @@ def upgrade() -> None:
     # STEP 2 — Seed ar_* hierarchy (field → sites → installations)
     # ══════════════════════════════════════════════════════════════
 
-    # -- Field: Perenco Cameroon Operations
+    # -- Field: Perenco Cameroon Operations (skip if entity doesn't exist)
     op.execute(f"""
         INSERT INTO ar_fields (id, entity_id, code, name, country, operator, environment, status)
-        VALUES ('{FIELD_ID}', '{ENTITY_ID}', 'PCM', 'Perenco Cameroon', 'CM', 'Perenco', 'OFFSHORE', 'OPERATIONAL')
+        SELECT '{FIELD_ID}', '{ENTITY_ID}', 'PCM', 'Perenco Cameroon', 'CM', 'Perenco', 'OFFSHORE', 'OPERATIONAL'
+        WHERE EXISTS (SELECT 1 FROM entities WHERE id = '{ENTITY_ID}')
+        ON CONFLICT (id) DO NOTHING
     """)
 
-    # -- Sites
-    op.execute(f"""
-        INSERT INTO ar_sites (id, entity_id, field_id, code, name, site_type, environment, country, manned, status)
-        VALUES
-          ('{SITE_EBOME_ID}', '{ENTITY_ID}', '{FIELD_ID}', 'EBOME', 'Site Ebome', 'PRODUCTION', 'OFFSHORE', 'CM', true, 'OPERATIONAL'),
-          ('{SITE_MUNJA_ID}', '{ENTITY_ID}', '{FIELD_ID}', 'MUNJA', 'Site Munja', 'PRODUCTION', 'ONSHORE', 'CM', true, 'OPERATIONAL'),
-          ('{SITE_WOURI_ID}', '{ENTITY_ID}', '{FIELD_ID}', 'WOURI', 'Base Wouri', 'SHORE_BASE', 'ONSHORE', 'CM', true, 'OPERATIONAL')
-    """)
+    # -- Sites (skip if entity/field doesn't exist)
+    for site_id, code, name, stype, env in [
+        (SITE_EBOME_ID, 'EBOME', 'Site Ebome', 'PRODUCTION', 'OFFSHORE'),
+        (SITE_MUNJA_ID, 'MUNJA', 'Site Munja', 'PRODUCTION', 'ONSHORE'),
+        (SITE_WOURI_ID, 'WOURI', 'Base Wouri', 'SHORE_BASE', 'ONSHORE'),
+    ]:
+        op.execute(f"""
+            INSERT INTO ar_sites (id, entity_id, field_id, code, name, site_type, environment, country, manned, status)
+            SELECT '{site_id}', '{ENTITY_ID}', '{FIELD_ID}', '{code}', '{name}', '{stype}', '{env}', 'CM', true, 'OPERATIONAL'
+            WHERE EXISTS (SELECT 1 FROM ar_fields WHERE id = '{FIELD_ID}')
+            ON CONFLICT (id) DO NOTHING
+        """)
 
     # -- Installations (reuse OLD asset UUIDs so existing FKs still resolve)
-    op.execute(f"""
-        INSERT INTO ar_installations (id, entity_id, site_id, code, name, installation_type, environment, status, is_manned)
-        VALUES
-          ('{EBOME_ID}', '{ENTITY_ID}', '{SITE_EBOME_ID}', 'EBOME', 'Champ Ebome', 'CPF', 'OFFSHORE', 'OPERATIONAL', true),
-          ('{ESF1_ID}',  '{ENTITY_ID}', '{SITE_EBOME_ID}', 'ESF1',  'Plateforme ESF1', 'FIXED_PLATFORM', 'OFFSHORE', 'OPERATIONAL', true),
-          ('{KLF3_ID}',  '{ENTITY_ID}', '{SITE_EBOME_ID}', 'KLF3',  'Plateforme KLF3', 'FIXED_PLATFORM', 'OFFSHORE', 'OPERATIONAL', true),
-          ('{MUNJA_ID}', '{ENTITY_ID}', '{SITE_MUNJA_ID}', 'MUNJA', 'Munja', 'ONSHORE_PLANT', 'ONSHORE', 'OPERATIONAL', true),
-          ('{WOURI_ID}', '{ENTITY_ID}', '{SITE_WOURI_ID}', 'WOURI', 'Base Logistique Wouri', 'ONSHORE_PLANT', 'ONSHORE', 'OPERATIONAL', true)
-    """)
+    for inst_id, site_id, code, name, itype, env in [
+        (EBOME_ID, SITE_EBOME_ID, 'EBOME', 'Champ Ebome', 'CPF', 'OFFSHORE'),
+        (ESF1_ID,  SITE_EBOME_ID, 'ESF1',  'Plateforme ESF1', 'FIXED_PLATFORM', 'OFFSHORE'),
+        (KLF3_ID,  SITE_EBOME_ID, 'KLF3',  'Plateforme KLF3', 'FIXED_PLATFORM', 'OFFSHORE'),
+        (MUNJA_ID, SITE_MUNJA_ID, 'MUNJA', 'Munja', 'ONSHORE_PLANT', 'ONSHORE'),
+        (WOURI_ID, SITE_WOURI_ID, 'WOURI', 'Base Logistique Wouri', 'ONSHORE_PLANT', 'ONSHORE'),
+    ]:
+        op.execute(f"""
+            INSERT INTO ar_installations (id, entity_id, site_id, code, name, installation_type, environment, status, is_manned)
+            SELECT '{inst_id}', '{ENTITY_ID}', '{site_id}', '{code}', '{name}', '{itype}', '{env}', 'OPERATIONAL', true
+            WHERE EXISTS (SELECT 1 FROM ar_sites WHERE id = '{site_id}')
+            ON CONFLICT (id) DO NOTHING
+        """)
 
     # ══════════════════════════════════════════════════════════════
     # STEP 3 — Migrate FK constraints: assets → ar_installations

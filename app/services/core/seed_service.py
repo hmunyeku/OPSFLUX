@@ -288,11 +288,11 @@ async def seed_production_essentials(db: AsyncSession) -> None:
     """
 
     # ── Entity ──────────────────────────────────────────────────
-    entity_code = os.environ.get("FIRST_ENTITY_CODE", "PER_CMR")
+    entity_code = os.environ.get("FIRST_ENTITY_CODE", "CM")
     entity_name = os.environ.get("FIRST_ENTITY_NAME", "Perenco Cameroun")
 
     result = await db.execute(
-        select(Entity).where(Entity.code == entity_code)
+        select(Entity).where(Entity.code.in_([entity_code, "CM", "PER_CMR"])).order_by(Entity.created_at)
     )
     entity = result.scalars().first()
     if not entity:
@@ -394,7 +394,7 @@ async def seed_dev_data(db: AsyncSession) -> None:
     await seed_production_essentials(db)
 
     # ── Get entity + admin for test data ────────────────────────
-    entity_code = os.environ.get("FIRST_ENTITY_CODE", "PER_CMR")
+    entity_code = os.environ.get("FIRST_ENTITY_CODE", "CM")
     result = await db.execute(select(Entity).where(Entity.code == entity_code))
     entity = result.scalars().first()
     if not entity:

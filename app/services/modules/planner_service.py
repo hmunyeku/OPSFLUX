@@ -170,16 +170,18 @@ async def get_effective_capacity(
     if not asset:
         return own_max
 
-    current = asset
+    # Installation hierarchy: Installation -> Site (via site_id)
+    # Check site-level capacity if it exists
     effective = own_max
-    while current and current.parent_id:
-        parent = await db.get(Installation, current.parent_id)
-        if parent:
-            parent_cap = await get_current_capacity(db, parent.id, target)
-            parent_max = parent_cap["max_pax_total"] if parent_cap else (parent.pob_capacity or 0)
-            if parent_max > 0:
-                effective = min(effective, parent_max)
-        current = parent
+    if asset.site_id:
+        from app.models.asset_registry import OilSite
+        site = await db.get(OilSite, asset.site_id)
+        if site:
+            site_cap = await get_current_capacity(db, site.id, target)
+            if site_cap:
+                site_max = site_cap["max_pax_total"]
+                if site_max > 0:
+                    effective = min(effective, site_max)
 
     return effective
 

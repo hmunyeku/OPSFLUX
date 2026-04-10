@@ -63,10 +63,9 @@ export function GanttView({
     cancelled: t('planner.gantt.status.cancelled'),
   }), [t])
   const plannerColumns = useMemo<GanttColumn[]>(() => ([
-    { id: 'type', label: t('planner.gantt.columns.type'), width: 65, align: 'center' },
-    { id: 'pax', label: t('planner.gantt.columns.pax'), width: 40, align: 'right' },
-    { id: 'start', label: t('planner.gantt.columns.start'), width: 75, align: 'center', editable: true, editType: 'date' },
-    { id: 'end', label: t('planner.gantt.columns.end'), width: 75, align: 'center', editable: true, editType: 'date' },
+    { id: 'pax', label: t('planner.gantt.columns.pax'), width: 44, align: 'right' },
+    { id: 'start', label: t('planner.gantt.columns.start'), width: 80, align: 'center', editable: true, editType: 'date' },
+    { id: 'end', label: t('planner.gantt.columns.end'), width: 80, align: 'center', editable: true, editType: 'date' },
   ]), [t])
   const handleViewChange = useCallback((nextScale: string, start: string, end: string) => {
     if (nextScale === 'day' || nextScale === 'week' || nextScale === 'month' || nextScale === 'quarter' || nextScale === 'semester') {

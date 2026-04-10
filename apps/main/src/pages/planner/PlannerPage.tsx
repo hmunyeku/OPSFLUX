@@ -2413,25 +2413,29 @@ function ForecastTab() {
 }
 
 // ── Compact heatmap shown above the Gantt — uses real ECharts CapacityHeatmap ──
+// Width breakdown must match the Gantt panel exactly:
+//   taskColWidth (250) + pax (44) + start (80) + end (80) = 454
+const GANTT_PANEL_WIDTH = 454
 
 function GanttHeatmapHeader({
+  scale,
   startDate,
   endDate,
 }: {
+  scale: TimeScale
   startDate: string
   endDate: string
 }) {
   const { data, isLoading } = useCapacityHeatmap(startDate, endDate)
+  const { data: hierarchy = [] } = useAssetHierarchy()
   const days = data?.days ?? []
   const config = data?.config
 
-  // Asset count drives height (one row ≈ 24px) — clamped 200..380
   const assetCount = useMemo(() => {
     const seen = new Set<string>()
     for (const d of days) seen.add(d.asset_id)
     return seen.size
   }, [days])
-  const height = Math.max(200, Math.min(380, 80 + assetCount * 26))
 
   return (
     <div className="border border-border rounded-md bg-card">
@@ -2450,15 +2454,17 @@ function GanttHeatmapHeader({
           {startDate} → {endDate}
         </span>
       </div>
-      <div className="p-2">
-        <CapacityHeatmap
-          days={days}
-          config={config}
-          isLoading={isLoading}
-          height={height}
-          emptyMessage="Aucune donnée de saturation sur cette période"
-        />
-      </div>
+      <CapacityHeatmap
+        days={days}
+        config={config}
+        scale={scale}
+        startDate={startDate}
+        endDate={endDate}
+        hierarchy={hierarchy as HierarchyFieldNode[]}
+        labelColumnWidth={GANTT_PANEL_WIDTH}
+        isLoading={isLoading}
+        emptyMessage="Aucune donnée de saturation sur cette période"
+      />
     </div>
   )
 }
@@ -2531,6 +2537,7 @@ export function PlannerPage() {
               <div className="flex flex-col gap-4 p-3">
                 {/* Real heatmap above Gantt — ECharts based, spec §2.7 */}
                 <GanttHeatmapHeader
+                  scale={sharedTimelineScale}
                   startDate={sharedTimelineRange.start}
                   endDate={sharedTimelineRange.end}
                 />

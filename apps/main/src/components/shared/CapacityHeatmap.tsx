@@ -1,24 +1,40 @@
 /**
  * CapacityHeatmap — Real ECharts heatmap for Planner capacity saturation.
  *
- * Renders one row per asset/installation, one column per time cell.
- * Cell color reflects saturation_pct against configurable thresholds.
- * Includes tooltip, visualMap legend, dataZoom for large date ranges.
+ * Designed to align horizontally with a Gantt timeline (same buildCells engine,
+ * same pxPerDay). Supports a hierarchical tree view (Field → Site → Installation)
+ * with click-to-expand on row labels. Legend lives in the left label margin.
  */
-import { useMemo } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { useThemeStore } from '@/stores/themeStore'
+import {
+  buildCells,
+  SCALE_META,
+  type TimeScale,
+} from '@/components/shared/gantt/ganttEngine'
 import type { CapacityHeatmapDay, CapacityHeatmapConfig } from '@/types/api'
+import type { HierarchyFieldNode } from '@/types/assetRegistry'
 
 export interface CapacityHeatmapProps {
+  /** Backend heatmap data — one entry per (asset, day) */
   days: CapacityHeatmapDay[]
   config?: CapacityHeatmapConfig
-  /** Optional: restrict and order the assets shown (otherwise derived from data) */
-  assetOrder?: Array<{ id: string; name: string }>
-  height?: number | string
+  /** Timeline scale — must match the Gantt for cells to align */
+  scale: TimeScale
+  /** Timeline start (ISO date) — must match the Gantt */
+  startDate: string
+  /** Timeline end (ISO date) — must match the Gantt */
+  endDate: string
+  /** Asset hierarchy — used for tree-mode rows. If absent, flat asset list. */
+  hierarchy?: HierarchyFieldNode[]
+  /** Width of the left label / legend column — should match the Gantt panel width */
+  labelColumnWidth: number
+  /** Initial set of expanded node ids (defaults: all field+site nodes) */
+  defaultExpanded?: Set<string>
   isLoading?: boolean
   emptyMessage?: string
-  /** Click handler — receives the underlying day */
+  /** Click handler — receives the underlying day cell */
   onCellClick?: (day: CapacityHeatmapDay) => void
 }
 
@@ -34,120 +50,300 @@ const DEFAULT_CONFIG: CapacityHeatmapConfig = {
   color_overflow: '#dc2626',   // red-600
 }
 
-function formatDateLabel(iso: string): string {
-  try {
-    const d = new Date(iso)
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
-  } catch {
-    return iso
+/** A row in the heatmap tree — flattened from the hierarchy after expand/collapse */
+interface TreeRow {
+  id: string                                  // unique row key
+  label: string                               // displayed text (without icons)
+  level: 0 | 1 | 2                            // 0=field, 1=site, 2=installation
+  hasChildren: boolean
+  isExpanded: boolean
+  /** Asset ids contributing to this row's data (= installation ids in subtree) */
+  contributingAssetIds: string[]
+}
+
+function buildTreeRows(
+  hierarchy: HierarchyFieldNode[] | undefined,
+  expanded: Set<string>,
+  flatAssetsFallback: Array<{ id: string; name: string }>,
+): TreeRow[] {
+  if (!hierarchy || hierarchy.length === 0) {
+    // Flat mode — one row per asset
+    return flatAssetsFallback.map((a) => ({
+      id: a.id,
+      label: a.name,
+      level: 2,
+      hasChildren: false,
+      isExpanded: false,
+      contributingAssetIds: [a.id],
+    }))
   }
+
+  const rows: TreeRow[] = []
+  for (const field of hierarchy) {
+    const fieldAssetIds: string[] = []
+    for (const site of field.sites) {
+      for (const inst of site.installations) fieldAssetIds.push(inst.id)
+    }
+    if (fieldAssetIds.length === 0) continue
+
+    const fieldExpanded = expanded.has(`f:${field.id}`)
+    rows.push({
+      id: `f:${field.id}`,
+      label: field.name,
+      level: 0,
+      hasChildren: field.sites.length > 0,
+      isExpanded: fieldExpanded,
+      contributingAssetIds: fieldAssetIds,
+    })
+
+    if (!fieldExpanded) continue
+
+    for (const site of field.sites) {
+      const siteAssetIds = site.installations.map((i) => i.id)
+      if (siteAssetIds.length === 0) continue
+
+      const siteExpanded = expanded.has(`s:${site.id}`)
+      rows.push({
+        id: `s:${site.id}`,
+        label: site.name,
+        level: 1,
+        hasChildren: site.installations.length > 0,
+        isExpanded: siteExpanded,
+        contributingAssetIds: siteAssetIds,
+      })
+
+      if (!siteExpanded) continue
+
+      for (const inst of site.installations) {
+        rows.push({
+          id: `i:${inst.id}`,
+          label: inst.name,
+          level: 2,
+          hasChildren: false,
+          isExpanded: false,
+          contributingAssetIds: [inst.id],
+        })
+      }
+    }
+  }
+  return rows
 }
 
 export function CapacityHeatmap({
   days,
   config = DEFAULT_CONFIG,
-  assetOrder,
-  height = 320,
+  scale,
+  startDate,
+  endDate,
+  hierarchy,
+  labelColumnWidth,
+  defaultExpanded,
   isLoading = false,
   emptyMessage = 'Aucune donnée de capacité',
   onCellClick,
 }: CapacityHeatmapProps) {
   const isDark = useThemeStore((s) => s.resolvedTheme === 'dark')
 
-  const { xCategories, yCategories, heatData, dayIndex } = useMemo(() => {
-    // Unique sorted dates
-    const dateSet = new Set<string>()
-    for (const d of days) dateSet.add(d.date)
-    const dates = Array.from(dateSet).sort()
-
-    // Asset rows: respect assetOrder if provided, else derive
-    let assets: Array<{ id: string; name: string }>
-    if (assetOrder && assetOrder.length > 0) {
-      assets = assetOrder
-    } else {
-      const seen = new Map<string, string>()
-      for (const d of days) {
-        if (!seen.has(d.asset_id)) {
-          seen.set(d.asset_id, d.asset_name || '—')
-        }
+  // ── Expand/collapse state ──
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    if (defaultExpanded) return defaultExpanded
+    // Default: expand all fields + sites
+    const init = new Set<string>()
+    if (hierarchy) {
+      for (const f of hierarchy) {
+        init.add(`f:${f.id}`)
+        for (const s of f.sites) init.add(`s:${s.id}`)
       }
-      assets = Array.from(seen.entries()).map(([id, name]) => ({ id, name }))
     }
+    return init
+  })
 
-    const xCats = dates.map(formatDateLabel)
-    const yCats = assets.map((a) => a.name)
+  const toggleExpand = useCallback((id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
 
-    // Index for fast tooltip lookup: key = `${xIdx}|${yIdx}`
-    const idx = new Map<string, CapacityHeatmapDay>()
-    const data: Array<[number, number, number]> = []
+  // ── Same cells as the Gantt ──
+  const cells = useMemo(
+    () => buildCells(scale, new Date(startDate), new Date(endDate)),
+    [scale, startDate, endDate],
+  )
 
+  // ── Asset list fallback (for flat mode when no hierarchy) ──
+  const flatAssets = useMemo(() => {
+    const seen = new Map<string, string>()
     for (const d of days) {
-      const xIdx = dates.indexOf(d.date)
-      const yIdx = assets.findIndex((a) => a.id === d.asset_id)
-      if (xIdx === -1 || yIdx === -1) continue
-      idx.set(`${xIdx}|${yIdx}`, d)
-      data.push([xIdx, yIdx, Math.round(d.saturation_pct)])
+      if (!seen.has(d.asset_id)) seen.set(d.asset_id, d.asset_name || '—')
     }
+    return Array.from(seen.entries()).map(([id, name]) => ({ id, name }))
+  }, [days])
 
-    return { xCategories: xCats, yCategories: yCats, heatData: data, dayIndex: idx }
-  }, [days, assetOrder])
+  // ── Tree rows (flat list after expand/collapse) ──
+  const treeRows = useMemo(
+    () => buildTreeRows(hierarchy, expanded, flatAssets),
+    [hierarchy, expanded, flatAssets],
+  )
 
+  // ── Build x categories from cells ──
+  const xCategories = useMemo(() => cells.map((c) => c.label), [cells])
+
+  // ── Index days by (asset_id, dateMs) for fast lookup ──
+  const daysByAsset = useMemo(() => {
+    const m = new Map<string, Map<number, CapacityHeatmapDay>>()
+    for (const d of days) {
+      let inner = m.get(d.asset_id)
+      if (!inner) {
+        inner = new Map()
+        m.set(d.asset_id, inner)
+      }
+      inner.set(new Date(d.date).getTime(), d)
+    }
+    return m
+  }, [days])
+
+  // ── Build heat data: aggregate (max) saturation per (cell, row) ──
+  const { heatData, cellAggregates } = useMemo(() => {
+    const data: Array<[number, number, number]> = []
+    // For tooltip we keep the full aggregated info per (xIdx,yIdx)
+    const agg = new Map<string, {
+      max_saturation: number
+      total_forecast: number
+      total_real_pob: number
+      total_capacity: number
+      total_remaining: number
+      contributingDays: number
+    }>()
+
+    treeRows.forEach((row, yIdx) => {
+      cells.forEach((cell, xIdx) => {
+        const cellStart = cell.startDate.getTime()
+        const cellEnd = cell.endDate.getTime() + 86399999  // include the end day
+        let maxSat = 0
+        let sumForecast = 0
+        let sumReal = 0
+        let sumCap = 0
+        let sumRem = 0
+        let count = 0
+
+        for (const assetId of row.contributingAssetIds) {
+          const inner = daysByAsset.get(assetId)
+          if (!inner) continue
+          for (const [ts, day] of inner) {
+            if (ts >= cellStart && ts <= cellEnd) {
+              if (day.saturation_pct > maxSat) maxSat = day.saturation_pct
+              sumForecast += day.forecast_pax
+              sumReal += day.real_pob
+              sumCap += day.capacity_limit
+              sumRem += day.remaining_capacity
+              count++
+            }
+          }
+        }
+
+        if (count > 0) {
+          data.push([xIdx, yIdx, Math.round(maxSat)])
+          agg.set(`${xIdx}|${yIdx}`, {
+            max_saturation: Math.round(maxSat),
+            total_forecast: sumForecast,
+            total_real_pob: sumReal,
+            total_capacity: sumCap,
+            total_remaining: sumRem,
+            contributingDays: count,
+          })
+        }
+      })
+    })
+
+    return { heatData: data, cellAggregates: agg }
+  }, [treeRows, cells, daysByAsset])
+
+  // ── Y-axis labels with expand icons + indentation ──
+  const yCategories = useMemo(
+    () =>
+      treeRows.map((row) => {
+        const indent = '  '.repeat(row.level)
+        const icon = row.hasChildren ? (row.isExpanded ? '▾ ' : '▸ ') : '  '
+        return `${indent}${icon}${row.label}`
+      }),
+    [treeRows],
+  )
+
+  // ── Total chart width (label area + cells area) ──
+  const pxPerDay = SCALE_META[scale].pxPerDay
+  const cellsAreaWidth = useMemo(
+    () => cells.reduce((sum, c) => sum + c.days * pxPerDay, 0),
+    [cells, pxPerDay],
+  )
+  const totalChartWidth = labelColumnWidth + cellsAreaWidth
+
+  // ── ECharts option ──
   const option = useMemo(() => {
     const textColor = isDark ? '#e2e8f0' : '#374151'
     const mutedColor = isDark ? '#94a3b8' : '#6b7280'
-    const gridBg = isDark ? '#1e293b' : '#fafaf9'
+    const headerColor = isDark ? '#cbd5e1' : '#4b5563'
 
     return {
       backgroundColor: 'transparent',
       animation: true,
-      animationDuration: 400,
+      animationDuration: 320,
       tooltip: {
         position: 'top',
-        backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.98)',
+        backgroundColor: isDark ? 'rgba(15, 23, 42, 0.97)' : 'rgba(255, 255, 255, 0.98)',
         borderColor: isDark ? '#334155' : '#e5e7eb',
         borderWidth: 1,
+        padding: 0,
         textStyle: { color: textColor, fontSize: 11 },
-        extraCssText: 'box-shadow: 0 8px 24px rgba(0,0,0,0.12); border-radius: 6px; padding: 8px 10px;',
+        extraCssText: 'box-shadow: 0 8px 24px rgba(0,0,0,0.12); border-radius: 6px;',
         formatter: (params: { value: [number, number, number] }) => {
           const [xIdx, yIdx, val] = params.value
-          const day = dayIndex.get(`${xIdx}|${yIdx}`)
-          if (!day) return ''
-          const date = new Date(day.date).toLocaleDateString('fr-FR', {
-            weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
-          })
+          const row = treeRows[yIdx]
+          const cell = cells[xIdx]
+          const a = cellAggregates.get(`${xIdx}|${yIdx}`)
+          if (!row || !cell || !a) return ''
+          const period = `${cell.startDate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })} → ${cell.endDate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}`
           const color = val >= config.threshold_critical ? config.color_overflow
             : val >= config.threshold_high ? config.color_critical
             : val >= config.threshold_medium ? config.color_high
             : val >= config.threshold_low ? config.color_medium
             : config.color_low
+          const levelLabel = row.level === 0 ? 'Champ' : row.level === 1 ? 'Site' : 'Installation'
           return `
-            <div style="font-weight:600; margin-bottom:4px;">${day.asset_name || '—'}</div>
-            <div style="color:${mutedColor}; font-size:10px; margin-bottom:6px;">${date}</div>
-            <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
-              <span style="display:inline-block; width:8px; height:8px; border-radius:2px; background:${color};"></span>
-              <span><strong>${val}%</strong> saturation</span>
-            </div>
-            <div style="font-size:10px; color:${mutedColor}; line-height:1.5;">
-              Prévision&nbsp;: <strong style="color:${textColor};">${day.forecast_pax}</strong> PAX<br/>
-              POB réel&nbsp;: <strong style="color:${textColor};">${day.real_pob}</strong><br/>
-              Capacité&nbsp;: <strong style="color:${textColor};">${day.capacity_limit}</strong><br/>
-              Restant&nbsp;: <strong style="color:${textColor};">${day.remaining_capacity}</strong>
+            <div style="padding: 10px 12px; min-width: 200px;">
+              <div style="font-size:9px; text-transform:uppercase; letter-spacing:0.05em; color:${mutedColor}; margin-bottom:2px;">${levelLabel}</div>
+              <div style="font-weight:600; color:${textColor}; margin-bottom:6px;">${row.label}</div>
+              <div style="font-size:10px; color:${mutedColor}; margin-bottom:8px;">${period}</div>
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                <span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:${color};"></span>
+                <span style="font-weight:600; color:${textColor};">${val}%</span>
+                <span style="color:${mutedColor}; font-size:10px;">${row.level < 2 ? 'pic' : 'saturation'}</span>
+              </div>
+              <table style="font-size:10px; color:${mutedColor}; line-height:1.6;">
+                <tr><td>Prévision PAX</td><td style="text-align:right; padding-left:12px; color:${textColor}; font-weight:500; font-variant-numeric:tabular-nums;">${a.total_forecast}</td></tr>
+                <tr><td>POB réel</td><td style="text-align:right; padding-left:12px; color:${textColor}; font-weight:500; font-variant-numeric:tabular-nums;">${a.total_real_pob}</td></tr>
+                <tr><td>Capacité</td><td style="text-align:right; padding-left:12px; color:${textColor}; font-weight:500; font-variant-numeric:tabular-nums;">${a.total_capacity}</td></tr>
+                <tr><td>Restant</td><td style="text-align:right; padding-left:12px; color:${textColor}; font-weight:500; font-variant-numeric:tabular-nums;">${a.total_remaining}</td></tr>
+              </table>
             </div>
           `
         },
       },
       grid: {
-        left: 130,
-        right: 24,
-        top: 16,
-        bottom: 56,
+        // Reserve labelColumnWidth for the y-axis labels (matches Gantt panel)
+        left: labelColumnWidth,
+        right: 8,
+        top: 4,
+        // Leave room at the bottom for the visualMap legend (under the labels)
+        bottom: 72,
         containLabel: false,
-        backgroundColor: gridBg,
-        show: false,
       },
       xAxis: {
         type: 'category',
         data: xCategories,
+        position: 'top',
         splitArea: { show: false },
         axisTick: { show: false },
         axisLine: { lineStyle: { color: isDark ? '#334155' : '#e7e5e4' } },
@@ -155,51 +351,85 @@ export function CapacityHeatmap({
           color: mutedColor,
           fontSize: 10,
           interval: xCategories.length > 30 ? Math.floor(xCategories.length / 15) : 0,
-          rotate: xCategories.length > 20 ? 35 : 0,
+          rotate: xCategories.length > 24 ? 30 : 0,
+          margin: 6,
         },
       },
       yAxis: {
         type: 'category',
         data: yCategories,
+        inverse: true,
         splitArea: { show: false },
         axisTick: { show: false },
         axisLine: { show: false },
         axisLabel: {
           color: textColor,
           fontSize: 11,
-          fontWeight: 500,
-          width: 120,
+          fontWeight: (val: string) => {
+            // Bold for parent rows (level 0 and 1) — they have icons ▸ ▾
+            return /^[\s]*[▸▾]/.test(val) ? 600 : 400
+          },
+          width: labelColumnWidth - 20,
           overflow: 'truncate',
           margin: 12,
+          align: 'left',
+          padding: [0, 0, 0, 8],
+          // Make labels clickable
+          triggerEvent: true,
         },
       },
       visualMap: {
         type: 'piecewise',
         pieces: [
-          { gte: config.threshold_critical, label: `≥ ${config.threshold_critical}% (saturé)`, color: config.color_overflow },
-          { gte: config.threshold_high, lt: config.threshold_critical, label: `${config.threshold_high}–${config.threshold_critical}%`, color: config.color_critical },
-          { gte: config.threshold_medium, lt: config.threshold_high, label: `${config.threshold_medium}–${config.threshold_high}%`, color: config.color_high },
-          { gte: config.threshold_low, lt: config.threshold_medium, label: `${config.threshold_low}–${config.threshold_medium}%`, color: config.color_medium },
-          { lt: config.threshold_low, label: `< ${config.threshold_low}%`, color: config.color_low },
+          { gte: config.threshold_critical, label: `≥${config.threshold_critical}%`, color: config.color_overflow },
+          { gte: config.threshold_high, lt: config.threshold_critical, label: `${config.threshold_high}-${config.threshold_critical}%`, color: config.color_critical },
+          { gte: config.threshold_medium, lt: config.threshold_high, label: `${config.threshold_medium}-${config.threshold_high}%`, color: config.color_high },
+          { gte: config.threshold_low, lt: config.threshold_medium, label: `${config.threshold_low}-${config.threshold_medium}%`, color: config.color_medium },
+          { lt: config.threshold_low, label: `<${config.threshold_low}%`, color: config.color_low },
         ],
         orient: 'horizontal',
-        left: 'center',
+        // Legend lives in the left label column, at the bottom
+        left: 8,
         bottom: 8,
-        itemWidth: 14,
+        itemWidth: 12,
         itemHeight: 10,
-        textGap: 6,
-        textStyle: { color: mutedColor, fontSize: 10 },
+        textGap: 4,
+        itemGap: 8,
+        textStyle: { color: mutedColor, fontSize: 9 },
+        formatter: (val: number, val2?: number) => {
+          if (val2 != null) return `${val}-${val2}`
+          return `${val}+`
+        },
       },
+      // Optional title-like header for the legend area
+      graphic: [
+        {
+          type: 'text',
+          left: 8,
+          bottom: 50,
+          style: {
+            text: 'Saturation',
+            fontSize: 9,
+            fontWeight: 600,
+            fill: headerColor,
+            textAlign: 'left',
+          },
+        },
+      ],
       series: [
         {
           name: 'Saturation',
           type: 'heatmap',
           data: heatData,
-          itemStyle: { borderColor: isDark ? '#0f172a' : '#ffffff', borderWidth: 2, borderRadius: 3 },
+          itemStyle: {
+            borderColor: isDark ? '#0f172a' : '#ffffff',
+            borderWidth: 2,
+            borderRadius: 3,
+          },
           emphasis: {
             itemStyle: {
-              shadowBlur: 8,
-              shadowColor: 'rgba(0,0,0,0.3)',
+              shadowBlur: 6,
+              shadowColor: 'rgba(0,0,0,0.25)',
               borderColor: isDark ? '#f1f5f9' : '#0f172a',
               borderWidth: 1.5,
             },
@@ -209,35 +439,72 @@ export function CapacityHeatmap({
         },
       ],
     }
-  }, [xCategories, yCategories, heatData, dayIndex, config, isDark])
+  }, [
+    isDark, treeRows, cells, cellAggregates, xCategories, yCategories,
+    heatData, labelColumnWidth, config,
+  ])
 
-  const handleEvents = useMemo(() => {
-    if (!onCellClick) return undefined
-    return {
-      click: (params: { value: [number, number, number] }) => {
+  // ── Click handler — toggles expand on row labels, fires onCellClick on cells ──
+  const handleEvents = useMemo(() => ({
+    click: (params: {
+      componentType?: string
+      targetType?: string
+      value?: [number, number, number] | string
+      dataIndex?: number
+    }) => {
+      // Click on y-axis label (row name)
+      if (
+        params.componentType === 'yAxis' &&
+        params.targetType === 'axisLabel' &&
+        typeof params.dataIndex === 'number'
+      ) {
+        const row = treeRows[params.dataIndex]
+        if (row?.hasChildren) toggleExpand(row.id)
+        return
+      }
+      // Click on heatmap cell
+      if (Array.isArray(params.value)) {
         const [xIdx, yIdx] = params.value
-        const day = dayIndex.get(`${xIdx}|${yIdx}`)
-        if (day) onCellClick(day)
-      },
-    }
-  }, [onCellClick, dayIndex])
+        const row = treeRows[yIdx]
+        const cell = cells[xIdx]
+        if (!row || !cell || !onCellClick) return
+        // Find any matching day in this cell to forward
+        for (const assetId of row.contributingAssetIds) {
+          const inner = daysByAsset.get(assetId)
+          if (!inner) continue
+          for (const [ts, day] of inner) {
+            if (ts >= cell.startDate.getTime() && ts <= cell.endDate.getTime() + 86399999) {
+              onCellClick(day)
+              return
+            }
+          }
+        }
+      }
+    },
+  }), [treeRows, cells, daysByAsset, toggleExpand, onCellClick])
+
+  // ── Dynamic chart height ──
+  const rowHeight = 26
+  const headerSpace = 24
+  const legendSpace = 80
+  const chartHeight = Math.max(180, headerSpace + treeRows.length * rowHeight + legendSpace)
 
   if (isLoading) {
     return (
       <div
         className="flex items-center justify-center text-xs text-muted-foreground"
-        style={{ height }}
+        style={{ height: 220 }}
       >
         <span className="animate-pulse">Chargement de la heatmap…</span>
       </div>
     )
   }
 
-  if (heatData.length === 0) {
+  if (treeRows.length === 0 || heatData.length === 0) {
     return (
       <div
         className="flex items-center justify-center text-xs text-muted-foreground italic border border-dashed border-border rounded-md"
-        style={{ height }}
+        style={{ height: 220 }}
       >
         {emptyMessage}
       </div>
@@ -245,15 +512,17 @@ export function CapacityHeatmap({
   }
 
   return (
-    <div className="w-full" style={{ height }}>
-      <ReactECharts
-        option={option}
-        style={{ height: '100%', width: '100%' }}
-        opts={{ renderer: 'canvas' }}
-        notMerge
-        lazyUpdate
-        onEvents={handleEvents}
-      />
+    <div className="w-full overflow-x-auto">
+      <div style={{ width: totalChartWidth, minWidth: '100%', height: chartHeight }}>
+        <ReactECharts
+          option={option}
+          style={{ height: '100%', width: '100%' }}
+          opts={{ renderer: 'canvas' }}
+          notMerge
+          lazyUpdate
+          onEvents={handleEvents}
+        />
+      </div>
     </div>
   )
 }

@@ -46,6 +46,10 @@ export function useUpdateField() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['ar-fields'] })
       qc.invalidateQueries({ queryKey: ['ar-field', id] })
+      qc.invalidateQueries({ queryKey: ['ar-hierarchy'] })
+      // Field's pob_capacity is the fallback for planner capacity computation
+      qc.invalidateQueries({ queryKey: ['planner', 'capacity-heatmap'] })
+      qc.invalidateQueries({ queryKey: ['planner', 'gantt'] })
     },
   })
 }
@@ -134,6 +138,10 @@ export function useUpdateSite() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['ar-sites'] })
       qc.invalidateQueries({ queryKey: ['ar-site', id] })
+      qc.invalidateQueries({ queryKey: ['ar-hierarchy'] })
+      // Site's pob_capacity is the fallback for planner capacity computation
+      qc.invalidateQueries({ queryKey: ['planner', 'capacity-heatmap'] })
+      qc.invalidateQueries({ queryKey: ['planner', 'gantt'] })
     },
   })
 }
@@ -179,6 +187,10 @@ export function useUpdateInstallation() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['ar-installations'] })
       qc.invalidateQueries({ queryKey: ['ar-installation', id] })
+      qc.invalidateQueries({ queryKey: ['ar-hierarchy'] })
+      // Installation's pob_capacity is the fallback for planner capacity computation
+      qc.invalidateQueries({ queryKey: ['planner', 'capacity-heatmap'] })
+      qc.invalidateQueries({ queryKey: ['planner', 'gantt'] })
     },
   })
 }

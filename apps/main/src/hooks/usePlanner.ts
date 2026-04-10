@@ -353,6 +353,7 @@ export function useCreateAssetCapacity() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['planner', 'asset-capacities'] })
       qc.invalidateQueries({ queryKey: ['planner', 'capacity'] })
+      qc.invalidateQueries({ queryKey: ['planner', 'capacity-heatmap'] })
       qc.invalidateQueries({ queryKey: ['planner', 'gantt'] })
     },
   })

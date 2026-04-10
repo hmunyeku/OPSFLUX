@@ -1730,12 +1730,30 @@ async def add_task_assignee(
         project = await _get_project_or_404(db, project_id, entity_id)
         if task and u:
             from app.core.notifications import send_in_app
+            from app.core.email_templates import render_and_send_email
             await send_in_app(
                 db, user_id=body.user_id, entity_id=entity_id,
                 title=f"Nouvelle assignation : {task.title}",
                 body=f"Vous avez été assigné(e) à la tâche « {task.title} » du projet {project.code} — {project.name}.",
                 category="projets", link="/projets",
             )
+            if u.email:
+                await render_and_send_email(
+                    db,
+                    slug="project.task.assigned",
+                    entity_id=entity_id,
+                    language=u.language or "fr",
+                    to=u.email,
+                    variables={
+                        "project_id": str(project.id),
+                        "project_code": project.code,
+                        "project_name": project.name,
+                        "task_id": str(task.id),
+                        "task_title": task.title,
+                        "task_role": body.role or "",
+                        "user": {"first_name": u.first_name},
+                    },
+                )
             await db.commit()
     except Exception:
         pass  # notification is best-effort

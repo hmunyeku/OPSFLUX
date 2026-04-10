@@ -1233,7 +1233,240 @@ DEFAULT_TEMPLATES: list[dict] = [
             },
         },
     },
+    # ── Project templates ──────────────────────────────────────────────────
+    {
+        "slug": "project.status.changed",
+        "name": "Statut projet modifié",
+        "description": "Envoyé aux parties prenantes quand le statut d'un projet change.",
+        "object_type": "project",
+        "variables_schema": {
+            "project_id": "ID du projet",
+            "project_code": "Code du projet",
+            "project_name": "Nom du projet",
+            "old_status": "Ancien statut",
+            "new_status": "Nouveau statut",
+            "user.first_name": "Prénom du destinataire",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Projet {{ project_code | default(project_name) }} : statut mis à jour",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Le projet <strong>{{ project_code | default(project_name) }}</strong>"
+                    "{% if project_name and project_name != project_code %} «{{ project_name }}»{% endif %} "
+                    "a changé de statut.</p>"
+                    "<ul>"
+                    "{% if old_status %}<li>Ancien statut : {{ old_status }}</li>{% endif %}"
+                    "<li>Nouveau statut : {{ new_status }}</li>"
+                    "</ul>"
+                    "<p>Veuillez consulter le projet dans OpsFlux si une action est requise.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Project {{ project_code | default(project_name) }}: status updated",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Project <strong>{{ project_code | default(project_name) }}</strong>"
+                    "{% if project_name and project_name != project_code %} &laquo;{{ project_name }}&raquo;{% endif %} "
+                    "has changed status.</p>"
+                    "<ul>"
+                    "{% if old_status %}<li>Previous status: {{ old_status }}</li>{% endif %}"
+                    "<li>New status: {{ new_status }}</li>"
+                    "</ul>"
+                    "<p>Please review the project in OpsFlux if action is required.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "project.task.assigned",
+        "name": "Tâche projet assignée",
+        "description": "Envoyé à un utilisateur quand il est assigné à une tâche projet.",
+        "object_type": "project_task",
+        "variables_schema": {
+            "project_id": "ID du projet",
+            "project_code": "Code du projet",
+            "project_name": "Nom du projet",
+            "task_id": "ID de la tâche",
+            "task_title": "Titre de la tâche",
+            "task_role": "Rôle d'assignation",
+            "user.first_name": "Prénom du destinataire",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Nouvelle assignation sur {{ project_code | default(project_name) }}",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Vous avez été assigné(e) à la tâche <strong>{{ task_title }}</strong>.</p>"
+                    "<ul>"
+                    "<li>Projet : {{ project_code | default(project_name) }}{% if project_name and project_name != project_code %} — {{ project_name }}{% endif %}</li>"
+                    "{% if task_role %}<li>Rôle : {{ task_role }}</li>{% endif %}"
+                    "</ul>"
+                    "<p>Veuillez consulter le projet dans OpsFlux pour plus de détails.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — New assignment on {{ project_code | default(project_name) }}",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>You have been assigned to task <strong>{{ task_title }}</strong>.</p>"
+                    "<ul>"
+                    "<li>Project: {{ project_code | default(project_name) }}{% if project_name and project_name != project_code %} — {{ project_name }}{% endif %}</li>"
+                    "{% if task_role %}<li>Role: {{ task_role }}</li>{% endif %}"
+                    "</ul>"
+                    "<p>Please review the project in OpsFlux for details.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    # ── Tier templates ─────────────────────────────────────────────────────
+    {
+        "slug": "tier.blocked",
+        "name": "Tiers bloqué",
+        "description": "Envoyé aux contacts référents quand un tiers est bloqué.",
+        "object_type": "tier",
+        "variables_schema": {
+            "tier_id": "ID du tiers",
+            "tier_code": "Code du tiers",
+            "tier_name": "Nom du tiers",
+            "reason": "Motif du blocage",
+            "block_type": "Type de blocage",
+            "performed_by_name": "Nom de l'auteur",
+            "user.first_name": "Prénom du destinataire",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Votre tiers {{ tier_code | default(tier_name) }} a été bloqué",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Le tiers <strong>{{ tier_code | default(tier_name) }}</strong>"
+                    "{% if tier_name and tier_name != tier_code %} — {{ tier_name }}{% endif %} "
+                    "a été <strong>bloqué</strong>.</p>"
+                    "<ul>"
+                    "{% if block_type %}<li>Type : {{ block_type }}</li>{% endif %}"
+                    "{% if reason %}<li>Motif : {{ reason }}</li>{% endif %}"
+                    "{% if performed_by_name %}<li>Par : {{ performed_by_name }}</li>{% endif %}"
+                    "</ul>"
+                    "<p>Veuillez contacter votre interlocuteur OpsFlux si nécessaire.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Your tier {{ tier_code | default(tier_name) }} has been blocked",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Tier <strong>{{ tier_code | default(tier_name) }}</strong>"
+                    "{% if tier_name and tier_name != tier_code %} — {{ tier_name }}{% endif %} "
+                    "has been <strong>blocked</strong>.</p>"
+                    "<ul>"
+                    "{% if block_type %}<li>Type: {{ block_type }}</li>{% endif %}"
+                    "{% if reason %}<li>Reason: {{ reason }}</li>{% endif %}"
+                    "{% if performed_by_name %}<li>By: {{ performed_by_name }}</li>{% endif %}"
+                    "</ul>"
+                    "<p>Please contact your OpsFlux counterpart if needed.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "tier.unblocked",
+        "name": "Tiers débloqué",
+        "description": "Envoyé aux contacts référents quand un tiers est débloqué.",
+        "object_type": "tier",
+        "variables_schema": {
+            "tier_id": "ID du tiers",
+            "tier_code": "Code du tiers",
+            "tier_name": "Nom du tiers",
+            "reason": "Motif du déblocage",
+            "performed_by_name": "Nom de l'auteur",
+            "user.first_name": "Prénom du destinataire",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Votre tiers {{ tier_code | default(tier_name) }} a été débloqué",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Le tiers <strong>{{ tier_code | default(tier_name) }}</strong>"
+                    "{% if tier_name and tier_name != tier_code %} — {{ tier_name }}{% endif %} "
+                    "a été <strong>débloqué</strong>.</p>"
+                    "<ul>"
+                    "{% if reason %}<li>Motif : {{ reason }}</li>{% endif %}"
+                    "{% if performed_by_name %}<li>Par : {{ performed_by_name }}</li>{% endif %}"
+                    "</ul>"
+                    "<p>L'accès opérationnel peut reprendre selon les règles en vigueur.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Your tier {{ tier_code | default(tier_name) }} has been unblocked",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>Tier <strong>{{ tier_code | default(tier_name) }}</strong>"
+                    "{% if tier_name and tier_name != tier_code %} — {{ tier_name }}{% endif %} "
+                    "has been <strong>unblocked</strong>.</p>"
+                    "<ul>"
+                    "{% if reason %}<li>Reason: {{ reason }}</li>{% endif %}"
+                    "{% if performed_by_name %}<li>By: {{ performed_by_name }}</li>{% endif %}"
+                    "</ul>"
+                    "<p>Operational access may resume according to current rules.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
     # ── Compliance verification templates ─────────────────────────────────────
+    {
+        "slug": "conformite.rule.changed",
+        "name": "Exigence de conformité créée ou mise à jour",
+        "description": "Envoyé aux utilisateurs affectés lorsqu'une exigence de conformité est créée ou modifiée.",
+        "object_type": "compliance_rule",
+        "variables_schema": {
+            "rule_id": "ID de la règle",
+            "action_label": "Libellé de l'action",
+            "description": "Description de la règle",
+            "target_type": "Type de cible",
+            "target_value": "Valeur de cible",
+            "user.first_name": "Prénom du destinataire",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — {{ action_label }} de conformité",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p><strong>{{ action_label }}</strong> dans votre périmètre de conformité.</p>"
+                    "{% if description %}<p>{{ description }}</p>{% endif %}"
+                    "<ul>"
+                    "<li>Cible : {{ target_type }}{% if target_value %} — {{ target_value }}{% endif %}</li>"
+                    "</ul>"
+                    "<p>Veuillez consulter le module Conformité dans OpsFlux.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — {{ action_label }} compliance requirement",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p><strong>{{ action_label }}</strong> in your compliance scope.</p>"
+                    "{% if description %}<p>{{ description }}</p>{% endif %}"
+                    "<ul>"
+                    "<li>Target: {{ target_type }}{% if target_value %} — {{ target_value }}{% endif %}</li>"
+                    "</ul>"
+                    "<p>Please review the Compliance module in OpsFlux.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
     {
         "slug": "record_verified",
         "name": "Document vérifié/rejeté",
@@ -1434,6 +1667,50 @@ DEFAULT_TEMPLATES: list[dict] = [
                     "</table>"
                     "</body>"
                     "</html>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "conformite.record.expired",
+        "name": "Enregistrement de conformité expiré",
+        "description": "Envoyé aux administrateurs quand un enregistrement de conformité expire.",
+        "object_type": "compliance",
+        "variables_schema": {
+            "record_id": "ID de l'enregistrement",
+            "record_type": "Type de document",
+            "record_label": "Libellé lisible du document",
+            "owner_name": "Nom du porteur",
+            "user.first_name": "Prénom du destinataire",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Conformité expirée : {{ record_label | default(record_type) }}",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Un enregistrement de conformité a <strong>expiré</strong>.</p>"
+                    "<ul>"
+                    "<li>Type : {{ record_label | default(record_type) }}</li>"
+                    "{% if owner_name %}<li>Porteur : {{ owner_name }}</li>{% endif %}"
+                    "<li>ID : {{ record_id }}</li>"
+                    "</ul>"
+                    "<p>Veuillez vérifier la situation dans le module Conformité.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Compliance expired: {{ record_label | default(record_type) }}",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>A compliance record has <strong>expired</strong>.</p>"
+                    "<ul>"
+                    "<li>Type: {{ record_label | default(record_type) }}</li>"
+                    "{% if owner_name %}<li>Owner: {{ owner_name }}</li>{% endif %}"
+                    "<li>ID: {{ record_id }}</li>"
+                    "</ul>"
+                    "<p>Please review the situation in the Compliance module.</p>"
+                    "<p>Best regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
                 ),
             },
         },

@@ -524,6 +524,15 @@ async def block_tier(
     tier.is_blocked = True
     await db.commit()
     await db.refresh(block)
+    await _notify_tier_status_change(
+        db=db,
+        tier=tier,
+        entity_id=entity_id,
+        current_user=current_user,
+        slug="tier.blocked",
+        reason=body.reason,
+        block_type=body.block_type,
+    )
     d = {c.key: getattr(block, c.key) for c in block.__table__.columns}
     d["performer_name"] = current_user.full_name
     return d
@@ -566,6 +575,15 @@ async def unblock_tier(
     tier.is_blocked = False
     await db.commit()
     await db.refresh(block)
+    await _notify_tier_status_change(
+        db=db,
+        tier=tier,
+        entity_id=entity_id,
+        current_user=current_user,
+        slug="tier.unblocked",
+        reason=body.reason,
+        block_type=body.block_type,
+    )
     d = {c.key: getattr(block, c.key) for c in block.__table__.columns}
     d["performer_name"] = current_user.full_name
     return d
@@ -753,6 +771,78 @@ async def _send_promoted_user_invitation(
             logger.warning("Template 'user_invitation' not found/disabled for promoted contact %s", user.email)
     except Exception:
         logger.warning("Failed to send promoted-user invitation to %s", user.email, exc_info=True)
+
+
+async def _get_tier_notification_recipients(
+    *,
+    db: AsyncSession,
+    tier_id: UUID,
+) -> list[tuple[str, str | None, str | None]]:
+    primary_result = await db.execute(
+        select(TierContact).where(
+            TierContact.tier_id == tier_id,
+            TierContact.active == True,
+            TierContact.is_primary == True,
+            TierContact.email.is_not(None),
+        )
+    )
+    recipients = primary_result.scalars().all()
+
+    if not recipients:
+        fallback_result = await db.execute(
+            select(TierContact).where(
+                TierContact.tier_id == tier_id,
+                TierContact.active == True,
+                TierContact.email.is_not(None),
+            )
+        )
+        recipients = fallback_result.scalars().all()
+
+    unique: list[tuple[str, str | None, str | None]] = []
+    seen: set[str] = set()
+    for contact in recipients:
+        email = (contact.email or "").strip().lower()
+        if not email or email in seen:
+            continue
+        seen.add(email)
+        unique.append((email, contact.first_name, getattr(contact, "language", None)))
+    return unique
+
+
+async def _notify_tier_status_change(
+    *,
+    db: AsyncSession,
+    tier: Tier,
+    entity_id: UUID,
+    current_user: User,
+    slug: str,
+    reason: str | None,
+    block_type: str | None,
+) -> None:
+    try:
+        entity = await db.get(Entity, entity_id)
+        entity_name = entity.name if entity else "OpsFlux"
+        recipients = await _get_tier_notification_recipients(db=db, tier_id=tier.id)
+        for email, first_name, language in recipients:
+            await render_and_send_email(
+                db=db,
+                slug=slug,
+                entity_id=entity_id,
+                language=language or "fr",
+                to=email,
+                variables={
+                    "tier_id": str(tier.id),
+                    "tier_code": tier.code,
+                    "tier_name": tier.name,
+                    "reason": reason or "",
+                    "block_type": block_type or "",
+                    "performed_by_name": current_user.full_name,
+                    "user": {"first_name": first_name or ""},
+                    "entity": {"name": entity_name},
+                },
+            )
+    except Exception:
+        logger.warning("Failed to send tier status notification for %s", tier.id, exc_info=True)
 
 
 async def _unset_primary_contacts(db: AsyncSession, tier_id: UUID) -> None:

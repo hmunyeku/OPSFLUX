@@ -905,6 +905,7 @@ async def on_compliance_rule_changed(event: OpsFluxEvent) -> None:
 
     try:
         from app.core.notifications import send_in_app_bulk
+        from app.core.email_templates import render_and_send_email
 
         user_ids = await _get_affected_user_ids(entity_id, target_type, target_value)
         if not user_ids:
@@ -924,6 +925,24 @@ async def on_compliance_rule_changed(event: OpsFluxEvent) -> None:
                 category="conformite",
                 link="/conformite",
             )
+            for user_id in user_ids:
+                email, name = await _get_user_email_and_name(user_id, db)
+                if email:
+                    await render_and_send_email(
+                        db,
+                        slug="conformite.rule.changed",
+                        entity_id=eid,
+                        language="fr",
+                        to=email,
+                        variables={
+                            "rule_id": str(rule_id),
+                            "action_label": action_label,
+                            "description": description,
+                            "target_type": target_type,
+                            "target_value": str(target_value or ""),
+                            "user": {"first_name": name},
+                        },
+                    )
             await db.commit()
 
         # Broadcast cache invalidation via Redis pub/sub
@@ -1047,10 +1066,14 @@ async def on_compliance_expired(event: OpsFluxEvent) -> None:
 
     try:
         from app.core.notifications import send_in_app
+        from app.core.email_templates import render_and_send_email
         from app.event_handlers.core_handlers import _get_admin_user_ids
 
         admin_ids = await _get_admin_user_ids(entity_id)
         async with async_session_factory() as db:
+            record_type = payload.get("record_type") or "compliance"
+            record_label = payload.get("record_label") or record_type
+            owner_name = payload.get("owner_name") or ""
             for admin_id in admin_ids:
                 await send_in_app(
                     db,
@@ -1061,6 +1084,22 @@ async def on_compliance_expired(event: OpsFluxEvent) -> None:
                     category="conformite",
                     link="/conformite",
                 )
+                email, name = await _get_user_email_and_name(admin_id, db)
+                if email:
+                    await render_and_send_email(
+                        db,
+                        slug="conformite.record.expired",
+                        entity_id=UUID(str(entity_id)),
+                        language="fr",
+                        to=email,
+                        variables={
+                            "record_id": str(record_id),
+                            "record_type": str(record_type),
+                            "record_label": str(record_label),
+                            "owner_name": str(owner_name),
+                            "user": {"first_name": name},
+                        },
+                    )
             await db.commit()
         logger.info("conformite.record.expired handled: %s", record_id)
     except Exception:
@@ -1183,6 +1222,7 @@ async def on_project_status_changed(event: OpsFluxEvent) -> None:
 
     try:
         from app.core.notifications import send_in_app
+        from app.core.email_templates import render_and_send_email
         from app.event_handlers.core_handlers import _get_admin_user_ids
 
         admin_ids = await _get_admin_user_ids(entity_id)
@@ -1197,6 +1237,23 @@ async def on_project_status_changed(event: OpsFluxEvent) -> None:
                     category="projets",
                     link="/projets",
                 )
+                email, name = await _get_user_email_and_name(admin_id, db)
+                if email:
+                    await render_and_send_email(
+                        db,
+                        slug="project.status.changed",
+                        entity_id=UUID(str(entity_id)),
+                        language="fr",
+                        to=email,
+                        variables={
+                            "project_id": str(project_id),
+                            "project_code": str(payload.get("project_code") or ""),
+                            "project_name": str(payload.get("project_name") or ""),
+                            "old_status": str(payload.get("old_status") or ""),
+                            "new_status": str(new_status),
+                            "user": {"first_name": name},
+                        },
+                    )
             await db.commit()
         logger.info("project.status.changed handled: %s -> %s", project_id, new_status)
 

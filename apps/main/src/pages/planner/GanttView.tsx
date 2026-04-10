@@ -662,6 +662,12 @@ export function GanttView({
                   isDraft: act.status === 'draft' || act.status === 'submitted',
                   isCritical: act.priority === 'critical',
                   progress: computeActivityProgress(act),
+                  // Enable drag-to-reschedule and edge resize on activity bars.
+                  // The GanttBar component short-circuits drag/resize when these
+                  // flags are false, which is why the previous version couldn't
+                  // be moved or resized at all.
+                  draggable: true,
+                  resizable: true,
                   cellLabels,
                   externalTitle,
                   externalTitlePosition,
@@ -976,6 +982,35 @@ export function GanttView({
     }
   }, [t, toast, ganttData, viewPrefs.drag_cascade_mode])
 
+  // ── Resize handler (drag left/right edge of a bar) ──
+  // Partial date update: only start_date or only end_date changes. The
+  // cascade / warn / strict logic is simpler here because the resize only
+  // affects a single end of the activity. We still run a constraint check
+  // against the OTHER end's existing value.
+  const handleBarResize = useCallback(async (barId: string, edge: 'left' | 'right', newDate: string) => {
+    if (barId.startsWith('proposal-')) return
+    const acts = new Map<string, GanttActivity>()
+    for (const asset of ganttData?.assets ?? []) {
+      for (const a of asset.activities) acts.set(a.id, a)
+    }
+    const current = acts.get(barId)
+    if (!current || !current.start_date || !current.end_date) return
+
+    const newStart = edge === 'left' ? newDate : current.start_date.slice(0, 10)
+    const newEnd = edge === 'right' ? newDate : current.end_date.slice(0, 10)
+
+    // Refuse zero or negative duration resizes
+    if (new Date(newEnd).getTime() < new Date(newStart).getTime()) {
+      toast({ title: 'Durée invalide', variant: 'warning' })
+      return
+    }
+
+    // Delegate constraint check to the drag handler by calling it with the
+    // partial update. This lets the user benefit from the same warn / cascade
+    // / strict behaviour on resize.
+    await handleBarDrag(barId, newStart, newEnd)
+  }, [ganttData, toast, handleBarDrag])
+
   // ── Click on bar → open detail panel ──
   const handleBarClick = useCallback((barId: string) => {
     if (barId.startsWith('proposal-')) return
@@ -1056,6 +1091,7 @@ export function GanttView({
         initialSettings={{ barHeight: 18, rowHeight: 30, showProgress: false }}
         onBarClick={handleBarClick}
         onBarDrag={handleBarDrag}
+        onBarResize={handleBarResize}
         onViewChange={handleViewChange}
         expandedRows={expandedRows}
         onToggleRow={toggleRow}

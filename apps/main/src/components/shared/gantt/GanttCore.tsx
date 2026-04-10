@@ -114,7 +114,7 @@ export function GanttCore(props: GanttCoreProps) {
     statusOptions, priorityOptions,
     presets: _presets, onPresetsChange: _onPresetsChange,
     showActions, onAddTask, onAddMilestone, onIndent, onOutdent, onDeleteRow,
-    onCreateDependency, onDeleteDependency, onExportPdf, onUndo, onRedo, onViewChange,
+    onCreateDependency, onDeleteDependency, onEditDependency, onExportPdf, onUndo, onRedo, onViewChange,
     selectedRowId, onSelectRow,
     expandedRows, onToggleRow,
     onSettingsChange,
@@ -1059,6 +1059,7 @@ export function GanttCore(props: GanttCoreProps) {
                   totalWidth={totalWidth}
                   totalHeight={bodyH}
                   onDelete={onDeleteDependency}
+                  onEdit={onEditDependency}
                 />
               )}
 

@@ -33,6 +33,8 @@ interface GanttDependenciesProps {
   totalHeight: number
   /** Optional callback fired when the user deletes a selected arrow. */
   onDelete?: (fromId: string, toId: string, type: 'FS' | 'SS' | 'FF' | 'SF') => void
+  /** Optional callback fired when the user double-clicks an arrow. */
+  onEdit?: (fromId: string, toId: string, type: 'FS' | 'SS' | 'FF' | 'SF') => void
 }
 
 const ELBOW = 12 // px offset away from the bar edge before turning
@@ -44,7 +46,7 @@ function depKey(d: GanttDependencyData): string {
 
 export function GanttDependencies({
   dependencies, barPositions, rowOffsets, rowHeights, barHeight, totalWidth, totalHeight,
-  onDelete,
+  onDelete, onEdit,
 }: GanttDependenciesProps) {
   const [selected, setSelected] = useState<string | null>(null)
 
@@ -232,7 +234,7 @@ export function GanttDependencies({
               strokeWidth={12}
               strokeLinecap="round"
               strokeLinejoin="round"
-              style={{ pointerEvents: 'stroke', cursor: onDelete ? 'pointer' : 'default' }}
+              style={{ pointerEvents: 'stroke', cursor: onDelete || onEdit ? 'pointer' : 'default' }}
               onMouseDown={(e) => {
                 // Prevent the gantt body drag-scroll from kicking in
                 e.stopPropagation()
@@ -240,6 +242,10 @@ export function GanttDependencies({
               onClick={(e) => {
                 e.stopPropagation()
                 setSelected(isSelected ? null : key)
+              }}
+              onDoubleClick={(e) => {
+                e.stopPropagation()
+                onEdit?.(dep.fromId, dep.toId, dep.type)
               }}
             />
           </g>

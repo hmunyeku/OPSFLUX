@@ -60,6 +60,13 @@ export interface PlannerGanttViewPrefs {
   // the list are shown. Toggled by clicking the legend chips above the Gantt.
   // Empty array = show all types (default).
   activity_type_filter: string[]
+
+  // Activity validity filter — filters activities by their "validity band":
+  //   'validated' → status in (validated, in_progress, completed)
+  //   'draft'     → status in (draft, submitted, rejected, cancelled)
+  // Empty array = show all (default). Toggled via the same legend row as
+  // the type chips (next to the Validé / Brouillon swatches).
+  activity_validity_filter: ('validated' | 'draft')[]
 }
 
 export const DEFAULT_PLANNER_GANTT_VIEW: PlannerGanttViewPrefs = {
@@ -80,6 +87,7 @@ export const DEFAULT_PLANNER_GANTT_VIEW: PlannerGanttViewPrefs = {
   parent_rows_aggregation: 'sum',
   drag_cascade_mode: 'warn',
   activity_type_filter: [],
+  activity_validity_filter: [],
 }
 
 /**

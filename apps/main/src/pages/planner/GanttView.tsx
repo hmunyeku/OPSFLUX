@@ -335,6 +335,7 @@ export function GanttView({
 }: GanttViewProps = {}) {
   const { t } = useTranslation()
   const { toast } = useToast()
+  const qc = useQueryClient()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
 
   const statusLabels = useMemo<Record<string, string>>(() => ({
@@ -548,11 +549,46 @@ export function GanttView({
 
     // Pre-compute which fields/sites/installations actually contain activities
     // (so we can hide empty branches when hide_empty_rows is on).
-    const installationHasActivity = (instId: string) => (activitiesByAsset.get(instId)?.length ?? 0) > 0
+    // IMPORTANT: the activity-type filter (legend chip toggle) must also
+    // propagate to the hierarchy visibility, otherwise a field/site/install
+    // whose only activities were filtered out still renders with an empty
+    // bar area. We compute a filtered view here and use it everywhere the
+    // "is there any activity" check is done, so typing affects parents too.
+    const activityTypeFilter = viewPrefs.activity_type_filter ?? []
+    const hasTypeFilter = activityTypeFilter.length > 0
+    const activityValidityFilter = viewPrefs.activity_validity_filter ?? []
+    const hasValidityFilter = activityValidityFilter.length > 0
+
+    const VALIDATED_STATUSES = new Set(['validated', 'in_progress', 'completed'])
+    const DRAFT_STATUSES = new Set(['draft', 'submitted', 'rejected', 'cancelled'])
+    const passesValidityFilter = (a: GanttActivity): boolean => {
+      if (!hasValidityFilter) return true
+      const isValidated = VALIDATED_STATUSES.has((a.status ?? '').toLowerCase())
+      const isDraft = DRAFT_STATUSES.has((a.status ?? '').toLowerCase())
+      if (activityValidityFilter.includes('validated') && isValidated) return true
+      if (activityValidityFilter.includes('draft') && isDraft) return true
+      return false
+    }
+    const passesActivityFilters = (a: GanttActivity): boolean => {
+      if (hasTypeFilter && !activityTypeFilter.includes(a.type)) return false
+      if (!passesValidityFilter(a)) return false
+      return true
+    }
+    const countAfterFilters = (instId: string): number => {
+      const acts = activitiesByAsset.get(instId) ?? []
+      if (!hasTypeFilter && !hasValidityFilter) return acts.length
+      return acts.reduce((n, a) => n + (passesActivityFilters(a) ? 1 : 0), 0)
+    }
+    const installationHasActivity = (instId: string) => countAfterFilters(instId) > 0
     const siteHasActivity = (site: HierarchyFieldNode['sites'][number]) =>
       site.installations.some((i) => installationHasActivity(i.id))
     const fieldHasActivity = (field: HierarchyFieldNode) =>
       field.sites.some((s) => siteHasActivity(s))
+
+    // When a type or validity filter is active, auto-hide empty branches
+    // even if the user hasn't ticked "hide empty rows" — otherwise the
+    // filter feels broken (parents with zero matching activities remain).
+    const autoHideEmpty = viewPrefs.hide_empty_rows || hasTypeFilter || hasValidityFilter
 
     // Collect all installation IDs in scope (used for total rows)
     const allInstIdsInScope: string[] = []
@@ -597,7 +633,7 @@ export function GanttView({
       const fieldAssetIds: string[] = []
       for (const s of field.sites) for (const i of s.installations) fieldAssetIds.push(i.id)
       if (fieldAssetIds.length === 0) continue
-      if (viewPrefs.hide_empty_rows && !fieldHasActivity(field)) continue
+      if (autoHideEmpty && !fieldHasActivity(field)) continue
 
       const fieldId = `f:${field.id}`
 
@@ -618,7 +654,7 @@ export function GanttView({
         if (!passesScope(field.id, site.id)) continue
         const siteAssetIds = site.installations.map((i) => i.id)
         if (siteAssetIds.length === 0) continue
-        if (viewPrefs.hide_empty_rows && !siteHasActivity(site)) continue
+        if (autoHideEmpty && !siteHasActivity(site)) continue
 
         const siteId = `s:${site.id}`
 
@@ -639,7 +675,13 @@ export function GanttView({
           if (!passesScope(field.id, site.id, inst.id)) continue
           const installId = `i:${inst.id}`
           const activities = activitiesByAsset.get(inst.id) ?? []
-          if (viewPrefs.hide_empty_rows && activities.length === 0) continue
+          // Apply both type + validity filters to the count check —
+          // otherwise an installation whose only activities were filtered
+          // out would still appear with an empty activity area.
+          const matchingCount = (hasTypeFilter || hasValidityFilter)
+            ? activities.filter(passesActivityFilters).length
+            : activities.length
+          if (autoHideEmpty && matchingCount === 0) continue
 
           if (viewPrefs.show_installation_rows) {
             // Compute the row level based on which parent levels are visible
@@ -649,11 +691,11 @@ export function GanttView({
             rowList.push({
               id: installId,
               label: inst.name,
-              sublabel: activities.length > 0
-                ? `${activities.length} activité${activities.length > 1 ? 's' : ''}`
+              sublabel: matchingCount > 0
+                ? `${matchingCount} activité${matchingCount > 1 ? 's' : ''}`
                 : '—',
               level: lvl,
-              hasChildren: activities.length > 0 && viewPrefs.show_activity_rows,
+              hasChildren: matchingCount > 0 && viewPrefs.show_activity_rows,
               rowHeight: heatmapRowH,
               heatmapCells: buildHeatmapCells([inst.id], viewPrefs.parent_rows_aggregation),
             })
@@ -673,10 +715,9 @@ export function GanttView({
             // Clamp to GanttCore-supported max
             if (actLevel > 3) actLevel = 3 as const
 
-            // Apply activity type filter (legend chip toggle)
-            const typeFilter = viewPrefs.activity_type_filter ?? []
-            const filteredActivities = typeFilter.length > 0
-              ? activities.filter((a) => typeFilter.includes(a.type))
+            // Apply activity type + validity filters (legend chip toggles)
+            const filteredActivities = (hasTypeFilter || hasValidityFilter)
+              ? activities.filter(passesActivityFilters)
               : activities
 
             for (const act of filteredActivities) {
@@ -1053,6 +1094,12 @@ export function GanttView({
         )
       }
       await Promise.all(patchOps)
+      // Invalidate ALL gantt-related queries so the view refetches with the
+      // new dates. Without this the toast fires, but React Query keeps
+      // serving the stale cache and the bars don't move.
+      qc.invalidateQueries({ queryKey: ['planner', 'gantt'] })
+      qc.invalidateQueries({ queryKey: ['planner', 'capacity-heatmap'] })
+      qc.invalidateQueries({ queryKey: ['planner', 'activities'] })
       const cascadeMsg = cascadeShifts.length > 0
         ? ` (+${cascadeShifts.length} en cascade)`
         : ''
@@ -1063,7 +1110,7 @@ export function GanttView({
     } catch {
       toast({ title: t('planner.gantt.toasts.drag_error'), variant: 'error' })
     }
-  }, [t, toast, ganttData, viewPrefs.drag_cascade_mode])
+  }, [t, toast, ganttData, viewPrefs.drag_cascade_mode, qc])
 
   // ── Resize handler (drag left/right edge of a bar) ──
   // Partial date update: only start_date or only end_date changes. The
@@ -1129,8 +1176,69 @@ export function GanttView({
     [startDate, endDate, scale, toast],
   )
 
+  // ── Dependency edit modal state (triggered by double-click on arrow) ──
+  const [editingDep, setEditingDep] = useState<{
+    id: string
+    predecessor_id: string
+    successor_id: string
+    dependency_type: 'FS' | 'SS' | 'FF' | 'SF'
+    lag_days: number
+  } | null>(null)
+  const [editDepForm, setEditDepForm] = useState<{
+    dependency_type: 'FS' | 'SS' | 'FF' | 'SF'
+    lag_days: number
+  }>({ dependency_type: 'FS', lag_days: 0 })
+
+  const handleEditDependency = useCallback(
+    (fromId: string, toId: string, type: 'FS' | 'SS' | 'FF' | 'SF') => {
+      const dep = (ganttData?.dependencies ?? []).find(
+        (d) => d.predecessor_id === fromId && d.successor_id === toId && d.dependency_type === type,
+      )
+      if (!dep) return
+      setEditingDep({
+        id: dep.id,
+        predecessor_id: dep.predecessor_id,
+        successor_id: dep.successor_id,
+        dependency_type: dep.dependency_type as 'FS' | 'SS' | 'FF' | 'SF',
+        lag_days: dep.lag_days ?? 0,
+      })
+      setEditDepForm({
+        dependency_type: dep.dependency_type as 'FS' | 'SS' | 'FF' | 'SF',
+        lag_days: dep.lag_days ?? 0,
+      })
+    },
+    [ganttData],
+  )
+
+  // Activity title lookup for the modal label
+  const activityTitleById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const asset of ganttData?.assets ?? []) {
+      for (const a of asset.activities) map.set(a.id, a.title || a.id.slice(0, 8))
+    }
+    return map
+  }, [ganttData])
+
+  const handleSaveDep = useCallback(async () => {
+    if (!editingDep) return
+    // Backend has no PATCH → remove + re-add (same pattern as PlannerPage.handleUpdateDep)
+    try {
+      await plannerService.removeDependency(editingDep.predecessor_id, editingDep.id)
+      await plannerService.addDependency(editingDep.predecessor_id, {
+        predecessor_id: editingDep.predecessor_id,
+        successor_id: editingDep.successor_id,
+        dependency_type: editDepForm.dependency_type,
+        lag_days: editDepForm.lag_days,
+      })
+      toast({ title: 'Dépendance modifiée', variant: 'success' })
+      setEditingDep(null)
+      qc.invalidateQueries({ queryKey: ['planner', 'gantt'] })
+    } catch {
+      toast({ title: 'Erreur lors de la modification', variant: 'error' })
+    }
+  }, [editingDep, editDepForm, toast, qc])
+
   // ── Delete a dependency arrow (selected via click + Delete key) ──
-  const qc = useQueryClient()
   const handleDeleteDependency = useCallback(
     async (fromId: string, toId: string, type: 'FS' | 'SS' | 'FF' | 'SF') => {
       const dep = (ganttData?.dependencies ?? []).find(
@@ -1242,15 +1350,52 @@ export function GanttView({
             Réinitialiser
           </button>
         )}
-        <span className="ml-auto inline-flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-3 w-5 rounded-sm bg-primary" />
-            <span>Validé</span>
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-3 w-5 rounded-sm bg-primary opacity-45" />
-            <span>Brouillon / soumis</span>
-          </span>
+        <span className="ml-auto inline-flex items-center gap-1">
+          {(['validated', 'draft'] as const).map((v) => {
+            const filter = viewPrefs.activity_validity_filter ?? []
+            const hasFilter = filter.length > 0
+            const isActive = !hasFilter || filter.includes(v)
+            const label = v === 'validated' ? 'Validé' : 'Brouillon / soumis'
+            const swatchClass = v === 'validated' ? 'bg-primary' : 'bg-primary opacity-45'
+            return (
+              <button
+                key={v}
+                type="button"
+                onClick={() => {
+                  const current = viewPrefs.activity_validity_filter ?? []
+                  let next: ('validated' | 'draft')[]
+                  if (current.includes(v)) {
+                    next = current.filter((x) => x !== v)
+                  } else {
+                    next = [...current, v]
+                  }
+                  // Both selected = show all → reset
+                  if (next.length === 2) next = []
+                  onViewPrefsChange?.({ ...viewPrefs, activity_validity_filter: next })
+                }}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full border px-1.5 py-0.5 transition-all cursor-pointer select-none',
+                  isActive
+                    ? 'border-border hover:border-primary/40 hover:bg-primary/5'
+                    : 'border-transparent opacity-35 hover:opacity-60',
+                )}
+                title={isActive ? `Filtrer hors ${label}` : `Afficher ${label}`}
+              >
+                <span className={cn('h-3 w-5 rounded-sm shrink-0', swatchClass)} />
+                <span>{label}</span>
+              </button>
+            )
+          })}
+          {(viewPrefs.activity_validity_filter ?? []).length > 0 && (
+            <button
+              type="button"
+              onClick={() => onViewPrefsChange?.({ ...viewPrefs, activity_validity_filter: [] })}
+              className="text-[10px] text-primary hover:underline ml-1"
+              title="Réinitialiser le filtre de validité"
+            >
+              Réinitialiser
+            </button>
+          )}
         </span>
       </div>
 
@@ -1267,6 +1412,7 @@ export function GanttView({
         onSettingsChange={onGanttSettingsChange}
         onBarDoubleClick={handleBarDoubleClick}
         onDeleteDependency={handleDeleteDependency}
+        onEditDependency={handleEditDependency}
         onExportPdf={handleExportPdf}
         onBarDrag={handleBarDrag}
         onBarResize={handleBarResize}
@@ -1277,6 +1423,85 @@ export function GanttView({
         emptyMessage={t('planner.gantt.empty_message')}
         extraSettingsContent={customizationSections}
       />
+
+      {/* ── Dependency edit modal ── */}
+      {editingDep && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setEditingDep(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 pt-4 pb-2 border-b border-border">
+              <h3 className="text-sm font-semibold text-foreground">Modifier la dépendance</h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                <span className="font-medium text-foreground">{activityTitleById.get(editingDep.predecessor_id) ?? '—'}</span>
+                {' → '}
+                <span className="font-medium text-foreground">{activityTitleById.get(editingDep.successor_id) ?? '—'}</span>
+              </p>
+            </div>
+            <div className="px-4 py-3 space-y-3">
+              <div>
+                <label className="block text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Type</label>
+                <div className="grid grid-cols-4 gap-1">
+                  {(['FS', 'SS', 'FF', 'SF'] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setEditDepForm((f) => ({ ...f, dependency_type: t }))}
+                      className={cn(
+                        'py-1 text-[11px] rounded border transition-colors',
+                        editDepForm.dependency_type === t
+                          ? 'border-primary bg-primary/10 text-primary font-semibold'
+                          : 'border-border text-muted-foreground hover:bg-muted',
+                      )}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[9px] text-muted-foreground mt-1">
+                  FS = Finish-to-Start · SS = Start-to-Start · FF = Finish-to-Finish · SF = Start-to-Finish
+                </p>
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                  Lag (jours)
+                </label>
+                <input
+                  type="number"
+                  value={editDepForm.lag_days}
+                  onChange={(e) => setEditDepForm((f) => ({ ...f, lag_days: Number(e.target.value) || 0 }))}
+                  className="w-full px-2 py-1 text-sm border border-border rounded bg-background"
+                />
+                <p className="text-[9px] text-muted-foreground mt-1">
+                  Négatif = anticiper le successeur · Positif = retarder le successeur.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border bg-muted/30 rounded-b-xl">
+              <button
+                type="button"
+                onClick={() => setEditingDep(null)}
+                className="gl-button-sm gl-button-default"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveDep}
+                className="gl-button-sm bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

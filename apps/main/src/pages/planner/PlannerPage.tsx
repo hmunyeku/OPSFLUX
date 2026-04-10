@@ -39,7 +39,6 @@ import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer
 import { GanttView } from './GanttView'
 import { buildCells, buildHeaderGroups, getDefaultDateRange } from '@/components/shared/gantt/ganttEngine'
 import type { TimeScale } from '@/components/shared/gantt/ganttEngine'
-import { CapacityHeatmap } from '@/components/shared/CapacityHeatmap'
 import { TagManager } from '@/components/shared/TagManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
@@ -2412,64 +2411,6 @@ function ForecastTab() {
   )
 }
 
-// ── Compact heatmap shown above the Gantt — uses real ECharts CapacityHeatmap ──
-// Width breakdown must match the Gantt panel exactly:
-//   taskColWidth (250) + pax (44) + start (80) + end (80) = 454
-const GANTT_PANEL_WIDTH = 454
-
-function GanttHeatmapHeader({
-  scale,
-  startDate,
-  endDate,
-}: {
-  scale: TimeScale
-  startDate: string
-  endDate: string
-}) {
-  const { data, isLoading } = useCapacityHeatmap(startDate, endDate)
-  const { data: hierarchy = [] } = useAssetHierarchy()
-  const days = data?.days ?? []
-  const config = data?.config
-
-  const assetCount = useMemo(() => {
-    const seen = new Set<string>()
-    for (const d of days) seen.add(d.asset_id)
-    return seen.size
-  }, [days])
-
-  return (
-    <div className="border border-border rounded-md bg-card">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Charge & capacité
-          </span>
-          {assetCount > 0 && (
-            <span className="text-[10px] text-muted-foreground tabular-nums">
-              · {assetCount} installation{assetCount > 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-        <span className="text-[10px] text-muted-foreground tabular-nums">
-          {startDate} → {endDate}
-        </span>
-      </div>
-      <CapacityHeatmap
-        days={days}
-        config={config}
-        scale={scale}
-        startDate={startDate}
-        endDate={endDate}
-        hierarchy={hierarchy as HierarchyFieldNode[]}
-        labelColumnWidth={GANTT_PANEL_WIDTH}
-        isLoading={isLoading}
-        emptyMessage="Aucune donnée de saturation sur cette période"
-        syncScrollSelector="[data-gantt-body]"
-      />
-    </div>
-  )
-}
-
 export function PlannerPage() {
   const [activeTab, setActiveTab] = useState<PlannerTab>('gantt')
   const [sharedTimelineScale, setSharedTimelineScale] = useState<TimeScale>('month')
@@ -2534,22 +2475,14 @@ export function PlannerPage() {
           </div>
 
           {activeTab === 'gantt' && (
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              <div className="flex flex-col gap-4 p-3">
-                {/* Real heatmap above Gantt — ECharts based, spec §2.7 */}
-                <GanttHeatmapHeader
-                  scale={sharedTimelineScale}
-                  startDate={sharedTimelineRange.start}
-                  endDate={sharedTimelineRange.end}
-                />
-                {/* Gantt below — synchronized timeline */}
-                <GanttView
-                  scale={sharedTimelineScale}
-                  startDate={sharedTimelineRange.start}
-                  endDate={sharedTimelineRange.end}
-                  onViewChange={handleGanttViewChange}
-                />
-              </div>
+            <div className="flex-1 min-h-0 flex flex-col p-3">
+              {/* Unified Gantt + heatmap — single shared timeline */}
+              <GanttView
+                scale={sharedTimelineScale}
+                startDate={sharedTimelineRange.start}
+                endDate={sharedTimelineRange.end}
+                onViewChange={handleGanttViewChange}
+              />
             </div>
           )}
           {activeTab === 'activities' && <ActivitiesTab />}

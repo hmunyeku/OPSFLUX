@@ -226,6 +226,12 @@ export function GanttCore(props: GanttCoreProps) {
   const cells = useMemo(() => buildCells(settings.scale, new Date(viewStart), new Date(viewEnd)), [settings.scale, viewStart, viewEnd])
   const headerGroups = useMemo(() => buildHeaderGroups(settings.scale, cells), [settings.scale, cells])
   const cellWidths = useMemo(() => cells.map(c => c.days * effectivePPD), [cells, effectivePPD])
+  const cellLefts = useMemo(() => {
+    const out: number[] = new Array(cellWidths.length)
+    let x = 0
+    for (let i = 0; i < cellWidths.length; i++) { out[i] = x; x += cellWidths[i] }
+    return out
+  }, [cellWidths])
   const totalDays = useMemo(() => cells.reduce((s, c) => s + c.days, 0), [cells])
   const totalWidth = totalDays * effectivePPD
   const bodyH = rows.length * settings.rowHeight
@@ -846,24 +852,49 @@ export function GanttCore(props: GanttCoreProps) {
               })}
 
               {/* Column separators */}
-              {(() => {
-                let x = 0
-                return cells.map((c, i) => {
-                  const left = x
-                  x += cellWidths[i]
-                  const isWeekend = c.startDate.getDay() === 0 || c.startDate.getDay() === 6
+              {cells.map((c, i) => {
+                const isWeekend = c.startDate.getDay() === 0 || c.startDate.getDay() === 6
+                return (
+                  <div
+                    key={c.key}
+                    className={cn(
+                      'absolute top-0 border-r',
+                      isWeekend && settings.showWeekends ? 'border-border/20 bg-muted/10' : 'border-border/10',
+                    )}
+                    style={{ left: cellLefts[i], width: cellWidths[i], height: bodyH }}
+                  />
+                )
+              })}
+
+              {/* Heatmap cells layer — drawn above the row stripes/separators
+                  but below dependency arrows / bars / today line */}
+              {rows.map((row, rowIdx) => {
+                if (!row.heatmapCells || row.heatmapCells.length === 0) return null
+                return row.heatmapCells.map((hc) => {
+                  if (hc.cellIdx < 0 || hc.cellIdx >= cellLefts.length) return null
+                  const w = cellWidths[hc.cellIdx]
+                  const showLabel = hc.label && w >= 28
                   return (
                     <div
-                      key={c.key}
-                      className={cn(
-                        'absolute top-0 border-r',
-                        isWeekend && settings.showWeekends ? 'border-border/20 bg-muted/10' : 'border-border/10',
-                      )}
-                      style={{ left, width: cellWidths[i], height: bodyH }}
-                    />
+                      key={`hm-${rowIdx}-${hc.cellIdx}`}
+                      className="absolute pointer-events-auto z-[5] flex items-center justify-center text-[9px] font-medium tabular-nums"
+                      style={{
+                        left: cellLefts[hc.cellIdx] + 1,
+                        width: Math.max(0, w - 2),
+                        top: rowIdx * settings.rowHeight + 2,
+                        height: settings.rowHeight - 4,
+                        backgroundColor: hc.color,
+                        color: 'rgba(15, 23, 42, 0.65)',
+                        borderRadius: 2,
+                      }}
+                      title={hc.tooltipHTML ? undefined : `${hc.value}%`}
+                      {...(hc.tooltipHTML ? { 'data-heatmap-tooltip': hc.tooltipHTML } : {})}
+                    >
+                      {showLabel ? hc.label : null}
+                    </div>
                   )
                 })
-              })()}
+              })}
 
               {/* Today line */}
               {settings.showToday && todayPx != null && (

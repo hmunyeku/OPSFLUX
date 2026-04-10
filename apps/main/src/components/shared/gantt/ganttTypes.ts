@@ -28,6 +28,26 @@ export interface GanttRow {
   icon?: ReactNode
   /** Additional data columns (keyed by column id) */
   columns?: Record<string, string | number | null>
+  /**
+   * Optional per-cell heatmap overlay. When present, the timeline area for
+   * this row is filled with colored cells matching the timeline's cells.
+   * Each entry references a cell index from the gantt's `buildCells` output.
+   */
+  heatmapCells?: GanttHeatmapCell[]
+}
+
+/** A single heatmap cell rendered as a row background */
+export interface GanttHeatmapCell {
+  /** Cell index in the timeline cells array (matches buildCells output) */
+  cellIdx: number
+  /** Background color (CSS color string) */
+  color: string
+  /** Numeric value (saturation %, count, etc.) — used for label / accessibility */
+  value: number
+  /** Optional pre-rendered tooltip HTML (shown on cell hover) */
+  tooltipHTML?: string
+  /** Optional inline label (e.g. "85%") shown when there is enough room */
+  label?: string
 }
 
 // ── Column (grid config) ─────────────────────────────────────────

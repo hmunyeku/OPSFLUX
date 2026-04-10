@@ -754,7 +754,12 @@ export function GanttView({
                 barList.push({
                   id: act.id,
                   rowId: actRowId,
-                  title: '',
+                  // Keep the real activity name on the bar so the dependency
+                  // arrow tooltip (which looks up bar.title via barTitlesMap)
+                  // can display a human name. The in-bar rendering ignores
+                  // this field when cellLabels are present, so setting it
+                  // has no visual side-effect on the bar itself.
+                  title: act.title,
                   startDate: act.start_date.slice(0, 10),
                   endDate: act.end_date.slice(0, 10),
                   status: act.status,

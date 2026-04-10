@@ -2506,6 +2506,8 @@ export interface GanttActivity {
   start_date: string
   end_date: string
   project_id: string | null
+  source_task_id?: string | null
+  progress?: number
   created_by: string
   well_reference: string | null
   work_order_ref: string | null

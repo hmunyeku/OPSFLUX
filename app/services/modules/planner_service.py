@@ -466,6 +466,45 @@ async def get_gantt_data(
     result = await db.execute(query.order_by(PlannerActivity.start_date))
     activities = result.scalars().all()
 
+    # Batch-fetch linked project task progress for activities that reference
+    # a source_task_id. This lets the Gantt bar show the task progress bar
+    # without N+1 queries.
+    from app.models.common import ProjectTask
+    linked_task_ids = {act.source_task_id for act in activities if getattr(act, "source_task_id", None)}
+    task_progress_by_id: dict[UUID, int] = {}
+    if linked_task_ids:
+        task_rows = await db.execute(
+            select(ProjectTask.id, ProjectTask.progress).where(
+                ProjectTask.id.in_(linked_task_ids)
+            )
+        )
+        for row in task_rows.all():
+            task_progress_by_id[row[0]] = int(row[1] or 0)
+
+    def _compute_activity_progress(act) -> int:
+        """Resolve the effective progress for an activity.
+        Priority: linked project task's progress → status-based defaults →
+        time-based fraction.
+        """
+        stid = getattr(act, "source_task_id", None)
+        if stid and stid in task_progress_by_id:
+            return task_progress_by_id[stid]
+        if act.status == "completed":
+            return 100
+        if act.status in ("cancelled", "rejected", "draft", "submitted"):
+            return 0
+        if act.start_date and act.end_date:
+            start_ts = act.start_date.timestamp()
+            end_ts = act.end_date.timestamp()
+            if end_ts > start_ts:
+                now_ts = datetime.now(timezone.utc).timestamp()
+                if now_ts <= start_ts:
+                    return 0
+                if now_ts >= end_ts:
+                    return 100
+                return int(round((now_ts - start_ts) / (end_ts - start_ts) * 100))
+        return 0
+
     # Group by asset
     asset_map: dict[UUID | None, dict] = {}
     for act in activities:
@@ -496,6 +535,8 @@ async def get_gantt_data(
             "start_date": act.start_date.isoformat() if act.start_date else None,
             "end_date": act.end_date.isoformat() if act.end_date else None,
             "project_id": str(act.project_id) if act.project_id else None,
+            "source_task_id": str(act.source_task_id) if getattr(act, "source_task_id", None) else None,
+            "progress": _compute_activity_progress(act),
             "created_by": str(act.created_by),
             "well_reference": act.well_reference,
             "rig_name": act.rig_name,

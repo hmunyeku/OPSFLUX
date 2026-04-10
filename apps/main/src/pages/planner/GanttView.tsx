@@ -212,20 +212,35 @@ function buildBarCellLabels(
 }
 
 /**
- * Sum activity PAX (forecast) for a set of installation IDs over a cell range.
- * Used for the parent heatmap rows so 'EBOME' shows the actual PAX sum from
- * its child activities, including draft/submitted ones (which the backend
- * capacity-heatmap endpoint doesn't include because it only counts validated).
+ * Aggregate activity PAX + saturation for a set of installation IDs over a
+ * cell range. Walks each day × each installation × each overlapping activity
+ * and computes:
+ *   - totalPax       : sum of all per-day PAX values across all assets/days
+ *   - peakPax        : max per-(asset,day) PAX value
+ *   - peakDaySat     : max per-(asset,day) saturation = dailyPax / dailyCap * 100
+ *                      This is the worst single-day-single-asset saturation in
+ *                      the cell range, which is the right value to use for the
+ *                      row background color. Averaging dilutes bursts away.
+ *   - daysCovered    : number of (asset,day) tuples that had activity coverage
+ *
+ * `capacityByAssetDay` is the per-day capacity_limit returned by the backend
+ * heatmap endpoint: Map<assetId, Map<dayTs, capacityLimit>>.
  */
 function sumActivityPaxForCell(
   contributingAssetIds: string[],
   cellStartUTC: number,
   cellEndUTC: number,
   activitiesByAsset: Map<string, GanttActivity[]>,
-): { totalPax: number; peakPax: number; daysCovered: number } {
+  capacityByAssetDay: Map<string, Map<number, number>>,
+): { totalPax: number; peakPax: number; peakDaySat: number; daysCovered: number } {
   let totalPax = 0
   let peakPax = 0
+  let peakDaySat = 0
   let daysCovered = 0
+
+  // First: build a per-(asset,day) PAX map so we can correctly sum multiple
+  // activities on the same day AND divide by the capacity for that day.
+  const paxByAssetDay = new Map<string, Map<number, number>>()
 
   for (const aid of contributingAssetIds) {
     const acts = activitiesByAsset.get(aid)
@@ -234,7 +249,6 @@ function sumActivityPaxForCell(
       if (!act.start_date || !act.end_date) continue
       const aStart = parseISODateUTC(act.start_date)
       const aEnd = parseISODateUTC(act.end_date) + MS_PER_DAY - 1
-      // Overlap of [aStart, aEnd] ∩ [cellStartUTC, cellEndUTC]
       const overlapFrom = Math.max(aStart, cellStartUTC)
       const overlapTo = Math.min(aEnd, cellEndUTC)
       if (overlapTo < overlapFrom) continue
@@ -244,23 +258,44 @@ function sumActivityPaxForCell(
       const dailyMap = act.pax_quota_daily || {}
 
       let cur = Math.floor(overlapFrom / MS_PER_DAY) * MS_PER_DAY
-      let dayPaxMaxInOverlap = 0
       let safety = 0
       while (cur <= overlapTo) {
         const iso = utcDateKey(cur)
         const v = isVariable
           ? (typeof dailyMap[iso] === 'number' ? dailyMap[iso] : constantQuota)
           : constantQuota
+        // Accumulate PAX per (asset, day)
+        let assetDays = paxByAssetDay.get(aid)
+        if (!assetDays) {
+          assetDays = new Map()
+          paxByAssetDay.set(aid, assetDays)
+        }
+        assetDays.set(cur, (assetDays.get(cur) ?? 0) + v)
         totalPax += v
-        if (v > dayPaxMaxInOverlap) dayPaxMaxInOverlap = v
         daysCovered++
         cur += MS_PER_DAY
         if (++safety > 10000) break
       }
-      if (dayPaxMaxInOverlap > peakPax) peakPax = dayPaxMaxInOverlap
     }
   }
-  return { totalPax, peakPax, daysCovered }
+
+  // Second: compute per-(asset,day) saturation and find the peak
+  for (const [aid, days] of paxByAssetDay) {
+    const capDays = capacityByAssetDay.get(aid)
+    for (const [dayTs, dayPax] of days) {
+      if (dayPax > peakPax) peakPax = dayPax
+      const dayCap = capDays?.get(dayTs) ?? 0
+      if (dayCap > 0) {
+        const sat = (dayPax / dayCap) * 100
+        if (sat > peakDaySat) peakDaySat = sat
+      } else if (dayPax > 0) {
+        // Capacity not configured but PAX exist → treat as overflow
+        peakDaySat = Math.max(peakDaySat, 101)
+      }
+    }
+  }
+
+  return { totalPax, peakPax, peakDaySat, daysCovered }
 }
 
 // ── Component ───────────────────────────────────────────────────
@@ -401,6 +436,18 @@ export function GanttView({
      * - Mode 'peak' uses MAX per-day pax → saturation based on peak / capacity.
      * - Mode 'sum'  uses SUM of all daily pax over the cell → density indicator.
      */
+    // Index capacity_limit per (assetId, dayTs) for fast lookup in sumActivity
+    const capacityByAssetDay = new Map<string, Map<number, number>>()
+    for (const [assetId, inner] of daysByAsset) {
+      const per: Map<number, number> = new Map()
+      for (const [ts, day] of inner) {
+        // Normalize to UTC midnight of the day
+        const dayMidnight = Math.floor(ts / MS_PER_DAY) * MS_PER_DAY
+        per.set(dayMidnight, day.capacity_limit)
+      }
+      capacityByAssetDay.set(assetId, per)
+    }
+
     function buildHeatmapCells(
       contributingAssetIds: string[],
       aggregation: 'peak' | 'sum' = 'peak',
@@ -419,15 +466,16 @@ export function GanttView({
           cell.endDate.getDate(),
         ) + MS_PER_DAY - 1
 
-        // ── Frontend computation: sum of activity PAX in this cell ──
-        const { totalPax, peakPax, daysCovered } = sumActivityPaxForCell(
+        // ── Frontend computation: sum + peak per-day saturation ──
+        const { totalPax, peakPax, peakDaySat, daysCovered } = sumActivityPaxForCell(
           contributingAssetIds,
           cellStartUTC,
           cellEndUTC,
           activitiesByAsset,
+          capacityByAssetDay,
         )
 
-        // ── Capacity comes from the backend heatmap data when available ──
+        // ── Capacity totals across the cell for the tooltip + sum display ──
         let totalCap = 0
         let totalReal = 0
         let backendDayCount = 0
@@ -446,33 +494,28 @@ export function GanttView({
         // No data at all (no activities AND no capacity) → skip the cell
         if (daysCovered === 0 && backendDayCount === 0) return
 
-        // Compute saturation %: peak/capacity for 'peak' mode, sum/capacity for 'sum'.
-        // Per-installation capacity (capacity_limit) is per-day, so sum mode needs
-        // a per-day comparison: peakSat = max(daily_pax / daily_cap).
-        // We approximate using (peakPax / avg_daily_capacity) = peakPax * dayCount / totalCap.
-        const avgDailyCap = backendDayCount > 0 ? totalCap / backendDayCount : 0
-        const peakSat = avgDailyCap > 0 ? Math.round((peakPax / avgDailyCap) * 100) : 0
-        const sumSat = totalCap > 0 ? Math.round((totalPax / totalCap) * 100) : 0
+        // The COLOR always reflects the worst per-day-per-asset saturation
+        // in the cell (peakDaySat). This prevents dilution when aggregating
+        // across many days or many assets with uneven workload distribution.
+        const satForColor = Math.round(peakDaySat)
+        const color = colorForSaturation(satForColor, cfg)
 
         let value: number
         let label: string
-        let color: string
         let tooltipHTML: string
 
         if (aggregation === 'sum') {
           value = totalPax
-          color = colorForSaturation(sumSat, cfg)
           if (viewPrefs.heatmap_text_mode === 'pax_count') label = `${totalPax}`
-          else if (viewPrefs.heatmap_text_mode === 'percentage') label = `${sumSat}%`
+          else if (viewPrefs.heatmap_text_mode === 'percentage') label = `${satForColor}%`
           else label = ''
-          tooltipHTML = `Σ prév. ${totalPax} · cap ${totalCap} · sat ${sumSat}%`
+          tooltipHTML = `Σ prév. ${totalPax} · cap ${totalCap} · pic ${satForColor}%`
         } else {
           value = peakPax
-          color = colorForSaturation(peakSat, cfg)
-          if (viewPrefs.heatmap_text_mode === 'percentage') label = `${peakSat}%`
+          if (viewPrefs.heatmap_text_mode === 'percentage') label = `${satForColor}%`
           else if (viewPrefs.heatmap_text_mode === 'pax_count') label = `${peakPax}`
           else label = ''
-          tooltipHTML = `Pic ${peakPax} PAX (${peakSat}%) · prév. tot. ${totalPax} · pob réel ${totalReal} · cap moy ${Math.round(avgDailyCap)}`
+          tooltipHTML = `Pic ${peakPax} PAX (${satForColor}%) · prév. tot. ${totalPax} · pob réel ${totalReal} · cap ${totalCap}`
         }
 
         result.push({ cellIdx: idx, color, value, label, tooltipHTML })
@@ -661,7 +704,7 @@ export function GanttView({
                   color: TYPE_COLORS[act.type] || '#3b82f6',
                   isDraft: act.status === 'draft' || act.status === 'submitted',
                   isCritical: act.priority === 'critical',
-                  progress: computeActivityProgress(act),
+                  progress: typeof act.progress === 'number' ? act.progress : computeActivityProgress(act),
                   // Enable drag-to-reschedule and edge resize on activity bars.
                   // The GanttBar component short-circuits drag/resize when these
                   // flags are false, which is why the previous version couldn't
@@ -767,6 +810,30 @@ export function GanttView({
     const allActsById = new Map<string, GanttActivity>()
     for (const asset of ganttData?.assets ?? []) {
       for (const a of asset.activities) allActsById.set(a.id, a)
+    }
+
+    // ── Workflow guard: block direct drag on validated activities ──
+    // A validated / in_progress / completed activity should not be moved
+    // without going through the revision workflow. The backend exposes
+    // request_revision_decision only for signal-based flows (Projet → task
+    // edit), so for now we block the drag and point the user to the detail
+    // panel where they can Cancel then Re-submit.
+    const draggedAct = allActsById.get(barId)
+    if (draggedAct && ['validated', 'in_progress', 'completed'].includes(draggedAct.status)) {
+      toast({
+        title: 'Activité validée — déplacement refusé',
+        variant: 'warning',
+      })
+      // eslint-disable-next-line no-alert
+      window.alert(
+        `L'activité « ${draggedAct.title} » est ${draggedAct.status === 'completed' ? 'terminée' : (draggedAct.status === 'in_progress' ? 'en cours' : 'validée')}.\n\n` +
+        `Pour modifier ses dates, ouvrez le panneau de détail et :\n` +
+        `  1. Cliquez « Annuler » pour repasser l'activité en brouillon\n` +
+        `  2. Modifiez les dates dans l'éditeur\n` +
+        `  3. Re-soumettez l'activité pour validation\n\n` +
+        `Un workflow de révision directe (proposer un changement sans annuler) sera ajouté prochainement.`,
+      )
+      return
     }
     const MS = 86400000
 
@@ -1088,7 +1155,7 @@ export function GanttView({
         initialStart={startDate}
         initialEnd={endDate}
         columns={plannerColumns}
-        initialSettings={{ barHeight: 18, rowHeight: 30, showProgress: false }}
+        initialSettings={{ barHeight: 18, rowHeight: 30, showProgress: true }}
         onBarClick={handleBarClick}
         onBarDrag={handleBarDrag}
         onBarResize={handleBarResize}

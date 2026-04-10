@@ -424,6 +424,11 @@ class GanttActivity(BaseModel):
     start_date: datetime | None = None
     end_date: datetime | None = None
     project_id: UUID | None = None
+    source_task_id: UUID | None = None
+    # Progress 0..100. For activities linked to a project task via
+    # source_task_id, this is the linked task's progress field. Otherwise
+    # it is computed from dates + status server-side.
+    progress: int = 0
     created_by: UUID
     well_reference: str | None = None
     rig_name: str | None = None

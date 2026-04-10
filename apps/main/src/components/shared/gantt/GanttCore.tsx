@@ -607,19 +607,17 @@ export function GanttCore(props: GanttCoreProps) {
       await new Promise<void>((r) => requestAnimationFrame(() => r()))
       await new Promise<void>((r) => requestAnimationFrame(() => r()))
 
-      // Shrink the container to its actual content height. Reading
-      // scrollHeight here was a no-op: the outer container has the
-      // tailwind `h-full` class pinning it to its flex parent, so
-      // scrollHeight === clientHeight even with overflow:visible. We
-      // compute the target height directly from the known inputs
-      // instead:
-      //   = toolbar (hidden by CSS, 0)
-      //   + timeline header (HEADER_ROW_H * 2)
-      //   + body rows total (bodyH, sum of rowHeights)
-      //   + a small buffer for the bottom border and row separators
-      // Setting a hard pixel height forces the inner `flex-1` body
-      // wrapper to shrink to that value — no more empty white strip.
-      const targetHeight = HEADER_ROW_H * 2 + Math.max(bodyH, 40) + 4
+      // Shrink the container to its actual content height. The panel
+      // body scroll container (overflow-y-auto) has a scrollHeight that
+      // always reflects the true full content height of every row,
+      // regardless of how many are currently visible. Reading that
+      // after the capture CSS has flushed gives us a reliable target.
+      // Fall back to the closure bodyH value if the ref is somehow
+      // unavailable.
+      const panelContentH = panelBodyRef.current?.scrollHeight ?? bodyH
+      const gridContentH = bodyScrollRef.current?.scrollHeight ?? bodyH
+      const contentH = Math.max(panelContentH, gridContentH, bodyH)
+      const targetHeight = HEADER_ROW_H * 2 + Math.max(contentH, 60) + 6
       container.style.height = `${targetHeight}px`
       container.style.maxHeight = `${targetHeight}px`
       container.style.minHeight = `${targetHeight}px`

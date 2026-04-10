@@ -193,7 +193,10 @@ async def _sync_linked_planner_activities_for_project_task(
     if not changed_fields:
         return
 
-    critical_fields = {"title", "description", "start_date", "due_date", "status"}
+    # Spec 1.5: any of dates / POB / status modifications must trigger a
+    # planner revision notification to the arbiter. Title / description
+    # are also mirrored as straight metadata updates.
+    critical_fields = {"title", "description", "start_date", "due_date", "status", "pob_quota"}
     impacted_fields = sorted(changed_fields & critical_fields)
     if not impacted_fields:
         return
@@ -221,6 +224,10 @@ async def _sync_linked_planner_activities_for_project_task(
             activity.start_date = task.start_date
         if "due_date" in changed_fields:
             activity.end_date = task.due_date
+        if "pob_quota" in changed_fields:
+            # Mirror the new POB to the activity. The arbiter is then
+            # notified via the planner.revision flow downstream.
+            activity.pax_quota = max(0, int(task.pob_quota or 0))
 
     await db.flush()
 
@@ -821,12 +828,13 @@ async def update_project_task(
         raise HTTPException(404, "Task not found")
 
     # Track changes for historisation
-    TRACKED_FIELDS = {"status", "priority", "start_date", "due_date", "assignee_id", "title", "description", "progress", "estimated_hours", "actual_hours"}
+    TRACKED_FIELDS = {"status", "priority", "start_date", "due_date", "assignee_id", "title", "description", "progress", "estimated_hours", "actual_hours", "pob_quota"}
     CHANGE_TYPES = {
         "start_date": "date_change", "due_date": "date_change", "status": "status_change",
         "priority": "priority_change", "assignee_id": "assignment_change",
         "title": "scope_change", "description": "scope_change",
         "progress": "progress_change", "estimated_hours": "scope_change", "actual_hours": "scope_change",
+        "pob_quota": "pob_change",
     }
     for field, value in body.model_dump(exclude_unset=True).items():
         old_value = getattr(task, field)
@@ -1875,7 +1883,9 @@ async def list_status_history(
 
 class SendToPlannerItem(BaseModel):
     task_id: UUID
-    pax_quota: int = Field(ge=1, default=1)
+    # Optional pax_quota override — when None the PlannerActivity will
+    # inherit the task's own pob_quota field (spec 1.5).
+    pax_quota: int | None = Field(default=None, ge=0)
     priority: str = "medium"
 
 
@@ -1961,6 +1971,11 @@ async def send_tasks_to_planner(
         if not task:
             errors.append(f"Tâche {tid} introuvable")
             continue
+        # Inherit pob_quota from the task by default. The frontend can
+        # override per item via item.pax_quota (spec 1.5 / 2.4).
+        effective_pax_quota = item.pax_quota if item.pax_quota is not None else max(0, int(getattr(task, "pob_quota", 0) or 0))
+        if effective_pax_quota <= 0:
+            effective_pax_quota = 1
         activity = PlannerActivity(
             entity_id=entity_id,
             asset_id=asset_id,
@@ -1971,7 +1986,7 @@ async def send_tasks_to_planner(
             description=task.description,
             status="draft",
             priority=item.priority,
-            pax_quota=item.pax_quota,
+            pax_quota=effective_pax_quota,
             start_date=task.start_date,
             end_date=task.due_date,
             created_by=current_user.id,

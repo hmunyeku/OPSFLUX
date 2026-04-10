@@ -596,7 +596,7 @@ export function useSendToPlanner() {
   return useMutation({
     mutationFn: ({ projectId, items, assetId }: {
       projectId: string
-      items: { task_id: string; pax_quota: number; priority: string }[]
+      items: { task_id: string; pax_quota?: number; priority: string }[]
       assetId?: string
     }) => projetsService.sendToPlanner(projectId, items, assetId),
     onSuccess: (_, { projectId }) => {

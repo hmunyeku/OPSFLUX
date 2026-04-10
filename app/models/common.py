@@ -1651,6 +1651,13 @@ class ProjectTask(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     estimated_hours: Mapped[float | None] = mapped_column(Float)
     actual_hours: Mapped[float | None] = mapped_column(Float)
+    # Spec section 1.5 / 2.4: POB (Persons On Board) demande for the task.
+    # Owned by the project task — when the task is sent to the Planner, the
+    # PlannerActivity inherits this value as its initial pax_quota. Subsequent
+    # changes to pob_quota in Projects are mirrored to linked PlannerActivities
+    # via _sync_linked_planner_activities_for_project_task and trigger a
+    # planner.revision suggestion to the arbitre.
+    pob_quota: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 

@@ -1736,6 +1736,7 @@ class ProjectTaskRead(OpsFluxSchema):
     completed_at: datetime | None = None
     estimated_hours: float | None = None
     actual_hours: float | None = None
+    pob_quota: int = 0
     order: int
     active: bool
     created_at: datetime
@@ -1761,6 +1762,7 @@ class ProjectTaskCreate(BaseModel):
     start_date: datetime | None = None
     due_date: datetime | None = None
     estimated_hours: float | None = None
+    pob_quota: int = Field(default=0, ge=0)
 
 
 class ProjectTaskUpdate(BaseModel):
@@ -1779,6 +1781,7 @@ class ProjectTaskUpdate(BaseModel):
     estimated_hours: float | None = None
     actual_hours: float | None = None
     order: int | None = None
+    pob_quota: int | None = Field(default=None, ge=0)
 
 
 class ProjectMilestoneRead(OpsFluxSchema):

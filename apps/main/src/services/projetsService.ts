@@ -429,7 +429,7 @@ export const projetsService = {
     return data
   },
 
-  sendToPlanner: async (projectId: string, items: { task_id: string; pax_quota: number; priority: string }[], assetId?: string): Promise<{ created: number; skipped: number; errors: string[] }> => {
+  sendToPlanner: async (projectId: string, items: { task_id: string; pax_quota?: number; priority: string }[], assetId?: string): Promise<{ created: number; skipped: number; errors: string[] }> => {
     const { data } = await api.post(`/api/v1/projects/${projectId}/send-to-planner`, {
       items,
       asset_id: assetId || undefined,

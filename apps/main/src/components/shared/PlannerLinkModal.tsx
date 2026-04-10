@@ -46,7 +46,9 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
   const [statusFilter, setStatusFilter] = useState<string[]>([])
   const [priorityFilter, setPriorityFilter] = useState<string[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [paxQuota, setPaxQuota] = useState(1)
+  // Optional override: when null, the backend inherits each task's
+  // own pob_quota field as the planner activity's initial pax_quota.
+  const [paxQuotaOverride, setPaxQuotaOverride] = useState<number | null>(null)
   const [priority, setPriority] = useState('medium')
 
   // Already-linked task IDs
@@ -113,7 +115,13 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
   const handleSend = async () => {
     if (selectedIds.size === 0) return
     try {
-      const items = [...selectedIds].map(id => ({ task_id: id, pax_quota: paxQuota, priority }))
+      // When paxQuotaOverride is null we omit pax_quota from the payload
+      // so the backend inherits each task's own pob_quota.
+      const items = [...selectedIds].map(id => (
+        paxQuotaOverride !== null
+          ? { task_id: id, pax_quota: paxQuotaOverride, priority }
+          : { task_id: id, priority }
+      ))
       const res = await sendToPlanner.mutateAsync({ projectId, items, assetId: assetId || undefined })
       toast({
         title: `${res.created} activité${res.created > 1 ? 's' : ''} créée${res.created > 1 ? 's' : ''} dans le Planner`,
@@ -266,8 +274,19 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-muted-foreground">PAX:</span>
-                <input type="number" min="1" max="999" value={paxQuota} onChange={e => setPaxQuota(Math.max(1, Number(e.target.value) || 1))}
-                  className="w-14 h-6 px-1.5 text-xs border border-border rounded bg-background tabular-nums" />
+                <input
+                  type="number"
+                  min="0"
+                  max="999"
+                  value={paxQuotaOverride ?? ''}
+                  placeholder="Tâche"
+                  onChange={e => {
+                    const v = e.target.value
+                    setPaxQuotaOverride(v === '' ? null : Math.max(0, Number(v) || 0))
+                  }}
+                  className="w-16 h-6 px-1.5 text-xs border border-border rounded bg-background tabular-nums"
+                  title="Vide = utilise le POB de chaque tâche. Sinon, force la valeur saisie pour toutes."
+                />
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-muted-foreground">Priorité:</span>

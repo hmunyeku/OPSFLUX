@@ -1373,6 +1373,8 @@ export interface ProjectTask {
   completed_at: string | null
   estimated_hours: number | null
   actual_hours: number | null
+  /** POB demande for the task — inherited by linked PlannerActivity (spec 1.5 / 2.4). */
+  pob_quota: number
   order: number
   active: boolean
   created_at: string
@@ -1396,6 +1398,7 @@ export interface ProjectTaskCreate {
   start_date?: string | null
   due_date?: string | null
   estimated_hours?: number | null
+  pob_quota?: number
 }
 
 export interface ProjectTaskUpdate {
@@ -1411,6 +1414,7 @@ export interface ProjectTaskUpdate {
   estimated_hours?: number | null
   actual_hours?: number | null
   order?: number
+  pob_quota?: number
 }
 
 export interface ProjectMilestone {

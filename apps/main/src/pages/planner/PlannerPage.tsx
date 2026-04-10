@@ -39,6 +39,7 @@ import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer
 import { GanttView } from './GanttView'
 import { buildCells, buildHeaderGroups, getDefaultDateRange } from '@/components/shared/gantt/ganttEngine'
 import type { TimeScale } from '@/components/shared/gantt/ganttEngine'
+import { useUserPreferences } from '@/hooks/useUserPreferences'
 import { TagManager } from '@/components/shared/TagManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
@@ -2411,10 +2412,53 @@ function ForecastTab() {
   )
 }
 
+// Persisted under prefs.planner.timeline = { scale, start, end }
+interface PlannerTimelinePref {
+  scale: TimeScale
+  start: string
+  end: string
+}
+
+const VALID_SCALES: ReadonlySet<TimeScale> = new Set<TimeScale>(['day', 'week', 'month', 'quarter', 'semester'])
+
 export function PlannerPage() {
   const [activeTab, setActiveTab] = useState<PlannerTab>('gantt')
-  const [sharedTimelineScale, setSharedTimelineScale] = useState<TimeScale>('month')
-  const [sharedTimelineRange, setSharedTimelineRange] = useState(() => getDefaultDateRange('month'))
+
+  // Load persisted timeline pref (loaded from localStorage instantly, then API)
+  const { getPref, setPref } = useUserPreferences()
+  const persistedTimeline = getPref<PlannerTimelinePref | null>('planner.timeline', null)
+
+  // Initial state — fall back to month default if nothing persisted yet
+  const initialScale: TimeScale =
+    persistedTimeline && VALID_SCALES.has(persistedTimeline.scale)
+      ? persistedTimeline.scale
+      : 'month'
+  const initialRange = persistedTimeline?.start && persistedTimeline?.end
+    ? { start: persistedTimeline.start, end: persistedTimeline.end }
+    : getDefaultDateRange(initialScale)
+
+  const [sharedTimelineScale, setSharedTimelineScale] = useState<TimeScale>(initialScale)
+  const [sharedTimelineRange, setSharedTimelineRange] = useState(initialRange)
+
+  // If persisted prefs arrive AFTER mount (first load before localStorage cache)
+  // sync once into local state so the user sees their saved scale.
+  const hydratedFromPrefsRef = useRef(false)
+  useEffect(() => {
+    if (hydratedFromPrefsRef.current) return
+    if (!persistedTimeline) return
+    if (!VALID_SCALES.has(persistedTimeline.scale)) return
+    hydratedFromPrefsRef.current = true
+    setSharedTimelineScale(persistedTimeline.scale)
+    if (persistedTimeline.start && persistedTimeline.end) {
+      setSharedTimelineRange({ start: persistedTimeline.start, end: persistedTimeline.end })
+    }
+  }, [persistedTimeline])
+
+  // Persist helper — debounced inside useUserPreferences (300 ms)
+  const persistTimeline = useCallback((scale: TimeScale, range: { start: string; end: string }) => {
+    setPref('planner.timeline', { scale, start: range.start, end: range.end })
+  }, [setPref])
+
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
@@ -2429,18 +2473,24 @@ export function PlannerPage() {
   }, [openDynamicPanel])
 
   const handleTimelineScaleChange = useCallback((scale: TimeScale) => {
+    const range = getDefaultDateRange(scale)
     setSharedTimelineScale(scale)
-    setSharedTimelineRange(getDefaultDateRange(scale))
-  }, [])
+    setSharedTimelineRange(range)
+    persistTimeline(scale, range)
+  }, [persistTimeline])
 
   const handleTimelineRangeChange = useCallback((from: string, to: string) => {
-    setSharedTimelineRange({ start: from, end: to })
-  }, [])
+    const range = { start: from, end: to }
+    setSharedTimelineRange(range)
+    persistTimeline(sharedTimelineScale, range)
+  }, [persistTimeline, sharedTimelineScale])
 
   const handleGanttViewChange = useCallback((scale: TimeScale, start: string, end: string) => {
+    const range = { start, end }
     setSharedTimelineScale(scale)
-    setSharedTimelineRange({ start, end })
-  }, [])
+    setSharedTimelineRange(range)
+    persistTimeline(scale, range)
+  }, [persistTimeline])
 
   return (
     <div className="flex h-full">

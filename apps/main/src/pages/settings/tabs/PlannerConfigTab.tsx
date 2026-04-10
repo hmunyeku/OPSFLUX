@@ -35,7 +35,47 @@ export function PlannerConfigTab() {
 
   const s = settings ?? {}
 
+  /**
+   * Spec section 5.3: configurable delays. The Planner revision response
+   * delay (in hours) is the duration the chef-de-projet has to answer
+   * a revision request before the arbitre can force the validation.
+   * Stored as a JSON object {"hours": N} on the entity-scoped Setting
+   * 'planner.revision_response_delay_hours' (see _get_planner_revision_response_delay_hours).
+   */
+  const revisionDelayValue = (() => {
+    const raw = s['planner.revision_response_delay_hours']
+    if (raw && typeof raw === 'object' && 'hours' in raw) {
+      return Number((raw as { hours: number }).hours) || 72
+    }
+    if (typeof raw === 'number') return raw
+    return 72
+  })()
+
   return (
+    <>
+    <CollapsibleSection id="planner-revision-flow" title="Workflow de révision"
+      description="Délais et règles d'arbitrage des révisions Planner (spec 2.8 / 5.3)."
+      storageKey="settings.planner.revision.collapse" showSeparator>
+      <div className="mt-2 space-y-0">
+        <SettingRow
+          label="Délai de réponse avant forçage (heures)"
+          description="Au-delà de ce délai, l'arbitre peut forcer la validation d'une révision sans réponse du chef de projet."
+        >
+          <input
+            type="number"
+            min={1}
+            max={720}
+            className="gl-form-input w-24 text-sm text-right font-mono"
+            defaultValue={revisionDelayValue}
+            onBlur={(e) => {
+              const v = Math.max(1, Math.min(720, Number(e.target.value) || 72))
+              save('planner.revision_response_delay_hours', { hours: v })
+            }}
+          />
+        </SettingRow>
+      </div>
+    </CollapsibleSection>
+
     <CollapsibleSection id="planner-capacity-heatmap" title="Heatmap capacité"
       description="Seuils et couleurs utilisés dans la heatmap de saturation Planner."
       storageKey="settings.planner.collapse" showSeparator={false}>
@@ -75,5 +115,6 @@ export function PlannerConfigTab() {
         ))}
       </div>
     </CollapsibleSection>
+    </>
   )
 }

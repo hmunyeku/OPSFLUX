@@ -40,6 +40,11 @@ import { GanttView } from './GanttView'
 import { buildCells, buildHeaderGroups, getDefaultDateRange } from '@/components/shared/gantt/ganttEngine'
 import type { TimeScale } from '@/components/shared/gantt/ganttEngine'
 import { useUserPreferences } from '@/hooks/useUserPreferences'
+import {
+  DEFAULT_PLANNER_GANTT_VIEW,
+  validatePlannerGanttPrefs,
+  type PlannerGanttViewPrefs,
+} from './PlannerCustomizationModal'
 import { TagManager } from '@/components/shared/TagManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
@@ -2459,6 +2464,15 @@ export function PlannerPage() {
     setPref('planner.timeline', { scale, start: range.start, end: range.end })
   }, [setPref])
 
+  // ── Gantt+Heatmap view customization preferences ──
+  const ganttViewPrefs = getPref<PlannerGanttViewPrefs>(
+    'planner.gantt_view',
+    DEFAULT_PLANNER_GANTT_VIEW,
+  )
+  const handleGanttViewPrefsChange = useCallback((prefs: PlannerGanttViewPrefs) => {
+    setPref('planner.gantt_view', validatePlannerGanttPrefs(prefs))
+  }, [setPref])
+
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
@@ -2532,6 +2546,8 @@ export function PlannerPage() {
                 startDate={sharedTimelineRange.start}
                 endDate={sharedTimelineRange.end}
                 onViewChange={handleGanttViewChange}
+                viewPrefs={ganttViewPrefs}
+                onViewPrefsChange={handleGanttViewPrefsChange}
               />
             </div>
           )}

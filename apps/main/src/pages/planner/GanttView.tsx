@@ -11,9 +11,14 @@
  * GanttCore. Heatmap cells are injected via GanttRow.heatmapCells (a feature
  * added to GanttCore for this view), so alignment with the bars is exact and
  * scroll is shared by construction.
+ *
+ * The shape of the tree is fully driven by `viewPrefs` from the customization
+ * modal: hierarchy levels can be hidden, scope can be narrowed to a single
+ * field/site/installation, totals can be added, etc.
  */
 import { useMemo, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Settings2 } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import {
   useGanttData,
@@ -38,6 +43,11 @@ import type {
 } from '@/components/shared/gantt/ganttTypes'
 import type { GanttActivity, CapacityHeatmapDay, CapacityHeatmapConfig } from '@/types/api'
 import type { HierarchyFieldNode } from '@/types/assetRegistry'
+import {
+  PlannerCustomizationModal,
+  DEFAULT_PLANNER_GANTT_VIEW,
+  type PlannerGanttViewPrefs,
+} from './PlannerCustomizationModal'
 
 // ── Type colors for Planner activity types ──────────────────────
 
@@ -45,6 +55,12 @@ const TYPE_COLORS: Record<string, string> = {
   project: '#3b82f6', workover: '#f59e0b', drilling: '#ef4444',
   integrity: '#8b5cf6', maintenance: '#06b6d4', permanent_ops: '#6b7280',
   inspection: '#22c55e', event: '#ec4899',
+}
+
+const TYPE_LABELS_FR: Record<string, string> = {
+  project: 'Projet', workover: 'Workover', drilling: 'Forage',
+  integrity: 'Intégrité', maintenance: 'Maintenance', permanent_ops: 'Ops perm.',
+  inspection: 'Inspection', event: 'Événement',
 }
 
 // Default heatmap thresholds + colors (overridden by backend config when present)
@@ -65,9 +81,6 @@ function fmtDate(iso: string | null | undefined): string {
   try { return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) } catch { return '—' }
 }
 
-/**
- * Compact PAX descriptor for an activity (constant or variable POB schedule).
- */
 function fmtPax(act: { pax_quota?: number; pax_quota_mode?: 'constant' | 'variable'; pax_quota_daily?: Record<string, number> | null }): string {
   const mode = act.pax_quota_mode ?? 'constant'
   if (mode === 'variable' && act.pax_quota_daily && Object.keys(act.pax_quota_daily).length > 0) {
@@ -81,7 +94,6 @@ function fmtPax(act: { pax_quota?: number; pax_quota_mode?: 'constant' | 'variab
   return String(act.pax_quota ?? 0)
 }
 
-/** Pick a heatmap color for a saturation % using the active config */
 function colorForSaturation(pct: number, cfg: CapacityHeatmapConfig): string {
   if (pct >= cfg.threshold_critical) return cfg.color_overflow
   if (pct >= cfg.threshold_high) return cfg.color_critical
@@ -99,6 +111,10 @@ interface GanttViewProps {
   startDate?: string
   endDate?: string
   onViewChange?: (scale: TimeScale, start: string, end: string) => void
+  /** User customization preferences (level toggles, scope filters, total rows, ...) */
+  viewPrefs?: PlannerGanttViewPrefs
+  /** Update preferences (passed up to parent which persists via useUserPreferences) */
+  onViewPrefsChange?: (prefs: PlannerGanttViewPrefs) => void
 }
 
 export function GanttView({
@@ -108,10 +124,13 @@ export function GanttView({
   startDate: externalStartDate,
   endDate: externalEndDate,
   onViewChange,
+  viewPrefs = DEFAULT_PLANNER_GANTT_VIEW,
+  onViewPrefsChange,
 }: GanttViewProps = {}) {
   const { t } = useTranslation()
   const { toast } = useToast()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const [showCustomization, setShowCustomization] = useState(false)
 
   const statusLabels = useMemo<Record<string, string>>(() => ({
     draft: t('planner.gantt.status.draft'),
@@ -135,8 +154,7 @@ export function GanttView({
     }
   }, [onViewChange])
 
-  // ── Date range — always read directly from props (controlled by PlannerPage)
-  // so a scale change is reflected synchronously in buildCells / heatmap rebuild.
+  // ── Date range — read directly from props (PlannerPage owns the source of truth)
   const scale: TimeScale = externalScale ?? 'month'
   const now = new Date()
   const defaultRange = useMemo(() => getDefaultDateRange(scale), [scale])
@@ -166,10 +184,10 @@ export function GanttView({
       return next
     })
   }, [])
-  // GanttCore takes an `expandedRows` set + `onToggleRow` callback. We invert
-  // collapsed → expanded each render to feed it.
   const expandedRows = useMemo(() => {
     const exp = new Set<string>()
+    exp.add('total-peak')
+    exp.add('total-sum')
     for (const f of hierarchyData as HierarchyFieldNode[]) {
       if (!collapsed.has(`f:${f.id}`)) exp.add(`f:${f.id}`)
       for (const s of f.sites) {
@@ -187,13 +205,13 @@ export function GanttView({
     const cells = buildCells(scale, new Date(startDate), new Date(endDate))
     const cfg = heatmapData?.config ?? DEFAULT_HEATMAP_CONFIG
 
-    // Index activities by asset_id (from GanttData)
+    // Index activities by asset_id
     const activitiesByAsset = new Map<string, GanttActivity[]>()
     for (const asset of ganttData?.assets ?? []) {
       if (asset.id) activitiesByAsset.set(asset.id, asset.activities)
     }
 
-    // Index heatmap days by asset_id → date(ms) → day
+    // Index heatmap days
     const daysByAsset = new Map<string, Map<number, CapacityHeatmapDay>>()
     for (const d of heatmapData?.days ?? []) {
       let inner = daysByAsset.get(d.asset_id)
@@ -212,8 +230,14 @@ export function GanttView({
       }
     }
 
-    /** Aggregate cells for a set of contributing installation asset_ids */
-    function buildHeatmapCells(contributingAssetIds: string[]): GanttHeatmapCell[] {
+    /**
+     * Aggregate heatmap cells for a set of contributing installation asset IDs.
+     * Mode 'peak' uses MAX saturation; 'sum' uses TOTAL forecast PAX (no %).
+     */
+    function buildHeatmapCells(
+      contributingAssetIds: string[],
+      aggregation: 'peak' | 'sum' = 'peak',
+    ): GanttHeatmapCell[] {
       const result: GanttHeatmapCell[] = []
       cells.forEach((cell, idx) => {
         const cellStart = cell.startDate.getTime()
@@ -237,150 +261,248 @@ export function GanttView({
           }
         }
         if (count === 0) return
-        const sat = Math.round(maxSat)
-        result.push({
-          cellIdx: idx,
-          color: colorForSaturation(sat, cfg),
-          value: sat,
-          label: `${sat}%`,
-          tooltipHTML: `${sat}% · prév. ${totalForecast} · pob ${totalReal} · cap ${totalCap}`,
-        })
+
+        // Compute the value used for color + label depending on text mode + aggregation
+        let value: number
+        let label: string
+        if (aggregation === 'sum') {
+          // For sum-mode total row, color is based on overall saturation if cap > 0
+          const sumSat = totalCap > 0 ? Math.round((totalForecast / totalCap) * 100) : 0
+          value = totalForecast
+          if (viewPrefs.heatmap_text_mode === 'pax_count') label = `${totalForecast}`
+          else if (viewPrefs.heatmap_text_mode === 'percentage') label = `${sumSat}%`
+          else label = ''
+          result.push({
+            cellIdx: idx,
+            color: colorForSaturation(sumSat, cfg),
+            value,
+            label,
+            tooltipHTML: `Σ prév. ${totalForecast} · cap ${totalCap} · sat ${sumSat}%`,
+          })
+        } else {
+          const sat = Math.round(maxSat)
+          value = sat
+          if (viewPrefs.heatmap_text_mode === 'percentage') label = `${sat}%`
+          else if (viewPrefs.heatmap_text_mode === 'pax_count') label = `${totalForecast}`
+          else label = ''
+          result.push({
+            cellIdx: idx,
+            color: colorForSaturation(sat, cfg),
+            value,
+            label,
+            tooltipHTML: `Pic ${sat}% · prév. ${totalForecast} · pob ${totalReal} · cap ${totalCap}`,
+          })
+        }
       })
       return result
+    }
+
+    // ── Apply scope filters: filter the hierarchy down ──
+    function passesScope(fieldId: string, siteId?: string, installationId?: string) {
+      if (viewPrefs.field_filter && fieldId !== viewPrefs.field_filter) return false
+      if (viewPrefs.site_filter && siteId && siteId !== viewPrefs.site_filter) return false
+      if (viewPrefs.installation_filter && installationId && installationId !== viewPrefs.installation_filter) return false
+      return true
     }
 
     const rowList: GanttRow[] = []
     const barList: GanttBarData[] = []
 
-    // Walk the asset hierarchy
+    // Collect all installation IDs in scope (used for total rows)
+    const allInstIdsInScope: string[] = []
     for (const field of hierarchyData as HierarchyFieldNode[]) {
+      if (!passesScope(field.id)) continue
+      for (const site of field.sites) {
+        if (!passesScope(field.id, site.id)) continue
+        for (const inst of site.installations) {
+          if (!passesScope(field.id, site.id, inst.id)) continue
+          allInstIdsInScope.push(inst.id)
+        }
+      }
+    }
+
+    // ── TOTAL rows (top of the table) ──
+    if (viewPrefs.show_total_peak) {
+      rowList.push({
+        id: 'total-peak',
+        label: 'Total — pic',
+        sublabel: 'Saturation max',
+        level: 0,
+        hasChildren: false,
+        heatmapCells: buildHeatmapCells(allInstIdsInScope, 'peak'),
+      })
+    }
+    if (viewPrefs.show_total_sum) {
+      rowList.push({
+        id: 'total-sum',
+        label: 'Total — somme',
+        sublabel: 'PAX prévus globaux',
+        level: 0,
+        hasChildren: false,
+        heatmapCells: buildHeatmapCells(allInstIdsInScope, 'sum'),
+      })
+    }
+
+    // ── Walk the asset hierarchy with level filters ──
+    for (const field of hierarchyData as HierarchyFieldNode[]) {
+      if (!passesScope(field.id)) continue
       const fieldAssetIds: string[] = []
-      const fieldSitesAssetCounts = field.sites.map((s) => s.installations.length).reduce((a, b) => a + b, 0)
-      if (fieldSitesAssetCounts === 0) continue
       for (const s of field.sites) for (const i of s.installations) fieldAssetIds.push(i.id)
+      if (fieldAssetIds.length === 0) continue
 
       const fieldId = `f:${field.id}`
-      rowList.push({
-        id: fieldId,
-        label: field.name,
-        sublabel: `${field.sites.length} site${field.sites.length > 1 ? 's' : ''}`,
-        level: 0,
-        hasChildren: true,
-        heatmapCells: buildHeatmapCells(fieldAssetIds),
-      })
+      // Compute the deepest visible parent for activities of this field
+      // (used when site/installation rows are hidden)
 
-      if (!expandedRows.has(fieldId)) continue
+      if (viewPrefs.show_field_rows) {
+        rowList.push({
+          id: fieldId,
+          label: field.name,
+          sublabel: `${field.sites.length} site${field.sites.length > 1 ? 's' : ''}`,
+          level: 0,
+          hasChildren: viewPrefs.show_site_rows || viewPrefs.show_installation_rows || viewPrefs.show_activity_rows,
+          heatmapCells: buildHeatmapCells(fieldAssetIds),
+        })
+        if (!expandedRows.has(fieldId)) continue
+      }
 
       for (const site of field.sites) {
+        if (!passesScope(field.id, site.id)) continue
         const siteAssetIds = site.installations.map((i) => i.id)
         if (siteAssetIds.length === 0) continue
 
         const siteId = `s:${site.id}`
-        rowList.push({
-          id: siteId,
-          label: site.name,
-          sublabel: `${site.installations.length} install.`,
-          level: 1,
-          hasChildren: true,
-          heatmapCells: buildHeatmapCells(siteAssetIds),
-        })
 
-        if (!expandedRows.has(siteId)) continue
+        if (viewPrefs.show_site_rows) {
+          rowList.push({
+            id: siteId,
+            label: site.name,
+            sublabel: `${site.installations.length} install.`,
+            level: viewPrefs.show_field_rows ? 1 : 0,
+            hasChildren: viewPrefs.show_installation_rows || viewPrefs.show_activity_rows,
+            heatmapCells: buildHeatmapCells(siteAssetIds),
+          })
+          if (!expandedRows.has(siteId)) continue
+        }
 
         for (const inst of site.installations) {
+          if (!passesScope(field.id, site.id, inst.id)) continue
           const installId = `i:${inst.id}`
           const activities = activitiesByAsset.get(inst.id) ?? []
-          rowList.push({
-            id: installId,
-            label: inst.name,
-            sublabel: activities.length > 0
-              ? `${activities.length} activité${activities.length > 1 ? 's' : ''}`
-              : '—',
-            level: 2,
-            hasChildren: activities.length > 0,
-            heatmapCells: buildHeatmapCells([inst.id]),
-          })
 
-          if (!expandedRows.has(installId)) continue
-
-          // Activity rows (level 3) — bars only, no heatmap
-          for (const act of activities) {
-            const actRowId = `a:${act.id}`
-            const paxLabel = fmtPax(act)
-            const isVariable = act.pax_quota_mode === 'variable'
-
+          if (viewPrefs.show_installation_rows) {
+            // Compute the row level based on which parent levels are visible
+            let lvl: 0 | 1 | 2 = 2
+            if (!viewPrefs.show_field_rows && !viewPrefs.show_site_rows) lvl = 0
+            else if (!viewPrefs.show_field_rows || !viewPrefs.show_site_rows) lvl = 1
             rowList.push({
-              id: actRowId,
-              label: act.title,
-              sublabel: statusLabels[act.status] || act.status,
-              level: 3,
-              hasChildren: false,
-              columns: {
-                pax: isVariable ? `${paxLabel}*` : paxLabel,
-                start: fmtDate(act.start_date),
-                end: fmtDate(act.end_date),
-              },
-              color: TYPE_COLORS[act.type] || '#3b82f6',
+              id: installId,
+              label: inst.name,
+              sublabel: activities.length > 0
+                ? `${activities.length} activité${activities.length > 1 ? 's' : ''}`
+                : '—',
+              level: lvl,
+              hasChildren: activities.length > 0 && viewPrefs.show_activity_rows,
+              heatmapCells: buildHeatmapCells([inst.id]),
             })
+            if (!expandedRows.has(installId)) continue
+          }
 
-            if (act.start_date && act.end_date) {
-              barList.push({
-                id: act.id,
-                rowId: actRowId,
-                title: `${paxLabel}${isVariable ? '*' : ''} · ${act.title}`,
-                startDate: act.start_date.slice(0, 10),
-                endDate: act.end_date.slice(0, 10),
-                status: act.status,
-                type: act.type,
-                priority: act.priority,
+          // Activity rows
+          if (viewPrefs.show_activity_rows) {
+            // Activity row level = installation row level + 1 if installation visible,
+            // otherwise depth based on visible ancestors
+            let actLevel: 0 | 1 | 2 | 3 = 3
+            if (viewPrefs.show_installation_rows) actLevel = 3
+            else if (viewPrefs.show_site_rows) actLevel = 2
+            else if (viewPrefs.show_field_rows) actLevel = 1
+            else actLevel = 0
+
+            // Clamp to GanttCore-supported max
+            if (actLevel > 3) actLevel = 3 as const
+
+            for (const act of activities) {
+              const actRowId = `a:${act.id}`
+              const paxLabel = fmtPax(act)
+              const isVariable = act.pax_quota_mode === 'variable'
+
+              rowList.push({
+                id: actRowId,
+                label: act.title,
+                sublabel: statusLabels[act.status] || act.status,
+                level: actLevel,
+                hasChildren: false,
+                columns: {
+                  pax: isVariable ? `${paxLabel}*` : paxLabel,
+                  start: fmtDate(act.start_date),
+                  end: fmtDate(act.end_date),
+                },
                 color: TYPE_COLORS[act.type] || '#3b82f6',
-                isDraft: act.status === 'draft',
-                isCritical: act.priority === 'critical',
-                tooltipLines: [
-                  [t('planner.gantt.tooltip.type'), act.type],
-                  [t('planner.gantt.tooltip.status'), statusLabels[act.status] || act.status],
-                  [t('planner.gantt.tooltip.pax'), isVariable ? `${paxLabel} (variable)` : paxLabel],
-                  [t('planner.gantt.tooltip.priority'), act.priority || '—'],
-                  ...(act.well_reference ? [[t('planner.gantt.tooltip.well'), act.well_reference] as [string, string]] : []),
-                  ...(act.work_order_ref ? [[t('planner.gantt.tooltip.work_order'), act.work_order_ref] as [string, string]] : []),
-                ],
               })
 
-              // Pending revision proposal (ghost bar)
-              const relatedRequests = requestsByActivity.get(act.id) ?? []
-              for (const request of relatedRequests) {
-                const proposedStart = request.proposed_start_date?.slice(0, 10) ?? act.start_date.slice(0, 10)
-                const proposedEnd = request.proposed_end_date?.slice(0, 10) ?? act.end_date.slice(0, 10)
-                const hasDateShift =
-                  proposedStart !== act.start_date.slice(0, 10) ||
-                  proposedEnd !== act.end_date.slice(0, 10)
-                const hasOtherShift =
-                  request.proposed_pax_quota != null ||
-                  request.proposed_status != null
-                if (!hasDateShift && !hasOtherShift) continue
-
+              if (act.start_date && act.end_date) {
+                let barTitle = ''
+                if (viewPrefs.bar_title_position === 'before' || viewPrefs.bar_title_position === 'after') {
+                  barTitle = `${paxLabel}${isVariable ? '*' : ''} · ${act.title}`
+                }
                 barList.push({
-                  id: `proposal-${request.id}-${act.id}`,
+                  id: act.id,
                   rowId: actRowId,
-                  title: t('planner.gantt.proposal_title', { title: act.title }),
-                  startDate: proposedStart,
-                  endDate: proposedEnd,
-                  status: request.proposed_status ?? act.status,
+                  title: barTitle,
+                  startDate: act.start_date.slice(0, 10),
+                  endDate: act.end_date.slice(0, 10),
+                  status: act.status,
                   type: act.type,
                   priority: act.priority,
                   color: TYPE_COLORS[act.type] || '#3b82f6',
-                  isDraft: true,
+                  isDraft: act.status === 'draft' || act.status === 'submitted',
+                  isCritical: act.priority === 'critical',
                   tooltipLines: [
-                    [t('planner.gantt.tooltip.revision'), t('planner.gantt.tooltip.pending_proposal')],
-                    [t('planner.gantt.tooltip.current_status'), statusLabels[act.status] || act.status],
-                    [t('planner.gantt.tooltip.proposed_status'), statusLabels[request.proposed_status || act.status] || request.proposed_status || act.status],
-                    [t('planner.gantt.tooltip.proposed_pax'), String(request.proposed_pax_quota ?? act.pax_quota ?? 0)],
-                    [t('planner.gantt.tooltip.proposed_start'), fmtDate(request.proposed_start_date)],
-                    [t('planner.gantt.tooltip.proposed_end'), fmtDate(request.proposed_end_date)],
-                    ...(request.note ? [[t('planner.gantt.tooltip.note'), request.note] as [string, string]] : []),
+                    [t('planner.gantt.tooltip.type'), TYPE_LABELS_FR[act.type] || act.type],
+                    [t('planner.gantt.tooltip.status'), statusLabels[act.status] || act.status],
+                    [t('planner.gantt.tooltip.pax'), isVariable ? `${paxLabel} (variable)` : paxLabel],
+                    [t('planner.gantt.tooltip.priority'), act.priority || '—'],
+                    ...(act.well_reference ? [[t('planner.gantt.tooltip.well'), act.well_reference] as [string, string]] : []),
+                    ...(act.work_order_ref ? [[t('planner.gantt.tooltip.work_order'), act.work_order_ref] as [string, string]] : []),
                   ],
-                  meta: { requestId: request.id, proposal: true },
                 })
+
+                // Pending revision proposal (ghost bar)
+                const relatedRequests = requestsByActivity.get(act.id) ?? []
+                for (const request of relatedRequests) {
+                  const proposedStart = request.proposed_start_date?.slice(0, 10) ?? act.start_date.slice(0, 10)
+                  const proposedEnd = request.proposed_end_date?.slice(0, 10) ?? act.end_date.slice(0, 10)
+                  const hasDateShift =
+                    proposedStart !== act.start_date.slice(0, 10) ||
+                    proposedEnd !== act.end_date.slice(0, 10)
+                  const hasOtherShift =
+                    request.proposed_pax_quota != null ||
+                    request.proposed_status != null
+                  if (!hasDateShift && !hasOtherShift) continue
+
+                  barList.push({
+                    id: `proposal-${request.id}-${act.id}`,
+                    rowId: actRowId,
+                    title: t('planner.gantt.proposal_title', { title: act.title }),
+                    startDate: proposedStart,
+                    endDate: proposedEnd,
+                    status: request.proposed_status ?? act.status,
+                    type: act.type,
+                    priority: act.priority,
+                    color: TYPE_COLORS[act.type] || '#3b82f6',
+                    isDraft: true,
+                    tooltipLines: [
+                      [t('planner.gantt.tooltip.revision'), t('planner.gantt.tooltip.pending_proposal')],
+                      [t('planner.gantt.tooltip.current_status'), statusLabels[act.status] || act.status],
+                      [t('planner.gantt.tooltip.proposed_status'), statusLabels[request.proposed_status || act.status] || request.proposed_status || act.status],
+                      [t('planner.gantt.tooltip.proposed_pax'), String(request.proposed_pax_quota ?? act.pax_quota ?? 0)],
+                      [t('planner.gantt.tooltip.proposed_start'), fmtDate(request.proposed_start_date)],
+                      [t('planner.gantt.tooltip.proposed_end'), fmtDate(request.proposed_end_date)],
+                      ...(request.note ? [[t('planner.gantt.tooltip.note'), request.note] as [string, string]] : []),
+                    ],
+                    meta: { requestId: request.id, proposal: true },
+                  })
+                }
               }
             }
           }
@@ -388,44 +510,10 @@ export function GanttView({
       }
     }
 
-    // Fallback: assets present in capacity data but missing from the hierarchy
-    // (e.g. legacy installations not yet linked) — show them as orphan rows.
-    const assignedAssetIds = new Set<string>()
-    for (const f of hierarchyData as HierarchyFieldNode[]) {
-      for (const s of f.sites) for (const i of s.installations) assignedAssetIds.add(i.id)
-    }
-    const orphans = new Set<string>()
-    for (const day of heatmapData?.days ?? []) {
-      if (!assignedAssetIds.has(day.asset_id)) orphans.add(day.asset_id)
-    }
-    if (orphans.size > 0) {
-      rowList.push({
-        id: 'orphan-group',
-        label: 'Non rattachés',
-        sublabel: `${orphans.size}`,
-        level: 0,
-        hasChildren: true,
-        heatmapCells: buildHeatmapCells(Array.from(orphans)),
-      })
-      if (expandedRows.has('orphan-group')) {
-        for (const aid of orphans) {
-          // Find a name from any day entry
-          const sample = (heatmapData?.days ?? []).find((d) => d.asset_id === aid)
-          rowList.push({
-            id: `i:${aid}`,
-            label: sample?.asset_name || aid,
-            level: 2,
-            hasChildren: false,
-            heatmapCells: buildHeatmapCells([aid]),
-          })
-        }
-      }
-    }
-
     return { rows: rowList, bars: barList }
   }, [
     scale, startDate, endDate, ganttData, heatmapData, hierarchyData,
-    expandedRows, pendingRevisionRequests, statusLabels, t,
+    expandedRows, pendingRevisionRequests, statusLabels, t, viewPrefs,
   ])
 
   // ── Drag to reschedule ──
@@ -447,8 +535,23 @@ export function GanttView({
 
   return (
     <div className="flex-1 min-h-[400px] flex flex-col">
-      {/* Compact legend */}
-      <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground px-1">
+      {/* ── Toolbar with customization button ── */}
+      <div className="mb-2 flex items-center gap-2">
+        <button
+          onClick={() => setShowCustomization(true)}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border text-xs hover:bg-muted"
+          title="Personnaliser la vue"
+        >
+          <Settings2 size={12} />
+          <span>Personnaliser</span>
+        </button>
+        <span className="text-[11px] text-muted-foreground">
+          {rows.length} ligne{rows.length > 1 ? 's' : ''} · {bars.length} barre{bars.length > 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* ── Legends (saturation + activity types + validity) ── */}
+      <div className="mb-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground px-1">
         <span className="font-semibold uppercase tracking-wide text-[10px]">Saturation</span>
         <span className="inline-flex items-center gap-1.5">
           <span className="h-3 w-5 rounded-sm" style={{ backgroundColor: DEFAULT_HEATMAP_CONFIG.color_low }} />
@@ -476,6 +579,26 @@ export function GanttView({
         </span>
       </div>
 
+      <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground px-1">
+        <span className="font-semibold uppercase tracking-wide text-[10px]">Activités</span>
+        {Object.entries(TYPE_LABELS_FR).map(([key, label]) => (
+          <span key={key} className="inline-flex items-center gap-1.5">
+            <span className="h-3 w-5 rounded-sm" style={{ backgroundColor: TYPE_COLORS[key] }} />
+            <span>{label}</span>
+          </span>
+        ))}
+        <span className="ml-auto inline-flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-3 w-5 rounded-sm bg-primary" />
+            <span>Validé</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-3 w-5 rounded-sm bg-primary opacity-45" />
+            <span>Brouillon / soumis</span>
+          </span>
+        </span>
+      </div>
+
       <GanttCore
         key={`${scale}:${startDate}:${endDate}`}
         rows={rows}
@@ -492,6 +615,14 @@ export function GanttView({
         onToggleRow={toggleRow}
         isLoading={isLoadingGantt}
         emptyMessage={t('planner.gantt.empty_message')}
+      />
+
+      {/* ── Customization modal ── */}
+      <PlannerCustomizationModal
+        open={showCustomization}
+        onClose={() => setShowCustomization(false)}
+        prefs={viewPrefs}
+        onChange={(p) => onViewPrefsChange?.(p)}
       />
     </div>
   )

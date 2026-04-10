@@ -519,16 +519,14 @@ async def get_capacity_heatmap(
 
     Returns a flat list of daily entries with forecast and real POB.
     """
-    # Get relevant assets
+    # Get relevant assets — show all installations of entity, not just configured ones
+    # Spec §2.6: vertical axis = full installation/site/field hierarchy
     asset_query = select(Installation).where(
         Installation.entity_id == entity_id,
-          # noqa: E712
+        Installation.archived == False,  # noqa: E712
     )
     if asset_ids:
         asset_query = asset_query.where(Installation.id.in_(asset_ids))
-    else:
-        # Only assets with pob_capacity > 0 (sites)
-        asset_query = asset_query.where(Installation.pob_capacity > 0)
 
     assets_result = await db.execute(asset_query)
     assets = assets_result.scalars().all()

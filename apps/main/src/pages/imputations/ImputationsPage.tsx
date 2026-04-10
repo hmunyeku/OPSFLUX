@@ -25,6 +25,9 @@ import {
   useUpdateImputationReference,
 } from '@/hooks/useSettings'
 import { useUsers } from '@/hooks/useUsers'
+import { ProjectPicker } from '@/components/shared/ProjectPicker'
+import { ImputationPicker } from '@/components/shared/ImputationPicker'
+import { UserPicker } from '@/components/shared/UserPicker'
 import {
   DynamicPanelShell,
   PanelActionButton,
@@ -482,7 +485,6 @@ function ReferenceEditorPanel({ reference }: { reference?: ImputationReference }
   const updateReference = useUpdateImputationReference()
   const deleteReference = useDeleteImputationReference()
   const { data: templates = [] } = useImputationOtpTemplates()
-  const { data: projectsData } = useProjects({ page_size: 200 })
   const { data: costCentersData } = useCostCenters({ page_size: 200 })
   const [form, setForm] = useState<ImputationReferenceCreate>(() => makeReferenceForm(reference))
 
@@ -520,7 +522,7 @@ function ReferenceEditorPanel({ reference }: { reference?: ImputationReference }
             <DynamicPanelField label={t('settings.imputations.reference_type')}><select className={panelInputClass} value={form.imputation_type ?? 'OPEX'} onChange={(e) => setForm({ ...form, imputation_type: e.target.value as ImputationReference['imputation_type'] })}>{['OPEX', 'SOPEX', 'CAPEX', 'OTHER'].map((value) => <option key={value} value={value}>{value}</option>)}</select></DynamicPanelField>
             <DynamicPanelField label={t('settings.imputations.otp_policy')}><select className={panelInputClass} value={form.otp_policy ?? 'forbidden'} onChange={(e) => setForm({ ...form, otp_policy: e.target.value as ImputationReference['otp_policy'] })}><option value="forbidden">{t('settings.imputations.otp_forbidden')}</option><option value="optional">{t('settings.imputations.otp_optional')}</option><option value="required">{t('settings.imputations.otp_required')}</option></select></DynamicPanelField>
             <DynamicPanelField label={t('settings.imputations.templates_title')}><select className={panelInputClass} value={form.otp_template_id ?? ''} onChange={(e) => setForm({ ...form, otp_template_id: e.target.value || null })}><option value="">{t('settings.imputations.no_otp_template')}</option>{templates.map((template) => <option key={template.id} value={template.id}>{template.code} - {template.name}</option>)}</select></DynamicPanelField>
-            <DynamicPanelField label={t('settings.default_imputation.default_project')}><select className={panelInputClass} value={form.default_project_id ?? ''} onChange={(e) => setForm({ ...form, default_project_id: e.target.value || null })}><option value="">{t('settings.imputations.no_default_project')}</option>{(projectsData?.items ?? []).map((project) => <option key={project.id} value={project.id}>{project.code} - {project.name}</option>)}</select></DynamicPanelField>
+            <DynamicPanelField label={t('settings.default_imputation.default_project')}><ProjectPicker value={form.default_project_id ?? null} onChange={(id) => setForm({ ...form, default_project_id: id })} placeholder={t('settings.imputations.no_default_project')} /></DynamicPanelField>
             <DynamicPanelField label={t('settings.default_imputation.default_cost_center')}><select className={panelInputClass} value={form.default_cost_center_id ?? ''} onChange={(e) => setForm({ ...form, default_cost_center_id: e.target.value || null })}><option value="">{t('settings.imputations.no_default_cost_center')}</option>{(costCentersData?.items ?? []).map((costCenter) => <option key={costCenter.id} value={costCenter.id}>{costCenter.code} - {costCenter.name}</option>)}</select></DynamicPanelField>
             <DynamicPanelField label={t('settings.imputations.valid_from')}><input type="date" className={panelInputClass} value={form.valid_from ?? ''} onChange={(e) => setForm({ ...form, valid_from: e.target.value || null })} /></DynamicPanelField>
             <DynamicPanelField label={t('settings.imputations.valid_to')}><input type="date" className={panelInputClass} value={form.valid_to ?? ''} onChange={(e) => setForm({ ...form, valid_to: e.target.value || null })} /></DynamicPanelField>
@@ -598,7 +600,6 @@ function AssignmentEditorPanel({ assignment }: { assignment?: ImputationAssignme
   const createAssignment = useCreateImputationAssignment()
   const updateAssignment = useUpdateImputationAssignment()
   const deleteAssignment = useDeleteImputationAssignment()
-  const { data: references = [] } = useImputationReferences()
   const { data: projectsData } = useProjects({ page_size: 200 })
   const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
   const { data: groupsData } = useGroups({ page: 1, page_size: 200 })
@@ -641,9 +642,17 @@ function AssignmentEditorPanel({ assignment }: { assignment?: ImputationAssignme
       <PanelContentLayout>
         <FormSection title={t('settings.imputations.assignments_title')}>
           <FormGrid>
-            <DynamicPanelField label={t('settings.imputations.assignment_reference')} required><select className={panelInputClass} value={form.imputation_reference_id} onChange={(e) => setForm({ ...form, imputation_reference_id: e.target.value })}><option value="">{t('settings.imputations.assignment_reference_placeholder')}</option>{references.map((reference) => <option key={reference.id} value={reference.id}>{reference.code} - {reference.name}</option>)}</select></DynamicPanelField>
+            <DynamicPanelField label={t('settings.imputations.assignment_reference')} required><ImputationPicker value={form.imputation_reference_id || null} onChange={(id) => setForm({ ...form, imputation_reference_id: id || '' })} /></DynamicPanelField>
             <DynamicPanelField label={t('settings.imputations.assignment_target_type')} required><select className={panelInputClass} value={form.target_type} onChange={(e) => setForm({ ...form, target_type: e.target.value as ImputationAssignment['target_type'], target_id: '' })}><option value="business_unit">{t('settings.imputations.assignment_target_bu')}</option><option value="project">{t('settings.imputations.assignment_target_project')}</option><option value="user_group">{t('settings.imputations.assignment_target_group')}</option><option value="user">{t('settings.imputations.assignment_target_user')}</option></select></DynamicPanelField>
-            <DynamicPanelField label={t('settings.imputations.assignment_target_id')} required><select className={panelInputClass} value={form.target_id} onChange={(e) => setForm({ ...form, target_id: e.target.value })}><option value="">{t('settings.imputations.assignment_target_placeholder')}</option>{targetOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></DynamicPanelField>
+            <DynamicPanelField label={t('settings.imputations.assignment_target_id')} required>
+              {form.target_type === 'project' ? (
+                <ProjectPicker value={form.target_id || null} onChange={(id) => setForm({ ...form, target_id: id || '' })} />
+              ) : form.target_type === 'user' ? (
+                <UserPicker value={form.target_id || null} onChange={(id) => setForm({ ...form, target_id: id || '' })} />
+              ) : (
+                <select className={panelInputClass} value={form.target_id} onChange={(e) => setForm({ ...form, target_id: e.target.value })}><option value="">{t('settings.imputations.assignment_target_placeholder')}</option>{targetOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
+              )}
+            </DynamicPanelField>
             <DynamicPanelField label={t('settings.imputations.assignment_priority')}><input type="number" className={panelInputClass} value={String(form.priority ?? 100)} onChange={(e) => setForm({ ...form, priority: Number(e.target.value) || 100 })} /></DynamicPanelField>
             <DynamicPanelField label={t('settings.imputations.valid_from')}><input type="date" className={panelInputClass} value={form.valid_from ?? ''} onChange={(e) => setForm({ ...form, valid_from: e.target.value || null })} /></DynamicPanelField>
             <DynamicPanelField label={t('settings.imputations.valid_to')}><input type="date" className={panelInputClass} value={form.valid_to ?? ''} onChange={(e) => setForm({ ...form, valid_to: e.target.value || null })} /></DynamicPanelField>

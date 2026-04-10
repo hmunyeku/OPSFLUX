@@ -505,8 +505,10 @@ class CargoRequestCreate(BaseModel):
     project_id: UUID | None = None
     imputation_reference_id: UUID | None = None
     sender_tier_id: UUID | None = None
+    sender_contact_tier_contact_id: UUID | None = None
     receiver_name: str | None = Field(None, max_length=200)
     destination_asset_id: UUID | None = None
+    requester_user_id: UUID | None = None
     requester_name: str | None = Field(None, max_length=200)
 
 
@@ -517,8 +519,10 @@ class CargoRequestUpdate(BaseModel):
     project_id: UUID | None = None
     imputation_reference_id: UUID | None = None
     sender_tier_id: UUID | None = None
+    sender_contact_tier_contact_id: UUID | None = None
     receiver_name: str | None = None
     destination_asset_id: UUID | None = None
+    requester_user_id: UUID | None = None
     requester_name: str | None = None
 
 
@@ -532,9 +536,13 @@ class CargoRequestRead(OpsFluxSchema):
     project_id: UUID | None = None
     imputation_reference_id: UUID | None = None
     sender_tier_id: UUID | None = None
+    sender_contact_tier_contact_id: UUID | None = None
     receiver_name: str | None = None
     destination_asset_id: UUID | None = None
+    requester_user_id: UUID | None = None
     requester_name: str | None = None
+    requester_display_name: str | None = None
+    sender_contact_name: str | None = None
     requested_by: UUID
     active: bool
     created_at: datetime

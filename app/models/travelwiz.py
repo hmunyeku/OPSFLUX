@@ -282,6 +282,12 @@ class CargoRequest(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     destination_asset_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("ar_installations.id")
     )
+    requester_user_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
+    sender_contact_tier_contact_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tier_contacts.id", ondelete="SET NULL")
+    )
     requester_name: Mapped[str | None] = mapped_column(String(200))
     requested_by: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False

@@ -38,12 +38,14 @@ import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { ExportWizard } from '@/components/shared/ExportWizard'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
+import { ImputationPicker } from '@/components/shared/ImputationPicker'
+import { CompanyPicker } from '@/components/shared/CompanyPicker'
+import { UserPicker } from '@/components/shared/UserPicker'
+import { ContactPicker } from '@/components/shared/ContactPicker'
 import { useToast } from '@/components/ui/Toast'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
-import { useAttachments, useImputationReferences } from '@/hooks/useSettings'
-import { useTiers, useTierContacts } from '@/hooks/useTiers'
+import { useAttachments } from '@/hooks/useSettings'
 import { useProjects } from '@/hooks/useProjets'
-import { useUsers } from '@/hooks/useUsers'
 import { useDictionaryOptions, useDictionaryLabels } from '@/hooks/useDictionary'
 import {
   useVoyages,
@@ -3015,8 +3017,6 @@ function CreateVectorPanel() {
 function CreateCargoRequestPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createCargoRequest = useWorkspaceCreateCargoRequest()
-  const { data: tiersData } = useTiers({ page: 1, page_size: 100 })
-  const { data: imputationReferences } = useImputationReferences()
   const { toast } = useToast()
   const { moduleLabel } = useCargoWorkspace()
   const [form, setForm] = useState<CargoRequestCreate>({
@@ -3025,12 +3025,12 @@ function CreateCargoRequestPanel() {
     project_id: null,
     imputation_reference_id: null,
     sender_tier_id: null,
+    sender_contact_tier_contact_id: null,
     receiver_name: null,
     destination_asset_id: null,
+    requester_user_id: null,
     requester_name: null,
   })
-  const tiers = tiersData?.items ?? []
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
@@ -3096,20 +3096,26 @@ function CreateCargoRequestPanel() {
                 />
               </DynamicPanelField>
               <DynamicPanelField label="Imputation">
-                <select value={form.imputation_reference_id ?? ''} onChange={(e) => setForm({ ...form, imputation_reference_id: e.target.value || null })} className={panelInputClass}>
-                  <option value="">Sélectionner une imputation...</option>
-                  {(imputationReferences ?? []).map((reference) => (
-                    <option key={reference.id} value={reference.id}>{reference.code} — {reference.name}</option>
-                  ))}
-                </select>
+                <ImputationPicker
+                  value={form.imputation_reference_id ?? null}
+                  onChange={(id) => setForm({ ...form, imputation_reference_id: id ?? null })}
+                  placeholder="Sélectionner une imputation..."
+                />
               </DynamicPanelField>
-              <DynamicPanelField label="Expéditeur">
-                <select value={form.sender_tier_id ?? ''} onChange={(e) => setForm({ ...form, sender_tier_id: e.target.value || null })} className={panelInputClass}>
-                  <option value="">Sélectionner une entreprise...</option>
-                  {tiers.map((tier) => (
-                    <option key={tier.id} value={tier.id}>{tier.name}</option>
-                  ))}
-                </select>
+              <DynamicPanelField label="Entreprise expéditrice">
+                <CompanyPicker
+                  value={form.sender_tier_id ?? null}
+                  onChange={(id) => setForm({ ...form, sender_tier_id: id ?? null, sender_contact_tier_contact_id: null })}
+                  placeholder="Sélectionner une entreprise..."
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label="Contact entreprise">
+                <ContactPicker
+                  value={form.sender_contact_tier_contact_id ?? null}
+                  onChange={(id) => setForm({ ...form, sender_contact_tier_contact_id: id ?? null })}
+                  placeholder="Sélectionner un contact..."
+                  tierId={form.sender_tier_id ?? null}
+                />
               </DynamicPanelField>
               <DynamicPanelField label="Destinataire">
                 <input type="text" value={form.receiver_name ?? ''} onChange={(e) => setForm({ ...form, receiver_name: e.target.value || null })} className={panelInputClass} />
@@ -3123,7 +3129,14 @@ function CreateCargoRequestPanel() {
                 />
               </DynamicPanelField>
               <DynamicPanelField label="Demandeur">
-                <input type="text" value={form.requester_name ?? ''} onChange={(e) => setForm({ ...form, requester_name: e.target.value || null })} className={panelInputClass} />
+                <UserPicker
+                  value={form.requester_user_id ?? null}
+                  onChange={(id) => setForm({ ...form, requester_user_id: id ?? null })}
+                  placeholder="Sélectionner un utilisateur..."
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label="Demandeur libre">
+                <input type="text" value={form.requester_name ?? ''} onChange={(e) => setForm({ ...form, requester_name: e.target.value || null })} className={panelInputClass} placeholder="Fallback si le demandeur n'existe pas dans le référentiel" />
               </DynamicPanelField>
             </FormGrid>
           </FormSection>
@@ -3142,9 +3155,6 @@ function CreateCargoPanel() {
   const ownershipCategory = useCargoDictionaryCategory('cargo_ownership_type')
   const createCargo = useWorkspaceCreateCargo()
   const { data: cargoRequestsData } = useWorkspaceCargoRequests({ page: 1, page_size: 100 })
-  const { data: tiersData } = useTiers({ page: 1, page_size: 100 })
-  const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
-  const { data: imputationReferences } = useImputationReferences()
   const cargoTypeOptions = useDictionaryOptions(cargoTypeCategory)
   const ownershipOptions = useDictionaryOptions(ownershipCategory)
   const { toast } = useToast()
@@ -3186,9 +3196,6 @@ function CreateCargoPanel() {
     hazmat_validated: false,
   })
   const cargoRequests = cargoRequestsData?.items ?? []
-  const tiers = tiersData?.items ?? []
-  const users = usersData?.items ?? []
-  const { data: tierContacts } = useTierContacts(form.sender_tier_id ?? undefined)
   const preselectedRequestId = dynamicPanel?.module === panelModule && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'cargo'
     ? ((dynamicPanel.meta as { requestId?: string }).requestId ?? null)
     : null
@@ -3292,12 +3299,11 @@ function CreateCargoPanel() {
                 />
               </DynamicPanelField>
               <DynamicPanelField label="Imputation">
-                <select value={form.imputation_reference_id ?? ''} onChange={(e) => setForm({ ...form, imputation_reference_id: e.target.value || null })} className={panelInputClass}>
-                  <option value="">Sélectionner une imputation...</option>
-                  {(imputationReferences ?? []).map((reference) => (
-                    <option key={reference.id} value={reference.id}>{reference.code} — {reference.name}</option>
-                  ))}
-                </select>
+                <ImputationPicker
+                  value={form.imputation_reference_id ?? null}
+                  onChange={(id) => setForm({ ...form, imputation_reference_id: id ?? null })}
+                  placeholder="Sélectionner une imputation..."
+                />
               </DynamicPanelField>
               <DynamicPanelField label="Propriété du matériel">
                 <select value={form.ownership_type ?? ''} onChange={(e) => setForm({ ...form, ownership_type: e.target.value || null })} className={panelInputClass}>
@@ -3354,12 +3360,11 @@ function CreateCargoPanel() {
               <FormSection title="Affectation" collapsible defaultExpanded>
             <FormGrid>
               <DynamicPanelField label="Expéditeur">
-                <select value={form.sender_tier_id ?? ''} onChange={(e) => setForm({ ...form, sender_tier_id: e.target.value || null })} className={panelInputClass}>
-                  <option value="">Sélectionner une entreprise...</option>
-                  {tiers.map((tier) => (
-                    <option key={tier.id} value={tier.id}>{tier.name}</option>
-                  ))}
-                </select>
+                <CompanyPicker
+                  value={form.sender_tier_id ?? null}
+                  onChange={(id) => setForm({ ...form, sender_tier_id: id ?? null })}
+                  placeholder="Sélectionner une entreprise..."
+                />
               </DynamicPanelField>
               <DynamicPanelField label="Destinataire">
                 <input type="text" value={form.receiver_name ?? ''} onChange={(e) => setForm({ ...form, receiver_name: e.target.value || null })} className={panelInputClass} placeholder="Nom du destinataire ou du service cible" />
@@ -3420,20 +3425,19 @@ function CreateCargoPanel() {
                 )}
               </DynamicPanelField>
               <DynamicPanelField label="Contact utilisateur">
-                <select value={form.pickup_contact_user_id ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_user_id: e.target.value || null })} className={panelInputClass}>
-                  <option value="">Sélectionner un utilisateur...</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>{user.first_name} {user.last_name}</option>
-                  ))}
-                </select>
+                <UserPicker
+                  value={form.pickup_contact_user_id ?? null}
+                  onChange={(id) => setForm({ ...form, pickup_contact_user_id: id ?? null })}
+                  placeholder="Sélectionner un utilisateur..."
+                />
               </DynamicPanelField>
               <DynamicPanelField label="Contact entreprise">
-                <select value={form.pickup_contact_tier_contact_id ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_tier_contact_id: e.target.value || null })} className={panelInputClass}>
-                  <option value="">Sélectionner un contact...</option>
-                  {(tierContacts ?? []).map((contact) => (
-                    <option key={contact.id} value={contact.id}>{contact.first_name} {contact.last_name}</option>
-                  ))}
-                </select>
+                <ContactPicker
+                  value={form.pickup_contact_tier_contact_id ?? null}
+                  onChange={(id) => setForm({ ...form, pickup_contact_tier_contact_id: id ?? null })}
+                  placeholder="Sélectionner un contact..."
+                  tierId={form.sender_tier_id ?? null}
+                />
               </DynamicPanelField>
               <DynamicPanelField label="Nom libre du contact">
                 <input type="text" value={form.pickup_contact_name ?? ''} onChange={(e) => setForm({ ...form, pickup_contact_name: e.target.value || null })} className={panelInputClass} placeholder="Fallback si hors référentiel" />
@@ -3480,14 +3484,11 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
   const downloadCargoRequestLtPdf = useWorkspaceCargoRequestLtPdf()
   const updateCargoRequest = useWorkspaceUpdateCargoRequest()
   const applyLoadingOption = useWorkspaceApplyCargoRequestLoadingOption()
-  const { data: tiersData } = useTiers({ page: 1, page_size: 100 })
-  const { data: imputationReferences } = useImputationReferences()
   const requestStatusOptions = useDictionaryOptions(cargoRequestStatusCategory)
   const requestStatusLabels = useDictionaryLabels(cargoRequestStatusCategory)
   const { toast } = useToast()
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<CargoRequestUpdate>({})
-  const tiers = tiersData?.items ?? []
   const requestCargo = requestCargoData?.items ?? []
   const missingRequirements = cargoRequest?.missing_requirements ?? []
 
@@ -3500,8 +3501,10 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
       project_id: cargoRequest.project_id,
       imputation_reference_id: cargoRequest.imputation_reference_id,
       sender_tier_id: cargoRequest.sender_tier_id,
+      sender_contact_tier_contact_id: cargoRequest.sender_contact_tier_contact_id,
       receiver_name: cargoRequest.receiver_name,
       destination_asset_id: cargoRequest.destination_asset_id,
+      requester_user_id: cargoRequest.requester_user_id,
       requester_name: cargoRequest.requester_name,
     })
     setEditing(true)
@@ -3520,10 +3523,11 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
         title: 'Intitulé de la demande',
         description: 'Description de la demande',
         sender_tier_id: 'Expéditeur',
+        sender_contact_tier_contact_id: 'Contact entreprise',
         receiver_name: 'Destinataire',
         destination_asset_id: 'Installation de destination',
         imputation_reference_id: 'Imputation',
-        requester_name: 'Demandeur',
+        requester: 'Demandeur',
         cargo_items: 'Au moins un colis rattaché',
       }
       toast({
@@ -3625,27 +3629,40 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
               <DynamicPanelField label="Description" span="full">
                 <textarea value={editForm.description ?? ''} onChange={(e) => setEditForm({ ...editForm, description: e.target.value || null })} className={`${panelInputClass} min-h-[72px] resize-y`} rows={3} />
               </DynamicPanelField>
-              <DynamicPanelField label="Expéditeur">
-                <select value={editForm.sender_tier_id ?? ''} onChange={(e) => setEditForm({ ...editForm, sender_tier_id: e.target.value || null })} className={panelInputClass}>
-                  <option value="">Sélectionner une entreprise...</option>
-                  {tiers.map((tier) => (
-                    <option key={tier.id} value={tier.id}>{tier.name}</option>
-                  ))}
-                </select>
+              <DynamicPanelField label="Entreprise expéditrice">
+                <CompanyPicker
+                  value={editForm.sender_tier_id ?? null}
+                  onChange={(id) => setEditForm({ ...editForm, sender_tier_id: id ?? null, sender_contact_tier_contact_id: null })}
+                  placeholder="Sélectionner une entreprise..."
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label="Contact entreprise">
+                <ContactPicker
+                  value={editForm.sender_contact_tier_contact_id ?? null}
+                  onChange={(id) => setEditForm({ ...editForm, sender_contact_tier_contact_id: id ?? null })}
+                  placeholder="Sélectionner un contact..."
+                  tierId={editForm.sender_tier_id ?? null}
+                />
               </DynamicPanelField>
               <DynamicPanelField label="Destinataire">
                 <input type="text" value={editForm.receiver_name ?? ''} onChange={(e) => setEditForm({ ...editForm, receiver_name: e.target.value || null })} className={panelInputClass} />
               </DynamicPanelField>
               <DynamicPanelField label="Imputation">
-                <select value={editForm.imputation_reference_id ?? ''} onChange={(e) => setEditForm({ ...editForm, imputation_reference_id: e.target.value || null })} className={panelInputClass}>
-                  <option value="">Sélectionner une imputation...</option>
-                  {(imputationReferences ?? []).map((reference) => (
-                    <option key={reference.id} value={reference.id}>{reference.code} — {reference.name}</option>
-                  ))}
-                </select>
+                <ImputationPicker
+                  value={editForm.imputation_reference_id ?? null}
+                  onChange={(id) => setEditForm({ ...editForm, imputation_reference_id: id ?? null })}
+                  placeholder="Sélectionner une imputation..."
+                />
               </DynamicPanelField>
               <DynamicPanelField label="Demandeur">
-                <input type="text" value={editForm.requester_name ?? ''} onChange={(e) => setEditForm({ ...editForm, requester_name: e.target.value || null })} className={panelInputClass} />
+                <UserPicker
+                  value={editForm.requester_user_id ?? null}
+                  onChange={(id) => setEditForm({ ...editForm, requester_user_id: id ?? null })}
+                  placeholder="Sélectionner un utilisateur..."
+                />
+              </DynamicPanelField>
+              <DynamicPanelField label="Demandeur libre">
+                <input type="text" value={editForm.requester_name ?? ''} onChange={(e) => setEditForm({ ...editForm, requester_name: e.target.value || null })} className={panelInputClass} placeholder="Fallback si le demandeur n'existe pas dans le référentiel" />
               </DynamicPanelField>
               <DynamicPanelField label="Installation de destination" span="full">
                 <AssetPicker
@@ -3672,11 +3689,12 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
               <DetailRow label="Intitulé" value={cargoRequest.title} />
               <DetailRow label="Statut" value={requestStatusLabels[cargoRequest.status] ?? cargoRequest.status} />
               <DetailRow label="Description" value={cargoRequest.description ?? '—'} />
-              <DetailRow label="Expéditeur" value={cargoRequest.sender_name ?? '—'} />
+              <DetailRow label="Entreprise expéditrice" value={cargoRequest.sender_name ?? '—'} />
+              <DetailRow label="Contact entreprise" value={cargoRequest.sender_contact_name ?? '—'} />
               <DetailRow label="Destinataire" value={cargoRequest.receiver_name ?? '—'} />
               <DetailRow label="Destination" value={cargoRequest.destination_name ?? '—'} />
               <DetailRow label="Imputation" value={cargoRequest.imputation_reference_name ? `${cargoRequest.imputation_reference_code ?? ''} ${cargoRequest.imputation_reference_name}`.trim() : '—'} />
-              <DetailRow label="Demandeur" value={cargoRequest.requester_name ?? '—'} />
+              <DetailRow label="Demandeur" value={cargoRequest.requester_display_name ?? cargoRequest.requester_name ?? '—'} />
               <DetailRow label="Nombre de colis" value={String(cargoRequest.cargo_count ?? 0)} />
               <DetailRow label="Créée le" value={new Date(cargoRequest.created_at).toLocaleString('fr-FR')} />
             </FormSection>
@@ -3699,7 +3717,7 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
                           receiver_name: 'Destinataire',
                           destination_asset_id: 'Installation de destination',
                           imputation_reference_id: 'Imputation',
-                          requester_name: 'Demandeur',
+                          requester: 'Demandeur',
                           cargo_items: 'Au moins un colis rattaché',
                         }[item] ?? item}
                       </div>
@@ -4610,10 +4628,7 @@ function CargoDetailPanel({ id }: { id: string }) {
   const cargoEvidenceCategory = useCargoDictionaryCategory('cargo_evidence_type')
   const { data: cargo, isLoading } = useWorkspaceCargoItem(id)
   const { data: cargoRequestsData } = useWorkspaceCargoRequests({ page: 1, page_size: 100 })
-  const { data: tiers } = useTiers({ page: 1, page_size: 100 })
   const { data: projects } = useProjects({ page: 1, page_size: 100 })
-  const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
-  const { data: imputationReferences } = useImputationReferences()
   const { data: manifests } = useAllManifests({ page: 1, page_size: 100 })
   const updateCargo = useWorkspaceUpdateCargo()
   const updateCargoSt = useWorkspaceUpdateCargoStatus()
@@ -4656,8 +4671,6 @@ function CargoDetailPanel({ id }: { id: string }) {
     double_signature_confirmed: false,
     yard_justification: '',
   })
-  const { data: tierContacts } = useTierContacts(editForm.sender_tier_id ?? cargo?.sender_tier_id ?? undefined)
-  const users = usersData?.items ?? []
   const cargoRequests = cargoRequestsData?.items ?? []
   const selectedManifest = useMemo(
     () => (manifests?.items ?? []).find((manifest) => manifest.id === (editForm.manifest_id ?? cargo?.manifest_id)) ?? null,
@@ -4977,12 +4990,11 @@ function CargoDetailPanel({ id }: { id: string }) {
                 </label>
               </DynamicPanelField>
               <DynamicPanelField label="Expéditeur">
-                <select value={editForm.sender_tier_id ?? ''} onChange={(e) => setEditForm({ ...editForm, sender_tier_id: e.target.value || null })} className={panelInputClass}>
-                  <option value="">Aucun</option>
-                  {(tiers?.items ?? []).map((tier) => (
-                    <option key={tier.id} value={tier.id}>{tier.code} - {tier.name}</option>
-                  ))}
-                </select>
+                <CompanyPicker
+                  value={editForm.sender_tier_id ?? null}
+                  onChange={(id) => setEditForm({ ...editForm, sender_tier_id: id ?? null })}
+                  placeholder="Aucun"
+                />
               </DynamicPanelField>
               <DynamicPanelField label="Destinataire">
                 <input type="text" value={editForm.receiver_name ?? ''} onChange={(e) => setEditForm({ ...editForm, receiver_name: e.target.value || null })} className={panelInputClass} />
@@ -5004,12 +5016,11 @@ function CargoDetailPanel({ id }: { id: string }) {
                 />
               </DynamicPanelField>
               <DynamicPanelField label="Imputation">
-                <select value={editForm.imputation_reference_id ?? ''} onChange={(e) => setEditForm({ ...editForm, imputation_reference_id: e.target.value || null })} className={panelInputClass}>
-                  <option value="">Aucune</option>
-                  {(imputationReferences ?? []).map((reference) => (
-                    <option key={reference.id} value={reference.id}>{reference.code} — {reference.name}</option>
-                  ))}
-                </select>
+                <ImputationPicker
+                  value={editForm.imputation_reference_id ?? null}
+                  onChange={(id) => setEditForm({ ...editForm, imputation_reference_id: id ?? null })}
+                  placeholder="Aucune"
+                />
               </DynamicPanelField>
               <DynamicPanelField label="Propriété du matériel">
                 <select value={editForm.ownership_type ?? ''} onChange={(e) => setEditForm({ ...editForm, ownership_type: e.target.value || null })} className={panelInputClass}>
@@ -5096,20 +5107,19 @@ function CargoDetailPanel({ id }: { id: string }) {
                 )}
               </DynamicPanelField>
               <DynamicPanelField label="Contact utilisateur">
-                <select value={editForm.pickup_contact_user_id ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_contact_user_id: e.target.value || null })} className={panelInputClass}>
-                  <option value="">Aucun</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>{user.first_name} {user.last_name}</option>
-                  ))}
-                </select>
+                <UserPicker
+                  value={editForm.pickup_contact_user_id ?? null}
+                  onChange={(id) => setEditForm({ ...editForm, pickup_contact_user_id: id ?? null })}
+                  placeholder="Aucun"
+                />
               </DynamicPanelField>
               <DynamicPanelField label="Contact entreprise">
-                <select value={editForm.pickup_contact_tier_contact_id ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_contact_tier_contact_id: e.target.value || null })} className={panelInputClass}>
-                  <option value="">Aucun</option>
-                  {(tierContacts ?? []).map((contact) => (
-                    <option key={contact.id} value={contact.id}>{contact.first_name} {contact.last_name}</option>
-                  ))}
-                </select>
+                <ContactPicker
+                  value={editForm.pickup_contact_tier_contact_id ?? null}
+                  onChange={(id) => setEditForm({ ...editForm, pickup_contact_tier_contact_id: id ?? null })}
+                  placeholder="Aucun"
+                  tierId={editForm.sender_tier_id ?? null}
+                />
               </DynamicPanelField>
               <DynamicPanelField label="Nom libre du contact">
                 <input type="text" value={editForm.pickup_contact_name ?? ''} onChange={(e) => setEditForm({ ...editForm, pickup_contact_name: e.target.value || null })} className={panelInputClass} />

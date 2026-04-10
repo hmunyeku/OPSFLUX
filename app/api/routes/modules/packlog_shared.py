@@ -13,7 +13,7 @@ from app.core.acting_context import get_effective_actor_user_id
 from app.core.audit import record_audit
 from app.core.pagination import PaginationParams, paginate
 from app.models.asset_registry import Installation
-from app.models.common import Attachment, AuditLog, ImputationReference, Tier, TierContact, User
+from app.models.common import Attachment, AuditLog, ImputationReference, Tier, TierContact, User, UserGroup, UserGroupMember
 from app.models.travelwiz import (
     CargoAttachmentEvidence,
     CargoItem,
@@ -167,6 +167,53 @@ async def _generate_cargo_request_code(db: AsyncSession, entity_id: UUID) -> str
     return await generate_reference("LT", db, entity_id=entity_id)
 
 
+async def _user_has_access_to_entity(db: AsyncSession, *, user_id: UUID, entity_id: UUID) -> bool:
+    membership_exists = await db.execute(
+        select(UserGroupMember.user_id)
+        .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+        .where(
+            UserGroupMember.user_id == user_id,
+            UserGroup.entity_id == entity_id,
+        )
+        .limit(1)
+    )
+    if membership_exists.scalar_one_or_none() is not None:
+        return True
+    user = await db.get(User, user_id)
+    return bool(user and user.active and user.default_entity_id == entity_id)
+
+
+async def _validate_cargo_request_refs(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    sender_tier_id: UUID | None,
+    sender_contact_tier_contact_id: UUID | None,
+    requester_user_id: UUID | None,
+    imputation_reference_id: UUID | None,
+) -> None:
+    if imputation_reference_id:
+        imputation = await db.get(ImputationReference, imputation_reference_id)
+        if not imputation or imputation.entity_id != entity_id or not imputation.active:
+            raise HTTPException(400, "Imputation introuvable ou inactive")
+    if sender_tier_id:
+        sender_tier = await db.get(Tier, sender_tier_id)
+        if not sender_tier or sender_tier.entity_id != entity_id or not sender_tier.active:
+            raise HTTPException(400, "Entreprise expeditrice introuvable ou inactive")
+    if requester_user_id:
+        requester = await db.get(User, requester_user_id)
+        if not requester or not requester.active or not await _user_has_access_to_entity(db, user_id=requester_user_id, entity_id=entity_id):
+            raise HTTPException(400, "Demandeur introuvable ou hors entite")
+    if sender_contact_tier_contact_id:
+        sender_contact = await db.get(TierContact, sender_contact_tier_contact_id)
+        if not sender_contact or not sender_contact.active:
+            raise HTTPException(400, "Contact entreprise introuvable ou inactif")
+        if not sender_tier_id:
+            raise HTTPException(400, "Selectionnez d'abord une entreprise expeditrice")
+        if sender_contact.tier_id != sender_tier_id:
+            raise HTTPException(400, "Le contact entreprise ne correspond pas a l'entreprise expeditrice")
+
+
 async def list_cargo_requests_impl(
     *,
     status: str | None,
@@ -224,10 +271,14 @@ async def create_cargo_request_impl(
     current_user: User,
     db: AsyncSession,
 ):
-    if body.imputation_reference_id:
-        imputation = await db.get(ImputationReference, body.imputation_reference_id)
-        if not imputation or imputation.entity_id != entity_id or not imputation.active:
-            raise HTTPException(400, "Imputation introuvable ou inactive")
+    await _validate_cargo_request_refs(
+        db,
+        entity_id=entity_id,
+        sender_tier_id=body.sender_tier_id,
+        sender_contact_tier_contact_id=body.sender_contact_tier_contact_id,
+        requester_user_id=body.requester_user_id,
+        imputation_reference_id=body.imputation_reference_id,
+    )
     request_code = await _generate_cargo_request_code(db, entity_id)
     cargo_request = CargoRequest(
         entity_id=entity_id,
@@ -293,10 +344,15 @@ async def update_cargo_request_impl(
     db: AsyncSession,
 ):
     cargo_request = await get_packlog_request_or_404(db, request_id, entity_id)
-    if body.imputation_reference_id:
-        imputation = await db.get(ImputationReference, body.imputation_reference_id)
-        if not imputation or imputation.entity_id != entity_id or not imputation.active:
-            raise HTTPException(400, "Imputation introuvable ou inactive")
+    next_sender_tier_id = body.sender_tier_id if "sender_tier_id" in body.model_fields_set else cargo_request.sender_tier_id
+    await _validate_cargo_request_refs(
+        db,
+        entity_id=entity_id,
+        sender_tier_id=next_sender_tier_id,
+        sender_contact_tier_contact_id=body.sender_contact_tier_contact_id if "sender_contact_tier_contact_id" in body.model_fields_set else cargo_request.sender_contact_tier_contact_id,
+        requester_user_id=body.requester_user_id if "requester_user_id" in body.model_fields_set else cargo_request.requester_user_id,
+        imputation_reference_id=body.imputation_reference_id if "imputation_reference_id" in body.model_fields_set else cargo_request.imputation_reference_id,
+    )
     target_status = body.status or cargo_request.status
     request_payload = packlog_request_to_payload(cargo_request)
     request_payload.update(body.model_dump(exclude_unset=True))

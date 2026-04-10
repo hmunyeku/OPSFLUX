@@ -2126,9 +2126,13 @@ export interface CargoRequest {
   project_id: string | null
   imputation_reference_id: string | null
   sender_tier_id: string | null
+  sender_contact_tier_contact_id: string | null
   receiver_name: string | null
   destination_asset_id: string | null
+  requester_user_id: string | null
   requester_name: string | null
+  requester_display_name?: string | null
+  sender_contact_name?: string | null
   requested_by: string
   active: boolean
   created_at: string
@@ -2174,8 +2178,10 @@ export interface CargoRequestCreate {
   project_id?: string | null
   imputation_reference_id?: string | null
   sender_tier_id?: string | null
+  sender_contact_tier_contact_id?: string | null
   receiver_name?: string | null
   destination_asset_id?: string | null
+  requester_user_id?: string | null
   requester_name?: string | null
 }
 
@@ -2186,8 +2192,10 @@ export interface CargoRequestUpdate {
   project_id?: string | null
   imputation_reference_id?: string | null
   sender_tier_id?: string | null
+  sender_contact_tier_contact_id?: string | null
   receiver_name?: string | null
   destination_asset_id?: string | null
+  requester_user_id?: string | null
   requester_name?: string | null
 }
 

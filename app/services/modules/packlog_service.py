@@ -153,8 +153,8 @@ def assess_packlog_request_requirements(
         missing.append("destination_asset_id")
     if not value("imputation_reference_id"):
         missing.append("imputation_reference_id")
-    if not value("requester_name"):
-        missing.append("requester_name")
+    if not (value("requester_user_id") or value("requester_name")):
+        missing.append("requester")
     if not request_cargo:
         missing.append("cargo_items")
     return {"is_complete": len(missing) == 0, "missing_requirements": missing}
@@ -412,9 +412,17 @@ async def build_packlog_request_read_data(
     destination_name = None
     imputation_reference_code = None
     imputation_reference_name = None
+    requester_display_name = None
+    sender_contact_name = None
     if cargo_request.sender_tier_id:
         tier = await db.get(Tier, cargo_request.sender_tier_id)
         sender_name = tier.name if tier else None
+    if cargo_request.sender_contact_tier_contact_id:
+        sender_contact = await db.get(TierContact, cargo_request.sender_contact_tier_contact_id)
+        if sender_contact:
+            sender_contact_name = " ".join(
+                part for part in [sender_contact.first_name, sender_contact.last_name] if part
+            ).strip() or sender_contact.email or sender_contact.phone
     if cargo_request.destination_asset_id:
         installation = await db.get(Installation, cargo_request.destination_asset_id)
         destination_name = installation.name if installation else None
@@ -423,6 +431,14 @@ async def build_packlog_request_read_data(
         if imputation:
             imputation_reference_code = imputation.code
             imputation_reference_name = imputation.name
+    if cargo_request.requester_user_id:
+        requester = await db.get(User, cargo_request.requester_user_id)
+        if requester:
+            requester_display_name = " ".join(
+                part for part in [requester.first_name, requester.last_name] if part
+            ).strip() or requester.email
+    if not requester_display_name:
+        requester_display_name = cargo_request.requester_name
     request_cargo_result = await db.execute(
         select(
             CargoItem.id,
@@ -443,6 +459,8 @@ async def build_packlog_request_read_data(
     data["destination_name"] = destination_name
     data["imputation_reference_code"] = imputation_reference_code
     data["imputation_reference_name"] = imputation_reference_name
+    data["requester_display_name"] = requester_display_name
+    data["sender_contact_name"] = sender_contact_name
     data["is_ready_for_submission"] = readiness["is_complete"]
     data["missing_requirements"] = readiness["missing_requirements"]
     return data
@@ -594,7 +612,8 @@ async def build_packlog_lt_variables(
         "sender_name": request_payload.get("sender_name"),
         "receiver_name": request_payload.get("receiver_name"),
         "destination_name": request_payload.get("destination_name"),
-        "requester_name": request_payload.get("requester_name"),
+        "requester_name": request_payload.get("requester_display_name") or request_payload.get("requester_name"),
+        "sender_contact_name": request_payload.get("sender_contact_name"),
         "description": request_payload.get("description"),
         "imputation_reference": " ".join(
             part

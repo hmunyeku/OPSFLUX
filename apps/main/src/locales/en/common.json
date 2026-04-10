@@ -1988,6 +1988,7 @@
         "recipient_label": "Recipient PAX",
         "channel_hint": "The effective channel is determined by the admin OTP configuration and the contact details available for the selected PAX.",
         "confirm": "Create and open link",
+        "no_allowed_companies": "Add an allowed company to enable the external portal.",
         "no_recipient": "No PAX on this AdS has a usable email address or phone number for OTP delivery.",
         "audit_title": "External link audit",
         "audit_description": "Security view of external links already issued for this AdS.",

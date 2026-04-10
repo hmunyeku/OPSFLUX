@@ -1992,6 +1992,7 @@
         "recipient_label": "PAX destinataire",
         "channel_hint": "Le canal effectif utilisé est déterminé par la configuration OTP admin et les coordonnées disponibles du PAX.",
         "confirm": "Créer et ouvrir le lien",
+        "no_allowed_companies": "Ajoutez une entreprise autorisée pour activer le portail externe.",
         "no_recipient": "Aucun PAX de cette AdS ne dispose d'un email ou d'un numéro exploitable pour l'OTP.",
         "audit_title": "Audit des liens externes",
         "audit_description": "Vue sécurité des liens externes déjà émis pour cette AdS.",

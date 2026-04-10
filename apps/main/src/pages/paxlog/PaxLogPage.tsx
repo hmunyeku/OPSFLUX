@@ -65,6 +65,7 @@ import { TagManager } from '@/components/shared/TagManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useToast } from '@/components/ui/Toast'
 import { useUIStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -3205,13 +3206,18 @@ function AdsDetailPanel({ id }: { id: string }) {
         <div className="flex items-center gap-1">
           {canGenerateLink && (
             <>
-              <PanelActionButton variant="default" disabled={createExtLink.isPending || !hasAllowedCompaniesForExternalLink} onClick={openExternalLinkFlow}>
-                {createExtLink.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />} {t('paxlog.ads_detail.actions.external_link')}
-              </PanelActionButton>
-              {!hasAllowedCompaniesForExternalLink && (
-                <span className="text-[11px] text-amber-600">
-                  Ajoutez une entreprise autorisee pour activer le portail externe.
-                </span>
+              {hasAllowedCompaniesForExternalLink ? (
+                <PanelActionButton variant="default" disabled={createExtLink.isPending} onClick={openExternalLinkFlow}>
+                  {createExtLink.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />} {t('paxlog.ads_detail.actions.external_link')}
+                </PanelActionButton>
+              ) : (
+                <Tooltip content={t('paxlog.ads_detail.external_link.no_allowed_companies')}>
+                  <span className="inline-flex">
+                    <PanelActionButton variant="default" disabled onClick={openExternalLinkFlow}>
+                      <Link2 size={12} /> {t('paxlog.ads_detail.actions.external_link')}
+                    </PanelActionButton>
+                  </span>
+                </Tooltip>
               )}
             </>
           )}

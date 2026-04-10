@@ -27,6 +27,51 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/ai-chat", tags=["ai-chat"])
 
+SAFE_OPSFLUX_TOOL_ALLOWLIST = frozenset({
+    "list_tiers", "get_tier", "list_contacts", "get_contact",
+    "list_sites", "list_assets", "get_asset", "list_fields", "get_field",
+    "list_equipment", "get_equipment", "get_asset_hierarchy",
+    "list_ads", "get_ads", "list_pax_groups",
+    "list_planner_activities", "get_planner_activity", "list_planner_conflicts",
+    "list_vectors", "get_vector", "list_voyages", "get_voyage",
+    "list_cost_centers", "list_imputation_references", "list_imputations",
+    "list_users", "get_user",
+    "list_projects", "get_project", "list_project_tasks", "list_project_milestones",
+    "get_project_cpm", "get_project_activity_feed", "list_project_templates",
+    "list_compliance_records", "list_compliance_types", "list_compliance_rules", "check_compliance",
+})
+
+SAFE_OPSFLUX_WRITE_TOOL_ALLOWLIST = frozenset({
+    "create_tier",
+    "update_tier",
+    "create_contact",
+    "update_contact",
+    "create_project",
+    "update_project",
+    "create_project_task",
+    "add_compliance_record",
+    "create_compliance_type",
+    "create_compliance_rule",
+    "add_imputation",
+})
+
+SAFE_ASSISTANT_ROUTE_PREFIXES = (
+    "/dashboard",
+    "/users",
+    "/projets",
+    "/projects",
+    "/paxlog",
+    "/planner",
+    "/tiers",
+    "/conformite",
+    "/travelwiz",
+    "/support",
+    "/settings",
+    "/papyrus",
+    "/assets",
+    "/imputations",
+)
+
 
 # ── Schemas ──────────────────────────────────────────────────────
 
@@ -74,6 +119,8 @@ Règles:
 - Si tu ne connais pas la réponse, dis-le clairement.
 - Ne révèle jamais d'informations techniques internes (clés API, mots de passe, etc.).
 - Guide l'utilisateur étape par étape quand il pose une question d'utilisation.
+- Tu agis strictement dans les permissions de l'utilisateur courant, jamais au-delà.
+- Si une action demandée dépasse ses droits, dis-le explicitement.
 - Quand une navigation UI aiderait, propose au maximum 3 actions cliquables en fin de réponse.
 - Format des actions cliquables: [[action:go:/route|Libellé bouton]]
 - N'affiche jamais d'action inventée ou impossible.
@@ -93,6 +140,8 @@ Réponds STRICTEMENT en JSON avec ce schéma:
 
 Règles:
 - utilise un outil seulement si la question demande une donnée live, une vérification réelle, une recherche précise, ou une action métier
+- n'utilise un outil d'écriture que si l'utilisateur demande explicitement une création, modification, ajout ou mise à jour
+- tu ne peux utiliser que les outils déjà autorisés par les permissions réelles de l'utilisateur courant
 - n'invente pas de nom d'outil
 - si aucun outil n'est nécessaire, retourne use_tool=false
 """
@@ -105,6 +154,8 @@ Style de réponse attendu:
 - réponse courte, structurée, orientée action
 - sections courtes uniquement si elles apportent de la clarté
 - pas de bavardage
+- n'affirme jamais qu'une action a été faite si aucun outil autorisé n'a pu l'exécuter
+- si l'utilisateur n'a pas les droits suffisants, indique-le clairement
 - si tu proposes une navigation concrète dans l'application, termine par 1 à 3 actions cliquables
 - format obligatoire des actions: [[action:go:/route|Libellé bouton]]
 - n'utilise ce format que pour de vraies routes OpsFlux
@@ -146,6 +197,22 @@ def _normalize_model_config(ai_cfg: dict) -> tuple[str, dict]:
 
 def _strip_action_tokens(text: str) -> str:
     return re.sub(r"\[\[action:go:[^|\]]+\|[^\]]+\]\]", "", text).strip()
+
+
+def _sanitize_action_tokens(text: str) -> str:
+    def _replace(match: re.Match[str]) -> str:
+        target = match.group(1).strip()
+        label = match.group(2).strip()
+        if not target.startswith("/"):
+            return ""
+        if not any(target == prefix or target.startswith(prefix + "/") for prefix in SAFE_ASSISTANT_ROUTE_PREFIXES):
+            return ""
+        safe_label = re.sub(r"[\r\n\[\]\|]+", " ", label).strip()[:60]
+        if not safe_label:
+            return ""
+        return f"[[action:go:{target}|{safe_label}]]"
+
+    return re.sub(r"\[\[action:go:([^|\]]+)\|([^\]]+)\]\]", _replace, text)
 
 
 def _compact_history(messages: list[ChatMessage], limit: int = 8) -> list[dict]:
@@ -191,11 +258,31 @@ def _score_tool(question: str, tool: dict) -> int:
     return score
 
 
+def _has_explicit_write_intent(question: str) -> bool:
+    q = question.lower()
+    markers = (
+        "crée", "cree", "créé", "creer", "créer",
+        "ajoute", "ajouter", "modifie", "modifier", "mets à jour", "met à jour",
+        "mettre à jour", "update", "change", "changer", "renseigne", "complète", "complete",
+        "bloque", "débloque", "debloque", "archive", "assigne",
+    )
+    return any(marker in q for marker in markers)
+
+
+def _allowed_tools_for_question(question: str) -> set[str]:
+    allowed = set(SAFE_OPSFLUX_TOOL_ALLOWLIST)
+    if _has_explicit_write_intent(question):
+        allowed.update(SAFE_OPSFLUX_WRITE_TOOL_ALLOWLIST)
+    return allowed
+
+
 async def _select_candidate_tools(context: NativeToolContext, question: str) -> list[dict]:
     backend = await get_or_create_backend("opsflux", {})
     if backend is None:
         return []
     tools = await backend.list_tools(context)
+    allowed_tools = _allowed_tools_for_question(question)
+    tools = [tool for tool in tools if tool.get("name") in allowed_tools]
     ranked = sorted(tools, key=lambda t: _score_tool(question, t), reverse=True)
     chosen = [t for t in ranked if _score_tool(question, t) > 0][:12]
     if not chosen:
@@ -257,14 +344,25 @@ async def _run_opsflux_tool_if_needed(
     plan = _extract_json_object(response.choices[0].message.content or "")
     if not plan or not plan.get("use_tool") or not plan.get("tool_name"):
         return None
+    tool_name = str(plan["tool_name"])
+    allowed_tools = _allowed_tools_for_question(body.messages[-1].content)
+    if tool_name not in allowed_tools:
+        logger.warning("AI chat rejected non-whitelisted MCP tool: %s", tool_name)
+        return None
 
     backend = await get_or_create_backend("opsflux", {})
     if backend is None:
         return None
 
     try:
+        logger.info(
+            "AI chat MCP tool call user=%s entity=%s tool=%s",
+            current_user.id,
+            entity_id,
+            tool_name,
+        )
         tool_result = await backend.execute_tool(
-            str(plan["tool_name"]),
+            tool_name,
             plan.get("arguments") if isinstance(plan.get("arguments"), dict) else {},
             context,
         )
@@ -319,7 +417,15 @@ async def _generate_chat_response(
         messages=messages,
         **llm_kwargs,
     )
-    return (response.choices[0].message.content or "").strip(), str(llm_kwargs["model"])
+    text = _sanitize_action_tokens((response.choices[0].message.content or "").strip())
+    logger.info(
+        "AI chat response user=%s entity=%s module=%s used_tool=%s",
+        current_user.id,
+        entity_id,
+        body.context_module or "",
+        bool(live_tool_context),
+    )
+    return text, str(llm_kwargs["model"])
 
 
 # ── Streaming SSE generator ─────────────────────────────────────

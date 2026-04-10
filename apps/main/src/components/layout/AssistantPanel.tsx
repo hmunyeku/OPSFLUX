@@ -88,10 +88,36 @@ interface AssistantActionToken {
   label: string
 }
 
+const SAFE_ASSISTANT_ROUTE_PREFIXES = [
+  '/dashboard',
+  '/users',
+  '/projets',
+  '/projects',
+  '/paxlog',
+  '/planner',
+  '/tiers',
+  '/conformite',
+  '/travelwiz',
+  '/support',
+  '/settings',
+  '/papyrus',
+  '/assets',
+  '/imputations',
+] as const
+
+function isSafeAssistantRoute(target: string): boolean {
+  if (!target.startsWith('/')) return false
+  return SAFE_ASSISTANT_ROUTE_PREFIXES.some(prefix => target === prefix || target.startsWith(`${prefix}/`))
+}
+
 function parseAssistantActions(content: string): { text: string; actions: AssistantActionToken[] } {
   const actions: AssistantActionToken[] = []
   const text = content.replace(/\[\[action:go:([^|\]]+)\|([^\]]+)\]\]/g, (_match, target, label) => {
-    actions.push({ type: 'go', target: String(target).trim(), label: String(label).trim() })
+    const safeTarget = String(target).trim()
+    const safeLabel = String(label).replace(/[\r\n[\]|]+/g, ' ').trim()
+    if (isSafeAssistantRoute(safeTarget) && safeLabel) {
+      actions.push({ type: 'go', target: safeTarget, label: safeLabel })
+    }
     return ''
   }).trim()
   return { text, actions }

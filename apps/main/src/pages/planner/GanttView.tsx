@@ -305,6 +305,15 @@ export function GanttView({
 
     const rowList: GanttRow[] = []
     const barList: GanttBarData[] = []
+    const heatmapRowH = viewPrefs.heatmap_row_height
+
+    // Pre-compute which fields/sites/installations actually contain activities
+    // (so we can hide empty branches when hide_empty_rows is on).
+    const installationHasActivity = (instId: string) => (activitiesByAsset.get(instId)?.length ?? 0) > 0
+    const siteHasActivity = (site: HierarchyFieldNode['sites'][number]) =>
+      site.installations.some((i) => installationHasActivity(i.id))
+    const fieldHasActivity = (field: HierarchyFieldNode) =>
+      field.sites.some((s) => siteHasActivity(s))
 
     // Collect all installation IDs in scope (used for total rows)
     const allInstIdsInScope: string[] = []
@@ -327,6 +336,7 @@ export function GanttView({
         sublabel: 'Saturation max',
         level: 0,
         hasChildren: false,
+        rowHeight: heatmapRowH,
         heatmapCells: buildHeatmapCells(allInstIdsInScope, 'peak'),
       })
     }
@@ -337,6 +347,7 @@ export function GanttView({
         sublabel: 'PAX prévus globaux',
         level: 0,
         hasChildren: false,
+        rowHeight: heatmapRowH,
         heatmapCells: buildHeatmapCells(allInstIdsInScope, 'sum'),
       })
     }
@@ -347,10 +358,9 @@ export function GanttView({
       const fieldAssetIds: string[] = []
       for (const s of field.sites) for (const i of s.installations) fieldAssetIds.push(i.id)
       if (fieldAssetIds.length === 0) continue
+      if (viewPrefs.hide_empty_rows && !fieldHasActivity(field)) continue
 
       const fieldId = `f:${field.id}`
-      // Compute the deepest visible parent for activities of this field
-      // (used when site/installation rows are hidden)
 
       if (viewPrefs.show_field_rows) {
         rowList.push({
@@ -359,6 +369,7 @@ export function GanttView({
           sublabel: `${field.sites.length} site${field.sites.length > 1 ? 's' : ''}`,
           level: 0,
           hasChildren: viewPrefs.show_site_rows || viewPrefs.show_installation_rows || viewPrefs.show_activity_rows,
+          rowHeight: heatmapRowH,
           heatmapCells: buildHeatmapCells(fieldAssetIds),
         })
         if (!expandedRows.has(fieldId)) continue
@@ -368,6 +379,7 @@ export function GanttView({
         if (!passesScope(field.id, site.id)) continue
         const siteAssetIds = site.installations.map((i) => i.id)
         if (siteAssetIds.length === 0) continue
+        if (viewPrefs.hide_empty_rows && !siteHasActivity(site)) continue
 
         const siteId = `s:${site.id}`
 
@@ -378,6 +390,7 @@ export function GanttView({
             sublabel: `${site.installations.length} install.`,
             level: viewPrefs.show_field_rows ? 1 : 0,
             hasChildren: viewPrefs.show_installation_rows || viewPrefs.show_activity_rows,
+            rowHeight: heatmapRowH,
             heatmapCells: buildHeatmapCells(siteAssetIds),
           })
           if (!expandedRows.has(siteId)) continue
@@ -387,6 +400,7 @@ export function GanttView({
           if (!passesScope(field.id, site.id, inst.id)) continue
           const installId = `i:${inst.id}`
           const activities = activitiesByAsset.get(inst.id) ?? []
+          if (viewPrefs.hide_empty_rows && activities.length === 0) continue
 
           if (viewPrefs.show_installation_rows) {
             // Compute the row level based on which parent levels are visible
@@ -401,6 +415,7 @@ export function GanttView({
                 : '—',
               level: lvl,
               hasChildren: activities.length > 0 && viewPrefs.show_activity_rows,
+              rowHeight: heatmapRowH,
               heatmapCells: buildHeatmapCells([inst.id]),
             })
             if (!expandedRows.has(installId)) continue
@@ -439,14 +454,19 @@ export function GanttView({
               })
 
               if (act.start_date && act.end_date) {
-                let barTitle = ''
-                if (viewPrefs.bar_title_position === 'before' || viewPrefs.bar_title_position === 'after') {
-                  barTitle = `${paxLabel}${isVariable ? '*' : ''} · ${act.title}`
-                }
+                // PAX-per-cell labels rendered INSIDE the bar.
+                const cellLabels = buildBarCellLabels(act, cells)
+                // Title rendered OUTSIDE the bar (none / before / after).
+                const externalTitle = viewPrefs.bar_title_position === 'none'
+                  ? undefined
+                  : `${act.title}${isVariable ? ' *' : ''}`
+                const externalTitlePosition = viewPrefs.bar_title_position === 'none'
+                  ? undefined
+                  : viewPrefs.bar_title_position
                 barList.push({
                   id: act.id,
                   rowId: actRowId,
-                  title: barTitle,
+                  title: '',
                   startDate: act.start_date.slice(0, 10),
                   endDate: act.end_date.slice(0, 10),
                   status: act.status,
@@ -455,6 +475,9 @@ export function GanttView({
                   color: TYPE_COLORS[act.type] || '#3b82f6',
                   isDraft: act.status === 'draft' || act.status === 'submitted',
                   isCritical: act.priority === 'critical',
+                  cellLabels,
+                  externalTitle,
+                  externalTitlePosition,
                   tooltipLines: [
                     [t('planner.gantt.tooltip.type'), TYPE_LABELS_FR[act.type] || act.type],
                     [t('planner.gantt.tooltip.status'), statusLabels[act.status] || act.status],
@@ -508,7 +531,12 @@ export function GanttView({
       }
     }
 
-    return { rows: rowList, bars: barList }
+    // Strip secondary labels globally if the user opted out
+    const finalRows = viewPrefs.show_row_sublabels
+      ? rowList
+      : rowList.map((r) => ({ ...r, sublabel: undefined }))
+
+    return { rows: finalRows, bars: barList }
   }, [
     scale, startDate, endDate, ganttData, heatmapData, hierarchyData,
     expandedRows, pendingRevisionRequests, statusLabels, t, viewPrefs,

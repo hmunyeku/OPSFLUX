@@ -38,6 +38,10 @@ interface GanttBarProps {
   showBaselines: boolean
   baselineLeft?: number
   baselineWidth?: number
+  /** Per-cell left offsets in body coords (used to align bar.cellLabels) */
+  cellLefts?: number[]
+  /** Per-cell widths (used to align bar.cellLabels) */
+  cellWidths?: number[]
   onClick?: () => void
   onDrag?: (newStart: string, newEnd: string) => void
   onResize?: (edge: 'left' | 'right', newDate: string) => void
@@ -53,6 +57,7 @@ export function GanttBarComponent({
   bar, left, width, top, barHeight, pxPerDay,
   showProgress, showLabels, showBaselines,
   baselineLeft, baselineWidth,
+  cellLefts, cellWidths,
   onClick, onDrag, onResize, onTitleEdit, onProgressChange, onLinkStart, onHover, onLeave, onRightClick,
 }: GanttBarProps) {
   const color = resolveBarColor(bar)
@@ -235,8 +240,27 @@ export function GanttBarComponent({
           />
         )}
 
-        {/* Bar label — double-click to edit */}
-        {showLabels && width >= MIN_LABEL_PX && (
+        {/* Bar label — cellLabels takes priority over title.
+            cellLabels render one centered label per intersected timeline cell,
+            so the bar shows its PAX values aligned with each day/week/month. */}
+        {showLabels && bar.cellLabels && bar.cellLabels.length > 0 && cellLefts && cellWidths ? (
+          <div className="absolute inset-0 pointer-events-none">
+            {bar.cellLabels.map((cl) => {
+              const cw = cellWidths[cl.cellIdx]
+              if (cw == null || cw < 14) return null
+              const localX = cellLefts[cl.cellIdx] - left
+              return (
+                <div
+                  key={`cl-${cl.cellIdx}`}
+                  className="absolute inset-y-0 flex items-center justify-center text-[9px] font-semibold text-white tabular-nums drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)] leading-tight"
+                  style={{ left: localX, width: cw }}
+                >
+                  {cl.label}
+                </div>
+              )
+            })}
+          </div>
+        ) : showLabels && width >= MIN_LABEL_PX && bar.title ? (
           <div
             className="absolute inset-0 flex items-center px-2 min-w-0"
             onDoubleClick={(e) => {
@@ -268,7 +292,7 @@ export function GanttBarComponent({
               </span>
             )}
           </div>
-        )}
+        ) : null}
 
         {/* Progress text */}
         {showProgress && bar.progress != null && width >= MIN_LABEL_PX + 40 && (

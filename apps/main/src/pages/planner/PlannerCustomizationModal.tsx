@@ -36,6 +36,15 @@ export interface PlannerGanttViewPrefs {
 
   // Where to show the activity title relative to the bar
   bar_title_position: 'none' | 'before' | 'after'
+
+  // Hide hierarchy rows that contain no activity in their subtree
+  hide_empty_rows: boolean
+
+  // Hide the secondary sublabel text on rows (e.g. "3 install.", "Brouillon")
+  show_row_sublabels: boolean
+
+  // Compact row height for heatmap rows (Field/Site/Installation/Total) in px
+  heatmap_row_height: number
 }
 
 export const DEFAULT_PLANNER_GANTT_VIEW: PlannerGanttViewPrefs = {
@@ -50,6 +59,9 @@ export const DEFAULT_PLANNER_GANTT_VIEW: PlannerGanttViewPrefs = {
   show_total_sum: false,
   heatmap_text_mode: 'percentage',
   bar_title_position: 'none',
+  hide_empty_rows: true,
+  show_row_sublabels: true,
+  heatmap_row_height: 22,
 }
 
 /**
@@ -141,6 +153,36 @@ export function PlannerCustomizationSections({ prefs, onChange }: Props) {
           <Toggle label="Sites" checked={prefs.show_site_rows} onChange={(v) => update('show_site_rows', v)} />
           <Toggle label="Installations" checked={prefs.show_installation_rows} onChange={(v) => update('show_installation_rows', v)} />
           <Toggle label="Activités" checked={prefs.show_activity_rows} onChange={(v) => update('show_activity_rows', v)} />
+        </div>
+        <div className="mt-2 pt-2 border-t border-border/50 space-y-2">
+          <Toggle
+            label="Masquer les lignes vides (sans activité)"
+            checked={prefs.hide_empty_rows}
+            onChange={(v) => update('hide_empty_rows', v)}
+          />
+          <Toggle
+            label="Afficher les sous-titres (3 install., Brouillon, …)"
+            checked={prefs.show_row_sublabels}
+            onChange={(v) => update('show_row_sublabels', v)}
+          />
+          <div>
+            <label className="text-xs text-foreground flex items-center justify-between">
+              Hauteur des lignes heatmap
+              <span className="text-muted-foreground tabular-nums">{prefs.heatmap_row_height}px</span>
+            </label>
+            <input
+              type="range"
+              min={14}
+              max={56}
+              step={2}
+              value={prefs.heatmap_row_height}
+              onChange={(e) => update('heatmap_row_height', Number(e.target.value))}
+              className="w-full h-1.5 mt-1 accent-primary"
+            />
+            <p className="text-[9px] text-muted-foreground mt-0.5">
+              Plafonné à la hauteur des lignes Gantt globale (paramétrée plus haut).
+            </p>
+          </div>
         </div>
       </Section>
 

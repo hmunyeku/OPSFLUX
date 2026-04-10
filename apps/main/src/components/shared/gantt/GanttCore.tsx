@@ -235,7 +235,27 @@ export function GanttCore(props: GanttCoreProps) {
   }, [cellWidths])
   const totalDays = useMemo(() => cells.reduce((s, c) => s + c.days, 0), [cells])
   const totalWidth = totalDays * effectivePPD
-  const bodyH = rows.length * settings.rowHeight
+
+  // ── Per-row heights & cumulative offsets ──
+  // Each row may override the global rowHeight via row.rowHeight (used by the
+  // Planner to make heatmap rows shorter than activity rows). The override is
+  // hard-clamped to the global rowHeight so a per-row value can never exceed
+  // the activity row height — this guarantees alignment and prevents the
+  // hierarchy heatmap rows from looking taller than the activity rows below.
+  const rowHeights = useMemo(
+    () => rows.map((r) => Math.min(r.rowHeight ?? settings.rowHeight, settings.rowHeight)),
+    [rows, settings.rowHeight],
+  )
+  const rowOffsets = useMemo(() => {
+    const out: number[] = new Array(rowHeights.length)
+    let y = 0
+    for (let i = 0; i < rowHeights.length; i++) { out[i] = y; y += rowHeights[i] }
+    return out
+  }, [rowHeights])
+  const bodyH = useMemo(
+    () => rowHeights.reduce((s, h) => s + h, 0),
+    [rowHeights],
+  )
 
   // Bar positions
   const barPositions = useMemo(() => {
@@ -727,7 +747,7 @@ export function GanttCore(props: GanttCoreProps) {
                       selectedRowId === row.id && 'bg-primary/10 ring-1 ring-inset ring-primary/30',
                     )}
                     style={{
-                      height: settings.rowHeight,
+                      height: rowHeights[idx],
                       paddingLeft: 8 + row.level * 18,
                       ...(row.level > 0 ? (() => {
                         let parentColor: string | undefined
@@ -843,9 +863,9 @@ export function GanttCore(props: GanttCoreProps) {
                       !groupColor && (idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'),
                     )}
                     style={{
-                      top: idx * settings.rowHeight,
+                      top: rowOffsets[idx],
                       width: totalWidth,
-                      height: settings.rowHeight,
+                      height: rowHeights[idx],
                       backgroundColor: groupColor ? groupColor + '08' : undefined,
                       borderLeft: groupColor ? `2px solid ${groupColor}30` : undefined,
                     }}
@@ -872,10 +892,13 @@ export function GanttCore(props: GanttCoreProps) {
                   but below dependency arrows / bars / today line */}
               {rows.map((row, rowIdx) => {
                 if (!row.heatmapCells || row.heatmapCells.length === 0) return null
+                const rh = rowHeights[rowIdx]
                 return row.heatmapCells.map((hc) => {
                   if (hc.cellIdx < 0 || hc.cellIdx >= cellLefts.length) return null
                   const w = cellWidths[hc.cellIdx]
-                  const showLabel = hc.label && w >= 28
+                  const showLabel = hc.label && w >= 28 && rh >= 18
+                  // Faint cells when value === 0 (or explicit opacity override)
+                  const opacity = hc.opacity ?? (hc.value === 0 ? 0.22 : 1)
                   return (
                     <div
                       key={`hm-${rowIdx}-${hc.cellIdx}`}
@@ -883,11 +906,12 @@ export function GanttCore(props: GanttCoreProps) {
                       style={{
                         left: cellLefts[hc.cellIdx] + 1,
                         width: Math.max(0, w - 2),
-                        top: rowIdx * settings.rowHeight + 2,
-                        height: settings.rowHeight - 4,
+                        top: rowOffsets[rowIdx] + 2,
+                        height: Math.max(0, rh - 4),
                         backgroundColor: hc.color,
                         color: 'rgba(15, 23, 42, 0.65)',
                         borderRadius: 2,
+                        opacity,
                       }}
                       title={hc.tooltipHTML ? undefined : `${hc.value}%`}
                       {...(hc.tooltipHTML ? { 'data-heatmap-tooltip': hc.tooltipHTML } : {})}
@@ -946,7 +970,8 @@ export function GanttCore(props: GanttCoreProps) {
                 const pos = barPositions.get(bar.id)
                 if (!pos) return null
                 const { left, width, rowIdx } = pos
-                const top = rowIdx * settings.rowHeight + (settings.rowHeight - settings.barHeight) / 2
+                const rh = rowHeights[rowIdx] ?? settings.rowHeight
+                const top = rowOffsets[rowIdx] + (rh - settings.barHeight) / 2
 
                 // Baseline position
                 let baselineLeft: number | undefined
@@ -958,27 +983,52 @@ export function GanttCore(props: GanttCoreProps) {
 
                 return (
                   <div key={bar.id} data-bar-id={bar.id} className="contents">
-                  <GanttBarComponent
-                    bar={bar}
-                    left={left}
-                    width={width}
-                    top={top}
-                    barHeight={settings.barHeight}
-                    pxPerDay={effectivePPD}
-                    showProgress={settings.showProgress}
-                    showLabels={settings.showLabels}
-                    showBaselines={settings.showBaselines}
-                    baselineLeft={baselineLeft}
-                    baselineWidth={baselineWidth}
-                    onClick={() => onBarClick?.(bar.id, bar.meta)}
-                    onDrag={onBarDrag ? (s, e) => onBarDrag(bar.id, s, e) : undefined}
-                    onResize={onBarResize ? (edge, date) => onBarResize(bar.id, edge, date) : undefined}
-                    onTitleEdit={onBarTitleEdit ? (title) => onBarTitleEdit(bar.id, title) : undefined}
-                    onLinkStart={onCreateDependency ? handleLinkStart : undefined}
-                    onHover={(e) => showTooltipFor(e, bar)}
-                    onLeave={hideTooltip}
-                    onRightClick={(e) => showContextMenuFor(e, bar)}
-                  />
+                    <GanttBarComponent
+                      bar={bar}
+                      left={left}
+                      width={width}
+                      top={top}
+                      barHeight={settings.barHeight}
+                      pxPerDay={effectivePPD}
+                      showProgress={settings.showProgress}
+                      showLabels={settings.showLabels}
+                      showBaselines={settings.showBaselines}
+                      baselineLeft={baselineLeft}
+                      baselineWidth={baselineWidth}
+                      cellLefts={cellLefts}
+                      cellWidths={cellWidths}
+                      onClick={() => onBarClick?.(bar.id, bar.meta)}
+                      onDrag={onBarDrag ? (s, e) => onBarDrag(bar.id, s, e) : undefined}
+                      onResize={onBarResize ? (edge, date) => onBarResize(bar.id, edge, date) : undefined}
+                      onTitleEdit={onBarTitleEdit ? (title) => onBarTitleEdit(bar.id, title) : undefined}
+                      onLinkStart={onCreateDependency ? handleLinkStart : undefined}
+                      onHover={(e) => showTooltipFor(e, bar)}
+                      onLeave={hideTooltip}
+                      onRightClick={(e) => showContextMenuFor(e, bar)}
+                    />
+                    {/* External title rendered before or after the bar */}
+                    {bar.externalTitle && bar.externalTitlePosition && (
+                      <div
+                        className="absolute z-20 text-[10px] font-medium text-foreground/80 pointer-events-none whitespace-nowrap leading-none flex items-center"
+                        style={{
+                          top,
+                          height: settings.barHeight,
+                          ...(bar.externalTitlePosition === 'before'
+                            ? {
+                                left: Math.max(0, left - 160),
+                                width: Math.min(left, 156),
+                                justifyContent: 'flex-end',
+                                paddingRight: 4,
+                              }
+                            : {
+                                left: left + width + 4,
+                                paddingLeft: 0,
+                              }),
+                        }}
+                      >
+                        {bar.externalTitle}
+                      </div>
+                    )}
                   </div>
                 )
               })}

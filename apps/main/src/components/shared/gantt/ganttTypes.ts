@@ -34,6 +34,12 @@ export interface GanttRow {
    * Each entry references a cell index from the gantt's `buildCells` output.
    */
   heatmapCells?: GanttHeatmapCell[]
+  /**
+   * Optional per-row height override (in pixels). When omitted, the row uses
+   * the global `settings.rowHeight`. Useful for visually distinguishing
+   * heatmap rows (compact) from activity rows (taller).
+   */
+  rowHeight?: number
 }
 
 /** A single heatmap cell rendered as a row background */
@@ -48,6 +54,8 @@ export interface GanttHeatmapCell {
   tooltipHTML?: string
   /** Optional inline label (e.g. "85%") shown when there is enough room */
   label?: string
+  /** Optional opacity override (0-1). Defaults to 1. Used to fade out 0-value cells. */
+  opacity?: number
 }
 
 // ── Column (grid config) ─────────────────────────────────────────
@@ -116,6 +124,19 @@ export interface GanttBarData {
   tooltipLines?: [string, string][]
   /** Any extra data (available in callbacks) */
   meta?: Record<string, unknown>
+  /**
+   * Optional per-cell labels rendered inside the bar (e.g. PAX values aligned
+   * with the timeline cells under the bar). Each entry references a cell index
+   * from the gantt's `buildCells` output.
+   */
+  cellLabels?: Array<{ cellIdx: number; label: string }>
+  /**
+   * Optional external title rendered just outside the bar instead of on top
+   * of it. Use bar.title for the on-bar text. The position controls which side
+   * the external title appears on.
+   */
+  externalTitle?: string
+  externalTitlePosition?: 'before' | 'after'
 }
 
 // ── Dependency ───────────────────────────────────────────────────

@@ -929,12 +929,16 @@ export function GanttView({
       }
     }
 
-    // Index deps by predecessor for the BFS walk (downstream propagation)
+    // Index deps by predecessor (downstream) and by successor (upstream)
     const depsByPredecessor = new Map<string, typeof allDeps>()
+    const depsBySuccessor = new Map<string, typeof allDeps>()
     for (const dep of allDeps) {
-      const list = depsByPredecessor.get(dep.predecessor_id) ?? []
-      list.push(dep)
-      depsByPredecessor.set(dep.predecessor_id, list)
+      const outList = depsByPredecessor.get(dep.predecessor_id) ?? []
+      outList.push(dep)
+      depsByPredecessor.set(dep.predecessor_id, outList)
+      const inList = depsBySuccessor.get(dep.successor_id) ?? []
+      inList.push(dep)
+      depsBySuccessor.set(dep.successor_id, inList)
     }
 
     // Violations collected in 'warn' / 'strict' mode
@@ -948,6 +952,39 @@ export function GanttView({
     // Track the shifts we propose (activityId → {old, new}) for cascade mode
     const cascadeShifts: Array<{ id: string; title: string; oldStart: string; oldEnd: string; newStart: string; newEnd: string }> = []
 
+    // ── Pass 1: INCOMING constraints on the dragged bar itself ──
+    // If the user drags B earlier in an A→B (FS) constraint, B's new start
+    // may fall before A's end + lag → violation of the incoming dep. We
+    // need to detect that too, not just the outgoing deps.
+    const draggedIncoming = depsBySuccessor.get(barId) ?? []
+    for (const dep of draggedIncoming) {
+      const pred = allActsById.get(dep.predecessor_id)
+      if (!pred) continue
+      const predSlot = slotOf(dep.predecessor_id)
+      const draggedSlot = slotOf(barId)
+      if (!predSlot || !draggedSlot) continue
+      const lag = (dep.lag_days ?? 0) * MS
+
+      let okStart = true
+      let okEnd = true
+      let label = ''
+      if (dep.dependency_type === 'FS') {
+        if (draggedSlot.start < predSlot.end + lag) okStart = false
+        label = `${pred.title} → ${draggedSlot.title} (FS${(dep.lag_days ?? 0) >= 0 ? '+' : ''}${dep.lag_days ?? 0}j)`
+      } else if (dep.dependency_type === 'SS') {
+        if (draggedSlot.start < predSlot.start + lag) okStart = false
+        label = `${pred.title} → ${draggedSlot.title} (SS${(dep.lag_days ?? 0) >= 0 ? '+' : ''}${dep.lag_days ?? 0}j)`
+      } else if (dep.dependency_type === 'FF') {
+        if (draggedSlot.end < predSlot.end + lag) okEnd = false
+        label = `${pred.title} → ${draggedSlot.title} (FF${(dep.lag_days ?? 0) >= 0 ? '+' : ''}${dep.lag_days ?? 0}j)`
+      } else if (dep.dependency_type === 'SF') {
+        if (draggedSlot.end < predSlot.start + lag) okEnd = false
+        label = `${pred.title} → ${draggedSlot.title} (SF${(dep.lag_days ?? 0) >= 0 ? '+' : ''}${dep.lag_days ?? 0}j)`
+      }
+      if (!okStart || !okEnd) violations.push(label)
+    }
+
+    // ── Pass 2: OUTGOING BFS walk — propagate shifts downstream ──
     while (queue.length > 0 && steps < MAX_STEPS) {
       steps++
       const currentId = queue.shift()!
@@ -982,7 +1019,7 @@ export function GanttView({
             requiredStart = succSlot.start + delta
             requiredEnd = succSlot.end + delta
           }
-          label = `${currentSlot.title} → ${succ.title} (FS${dep.lag_days >= 0 ? '+' : ''}${dep.lag_days}j)`
+          label = `${currentSlot.title} → ${succ.title} (FS${(dep.lag_days ?? 0) >= 0 ? '+' : ''}${dep.lag_days ?? 0}j)`
         } else if (dep.dependency_type === 'SS') {
           const minStart = currentSlot.start + lag
           if (succSlot.start < minStart) {
@@ -990,7 +1027,7 @@ export function GanttView({
             requiredStart = succSlot.start + delta
             requiredEnd = succSlot.end + delta
           }
-          label = `${currentSlot.title} → ${succ.title} (SS${dep.lag_days >= 0 ? '+' : ''}${dep.lag_days}j)`
+          label = `${currentSlot.title} → ${succ.title} (SS${(dep.lag_days ?? 0) >= 0 ? '+' : ''}${dep.lag_days ?? 0}j)`
         } else if (dep.dependency_type === 'FF') {
           const minEnd = currentSlot.end + lag
           if (succSlot.end < minEnd) {
@@ -998,7 +1035,7 @@ export function GanttView({
             requiredStart = succSlot.start + delta
             requiredEnd = succSlot.end + delta
           }
-          label = `${currentSlot.title} → ${succ.title} (FF${dep.lag_days >= 0 ? '+' : ''}${dep.lag_days}j)`
+          label = `${currentSlot.title} → ${succ.title} (FF${(dep.lag_days ?? 0) >= 0 ? '+' : ''}${dep.lag_days ?? 0}j)`
         } else if (dep.dependency_type === 'SF') {
           const minEnd = currentSlot.start + lag
           if (succSlot.end < minEnd) {
@@ -1006,7 +1043,7 @@ export function GanttView({
             requiredStart = succSlot.start + delta
             requiredEnd = succSlot.end + delta
           }
-          label = `${currentSlot.title} → ${succ.title} (SF${dep.lag_days >= 0 ? '+' : ''}${dep.lag_days}j)`
+          label = `${currentSlot.title} → ${succ.title} (SF${(dep.lag_days ?? 0) >= 0 ? '+' : ''}${dep.lag_days ?? 0}j)`
         }
 
         const needsShift = requiredStart !== succSlot.start || requiredEnd !== succSlot.end
@@ -1048,6 +1085,12 @@ export function GanttView({
           newEnd: new Date(slot.end).toISOString().slice(0, 10),
         })
       }
+    }
+
+    // ── Diagnostic for cases where the user expected a cascade/warn but
+    // nothing was detected. Helps surface missing deps or scope filters.
+    if (violations.length === 0 && cascadeShifts.length === 0 && allDeps.length === 0) {
+      // No deps at all on the visible scope — silently no-op
     }
 
     // ── Apply strategy ──

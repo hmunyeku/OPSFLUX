@@ -542,18 +542,77 @@ export function GanttCore(props: GanttCoreProps) {
   }, [settings.scale, onViewChange])
 
   /**
-   * Capture the Gantt container with html2canvas. Returns a base64 PNG
-   * data URI, or null if the capture failed (e.g. container missing).
+   * Capture the Gantt container with html2canvas, after:
+   *   1. Closing all dropdowns (so the export / range menus don't bleed
+   *      into the snapshot)
+   *   2. Temporarily expanding the scroll containers to their full content
+   *      size (so the screenshot includes all rows + all cells, not just
+   *      the visible viewport)
+   *   3. Temporarily hiding the toolbar (the template has its own header)
+   *   4. Restoring all modified styles after the capture completes,
+   *      even if html2canvas throws
    */
   const captureGanttImage = useCallback(async (): Promise<string | null> => {
-    if (!containerRef.current) return null
-    const { default: html2canvas } = await import('html2canvas')
-    const canvas = await html2canvas(containerRef.current, {
-      backgroundColor: '#ffffff',
-      scale: 2,
-      useCORS: true,
-    })
-    return canvas.toDataURL('image/png')
+    const container = containerRef.current
+    if (!container) return null
+
+    // Step 1: close any open dropdowns and let React flush
+    setExportMenuOpen(false)
+    setRangeMenuOpen(false)
+    await new Promise<void>((r) => requestAnimationFrame(() => r()))
+    await new Promise<void>((r) => requestAnimationFrame(() => r()))
+
+    // Step 2: expand the scroll containers + hide the toolbar
+    const bodyEl = bodyScrollRef.current
+    const headerEl = headerScrollRef.current
+    const toolbarEl = container.querySelector<HTMLElement>('[data-gantt-toolbar]')
+
+    const restore: Array<() => void> = []
+    const stash = (el: HTMLElement | null, props: (keyof CSSStyleDeclaration)[]) => {
+      if (!el) return
+      const prev: Record<string, string> = {}
+      for (const p of props) prev[p as string] = (el.style as unknown as Record<string, string>)[p as string] ?? ''
+      restore.push(() => {
+        for (const p of props) (el.style as unknown as Record<string, string>)[p as string] = prev[p as string]
+      })
+    }
+
+    // Hide the toolbar so it doesn't bleed into the snapshot
+    stash(toolbarEl, ['display'])
+    if (toolbarEl) toolbarEl.style.display = 'none'
+
+    // Expand vertical scroll on the body so all rows are visible
+    stash(bodyEl, ['overflow', 'height', 'maxHeight'])
+    if (bodyEl) {
+      bodyEl.style.overflow = 'visible'
+      bodyEl.style.height = 'auto'
+      bodyEl.style.maxHeight = 'none'
+    }
+    // Same for the timeline header (horizontal)
+    stash(headerEl, ['overflow'])
+    if (headerEl) headerEl.style.overflow = 'visible'
+    // Outer container must also let overflow escape
+    stash(container, ['overflow', 'height', 'maxHeight'])
+    container.style.overflow = 'visible'
+    container.style.height = 'auto'
+    container.style.maxHeight = 'none'
+
+    await new Promise<void>((r) => requestAnimationFrame(() => r()))
+
+    try {
+      const { default: html2canvas } = await import('html2canvas')
+      const canvas = await html2canvas(container, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        windowWidth: Math.max(container.scrollWidth, container.clientWidth),
+        windowHeight: Math.max(container.scrollHeight, container.clientHeight),
+      })
+      return canvas.toDataURL('image/png')
+    } finally {
+      // Always restore the DOM even if capture fails
+      for (const r of restore) r()
+    }
   }, [])
 
   const exportPNG = useCallback(async () => {
@@ -568,7 +627,6 @@ export function GanttCore(props: GanttCoreProps) {
     } catch { /* silent */ }
     finally {
       setExporting(null)
-      setExportMenuOpen(false)
     }
   }, [captureGanttImage])
 
@@ -582,7 +640,6 @@ export function GanttCore(props: GanttCoreProps) {
     } catch { /* silent */ }
     finally {
       setExporting(null)
-      setExportMenuOpen(false)
     }
   }, [captureGanttImage, onExportPdf])
 
@@ -707,7 +764,7 @@ export function GanttCore(props: GanttCoreProps) {
     >
       {/* ── Toolbar ──────────────────────────────────────────── */}
       {showToolbar && (
-        <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30 shrink-0">
+        <div data-gantt-toolbar className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30 shrink-0">
           {/* Navigation */}
           <button onClick={() => shift(-1)} className="p-1 rounded hover:bg-muted" title="Précédent">
             <ChevronLeft className="h-4 w-4" />

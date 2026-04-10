@@ -2184,16 +2184,31 @@ _PLANNER_GANTT_EXPORT_BODY_FR = """\
 <head>
 <meta charset="utf-8"/>
 <style>
-  @page { size: A3 landscape; margin: 10mm; }
-  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1f2937; margin: 0; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f3460; padding-bottom: 6px; margin-bottom: 8px; }
-  .header .title-block h1 { font-size: 14pt; margin: 0; color: #0f3460; }
-  .header .title-block .subtitle { font-size: 9pt; color: #64748b; margin-top: 2px; }
-  .header .meta { font-size: 8pt; color: #64748b; text-align: right; }
-  .header .meta strong { color: #111827; }
-  .gantt-wrap { width: 100%; text-align: center; }
-  .gantt-wrap img { max-width: 100%; max-height: 245mm; object-fit: contain; }
-  .footer { position: fixed; bottom: 4mm; left: 10mm; right: 10mm; font-size: 7pt; color: #9ca3af; display: flex; justify-content: space-between; border-top: 1px solid #e5e7eb; padding-top: 3px; }
+  @page {
+    size: A3 landscape;
+    margin: 8mm 10mm 14mm 10mm;
+    @bottom-left { content: "{{ entity.name or '' }}"; font-size: 7pt; color: #9ca3af; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    @bottom-center { content: "Page " counter(page) " / " counter(pages); font-size: 7pt; color: #9ca3af; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    @bottom-right { content: "OpsFlux Planner · {{ generated_at }}"; font-size: 7pt; color: #9ca3af; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+  }
+  * { box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1f2937; margin: 0; padding: 0; }
+
+  /* Header: title on the left, meta grid on the right — compact so we
+     leave max vertical space to the Gantt image. */
+  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f3460; padding-bottom: 4mm; margin-bottom: 4mm; }
+  .header .title-block h1 { font-size: 15pt; margin: 0; color: #0f3460; font-weight: 700; letter-spacing: -0.2px; }
+  .header .title-block .subtitle { font-size: 9pt; color: #64748b; margin-top: 1mm; }
+  .header .meta { display: grid; grid-template-columns: auto auto; gap: 0 10px; font-size: 8pt; color: #475569; }
+  .header .meta dt { font-weight: 600; color: #0f3460; text-align: right; padding: 0; margin: 0; }
+  .header .meta dd { margin: 0; padding: 0; text-align: left; }
+
+  /* Gantt image fills the width of the printable area. object-fit:contain
+     guarantees we never stretch, we just cap on the narrower axis. */
+  .gantt-wrap { width: 100%; text-align: center; margin: 0; padding: 0; }
+  .gantt-wrap img { display: block; width: 100%; height: auto; max-height: 262mm; object-fit: contain; margin: 0 auto; }
+
+  .empty { color: #9ca3af; text-align: center; padding: 40mm 0; font-style: italic; }
 </style>
 </head>
 <body>
@@ -2202,23 +2217,18 @@ _PLANNER_GANTT_EXPORT_BODY_FR = """\
       <h1>{{ title or 'Planner — Gantt' }}</h1>
       {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}
     </div>
-    <div class="meta">
-      <div><strong>Période</strong> {{ date_range }}</div>
-      <div><strong>Échelle</strong> {{ scale }}</div>
-      <div><strong>Généré le</strong> {{ generated_at }}</div>
-      {% if generated_by %}<div><strong>Par</strong> {{ generated_by }}</div>{% endif %}
-    </div>
+    <dl class="meta">
+      <dt>Période</dt><dd>{{ date_range or '—' }}</dd>
+      <dt>Échelle</dt><dd>{{ scale or '—' }}</dd>
+      {% if generated_by %}<dt>Par</dt><dd>{{ generated_by }}</dd>{% endif %}
+    </dl>
   </div>
   <div class="gantt-wrap">
     {% if image_data_uri %}
       <img src="{{ image_data_uri }}" alt="Gantt" />
     {% else %}
-      <p style="color:#9ca3af;text-align:center;padding:60px">Aucune donnée Gantt à exporter.</p>
+      <p class="empty">Aucune donnée Gantt à exporter.</p>
     {% endif %}
-  </div>
-  <div class="footer">
-    <span>{{ entity.name or '' }}</span>
-    <span>OpsFlux Planner</span>
   </div>
 </body>
 </html>
@@ -2230,16 +2240,24 @@ _PLANNER_GANTT_EXPORT_BODY_EN = """\
 <head>
 <meta charset="utf-8"/>
 <style>
-  @page { size: A3 landscape; margin: 10mm; }
-  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1f2937; margin: 0; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f3460; padding-bottom: 6px; margin-bottom: 8px; }
-  .header .title-block h1 { font-size: 14pt; margin: 0; color: #0f3460; }
-  .header .title-block .subtitle { font-size: 9pt; color: #64748b; margin-top: 2px; }
-  .header .meta { font-size: 8pt; color: #64748b; text-align: right; }
-  .header .meta strong { color: #111827; }
-  .gantt-wrap { width: 100%; text-align: center; }
-  .gantt-wrap img { max-width: 100%; max-height: 245mm; object-fit: contain; }
-  .footer { position: fixed; bottom: 4mm; left: 10mm; right: 10mm; font-size: 7pt; color: #9ca3af; display: flex; justify-content: space-between; border-top: 1px solid #e5e7eb; padding-top: 3px; }
+  @page {
+    size: A3 landscape;
+    margin: 8mm 10mm 14mm 10mm;
+    @bottom-left { content: "{{ entity.name or '' }}"; font-size: 7pt; color: #9ca3af; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    @bottom-center { content: "Page " counter(page) " / " counter(pages); font-size: 7pt; color: #9ca3af; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    @bottom-right { content: "OpsFlux Planner · {{ generated_at }}"; font-size: 7pt; color: #9ca3af; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+  }
+  * { box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1f2937; margin: 0; padding: 0; }
+  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f3460; padding-bottom: 4mm; margin-bottom: 4mm; }
+  .header .title-block h1 { font-size: 15pt; margin: 0; color: #0f3460; font-weight: 700; letter-spacing: -0.2px; }
+  .header .title-block .subtitle { font-size: 9pt; color: #64748b; margin-top: 1mm; }
+  .header .meta { display: grid; grid-template-columns: auto auto; gap: 0 10px; font-size: 8pt; color: #475569; }
+  .header .meta dt { font-weight: 600; color: #0f3460; text-align: right; padding: 0; margin: 0; }
+  .header .meta dd { margin: 0; padding: 0; text-align: left; }
+  .gantt-wrap { width: 100%; text-align: center; margin: 0; padding: 0; }
+  .gantt-wrap img { display: block; width: 100%; height: auto; max-height: 262mm; object-fit: contain; margin: 0 auto; }
+  .empty { color: #9ca3af; text-align: center; padding: 40mm 0; font-style: italic; }
 </style>
 </head>
 <body>
@@ -2248,23 +2266,18 @@ _PLANNER_GANTT_EXPORT_BODY_EN = """\
       <h1>{{ title or 'Planner — Gantt' }}</h1>
       {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}
     </div>
-    <div class="meta">
-      <div><strong>Range</strong> {{ date_range }}</div>
-      <div><strong>Scale</strong> {{ scale }}</div>
-      <div><strong>Generated</strong> {{ generated_at }}</div>
-      {% if generated_by %}<div><strong>By</strong> {{ generated_by }}</div>{% endif %}
-    </div>
+    <dl class="meta">
+      <dt>Range</dt><dd>{{ date_range or '—' }}</dd>
+      <dt>Scale</dt><dd>{{ scale or '—' }}</dd>
+      {% if generated_by %}<dt>By</dt><dd>{{ generated_by }}</dd>{% endif %}
+    </dl>
   </div>
   <div class="gantt-wrap">
     {% if image_data_uri %}
       <img src="{{ image_data_uri }}" alt="Gantt" />
     {% else %}
-      <p style="color:#9ca3af;text-align:center;padding:60px">No Gantt data to export.</p>
+      <p class="empty">No Gantt data to export.</p>
     {% endif %}
-  </div>
-  <div class="footer">
-    <span>{{ entity.name or '' }}</span>
-    <span>OpsFlux Planner</span>
   </div>
 </body>
 </html>

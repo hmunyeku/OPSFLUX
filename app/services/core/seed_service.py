@@ -1069,19 +1069,79 @@ async def seed_email_templates(db: AsyncSession, entity_id, admin_id) -> None:
 
 
 async def seed_pdf_templates(db: AsyncSession, entity_id, admin_id) -> None:
-    """Seed default PDF templates — idempotent."""
+    """Seed default PDF templates — idempotent.
+
+    For templates that already exist but only have the default v1 (never
+    customised by the admin), the body_html / page_size / margins are
+    kept in sync with DEFAULT_PDF_TEMPLATES so code changes to the
+    built-in templates propagate automatically on deploy. Templates that
+    have a v2+ are considered customised and are left alone.
+    """
     from app.core.pdf_templates import DEFAULT_PDF_TEMPLATES
     from app.models.common import PdfTemplate, PdfTemplateVersion
 
     created = 0
+    upgraded = 0
     for tpl_def in DEFAULT_PDF_TEMPLATES:
         result = await db.execute(
-            select(PdfTemplate.id).where(
+            select(PdfTemplate).where(
                 PdfTemplate.entity_id == entity_id,
                 PdfTemplate.slug == tpl_def["slug"],
             )
         )
-        if result.scalar_one_or_none():
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            # Count published versions to detect customisation
+            versions_result = await db.execute(
+                select(PdfTemplateVersion).where(
+                    PdfTemplateVersion.template_id == existing.id,
+                )
+            )
+            versions = versions_result.scalars().all()
+            max_version = max((v.version_number for v in versions), default=0)
+            # Only auto-upgrade when no v2+ has been created by the admin
+            if max_version > 1:
+                continue
+            # Refresh the page settings on the template row
+            existing.name = tpl_def["name"]
+            existing.description = tpl_def.get("description")
+            existing.page_size = tpl_def.get("page_size", "A4")
+            existing.orientation = tpl_def.get("orientation", "portrait")
+            existing.margin_top = tpl_def.get("margin_top", 15)
+            existing.margin_right = tpl_def.get("margin_right", 12)
+            existing.margin_bottom = tpl_def.get("margin_bottom", 15)
+            existing.margin_left = tpl_def.get("margin_left", 12)
+            existing.variables_schema = tpl_def.get("variables_schema")
+            # Refresh the v1 body for each language in the default set
+            changed = False
+            for lang, content in tpl_def.get("default_versions", {}).items():
+                v = next((x for x in versions if x.language == lang and x.version_number == 1), None)
+                new_body = content.get("body_html", "")
+                new_header = content.get("header_html")
+                new_footer = content.get("footer_html")
+                if v is None:
+                    db.add(PdfTemplateVersion(
+                        template_id=existing.id,
+                        version_number=1,
+                        language=lang,
+                        body_html=new_body,
+                        header_html=new_header,
+                        footer_html=new_footer,
+                        is_published=True,
+                        created_by=admin_id,
+                    ))
+                    changed = True
+                elif (v.body_html != new_body
+                      or v.header_html != new_header
+                      or v.footer_html != new_footer):
+                    v.body_html = new_body
+                    v.header_html = new_header
+                    v.footer_html = new_footer
+                    v.is_published = True
+                    changed = True
+            if changed:
+                upgraded += 1
             continue
 
         template = PdfTemplate(
@@ -1115,10 +1175,10 @@ async def seed_pdf_templates(db: AsyncSession, entity_id, admin_id) -> None:
             ))
         created += 1
 
-    if created:
-        logger.info("Seed: created %d PDF templates", created)
+    if created or upgraded:
+        logger.info("Seed: created %d PDF templates, upgraded %d v1 bodies", created, upgraded)
     else:
-        logger.info("Seed: all PDF templates already exist")
+        logger.info("Seed: all PDF templates already exist and are up-to-date")
 
 
 async def seed_reference_numbering(db: AsyncSession, entity_id) -> None:

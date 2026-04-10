@@ -135,6 +135,27 @@ export function GanttCore(props: GanttCoreProps) {
     ...initialSettings,
   }))
 
+  // Hydrate from `initialSettings` ONCE when the parent finishes loading
+  // its persisted user preferences. The useState initializer above only
+  // runs on mount — if the parent's preferences arrive AFTER that (the
+  // user's localStorage cache was empty so the API call is what populates
+  // them), the new initialSettings prop is silently ignored. Result:
+  // hidden columns / column widths / showProgress / etc. that the user
+  // saved last session reappeared as defaults until they reloaded twice.
+  //
+  // We watch initialSettings and apply it once when it transitions from
+  // "empty" to non-empty. After that we leave the local state alone so
+  // user actions inside this component aren't clobbered by the parent's
+  // own writes coming back through the prop.
+  const hydratedFromPropRef = useRef(false)
+  useEffect(() => {
+    if (hydratedFromPropRef.current) return
+    if (!initialSettings) return
+    if (Object.keys(initialSettings).length === 0) return
+    hydratedFromPropRef.current = true
+    setSettings(prev => ({ ...prev, ...initialSettings }))
+  }, [initialSettings])
+
   const updateSettings = useCallback((patch: Partial<GanttSettings>) => {
     setSettings(prev => {
       const next = { ...prev, ...patch }

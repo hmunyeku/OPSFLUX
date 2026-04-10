@@ -3460,6 +3460,7 @@ async def create_ads(
         return_transport_mode=body.return_transport_mode,
         return_departure_base_id=body.return_departure_base_id,
         return_notes=body.return_notes,
+        is_round_trip_no_overnight=body.is_round_trip_no_overnight,
     )
     db.add(ads)
     await db.flush()

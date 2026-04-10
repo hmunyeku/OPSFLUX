@@ -143,6 +143,8 @@ import { useComplianceRecords } from '@/hooks/useConformite'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { ImputationManager } from '@/components/shared/ImputationManager'
 import { AssetPicker } from '@/components/shared/AssetPicker'
+import { ProjectPicker } from '@/components/shared/ProjectPicker'
+import { UserPicker } from '@/components/shared/UserPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { AdsExternalLinksAudit } from '@/pages/paxlog/components/AdsExternalLinksAudit'
 import type {
@@ -2503,7 +2505,6 @@ function CreateAdsPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const currentUser = useAuthStore((s) => s.user)
   const { data: projects } = useProjects({ page: 1, page_size: 100 })
-  const { data: usersData } = useUsers({ page: 1, page_size: 200, active: true })
   const [companySearch, setCompanySearch] = useState('')
   const visitCategoryOptions = useDictionaryOptions('visit_category')
   const transportModeOptions = useDictionaryOptions('transport_mode')
@@ -2520,6 +2521,7 @@ function CreateAdsPanel() {
     project_id: string
     outbound_transport_mode: string
     return_transport_mode: string
+    is_round_trip_no_overnight: boolean
   }>({
     type: 'individual',
     requester_id: currentUser?.id || '',
@@ -2531,6 +2533,7 @@ function CreateAdsPanel() {
     project_id: '',
     outbound_transport_mode: '',
     return_transport_mode: '',
+    is_round_trip_no_overnight: false,
   })
 
   const adsChecklist = [
@@ -2644,10 +2647,11 @@ function CreateAdsPanel() {
         <FormSection title={t('paxlog.create_ads.sections.visit_details')}>
           <FormGrid>
             <DynamicPanelField label={t('paxlog.create_ads.fields.requester')} required>
-              <select value={form.requester_id} onChange={(e) => setForm({ ...form, requester_id: e.target.value })} className={panelInputClass} required>
-                <option value="">{t('paxlog.create_ads.select_option')}</option>
-                {(usersData?.items ?? []).map((user) => <option key={user.id} value={user.id}>{user.first_name} {user.last_name}</option>)}
-              </select>
+              <UserPicker
+                value={form.requester_id || null}
+                onChange={(id) => setForm({ ...form, requester_id: id || '' })}
+                placeholder={t('paxlog.create_ads.select_option')}
+              />
             </DynamicPanelField>
             <DynamicPanelField label={t('paxlog.visit_category')} required>
               <select value={form.visit_category} onChange={(e) => setForm({ ...form, visit_category: e.target.value })} className={panelInputClass} required>
@@ -2656,19 +2660,46 @@ function CreateAdsPanel() {
               </select>
             </DynamicPanelField>
             <DynamicPanelField label={t('paxlog.create_ads.fields.project')}>
-              <select value={form.project_id} onChange={(e) => setForm({ ...form, project_id: e.target.value })} className={panelInputClass}>
-                <option value="">{t('paxlog.create_ads.no_project')}</option>
-                {(projects?.items ?? []).map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
-              </select>
+              <ProjectPicker
+                value={form.project_id || null}
+                onChange={(id) => setForm({ ...form, project_id: id || '' })}
+                placeholder={t('paxlog.create_ads.no_project')}
+              />
             </DynamicPanelField>
             <DynamicPanelField label={t('paxlog.create_ads.fields.dates')} required>
               <DateRangePicker
                 startDate={form.start_date || null}
                 endDate={form.end_date || null}
-                onStartChange={(v) => setForm({ ...form, start_date: v })}
+                onStartChange={(v) => {
+                  // When the round-trip-no-overnight flag is on, the
+                  // visit is a single-day affair: end_date must mirror
+                  // start_date so the dates picker stays consistent.
+                  setForm((f) => ({
+                    ...f,
+                    start_date: v,
+                    end_date: f.is_round_trip_no_overnight ? v : f.end_date,
+                  }))
+                }}
                 onEndChange={(v) => setForm({ ...form, end_date: v })}
                 required
               />
+              <label className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground select-none cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.is_round_trip_no_overnight}
+                  onChange={(e) => {
+                    const checked = e.target.checked
+                    setForm((f) => ({
+                      ...f,
+                      is_round_trip_no_overnight: checked,
+                      // Force end = start when toggling on
+                      end_date: checked ? f.start_date : f.end_date,
+                    }))
+                  }}
+                  className="h-3 w-3 rounded border-border accent-primary"
+                />
+                <span>{t('paxlog.create_ads.fields.round_trip_no_overnight') || 'Aller-retour sans nuitée (visite d\'une journée)'}</span>
+              </label>
             </DynamicPanelField>
             <DynamicPanelField label={t('paxlog.create_ads.fields.outbound_transport')}>
               <select value={form.outbound_transport_mode} onChange={(e) => setForm({ ...form, outbound_transport_mode: e.target.value })} className={panelInputClass}>
@@ -3453,6 +3484,11 @@ function AdsDetailPanel({ id }: { id: string }) {
             {ads.type === 'individual' ? t('paxlog.create_ads.type.individual') : t('paxlog.create_ads.type.team')}
           </span>
           {ads.cross_company_flag && <span className="gl-badge gl-badge-warning">{t('paxlog.ads_detail.cross_company')}</span>}
+          {ads.is_round_trip_no_overnight && (
+            <span className="gl-badge gl-badge-info" title={t('paxlog.ads_detail.round_trip_no_overnight_hint') || 'Visite d\'une journée — comptée dans le forecast PAX du jour uniquement'}>
+              A/R sans nuitée
+            </span>
+          )}
         </div>
 
         <CollapsibleSection
@@ -4731,7 +4767,6 @@ function CreateAvmPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const missionTypeOptions = useDictionaryOptions('mission_type')
   const missionActivityTypeOptions = useDictionaryOptions('mission_activity_type')
-  const { data: projects } = useProjects({ page: 1, page_size: 100 })
 
   const [form, setForm] = useState({
     title: '',
@@ -5012,10 +5047,11 @@ function CreateAvmPanel() {
                     <AssetPicker value={program.site_asset_id || null} onChange={(id) => updateProgram(index, { site_asset_id: id || '' })} />
                   </DynamicPanelField>
                   <DynamicPanelField label={t('paxlog.create_ads.fields.project')}>
-                    <select value={program.project_id} onChange={(e) => updateProgram(index, { project_id: e.target.value })} className={panelInputClass}>
-                      <option value="">{t('paxlog.create_ads.no_project')}</option>
-                      {(projects?.items ?? []).map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
-                    </select>
+                    <ProjectPicker
+                      value={program.project_id || null}
+                      onChange={(id) => updateProgram(index, { project_id: id || '' })}
+                      placeholder={t('paxlog.create_ads.no_project')}
+                    />
                   </DynamicPanelField>
                   <DynamicPanelField label={t('paxlog.create_avm.program.line_dates')}>
                     <DateRangePicker

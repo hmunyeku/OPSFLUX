@@ -255,6 +255,7 @@ export interface Ads {
   planner_activity_title?: string | null
   planner_activity_status?: string | null
   cross_company_flag: boolean
+  is_round_trip_no_overnight: boolean
   submitted_at: string | null
   approved_at: string | null
   rejected_at: string | null
@@ -442,6 +443,8 @@ export interface AdsCreate {
   return_transport_mode?: string | null
   return_departure_base_id?: string | null
   return_notes?: string | null
+  /** Spec 3.5: AdS aller-retour sans nuitée. Compté dans le forecast Pax du jour de visite uniquement. */
+  is_round_trip_no_overnight?: boolean
 }
 
 /** Candidate from /pax/candidates search — unified user/contact/profile */
@@ -478,6 +481,7 @@ export interface AdsUpdate {
   return_transport_mode?: string | null
   return_departure_base_id?: string | null
   return_notes?: string | null
+  is_round_trip_no_overnight?: boolean | null
 }
 
 export interface AdsStayChangeRequest {

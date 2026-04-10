@@ -234,6 +234,13 @@ class Ads(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     cross_company_flag: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False
     )
+    # Spec 3.5: ADS "aller-retour sans nuitee". Flagged ADS apparaissent dans
+    # le forecast Pax du jour de visite sans consommer de POB nuitee. Le
+    # flag est binaire et signale par "A/R sans nuitee" dans tous les
+    # affichages downstream (Planner heatmap, validation panel, captain UI).
+    is_round_trip_no_overnight: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

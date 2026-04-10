@@ -227,6 +227,7 @@ class AdsCreate(BaseModel):
     return_transport_mode: str | None = None
     return_departure_base_id: UUID | None = None
     return_notes: str | None = None
+    is_round_trip_no_overnight: bool = False
 
 
 class AdsUpdate(BaseModel):
@@ -242,6 +243,7 @@ class AdsUpdate(BaseModel):
     return_transport_mode: str | None = None
     return_departure_base_id: UUID | None = None
     return_notes: str | None = None
+    is_round_trip_no_overnight: bool | None = None
 
 
 class AdsStayChangeRequest(BaseModel):
@@ -342,6 +344,7 @@ class AdsRead(OpsFluxSchema):
     outbound_transport_mode: str | None
     return_transport_mode: str | None
     cross_company_flag: bool
+    is_round_trip_no_overnight: bool = False
     submitted_at: datetime | None
     approved_at: datetime | None
     rejected_at: datetime | None

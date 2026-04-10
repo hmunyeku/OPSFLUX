@@ -366,6 +366,20 @@ class AdsBoardingUnassignedPaxRead(OpsFluxSchema):
     pax_status: str | None = None
 
 
+class AdsBoardingDeclaredPaxRead(OpsFluxSchema):
+    ads_pax_id: UUID
+    user_id: UUID | None = None
+    contact_id: UUID | None = None
+    name: str
+    company: str | None = None
+    badge_number: str | None = None
+    pax_status: str | None = None
+    assigned_to_manifest: bool = False
+    manifest_id: UUID | None = None
+    boarding_status: str | None = None
+    boarded_at: datetime | None = None
+
+
 class AdsBoardingPassengerRead(OpsFluxSchema):
     id: UUID
     ads_pax_id: UUID | None = None
@@ -400,15 +414,24 @@ class AdsBoardingContextRead(OpsFluxSchema):
     entity_id: UUID
     reference: str
     status: str
+    requester_name: str | None = None
     site_name: str | None = None
+    project_name: str | None = None
     visit_purpose: str | None = None
     visit_category: str | None = None
     start_date: date | None = None
     end_date: date | None = None
+    submitted_at: datetime | None = None
+    approved_at: datetime | None = None
+    allowed_company_names: list[str] = []
+    outbound_transport_mode: str | None = None
+    return_transport_mode: str | None = None
+    planner_activity_title: str | None = None
     pax_count: int = 0
     qr_url: str | None = None
     manifests: list[AdsBoardingManifestRead] = []
     unassigned_pax: list[AdsBoardingUnassignedPaxRead] = []
+    declared_pax: list[AdsBoardingDeclaredPaxRead] = []
 
 
 class AdsBoardingPassengerUpdate(BaseModel):

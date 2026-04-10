@@ -5864,20 +5864,83 @@ async def _build_ads_boarding_context(
         for row in unassigned_rows
     ]
 
+    declared_rows = (
+        await db.execute(
+            select(
+                AdsPax,
+                User.first_name.label("user_first_name"),
+                User.last_name.label("user_last_name"),
+                User.badge_number.label("user_badge_number"),
+                TierContact.first_name.label("contact_first_name"),
+                TierContact.last_name.label("contact_last_name"),
+                TierContact.badge_number.label("contact_badge_number"),
+                Tier.name.label("company_name"),
+                ManifestPassenger.id.label("manifest_passenger_id"),
+                ManifestPassenger.manifest_id.label("assigned_manifest_id"),
+                ManifestPassenger.boarding_status.label("manifest_boarding_status"),
+                ManifestPassenger.boarded_at.label("manifest_boarded_at"),
+            )
+            .outerjoin(User, User.id == AdsPax.user_id)
+            .outerjoin(TierContact, TierContact.id == AdsPax.contact_id)
+            .outerjoin(Tier, Tier.id == User.company_id)
+            .outerjoin(
+                ManifestPassenger,
+                and_(
+                    ManifestPassenger.ads_pax_id == AdsPax.id,
+                    ManifestPassenger.active == True,  # noqa: E712
+                ),
+            )
+            .where(AdsPax.ads_id == ads.id)
+            .order_by(AdsPax.created_at.asc())
+        )
+    ).all()
+
+    declared_pax = [
+        AdsBoardingDeclaredPaxRead(
+            ads_pax_id=row[0].id,
+            user_id=row[0].user_id,
+            contact_id=row[0].contact_id,
+            name=" ".join(
+                part for part in [
+                    row[1] if row[0].user_id else row[4],
+                    row[2] if row[0].user_id else row[5],
+                ]
+                if part
+            ) or "PAX",
+            company=row[7] or None,
+            badge_number=row[3] or row[6],
+            pax_status=row[0].status,
+            assigned_to_manifest=bool(row[8]),
+            manifest_id=row[9],
+            boarding_status=row[10],
+            boarded_at=row[11],
+        )
+        for row in declared_rows
+    ]
+
     return AdsBoardingContextRead(
         ads_id=ads.id,
         entity_id=entity_id,
         reference=ads.reference,
         status=ads.status,
+        requester_name=ads_data.get("requester_name"),
         site_name=ads_data.get("site_name"),
+        project_name=ads_data.get("project_name"),
         visit_purpose=ads.visit_purpose,
         visit_category=ads.visit_category,
         start_date=ads.start_date,
         end_date=ads.end_date,
+        submitted_at=ads.submitted_at,
+        approved_at=ads.approved_at,
+        allowed_company_names=list(ads_data.get("allowed_company_names") or []),
+        outbound_transport_mode=ads.outbound_transport_mode,
+        return_transport_mode=ads.return_transport_mode,
+        planner_activity_title=ads_data.get("planner_activity_title"),
         pax_count=len(manifests and [p for m in manifests for p in m.passengers] or []) + len(unassigned_pax),
         qr_url=qr_url,
         manifests=manifests,
         unassigned_pax=unassigned_pax,
+        declared_pax=declared_pax,
     )
 
 

@@ -283,6 +283,20 @@ export interface AdsBoardingUnassignedPax {
   pax_status: string | null
 }
 
+export interface AdsBoardingDeclaredPax {
+  ads_pax_id: string
+  user_id: string | null
+  contact_id: string | null
+  name: string
+  company: string | null
+  badge_number: string | null
+  pax_status: string | null
+  assigned_to_manifest: boolean
+  manifest_id: string | null
+  boarding_status: string | null
+  boarded_at: string | null
+}
+
 export interface AdsBoardingPassenger {
   id: string
   ads_pax_id: string | null
@@ -317,15 +331,24 @@ export interface AdsBoardingContext {
   entity_id: string
   reference: string
   status: string
+  requester_name: string | null
   site_name: string | null
+  project_name: string | null
   visit_purpose: string | null
   visit_category: string | null
   start_date: string | null
   end_date: string | null
+  submitted_at: string | null
+  approved_at: string | null
+  allowed_company_names: string[]
+  outbound_transport_mode: string | null
+  return_transport_mode: string | null
+  planner_activity_title: string | null
   pax_count: number
   qr_url: string | null
   manifests: AdsBoardingManifest[]
   unassigned_pax: AdsBoardingUnassignedPax[]
+  declared_pax: AdsBoardingDeclaredPax[]
 }
 
 export interface AdsSummary {

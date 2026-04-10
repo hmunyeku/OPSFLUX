@@ -1,4 +1,4 @@
-import { Loader2, Plane, QrCode, CheckCircle2, CircleDashed, AlertTriangle, Users } from 'lucide-react'
+import { Loader2, Plane, QrCode, CheckCircle2, CircleDashed, AlertTriangle, Users, CalendarDays, Briefcase, Building2, UserRound } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { useAdsBoardingContext, useUpdateAdsBoardingPassenger } from '@/hooks/usePaxlog'
@@ -198,6 +198,10 @@ export function AdsBoardingScanPage() {
                 </div>
                 <dl className="mt-4 space-y-3 text-sm">
                   <div>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Demandeur</dt>
+                    <dd className="mt-1 font-medium text-foreground">{data.requester_name || '--'}</dd>
+                  </div>
+                  <div>
                     <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Motif</dt>
                     <dd className="mt-1 font-medium text-foreground">{data.visit_purpose || '--'}</dd>
                   </div>
@@ -206,10 +210,82 @@ export function AdsBoardingScanPage() {
                     <dd className="mt-1 font-medium text-foreground">{data.visit_category || '--'}</dd>
                   </div>
                   <div>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Projet</dt>
+                    <dd className="mt-1 font-medium text-foreground">{data.project_name || '--'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Activité planner</dt>
+                    <dd className="mt-1 font-medium text-foreground">{data.planner_activity_title || '--'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Entreprises autorisées</dt>
+                    <dd className="mt-1 font-medium text-foreground">
+                      {data.allowed_company_names.length ? data.allowed_company_names.join(', ') : '--'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Transport</dt>
+                    <dd className="mt-1 font-medium text-foreground">
+                      Aller {data.outbound_transport_mode || '--'} • Retour {data.return_transport_mode || '--'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Workflow</dt>
+                    <dd className="mt-1 font-medium text-foreground">
+                      Soumis {formatDateTime(data.submitted_at)} • Approuvé {formatDateTime(data.approved_at)}
+                    </dd>
+                  </div>
+                  <div>
                     <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">QR opérationnel</dt>
                     <dd className="mt-1 break-all text-xs text-muted-foreground">{data.qr_url || '--'}</dd>
                   </div>
                 </dl>
+              </section>
+
+              <section className="rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <UserRound className="h-4 w-4 text-primary" />
+                  PAX déclarés sur l’avis de séjour
+                </div>
+                <div className="mt-4 space-y-3">
+                  {data.declared_pax.length === 0 ? (
+                    <div className="rounded-2xl bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
+                      Aucun PAX déclaré sur cet avis de séjour.
+                    </div>
+                  ) : (
+                    data.declared_pax.map((pax) => (
+                      <div key={pax.ads_pax_id} className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="text-sm font-semibold text-foreground">{pax.name}</div>
+                          <span className={cn(
+                            'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                            pax.boarding_status ? (STATUS_TONE[pax.boarding_status] ?? 'bg-muted text-muted-foreground') : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+                          )}>
+                            {pax.boarding_status || (pax.assigned_to_manifest ? 'assigné' : 'hors manifeste')}
+                          </span>
+                        </div>
+                        <div className="mt-2 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-3.5 w-3.5" />
+                            <span>{pax.company || 'Société non renseignée'}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Briefcase className="h-3.5 w-3.5" />
+                            <span>Badge {pax.badge_number || '--'} • Dossier {pax.pax_status || '--'}</span>
+                          </div>
+                          <div className="flex items-center gap-2 sm:col-span-2">
+                            <CalendarDays className="h-3.5 w-3.5" />
+                            <span>
+                              {pax.assigned_to_manifest
+                                ? `Manifeste ${pax.manifest_id || '--'} • Pointé ${formatDateTime(pax.boarded_at)}`
+                                : 'Pas encore affecté à un manifeste'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </section>
 
               <section className="rounded-3xl border border-border/60 bg-card p-5 shadow-sm">

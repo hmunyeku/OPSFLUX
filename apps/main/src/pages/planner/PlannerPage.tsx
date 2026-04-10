@@ -3385,12 +3385,15 @@ function CreateActivityPanel() {
   const [form, setForm] = useState<PlannerActivityCreate>({
     asset_id: '',
     project_id: null,
+    parent_id: null,
     type: 'project',
     subtype: null,
     title: '',
     description: null,
     priority: 'medium',
     pax_quota: 0,
+    pax_quota_mode: 'constant',
+    pax_quota_daily: null,
     start_date: null,
     end_date: null,
     well_reference: null,
@@ -3497,17 +3500,68 @@ function CreateActivityPanel() {
                   ))}
                 </select>
               </DynamicPanelField>
-              <DynamicPanelField label="Quota PAX">
-                <input
-                  type="number"
-                  value={form.pax_quota ?? 0}
-                  onChange={(e) => setForm({ ...form, pax_quota: parseInt(e.target.value) || 0 })}
+              <DynamicPanelField label="Mode POB">
+                <select
+                  value={form.pax_quota_mode || 'constant'}
+                  onChange={(e) => setForm({ ...form, pax_quota_mode: e.target.value as 'constant' | 'variable' })}
                   className={panelInputClass}
-                  min={0}
-                  placeholder="0"
-                />
+                >
+                  <option value="constant">Constant (meme valeur tous les jours)</option>
+                  <option value="variable">Variable (par jour)</option>
+                </select>
               </DynamicPanelField>
+              {form.pax_quota_mode !== 'variable' && (
+                <DynamicPanelField label="Quota PAX">
+                  <input
+                    type="number"
+                    value={form.pax_quota ?? 0}
+                    onChange={(e) => setForm({ ...form, pax_quota: parseInt(e.target.value) || 0 })}
+                    className={panelInputClass}
+                    min={0}
+                    placeholder="0"
+                  />
+                </DynamicPanelField>
+              )}
             </FormGrid>
+            {form.pax_quota_mode === 'variable' && form.start_date && form.end_date && (
+              <div className="mt-3">
+                <p className="text-xs text-muted-foreground mb-2">Saisissez le POB jour par jour :</p>
+                <div className="max-h-[200px] overflow-y-auto border border-border rounded-lg">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 bg-muted/50">
+                      <tr><th className="px-2 py-1 text-left font-medium">Date</th><th className="px-2 py-1 text-right font-medium">PAX</th></tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const days: string[] = []
+                        const s = new Date(form.start_date!)
+                        const e = new Date(form.end_date!)
+                        for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+                          days.push(d.toISOString().slice(0, 10))
+                        }
+                        return days.map(day => (
+                          <tr key={day} className="border-t border-border/50">
+                            <td className="px-2 py-1 font-mono text-muted-foreground">{day}</td>
+                            <td className="px-2 py-1">
+                              <input
+                                type="number" min={0}
+                                className="w-16 text-right text-xs border border-border rounded px-1 py-0.5 bg-background"
+                                value={(form.pax_quota_daily as Record<string, number> | null)?.[day] ?? 0}
+                                onChange={(ev) => {
+                                  const daily = { ...(form.pax_quota_daily || {}) as Record<string, number> }
+                                  daily[day] = parseInt(ev.target.value) || 0
+                                  setForm({ ...form, pax_quota_daily: daily })
+                                }}
+                              />
+                            </td>
+                          </tr>
+                        ))
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </FormSection>
 
           <FormSection title="Planning">

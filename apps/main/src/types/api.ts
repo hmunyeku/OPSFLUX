@@ -2255,6 +2255,7 @@ export interface PlannerActivity {
   entity_id: string
   asset_id: string
   project_id: string | null
+  parent_id: string | null
   type: string
   subtype: string | null
   title: string
@@ -2262,6 +2263,8 @@ export interface PlannerActivity {
   status: 'draft' | 'submitted' | 'validated' | 'rejected' | 'cancelled' | 'in_progress' | 'completed'
   priority: 'low' | 'medium' | 'high' | 'critical'
   pax_quota: number
+  pax_quota_mode: 'constant' | 'variable'
+  pax_quota_daily: Record<string, number> | null
   start_date: string | null
   end_date: string | null
   actual_start: string | null
@@ -2299,12 +2302,15 @@ export interface PlannerActivity {
 export interface PlannerActivityCreate {
   asset_id: string
   project_id?: string | null
+  parent_id?: string | null
   type: string
   subtype?: string | null
   title: string
   description?: string | null
   priority?: string
   pax_quota?: number
+  pax_quota_mode?: 'constant' | 'variable'
+  pax_quota_daily?: Record<string, number> | null
   start_date?: string | null
   end_date?: string | null
   well_reference?: string | null

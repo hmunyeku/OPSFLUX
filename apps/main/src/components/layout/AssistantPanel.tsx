@@ -571,6 +571,7 @@ function ChatTab({ currentModule }: { currentModule: string }) {
   const [streamingText, setStreamingText] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const { toast } = useToast()
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -587,6 +588,36 @@ function ChatTab({ currentModule }: { currentModule: string }) {
     }
     setStreaming(false)
   }, [streamingText])
+
+  const sendNonStreamingFallback = useCallback(
+    async (newMessages: ChatMsg[], token: string | null, entityId: string | null, baseUrl: string) => {
+      const response = await fetch(`${baseUrl}/api/v1/ai-chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(entityId ? { 'X-Entity-ID': entityId } : {}),
+        },
+        body: JSON.stringify({
+          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+          context_module: currentModule,
+        }),
+      })
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ detail: 'Erreur serveur' }))
+        throw new Error(err.detail || `HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      const text = typeof data?.response === 'string' ? data.response.trim() : ''
+      if (!text) {
+        throw new Error('L’assistant n’a renvoyé aucun contenu.')
+      }
+      return text
+    },
+    [currentModule],
+  )
 
   const sendMessage = useCallback(async () => {
     const text = input.trim()
@@ -631,13 +662,16 @@ function ChatTab({ currentModule }: { currentModule: string }) {
 
       const decoder = new TextDecoder()
       let accumulatedText = ''
+      let buffer = ''
+      let streamFailed = false
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n')
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
 
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue
@@ -646,7 +680,10 @@ function ChatTab({ currentModule }: { currentModule: string }) {
             if (data.type === 'content') {
               accumulatedText += data.text
               setStreamingText(accumulatedText)
+            } else if (data.type === 'done') {
+              buffer = ''
             } else if (data.type === 'error') {
+              streamFailed = true
               throw new Error(data.message)
             }
           } catch (e) {
@@ -656,19 +693,27 @@ function ChatTab({ currentModule }: { currentModule: string }) {
         }
       }
 
-      if (accumulatedText) {
-        setMessages(prev => [...prev, { role: 'assistant', content: accumulatedText, timestamp: Date.now() }])
+      if (!streamFailed && accumulatedText.trim()) {
+        setMessages(prev => [...prev, { role: 'assistant', content: accumulatedText.trim(), timestamp: Date.now() }])
+      } else {
+        const fallbackText = await sendNonStreamingFallback(newMessages, token, entityId, baseUrl)
+        setMessages(prev => [...prev, { role: 'assistant', content: fallbackText, timestamp: Date.now() }])
       }
     } catch (e: any) {
       if (e.name === 'AbortError') return
       const errMsg = e.message || 'Erreur de communication avec l\'IA'
+      toast({
+        title: 'Assistant indisponible',
+        description: errMsg,
+        variant: 'error',
+      })
       setMessages(prev => [...prev, { role: 'assistant', content: `\u26A0\uFE0F ${errMsg}`, timestamp: Date.now() }])
     } finally {
       setStreamingText('')
       setStreaming(false)
       abortRef.current = null
     }
-  }, [input, messages, streaming, currentModule])
+  }, [input, messages, streaming, currentModule, sendNonStreamingFallback, toast])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

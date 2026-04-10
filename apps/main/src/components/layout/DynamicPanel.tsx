@@ -497,8 +497,11 @@ export function DetailFieldGrid({
   return (
     <div
       className={cn(
-        'grid gap-x-8 gap-y-0 grid-cols-1',
-        '@[500px]:grid-cols-2',
+        'grid gap-x-6 gap-y-0 grid-cols-1',
+        // 2 cols as soon as the container is wider than ~320px so that fields
+        // arrange side-by-side even inside nested SectionColumns wrappers (each
+        // half is ~340-380px in a typical detail panel).
+        '@[320px]:grid-cols-2',
         className,
       )}
     >

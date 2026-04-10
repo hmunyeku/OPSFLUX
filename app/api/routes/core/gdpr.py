@@ -1,7 +1,7 @@
 """RGPD/GDPR compliance endpoints.
 
 Implements:
-- Right to access (Art. 15): full user data export (JSON)
+- Right to access (Art. 15): full user data export (ZIP)
 - Right to portability (Art. 20): machine-readable export
 - Right to erasure (Art. 17): account anonymization
 - Breach notification records (Art. 33/34)
@@ -9,6 +9,10 @@ Implements:
 """
 
 import logging
+import csv
+import io
+import json
+import zipfile
 from datetime import datetime, UTC
 from pathlib import Path
 from uuid import UUID
@@ -55,7 +59,6 @@ class ExportFileRead(BaseModel):
     filename: str
     created_at: str
     size_bytes: int
-    download_path: str
 
 
 # ── Helper: collect all user data across tables ──────────────
@@ -125,6 +128,116 @@ async def _collect_user_data(db: AsyncSession, user: User) -> dict:
     return {"profile": profile, "related_data": related}
 
 
+def _csv_from_rows(rows: list[dict]) -> str:
+    if not rows:
+        return ""
+    fieldnames: list[str] = []
+    for row in rows:
+        for key in row.keys():
+            if key not in fieldnames:
+                fieldnames.append(key)
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=fieldnames)
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({key: row.get(key) for key in fieldnames})
+    return buffer.getvalue()
+
+
+def _iter_attachment_candidates(payload: object) -> list[str]:
+    candidates: list[str] = []
+
+    def _walk(value: object, key: str | None = None) -> None:
+        if isinstance(value, dict):
+            for child_key, child_value in value.items():
+                _walk(child_value, child_key)
+            return
+        if isinstance(value, list):
+            for item in value:
+                _walk(item, key)
+            return
+        if not isinstance(value, str):
+            return
+        normalized_key = (key or "").lower()
+        normalized_value = value.strip()
+        if not normalized_value:
+            return
+        if normalized_key.endswith("_path") or normalized_key.endswith("_url") or normalized_key in {"avatar_url", "file", "document"}:
+            candidates.append(normalized_value)
+
+    _walk(payload)
+    return candidates
+
+
+def _resolve_local_attachment(candidate: str) -> Path | None:
+    raw = candidate.strip()
+    if not raw:
+        return None
+
+    possible_paths: list[Path] = []
+    if raw.startswith("/static/"):
+        possible_paths.append(Path("/opt/opsflux") / raw.lstrip("/"))
+    elif raw.startswith("/uploads/"):
+        possible_paths.append(Path("/opt/opsflux/static") / raw.lstrip("/"))
+    elif raw.startswith("/"):
+        possible_paths.append(Path(raw))
+    else:
+        possible_paths.append(Path(raw))
+
+    for path in possible_paths:
+        try:
+            if path.exists() and path.is_file():
+                return path
+        except Exception:
+            continue
+    return None
+
+
+def _build_gdpr_export_zip(*, export: dict, filepath: Path) -> None:
+    profile_rows = [export["user"]]
+    related_data = export.get("related_data", {})
+    attachment_candidates = _iter_attachment_candidates(export)
+    attached_files: set[str] = set()
+    skipped_attachments: list[str] = []
+
+    with zipfile.ZipFile(filepath, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest/export.json", json.dumps(export, indent=2, default=str, ensure_ascii=False))
+
+        profile_csv = _csv_from_rows(profile_rows)
+        if profile_csv:
+            archive.writestr("tables/user_profile.csv", profile_csv)
+
+        for table_name, rows in related_data.items():
+            if not isinstance(rows, list) or not rows:
+                continue
+            csv_payload = _csv_from_rows(rows)
+            if csv_payload:
+                archive.writestr(f"tables/{table_name}.csv", csv_payload)
+
+        for candidate in attachment_candidates:
+            resolved = _resolve_local_attachment(candidate)
+            if resolved is None:
+                skipped_attachments.append(candidate)
+                continue
+            archive_name = f"attachments/{resolved.name}"
+            if archive_name in attached_files:
+                continue
+            archive.write(resolved, arcname=archive_name)
+            attached_files.add(archive_name)
+
+        archive.writestr(
+            "manifest/attachments.json",
+            json.dumps(
+                {
+                    "included": sorted(attached_files),
+                    "skipped": skipped_attachments,
+                },
+                indent=2,
+                ensure_ascii=False,
+            ),
+        )
+
+
 # ── Right to Access (Art. 15) + Right to Portability (Art. 20) ──
 
 @router.post("/request-export")
@@ -181,12 +294,12 @@ async def _async_export_user_data(user_id_str: str):
                 "format_version": "1.0",
             }
 
-            # Write to static/exports/
+            # Write ZIP export to static/exports/
             export_dir = Path("/opt/opsflux/static/exports")
             export_dir.mkdir(parents=True, exist_ok=True)
-            filename = f"gdpr-export-{user_id_str[:8]}-{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}.json"
+            filename = f"gdpr-export-{user_id_str[:8]}-{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}.zip"
             filepath = export_dir / filename
-            filepath.write_text(json.dumps(export, indent=2, default=str, ensure_ascii=False))
+            _build_gdpr_export_zip(export=export, filepath=filepath)
 
             download_link = f"/api/v1/gdpr/download-export/{filename}"
             profile_exports_url = f"{settings.FRONTEND_URL.rstrip('/')}/settings#gdpr-personal"
@@ -248,7 +361,7 @@ async def download_export(
     return FileResponse(
         path=str(filepath),
         filename=filename,
-        media_type="application/json",
+        media_type="application/zip",
     )
 
 
@@ -264,7 +377,7 @@ async def list_my_exports(
     user_prefix = str(current_user.id)[:8]
     exports: list[ExportFileRead] = []
     for path in sorted(
-        export_dir.glob(f"gdpr-export-{user_prefix}-*.json"),
+        list(export_dir.glob(f"gdpr-export-{user_prefix}-*.zip")) + list(export_dir.glob(f"gdpr-export-{user_prefix}-*.json")),
         key=lambda item: item.stat().st_mtime,
         reverse=True,
     ):
@@ -274,10 +387,38 @@ async def list_my_exports(
                 filename=path.name,
                 created_at=datetime.fromtimestamp(stat.st_mtime, UTC).isoformat(),
                 size_bytes=stat.st_size,
-                download_path=f"/api/v1/gdpr/download-export/{path.name}",
             )
         )
     return exports
+
+
+@router.delete("/my-exports/{filename}")
+async def delete_my_export(
+    filename: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete one previously generated GDPR export for the current user."""
+    user_prefix = str(current_user.id)[:8]
+    if not filename.startswith(f"gdpr-export-{user_prefix}-"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès refusé.")
+
+    filepath = Path(f"/opt/opsflux/static/exports/{filename}")
+    if not filepath.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fichier introuvable.")
+
+    filepath.unlink(missing_ok=True)
+
+    await record_audit(
+        db,
+        user_id=current_user.id,
+        action="gdpr.data_export_deleted",
+        resource_type="user",
+        resource_id=str(current_user.id),
+        details={"filename": filename},
+    )
+    await db.commit()
+    return {"status": "deleted", "filename": filename}
 
 
 # ── Right to Erasure (Art. 17) — Account Anonymization ──────

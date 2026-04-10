@@ -309,10 +309,37 @@ export function ProfileTab() {
         filename: string
         created_at: string
         size_bytes: number
-        download_path: string
       }>
     },
   })
+
+  const handleDownloadGdprExport = async (filename: string) => {
+    try {
+      const response = await api.get(`/api/v1/gdpr/download-export/${filename}`, {
+        responseType: 'blob',
+      })
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: 'application/json' }))
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(blobUrl)
+    } catch {
+      toast({ title: 'Erreur', description: "Impossible de télécharger l'export.", variant: 'error' })
+    }
+  }
+
+  const handleDeleteGdprExport = async (filename: string) => {
+    try {
+      await api.delete(`/api/v1/gdpr/my-exports/${filename}`)
+      queryClient.invalidateQueries({ queryKey: ['gdpr', 'my-exports'] })
+      toast({ title: 'Export supprimé', description: "L'export JSON a été retiré de l'historique.", variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur', description: "Impossible de supprimer l'export.", variant: 'error' })
+    }
+  }
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -848,12 +875,23 @@ export function ProfileTab() {
                         {new Date(item.created_at).toLocaleString('fr-FR')} • {(item.size_bytes / 1024).toFixed(1)} Ko
                       </div>
                     </div>
-                    <a
-                      href={item.download_path}
-                      className="gl-button-sm gl-button-default shrink-0"
-                    >
-                      <Download size={12} /> Télécharger
-                    </a>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadGdprExport(item.filename)}
+                        className="gl-button-sm gl-button-default"
+                      >
+                        <Download size={12} /> Télécharger
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteGdprExport(item.filename)}
+                        className="gl-button-sm gl-button-default text-red-600 hover:text-red-700"
+                        title="Supprimer cet export"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   </div>
                 ))
               )}

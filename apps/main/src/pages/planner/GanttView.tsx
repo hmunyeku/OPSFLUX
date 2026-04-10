@@ -39,6 +39,7 @@ import type {
   GanttBarData,
   GanttColumn,
   GanttHeatmapCell,
+  GanttDependencyData,
 } from '@/components/shared/gantt/ganttTypes'
 import type { GanttActivity, CapacityHeatmapDay, CapacityHeatmapConfig } from '@/types/api'
 import type { HierarchyFieldNode } from '@/types/assetRegistry'
@@ -99,6 +100,28 @@ function colorForSaturation(pct: number, cfg: CapacityHeatmapConfig): string {
   if (pct >= cfg.threshold_medium) return cfg.color_high
   if (pct >= cfg.threshold_low) return cfg.color_medium
   return cfg.color_low
+}
+
+/**
+ * Derive a 0-100 progression for an activity based on status + elapsed time.
+ *  - completed → 100
+ *  - cancelled / rejected → 0
+ *  - draft / submitted (not yet validated) → 0
+ *  - validated / in_progress → time-based: clamp((today - start) / (end - start) * 100, 0..100)
+ * Returns 0 when dates are missing.
+ */
+function computeActivityProgress(act: GanttActivity): number {
+  if (!act.start_date || !act.end_date) return 0
+  if (act.status === 'completed') return 100
+  if (act.status === 'cancelled' || act.status === 'rejected') return 0
+  if (act.status === 'draft' || act.status === 'submitted') return 0
+  const start = new Date(act.start_date).getTime()
+  const end = new Date(act.end_date).getTime()
+  if (end <= start) return 0
+  const now = Date.now()
+  if (now <= start) return 0
+  if (now >= end) return 100
+  return Math.round(((now - start) / (end - start)) * 100)
 }
 
 /**
@@ -249,7 +272,7 @@ export function GanttView({
   }, [hierarchyData, collapsed])
 
   // ── Build the unified tree (rows + bars) ──
-  const { rows, bars } = useMemo(() => {
+  const { rows, bars, deps } = useMemo(() => {
     const cells = buildCells(scale, new Date(startDate), new Date(endDate))
     const cfg = heatmapData?.config ?? DEFAULT_HEATMAP_CONFIG
 
@@ -586,7 +609,17 @@ export function GanttView({
       ? rowList
       : rowList.map((r) => ({ ...r, sublabel: undefined }))
 
-    return { rows: finalRows, bars: barList }
+    // Map backend dependencies to GanttCore's expected shape
+    const depList: GanttDependencyData[] = (ganttData?.dependencies ?? []).map((d) => ({
+      fromId: d.predecessor_id,
+      toId: d.successor_id,
+      type: (d.dependency_type === 'SS' || d.dependency_type === 'FF' || d.dependency_type === 'SF'
+        ? d.dependency_type
+        : 'FS') as 'FS' | 'SS' | 'FF' | 'SF',
+      lag: d.lag_days,
+    }))
+
+    return { rows: finalRows, bars: barList, deps: depList }
   }, [
     scale, startDate, endDate, ganttData, heatmapData, hierarchyData,
     expandedRows, pendingRevisionRequests, statusLabels, t, viewPrefs,
@@ -675,6 +708,7 @@ export function GanttView({
         key={`${scale}:${startDate}:${endDate}`}
         rows={rows}
         bars={bars}
+        dependencies={deps}
         initialScale={scale}
         initialStart={startDate}
         initialEnd={endDate}

@@ -128,6 +128,14 @@ export function GdprTab() {
               <span className="text-xs text-muted-foreground">mois</span>
             </div>
           </SettingRow>
+          <SettingRow label="Exports RGPD" description="Delai avant suppression automatique des exports ZIP de donnees personnelles.">
+            <div className="flex items-center gap-2">
+              <input type="number" min={1} max={90} className="gl-form-input w-20 text-sm text-right font-mono"
+                defaultValue={(s['gdpr.retention_exports_days'] as number) ?? 7}
+                onBlur={e => save('gdpr.retention_exports_days', Math.max(1, Math.min(90, Number(e.target.value) || 7)))} />
+              <span className="text-xs text-muted-foreground">jours</span>
+            </div>
+          </SettingRow>
         </div>
       </CollapsibleSection>
 

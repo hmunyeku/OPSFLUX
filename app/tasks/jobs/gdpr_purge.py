@@ -9,7 +9,7 @@ Purge targets:
 - user_sessions: gdpr.retention_sessions_months (default 6)
 - notifications: gdpr.retention_notifications_months (default 3)
 - Inactive users: gdpr.retention_inactive_accounts_months (default 24)
-- GDPR export files: auto-delete after 7 days
+- GDPR export files: auto-delete after configurable retention
 """
 
 import logging
@@ -132,11 +132,13 @@ async def gdpr_retention_purge() -> None:
 
             await db.commit()
 
-            # 6. Purge old GDPR export files (>7 days)
+            export_days = int(cfg.get("gdpr.retention_exports_days", 7))
+
+            # 6. Purge old GDPR export files (> configured retention)
             export_dir = Path("/opt/opsflux/static/exports")
             if export_dir.exists():
-                file_cutoff = datetime.now(UTC) - timedelta(days=7)
-                for f in export_dir.glob("gdpr-export-*.json"):
+                file_cutoff = datetime.now(UTC) - timedelta(days=max(1, export_days))
+                for f in list(export_dir.glob("gdpr-export-*.zip")) + list(export_dir.glob("gdpr-export-*.json")):
                     if datetime.fromtimestamp(f.stat().st_mtime, UTC) < file_cutoff:
                         f.unlink()
                         total += 1

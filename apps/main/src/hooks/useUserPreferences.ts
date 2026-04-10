@@ -43,6 +43,10 @@ export function useUserPreferences() {
   const qc = useQueryClient()
   const [prefs, setPrefs] = useState<Prefs>(loadCache)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Accumulate partials between debounce ticks so multiple synchronous setPref
+  // calls (e.g. setPref('a', ...); setPref('b', ...); setPref('c', ...)) all
+  // make it into the eventual PATCH instead of only the last one.
+  const pendingPartialRef = useRef<Prefs>({})
 
   // Background fetch from API
   const { data: remote, isLoading } = useQuery({
@@ -84,10 +88,17 @@ export function useUserPreferences() {
       saveCache(next)
       return next
     })
+    // Accumulate this change into the pending partial so any concurrent
+    // setPref calls within the debounce window are flushed together.
+    pendingPartialRef.current = { ...pendingPartialRef.current, ...partial }
     // Debounce API sync (300ms) to avoid spamming on slider drags
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      patchMut.mutate(partial)
+      const toSend = pendingPartialRef.current
+      pendingPartialRef.current = {}
+      if (Object.keys(toSend).length > 0) {
+        patchMut.mutate(toSend)
+      }
     }, 300)
   }, [patchMut])
 

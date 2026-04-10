@@ -580,15 +580,21 @@ export function GanttCore(props: GanttCoreProps) {
         text-overflow: clip !important;
         white-space: nowrap !important;
       }
-      /* Expand vertical scroll containers so every row fits in the frame */
+      /* Collapse the flex layout so children flow at their natural size.
+         The main goal is to stop the body wrapper from stretching to
+         fill its parent — otherwise the captured image has a big empty
+         strip below the last activity row. */
+      .${CAPTURE_CLASS} [data-gantt-panel-grid] {
+        flex: none !important;
+        height: auto !important;
+        min-height: 0 !important;
+      }
       .${CAPTURE_CLASS} [data-gantt-body-scroll],
       .${CAPTURE_CLASS} [data-gantt-panel-scroll] {
+        flex: none !important;
         height: auto !important;
+        min-height: 0 !important;
         max-height: none !important;
-      }
-      /* Never clip the body container itself */
-      .${CAPTURE_CLASS} [data-gantt-panel-grid] {
-        overflow: visible !important;
       }
     `
     // Stash the container's inline style slots we're about to touch, so

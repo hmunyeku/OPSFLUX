@@ -17,11 +17,13 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Drop the old constraint and recreate with SF allowed
-    op.drop_constraint(
-        "ck_planner_dep_type",
-        "planner_activity_dependencies",
-        type_="check",
+    # The original table was created without the CheckConstraint despite the
+    # model declaring one (the constraint never made it into a migration).
+    # Use IF EXISTS to handle both states: table with old constraint and
+    # table with no constraint at all.
+    op.execute(
+        "ALTER TABLE planner_activity_dependencies "
+        "DROP CONSTRAINT IF EXISTS ck_planner_dep_type"
     )
     op.create_check_constraint(
         "ck_planner_dep_type",
@@ -36,10 +38,9 @@ def downgrade() -> None:
     op.execute(
         "DELETE FROM planner_activity_dependencies WHERE dependency_type = 'SF'"
     )
-    op.drop_constraint(
-        "ck_planner_dep_type",
-        "planner_activity_dependencies",
-        type_="check",
+    op.execute(
+        "ALTER TABLE planner_activity_dependencies "
+        "DROP CONSTRAINT IF EXISTS ck_planner_dep_type"
     )
     op.create_check_constraint(
         "ck_planner_dep_type",

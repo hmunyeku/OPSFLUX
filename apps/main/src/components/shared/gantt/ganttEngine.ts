@@ -180,6 +180,67 @@ export const TYPE_COLORS: Record<string, string> = {
   inspection: '#22c55e', event: '#ec4899',
 }
 
+// ── Contrast helper ──────────────────────────────────────────────
+
+/**
+ * Parse an RGB or #HEX color and return its per-channel 0..1 values.
+ * Returns null if the color can't be parsed (e.g. named colors, rgba with
+ * non-numeric values, etc.) — callers should fall back to a neutral text
+ * color in that case.
+ */
+function parseColor(color: string): { r: number; g: number; b: number } | null {
+  const trimmed = color.trim()
+  // #rgb / #rrggbb / #rrggbbaa
+  if (trimmed.startsWith('#')) {
+    const hex = trimmed.slice(1)
+    if (hex.length === 3) {
+      return {
+        r: parseInt(hex[0] + hex[0], 16) / 255,
+        g: parseInt(hex[1] + hex[1], 16) / 255,
+        b: parseInt(hex[2] + hex[2], 16) / 255,
+      }
+    }
+    if (hex.length === 6 || hex.length === 8) {
+      return {
+        r: parseInt(hex.slice(0, 2), 16) / 255,
+        g: parseInt(hex.slice(2, 4), 16) / 255,
+        b: parseInt(hex.slice(4, 6), 16) / 255,
+      }
+    }
+    return null
+  }
+  // rgb(...) or rgba(...)
+  const m = trimmed.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/)
+  if (m) {
+    return { r: Number(m[1]) / 255, g: Number(m[2]) / 255, b: Number(m[3]) / 255 }
+  }
+  return null
+}
+
+/**
+ * WCAG relative luminance of a color.
+ * Returns a value in [0, 1] where 0 is black and 1 is white.
+ */
+export function relativeLuminance(color: string): number {
+  const rgb = parseColor(color)
+  if (!rgb) return 0.5 // unknown — assume mid gray
+  const toLinear = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4))
+  const R = toLinear(rgb.r)
+  const G = toLinear(rgb.g)
+  const B = toLinear(rgb.b)
+  return 0.2126 * R + 0.7152 * G + 0.0722 * B
+}
+
+/**
+ * Pick a readable text color (black or white) for any background color.
+ * Uses the WCAG relative luminance heuristic: switch to white when the
+ * background is dark enough. Threshold 0.55 puts the crossover a bit below
+ * mid-gray so near-gray colors still read as dark text on light bg.
+ */
+export function textColorForBackground(bg: string): string {
+  return relativeLuminance(bg) > 0.55 ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.95)'
+}
+
 // ── Default date range ───────────────────────────────────────────
 
 export function getDefaultDateRange(scale: TimeScale): { start: string; end: string } {

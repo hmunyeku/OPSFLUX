@@ -43,6 +43,7 @@ import type {
 } from '@/components/shared/gantt/ganttTypes'
 import type { GanttActivity, CapacityHeatmapDay, CapacityHeatmapConfig } from '@/types/api'
 import type { HierarchyFieldNode } from '@/types/assetRegistry'
+import { cn } from '@/lib/utils'
 import {
   PlannerCustomizationSections,
   DEFAULT_PLANNER_GANTT_VIEW,
@@ -63,17 +64,19 @@ const TYPE_LABELS_FR: Record<string, string> = {
   inspection: 'Inspection', event: 'Événement',
 }
 
-// Default heatmap thresholds + colors (overridden by backend config when present)
+// Default heatmap thresholds + colors — MUST stay in sync with the backend's
+// CapacityHeatmapConfig default (app/services/modules/planner_service.py) so
+// the legend matches the cell colors even before heatmapData.config arrives.
 const DEFAULT_HEATMAP_CONFIG: CapacityHeatmapConfig = {
   threshold_low: 40,
   threshold_medium: 70,
   threshold_high: 90,
   threshold_critical: 100,
-  color_low: '#dcfce7',       // emerald-100
-  color_medium: '#86efac',     // emerald-300
-  color_high: '#fde68a',       // amber-200
-  color_critical: '#fca5a5',   // red-300
-  color_overflow: '#dc2626',   // red-600
+  color_low: '#86efac',       // emerald-300 — <40%  (faible)
+  color_medium: '#4ade80',     // emerald-400 — 40-70%
+  color_high: '#fbbf24',       // amber-400   — 70-90%
+  color_critical: '#ef4444',   // red-500     — 90-100%
+  color_overflow: '#991b1b',   // red-900     — ≥100% (saturé, rouge foncé)
 }
 
 function fmtDate(iso: string | null | undefined): string {
@@ -663,7 +666,13 @@ export function GanttView({
             // Clamp to GanttCore-supported max
             if (actLevel > 3) actLevel = 3 as const
 
-            for (const act of activities) {
+            // Apply activity type filter (legend chip toggle)
+            const typeFilter = viewPrefs.activity_type_filter ?? []
+            const filteredActivities = typeFilter.length > 0
+              ? activities.filter((a) => typeFilter.includes(a.type))
+              : activities
+
+            for (const act of filteredActivities) {
               const actRowId = `a:${act.id}`
               const paxLabel = fmtPax(act)
               const isVariable = act.pax_quota_mode === 'variable'
@@ -1095,30 +1104,34 @@ export function GanttView({
     [viewPrefs, onViewPrefsChange],
   )
 
+  // The legend and the cells must share the SAME config — otherwise the
+  // swatches in the legend don't match what the user sees on the grid.
+  const liveHeatmapConfig = heatmapData?.config ?? DEFAULT_HEATMAP_CONFIG
+
   return (
     <div className="flex-1 min-h-[400px] flex flex-col">
       {/* ── Legends (saturation + activity types + validity) ── */}
       <div className="mb-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground px-1">
         <span className="font-semibold uppercase tracking-wide text-[10px]">Saturation</span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-3 w-5 rounded-sm" style={{ backgroundColor: DEFAULT_HEATMAP_CONFIG.color_low }} />
-          <span>&lt;{DEFAULT_HEATMAP_CONFIG.threshold_low}%</span>
+          <span className="h-3 w-5 rounded-sm" style={{ backgroundColor: liveHeatmapConfig.color_low }} />
+          <span>&lt;{liveHeatmapConfig.threshold_low}%</span>
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-3 w-5 rounded-sm" style={{ backgroundColor: DEFAULT_HEATMAP_CONFIG.color_medium }} />
-          <span>{DEFAULT_HEATMAP_CONFIG.threshold_low}–{DEFAULT_HEATMAP_CONFIG.threshold_medium}%</span>
+          <span className="h-3 w-5 rounded-sm" style={{ backgroundColor: liveHeatmapConfig.color_medium }} />
+          <span>{liveHeatmapConfig.threshold_low}–{liveHeatmapConfig.threshold_medium}%</span>
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-3 w-5 rounded-sm" style={{ backgroundColor: DEFAULT_HEATMAP_CONFIG.color_high }} />
-          <span>{DEFAULT_HEATMAP_CONFIG.threshold_medium}–{DEFAULT_HEATMAP_CONFIG.threshold_high}%</span>
+          <span className="h-3 w-5 rounded-sm" style={{ backgroundColor: liveHeatmapConfig.color_high }} />
+          <span>{liveHeatmapConfig.threshold_medium}–{liveHeatmapConfig.threshold_high}%</span>
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-3 w-5 rounded-sm" style={{ backgroundColor: DEFAULT_HEATMAP_CONFIG.color_critical }} />
-          <span>{DEFAULT_HEATMAP_CONFIG.threshold_high}–{DEFAULT_HEATMAP_CONFIG.threshold_critical}%</span>
+          <span className="h-3 w-5 rounded-sm" style={{ backgroundColor: liveHeatmapConfig.color_critical }} />
+          <span>{liveHeatmapConfig.threshold_high}–{liveHeatmapConfig.threshold_critical}%</span>
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-3 w-5 rounded-sm" style={{ backgroundColor: DEFAULT_HEATMAP_CONFIG.color_overflow }} />
-          <span>≥{DEFAULT_HEATMAP_CONFIG.threshold_critical}% (saturé)</span>
+          <span className="h-3 w-5 rounded-sm" style={{ backgroundColor: liveHeatmapConfig.color_overflow }} />
+          <span>≥{liveHeatmapConfig.threshold_critical}% (saturé)</span>
         </span>
         <span className="ml-auto inline-flex items-center gap-1">
           <span className="font-mono text-foreground">*</span>
@@ -1126,14 +1139,51 @@ export function GanttView({
         </span>
       </div>
 
-      <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground px-1">
+      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground px-1">
         <span className="font-semibold uppercase tracking-wide text-[10px]">Activités</span>
-        {Object.entries(TYPE_LABELS_FR).map(([key, label]) => (
-          <span key={key} className="inline-flex items-center gap-1.5">
-            <span className="h-3 w-5 rounded-sm" style={{ backgroundColor: TYPE_COLORS[key] }} />
-            <span>{label}</span>
-          </span>
-        ))}
+        {Object.entries(TYPE_LABELS_FR).map(([key, label]) => {
+          const typeFilter = viewPrefs.activity_type_filter ?? []
+          const hasFilter = typeFilter.length > 0
+          const isActive = !hasFilter || typeFilter.includes(key)
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => {
+                const current = viewPrefs.activity_type_filter ?? []
+                let next: string[]
+                if (current.includes(key)) {
+                  next = current.filter((t) => t !== key)
+                } else {
+                  next = [...current, key]
+                }
+                // If every type is selected, reset to empty (== show all)
+                if (next.length === Object.keys(TYPE_LABELS_FR).length) next = []
+                onViewPrefsChange?.({ ...viewPrefs, activity_type_filter: next })
+              }}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-1.5 py-0.5 transition-all cursor-pointer select-none',
+                isActive
+                  ? 'border-border hover:border-primary/40 hover:bg-primary/5'
+                  : 'border-transparent opacity-35 hover:opacity-60',
+              )}
+              title={isActive ? `Filtrer hors ${label}` : `Afficher ${label}`}
+            >
+              <span className="h-3 w-5 rounded-sm shrink-0" style={{ backgroundColor: TYPE_COLORS[key] }} />
+              <span>{label}</span>
+            </button>
+          )
+        })}
+        {(viewPrefs.activity_type_filter ?? []).length > 0 && (
+          <button
+            type="button"
+            onClick={() => onViewPrefsChange?.({ ...viewPrefs, activity_type_filter: [] })}
+            className="text-[10px] text-primary hover:underline"
+            title="Réinitialiser le filtre de type"
+          >
+            Réinitialiser
+          </button>
+        )}
         <span className="ml-auto inline-flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5">
             <span className="h-3 w-5 rounded-sm bg-primary" />

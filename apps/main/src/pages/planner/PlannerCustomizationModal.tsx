@@ -55,6 +55,11 @@ export interface PlannerGanttViewPrefs {
   //  - 'cascade' : auto-shift all affected successors to maintain constraints
   //  - 'strict'  : reject the drag outright if it violates any constraint
   drag_cascade_mode: 'warn' | 'cascade' | 'strict'
+
+  // Activity type filter — when non-empty, only activities whose type is in
+  // the list are shown. Toggled by clicking the legend chips above the Gantt.
+  // Empty array = show all types (default).
+  activity_type_filter: string[]
 }
 
 export const DEFAULT_PLANNER_GANTT_VIEW: PlannerGanttViewPrefs = {
@@ -74,6 +79,7 @@ export const DEFAULT_PLANNER_GANTT_VIEW: PlannerGanttViewPrefs = {
   heatmap_row_height: 22,
   parent_rows_aggregation: 'sum',
   drag_cascade_mode: 'warn',
+  activity_type_filter: [],
 }
 
 /**

@@ -27,7 +27,7 @@ import {
 import { cn } from '@/lib/utils'
 import {
   type TimeScale, SCALE_META, buildCells, buildHeaderGroups, computeBar,
-  toISO, daysB, addD, getDefaultDateRange,
+  toISO, daysB, addD, getDefaultDateRange, textColorForBackground,
 } from './ganttEngine'
 import { GanttHeader, HEADER_ROW_H } from './GanttHeader'
 import { GanttBarComponent } from './GanttBar'
@@ -899,6 +899,8 @@ export function GanttCore(props: GanttCoreProps) {
                   const showLabel = hc.label && w >= 28 && rh >= 18
                   // Faint cells when value === 0 (or explicit opacity override)
                   const opacity = hc.opacity ?? (hc.value === 0 ? 0.22 : 1)
+                  // Auto-contrast: pick black or white text based on background luminance
+                  const textColor = textColorForBackground(hc.color)
                   return (
                     <div
                       key={`hm-${rowIdx}-${hc.cellIdx}`}
@@ -909,7 +911,7 @@ export function GanttCore(props: GanttCoreProps) {
                         top: rowOffsets[rowIdx] + 2,
                         height: Math.max(0, rh - 4),
                         backgroundColor: hc.color,
-                        color: 'rgba(15, 23, 42, 0.65)',
+                        color: textColor,
                         borderRadius: 2,
                         opacity,
                       }}
@@ -959,7 +961,9 @@ export function GanttCore(props: GanttCoreProps) {
                 <GanttDependencies
                   dependencies={dependencies}
                   barPositions={barPositions}
-                  rowHeight={settings.rowHeight}
+                  rowOffsets={rowOffsets}
+                  rowHeights={rowHeights}
+                  barHeight={settings.barHeight}
                   totalWidth={totalWidth}
                   totalHeight={bodyH}
                 />
@@ -1028,6 +1032,42 @@ export function GanttCore(props: GanttCoreProps) {
                       >
                         {bar.externalTitle}
                       </div>
+                    )}
+                    {/* External progress % rendered on the OPPOSITE side of
+                        the external title. If no external title is set, it
+                        falls back to the right side (after the bar). */}
+                    {settings.showProgress && bar.progress != null && !bar.isMilestone && !bar.isSummary && (
+                      (() => {
+                        // Position: opposite of title. Default → 'after'.
+                        const progressPos: 'before' | 'after' =
+                          bar.externalTitlePosition === 'before' ? 'after' : 'before'
+                        // When there's no external title at all, force 'after'
+                        const effectivePos: 'before' | 'after' = bar.externalTitle
+                          ? progressPos
+                          : 'after'
+                        return (
+                          <div
+                            className="absolute z-20 text-[10px] font-bold tabular-nums text-foreground/80 pointer-events-none whitespace-nowrap leading-none flex items-center"
+                            style={{
+                              top,
+                              height: settings.barHeight,
+                              ...(effectivePos === 'before'
+                                ? {
+                                    left: Math.max(0, left - 48),
+                                    width: Math.min(left, 44),
+                                    justifyContent: 'flex-end',
+                                    paddingRight: 4,
+                                  }
+                                : {
+                                    left: left + width + 4,
+                                    paddingLeft: 0,
+                                  }),
+                            }}
+                          >
+                            {bar.progress}%
+                          </div>
+                        )
+                      })()
                     )}
                   </div>
                 )

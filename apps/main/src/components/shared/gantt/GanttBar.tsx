@@ -11,9 +11,9 @@
  * - Label on bar when space permits
  * - Hover shadow effect
  */
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { cn } from '@/lib/utils'
-import { addD, STATUS_COLORS, PRIORITY_COLORS, TYPE_COLORS } from './ganttEngine'
+import { addD, STATUS_COLORS, PRIORITY_COLORS, TYPE_COLORS, textColorForBackground } from './ganttEngine'
 import type { GanttBarData } from './ganttTypes'
 
 const MIN_LABEL_PX = 60
@@ -61,46 +61,78 @@ export function GanttBarComponent({
   onClick, onDrag, onResize, onTitleEdit, onProgressChange, onLinkStart, onHover, onLeave, onRightClick,
 }: GanttBarProps) {
   const color = resolveBarColor(bar)
-  const dragRef = useRef<{ originX: number; mode: 'move' | 'left' | 'right' } | null>(null)
+  // Pick black or white text for every on-bar label based on bar luminance.
+  // The draft opacity (0.5) doesn't matter for the base contrast choice.
+  const labelColor = textColorForBackground(color)
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(bar.title)
 
-  // ── Drag handler (move whole bar or resize edge) ──
+  // ── Live drag / resize preview ──
+  // During a drag we keep a local state { dxDays, mode } that offsets the
+  // bar visually WITHOUT calling onDrag / onResize until the user releases
+  // the mouse. This avoids the cascade of notifications that was happening
+  // when every day-delta was committed mid-drag, and gives the user a
+  // real-time visual feedback of the proposed position.
+  const [preview, setPreview] = useState<{ mode: 'move' | 'left' | 'right'; dxDays: number } | null>(null)
+
   const handleMouseDown = useCallback((e: React.MouseEvent, mode: 'move' | 'left' | 'right') => {
     if (mode === 'move' && !bar.draggable) return
     if ((mode === 'left' || mode === 'right') && !bar.resizable) return
     e.preventDefault()
     e.stopPropagation()
 
-    dragRef.current = { originX: e.clientX, mode }
+    const originX = e.clientX
+    let currentDelta = 0
 
     const onMove = (ev: MouseEvent) => {
-      if (!dragRef.current) return
-      const dx = ev.clientX - dragRef.current.originX
+      const dx = ev.clientX - originX
       const deltaDays = Math.round(dx / pxPerDay)
-      if (deltaDays === 0) return
-
-      if (dragRef.current.mode === 'move' && onDrag) {
-        onDrag(addD(bar.startDate, deltaDays), addD(bar.endDate, deltaDays))
-        dragRef.current.originX = ev.clientX
-      } else if (dragRef.current.mode === 'left' && onResize) {
-        onResize('left', addD(bar.startDate, deltaDays))
-        dragRef.current.originX = ev.clientX
-      } else if (dragRef.current.mode === 'right' && onResize) {
-        onResize('right', addD(bar.endDate, deltaDays))
-        dragRef.current.originX = ev.clientX
-      }
+      if (deltaDays === currentDelta) return
+      currentDelta = deltaDays
+      setPreview({ mode, dxDays: deltaDays })
     }
 
     const onUp = () => {
-      dragRef.current = null
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup', onUp)
+      setPreview(null)
+      // Single commit on mouseup with the accumulated delta
+      if (currentDelta !== 0) {
+        if (mode === 'move' && onDrag) {
+          onDrag(addD(bar.startDate, currentDelta), addD(bar.endDate, currentDelta))
+        } else if (mode === 'left' && onResize) {
+          onResize('left', addD(bar.startDate, currentDelta))
+        } else if (mode === 'right' && onResize) {
+          onResize('right', addD(bar.endDate, currentDelta))
+        }
+      }
     }
 
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
   }, [bar, pxPerDay, onDrag, onResize])
+
+  // Compute the visual offset applied during drag. For 'move' both edges
+  // shift by the same delta; for 'left'/'right' only the corresponding edge.
+  const previewPx = preview ? preview.dxDays * pxPerDay : 0
+  let visualLeft = left
+  let visualWidth = width
+  let previewStartISO = bar.startDate
+  let previewEndISO = bar.endDate
+  if (preview) {
+    if (preview.mode === 'move') {
+      visualLeft = left + previewPx
+      previewStartISO = addD(bar.startDate, preview.dxDays)
+      previewEndISO = addD(bar.endDate, preview.dxDays)
+    } else if (preview.mode === 'left') {
+      visualLeft = left + previewPx
+      visualWidth = Math.max(4, width - previewPx)
+      previewStartISO = addD(bar.startDate, preview.dxDays)
+    } else if (preview.mode === 'right') {
+      visualWidth = Math.max(4, width + previewPx)
+      previewEndISO = addD(bar.endDate, preview.dxDays)
+    }
+  }
 
   // ── Milestone (diamond) ──
   if (bar.isMilestone) {
@@ -215,11 +247,12 @@ export function GanttBarComponent({
           'hover:shadow-lg hover:brightness-110',
           bar.isDraft && 'opacity-50',
           bar.draggable && 'cursor-grab active:cursor-grabbing',
+          preview && 'ring-2 ring-primary/60 shadow-lg',
         )}
         style={{
-          left,
+          left: visualLeft,
           top,
-          width: Math.max(4, width),
+          width: Math.max(4, visualWidth),
           height: barHeight,
           backgroundColor: color,
           boxShadow: bar.isCritical
@@ -248,12 +281,12 @@ export function GanttBarComponent({
             {bar.cellLabels.map((cl) => {
               const cw = cellWidths[cl.cellIdx]
               if (cw == null || cw < 14) return null
-              const localX = cellLefts[cl.cellIdx] - left
+              const localX = cellLefts[cl.cellIdx] - visualLeft
               return (
                 <div
                   key={`cl-${cl.cellIdx}`}
-                  className="absolute inset-y-0 flex items-center justify-center text-[9px] font-semibold text-white tabular-nums drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)] leading-tight"
-                  style={{ left: localX, width: cw }}
+                  className="absolute inset-y-0 flex items-center justify-center text-[9px] font-semibold tabular-nums drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)] leading-tight"
+                  style={{ left: localX, width: cw, color: labelColor }}
                 >
                   {cl.label}
                 </div>
@@ -284,24 +317,23 @@ export function GanttBarComponent({
                   if (e.key === 'Escape') { setEditing(false); setEditValue(bar.title) }
                 }}
                 onClick={e => e.stopPropagation()}
-                className="w-full bg-transparent text-[10px] font-semibold text-white outline-none border-b border-white/50"
+                className="w-full bg-transparent text-[10px] font-semibold outline-none border-b border-current/50"
+                style={{ color: labelColor }}
               />
             ) : (
-              <span className="truncate text-[10px] font-semibold text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)] leading-tight">
+              <span
+                className="truncate text-[10px] font-semibold drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)] leading-tight"
+                style={{ color: labelColor }}
+              >
                 {bar.title}
               </span>
             )}
           </div>
         ) : null}
 
-        {/* Progress text */}
-        {showProgress && bar.progress != null && width >= MIN_LABEL_PX + 40 && (
-          <div className="absolute right-2 inset-y-0 flex items-center">
-            <span className="text-[9px] font-bold text-white/80 tabular-nums drop-shadow-sm">
-              {bar.progress}%
-            </span>
-          </div>
-        )}
+        {/* Progress text is now rendered OUTSIDE the bar (in GanttCore),
+            on the opposite side of the external activity title. This avoids
+            overlapping the last per-cell PAX label. */}
 
         {/* Left resize handle */}
         {bar.resizable && (
@@ -372,6 +404,25 @@ export function GanttBarComponent({
           </>
         )}
       </div>
+
+      {/* Preview date tooltip — shows the proposed new dates while dragging */}
+      {preview && (
+        <div
+          className="absolute z-50 pointer-events-none rounded-md bg-foreground text-background text-[10px] font-semibold px-2 py-1 shadow-lg whitespace-nowrap tabular-nums"
+          style={{
+            left: visualLeft + visualWidth / 2,
+            top: top - 22,
+            transform: 'translateX(-50%)',
+          }}
+        >
+          {previewStartISO} → {previewEndISO}
+          {preview.dxDays !== 0 && (
+            <span className="ml-1 opacity-70">
+              ({preview.dxDays > 0 ? '+' : ''}{preview.dxDays}j)
+            </span>
+          )}
+        </div>
+      )}
     </>
   )
 }

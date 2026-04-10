@@ -39,6 +39,7 @@ import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer
 import { GanttView } from './GanttView'
 import { buildCells, buildHeaderGroups, getDefaultDateRange } from '@/components/shared/gantt/ganttEngine'
 import type { TimeScale } from '@/components/shared/gantt/ganttEngine'
+import type { GanttSettings } from '@/components/shared/gantt/ganttTypes'
 import { useUserPreferences } from '@/hooks/useUserPreferences'
 import {
   DEFAULT_PLANNER_GANTT_VIEW,
@@ -2485,6 +2486,17 @@ export function PlannerPage() {
     setPref('planner.gantt_view', validatePlannerGanttPrefs(prefs))
   }, [setPref])
 
+  // ── GanttCore internal settings (columns visibility/widths, filters, bar
+  // height, show progress / baselines / weekends, ...). Persisted on a
+  // separate key so the user keeps their column layout between sessions.
+  const ganttCoreSettings = getPref<Partial<GanttSettings>>('planner.gantt_core', {})
+  const handleGanttCoreSettingsChange = useCallback(
+    (settings: GanttSettings) => {
+      setPref('planner.gantt_core', settings)
+    },
+    [setPref],
+  )
+
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
@@ -2560,6 +2572,8 @@ export function PlannerPage() {
                 onViewChange={handleGanttViewChange}
                 viewPrefs={ganttViewPrefs}
                 onViewPrefsChange={handleGanttViewPrefsChange}
+                ganttSettings={ganttCoreSettings}
+                onGanttSettingsChange={handleGanttCoreSettingsChange}
               />
             </div>
           )}

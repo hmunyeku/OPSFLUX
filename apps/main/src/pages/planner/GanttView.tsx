@@ -18,6 +18,7 @@
  */
 import { useMemo, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQueryClient } from '@tanstack/react-query'
 import { useUIStore } from '@/stores/uiStore'
 import {
   useGanttData,
@@ -314,6 +315,10 @@ interface GanttViewProps {
   viewPrefs?: PlannerGanttViewPrefs
   /** Update preferences (passed up to parent which persists via useUserPreferences) */
   onViewPrefsChange?: (prefs: PlannerGanttViewPrefs) => void
+  /** Persisted GanttCore settings (column widths, visible columns, filters, ...) */
+  ganttSettings?: Partial<import('@/components/shared/gantt/ganttTypes').GanttSettings>
+  /** Called when GanttCore mutates its internal settings — parent persists them */
+  onGanttSettingsChange?: (settings: import('@/components/shared/gantt/ganttTypes').GanttSettings) => void
 }
 
 export function GanttView({
@@ -325,6 +330,8 @@ export function GanttView({
   onViewChange,
   viewPrefs = DEFAULT_PLANNER_GANTT_VIEW,
   onViewPrefsChange,
+  ganttSettings,
+  onGanttSettingsChange,
 }: GanttViewProps = {}) {
   const { t } = useTranslation()
   const { toast } = useToast()
@@ -1095,6 +1102,28 @@ export function GanttView({
     openDynamicPanel({ type: 'detail', module: 'planner', id: barId })
   }, [openDynamicPanel])
 
+  // ── Delete a dependency arrow (selected via click + Delete key) ──
+  const qc = useQueryClient()
+  const handleDeleteDependency = useCallback(
+    async (fromId: string, toId: string, type: 'FS' | 'SS' | 'FF' | 'SF') => {
+      const dep = (ganttData?.dependencies ?? []).find(
+        (d) => d.predecessor_id === fromId && d.successor_id === toId && d.dependency_type === type,
+      )
+      if (!dep) return
+      try {
+        // The backend endpoint wants the 'activity' context — any of the two
+        // activities involved is valid (predecessor OR successor). Pass the
+        // predecessor for consistency with the UI model.
+        await plannerService.removeDependency(fromId, dep.id)
+        toast({ title: 'Dépendance supprimée', variant: 'success' })
+        qc.invalidateQueries({ queryKey: ['planner', 'gantt'] })
+      } catch {
+        toast({ title: 'Erreur lors de la suppression', variant: 'error' })
+      }
+    },
+    [ganttData, toast, qc],
+  )
+
   // ── Customization sections injected into the GanttCore settings panel ──
   const customizationSections = useMemo(
     () => (
@@ -1207,8 +1236,10 @@ export function GanttView({
         initialStart={startDate}
         initialEnd={endDate}
         columns={plannerColumns}
-        initialSettings={{ barHeight: 18, rowHeight: 30, showProgress: true }}
+        initialSettings={{ barHeight: 18, rowHeight: 30, showProgress: true, ...ganttSettings }}
+        onSettingsChange={onGanttSettingsChange}
         onBarDoubleClick={handleBarDoubleClick}
+        onDeleteDependency={handleDeleteDependency}
         onBarDrag={handleBarDrag}
         onBarResize={handleBarResize}
         onViewChange={handleViewChange}

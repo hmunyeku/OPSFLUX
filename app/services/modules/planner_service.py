@@ -556,6 +556,7 @@ async def get_gantt_data(
         )
         for dep in deps_result.scalars().all():
             dependencies_payload.append({
+                "id": str(dep.id),
                 "predecessor_id": str(dep.predecessor_id),
                 "successor_id": str(dep.successor_id),
                 "dependency_type": dep.dependency_type,

@@ -113,7 +113,7 @@ export function GanttCore(props: GanttCoreProps) {
     statusOptions, priorityOptions,
     presets: _presets, onPresetsChange: _onPresetsChange,
     showActions, onAddTask, onAddMilestone, onIndent, onOutdent, onDeleteRow,
-    onCreateDependency, onUndo, onRedo, onViewChange,
+    onCreateDependency, onDeleteDependency, onUndo, onRedo, onViewChange,
     selectedRowId, onSelectRow,
     expandedRows, onToggleRow,
     onSettingsChange,
@@ -422,7 +422,14 @@ export function GanttCore(props: GanttCoreProps) {
     setViewStart(minDate)
     setViewEnd(maxDate)
     updateSettings({ zoomFactor: Math.max(0.1, Math.min(6, newZoom)) })
-  }, [bars, meta.pxPerDay, updateSettings])
+    // Crucial: propagate the new range to the parent. Otherwise the parent
+    // keeps computing `cells` + `cellLabels.cellIdx` against the STALE
+    // startDate/endDate props, while GanttCore renders cells against the
+    // new internal viewStart/viewEnd → the labels (and visually the bars)
+    // land on the wrong cell indices. Notifying the parent triggers a
+    // re-render with fresh cells so everything stays aligned.
+    onViewChange?.(settings.scale, minDate, maxDate)
+  }, [bars, meta.pxPerDay, updateSettings, onViewChange, settings.scale])
 
   // ── Export PNG ──────────────────────────────────────────────────
 
@@ -974,6 +981,7 @@ export function GanttCore(props: GanttCoreProps) {
                   barHeight={settings.barHeight}
                   totalWidth={totalWidth}
                   totalHeight={bodyH}
+                  onDelete={onDeleteDependency}
                 />
               )}
 

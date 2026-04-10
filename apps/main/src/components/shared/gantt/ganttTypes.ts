@@ -320,6 +320,8 @@ export interface GanttCoreProps {
   onDeleteRow?: (rowId: string) => void
   /** Called when user drags a link between two bars */
   onCreateDependency?: (fromBarId: string, toBarId: string, type: 'FS' | 'SS' | 'FF' | 'SF') => void
+  /** Called when user selects a dependency arrow and hits Delete */
+  onDeleteDependency?: (fromBarId: string, toBarId: string, type: 'FS' | 'SS' | 'FF' | 'SF') => void
   /** Called when user presses Ctrl+Z */
   onUndo?: () => void
   /** Called when user presses Ctrl+Y */

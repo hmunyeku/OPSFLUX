@@ -445,6 +445,7 @@ class GanttAsset(BaseModel):
 
 class GanttDependency(BaseModel):
     """A predecessor → successor link between two visible activities."""
+    id: UUID
     predecessor_id: UUID
     successor_id: UUID
     dependency_type: str

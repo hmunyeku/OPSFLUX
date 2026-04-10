@@ -2527,9 +2527,10 @@ export interface GanttAsset {
 }
 
 export interface GanttDependencyLink {
+  id: string
   predecessor_id: string
   successor_id: string
-  dependency_type: 'FS' | 'SS' | 'FF' | string
+  dependency_type: 'FS' | 'SS' | 'FF' | 'SF' | string
   lag_days: number
 }
 

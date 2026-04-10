@@ -1129,24 +1129,29 @@ export function GanttCore(props: GanttCoreProps) {
                       </div>
                     )}
                     {/* External progress % rendered on the OPPOSITE side of
-                        the external title. If no external title is set, it
-                        falls back to the right side (after the bar). */}
-                    {settings.showProgress && bar.progress != null && !bar.isMilestone && !bar.isSummary && (
+                        the external title. Rendered ONLY when the bar has an
+                        external title to sit opposite to — otherwise the
+                        progress text would land in an adjacent time-column
+                        and visually read as a phantom extra cell at the end
+                        of the bar. Progress is still conveyed inside the bar
+                        via the dark fill overlay and via the tooltip. */}
+                    {settings.showProgress
+                      && bar.progress != null
+                      && !bar.isMilestone
+                      && !bar.isSummary
+                      && bar.externalTitle
+                      && bar.externalTitlePosition && (
                       (() => {
-                        // Position: opposite of title. Default → 'after'.
+                        // Position: opposite of title
                         const progressPos: 'before' | 'after' =
                           bar.externalTitlePosition === 'before' ? 'after' : 'before'
-                        // When there's no external title at all, force 'after'
-                        const effectivePos: 'before' | 'after' = bar.externalTitle
-                          ? progressPos
-                          : 'after'
                         return (
                           <div
                             className="absolute z-20 text-[10px] font-bold tabular-nums text-foreground/80 pointer-events-none whitespace-nowrap leading-none flex items-center"
                             style={{
                               top,
                               height: settings.barHeight,
-                              ...(effectivePos === 'before'
+                              ...(progressPos === 'before'
                                 ? {
                                     left: Math.max(0, left - 48),
                                     width: Math.min(left, 44),

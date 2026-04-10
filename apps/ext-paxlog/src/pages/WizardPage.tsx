@@ -89,7 +89,17 @@ export default function WizardPage() {
 
     ;(async () => {
       try {
-        const info = await apiRequest(sessionToken, `/api/v1/pax/external/${token}`)
+        let info: any
+        try {
+          info = await apiRequest(sessionToken, `/api/v1/pax/external/${token}`)
+        } catch (error) {
+          if (sessionToken && isSessionRequiredError(error)) {
+            clearSession()
+            info = await apiRequest(null, `/api/v1/pax/external/${token}`)
+          } else {
+            throw error
+          }
+        }
         setLinkInfo(info)
 
         let currentSession = sessionToken

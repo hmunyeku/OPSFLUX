@@ -103,5 +103,6 @@ export function parseApiErrorDetail(error: unknown): any {
 }
 
 export function isSessionRequiredError(error: unknown): boolean {
-  return String((error as Error)?.message || '').includes('Session externe requise')
+  const message = String((error as Error)?.message || '')
+  return message.includes('Session externe requise') || message.includes('401')
 }

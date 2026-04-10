@@ -11,7 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_entity, get_current_user, require_any_permission
+from app.api.deps import get_current_entity, get_current_user, require_any_permission, require_module_enabled
 from app.core.database import get_db
 from app.models.common import User
 from app.schemas.common import PaginatedResponse
@@ -64,7 +64,7 @@ from app.api.routes.modules.packlog_shared import (
     update_package_element_return_impl,
 )
 
-router = APIRouter(prefix="/api/v1/packlog", tags=["packlog"])
+router = APIRouter(prefix="/api/v1/packlog", tags=["packlog"], dependencies=[require_module_enabled("packlog")])
 
 PACKLOG_READ = require_any_permission("packlog.cargo.read", "travelwiz.cargo.read")
 PACKLOG_CREATE = require_any_permission("packlog.cargo.create", "travelwiz.cargo.create")

@@ -4,19 +4,23 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usersService } from '@/services/usersService'
 import type { UserCreate, UserUpdate } from '@/types/api'
+import { useAuthStore } from '@/stores/authStore'
 
 export function useUsers(params: { page?: number; page_size?: number; search?: string; active?: boolean; user_type?: string; mfa_enabled?: boolean } = {}) {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['users', params],
+    queryKey: ['users', currentEntityId, params],
     queryFn: () => usersService.list(params),
+    enabled: Boolean(currentEntityId),
   })
 }
 
 export function useUser(id: string) {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['users', id],
+    queryKey: ['users', currentEntityId, id],
     queryFn: () => usersService.get(id),
-    enabled: !!id,
+    enabled: Boolean(currentEntityId) && !!id,
   })
 }
 
@@ -64,10 +68,11 @@ export function useRevokeAllSessions() {
 }
 
 export function useUserEntities(userId: string) {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['users', userId, 'entities'],
+    queryKey: ['users', currentEntityId, userId, 'entities'],
     queryFn: () => usersService.getUserEntities(userId),
-    enabled: !!userId,
+    enabled: Boolean(currentEntityId) && !!userId,
   })
 }
 
@@ -100,26 +105,31 @@ export function useSendPasswordReset() {
 }
 
 export function useUsersStats() {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['users', 'stats'],
+    queryKey: ['users', currentEntityId, 'stats'],
     queryFn: () => usersService.getStats(),
+    enabled: Boolean(currentEntityId),
   })
 }
 
 export function useRecentActivity(limit = 5) {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['users', 'recent-activity', limit],
+    queryKey: ['users', currentEntityId, 'recent-activity', limit],
     queryFn: () => usersService.getRecentActivity(limit),
+    enabled: Boolean(currentEntityId),
   })
 }
 
 // ── Tier Links (external company linking) ──
 
 export function useUserTierLinks(userId: string) {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['users', userId, 'tier-links'],
+    queryKey: ['users', currentEntityId, userId, 'tier-links'],
     queryFn: () => usersService.getUserTierLinks(userId),
-    enabled: !!userId,
+    enabled: Boolean(currentEntityId) && !!userId,
   })
 }
 
@@ -148,10 +158,11 @@ export function useUnlinkUserFromTier() {
 // ── Profile Completeness ──
 
 export function useProfileCompleteness(userId: string) {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['users', userId, 'profile-completeness'],
+    queryKey: ['users', currentEntityId, userId, 'profile-completeness'],
     queryFn: () => usersService.getProfileCompleteness(userId),
-    enabled: !!userId,
+    enabled: Boolean(currentEntityId) && !!userId,
   })
 }
 

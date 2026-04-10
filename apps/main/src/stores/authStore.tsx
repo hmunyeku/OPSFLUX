@@ -55,11 +55,51 @@ interface User {
   preferred_messaging_channel: string
 }
 
+interface AccessibleEntity {
+  id: string
+}
+
 /** Custom error thrown when MFA is required after password step. */
 export class MFARequiredError extends Error {
   constructor() {
     super('MFA_REQUIRED')
     this.name = 'MFARequiredError'
+  }
+}
+
+function resolveCurrentEntityId(user: User): string | null {
+  const storedEntityId = localStorage.getItem('entity_id')
+  if (storedEntityId) {
+    return storedEntityId
+  }
+  if (user.default_entity_id) {
+    localStorage.setItem('entity_id', user.default_entity_id)
+    return user.default_entity_id
+  }
+  return null
+}
+
+async function resolveAccessibleCurrentEntityId(user: User): Promise<string | null> {
+  try {
+    const { data } = await api.get<AccessibleEntity[]>('/api/v1/auth/me/entities')
+    const accessibleIds = new Set((Array.isArray(data) ? data : []).map((entity) => entity.id))
+    const storedEntityId = localStorage.getItem('entity_id')
+    if (storedEntityId && accessibleIds.has(storedEntityId)) {
+      return storedEntityId
+    }
+    if (user.default_entity_id && accessibleIds.has(user.default_entity_id)) {
+      localStorage.setItem('entity_id', user.default_entity_id)
+      return user.default_entity_id
+    }
+    const fallbackEntityId = (Array.isArray(data) ? data[0]?.id : null) || null
+    if (fallbackEntityId) {
+      localStorage.setItem('entity_id', fallbackEntityId)
+      return fallbackEntityId
+    }
+    localStorage.removeItem('entity_id')
+    return null
+  } catch {
+    return resolveCurrentEntityId(user)
   }
 }
 
@@ -110,10 +150,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const userRes = await api.get('/api/v1/auth/me')
     const user = userRes.data
-    if (user.default_entity_id) {
-      localStorage.setItem('entity_id', user.default_entity_id)
-    }
-    set({ user, currentEntityId: localStorage.getItem('entity_id') })
+    set({ user, currentEntityId: await resolveAccessibleCurrentEntityId(user) })
   },
 
   verifyMfa: async (code: string) => {
@@ -131,10 +168,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const userRes = await api.get('/api/v1/auth/me')
     const user = userRes.data
-    if (user.default_entity_id) {
-      localStorage.setItem('entity_id', user.default_entity_id)
-    }
-    set({ user, currentEntityId: localStorage.getItem('entity_id') })
+    set({ user, currentEntityId: await resolveAccessibleCurrentEntityId(user) })
   },
 
   clearMfa: () => set({ mfaToken: null, mfaPending: false }),
@@ -167,11 +201,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: true })
       const res = await api.get('/api/v1/auth/me')
       const user = res.data
-      // Ensure entity_id is always set from user profile
-      if (user.default_entity_id && localStorage.getItem('entity_id') !== user.default_entity_id) {
-        localStorage.setItem('entity_id', user.default_entity_id)
-      }
-      set({ user, isAuthenticated: true, currentEntityId: localStorage.getItem('entity_id') })
+      set({ user, isAuthenticated: true, currentEntityId: await resolveAccessibleCurrentEntityId(user) })
     } catch (err: unknown) {
       // Only logout on explicit 401 (unauthorized) — NOT on network errors or 500s
       const status = (err as { response?: { status?: number } })?.response?.status

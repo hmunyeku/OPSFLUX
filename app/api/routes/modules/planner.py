@@ -17,7 +17,7 @@ from sqlalchemy import select, func as sqla_func, and_, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
-from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_permission
+from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_module_enabled, require_permission
 from app.core.audit import record_audit
 from app.core.acting_context import get_effective_actor_user_id
 from app.core.database import get_db
@@ -60,7 +60,7 @@ from app.schemas.planner import (
 from app.schemas.common import PaginatedResponse
 from app.services.core.fsm_service import fsm_service, FSMError, FSMPermissionError
 
-router = APIRouter(prefix="/api/v1/planner", tags=["planner"])
+router = APIRouter(prefix="/api/v1/planner", tags=["planner"], dependencies=[require_module_enabled("planner")])
 logger = logging.getLogger(__name__)
 
 PLANNER_WORKFLOW_SLUG = "planner-activity"

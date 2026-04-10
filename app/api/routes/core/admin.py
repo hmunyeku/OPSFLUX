@@ -32,6 +32,22 @@ router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 _START_TIME = time.time()
 
 
+def _user_access_predicate(entity_id: UUID):
+    from app.models.common import UserGroup, UserGroupMember
+
+    membership_exists = (
+        select(UserGroupMember.user_id)
+        .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+        .where(
+            UserGroupMember.user_id == User.id,
+            UserGroup.entity_id == entity_id,
+            UserGroup.active == True,  # noqa: E712
+        )
+        .exists()
+    )
+    return (User.default_entity_id == entity_id) | membership_exists
+
+
 @router.get(
     "/health",
     dependencies=[require_permission("admin.system")],
@@ -575,11 +591,12 @@ async def admin_list_users(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """List users with admin-level detail (lock status, failed attempts, etc.)."""
     now = datetime.now(UTC)
-    query = select(User)
+    query = select(User).where(_user_access_predicate(entity_id))
 
     # Filters
     if status_filter == "locked":
@@ -651,7 +668,7 @@ async def admin_unlock_user(
     db: AsyncSession = Depends(get_db),
 ):
     """Unlock a locked user account (reset failed_login_count and locked_until)."""
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.id == user_id, _user_access_predicate(entity_id)))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(404, "User not found")
@@ -693,7 +710,7 @@ async def admin_force_password_reset(
     db: AsyncSession = Depends(get_db),
 ):
     """Send a password reset email to the user (admin-triggered)."""
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.id == user_id, _user_access_predicate(entity_id)))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(404, "User not found")
@@ -753,7 +770,7 @@ async def admin_deactivate_user(
     if user_id == current_user.id:
         raise HTTPException(400, "Vous ne pouvez pas désactiver votre propre compte.")
 
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.id == user_id, _user_access_predicate(entity_id)))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(404, "User not found")
@@ -792,7 +809,7 @@ async def admin_reactivate_user(
     db: AsyncSession = Depends(get_db),
 ):
     """Reactivate a previously deactivated user account."""
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.id == user_id, _user_access_predicate(entity_id)))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(404, "User not found")

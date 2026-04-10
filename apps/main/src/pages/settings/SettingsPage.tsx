@@ -20,7 +20,7 @@ import {
   ChevronRight, ChevronDown,
   Globe, Plug, FileText, FileOutput, Trash2,
   Activity, Hash, BookOpen, ShieldCheck, Database,
-  Users, CalendarClock, Ship,
+  Users, CalendarClock, Ship, Boxes,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
@@ -38,6 +38,7 @@ import {
 } from '@/lib/settingsRegistry'
 import { CollapsibleProvider } from '@/components/shared/CollapsibleSection'
 import { useSettingsBadges } from '@/hooks/useSettingsBadges'
+import { useModules } from '@/hooks/useModules'
 
 // ── Deep-link mapping: sub-section ID → parent tab ID ────────
 // When a URL hash matches a sub-section inside a tab, this maps it to the tab.
@@ -152,6 +153,7 @@ import { TravelWizConfigTab } from './tabs/TravelWizConfigTab'
 import { GdprTab } from './tabs/GdprTab'
 import { AdminerTab } from './tabs/AdminerTab'
 import { SystemTab } from './tabs/SystemTab'
+import { ModulesTab } from './tabs/ModulesTab'
 // EntitiesTab moved to dedicated /entities sidebar page
 
 // ── Import dynamic panel forms ──────────────────────────────
@@ -195,6 +197,7 @@ registerSettingsSection({ id: 'gdpr', label: 'RGPD / Protection des donnees', ic
 registerSettingsSection({ id: 'security-policy', label: 'Sécurité & Authentification', icon: ShieldCheck, component: SecurityPolicyTab, category: 'general', order: 45, requiredPermission: 'admin.system' })
 registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppression', icon: Trash2, component: DeletePoliciesTab, category: 'general', order: 50, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'system', label: 'Système', icon: Activity, component: SystemTab, category: 'general', order: 60, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'modules', label: 'Modules', icon: Boxes, component: ModulesTab, category: 'general', order: 65, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'adminer', label: 'Base de données', icon: Database, component: AdminerTab, category: 'general', order: 80, requiredPermission: 'admin.system' })
 
 registerPanelRenderer('settings-pdf-template', (view) => (
@@ -208,6 +211,8 @@ registerPanelRenderer('settings-pdf-template', (view) => (
 export function SettingsPage() {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
+  const { data: modules = [] } = useModules()
+  const enabledModules = new Set(modules.filter((m) => m.enabled).map((m) => m.slug))
   const allUserSections = useSettingsSections('user')
   const allGeneralSections = useSettingsSections('general')
   const userGroups = useSettingsGroups('user')
@@ -216,9 +221,18 @@ export function SettingsPage() {
   // Filter sections by requiredPermission — user sections are always visible,
   // general (admin) sections require the declared permission
   const userSections = allUserSections
-  const generalSections = allGeneralSections.filter(
-    (s) => !s.requiredPermission || hasPermission(s.requiredPermission),
-  )
+  const settingsSectionModuleMap: Record<string, string> = {
+    'paxlog-config': 'paxlog',
+    'planner-config': 'planner',
+    'travelwiz-config': 'travelwiz',
+    'modules': 'dashboard',
+  }
+  const generalSections = allGeneralSections.filter((s) => {
+    if (s.requiredPermission && !hasPermission(s.requiredPermission)) return false
+    const targetModule = settingsSectionModuleMap[s.id]
+    if (targetModule && modules.length > 0 && !enabledModules.has(targetModule)) return false
+    return true
+  })
   const [activeTab, setActiveTab] = useState<string>('profile')
   const [focusedSection, setFocusedSection] = useState<string | null>(null)
   const [subtitleOverride, setSubtitleOverride] = useState<string | null>(null)

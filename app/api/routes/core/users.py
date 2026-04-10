@@ -49,6 +49,77 @@ from app.schemas.common import (
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
 
+async def _ensure_user_membership_in_entity(
+    *,
+    user_id: UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> None:
+    """Ensure a user belongs to an entity through its default group."""
+    entity_result = await db.execute(select(Entity).where(Entity.id == entity_id))
+    if not entity_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Entity not found")
+
+    existing = await db.execute(
+        select(UserGroupMember)
+        .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+        .where(
+            UserGroupMember.user_id == user_id,
+            UserGroup.entity_id == entity_id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        return
+
+    default_group_result = await db.execute(
+        select(UserGroup).where(
+            UserGroup.entity_id == entity_id,
+            UserGroup.name == "Default",
+            UserGroup.active == True,  # noqa: E712
+        )
+    )
+    default_group = default_group_result.scalar_one_or_none()
+
+    if not default_group:
+        default_group = UserGroup(
+            entity_id=entity_id,
+            name="Default",
+            active=True,
+        )
+        db.add(default_group)
+        await db.flush()
+        db.add(UserGroupRole(group_id=default_group.id, role_code="viewer"))
+
+    db.add(UserGroupMember(user_id=user_id, group_id=default_group.id))
+
+
+def _user_access_predicate(entity_id: UUID):
+    membership_exists = (
+        select(UserGroupMember.user_id)
+        .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+        .where(
+            UserGroupMember.user_id == User.id,
+            UserGroup.entity_id == entity_id,
+            UserGroup.active == True,  # noqa: E712
+        )
+        .exists()
+    )
+    return (User.default_entity_id == entity_id) | membership_exists
+
+
+async def _assert_user_access_in_entity(
+    *,
+    user_id: UUID,
+    entity_id: UUID,
+    db: AsyncSession,
+) -> None:
+    result = await db.execute(
+        select(User.id).where(User.id == user_id, _user_access_predicate(entity_id))
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+
 async def _get_current_effective_permissions(
     current_user: User,
     entity_id: UUID,
@@ -151,11 +222,16 @@ async def list_users(
     user_type: str | None = None,
     mfa_enabled: bool | None = None,
     pagination: PaginationParams = Depends(),
+    entity_id: UUID = Depends(get_current_entity),
     _: None = require_permission("user.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List users with pagination and optional search/filters."""
-    query = select(User).options(selectinload(User.job_position))
+    query = (
+        select(User)
+        .options(selectinload(User.job_position))
+        .where(_user_access_predicate(entity_id))
+    )
     if active is not None:
         query = query.where(User.active == active)
     if user_type is not None:
@@ -185,6 +261,12 @@ async def create_user(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Email already registered")
 
+    target_entity_id = body.default_entity_id or entity_id
+    if target_entity_id:
+        entity_result = await db.execute(select(Entity).where(Entity.id == target_entity_id))
+        if not entity_result.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="Entity not found")
+
     user = User(
         email=body.email,
         first_name=body.first_name,
@@ -196,32 +278,18 @@ async def create_user(
     db.add(user)
     await db.flush()  # flush to get user.id without committing
 
-    # Auto-assign user to entity's default group (if entity has one)
-    target_entity_id = body.default_entity_id or entity_id
+    # Auto-assign user to the selected entity through its default group.
     if target_entity_id:
-        from app.models.common import UserGroup, UserGroupMember
-        # Find entity's default group (first group linked to this entity)
-        default_group = await db.execute(
-            select(UserGroup).where(
-                UserGroup.entity_id == target_entity_id,
-                UserGroup.active == True,
-            ).limit(1)
+        await _ensure_user_membership_in_entity(
+            user_id=user.id,
+            entity_id=target_entity_id,
+            db=db,
         )
-        group = default_group.scalar_one_or_none()
-        if group:
-            # Check if already member
-            existing_member = await db.execute(
-                select(UserGroupMember).where(
-                    UserGroupMember.user_id == user.id,
-                    UserGroupMember.group_id == group.id,
-                )
-            )
-            if not existing_member.scalar_one_or_none():
-                db.add(UserGroupMember(user_id=user.id, group_id=group.id))
 
     # Single commit for user creation + group assignment
     await db.commit()
     await db.refresh(user)
+    await invalidate_rbac_cache(user.id)
 
     # Send invitation email (non-blocking — don't fail creation if email fails)
     try:
@@ -505,12 +573,15 @@ async def get_recent_activity(
 @router.get("/{user_id}", response_model=UserRead)
 async def get_user(
     user_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
     _: None = require_permission("user.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get user by ID."""
     result = await db.execute(
-        select(User).options(selectinload(User.job_position)).where(User.id == user_id)
+        select(User)
+        .options(selectinload(User.job_position))
+        .where(User.id == user_id, _user_access_predicate(entity_id))
     )
     user = result.scalar_one_or_none()
     if not user:
@@ -632,13 +703,11 @@ class UserEntityAssign(BaseModel):
 )
 async def get_user_entities(
     user_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Get all entities a user belongs to, with their groups and roles per entity."""
-    # Verify user exists
-    user_result = await db.execute(select(User).where(User.id == user_id))
-    if not user_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="User not found")
+    await _assert_user_access_in_entity(user_id=user_id, entity_id=entity_id, db=db)
 
     # Get all groups+entities for this user
     stmt = (
@@ -654,6 +723,7 @@ async def get_user_entities(
         .join(Entity, Entity.id == UserGroup.entity_id)
         .where(
             UserGroupMember.user_id == user_id,
+            Entity.id == entity_id,
             UserGroup.active == True,  # noqa: E712
         )
         .order_by(Entity.name, UserGroup.name)
@@ -714,12 +784,6 @@ async def assign_user_to_entity(
     if not user_result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Verify entity exists
-    entity_result = await db.execute(select(Entity).where(Entity.id == body.entity_id))
-    if not entity_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Entity not found")
-
-    # Check if user already belongs to any group in this entity
     existing = await db.execute(
         select(UserGroupMember)
         .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
@@ -731,29 +795,11 @@ async def assign_user_to_entity(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="User already belongs to this entity")
 
-    # Find or create a default group for this entity
-    default_group_result = await db.execute(
-        select(UserGroup).where(
-            UserGroup.entity_id == body.entity_id,
-            UserGroup.name == "Default",
-            UserGroup.active == True,  # noqa: E712
-        )
+    await _ensure_user_membership_in_entity(
+        user_id=user_id,
+        entity_id=body.entity_id,
+        db=db,
     )
-    default_group = default_group_result.scalar_one_or_none()
-
-    if not default_group:
-        default_group = UserGroup(
-            entity_id=body.entity_id,
-            name="Default",
-            active=True,
-        )
-        db.add(default_group)
-        await db.flush()
-        db.add(UserGroupRole(group_id=default_group.id, role_code="viewer"))
-
-    # Add user to the default group
-    membership = UserGroupMember(user_id=user_id, group_id=default_group.id)
-    db.add(membership)
     await db.commit()
 
     await invalidate_rbac_cache(user_id)
@@ -815,12 +861,11 @@ class UserPermOverrideSet(BaseModel):
 )
 async def get_user_permission_overrides(
     user_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Get all permission overrides for a user."""
-    user_result = await db.execute(select(User).where(User.id == user_id))
-    if not user_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="User not found")
+    await _assert_user_access_in_entity(user_id=user_id, entity_id=entity_id, db=db)
 
     result = await db.execute(
         select(UserPermissionOverride)
@@ -841,12 +886,11 @@ async def get_user_permission_overrides(
 async def set_user_permission_overrides(
     user_id: UUID,
     body: UserPermOverrideSet,
+    entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Replace all permission overrides for a user."""
-    user_result = await db.execute(select(User).where(User.id == user_id))
-    if not user_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="User not found")
+    await _assert_user_access_in_entity(user_id=user_id, entity_id=entity_id, db=db)
 
     # Validate permission codes
     if body.overrides:
@@ -894,9 +938,7 @@ async def get_user_effective_permissions(
     """Get a user's effective permissions with source tracking for badge display."""
     from app.core.rbac import get_user_permissions_with_sources
 
-    user_result = await db.execute(select(User).where(User.id == user_id))
-    if not user_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="User not found")
+    await _assert_user_access_in_entity(user_id=user_id, entity_id=entity_id, db=db)
 
     perms = await get_user_permissions_with_sources(user_id, entity_id, db)
     return [
@@ -958,7 +1000,11 @@ async def list_simulation_candidates(
 
     query = (
         select(User)
-        .where(User.id != current_user.id, User.active == True)  # noqa: E712
+        .where(
+            User.id != current_user.id,
+            User.active == True,  # noqa: E712
+            _user_access_predicate(entity_id),
+        )
         .order_by(User.first_name, User.last_name)
         .limit(50)
     )
@@ -1130,11 +1176,13 @@ async def delete_my_delegation(
 @router.get("/{user_id}/ip-location")
 async def get_user_ip_location(
     user_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Get geolocation for a user's last login IP."""
     from app.core.ip_geolocation import get_ip_location
+    await _assert_user_access_in_entity(user_id=user_id, entity_id=entity_id, db=db)
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
@@ -1148,10 +1196,12 @@ async def get_user_ip_location(
 @router.get("/{user_id}/profile-completeness")
 async def get_profile_completeness(
     user_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Compute profile completeness percentage and list missing fields."""
+    await _assert_user_access_in_entity(user_id=user_id, entity_id=entity_id, db=db)
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
@@ -1213,14 +1263,16 @@ class UserTierLinkCreate(BaseModel):
 @router.get("/{user_id}/tier-links", response_model=list[UserTierLinkRead])
 async def get_user_tier_links(
     user_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Get all tiers (companies) linked to a user."""
+    await _assert_user_access_in_entity(user_id=user_id, entity_id=entity_id, db=db)
     stmt = (
         select(UserTierLink, Tier.code, Tier.name, Tier.type)
         .join(Tier, Tier.id == UserTierLink.tier_id)
-        .where(UserTierLink.user_id == user_id)
+        .where(UserTierLink.user_id == user_id, Tier.entity_id == entity_id)
         .order_by(Tier.name)
     )
     result = await db.execute(stmt)
@@ -1242,19 +1294,18 @@ async def get_user_tier_links(
 async def link_user_to_tier(
     user_id: UUID,
     body: UserTierLinkCreate,
+    entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("core.users.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     """Link a user to a tier (company). Typically used for external users."""
-    # Verify user exists
+    await _assert_user_access_in_entity(user_id=user_id, entity_id=entity_id, db=db)
     user = await db.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
 
     # Verify tier exists
     tier = await db.get(Tier, body.tier_id)
-    if not tier:
+    if not tier or tier.entity_id != entity_id:
         raise HTTPException(status_code=404, detail="Tier not found")
 
     # Check not already linked
@@ -1287,15 +1338,20 @@ async def link_user_to_tier(
 async def unlink_user_from_tier(
     user_id: UUID,
     link_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("core.users.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     """Remove a user-tier link."""
+    await _assert_user_access_in_entity(user_id=user_id, entity_id=entity_id, db=db)
     link = await db.execute(
-        select(UserTierLink).where(
+        select(UserTierLink)
+        .join(Tier, Tier.id == UserTierLink.tier_id)
+        .where(
             UserTierLink.id == link_id,
             UserTierLink.user_id == user_id,
+            Tier.entity_id == entity_id,
         )
     )
     link_obj = link.scalar_one_or_none()

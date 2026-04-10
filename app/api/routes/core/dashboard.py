@@ -59,6 +59,11 @@ from app.schemas.dashboard import (
     WidgetDataResponse,
 )
 from app.services.core.delete_service import delete_entity
+from app.services.core.module_lifecycle_service import (
+    filter_widgets_for_entity,
+    get_widget_source_module,
+    is_module_enabled,
+)
 from app.services.modules.dashboard_service import (
     create_dashboard as svc_create_dashboard,
     delete_dashboard as svc_delete_dashboard,
@@ -87,6 +92,37 @@ def _normalize_module_slug(module: str | None) -> str | None:
     if module in {"report_editor", "report-editor"}:
         return "papyrus"
     return module
+
+
+async def _validate_target_module_enabled(
+    *,
+    db: AsyncSession,
+    entity_id: UUID,
+    module_slug: str | None,
+) -> str | None:
+    normalized = _normalize_module_slug(module_slug)
+    if normalized and normalized != "global" and not await is_module_enabled(db, entity_id, normalized):
+        raise HTTPException(status_code=400, detail=f"Module disabled: {normalized}")
+    return normalized
+
+
+async def _sanitize_widget_payloads(
+    *,
+    db: AsyncSession,
+    entity_id: UUID,
+    widgets: list[dict],
+) -> list[dict]:
+    sanitized: list[dict] = []
+    for widget in widgets:
+        widget_id = widget.get("config", {}).get("widget_id") or widget.get("widget_id")
+        source_module = get_widget_source_module(str(widget_id)) if widget_id else None
+        if source_module and source_module != "core" and not await is_module_enabled(db, entity_id, source_module):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Widget unavailable because its module is disabled: {widget_id}",
+            )
+        sanitized.append(widget)
+    return sanitized
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -184,7 +220,14 @@ async def widget_catalog(
 ):
     """Get the widget catalog filtered by the current user's roles."""
     roles = await _get_user_role_codes(current_user.id, entity_id, db)
-    return get_widget_catalog(list(roles))
+    catalog = get_widget_catalog(list(roles))
+    filtered: list[WidgetCatalogEntry] = []
+    for entry in catalog:
+        source_module = entry.get("source_module")
+        if source_module and source_module != "core" and not await is_module_enabled(db, entity_id, source_module):
+            continue
+        filtered.append(WidgetCatalogEntry(**entry))
+    return filtered
 
 
 @router.get(
@@ -242,6 +285,9 @@ async def fetch_widget_data(
     db: AsyncSession = Depends(get_db),
 ):
     """Get data for a specific widget instance."""
+    source_module = get_widget_source_module(body.widget_id)
+    if source_module and source_module != "core" and not await is_module_enabled(db, entity_id, source_module):
+        raise HTTPException(status_code=404, detail="Widget unavailable because its module is disabled")
     tenant_id = await _get_tenant_id(entity_id, db)
     response = await get_widget_data(
         widget_id=body.widget_id,
@@ -600,12 +646,13 @@ async def list_tabs(
     combined: list[DashboardTabRead] = []
 
     for tab in mandatory_tabs:
+        widgets = await filter_widgets_for_entity(db, entity_id, tab.widgets or [])
         combined.append(
             DashboardTabRead(
                 id=tab.id,
                 name=tab.name,
                 tab_order=tab.tab_order,
-                widgets=tab.widgets or [],
+                widgets=widgets,
                 is_mandatory=True,
                 is_closable=False,
                 target_role=tab.target_role,
@@ -616,12 +663,13 @@ async def list_tabs(
         )
 
     for tab in personal_tabs:
+        widgets = await filter_widgets_for_entity(db, entity_id, tab.widgets or [])
         combined.append(
             DashboardTabRead(
                 id=tab.id,
                 name=tab.name,
                 tab_order=tab.tab_order,
-                widgets=tab.widgets or [],
+                widgets=widgets,
                 is_mandatory=False,
                 is_closable=True,
                 target_role=None,
@@ -651,6 +699,8 @@ async def list_module_tabs(
     The admin defines module-specific tabs via POST /admin/tabs with target_module.
     """
     module_slug = _normalize_module_slug(module_slug) or module_slug
+    if not await is_module_enabled(db, entity_id, module_slug):
+        return []
     user_roles = await _get_user_role_codes(current_user.id, entity_id, db)
 
     stmt = (
@@ -675,21 +725,24 @@ async def list_module_tabs(
     result = await db.execute(stmt)
     tabs = result.scalars().all()
 
-    return [
-        DashboardTabRead(
-            id=tab.id,
-            name=tab.name,
-            tab_order=tab.tab_order,
-            widgets=tab.widgets or [],
-            is_mandatory=True,
-            is_closable=False,
-            target_role=tab.target_role,
-            target_module=tab.target_module,
-            created_at=tab.created_at,
-            updated_at=tab.updated_at,
+    payload: list[DashboardTabRead] = []
+    for tab in tabs:
+        widgets = await filter_widgets_for_entity(db, entity_id, tab.widgets or [])
+        payload.append(
+            DashboardTabRead(
+                id=tab.id,
+                name=tab.name,
+                tab_order=tab.tab_order,
+                widgets=widgets,
+                is_mandatory=True,
+                is_closable=False,
+                target_role=tab.target_role,
+                target_module=tab.target_module,
+                created_at=tab.created_at,
+                updated_at=tab.updated_at,
+            )
         )
-        for tab in tabs
-    ]
+    return payload
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -709,12 +762,17 @@ async def create_personal_tab(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a personal dashboard tab for the current user."""
+    widgets = await _sanitize_widget_payloads(
+        db=db,
+        entity_id=entity_id,
+        widgets=[w.model_dump() for w in body.widgets],
+    )
     tab = UserDashboardTab(
         user_id=current_user.id,
         entity_id=entity_id,
         name=body.name,
         tab_order=body.tab_order,
-        widgets=[w.model_dump() for w in body.widgets],
+        widgets=widgets,
     )
     db.add(tab)
     await db.commit()
@@ -781,7 +839,11 @@ async def update_personal_tab(
         )
 
     if "widgets" in update_data and update_data["widgets"] is not None:
-        update_data["widgets"] = [w.model_dump() for w in body.widgets]
+        update_data["widgets"] = await _sanitize_widget_payloads(
+            db=db,
+            entity_id=entity_id,
+            widgets=[w.model_dump() for w in body.widgets],
+        )
 
     for field, value in update_data.items():
         if hasattr(tab, field):
@@ -895,7 +957,16 @@ async def create_admin_tab(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a mandatory dashboard tab (admin only)."""
-    target_module = _normalize_module_slug(body.target_module)
+    target_module = await _validate_target_module_enabled(
+        db=db,
+        entity_id=entity_id,
+        module_slug=body.target_module,
+    )
+    widgets = await _sanitize_widget_payloads(
+        db=db,
+        entity_id=entity_id,
+        widgets=[w.model_dump() for w in body.widgets],
+    )
     tab = DashboardTab(
         entity_id=entity_id,
         name=body.name,
@@ -903,7 +974,7 @@ async def create_admin_tab(
         target_role=body.target_role,
         target_module=target_module,
         tab_order=body.tab_order,
-        widgets=[w.model_dump() for w in body.widgets],
+        widgets=widgets,
         created_by=current_user.id,
     )
     db.add(tab)
@@ -945,10 +1016,18 @@ async def update_admin_tab(
             detail="No fields to update",
         )
     if "target_module" in update_data:
-        update_data["target_module"] = _normalize_module_slug(update_data["target_module"])
+        update_data["target_module"] = await _validate_target_module_enabled(
+            db=db,
+            entity_id=entity_id,
+            module_slug=update_data["target_module"],
+        )
 
     if "widgets" in update_data and update_data["widgets"] is not None:
-        update_data["widgets"] = [w.model_dump() for w in body.widgets]
+        update_data["widgets"] = await _sanitize_widget_payloads(
+            db=db,
+            entity_id=entity_id,
+            widgets=[w.model_dump() for w in body.widgets],
+        )
 
     for field, value in update_data.items():
         setattr(tab, field, value)

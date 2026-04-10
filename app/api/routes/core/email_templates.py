@@ -12,7 +12,7 @@ from sqlalchemy import func, select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_current_entity, get_current_user
+from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
 from app.core.email_templates import render_template_string
 from app.models.common import (
@@ -36,7 +36,11 @@ from app.schemas.common import (
 )
 from app.services.core.delete_service import delete_entity
 
-router = APIRouter(prefix="/api/v1/email-templates", tags=["email-templates"])
+router = APIRouter(
+    prefix="/api/v1/email-templates",
+    tags=["email-templates"],
+    dependencies=[require_permission("core.settings.manage")],
+)
 
 
 # ── List all templates ─────────────────────────────────────────────────────

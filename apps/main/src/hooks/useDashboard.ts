@@ -5,13 +5,16 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { dashboardService } from '@/services/dashboardService'
 import type { DashboardWidget } from '@/services/dashboardService'
+import { useAuthStore } from '@/stores/authStore'
 
 // ── Stats ──
 
 export function useDashboardStats() {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['dashboard', 'stats'],
+    queryKey: ['dashboard', currentEntityId, 'stats'],
     queryFn: () => dashboardService.getStats(),
+    enabled: Boolean(currentEntityId),
     staleTime: 60_000,
   })
 }
@@ -19,9 +22,11 @@ export function useDashboardStats() {
 // ── Tabs ──
 
 export function useDashboardTabs(module?: string) {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['dashboard', 'tabs', module],
+    queryKey: ['dashboard', currentEntityId, 'tabs', module],
     queryFn: () => dashboardService.getTabs(module),
+    enabled: Boolean(currentEntityId),
     staleTime: 30_000,
   })
 }
@@ -106,7 +111,7 @@ const BUILTIN_CATALOG_ENTRIES: WidgetCatalogEntry[] = [
         { label: 'TravelWiz', path: '/travelwiz', icon: 'travelwiz', color: '#0891b2' },
         { label: 'Assets', path: '/assets', icon: 'assets', color: '#7c3aed' },
         { label: 'Tiers', path: '/tiers', icon: 'tiers', color: '#dc2626' },
-        { label: 'Conformite', path: '/conformite', icon: 'conformite', color: '#374151' },
+        { label: 'Conformité', path: '/conformite', icon: 'conformite', color: '#374151' },
         { label: 'Recherche', path: '/search', icon: 'search', color: '#0f172a' },
       ],
     },
@@ -134,8 +139,9 @@ const BUILTIN_CATALOG_ENTRIES: WidgetCatalogEntry[] = [
 ]
 
 export function useWidgetCatalog() {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['dashboard', 'widget-catalog'],
+    queryKey: ['dashboard', currentEntityId, 'widget-catalog'],
     queryFn: async () => {
       const remote = await dashboardService.getWidgetCatalog()
       // Merge built-in entries that don't conflict with remote types
@@ -143,6 +149,7 @@ export function useWidgetCatalog() {
       const builtins = BUILTIN_CATALOG_ENTRIES.filter((e) => !remoteTypes.has(e.type))
       return [...remote, ...builtins]
     },
+    enabled: Boolean(currentEntityId),
     staleTime: 5 * 60_000, // catalog rarely changes
   })
 }
@@ -155,8 +162,9 @@ export function useWidgetData(
   config: Record<string, unknown> | undefined,
   filters?: Record<string, unknown>,
 ) {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['dashboard', 'widget-data', widgetId, widgetType, config, filters],
+    queryKey: ['dashboard', currentEntityId, 'widget-data', widgetId, widgetType, config, filters],
     queryFn: () =>
       dashboardService.getWidgetData({
         widget_id: widgetId!,
@@ -164,7 +172,7 @@ export function useWidgetData(
         config: config!,
         filters,
       }),
-    enabled: !!widgetId && !!widgetType && !!config,
+    enabled: Boolean(currentEntityId) && !!widgetId && !!widgetType && !!config,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   })
@@ -180,17 +188,21 @@ export function useExecuteSQL() {
 // ── Activity / Pending ──
 
 export function useDashboardActivity() {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['dashboard', 'activity'],
+    queryKey: ['dashboard', currentEntityId, 'activity'],
     queryFn: () => dashboardService.getActivity(),
+    enabled: Boolean(currentEntityId),
     staleTime: 30_000,
   })
 }
 
 export function useDashboardPending() {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['dashboard', 'pending'],
+    queryKey: ['dashboard', currentEntityId, 'pending'],
     queryFn: () => dashboardService.getPending(),
+    enabled: Boolean(currentEntityId),
     staleTime: 30_000,
   })
 }
@@ -198,17 +210,20 @@ export function useDashboardPending() {
 // ── Dashboard CRUD ──
 
 export function useDashboards() {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['dashboard', 'dashboards'],
+    queryKey: ['dashboard', currentEntityId, 'dashboards'],
     queryFn: () => dashboardService.listDashboards(),
+    enabled: Boolean(currentEntityId),
   })
 }
 
 export function useDashboard(id: string | undefined) {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['dashboard', 'dashboards', id],
+    queryKey: ['dashboard', currentEntityId, 'dashboards', id],
     queryFn: () => dashboardService.getDashboard(id!),
-    enabled: !!id,
+    enabled: Boolean(currentEntityId) && !!id,
   })
 }
 
@@ -246,8 +261,10 @@ export function useDeleteDashboard() {
 // ── Home Dashboard ──
 
 export function useHomeDashboard() {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['dashboard', 'home'],
+    queryKey: ['dashboard', currentEntityId, 'home'],
     queryFn: () => dashboardService.getHomeDashboard(),
+    enabled: Boolean(currentEntityId),
   })
 }

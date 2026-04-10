@@ -17,6 +17,7 @@ from app.core.rbac import (
     invalidate_permission_mode_cache,
     invalidate_rbac_cache,
 )
+from app.services.core.module_lifecycle_service import is_module_enabled, normalize_module_slug
 from app.models.asset_registry import Installation
 from app.models.common import Permission, Role, RolePermission, Setting, UserGroup, UserGroupMember, UserGroupRole
 from app.schemas.common import OpsFluxSchema
@@ -361,13 +362,17 @@ async def delete_role(
 async def list_permissions(
     module: str | None = None,
     search: str | None = None,
+    entity_id: UUID = Depends(get_current_entity),
     _: None = require_permission("core.rbac.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List all available permissions."""
+    normalized_module = normalize_module_slug(module)
+    if normalized_module and normalized_module != "core" and not await is_module_enabled(db, entity_id, normalized_module):
+        return []
     stmt = select(Permission).order_by(Permission.module, Permission.code)
-    if module:
-        stmt = stmt.where(Permission.module == module)
+    if normalized_module:
+        stmt = stmt.where(Permission.module == normalized_module)
     if search:
         stmt = stmt.where(
             Permission.name.ilike(f"%{search}%") | Permission.code.ilike(f"%{search}%")
@@ -384,6 +389,7 @@ class ModulePermissionsRead(BaseModel):
 
 @router.get("/modules", response_model=list[ModulePermissionsRead])
 async def list_permission_modules(
+    entity_id: UUID = Depends(get_current_entity),
     _: None = require_permission("core.rbac.read"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -394,7 +400,9 @@ async def list_permission_modules(
     all_perms = result.scalars().all()
     grouped: dict[str, list[PermissionRead]] = {}
     for p in all_perms:
-        mod = p.module or "core"
+        mod = normalize_module_slug(p.module) or "core"
+        if mod != "core" and not await is_module_enabled(db, entity_id, mod):
+            continue
         if mod not in grouped:
             grouped[mod] = []
         grouped[mod].append(PermissionRead.model_validate(p))

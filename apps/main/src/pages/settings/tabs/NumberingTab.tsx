@@ -105,11 +105,11 @@ const PREFIX_CATEGORIES: PrefixCategory[] = [
     label: 'Logistique',
     icon: BarChart3,
     prefixes: [
-      { prefix: 'ADS', label: 'Avis de Sejour' },
+      { prefix: 'ADS', label: 'Avis de séjour' },
       { prefix: 'VYG', label: 'Voyages' },
       { prefix: 'CGO', label: 'Cargo' },
       { prefix: 'ACT', label: 'Activities' },
-      { prefix: 'AVM', label: 'Missions AVM' },
+      { prefix: 'AVM', label: 'Avis de mission (AVM)' },
     ],
   },
   {

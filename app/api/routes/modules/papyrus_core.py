@@ -28,11 +28,11 @@ except ImportError:
     python_docx = None
 
 from app.core.database import get_db
-from app.api.deps import get_current_entity, get_current_user, require_permission
+from app.api.deps import get_current_entity, get_current_user, require_module_enabled, require_permission
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/documents", tags=["papyrus"])
+router = APIRouter(prefix="/api/v1/documents", tags=["papyrus"], dependencies=[require_module_enabled("papyrus")])
 
 
 @router.get(

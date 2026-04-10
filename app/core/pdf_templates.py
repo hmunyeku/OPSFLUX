@@ -372,7 +372,7 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
     {
         "slug": "ads.ticket",
         "name": "ADS Ticket / Boarding Pass",
-        "description": "Travel ticket for AdS (Avis de Sejour). "
+        "description": "Travel ticket for AdS (Avis de séjour). "
                        "Used as boarding pass for helicopter, boat, or vehicle transport.",
         "object_type": "ads",
         "page_size": "A5",
@@ -774,7 +774,7 @@ _ADS_TICKET_BODY_FR = """\
       <div class="entity-name">{{ entity.name | default('') }}</div>
     </div>
     <div class="ref-block">
-      <div class="ref-label">Avis de sejour</div>
+      <div class="ref-label">Avis de séjour</div>
       <div class="ref-number">{{ reference }}</div>
     </div>
   </div>
@@ -826,7 +826,7 @@ _ADS_TICKET_BODY_FR = """\
               <th>Nom</th>
               <th>Societe</th>
               <th>Badge</th>
-              <th>Conformite</th>
+              <th>Conformité</th>
             </tr>
           </thead>
           <tbody>
@@ -883,7 +883,7 @@ _ADS_TICKET_BODY_FR = """\
   </div>
   <div class="ticket-footer">
     <span>Document genere le {{ generated_at | default('--') }}</span>
-    <span>{{ entity.name | default('OpsFlux') }} -- Avis de sejour</span>
+    <span>{{ entity.name | default('OpsFlux') }} -- Avis de séjour</span>
   </div>
 </div>
 </body>
@@ -1094,7 +1094,7 @@ _ADS_MANIFEST_BODY_FR = """\
         <th>Nom complet</th>
         <th>Societe</th>
         <th>N. Badge</th>
-        <th>Conformite</th>
+        <th>Conformité</th>
         <th>Siege</th>
       </tr>
     </thead>
@@ -1310,7 +1310,7 @@ _VOYAGE_MANIFEST_BODY_FR = """\
     <div class="meta-item"><div class="label">Lieu d'arrivee</div><div class="value">{{ arrival_location }}</div></div>
   </div>
   <table>
-    <thead><tr><th>#</th><th>Nom</th><th>Societe</th><th>Badge</th><th>Conformite</th></tr></thead>
+    <thead><tr><th>#</th><th>Nom</th><th>Societe</th><th>Badge</th><th>Conformité</th></tr></thead>
     <tbody>
       {% for pax in passengers %}
       <tr><td>{{ loop.index }}</td><td>{{ pax.name }}</td><td>{{ pax.company | default('--') }}</td><td>{{ pax.badge_number | default('--') }}</td><td>{{ pax.compliance_status | default('--') }}</td></tr>

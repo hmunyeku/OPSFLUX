@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import and_, case, select, func as sqla_func, literal, any_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import check_verified_lock, get_current_entity, get_current_user, require_permission
+from app.api.deps import check_verified_lock, get_current_entity, get_current_user, require_module_enabled, require_permission
 from app.core.database import get_db
 from app.services.core.delete_service import delete_entity, get_delete_policy
 from app.services.modules import compliance_service
@@ -29,8 +29,11 @@ from app.schemas.common import (
     JobPositionCreate, JobPositionRead, JobPositionUpdate,
     TierContactTransferCreate, TierContactTransferRead,
 )
-
-
+router = APIRouter(
+    prefix="/api/v1/conformite",
+    tags=["conformite"],
+    dependencies=[require_module_enabled("conformite")],
+)
 def _snapshot_rule(rule: ComplianceRule) -> dict:
     """Create a JSON snapshot of a rule's current state for history."""
     return {
@@ -48,9 +51,6 @@ def _snapshot_rule(rule: ComplianceRule) -> dict:
         "effective_to": str(rule.effective_to) if rule.effective_to else None,
         "condition_json": rule.condition_json,
     }
-
-router = APIRouter(prefix="/api/v1/conformite", tags=["conformite"])
-
 
 async def _count_record_proof(
     db: AsyncSession,

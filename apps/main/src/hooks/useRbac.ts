@@ -13,21 +13,25 @@ import {
   type PermissionsFilter,
   type PermissionOverride,
 } from '@/services/rbacService'
+import { useAuthStore } from '@/stores/authStore'
 
 // ── Roles ────────────────────────────────────────────────────
 
 export function useRoles(filter?: RolesFilter) {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['rbac', 'roles', filter],
+    queryKey: ['rbac', currentEntityId, 'roles', filter],
     queryFn: () => rbacService.listRoles(filter),
+    enabled: Boolean(currentEntityId),
   })
 }
 
 export function useRole(code: string) {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['rbac', 'roles', code],
+    queryKey: ['rbac', currentEntityId, 'roles', code],
     queryFn: () => rbacService.getRole(code),
-    enabled: !!code,
+    enabled: !!code && Boolean(currentEntityId),
   })
 }
 
@@ -77,34 +81,41 @@ export function useSetRolePermissions() {
 // ── Permissions ──────────────────────────────────────────────
 
 export function usePermissions(filter?: PermissionsFilter) {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['rbac', 'permissions', filter],
+    queryKey: ['rbac', currentEntityId, 'permissions', filter],
     queryFn: () => rbacService.listPermissions(filter),
+    enabled: Boolean(currentEntityId),
   })
 }
 
 export function useModules() {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['rbac', 'modules'],
+    queryKey: ['rbac', currentEntityId, 'modules'],
     queryFn: () => rbacService.listModules(),
+    enabled: Boolean(currentEntityId),
   })
 }
 
 // ── Groups ───────────────────────────────────────────────────
 
 export function useGroups(filter?: GroupsFilter) {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['rbac', 'groups', filter],
+    queryKey: ['rbac', currentEntityId, 'groups', filter],
     queryFn: () => rbacService.listGroups(filter),
+    enabled: Boolean(currentEntityId),
     placeholderData: keepPreviousData,
   })
 }
 
 export function useGroup(id: string) {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['rbac', 'groups', id],
+    queryKey: ['rbac', currentEntityId, 'groups', id],
     queryFn: () => rbacService.getGroup(id),
-    enabled: !!id,
+    enabled: !!id && Boolean(currentEntityId),
   })
 }
 
@@ -191,10 +202,11 @@ export function useCopyGroupPermissions() {
 // ── User permission overrides ───────────────────────────────
 
 export function useUserPermissionOverrides(userId: string) {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['rbac', 'user-overrides', userId],
+    queryKey: ['rbac', currentEntityId, 'user-overrides', userId],
     queryFn: () => rbacService.getUserPermissionOverrides(userId),
-    enabled: !!userId,
+    enabled: !!userId && Boolean(currentEntityId),
   })
 }
 
@@ -211,19 +223,22 @@ export function useSetUserPermissionOverrides() {
 }
 
 export function useUserEffectivePermissions(userId: string) {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['rbac', 'user-effective', userId],
+    queryKey: ['rbac', currentEntityId, 'user-effective', userId],
     queryFn: () => rbacService.getUserEffectivePermissions(userId),
-    enabled: !!userId,
+    enabled: !!userId && Boolean(currentEntityId),
   })
 }
 
 // ── Permission mode ─────────────────────────────────────────
 
 export function usePermissionMode() {
+  const currentEntityId = useAuthStore((state) => state.currentEntityId)
   return useQuery({
-    queryKey: ['rbac', 'permission-mode'],
+    queryKey: ['rbac', currentEntityId, 'permission-mode'],
     queryFn: () => rbacService.getPermissionMode(),
+    enabled: Boolean(currentEntityId),
   })
 }
 

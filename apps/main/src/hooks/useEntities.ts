@@ -15,15 +15,23 @@ export function useMyEntities() {
 
 export function useSwitchEntity() {
   const qc = useQueryClient()
-  const { setCurrentEntity } = useAuthStore()
+  const { setCurrentEntity, setActingContext } = useAuthStore()
 
   return useMutation({
     mutationFn: (entityId: string) => entityService.switchEntity(entityId),
     onSuccess: (_, entityId) => {
-      // Update localStorage and auth store
+      // Reset acting context and update active entity before any refetch.
+      localStorage.setItem('acting_context', 'own')
       localStorage.setItem('entity_id', entityId)
+      setActingContext('own')
       setCurrentEntity(entityId)
-      // Invalidate all queries to reload data for the new entity
+      // Purge the most sensitive entity-scoped caches first.
+      qc.removeQueries({ queryKey: ['dashboard'] })
+      qc.removeQueries({ queryKey: ['modules', 'states'] })
+      qc.removeQueries({ queryKey: ['rbac', 'my-permissions'] })
+      qc.removeQueries({ queryKey: ['acting-context'] })
+      qc.removeQueries({ queryKey: ['acting-contexts'] })
+      // Then invalidate the rest to reload under the new entity context.
       qc.invalidateQueries()
     },
   })

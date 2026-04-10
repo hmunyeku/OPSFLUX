@@ -26,6 +26,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
 import api from '@/lib/api'
+import { useModules } from '@/hooks/useModules'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,12 @@ const MODULE_ROUTES: Record<string, string> = {
   papyrus: '/papyrus',
   'report-editor': '/papyrus',
   'pid-pfd': '/pid-pfd',
+}
+
+const MODULE_ALIASES: Record<string, string> = {
+  'report-editor': 'papyrus',
+  'pid-pfd': 'pid_pfd',
+  assets: 'asset_registry',
 }
 
 // Module icon mapping
@@ -185,6 +192,9 @@ export function CrossModuleLink({
 }: CrossModuleLinkProps) {
   const navigate = useNavigate()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const { data: modules = [] } = useModules()
+  const normalizedModule = MODULE_ALIASES[module] ?? module
+  const enabledModules = new Set(modules.filter((m) => m.enabled).map((m) => m.slug))
 
   // ── Hover state ──────────────────────────────────────────────
   const [showPopover, setShowPopover] = useState(false)
@@ -234,6 +244,9 @@ export function CrossModuleLink({
     (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
+      if (modules.length > 0 && normalizedModule !== 'core' && !enabledModules.has(normalizedModule)) {
+        return
+      }
 
       // Hide popover on click
       setShowPopover(false)
@@ -261,10 +274,11 @@ export function CrossModuleLink({
         })
       }
     },
-    [module, id, subtype, mode, navigate, openDynamicPanel],
+    [module, id, subtype, mode, navigate, openDynamicPanel, modules, normalizedModule, enabledModules],
   )
 
   if (!id || !label) return null
+  if (modules.length > 0 && normalizedModule !== 'core' && !enabledModules.has(normalizedModule)) return <span className={cn('text-muted-foreground', className)}>{label}</span>
 
   const moduleLabel = MODULE_LABELS[module] ?? module
   const ModuleIcon = MODULE_ICONS[module] ?? ExternalLink

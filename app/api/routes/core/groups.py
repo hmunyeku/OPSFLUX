@@ -151,6 +151,20 @@ async def _set_group_roles(group_id: UUID, role_codes: list[str], db: AsyncSessi
     return [(code, valid_roles[code]) for code in role_codes]
 
 
+def _user_access_predicate(entity_id: UUID):
+    membership_exists = (
+        select(UserGroupMember.user_id)
+        .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+        .where(
+            UserGroupMember.user_id == User.id,
+            UserGroup.entity_id == entity_id,
+            UserGroup.active == True,  # noqa: E712
+        )
+        .exists()
+    )
+    return (User.default_entity_id == entity_id) | membership_exists
+
+
 async def _build_group_detail(
     group_id: UUID,
     entity_id: UUID,
@@ -412,6 +426,15 @@ async def update_group(
     if body.role_codes is not None:
         await _set_group_roles(group_id, body.role_codes, db)
     if body.asset_scope is not None:
+        if body.asset_scope:
+            asset_result = await db.execute(
+                select(Installation).where(
+                    Installation.id == body.asset_scope,
+                    Installation.entity_id == entity_id,
+                )
+            )
+            if asset_result.scalar_one_or_none() is None:
+                raise HTTPException(status_code=400, detail="Asset scope not found in this entity")
         group.asset_scope = body.asset_scope
     if body.active is not None:
         group.active = body.active
@@ -510,8 +533,9 @@ async def add_members(
     for user_id in body.user_ids:
         if user_id in existing_ids:
             continue
-        # Validate user exists
-        user_result = await db.execute(select(User).where(User.id == user_id))
+        user_result = await db.execute(
+            select(User.id).where(User.id == user_id, _user_access_predicate(entity_id))
+        )
         if not user_result.scalar_one_or_none():
             continue
         db.add(UserGroupMember(user_id=user_id, group_id=group_id))

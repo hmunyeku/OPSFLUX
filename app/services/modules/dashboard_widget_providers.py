@@ -957,7 +957,7 @@ async def provider_paxlog_compliance_rate(
     compliant = row.get("compliant", 0)
     rate = round(compliant / total * 100, 1) if total > 0 else 0
     return {
-        "value": rate, "label": "Taux de conformite", "unit": "%",
+        "value": rate, "label": "Taux de conformité", "unit": "%",
         "details": {"total": total, "compliant": compliant,
                     "expired": row.get("expired", 0), "expiring_soon": row.get("expiring_soon", 0)},
     }
@@ -1039,7 +1039,7 @@ async def provider_conformite_kpis(
     valid = row.get("valid", 0)
     rate = round(valid / total * 100, 1) if total > 0 else 0
     return {
-        "value": rate, "label": "Taux de conformite", "unit": "%",
+        "value": rate, "label": "Taux de conformité", "unit": "%",
         "details": {
             "total": total, "valid": valid, "expired": row.get("expired", 0),
             "pending": row.get("pending", 0), "expiring_soon": row.get("expiring_soon", 0),

@@ -158,9 +158,9 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   paxlog: {
     title: 'PaxLog', icon: '\u2708\uFE0F',
-    description: "Avis de sejour, gestion des passagers, conformite, rotations et listes d'attente.",
+    description: "Avis de séjour, gestion des passagers, conformité, rotations et listes d'attente.",
     workflows: [
-      { title: 'Soumettre un Avis de Sejour', steps: ['Cliquez "+ Nouvel AdS"', 'Choisissez le type', 'Selectionnez le site, dates, categorie', 'Ajoutez les passagers', 'Verifiez la conformite', 'Cliquez "Soumettre"'],
+      { title: 'Soumettre un avis de séjour', steps: ['Cliquez "+ Nouvel AdS"', 'Choisissez le type', 'Selectionnez le site, dates, categorie', 'Ajoutez les passagers', 'Verifiez la conformite', 'Cliquez "Soumettre"'],
         diagram: `graph TD\n    A["Brouillon"]:::draft -->|Soumettre| B["Soumis"]:::submitted\n    B --> C{"Conformite"}\n    C -->|OK| D["En validation"]:::validation\n    C -->|Issues| E["Bloque"]:::blocked\n    D -->|Approuver| F["Approuve"]:::approved\n    D -->|Rejeter| G["Rejete"]:::rejected\n    F -->|Demarrer| H["En cours"]:::progress\n    H -->|Terminer| I["Termine"]:::done\n    classDef draft fill:#475569,stroke:#64748b,color:#fff\n    classDef submitted fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef validation fill:#8b5cf6,stroke:#a78bfa,color:#fff\n    classDef blocked fill:#f59e0b,stroke:#fbbf24,color:#000\n    classDef approved fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef rejected fill:#ef4444,stroke:#f87171,color:#fff\n    classDef progress fill:#06b6d4,stroke:#22d3ee,color:#fff\n    classDef done fill:#10b981,stroke:#34d399,color:#fff`,
       },
     ],
@@ -254,10 +254,10 @@ const GUIDED_TOURS: GuidedTour[] = [
   {
     id: 'paxlog-basics',
     title: 'Premiers pas avec PaxLog',
-    description: 'Gestion des avis de sejour et passagers.',
+    description: 'Gestion des avis de séjour et passagers.',
     module: 'paxlog',
     steps: [
-      { target: 'main-content', title: 'Avis de sejour', content: 'Un AdS est une demande de deplacement de passagers vers un site. Chaque AdS passe par un workflow de validation.' },
+      { target: 'main-content', title: 'Avis de séjour', content: 'Un AdS est une demande de deplacement de passagers vers un site. Chaque AdS passe par un workflow de validation.' },
       { target: 'search-bar', title: 'Recherche PAX', content: 'Recherchez un passager, un site ou un numero d\'AdS pour le retrouver rapidement.' },
     ],
   },

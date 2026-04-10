@@ -217,12 +217,12 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     title: 'PaxLog — Gestion des passagers',
     icon: '\u2708\uFE0F',
     description:
-      "Avis de sejour (AdS), gestion des passagers, conformite, rotations et listes d'attente.",
+      "Avis de séjour (AdS), gestion des passagers, conformité, rotations et listes d'attente.",
     workflows: [
       {
-        title: 'Soumettre un Avis de Sejour (AdS)',
+        title: 'Soumettre un avis de séjour (AdS)',
         steps: [
-          'Cliquez "+ Nouvel AdS" dans l\'onglet Avis de sejour',
+          'Cliquez "+ Nouvel AdS" dans l\'onglet Avis de séjour',
           'Choisissez le type (individuel ou equipe)',
           'Selectionnez le site, les dates, la categorie de visite',
           'Ajoutez les passagers (PAX)',
@@ -263,7 +263,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     ],
     tips: [
       "Si la capacite site n'est pas configuree, l'AdS passe en mode illimite par defaut",
-      'La conformite verifie les certifications et habilitations de chaque PAX',
+      'La conformité vérifie les certifications et habilitations de chaque PAX',
       'Un PAX bloque doit regulariser sa situation avant le mouvement',
     ],
     elementHelp: {},

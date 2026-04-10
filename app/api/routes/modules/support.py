@@ -15,6 +15,7 @@ from app.api.deps import (
     get_current_entity,
     get_current_user,
     has_user_permission,
+    require_module_enabled,
     require_permission,
 )
 from app.core.acting_context import get_effective_actor_user_id
@@ -38,7 +39,7 @@ from app.schemas.support import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/v1/support", tags=["support"])
+router = APIRouter(prefix="/api/v1/support", tags=["support"], dependencies=[require_module_enabled("support")])
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

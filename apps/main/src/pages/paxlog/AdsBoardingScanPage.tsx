@@ -49,7 +49,7 @@ export function AdsBoardingScanPage() {
         <div className="mx-auto max-w-3xl rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-200">
           <div className="flex items-center gap-3 text-lg font-semibold">
             <AlertTriangle className="h-5 w-5" />
-            QR AdS invalide ou non accessible
+            QR d'avis de séjour invalide ou non accessible
           </div>
           <p className="mt-3 text-sm">
             Vérifie que tu es connecté dans la bonne entité et que le QR scanné correspond bien à un ticket AdS encore valide.
@@ -71,13 +71,13 @@ export function AdsBoardingScanPage() {
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
                   <QrCode className="h-3.5 w-3.5" />
-                  Boarding AdS
+                  Pointage avis de séjour
                 </div>
                 <h1 className="mt-3 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
                   {data.reference}
                 </h1>
                 <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-                  Pointe ici les personnes réellement montées. Le scan QR ouvre directement le ticket opérationnel lié à l’AdS et à ses manifestes.
+                  Pointe ici les personnes réellement montées. Le scan QR ouvre directement le ticket opérationnel lié à l’avis de séjour et à ses manifestes.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -105,7 +105,7 @@ export function AdsBoardingScanPage() {
             <div className="space-y-5">
               {data.manifests.length === 0 ? (
                 <div className="rounded-3xl border border-dashed border-border/70 bg-muted/20 px-5 py-8 text-sm text-muted-foreground">
-                  Aucun manifeste TravelWiz lié à cet AdS pour le moment. Le QR est prêt, mais le pointage embarquement ne pourra démarrer qu’une fois le manifeste généré.
+                  Aucun manifeste TravelWiz lié à cet avis de séjour pour le moment. Le QR est prêt, mais le pointage embarquement ne pourra démarrer qu’une fois le manifeste généré.
                 </div>
               ) : (
                 data.manifests.map((manifest) => (
@@ -148,7 +148,7 @@ export function AdsBoardingScanPage() {
                                 )}
                               </div>
                               <div className="mt-1 text-xs text-muted-foreground">
-                                {passenger.company || 'Société non renseignée'} • Badge {passenger.badge_number || '--'} • AdS {passenger.pax_status || '--'}
+                                {passenger.company || 'Société non renseignée'} • Badge {passenger.badge_number || '--'} • Statut dossier {passenger.pax_status || '--'}
                               </div>
                               <div className="mt-1 text-xs text-muted-foreground">
                                 Pointé le {formatDateTime(passenger.boarded_at)}
@@ -194,7 +194,7 @@ export function AdsBoardingScanPage() {
               <section className="rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <Users className="h-4 w-4 text-primary" />
-                  Dossier AdS
+                  Dossier avis de séjour
                 </div>
                 <dl className="mt-4 space-y-3 text-sm">
                   <div>
@@ -219,7 +219,7 @@ export function AdsBoardingScanPage() {
                 </div>
                 {data.unassigned_pax.length === 0 ? (
                   <div className="mt-4 rounded-2xl bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
-                    Tous les PAX de l’AdS sont déjà rattachés à un manifeste.
+                    Tous les PAX de l’avis de séjour sont déjà rattachés à un manifeste.
                   </div>
                 ) : (
                   <div className="mt-4 space-y-3">
@@ -227,7 +227,7 @@ export function AdsBoardingScanPage() {
                       <div key={pax.ads_pax_id} className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3">
                         <div className="text-sm font-semibold text-foreground">{pax.name}</div>
                         <div className="mt-1 text-xs text-muted-foreground">
-                          {pax.company || 'Société non renseignée'} • Badge {pax.badge_number || '--'} • Statut AdS {pax.pax_status || '--'}
+                          {pax.company || 'Société non renseignée'} • Badge {pax.badge_number || '--'} • Statut dossier {pax.pax_status || '--'}
                         </div>
                       </div>
                     ))}

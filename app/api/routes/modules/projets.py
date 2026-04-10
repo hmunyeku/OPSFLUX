@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import delete as sql_delete, select, func as sqla_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_entity, get_current_user, require_permission
+from app.api.deps import get_current_entity, get_current_user, require_module_enabled, require_permission
 from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.event_contracts import PROJECT_STATUS_CHANGED_EVENT
@@ -44,7 +44,7 @@ from app.schemas.common import (
 )
 from app.services.cpm_service import compute_cpm
 
-router = APIRouter(prefix="/api/v1/projects", tags=["projects"])
+router = APIRouter(prefix="/api/v1/projects", tags=["projects"], dependencies=[require_module_enabled("projets")])
 PROJECT_WORKFLOW_SLUG = "project"
 PROJECT_ENTITY_TYPE = "project"
 

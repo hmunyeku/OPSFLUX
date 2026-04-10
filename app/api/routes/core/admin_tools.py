@@ -124,6 +124,11 @@ _FORBIDDEN_SQL_RE = re.compile(
     r"\b(INSERT|UPDATE|DELETE|DROP|TRUNCATE|ALTER|CREATE|GRANT|REVOKE|EXEC|EXECUTE|CALL)\b",
     re.IGNORECASE,
 )
+_ALLOWED_SQL_START_RE = re.compile(r"^\s*(SELECT|WITH|EXPLAIN|SHOW)\b", re.IGNORECASE)
+_FORBIDDEN_SQL_PATTERN_RE = re.compile(
+    r"(--|/\*|\*/|;|\b(COPY|SET|RESET|DISCARD|DO|VACUUM|ANALYZE|REFRESH)\b|\bpg_(read|write|ls|stat)_\w+\b)",
+    re.IGNORECASE,
+)
 
 
 @router.post("/sql-runner")
@@ -153,6 +158,16 @@ async def execute_sql(
     # Strip trailing semicolons for safety, then check for forbidden keywords
     cleaned = query_str.rstrip(";").strip()
 
+    if not _ALLOWED_SQL_START_RE.match(cleaned):
+        return {
+            "columns": [],
+            "rows": [],
+            "row_count": 0,
+            "execution_time_ms": 0,
+            "error": "Only SELECT / WITH / EXPLAIN / SHOW queries are allowed.",
+            "truncated": False,
+        }
+
     if _FORBIDDEN_SQL_RE.search(cleaned):
         return {
             "columns": [],
@@ -160,6 +175,16 @@ async def execute_sql(
             "row_count": 0,
             "execution_time_ms": 0,
             "error": "Only SELECT / read-only queries are allowed. INSERT, UPDATE, DELETE, DROP, TRUNCATE, ALTER, CREATE, GRANT, REVOKE are forbidden.",
+            "truncated": False,
+        }
+
+    if _FORBIDDEN_SQL_PATTERN_RE.search(cleaned):
+        return {
+            "columns": [],
+            "rows": [],
+            "row_count": 0,
+            "execution_time_ms": 0,
+            "error": "Query contains forbidden SQL patterns or multiple statements.",
             "truncated": False,
         }
 

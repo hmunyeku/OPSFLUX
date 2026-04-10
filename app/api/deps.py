@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.services.core.module_lifecycle_service import is_module_enabled
 from app.core.acting_context import resolve_acting_context
 from app.core.redis_client import get_redis
 from app.core.security import JWTError, decode_token
@@ -146,6 +147,22 @@ def require_any_permission(*permission_codes: str):
             )
 
     return Depends(_check_permissions)
+
+
+def require_module_enabled(module_slug: str):
+    """Factory returning a dependency that blocks access when a module is disabled for the entity."""
+
+    async def _check_module_enabled(
+        entity_id: UUID = Depends(get_current_entity),
+        db: AsyncSession = Depends(get_db),
+    ) -> None:
+        if not await is_module_enabled(db, entity_id, module_slug):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Module unavailable: {module_slug}",
+            )
+
+    return Depends(_check_module_enabled)
 
 
 async def has_user_permission(

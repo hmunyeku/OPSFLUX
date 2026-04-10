@@ -159,7 +159,7 @@ function buildSampleVariables(
         start_date: '01/04/2026',
         end_date: '28/04/2026',
         budget: '125 000 000 XAF',
-        description: 'Projet d’extension et de remise en conformite de la ligne process.',
+        description: 'Projet d’extension et de remise en conformité de la ligne process.',
         manager_name: 'Bastien Mukendi',
       },
       tasks: [

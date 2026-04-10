@@ -12,7 +12,7 @@ from sqlalchemy import select, func as sqla_func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_current_entity, get_current_user, require_permission
+from app.api.deps import get_current_entity, get_current_user, require_module_enabled, require_permission
 from app.core.database import get_db
 from app.core.pagination import PaginationParams, paginate
 from app.models.asset_registry import (
@@ -73,7 +73,7 @@ from app.schemas.asset_registry import (
     AssetChangeLogRead,
 )
 
-router = APIRouter(prefix="/api/v1/asset-registry", tags=["asset-registry"])
+router = APIRouter(prefix="/api/v1/asset-registry", tags=["asset-registry"], dependencies=[require_module_enabled("asset_registry")])
 
 # ── Equipment class → specialized model mapping ──────────────
 EQUIPMENT_CLASS_MODEL_MAP: dict[str, type] = {

@@ -25,6 +25,7 @@ from app.api.deps import (
     get_current_entity,
     get_current_user,
     has_user_permission,
+    require_module_enabled,
     require_any_permission,
     require_permission,
 )
@@ -126,7 +127,7 @@ from app.schemas.common import PaginatedResponse
 from app.services.core.fsm_service import fsm_service, FSMError, FSMPermissionError
 from app.services.modules import paxlog_service
 
-router = APIRouter(prefix="/api/v1/pax", tags=["paxlog"])
+router = APIRouter(prefix="/api/v1/pax", tags=["paxlog"], dependencies=[require_module_enabled("paxlog")])
 logger = logging.getLogger(__name__)
 
 ADS_WORKFLOW_SLUG = "ads-workflow"

@@ -17,6 +17,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { usePermission } from '@/hooks/usePermission'
+import { useModules } from '@/hooks/useModules'
 import {
   LayoutDashboard,
   Landmark,
@@ -75,13 +76,13 @@ const moduleNavItems: NavItemDef[] = [
   { path: '/packlog', icon: Package, labelKey: 'nav.packlog', module: 'packlog', order: 43, requiredPermission: 'packlog.cargo.read' },
   { path: '/imputations', icon: Coins, labelKey: 'nav.imputations', module: 'core', order: 44, requiredPermission: 'imputation.read' },
   { path: '/papyrus', icon: FileText, labelKey: 'nav.papyrus', module: 'papyrus', order: 55, requiredPermission: 'document.read' },
-  { path: '/pid-pfd', icon: Workflow, labelKey: 'nav.pid_pfd', module: 'pid-pfd', order: 58, requiredPermission: 'pid.read' },
+  { path: '/pid-pfd', icon: Workflow, labelKey: 'nav.pid_pfd', module: 'pid_pfd', order: 58, requiredPermission: 'pid.read' },
   { path: '/workflow', icon: GitBranch, labelKey: 'nav.workflow', module: 'workflow', order: 60, requiredPermission: 'workflow.definition.read' },
 ]
 
 const adminNavItems: NavItemDef[] = [
   { path: '/conformite', icon: ShieldCheck, labelKey: 'nav.conformite', module: 'conformite', order: 82, requiredPermission: 'conformite.record.read' },
-  { path: '/assets', icon: Landmark, labelKey: 'nav.assets', module: 'asset-registry', order: 85, requiredPermission: 'asset.read' },
+  { path: '/assets', icon: Landmark, labelKey: 'nav.assets', module: 'asset_registry', order: 85, requiredPermission: 'asset.read' },
   { path: '/entities', icon: Globe, labelKey: 'nav.entities', module: 'core', order: 88, requiredPermission: 'core.entity.read' },
   { path: '/users', icon: UserCog, labelKey: 'nav.accounts', module: 'core', order: 90, requiredPermission: 'core.users.read' },
   { path: '/support', icon: LifeBuoy, labelKey: 'nav.support', module: 'support', order: 92, requiredPermission: 'support.ticket.read' },
@@ -94,10 +95,15 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { hasPermission, hasAny } = usePermission()
+  const { data: modules = [] } = useModules()
+  const enabledModules = new Set(modules.filter((m) => m.enabled).map((m) => m.slug))
 
   // Filter items based on requiredPermission, then sort by order
   const filterByPermission = (items: NavItemDef[]) =>
     items.filter((item) => {
+      if (item.module && item.module !== 'core' && modules.length > 0 && !enabledModules.has(item.module)) {
+        return false
+      }
       if (item.requiredAnyPermissions?.length) return hasAny(item.requiredAnyPermissions)
       if (item.requiredPermission) return hasPermission(item.requiredPermission)
       return true

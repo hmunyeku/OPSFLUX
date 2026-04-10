@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { usePermission } from '@/hooks/usePermission'
+import { useModules } from '@/hooks/useModules'
 import { AppLayout } from '@/components/layout/AppLayout'
 import CookieConsent from '@/components/layout/CookieConsent'
 import { LoginPage } from '@/pages/auth/LoginPage'
@@ -56,6 +57,14 @@ function RequireAnyPermission({ permissions, children }: { permissions: string[]
   return <>{children}</>
 }
 
+function RequireModuleEnabled({ module, children }: { module: string; children: React.ReactNode }) {
+  const { data: modules = [], isLoading } = useModules()
+  if (isLoading) return <div className="flex items-center justify-center h-full"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+  const enabled = modules.some((entry) => entry.slug === module && entry.enabled)
+  if (!enabled) return <Navigate to="/dashboard" replace />
+  return <>{children}</>
+}
+
 export default function App() {
   return (
     <>
@@ -79,25 +88,25 @@ export default function App() {
                   <Route path="/comptes" element={<Navigate to="/users" replace />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/search" element={<SearchPage />} />
-                  <Route path="/assets/*" element={<RequirePermission permission="asset.read"><AssetRegistryPage /></RequirePermission>} />
-                  <Route path="/assets-legacy/*" element={<RequirePermission permission="asset.read"><AssetsPage /></RequirePermission>} />
+                  <Route path="/assets/*" element={<RequireModuleEnabled module="asset_registry"><RequirePermission permission="asset.read"><AssetRegistryPage /></RequirePermission></RequireModuleEnabled>} />
+                  <Route path="/assets-legacy/*" element={<RequireModuleEnabled module="asset_registry"><RequirePermission permission="asset.read"><AssetsPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/entities/*" element={<RequirePermission permission="core.entity.read"><EntitiesPage /></RequirePermission>} />
                   <Route path="/users/*" element={<RequirePermission permission="core.users.read"><UsersPage /></RequirePermission>} />
-                  <Route path="/tiers/*" element={<RequirePermission permission="tier.read"><TiersPage /></RequirePermission>} />
-                  <Route path="/conformite/*" element={<RequirePermission permission="conformite.record.read"><ConformitePage /></RequirePermission>} />
-                  <Route path="/projets/*" element={<RequirePermission permission="project.read"><ProjetsPage /></RequirePermission>} />
+                  <Route path="/tiers/*" element={<RequireModuleEnabled module="tiers"><RequirePermission permission="tier.read"><TiersPage /></RequirePermission></RequireModuleEnabled>} />
+                  <Route path="/conformite/*" element={<RequireModuleEnabled module="conformite"><RequirePermission permission="conformite.record.read"><ConformitePage /></RequirePermission></RequireModuleEnabled>} />
+                  <Route path="/projets/*" element={<RequireModuleEnabled module="projets"><RequirePermission permission="project.read"><ProjetsPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/workflow/*" element={<RequirePermission permission="workflow.definition.read"><WorkflowPage /></RequirePermission>} />
-                  <Route path="/paxlog/ads-boarding/:token" element={<RequirePermission permission="travelwiz.boarding.manage"><AdsBoardingScanPage /></RequirePermission>} />
-                  <Route path="/paxlog/*" element={<RequireAnyPermission permissions={['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.ads.approve', 'paxlog.avm.read', 'paxlog.avm.create', 'paxlog.avm.update', 'paxlog.avm.approve', 'paxlog.avm.complete', 'paxlog.profile.read', 'paxlog.compliance.read']}><PaxLogPage /></RequireAnyPermission>} />
-                  <Route path="/planner/*" element={<RequirePermission permission="planner.activity.read"><PlannerPage /></RequirePermission>} />
-                  <Route path="/travelwiz/*" element={<RequirePermission permission="travelwiz.voyage.read"><TravelWizPage /></RequirePermission>} />
-                  <Route path="/packlog/*" element={<RequirePermission permission="packlog.cargo.read"><PackLogPage /></RequirePermission>} />
+                  <Route path="/paxlog/ads-boarding/:token" element={<RequireModuleEnabled module="paxlog"><RequirePermission permission="travelwiz.boarding.manage"><AdsBoardingScanPage /></RequirePermission></RequireModuleEnabled>} />
+                  <Route path="/paxlog/*" element={<RequireModuleEnabled module="paxlog"><RequireAnyPermission permissions={['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.ads.approve', 'paxlog.avm.read', 'paxlog.avm.create', 'paxlog.avm.update', 'paxlog.avm.approve', 'paxlog.avm.complete', 'paxlog.profile.read', 'paxlog.compliance.read']}><PaxLogPage /></RequireAnyPermission></RequireModuleEnabled>} />
+                  <Route path="/planner/*" element={<RequireModuleEnabled module="planner"><RequirePermission permission="planner.activity.read"><PlannerPage /></RequirePermission></RequireModuleEnabled>} />
+                  <Route path="/travelwiz/*" element={<RequireModuleEnabled module="travelwiz"><RequirePermission permission="travelwiz.voyage.read"><TravelWizPage /></RequirePermission></RequireModuleEnabled>} />
+                  <Route path="/packlog/*" element={<RequireModuleEnabled module="packlog"><RequirePermission permission="packlog.cargo.read"><PackLogPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/imputations/*" element={<RequirePermission permission="imputation.read"><ImputationsPage /></RequirePermission>} />
                   <Route path="/report-editor/*" element={<Navigate to="/papyrus" replace />} />
-                  <Route path="/papyrus/*" element={<RequirePermission permission="document.read"><PapyrusPage /></RequirePermission>} />
-                  <Route path="/pid-pfd/*" element={<RequirePermission permission="pid.read"><PidPfdPage /></RequirePermission>} />
+                  <Route path="/papyrus/*" element={<RequireModuleEnabled module="papyrus"><RequirePermission permission="document.read"><PapyrusPage /></RequirePermission></RequireModuleEnabled>} />
+                  <Route path="/pid-pfd/*" element={<RequireModuleEnabled module="pid_pfd"><RequirePermission permission="pid.read"><PidPfdPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/files/*" element={<RequirePermission permission="core.settings.manage"><Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}><FileManagerPage /></Suspense></RequirePermission>} />
-                  <Route path="/support/*" element={<RequirePermission permission="support.ticket.read"><SupportPage /></RequirePermission>} />
+                  <Route path="/support/*" element={<RequireModuleEnabled module="support"><RequirePermission permission="support.ticket.read"><SupportPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/settings/*" element={<SettingsPage />} />
                 </Routes>
               </Suspense>

@@ -9,8 +9,9 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_entity, get_current_user
+from app.api.deps import get_current_entity, get_current_user, has_user_permission
 from app.core.database import get_db
+from app.services.core.module_lifecycle_service import is_module_enabled, normalize_module_slug
 from app.models.asset_registry import Installation
 from app.models.common import (
 
@@ -39,6 +40,23 @@ class PreviewResponse(BaseModel):
 
 
 SUPPORTED_MODULES = {"tiers", "assets", "projets", "planner", "paxlog", "conformite", "users"}
+PREVIEW_PERMISSION_MAP: dict[str, tuple[str, ...]] = {
+    "tiers": ("tier.read",),
+    "assets": ("asset.read",),
+    "projets": ("project.read",),
+    "planner": ("planner.activity.read",),
+    "paxlog": (
+        "paxlog.ads.read",
+        "paxlog.ads.create",
+        "paxlog.ads.update",
+        "paxlog.ads.approve",
+        "paxlog.avm.read",
+        "paxlog.profile.read",
+        "paxlog.compliance.read",
+    ),
+    "conformite": ("conformite.record.read",),
+    "users": ("user.read", "core.users.read"),
+}
 
 
 @router.get("/preview/{module}/{record_id}", response_model=PreviewResponse)
@@ -50,13 +68,30 @@ async def get_preview(
     db: AsyncSession = Depends(get_db),
 ):
     """Return a compact summary for a record, used by CrossModuleLink hover tooltips."""
-    if module not in SUPPORTED_MODULES:
+    normalized_module = normalize_module_slug(module) or module
+    preview_module = "assets" if normalized_module == "asset_registry" else normalized_module
+
+    if preview_module not in SUPPORTED_MODULES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unsupported module: {module}. Supported: {', '.join(sorted(SUPPORTED_MODULES))}",
         )
 
-    handler = _MODULE_HANDLERS.get(module)
+    gating_module = "asset_registry" if preview_module == "assets" else preview_module
+    if gating_module != "users" and not await is_module_enabled(db, entity_id, gating_module):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Module unavailable")
+
+    required_permissions = PREVIEW_PERMISSION_MAP.get(preview_module, ())
+    if required_permissions:
+        has_preview_access = False
+        for permission in required_permissions:
+            if await has_user_permission(current_user, entity_id, permission, db):
+                has_preview_access = True
+                break
+        if not has_preview_access:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Record not found")
+
+    handler = _MODULE_HANDLERS.get(preview_module)
     if not handler:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"No handler for module: {module}")
 
@@ -71,6 +106,28 @@ def _format_dt(dt: datetime | None) -> str | None:
     if dt is None:
         return None
     return dt.strftime("%Y-%m-%d")
+
+
+async def _user_belongs_to_entity(db: AsyncSession, *, user_id: UUID, entity_id: UUID) -> bool:
+    from app.models.common import UserGroup, UserGroupMember
+
+    result = await db.execute(
+        select(User.id)
+        .join(UserGroupMember, UserGroupMember.user_id == User.id)
+        .join(UserGroup, UserGroup.id == UserGroupMember.group_id)
+        .where(
+            User.id == user_id,
+            UserGroup.entity_id == entity_id,
+            UserGroup.active == True,  # noqa: E712
+        )
+    )
+    if result.first():
+        return True
+
+    fallback = await db.execute(
+        select(User.id).where(User.id == user_id, User.default_entity_id == entity_id)
+    )
+    return fallback.first() is not None
 
 
 # ── Module handlers ─────────────────────────────────────────────────────────
@@ -153,7 +210,7 @@ async def _preview_paxlog(db: AsyncSession, entity_id: UUID, record_id: UUID) ->
     # 1) Try User
     stmt = select(User).where(User.id == record_id)
     row = (await db.execute(stmt)).scalar_one_or_none()
-    if row:
+    if row and await _user_belongs_to_entity(db, user_id=row.id, entity_id=entity_id):
         return PreviewResponse(
             id=str(row.id),
             code=row.badge_number,
@@ -207,7 +264,7 @@ async def _preview_conformite(db: AsyncSession, entity_id: UUID, record_id: UUID
 async def _preview_users(db: AsyncSession, entity_id: UUID, record_id: UUID) -> PreviewResponse | None:
     stmt = select(User).where(User.id == record_id)
     row = (await db.execute(stmt)).scalar_one_or_none()
-    if not row:
+    if not row or not await _user_belongs_to_entity(db, user_id=row.id, entity_id=entity_id):
         return None
     return PreviewResponse(
         id=str(row.id),

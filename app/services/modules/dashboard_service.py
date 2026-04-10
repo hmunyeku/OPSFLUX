@@ -223,7 +223,7 @@ PREDEFINED_WIDGETS: dict[str, dict[str, Any]] = {
     "paxlog_ads_by_status": {
         "type": "chart",
         "title": "AdS par statut",
-        "description": "Distribution des autorisations de sortie par statut",
+        "description": "Distribution des avis de séjour par statut",
         "source": "paxlog",
         "roles": ["CDS", "CHSE", "DO"],
     },

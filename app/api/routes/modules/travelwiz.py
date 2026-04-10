@@ -20,7 +20,7 @@ from sqlalchemy import select, func as sqla_func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routes.modules import packlog_shared as packlog_shared_module
-from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_permission
+from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_module_enabled, require_permission
 from app.core.acting_context import get_effective_actor_user_id
 from app.core.audit import record_audit
 from app.core.database import get_db
@@ -144,7 +144,7 @@ from app.api.routes.modules.packlog_shared import (
     update_package_element_return_impl,
 )
 
-router = APIRouter(prefix="/api/v1/travelwiz", tags=["travelwiz"])
+router = APIRouter(prefix="/api/v1/travelwiz", tags=["travelwiz"], dependencies=[require_module_enabled("travelwiz")])
 logger = logging.getLogger(__name__)
 
 VOYAGE_WORKFLOW_SLUG = "voyage-workflow"

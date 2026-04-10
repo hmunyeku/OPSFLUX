@@ -45,6 +45,10 @@ export interface PlannerGanttViewPrefs {
 
   // Compact row height for heatmap rows (Field/Site/Installation/Total) in px
   heatmap_row_height: number
+
+  // Aggregation mode for Field/Site/Installation rows: sum of all children
+  // PAX (default — capacity planning view) or peak max per day (peak load).
+  parent_rows_aggregation: 'sum' | 'peak'
 }
 
 export const DEFAULT_PLANNER_GANTT_VIEW: PlannerGanttViewPrefs = {
@@ -62,6 +66,7 @@ export const DEFAULT_PLANNER_GANTT_VIEW: PlannerGanttViewPrefs = {
   hide_empty_rows: true,
   show_row_sublabels: true,
   heatmap_row_height: 22,
+  parent_rows_aggregation: 'sum',
 }
 
 /**
@@ -191,6 +196,22 @@ export function PlannerCustomizationSections({ prefs, onChange }: Props) {
         <div className="grid grid-cols-1 gap-1.5">
           <Toggle label="Pic max global (%)" checked={prefs.show_total_peak} onChange={(v) => update('show_total_peak', v)} />
           <Toggle label="Somme PAX globale" checked={prefs.show_total_sum} onChange={(v) => update('show_total_sum', v)} />
+        </div>
+      </Section>
+
+      {/* ── Aggregation mode for parent rows ── */}
+      <Section icon={BarChart3} title="Agrégation des lignes parents (Champ / Site / Installation)">
+        <div className="flex items-center gap-1 flex-wrap">
+          <RadioPill
+            label="Somme PAX"
+            active={prefs.parent_rows_aggregation === 'sum'}
+            onClick={() => update('parent_rows_aggregation', 'sum')}
+          />
+          <RadioPill
+            label="Pic max par jour"
+            active={prefs.parent_rows_aggregation === 'peak'}
+            onClick={() => update('parent_rows_aggregation', 'peak')}
+          />
         </div>
       </Section>
 

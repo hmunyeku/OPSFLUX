@@ -556,7 +556,7 @@ export function GanttView({
           level: 0,
           hasChildren: viewPrefs.show_site_rows || viewPrefs.show_installation_rows || viewPrefs.show_activity_rows,
           rowHeight: heatmapRowH,
-          heatmapCells: buildHeatmapCells(fieldAssetIds),
+          heatmapCells: buildHeatmapCells(fieldAssetIds, viewPrefs.parent_rows_aggregation),
         })
         if (!expandedRows.has(fieldId)) continue
       }
@@ -577,7 +577,7 @@ export function GanttView({
             level: viewPrefs.show_field_rows ? 1 : 0,
             hasChildren: viewPrefs.show_installation_rows || viewPrefs.show_activity_rows,
             rowHeight: heatmapRowH,
-            heatmapCells: buildHeatmapCells(siteAssetIds),
+            heatmapCells: buildHeatmapCells(siteAssetIds, viewPrefs.parent_rows_aggregation),
           })
           if (!expandedRows.has(siteId)) continue
         }
@@ -602,7 +602,7 @@ export function GanttView({
               level: lvl,
               hasChildren: activities.length > 0 && viewPrefs.show_activity_rows,
               rowHeight: heatmapRowH,
-              heatmapCells: buildHeatmapCells([inst.id]),
+              heatmapCells: buildHeatmapCells([inst.id], viewPrefs.parent_rows_aggregation),
             })
             if (!expandedRows.has(installId)) continue
           }

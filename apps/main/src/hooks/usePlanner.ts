@@ -6,6 +6,7 @@ import { plannerService } from '@/services/plannerService'
 import type {
   PlannerActivityCreate, PlannerActivityUpdate,
   PlannerConflictResolve,
+  PlannerDependency,
   PlannerDependencyCreate,
   PaginationParams,
   AssetCapacityCreate,
@@ -133,16 +134,22 @@ export function useActivityDependencies(activityId: string | undefined) {
   })
 }
 
+/**
+ * Targeted invalidation for dependency changes — only the views that
+ * actually need to refetch. The heatmap (slow) and conflicts (unrelated)
+ * are intentionally excluded.
+ */
+function invalidateDependencyViews(qc: ReturnType<typeof useQueryClient>, activityId: string) {
+  qc.invalidateQueries({ queryKey: ['planner', 'activities', activityId, 'dependencies'] })
+  qc.invalidateQueries({ queryKey: ['planner', 'gantt'] })
+}
+
 export function useAddDependency() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ activityId, payload }: { activityId: string; payload: PlannerDependencyCreate }) =>
       plannerService.addDependency(activityId, payload),
-    onSuccess: (_, { activityId }) => {
-      qc.invalidateQueries({ queryKey: ['planner', 'activities', activityId, 'dependencies'] })
-      // The Gantt response now embeds dependencies, so refresh it too
-      invalidatePlannerViews(qc)
-    },
+    onSuccess: (_, { activityId }) => invalidateDependencyViews(qc, activityId),
   })
 }
 
@@ -151,10 +158,22 @@ export function useRemoveDependency() {
   return useMutation({
     mutationFn: ({ activityId, dependencyId }: { activityId: string; dependencyId: string }) =>
       plannerService.removeDependency(activityId, dependencyId),
-    onSuccess: (_, { activityId }) => {
-      qc.invalidateQueries({ queryKey: ['planner', 'activities', activityId, 'dependencies'] })
-      invalidatePlannerViews(qc)
+    // Optimistic update: remove the dep from the local cache immediately so the
+    // UI updates without waiting for the API roundtrip.
+    onMutate: async ({ activityId, dependencyId }) => {
+      const depKey = ['planner', 'activities', activityId, 'dependencies'] as const
+      await qc.cancelQueries({ queryKey: depKey })
+      const previous = qc.getQueryData<PlannerDependency[]>(depKey)
+      if (previous) {
+        qc.setQueryData<PlannerDependency[]>(depKey, previous.filter((d) => d.id !== dependencyId))
+      }
+      return { previous, depKey }
     },
+    onError: (_err, _vars, ctx) => {
+      // Roll back if the API call failed
+      if (ctx?.previous) qc.setQueryData(ctx.depKey, ctx.previous)
+    },
+    onSuccess: (_, { activityId }) => invalidateDependencyViews(qc, activityId),
   })
 }
 

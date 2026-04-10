@@ -95,12 +95,16 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { hasPermission, hasAny } = usePermission()
-  const { data: modules = [] } = useModules()
+  const { data: modules = [], isLoading: modulesLoading } = useModules()
   const enabledModules = new Set(modules.filter((m) => m.enabled).map((m) => m.slug))
 
   // Filter items based on requiredPermission, then sort by order
   const filterByPermission = (items: NavItemDef[]) =>
     items.filter((item) => {
+      // Prevent a first-paint flash of disabled modules before module state loads.
+      if (item.module && item.module !== 'core' && modulesLoading) {
+        return false
+      }
       if (item.module && item.module !== 'core' && modules.length > 0 && !enabledModules.has(item.module)) {
         return false
       }

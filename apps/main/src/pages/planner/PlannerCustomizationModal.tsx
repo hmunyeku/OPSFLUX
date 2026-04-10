@@ -49,6 +49,12 @@ export interface PlannerGanttViewPrefs {
   // Aggregation mode for Field/Site/Installation rows: sum of all children
   // PAX (default — capacity planning view) or peak max per day (peak load).
   parent_rows_aggregation: 'sum' | 'peak'
+
+  // Behaviour when dragging a bar that has dependencies:
+  //  - 'warn'    : show a violation dialog, no auto-shift (default)
+  //  - 'cascade' : auto-shift all affected successors to maintain constraints
+  //  - 'strict'  : reject the drag outright if it violates any constraint
+  drag_cascade_mode: 'warn' | 'cascade' | 'strict'
 }
 
 export const DEFAULT_PLANNER_GANTT_VIEW: PlannerGanttViewPrefs = {
@@ -67,6 +73,7 @@ export const DEFAULT_PLANNER_GANTT_VIEW: PlannerGanttViewPrefs = {
   show_row_sublabels: true,
   heatmap_row_height: 22,
   parent_rows_aggregation: 'sum',
+  drag_cascade_mode: 'warn',
 }
 
 /**
@@ -213,6 +220,31 @@ export function PlannerCustomizationSections({ prefs, onChange }: Props) {
             onClick={() => update('parent_rows_aggregation', 'peak')}
           />
         </div>
+      </Section>
+
+      {/* ── Drag cascade behaviour ── */}
+      <Section icon={BarChart3} title="Déplacement d'une barre avec dépendances">
+        <div className="flex items-center gap-1 flex-wrap">
+          <RadioPill
+            label="Avertir (pas de cascade)"
+            active={prefs.drag_cascade_mode === 'warn'}
+            onClick={() => update('drag_cascade_mode', 'warn')}
+          />
+          <RadioPill
+            label="Cascade (décaler les successeurs)"
+            active={prefs.drag_cascade_mode === 'cascade'}
+            onClick={() => update('drag_cascade_mode', 'cascade')}
+          />
+          <RadioPill
+            label="Strict (refuser si conflit)"
+            active={prefs.drag_cascade_mode === 'strict'}
+            onClick={() => update('drag_cascade_mode', 'strict')}
+          />
+        </div>
+        <p className="text-[9px] text-muted-foreground mt-1">
+          En mode cascade, tous les successeurs directs et indirects sont automatiquement décalés pour
+          préserver leurs contraintes FS/SS/FF/SF + lag.
+        </p>
       </Section>
 
       {/* ── Scope filters ── */}

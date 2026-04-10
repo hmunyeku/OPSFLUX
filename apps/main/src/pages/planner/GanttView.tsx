@@ -739,83 +739,242 @@ export function GanttView({
     expandedRows, pendingRevisionRequests, statusLabels, t, viewPrefs,
   ])
 
-  // ── Drag to reschedule ──
-  // Before committing a drag, check the dependency constraints involving this
-  // activity (FS / SS / FF + lag in days). If any constraint is violated, ask
-  // the user to confirm. The backend has no auto-shift logic yet, so this is
-  // a soft check — the user can choose to bypass it.
+  // ── Drag to reschedule with cascade / warn / strict modes ──
+  //
+  // When the user drags a bar, three strategies are available (controlled via
+  // viewPrefs.drag_cascade_mode):
+  //
+  //  1. 'warn'    — the default. Compute all FS/SS/FF/SF constraint violations
+  //                 the new dates would cause and show a confirmation dialog.
+  //                 The user decides whether to accept a broken schedule.
+  //  2. 'cascade' — act like MS-Project's "push successors" mode. Walk the
+  //                 dependency graph downstream (BFS) from the dragged bar,
+  //                 compute the minimum shift each successor needs to keep
+  //                 its incoming constraint satisfied, and apply all shifts
+  //                 as a single batch of PATCH requests after confirmation.
+  //                 Cycle detection prevents infinite loops.
+  //  3. 'strict'  — reject the drag outright if any constraint would break.
   const handleBarDrag = useCallback(async (barId: string, newStart: string, newEnd: string) => {
     if (barId.startsWith('proposal-')) return
 
-    // ── Constraint pre-check ──
     const allDeps = ganttData?.dependencies ?? []
     const allActsById = new Map<string, GanttActivity>()
     for (const asset of ganttData?.assets ?? []) {
       for (const a of asset.activities) allActsById.set(a.id, a)
     }
-    const movedStart = new Date(newStart).getTime()
-    const movedEnd = new Date(newEnd).getTime()
-    const violations: string[] = []
     const MS = 86400000
-    for (const dep of allDeps) {
-      let predStart = 0, predEnd = 0, succStart = 0, succEnd = 0
-      // Resolve the two activity dates considering the moved one
-      const pred = allActsById.get(dep.predecessor_id)
-      const succ = allActsById.get(dep.successor_id)
-      if (!pred || !succ) continue
-      if (dep.predecessor_id === barId) {
-        predStart = movedStart
-        predEnd = movedEnd
-      } else {
-        predStart = new Date(pred.start_date).getTime()
-        predEnd = new Date(pred.end_date).getTime()
-      }
-      if (dep.successor_id === barId) {
-        succStart = movedStart
-        succEnd = movedEnd
-      } else {
-        succStart = new Date(succ.start_date).getTime()
-        succEnd = new Date(succ.end_date).getTime()
-      }
-      const lag = (dep.lag_days ?? 0) * MS
-      let ok = true
-      let label = ''
-      if (dep.dependency_type === 'FS') {
-        // Finish-to-Start: succ.start >= pred.end + lag
-        ok = succStart >= predEnd + lag
-        label = `${pred.title} → ${succ.title} (FS+${dep.lag_days}j)`
-      } else if (dep.dependency_type === 'SS') {
-        // Start-to-Start: succ.start >= pred.start + lag
-        ok = succStart >= predStart + lag
-        label = `${pred.title} → ${succ.title} (SS+${dep.lag_days}j)`
-      } else if (dep.dependency_type === 'FF') {
-        // Finish-to-Finish: succ.end >= pred.end + lag
-        ok = succEnd >= predEnd + lag
-        label = `${pred.title} → ${succ.title} (FF+${dep.lag_days}j)`
-      } else if (dep.dependency_type === 'SF') {
-        // Start-to-Finish: succ.end >= pred.start + lag (rare, used in just-in-time)
-        ok = succEnd >= predStart + lag
-        label = `${pred.title} → ${succ.title} (SF+${dep.lag_days}j)`
-      }
-      if (!ok) violations.push(label)
+
+    // Proposed state of each activity we're about to modify. Seed with the
+    // dragged bar's new dates. We work in ms-since-epoch internally.
+    type Slot = { start: number; end: number; title: string }
+    const proposed = new Map<string, Slot>()
+    const seed = allActsById.get(barId)
+    if (seed) {
+      proposed.set(barId, {
+        start: new Date(newStart).getTime(),
+        end: new Date(newEnd).getTime(),
+        title: seed.title,
+      })
     }
-    if (violations.length > 0) {
-      const msg =
-        `Ce déplacement viole ${violations.length} contrainte(s) de dépendance :\n\n` +
+
+    // Helper: get an activity's current slot, falling back to its stored dates.
+    const slotOf = (actId: string): Slot | null => {
+      const p = proposed.get(actId)
+      if (p) return p
+      const a = allActsById.get(actId)
+      if (!a || !a.start_date || !a.end_date) return null
+      return {
+        start: new Date(a.start_date).getTime(),
+        end: new Date(a.end_date).getTime(),
+        title: a.title,
+      }
+    }
+
+    // Index deps by predecessor for the BFS walk (downstream propagation)
+    const depsByPredecessor = new Map<string, typeof allDeps>()
+    for (const dep of allDeps) {
+      const list = depsByPredecessor.get(dep.predecessor_id) ?? []
+      list.push(dep)
+      depsByPredecessor.set(dep.predecessor_id, list)
+    }
+
+    // Violations collected in 'warn' / 'strict' mode
+    const violations: string[] = []
+    const MAX_STEPS = 500
+    const visited = new Set<string>()
+    const queue: string[] = [barId]
+    let cycleDetected = false
+    let steps = 0
+
+    // Track the shifts we propose (activityId → {old, new}) for cascade mode
+    const cascadeShifts: Array<{ id: string; title: string; oldStart: string; oldEnd: string; newStart: string; newEnd: string }> = []
+
+    while (queue.length > 0 && steps < MAX_STEPS) {
+      steps++
+      const currentId = queue.shift()!
+      if (visited.has(currentId)) {
+        // Cycle — already processed this node. Skip but flag.
+        if (currentId !== barId) cycleDetected = true
+        continue
+      }
+      visited.add(currentId)
+
+      const currentSlot = slotOf(currentId)
+      if (!currentSlot) continue
+
+      // Walk every dep where currentId is the predecessor
+      const outgoing = depsByPredecessor.get(currentId) ?? []
+      for (const dep of outgoing) {
+        const succ = allActsById.get(dep.successor_id)
+        if (!succ) continue
+        const succSlot = slotOf(dep.successor_id)
+        if (!succSlot) continue
+
+        const lag = (dep.lag_days ?? 0) * MS
+        // Required minimum based on dep type (ms-since-epoch)
+        let requiredStart = succSlot.start
+        let requiredEnd = succSlot.end
+        let label = ''
+        if (dep.dependency_type === 'FS') {
+          // succ.start >= pred.end + lag
+          const minStart = currentSlot.end + lag
+          if (succSlot.start < minStart) {
+            const delta = minStart - succSlot.start
+            requiredStart = succSlot.start + delta
+            requiredEnd = succSlot.end + delta
+          }
+          label = `${currentSlot.title} → ${succ.title} (FS${dep.lag_days >= 0 ? '+' : ''}${dep.lag_days}j)`
+        } else if (dep.dependency_type === 'SS') {
+          const minStart = currentSlot.start + lag
+          if (succSlot.start < minStart) {
+            const delta = minStart - succSlot.start
+            requiredStart = succSlot.start + delta
+            requiredEnd = succSlot.end + delta
+          }
+          label = `${currentSlot.title} → ${succ.title} (SS${dep.lag_days >= 0 ? '+' : ''}${dep.lag_days}j)`
+        } else if (dep.dependency_type === 'FF') {
+          const minEnd = currentSlot.end + lag
+          if (succSlot.end < minEnd) {
+            const delta = minEnd - succSlot.end
+            requiredStart = succSlot.start + delta
+            requiredEnd = succSlot.end + delta
+          }
+          label = `${currentSlot.title} → ${succ.title} (FF${dep.lag_days >= 0 ? '+' : ''}${dep.lag_days}j)`
+        } else if (dep.dependency_type === 'SF') {
+          const minEnd = currentSlot.start + lag
+          if (succSlot.end < minEnd) {
+            const delta = minEnd - succSlot.end
+            requiredStart = succSlot.start + delta
+            requiredEnd = succSlot.end + delta
+          }
+          label = `${currentSlot.title} → ${succ.title} (SF${dep.lag_days >= 0 ? '+' : ''}${dep.lag_days}j)`
+        }
+
+        const needsShift = requiredStart !== succSlot.start || requiredEnd !== succSlot.end
+        if (!needsShift) continue
+
+        // Record the violation
+        violations.push(label)
+
+        // In cascade mode, persist the proposed new dates and enqueue the
+        // successor so its own successors propagate further down the chain.
+        if (viewPrefs.drag_cascade_mode === 'cascade') {
+          proposed.set(dep.successor_id, {
+            start: requiredStart,
+            end: requiredEnd,
+            title: succ.title,
+          })
+          queue.push(dep.successor_id)
+        }
+      }
+    }
+
+    if (steps >= MAX_STEPS) {
+      cycleDetected = true
+    }
+
+    // Build the cascade list from proposed map (excluding the bar we dragged —
+    // it's always committed via its original path below)
+    if (viewPrefs.drag_cascade_mode === 'cascade') {
+      for (const [actId, slot] of proposed) {
+        if (actId === barId) continue
+        const orig = allActsById.get(actId)
+        if (!orig?.start_date || !orig?.end_date) continue
+        cascadeShifts.push({
+          id: actId,
+          title: slot.title,
+          oldStart: orig.start_date.slice(0, 10),
+          oldEnd: orig.end_date.slice(0, 10),
+          newStart: new Date(slot.start).toISOString().slice(0, 10),
+          newEnd: new Date(slot.end).toISOString().slice(0, 10),
+        })
+      }
+    }
+
+    // ── Apply strategy ──
+    if (viewPrefs.drag_cascade_mode === 'strict' && violations.length > 0) {
+      // eslint-disable-next-line no-alert
+      window.alert(
+        `Le déplacement est refusé — il viole ${violations.length} contrainte(s) :\n\n` +
         violations.map((v) => `• ${v}`).join('\n') +
-        `\n\nVoulez-vous quand même appliquer ce changement ?`
+        `\n\nAjustez manuellement les activités liées ou passez en mode « cascade » dans les paramètres.`,
+      )
+      return
+    }
+
+    if (viewPrefs.drag_cascade_mode === 'warn' && violations.length > 0) {
+      const msg =
+        `Ce déplacement viole ${violations.length} contrainte(s) :\n\n` +
+        violations.map((v) => `• ${v}`).join('\n') +
+        `\n\nVoulez-vous quand même l'appliquer ?`
       // eslint-disable-next-line no-alert
       const proceed = window.confirm(msg)
       if (!proceed) return
     }
 
+    if (viewPrefs.drag_cascade_mode === 'cascade' && cascadeShifts.length > 0) {
+      const maxShown = 10
+      const shownShifts = cascadeShifts.slice(0, maxShown)
+      const more = cascadeShifts.length > maxShown ? `\n… et ${cascadeShifts.length - maxShown} de plus` : ''
+      const cycleNote = cycleDetected
+        ? '\n\n⚠️ Cycle ou chaîne trop longue détecté(e). Certains décalages peuvent être incomplets.'
+        : ''
+      const msg =
+        `Cascade : ${cascadeShifts.length} activité(s) successeur(s) seront également décalée(s) pour respecter les contraintes :\n\n` +
+        shownShifts.map((s) => `• ${s.title} : ${s.oldStart} → ${s.newStart}`).join('\n') +
+        more +
+        cycleNote +
+        '\n\nAppliquer le déplacement et la cascade ?'
+      // eslint-disable-next-line no-alert
+      const proceed = window.confirm(msg)
+      if (!proceed) return
+    }
+
+    // ── Commit all shifts (dragged bar + cascade if any) in parallel ──
     try {
-      await plannerService.updateActivity(barId, { start_date: newStart, end_date: newEnd })
-      toast({ title: t('planner.gantt.toasts.rescheduled'), variant: 'success' })
+      const patchOps: Promise<unknown>[] = [
+        plannerService.updateActivity(barId, { start_date: newStart, end_date: newEnd }),
+      ]
+      for (const shift of cascadeShifts) {
+        patchOps.push(
+          plannerService.updateActivity(shift.id, {
+            start_date: shift.newStart,
+            end_date: shift.newEnd,
+          }),
+        )
+      }
+      await Promise.all(patchOps)
+      const cascadeMsg = cascadeShifts.length > 0
+        ? ` (+${cascadeShifts.length} en cascade)`
+        : ''
+      toast({
+        title: `${t('planner.gantt.toasts.rescheduled')}${cascadeMsg}`,
+        variant: 'success',
+      })
     } catch {
       toast({ title: t('planner.gantt.toasts.drag_error'), variant: 'error' })
     }
-  }, [t, toast, ganttData])
+  }, [t, toast, ganttData, viewPrefs.drag_cascade_mode])
 
   // ── Click on bar → open detail panel ──
   const handleBarClick = useCallback((barId: string) => {

@@ -117,6 +117,13 @@ class ActivityUpdate(BaseModel):
     description: str | None = None
     priority: str | None = None
     pax_quota: int | None = None
+    # Variable POB plan: 'constant' or 'variable' + optional day-keyed dict
+    # e.g. {"2026-04-10": 12, "2026-04-11": 8}. Both fields were missing
+    # from ActivityUpdate so Pydantic silently dropped them in PATCH
+    # payloads — the variable POB editor in the detail panel could never
+    # persist its changes. Adding them here fixes the round-trip.
+    pax_quota_mode: str | None = Field(default=None, pattern=r"^(constant|variable)$")
+    pax_quota_daily: dict | None = None
     start_date: datetime | None = None
     end_date: datetime | None = None
     actual_start: datetime | None = None

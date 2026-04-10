@@ -545,12 +545,13 @@ export function GanttCore(props: GanttCoreProps) {
    * Capture the Gantt container with html2canvas, after:
    *   1. Closing all dropdowns (so the export / range menus don't bleed
    *      into the snapshot)
-   *   2. Temporarily expanding the scroll containers to their full content
-   *      size (so the screenshot includes all rows + all cells, not just
-   *      the visible viewport)
-   *   3. Temporarily hiding the toolbar (the template has its own header)
-   *   4. Restoring all modified styles after the capture completes,
-   *      even if html2canvas throws
+   *   2. Injecting a global CSS override that:
+   *        - removes overflow clipping on every descendant
+   *        - disables `truncate` / ellipsis so row labels aren't cut off
+   *        - unsets height/max-height on scroll containers so all rows fit
+   *        - hides the toolbar (the PDF template has its own header)
+   *   3. Restoring the DOM (remove the class + style tag) after the capture,
+   *      even when html2canvas throws
    */
   const captureGanttImage = useCallback(async (): Promise<string | null> => {
     const container = containerRef.current
@@ -562,41 +563,38 @@ export function GanttCore(props: GanttCoreProps) {
     await new Promise<void>((r) => requestAnimationFrame(() => r()))
     await new Promise<void>((r) => requestAnimationFrame(() => r()))
 
-    // Step 2: expand the scroll containers + hide the toolbar
-    const bodyEl = bodyScrollRef.current
-    const headerEl = headerScrollRef.current
-    const toolbarEl = container.querySelector<HTMLElement>('[data-gantt-toolbar]')
+    // Step 2: inject the "capturing" CSS overrides. Much cleaner than
+    // stashing individual element styles — a single <style> tag applies
+    // the rules everywhere and is trivial to roll back.
+    const CAPTURE_CLASS = 'opf-gantt-capturing'
+    const styleTag = document.createElement('style')
+    styleTag.setAttribute('data-opf-gantt-capture', '1')
+    styleTag.textContent = `
+      .${CAPTURE_CLASS} [data-gantt-toolbar] { display: none !important; }
+      .${CAPTURE_CLASS},
+      .${CAPTURE_CLASS} * {
+        overflow: visible !important;
+        max-height: none !important;
+      }
+      .${CAPTURE_CLASS} .truncate {
+        text-overflow: clip !important;
+        white-space: nowrap !important;
+      }
+      /* Expand vertical scroll containers so every row fits in the frame */
+      .${CAPTURE_CLASS} [data-gantt-body-scroll],
+      .${CAPTURE_CLASS} [data-gantt-panel-scroll] {
+        height: auto !important;
+        max-height: none !important;
+      }
+      /* Never clip the body container itself */
+      .${CAPTURE_CLASS} [data-gantt-panel-grid] {
+        overflow: visible !important;
+      }
+    `
+    document.head.appendChild(styleTag)
+    container.classList.add(CAPTURE_CLASS)
 
-    const restore: Array<() => void> = []
-    const stash = (el: HTMLElement | null, props: (keyof CSSStyleDeclaration)[]) => {
-      if (!el) return
-      const prev: Record<string, string> = {}
-      for (const p of props) prev[p as string] = (el.style as unknown as Record<string, string>)[p as string] ?? ''
-      restore.push(() => {
-        for (const p of props) (el.style as unknown as Record<string, string>)[p as string] = prev[p as string]
-      })
-    }
-
-    // Hide the toolbar so it doesn't bleed into the snapshot
-    stash(toolbarEl, ['display'])
-    if (toolbarEl) toolbarEl.style.display = 'none'
-
-    // Expand vertical scroll on the body so all rows are visible
-    stash(bodyEl, ['overflow', 'height', 'maxHeight'])
-    if (bodyEl) {
-      bodyEl.style.overflow = 'visible'
-      bodyEl.style.height = 'auto'
-      bodyEl.style.maxHeight = 'none'
-    }
-    // Same for the timeline header (horizontal)
-    stash(headerEl, ['overflow'])
-    if (headerEl) headerEl.style.overflow = 'visible'
-    // Outer container must also let overflow escape
-    stash(container, ['overflow', 'height', 'maxHeight'])
-    container.style.overflow = 'visible'
-    container.style.height = 'auto'
-    container.style.maxHeight = 'none'
-
+    await new Promise<void>((r) => requestAnimationFrame(() => r()))
     await new Promise<void>((r) => requestAnimationFrame(() => r()))
 
     try {
@@ -610,8 +608,9 @@ export function GanttCore(props: GanttCoreProps) {
       })
       return canvas.toDataURL('image/png')
     } finally {
-      // Always restore the DOM even if capture fails
-      for (const r of restore) r()
+      // Always restore the DOM — remove the class and the style tag
+      container.classList.remove(CAPTURE_CLASS)
+      styleTag.remove()
     }
   }, [])
 
@@ -735,9 +734,14 @@ export function GanttCore(props: GanttCoreProps) {
     return () => window.removeEventListener('keydown', handler)
   }, [shift, zoom, fitAll, settings.scale])
 
-  // ── Loading / empty ────────────────────────────────────────────
+  // ── Loading state ──────────────────────────────────────────────
+  // Only full-replace the view while the initial query is in flight.
+  // For the "no rows in the current range" case, we keep the full shell
+  // rendered (toolbar + header) so the user can still navigate away —
+  // otherwise scrolling to a date range with no activities traps the
+  // user in an empty screen with no buttons.
 
-  if (isLoading) {
+  if (isLoading && !rows.length) {
     return (
       <div className="flex items-center justify-center text-muted-foreground gap-2" style={{ minHeight }}>
         <Loader2 className="h-5 w-5 animate-spin" />
@@ -746,13 +750,7 @@ export function GanttCore(props: GanttCoreProps) {
     )
   }
 
-  if (!rows.length) {
-    return (
-      <div className="flex items-center justify-center text-muted-foreground text-sm" style={{ minHeight }}>
-        {emptyMessage}
-      </div>
-    )
-  }
+  const isEmpty = rows.length === 0
 
   // ── Render ─────────────────────────────────────────────────────
 
@@ -1016,7 +1014,7 @@ export function GanttCore(props: GanttCoreProps) {
       )}
 
       {/* ── Body (panel + grid) ──────────────────────────────── */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div data-gantt-panel-grid className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* ── Left panel ───────────────────────────────────── */}
         {showGrid && (
@@ -1072,6 +1070,7 @@ export function GanttCore(props: GanttCoreProps) {
               {/* Panel rows — synced vertical scroll */}
               <div
                 ref={panelBodyRef}
+                data-gantt-panel-scroll
                 className="flex-1 overflow-y-auto overflow-x-hidden"
                 onScroll={onPanelScroll}
                 style={{ scrollbarWidth: 'none' }}
@@ -1175,11 +1174,27 @@ export function GanttCore(props: GanttCoreProps) {
           <div
             ref={bodyScrollRef}
             data-gantt-body
+            data-gantt-body-scroll
             className="flex-1 overflow-auto cursor-grab active:cursor-grabbing"
             onScroll={onBodyScroll}
             onMouseDown={onDragScroll}
           >
-            <div className="relative" style={{ width: totalWidth, height: bodyH }}>
+            <div className="relative" style={{ width: totalWidth, height: Math.max(bodyH, 120) }}>
+
+              {/* Empty-state message rendered inside the body area so the
+                  toolbar and header stay reachable — the user can still
+                  scroll, change scale, or pick a preset to get back to
+                  something that has activities. */}
+              {isEmpty && (
+                <div
+                  className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground text-sm gap-2 pointer-events-none"
+                >
+                  <span>{emptyMessage}</span>
+                  <span className="text-[10px] text-muted-foreground/70">
+                    Utilisez la barre d'outils pour changer la période ou revenir à aujourd'hui.
+                  </span>
+                </div>
+              )}
 
               {/* Row stripes with parent grouping background */}
               {rows.map((row, idx) => {

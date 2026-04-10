@@ -43,6 +43,7 @@ interface GanttBarProps {
   /** Per-cell widths (used to align bar.cellLabels) */
   cellWidths?: number[]
   onClick?: () => void
+  onDoubleClick?: () => void
   onDrag?: (newStart: string, newEnd: string) => void
   onResize?: (edge: 'left' | 'right', newDate: string) => void
   onTitleEdit?: (newTitle: string) => void
@@ -58,7 +59,7 @@ export function GanttBarComponent({
   showProgress, showLabels, showBaselines,
   baselineLeft, baselineWidth,
   cellLefts, cellWidths,
-  onClick, onDrag, onResize, onTitleEdit, onProgressChange, onLinkStart, onHover, onLeave, onRightClick,
+  onClick, onDoubleClick, onDrag, onResize, onTitleEdit, onProgressChange, onLinkStart, onHover, onLeave, onRightClick,
 }: GanttBarProps) {
   const color = resolveBarColor(bar)
   // Pick black or white text for every on-bar label based on bar luminance.
@@ -158,6 +159,7 @@ export function GanttBarComponent({
             boxShadow: bar.isCritical ? '0 0 0 2.5px #ef4444' : undefined,
           }}
           onClick={onClick}
+          onDoubleClick={onDoubleClick}
           onMouseMove={onHover}
           onMouseLeave={onLeave}
         />
@@ -184,6 +186,7 @@ export function GanttBarComponent({
           className="absolute z-20 cursor-pointer"
           style={{ left, top: bracketTop, width: Math.max(4, width), height: bracketH }}
           onClick={onClick}
+          onDoubleClick={onDoubleClick}
           onMouseMove={onHover}
           onMouseLeave={onLeave}
         >
@@ -260,6 +263,7 @@ export function GanttBarComponent({
             : `0 1px 3px ${color}30`,
         }}
         onClick={onClick}
+        onDoubleClick={onDoubleClick}
         onContextMenu={onRightClick}
         onMouseDown={e => handleMouseDown(e, 'move')}
         onMouseMove={onHover}

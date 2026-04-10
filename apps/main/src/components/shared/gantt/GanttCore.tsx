@@ -108,7 +108,7 @@ export function GanttCore(props: GanttCoreProps) {
   const {
     rows, bars, dependencies = [], markers = [], columns: rawColumns = [],
     initialScale, initialStart, initialEnd, initialSettings,
-    onBarClick, onBarDrag, onBarResize, onBarTitleEdit,
+    onBarClick, onBarDoubleClick, onBarDrag, onBarResize, onBarTitleEdit,
     onRowClick, onCellEdit,
     statusOptions, priorityOptions,
     presets: _presets, onPresetsChange: _onPresetsChange,
@@ -1010,6 +1010,7 @@ export function GanttCore(props: GanttCoreProps) {
                       cellLefts={cellLefts}
                       cellWidths={cellWidths}
                       onClick={() => onBarClick?.(bar.id, bar.meta)}
+                      onDoubleClick={() => onBarDoubleClick?.(bar.id)}
                       onDrag={onBarDrag ? (s, e) => onBarDrag(bar.id, s, e) : undefined}
                       onResize={onBarResize ? (edge, date) => onBarResize(bar.id, edge, date) : undefined}
                       onTitleEdit={onBarTitleEdit ? (title) => onBarTitleEdit(bar.id, title) : undefined}

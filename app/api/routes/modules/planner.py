@@ -2124,7 +2124,11 @@ async def delete_dependency(
     dep = result.scalars().first()
     if not dep:
         raise HTTPException(404, "Dependency not found")
-    await delete_entity(dep, db, "planner_dependency", entity_id=dependency_id, user_id=current_user.id)
+    # Hard delete: dependencies are pure join records between two activities
+    # and have no SoftDeleteMixin (no `archived`/`deleted_at` columns), so the
+    # generic soft-delete helper would be a no-op and the row would stay in
+    # the DB — causing the arrow to "reappear" after deletion in the UI.
+    await db.delete(dep)
     await db.commit()
     return {"detail": "Dependency deleted"}
 

@@ -1087,8 +1087,10 @@ export function GanttView({
     await handleBarDrag(barId, newStart, newEnd)
   }, [ganttData, toast, handleBarDrag])
 
-  // ── Click on bar → open detail panel ──
-  const handleBarClick = useCallback((barId: string) => {
+  // ── Double-click on bar → open detail panel ──
+  // A single click must NOT open the panel, because the user uses single
+  // clicks for drag/resize operations. Only an explicit dblclick opens it.
+  const handleBarDoubleClick = useCallback((barId: string) => {
     if (barId.startsWith('proposal-')) return
     openDynamicPanel({ type: 'detail', module: 'planner', id: barId })
   }, [openDynamicPanel])
@@ -1206,7 +1208,7 @@ export function GanttView({
         initialEnd={endDate}
         columns={plannerColumns}
         initialSettings={{ barHeight: 18, rowHeight: 30, showProgress: true }}
-        onBarClick={handleBarClick}
+        onBarDoubleClick={handleBarDoubleClick}
         onBarDrag={handleBarDrag}
         onBarResize={handleBarResize}
         onViewChange={handleViewChange}

@@ -29,6 +29,7 @@ from app.core.rbac import get_user_permissions
 from app.models.common import (
     UserGroup,
     UserGroupMember,
+    UserGroupRole,
     WorkflowDefinition,
     WorkflowInstance,
     WorkflowTransition,
@@ -594,9 +595,15 @@ class FSMService:
         entity_id: UUID,
         required_roles: list[str],
     ) -> bool:
-        """Check if the actor belongs to a group with one of the required roles."""
+        """Check if the actor belongs to a group with one of the required roles.
+
+        Roles are stored on the UserGroupRole junction table (group_id +
+        role_code). Joining UserGroup → UserGroupMember → UserGroupRole
+        gives us the actor's effective roles within the entity.
+        """
         result = await db.execute(
-            select(UserGroup.role_code)
+            select(UserGroupRole.role_code)
+            .join(UserGroup, UserGroup.id == UserGroupRole.group_id)
             .join(UserGroupMember, UserGroupMember.group_id == UserGroup.id)
             .where(
                 UserGroupMember.user_id == actor_id,
@@ -610,6 +617,11 @@ class FSMService:
         if "SUPER_ADMIN" in actor_roles:
             return True
 
+        # Wildcard permission (* in user permissions) also bypasses
+        perms = await get_user_permissions(actor_id, entity_id, db)
+        if "*" in perms:
+            return True
+
         return bool(actor_roles & set(required_roles))
 
     async def _get_actor_roles(
@@ -620,7 +632,8 @@ class FSMService:
     ) -> set[str]:
         """Get all role codes for an actor in an entity."""
         result = await db.execute(
-            select(UserGroup.role_code)
+            select(UserGroupRole.role_code)
+            .join(UserGroup, UserGroup.id == UserGroupRole.group_id)
             .join(UserGroupMember, UserGroupMember.group_id == UserGroup.id)
             .where(
                 UserGroupMember.user_id == actor_id,

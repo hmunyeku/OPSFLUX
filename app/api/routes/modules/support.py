@@ -122,6 +122,7 @@ async def _notify_ticket_event(
                 title=f"Ticket {ticket.reference} résolu",
                 body=ticket.resolution_notes or "Votre ticket a été résolu.",
                 category="success", link=link,
+                event_type="ticket.resolved",
             )
 
         elif event == "assigned":
@@ -131,6 +132,7 @@ async def _notify_ticket_event(
                     title=f"Ticket {ticket.reference} assigné",
                     body=f"Le ticket « {ticket.title} » vous a été assigné.",
                     category="info", link=link,
+                    event_type="ticket.assigned",
                 )
 
         elif event == "commented":
@@ -145,6 +147,7 @@ async def _notify_ticket_event(
                     title=f"Nouveau commentaire sur {ticket.reference}",
                     body=f"Un commentaire a été ajouté au ticket « {ticket.title} ».",
                     category="info", link=link,
+                    event_type="ticket.commented",
                 )
                 # Send email notification to reporter when admin comments
                 from app.core.email_templates import render_and_send_email

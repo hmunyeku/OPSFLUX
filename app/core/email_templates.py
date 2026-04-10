@@ -2081,6 +2081,7 @@ async def render_and_send_email(
     from_name: str | None = None,
     user_id: UUID | None = None,
     category: str | None = None,
+    event_type: str | None = None,
 ) -> bool:
     """Resolve, render, and send a templated email.
 
@@ -2118,6 +2119,7 @@ async def render_and_send_email(
         user_id=user_id,
         category=inferred_category,
         channel="email",
+        event_type=event_type or slug,
     )
     return True
 

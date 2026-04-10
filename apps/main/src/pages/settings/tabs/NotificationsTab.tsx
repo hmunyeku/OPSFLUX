@@ -55,6 +55,40 @@ const defaultNotificationMatrix = Object.fromEntries(
   ]),
 )
 
+const notificationEvents = [
+  { key: 'ads.submitted', label: 'AdS soumise', module: 'PaxLog' },
+  { key: 'ads.rejected', label: 'AdS rejetée', module: 'PaxLog' },
+  { key: 'ads.compliance_failed', label: 'AdS bloquée en conformité', module: 'PaxLog' },
+  { key: 'ads.approved', label: 'AdS approuvée', module: 'PaxLog' },
+  { key: 'planner.activity.validated', label: 'Activité validée', module: 'Planner' },
+  { key: 'planner.activity.cancelled', label: 'Activité annulée', module: 'Planner' },
+  { key: 'planner.conflict.detected', label: 'Conflit de capacité détecté', module: 'Planner' },
+  { key: 'planner.revision.requested', label: 'Révision demandée', module: 'Planner' },
+  { key: 'planner.revision.responded', label: 'Réponse à une révision', module: 'Planner' },
+  { key: 'planner.revision.forced', label: 'Révision forcée', module: 'Planner' },
+  { key: 'project.status.changed', label: 'Statut projet modifié', module: 'Projects' },
+  { key: 'project.task.assigned', label: 'Tâche assignée', module: 'Projects' },
+  { key: 'project.task.planner_sync_required', label: 'Révision Planner suggérée', module: 'Projects' },
+  { key: 'conformite.record_verified', label: 'Conformité vérifiée / rejetée', module: 'Conformité' },
+  { key: 'conformite.rule.changed', label: 'Règle modifiée', module: 'Conformité' },
+  { key: 'conformite.record.expired', label: 'Conformité expirée', module: 'Conformité' },
+  { key: 'document.submitted', label: 'Document soumis', module: 'Papyrus' },
+  { key: 'document.approved', label: 'Document approuvé', module: 'Papyrus' },
+  { key: 'document.rejected', label: 'Document rejeté', module: 'Papyrus' },
+  { key: 'document.published', label: 'Document publié', module: 'Papyrus' },
+  { key: 'ticket.assigned', label: 'Ticket assigné', module: 'Support' },
+  { key: 'ticket.commented', label: 'Ticket commenté', module: 'Support' },
+  { key: 'ticket.resolved', label: 'Ticket résolu', module: 'Support' },
+  { key: 'travelwiz.pickup_reminder', label: 'Rappel de navette', module: 'TravelWiz' },
+] as const
+
+const defaultNotificationEventMatrix = Object.fromEntries(
+  notificationEvents.map((event) => [
+    event.key,
+    { in_app: true, email: true, digest: true, sms: true, whatsapp: true },
+  ]),
+)
+
 export function NotificationsTab() {
   const { toast } = useToast()
   const { data: prefs, isLoading: prefsLoading } = useNotificationPreferences()
@@ -69,6 +103,9 @@ export function NotificationsTab() {
   const [groupOverrides, setGroupOverrides] = useState<Record<string, { level: string }>>({})
   const [notificationMatrix, setNotificationMatrix] = useState<Record<string, { in_app: boolean; email: boolean; digest: boolean }>>(
     () => getPref('notifications_matrix', defaultNotificationMatrix),
+  )
+  const [notificationEventMatrix, setNotificationEventMatrix] = useState<Record<string, { in_app: boolean; email: boolean; digest: boolean; sms: boolean; whatsapp: boolean }>>(
+    () => getPref('notification_event_matrix', defaultNotificationEventMatrix),
   )
 
   // Sync state from API data
@@ -85,6 +122,7 @@ export function NotificationsTab() {
 
   useEffect(() => {
     setNotificationMatrix(getPref('notifications_matrix', defaultNotificationMatrix))
+    setNotificationEventMatrix(getPref('notification_event_matrix', defaultNotificationEventMatrix))
   }, [getPref])
 
   const handleSave = async () => {
@@ -96,6 +134,7 @@ export function NotificationsTab() {
         group_overrides: Object.keys(groupOverrides).length > 0 ? groupOverrides : null,
       })
       setPref('notifications_matrix', notificationMatrix)
+      setPref('notification_event_matrix', notificationEventMatrix)
       toast({ title: 'Préférences enregistrées', variant: 'success' })
     } catch {
       toast({ title: 'Erreur', description: 'Impossible d\'enregistrer les préférences.', variant: 'error' })
@@ -202,7 +241,17 @@ export function NotificationsTab() {
             {updatePrefs.isPending && <Loader2 size={14} className="animate-spin mr-1" />}
             Enregistrer
           </button>
-          <button className="gl-button gl-button-default" onClick={() => { if (prefs) { setGlobalLevel(prefs.global_level); setNotifySelf(prefs.notify_own_actions) } }}>
+          <button
+            className="gl-button gl-button-default"
+            onClick={() => {
+              if (prefs) {
+                setGlobalLevel(prefs.global_level)
+                setNotifySelf(prefs.notify_own_actions)
+              }
+              setNotificationMatrix(getPref('notifications_matrix', defaultNotificationMatrix))
+              setNotificationEventMatrix(getPref('notification_event_matrix', defaultNotificationEventMatrix))
+            }}
+          >
             Annuler
           </button>
         </div>
@@ -253,6 +302,54 @@ export function NotificationsTab() {
       </CollapsibleSection>
 
       <CollapsibleSection
+        id="notifications-events"
+        title="Matrice par événement"
+        description="Affinez les canaux autorisés pour les événements métier majeurs. Cette matrice prime sur la matrice par module quand un événement est explicitement reconnu par le backend."
+        storageKey="settings.notifications.collapse"
+      >
+        <div className="border border-border/60 rounded-lg bg-card overflow-hidden">
+          <div className="grid grid-cols-[1.1fr_1.5fr_repeat(5,minmax(0,110px))] gap-0 px-4 py-3 border-b border-border/40 bg-muted/30 text-xs font-semibold text-muted-foreground">
+            <span>Module</span>
+            <span>Événement</span>
+            <span>In-app</span>
+            <span>Email</span>
+            <span>Digest</span>
+            <span>SMS</span>
+            <span>WhatsApp</span>
+          </div>
+          {notificationEvents.map((event) => {
+            const value = notificationEventMatrix[event.key] || defaultNotificationEventMatrix[event.key]
+            return (
+              <div key={event.key} className="grid grid-cols-[1.1fr_1.5fr_repeat(5,minmax(0,110px))] gap-0 px-4 py-3 border-b border-border/20 last:border-b-0 items-center">
+                <span className="text-sm text-muted-foreground">{event.module}</span>
+                <span className="text-sm text-foreground">{event.label}</span>
+                {(['in_app', 'email', 'digest', 'sms', 'whatsapp'] as const).map((channel) => (
+                  <label key={channel} className="flex items-center gap-2 text-sm text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(value?.[channel])}
+                      onChange={(e) => {
+                        const next = {
+                          ...notificationEventMatrix,
+                          [event.key]: {
+                            ...(notificationEventMatrix[event.key] || defaultNotificationEventMatrix[event.key]),
+                            [channel]: e.target.checked,
+                          },
+                        }
+                        setNotificationEventMatrix(next)
+                      }}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    <span>{europeanChannelLabel(channel)}</span>
+                  </label>
+                ))}
+              </div>
+            )
+          })}
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
         id="notifications-display"
         title="Affichage des notifications"
         description="Position, durée et opacité des notifications toast. Ces réglages sont personnels et remplacent les valeurs par défaut de l'administrateur."
@@ -265,9 +362,11 @@ export function NotificationsTab() {
   )
 }
 
-function europeanChannelLabel(channel: 'in_app' | 'email' | 'digest') {
+function europeanChannelLabel(channel: 'in_app' | 'email' | 'digest' | 'sms' | 'whatsapp') {
   if (channel === 'in_app') return 'Autorisé'
   if (channel === 'email') return 'Autorisé'
+  if (channel === 'sms') return 'Autorisé'
+  if (channel === 'whatsapp') return 'Autorisé'
   return 'Autorisé'
 }
 

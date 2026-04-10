@@ -1736,6 +1736,7 @@ async def add_task_assignee(
                 title=f"Nouvelle assignation : {task.title}",
                 body=f"Vous avez été assigné(e) à la tâche « {task.title} » du projet {project.code} — {project.name}.",
                 category="projets", link="/projets",
+                event_type="project.task.assigned",
             )
             if u.email:
                 await render_and_send_email(

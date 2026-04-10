@@ -71,29 +71,28 @@ USER_FK_TABLES = [
     ("audit_log", "user_id", ["action", "resource_type", "resource_id", "ip_address", "created_at"]),
     ("notifications", "user_id", ["title", "body", "category", "read", "created_at"]),
     ("login_events", "user_id", ["ip_address", "user_agent", "success", "created_at"]),
-    ("user_emails", "user_id", ["email", "verified", "created_at"]),
-    ("phones", "user_id", ["number", "phone_type", "verified", "created_at"]),
-    ("addresses", "owner_id", ["address_type", "line1", "city", "country", "created_at"]),
-    ("user_passports", "user_id", ["passport_number", "country", "issue_date", "expiry_date"]),
-    ("user_visas", "user_id", ["visa_type", "country", "issue_date", "expiry_date"]),
-    ("user_vaccines", "user_id", ["vaccine_name", "vaccination_date"]),
-    ("user_languages", "user_id", ["language_code", "proficiency"]),
-    ("emergency_contacts", "user_id", ["first_name", "last_name", "phone", "relationship"]),
+    ("user_emails", "user_id", ["email", "is_primary", "is_notification", "verified", "created_at"]),
+    ("user_passports", "user_id", ["passport_type", "number", "country", "passport_name", "issue_date", "expiry_date", "document_url"]),
+    ("user_visas", "user_id", ["visa_type", "number", "country", "issue_date", "expiry_date", "document_url"]),
+    ("user_vaccines", "user_id", ["vaccine_type", "date_administered", "expiry_date", "batch_number", "created_at"]),
+    ("user_languages", "user_id", ["language_code", "proficiency_level", "created_at"]),
+    ("emergency_contacts", "user_id", ["relationship_type", "name", "phone_number", "email", "created_at"]),
     ("user_sessions", "user_id", ["ip_address", "user_agent", "created_at", "last_active_at"]),
     ("user_delegations", "delegator_id", ["delegate_id", "start_date", "end_date", "active"]),
     ("support_tickets", "reporter_id", ["reference", "title", "ticket_type", "status", "created_at"]),
     ("project_members", "user_id", ["project_id", "role", "created_at"]),
-    ("compliance_records", "user_id", ["compliance_type_id", "status", "expiry_date", "created_at"]),
     ("ads_pax", "user_id", ["ads_id", "status", "created_at"]),
 ]
 
 USER_PERSONAL_FIELDS = [
     "id", "email", "first_name", "last_name", "gender", "birth_date",
     "birth_city", "birth_country", "nationality", "passport_name",
+    "identity_verified", "identity_verified_at", "identity_verified_by",
     "language", "avatar_url", "contractual_airport", "nearest_airport",
     "nearest_station", "loyalty_program", "vantage_number", "extension_number",
     "badge_number", "height", "weight", "last_medical_check",
-    "last_international_medical_check", "retirement_date",
+    "last_international_medical_check", "last_subsidiary_medical_check", "retirement_date",
+    "preferred_messaging_channel", "user_type", "tier_contact_id", "job_position_id",
     "created_at", "updated_at", "last_login_at", "last_login_ip",
 ]
 
@@ -126,6 +125,183 @@ async def _collect_user_data(db: AsyncSession, user: User) -> dict:
                 related[table_name] = rows
         except Exception:
             # Table/column might not exist — rollback to clear failed transaction
+            await db.rollback()
+            continue
+
+    custom_queries: list[tuple[str, str, dict[str, object]]] = [
+        (
+            "phones",
+            """
+            SELECT label, number, country_code, is_default, verified, verified_at, created_at
+            FROM phones
+            WHERE owner_type = 'user' AND owner_id = :uid
+            ORDER BY created_at DESC
+            """,
+            {"uid": user.id},
+        ),
+        (
+            "addresses",
+            """
+            SELECT label, address_line1, address_line2, city, state_province, postal_code,
+                   country, latitude, longitude, is_default, created_at
+            FROM addresses
+            WHERE owner_type = 'user' AND owner_id = :uid
+            ORDER BY created_at DESC
+            """,
+            {"uid": user.id},
+        ),
+        (
+            "notification_preferences",
+            """
+            SELECT global_level, notification_email_id, notify_own_actions, group_overrides, updated_at
+            FROM notification_preferences
+            WHERE user_id = :uid
+            """,
+            {"uid": user.id},
+        ),
+        (
+            "user_settings",
+            """
+            SELECT key, value, updated_at
+            FROM settings
+            WHERE scope = 'user' AND scope_id = :uid
+            ORDER BY key
+            """,
+            {"uid": str(user.id)},
+        ),
+        (
+            "user_tier_links",
+            """
+            SELECT utl.tier_id, t.code AS tier_code, t.name AS tier_name, utl.role, utl.created_at
+            FROM user_tier_links utl
+            JOIN tiers t ON t.id = utl.tier_id
+            WHERE utl.user_id = :uid
+            ORDER BY utl.created_at DESC
+            """,
+            {"uid": user.id},
+        ),
+        (
+            "user_sso_providers",
+            """
+            SELECT provider, sso_subject, email, display_name, linked_at, last_used_at
+            FROM user_sso_providers
+            WHERE user_id = :uid
+            ORDER BY linked_at DESC
+            """,
+            {"uid": user.id},
+        ),
+        (
+            "oauth_applications",
+            """
+            SELECT name, client_id, redirect_uris, scopes, confidential, active, created_at
+            FROM oauth_applications
+            WHERE user_id = :uid
+            ORDER BY created_at DESC
+            """,
+            {"uid": user.id},
+        ),
+        (
+            "oauth_authorizations",
+            """
+            SELECT oa.application_id, app.name AS application_name, oa.scopes, oa.revoked, oa.created_at
+            FROM oauth_authorizations oa
+            JOIN oauth_applications app ON app.id = oa.application_id
+            WHERE oa.user_id = :uid
+            ORDER BY oa.created_at DESC
+            """,
+            {"uid": user.id},
+        ),
+        (
+            "social_securities",
+            """
+            SELECT country, number, created_at
+            FROM social_securities
+            WHERE user_id = :uid
+            ORDER BY created_at DESC
+            """,
+            {"uid": user.id},
+        ),
+        (
+            "driving_licenses",
+            """
+            SELECT license_type, country, expiry_date, document_url, created_at
+            FROM driving_licenses
+            WHERE user_id = :uid
+            ORDER BY created_at DESC
+            """,
+            {"uid": user.id},
+        ),
+        (
+            "user_health_conditions",
+            """
+            SELECT condition_code, notes, created_at
+            FROM user_health_conditions
+            WHERE user_id = :uid
+            ORDER BY created_at DESC
+            """,
+            {"uid": user.id},
+        ),
+        (
+            "medical_checks",
+            """
+            SELECT check_type, check_date, expiry_date, provider, notes, document_url, created_at
+            FROM medical_checks
+            WHERE owner_type = 'user' AND owner_id = :uid
+            ORDER BY created_at DESC
+            """,
+            {"uid": user.id},
+        ),
+        (
+            "compliance_records",
+            """
+            SELECT cr.id, cr.compliance_type_id, ct.code AS compliance_type_code, ct.name AS compliance_type_name,
+                   ct.category AS compliance_category, cr.status, cr.issued_at, cr.expires_at, cr.issuer,
+                   cr.reference_number, cr.notes, cr.created_at, cr.active
+            FROM compliance_records cr
+            LEFT JOIN compliance_types ct ON ct.id = cr.compliance_type_id
+            WHERE cr.owner_type = 'user' AND cr.owner_id = :uid
+            ORDER BY cr.created_at DESC
+            """,
+            {"uid": user.id},
+        ),
+        (
+            "compliance_rule_history",
+            """
+            SELECT crh.rule_id, crh.version, crh.action, crh.snapshot, crh.change_reason, crh.changed_by,
+                   crh.changed_at, ct.code AS compliance_type_code, ct.name AS compliance_type_name
+            FROM compliance_rule_history crh
+            JOIN compliance_rules cr ON cr.id = crh.rule_id
+            JOIN compliance_types ct ON ct.id = cr.compliance_type_id
+            WHERE ct.id IN (
+                SELECT DISTINCT compliance_type_id
+                FROM compliance_records
+                WHERE owner_type = 'user' AND owner_id = :uid
+            )
+            ORDER BY crh.changed_at DESC
+            LIMIT 1000
+            """,
+            {"uid": user.id},
+        ),
+    ]
+
+    for key, sql, params in custom_queries:
+        try:
+            result = await db.execute(text(sql), params)
+            rows = [dict(row._mapping) for row in result.fetchall()]
+            for row in rows:
+                for k, v in list(row.items()):
+                    if isinstance(v, datetime):
+                        row[k] = v.isoformat()
+                    elif hasattr(v, "isoformat") and not isinstance(v, (str, int, float, bool, dict, list)):
+                        try:
+                            row[k] = v.isoformat()
+                        except Exception:
+                            row[k] = str(v)
+                    elif isinstance(v, UUID):
+                        row[k] = str(v)
+            if rows:
+                related[key] = rows
+        except Exception:
             await db.rollback()
             continue
 

@@ -109,6 +109,7 @@ async def process_travelwiz_pickup_reminders() -> dict[str, int]:
                         subject="Rappel navette OpsFlux",
                         body=body,
                         message_type="notification",
+                        event_type="travelwiz.pickup_reminder",
                     )
                 elif passenger.contact_id:
                     phone = await _resolve_tier_contact_phone(db, passenger.contact_id)
@@ -118,6 +119,8 @@ async def process_travelwiz_pickup_reminders() -> dict[str, int]:
                             to=phone,
                             body=body,
                             message_type="notification",
+                            preferred_channel="sms",
+                            event_type="travelwiz.pickup_reminder",
                         )
 
                 if not sent:

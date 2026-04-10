@@ -42,6 +42,7 @@ async def _is_notification_channel_enabled(
     user_id: UUID,
     category: str | None,
     channel: str,
+    event_type: str | None = None,
 ) -> bool:
     from app.models.common import Setting
 
@@ -60,6 +61,12 @@ async def _is_notification_channel_enabled(
     if setting is None or not isinstance(setting.value, dict):
         return True
 
+    event_matrix = setting.value.get("notification_event_matrix")
+    if isinstance(event_matrix, dict) and event_type:
+        event_settings = event_matrix.get(event_type)
+        if isinstance(event_settings, dict):
+            return event_settings.get(channel, True) is not False
+
     matrix = setting.value.get("notifications_matrix")
     if not isinstance(matrix, dict):
         return True
@@ -76,12 +83,14 @@ async def _is_in_app_notification_enabled(
     *,
     user_id: UUID,
     category: str | None,
+    event_type: str | None = None,
 ) -> bool:
     return await _is_notification_channel_enabled(
         db,
         user_id=user_id,
         category=category,
         channel="in_app",
+        event_type=event_type,
     )
 
 
@@ -90,12 +99,14 @@ async def _is_email_notification_enabled(
     *,
     user_id: UUID,
     category: str | None,
+    event_type: str | None = None,
 ) -> bool:
     return await _is_notification_channel_enabled(
         db,
         user_id=user_id,
         category=category,
         channel="email",
+        event_type=event_type,
     )
 
 
@@ -104,12 +115,14 @@ async def _is_digest_notification_enabled(
     *,
     user_id: UUID,
     category: str | None,
+    event_type: str | None = None,
 ) -> bool:
     return await _is_notification_channel_enabled(
         db,
         user_id=user_id,
         category=category,
         channel="digest",
+        event_type=event_type,
     )
 
 
@@ -122,6 +135,7 @@ async def send_in_app(
     body: str | None = None,
     category: str = "info",
     link: str | None = None,
+    event_type: str | None = None,
 ) -> None:
     """Create an in-app notification and push it to connected WebSockets.
 
@@ -133,6 +147,7 @@ async def send_in_app(
         db,
         user_id=user_id,
         category=category,
+        event_type=event_type,
     ):
         return
 
@@ -191,6 +206,7 @@ async def send_in_app_bulk(
     body: str | None = None,
     category: str = "info",
     link: str | None = None,
+    event_type: str | None = None,
 ) -> None:
     """Send the same in-app notification to multiple users (e.g. entity broadcast).
 
@@ -205,6 +221,7 @@ async def send_in_app_bulk(
             body=body,
             category=category,
             link=link,
+            event_type=event_type,
         )
 
 
@@ -290,6 +307,7 @@ async def send_email(
     user_id: UUID | None = None,
     category: str | None = None,
     channel: str = "email",
+    event_type: str | None = None,
 ) -> None:
     """Send an email via SMTP. Uses DB integration settings if configured, .env as fallback.
 
@@ -304,12 +322,14 @@ async def send_email(
                     db,
                     user_id=user_id,
                     category=category,
+                    event_type=event_type,
                 )
             else:
                 channel_allowed = await _is_email_notification_enabled(
                     db,
                     user_id=user_id,
                     category=category,
+                    event_type=event_type,
                 )
 
             if not channel_allowed:

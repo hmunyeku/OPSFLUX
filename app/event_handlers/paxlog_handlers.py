@@ -106,6 +106,7 @@ async def on_ads_submitted(event: OpsFluxEvent) -> None:
                 body=f"Votre AdS {reference} a été soumise pour validation.",
                 category="paxlog",
                 link=f"/paxlog/ads/{ads_id}",
+                event_type="ads.submitted",
             )
 
             # 1b. Confirm to requester — email
@@ -141,6 +142,7 @@ async def on_ads_submitted(event: OpsFluxEvent) -> None:
                     body=f"L'AdS {reference} ({pax_count} PAX) a été soumise pour validation.",
                     category="paxlog",
                     link=f"/paxlog/ads/{ads_id}",
+                    event_type="ads.submitted",
                 )
 
             await db.commit()
@@ -189,6 +191,7 @@ async def on_ads_rejected(event: OpsFluxEvent) -> None:
                 body=body_text,
                 category="paxlog",
                 link=f"/paxlog/ads/{ads_id}",
+                event_type="ads.rejected",
             )
 
             # Email via configurable template
@@ -256,6 +259,7 @@ async def on_ads_compliance_failed(event: OpsFluxEvent) -> None:
                 ),
                 category="paxlog",
                 link=f"/paxlog/ads/{ads_id}",
+                event_type="ads.compliance_failed",
             )
 
             # Email via configurable template
@@ -321,6 +325,7 @@ async def on_ads_cancelled(event: OpsFluxEvent) -> None:
                 body=f"L'AdS {reference} a été annulée.",
                 category="paxlog",
                 link=f"/paxlog/ads/{ads_id}",
+                event_type="ads.cancelled",
             )
 
             # Notify requester — email

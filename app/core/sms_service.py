@@ -28,6 +28,40 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
+_USER_PREFS_KEY = "user.preferences"
+
+
+async def _is_event_channel_enabled(
+    db: AsyncSession,
+    *,
+    user_id: str | None,
+    event_type: str | None,
+    channel: str,
+) -> bool:
+    if not user_id or not event_type:
+        return True
+
+    result = await db.execute(
+        text(
+            "SELECT value FROM settings "
+            "WHERE key = :key AND scope = 'user' AND scope_id = :scope_id "
+            "LIMIT 1"
+        ),
+        {"key": _USER_PREFS_KEY, "scope_id": str(user_id)},
+    )
+    raw = result.scalar_one_or_none()
+    if not isinstance(raw, dict):
+        return True
+
+    event_matrix = raw.get("notification_event_matrix")
+    if not isinstance(event_matrix, dict):
+        return True
+
+    event_settings = event_matrix.get(event_type)
+    if not isinstance(event_settings, dict):
+        return True
+
+    return event_settings.get(channel, True) is not False
 
 
 async def _get_messaging_settings(db: AsyncSession) -> list[tuple[str, dict[str, str]]]:
@@ -197,6 +231,7 @@ async def send_to_user(
     subject: str,
     body: str,
     message_type: str = "notification",
+    event_type: str | None = None,
 ) -> tuple[bool, str]:
     """High-level: send a message to a user using their preferred channel + contact.
 
@@ -207,49 +242,75 @@ async def send_to_user(
     user_pref = await _get_user_preferred_channel(db, user_id)
     effective = _resolve_channel(user_pref, admin_default)
 
-    # Resolve contact info
-    contact = await resolve_user_contact(db, user_id, effective)
-    if not contact:
-        logger.warning("No contact info for user %s (channel=%s)", user_id, effective)
-        return False, ""
+    candidate_channels = {
+        "email": ["email"],
+        "whatsapp": ["whatsapp", "sms", "email"],
+        "sms": ["sms", "whatsapp", "email"],
+        "auto": ["whatsapp", "sms", "email"],
+    }.get(effective, ["email"])
 
-    # Dispatch based on resolved channel
-    if effective == "email" or (effective == "auto" and "@" in contact):
-        try:
-            from app.core.email_templates import render_and_send_email
+    user_result = await db.execute(
+        text(
+            "SELECT language, default_entity_id FROM users WHERE id = :uid LIMIT 1"
+        ),
+        {"uid": user_id},
+    )
+    user_row = user_result.first()
 
-            user_result = await db.execute(
-                text(
-                    "SELECT language, default_entity_id FROM users WHERE id = :uid LIMIT 1"
-                ),
-                {"uid": user_id},
-            )
-            user_row = user_result.first()
-            sent = await render_and_send_email(
-                db=db,
-                slug="queued_notification_email",
-                entity_id=user_row.default_entity_id if user_row else None,
-                language=(user_row.language or "fr") if user_row else "fr",
-                to=contact,
-                user_id=user_id,
-                category="core",
-                variables={
-                    "notification": {
-                        "title": subject,
-                        "body": body,
-                        "link": None,
+    for channel in candidate_channels:
+        if not await _is_event_channel_enabled(
+            db,
+            user_id=user_id,
+            event_type=event_type,
+            channel=channel,
+        ):
+            continue
+
+        contact = await resolve_user_contact(db, user_id, channel)
+        if not contact:
+            continue
+
+        if channel == "email":
+            try:
+                from app.core.email_templates import render_and_send_email
+
+                sent = await render_and_send_email(
+                    db=db,
+                    slug="queued_notification_email",
+                    entity_id=user_row.default_entity_id if user_row else None,
+                    language=(user_row.language or "fr") if user_row else "fr",
+                    to=contact,
+                    user_id=user_id,
+                    category="core",
+                    event_type=event_type or "queued_notification_email",
+                    variables={
+                        "notification": {
+                            "title": subject,
+                            "body": body,
+                            "link": None,
+                        },
                     },
-                },
-            )
-            if not sent:
-                raise RuntimeError("Template email queued_notification_email indisponible")
-            return True, "email"
-        except Exception:
-            logger.exception("Email send failed to %s", contact)
-            return False, "email"
-    else:
-        # Send via SMS/WhatsApp with fallback cascade
-        return await send_sms(db, to=contact, body=body, user_id=user_id, message_type=message_type)
+                )
+                if sent:
+                    return True, "email"
+            except Exception:
+                logger.exception("Email send failed to %s", contact)
+            continue
+
+        sent, used_channel = await send_sms(
+            db,
+            to=contact,
+            body=body,
+            user_id=user_id,
+            message_type=message_type,
+            preferred_channel=channel,
+            event_type=event_type,
+        )
+        if sent:
+            return True, used_channel
+
+    logger.warning("No eligible delivery channel for user %s (event=%s)", user_id, event_type)
+    return False, ""
 
 
 async def _send_ovh(cfg: dict[str, str], to: str, body: str) -> bool:
@@ -493,6 +554,8 @@ async def send_sms(
     body: str,
     user_id: str | None = None,
     message_type: str = "notification",
+    preferred_channel: str | None = None,
+    event_type: str | None = None,
 ) -> tuple[bool, str]:
     """Send a message with fallback cascade + channel preference.
 
@@ -510,10 +573,24 @@ async def send_sms(
         logger.warning("No messaging provider configured. Message to %s not sent.", to)
         return False, ""
 
-    # Resolve channel preference: user > admin > auto
+    # Resolve channel preference: explicit > user > admin > auto
     admin_default = await _get_admin_channel_default(db, message_type)
     user_pref = await _get_user_preferred_channel(db, user_id)
-    effective = _resolve_channel(user_pref, admin_default)
+    effective = preferred_channel or _resolve_channel(user_pref, admin_default)
+
+    if not await _is_event_channel_enabled(
+        db,
+        user_id=user_id,
+        event_type=event_type,
+        channel="whatsapp" if effective == "whatsapp" else "sms",
+    ):
+        logger.info(
+            "Messaging skipped by event preference (user=%s, event=%s, channel=%s)",
+            user_id,
+            event_type,
+            effective,
+        )
+        return False, ""
 
     # Reorder providers to match preference
     ordered = _order_providers_by_channel(providers, effective)

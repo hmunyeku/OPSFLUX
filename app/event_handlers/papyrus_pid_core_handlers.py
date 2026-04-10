@@ -77,6 +77,7 @@ async def on_document_submitted(event: OpsFluxEvent) -> None:
                     body=f"Le document {number} «{title}» a été soumis pour validation.",
                     category="papyrus",
                     link=f"/documents/{document_id}",
+                    event_type="document.submitted",
                 )
 
                 # Email via configurable Email Template system
@@ -142,6 +143,7 @@ async def on_document_approved(event: OpsFluxEvent) -> None:
                     body=f"Le document {number} «{title}» a été approuvé.",
                     category="papyrus",
                     link=f"/documents/{document_id}",
+                    event_type="document.approved",
                 )
 
                 # Email via configurable template
@@ -207,6 +209,7 @@ async def on_document_rejected(event: OpsFluxEvent) -> None:
                 body=body_text,
                 category="papyrus",
                 link=f"/documents/{document_id}",
+                event_type="document.rejected",
             )
 
             # Email via configurable template
@@ -289,6 +292,7 @@ async def on_document_published(event: OpsFluxEvent) -> None:
                             body=f"Le document {number} «{title}» a été publié.",
                             category="papyrus",
                             link=f"/documents/{document_id}",
+                            event_type="document.published",
                         )
                         notified_user_ids.add(user_id)
                     except Exception:

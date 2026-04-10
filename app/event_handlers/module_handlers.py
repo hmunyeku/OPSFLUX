@@ -85,6 +85,7 @@ async def on_planner_activity_validated(event: OpsFluxEvent) -> None:
                     body=f"L'activité '{title}' a été validée.",
                     category="planner",
                     link=f"/planner/activities/{activity_id}",
+                    event_type="planner.activity.validated",
                 )
 
                 # Email via configurable template
@@ -162,6 +163,7 @@ async def on_planner_activity_cancelled(event: OpsFluxEvent) -> None:
                             body=f"L'activité planifiée liée à l'AdS {ads.reference} a été annulée. Veuillez réviser votre demande.",
                             category="paxlog",
                             link=f"/paxlog/ads/{ads.id}",
+                            event_type="planner.activity.cancelled",
                         )
 
                         # Email via configurable template
@@ -233,6 +235,7 @@ async def on_planner_conflict_detected(event: OpsFluxEvent) -> None:
                     ),
                     category="planner",
                     link=f"/planner/conflicts/{conflict_id}",
+                    event_type="planner.conflict.detected",
                 )
 
                 # Email via configurable template
@@ -924,6 +927,7 @@ async def on_compliance_rule_changed(event: OpsFluxEvent) -> None:
                 body=body_text,
                 category="conformite",
                 link="/conformite",
+                event_type="conformite.rule.changed",
             )
             for user_id in user_ids:
                 email, name = await _get_user_email_and_name(user_id, db)
@@ -1037,6 +1041,7 @@ async def on_compliance_record_verified(event: OpsFluxEvent) -> None:
                 body=f"Votre {type_label} a été {action_label}.",
                 category="conformite",
                 link="/settings#roles",
+                event_type="conformite.record_verified",
             )
             await db.commit()
 
@@ -1083,6 +1088,7 @@ async def on_compliance_expired(event: OpsFluxEvent) -> None:
                     body=f"Un enregistrement de conformité a expiré (ID: {record_id[:8]}…)",
                     category="conformite",
                     link="/conformite",
+                    event_type="conformite.record.expired",
                 )
                 email, name = await _get_user_email_and_name(admin_id, db)
                 if email:
@@ -1236,6 +1242,7 @@ async def on_project_status_changed(event: OpsFluxEvent) -> None:
                     body=f"Le projet est passé au statut : {new_status}",
                     category="projets",
                     link="/projets",
+                    event_type="project.status.changed",
                 )
                 email, name = await _get_user_email_and_name(admin_id, db)
                 if email:
@@ -1501,6 +1508,7 @@ async def on_planner_activity_completed_suggest_task_closure(event: OpsFluxEvent
                 ).strip(),
                 category="projets",
                 link=f"/projets?task={task.id}",
+                event_type="project.task.planner_sync_required",
             )
             await db.commit()
             logger.info(
@@ -1575,6 +1583,7 @@ async def on_project_task_planner_sync_required(event: OpsFluxEvent) -> None:
                     body=body,
                     category="planner",
                     link=f"/planner?project={project_id}&task={task_id}",
+                    event_type="project.task.planner_sync_required",
                 )
 
             await db.commit()
@@ -1618,6 +1627,7 @@ async def on_planner_revision_requested(event: OpsFluxEvent) -> None:
                 body=body,
                 category="planner",
                 link=f"/planner?revisionRequest={request_id}" if request_id else "/planner",
+                event_type="planner.revision.requested",
             )
             await db.commit()
     except Exception:
@@ -1656,6 +1666,7 @@ async def on_planner_revision_responded(event: OpsFluxEvent) -> None:
                 body=body,
                 category="planner",
                 link=f"/planner?revisionRequest={request_id}" if request_id else "/planner",
+                event_type="planner.revision.responded",
             )
             await db.commit()
     except Exception:
@@ -1687,6 +1698,7 @@ async def on_planner_revision_forced(event: OpsFluxEvent) -> None:
                 body=body,
                 category="planner",
                 link=f"/planner?revisionRequest={request_id}" if request_id else "/planner",
+                event_type="planner.revision.forced",
             )
             await db.commit()
     except Exception:

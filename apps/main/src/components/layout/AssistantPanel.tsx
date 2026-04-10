@@ -21,6 +21,7 @@ import React, {
 import ReactDOM from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { marked } from 'marked'
 import {
   X,
   Bot,
@@ -79,6 +80,28 @@ interface Notification {
   link: string | null
   read: boolean
   created_at: string
+}
+
+interface AssistantActionToken {
+  type: 'go'
+  target: string
+  label: string
+}
+
+function parseAssistantActions(content: string): { text: string; actions: AssistantActionToken[] } {
+  const actions: AssistantActionToken[] = []
+  const text = content.replace(/\[\[action:go:([^|\]]+)\|([^\]]+)\]\]/g, (_match, target, label) => {
+    actions.push({ type: 'go', target: String(target).trim(), label: String(label).trim() })
+    return ''
+  }).trim()
+  return { text, actions }
+}
+
+function renderAssistantMarkdown(content: string): string {
+  const escaped = content
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  return marked.parse(escaped, { breaks: true, gfm: true }) as string
 }
 
 // ── Mermaid init (reuse from HelpSystem config) ────────────────
@@ -565,6 +588,7 @@ export function AssistantPanel() {
 // ═══════════════════════════════════════════════════════════════
 
 function ChatTab({ currentModule }: { currentModule: string }) {
+  const navigate = useNavigate()
   const [messages, setMessages] = useState<ChatMsg[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -727,6 +751,12 @@ function ChatTab({ currentModule }: { currentModule: string }) {
     setStreamingText('')
   }, [])
 
+  const runAssistantAction = useCallback((action: AssistantActionToken) => {
+    if (action.type === 'go' && action.target) {
+      navigate(action.target)
+    }
+  }, [navigate])
+
   return (
     <>
       {/* Messages */}
@@ -754,21 +784,49 @@ function ChatTab({ currentModule }: { currentModule: string }) {
 
         {messages.map((msg, i) => (
           <div key={i} className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
-            <div className={cn(
-              'max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed',
-              msg.role === 'user'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted/50 text-foreground border border-border',
-            )}>
-              <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-            </div>
+            {(() => {
+              if (msg.role === 'user') {
+                return (
+                  <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed bg-primary text-primary-foreground">
+                    <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                  </div>
+                )
+              }
+
+              const parsed = parseAssistantActions(msg.content)
+              return (
+                <div className="max-w-[88%] rounded-lg px-3 py-2 text-sm leading-relaxed bg-muted/50 text-foreground border border-border space-y-3">
+                  <div
+                    className="assistant-markdown break-words [&_h1]:text-sm [&_h1]:font-semibold [&_h1]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mb-2 [&_h3]:text-xs [&_h3]:font-semibold [&_h3]:mb-1.5 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:space-y-1 [&_li]:mb-0.5 [&_strong]:font-semibold [&_code]:rounded [&_code]:bg-background/70 [&_code]:px-1 [&_code]:py-0.5"
+                    dangerouslySetInnerHTML={{ __html: renderAssistantMarkdown(parsed.text) }}
+                  />
+                  {parsed.actions.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {parsed.actions.map((action, actionIndex) => (
+                        <button
+                          key={`${i}-${actionIndex}-${action.target}`}
+                          onClick={() => runAssistantAction(action)}
+                          className="gl-button-sm gl-button-secondary inline-flex items-center gap-1"
+                        >
+                          <ArrowRight size={12} />
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         ))}
 
         {streaming && streamingText && (
           <div className="flex justify-start">
             <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed bg-muted/50 text-foreground border border-border">
-              <p className="whitespace-pre-wrap break-words">{streamingText}</p>
+              <div
+                className="assistant-markdown break-words [&_h1]:text-sm [&_h1]:font-semibold [&_h1]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mb-2 [&_h3]:text-xs [&_h3]:font-semibold [&_h3]:mb-1.5 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:space-y-1 [&_li]:mb-0.5 [&_strong]:font-semibold [&_code]:rounded [&_code]:bg-background/70 [&_code]:px-1 [&_code]:py-0.5"
+                dangerouslySetInnerHTML={{ __html: renderAssistantMarkdown(parseAssistantActions(streamingText).text) }}
+              />
               <span className="inline-block w-1.5 h-4 bg-primary/60 animate-pulse ml-0.5" />
             </div>
           </div>

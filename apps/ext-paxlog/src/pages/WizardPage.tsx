@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { AlertCircle, ArrowLeft, ArrowRight, Check, FileText, Users, Shield, Send } from 'lucide-react'
-import { t, getLang } from '../lib/i18n'
+import { t } from '../lib/i18n'
 import { apiRequest, apiDownload, getTokenFromUrl, isSessionRequiredError, parseApiErrorDetail } from '../lib/api'
-import { sessionStorageKey, formatDateTime } from '../lib/utils'
+import { sessionStorageKey } from '../lib/utils'
 import Layout from '../components/Layout'
 import { buildSteps } from '../components/WizardNav'
 import Message, { type MessageData } from '../components/Message'
@@ -14,7 +14,6 @@ import ComplianceStep from '../steps/ComplianceStep'
 import FinalizeStep from '../steps/FinalizeStep'
 
 export default function WizardPage() {
-  const lang = getLang()
   const token = useRef(getTokenFromUrl()).current
   const [sessionToken, setSessionToken] = useState<string | null>(() =>
     token ? localStorage.getItem(sessionStorageKey(token)) : null
@@ -29,9 +28,6 @@ export default function WizardPage() {
   const [activeStep, setActiveStep] = useState(0)
   const [bootstrapped, setBootstrapped] = useState(false)
 
-  const stepRefs = useRef<(HTMLDivElement | null)[]>([])
-
-  // API helper bound to current session
   const api = useCallback(
     (path: string, options?: RequestInit) => apiRequest(sessionToken, path, options),
     [sessionToken],
@@ -42,7 +38,6 @@ export default function WizardPage() {
     [sessionToken],
   )
 
-  // Load functions
   const loadLinkInfo = useCallback(async () => {
     if (!token) return null
     const info = await api(`/api/v1/pax/external/${token}`)
@@ -86,17 +81,6 @@ export default function WizardPage() {
     }
   }
 
-  async function hydrateProtected() {
-    const results = await Promise.allSettled([loadDossier(), loadCredentialTypes(), loadJobPositions(), loadDepartureBases()])
-    if (results.some((r) => r.status === 'rejected' && isSessionRequiredError((r as PromiseRejectedResult).reason))) {
-      clearSession(true)
-      await loadLinkInfo()
-      return false
-    }
-    return true
-  }
-
-  // Bootstrap
   useEffect(() => {
     if (!token) {
       setBootstrapped(true)
@@ -137,7 +121,6 @@ export default function WizardPage() {
     })()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Wrap action pattern
   async function wrapAction(fn: () => Promise<void>, onError?: (error: any) => void) {
     setMessage(null)
     setLoading(true)
@@ -152,7 +135,6 @@ export default function WizardPage() {
     }
   }
 
-  // Action handlers
   const handleSendOtp = async () => {
     await wrapAction(async () => {
       const result = await api(`/api/v1/pax/external/${token}/otp/send`, { method: 'POST' })
@@ -170,7 +152,6 @@ export default function WizardPage() {
       setSessionToken(newSession)
       localStorage.setItem(sessionStorageKey(token), newSession)
 
-      // Reload with new session
       const info = await apiRequest(newSession, `/api/v1/pax/external/${token}`)
       setLinkInfo(info)
       const results = await Promise.allSettled([
@@ -196,7 +177,7 @@ export default function WizardPage() {
     }, (error) => {
       const detail = parseApiErrorDetail(error)
       if (detail?.code === 'EXTERNAL_PAX_DUPLICATE_MATCH' && Array.isArray(detail.matches)) {
-        // Matches will be handled by TeamStep's own match detection
+        return
       }
     })
   }
@@ -283,7 +264,6 @@ export default function WizardPage() {
     })
   }
 
-  // No token
   if (!token) {
     return (
       <Layout>
@@ -295,7 +275,6 @@ export default function WizardPage() {
     )
   }
 
-  // Loading bootstrap
   if (!bootstrapped) {
     return (
       <Layout>
@@ -325,15 +304,14 @@ export default function WizardPage() {
     }, 200)
   }
 
-  const STEP_ICONS = [Shield, FileText, Users, Check, Send]
   const STEP_TITLES = [t('wizard_access_title'), t('wizard_ads_title'), t('wizard_team_title'), t('wizard_compliance_title'), t('wizard_finalize_title')]
-  const STEP_DESCS = ['Authentification', 'Détails du dossier', 'Passagers', 'Conformité', 'Finalisation']
+  const STEP_DESCS = ['Authentification', 'Informations dossier', 'Collaborateurs', 'Conformité', 'Soumission']
   const STEP_LONG = [
-    'Vérifiez votre identité par code à usage unique pour ouvrir une session sécurisée et accéder au dossier.',
-    'Examinez les informations du séjour : période, destination, objet de la mission et entreprise organisatrice.',
-    'Composez la liste des passagers concernés. Chaque entrée déclenche une vérification de doublons et de conformité.',
-    'Pour chaque passager, complétez les informations requises et joignez les justificatifs (qualifications, médicaux).',
-    'Vérifiez la synthèse et soumettez le dossier pour validation. Un accusé sera envoyé à votre adresse de contact.',
+    'Authentifiez-vous par code à usage unique pour ouvrir une session sécurisée et accéder au dossier.',
+    'Vérifiez les informations publiques de l’avis de séjour avant d’engager le traitement opérationnel.',
+    'Déclarez ou rattachez les collaborateurs concernés. Les correspondances existantes sont proposées automatiquement.',
+    'Complétez le dossier de conformité de chaque passager avec les justificatifs et informations exigés.',
+    'Contrôlez le récapitulatif final, ajustez les préférences de transport puis soumettez le dossier.',
   ]
 
   const stepContent = [
@@ -349,287 +327,216 @@ export default function WizardPage() {
 
   return (
     <Layout>
-      {/* ── Hairline progress strip directly under top bar ── */}
-      <div className="sticky top-14 z-40">
-        <div className="h-px bg-stone-200/80">
-          <div
-            className="h-full bg-stone-900 transition-[width] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
-            style={{ width: `${progressPct}%` }}
-          />
+      <div className="sticky top-16 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
+        <div className="max-w-[1480px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-14 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-blue-700">Dossier externe AdS</p>
+              <p className="mono text-[12px] text-slate-500 truncate">{adsRef || 'Référence en attente'}</p>
+            </div>
+            <div className="hidden sm:flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
+              <span className="mono text-[11px] text-slate-400">{String(activeStep + 1).padStart(2, '0')}</span>
+              <div className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-200">
+                <div className="h-full rounded-full bg-blue-600 transition-[width] duration-500" style={{ width: `${progressPct}%` }} />
+              </div>
+              <span className="text-[11px] font-medium text-slate-600">{STEP_DESCS[activeStep]}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="grain relative isolate">
-        <div className="gradient-radial absolute inset-0 pointer-events-none" />
-
-        <div className="relative max-w-[1480px] mx-auto px-6 lg:px-12 xl:px-16">
-          <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-12 lg:gap-20 xl:gap-28 min-h-[calc(100vh-3.5rem-1px)]">
-
-            {/* ──────────── Left rail — context column ──────────── */}
-            <aside className="hidden lg:flex flex-col sticky top-[calc(3.5rem+1px)] h-[calc(100vh-3.5rem-1px)] py-16">
-
-              {/* Eyebrow + AdS reference */}
-              <div className="mb-14">
-                <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-stone-400 mb-4">
-                  Avis de séjour
-                </p>
-                {adsRef ? (
-                  <p className="mono text-[13px] text-stone-700 tabular">{adsRef}</p>
-                ) : (
-                  <p className="serif-italic text-base text-stone-300">— en cours —</p>
-                )}
-                {dossier?.ads?.title && (
-                  <p className="serif text-2xl text-stone-900 leading-[1.05] mt-3 tracking-[-0.01em]">
-                    {dossier.ads.title}
-                  </p>
-                )}
-              </div>
-
-              {/* Step rail */}
-              <nav className="flex-1">
-                <ul className="space-y-0">
-                  {steps.map((step, i) => {
-                    const isActive = i === activeStep
-                    const isDone = step.done && !isActive
-                    const isUpcoming = !isActive && !isDone
-                    const isLast = i === steps.length - 1
-
-                    return (
-                      <li key={i}>
-                        <button
-                          onClick={() => goToStep(i)}
-                          className={`group relative w-full text-left transition-all duration-300 ${
-                            isUpcoming ? 'opacity-55 hover:opacity-90' : ''
-                          }`}
-                        >
-                          <div className="flex items-start gap-5 py-3.5">
-                            {/* Numeral + connector */}
-                            <div className="relative flex flex-col items-center pt-[3px]">
-                              <span
-                                className={`mono tabular text-[11px] font-medium leading-none transition-colors duration-300 ${
-                                  isActive
-                                    ? 'text-blue-600'
-                                    : isDone
-                                      ? 'text-stone-900'
-                                      : 'text-stone-400'
-                                }`}
-                              >
-                                {String(i + 1).padStart(2, '0')}
-                              </span>
-                              {!isLast && (
-                                <span
-                                  className={`mt-3 w-px h-7 transition-colors duration-500 ${
-                                    isDone || isActive ? 'bg-stone-900' : 'bg-stone-200'
-                                  }`}
-                                />
-                              )}
-                            </div>
-
-                            {/* Label */}
-                            <div className="flex-1 -mt-1 min-w-0">
-                              <p
-                                className={`text-[13px] font-medium leading-tight tracking-[-0.005em] transition-colors duration-300 ${
-                                  isActive
-                                    ? 'text-stone-900'
-                                    : isDone
-                                      ? 'text-stone-700'
-                                      : 'text-stone-500'
-                                }`}
-                              >
-                                {STEP_TITLES[i]}
-                              </p>
-                              <p
-                                className={`text-[11px] mt-1 transition-colors duration-300 ${
-                                  isActive ? 'text-stone-500' : 'text-stone-400'
-                                }`}
-                              >
-                                {STEP_DESCS[i]}
-                              </p>
-                            </div>
-
-                            {/* Active accent */}
-                            {isActive && (
-                              <span className="absolute -left-3 top-3.5 h-5 w-px bg-blue-600 animate-fade-in" />
-                            )}
-                          </div>
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </nav>
-
-              {/* Footer — synthesis */}
-              {dossier && (dossier.pax_summary?.total ?? 0) > 0 && (
-                <div className="mt-auto pt-8">
-                  <hr className="divider-fade mb-6" />
-                  <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-stone-400 mb-4">
-                    Synthèse
-                  </p>
-                  <dl className="space-y-3">
-                    <div className="flex items-baseline justify-between">
-                      <dt className="text-[12px] text-stone-500">Total passagers</dt>
-                      <dd className="serif text-2xl text-stone-900 tabular leading-none">
-                        {String(dossier.pax_summary?.total ?? 0).padStart(2, '0')}
-                      </dd>
-                    </div>
-                    {(dossier.pax_summary?.blocked ?? 0) > 0 && (
-                      <div className="flex items-baseline justify-between">
-                        <dt className="text-[12px] text-red-600">Bloqués</dt>
-                        <dd className="mono text-[13px] font-medium text-red-600 tabular">
-                          {String(dossier.pax_summary.blocked).padStart(2, '0')}
-                        </dd>
-                      </div>
-                    )}
-                    {(dossier.pax_summary?.pending_check ?? 0) > 0 && (
-                      <div className="flex items-baseline justify-between">
-                        <dt className="text-[12px] text-amber-700">À vérifier</dt>
-                        <dd className="mono text-[13px] font-medium text-amber-700 tabular">
-                          {String(dossier.pax_summary.pending_check).padStart(2, '0')}
-                        </dd>
-                      </div>
-                    )}
-                  </dl>
+      <div className="relative max-w-[1480px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-14 py-6 lg:py-8">
+        <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)_340px]">
+          <aside className="xl:sticky xl:top-[9rem] self-start space-y-4">
+            <div className="ext-shell-card p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500">Avis de séjour</p>
+                  <p className="mono mt-2 text-[13px] text-slate-700">{adsRef || 'Non communiqué'}</p>
+                  {dossier?.ads?.title && (
+                    <p className="mt-3 text-lg font-semibold tracking-[-0.02em] text-slate-950">{dossier.ads.title}</p>
+                  )}
                 </div>
-              )}
-            </aside>
+                <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-blue-700">
+                  sécurisé
+                </span>
+              </div>
+            </div>
 
-            {/* ──────────── Right column — focused canvas ──────────── */}
-            <main className="relative pt-10 lg:pt-20 pb-32 min-w-0">
+            <nav className="ext-shell-card p-3">
+              <div className="space-y-1">
+                {steps.map((step, i) => {
+                  const isActive = i === activeStep
+                  return (
+                    <button
+                      key={step.id}
+                      onClick={() => goToStep(i)}
+                      className={`w-full rounded-xl border px-3 py-3 text-left transition-all ${
+                        isActive
+                          ? 'border-blue-200 bg-blue-50 shadow-sm'
+                          : step.done
+                            ? 'border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50'
+                            : 'border-transparent hover:border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`mt-0.5 flex h-8 w-8 items-center justify-center rounded-full text-[12px] font-semibold ${
+                          isActive
+                            ? 'bg-blue-600 text-white'
+                            : step.done
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {step.done && !isActive ? <Check className="h-4 w-4" /> : i + 1}
+                        </div>
+                        <div className="min-w-0">
+                          <p className={`text-sm font-semibold ${isActive ? 'text-blue-900' : 'text-slate-900'}`}>{STEP_TITLES[i]}</p>
+                          <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{STEP_DESCS[i]}</p>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </nav>
+          </aside>
 
-              {/* ── Mobile compact rail (only < lg) ── */}
-              <div className="lg:hidden mb-10">
-                <div className="flex items-center gap-1.5 mb-3">
+          <main className="min-w-0">
+            <div className="ext-shell-card p-5 sm:p-7 lg:p-8">
+              <div className="lg:hidden mb-6">
+                <div className="mb-3 flex gap-2">
                   {steps.map((step, i) => (
                     <button
-                      key={i}
+                      key={step.id}
                       onClick={() => goToStep(i)}
-                      className={`h-[3px] flex-1 rounded-full transition-all duration-500 ${
-                        i === activeStep
-                          ? 'bg-stone-900'
-                          : step.done
-                            ? 'bg-stone-900/70'
-                            : 'bg-stone-200'
+                      className={`h-2 flex-1 rounded-full transition-all ${
+                        i === activeStep ? 'bg-blue-600' : step.done ? 'bg-emerald-500' : 'bg-slate-200'
                       }`}
-                      aria-label={STEP_TITLES[i]}
                     />
                   ))}
                 </div>
-                <p className="mono text-[11px] text-stone-500 tabular">
-                  {String(activeStep + 1).padStart(2, '0')} / 05
-                  <span className="text-stone-300 mx-2">·</span>
-                  <span className="text-stone-700">{STEP_DESCS[activeStep]}</span>
-                </p>
               </div>
 
-              {/* ── Decorative ghost numeral background ── */}
-              <div
-                key={`ghost-${activeStep}`}
-                className="absolute top-8 right-[-2rem] xl:right-[-6rem] -z-10 hidden xl:block animate-ghost"
-                aria-hidden="true"
-              >
-                <span className="ghost-numeral block text-[420px] xl:text-[520px]">
-                  {activeStep + 1}
-                </span>
-              </div>
-
-              {/* ── Step header ── */}
-              <header key={`h-${activeStep}`} className="mb-12 lg:mb-16 max-w-2xl">
-                <p className="mono text-[11px] font-medium uppercase tracking-[0.15em] text-blue-600 mb-5 animate-fade-in tabular">
-                  Étape {String(activeStep + 1).padStart(2, '0')}
-                  <span className="text-stone-300 mx-1.5">/</span>
-                  <span className="text-stone-400">05</span>
-                </p>
-                <h1
-                  className="serif text-[44px] sm:text-[56px] lg:text-[68px] xl:text-[76px] text-stone-900 leading-[0.95] tracking-[-0.025em] animate-slide-up"
-                  style={{ animationDelay: '60ms' }}
-                >
+              <header className="mb-8 border-b border-slate-100 pb-6">
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-medium text-slate-600">
+                    Étape {String(activeStep + 1).padStart(2, '0')} / 05
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[11px] font-medium text-blue-700">
+                    {STEP_DESCS[activeStep]}
+                  </span>
+                </div>
+                <h1 className="text-3xl sm:text-4xl lg:text-[44px] font-semibold tracking-[-0.03em] text-slate-950">
                   {STEP_TITLES[activeStep]}
                 </h1>
-                <p
-                  className="mt-7 text-[15px] text-stone-500 leading-[1.65] max-w-xl animate-slide-up"
-                  style={{ animationDelay: '160ms' }}
-                >
+                <p className="mt-4 max-w-3xl text-sm sm:text-[15px] leading-7 text-slate-600">
                   {STEP_LONG[activeStep]}
                 </p>
               </header>
 
-              {/* ── Inline message ── */}
               {message && (
-                <div className="mb-8 max-w-2xl animate-slide-up">
+                <div className="mb-6">
                   <Message message={message} onDismiss={() => setMessage(null)} autoHide />
                 </div>
               )}
 
-              {/* ── Step content ── */}
-              <section
-                key={`s-${activeStep}`}
-                className="relative max-w-2xl animate-slide-right"
-                style={{ animationDelay: '220ms' }}
-              >
+              <section key={`s-${activeStep}`} className="animate-slide-up">
                 {stepContent[activeStep]}
               </section>
-            </main>
-          </div>
-        </div>
+            </div>
+          </main>
 
-        {/* ──────────── Sticky bottom action bar ──────────── */}
-        <div className="sticky bottom-0 left-0 right-0 z-40">
-          {/* Soft fade above the bar to avoid harsh cut */}
-          <div className="h-6 bg-gradient-to-t from-stone-50 via-stone-50/60 to-transparent pointer-events-none" />
-
-          <div className="bg-white/85 backdrop-blur-xl border-t border-stone-200">
-            <div className="max-w-[1480px] mx-auto px-6 lg:px-12 xl:px-16 h-16 flex items-center justify-between gap-4">
-
-              {/* Prev */}
-              <button
-                onClick={goPrev}
-                disabled={activeStep === 0}
-                className="ext-btn-ghost group"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 transition-transform duration-200 group-hover:-translate-x-0.5" />
-                <span className="hidden sm:inline">Précédent</span>
-              </button>
-
-              {/* Center dots */}
-              <div className="hidden sm:flex items-center gap-2">
-                {steps.map((step, i) => {
-                  const isActive = i === activeStep
-                  const isDone = step.done && !isActive
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => goToStep(i)}
-                      aria-label={STEP_TITLES[i]}
-                      className={`h-1.5 rounded-full transition-all duration-500 ${
-                        isActive
-                          ? 'w-8 bg-stone-900'
-                          : isDone
-                            ? 'w-1.5 bg-stone-900/70'
-                            : 'w-1.5 bg-stone-300 hover:bg-stone-400'
-                      }`}
-                    />
-                  )
-                })}
-              </div>
-
-              {/* Counter + Next */}
-              <div className="flex items-center gap-4">
-                <span className="hidden md:inline mono text-[11px] text-stone-400 tabular">
-                  {String(activeStep + 1).padStart(2, '0')} / 05
-                </span>
-                {activeStep < 4 ? (
-                  <button onClick={goNext} className="ext-btn-primary group">
-                    <span>Continuer</span>
-                    <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-                  </button>
-                ) : (
-                  <span className="mono text-[11px] text-stone-400 uppercase tracking-[0.1em]">
-                    Étape finale
-                  </span>
-                )}
+          <aside className="xl:sticky xl:top-[9rem] self-start space-y-4">
+            <div className="ext-shell-card p-5">
+              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500">Progression</p>
+              <div className="mt-4 space-y-4">
+                <div>
+                  <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
+                    <span>Avancement du dossier</span>
+                    <span>{Math.round(progressPct)}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-200">
+                    <div className="h-full rounded-full bg-blue-600 transition-[width] duration-500" style={{ width: `${progressPct}%` }} />
+                  </div>
+                </div>
+                <dl className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <dt className="text-[10px] uppercase tracking-[0.08em] text-slate-500">Passagers</dt>
+                    <dd className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">{dossier?.pax_summary?.total ?? 0}</dd>
+                  </div>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                    <dt className="text-[10px] uppercase tracking-[0.08em] text-amber-700">À vérifier</dt>
+                    <dd className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-amber-900">{dossier?.pax_summary?.pending_check ?? 0}</dd>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                    <dt className="text-[10px] uppercase tracking-[0.08em] text-emerald-700">Approuvés</dt>
+                    <dd className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-emerald-900">{dossier?.pax_summary?.approved ?? 0}</dd>
+                  </div>
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-3">
+                    <dt className="text-[10px] uppercase tracking-[0.08em] text-red-700">Bloqués</dt>
+                    <dd className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-red-900">{dossier?.pax_summary?.blocked ?? 0}</dd>
+                  </div>
+                </dl>
               </div>
             </div>
+
+            <div className="ext-shell-card p-5">
+              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500">Parcours guidé</p>
+              <div className="mt-4 space-y-3 text-sm text-slate-600">
+                <div className="flex items-start gap-3">
+                  <Shield className="mt-0.5 h-4 w-4 text-blue-600" />
+                  <p>Accès vérifié par OTP avant toute action sensible.</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Users className="mt-0.5 h-4 w-4 text-slate-500" />
+                  <p>Les collaborateurs sont reconnus ou créés avant le contrôle conformité.</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <FileText className="mt-0.5 h-4 w-4 text-slate-500" />
+                  <p>Chaque étape apporte les informations utiles sans surcharger l’utilisateur.</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Send className="mt-0.5 h-4 w-4 text-slate-500" />
+                  <p>La soumission finale reste bloquée tant que les points critiques ne sont pas levés.</p>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <div className="sticky bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/92 backdrop-blur-xl">
+        <div className="max-w-[1480px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-14 h-16 flex items-center justify-between gap-4">
+          <button onClick={goPrev} disabled={activeStep === 0} className="ext-btn-ghost group">
+            <ArrowLeft className="w-3.5 h-3.5 transition-transform duration-200 group-hover:-translate-x-0.5" />
+            <span className="hidden sm:inline">Précédent</span>
+          </button>
+
+          <div className="hidden md:flex items-center gap-2">
+            {steps.map((step, i) => (
+              <button
+                key={step.id}
+                onClick={() => goToStep(i)}
+                aria-label={STEP_TITLES[i]}
+                className={`h-2 rounded-full transition-all ${
+                  i === activeStep ? 'w-10 bg-blue-600' : step.done ? 'w-2 bg-emerald-500' : 'w-2 bg-slate-300'
+                }`}
+              />
+            ))}
+          </div>
+
+          <div className="flex items-center gap-4">
+            <span className="hidden md:inline mono text-[11px] text-slate-400 tabular">
+              {String(activeStep + 1).padStart(2, '0')} / 05
+            </span>
+            {activeStep < 4 ? (
+              <button onClick={goNext} className="ext-btn-primary group">
+                <span>Continuer</span>
+                <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </button>
+            ) : (
+              <span className="mono text-[11px] text-slate-400 uppercase tracking-[0.1em]">Étape finale</span>
+            )}
           </div>
         </div>
       </div>

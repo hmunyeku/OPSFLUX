@@ -12,10 +12,10 @@
 
 :root {
   /* Brand */
-  --brand: #3b82f6;
-  --brand-deep: #1e3a8a;
+  --brand: #2563eb;
+  --brand-deep: #1d4ed8;
   --brand-soft: #eff6ff;
-  --brand-tint: rgba(59, 130, 246, 0.06);
+  --brand-tint: rgba(37, 99, 235, 0.08);
 
   /* Ink scale — warm near-black */
   --ink: #0a0e1a;
@@ -25,11 +25,11 @@
   --whisper: #d6d3d1;
 
   /* Canvas — warm cream paper feel */
-  --canvas: #fafaf9;
+  --canvas: #f8fafc;
   --surface: #ffffff;
-  --rail: #f5f5f4;
-  --rule: #e7e5e4;
-  --rule-strong: #d6d3d1;
+  --rail: #f8fafc;
+  --rule: #e2e8f0;
+  --rule-strong: #cbd5e1;
 
   /* Semantic */
   --success: #059669;
@@ -52,11 +52,12 @@
   --info-text: #1e40af;
 
   /* Legacy aliases for old components */
-  --surface-raised: #fafaf9;
-  --border: #e7e5e4;
-  --text-secondary: #6b7280;
-  --text-tertiary: #9ca3af;
-  --bg: #fafaf9;
+  --surface-raised: #f8fafc;
+  --border: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+  --bg: #f8fafc;
   --bg-card: #ffffff;
 }
 
@@ -71,6 +72,10 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+#root {
+  min-height: 100vh;
 }
 
 ::selection { background: rgba(59, 130, 246, 0.18); color: var(--ink); }
@@ -93,10 +98,16 @@ body {
 
 /* ── Form components ── */
 @layer components {
+  .ext-shell-card {
+    @apply rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_rgba(15,23,42,0.06)];
+  }
+  .ext-shell-card-soft {
+    @apply rounded-2xl border border-slate-200/70 bg-white/80 backdrop-blur-sm shadow-[0_1px_2px_rgba(15,23,42,0.03),0_8px_24px_rgba(15,23,42,0.05)];
+  }
   .ext-input {
-    @apply w-full rounded-md border border-stone-200 bg-white px-3.5 py-2.5 text-[13px] text-stone-900
-           placeholder:text-stone-400 transition-all duration-200
-           focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10;
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-[13px] text-slate-900
+           placeholder:text-slate-400 transition-all duration-200
+           focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 shadow-sm;
     font-feature-settings: 'tnum';
   }
   .ext-select {
@@ -106,41 +117,41 @@ body {
     background-position: right 14px center;
   }
   .ext-label {
-    @apply block text-[10px] font-medium text-stone-500 uppercase tracking-[0.1em] mb-2;
+    @apply block text-[10px] font-medium text-slate-500 uppercase tracking-[0.1em] mb-2;
   }
   .ext-btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-md px-5 py-2.5 text-[13px] font-medium
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-medium
            transition-all duration-200 active:scale-[0.98] disabled:opacity-25 disabled:pointer-events-none
            tracking-[-0.005em];
   }
   .ext-btn-primary {
-    @apply ext-btn bg-stone-900 text-white hover:bg-stone-800;
+    @apply ext-btn bg-slate-950 text-white hover:bg-slate-900;
     box-shadow:
       inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
-      0 1px 2px rgba(10, 14, 26, 0.3),
-      0 0 0 1px rgba(10, 14, 26, 0.95);
+      0 1px 2px rgba(15, 23, 42, 0.24),
+      0 0 0 1px rgba(15, 23, 42, 0.9);
   }
   .ext-btn-primary:hover {
     box-shadow:
       inset 0 1px 0 0 rgba(255, 255, 255, 0.14),
-      0 2px 6px rgba(10, 14, 26, 0.18),
-      0 0 0 1px rgba(10, 14, 26, 1);
+      0 4px 14px rgba(15, 23, 42, 0.16),
+      0 0 0 1px rgba(15, 23, 42, 1);
   }
   .ext-btn-accent {
     @apply ext-btn bg-blue-600 text-white hover:bg-blue-700;
     box-shadow:
       inset 0 1px 0 0 rgba(255, 255, 255, 0.18),
-      0 1px 2px rgba(30, 58, 138, 0.3),
+      0 1px 2px rgba(29, 78, 216, 0.3),
       0 0 0 1px rgba(37, 99, 235, 1);
   }
   .ext-btn-secondary {
-    @apply ext-btn border border-stone-200 bg-white text-stone-700 hover:text-stone-900 hover:border-stone-300 hover:bg-stone-50;
+    @apply ext-btn border border-slate-200 bg-white text-slate-700 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 shadow-sm;
   }
   .ext-btn-ghost {
-    @apply ext-btn text-stone-500 hover:text-stone-900 hover:bg-stone-100;
+    @apply ext-btn text-slate-500 hover:text-slate-900 hover:bg-slate-100;
   }
   .ext-card {
-    @apply rounded-lg border border-stone-200 bg-white;
+    @apply ext-shell-card;
   }
   .ext-badge {
     @apply inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.05em];
@@ -149,6 +160,18 @@ body {
   .ext-badge-warning { @apply ext-badge bg-amber-50 text-amber-700 ring-1 ring-amber-200/60; }
   .ext-badge-danger  { @apply ext-badge bg-red-50 text-red-700 ring-1 ring-red-200/60; }
   .ext-badge-info    { @apply ext-badge bg-blue-50 text-blue-700 ring-1 ring-blue-200/60; }
+}
+
+.tracking-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 420px);
+  gap: 1.5rem;
+}
+
+@media (max-width: 1023px) {
+  .tracking-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── Typography utilities ── */

@@ -2192,21 +2192,105 @@ _PLANNER_GANTT_EXPORT_BODY_FR = """\
     @bottom-right { content: "OpsFlux Planner · {{ generated_at }}"; font-size: 7pt; color: #9ca3af; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
   }
   * { box-sizing: border-box; }
-  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1f2937; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1f2937; margin: 0; padding: 0; font-size: 8pt; }
 
   /* Header: title on the left, meta grid on the right — compact so we
-     leave max vertical space to the Gantt image. */
-  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f3460; padding-bottom: 4mm; margin-bottom: 4mm; }
-  .header .title-block h1 { font-size: 15pt; margin: 0; color: #0f3460; font-weight: 700; letter-spacing: -0.2px; }
-  .header .title-block .subtitle { font-size: 9pt; color: #64748b; margin-top: 1mm; }
-  .header .meta { display: grid; grid-template-columns: auto auto; gap: 0 10px; font-size: 8pt; color: #475569; }
+     leave max vertical space to the Gantt content. */
+  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f3460; padding-bottom: 3mm; margin-bottom: 3mm; }
+  .header .title-block h1 { font-size: 14pt; margin: 0; color: #0f3460; font-weight: 700; letter-spacing: -0.2px; }
+  .header .title-block .subtitle { font-size: 8pt; color: #64748b; margin-top: 1mm; }
+  .header .meta { display: grid; grid-template-columns: auto auto; gap: 0 8px; font-size: 7pt; color: #475569; }
   .header .meta dt { font-weight: 600; color: #0f3460; text-align: right; padding: 0; margin: 0; }
   .header .meta dd { margin: 0; padding: 0; text-align: left; }
 
-  /* Gantt image fills the width of the printable area. object-fit:contain
-     guarantees we never stretch, we just cap on the narrower axis. */
-  .gantt-wrap { width: 100%; text-align: center; margin: 0; padding: 0; }
-  .gantt-wrap img { display: block; width: 100%; height: auto; max-height: 262mm; object-fit: contain; margin: 0 auto; }
+  /* Gantt table — borderless, tight, with a small fixed task column */
+  table.gantt {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 6.5pt;
+  }
+  table.gantt th, table.gantt td {
+    border: 0.4pt solid #e5e7eb;
+    padding: 0;
+    text-align: center;
+    vertical-align: middle;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  /* Task column on the left — variable width, dark border to separate
+     it from the timeline area. */
+  table.gantt .task-col {
+    width: 38mm;
+    text-align: left;
+    padding: 1mm 1.5mm;
+    border-right: 1pt solid #94a3b8;
+    background: #f8fafc;
+  }
+  table.gantt thead .task-col {
+    background: #0f3460;
+    color: #fff;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 6pt;
+    letter-spacing: 0.5px;
+  }
+  /* Timeline header rows */
+  table.gantt thead .group-row th {
+    background: #f1f5f9;
+    color: #0f3460;
+    font-weight: 700;
+    font-size: 7pt;
+    padding: 1mm 0;
+  }
+  table.gantt thead .day-row th {
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    padding: 0.6mm 0;
+    font-size: 5.5pt;
+  }
+  table.gantt thead .day-row th.dim { color: #cbd5e1; }
+  table.gantt thead .day-row th.today { background: #fee2e2; color: #b91c1c; }
+  /* Body rows */
+  table.gantt tbody tr { height: 5mm; }
+  table.gantt tbody tr.heatmap-row { height: 4mm; background: #fff; }
+  table.gantt tbody tr.activity-row { height: 5mm; background: #fff; }
+  table.gantt tbody td.label-cell {
+    text-align: left;
+    padding: 0.5mm 1.5mm;
+    font-weight: 500;
+    color: #0f172a;
+    background: #f8fafc;
+    border-right: 1pt solid #94a3b8;
+  }
+  table.gantt tbody tr.heatmap-row td.label-cell {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 6pt;
+    color: #0f3460;
+  }
+  table.gantt tbody td.label-cell.indent-1 { padding-left: 4mm; }
+  table.gantt tbody td.label-cell.indent-2 { padding-left: 6mm; }
+  table.gantt tbody td.label-cell.indent-3 { padding-left: 8mm; }
+  table.gantt tbody td.label-cell .sublabel { color: #94a3b8; font-weight: 400; font-size: 5.5pt; }
+
+  /* Heatmap value cells */
+  table.gantt td.cell-bg { font-weight: 600; font-size: 5.5pt; }
+  table.gantt td.cell-bg.dim { opacity: 0.45; }
+
+  /* Activity bar — rendered as colored cells spanning the bar's range.
+     Uses background color + rounded corners on the first/last cell. */
+  table.gantt td.bar-cell {
+    background: #3b82f6;
+    color: #fff;
+    font-weight: 600;
+    font-size: 5.5pt;
+  }
+  table.gantt td.bar-cell.first { border-top-left-radius: 1mm; border-bottom-left-radius: 1mm; }
+  table.gantt td.bar-cell.last { border-top-right-radius: 1mm; border-bottom-right-radius: 1mm; }
+  table.gantt td.bar-cell.draft { opacity: 0.55; }
+  table.gantt td.bar-cell.critical { box-shadow: inset 0 0 0 0.5pt #ef4444; }
 
   .empty { color: #9ca3af; text-align: center; padding: 40mm 0; font-style: italic; }
 </style>
@@ -2223,65 +2307,80 @@ _PLANNER_GANTT_EXPORT_BODY_FR = """\
       {% if generated_by %}<dt>Par</dt><dd>{{ generated_by }}</dd>{% endif %}
     </dl>
   </div>
-  <div class="gantt-wrap">
-    {% if image_data_uri %}
-      <img src="{{ image_data_uri }}" alt="Gantt" />
-    {% else %}
-      <p class="empty">Aucune donnée Gantt à exporter.</p>
-    {% endif %}
-  </div>
+
+  {% if rows and columns %}
+  <table class="gantt">
+    <colgroup>
+      <col style="width: 38mm" />
+      {% for col in columns %}<col />{% endfor %}
+    </colgroup>
+    <thead>
+      {% if column_groups %}
+      <tr class="group-row">
+        <th class="task-col" rowspan="2">{{ task_col_label }}</th>
+        {% for g in column_groups %}<th colspan="{{ g.span }}">{{ g.label }}</th>{% endfor %}
+      </tr>
+      {% else %}
+      <tr><th class="task-col">{{ task_col_label }}</th>{% for col in columns %}<th></th>{% endfor %}</tr>
+      {% endif %}
+      <tr class="day-row">
+        {% for col in columns %}
+        <th class="{% if col.is_dim %}dim{% endif %}{% if col.is_today %} today{% endif %}">{{ col.label }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      {% if row.is_heatmap %}
+      <tr class="heatmap-row">
+        <td class="label-cell indent-{{ row.level }}">
+          {{ row.label }}{% if row.sublabel %} <span class="sublabel">· {{ row.sublabel }}</span>{% endif %}
+        </td>
+        {% for cell in row.heatmap_cells %}
+        <td class="cell-bg{% if columns[loop.index0].is_dim %} dim{% endif %}"
+            style="{% if cell.bg %}background:{{ cell.bg }};{% endif %}{% if cell.fg %}color:{{ cell.fg }};{% endif %}">{{ cell.value }}</td>
+        {% endfor %}
+      </tr>
+      {% else %}
+      <tr class="activity-row">
+        <td class="label-cell indent-{{ row.level }}">
+          {{ row.label }}{% if row.sublabel %} <span class="sublabel">· {{ row.sublabel }}</span>{% endif %}
+        </td>
+        {% for col in columns %}
+          {% set in_bar = row.bar and loop.index0 >= row.bar.start_col and loop.index0 <= row.bar.end_col %}
+          {% if in_bar %}
+            {% set rel = loop.index0 - row.bar.start_col %}
+            <td class="bar-cell{% if loop.index0 == row.bar.start_col %} first{% endif %}{% if loop.index0 == row.bar.end_col %} last{% endif %}{% if row.bar.is_draft %} draft{% endif %}{% if row.bar.is_critical %} critical{% endif %}"
+                style="background:{{ row.bar.color }};color:{{ row.bar.text_color }}">{% if row.bar.cell_labels and rel < row.bar.cell_labels|length %}{{ row.bar.cell_labels[rel] }}{% endif %}</td>
+          {% else %}
+            <td class="{% if col.is_dim %}dim{% endif %}"></td>
+          {% endif %}
+        {% endfor %}
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">Aucune donnée Gantt à exporter.</p>
+  {% endif %}
 </body>
 </html>
 """
 
-_PLANNER_GANTT_EXPORT_BODY_EN = """\
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<style>
-  @page {
-    size: A3 landscape;
-    margin: 8mm 10mm 14mm 10mm;
-    @bottom-left { content: "{{ entity.name or '' }}"; font-size: 7pt; color: #9ca3af; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    @bottom-center { content: "Page " counter(page) " / " counter(pages); font-size: 7pt; color: #9ca3af; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    @bottom-right { content: "OpsFlux Planner · {{ generated_at }}"; font-size: 7pt; color: #9ca3af; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-  }
-  * { box-sizing: border-box; }
-  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1f2937; margin: 0; padding: 0; }
-  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f3460; padding-bottom: 4mm; margin-bottom: 4mm; }
-  .header .title-block h1 { font-size: 15pt; margin: 0; color: #0f3460; font-weight: 700; letter-spacing: -0.2px; }
-  .header .title-block .subtitle { font-size: 9pt; color: #64748b; margin-top: 1mm; }
-  .header .meta { display: grid; grid-template-columns: auto auto; gap: 0 10px; font-size: 8pt; color: #475569; }
-  .header .meta dt { font-weight: 600; color: #0f3460; text-align: right; padding: 0; margin: 0; }
-  .header .meta dd { margin: 0; padding: 0; text-align: left; }
-  .gantt-wrap { width: 100%; text-align: center; margin: 0; padding: 0; }
-  .gantt-wrap img { display: block; width: 100%; height: auto; max-height: 262mm; object-fit: contain; margin: 0 auto; }
-  .empty { color: #9ca3af; text-align: center; padding: 40mm 0; font-style: italic; }
-</style>
-</head>
-<body>
-  <div class="header">
-    <div class="title-block">
-      <h1>{{ title or 'Planner — Gantt' }}</h1>
-      {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}
-    </div>
-    <dl class="meta">
-      <dt>Range</dt><dd>{{ date_range or '—' }}</dd>
-      <dt>Scale</dt><dd>{{ scale or '—' }}</dd>
-      {% if generated_by %}<dt>By</dt><dd>{{ generated_by }}</dd>{% endif %}
-    </dl>
-  </div>
-  <div class="gantt-wrap">
-    {% if image_data_uri %}
-      <img src="{{ image_data_uri }}" alt="Gantt" />
-    {% else %}
-      <p class="empty">No Gantt data to export.</p>
-    {% endif %}
-  </div>
-</body>
-</html>
-"""
+# English template — keep in sync with the FR one above. Only the header
+# labels and the empty-state copy differ.
+_PLANNER_GANTT_EXPORT_BODY_EN = _PLANNER_GANTT_EXPORT_BODY_FR.replace(
+    'lang="fr"', 'lang="en"'
+).replace(
+    '<dt>Période</dt>', '<dt>Range</dt>'
+).replace(
+    '<dt>Échelle</dt>', '<dt>Scale</dt>'
+).replace(
+    '<dt>Par</dt>', '<dt>By</dt>'
+).replace(
+    'Aucune donnée Gantt à exporter.', 'No Gantt data to export.'
+)
 
 DEFAULT_PDF_TEMPLATES[9]["default_versions"]["fr"]["body_html"] = _PLANNER_GANTT_EXPORT_BODY_FR
 DEFAULT_PDF_TEMPLATES[9]["default_versions"]["en"]["body_html"] = _PLANNER_GANTT_EXPORT_BODY_EN

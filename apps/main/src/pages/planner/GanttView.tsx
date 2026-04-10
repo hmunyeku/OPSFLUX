@@ -1213,17 +1213,127 @@ export function GanttView({
   }, [openDynamicPanel])
 
   // ── Export Gantt as A3 PDF via the system PDF template ──
+  // Server-side rendering: we build a JSON payload from the local
+  // rows/bars/cells and POST it to /export/gantt-pdf. The backend's
+  // Jinja2 template renders an HTML table that WeasyPrint converts to
+  // a vector PDF. No html2canvas screenshot involved → crisp text,
+  // proper typography, full A3 utilisation.
   const handleExportPdf = useCallback(
-    async (imageDataUri: string) => {
+    async () => {
       try {
+        const cells = buildCells(scale, new Date(startDate), new Date(endDate))
+        const todayISO = toISO(new Date())
+
+        // Map a date string into the index of the cell that contains it.
+        // For day scale → exact match. For week/month/etc → find the cell
+        // whose [startDate, endDate] range covers the date.
+        const dateToCol = (iso: string): number => {
+          const t = new Date(iso).getTime()
+          for (let i = 0; i < cells.length; i++) {
+            const cs = cells[i].startDate.getTime()
+            const ce = cells[i].endDate.getTime() + 86_400_000 - 1
+            if (t >= cs && t <= ce) return i
+          }
+          if (t < cells[0].startDate.getTime()) return 0
+          return cells.length - 1
+        }
+
+        const monthFmt = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' })
+        const pdfColumns = cells.map((c) => ({
+          key: c.key,
+          label: c.label,
+          group_label: monthFmt.format(c.startDate),
+          is_today: scale === 'day' && c.startDate.toISOString().slice(0, 10) === todayISO,
+          is_weekend: scale === 'day' && (c.startDate.getDay() === 0 || c.startDate.getDay() === 6),
+          is_dim: scale === 'day' && (c.startDate.getDay() === 0 || c.startDate.getDay() === 6),
+        }))
+
+        // Build the row payload. Heatmap rows emit value+bg per cell.
+        // Activity rows emit a bar with start_col/end_col.
+        const barsByRow = new Map<string, typeof bars[number][]>()
+        for (const b of bars) {
+          const list = barsByRow.get(b.rowId) ?? []
+          list.push(b)
+          barsByRow.set(b.rowId, list)
+        }
+
+        const pdfRows: import('@/services/plannerService').GanttPdfRow[] = []
+        for (const row of rows) {
+          if (row.heatmapCells && row.heatmapCells.length > 0) {
+            // heatmapCells is a sparse list keyed by cellIdx — index it
+            // first then emit one entry per timeline column.
+            const byIdx = new Map<number, typeof row.heatmapCells[number]>()
+            for (const hc of row.heatmapCells) byIdx.set(hc.cellIdx, hc)
+            const heatmap_cells = cells.map((_c, idx) => {
+              const hc = byIdx.get(idx)
+              return {
+                value: hc?.label ?? (hc ? String(hc.value) : ''),
+                bg: hc?.color ?? null,
+                fg: null,
+              }
+            })
+            pdfRows.push({
+              id: row.id,
+              label: row.label,
+              sublabel: row.sublabel ?? null,
+              level: row.level ?? 0,
+              is_heatmap: true,
+              heatmap_cells,
+            })
+            continue
+          }
+          // Activity row(s): one row per bar (usually a single bar)
+          const rowBars = barsByRow.get(row.id) ?? []
+          if (rowBars.length === 0) {
+            pdfRows.push({
+              id: row.id,
+              label: row.label,
+              sublabel: row.sublabel ?? null,
+              level: row.level ?? 0,
+              is_heatmap: false,
+            })
+            continue
+          }
+          for (const b of rowBars) {
+            const startCol = dateToCol(b.startDate)
+            const endCol = dateToCol(b.endDate)
+            // cellLabels in the GanttBar use cell-index relative to the
+            // global cells array. Map them into a dense per-bar array.
+            const labels: string[] = []
+            for (let i = startCol; i <= endCol; i++) {
+              const cl = b.cellLabels?.find((x) => x.cellIdx === i)
+              labels.push(cl?.label ?? '')
+            }
+            pdfRows.push({
+              id: `${row.id}::${b.id}`,
+              label: row.label,
+              sublabel: row.sublabel ?? null,
+              level: row.level ?? 0,
+              is_heatmap: false,
+              bar: {
+                start_col: startCol,
+                end_col: endCol,
+                color: b.color || '#3b82f6',
+                text_color: '#ffffff',
+                label: b.title || null,
+                is_draft: !!b.isDraft,
+                is_critical: !!b.isCritical,
+                progress: typeof b.progress === 'number' ? b.progress : null,
+                cell_labels: labels,
+              },
+            })
+          }
+        }
+
         const dateRangeLabel = `${startDate ?? ''} → ${endDate ?? ''}`
         const scaleLabel = (scale ?? 'month').toString()
         const blob = await plannerService.exportGanttPdf({
-          image_data_uri: imageDataUri,
           title: 'Planner — Gantt',
-          subtitle: undefined,
           date_range: dateRangeLabel,
           scale: scaleLabel,
+          columns: pdfColumns,
+          rows: pdfRows,
+          task_col_label: 'Tâche',
         })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
@@ -1236,7 +1346,7 @@ export function GanttView({
         toast({ title: "Erreur lors de la génération du PDF", variant: 'error' })
       }
     },
-    [startDate, endDate, scale, toast],
+    [startDate, endDate, scale, toast, rows, bars],
   )
 
   // ── Dependency edit modal state (triggered by double-click on arrow) ──

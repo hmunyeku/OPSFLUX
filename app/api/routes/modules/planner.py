@@ -2386,22 +2386,60 @@ async def get_gantt(
 # ── Gantt PDF export (A3 landscape) ──────────────────────────────────────
 
 
-class GanttPdfExportRequest(BaseModel):
-    """Payload for the Gantt PDF export.
+class GanttPdfColumn(BaseModel):
+    """A timeline column in the Gantt header (one per visible date cell)."""
+    key: str                           # e.g. "2026-04-10" or "w15"
+    label: str                         # e.g. "10 avr." or "S15"
+    group_label: str | None = None     # e.g. "avril 2026" — for the parent header row
+    is_today: bool = False
+    is_weekend: bool = False
+    is_dim: bool = False               # weekends / out-of-month → fade
 
-    The frontend captures the Gantt container with html2canvas and POSTs
-    the resulting PNG as a data URI. The backend re-renders that image in
-    the `planner.gantt_export` PDF template (A3 landscape) via WeasyPrint.
+
+class GanttPdfHeatmapCell(BaseModel):
+    value: str = ""
+    bg: str | None = None
+    fg: str | None = None
+
+
+class GanttPdfBar(BaseModel):
+    start_col: int                     # inclusive index into columns[]
+    end_col: int                       # inclusive index into columns[]
+    color: str
+    text_color: str = "#ffffff"
+    label: str | None = None           # e.g. activity title
+    is_draft: bool = False
+    is_critical: bool = False
+    progress: int | None = None
+    cell_labels: list[str] | None = None  # one label per spanned column (PAX values)
+
+
+class GanttPdfRow(BaseModel):
+    id: str
+    label: str
+    sublabel: str | None = None
+    level: int = 0                     # indent level (0 = field, 1 = site, ...)
+    is_heatmap: bool = False           # row uses heatmap cells (parent rows)
+    heatmap_cells: list[GanttPdfHeatmapCell] = Field(default_factory=list)
+    bar: GanttPdfBar | None = None     # for activity rows
+
+
+class GanttPdfExportRequest(BaseModel):
+    """Server-side rendered Gantt PDF payload.
+
+    The frontend builds the columns + rows + bars from its memoised
+    state and POSTs the JSON. The backend renders the
+    `planner.gantt_export` PDF template (A3 landscape) via WeasyPrint —
+    no html2canvas screenshot, no image. Result is a vector PDF with
+    crisp text and proper typography.
     """
-    image_data_uri: str = Field(
-        ...,
-        description="PNG encoded as 'data:image/png;base64,...'",
-        max_length=30_000_000,  # ~22 MB base64 → ~16 MB PNG, plenty for A3
-    )
     title: str | None = None
     subtitle: str | None = None
     date_range: str | None = None
     scale: str | None = None
+    columns: list[GanttPdfColumn] = Field(default_factory=list)
+    rows: list[GanttPdfRow] = Field(default_factory=list)
+    task_col_label: str = "Tâche"
 
 
 @router.post("/export/gantt-pdf")
@@ -2412,7 +2450,7 @@ async def export_gantt_pdf(
     _: None = require_permission("planner.activity.read"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Render the Planner Gantt as an A3 landscape PDF.
+    """Render the Planner Gantt as an A3 landscape PDF (vector, server-side).
 
     Uses the system PDF template `planner.gantt_export`. Seeded in
     `DEFAULT_PDF_TEMPLATES` so tenants can override the HTML body from the
@@ -2421,13 +2459,21 @@ async def export_gantt_pdf(
     from app.core.pdf_templates import render_pdf
     from app.models.common import Entity
 
-    # Basic validation — reject anything that isn't a PNG data URI
-    if not payload.image_data_uri.startswith("data:image/"):
-        raise HTTPException(400, "image_data_uri must be a data:image/* URI")
-
     entity = await db.get(Entity, entity_id)
     generated_at = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
     generated_by = getattr(current_user, "full_name", None) or current_user.email
+
+    # Build column groups (e.g. month spans) from the column list so the
+    # template can render the parent header row above the day labels.
+    column_groups: list[dict] = []
+    if payload.columns:
+        current_label: str | None = None
+        for col in payload.columns:
+            if col.group_label and col.group_label != current_label:
+                column_groups.append({"label": col.group_label, "span": 1})
+                current_label = col.group_label
+            elif column_groups:
+                column_groups[-1]["span"] += 1
 
     try:
         pdf_bytes = await render_pdf(
@@ -2440,10 +2486,13 @@ async def export_gantt_pdf(
                 "subtitle": payload.subtitle or "",
                 "date_range": payload.date_range or "",
                 "scale": payload.scale or "",
-                "image_data_uri": payload.image_data_uri,
                 "generated_at": generated_at,
                 "generated_by": generated_by,
                 "entity": {"name": entity.name if entity else ""},
+                "task_col_label": payload.task_col_label,
+                "columns": [c.model_dump() for c in payload.columns],
+                "column_groups": column_groups,
+                "rows": [r.model_dump() for r in payload.rows],
             },
         )
     except Exception as e:

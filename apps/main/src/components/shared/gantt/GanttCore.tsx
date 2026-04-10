@@ -690,15 +690,16 @@ export function GanttCore(props: GanttCoreProps) {
   const exportPDF = useCallback(async () => {
     if (!onExportPdf) return
     setExporting('pdf')
+    setExportMenuOpen(false)
     try {
-      const url = await captureGanttImage()
-      if (!url) return
-      await onExportPdf(url)
+      // Server-side rendering — the consumer builds the payload from
+      // its own state and POSTs it. No html2canvas screenshot needed.
+      await onExportPdf()
     } catch { /* silent */ }
     finally {
       setExporting(null)
     }
-  }, [captureGanttImage, onExportPdf])
+  }, [onExportPdf])
 
   // ── Drag-scroll on header AND body (middle-click or click on empty area) ──
 

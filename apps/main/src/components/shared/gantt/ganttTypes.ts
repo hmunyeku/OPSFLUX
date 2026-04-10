@@ -325,13 +325,13 @@ export interface GanttCoreProps {
   /** Called when the user double-clicks a dependency arrow (to edit it) */
   onEditDependency?: (fromBarId: string, toBarId: string, type: 'FS' | 'SS' | 'FF' | 'SF') => void
   /**
-   * Called when the user picks "PDF" in the export menu. Receives the
-   * already-rendered PNG data URI of the Gantt container. The consumer
-   * is responsible for turning that into a PDF (typically by POSTing to
-   * the system PDF template endpoint). When undefined, the export menu
-   * only offers "Image PNG".
+   * Called when the user picks "PDF" in the export menu. The consumer
+   * is responsible for building a payload from its own state and POSTing
+   * it to the system PDF template endpoint. No screenshot is involved —
+   * the PDF is rendered server-side as a vector document.
+   * When undefined, the export menu only offers "Image PNG".
    */
-  onExportPdf?: (imageDataUri: string) => void | Promise<void>
+  onExportPdf?: () => void | Promise<void>
   /** Called when user presses Ctrl+Z */
   onUndo?: () => void
   /** Called when user presses Ctrl+Y */

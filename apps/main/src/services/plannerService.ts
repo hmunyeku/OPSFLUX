@@ -27,6 +27,58 @@ import type {
 
 const BASE = '/api/v1/planner'
 
+// ── Server-side rendered Gantt PDF payload ──
+// Mirrors the Pydantic schemas in app/api/routes/modules/planner.py.
+// The frontend builds this from its memoised rows / bars / cells and
+// POSTs the JSON to /export/gantt-pdf — no html2canvas screenshot.
+
+export interface GanttPdfColumn {
+  key: string
+  label: string
+  group_label?: string | null
+  is_today?: boolean
+  is_weekend?: boolean
+  is_dim?: boolean
+}
+
+export interface GanttPdfHeatmapCell {
+  value: string
+  bg?: string | null
+  fg?: string | null
+}
+
+export interface GanttPdfBar {
+  start_col: number
+  end_col: number
+  color: string
+  text_color?: string
+  label?: string | null
+  is_draft?: boolean
+  is_critical?: boolean
+  progress?: number | null
+  cell_labels?: string[] | null
+}
+
+export interface GanttPdfRow {
+  id: string
+  label: string
+  sublabel?: string | null
+  level?: number
+  is_heatmap?: boolean
+  heatmap_cells?: GanttPdfHeatmapCell[]
+  bar?: GanttPdfBar | null
+}
+
+export interface GanttPdfExportPayload {
+  title?: string
+  subtitle?: string
+  date_range?: string
+  scale?: string
+  columns: GanttPdfColumn[]
+  rows: GanttPdfRow[]
+  task_col_label?: string
+}
+
 interface ActivityListParams extends PaginationParams {
   asset_id?: string
   type?: string
@@ -131,14 +183,8 @@ export const plannerService = {
     await api.delete(`${BASE}/activities/${activityId}/dependencies/${dependencyId}`)
   },
 
-  // ── Gantt PDF export (A3 landscape, via system PDF template) ──
-  exportGanttPdf: async (payload: {
-    image_data_uri: string
-    title?: string
-    subtitle?: string
-    date_range?: string
-    scale?: string
-  }): Promise<Blob> => {
+  // ── Gantt PDF export (A3 landscape, via system PDF template, server-side HTML rendering) ──
+  exportGanttPdf: async (payload: GanttPdfExportPayload): Promise<Blob> => {
     const { data } = await api.post(`${BASE}/export/gantt-pdf`, payload, {
       responseType: 'blob',
     })

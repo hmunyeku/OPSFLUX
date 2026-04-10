@@ -208,7 +208,7 @@ async def count_real_pob_for_asset_day(
         .where(
             Ads.entity_id == entity_id,
             Ads.site_entry_asset_id == asset_id,
-            Ads.active == True,  # noqa: E712
+            Ads.deleted_at.is_(None),
             AdsPax.current_onboard == True,  # noqa: E712
             Ads.start_date.isnot(None),
             Ads.end_date.isnot(None),

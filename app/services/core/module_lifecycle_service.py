@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.module_registry import ModuleRegistry
@@ -129,15 +129,20 @@ async def _cleanup_module_widgets(
             tab.widgets = filtered
 
     dashboards_result = await db.execute(
-        select(Dashboard).where(Dashboard.entity_id == entity_id)
+        text("SELECT id, widgets FROM dashboards WHERE entity_id = :entity_id"),
+        {"entity_id": entity_id},
     )
-    for dashboard in dashboards_result.scalars().all():
+    for row in dashboards_result.mappings().all():
+        widgets = row.get("widgets") if isinstance(row, dict) else row["widgets"]
         filtered = [
-            widget for widget in (dashboard.widgets or [])
+            widget for widget in (widgets or [])
             if get_widget_source_module(get_widget_id_from_payload(widget) or "") != module_slug
         ]
-        if filtered != (dashboard.widgets or []):
-            dashboard.widgets = filtered
+        if filtered != (widgets or []):
+            await db.execute(
+                text("UPDATE dashboards SET widgets = :widgets WHERE id = :dashboard_id"),
+                {"widgets": filtered, "dashboard_id": row["id"]},
+            )
 
 
 async def _ensure_dependents_allow_disable(

@@ -12,7 +12,7 @@
  * added to GanttCore for this view), so alignment with the bars is exact and
  * scroll is shared by construction.
  */
-import { useState, useMemo, useCallback } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/stores/uiStore'
 import {
@@ -135,10 +135,11 @@ export function GanttView({
     }
   }, [onViewChange])
 
-  // ── Date range state ──
-  const [scale] = useState<TimeScale>(externalScale ?? 'month')
+  // ── Date range — always read directly from props (controlled by PlannerPage)
+  // so a scale change is reflected synchronously in buildCells / heatmap rebuild.
+  const scale: TimeScale = externalScale ?? 'month'
   const now = new Date()
-  const defaultRange = getDefaultDateRange(scale)
+  const defaultRange = useMemo(() => getDefaultDateRange(scale), [scale])
   const startDate = externalStartDate ?? defaultRange.start ?? toISO(new Date(now.getFullYear(), now.getMonth() - 1, 1))
   const endDate = externalEndDate ?? defaultRange.end ?? toISO(new Date(now.getFullYear(), now.getMonth() + 4, 0))
 

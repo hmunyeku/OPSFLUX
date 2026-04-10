@@ -28,6 +28,7 @@ import {
 import { useAssetHierarchy } from '@/hooks/useAssetRegistry'
 import { plannerService } from '@/services/plannerService'
 import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { GanttCore } from '@/components/shared/gantt/GanttCore'
 import {
   buildCells,
@@ -335,6 +336,7 @@ export function GanttView({
 }: GanttViewProps = {}) {
   const { t } = useTranslation()
   const { toast } = useToast()
+  const confirm = useConfirm()
   const qc = useQueryClient()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
 
@@ -877,19 +879,21 @@ export function GanttView({
     // panel where they can Cancel then Re-submit.
     const draggedAct = allActsById.get(barId)
     if (draggedAct && ['validated', 'in_progress', 'completed'].includes(draggedAct.status)) {
-      toast({
-        title: 'Activité validée — déplacement refusé',
+      const statusLabel = draggedAct.status === 'completed'
+        ? 'terminée'
+        : draggedAct.status === 'in_progress' ? 'en cours' : 'validée'
+      await confirm({
+        title: 'Activité verrouillée',
+        message:
+          `L'activité « ${draggedAct.title} » est ${statusLabel}.\n\n` +
+          `Pour modifier ses dates, ouvrez le panneau de détail et :\n` +
+          `  1. Cliquez « Annuler » pour la repasser en brouillon\n` +
+          `  2. Modifiez les dates dans l'éditeur\n` +
+          `  3. Re-soumettez l'activité pour validation`,
+        confirmLabel: 'Compris',
+        cancelLabel: '',
         variant: 'warning',
       })
-      // eslint-disable-next-line no-alert
-      window.alert(
-        `L'activité « ${draggedAct.title} » est ${draggedAct.status === 'completed' ? 'terminée' : (draggedAct.status === 'in_progress' ? 'en cours' : 'validée')}.\n\n` +
-        `Pour modifier ses dates, ouvrez le panneau de détail et :\n` +
-        `  1. Cliquez « Annuler » pour repasser l'activité en brouillon\n` +
-        `  2. Modifiez les dates dans l'éditeur\n` +
-        `  3. Re-soumettez l'activité pour validation\n\n` +
-        `Un workflow de révision directe (proposer un changement sans annuler) sera ajouté prochainement.`,
-      )
       return
     }
     const MS = 86400000
@@ -1043,40 +1047,51 @@ export function GanttView({
 
     // ── Apply strategy ──
     if (viewPrefs.drag_cascade_mode === 'strict' && violations.length > 0) {
-      // eslint-disable-next-line no-alert
-      window.alert(
-        `Le déplacement est refusé — il viole ${violations.length} contrainte(s) :\n\n` +
-        violations.map((v) => `• ${v}`).join('\n') +
-        `\n\nAjustez manuellement les activités liées ou passez en mode « cascade » dans les paramètres.`,
-      )
+      await confirm({
+        title: 'Déplacement refusé',
+        message:
+          `Ce déplacement viole ${violations.length} contrainte(s) :\n\n` +
+          violations.map((v) => `• ${v}`).join('\n') +
+          `\n\nAjustez manuellement les activités liées ou passez en mode « cascade » dans les paramètres.`,
+        confirmLabel: 'Compris',
+        cancelLabel: '',
+        variant: 'danger',
+      })
       return
     }
 
     if (viewPrefs.drag_cascade_mode === 'warn' && violations.length > 0) {
-      const msg =
-        `Ce déplacement viole ${violations.length} contrainte(s) :\n\n` +
-        violations.map((v) => `• ${v}`).join('\n') +
-        `\n\nVoulez-vous quand même l'appliquer ?`
-      // eslint-disable-next-line no-alert
-      const proceed = window.confirm(msg)
+      const proceed = await confirm({
+        title: `${violations.length} contrainte(s) violée(s)`,
+        message:
+          violations.map((v) => `• ${v}`).join('\n') +
+          `\n\nVoulez-vous quand même appliquer le déplacement ?`,
+        confirmLabel: 'Appliquer quand même',
+        cancelLabel: 'Annuler',
+        variant: 'warning',
+      })
       if (!proceed) return
     }
 
     if (viewPrefs.drag_cascade_mode === 'cascade' && cascadeShifts.length > 0) {
       const maxShown = 10
       const shownShifts = cascadeShifts.slice(0, maxShown)
-      const more = cascadeShifts.length > maxShown ? `\n… et ${cascadeShifts.length - maxShown} de plus` : ''
+      const more = cascadeShifts.length > maxShown
+        ? `\n… et ${cascadeShifts.length - maxShown} de plus`
+        : ''
       const cycleNote = cycleDetected
         ? '\n\n⚠️ Cycle ou chaîne trop longue détecté(e). Certains décalages peuvent être incomplets.'
         : ''
-      const msg =
-        `Cascade : ${cascadeShifts.length} activité(s) successeur(s) seront également décalée(s) pour respecter les contraintes :\n\n` +
-        shownShifts.map((s) => `• ${s.title} : ${s.oldStart} → ${s.newStart}`).join('\n') +
-        more +
-        cycleNote +
-        '\n\nAppliquer le déplacement et la cascade ?'
-      // eslint-disable-next-line no-alert
-      const proceed = window.confirm(msg)
+      const proceed = await confirm({
+        title: `Cascade : ${cascadeShifts.length} successeur(s) décalé(s)`,
+        message:
+          shownShifts.map((s) => `• ${s.title} : ${s.oldStart} → ${s.newStart}`).join('\n') +
+          more +
+          cycleNote,
+        confirmLabel: 'Appliquer',
+        cancelLabel: 'Annuler',
+        variant: 'warning',
+      })
       if (!proceed) return
     }
 
@@ -1110,7 +1125,7 @@ export function GanttView({
     } catch {
       toast({ title: t('planner.gantt.toasts.drag_error'), variant: 'error' })
     }
-  }, [t, toast, ganttData, viewPrefs.drag_cascade_mode, qc])
+  }, [t, toast, ganttData, viewPrefs.drag_cascade_mode, qc, confirm])
 
   // ── Resize handler (drag left/right edge of a bar) ──
   // Partial date update: only start_date or only end_date changes. The

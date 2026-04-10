@@ -189,16 +189,18 @@ export function ConfirmDialog({
           <h3 className="text-sm font-semibold text-foreground">{title}</h3>
         </div>
 
-        {/* Message */}
+        {/* Message — whitespace-pre-line so callers can pass multi-line text */}
         {message && (
-          <p className="px-4 pb-3 text-sm text-muted-foreground leading-relaxed">{message}</p>
+          <p className="px-4 pb-3 text-sm text-muted-foreground leading-relaxed whitespace-pre-line max-h-[60vh] overflow-y-auto">{message}</p>
         )}
 
-        {/* Actions */}
+        {/* Actions — cancel is hidden when cancelLabel is empty (info dialog) */}
         <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border bg-muted/30 rounded-b-xl">
-          <button onClick={onCancel} className="gl-button-sm gl-button-default">
-            {cancelLabel}
-          </button>
+          {cancelLabel && (
+            <button onClick={onCancel} className="gl-button-sm gl-button-default">
+              {cancelLabel}
+            </button>
+          )}
           <button ref={confirmBtnRef} onClick={onConfirm} className={config.btnClass}>
             {confirmLabel}
           </button>

@@ -6,15 +6,15 @@ initial pax_quota. Subsequent edits to pob_quota in Projects are mirrored
 to linked Planner activities and trigger a revision suggestion notification
 to the arbitre.
 
-Revision ID: 116_project_task_pob_quota
-Revises: 115_paxlog_ads_round_trip_no_overnight
+Revision ID: 117_project_task_pob_quota
+Revises: 116_add_packlog_request_requester_and_sender_contact
 """
 from alembic import op
 import sqlalchemy as sa
 
 
-revision = "116_project_task_pob_quota"
-down_revision = "115_paxlog_ads_round_trip_no_overnight"
+revision = "117_project_task_pob_quota"
+down_revision = "116_add_packlog_request_requester_and_sender_contact"
 branch_labels = None
 depends_on = None
 

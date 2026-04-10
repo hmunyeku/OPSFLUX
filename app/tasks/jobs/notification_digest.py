@@ -9,6 +9,8 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 
+from app.core.email_templates import render_and_send_email
+from app.core.config import settings
 from app.core.database import async_session_factory
 
 logger = logging.getLogger(__name__)
@@ -75,25 +77,27 @@ async def send_notification_digest() -> None:
                     )
                     notifications = notifs_result.fetchall()
 
-                    # Build digest email
-                    subject, body_html = _build_digest_email(
-                        first_name=first_name,
-                        unread_count=unread_count,
+                    notifications_html = _build_digest_notifications_html(
                         notifications=notifications,
                         language=language,
                     )
-
-                    from app.core.notifications import send_email
-
-                    await send_email(
-                        to=email,
-                        subject=subject,
-                        body_html=body_html,
+                    sent = await render_and_send_email(
                         db=db,
+                        slug="notification_digest",
+                        entity_id=None,
+                        language=language,
+                        to=email,
                         user_id=user_id,
                         category="core",
-                        channel="digest",
+                        variables={
+                            "user": {"first_name": first_name or ""},
+                            "unread_count": unread_count,
+                            "notifications_html": notifications_html,
+                            "notifications_url": f"{settings.FRONTEND_URL.rstrip('/')}/notifications",
+                        },
                     )
+                    if not sent:
+                        raise RuntimeError("Template email notification_digest indisponible")
                     logger.info(
                         "notification_digest: sent digest to %s (%d unread)",
                         email, unread_count,
@@ -108,36 +112,14 @@ async def send_notification_digest() -> None:
         logger.exception("notification_digest: unhandled error during digest run")
 
 
-def _build_digest_email(
+def _build_digest_notifications_html(
     *,
-    first_name: str,
-    unread_count: int,
     notifications: list,
     language: str,
-) -> tuple[str, str]:
-    """Build the digest email subject and HTML body."""
-    from app.core.config import settings
+) -> str:
+    """Build the notification table HTML injected in the central template."""
 
     is_french = language.startswith("fr")
-
-    if is_french:
-        subject = f"OpsFlux — {unread_count} notifications non lues"
-        greeting = f"Bonjour {first_name},"
-        intro = (
-            f"Vous avez <strong>{unread_count}</strong> notifications non lues "
-            f"au cours des dernieres 24 heures."
-        )
-        cta_text = "Voir toutes les notifications"
-        footer = "OpsFlux — Plateforme ERP"
-    else:
-        subject = f"OpsFlux — {unread_count} unread notifications"
-        greeting = f"Hello {first_name},"
-        intro = (
-            f"You have <strong>{unread_count}</strong> unread notifications "
-            f"in the last 24 hours."
-        )
-        cta_text = "View all notifications"
-        footer = "OpsFlux — ERP Platform"
 
     # Build notification list HTML
     notif_items = ""
@@ -159,25 +141,19 @@ def _build_digest_email(
             f"</tr>"
         )
 
-    frontend_url = settings.FRONTEND_URL
-    body_html = (
-        f"<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>"
-        f"<h2 style='color: #1a1a2e;'>{greeting}</h2>"
-        f"<p>{intro}</p>"
-        f"<table style='width: 100%; border-collapse: collapse; margin: 16px 0;'>"
-        f"{notif_items}"
-        f"</table>"
-        f"<p style='text-align: center; margin: 24px 0;'>"
-        f"<a href='{frontend_url}/notifications' "
-        f"style='background: #1a1a2e; color: white; padding: 10px 24px; "
-        f"text-decoration: none; border-radius: 6px;'>{cta_text}</a>"
-        f"</p>"
-        f"<hr style='border: none; border-top: 1px solid #eee; margin: 20px 0;'/>"
-        f"<p style='color: #999; font-size: 12px;'>{footer}</p>"
-        f"</div>"
+    intro = (
+        "Vous avez des notifications non lues au cours des dernières 24 heures."
+        if is_french
+        else "You have unread notifications in the last 24 hours."
     )
-
-    return subject, body_html
+    return (
+        "<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>"
+        f"<p>{intro}</p>"
+        "<table style='width: 100%; border-collapse: collapse; margin: 16px 0;'>"
+        f"{notif_items}"
+        "</table>"
+        "</div>"
+    )
 
 
 def _category_color(category: str) -> str:

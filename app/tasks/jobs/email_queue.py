@@ -10,7 +10,9 @@ from datetime import UTC, datetime
 
 from sqlalchemy import text
 
+from app.core.config import settings
 from app.core.database import async_session_factory
+from app.core.email_templates import render_and_send_email
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +58,7 @@ async def process_email_queue() -> None:
                 try:
                     # Look up the user's email address
                     user_result = await db.execute(
-                        text("SELECT email, first_name FROM users WHERE id = :uid"),
+                        text("SELECT email, first_name, language, default_entity_id FROM users WHERE id = :uid"),
                         {"uid": str(user_id)},
                     )
                     user_row = user_result.first()
@@ -70,18 +72,25 @@ async def process_email_queue() -> None:
                         continue
 
                     recipient_email = user_row.email
-
-                    # Build a simple HTML email body
-                    body_html = _build_email_html(title, body_text, row.link)
-
-                    # Send the email
-                    from app.core.notifications import send_email
-
-                    await send_email(
+                    full_link = _build_notification_link(row.link)
+                    sent = await render_and_send_email(
+                        db=db,
+                        slug="queued_notification_email",
+                        entity_id=user_row.default_entity_id,
+                        language=(user_row.language or "fr"),
                         to=recipient_email,
-                        subject=title,
-                        body_html=body_html,
+                        user_id=user_id,
+                        category="core",
+                        variables={
+                            "notification": {
+                                "title": title,
+                                "body": body_text,
+                                "link": full_link,
+                            },
+                        },
                     )
+                    if not sent:
+                        raise RuntimeError("Template email queued_notification_email indisponible")
 
                     # Mark as sent (set read=true, read_at=now)
                     await _mark_email_sent(db, notification_id)
@@ -164,20 +173,8 @@ async def _increment_retry_count(db, notification_id, current_count: int) -> Non
         logger.debug("Failed to record retry count for notification %s", notification_id)
 
 
-def _build_email_html(title: str, body: str, link: str | None) -> str:
-    """Build a simple HTML email body."""
-    link_html = ""
-    if link:
-        from app.core.config import settings
-        full_url = f"{settings.FRONTEND_URL}{link}" if link.startswith("/") else link
-        link_html = f'<p><a href="{full_url}">Voir dans OpsFlux</a></p>'
-
-    return (
-        f"<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>"
-        f"<h2 style='color: #1a1a2e;'>{title}</h2>"
-        f"<p>{body}</p>"
-        f"{link_html}"
-        f"<hr style='border: none; border-top: 1px solid #eee; margin: 20px 0;'/>"
-        f"<p style='color: #999; font-size: 12px;'>OpsFlux — Plateforme ERP</p>"
-        f"</div>"
-    )
+def _build_notification_link(link: str | None) -> str | None:
+    """Normalize a notification link into an absolute OpsFlux URL."""
+    if not link:
+        return None
+    return f"{settings.FRONTEND_URL.rstrip('/')}{link}" if link.startswith("/") else link

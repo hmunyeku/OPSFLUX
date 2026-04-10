@@ -1476,6 +1476,185 @@ DEFAULT_TEMPLATES: list[dict] = [
             },
         },
     },
+    {
+        "slug": "gdpr_export_ready",
+        "name": "Export RGPD prêt",
+        "description": "Envoyé quand l'export des données personnelles de l'utilisateur est prêt.",
+        "object_type": "user",
+        "variables_schema": {
+            "user_name": "Nom affiché de l'utilisateur",
+            "exports_url": "URL du profil où récupérer l'export",
+            "download_link": "Lien direct de téléchargement si souhaité",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Votre export de données personnelles est prêt",
+                "body_html": (
+                    "<p>Bonjour {{ user_name or 'utilisateur' }},</p>"
+                    "<p>Votre export de données personnelles est prêt.</p>"
+                    "<p>Vous pouvez le récupérer depuis votre profil OpsFlux :</p>"
+                    '<p><a href="{{ exports_url }}">{{ exports_url }}</a></p>'
+                    "<p>Si vous préférez un lien direct de téléchargement, utilisez :</p>"
+                    '<p><a href="{{ download_link }}">{{ download_link }}</a></p>'
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Your personal data export is ready",
+                "body_html": (
+                    "<p>Hello {{ user_name or 'user' }},</p>"
+                    "<p>Your personal data export is ready.</p>"
+                    "<p>You can retrieve it from your OpsFlux profile:</p>"
+                    '<p><a href="{{ exports_url }}">{{ exports_url }}</a></p>'
+                    "<p>If you prefer a direct download link, use:</p>"
+                    '<p><a href="{{ download_link }}">{{ download_link }}</a></p>'
+                    "<p>Regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "integration_test_email",
+        "name": "Email de test connecteur",
+        "description": "Envoyé lors d'un test réel de la configuration SMTP.",
+        "object_type": "integration",
+        "variables_schema": {
+            "sender_name": "Nom de l'utilisateur ayant lancé le test",
+            "tested_at": "Horodatage ISO du test",
+            "recipient": "Adresse de destination du test",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — Test de configuration email",
+                "body_html": (
+                    "<p>Bonjour,</p>"
+                    "<p>Ce message est un test de configuration. Si vous le recevez, le service d'envoi d'emails fonctionne correctement.</p>"
+                    "<ul>"
+                    "<li><strong>Envoyé par :</strong> {{ sender_name }}</li>"
+                    "<li><strong>Date :</strong> {{ tested_at }}</li>"
+                    "<li><strong>Destinataire :</strong> {{ recipient }}</li>"
+                    "</ul>"
+                    "<p>Aucune action n'est requise.</p>"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — Email configuration test",
+                "body_html": (
+                    "<p>Hello,</p>"
+                    "<p>This message is a configuration test. If you received it, your email delivery service is working correctly.</p>"
+                    "<ul>"
+                    "<li><strong>Sent by:</strong> {{ sender_name }}</li>"
+                    "<li><strong>Date:</strong> {{ tested_at }}</li>"
+                    "<li><strong>Recipient:</strong> {{ recipient }}</li>"
+                    "</ul>"
+                    "<p>No action is required.</p>"
+                    "<p>Regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "papyrus_dispatch_email",
+        "name": "Diffusion Papyrus",
+        "description": "Envoyé lors d'un dispatch email Papyrus planifié ou manuel.",
+        "object_type": "document",
+        "variables_schema": {
+            "dispatch_subject": "Sujet final calculé pour la diffusion",
+            "content_html": "Contenu HTML rendu du document",
+            "document.number": "Numéro du document",
+            "document.title": "Titre du document",
+            "document.status": "Statut du document",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "{{ dispatch_subject }}",
+                "body_html": (
+                    "<p>Bonjour,</p>"
+                    "<p>Une diffusion Papyrus est disponible pour le document <strong>{{ document.number }}</strong> — {{ document.title }}.</p>"
+                    "{{ content_html | safe }}"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "{{ dispatch_subject }}",
+                "body_html": (
+                    "<p>Hello,</p>"
+                    "<p>A Papyrus dispatch is available for document <strong>{{ document.number }}</strong> — {{ document.title }}.</p>"
+                    "{{ content_html | safe }}"
+                    "<p>Regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "notification_digest",
+        "name": "Digest de notifications",
+        "description": "Envoyé pour résumer les notifications non lues d'un utilisateur.",
+        "object_type": "user",
+        "variables_schema": {
+            "user.first_name": "Prénom de l'utilisateur",
+            "unread_count": "Nombre de notifications non lues",
+            "notifications_html": "Tableau HTML des notifications",
+            "notifications_url": "URL de la page notifications",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "OpsFlux — {{ unread_count }} notifications non lues",
+                "body_html": (
+                    "<p>Bonjour {{ user.first_name }},</p>"
+                    "<p>Vous avez <strong>{{ unread_count }}</strong> notifications non lues au cours des dernières 24 heures.</p>"
+                    "{{ notifications_html | safe }}"
+                    '<p><a href="{{ notifications_url }}">Voir toutes les notifications</a></p>'
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "OpsFlux — {{ unread_count }} unread notifications",
+                "body_html": (
+                    "<p>Hello {{ user.first_name }},</p>"
+                    "<p>You have <strong>{{ unread_count }}</strong> unread notifications in the last 24 hours.</p>"
+                    "{{ notifications_html | safe }}"
+                    '<p><a href="{{ notifications_url }}">View all notifications</a></p>'
+                    "<p>Regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
+    {
+        "slug": "queued_notification_email",
+        "name": "Email générique en file",
+        "description": "Enveloppe centrale pour les notifications email génériques passées par la queue.",
+        "object_type": "notification",
+        "variables_schema": {
+            "notification.title": "Titre de la notification",
+            "notification.body": "Corps de la notification",
+            "notification.link": "Lien vers l'écran cible",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "subject": "{{ notification.title }}",
+                "body_html": (
+                    "<p>{{ notification.body }}</p>"
+                    "{% if notification.link %}<p><a href=\"{{ notification.link }}\">Voir dans OpsFlux</a></p>{% endif %}"
+                    "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+            "en": {
+                "subject": "{{ notification.title }}",
+                "body_html": (
+                    "<p>{{ notification.body }}</p>"
+                    "{% if notification.link %}<p><a href=\"{{ notification.link }}\">Open in OpsFlux</a></p>{% endif %}"
+                    "<p>Regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
+                ),
+            },
+        },
+    },
 ]
 
 

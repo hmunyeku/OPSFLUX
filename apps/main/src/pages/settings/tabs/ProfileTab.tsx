@@ -8,6 +8,7 @@
  * - API-backed: PATCH /api/v1/profile, POST /api/v1/profile/avatar
  */
 import { useState, useRef, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/authStore'
 import { useUpdateProfile, useUploadAvatar } from '@/hooks/useSettings'
@@ -125,6 +126,7 @@ export function ProfileTab() {
   const { t } = useTranslation()
   const { user } = useAuthStore()
   const { toast } = useToast()
+  const queryClient = useQueryClient()
   const updateProfile = useUpdateProfile()
   const uploadAvatar = useUploadAvatar()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -298,6 +300,19 @@ export function ProfileTab() {
   }
 
   const [editorSrc, setEditorSrc] = useState<string | null>(null)
+
+  const { data: gdprExports = [], isLoading: gdprExportsLoading } = useQuery({
+    queryKey: ['gdpr', 'my-exports'],
+    queryFn: async () => {
+      const { data } = await api.get('/api/v1/gdpr/my-exports')
+      return data as Array<{
+        filename: string
+        created_at: string
+        size_bytes: number
+        download_path: string
+      }>
+    },
+  })
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -805,12 +820,44 @@ export function ProfileTab() {
               onClick={async () => {
                 try {
                   await api.post('/api/v1/gdpr/request-export')
+                  queryClient.invalidateQueries({ queryKey: ['gdpr', 'my-exports'] })
                   toast({ title: 'Export demande', description: 'Vous recevrez une notification quand il sera pret.', variant: 'success' })
                 } catch { /* toast handled by interceptor */ }
               }}
             >
               <Download size={12} /> Demander l'export
             </button>
+          </div>
+
+          <div className="rounded-lg border border-border bg-background p-3">
+            <p className="text-sm font-medium text-foreground">Exports prêts</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Quand un export est terminé, il apparaît ici avec son bouton de téléchargement.
+            </p>
+            <div className="mt-3 space-y-2">
+              {gdprExportsLoading ? (
+                <div className="text-xs text-muted-foreground">Chargement des exports…</div>
+              ) : gdprExports.length === 0 ? (
+                <div className="text-xs text-muted-foreground">Aucun export prêt pour le moment.</div>
+              ) : (
+                gdprExports.map((item) => (
+                  <div key={item.filename} className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-xs font-medium text-foreground">{item.filename}</div>
+                      <div className="mt-0.5 text-[11px] text-muted-foreground">
+                        {new Date(item.created_at).toLocaleString('fr-FR')} • {(item.size_bytes / 1024).toFixed(1)} Ko
+                      </div>
+                    </div>
+                    <a
+                      href={item.download_path}
+                      className="gl-button-sm gl-button-default shrink-0"
+                    >
+                      <Download size={12} /> Télécharger
+                    </a>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
           <div className="flex items-start gap-4 p-3 rounded-lg border border-red-500/30 bg-red-500/5">

@@ -10,6 +10,7 @@ Implements:
 
 import logging
 from datetime import datetime, UTC
+from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -21,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user, get_current_entity
 from app.core.database import get_db
 from app.core.audit import record_audit
+from app.core.config import settings
 from app.core.security import hash_password
 from app.models.common import User
 
@@ -47,6 +49,13 @@ class ConsentRecord(BaseModel):
     consent_type: str  # 'cookies', 'analytics', 'data_processing'
     granted: bool
     ip_address: str | None = None
+
+
+class ExportFileRead(BaseModel):
+    filename: str
+    created_at: str
+    size_bytes: int
+    download_path: str
 
 
 # ── Helper: collect all user data across tables ──────────────
@@ -146,9 +155,8 @@ async def request_data_export(
 async def _async_export_user_data(user_id_str: str):
     """Background task: collect data, write file, notify via in-app + email."""
     import json
-    from pathlib import Path
-    from app.core.notifications import send_in_app, send_email
-    from app.core.email_templates import render_email
+    from app.core.notifications import send_in_app
+    from app.core.email_templates import render_and_send_email
 
     try:
         from app.core.database import async_session_factory
@@ -181,6 +189,8 @@ async def _async_export_user_data(user_id_str: str):
             filepath.write_text(json.dumps(export, indent=2, default=str, ensure_ascii=False))
 
             download_link = f"/api/v1/gdpr/download-export/{filename}"
+            profile_exports_url = f"{settings.FRONTEND_URL.rstrip('/')}/settings#gdpr-personal"
+            direct_download_url = f"{settings.API_BASE_URL.rstrip('/')}{download_link}"
 
             # In-app notification (real-time via WebSocket)
             await send_in_app(
@@ -188,41 +198,25 @@ async def _async_export_user_data(user_id_str: str):
                 user_id=uid,
                 entity_id=eid,
                 title="Export RGPD pret",
-                body="Votre export de donnees personnelles est pret au telechargement.",
+                body="Votre export de donnees personnelles est pret. Ouvrez votre profil pour le telecharger.",
                 category="system",
-                link=download_link,
+                link="/settings#gdpr-personal",
             )
 
-            # Email notification via central template system
-            try:
-                rendered = await render_email(
-                    db,
-                    slug="gdpr_export_ready",
-                    entity_id=eid,
-                    variables={
-                        "user_name": f"{first_name} {last_name}".strip(),
-                        "download_link": download_link,
-                    },
-                )
-                body_html = rendered[1] if rendered else None
-            except Exception:
-                body_html = None
-
-            if not body_html:
-                body_html = f"""
-                <h2>Export RGPD pret</h2>
-                <p>Bonjour {first_name},</p>
-                <p>Votre export de donnees personnelles est pret.</p>
-                <p>Connectez-vous a OpsFlux pour le telecharger depuis votre profil.</p>
-                """
-
-            await send_email(
+            await render_and_send_email(
+                db,
+                slug="gdpr_export_ready",
+                entity_id=eid,
+                language=user.language or "fr",
                 to=email,
-                subject="OpsFlux — Votre export de donnees est pret",
-                body_html=body_html,
-                db=db,
                 user_id=uid,
                 category="system",
+                variables={
+                    "user_name": f"{first_name} {last_name}".strip(),
+                    "exports_url": profile_exports_url,
+                    "download_link": direct_download_url,
+                    "entity": {"name": "OpsFlux"},
+                },
             )
 
             await db.commit()
@@ -256,6 +250,34 @@ async def download_export(
         filename=filename,
         media_type="application/json",
     )
+
+
+@router.get("/my-exports", response_model=list[ExportFileRead])
+async def list_my_exports(
+    current_user: User = Depends(get_current_user),
+):
+    """List the authenticated user's generated GDPR exports."""
+    export_dir = Path("/opt/opsflux/static/exports")
+    if not export_dir.exists():
+        return []
+
+    user_prefix = str(current_user.id)[:8]
+    exports: list[ExportFileRead] = []
+    for path in sorted(
+        export_dir.glob(f"gdpr-export-{user_prefix}-*.json"),
+        key=lambda item: item.stat().st_mtime,
+        reverse=True,
+    ):
+        stat = path.stat()
+        exports.append(
+            ExportFileRead(
+                filename=path.name,
+                created_at=datetime.fromtimestamp(stat.st_mtime, UTC).isoformat(),
+                size_bytes=stat.st_size,
+                download_path=f"/api/v1/gdpr/download-export/{path.name}",
+            )
+        )
+    return exports
 
 
 # ── Right to Erasure (Art. 17) — Account Anonymization ──────

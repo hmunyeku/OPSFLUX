@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
+from app.core.email_templates import render_and_send_email
 from app.models.common import Setting, User
 from app.services.core.settings_service import upsert_scoped_setting
 from uuid import UUID
@@ -649,7 +650,14 @@ async def test_send_real(
 
     try:
         if connector_id == "smtp":
-            return await _send_test_email(db, entity_id, recipient, sender_name, now_iso)
+            return await _send_test_email(
+                db,
+                entity_id,
+                recipient,
+                sender_name,
+                now_iso,
+                current_user.language or "fr",
+            )
         elif connector_id in ("sms_twilio", "sms_vonage", "sms_ovh"):
             return await _send_test_sms(db, entity_id, connector_id, recipient, sender_name, now_iso)
         elif connector_id == "whatsapp":
@@ -667,35 +675,25 @@ async def _send_test_email(
     recipient: str,
     sender_name: str,
     now_iso: str,
+    language: str,
 ) -> SendTestResult:
     """Send a real test email via the configured SMTP."""
-    from app.core.notifications import send_email
-
-    subject = "OpsFlux — Test de configuration email"
-    body_html = f"""
-    <div style="font-family: -apple-system, system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-      <div style="background: #1f2937; color: white; padding: 16px 20px; border-radius: 8px 8px 0 0;">
-        <h2 style="margin: 0; font-size: 16px;">OpsFlux — Test Email</h2>
-      </div>
-      <div style="border: 1px solid #e5e7eb; border-top: 0; padding: 20px; border-radius: 0 0 8px 8px;">
-        <p style="margin: 0 0 12px; font-size: 14px; color: #374151;">
-          Ce message est un test de configuration. Si vous le recevez, votre service d'envoi d'emails fonctionne correctement.
-        </p>
-        <table style="font-size: 13px; color: #6b7280; border-collapse: collapse;">
-          <tr><td style="padding: 4px 12px 4px 0; font-weight: 600;">Envoyé par</td><td>{sender_name}</td></tr>
-          <tr><td style="padding: 4px 12px 4px 0; font-weight: 600;">Date</td><td>{now_iso[:19].replace('T', ' ')} UTC</td></tr>
-          <tr><td style="padding: 4px 12px 4px 0; font-weight: 600;">Destinataire</td><td>{recipient}</td></tr>
-        </table>
-        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0;" />
-        <p style="margin: 0; font-size: 11px; color: #9ca3af;">
-          Ceci est un message automatique de test. Aucune action requise.
-        </p>
-      </div>
-    </div>
-    """
-
     try:
-        await send_email(to=recipient, subject=subject, body_html=body_html)
+        sent = await render_and_send_email(
+            db,
+            slug="integration_test_email",
+            entity_id=entity_id,
+            language=language,
+            to=recipient,
+            variables={
+                "sender_name": sender_name,
+                "tested_at": now_iso[:19].replace("T", " ") + " UTC",
+                "recipient": recipient,
+            },
+            category="core",
+        )
+        if not sent:
+            raise RuntimeError("Template email de test SMTP indisponible")
         return SendTestResult(connector_id="smtp", status="ok", message=f"Email envoyé à {recipient}", channel="email", sent_at=now_iso)
     except Exception as e:
         return SendTestResult(connector_id="smtp", status="error", message=f"Échec envoi email: {str(e)[:300]}", channel="email", sent_at=now_iso)

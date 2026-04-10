@@ -14,6 +14,7 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.email_templates import render_and_send_email
 from app.models.common import Entity, User
 from app.models.papyrus import PapyrusDispatchRun
 from app.models.papyrus_document import Document, Revision
@@ -283,18 +284,27 @@ async def _dispatch_document(
                 )
             delivered = len(resolved["users"])
         else:
-            from app.core.notifications import send_email
-
             delivered = 0
             for email_info in resolved["emails"]:
-                await send_email(
-                    to=email_info["email"],
-                    subject=subject,
-                    body_html=body_html,
+                sent = await render_and_send_email(
                     db=db,
+                    slug="papyrus_dispatch_email",
+                    entity_id=doc.entity_id,
+                    language=email_info.get("language") or "fr",
+                    to=email_info["email"],
                     user_id=email_info.get("user_id"),
                     category="papyrus",
+                    variables={
+                        "dispatch_subject": subject,
+                        "content_html": body_html,
+                        "document": dispatch_context["document"],
+                        "project": dispatch_context["project"],
+                        "entity": dispatch_context["entity"],
+                        "papyrus": dispatch_context["papyrus"],
+                    },
                 )
+                if not sent:
+                    raise RuntimeError("Template email Papyrus indisponible")
                 delivered += 1
 
         run.status = "success"
@@ -437,15 +447,25 @@ async def _resolve_recipients(
         if kind == "user":
             user = await db.get(User, UUID(value))
             if user and user.active:
-                payload = {"id": user.id, "email": user.email, "name": user.full_name}
+                payload = {
+                    "id": user.id,
+                    "email": user.email,
+                    "name": user.full_name,
+                    "language": getattr(user, "language", None),
+                }
                 users[str(user.id)] = payload
                 if user.email:
-                    emails[user.email.lower()] = {"email": user.email, "user_id": user.id, "name": user.full_name}
+                    emails[user.email.lower()] = {
+                        "email": user.email,
+                        "user_id": user.id,
+                        "name": user.full_name,
+                        "language": getattr(user, "language", None),
+                    }
         elif kind == "group":
             result = await db.execute(
                 text(
                     """
-                    SELECT DISTINCT u.id, u.email, u.first_name, u.last_name
+                    SELECT DISTINCT u.id, u.email, u.first_name, u.last_name, u.language
                     FROM user_group_members ugm
                     JOIN user_groups ug ON ug.id = ugm.group_id
                     JOIN user_group_roles ugr ON ugr.group_id = ug.id
@@ -460,12 +480,17 @@ async def _resolve_recipients(
             )
             for row in result.fetchall():
                 full_name = f"{row.first_name or ''} {row.last_name or ''}".strip() or row.email
-                payload = {"id": row.id, "email": row.email, "name": full_name}
+                payload = {"id": row.id, "email": row.email, "name": full_name, "language": row.language}
                 users[str(row.id)] = payload
                 if row.email:
-                    emails[str(row.email).lower()] = {"email": row.email, "user_id": row.id, "name": full_name}
+                    emails[str(row.email).lower()] = {
+                        "email": row.email,
+                        "user_id": row.id,
+                        "name": full_name,
+                        "language": row.language,
+                    }
         elif kind == "email" and value:
-            emails[value.lower()] = {"email": value, "user_id": None, "name": value}
+            emails[value.lower()] = {"email": value, "user_id": None, "name": value, "language": None}
 
     return {
         "users": list(users.values()),
@@ -521,11 +546,11 @@ def _render_dispatch_html(
     if not body:
         body = "<p>Aucun contenu rendu.</p>"
     return (
-        "<html><body style='font-family:Arial,Helvetica,sans-serif'>"
+        "<div style='font-family:Arial,Helvetica,sans-serif'>"
         f"<h2>{_escape_html(subject)}</h2>"
         f"<p><strong>{_escape_html(doc.number)}</strong> - {_escape_html(doc.title)}</p>"
         f"{body}"
-        "</body></html>"
+        "</div>"
     )
 
 

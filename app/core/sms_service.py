@@ -215,10 +215,34 @@ async def send_to_user(
 
     # Dispatch based on resolved channel
     if effective == "email" or (effective == "auto" and "@" in contact):
-        # Send via email
-        from app.core.notifications import send_email
         try:
-            await send_email(to=contact, subject=subject, body_html=body)
+            from app.core.email_templates import render_and_send_email
+
+            user_result = await db.execute(
+                text(
+                    "SELECT language, default_entity_id FROM users WHERE id = :uid LIMIT 1"
+                ),
+                {"uid": user_id},
+            )
+            user_row = user_result.first()
+            sent = await render_and_send_email(
+                db=db,
+                slug="queued_notification_email",
+                entity_id=user_row.default_entity_id if user_row else None,
+                language=(user_row.language or "fr") if user_row else "fr",
+                to=contact,
+                user_id=user_id,
+                category="core",
+                variables={
+                    "notification": {
+                        "title": subject,
+                        "body": body,
+                        "link": None,
+                    },
+                },
+            )
+            if not sent:
+                raise RuntimeError("Template email queued_notification_email indisponible")
             return True, "email"
         except Exception:
             logger.exception("Email send failed to %s", contact)

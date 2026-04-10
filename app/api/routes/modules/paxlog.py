@@ -6900,7 +6900,6 @@ async def _send_external_link_otp(db: AsyncSession, *, link: ExternalAccessLink)
     destination = link.otp_sent_to.strip()
     if "@" in destination:
         from app.core.email_templates import render_and_send_email
-        from app.core.notifications import send_email
 
         ads = await db.get(Ads, link.ads_id)
         template_sent = False
@@ -6924,16 +6923,7 @@ async def _send_external_link_otp(db: AsyncSession, *, link: ExternalAccessLink)
                 },
             )
         if not template_sent:
-            await send_email(
-                to=destination,
-                subject="OpsFlux - Code de verification",
-                body_html=(
-                    "<p>Votre code de verification OpsFlux est :</p>"
-                    f"<p><strong style='font-size:18px'>{code}</strong></p>"
-                    f'<p><a href="{_build_external_portal_url(link.token)}">{_build_external_portal_url(link.token)}</a></p>'
-                    f"<p>Ce code expire dans {EXTERNAL_OTP_TTL_MINUTES} minutes.</p>"
-                ),
-            )
+            raise RuntimeError("Template email OTP externe PaxLog indisponible")
         return
 
     from app.core.sms_service import send_whatsapp_otp

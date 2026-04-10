@@ -502,8 +502,28 @@ async def get_gantt_data(
             "work_order_ref": act.work_order_ref,
         })
 
+    # ── Dependencies between visible activities ──
+    activity_ids = [act.id for act in activities]
+    dependencies_payload: list[dict] = []
+    if activity_ids:
+        from app.models.planner import PlannerActivityDependency
+        deps_result = await db.execute(
+            select(PlannerActivityDependency).where(
+                PlannerActivityDependency.predecessor_id.in_(activity_ids),
+                PlannerActivityDependency.successor_id.in_(activity_ids),
+            )
+        )
+        for dep in deps_result.scalars().all():
+            dependencies_payload.append({
+                "predecessor_id": str(dep.predecessor_id),
+                "successor_id": str(dep.successor_id),
+                "dependency_type": dep.dependency_type,
+                "lag_days": dep.lag_days,
+            })
+
     return {
         "assets": list(asset_map.values()),
+        "dependencies": dependencies_payload,
     }
 
 

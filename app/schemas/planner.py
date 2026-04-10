@@ -436,8 +436,17 @@ class GanttAsset(BaseModel):
     activities: list[GanttActivity]
 
 
+class GanttDependency(BaseModel):
+    """A predecessor → successor link between two visible activities."""
+    predecessor_id: UUID
+    successor_id: UUID
+    dependency_type: str
+    lag_days: int = 0
+
+
 class GanttResponse(BaseModel):
     assets: list[GanttAsset]
+    dependencies: list[GanttDependency] = []
 
 
 # ─── Recurrence schemas ─────────────────────────────────────────────────────

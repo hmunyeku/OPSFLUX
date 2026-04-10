@@ -43,11 +43,24 @@ export function useActivity(id: string | undefined) {
   })
 }
 
+/**
+ * Invalidate every Planner view that depends on activity data.
+ * Used by all activity mutations so the Gantt + heatmap refresh
+ * automatically after a create/update/delete/transition.
+ */
+function invalidatePlannerViews(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['planner', 'activities'] })
+  qc.invalidateQueries({ queryKey: ['planner', 'gantt'] })
+  qc.invalidateQueries({ queryKey: ['planner', 'capacity-heatmap'] })
+  qc.invalidateQueries({ queryKey: ['planner', 'capacity'] })
+  qc.invalidateQueries({ queryKey: ['planner', 'conflicts'] })
+}
+
 export function useCreateActivity() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (payload: PlannerActivityCreate) => plannerService.createActivity(payload),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['planner', 'activities'] }) },
+    onSuccess: () => invalidatePlannerViews(qc),
   })
 }
 
@@ -56,7 +69,7 @@ export function useUpdateActivity() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: PlannerActivityUpdate }) =>
       plannerService.updateActivity(id, payload),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['planner', 'activities'] }) },
+    onSuccess: () => invalidatePlannerViews(qc),
   })
 }
 
@@ -64,7 +77,7 @@ export function useDeleteActivity() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => plannerService.deleteActivity(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['planner', 'activities'] }) },
+    onSuccess: () => invalidatePlannerViews(qc),
   })
 }
 
@@ -72,10 +85,7 @@ export function useSubmitActivity() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => plannerService.submitActivity(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['planner', 'activities'] })
-      qc.invalidateQueries({ queryKey: ['planner', 'conflicts'] })
-    },
+    onSuccess: () => invalidatePlannerViews(qc),
   })
 }
 
@@ -83,10 +93,7 @@ export function useValidateActivity() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => plannerService.validateActivity(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['planner', 'activities'] })
-      qc.invalidateQueries({ queryKey: ['planner', 'capacity'] })
-    },
+    onSuccess: () => invalidatePlannerViews(qc),
   })
 }
 
@@ -95,7 +102,7 @@ export function useRejectActivity() {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason?: string | null }) =>
       plannerService.rejectActivity(id, reason),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['planner', 'activities'] }) },
+    onSuccess: () => invalidatePlannerViews(qc),
   })
 }
 
@@ -103,10 +110,7 @@ export function useCancelActivity() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => plannerService.cancelActivity(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['planner', 'activities'] })
-      qc.invalidateQueries({ queryKey: ['planner', 'capacity'] })
-    },
+    onSuccess: () => invalidatePlannerViews(qc),
   })
 }
 
@@ -115,7 +119,7 @@ export function useCreateActivityFromTask() {
   return useMutation({
     mutationFn: (params: { project_id: string; task_id: string; pax_quota: number; priority?: string }) =>
       plannerService.createActivityFromTask(params),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['planner', 'activities'] }) },
+    onSuccess: () => invalidatePlannerViews(qc),
   })
 }
 
@@ -136,6 +140,8 @@ export function useAddDependency() {
       plannerService.addDependency(activityId, payload),
     onSuccess: (_, { activityId }) => {
       qc.invalidateQueries({ queryKey: ['planner', 'activities', activityId, 'dependencies'] })
+      // The Gantt response now embeds dependencies, so refresh it too
+      invalidatePlannerViews(qc)
     },
   })
 }
@@ -147,6 +153,7 @@ export function useRemoveDependency() {
       plannerService.removeDependency(activityId, dependencyId),
     onSuccess: (_, { activityId }) => {
       qc.invalidateQueries({ queryKey: ['planner', 'activities', activityId, 'dependencies'] })
+      invalidatePlannerViews(qc)
     },
   })
 }

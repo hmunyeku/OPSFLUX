@@ -2522,8 +2522,16 @@ export interface GanttAsset {
   activities: GanttActivity[]
 }
 
+export interface GanttDependencyLink {
+  predecessor_id: string
+  successor_id: string
+  dependency_type: 'FS' | 'SS' | 'FF' | string
+  lag_days: number
+}
+
 export interface GanttResponse {
   assets: GanttAsset[]
+  dependencies?: GanttDependencyLink[]
 }
 
 // ── Planner — Asset Capacity (historized) ────────────────────

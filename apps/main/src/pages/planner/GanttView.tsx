@@ -548,6 +548,7 @@ export function GanttView({
                   color: TYPE_COLORS[act.type] || '#3b82f6',
                   isDraft: act.status === 'draft' || act.status === 'submitted',
                   isCritical: act.priority === 'critical',
+                  progress: computeActivityProgress(act),
                   cellLabels,
                   externalTitle,
                   externalTitlePosition,

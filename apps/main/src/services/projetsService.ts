@@ -437,6 +437,15 @@ export const projetsService = {
     return data
   },
 
+  /**
+   * Spec 1.5 / 2.3: remove a single task from the Planner. Soft-deletes
+   * the linked PlannerActivities so the Gantt and heatmap no longer
+   * count them. Idempotent — safe to call when no link exists.
+   */
+  unlinkTaskFromPlanner: async (projectId: string, taskId: string): Promise<void> => {
+    await api.delete(`/api/v1/projects/${projectId}/tasks/${taskId}/planner-link`)
+  },
+
   // ── Templates ──
   listTemplates: async (category?: string): Promise<ProjectTemplate[]> => {
     const { data } = await api.get('/api/v1/projects/templates', { params: category ? { category } : {} })

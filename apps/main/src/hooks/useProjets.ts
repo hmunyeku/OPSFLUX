@@ -606,6 +606,19 @@ export function useSendToPlanner() {
   })
 }
 
+/** Spec 1.5 / 2.3: per-task "Retirer du Planner" toggle. */
+export function useUnlinkTaskFromPlanner() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, taskId }: { projectId: string; taskId: string }) =>
+      projetsService.unlinkTaskFromPlanner(projectId, taskId),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['planner-links', projectId] })
+      qc.invalidateQueries({ queryKey: ['planner'] })
+    },
+  })
+}
+
 // ── Templates ──────────────────────────────────────────────
 
 export function useProjectTemplates(category?: string) {

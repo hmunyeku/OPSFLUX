@@ -1906,7 +1906,8 @@
         "dates": "Dates",
         "outbound_transport": "Transport aller",
         "return_transport": "Transport retour",
-        "allowed_companies": "Entreprises autorisées"
+        "allowed_companies": "Entreprises autorisées",
+        "round_trip_no_overnight": "Aller-retour sans nuitée (visite d'une journée)"
       },
       "select_option": "— Sélectionner —",
       "no_project": "— Aucun projet —",
@@ -2059,6 +2060,7 @@
         "confirm": "Demander la révision du séjour"
       },
       "cross_company": "Cross-company",
+      "round_trip_no_overnight_hint": "Visite d'une journée — comptée dans le forecast PAX du jour de visite uniquement, sans consommer de POB nuitée.",
       "checklist": {
         "destination": "Destination renseignée",
         "category": "Catégorie renseignée",

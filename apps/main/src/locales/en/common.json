@@ -1902,7 +1902,8 @@
         "dates": "Dates",
         "outbound_transport": "Outbound transport",
         "return_transport": "Return transport",
-        "allowed_companies": "Allowed companies"
+        "allowed_companies": "Allowed companies",
+        "round_trip_no_overnight": "Round trip — no overnight (single-day visit)"
       },
       "select_option": "— Select —",
       "no_project": "— No project —",
@@ -2055,6 +2056,7 @@
         "confirm": "Request stay review"
       },
       "cross_company": "Cross-company",
+      "round_trip_no_overnight_hint": "Single-day visit — counted in the PAX forecast for the visit day only, with no overnight POB consumption.",
       "checklist": {
         "destination": "Destination completed",
         "category": "Category completed",

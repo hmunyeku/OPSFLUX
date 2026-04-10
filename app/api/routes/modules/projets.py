@@ -1924,6 +1924,58 @@ async def list_planner_links(
     ]
 
 
+@router.delete("/{project_id}/tasks/{task_id}/planner-link", status_code=204)
+async def unlink_task_from_planner(
+    project_id: UUID,
+    task_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Spec 1.5 / 2.3: 'Retirer du Planner' toggle for a single task.
+
+    Soft-deletes any PlannerActivity rows that were created from this
+    project task (matched via source_task_id). The activities are flagged
+    active=False so the Gantt no longer renders them and the heatmap no
+    longer counts their POB. The sync hook on subsequent task updates
+    will then no-op for this task because there are no active linked
+    activities anymore.
+    """
+    await _get_project_or_404(db, project_id, entity_id)
+    from app.models.planner import PlannerActivity
+
+    linked_activities = (await db.execute(
+        select(PlannerActivity).where(
+            PlannerActivity.project_id == project_id,
+            PlannerActivity.source_task_id == task_id,
+            PlannerActivity.active == True,
+        )
+    )).scalars().all()
+    if not linked_activities:
+        return None
+
+    for activity in linked_activities:
+        activity.active = False
+
+    await record_audit(
+        db,
+        action="project.task.planner_unlink",
+        resource_type="planner_activity",
+        resource_id=str(linked_activities[0].id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "project_id": str(project_id),
+            "task_id": str(task_id),
+            "planner_activity_ids": [str(a.id) for a in linked_activities],
+            "count": len(linked_activities),
+        },
+    )
+    await db.commit()
+    return None
+
+
 @router.post("/{project_id}/send-to-planner", response_model=SendToPlannerResult)
 async def send_tasks_to_planner(
     project_id: UUID,

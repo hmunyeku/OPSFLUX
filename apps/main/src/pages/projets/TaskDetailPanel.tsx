@@ -15,9 +15,13 @@ import { useTranslation } from 'react-i18next'
 import {
   Calendar, User, Flag, CheckCircle2, Clock, ListTodo,
   MessageSquare, Link2, ChevronRight, FolderKanban, Loader2,
+  Send, X, Users as UsersIcon,
 } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
-import { useProject, useAllProjectTasks, useUpdateProjectTask, useTaskComments, useCreateTaskComment, useTaskDependencies } from '@/hooks/useProjets'
+import {
+  useProject, useAllProjectTasks, useUpdateProjectTask, useTaskComments, useCreateTaskComment, useTaskDependencies,
+  usePlannerLinks, useSendToPlanner, useUnlinkTaskFromPlanner,
+} from '@/hooks/useProjets'
 import { useRevisionDecisionRequests, useRespondRevisionDecisionRequest } from '@/hooks/usePlanner'
 import { useUsers } from '@/hooks/useUsers'
 import { useToast } from '@/components/ui/Toast'
@@ -98,6 +102,10 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const updateTask = useUpdateProjectTask()
   const respondRevisionDecisionRequest = useRespondRevisionDecisionRequest()
+  const { data: plannerLinks = [] } = usePlannerLinks(projectId)
+  const sendToPlanner = useSendToPlanner()
+  const unlinkFromPlanner = useUnlinkTaskFromPlanner()
+  const isLinkedToPlanner = useMemo(() => plannerLinks.some((l) => l.task_id === taskId), [plannerLinks, taskId])
 
   // Load project info for breadcrumb
   const { data: project } = useProject(projectId)
@@ -164,6 +172,35 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
     )
   }, [projectId, taskId, commentText, createComment, toast])
 
+  // Spec 1.5 / 2.3: per-task toggle "Lien Planner" / "Retirer du Planner".
+  const handleTogglePlannerLink = useCallback(async () => {
+    if (isLinkedToPlanner) {
+      try {
+        await unlinkFromPlanner.mutateAsync({ projectId, taskId })
+        toast({ title: 'Tâche retirée du Planner', variant: 'success' })
+      } catch {
+        toast({ title: 'Erreur lors du retrait', variant: 'error' })
+      }
+    } else {
+      try {
+        const res = await sendToPlanner.mutateAsync({
+          projectId,
+          items: [{ task_id: taskId, priority: task?.priority || 'medium' }],
+        })
+        if (res.created > 0) {
+          toast({ title: 'Tâche envoyée au Planner', variant: 'success' })
+        } else if (res.skipped > 0) {
+          toast({ title: 'Tâche déjà liée au Planner', variant: 'warning' })
+        } else {
+          toast({ title: res.errors[0] || 'Erreur', variant: 'error' })
+        }
+      } catch (err) {
+        const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Erreur'
+        toast({ title: String(msg), variant: 'error' })
+      }
+    }
+  }, [isLinkedToPlanner, projectId, taskId, sendToPlanner, unlinkFromPlanner, toast, task])
+
   const handleRespondRevision = useCallback((request: PlannerRevisionDecisionRequest, response: 'accepted' | 'counter_proposed') => {
     respondRevisionDecisionRequest.mutate(
       {
@@ -208,13 +245,27 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
         </div>
       }
       actions={
-        <PanelActionButton
-          variant="default"
-          icon={<FolderKanban size={12} />}
-          onClick={() => openDynamicPanel({ type: 'detail', module: 'projets', id: projectId })}
-        >
-          Voir le projet
-        </PanelActionButton>
+        <>
+          <PanelActionButton
+            variant={isLinkedToPlanner ? 'default' : 'primary'}
+            icon={
+              sendToPlanner.isPending || unlinkFromPlanner.isPending
+                ? <Loader2 size={12} className="animate-spin" />
+                : isLinkedToPlanner ? <X size={12} /> : <Send size={12} />
+            }
+            disabled={sendToPlanner.isPending || unlinkFromPlanner.isPending}
+            onClick={handleTogglePlannerLink}
+          >
+            {isLinkedToPlanner ? 'Retirer du Planner' : 'Planner'}
+          </PanelActionButton>
+          <PanelActionButton
+            variant="default"
+            icon={<FolderKanban size={12} />}
+            onClick={() => openDynamicPanel({ type: 'detail', module: 'projets', id: projectId })}
+          >
+            Voir le projet
+          </PanelActionButton>
+        </>
       }
     >
       <PanelContentLayout>
@@ -375,6 +426,25 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
           <DetailFieldGrid>
             <ReadOnlyRow label="Heures estimées" value={task.estimated_hours ? `${task.estimated_hours}h` : '—'} />
             <ReadOnlyRow label="Heures réelles" value={task.actual_hours ? `${task.actual_hours}h` : '—'} />
+          </DetailFieldGrid>
+          <DetailFieldGrid>
+            <div>
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                <UsersIcon size={10} /> POB demandé
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={task.pob_quota ?? 0}
+                onChange={(e) => handleSave('pob_quota', Math.max(0, Number(e.target.value) || 0))}
+                className="w-full h-7 px-2 text-xs border rounded bg-background mt-0.5 tabular-nums"
+                title="POB demandé pour la tâche — hérité par l'activité Planner liée. Toute modification déclenche une notification à l'arbitre Planner."
+              />
+              <p className="text-[9px] text-muted-foreground/70 mt-0.5">
+                Hérité par l'activité Planner. Modifier déclenche une révision.
+              </p>
+            </div>
+            <div />
           </DetailFieldGrid>
           {task.completed_at && (
             <ReadOnlyRow label="Terminé le" value={new Date(task.completed_at).toLocaleDateString('fr-FR')} />

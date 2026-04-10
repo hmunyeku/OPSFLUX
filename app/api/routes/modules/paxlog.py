@@ -6036,6 +6036,19 @@ async def update_ads_boarding_scan_passenger(
     passenger: ManifestPassenger = row[0]
     passenger.boarding_status = body.boarding_status
     passenger.boarded_at = datetime.now(timezone.utc) if body.boarding_status == "boarded" else None
+
+    # Spec section 4.2/4.3: the captain "Pax On Board" signal is the
+    # ONLY trigger for the real POB statut on a passenger. Cascade the
+    # boarding status to AdsPax.current_onboard so the Planner heatmap
+    # immediately reflects the real_pob count for that asset/day.
+    if passenger.ads_pax_id:
+        ads_pax_row = await db.execute(
+            select(AdsPax).where(AdsPax.id == passenger.ads_pax_id)
+        )
+        ads_pax_obj = ads_pax_row.scalar_one_or_none()
+        if ads_pax_obj is not None:
+            ads_pax_obj.current_onboard = body.boarding_status == "boarded"
+
     await db.flush()
     await record_audit(
         db,
@@ -6052,6 +6065,24 @@ async def update_ads_boarding_scan_passenger(
         },
     )
     await db.commit()
+
+    # Emit a high-level event so any downstream consumer (Planner real_pob
+    # cache invalidation, KPI dashboards, etc.) can react in real time.
+    if passenger.ads_pax_id:
+        from app.core.events import OpsFluxEvent as _OpsFluxEvent, event_bus as _event_bus
+        await _event_bus.publish(_OpsFluxEvent(
+            event_type="paxlog.pax.boarding_updated",
+            payload={
+                "ads_id": str(ads.id),
+                "ads_pax_id": str(passenger.ads_pax_id),
+                "manifest_passenger_id": str(passenger.id),
+                "boarding_status": body.boarding_status,
+                "site_asset_id": str(ads.site_entry_asset_id),
+                "start_date": str(ads.start_date),
+                "end_date": str(ads.end_date),
+                "entity_id": str(entity_id),
+            },
+        ))
     await db.refresh(passenger)
 
     return AdsBoardingPassengerRead(

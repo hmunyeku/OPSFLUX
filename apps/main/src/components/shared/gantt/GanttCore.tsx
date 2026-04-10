@@ -591,33 +591,36 @@ export function GanttCore(props: GanttCoreProps) {
         overflow: visible !important;
       }
     `
-    document.head.appendChild(styleTag)
-    container.classList.add(CAPTURE_CLASS)
-
-    await new Promise<void>((r) => requestAnimationFrame(() => r()))
-    await new Promise<void>((r) => requestAnimationFrame(() => r()))
-
-    // Step 3: shrink the container to its actual content height. Without
-    // this, the outer container stays at its `h-full` parent size and the
-    // `flex-1` body expands, so html2canvas ends up capturing a bunch of
-    // empty space BELOW the last activity row. The resulting image is wide
-    // but short → when placed in the A3 template it only fills ~30 % of
-    // the page height with a big white strip below.
-    //
-    // We measure the natural content height (timeline header + bodyH) and
-    // force the container to exactly that height for the duration of the
-    // capture.
+    // Stash the container's inline style slots we're about to touch, so
+    // we can restore them in the finally even if something throws BEFORE
+    // html2canvas gets called. The `display: none` on the toolbar + the
+    // `overflow: visible` on children are all applied via the injected
+    // <style> tag, so removing the tag + class rolls them back too.
     const prevHeight = container.style.height
     const prevMaxHeight = container.style.maxHeight
     const prevMinHeight = container.style.minHeight
-    // Give the browser a frame to recompute layout, then read scrollHeight
-    const naturalHeight = container.scrollHeight
-    container.style.height = `${naturalHeight}px`
-    container.style.maxHeight = `${naturalHeight}px`
-    container.style.minHeight = `${naturalHeight}px`
-    await new Promise<void>((r) => requestAnimationFrame(() => r()))
 
     try {
+      document.head.appendChild(styleTag)
+      container.classList.add(CAPTURE_CLASS)
+
+      await new Promise<void>((r) => requestAnimationFrame(() => r()))
+      await new Promise<void>((r) => requestAnimationFrame(() => r()))
+
+      // Shrink the container to its actual content height. Without this,
+      // the outer container stays at its `h-full` parent size and the
+      // `flex-1` body expands, so html2canvas ends up capturing a bunch
+      // of empty space BELOW the last activity row. The resulting image
+      // is wide but short → when placed in the A3 template it only fills
+      // ~30 % of the page height with a big white strip below. Reading
+      // scrollHeight AFTER the CSS overrides + two frames gives us the
+      // natural content height.
+      const naturalHeight = container.scrollHeight
+      container.style.height = `${naturalHeight}px`
+      container.style.maxHeight = `${naturalHeight}px`
+      container.style.minHeight = `${naturalHeight}px`
+      await new Promise<void>((r) => requestAnimationFrame(() => r()))
+
       const { default: html2canvas } = await import('html2canvas')
       const canvas = await html2canvas(container, {
         backgroundColor: '#ffffff',
@@ -629,12 +632,14 @@ export function GanttCore(props: GanttCoreProps) {
       return canvas.toDataURL('image/png')
     } finally {
       // Always restore the DOM — remove the class, the style tag, and the
-      // forced height we set for the capture
+      // inline height/minHeight/maxHeight we set for the capture. This
+      // runs even if the prep phase threw, so the toolbar can never get
+      // permanently stuck with display:none.
       container.style.height = prevHeight
       container.style.maxHeight = prevMaxHeight
       container.style.minHeight = prevMinHeight
       container.classList.remove(CAPTURE_CLASS)
-      styleTag.remove()
+      if (styleTag.parentNode) styleTag.remove()
     }
   }, [])
 

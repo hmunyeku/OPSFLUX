@@ -2588,74 +2588,164 @@ export function PlannerPage() {
 // ── Activity Detail Panel ──────────────────────────────────────
 
 // ── Inline-editable dependency row ─────────────────────────────────
+// Lag is stored as days in the backend; the UI lets the user pick a unit
+// (jours / semaines / mois) and converts on the fly. 1 month = 30 days for
+// scheduling purposes.
+
+type LagUnit = 'd' | 'w' | 'm'
+const LAG_UNIT_DAYS: Record<LagUnit, number> = { d: 1, w: 7, m: 30 }
+const LAG_UNIT_LABELS: Record<LagUnit, string> = { d: 'jours', w: 'semaines', m: 'mois' }
+
+/** Pick the most natural unit for an existing day count (e.g. 14 → "2 semaines") */
+function pickLagUnit(days: number): { unit: LagUnit; value: number } {
+  const abs = Math.abs(days)
+  if (abs > 0 && abs % 30 === 0) return { unit: 'm', value: days / 30 }
+  if (abs > 0 && abs % 7 === 0) return { unit: 'w', value: days / 7 }
+  return { unit: 'd', value: days }
+}
 
 interface DependencyRowProps {
   dep: PlannerDependency
   currentActivityId: string
   dependencyTypeOptions: { value: string; label: string }[]
   onDelete: (depId: string) => void
-  onUpdate: (depId: string, payload: { dependency_type: string; lag_days: number }) => void
+  onUpdate: (
+    depId: string,
+    payload: { predecessor_id: string; successor_id: string; dependency_type: string; lag_days: number },
+  ) => void
   isPending?: boolean
 }
 
 function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete, onUpdate, isPending }: DependencyRowProps) {
   const [editing, setEditing] = useState(false)
+
+  // Identify the "other" activity (not the current one) — that's what the user
+  // actually cares about and might want to change.
+  const isCurrentPredecessor = dep.predecessor_id === currentActivityId
+  const otherActivityId = isCurrentPredecessor ? dep.successor_id : dep.predecessor_id
+  const otherActivityTitle = isCurrentPredecessor ? dep.successor_title : dep.predecessor_title
+  const role = isCurrentPredecessor ? 'Successeur' : 'Prédécesseur'
+
+  // ── Edit state ──
+  const initialLag = pickLagUnit(dep.lag_days)
+  const [draftOtherId, setDraftOtherId] = useState<string>(otherActivityId)
   const [draftType, setDraftType] = useState<string>(dep.dependency_type)
-  const [draftLag, setDraftLag] = useState(dep.lag_days)
+  const [draftLagValue, setDraftLagValue] = useState<number>(initialLag.value)
+  const [draftLagUnit, setDraftLagUnit] = useState<LagUnit>(initialLag.unit)
 
   const startEdit = () => {
+    const fresh = pickLagUnit(dep.lag_days)
+    setDraftOtherId(otherActivityId)
     setDraftType(dep.dependency_type)
-    setDraftLag(dep.lag_days)
+    setDraftLagValue(fresh.value)
+    setDraftLagUnit(fresh.unit)
     setEditing(true)
   }
 
   const save = () => {
-    if (draftType !== dep.dependency_type || draftLag !== dep.lag_days) {
-      onUpdate(dep.id, { dependency_type: draftType, lag_days: draftLag })
+    const lagDays = Math.round(draftLagValue * LAG_UNIT_DAYS[draftLagUnit])
+    // Re-compute predecessor/successor IDs depending on the role of the
+    // current activity. The "other" side is editable; the current activity
+    // stays fixed on its own side.
+    const newPredecessor = isCurrentPredecessor ? currentActivityId : draftOtherId
+    const newSuccessor = isCurrentPredecessor ? draftOtherId : currentActivityId
+    const changed =
+      newPredecessor !== dep.predecessor_id ||
+      newSuccessor !== dep.successor_id ||
+      draftType !== dep.dependency_type ||
+      lagDays !== dep.lag_days
+    if (changed) {
+      onUpdate(dep.id, {
+        predecessor_id: newPredecessor,
+        successor_id: newSuccessor,
+        dependency_type: draftType,
+        lag_days: lagDays,
+      })
     }
     setEditing(false)
   }
 
+  // Display label (lag) — shown next to the type badge in read mode
+  const lagDisplay = (() => {
+    if (dep.lag_days === 0) return null
+    const { unit, value } = pickLagUnit(dep.lag_days)
+    const sign = value > 0 ? '+' : ''
+    const u = unit === 'd' ? 'j' : unit === 'w' ? 'sem' : 'mois'
+    return `${sign}${value} ${u}`
+  })()
+
   if (editing) {
     return (
-      <div className="flex items-center gap-2 py-1.5 px-2 rounded border border-primary/50 bg-primary/5 text-xs">
-        <Link2 size={11} className="text-primary shrink-0" />
-        <span className="text-muted-foreground truncate flex-1">
-          {dep.predecessor_id === currentActivityId ? `Successeur` : `Prédécesseur`}
-        </span>
-        <select
-          value={draftType}
-          onChange={(e) => setDraftType(e.target.value)}
-          className="h-6 px-1 text-[11px] border border-border rounded bg-background"
-          disabled={isPending}
-        >
-          {dependencyTypeOptions.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-        <input
-          type="number"
-          value={draftLag}
-          onChange={(e) => setDraftLag(parseInt(e.target.value) || 0)}
-          className="w-14 h-6 px-1 text-[11px] border border-border rounded bg-background tabular-nums"
-          placeholder="Délai"
-          disabled={isPending}
+      <div className="space-y-2 p-2 rounded border border-primary/50 bg-primary/5 text-xs">
+        <div className="flex items-center gap-2">
+          <Link2 size={11} className="text-primary shrink-0" />
+          <span className="text-[10px] uppercase font-semibold text-primary tracking-wide">{role}</span>
+          <span className="text-[10px] text-muted-foreground">— activité liée</span>
+        </div>
+        <ActivityPicker
+          value={draftOtherId || null}
+          onChange={(actId) => setDraftOtherId(actId || '')}
+          excludeId={currentActivityId}
+          label={undefined}
         />
-        <span className="text-[10px] text-muted-foreground">j</span>
-        <button
-          onClick={save}
-          disabled={isPending}
-          className="px-1.5 py-0.5 text-[10px] rounded bg-primary text-primary-foreground"
-        >
-          OK
-        </button>
-        <button
-          onClick={() => setEditing(false)}
-          disabled={isPending}
-          className="px-1.5 py-0.5 text-[10px] rounded border border-border"
-        >
-          Annuler
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-col">
+            <label className="text-[9px] uppercase text-muted-foreground tracking-wide">Type</label>
+            <select
+              value={draftType}
+              onChange={(e) => setDraftType(e.target.value)}
+              className="h-7 px-1.5 text-xs border border-border rounded bg-background"
+              disabled={isPending}
+            >
+              {dependencyTypeOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col">
+            <label className="text-[9px] uppercase text-muted-foreground tracking-wide">Délai</label>
+            <input
+              type="number"
+              value={draftLagValue}
+              onChange={(e) => setDraftLagValue(parseInt(e.target.value) || 0)}
+              className="w-20 h-7 px-1.5 text-xs border border-border rounded bg-background tabular-nums"
+              placeholder="0"
+              disabled={isPending}
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-[9px] uppercase text-muted-foreground tracking-wide">Unité</label>
+            <select
+              value={draftLagUnit}
+              onChange={(e) => setDraftLagUnit(e.target.value as LagUnit)}
+              className="h-7 px-1.5 text-xs border border-border rounded bg-background"
+              disabled={isPending}
+            >
+              {(Object.keys(LAG_UNIT_LABELS) as LagUnit[]).map((u) => (
+                <option key={u} value={u}>{LAG_UNIT_LABELS[u]}</option>
+              ))}
+            </select>
+          </div>
+          <div className="ml-auto flex items-center gap-1 self-end">
+            <button
+              onClick={save}
+              disabled={isPending || !draftOtherId}
+              className="px-2 py-1 text-[11px] rounded bg-primary text-primary-foreground disabled:opacity-50"
+            >
+              Enregistrer
+            </button>
+            <button
+              onClick={() => setEditing(false)}
+              disabled={isPending}
+              className="px-2 py-1 text-[11px] rounded border border-border"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+        <p className="text-[9px] text-muted-foreground">
+          Délai positif = retard sur le lien · négatif = chevauchement. La valeur est convertie en jours côté serveur.
+        </p>
       </div>
     )
   }
@@ -2663,12 +2753,13 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
   return (
     <div className="flex items-center gap-2 py-1.5 px-2 rounded border border-border/50 text-xs hover:bg-muted/30 transition-colors">
       <Link2 size={11} className="text-muted-foreground shrink-0" />
-      <span className="text-muted-foreground truncate flex-1">
-        {dep.predecessor_id === currentActivityId ? `Successeur: ${dep.successor_id.slice(0, 8)}…` : `Prédécesseur: ${dep.predecessor_id.slice(0, 8)}…`}
+      <span className="text-[10px] uppercase text-muted-foreground tracking-wide w-[78px] shrink-0">{role}</span>
+      <span className="font-medium text-foreground truncate flex-1" title={otherActivityTitle || otherActivityId}>
+        {otherActivityTitle || otherActivityId.slice(0, 8) + '…'}
       </span>
-      <span className="gl-badge gl-badge-neutral text-[10px]">{dep.dependency_type}</span>
-      {dep.lag_days !== 0 && (
-        <span className="text-muted-foreground text-[10px] tabular-nums">{dep.lag_days > 0 ? '+' : ''}{dep.lag_days}j</span>
+      <span className="gl-badge gl-badge-neutral text-[10px]" title="Type de dépendance">{dep.dependency_type}</span>
+      {lagDisplay && (
+        <span className="text-muted-foreground text-[10px] tabular-nums" title="Délai (lag)">{lagDisplay}</span>
       )}
       <button
         onClick={startEdit}
@@ -2891,11 +2982,15 @@ function ActivityDetailPanel({ id }: { id: string }) {
    * Inline-edit a dependency = remove + re-add. The backend has no PATCH
    * endpoint for dependencies; this two-step approach keeps the UI simple.
    * The optimistic remove handler in useRemoveDependency makes the swap feel
-   * instant.
+   * instant. The whole payload (predecessor / successor / type / lag) can
+   * change in one save.
    */
-  const handleUpdateDep = useCallback((depId: string, payload: { dependency_type: string; lag_days: number }) => {
-    const target = (dependencies ?? []).find((d) => d.id === depId)
-    if (!target) return
+  const handleUpdateDep = useCallback((depId: string, payload: {
+    predecessor_id: string
+    successor_id: string
+    dependency_type: string
+    lag_days: number
+  }) => {
     removeDependency.mutate(
       { activityId: id, dependencyId: depId },
       {
@@ -2904,8 +2999,8 @@ function ActivityDetailPanel({ id }: { id: string }) {
             {
               activityId: id,
               payload: {
-                predecessor_id: target.predecessor_id,
-                successor_id: target.successor_id,
+                predecessor_id: payload.predecessor_id,
+                successor_id: payload.successor_id,
                 dependency_type: payload.dependency_type,
                 lag_days: payload.lag_days,
               },
@@ -2919,7 +3014,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
         onError: () => toast({ title: 'Erreur lors de la modification', variant: 'error' }),
       },
     )
-  }, [id, dependencies, removeDependency, addDependency, toast])
+  }, [id, removeDependency, addDependency, toast])
 
   const handleSetRecurrence = useCallback(() => {
     setRecurrence.mutate(

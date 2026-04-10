@@ -336,6 +336,8 @@ class DependencyRead(PlannerSchema):
     successor_id: UUID
     dependency_type: str
     lag_days: int
+    predecessor_title: str | None = None
+    successor_title: str | None = None
 
 
 class DependencyCreate(BaseModel):

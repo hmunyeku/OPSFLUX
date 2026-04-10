@@ -740,15 +740,75 @@ export function GanttView({
   ])
 
   // ── Drag to reschedule ──
+  // Before committing a drag, check the dependency constraints involving this
+  // activity (FS / SS / FF + lag in days). If any constraint is violated, ask
+  // the user to confirm. The backend has no auto-shift logic yet, so this is
+  // a soft check — the user can choose to bypass it.
   const handleBarDrag = useCallback(async (barId: string, newStart: string, newEnd: string) => {
     if (barId.startsWith('proposal-')) return
+
+    // ── Constraint pre-check ──
+    const allDeps = ganttData?.dependencies ?? []
+    const allActsById = new Map<string, GanttActivity>()
+    for (const asset of ganttData?.assets ?? []) {
+      for (const a of asset.activities) allActsById.set(a.id, a)
+    }
+    const movedStart = new Date(newStart).getTime()
+    const movedEnd = new Date(newEnd).getTime()
+    const violations: string[] = []
+    const MS = 86400000
+    for (const dep of allDeps) {
+      let predStart = 0, predEnd = 0, succStart = 0, succEnd = 0
+      // Resolve the two activity dates considering the moved one
+      const pred = allActsById.get(dep.predecessor_id)
+      const succ = allActsById.get(dep.successor_id)
+      if (!pred || !succ) continue
+      if (dep.predecessor_id === barId) {
+        predStart = movedStart
+        predEnd = movedEnd
+      } else {
+        predStart = new Date(pred.start_date).getTime()
+        predEnd = new Date(pred.end_date).getTime()
+      }
+      if (dep.successor_id === barId) {
+        succStart = movedStart
+        succEnd = movedEnd
+      } else {
+        succStart = new Date(succ.start_date).getTime()
+        succEnd = new Date(succ.end_date).getTime()
+      }
+      const lag = (dep.lag_days ?? 0) * MS
+      let ok = true
+      let label = ''
+      if (dep.dependency_type === 'FS') {
+        ok = succStart >= predEnd + lag
+        label = `${pred.title} → ${succ.title} (FS+${dep.lag_days}j)`
+      } else if (dep.dependency_type === 'SS') {
+        ok = succStart >= predStart + lag
+        label = `${pred.title} → ${succ.title} (SS+${dep.lag_days}j)`
+      } else if (dep.dependency_type === 'FF') {
+        ok = succEnd >= predEnd + lag
+        label = `${pred.title} → ${succ.title} (FF+${dep.lag_days}j)`
+      }
+      if (!ok) violations.push(label)
+    }
+    if (violations.length > 0) {
+      const msg =
+        `Ce déplacement viole ${violations.length} contrainte(s) de dépendance :\n\n` +
+        violations.map((v) => `• ${v}`).join('\n') +
+        `\n\nVoulez-vous quand même appliquer ce changement ?`
+      // eslint-disable-next-line no-alert
+      const proceed = window.confirm(msg)
+      if (!proceed) return
+    }
+
     try {
       await plannerService.updateActivity(barId, { start_date: newStart, end_date: newEnd })
       toast({ title: t('planner.gantt.toasts.rescheduled'), variant: 'success' })
     } catch {
       toast({ title: t('planner.gantt.toasts.drag_error'), variant: 'error' })
     }
-  }, [t, toast])
+  }, [t, toast, ganttData])
 
   // ── Click on bar → open detail panel ──
   const handleBarClick = useCallback((barId: string) => {

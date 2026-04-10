@@ -2051,7 +2051,36 @@ async def list_dependencies(
             | (PlannerActivityDependency.successor_id == activity_id)
         )
     )
-    return result.scalars().all()
+    deps = result.scalars().all()
+
+    # Resolve activity titles in one batch query so the frontend doesn't have
+    # to do N lookups to display the human-readable names.
+    activity_ids: set[UUID] = set()
+    for dep in deps:
+        activity_ids.add(dep.predecessor_id)
+        activity_ids.add(dep.successor_id)
+    titles_by_id: dict[UUID, str] = {}
+    if activity_ids:
+        title_rows = await db.execute(
+            select(PlannerActivity.id, PlannerActivity.title).where(
+                PlannerActivity.id.in_(activity_ids)
+            )
+        )
+        for row in title_rows.all():
+            titles_by_id[row[0]] = row[1]
+
+    return [
+        {
+            "id": dep.id,
+            "predecessor_id": dep.predecessor_id,
+            "successor_id": dep.successor_id,
+            "dependency_type": dep.dependency_type,
+            "lag_days": dep.lag_days,
+            "predecessor_title": titles_by_id.get(dep.predecessor_id),
+            "successor_title": titles_by_id.get(dep.successor_id),
+        }
+        for dep in deps
+    ]
 
 
 @router.post("/activities/{activity_id}/dependencies", response_model=DependencyRead, status_code=201)

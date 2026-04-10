@@ -45,6 +45,7 @@ import {
   validatePlannerGanttPrefs,
   type PlannerGanttViewPrefs,
 } from './PlannerCustomizationModal'
+import { VariablePobEditor } from './VariablePobEditor'
 import { TagManager } from '@/components/shared/TagManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
@@ -243,6 +244,16 @@ function formatDateShort(d: string | null | undefined) {
 function formatDateOnly(d: string | null | undefined) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+}
+
+/** Display 'min–max' for a variable POB schedule, or the constant if all equal */
+function formatVariablePaxRange(daily: Record<string, number> | null | undefined, fallback: number): string {
+  if (!daily || Object.keys(daily).length === 0) return String(fallback)
+  const values = Object.values(daily).filter((v): v is number => typeof v === 'number')
+  if (values.length === 0) return String(fallback)
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  return min === max ? String(min) : `${min}–${max}`
 }
 
 function StatCard({ label, value, icon: Icon, accent }: {
@@ -2642,6 +2653,8 @@ function ActivityDetailPanel({ id }: { id: string }) {
       subtype: activity.subtype ?? '',
       priority: activity.priority,
       pax_quota: activity.pax_quota,
+      pax_quota_mode: activity.pax_quota_mode ?? 'constant',
+      pax_quota_daily: activity.pax_quota_daily ?? null,
       start_date: activity.start_date ?? '',
       end_date: activity.end_date ?? '',
       description: activity.description ?? '',
@@ -2931,16 +2944,41 @@ function ActivityDetailPanel({ id }: { id: string }) {
                     ))}
                   </select>
                 </DynamicPanelField>
-                <DynamicPanelField label="Quota PAX">
-                  <input
-                    type="number"
-                    value={editForm.pax_quota as number}
-                    onChange={(e) => setEditForm({ ...editForm, pax_quota: parseInt(e.target.value) || 0 })}
+                <DynamicPanelField label="Mode POB">
+                  <select
+                    value={(editForm.pax_quota_mode as string) || 'constant'}
+                    onChange={(e) => setEditForm({ ...editForm, pax_quota_mode: e.target.value })}
                     className={panelInputClass}
-                    min={0}
-                  />
+                  >
+                    <option value="constant">Constant</option>
+                    <option value="variable">Variable (par jour)</option>
+                  </select>
                 </DynamicPanelField>
+                {editForm.pax_quota_mode !== 'variable' && (
+                  <DynamicPanelField label="Quota PAX">
+                    <input
+                      type="number"
+                      value={editForm.pax_quota as number}
+                      onChange={(e) => setEditForm({ ...editForm, pax_quota: parseInt(e.target.value) || 0 })}
+                      className={panelInputClass}
+                      min={0}
+                    />
+                  </DynamicPanelField>
+                )}
               </FormGrid>
+              {((editForm.pax_quota_mode as string) === 'variable' && editForm.start_date && editForm.end_date) ? (
+                <div className="mt-3">
+                  <p className="text-xs text-muted-foreground mb-2">Plan POB jour par jour :</p>
+                  <VariablePobEditor
+                    startDate={editForm.start_date as string}
+                    endDate={editForm.end_date as string}
+                    value={(editForm.pax_quota_daily ?? null) as Record<string, number> | null}
+                    onChange={(daily) => setEditForm({ ...editForm, pax_quota_daily: daily })}
+                    defaultValue={(editForm.pax_quota as number) || 1}
+                    compact
+                  />
+                </div>
+              ) : null}
             </FormSection>
 
             <FormSection title="Planning">
@@ -3077,19 +3115,53 @@ function ActivityDetailPanel({ id }: { id: string }) {
 
                 {/* Planning */}
                 <FormSection title="Planning">
-                  <DetailRow label="Date debut" value={formatDateShort(activity.start_date)} />
-                  <DetailRow label="Date fin" value={formatDateShort(activity.end_date)} />
-                  <DetailRow label="Debut reel" value={formatDateShort(activity.actual_start)} />
-                  <DetailRow label="Fin reelle" value={formatDateShort(activity.actual_end)} />
-                  <DetailRow
-                    label="Quota PAX"
-                    value={
-                      <span className="inline-flex items-center gap-1">
-                        <Users size={12} className="text-muted-foreground" />
-                        {activity.pax_quota}
-                      </span>
-                    }
+                  <InlineEditableRow
+                    label="Date debut"
+                    value={activity.start_date ? activity.start_date.slice(0, 10) : ''}
+                    onSave={(v) => handleInlineSave('start_date', v)}
+                    type="date"
                   />
+                  <InlineEditableRow
+                    label="Date fin"
+                    value={activity.end_date ? activity.end_date.slice(0, 10) : ''}
+                    onSave={(v) => handleInlineSave('end_date', v)}
+                    type="date"
+                  />
+                  <InlineEditableRow
+                    label="Debut reel"
+                    value={activity.actual_start ? activity.actual_start.slice(0, 10) : ''}
+                    onSave={(v) => handleInlineSave('actual_start', v)}
+                    type="date"
+                  />
+                  <InlineEditableRow
+                    label="Fin reelle"
+                    value={activity.actual_end ? activity.actual_end.slice(0, 10) : ''}
+                    onSave={(v) => handleInlineSave('actual_end', v)}
+                    type="date"
+                  />
+                  <DetailRow
+                    label="Mode POB"
+                    value={activity.pax_quota_mode === 'variable' ? 'Variable (par jour)' : 'Constant'}
+                  />
+                  {activity.pax_quota_mode !== 'variable' ? (
+                    <InlineEditableRow
+                      label="Quota PAX"
+                      value={String(activity.pax_quota ?? 0)}
+                      onSave={(v) => handleInlineSave('pax_quota', v)}
+                      type="number"
+                    />
+                  ) : (
+                    <DetailRow
+                      label="Quota PAX"
+                      value={
+                        <span className="inline-flex items-center gap-1">
+                          <Users size={12} className="text-muted-foreground" />
+                          {formatVariablePaxRange(activity.pax_quota_daily, activity.pax_quota)}
+                          <span className="text-[10px] text-muted-foreground ml-1">(min–max journalier)</span>
+                        </span>
+                      }
+                    />
+                  )}
                 </FormSection>
 
                 {/* Rattachement */}
@@ -3596,41 +3668,15 @@ function CreateActivityPanel() {
             </FormGrid>
             {form.pax_quota_mode === 'variable' && form.start_date && form.end_date && (
               <div className="mt-3">
-                <p className="text-xs text-muted-foreground mb-2">Saisissez le POB jour par jour :</p>
-                <div className="max-h-[200px] overflow-y-auto border border-border rounded-lg">
-                  <table className="w-full text-xs">
-                    <thead className="sticky top-0 bg-muted/50">
-                      <tr><th className="px-2 py-1 text-left font-medium">Date</th><th className="px-2 py-1 text-right font-medium">PAX</th></tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        const days: string[] = []
-                        const s = new Date(form.start_date!)
-                        const e = new Date(form.end_date!)
-                        for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
-                          days.push(d.toISOString().slice(0, 10))
-                        }
-                        return days.map(day => (
-                          <tr key={day} className="border-t border-border/50">
-                            <td className="px-2 py-1 font-mono text-muted-foreground">{day}</td>
-                            <td className="px-2 py-1">
-                              <input
-                                type="number" min={0}
-                                className="w-16 text-right text-xs border border-border rounded px-1 py-0.5 bg-background"
-                                value={(form.pax_quota_daily as Record<string, number> | null)?.[day] ?? 0}
-                                onChange={(ev) => {
-                                  const daily = { ...(form.pax_quota_daily || {}) as Record<string, number> }
-                                  daily[day] = parseInt(ev.target.value) || 0
-                                  setForm({ ...form, pax_quota_daily: daily })
-                                }}
-                              />
-                            </td>
-                          </tr>
-                        ))
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
+                <p className="text-xs text-muted-foreground mb-2">Plan POB jour par jour :</p>
+                <VariablePobEditor
+                  startDate={form.start_date}
+                  endDate={form.end_date}
+                  value={(form.pax_quota_daily ?? null) as Record<string, number> | null}
+                  onChange={(daily) => setForm({ ...form, pax_quota_daily: daily })}
+                  defaultValue={form.pax_quota || 1}
+                  compact
+                />
               </div>
             )}
           </FormSection>

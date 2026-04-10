@@ -479,12 +479,21 @@ export function GanttCore(props: GanttCoreProps) {
   }, [])
 
   // ── Wheel zoom ─────────────────────────────────────────────────
-
-  const onWheel = useCallback((e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault()
-      zoom(e.deltaY < 0 ? 1 : -1)
+  // We must attach the wheel listener manually as a NON-passive native
+  // listener, because React synthetic wheel events are passive by default
+  // in React 17+ and preventDefault() has no effect on them (the browser
+  // logs "Unable to preventDefault inside passive event listener").
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const handler = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        zoom(e.deltaY < 0 ? 1 : -1)
+      }
     }
+    el.addEventListener('wheel', handler, { passive: false })
+    return () => el.removeEventListener('wheel', handler)
   }, [zoom])
 
   // ── Keyboard shortcuts ──────────────────────────────────────────
@@ -548,7 +557,6 @@ export function GanttCore(props: GanttCoreProps) {
       ref={containerRef}
       className={cn('relative flex flex-col border rounded-lg bg-background overflow-hidden select-none h-full', className)}
       style={{ minHeight }}
-      onWheel={onWheel}
     >
       {/* ── Toolbar ──────────────────────────────────────────── */}
       {showToolbar && (

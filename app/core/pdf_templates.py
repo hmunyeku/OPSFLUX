@@ -722,6 +722,40 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
             },
         },
     },
+    {
+        "slug": "planner.gantt_export",
+        "name": "Planner Gantt Export",
+        "description": "Export PDF A3 paysage du Gantt du Planner (capture image + meta).",
+        "object_type": "system",
+        "page_size": "A3",
+        "orientation": "landscape",
+        "margin_top": 10,
+        "margin_right": 10,
+        "margin_bottom": 10,
+        "margin_left": 10,
+        "variables_schema": {
+            "title": "Titre du document",
+            "subtitle": "Sous-titre / portée",
+            "date_range": "Plage de dates affichée",
+            "scale": "Échelle (jour / semaine / mois / ...)",
+            "image_data_uri": "Image base64 du Gantt (data:image/png;base64,...)",
+            "generated_at": "Date de génération",
+            "generated_by": "Utilisateur ayant généré le PDF",
+            "entity.name": "Nom de l'entité",
+        },
+        "default_versions": {
+            "fr": {
+                "body_html": "",  # patched below
+                "header_html": None,
+                "footer_html": None,
+            },
+            "en": {
+                "body_html": "",
+                "header_html": None,
+                "footer_html": None,
+            },
+        },
+    },
 ]
 
 
@@ -2140,6 +2174,104 @@ _PID_EXPORT_BODY_EN = """\
 
 DEFAULT_PDF_TEMPLATES[8]["default_versions"]["fr"]["body_html"] = _PID_EXPORT_BODY_FR
 DEFAULT_PDF_TEMPLATES[8]["default_versions"]["en"]["body_html"] = _PID_EXPORT_BODY_EN
+
+
+# ── Planner Gantt Export (A3 landscape) ─────────────────────────────────
+
+_PLANNER_GANTT_EXPORT_BODY_FR = """\
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<style>
+  @page { size: A3 landscape; margin: 10mm; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1f2937; margin: 0; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f3460; padding-bottom: 6px; margin-bottom: 8px; }
+  .header .title-block h1 { font-size: 14pt; margin: 0; color: #0f3460; }
+  .header .title-block .subtitle { font-size: 9pt; color: #64748b; margin-top: 2px; }
+  .header .meta { font-size: 8pt; color: #64748b; text-align: right; }
+  .header .meta strong { color: #111827; }
+  .gantt-wrap { width: 100%; text-align: center; }
+  .gantt-wrap img { max-width: 100%; max-height: 245mm; object-fit: contain; }
+  .footer { position: fixed; bottom: 4mm; left: 10mm; right: 10mm; font-size: 7pt; color: #9ca3af; display: flex; justify-content: space-between; border-top: 1px solid #e5e7eb; padding-top: 3px; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="title-block">
+      <h1>{{ title or 'Planner — Gantt' }}</h1>
+      {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}
+    </div>
+    <div class="meta">
+      <div><strong>Période</strong> {{ date_range }}</div>
+      <div><strong>Échelle</strong> {{ scale }}</div>
+      <div><strong>Généré le</strong> {{ generated_at }}</div>
+      {% if generated_by %}<div><strong>Par</strong> {{ generated_by }}</div>{% endif %}
+    </div>
+  </div>
+  <div class="gantt-wrap">
+    {% if image_data_uri %}
+      <img src="{{ image_data_uri }}" alt="Gantt" />
+    {% else %}
+      <p style="color:#9ca3af;text-align:center;padding:60px">Aucune donnée Gantt à exporter.</p>
+    {% endif %}
+  </div>
+  <div class="footer">
+    <span>{{ entity.name or '' }}</span>
+    <span>OpsFlux Planner</span>
+  </div>
+</body>
+</html>
+"""
+
+_PLANNER_GANTT_EXPORT_BODY_EN = """\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<style>
+  @page { size: A3 landscape; margin: 10mm; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1f2937; margin: 0; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f3460; padding-bottom: 6px; margin-bottom: 8px; }
+  .header .title-block h1 { font-size: 14pt; margin: 0; color: #0f3460; }
+  .header .title-block .subtitle { font-size: 9pt; color: #64748b; margin-top: 2px; }
+  .header .meta { font-size: 8pt; color: #64748b; text-align: right; }
+  .header .meta strong { color: #111827; }
+  .gantt-wrap { width: 100%; text-align: center; }
+  .gantt-wrap img { max-width: 100%; max-height: 245mm; object-fit: contain; }
+  .footer { position: fixed; bottom: 4mm; left: 10mm; right: 10mm; font-size: 7pt; color: #9ca3af; display: flex; justify-content: space-between; border-top: 1px solid #e5e7eb; padding-top: 3px; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="title-block">
+      <h1>{{ title or 'Planner — Gantt' }}</h1>
+      {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}
+    </div>
+    <div class="meta">
+      <div><strong>Range</strong> {{ date_range }}</div>
+      <div><strong>Scale</strong> {{ scale }}</div>
+      <div><strong>Generated</strong> {{ generated_at }}</div>
+      {% if generated_by %}<div><strong>By</strong> {{ generated_by }}</div>{% endif %}
+    </div>
+  </div>
+  <div class="gantt-wrap">
+    {% if image_data_uri %}
+      <img src="{{ image_data_uri }}" alt="Gantt" />
+    {% else %}
+      <p style="color:#9ca3af;text-align:center;padding:60px">No Gantt data to export.</p>
+    {% endif %}
+  </div>
+  <div class="footer">
+    <span>{{ entity.name or '' }}</span>
+    <span>OpsFlux Planner</span>
+  </div>
+</body>
+</html>
+"""
+
+DEFAULT_PDF_TEMPLATES[9]["default_versions"]["fr"]["body_html"] = _PLANNER_GANTT_EXPORT_BODY_FR
+DEFAULT_PDF_TEMPLATES[9]["default_versions"]["en"]["body_html"] = _PLANNER_GANTT_EXPORT_BODY_EN
 
 
 # ── Rendering helpers ────────────────────────────────────────────────────

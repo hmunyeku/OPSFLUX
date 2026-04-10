@@ -12,7 +12,8 @@ import logging
 from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from pydantic import BaseModel, Field
 from sqlalchemy import select, func as sqla_func, and_, String
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -2379,6 +2380,87 @@ async def get_gantt(
         types=type_list,
         statuses=status_list,
         show_permanent_ops=show_permanent_ops,
+    )
+
+
+# ── Gantt PDF export (A3 landscape) ──────────────────────────────────────
+
+
+class GanttPdfExportRequest(BaseModel):
+    """Payload for the Gantt PDF export.
+
+    The frontend captures the Gantt container with html2canvas and POSTs
+    the resulting PNG as a data URI. The backend re-renders that image in
+    the `planner.gantt_export` PDF template (A3 landscape) via WeasyPrint.
+    """
+    image_data_uri: str = Field(
+        ...,
+        description="PNG encoded as 'data:image/png;base64,...'",
+        max_length=30_000_000,  # ~22 MB base64 → ~16 MB PNG, plenty for A3
+    )
+    title: str | None = None
+    subtitle: str | None = None
+    date_range: str | None = None
+    scale: str | None = None
+
+
+@router.post("/export/gantt-pdf")
+async def export_gantt_pdf(
+    payload: GanttPdfExportRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Render the Planner Gantt as an A3 landscape PDF.
+
+    Uses the system PDF template `planner.gantt_export`. Seeded in
+    `DEFAULT_PDF_TEMPLATES` so tenants can override the HTML body from the
+    admin Template manager if needed.
+    """
+    from app.core.pdf_templates import render_pdf
+    from app.models.common import Entity
+
+    # Basic validation — reject anything that isn't a PNG data URI
+    if not payload.image_data_uri.startswith("data:image/"):
+        raise HTTPException(400, "image_data_uri must be a data:image/* URI")
+
+    entity = await db.get(Entity, entity_id)
+    generated_at = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
+    generated_by = getattr(current_user, "full_name", None) or current_user.email
+
+    try:
+        pdf_bytes = await render_pdf(
+            db,
+            slug="planner.gantt_export",
+            entity_id=entity_id,
+            language="fr",
+            variables={
+                "title": payload.title or "Planner — Gantt",
+                "subtitle": payload.subtitle or "",
+                "date_range": payload.date_range or "",
+                "scale": payload.scale or "",
+                "image_data_uri": payload.image_data_uri,
+                "generated_at": generated_at,
+                "generated_by": generated_by,
+                "entity": {"name": entity.name if entity else ""},
+            },
+        )
+    except Exception as e:
+        logger.exception("Failed to render Gantt PDF")
+        raise HTTPException(500, f"PDF generation failed: {e}")
+
+    if pdf_bytes is None:
+        raise HTTPException(
+            404,
+            "PDF template 'planner.gantt_export' not found. Run the seed_pdf_templates job.",
+        )
+
+    filename = f"planner-gantt-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

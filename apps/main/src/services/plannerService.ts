@@ -131,6 +131,20 @@ export const plannerService = {
     await api.delete(`${BASE}/activities/${activityId}/dependencies/${dependencyId}`)
   },
 
+  // ── Gantt PDF export (A3 landscape, via system PDF template) ──
+  exportGanttPdf: async (payload: {
+    image_data_uri: string
+    title?: string
+    subtitle?: string
+    date_range?: string
+    scale?: string
+  }): Promise<Blob> => {
+    const { data } = await api.post(`${BASE}/export/gantt-pdf`, payload, {
+      responseType: 'blob',
+    })
+    return data as Blob
+  },
+
   // ── Conflicts ──
   listConflicts: async (params: ConflictListParams = {}): Promise<PaginatedResponse<PlannerConflict>> => {
     const { data } = await api.get(`${BASE}/conflicts`, { params })

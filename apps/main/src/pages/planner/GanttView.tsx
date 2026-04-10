@@ -1102,6 +1102,33 @@ export function GanttView({
     openDynamicPanel({ type: 'detail', module: 'planner', id: barId })
   }, [openDynamicPanel])
 
+  // ── Export Gantt as A3 PDF via the system PDF template ──
+  const handleExportPdf = useCallback(
+    async (imageDataUri: string) => {
+      try {
+        const dateRangeLabel = `${startDate ?? ''} → ${endDate ?? ''}`
+        const scaleLabel = (scale ?? 'month').toString()
+        const blob = await plannerService.exportGanttPdf({
+          image_data_uri: imageDataUri,
+          title: 'Planner — Gantt',
+          subtitle: undefined,
+          date_range: dateRangeLabel,
+          scale: scaleLabel,
+        })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `planner-gantt-${toISO(new Date())}.pdf`
+        a.click()
+        URL.revokeObjectURL(url)
+        toast({ title: 'PDF généré', variant: 'success' })
+      } catch {
+        toast({ title: "Erreur lors de la génération du PDF", variant: 'error' })
+      }
+    },
+    [startDate, endDate, scale, toast],
+  )
+
   // ── Delete a dependency arrow (selected via click + Delete key) ──
   const qc = useQueryClient()
   const handleDeleteDependency = useCallback(
@@ -1240,6 +1267,7 @@ export function GanttView({
         onSettingsChange={onGanttSettingsChange}
         onBarDoubleClick={handleBarDoubleClick}
         onDeleteDependency={handleDeleteDependency}
+        onExportPdf={handleExportPdf}
         onBarDrag={handleBarDrag}
         onBarResize={handleBarResize}
         onViewChange={handleViewChange}

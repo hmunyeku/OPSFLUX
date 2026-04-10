@@ -21,6 +21,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronRight as ChevronCollapsed,
   Loader2, ZoomIn, ZoomOut, Maximize, Download,
+  FileImage, FileText,
   Plus, Diamond, IndentIncrease, IndentDecrease, Trash2,
   Undo2, Redo2,
 } from 'lucide-react'
@@ -113,7 +114,7 @@ export function GanttCore(props: GanttCoreProps) {
     statusOptions, priorityOptions,
     presets: _presets, onPresetsChange: _onPresetsChange,
     showActions, onAddTask, onAddMilestone, onIndent, onOutdent, onDeleteRow,
-    onCreateDependency, onDeleteDependency, onUndo, onRedo, onViewChange,
+    onCreateDependency, onDeleteDependency, onExportPdf, onUndo, onRedo, onViewChange,
     selectedRowId, onSelectRow,
     expandedRows, onToggleRow,
     onSettingsChange,
@@ -431,20 +432,55 @@ export function GanttCore(props: GanttCoreProps) {
     onViewChange?.(settings.scale, minDate, maxDate)
   }, [bars, meta.pxPerDay, updateSettings, onViewChange, settings.scale])
 
-  // ── Export PNG ──────────────────────────────────────────────────
+  // ── Export menu (Image PNG / PDF A3) ────────────────────────────
+
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
+  const [exporting, setExporting] = useState<null | 'png' | 'pdf'>(null)
+
+  /**
+   * Capture the Gantt container with html2canvas. Returns a base64 PNG
+   * data URI, or null if the capture failed (e.g. container missing).
+   */
+  const captureGanttImage = useCallback(async (): Promise<string | null> => {
+    if (!containerRef.current) return null
+    const { default: html2canvas } = await import('html2canvas')
+    const canvas = await html2canvas(containerRef.current, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      useCORS: true,
+    })
+    return canvas.toDataURL('image/png')
+  }, [])
 
   const exportPNG = useCallback(async () => {
-    if (!containerRef.current) return
+    setExporting('png')
     try {
-      const { default: html2canvas } = await import('html2canvas')
-      const canvas = await html2canvas(containerRef.current, { backgroundColor: null, scale: 2 })
-      const url = canvas.toDataURL('image/png')
+      const url = await captureGanttImage()
+      if (!url) return
       const a = document.createElement('a')
       a.href = url
       a.download = `gantt-${toISO(new Date())}.png`
       a.click()
     } catch { /* silent */ }
-  }, [])
+    finally {
+      setExporting(null)
+      setExportMenuOpen(false)
+    }
+  }, [captureGanttImage])
+
+  const exportPDF = useCallback(async () => {
+    if (!onExportPdf) return
+    setExporting('pdf')
+    try {
+      const url = await captureGanttImage()
+      if (!url) return
+      await onExportPdf(url)
+    } catch { /* silent */ }
+    finally {
+      setExporting(null)
+      setExportMenuOpen(false)
+    }
+  }, [captureGanttImage, onExportPdf])
 
   // ── Drag-scroll on header AND body (middle-click or click on empty area) ──
 
@@ -662,10 +698,51 @@ export function GanttCore(props: GanttCoreProps) {
             <Maximize className="h-3.5 w-3.5 text-muted-foreground" />
           </button>
 
-          {/* Export PNG */}
-          <button onClick={exportPNG} className="p-1 rounded hover:bg-muted" title="Exporter PNG">
-            <Download className="h-3.5 w-3.5 text-muted-foreground" />
-          </button>
+          {/* Export dropdown (Image PNG / PDF A3) */}
+          <div className="relative">
+            <button
+              onClick={() => setExportMenuOpen((v) => !v)}
+              className="p-1 rounded hover:bg-muted flex items-center gap-0.5"
+              title="Exporter"
+              disabled={exporting !== null}
+            >
+              {exporting ? (
+                <Loader2 className="h-3.5 w-3.5 text-muted-foreground animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
+              <ChevronDown className="h-3 w-3 text-muted-foreground/60" />
+            </button>
+            {exportMenuOpen && (
+              <>
+                {/* Backdrop to close on outside click */}
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setExportMenuOpen(false)}
+                />
+                <div className="absolute right-0 top-full mt-1 z-50 w-44 rounded-md border border-border bg-popover shadow-lg py-1 text-xs">
+                  <button
+                    onClick={exportPNG}
+                    disabled={exporting !== null}
+                    className="w-full px-2.5 py-1.5 flex items-center gap-2 hover:bg-muted text-left"
+                  >
+                    <FileImage className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Image PNG</span>
+                  </button>
+                  {onExportPdf && (
+                    <button
+                      onClick={exportPDF}
+                      disabled={exporting !== null}
+                      className="w-full px-2.5 py-1.5 flex items-center gap-2 hover:bg-muted text-left"
+                    >
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>PDF A3 paysage</span>
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Today button */}
           <button

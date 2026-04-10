@@ -124,7 +124,7 @@ const PLANNER_ACTIVITY_TYPE_VALUES = ['project', 'workover', 'drilling', 'integr
 const PLANNER_PRIORITY_VALUES = ['low', 'medium', 'high', 'critical'] as const
 const PLANNER_CONFLICT_STATUS_VALUES = ['open', 'resolved', 'deferred'] as const
 const PLANNER_RESOLUTION_VALUES = ['approve_both', 'reschedule', 'reduce_pax', 'cancel', 'deferred'] as const
-const PLANNER_DEP_TYPE_VALUES = ['FS', 'SS', 'FF'] as const
+const PLANNER_DEP_TYPE_VALUES = ['FS', 'SS', 'FF', 'SF'] as const
 
 const ACTIVITY_STATUS_LABELS_FALLBACK: Record<string, string> = {
   draft: 'Brouillon',
@@ -206,6 +206,7 @@ const DEP_TYPE_LABELS_FALLBACK: Record<string, string> = {
   FS: 'Fin-Début (FS)',
   SS: 'Début-Début (SS)',
   FF: 'Fin-Fin (FF)',
+  SF: 'Début-Fin (SF)',
 }
 
 const ACTIVITY_TYPE_COLORS: Record<string, string> = {

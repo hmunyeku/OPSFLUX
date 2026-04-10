@@ -781,14 +781,21 @@ export function GanttView({
       let ok = true
       let label = ''
       if (dep.dependency_type === 'FS') {
+        // Finish-to-Start: succ.start >= pred.end + lag
         ok = succStart >= predEnd + lag
         label = `${pred.title} → ${succ.title} (FS+${dep.lag_days}j)`
       } else if (dep.dependency_type === 'SS') {
+        // Start-to-Start: succ.start >= pred.start + lag
         ok = succStart >= predStart + lag
         label = `${pred.title} → ${succ.title} (SS+${dep.lag_days}j)`
       } else if (dep.dependency_type === 'FF') {
+        // Finish-to-Finish: succ.end >= pred.end + lag
         ok = succEnd >= predEnd + lag
         label = `${pred.title} → ${succ.title} (FF+${dep.lag_days}j)`
+      } else if (dep.dependency_type === 'SF') {
+        // Start-to-Finish: succ.end >= pred.start + lag (rare, used in just-in-time)
+        ok = succEnd >= predStart + lag
+        label = `${pred.title} → ${succ.title} (SF+${dep.lag_days}j)`
       }
       if (!ok) violations.push(label)
     }

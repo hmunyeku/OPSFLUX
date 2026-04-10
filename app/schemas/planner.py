@@ -343,7 +343,7 @@ class DependencyRead(PlannerSchema):
 class DependencyCreate(BaseModel):
     predecessor_id: UUID
     successor_id: UUID
-    dependency_type: str = Field(default="FS", pattern=r"^(FS|SS|FF)$")
+    dependency_type: str = Field(default="FS", pattern=r"^(FS|SS|FF|SF)$")
     lag_days: int = 0
 
 

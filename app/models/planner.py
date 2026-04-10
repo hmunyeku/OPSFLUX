@@ -207,13 +207,13 @@ class PlannerConflictActivity(Base):
 # ─── Activity Dependencies ──────────────────────────────────────────────────
 
 class PlannerActivityDependency(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Dependance entre deux activites (FS, SS, FF)."""
+    """Dependance entre deux activites (FS, SS, FF, SF)."""
     __tablename__ = "planner_activity_dependencies"
     __table_args__ = (
         Index("idx_planner_dep_pred", "predecessor_id"),
         Index("idx_planner_dep_succ", "successor_id"),
         CheckConstraint(
-            "dependency_type IN ('FS','SS','FF')",
+            "dependency_type IN ('FS','SS','FF','SF')",
             name="ck_planner_dep_type",
         ),
     )

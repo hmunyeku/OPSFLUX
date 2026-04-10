@@ -2478,7 +2478,7 @@ export interface PlannerDependency {
   id: string
   predecessor_id: string
   successor_id: string
-  dependency_type: 'FS' | 'SS' | 'FF'
+  dependency_type: 'FS' | 'SS' | 'FF' | 'SF'
   lag_days: number
   predecessor_title?: string | null
   successor_title?: string | null

@@ -123,6 +123,7 @@ export function GanttCore(props: GanttCoreProps) {
     showGrid = true,
     minHeight = 400,
     className,
+    extraSettingsContent,
   } = props
 
   // ── Settings state ─────────────────────────────────────────────
@@ -650,6 +651,7 @@ export function GanttCore(props: GanttCoreProps) {
             statuses={statusOptions}
             priorities={priorityOptions}
             columns={rawColumns}
+            extraContent={extraSettingsContent}
           />
         </div>
       )}

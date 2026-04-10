@@ -1,18 +1,14 @@
 /**
- * PlannerCustomizationModal — User-driven customization of the unified
- * Planner Gantt+Heatmap view. Persists into prefs.planner.gantt_view via
- * useUserPreferences (cached in localStorage + synced to DB).
+ * PlannerCustomizationSections — Reusable JSX sections for customizing the
+ * unified Planner Gantt+Heatmap view. Designed to be injected into the
+ * GanttCore settings panel via the `extraSettingsContent` slot, so the user
+ * has a SINGLE settings entry point (the gear button on the Gantt toolbar).
  *
- * Features:
- *  - Pick which hierarchy levels to show (field, site, installation, activity)
- *  - Filter the view to a single field / site / installation
- *  - Toggle the global TOTAL rows (peak saturation, sum PAX)
- *  - Choose what is displayed inside heatmap cells (% saturation, PAX count, none)
- *  - Choose where the activity title is shown on the bar (none / before / after)
+ * Persistence is handled by the parent (PlannerPage) via useUserPreferences.
+ * This component is purely presentational + state-lifted.
  */
-import { useState, useMemo, useEffect, useCallback } from 'react'
-import * as Dialog from '@radix-ui/react-dialog'
-import { X, Layers, Filter, BarChart3, RotateCcw } from 'lucide-react'
+import { useMemo, useCallback } from 'react'
+import { Layers, Filter, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAssetHierarchy } from '@/hooks/useAssetRegistry'
 import type { HierarchyFieldNode } from '@/types/assetRegistry'
@@ -63,30 +59,21 @@ export const DEFAULT_PLANNER_GANTT_VIEW: PlannerGanttViewPrefs = {
 export function validatePlannerGanttPrefs(p: PlannerGanttViewPrefs): PlannerGanttViewPrefs {
   const anyHierarchy = p.show_field_rows || p.show_site_rows || p.show_installation_rows
   const anyTotal = p.show_total_peak || p.show_total_sum
-  // If user disabled all hierarchy AND all totals, force field rows back ON.
   if (!anyHierarchy && !anyTotal) {
     return { ...p, show_field_rows: true }
   }
   return p
 }
 
-// ── Modal ───────────────────────────────────────────────────────
+// ── Sections (host inside any container) ────────────────────────
 
 interface Props {
-  open: boolean
-  onClose: () => void
   prefs: PlannerGanttViewPrefs
   onChange: (prefs: PlannerGanttViewPrefs) => void
 }
 
-export function PlannerCustomizationModal({ open, onClose, prefs, onChange }: Props) {
+export function PlannerCustomizationSections({ prefs, onChange }: Props) {
   const { data: hierarchy = [] } = useAssetHierarchy()
-  const [draft, setDraft] = useState<PlannerGanttViewPrefs>(prefs)
-
-  // Reset draft when reopening
-  useEffect(() => {
-    if (open) setDraft(prefs)
-  }, [open, prefs])
 
   // ── Field/Site/Installation options derived from hierarchy ──
   const fieldOptions = useMemo(
@@ -95,221 +82,120 @@ export function PlannerCustomizationModal({ open, onClose, prefs, onChange }: Pr
   )
 
   const siteOptions = useMemo(() => {
-    const opts: Array<{ id: string; name: string; fieldName: string }> = []
+    const opts: Array<{ id: string; name: string }> = []
     for (const f of hierarchy as HierarchyFieldNode[]) {
-      if (draft.field_filter && f.id !== draft.field_filter) continue
-      for (const s of f.sites) opts.push({ id: s.id, name: s.name, fieldName: f.name })
+      if (prefs.field_filter && f.id !== prefs.field_filter) continue
+      for (const s of f.sites) opts.push({ id: s.id, name: s.name })
     }
     return opts
-  }, [hierarchy, draft.field_filter])
+  }, [hierarchy, prefs.field_filter])
 
   const installationOptions = useMemo(() => {
-    const opts: Array<{ id: string; name: string; siteName: string }> = []
+    const opts: Array<{ id: string; name: string }> = []
     for (const f of hierarchy as HierarchyFieldNode[]) {
-      if (draft.field_filter && f.id !== draft.field_filter) continue
+      if (prefs.field_filter && f.id !== prefs.field_filter) continue
       for (const s of f.sites) {
-        if (draft.site_filter && s.id !== draft.site_filter) continue
-        for (const i of s.installations) opts.push({ id: i.id, name: i.name, siteName: s.name })
+        if (prefs.site_filter && s.id !== prefs.site_filter) continue
+        for (const i of s.installations) opts.push({ id: i.id, name: i.name })
       }
     }
     return opts
-  }, [hierarchy, draft.field_filter, draft.site_filter])
+  }, [hierarchy, prefs.field_filter, prefs.site_filter])
 
-  // When the field changes, clear deeper filters that are no longer compatible
+  const update = useCallback(
+    <K extends keyof PlannerGanttViewPrefs>(key: K, value: PlannerGanttViewPrefs[K]) => {
+      onChange(validatePlannerGanttPrefs({ ...prefs, [key]: value }))
+    },
+    [prefs, onChange],
+  )
+
+  // When the field changes, clear deeper filters
   const setField = useCallback((id: string | null) => {
-    setDraft((d) => ({ ...d, field_filter: id, site_filter: null, installation_filter: null }))
-  }, [])
+    onChange(validatePlannerGanttPrefs({
+      ...prefs,
+      field_filter: id,
+      site_filter: null,
+      installation_filter: null,
+    }))
+  }, [prefs, onChange])
+
   const setSite = useCallback((id: string | null) => {
-    setDraft((d) => ({ ...d, site_filter: id, installation_filter: null }))
-  }, [])
+    onChange(validatePlannerGanttPrefs({
+      ...prefs,
+      site_filter: id,
+      installation_filter: null,
+    }))
+  }, [prefs, onChange])
+
   const setInst = useCallback((id: string | null) => {
-    setDraft((d) => ({ ...d, installation_filter: id }))
-  }, [])
-
-  const updateDraft = <K extends keyof PlannerGanttViewPrefs>(key: K, value: PlannerGanttViewPrefs[K]) => {
-    setDraft((d) => ({ ...d, [key]: value }))
-  }
-
-  const handleApply = () => {
-    onChange(validatePlannerGanttPrefs(draft))
-    onClose()
-  }
-
-  const handleReset = () => {
-    setDraft(DEFAULT_PLANNER_GANTT_VIEW)
-  }
+    onChange(validatePlannerGanttPrefs({ ...prefs, installation_filter: id }))
+  }, [prefs, onChange])
 
   return (
-    <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[var(--z-modal)] bg-black/40 backdrop-blur-sm animate-in fade-in" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[var(--z-modal)] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-card shadow-xl animate-in fade-in slide-in-from-bottom-4 w-[95vw] max-w-2xl max-h-[85vh] flex flex-col">
+    <div className="space-y-4">
 
-          {/* ── Header ── */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-            <div className="flex items-center gap-2">
-              <BarChart3 size={14} className="text-primary" />
-              <Dialog.Title className="text-sm font-semibold">Personnaliser la vue Gantt + Heatmap</Dialog.Title>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleReset}
-                className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-                title="Réinitialiser aux valeurs par défaut"
-              >
-                <RotateCcw size={11} /> Réinitialiser
-              </button>
-              <Dialog.Close asChild>
-                <button className="p-1 rounded hover:bg-accent"><X size={14} /></button>
-              </Dialog.Close>
-            </div>
-          </div>
+      {/* ── Hierarchy levels ── */}
+      <Section icon={Layers} title="Niveaux affichés">
+        <div className="grid grid-cols-2 gap-1.5">
+          <Toggle label="Champs" checked={prefs.show_field_rows} onChange={(v) => update('show_field_rows', v)} />
+          <Toggle label="Sites" checked={prefs.show_site_rows} onChange={(v) => update('show_site_rows', v)} />
+          <Toggle label="Installations" checked={prefs.show_installation_rows} onChange={(v) => update('show_installation_rows', v)} />
+          <Toggle label="Activités" checked={prefs.show_activity_rows} onChange={(v) => update('show_activity_rows', v)} />
+        </div>
+      </Section>
 
-          {/* ── Body ── */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+      {/* ── Total rows ── */}
+      <Section icon={BarChart3} title="Lignes de récapitulatif">
+        <div className="grid grid-cols-1 gap-1.5">
+          <Toggle label="Pic max global (%)" checked={prefs.show_total_peak} onChange={(v) => update('show_total_peak', v)} />
+          <Toggle label="Somme PAX globale" checked={prefs.show_total_sum} onChange={(v) => update('show_total_sum', v)} />
+        </div>
+      </Section>
 
-            {/* ── Hierarchy levels ── */}
-            <Section icon={Layers} title="Niveaux affichés">
-              <p className="text-[11px] text-muted-foreground mb-2">
-                Cochez les niveaux à afficher dans le tableau. Les activités s'attachent automatiquement
-                au niveau parent visible le plus profond. Au moins un niveau parent doit rester actif.
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <Toggle
-                  label="Champs (niveau 0)"
-                  checked={draft.show_field_rows}
-                  onChange={(v) => updateDraft('show_field_rows', v)}
-                />
-                <Toggle
-                  label="Sites (niveau 1)"
-                  checked={draft.show_site_rows}
-                  onChange={(v) => updateDraft('show_site_rows', v)}
-                />
-                <Toggle
-                  label="Installations (niveau 2)"
-                  checked={draft.show_installation_rows}
-                  onChange={(v) => updateDraft('show_installation_rows', v)}
-                />
-                <Toggle
-                  label="Activités (niveau 3)"
-                  checked={draft.show_activity_rows}
-                  onChange={(v) => updateDraft('show_activity_rows', v)}
-                />
-              </div>
-            </Section>
+      {/* ── Scope filters ── */}
+      <Section icon={Filter} title="Périmètre">
+        <div className="space-y-1.5">
+          <Selector
+            label="Champ"
+            value={prefs.field_filter}
+            options={fieldOptions.map((f) => ({ value: f.id, label: f.name }))}
+            onChange={setField}
+          />
+          <Selector
+            label="Site"
+            value={prefs.site_filter}
+            options={siteOptions.map((s) => ({ value: s.id, label: s.name }))}
+            onChange={setSite}
+            disabled={siteOptions.length === 0}
+          />
+          <Selector
+            label="Installation"
+            value={prefs.installation_filter}
+            options={installationOptions.map((i) => ({ value: i.id, label: i.name }))}
+            onChange={setInst}
+            disabled={installationOptions.length === 0}
+          />
+        </div>
+      </Section>
 
-            {/* ── Total rows ── */}
-            <Section icon={BarChart3} title="Lignes de récapitulatif">
-              <p className="text-[11px] text-muted-foreground mb-2">
-                Affiche une ou deux lignes en tête du tableau qui agrègent toutes les installations.
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <Toggle
-                  label="Pic max global (%)"
-                  checked={draft.show_total_peak}
-                  onChange={(v) => updateDraft('show_total_peak', v)}
-                />
-                <Toggle
-                  label="Somme PAX globale"
-                  checked={draft.show_total_sum}
-                  onChange={(v) => updateDraft('show_total_sum', v)}
-                />
-              </div>
-            </Section>
+      {/* ── Heatmap cell text ── */}
+      <Section icon={BarChart3} title="Texte des cellules heatmap">
+        <div className="flex items-center gap-1 flex-wrap">
+          <RadioPill label="Saturation %" active={prefs.heatmap_text_mode === 'percentage'} onClick={() => update('heatmap_text_mode', 'percentage')} />
+          <RadioPill label="PAX" active={prefs.heatmap_text_mode === 'pax_count'} onClick={() => update('heatmap_text_mode', 'pax_count')} />
+          <RadioPill label="Aucun" active={prefs.heatmap_text_mode === 'none'} onClick={() => update('heatmap_text_mode', 'none')} />
+        </div>
+      </Section>
 
-            {/* ── Scope filters ── */}
-            <Section icon={Filter} title="Périmètre">
-              <p className="text-[11px] text-muted-foreground mb-2">
-                Restreindre l'affichage à un champ, un site, ou une installation. Choix en cascade.
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                <Selector
-                  label="Champ"
-                  value={draft.field_filter}
-                  options={fieldOptions.map((f) => ({ value: f.id, label: f.name }))}
-                  onChange={setField}
-                />
-                <Selector
-                  label="Site"
-                  value={draft.site_filter}
-                  options={siteOptions.map((s) => ({ value: s.id, label: s.name }))}
-                  onChange={setSite}
-                  disabled={siteOptions.length === 0}
-                />
-                <Selector
-                  label="Installation"
-                  value={draft.installation_filter}
-                  options={installationOptions.map((i) => ({ value: i.id, label: i.name }))}
-                  onChange={setInst}
-                  disabled={installationOptions.length === 0}
-                />
-              </div>
-            </Section>
-
-            {/* ── Heatmap cell text ── */}
-            <Section icon={BarChart3} title="Texte dans les cellules heatmap">
-              <div className="flex items-center gap-2">
-                <RadioPill
-                  label="Saturation %"
-                  active={draft.heatmap_text_mode === 'percentage'}
-                  onClick={() => updateDraft('heatmap_text_mode', 'percentage')}
-                />
-                <RadioPill
-                  label="Nombre de PAX"
-                  active={draft.heatmap_text_mode === 'pax_count'}
-                  onClick={() => updateDraft('heatmap_text_mode', 'pax_count')}
-                />
-                <RadioPill
-                  label="Aucun"
-                  active={draft.heatmap_text_mode === 'none'}
-                  onClick={() => updateDraft('heatmap_text_mode', 'none')}
-                />
-              </div>
-            </Section>
-
-            {/* ── Bar title ── */}
-            <Section icon={BarChart3} title="Titre des barres d'activité">
-              <p className="text-[11px] text-muted-foreground mb-2">
-                Le titre est déjà affiché dans la colonne TÂCHE à gauche. Vous pouvez aussi l'afficher
-                à côté de la barre dans la zone timeline.
-              </p>
-              <div className="flex items-center gap-2">
-                <RadioPill
-                  label="Aucun"
-                  active={draft.bar_title_position === 'none'}
-                  onClick={() => updateDraft('bar_title_position', 'none')}
-                />
-                <RadioPill
-                  label="Avant la barre"
-                  active={draft.bar_title_position === 'before'}
-                  onClick={() => updateDraft('bar_title_position', 'before')}
-                />
-                <RadioPill
-                  label="Après la barre"
-                  active={draft.bar_title_position === 'after'}
-                  onClick={() => updateDraft('bar_title_position', 'after')}
-                />
-              </div>
-            </Section>
-          </div>
-
-          {/* ── Footer ── */}
-          <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border shrink-0">
-            <Dialog.Close asChild>
-              <button className="px-3 py-1.5 text-xs rounded border border-border hover:bg-muted">
-                Annuler
-              </button>
-            </Dialog.Close>
-            <button
-              onClick={handleApply}
-              className="px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              Appliquer
-            </button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+      {/* ── Bar title ── */}
+      <Section icon={BarChart3} title="Titre des barres">
+        <div className="flex items-center gap-1 flex-wrap">
+          <RadioPill label="Aucun" active={prefs.bar_title_position === 'none'} onClick={() => update('bar_title_position', 'none')} />
+          <RadioPill label="Avant" active={prefs.bar_title_position === 'before'} onClick={() => update('bar_title_position', 'before')} />
+          <RadioPill label="Après" active={prefs.bar_title_position === 'after'} onClick={() => update('bar_title_position', 'after')} />
+        </div>
+      </Section>
+    </div>
   )
 }
 
@@ -318,9 +204,9 @@ export function PlannerCustomizationModal({ open, onClose, prefs, onChange }: Pr
 function Section({ icon: Icon, title, children }: { icon: typeof Layers; title: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="flex items-center gap-2 mb-2">
-        <Icon size={12} className="text-muted-foreground" />
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <Icon size={11} className="text-muted-foreground" />
+        <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</h4>
       </div>
       {children}
     </div>
@@ -334,7 +220,7 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="h-3.5 w-3.5 rounded border-border accent-primary"
+        className="gl-checkbox h-3.5 w-3.5"
       />
       <span>{label}</span>
     </label>
@@ -347,7 +233,7 @@ function RadioPill({ label, active, onClick }: { label: string; active: boolean;
       type="button"
       onClick={onClick}
       className={cn(
-        'px-2.5 py-1 rounded-md border text-[11px] transition-colors',
+        'px-2 py-0.5 rounded border text-[10px] transition-colors',
         active
           ? 'border-primary bg-primary/10 text-primary font-medium'
           : 'border-border text-muted-foreground hover:bg-muted',
@@ -372,13 +258,13 @@ function Selector({
   disabled?: boolean
 }) {
   return (
-    <div>
-      <label className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{label}</label>
+    <div className="flex items-center gap-2">
+      <label className="text-[10px] uppercase tracking-wide text-muted-foreground w-[68px] shrink-0">{label}</label>
       <select
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value || null)}
         disabled={disabled}
-        className="w-full h-7 px-2 text-xs border border-border rounded bg-background disabled:opacity-50"
+        className="flex-1 h-6 px-1.5 text-[11px] border border-border rounded bg-background disabled:opacity-50"
       >
         <option value="">Tous</option>
         {options.map((o) => (
@@ -389,4 +275,4 @@ function Selector({
   )
 }
 
-export default PlannerCustomizationModal
+export default PlannerCustomizationSections

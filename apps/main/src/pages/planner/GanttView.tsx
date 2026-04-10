@@ -18,7 +18,6 @@
  */
 import { useMemo, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Settings2 } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import {
   useGanttData,
@@ -44,7 +43,7 @@ import type {
 import type { GanttActivity, CapacityHeatmapDay, CapacityHeatmapConfig } from '@/types/api'
 import type { HierarchyFieldNode } from '@/types/assetRegistry'
 import {
-  PlannerCustomizationModal,
+  PlannerCustomizationSections,
   DEFAULT_PLANNER_GANTT_VIEW,
   type PlannerGanttViewPrefs,
 } from './PlannerCustomizationModal'
@@ -130,7 +129,6 @@ export function GanttView({
   const { t } = useTranslation()
   const { toast } = useToast()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
-  const [showCustomization, setShowCustomization] = useState(false)
 
   const statusLabels = useMemo<Record<string, string>>(() => ({
     draft: t('planner.gantt.status.draft'),
@@ -533,23 +531,19 @@ export function GanttView({
     openDynamicPanel({ type: 'detail', module: 'planner', id: barId })
   }, [openDynamicPanel])
 
+  // ── Customization sections injected into the GanttCore settings panel ──
+  const customizationSections = useMemo(
+    () => (
+      <PlannerCustomizationSections
+        prefs={viewPrefs}
+        onChange={(p) => onViewPrefsChange?.(p)}
+      />
+    ),
+    [viewPrefs, onViewPrefsChange],
+  )
+
   return (
     <div className="flex-1 min-h-[400px] flex flex-col">
-      {/* ── Toolbar with customization button ── */}
-      <div className="mb-2 flex items-center gap-2">
-        <button
-          onClick={() => setShowCustomization(true)}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border text-xs hover:bg-muted"
-          title="Personnaliser la vue"
-        >
-          <Settings2 size={12} />
-          <span>Personnaliser</span>
-        </button>
-        <span className="text-[11px] text-muted-foreground">
-          {rows.length} ligne{rows.length > 1 ? 's' : ''} · {bars.length} barre{bars.length > 1 ? 's' : ''}
-        </span>
-      </div>
-
       {/* ── Legends (saturation + activity types + validity) ── */}
       <div className="mb-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground px-1">
         <span className="font-semibold uppercase tracking-wide text-[10px]">Saturation</span>
@@ -615,14 +609,7 @@ export function GanttView({
         onToggleRow={toggleRow}
         isLoading={isLoadingGantt}
         emptyMessage={t('planner.gantt.empty_message')}
-      />
-
-      {/* ── Customization modal ── */}
-      <PlannerCustomizationModal
-        open={showCustomization}
-        onClose={() => setShowCustomization(false)}
-        prefs={viewPrefs}
-        onChange={(p) => onViewPrefsChange?.(p)}
+        extraSettingsContent={customizationSections}
       />
     </div>
   )

@@ -5,7 +5,7 @@
  * dependencies, weekends, dates display mode.
  * Filters: status checkboxes, priority checkboxes, assignee search.
  */
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Settings2, X, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { GanttSettings, GanttPreset } from './ganttTypes'
@@ -27,9 +27,11 @@ interface GanttSettingsPanelProps {
   onSavePreset?: (name: string) => void
   onLoadPreset?: (preset: GanttPreset) => void
   onDeletePreset?: (name: string) => void
+  /** Extra sections injected at the bottom of the panel by the host */
+  extraContent?: ReactNode
 }
 
-export function GanttSettingsPanel({ settings, onChange, statuses = [], priorities = [], columns = [], presets = [], onSavePreset, onLoadPreset, onDeletePreset }: GanttSettingsPanelProps) {
+export function GanttSettingsPanel({ settings, onChange, statuses = [], priorities = [], columns = [], presets = [], onSavePreset, onLoadPreset, onDeletePreset, extraContent }: GanttSettingsPanelProps) {
   const [open, setOpen] = useState(false)
 
   if (!open) {
@@ -45,7 +47,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
   }
 
   return (
-    <div className="fixed top-16 right-8 z-[9999] w-[320px] max-h-[500px] overflow-y-auto rounded-lg border bg-card shadow-xl">
+    <div className="fixed top-16 right-8 z-[9999] w-[360px] max-h-[80vh] overflow-y-auto rounded-lg border bg-card shadow-xl">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b sticky top-0 bg-card z-10">
         <span className="text-xs font-semibold">Paramètres Gantt</span>
@@ -244,6 +246,13 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
             </div>
           </section>
         )}
+        {/* ── Host-provided extra sections ─────────────────── */}
+        {extraContent && (
+          <div className="border-t border-border/50 -mx-3 px-3 pt-4">
+            {extraContent}
+          </div>
+        )}
+
         {/* ── Presets ─────────────────────────────────────── */}
         {onSavePreset && (
           <section>

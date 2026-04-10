@@ -281,6 +281,13 @@ export interface GanttCoreProps {
   minHeight?: number | string
   /** Class name for the outer container */
   className?: string
+  /**
+   * Optional extra sections injected at the bottom of the settings panel.
+   * Used by GanttView to add Planner-specific customization (levels, scope
+   * filters, totals, heatmap text mode, bar title position) to the same
+   * settings panel that opens via the toolbar gear button.
+   */
+  extraSettingsContent?: ReactNode
 
   // ── Toolbar actions ──
   /** Show action buttons (add task, milestone, indent) in toolbar */

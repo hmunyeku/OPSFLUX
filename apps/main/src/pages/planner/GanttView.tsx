@@ -125,67 +125,142 @@ function computeActivityProgress(act: GanttActivity): number {
 }
 
 /**
- * Build a YYYY-MM-DD key from a Date using LOCAL time, not UTC.
- * The pax_quota_daily JSONB stores keys as local dates (the user typed them
- * via a date picker), so a UTC toISOString() lookup would shift by 1 day in
- * timezones with negative UTC offset.
+ * Build a YYYY-MM-DD key from a Date in UTC. The pax_quota_daily JSONB
+ * is stored with UTC ISO keys (the create form uses toISOString().slice(0,10))
+ * so we must look up with the same key shape regardless of the user's TZ.
  */
-function localDateKey(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
+function utcDateKey(ts: number): string {
+  const d = new Date(ts)
+  const y = d.getUTCFullYear()
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(d.getUTCDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
 }
+
+/** Parse a YYYY-MM-DD ISO string as UTC midnight ms (no TZ offset drift). */
+function parseISODateUTC(iso: string): number {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
+  return Date.UTC(y, (m ?? 1) - 1, d ?? 1)
+}
+
+const MS_PER_DAY = 86400000
 
 /**
  * Compute one PAX label per timeline cell that the activity overlaps.
  * - Constant POB → the activity's pax_quota for every cell
- * - Variable POB schedule → daily values (in day mode) or rounded daily
- *   average (in week/month/quarter/semester modes). Days with no entry
- *   fall back to pax_quota
- * Display is always integer — the underlying daily values stay exact.
+ * - Variable POB schedule → daily values (in day mode) or per-day average
+ *   in week/month/quarter/semester modes. Days with no entry fall back to
+ *   pax_quota.
+ * All date arithmetic is done in UTC so a non-UTC user TZ never shifts the
+ * lookup key by ±1 day.
  */
 function buildBarCellLabels(
   act: GanttActivity,
   cells: ReturnType<typeof buildCells>,
 ): Array<{ cellIdx: number; label: string }> {
   if (!act.start_date || !act.end_date) return []
-  const actStart = new Date(act.start_date.slice(0, 10)).getTime()
-  const actEnd = new Date(act.end_date.slice(0, 10)).getTime() + 86399999
+  const actStartUTC = parseISODateUTC(act.start_date)
+  const actEndUTC = parseISODateUTC(act.end_date) + MS_PER_DAY - 1
   const constantQuota = act.pax_quota ?? 0
   const isVariable = act.pax_quota_mode === 'variable'
   const dailyMap = act.pax_quota_daily || {}
   const result: Array<{ cellIdx: number; label: string }> = []
 
   cells.forEach((cell, idx) => {
-    const cellStart = cell.startDate.getTime()
-    const cellEnd = cell.endDate.getTime() + 86399999
-    if (cellEnd < actStart || cellStart > actEnd) return
+    // Re-anchor cell range to UTC midnight using its calendar date
+    const cellStartUTC = Date.UTC(
+      cell.startDate.getFullYear(),
+      cell.startDate.getMonth(),
+      cell.startDate.getDate(),
+    )
+    const cellEndUTC = Date.UTC(
+      cell.endDate.getFullYear(),
+      cell.endDate.getMonth(),
+      cell.endDate.getDate(),
+    ) + MS_PER_DAY - 1
 
-    const fromTs = Math.max(cellStart, actStart)
-    const toTs = Math.min(cellEnd, actEnd)
+    if (cellEndUTC < actStartUTC || cellStartUTC > actEndUTC) return
+
+    const fromTs = Math.max(cellStartUTC, actStartUTC)
+    const toTs = Math.min(cellEndUTC, actEndUTC)
     let sum = 0
     let count = 0
-    const cur = new Date(fromTs)
-    cur.setHours(0, 0, 0, 0)
-    while (cur.getTime() <= toTs) {
-      const iso = localDateKey(cur)
+    let curUTC = Math.floor(fromTs / MS_PER_DAY) * MS_PER_DAY
+    while (curUTC <= toTs) {
+      const iso = utcDateKey(curUTC)
       const v = isVariable
         ? (typeof dailyMap[iso] === 'number' ? dailyMap[iso] : constantQuota)
         : constantQuota
       sum += v
       count++
-      cur.setDate(cur.getDate() + 1)
+      curUTC += MS_PER_DAY
       if (count > 10000) break
     }
     if (count === 0) return
-    // Round to nearest integer for display — the actual daily values remain
-    // unchanged in the database. Decimals on a PAX count are confusing.
-    const avg = Math.round(sum / count)
-    result.push({ cellIdx: idx, label: String(avg) })
+    const avg = sum / count
+    // count===1 → exact day value. >1 → mean across bucket (decimal allowed).
+    let label: string
+    if (count === 1 || Number.isInteger(avg)) {
+      label = String(avg)
+    } else {
+      label = avg.toFixed(1)
+    }
+    result.push({ cellIdx: idx, label })
   })
 
   return result
+}
+
+/**
+ * Sum activity PAX (forecast) for a set of installation IDs over a cell range.
+ * Used for the parent heatmap rows so 'EBOME' shows the actual PAX sum from
+ * its child activities, including draft/submitted ones (which the backend
+ * capacity-heatmap endpoint doesn't include because it only counts validated).
+ */
+function sumActivityPaxForCell(
+  contributingAssetIds: string[],
+  cellStartUTC: number,
+  cellEndUTC: number,
+  activitiesByAsset: Map<string, GanttActivity[]>,
+): { totalPax: number; peakPax: number; daysCovered: number } {
+  let totalPax = 0
+  let peakPax = 0
+  let daysCovered = 0
+
+  for (const aid of contributingAssetIds) {
+    const acts = activitiesByAsset.get(aid)
+    if (!acts) continue
+    for (const act of acts) {
+      if (!act.start_date || !act.end_date) continue
+      const aStart = parseISODateUTC(act.start_date)
+      const aEnd = parseISODateUTC(act.end_date) + MS_PER_DAY - 1
+      // Overlap of [aStart, aEnd] ∩ [cellStartUTC, cellEndUTC]
+      const overlapFrom = Math.max(aStart, cellStartUTC)
+      const overlapTo = Math.min(aEnd, cellEndUTC)
+      if (overlapTo < overlapFrom) continue
+
+      const constantQuota = act.pax_quota ?? 0
+      const isVariable = act.pax_quota_mode === 'variable'
+      const dailyMap = act.pax_quota_daily || {}
+
+      let cur = Math.floor(overlapFrom / MS_PER_DAY) * MS_PER_DAY
+      let dayPaxMaxInOverlap = 0
+      let safety = 0
+      while (cur <= overlapTo) {
+        const iso = utcDateKey(cur)
+        const v = isVariable
+          ? (typeof dailyMap[iso] === 'number' ? dailyMap[iso] : constantQuota)
+          : constantQuota
+        totalPax += v
+        if (v > dayPaxMaxInOverlap) dayPaxMaxInOverlap = v
+        daysCovered++
+        cur += MS_PER_DAY
+        if (++safety > 10000) break
+      }
+      if (dayPaxMaxInOverlap > peakPax) peakPax = dayPaxMaxInOverlap
+    }
+  }
+  return { totalPax, peakPax, daysCovered }
 }
 
 // ── Component ───────────────────────────────────────────────────
@@ -317,68 +392,92 @@ export function GanttView({
 
     /**
      * Aggregate heatmap cells for a set of contributing installation asset IDs.
-     * Mode 'peak' uses MAX saturation; 'sum' uses TOTAL forecast PAX (no %).
+     * - PAX values are computed from the FRONTEND ganttData (sum of activity
+     *   pax for the cell range) so they always reflect the latest local edits
+     *   AND include draft/submitted activities, unlike the backend heatmap
+     *   endpoint which only counts validated activities.
+     * - Capacity comes from heatmapData.days when available (set per-installation
+     *   in admin settings) and is used to compute the saturation %.
+     * - Mode 'peak' uses MAX per-day pax → saturation based on peak / capacity.
+     * - Mode 'sum'  uses SUM of all daily pax over the cell → density indicator.
      */
     function buildHeatmapCells(
       contributingAssetIds: string[],
       aggregation: 'peak' | 'sum' = 'peak',
     ): GanttHeatmapCell[] {
       const result: GanttHeatmapCell[] = []
+
       cells.forEach((cell, idx) => {
-        const cellStart = cell.startDate.getTime()
-        const cellEnd = cell.endDate.getTime() + 86399999
-        let maxSat = 0
-        let totalForecast = 0
-        let totalReal = 0
+        const cellStartUTC = Date.UTC(
+          cell.startDate.getFullYear(),
+          cell.startDate.getMonth(),
+          cell.startDate.getDate(),
+        )
+        const cellEndUTC = Date.UTC(
+          cell.endDate.getFullYear(),
+          cell.endDate.getMonth(),
+          cell.endDate.getDate(),
+        ) + MS_PER_DAY - 1
+
+        // ── Frontend computation: sum of activity PAX in this cell ──
+        const { totalPax, peakPax, daysCovered } = sumActivityPaxForCell(
+          contributingAssetIds,
+          cellStartUTC,
+          cellEndUTC,
+          activitiesByAsset,
+        )
+
+        // ── Capacity comes from the backend heatmap data when available ──
         let totalCap = 0
-        let count = 0
+        let totalReal = 0
+        let backendDayCount = 0
         for (const aid of contributingAssetIds) {
           const inner = daysByAsset.get(aid)
           if (!inner) continue
           for (const [ts, day] of inner) {
-            if (ts >= cellStart && ts <= cellEnd) {
-              if (day.saturation_pct > maxSat) maxSat = day.saturation_pct
-              totalForecast += day.forecast_pax
-              totalReal += day.real_pob
+            if (ts >= cellStartUTC && ts <= cellEndUTC) {
               totalCap += day.capacity_limit
-              count++
+              totalReal += day.real_pob
+              backendDayCount++
             }
           }
         }
-        if (count === 0) return
 
-        // Compute the value used for color + label depending on text mode + aggregation
+        // No data at all (no activities AND no capacity) → skip the cell
+        if (daysCovered === 0 && backendDayCount === 0) return
+
+        // Compute saturation %: peak/capacity for 'peak' mode, sum/capacity for 'sum'.
+        // Per-installation capacity (capacity_limit) is per-day, so sum mode needs
+        // a per-day comparison: peakSat = max(daily_pax / daily_cap).
+        // We approximate using (peakPax / avg_daily_capacity) = peakPax * dayCount / totalCap.
+        const avgDailyCap = backendDayCount > 0 ? totalCap / backendDayCount : 0
+        const peakSat = avgDailyCap > 0 ? Math.round((peakPax / avgDailyCap) * 100) : 0
+        const sumSat = totalCap > 0 ? Math.round((totalPax / totalCap) * 100) : 0
+
         let value: number
         let label: string
+        let color: string
+        let tooltipHTML: string
+
         if (aggregation === 'sum') {
-          // For sum-mode total row, color is based on overall saturation if cap > 0
-          const sumSat = totalCap > 0 ? Math.round((totalForecast / totalCap) * 100) : 0
-          value = totalForecast
-          if (viewPrefs.heatmap_text_mode === 'pax_count') label = `${totalForecast}`
+          value = totalPax
+          color = colorForSaturation(sumSat, cfg)
+          if (viewPrefs.heatmap_text_mode === 'pax_count') label = `${totalPax}`
           else if (viewPrefs.heatmap_text_mode === 'percentage') label = `${sumSat}%`
           else label = ''
-          result.push({
-            cellIdx: idx,
-            color: colorForSaturation(sumSat, cfg),
-            value,
-            label,
-            tooltipHTML: `Σ prév. ${totalForecast} · cap ${totalCap} · sat ${sumSat}%`,
-          })
+          tooltipHTML = `Σ prév. ${totalPax} · cap ${totalCap} · sat ${sumSat}%`
         } else {
-          const sat = Math.round(maxSat)
-          value = sat
-          if (viewPrefs.heatmap_text_mode === 'percentage') label = `${sat}%`
-          else if (viewPrefs.heatmap_text_mode === 'pax_count') label = `${totalForecast}`
+          value = peakPax
+          color = colorForSaturation(peakSat, cfg)
+          if (viewPrefs.heatmap_text_mode === 'percentage') label = `${peakSat}%`
+          else if (viewPrefs.heatmap_text_mode === 'pax_count') label = `${peakPax}`
           else label = ''
-          result.push({
-            cellIdx: idx,
-            color: colorForSaturation(sat, cfg),
-            value,
-            label,
-            tooltipHTML: `Pic ${sat}% · prév. ${totalForecast} · pob ${totalReal} · cap ${totalCap}`,
-          })
+          tooltipHTML = `Pic ${peakPax} PAX (${peakSat}%) · prév. tot. ${totalPax} · pob réel ${totalReal} · cap moy ${Math.round(avgDailyCap)}`
         }
+
+        result.push({ cellIdx: idx, color, value, label, tooltipHTML })
       })
+
       return result
     }
 

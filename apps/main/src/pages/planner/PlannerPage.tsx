@@ -2586,6 +2586,107 @@ export function PlannerPage() {
 
 // ── Activity Detail Panel ──────────────────────────────────────
 
+// ── Inline-editable dependency row ─────────────────────────────────
+
+interface DependencyRowProps {
+  dep: PlannerDependency
+  currentActivityId: string
+  dependencyTypeOptions: { value: string; label: string }[]
+  onDelete: (depId: string) => void
+  onUpdate: (depId: string, payload: { dependency_type: string; lag_days: number }) => void
+  isPending?: boolean
+}
+
+function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete, onUpdate, isPending }: DependencyRowProps) {
+  const [editing, setEditing] = useState(false)
+  const [draftType, setDraftType] = useState<string>(dep.dependency_type)
+  const [draftLag, setDraftLag] = useState(dep.lag_days)
+
+  const startEdit = () => {
+    setDraftType(dep.dependency_type)
+    setDraftLag(dep.lag_days)
+    setEditing(true)
+  }
+
+  const save = () => {
+    if (draftType !== dep.dependency_type || draftLag !== dep.lag_days) {
+      onUpdate(dep.id, { dependency_type: draftType, lag_days: draftLag })
+    }
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 py-1.5 px-2 rounded border border-primary/50 bg-primary/5 text-xs">
+        <Link2 size={11} className="text-primary shrink-0" />
+        <span className="text-muted-foreground truncate flex-1">
+          {dep.predecessor_id === currentActivityId ? `Successeur` : `Prédécesseur`}
+        </span>
+        <select
+          value={draftType}
+          onChange={(e) => setDraftType(e.target.value)}
+          className="h-6 px-1 text-[11px] border border-border rounded bg-background"
+          disabled={isPending}
+        >
+          {dependencyTypeOptions.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <input
+          type="number"
+          value={draftLag}
+          onChange={(e) => setDraftLag(parseInt(e.target.value) || 0)}
+          className="w-14 h-6 px-1 text-[11px] border border-border rounded bg-background tabular-nums"
+          placeholder="Délai"
+          disabled={isPending}
+        />
+        <span className="text-[10px] text-muted-foreground">j</span>
+        <button
+          onClick={save}
+          disabled={isPending}
+          className="px-1.5 py-0.5 text-[10px] rounded bg-primary text-primary-foreground"
+        >
+          OK
+        </button>
+        <button
+          onClick={() => setEditing(false)}
+          disabled={isPending}
+          className="px-1.5 py-0.5 text-[10px] rounded border border-border"
+        >
+          Annuler
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2 py-1.5 px-2 rounded border border-border/50 text-xs hover:bg-muted/30 transition-colors">
+      <Link2 size={11} className="text-muted-foreground shrink-0" />
+      <span className="text-muted-foreground truncate flex-1">
+        {dep.predecessor_id === currentActivityId ? `Successeur: ${dep.successor_id.slice(0, 8)}…` : `Prédécesseur: ${dep.predecessor_id.slice(0, 8)}…`}
+      </span>
+      <span className="gl-badge gl-badge-neutral text-[10px]">{dep.dependency_type}</span>
+      {dep.lag_days !== 0 && (
+        <span className="text-muted-foreground text-[10px] tabular-nums">{dep.lag_days > 0 ? '+' : ''}{dep.lag_days}j</span>
+      )}
+      <button
+        onClick={startEdit}
+        className="p-0.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
+        title="Modifier"
+      >
+        <Pencil size={11} />
+      </button>
+      <button
+        onClick={() => onDelete(dep.id)}
+        className="p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+        title="Supprimer"
+      >
+        <XCircle size={11} />
+      </button>
+    </div>
+  )
+}
+
 function ActivityDetailPanel({ id }: { id: string }) {
   const { toast } = useToast()
   const promptInput = usePromptInput()
@@ -2784,6 +2885,40 @@ function ActivityDetailPanel({ id }: { id: string }) {
       },
     )
   }, [id, removeDependency, toast])
+
+  /**
+   * Inline-edit a dependency = remove + re-add. The backend has no PATCH
+   * endpoint for dependencies; this two-step approach keeps the UI simple.
+   * The optimistic remove handler in useRemoveDependency makes the swap feel
+   * instant.
+   */
+  const handleUpdateDep = useCallback((depId: string, payload: { dependency_type: string; lag_days: number }) => {
+    const target = (dependencies ?? []).find((d) => d.id === depId)
+    if (!target) return
+    removeDependency.mutate(
+      { activityId: id, dependencyId: depId },
+      {
+        onSuccess: () => {
+          addDependency.mutate(
+            {
+              activityId: id,
+              payload: {
+                predecessor_id: target.predecessor_id,
+                successor_id: target.successor_id,
+                dependency_type: payload.dependency_type,
+                lag_days: payload.lag_days,
+              },
+            },
+            {
+              onSuccess: () => toast({ title: 'Dependance modifiee', variant: 'success' }),
+              onError: () => toast({ title: 'Erreur lors de la modification', variant: 'error' }),
+            },
+          )
+        },
+        onError: () => toast({ title: 'Erreur lors de la modification', variant: 'error' }),
+      },
+    )
+  }, [id, dependencies, removeDependency, addDependency, toast])
 
   const handleSetRecurrence = useCallback(() => {
     setRecurrence.mutate(
@@ -3238,23 +3373,15 @@ function ActivityDetailPanel({ id }: { id: string }) {
               {dependencies && dependencies.length > 0 ? (
                 <div className="space-y-1.5">
                   {dependencies.map((dep: PlannerDependency) => (
-                    <div key={dep.id} className="flex items-center gap-2 py-1.5 px-2 rounded border border-border/50 text-xs">
-                      <Link2 size={11} className="text-muted-foreground shrink-0" />
-                      <span className="text-muted-foreground truncate flex-1">
-                        {dep.predecessor_id === id ? `Successeur: ${dep.successor_id}` : `Predecesseur: ${dep.predecessor_id}`}
-                      </span>
-                      <span className="gl-badge gl-badge-neutral text-[10px]">{dep.dependency_type}</span>
-                      {dep.lag_days !== 0 && (
-                        <span className="text-muted-foreground text-[10px]">+{dep.lag_days}j</span>
-                      )}
-                      <button
-                        onClick={() => handleRemoveDep(dep.id)}
-                        className="p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                        title="Supprimer"
-                      >
-                        <XCircle size={11} />
-                      </button>
-                    </div>
+                    <DependencyRow
+                      key={dep.id}
+                      dep={dep}
+                      currentActivityId={id}
+                      dependencyTypeOptions={dependencyTypeOptions}
+                      onDelete={handleRemoveDep}
+                      onUpdate={handleUpdateDep}
+                      isPending={removeDependency.isPending || addDependency.isPending}
+                    />
                   ))}
                 </div>
               ) : (

@@ -2878,6 +2878,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   const canCompleteAds = ads.status === 'in_progress' && hasPermission('paxlog.ads.approve')
   const canDownloadPdf = ['approved', 'in_progress', 'completed'].includes(ads.status)
   const canGenerateLink = ['approved', 'in_progress'].includes(ads.status)
+  const hasAllowedCompaniesForExternalLink = (allowedCompaniesDraft?.length ?? 0) > 0
   const stayProgramsEnabled = ['approved', 'in_progress'].includes(ads.status)
   const canManageStayPrograms = stayProgramsEnabled && hasPermission('paxlog.stay.create')
   const canApproveStayPrograms = stayProgramsEnabled && hasPermission('paxlog.stay.approve')
@@ -3070,6 +3071,13 @@ function AdsDetailPanel({ id }: { id: string }) {
   }
 
   const handleGenerateLink = (recipient?: { user_id: string | null; contact_id: string | null }) => {
+    if (!hasAllowedCompaniesForExternalLink) {
+      toast({
+        title: "Ajoutez au moins une entreprise autorisee avant de generer un lien externe.",
+        variant: 'error',
+      })
+      return
+    }
     if (!recipient?.user_id && !recipient?.contact_id) {
       toast({
         title: t('paxlog.ads_detail.external_link.no_recipient'),
@@ -3108,6 +3116,13 @@ function AdsDetailPanel({ id }: { id: string }) {
   }
 
   const openExternalLinkFlow = () => {
+    if (!hasAllowedCompaniesForExternalLink) {
+      toast({
+        title: "Ajoutez au moins une entreprise autorisee dans l'AdS avant de generer un lien externe.",
+        variant: 'error',
+      })
+      return
+    }
     if (eligibleExternalRecipients.length === 0) {
       toast({
         title: t('paxlog.ads_detail.external_link.no_recipient'),
@@ -3189,9 +3204,16 @@ function AdsDetailPanel({ id }: { id: string }) {
       actions={
         <div className="flex items-center gap-1">
           {canGenerateLink && (
-            <PanelActionButton variant="default" disabled={createExtLink.isPending} onClick={openExternalLinkFlow}>
-              {createExtLink.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />} {t('paxlog.ads_detail.actions.external_link')}
-            </PanelActionButton>
+            <>
+              <PanelActionButton variant="default" disabled={createExtLink.isPending || !hasAllowedCompaniesForExternalLink} onClick={openExternalLinkFlow}>
+                {createExtLink.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />} {t('paxlog.ads_detail.actions.external_link')}
+              </PanelActionButton>
+              {!hasAllowedCompaniesForExternalLink && (
+                <span className="text-[11px] text-amber-600">
+                  Ajoutez une entreprise autorisee pour activer le portail externe.
+                </span>
+              )}
+            </>
           )}
           {canDownloadPdf && (
             <PanelActionButton variant="default" disabled={downloadPdf.isPending} onClick={() => downloadPdf.mutate(id)}>

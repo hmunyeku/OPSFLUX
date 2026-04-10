@@ -39,6 +39,7 @@ import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer
 import { GanttView } from './GanttView'
 import { buildCells, buildHeaderGroups, getDefaultDateRange } from '@/components/shared/gantt/ganttEngine'
 import type { TimeScale } from '@/components/shared/gantt/ganttEngine'
+import { CapacityHeatmap } from '@/components/shared/CapacityHeatmap'
 import { TagManager } from '@/components/shared/TagManager'
 import { NoteManager } from '@/components/shared/NoteManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
@@ -2411,6 +2412,57 @@ function ForecastTab() {
   )
 }
 
+// ── Compact heatmap shown above the Gantt — uses real ECharts CapacityHeatmap ──
+
+function GanttHeatmapHeader({
+  startDate,
+  endDate,
+}: {
+  startDate: string
+  endDate: string
+}) {
+  const { data, isLoading } = useCapacityHeatmap(startDate, endDate)
+  const days = data?.days ?? []
+  const config = data?.config
+
+  // Asset count drives height (one row ≈ 24px) — clamped 200..380
+  const assetCount = useMemo(() => {
+    const seen = new Set<string>()
+    for (const d of days) seen.add(d.asset_id)
+    return seen.size
+  }, [days])
+  const height = Math.max(200, Math.min(380, 80 + assetCount * 26))
+
+  return (
+    <div className="border border-border rounded-md bg-card">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Charge & capacité
+          </span>
+          {assetCount > 0 && (
+            <span className="text-[10px] text-muted-foreground tabular-nums">
+              · {assetCount} installation{assetCount > 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        <span className="text-[10px] text-muted-foreground tabular-nums">
+          {startDate} → {endDate}
+        </span>
+      </div>
+      <div className="p-2">
+        <CapacityHeatmap
+          days={days}
+          config={config}
+          isLoading={isLoading}
+          height={height}
+          emptyMessage="Aucune donnée de saturation sur cette période"
+        />
+      </div>
+    </div>
+  )
+}
+
 export function PlannerPage() {
   const [activeTab, setActiveTab] = useState<PlannerTab>('gantt')
   const [sharedTimelineScale, setSharedTimelineScale] = useState<TimeScale>('month')
@@ -2475,23 +2527,21 @@ export function PlannerPage() {
           </div>
 
           {activeTab === 'gantt' && (
-            <div className="flex flex-col gap-4">
-              {/* Heatmap above Gantt — spec §2.7 */}
-              <CapacityTab
-                timelineScale={sharedTimelineScale}
-                timelineStartDate={sharedTimelineRange.start}
-                timelineEndDate={sharedTimelineRange.end}
-                onTimelineScaleChange={handleTimelineScaleChange}
-                onTimelineRangeChange={handleTimelineRangeChange}
-                compact={true}
-              />
-              {/* Gantt below — synchronized timeline */}
-              <GanttView
-                scale={sharedTimelineScale}
-                startDate={sharedTimelineRange.start}
-                endDate={sharedTimelineRange.end}
-                onViewChange={handleGanttViewChange}
-              />
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="flex flex-col gap-4 p-3">
+                {/* Real heatmap above Gantt — ECharts based, spec §2.7 */}
+                <GanttHeatmapHeader
+                  startDate={sharedTimelineRange.start}
+                  endDate={sharedTimelineRange.end}
+                />
+                {/* Gantt below — synchronized timeline */}
+                <GanttView
+                  scale={sharedTimelineScale}
+                  startDate={sharedTimelineRange.start}
+                  endDate={sharedTimelineRange.end}
+                  onViewChange={handleGanttViewChange}
+                />
+              </div>
             </div>
           )}
           {activeTab === 'activities' && <ActivitiesTab />}

@@ -143,6 +143,19 @@ export function useCreateProjectTask() {
   })
 }
 
+/**
+ * Invalidate every Planner view that might depend on a project task change.
+ * The backend's update_project_task automatically syncs linked planner
+ * activities (title, description, dates) via _sync_linked_planner_activities_for_project_task.
+ * Without this invalidation, the planner Gantt + heatmap stay stale until
+ * the user navigates away and back.
+ */
+function invalidatePlannerViewsFromTask(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['planner', 'activities'] })
+  qc.invalidateQueries({ queryKey: ['planner', 'gantt'] })
+  qc.invalidateQueries({ queryKey: ['planner', 'capacity-heatmap'] })
+}
+
 export function useUpdateProjectTask() {
   const qc = useQueryClient()
   return useMutation({
@@ -150,6 +163,7 @@ export function useUpdateProjectTask() {
       projetsService.updateTask(projectId, taskId, payload),
     onSuccess: (_, { projectId }) => {
       qc.invalidateQueries({ queryKey: ['project-tasks', projectId] })
+      invalidatePlannerViewsFromTask(qc)
     },
   })
 }
@@ -162,6 +176,7 @@ export function useDeleteProjectTask() {
     onSuccess: (_, { projectId }) => {
       qc.invalidateQueries({ queryKey: ['project-tasks', projectId] })
       qc.invalidateQueries({ queryKey: ['projects'] })
+      invalidatePlannerViewsFromTask(qc)
     },
   })
 }
@@ -173,6 +188,7 @@ export function useReorderProjectTasks() {
       projetsService.reorderTasks(projectId, items),
     onSuccess: (_, { projectId }) => {
       qc.invalidateQueries({ queryKey: ['project-tasks', projectId] })
+      invalidatePlannerViewsFromTask(qc)
     },
   })
 }

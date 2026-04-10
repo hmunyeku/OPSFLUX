@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_current_entity
 from app.core.ai_config import get_ai_config
+from app.core.audit import record_audit
 from app.core.rbac import get_user_permissions
 from app.core.database import get_db
 from app.mcp.mcp_native import NativeToolContext, get_or_create_backend
@@ -59,7 +60,6 @@ SAFE_ASSISTANT_ROUTE_PREFIXES = (
     "/dashboard",
     "/users",
     "/projets",
-    "/projects",
     "/paxlog",
     "/planner",
     "/tiers",
@@ -71,6 +71,13 @@ SAFE_ASSISTANT_ROUTE_PREFIXES = (
     "/assets",
     "/imputations",
 )
+
+CANONICAL_ASSISTANT_ROUTE_ALIASES: dict[str, str] = {
+    "/projects": "/projets",
+    "/report-editor": "/papyrus",
+    "/assets-legacy": "/assets",
+    "/comptes": "/users",
+}
 
 
 # ── Schemas ──────────────────────────────────────────────────────
@@ -113,7 +120,8 @@ Utilisateur connecté: {user_name} ({user_email})
 Module actuel: {current_module}
 
 Règles:
-- Réponds en français sauf si l'utilisateur écrit en anglais.
+- Réponds dans la même langue que la question de l'utilisateur.
+- Si la question mélange plusieurs langues, utilise la langue dominante de la demande.
 - Sois concis, direct et précis.
 - N'utilise pas d'introduction inutile comme "Parfait", "Bien sûr" ou "Voici".
 - Si tu ne connais pas la réponse, dis-le clairement.
@@ -123,6 +131,8 @@ Règles:
 - Si une action demandée dépasse ses droits, dis-le explicitement.
 - Quand une navigation UI aiderait, propose au maximum 3 actions cliquables en fin de réponse.
 - Format des actions cliquables: [[action:go:/route|Libellé bouton]]
+- Pour demander une confirmation explicite avant une écriture, utilise: [[action:confirm-write|Confirmer l'action]]
+- Utilise les routes canoniques OpsFlux. Exemples: /projets et non /projects, /papyrus et non /report-editor, /assets et non /assets-legacy, /users et non /comptes.
 - N'affiche jamais d'action inventée ou impossible.
 """
 
@@ -158,6 +168,8 @@ Style de réponse attendu:
 - si l'utilisateur n'a pas les droits suffisants, indique-le clairement
 - si tu proposes une navigation concrète dans l'application, termine par 1 à 3 actions cliquables
 - format obligatoire des actions: [[action:go:/route|Libellé bouton]]
+- pour une confirmation explicite d'écriture, utilise uniquement: [[action:confirm-write|Confirmer l'action]]
+- privilégie toujours les routes canoniques OpsFlux, par exemple /projets, /papyrus, /assets, /users
 - n'utilise ce format que pour de vraies routes OpsFlux
 """
 
@@ -203,6 +215,7 @@ def _sanitize_action_tokens(text: str) -> str:
     def _replace(match: re.Match[str]) -> str:
         target = match.group(1).strip()
         label = match.group(2).strip()
+        target = CANONICAL_ASSISTANT_ROUTE_ALIASES.get(target, target)
         if not target.startswith("/"):
             return ""
         if not any(target == prefix or target.startswith(prefix + "/") for prefix in SAFE_ASSISTANT_ROUTE_PREFIXES):
@@ -212,7 +225,13 @@ def _sanitize_action_tokens(text: str) -> str:
             return ""
         return f"[[action:go:{target}|{safe_label}]]"
 
-    return re.sub(r"\[\[action:go:([^|\]]+)\|([^\]]+)\]\]", _replace, text)
+    sanitized = re.sub(r"\[\[action:go:([^|\]]+)\|([^\]]+)\]\]", _replace, text)
+    sanitized = re.sub(
+        r"\[\[action:confirm-write\|([^\]]+)\]\]",
+        lambda match: f"[[action:confirm-write|{re.sub(r'[\r\n\[\]\|]+', ' ', match.group(1)).strip()[:60] or 'Confirmer l action'}]]",
+        sanitized,
+    )
+    return sanitized
 
 
 def _compact_history(messages: list[ChatMessage], limit: int = 8) -> list[dict]:
@@ -269,6 +288,29 @@ def _has_explicit_write_intent(question: str) -> bool:
     return any(marker in q for marker in markers)
 
 
+def _has_explicit_write_confirmation(question: str) -> bool:
+    q = question.lower()
+    markers = (
+        "je confirme",
+        "confirme",
+        "oui fais-le",
+        "oui fais le",
+        "vas-y",
+        "go",
+        "execute",
+        "exécute",
+        "applique",
+        "tu peux le faire",
+        "fais-le maintenant",
+        "fais le maintenant",
+    )
+    return any(marker in q for marker in markers)
+
+
+def _is_write_tool(tool_name: str) -> bool:
+    return tool_name in SAFE_OPSFLUX_WRITE_TOOL_ALLOWLIST
+
+
 def _allowed_tools_for_question(question: str) -> set[str]:
     allowed = set(SAFE_OPSFLUX_TOOL_ALLOWLIST)
     if _has_explicit_write_intent(question):
@@ -317,13 +359,18 @@ async def _run_opsflux_tool_if_needed(
     request: Request,
     db: AsyncSession,
     body: ChatRequest,
-) -> str | None:
+) -> dict:
     import litellm
 
+    result: dict = {
+        "tool_output": None,
+        "executed_tool": None,
+        "blocked_write_tool": None,
+    }
     context = await _build_tool_context(current_user=current_user, entity_id=entity_id, request=request, db=db)
     candidates = await _select_candidate_tools(context, body.messages[-1].content)
     if not candidates:
-        return None
+        return result
 
     _, llm_kwargs = _normalize_model_config(ai_cfg)
     planner_messages = [
@@ -343,16 +390,57 @@ async def _run_opsflux_tool_if_needed(
     )
     plan = _extract_json_object(response.choices[0].message.content or "")
     if not plan or not plan.get("use_tool") or not plan.get("tool_name"):
-        return None
+        return result
     tool_name = str(plan["tool_name"])
     allowed_tools = _allowed_tools_for_question(body.messages[-1].content)
     if tool_name not in allowed_tools:
         logger.warning("AI chat rejected non-whitelisted MCP tool: %s", tool_name)
-        return None
+        await record_audit(
+            db,
+            action="ai.assistant.tool_rejected",
+            resource_type="ai_assistant",
+            resource_id=body.context_module or "global",
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details={
+                "tool_name": tool_name,
+                "reason": "not_whitelisted",
+                "question_preview": body.messages[-1].content[:300],
+            },
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+        return result
 
     backend = await get_or_create_backend("opsflux", {})
     if backend is None:
-        return None
+        return result
+
+    if _is_write_tool(tool_name) and not _has_explicit_write_confirmation(body.messages[-1].content):
+        logger.info(
+            "AI chat blocked MCP write tool pending confirmation user=%s entity=%s tool=%s",
+            current_user.id,
+            entity_id,
+            tool_name,
+        )
+        await record_audit(
+            db,
+            action="ai.assistant.write_blocked",
+            resource_type="ai_assistant",
+            resource_id=body.context_module or "global",
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details={
+                "tool_name": tool_name,
+                "reason": "missing_confirmation",
+                "question_preview": body.messages[-1].content[:300],
+                "arguments": plan.get("arguments") if isinstance(plan.get("arguments"), dict) else {},
+            },
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+        result["blocked_write_tool"] = tool_name
+        return result
 
     try:
         logger.info(
@@ -361,6 +449,22 @@ async def _run_opsflux_tool_if_needed(
             entity_id,
             tool_name,
         )
+        await record_audit(
+            db,
+            action="ai.assistant.tool_call",
+            resource_type="ai_assistant",
+            resource_id=body.context_module or "global",
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details={
+                "tool_name": tool_name,
+                "write_tool": _is_write_tool(tool_name),
+                "question_preview": body.messages[-1].content[:300],
+                "arguments": plan.get("arguments") if isinstance(plan.get("arguments"), dict) else {},
+            },
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
         tool_result = await backend.execute_tool(
             tool_name,
             plan.get("arguments") if isinstance(plan.get("arguments"), dict) else {},
@@ -368,10 +472,27 @@ async def _run_opsflux_tool_if_needed(
         )
         content = tool_result.get("content", [])
         if content and isinstance(content, list) and isinstance(content[0], dict):
-            return str(content[0].get("text", ""))[:12000]
+            result["tool_output"] = str(content[0].get("text", ""))[:12000]
+            result["executed_tool"] = tool_name
+            return result
     except Exception:
         logger.exception("AI chat tool execution failed")
-    return None
+        await record_audit(
+            db,
+            action="ai.assistant.tool_failed",
+            resource_type="ai_assistant",
+            resource_id=body.context_module or "global",
+            user_id=current_user.id,
+            entity_id=entity_id,
+            details={
+                "tool_name": tool_name,
+                "write_tool": _is_write_tool(tool_name),
+                "question_preview": body.messages[-1].content[:300],
+            },
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    return result
 
 
 async def _generate_chat_response(
@@ -393,7 +514,7 @@ async def _generate_chat_response(
 
     provider, llm_kwargs = _normalize_model_config(ai_cfg)
     system_prompt = build_system_prompt(current_user, body.context_module)
-    live_tool_context = await _run_opsflux_tool_if_needed(
+    tool_result = await _run_opsflux_tool_if_needed(
         ai_cfg=ai_cfg,
         current_user=current_user,
         entity_id=entity_id,
@@ -401,6 +522,8 @@ async def _generate_chat_response(
         db=db,
         body=body,
     )
+    live_tool_context = tool_result.get("tool_output")
+    blocked_write_tool = tool_result.get("blocked_write_tool")
 
     messages: list[dict] = [
         {"role": "system", "content": system_prompt},
@@ -410,6 +533,16 @@ async def _generate_chat_response(
         messages.append({
             "role": "system",
             "content": f"Contexte live MCP OpsFlux disponible:\n{live_tool_context}",
+        })
+    if blocked_write_tool:
+        messages.append({
+            "role": "system",
+            "content": (
+                "Un outil MCP d'écriture pertinent a été identifié mais son exécution a été bloquée "
+                f"faute de confirmation explicite de l'utilisateur. Outil bloqué: {blocked_write_tool}. "
+                "N'affirme pas que l'action a été faite. Explique brièvement ce qui peut être fait et "
+                "demande une confirmation explicite avant exécution. Termine par [[action:confirm-write|Confirmer l'action]] si pertinent."
+            ),
         })
     messages.extend(_compact_history(body.messages))
 
@@ -423,7 +556,7 @@ async def _generate_chat_response(
         current_user.id,
         entity_id,
         body.context_module or "",
-        bool(live_tool_context),
+        bool(tool_result.get("executed_tool")),
     )
     return text, str(llm_kwargs["model"])
 

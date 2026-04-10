@@ -1215,6 +1215,7 @@ async def seed_reference_numbering(db: AsyncSession, entity_id) -> None:
         # Conformité
         ("AUD", "{prefix}-{YYYY}-{####}"),
         ("NCR", "{prefix}-{YYYY}-{####}"),
+        ("JBP", "{prefix}-{YYYY}-{####}"),
         # Documents
         ("DOC", "{entity_code}-{prefix}-{YYYY}-{####}"),
         # Tiers (companies)

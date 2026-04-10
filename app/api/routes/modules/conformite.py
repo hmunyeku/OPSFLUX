@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import check_verified_lock, get_current_entity, get_current_user, require_module_enabled, require_permission
 from app.core.database import get_db
+from app.core.references import generate_reference
 from app.services.core.delete_service import delete_entity, get_delete_policy
 from app.services.modules import compliance_service
 from app.core.events import emit_event
@@ -1052,7 +1053,9 @@ async def create_job_position(
     _: None = require_permission("conformite.jobposition.create"),
     db: AsyncSession = Depends(get_db),
 ):
-    jp = JobPosition(entity_id=entity_id, **body.model_dump())
+    payload = body.model_dump()
+    payload["code"] = (payload.get("code") or "").strip() or await generate_reference("JBP", db, entity_id=entity_id)
+    jp = JobPosition(entity_id=entity_id, **payload)
     db.add(jp)
     await db.commit()
     await db.refresh(jp)

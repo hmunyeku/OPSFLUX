@@ -83,8 +83,8 @@ interface Notification {
 }
 
 interface AssistantActionToken {
-  type: 'go'
-  target: string
+  type: 'go' | 'confirm-write'
+  target?: string
   label: string
 }
 
@@ -92,7 +92,6 @@ const SAFE_ASSISTANT_ROUTE_PREFIXES = [
   '/dashboard',
   '/users',
   '/projets',
-  '/projects',
   '/paxlog',
   '/planner',
   '/tiers',
@@ -105,6 +104,13 @@ const SAFE_ASSISTANT_ROUTE_PREFIXES = [
   '/imputations',
 ] as const
 
+const CANONICAL_ASSISTANT_ROUTE_ALIASES: Record<string, string> = {
+  '/projects': '/projets',
+  '/report-editor': '/papyrus',
+  '/assets-legacy': '/assets',
+  '/comptes': '/users',
+}
+
 function isSafeAssistantRoute(target: string): boolean {
   if (!target.startsWith('/')) return false
   return SAFE_ASSISTANT_ROUTE_PREFIXES.some(prefix => target === prefix || target.startsWith(`${prefix}/`))
@@ -112,11 +118,19 @@ function isSafeAssistantRoute(target: string): boolean {
 
 function parseAssistantActions(content: string): { text: string; actions: AssistantActionToken[] } {
   const actions: AssistantActionToken[] = []
-  const text = content.replace(/\[\[action:go:([^|\]]+)\|([^\]]+)\]\]/g, (_match, target, label) => {
-    const safeTarget = String(target).trim()
+  let text = content.replace(/\[\[action:go:([^|\]]+)\|([^\]]+)\]\]/g, (_match, target, label) => {
+    const rawTarget = String(target).trim()
+    const safeTarget = CANONICAL_ASSISTANT_ROUTE_ALIASES[rawTarget] || rawTarget
     const safeLabel = String(label).replace(/[\r\n[\]|]+/g, ' ').trim()
     if (isSafeAssistantRoute(safeTarget) && safeLabel) {
       actions.push({ type: 'go', target: safeTarget, label: safeLabel })
+    }
+    return ''
+  })
+  text = text.replace(/\[\[action:confirm-write\|([^\]]+)\]\]/g, (_match, label) => {
+    const safeLabel = String(label).replace(/[\r\n[\]|]+/g, ' ').trim()
+    if (safeLabel) {
+      actions.push({ type: 'confirm-write', label: safeLabel })
     }
     return ''
   }).trim()
@@ -777,11 +791,22 @@ function ChatTab({ currentModule }: { currentModule: string }) {
     setStreamingText('')
   }, [])
 
+  const confirmLastWriteIntent = useCallback(async () => {
+    if (streaming) return
+    const lastUserMessage = [...messages].reverse().find(msg => msg.role === 'user')
+    if (!lastUserMessage) return
+    setInput(`${lastUserMessage.content}\n\nJe confirme. Exécute l'action demandée si mes permissions le permettent.`)
+  }, [messages, streaming])
+
   const runAssistantAction = useCallback((action: AssistantActionToken) => {
     if (action.type === 'go' && action.target) {
       navigate(action.target)
+      return
     }
-  }, [navigate])
+    if (action.type === 'confirm-write') {
+      void confirmLastWriteIntent()
+    }
+  }, [confirmLastWriteIntent, navigate])
 
   return (
     <>
@@ -834,7 +859,7 @@ function ChatTab({ currentModule }: { currentModule: string }) {
                           onClick={() => runAssistantAction(action)}
                           className="gl-button-sm gl-button-secondary inline-flex items-center gap-1"
                         >
-                          <ArrowRight size={12} />
+                          {action.type === 'confirm-write' ? <CheckCircle2 size={12} /> : <ArrowRight size={12} />}
                           {action.label}
                         </button>
                       ))}

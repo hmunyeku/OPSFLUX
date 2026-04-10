@@ -1587,7 +1587,7 @@ class JobPositionRead(OpsFluxSchema):
 
 
 class JobPositionCreate(BaseModel):
-    code: str = Field(..., min_length=1, max_length=50)
+    code: str | None = Field(None, min_length=1, max_length=50)
     name: str = Field(..., min_length=1, max_length=200)
     description: str | None = None
     department: str | None = None

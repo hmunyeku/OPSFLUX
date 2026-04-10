@@ -127,6 +127,7 @@ const PREFIX_CATEGORIES: PrefixCategory[] = [
     prefixes: [
       { prefix: 'TRS', label: 'Tiers' },
       { prefix: 'DOC', label: 'Documents' },
+      { prefix: 'JBP', label: 'Fiches de poste' },
     ],
   },
   {

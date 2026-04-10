@@ -101,6 +101,56 @@ function colorForSaturation(pct: number, cfg: CapacityHeatmapConfig): string {
   return cfg.color_low
 }
 
+/**
+ * Compute one PAX label per timeline cell that the activity overlaps.
+ * - Constant POB → the activity's pax_quota for every cell
+ * - Variable POB schedule → average of pax_quota_daily values for the days
+ *   in the cell that fall within the activity range; if a day has no entry
+ *   we fall back to pax_quota
+ * Returns labels rounded for readability.
+ */
+function buildBarCellLabels(
+  act: GanttActivity,
+  cells: ReturnType<typeof buildCells>,
+): Array<{ cellIdx: number; label: string }> {
+  if (!act.start_date || !act.end_date) return []
+  const actStart = new Date(act.start_date.slice(0, 10)).getTime()
+  const actEnd = new Date(act.end_date.slice(0, 10)).getTime() + 86399999
+  const constantQuota = act.pax_quota ?? 0
+  const isVariable = act.pax_quota_mode === 'variable'
+  const dailyMap = act.pax_quota_daily || {}
+  const result: Array<{ cellIdx: number; label: string }> = []
+
+  cells.forEach((cell, idx) => {
+    const cellStart = cell.startDate.getTime()
+    const cellEnd = cell.endDate.getTime() + 86399999
+    if (cellEnd < actStart || cellStart > actEnd) return
+
+    const fromTs = Math.max(cellStart, actStart)
+    const toTs = Math.min(cellEnd, actEnd)
+    let sum = 0
+    let count = 0
+    const cur = new Date(fromTs)
+    cur.setHours(0, 0, 0, 0)
+    while (cur.getTime() <= toTs) {
+      const iso = cur.toISOString().slice(0, 10)
+      const v = isVariable
+        ? (typeof dailyMap[iso] === 'number' ? dailyMap[iso] : constantQuota)
+        : constantQuota
+      sum += v
+      count++
+      cur.setDate(cur.getDate() + 1)
+      if (count > 10000) break
+    }
+    if (count === 0) return
+    const avg = sum / count
+    const label = Number.isInteger(avg) ? String(avg) : avg.toFixed(1)
+    result.push({ cellIdx: idx, label })
+  })
+
+  return result
+}
+
 // ── Component ───────────────────────────────────────────────────
 
 interface GanttViewProps {

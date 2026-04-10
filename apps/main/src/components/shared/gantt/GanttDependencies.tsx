@@ -23,6 +23,8 @@ interface BarPosition {
 interface GanttDependenciesProps {
   dependencies: GanttDependencyData[]
   barPositions: Map<string, BarPosition>
+  /** Map from bar id → bar title, used to label the hover tooltip. */
+  barTitles?: Map<string, string>
   /** Absolute top (in px) of each row in the body. */
   rowOffsets: number[]
   /** Height of each row in px. */
@@ -37,6 +39,41 @@ interface GanttDependenciesProps {
   onEdit?: (fromId: string, toId: string, type: 'FS' | 'SS' | 'FF' | 'SF') => void
 }
 
+/**
+ * Build a short French sentence describing the dependency, e.g.
+ *   "« Tâche B » commence après la fin de « Tâche A » (+2 jours)"
+ */
+function describeDep(
+  type: 'FS' | 'SS' | 'FF' | 'SF',
+  pred: string,
+  succ: string,
+  lagDays: number | undefined,
+): string {
+  const lag = lagDays ?? 0
+  const lagStr = lag === 0
+    ? ''
+    : lag > 0
+      ? ` avec ${lag} jour${lag > 1 ? 's' : ''} de décalage`
+      : ` (${Math.abs(lag)} jour${Math.abs(lag) > 1 ? 's' : ''} avant)`
+  switch (type) {
+    case 'FS':
+      return `« ${succ} » commence après la fin de « ${pred} »${lagStr}`
+    case 'SS':
+      return `« ${succ} » commence en même temps que « ${pred} »${lagStr}`
+    case 'FF':
+      return `« ${succ} » finit en même temps que « ${pred} »${lagStr}`
+    case 'SF':
+      return `« ${succ} » finit quand « ${pred} » commence${lagStr}`
+  }
+}
+
+const DEP_TYPE_LABELS: Record<'FS' | 'SS' | 'FF' | 'SF', string> = {
+  FS: 'Finish → Start',
+  SS: 'Start → Start',
+  FF: 'Finish → Finish',
+  SF: 'Start → Finish',
+}
+
 const ELBOW = 12 // px offset away from the bar edge before turning
 
 /** Stable key for a dependency (used to track the selected one). */
@@ -45,10 +82,11 @@ function depKey(d: GanttDependencyData): string {
 }
 
 export function GanttDependencies({
-  dependencies, barPositions, rowOffsets, rowHeights, barHeight, totalWidth, totalHeight,
+  dependencies, barPositions, barTitles, rowOffsets, rowHeights, barHeight, totalWidth, totalHeight,
   onDelete, onEdit,
 }: GanttDependenciesProps) {
   const [selected, setSelected] = useState<string | null>(null)
+  const [hovered, setHovered] = useState<{ key: string; x: number; y: number } | null>(null)
 
   // Deselect when the set of deps changes (a deleted dep's key may disappear)
   useEffect(() => {
@@ -99,6 +137,7 @@ export function GanttDependencies({
   }
 
   return (
+    <>
     <svg
       className="absolute inset-0 pointer-events-none z-10"
       width={totalWidth}
@@ -226,7 +265,7 @@ export function GanttDependencies({
               opacity={opacity}
               style={{ pointerEvents: 'none' }}
             />
-            {/* Wide invisible hit-area for easier selection */}
+            {/* Wide invisible hit-area for easier selection + hover tooltip */}
             <path
               d={d}
               fill="none"
@@ -239,6 +278,9 @@ export function GanttDependencies({
                 // Prevent the gantt body drag-scroll from kicking in
                 e.stopPropagation()
               }}
+              onMouseEnter={(e) => setHovered({ key, x: e.clientX, y: e.clientY })}
+              onMouseMove={(e) => setHovered({ key, x: e.clientX, y: e.clientY })}
+              onMouseLeave={() => setHovered((h) => (h?.key === key ? null : h))}
               onClick={(e) => {
                 e.stopPropagation()
                 setSelected(isSelected ? null : key)
@@ -252,5 +294,39 @@ export function GanttDependencies({
         )
       })}
     </svg>
+    {hovered && (() => {
+      const dep = dependencies.find((d) => depKey(d) === hovered.key)
+      if (!dep) return null
+      const predTitle = barTitles?.get(dep.fromId) ?? '—'
+      const succTitle = barTitles?.get(dep.toId) ?? '—'
+      const sentence = describeDep(dep.type, predTitle, succTitle, dep.lag)
+      // Tooltip follows cursor with a small offset, clamped to viewport
+      const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
+      const left = Math.min(hovered.x + 14, vw - 320)
+      const top = hovered.y + 14
+      return (
+        <div
+          className="fixed z-[1000] pointer-events-none rounded-md border border-border bg-popover text-popover-foreground shadow-xl px-3 py-2 text-[11px] max-w-[300px]"
+          style={{ left, top }}
+        >
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
+            <span className="font-semibold text-[10px] uppercase tracking-wide text-muted-foreground">
+              {DEP_TYPE_LABELS[dep.type]}
+              {dep.lag != null && dep.lag !== 0 && (
+                <span className="ml-1 text-foreground/80">
+                  ({dep.lag > 0 ? '+' : ''}{dep.lag}j)
+                </span>
+              )}
+            </span>
+          </div>
+          <div className="leading-snug">{sentence}</div>
+          <div className="mt-1.5 pt-1.5 border-t border-border/60 text-[9px] text-muted-foreground">
+            Clic pour sélectionner · Double-clic pour modifier · Suppr. pour effacer
+          </div>
+        </div>
+      )
+    })()}
+  </>
   )
 }

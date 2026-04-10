@@ -56,6 +56,7 @@ import { ActivityPicker } from '@/components/shared/ActivityPicker'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { DateRangePicker } from '@/components/shared/DateRangePicker'
 import { useToast } from '@/components/ui/Toast'
+import { plannerService } from '@/services/plannerService'
 import { useConfirm, usePromptInput } from '@/components/ui/ConfirmDialog'
 import { useAssetHierarchy } from '@/hooks/useAssetRegistry'
 import {
@@ -126,6 +127,19 @@ const PLANNER_PRIORITY_VALUES = ['low', 'medium', 'high', 'critical'] as const
 const PLANNER_CONFLICT_STATUS_VALUES = ['open', 'resolved', 'deferred'] as const
 const PLANNER_RESOLUTION_VALUES = ['approve_both', 'reschedule', 'reduce_pax', 'cancel', 'deferred'] as const
 const PLANNER_DEP_TYPE_VALUES = ['FS', 'SS', 'FF', 'SF'] as const
+
+/** Extract a human error message from an axios error (FastAPI detail). */
+function extractApiError(err: unknown): string | undefined {
+  if (!err || typeof err !== 'object') return undefined
+  const e = err as { response?: { data?: { detail?: unknown } }; message?: string }
+  const detail = e.response?.data?.detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail) && detail.length > 0) {
+    // Pydantic validation errors
+    return detail.map((d) => (typeof d === 'object' && d && 'msg' in d ? (d as { msg: string }).msg : String(d))).join(' · ')
+  }
+  return e.message
+}
 
 const ACTIVITY_STATUS_LABELS_FALLBACK: Record<string, string> = {
   draft: 'Brouillon',
@@ -642,6 +656,7 @@ function ActivitiesTab() {
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const confirmDialog = useConfirm()
   const promptInput = usePromptInput()
+  const { toast } = useToast()
   const deleteActivity = useDeleteActivity()
   const submitActivity = useSubmitActivity()
   const validateActivity = useValidateActivity()
@@ -765,7 +780,14 @@ function ActivitiesTab() {
             {s === 'draft' && (
               <button
                 className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
-                onClick={(e) => handleAction(e, () => submitActivity.mutate(row.original.id))}
+                onClick={(e) => handleAction(e, () => submitActivity.mutate(row.original.id, {
+                  onSuccess: () => toast({ title: 'Activité soumise', variant: 'success' }),
+                  onError: (err) => toast({
+                    title: 'Soumission refusée',
+                    description: extractApiError(err),
+                    variant: 'error',
+                  }),
+                }))}
                 title="Soumettre"
               >
                 <Send size={12} />
@@ -775,7 +797,14 @@ function ActivitiesTab() {
               <>
                 <button
                   className="p-1 rounded hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-600"
-                  onClick={(e) => handleAction(e, () => validateActivity.mutate(row.original.id))}
+                  onClick={(e) => handleAction(e, () => validateActivity.mutate(row.original.id, {
+                    onSuccess: () => toast({ title: 'Activité validée', variant: 'success' }),
+                    onError: (err) => toast({
+                      title: 'Validation refusée',
+                      description: extractApiError(err),
+                      variant: 'error',
+                    }),
+                  }))}
                   title="Valider"
                 >
                   <CheckCircle2 size={12} />
@@ -784,7 +813,14 @@ function ActivitiesTab() {
                   className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
                   onClick={(e) => handleAction(e, async () => {
                     const reason = await promptInput({ title: 'Rejeter l\'activité', placeholder: 'Motif du rejet...' })
-                    if (reason !== null) rejectActivity.mutate({ id: row.original.id, reason })
+                    if (reason !== null) rejectActivity.mutate({ id: row.original.id, reason }, {
+                      onSuccess: () => toast({ title: 'Activité rejetée', variant: 'success' }),
+                      onError: (err) => toast({
+                        title: 'Rejet refusé',
+                        description: extractApiError(err),
+                        variant: 'error',
+                      }),
+                    })
                   })}
                   title="Rejeter"
                 >
@@ -820,7 +856,7 @@ function ActivitiesTab() {
         )
       },
     },
-  ], [activityStatusLabels, activityTypeLabels, canDelete, cancelActivity, deleteActivity, handleAction, priorityLabels, rejectActivity, submitActivity, validateActivity])
+  ], [activityStatusLabels, activityTypeLabels, canDelete, cancelActivity, deleteActivity, handleAction, priorityLabels, rejectActivity, submitActivity, validateActivity, toast, confirmDialog, promptInput])
 
   return (
     <>
@@ -2796,6 +2832,7 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
 function ActivityDetailPanel({ id }: { id: string }) {
   const { toast } = useToast()
   const promptInput = usePromptInput()
+  const confirm = useConfirm()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { data: activity, isLoading } = useActivity(id)
   const updateActivity = useUpdateActivity()
@@ -2928,15 +2965,23 @@ function ActivityDetailPanel({ id }: { id: string }) {
 
   const handleSubmit = useCallback(() => {
     submitActivity.mutate(id, {
-      onSuccess: () => toast({ title: 'Activite soumise', variant: 'success' }),
-      onError: () => toast({ title: 'Erreur lors de la soumission', variant: 'error' }),
+      onSuccess: () => toast({ title: 'Activité soumise', variant: 'success' }),
+      onError: (err) => toast({
+        title: 'Soumission refusée',
+        description: extractApiError(err),
+        variant: 'error',
+      }),
     })
   }, [id, submitActivity, toast])
 
   const handleValidate = useCallback(() => {
     validateActivity.mutate(id, {
-      onSuccess: () => toast({ title: 'Activite validee', variant: 'success' }),
-      onError: () => toast({ title: 'Erreur lors de la validation', variant: 'error' }),
+      onSuccess: () => toast({ title: 'Activité validée', variant: 'success' }),
+      onError: (err) => toast({
+        title: 'Validation refusée',
+        description: extractApiError(err),
+        variant: 'error',
+      }),
     })
   }, [id, validateActivity, toast])
 
@@ -2946,8 +2991,12 @@ function ActivityDetailPanel({ id }: { id: string }) {
     rejectActivity.mutate(
       { id, reason },
       {
-        onSuccess: () => toast({ title: 'Activite rejetee', variant: 'success' }),
-        onError: () => toast({ title: 'Erreur lors du rejet', variant: 'error' }),
+        onSuccess: () => toast({ title: 'Activité rejetée', variant: 'success' }),
+        onError: (err) => toast({
+          title: 'Rejet refusé',
+          description: extractApiError(err),
+          variant: 'error',
+        }),
       },
     )
   }, [id, rejectActivity, toast])
@@ -2959,28 +3008,94 @@ function ActivityDetailPanel({ id }: { id: string }) {
     })
   }, [id, cancelActivity, toast])
 
-  const handleAddDep = useCallback(() => {
+  const handleAddDep = useCallback(async () => {
     if (!depForm.predecessor_id.trim()) return
-    addDependency.mutate(
-      {
+    const predId = depForm.predecessor_id.trim()
+    const depType = depForm.dependency_type
+    const lagDays = depForm.lag_days ?? 0
+
+    try {
+      // Step 1: create the dependency record
+      await addDependency.mutateAsync({
         activityId: id,
         payload: {
-          predecessor_id: depForm.predecessor_id.trim(),
+          predecessor_id: predId,
           successor_id: id,
-          dependency_type: depForm.dependency_type,
-          lag_days: depForm.lag_days,
+          dependency_type: depType,
+          lag_days: lagDays,
         },
-      },
-      {
-        onSuccess: () => {
-          toast({ title: 'Dependance ajoutee', variant: 'success' })
-          setDepForm({ predecessor_id: '', dependency_type: 'FS', lag_days: 0 })
-          setShowDepAdd(false)
-        },
-        onError: () => toast({ title: "Erreur lors de l'ajout de la dependance", variant: 'error' }),
-      },
-    )
-  }, [id, depForm, addDependency, toast])
+      })
+      toast({ title: 'Dépendance ajoutée', variant: 'success' })
+
+      // Step 2: check if the new constraint is violated by the current dates
+      // of this activity (the successor). If so, compute the minimum shift
+      // and offer to apply it.
+      if (activity?.start_date && activity?.end_date) {
+        try {
+          const pred = await plannerService.getActivity(predId)
+          if (pred?.start_date && pred?.end_date) {
+            const MS = 86400000
+            const lagMs = lagDays * MS
+            const succStart = new Date(activity.start_date).getTime()
+            const succEnd = new Date(activity.end_date).getTime()
+            const predStart = new Date(pred.start_date).getTime()
+            const predEnd = new Date(pred.end_date).getTime()
+
+            // Minimum start / end required by the new constraint
+            let minStart = succStart
+            let minEnd = succEnd
+            switch (depType) {
+              case 'FS': minStart = predEnd + lagMs; break
+              case 'SS': minStart = predStart + lagMs; break
+              case 'FF': minEnd = predEnd + lagMs; break
+              case 'SF': minEnd = predStart + lagMs; break
+            }
+            const deltaStart = Math.max(0, minStart - succStart)
+            const deltaEnd = Math.max(0, minEnd - succEnd)
+            const delta = Math.max(deltaStart, deltaEnd)
+
+            if (delta > 0) {
+              const deltaDays = Math.ceil(delta / MS)
+              const proceed = await confirm({
+                title: 'Contrainte non respectée',
+                message:
+                  `La contrainte ${depType}${lagDays !== 0 ? ` (lag ${lagDays > 0 ? '+' : ''}${lagDays}j)` : ''} ` +
+                  `exige que « ${activity.title} » soit décalée de ${deltaDays} jour${deltaDays > 1 ? 's' : ''} ` +
+                  `par rapport à « ${pred.title} ».\n\n` +
+                  `Voulez-vous appliquer ce décalage automatiquement ?`,
+                confirmLabel: 'Décaler',
+                cancelLabel: 'Ignorer',
+                variant: 'warning',
+              })
+              if (proceed) {
+                const newStart = new Date(succStart + delta).toISOString().slice(0, 10)
+                const newEnd = new Date(succEnd + delta).toISOString().slice(0, 10)
+                await plannerService.updateActivity(id, {
+                  start_date: newStart,
+                  end_date: newEnd,
+                })
+                toast({
+                  title: `Tâche décalée de ${deltaDays} jour${deltaDays > 1 ? 's' : ''}`,
+                  variant: 'success',
+                })
+              }
+            }
+          }
+        } catch {
+          // Predecessor fetch failed — don't block the user, the dep is still added
+        }
+      }
+
+      setDepForm({ predecessor_id: '', dependency_type: 'FS', lag_days: 0 })
+      setShowDepAdd(false)
+    } catch (err) {
+      toast({
+        title: "Ajout refusé",
+        description: extractApiError(err),
+        variant: 'error',
+      })
+    }
+  }, [id, depForm, addDependency, toast, activity, confirm])
 
   const handleRemoveDep = useCallback((depId: string) => {
     removeDependency.mutate(

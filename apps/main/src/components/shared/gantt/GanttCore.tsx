@@ -270,6 +270,13 @@ export function GanttCore(props: GanttCoreProps) {
     return map
   }, [rows, bars, viewStart, effectivePPD, totalDays])
 
+  // Bar id → title map (used by the dependency-arrow hover tooltip)
+  const barTitlesMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const b of bars) map.set(b.id, b.title || b.id.slice(0, 8))
+    return map
+  }, [bars])
+
   // Today position
   const todayISO = toISO(new Date())
   const todayPx = useMemo(() => {
@@ -1236,6 +1243,7 @@ export function GanttCore(props: GanttCoreProps) {
                 <GanttDependencies
                   dependencies={dependencies}
                   barPositions={barPositions}
+                  barTitles={barTitlesMap}
                   rowOffsets={rowOffsets}
                   rowHeights={rowHeights}
                   barHeight={settings.barHeight}

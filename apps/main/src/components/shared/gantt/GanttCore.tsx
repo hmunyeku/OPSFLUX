@@ -21,7 +21,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronRight as ChevronCollapsed,
   Loader2, ZoomIn, ZoomOut, Maximize, Download,
-  FileImage, FileText,
+  FileImage, FileText, Calendar,
   Plus, Diamond, IndentIncrease, IndentDecrease, Trash2,
   Undo2, Redo2,
 } from 'lucide-react'
@@ -436,6 +436,103 @@ export function GanttCore(props: GanttCoreProps) {
 
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const [exporting, setExporting] = useState<null | 'png' | 'pdf'>(null)
+  const [rangeMenuOpen, setRangeMenuOpen] = useState(false)
+
+  /**
+   * Apply a smart range preset. Snaps the view to a human-friendly span
+   * (today, this week, this month, ...) and notifies the parent via
+   * onViewChange so the cells / labels stay in sync.
+   */
+  const applyRangePreset = useCallback((preset: string) => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = now.getMonth()
+    const d = now.getDate()
+    let s: Date
+    let e: Date
+    let targetScale: TimeScale = settings.scale
+
+    switch (preset) {
+      case 'today':
+        s = new Date(y, m, d)
+        e = new Date(y, m, d)
+        targetScale = 'day'
+        break
+      case 'this_week': {
+        const day = now.getDay()
+        const monOffset = (day + 6) % 7
+        s = new Date(y, m, d - monOffset)
+        e = new Date(y, m, d - monOffset + 6)
+        targetScale = 'day'
+        break
+      }
+      case 'this_month':
+        s = new Date(y, m, 1)
+        e = new Date(y, m + 1, 0)
+        targetScale = 'day'
+        break
+      case 'next_month':
+        s = new Date(y, m + 1, 1)
+        e = new Date(y, m + 2, 0)
+        targetScale = 'day'
+        break
+      case 'this_quarter': {
+        const q = Math.floor(m / 3)
+        s = new Date(y, q * 3, 1)
+        e = new Date(y, q * 3 + 3, 0)
+        targetScale = 'week'
+        break
+      }
+      case 'this_semester': {
+        const sem = m < 6 ? 0 : 1
+        s = new Date(y, sem * 6, 1)
+        e = new Date(y, sem * 6 + 6, 0)
+        targetScale = 'week'
+        break
+      }
+      case 'this_year':
+        s = new Date(y, 0, 1)
+        e = new Date(y, 12, 0)
+        targetScale = 'month'
+        break
+      case 'next_12_months':
+        s = new Date(y, m, 1)
+        e = new Date(y, m + 12, 0)
+        targetScale = 'month'
+        break
+      case 'last_12_months':
+        s = new Date(y, m - 11, 1)
+        e = new Date(y, m + 1, 0)
+        targetScale = 'month'
+        break
+      case 'next_3_years':
+        s = new Date(y, m, 1)
+        e = new Date(y + 3, m, 0)
+        targetScale = 'quarter'
+        break
+      default:
+        return
+    }
+    const sIso = toISO(s)
+    const eIso = toISO(e)
+    setViewStart(sIso)
+    setViewEnd(eIso)
+    if (targetScale !== settings.scale) {
+      updateSettings({ scale: targetScale })
+    }
+    onViewChange?.(targetScale, sIso, eIso)
+    setRangeMenuOpen(false)
+  }, [settings.scale, updateSettings, onViewChange])
+
+  /** Apply a custom (user-entered) date range. */
+  const applyCustomRange = useCallback((start: string, end: string) => {
+    if (!start || !end) return
+    if (new Date(end).getTime() < new Date(start).getTime()) return
+    setViewStart(start)
+    setViewEnd(end)
+    onViewChange?.(settings.scale, start, end)
+    setRangeMenuOpen(false)
+  }, [settings.scale, onViewChange])
 
   /**
    * Capture the Gantt container with html2canvas. Returns a base64 PNG
@@ -686,12 +783,98 @@ export function GanttCore(props: GanttCoreProps) {
             </button>
           </div>
 
-          {/* Date range display */}
-          <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
-            {new Date(viewStart).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
-            {' — '}
-            {new Date(viewEnd).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
-          </span>
+          {/* Date range picker — compact button + dropdown with smart presets */}
+          <div className="relative ml-auto">
+            <button
+              type="button"
+              onClick={() => setRangeMenuOpen((v) => !v)}
+              className="flex items-center gap-1 text-[11px] text-foreground/80 tabular-nums px-1.5 py-0.5 rounded hover:bg-muted border border-transparent hover:border-border"
+              title="Changer la période"
+            >
+              <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
+              <span className="whitespace-nowrap">
+                {new Date(viewStart).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                {' → '}
+                {new Date(viewEnd).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })}
+              </span>
+              <ChevronDown className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+            </button>
+            {rangeMenuOpen && (
+              <>
+                {/* Backdrop */}
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setRangeMenuOpen(false)}
+                />
+                <div className="absolute right-0 top-full mt-1 z-50 w-64 rounded-md border border-border bg-popover shadow-lg py-1 text-xs">
+                  <div className="px-2 py-1 text-[9px] uppercase tracking-wide text-muted-foreground font-semibold">
+                    Périodes rapides
+                  </div>
+                  {[
+                    { key: 'today',          label: "Aujourd'hui" },
+                    { key: 'this_week',      label: 'Cette semaine' },
+                    { key: 'this_month',     label: 'Ce mois-ci' },
+                    { key: 'next_month',     label: 'Mois prochain' },
+                    { key: 'this_quarter',   label: 'Ce trimestre' },
+                    { key: 'this_semester',  label: 'Ce semestre' },
+                    { key: 'this_year',      label: 'Cette année' },
+                    { key: 'last_12_months', label: '12 derniers mois' },
+                    { key: 'next_12_months', label: '12 prochains mois' },
+                    { key: 'next_3_years',   label: '3 prochaines années' },
+                  ].map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => applyRangePreset(p.key)}
+                      className="w-full px-2.5 py-1 text-left hover:bg-muted"
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                  <div className="px-2 py-1 mt-1 text-[9px] uppercase tracking-wide text-muted-foreground font-semibold border-t border-border/50">
+                    Personnalisé
+                  </div>
+                  <div className="px-2 py-1.5 flex items-center gap-1.5">
+                    <input
+                      type="date"
+                      defaultValue={viewStart}
+                      onChange={(e) => {
+                        const el = e.currentTarget
+                        el.dataset.value = el.value
+                      }}
+                      className="flex-1 h-6 px-1 text-[11px] border border-border rounded bg-background"
+                      data-range-start
+                    />
+                    <span className="text-muted-foreground">→</span>
+                    <input
+                      type="date"
+                      defaultValue={viewEnd}
+                      onChange={(e) => {
+                        const el = e.currentTarget
+                        el.dataset.value = el.value
+                      }}
+                      className="flex-1 h-6 px-1 text-[11px] border border-border rounded bg-background"
+                      data-range-end
+                    />
+                  </div>
+                  <div className="px-2 pb-1.5 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        const parent = (e.currentTarget as HTMLElement).closest('div[class*="absolute"]')
+                        const startEl = parent?.querySelector('input[data-range-start]') as HTMLInputElement | null
+                        const endEl = parent?.querySelector('input[data-range-end]') as HTMLInputElement | null
+                        applyCustomRange(startEl?.value ?? '', endEl?.value ?? '')
+                      }}
+                      className="gl-button-sm bg-primary text-primary-foreground hover:bg-primary/90 h-6 px-2 text-[10px]"
+                    >
+                      Appliquer
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Fit all */}
           <button onClick={fitAll} className="p-1 rounded hover:bg-muted" title="Ajuster à l'écran">

@@ -50,7 +50,7 @@ export function GanttView({
   endDate: externalEndDate,
   onViewChange,
 }: GanttViewProps = {}) {
-  const { t } = useTranslation('common')
+  const { t } = useTranslation()
   const { toast } = useToast()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const statusLabels = useMemo<Record<string, string>>(() => ({

@@ -1615,12 +1615,14 @@ function CapacityTab({
   timelineEndDate,
   onTimelineScaleChange,
   onTimelineRangeChange,
+  compact: _compact = false,
 }: {
   timelineScale: TimeScale
   timelineStartDate: string
   timelineEndDate: string
   onTimelineScaleChange: (scale: TimeScale) => void
   onTimelineRangeChange: (from: string, to: string) => void
+  compact?: boolean
 }) {
   const { t } = useTranslation()
   const [assetId, setAssetId] = useState('')
@@ -2473,12 +2475,24 @@ export function PlannerPage() {
           </div>
 
           {activeTab === 'gantt' && (
-            <GanttView
-              scale={sharedTimelineScale}
-              startDate={sharedTimelineRange.start}
-              endDate={sharedTimelineRange.end}
-              onViewChange={handleGanttViewChange}
-            />
+            <div className="flex flex-col gap-4">
+              {/* Heatmap above Gantt — spec §2.7 */}
+              <CapacityTab
+                timelineScale={sharedTimelineScale}
+                timelineStartDate={sharedTimelineRange.start}
+                timelineEndDate={sharedTimelineRange.end}
+                onTimelineScaleChange={handleTimelineScaleChange}
+                onTimelineRangeChange={handleTimelineRangeChange}
+                compact={true}
+              />
+              {/* Gantt below — synchronized timeline */}
+              <GanttView
+                scale={sharedTimelineScale}
+                startDate={sharedTimelineRange.start}
+                endDate={sharedTimelineRange.end}
+                onViewChange={handleGanttViewChange}
+              />
+            </div>
           )}
           {activeTab === 'activities' && <ActivitiesTab />}
           {activeTab === 'conflicts' && <ConflitsTab />}

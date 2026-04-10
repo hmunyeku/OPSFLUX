@@ -73,10 +73,11 @@ async def process_email_queue() -> None:
 
                     recipient_email = user_row.email
                     full_link = _build_notification_link(row.link)
+                    entity_id = row.entity_id or user_row.default_entity_id
                     sent = await render_and_send_email(
                         db=db,
                         slug="queued_notification_email",
-                        entity_id=user_row.default_entity_id,
+                        entity_id=entity_id,
                         language=(user_row.language or "fr"),
                         to=recipient_email,
                         user_id=user_id,

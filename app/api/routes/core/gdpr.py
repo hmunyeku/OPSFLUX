@@ -61,6 +61,10 @@ class ExportFileRead(BaseModel):
     size_bytes: int
 
 
+def _gdpr_export_prefix(user_id: UUID) -> str:
+    return f"gdpr-export-{user_id}-"
+
+
 # ── Helper: collect all user data across tables ──────────────
 
 USER_FK_TABLES = [
@@ -297,7 +301,7 @@ async def _async_export_user_data(user_id_str: str):
             # Write ZIP export to static/exports/
             export_dir = Path("/opt/opsflux/static/exports")
             export_dir.mkdir(parents=True, exist_ok=True)
-            filename = f"gdpr-export-{user_id_str[:8]}-{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}.zip"
+            filename = f"{_gdpr_export_prefix(uid)}{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}.zip"
             filepath = export_dir / filename
             _build_gdpr_export_zip(export=export, filepath=filepath)
 
@@ -350,8 +354,7 @@ async def download_export(
     from pathlib import Path
 
     # Security: only allow the user's own exports
-    user_prefix = str(current_user.id)[:8]
-    if not filename.startswith(f"gdpr-export-{user_prefix}"):
+    if not filename.startswith(_gdpr_export_prefix(current_user.id)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès refusé.")
 
     filepath = Path(f"/opt/opsflux/static/exports/{filename}")
@@ -374,10 +377,10 @@ async def list_my_exports(
     if not export_dir.exists():
         return []
 
-    user_prefix = str(current_user.id)[:8]
     exports: list[ExportFileRead] = []
     for path in sorted(
-        list(export_dir.glob(f"gdpr-export-{user_prefix}-*.zip")) + list(export_dir.glob(f"gdpr-export-{user_prefix}-*.json")),
+        list(export_dir.glob(f"{_gdpr_export_prefix(current_user.id)}*.zip"))
+        + list(export_dir.glob(f"{_gdpr_export_prefix(current_user.id)}*.json")),
         key=lambda item: item.stat().st_mtime,
         reverse=True,
     ):
@@ -399,8 +402,7 @@ async def delete_my_export(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete one previously generated GDPR export for the current user."""
-    user_prefix = str(current_user.id)[:8]
-    if not filename.startswith(f"gdpr-export-{user_prefix}-"):
+    if not filename.startswith(_gdpr_export_prefix(current_user.id)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès refusé.")
 
     filepath = Path(f"/opt/opsflux/static/exports/{filename}")

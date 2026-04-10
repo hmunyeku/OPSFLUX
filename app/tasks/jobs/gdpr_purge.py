@@ -24,6 +24,12 @@ from app.core.database import async_session_factory
 logger = logging.getLogger(__name__)
 
 
+def _coerce_setting_value(raw):
+    if isinstance(raw, dict):
+        return raw.get("v", raw)
+    return raw
+
+
 async def gdpr_retention_purge() -> None:
     """Enforce GDPR data retention policies."""
     logger.info("gdpr_purge: starting retention enforcement")
@@ -32,17 +38,30 @@ async def gdpr_retention_purge() -> None:
         async with async_session_factory() as db:
             await db.execute(text("SET search_path TO public"))
 
-            # Load retention settings
+            # Load retention settings.
+            # Canonical scope is tenant; keep entity fallback for older data until migrated.
             result = await db.execute(
-                text("SELECT key, value FROM settings WHERE key LIKE 'gdpr.retention_%'")
+                text(
+                    """
+                    SELECT key, value, scope
+                    FROM settings
+                    WHERE key LIKE 'gdpr.retention_%'
+                      AND scope IN ('tenant', 'entity')
+                    ORDER BY
+                      CASE
+                        WHEN scope = 'tenant' THEN 0
+                        ELSE 1
+                      END,
+                      created_at DESC
+                    """
+                )
             )
             cfg = {}
             for row in result.fetchall():
-                val = row[1]
-                if isinstance(val, dict):
-                    cfg[row[0]] = val.get("v", val)
-                else:
-                    cfg[row[0]] = val
+                key = row[0]
+                if key in cfg:
+                    continue
+                cfg[key] = _coerce_setting_value(row[1])
 
             audit_months = int(cfg.get("gdpr.retention_audit_months", 36))
             session_months = int(cfg.get("gdpr.retention_sessions_months", 6))

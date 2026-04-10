@@ -30,7 +30,7 @@ async def send_notification_digest() -> None:
             # in the last 24 hours
             result = await db.execute(
                 text(
-                    "SELECT n.user_id, u.email, u.first_name, u.language, "
+                    "SELECT n.user_id, u.email, u.first_name, u.language, u.default_entity_id, "
                     "COUNT(*) as unread_count "
                     "FROM notifications n "
                     "JOIN users u ON u.id = n.user_id "
@@ -38,7 +38,7 @@ async def send_notification_digest() -> None:
                     "AND n.created_at >= :cutoff "
                     "AND n.category != 'email' "
                     "AND u.active = true "
-                    "GROUP BY n.user_id, u.email, u.first_name, u.language "
+                    "GROUP BY n.user_id, u.email, u.first_name, u.language, u.default_entity_id "
                     "HAVING COUNT(*) > :threshold "
                     "ORDER BY unread_count DESC"
                 ),
@@ -59,6 +59,7 @@ async def send_notification_digest() -> None:
                 email = row.email
                 first_name = row.first_name
                 language = row.language or "fr"
+                entity_id = row.default_entity_id
                 unread_count = row.unread_count
 
                 try:
@@ -84,7 +85,7 @@ async def send_notification_digest() -> None:
                     sent = await render_and_send_email(
                         db=db,
                         slug="notification_digest",
-                        entity_id=None,
+                        entity_id=entity_id,
                         language=language,
                         to=email,
                         user_id=user_id,

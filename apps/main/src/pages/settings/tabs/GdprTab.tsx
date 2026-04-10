@@ -26,8 +26,8 @@ function SettingRow({ label, description, children }: { label: string; descripti
 
 export function GdprTab() {
   const { toast } = useToast()
-  const { data: settings, isLoading } = useScopedSettingsMap('entity')
-  const mutation = useSaveScopedSetting('entity')
+  const { data: settings, isLoading } = useScopedSettingsMap('tenant')
+  const mutation = useSaveScopedSetting('tenant')
 
   const save = useCallback((key: string, value: unknown) => {
     mutation.mutate({ key, value }, {

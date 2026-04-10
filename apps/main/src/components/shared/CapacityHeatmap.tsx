@@ -5,7 +5,7 @@
  * same pxPerDay). Supports a hierarchical tree view (Field → Site → Installation)
  * with click-to-expand on row labels. Legend lives in the left label margin.
  */
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { useThemeStore } from '@/stores/themeStore'
 import {
@@ -30,12 +30,16 @@ export interface CapacityHeatmapProps {
   hierarchy?: HierarchyFieldNode[]
   /** Width of the left label / legend column — should match the Gantt panel width */
   labelColumnWidth: number
-  /** Initial set of expanded node ids (defaults: all field+site nodes) */
-  defaultExpanded?: Set<string>
   isLoading?: boolean
   emptyMessage?: string
   /** Click handler — receives the underlying day cell */
   onCellClick?: (day: CapacityHeatmapDay) => void
+  /**
+   * Optional CSS selector for an element whose horizontal scroll should be
+   * mirrored. When provided, the heatmap's chart wrapper will sync scrollLeft
+   * with that element (typical use: '[data-gantt-body]' to align with the Gantt).
+   */
+  syncScrollSelector?: string
 }
 
 const DEFAULT_CONFIG: CapacityHeatmapConfig = {
@@ -61,13 +65,21 @@ interface TreeRow {
   contributingAssetIds: string[]
 }
 
+/**
+ * Build the flat list of visible rows from the hierarchy + the set of
+ * collapsed node ids. Default behaviour: every parent is expanded — only
+ * explicit collapse hides children. This avoids the async race where the
+ * hierarchy arrives after first render and an `expanded` set built at mount
+ * would be empty.
+ *
+ * Falls back to a flat list of assets when no hierarchy is available.
+ */
 function buildTreeRows(
   hierarchy: HierarchyFieldNode[] | undefined,
-  expanded: Set<string>,
+  collapsed: Set<string>,
   flatAssetsFallback: Array<{ id: string; name: string }>,
 ): TreeRow[] {
   if (!hierarchy || hierarchy.length === 0) {
-    // Flat mode — one row per asset
     return flatAssetsFallback.map((a) => ({
       id: a.id,
       label: a.name,
@@ -86,33 +98,33 @@ function buildTreeRows(
     }
     if (fieldAssetIds.length === 0) continue
 
-    const fieldExpanded = expanded.has(`f:${field.id}`)
+    const fieldCollapsed = collapsed.has(`f:${field.id}`)
     rows.push({
       id: `f:${field.id}`,
       label: field.name,
       level: 0,
       hasChildren: field.sites.length > 0,
-      isExpanded: fieldExpanded,
+      isExpanded: !fieldCollapsed,
       contributingAssetIds: fieldAssetIds,
     })
 
-    if (!fieldExpanded) continue
+    if (fieldCollapsed) continue
 
     for (const site of field.sites) {
       const siteAssetIds = site.installations.map((i) => i.id)
       if (siteAssetIds.length === 0) continue
 
-      const siteExpanded = expanded.has(`s:${site.id}`)
+      const siteCollapsed = collapsed.has(`s:${site.id}`)
       rows.push({
         id: `s:${site.id}`,
         label: site.name,
         level: 1,
         hasChildren: site.installations.length > 0,
-        isExpanded: siteExpanded,
+        isExpanded: !siteCollapsed,
         contributingAssetIds: siteAssetIds,
       })
 
-      if (!siteExpanded) continue
+      if (siteCollapsed) continue
 
       for (const inst of site.installations) {
         rows.push({
@@ -137,29 +149,18 @@ export function CapacityHeatmap({
   endDate,
   hierarchy,
   labelColumnWidth,
-  defaultExpanded,
   isLoading = false,
   emptyMessage = 'Aucune donnée de capacité',
   onCellClick,
+  syncScrollSelector,
 }: CapacityHeatmapProps) {
   const isDark = useThemeStore((s) => s.resolvedTheme === 'dark')
 
-  // ── Expand/collapse state ──
-  const [expanded, setExpanded] = useState<Set<string>>(() => {
-    if (defaultExpanded) return defaultExpanded
-    // Default: expand all fields + sites
-    const init = new Set<string>()
-    if (hierarchy) {
-      for (const f of hierarchy) {
-        init.add(`f:${f.id}`)
-        for (const s of f.sites) init.add(`s:${s.id}`)
-      }
-    }
-    return init
-  })
+  // ── Collapse-only state (default = everything expanded) ──
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
 
-  const toggleExpand = useCallback((id: string) => {
-    setExpanded((prev) => {
+  const toggleCollapse = useCallback((id: string) => {
+    setCollapsed((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
@@ -184,8 +185,8 @@ export function CapacityHeatmap({
 
   // ── Tree rows (flat list after expand/collapse) ──
   const treeRows = useMemo(
-    () => buildTreeRows(hierarchy, expanded, flatAssets),
-    [hierarchy, expanded, flatAssets],
+    () => buildTreeRows(hierarchy, collapsed, flatAssets),
+    [hierarchy, collapsed, flatAssets],
   )
 
   // ── Build x categories from cells ──
@@ -459,7 +460,7 @@ export function CapacityHeatmap({
         typeof params.dataIndex === 'number'
       ) {
         const row = treeRows[params.dataIndex]
-        if (row?.hasChildren) toggleExpand(row.id)
+        if (row?.hasChildren) toggleCollapse(row.id)
         return
       }
       // Click on heatmap cell
@@ -481,13 +482,61 @@ export function CapacityHeatmap({
         }
       }
     },
-  }), [treeRows, cells, daysByAsset, toggleExpand, onCellClick])
+  }), [treeRows, cells, daysByAsset, toggleCollapse, onCellClick])
 
   // ── Dynamic chart height ──
   const rowHeight = 26
   const headerSpace = 24
   const legendSpace = 80
   const chartHeight = Math.max(180, headerSpace + treeRows.length * rowHeight + legendSpace)
+
+  // ── Two-way horizontal scroll sync with another element (e.g. Gantt body) ──
+  const wrapperRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!syncScrollSelector) return
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+
+    let target: HTMLElement | null = null
+    let raf = 0
+    let suppress = false
+
+    // The target may not exist on first render — poll a few frames.
+    const findTarget = () => {
+      target = document.querySelector(syncScrollSelector) as HTMLElement | null
+      if (!target) {
+        raf = requestAnimationFrame(findTarget)
+      } else {
+        attach()
+      }
+    }
+
+    const onWrapperScroll = () => {
+      if (!target || suppress) return
+      suppress = true
+      target.scrollLeft = wrapper.scrollLeft
+      requestAnimationFrame(() => { suppress = false })
+    }
+    const onTargetScroll = () => {
+      if (!target || suppress) return
+      suppress = true
+      wrapper.scrollLeft = target.scrollLeft
+      requestAnimationFrame(() => { suppress = false })
+    }
+    const attach = () => {
+      wrapper.addEventListener('scroll', onWrapperScroll, { passive: true })
+      target?.addEventListener('scroll', onTargetScroll, { passive: true })
+    }
+
+    findTarget()
+
+    return () => {
+      cancelAnimationFrame(raf)
+      wrapper.removeEventListener('scroll', onWrapperScroll)
+      target?.removeEventListener('scroll', onTargetScroll)
+    }
+  }, [syncScrollSelector, totalChartWidth])
 
   if (isLoading) {
     return (
@@ -512,7 +561,7 @@ export function CapacityHeatmap({
   }
 
   return (
-    <div className="w-full overflow-x-auto">
+    <div ref={wrapperRef} className="w-full overflow-x-auto">
       <div style={{ width: totalChartWidth, minWidth: '100%', height: chartHeight }}>
         <ReactECharts
           option={option}

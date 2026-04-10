@@ -807,6 +807,7 @@ export function GanttCore(props: GanttCoreProps) {
           {/* Grid body — drag to pan on empty areas */}
           <div
             ref={bodyScrollRef}
+            data-gantt-body
             className="flex-1 overflow-auto cursor-grab active:cursor-grabbing"
             onScroll={onBodyScroll}
             onMouseDown={onDragScroll}

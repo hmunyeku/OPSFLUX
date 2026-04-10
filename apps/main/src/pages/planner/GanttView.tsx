@@ -31,6 +31,25 @@ function fmtDate(iso: string | null | undefined): string {
   try { return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) } catch { return '—' }
 }
 
+/**
+ * Build a compact pax descriptor for an activity, taking into account
+ * the variable POB schedule when applicable.
+ *  - constant mode: "10 PAX"
+ *  - variable mode: "5–12 PAX" (min–max from pax_quota_daily) or "var. PAX" if empty
+ */
+function fmtPax(act: { pax_quota?: number; pax_quota_mode?: 'constant' | 'variable'; pax_quota_daily?: Record<string, number> | null }): string {
+  const mode = act.pax_quota_mode ?? 'constant'
+  if (mode === 'variable' && act.pax_quota_daily && Object.keys(act.pax_quota_daily).length > 0) {
+    const values = Object.values(act.pax_quota_daily).filter((v) => typeof v === 'number') as number[]
+    if (values.length > 0) {
+      const min = Math.min(...values)
+      const max = Math.max(...values)
+      return min === max ? `${min}` : `${min}–${max}`
+    }
+  }
+  return String(act.pax_quota ?? 0)
+}
+
 // ── Component ───────────────────────────────────────────────────
 
 interface GanttViewProps {
@@ -150,6 +169,8 @@ export function GanttView({
       if (hasChildren && expandedAssets.has(assetId)) {
         for (const act of asset.activities) {
           const actRowId = `act-${act.id}`
+          const paxLabel = fmtPax(act)
+          const isVariable = act.pax_quota_mode === 'variable'
           rowList.push({
             id: actRowId,
             label: act.title,
@@ -158,7 +179,7 @@ export function GanttView({
             hasChildren: false,
             columns: {
               type: act.type,
-              pax: act.pax_quota ?? 0,
+              pax: isVariable ? `${paxLabel}*` : paxLabel,
               start: fmtDate(act.start_date),
               end: fmtDate(act.end_date),
             },
@@ -169,7 +190,7 @@ export function GanttView({
             barList.push({
               id: act.id,
               rowId: actRowId,
-              title: act.title,
+              title: `${paxLabel}${isVariable ? '*' : ''} · ${act.title}`,
               startDate: act.start_date.slice(0, 10),
               endDate: act.end_date.slice(0, 10),
               status: act.status,
@@ -181,7 +202,7 @@ export function GanttView({
                 tooltipLines: [
                   [t('planner.gantt.tooltip.type'), act.type],
                   [t('planner.gantt.tooltip.status'), statusLabels[act.status] || act.status],
-                  [t('planner.gantt.tooltip.pax'), String(act.pax_quota ?? 0)],
+                  [t('planner.gantt.tooltip.pax'), isVariable ? `${paxLabel} (variable)` : paxLabel],
                   [t('planner.gantt.tooltip.priority'), act.priority || '—'],
                   ...(act.well_reference ? [[t('planner.gantt.tooltip.well'), act.well_reference] as [string, string]] : []),
                   ...('rig_name' in act && act.rig_name ? [[t('planner.gantt.tooltip.rig'), String(act.rig_name)] as [string, string]] : []),
@@ -293,6 +314,10 @@ export function GanttView({
         <span className="inline-flex items-center gap-2">
           <span className="h-2.5 w-8 rounded bg-primary opacity-45" />
           <span>{t('planner.gantt.legend_pending_proposal')}</span>
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="font-mono text-foreground">*</span>
+          <span>POB variable (min–max selon programme)</span>
         </span>
       </div>
       <GanttCore

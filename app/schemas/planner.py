@@ -417,6 +417,8 @@ class GanttActivity(BaseModel):
     status: str
     priority: str
     pax_quota: int
+    pax_quota_mode: str = "constant"
+    pax_quota_daily: dict | None = None
     start_date: datetime | None = None
     end_date: datetime | None = None
     project_id: UUID | None = None

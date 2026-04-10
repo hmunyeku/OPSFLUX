@@ -2464,6 +2464,7 @@ function GanttHeatmapHeader({
         labelColumnWidth={GANTT_PANEL_WIDTH}
         isLoading={isLoading}
         emptyMessage="Aucune donnée de saturation sur cette période"
+        syncScrollSelector="[data-gantt-body]"
       />
     </div>
   )

@@ -491,6 +491,8 @@ async def get_gantt_data(
             "status": act.status,
             "priority": act.priority,
             "pax_quota": act.pax_quota,
+            "pax_quota_mode": getattr(act, "pax_quota_mode", "constant") or "constant",
+            "pax_quota_daily": getattr(act, "pax_quota_daily", None),
             "start_date": act.start_date.isoformat() if act.start_date else None,
             "end_date": act.end_date.isoformat() if act.end_date else None,
             "project_id": str(act.project_id) if act.project_id else None,

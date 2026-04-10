@@ -2499,6 +2499,8 @@ export interface GanttActivity {
   status: string
   priority: string
   pax_quota: number
+  pax_quota_mode?: 'constant' | 'variable'
+  pax_quota_daily?: Record<string, number> | null
   start_date: string
   end_date: string
   project_id: string | null

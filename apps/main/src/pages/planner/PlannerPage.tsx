@@ -27,6 +27,7 @@ import {
   PanelContentLayout,
   FormSection,
   FormGrid,
+  DetailFieldGrid,
   DynamicPanelField,
   PanelActionButton,
   DangerConfirmButton,
@@ -3220,97 +3221,103 @@ function ActivityDetailPanel({ id }: { id: string }) {
               <div className="@container space-y-5">
                 {/* Informations */}
                 <FormSection title="Informations">
-                  <InlineEditableRow label="Titre" value={activity.title} onSave={(v) => handleInlineSave('title', v)} />
-                  <DetailRow
-                    label="Type"
-                    value={
-                      <span className={cn('gl-badge inline-flex items-center gap-1', typeEntry?.badge || 'gl-badge-neutral')}>
-                        {activityTypeLabels[tp] || tp}
-                      </span>
-                    }
-                  />
-                  {activity.subtype && <DetailRow label="Sous-type" value={activity.subtype} />}
-                  <DetailRow
-                    label="Statut"
-                    value={
-                      <span className={cn('gl-badge', statusEntry?.badge || 'gl-badge-neutral')}>
-                        {statusEntry?.label || st}
-                      </span>
-                    }
-                  />
-                  <DetailRow
-                    label="Priorité"
-                    value={
-                      <span className={cn('text-sm font-medium', priorityEntry?.cls || 'text-muted-foreground')}>
-                        {priorityEntry?.label || activity.priority}
-                      </span>
-                    }
-                  />
+                  <DetailFieldGrid>
+                    <InlineEditableRow label="Titre" value={activity.title} onSave={(v) => handleInlineSave('title', v)} />
+                    <DetailRow
+                      label="Type"
+                      value={
+                        <span className={cn('gl-badge inline-flex items-center gap-1', typeEntry?.badge || 'gl-badge-neutral')}>
+                          {activityTypeLabels[tp] || tp}
+                        </span>
+                      }
+                    />
+                    {activity.subtype && <DetailRow label="Sous-type" value={activity.subtype} />}
+                    <DetailRow
+                      label="Statut"
+                      value={
+                        <span className={cn('gl-badge', statusEntry?.badge || 'gl-badge-neutral')}>
+                          {statusEntry?.label || st}
+                        </span>
+                      }
+                    />
+                    <DetailRow
+                      label="Priorité"
+                      value={
+                        <span className={cn('text-sm font-medium', priorityEntry?.cls || 'text-muted-foreground')}>
+                          {priorityEntry?.label || activity.priority}
+                        </span>
+                      }
+                    />
+                  </DetailFieldGrid>
                 </FormSection>
 
                 {/* Planning */}
                 <FormSection title="Planning">
-                  <InlineEditableRow
-                    label="Date debut"
-                    value={activity.start_date ? activity.start_date.slice(0, 10) : ''}
-                    onSave={(v) => handleInlineSave('start_date', v)}
-                    type="date"
-                  />
-                  <InlineEditableRow
-                    label="Date fin"
-                    value={activity.end_date ? activity.end_date.slice(0, 10) : ''}
-                    onSave={(v) => handleInlineSave('end_date', v)}
-                    type="date"
-                  />
-                  <InlineEditableRow
-                    label="Debut reel"
-                    value={activity.actual_start ? activity.actual_start.slice(0, 10) : ''}
-                    onSave={(v) => handleInlineSave('actual_start', v)}
-                    type="date"
-                  />
-                  <InlineEditableRow
-                    label="Fin reelle"
-                    value={activity.actual_end ? activity.actual_end.slice(0, 10) : ''}
-                    onSave={(v) => handleInlineSave('actual_end', v)}
-                    type="date"
-                  />
-                  <DetailRow
-                    label="Mode POB"
-                    value={activity.pax_quota_mode === 'variable' ? 'Variable (par jour)' : 'Constant'}
-                  />
-                  {activity.pax_quota_mode !== 'variable' ? (
+                  <DetailFieldGrid>
                     <InlineEditableRow
-                      label="Quota PAX"
-                      value={String(activity.pax_quota ?? 0)}
-                      onSave={(v) => handleInlineSave('pax_quota', v)}
-                      type="number"
+                      label="Date debut"
+                      value={activity.start_date ? activity.start_date.slice(0, 10) : ''}
+                      onSave={(v) => handleInlineSave('start_date', v)}
+                      type="date"
                     />
-                  ) : (
+                    <InlineEditableRow
+                      label="Date fin"
+                      value={activity.end_date ? activity.end_date.slice(0, 10) : ''}
+                      onSave={(v) => handleInlineSave('end_date', v)}
+                      type="date"
+                    />
+                    <InlineEditableRow
+                      label="Debut reel"
+                      value={activity.actual_start ? activity.actual_start.slice(0, 10) : ''}
+                      onSave={(v) => handleInlineSave('actual_start', v)}
+                      type="date"
+                    />
+                    <InlineEditableRow
+                      label="Fin reelle"
+                      value={activity.actual_end ? activity.actual_end.slice(0, 10) : ''}
+                      onSave={(v) => handleInlineSave('actual_end', v)}
+                      type="date"
+                    />
                     <DetailRow
-                      label="Quota PAX"
-                      value={
-                        <span className="inline-flex items-center gap-1">
-                          <Users size={12} className="text-muted-foreground" />
-                          {formatVariablePaxRange(activity.pax_quota_daily, activity.pax_quota)}
-                          <span className="text-[10px] text-muted-foreground ml-1">(min–max journalier)</span>
-                        </span>
-                      }
+                      label="Mode POB"
+                      value={activity.pax_quota_mode === 'variable' ? 'Variable (par jour)' : 'Constant'}
                     />
-                  )}
+                    {activity.pax_quota_mode !== 'variable' ? (
+                      <InlineEditableRow
+                        label="Quota PAX"
+                        value={String(activity.pax_quota ?? 0)}
+                        onSave={(v) => handleInlineSave('pax_quota', v)}
+                        type="number"
+                      />
+                    ) : (
+                      <DetailRow
+                        label="Quota PAX"
+                        value={
+                          <span className="inline-flex items-center gap-1">
+                            <Users size={12} className="text-muted-foreground" />
+                            {formatVariablePaxRange(activity.pax_quota_daily, activity.pax_quota)}
+                            <span className="text-[10px] text-muted-foreground ml-1">(min–max journalier)</span>
+                          </span>
+                        }
+                      />
+                    )}
+                  </DetailFieldGrid>
                 </FormSection>
 
                 {/* Rattachement */}
                 <FormSection title="Rattachement">
-                  <DetailRow label="Site" value={
-                    activity.asset_id ? (
-                      <CrossModuleLink module="assets" id={activity.asset_id} label={activity.asset_name || activity.asset_id} mode="navigate" />
-                    ) : (activity.asset_name || '—')
-                  } />
-                  <DetailRow label="Projet" value={
-                    activity.project_id ? (
-                      <CrossModuleLink module="projets" id={activity.project_id} label={activity.project_name || activity.project_id} mode="navigate" />
-                    ) : (activity.project_name || '—')
-                  } />
+                  <DetailFieldGrid>
+                    <DetailRow label="Site" value={
+                      activity.asset_id ? (
+                        <CrossModuleLink module="assets" id={activity.asset_id} label={activity.asset_name || activity.asset_id} mode="navigate" />
+                      ) : (activity.asset_name || '—')
+                    } />
+                    <DetailRow label="Projet" value={
+                      activity.project_id ? (
+                        <CrossModuleLink module="projets" id={activity.project_id} label={activity.project_name || activity.project_id} mode="navigate" />
+                      ) : (activity.project_name || '—')
+                    } />
+                  </DetailFieldGrid>
                 </FormSection>
 
                 {/* Description */}
@@ -3323,47 +3330,55 @@ function ActivityDetailPanel({ id }: { id: string }) {
                 {/* Details specialises (conditionnel) */}
                 {tp === 'workover' && (activity.well_reference || activity.rig_name) && (
                   <FormSection title="Details specialises">
-                    {activity.well_reference && <DetailRow label="Reference puits" value={activity.well_reference} />}
-                    {activity.rig_name && <DetailRow label="Nom du rig" value={activity.rig_name} />}
+                    <DetailFieldGrid>
+                      {activity.well_reference && <DetailRow label="Reference puits" value={activity.well_reference} />}
+                      {activity.rig_name && <DetailRow label="Nom du rig" value={activity.rig_name} />}
+                    </DetailFieldGrid>
                   </FormSection>
                 )}
 
                 {tp === 'drilling' && (activity.spud_date || activity.target_depth || activity.drilling_program_ref) && (
                   <FormSection title="Details specialises">
-                    {activity.spud_date && <DetailRow label="Date spud" value={formatDateShort(activity.spud_date)} />}
-                    {activity.target_depth != null && <DetailRow label="Profondeur cible" value={`${activity.target_depth} m`} />}
-                    {activity.drilling_program_ref && <DetailRow label="Ref. programme forage" value={activity.drilling_program_ref} />}
+                    <DetailFieldGrid>
+                      {activity.spud_date && <DetailRow label="Date spud" value={formatDateShort(activity.spud_date)} />}
+                      {activity.target_depth != null && <DetailRow label="Profondeur cible" value={`${activity.target_depth} m`} />}
+                      {activity.drilling_program_ref && <DetailRow label="Ref. programme forage" value={activity.drilling_program_ref} />}
+                    </DetailFieldGrid>
                   </FormSection>
                 )}
 
                 {(tp === 'maintenance' || tp === 'integrity') && (activity.regulatory_ref || activity.work_order_ref) && (
                   <FormSection title="Details specialises">
-                    {activity.regulatory_ref && <DetailRow label="Reference reglementaire" value={activity.regulatory_ref} />}
-                    {activity.work_order_ref && <DetailRow label="Bon de travail" value={activity.work_order_ref} />}
+                    <DetailFieldGrid>
+                      {activity.regulatory_ref && <DetailRow label="Reference reglementaire" value={activity.regulatory_ref} />}
+                      {activity.work_order_ref && <DetailRow label="Bon de travail" value={activity.work_order_ref} />}
+                    </DetailFieldGrid>
                   </FormSection>
                 )}
 
                 {/* Workflow */}
                 <FormSection title="Workflow">
-                  <DetailRow label="Cree par" value={activity.created_by_name || '—'} />
-                  {activity.submitted_by_name && (
-                    <DetailRow
-                      label="Soumis par"
-                      value={`${activity.submitted_by_name}${activity.submitted_at ? ` — ${formatDateShort(activity.submitted_at)}` : ''}`}
-                    />
-                  )}
-                  {activity.validated_by_name && (
-                    <DetailRow
-                      label="Valide par"
-                      value={`${activity.validated_by_name}${activity.validated_at ? ` — ${formatDateShort(activity.validated_at)}` : ''}`}
-                    />
-                  )}
-                  {st === 'rejected' && activity.rejection_reason && (
-                    <DetailRow
-                      label="Motif du rejet"
-                      value={<span className="text-destructive">{activity.rejection_reason}</span>}
-                    />
-                  )}
+                  <DetailFieldGrid>
+                    <DetailRow label="Cree par" value={activity.created_by_name || '—'} />
+                    {activity.submitted_by_name && (
+                      <DetailRow
+                        label="Soumis par"
+                        value={`${activity.submitted_by_name}${activity.submitted_at ? ` — ${formatDateShort(activity.submitted_at)}` : ''}`}
+                      />
+                    )}
+                    {activity.validated_by_name && (
+                      <DetailRow
+                        label="Valide par"
+                        value={`${activity.validated_by_name}${activity.validated_at ? ` — ${formatDateShort(activity.validated_at)}` : ''}`}
+                      />
+                    )}
+                    {st === 'rejected' && activity.rejection_reason && (
+                      <DetailRow
+                        label="Motif du rejet"
+                        value={<span className="text-destructive">{activity.rejection_reason}</span>}
+                      />
+                    )}
+                  </DetailFieldGrid>
                 </FormSection>
               </div>
             </SectionColumns>

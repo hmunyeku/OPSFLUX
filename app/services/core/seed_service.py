@@ -142,15 +142,22 @@ def _default_workflow_definitions() -> list[dict]:
             "legacy_slugs": ["planner_activity"],
             "name": "Planner Activity",
             "entity_type": "planner_activity",
-            "states": ["draft", "submitted", "approved", "rejected", "cancelled", "in_progress", "completed"],
+            # NOTE: state name MUST be "validated" (not "approved") to match the
+            # PlannerActivity model + the planner backend code (which writes
+            # activity.status = "validated", reads validated_by/_at, etc.).
+            # The previous "approved" name caused FSM transitions to fail with
+            # 400 Bad Request on every validate / cancel attempt.
+            "states": ["draft", "submitted", "validated", "rejected", "cancelled", "in_progress", "completed"],
             "transitions": [
                 {"from": "draft", "to": "submitted", "label": "Soumettre"},
                 {"from": "draft", "to": "cancelled", "label": "Annuler"},
-                {"from": "submitted", "to": "approved", "label": "Approuver", "required_roles": ["CDS", "DPROD"]},
+                {"from": "submitted", "to": "validated", "label": "Valider", "required_roles": ["CDS", "DPROD"]},
                 {"from": "submitted", "to": "rejected", "label": "Rejeter", "comment_required": True, "required_roles": ["CDS", "DPROD"]},
-                {"from": "approved", "to": "in_progress", "label": "Démarrer"},
-                {"from": "approved", "to": "cancelled", "label": "Annuler", "required_roles": ["CDS", "DPROD", "DO"]},
+                {"from": "submitted", "to": "cancelled", "label": "Annuler"},
+                {"from": "validated", "to": "in_progress", "label": "Démarrer"},
+                {"from": "validated", "to": "cancelled", "label": "Annuler", "required_roles": ["CDS", "DPROD", "DO"]},
                 {"from": "in_progress", "to": "completed", "label": "Terminer"},
+                {"from": "in_progress", "to": "cancelled", "label": "Annuler", "required_roles": ["CDS", "DPROD", "DO"]},
                 {"from": "rejected", "to": "draft", "label": "Réviser"},
             ],
         },

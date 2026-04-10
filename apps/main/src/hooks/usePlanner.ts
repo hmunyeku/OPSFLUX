@@ -50,7 +50,17 @@ export function useActivity(id: string | undefined) {
  * automatically after a create/update/delete/transition.
  */
 function invalidatePlannerViews(qc: ReturnType<typeof useQueryClient>) {
-  qc.invalidateQueries({ queryKey: ['planner', 'activities'] })
+  // Use predicate-based invalidation so per-activity caches like
+  // ['planner', 'activities', '<uuid>'] also refetch. The previous
+  // exact-key invalidation only matched ['planner', 'activities'] (the
+  // LIST query), so the detail panel's useActivity(id) hook kept
+  // serving the stale single-activity cache and the user saw their
+  // saved POB mode revert to the previous value.
+  qc.invalidateQueries({
+    predicate: (q) => Array.isArray(q.queryKey)
+      && q.queryKey[0] === 'planner'
+      && q.queryKey[1] === 'activities',
+  })
   qc.invalidateQueries({ queryKey: ['planner', 'gantt'] })
   qc.invalidateQueries({ queryKey: ['planner', 'capacity-heatmap'] })
   qc.invalidateQueries({ queryKey: ['planner', 'capacity'] })

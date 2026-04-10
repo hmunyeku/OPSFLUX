@@ -125,12 +125,25 @@ function computeActivityProgress(act: GanttActivity): number {
 }
 
 /**
+ * Build a YYYY-MM-DD key from a Date using LOCAL time, not UTC.
+ * The pax_quota_daily JSONB stores keys as local dates (the user typed them
+ * via a date picker), so a UTC toISOString() lookup would shift by 1 day in
+ * timezones with negative UTC offset.
+ */
+function localDateKey(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/**
  * Compute one PAX label per timeline cell that the activity overlaps.
  * - Constant POB → the activity's pax_quota for every cell
- * - Variable POB schedule → average of pax_quota_daily values for the days
- *   in the cell that fall within the activity range; if a day has no entry
- *   we fall back to pax_quota
- * Returns labels rounded for readability.
+ * - Variable POB schedule → daily values (in day mode) or rounded daily
+ *   average (in week/month/quarter/semester modes). Days with no entry
+ *   fall back to pax_quota
+ * Display is always integer — the underlying daily values stay exact.
  */
 function buildBarCellLabels(
   act: GanttActivity,
@@ -156,7 +169,7 @@ function buildBarCellLabels(
     const cur = new Date(fromTs)
     cur.setHours(0, 0, 0, 0)
     while (cur.getTime() <= toTs) {
-      const iso = cur.toISOString().slice(0, 10)
+      const iso = localDateKey(cur)
       const v = isVariable
         ? (typeof dailyMap[iso] === 'number' ? dailyMap[iso] : constantQuota)
         : constantQuota
@@ -166,9 +179,10 @@ function buildBarCellLabels(
       if (count > 10000) break
     }
     if (count === 0) return
-    const avg = sum / count
-    const label = Number.isInteger(avg) ? String(avg) : avg.toFixed(1)
-    result.push({ cellIdx: idx, label })
+    // Round to nearest integer for display — the actual daily values remain
+    // unchanged in the database. Decimals on a PAX count are confusing.
+    const avg = Math.round(sum / count)
+    result.push({ cellIdx: idx, label: String(avg) })
   })
 
   return result

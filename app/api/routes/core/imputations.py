@@ -34,6 +34,28 @@ from app.schemas.common import (
 router = APIRouter(prefix="/api/v1/imputations", tags=["imputations"])
 
 
+def _serialize_imputation_reference(obj: ImputationReference) -> ImputationReferenceRead:
+    return ImputationReferenceRead.model_validate(
+        {
+            "id": obj.id,
+            "entity_id": obj.entity_id,
+            "code": obj.code,
+            "name": obj.name,
+            "description": obj.description,
+            "imputation_type": obj.imputation_type,
+            "otp_policy": obj.otp_policy,
+            "otp_template_id": obj.otp_template_id,
+            "default_project_id": obj.default_project_id,
+            "default_cost_center_id": obj.default_cost_center_id,
+            "valid_from": obj.valid_from,
+            "valid_to": obj.valid_to,
+            "active": obj.active,
+            "metadata": obj.metadata_,
+            "created_at": obj.created_at,
+        }
+    )
+
+
 def _validate_validity_window(valid_from: date | None, valid_to: date | None) -> None:
     if valid_from and valid_to and valid_to < valid_from:
         raise HTTPException(status_code=400, detail="valid_to cannot be earlier than valid_from")
@@ -144,7 +166,7 @@ async def list_imputation_references(
         .where(ImputationReference.entity_id == entity_id)
         .order_by(ImputationReference.code)
     )
-    return result.scalars().all()
+    return [_serialize_imputation_reference(obj) for obj in result.scalars().all()]
 
 
 @router.post("/references", response_model=ImputationReferenceRead, status_code=201)
@@ -193,7 +215,7 @@ async def create_imputation_reference(
     db.add(obj)
     await db.commit()
     await db.refresh(obj)
-    return obj
+    return _serialize_imputation_reference(obj)
 
 
 @router.patch("/references/{reference_id}", response_model=ImputationReferenceRead)
@@ -252,7 +274,7 @@ async def update_imputation_reference(
 
     await db.commit()
     await db.refresh(obj)
-    return obj
+    return _serialize_imputation_reference(obj)
 
 
 @router.delete("/references/{reference_id}", status_code=204)

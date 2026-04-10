@@ -66,6 +66,20 @@ def get_widget_source_module(widget_id: str) -> str | None:
     return normalize_module_slug(entry.source_module) if entry else None
 
 
+def get_widget_id_from_payload(widget: Any) -> str | None:
+    if not isinstance(widget, dict):
+        return None
+    config = widget.get("config")
+    if isinstance(config, dict):
+        widget_id = config.get("widget_id")
+        if widget_id:
+            return str(widget_id)
+    widget_id = widget.get("widget_id")
+    if widget_id:
+        return str(widget_id)
+    return None
+
+
 async def filter_widgets_for_entity(
     db: AsyncSession,
     entity_id: UUID,
@@ -77,7 +91,7 @@ async def filter_widgets_for_entity(
     for widget in widgets:
         if not isinstance(widget, dict):
             continue
-        widget_id = widget.get("config", {}).get("widget_id") or widget.get("widget_id")
+        widget_id = get_widget_id_from_payload(widget)
         source_module = get_widget_source_module(str(widget_id)) if widget_id else None
         if source_module and not await is_module_enabled(db, entity_id, source_module):
             continue
@@ -98,9 +112,7 @@ async def _cleanup_module_widgets(
     for tab in tabs_result.scalars().all():
         filtered = [
             widget for widget in (tab.widgets or [])
-            if get_widget_source_module(
-                str(widget.get("config", {}).get("widget_id") or widget.get("widget_id") or "")
-            ) != module_slug
+            if get_widget_source_module(get_widget_id_from_payload(widget) or "") != module_slug
         ]
         if filtered != (tab.widgets or []):
             tab.widgets = filtered
@@ -111,9 +123,7 @@ async def _cleanup_module_widgets(
     for tab in user_tabs_result.scalars().all():
         filtered = [
             widget for widget in (tab.widgets or [])
-            if get_widget_source_module(
-                str(widget.get("config", {}).get("widget_id") or widget.get("widget_id") or "")
-            ) != module_slug
+            if get_widget_source_module(get_widget_id_from_payload(widget) or "") != module_slug
         ]
         if filtered != (tab.widgets or []):
             tab.widgets = filtered
@@ -124,9 +134,7 @@ async def _cleanup_module_widgets(
     for dashboard in dashboards_result.scalars().all():
         filtered = [
             widget for widget in (dashboard.widgets or [])
-            if get_widget_source_module(
-                str(widget.get("config", {}).get("widget_id") or widget.get("widget_id") or "")
-            ) != module_slug
+            if get_widget_source_module(get_widget_id_from_payload(widget) or "") != module_slug
         ]
         if filtered != (dashboard.widgets or []):
             dashboard.widgets = filtered

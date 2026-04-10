@@ -61,6 +61,7 @@ from app.schemas.dashboard import (
 from app.services.core.delete_service import delete_entity
 from app.services.core.module_lifecycle_service import (
     filter_widgets_for_entity,
+    get_widget_id_from_payload,
     get_widget_source_module,
     is_module_enabled,
 )
@@ -114,7 +115,7 @@ async def _sanitize_widget_payloads(
 ) -> list[dict]:
     sanitized: list[dict] = []
     for widget in widgets:
-        widget_id = widget.get("config", {}).get("widget_id") or widget.get("widget_id")
+        widget_id = get_widget_id_from_payload(widget)
         source_module = get_widget_source_module(str(widget_id)) if widget_id else None
         if source_module and source_module != "core" and not await is_module_enabled(db, entity_id, source_module):
             raise HTTPException(

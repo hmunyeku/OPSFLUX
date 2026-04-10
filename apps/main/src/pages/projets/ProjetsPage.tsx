@@ -2643,9 +2643,9 @@ function ProjectDetailPanel({ id }: { id: string }) {
         <>
           <PanelActionButton
             onClick={() => setShowPlannerLink(true)}
-            icon={<Zap size={12} />}
+            icon={<Send size={12} />}
           >
-            Lien Planner
+            Planner
           </PanelActionButton>
           {isGouti && (
             <PanelActionButton

@@ -9,7 +9,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import {
-  X, Search, CheckSquare, Square, Loader2, Calendar, Zap,
+  X, Search, CheckSquare, Square, Loader2, Calendar, Send, Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useProjectTasks, usePlannerLinks, useSendToPlanner } from '@/hooks/useProjets'
@@ -285,8 +285,8 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
               <button onClick={onClose} className="px-3 py-1.5 text-xs rounded border border-border hover:bg-muted">Annuler</button>
               <button onClick={handleSend} disabled={selectedIds.size === 0 || sendToPlanner.isPending}
                 className="px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 flex items-center gap-1.5">
-                {sendToPlanner.isPending ? <Loader2 size={11} className="animate-spin" /> : <Zap size={11} />}
-                Planifier ({selectedIds.size})
+                {sendToPlanner.isPending ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
+                Envoyer au Planner ({selectedIds.size})
               </button>
             </div>
           </div>

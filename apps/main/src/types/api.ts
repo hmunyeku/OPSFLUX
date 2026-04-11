@@ -2419,6 +2419,8 @@ export interface PlannerConflict {
   entity_id: string
   asset_id: string
   conflict_date: string
+  conflict_type: 'pax_overflow' | 'priority_clash' | string
+  overflow_amount: number | null
   status: 'open' | 'resolved' | 'deferred'
   resolution: string | null
   resolution_note: string | null

@@ -46,8 +46,10 @@ export function useActivity(id: string | undefined) {
 
 /**
  * Invalidate every Planner view that depends on activity data.
- * Used by all activity mutations so the Gantt + heatmap refresh
- * automatically after a create/update/delete/transition.
+ *
+ * Used by CRUD activity mutations (create / update / delete) — anything
+ * that may shift dates, PAX quotas, or activity existence and therefore
+ * potentially invalidates the gantt, heatmap, and conflict detection.
  */
 function invalidatePlannerViews(qc: ReturnType<typeof useQueryClient>) {
   // Use predicate-based invalidation so per-activity caches like
@@ -65,6 +67,32 @@ function invalidatePlannerViews(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ['planner', 'capacity-heatmap'] })
   qc.invalidateQueries({ queryKey: ['planner', 'capacity'] })
   qc.invalidateQueries({ queryKey: ['planner', 'conflicts'] })
+}
+
+/**
+ * Slim invalidation for FSM transitions (submit / validate / reject /
+ * cancel). These mutations only flip the activity's `status` — they
+ * don't change `start_date`, `end_date`, `pax_quota`, dependencies, or
+ * activity existence. So the heatmap (saturation), capacity views, and
+ * conflict graph remain mathematically identical: invalidating them is
+ * pure waste of network + DB.
+ *
+ * What DOES need to refetch:
+ *   - The activities list (the new status changes the row badge)
+ *   - The detail cache for the affected activity
+ *   - The gantt (the bar's color depends on status)
+ *
+ * Past incident: every status click was triggering 4–5 simultaneous
+ * heatmap recomputations on a 12-month range, each taking ~600 ms.
+ * Multiplied by bulk validate flows this dragged the page to a halt.
+ */
+function invalidatePlannerViewsForTransition(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({
+    predicate: (q) => Array.isArray(q.queryKey)
+      && q.queryKey[0] === 'planner'
+      && q.queryKey[1] === 'activities',
+  })
+  qc.invalidateQueries({ queryKey: ['planner', 'gantt'] })
 }
 
 export function useCreateActivity() {
@@ -96,7 +124,8 @@ export function useSubmitActivity() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => plannerService.submitActivity(id),
-    onSuccess: () => invalidatePlannerViews(qc),
+    // Transition only — see invalidatePlannerViewsForTransition for rationale.
+    onSuccess: () => invalidatePlannerViewsForTransition(qc),
   })
 }
 
@@ -104,7 +133,7 @@ export function useValidateActivity() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => plannerService.validateActivity(id),
-    onSuccess: () => invalidatePlannerViews(qc),
+    onSuccess: () => invalidatePlannerViewsForTransition(qc),
   })
 }
 
@@ -113,7 +142,7 @@ export function useRejectActivity() {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason?: string | null }) =>
       plannerService.rejectActivity(id, reason),
-    onSuccess: () => invalidatePlannerViews(qc),
+    onSuccess: () => invalidatePlannerViewsForTransition(qc),
   })
 }
 
@@ -121,6 +150,8 @@ export function useCancelActivity() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => plannerService.cancelActivity(id),
+    // Cancellation IS a structural change (the activity disappears from
+    // capacity calculations), so we use the full invalidation.
     onSuccess: () => invalidatePlannerViews(qc),
   })
 }

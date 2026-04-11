@@ -19,6 +19,7 @@ import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePageSize } from '@/hooks/usePageSize'
+import { useFilterPersistence } from '@/hooks/useFilterPersistence'
 import { useDictionaryLabels } from '@/hooks/useDictionary'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import { useUIStore } from '@/stores/uiStore'
@@ -84,7 +85,7 @@ import {
   useForceRevisionDecisionRequest,
   useResolveConflict,
   useConflictAudit,
-  // useBulkResolveConflicts — available, wired into ConflitsTab in a future pass
+  useBulkResolveConflicts,
   useGanttData,
   useCapacityHeatmap,
   useAssetCapacities,
@@ -649,13 +650,36 @@ function ActivityBar({ activity, viewStart, viewEnd, dayWidth, onClick }: {
 
 // ── Activities Tab ────────────────────────────────────────────
 
+interface ActivitiesTabFilters {
+  search: string
+  statusFilter: string
+  typeFilter: string
+  priorityFilter: string
+  assetId: string | null
+  projectId: string | null
+  startDate: string | null
+  endDate: string | null
+}
+
+const DEFAULT_ACTIVITIES_FILTERS: ActivitiesTabFilters = {
+  search: '',
+  statusFilter: '',
+  typeFilter: '',
+  priorityFilter: '',
+  assetId: null,
+  projectId: null,
+  startDate: null,
+  endDate: null,
+}
+
 function ActivitiesTab() {
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
-  const [search, setSearch] = useState('')
-  const debouncedSearch = useDebounce(search, 300)
-  const [statusFilter, setStatusFilter] = useState('')
-  const [typeFilter, setTypeFilter] = useState('')
+  const [filters, setFilters] = useFilterPersistence<ActivitiesTabFilters>(
+    'planner.activities.filters',
+    DEFAULT_ACTIVITIES_FILTERS,
+  )
+  const debouncedSearch = useDebounce(filters.search, 300)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const confirmDialog = useConfirm()
   const promptInput = usePromptInput()
@@ -673,13 +697,35 @@ function ActivitiesTab() {
   const priorityLabels = useDictionaryLabels('planner_activity_priority', PRIORITY_LABELS_FALLBACK)
   const activityStatusOptions = useMemo(() => buildDictionaryOptions(activityStatusLabels, PLANNER_ACTIVITY_STATUS_VALUES, 'Tous'), [activityStatusLabels])
   const activityTypeOptions = useMemo(() => buildDictionaryOptions(activityTypeLabels, PLANNER_ACTIVITY_TYPE_VALUES), [activityTypeLabels])
+  const priorityOptions = useMemo(() => buildDictionaryOptions(priorityLabels, ['low', 'medium', 'high', 'critical']), [priorityLabels])
+
+  const updateFilter = useCallback(
+    <K extends keyof ActivitiesTabFilters>(key: K, value: ActivitiesTabFilters[K]) => {
+      setFilters((prev) => ({ ...prev, [key]: value }))
+      setPage(1)
+    },
+    [setFilters],
+  )
+
+  const hasAdvancedFilters =
+    !!filters.priorityFilter || !!filters.assetId || !!filters.projectId || !!filters.startDate || !!filters.endDate
+
+  const resetFilters = useCallback(() => {
+    setFilters(DEFAULT_ACTIVITIES_FILTERS)
+    setPage(1)
+  }, [setFilters])
 
   const { data, isLoading } = useActivities({
     page,
     page_size: pageSize,
     search: debouncedSearch || undefined,
-    status: statusFilter || undefined,
-    type: typeFilter || undefined,
+    status: filters.statusFilter || undefined,
+    type: filters.typeFilter || undefined,
+    priority: filters.priorityFilter || undefined,
+    asset_id: filters.assetId || undefined,
+    project_id: filters.projectId || undefined,
+    start_date: filters.startDate || undefined,
+    end_date: filters.endDate || undefined,
   })
 
   const items: PlannerActivity[] = data?.items ?? []
@@ -877,10 +923,10 @@ function ActivitiesTab() {
           {activityStatusOptions.map((opt) => (
             <button
               key={opt.value}
-              onClick={() => { setStatusFilter(opt.value); setPage(1) }}
+              onClick={() => updateFilter('statusFilter', opt.value)}
               className={cn(
                 'px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap',
-                statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground',
+                filters.statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
             >
               {opt.label}
@@ -888,8 +934,8 @@ function ActivitiesTab() {
           ))}
         </div>
         <select
-          value={typeFilter}
-          onChange={(e) => { setTypeFilter(e.target.value); setPage(1) }}
+          value={filters.typeFilter}
+          onChange={(e) => updateFilter('typeFilter', e.target.value)}
           className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary ml-1"
         >
           <option value="">Tous types</option>
@@ -897,7 +943,58 @@ function ActivitiesTab() {
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
+        <select
+          value={filters.priorityFilter}
+          onChange={(e) => updateFilter('priorityFilter', e.target.value)}
+          className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+        >
+          <option value="">Toutes priorités</option>
+          {priorityOptions.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+        {hasAdvancedFilters && (
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="h-6 px-2 text-[10px] font-medium text-muted-foreground hover:text-foreground border border-border rounded"
+            title="Réinitialiser tous les filtres"
+          >
+            Réinitialiser
+          </button>
+        )}
         {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{total} activites</span>}
+      </div>
+
+      {/* Advanced filter row (asset, project, date range) */}
+      <div className="flex items-center gap-2 border-b border-border px-3.5 h-10 shrink-0 bg-background-subtle">
+        <div className="flex-1 min-w-0 max-w-[260px]">
+          <AssetPicker
+            value={filters.assetId}
+            onChange={(id) => updateFilter('assetId', id)}
+            placeholder="Tous assets"
+            clearable
+          />
+        </div>
+        <div className="flex-1 min-w-0 max-w-[260px]">
+          <ProjectPicker
+            value={filters.projectId}
+            onChange={(id) => updateFilter('projectId', id)}
+            placeholder="Tous projets"
+            clearable
+          />
+        </div>
+        <div className="flex items-center gap-1.5 ml-auto">
+          <span className="text-[10px] uppercase text-muted-foreground tracking-wide">Période</span>
+          <DateRangePicker
+            startDate={filters.startDate}
+            endDate={filters.endDate}
+            onStartChange={(d) => updateFilter('startDate', d || null)}
+            onEndChange={(d) => updateFilter('endDate', d || null)}
+            startLabel="Début"
+            endLabel="Fin"
+          />
+        </div>
       </div>
 
       <PanelContent>
@@ -907,8 +1004,8 @@ function ActivitiesTab() {
           isLoading={isLoading}
           pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
           onPaginationChange={(p) => setPage(p)}
-          searchValue={search}
-          onSearchChange={(v) => { setSearch(v); setPage(1) }}
+          searchValue={filters.search}
+          onSearchChange={(v) => updateFilter('search', v)}
           searchPlaceholder="Rechercher par titre..."
           onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'planner', id: row.id, meta: { subtype: 'activity' } })}
           emptyIcon={ListTodo}
@@ -936,11 +1033,30 @@ function ActivitiesTab() {
 
 // ── Conflicts Tab ─────────────────────────────────────────────
 
+interface ConflitsTabFilters {
+  statusFilter: string
+  conflictTypeFilter: string
+  assetId: string | null
+  dateFrom: string | null
+  dateTo: string | null
+}
+
+const DEFAULT_CONFLITS_FILTERS: ConflitsTabFilters = {
+  statusFilter: '',
+  conflictTypeFilter: '',
+  assetId: null,
+  dateFrom: null,
+  dateTo: null,
+}
+
 function ConflitsTab() {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
-  const [statusFilter, setStatusFilter] = useState('')
+  const [conflictFilters, setConflictFilters] = useFilterPersistence<ConflitsTabFilters>(
+    'planner.conflicts.filters',
+    DEFAULT_CONFLITS_FILTERS,
+  )
   const [expandedRevisionSignalId, setExpandedRevisionSignalId] = useState<string | null>(null)
   const [requestDecisionModal, setRequestDecisionModal] = useState<PlannerRevisionSignal | null>(null)
   const [requestDecisionNote, setRequestDecisionNote] = useState('')
@@ -956,6 +1072,7 @@ function ConflitsTab() {
   const [respondDecisionStartDate, setRespondDecisionStartDate] = useState('')
   const [respondDecisionEndDate, setRespondDecisionEndDate] = useState('')
   const [respondDecisionStatus, setRespondDecisionStatus] = useState('')
+  const { toast } = useToast()
   const resolveConflict = useResolveConflict()
   const acknowledgeRevisionSignal = useAcknowledgeRevisionSignal()
   const requestRevisionDecision = useRequestRevisionDecision()
@@ -970,13 +1087,42 @@ function ConflitsTab() {
   const conflictStatusOptions = useMemo(() => buildDictionaryOptions(conflictStatusLabels, PLANNER_CONFLICT_STATUS_VALUES, 'Tous'), [conflictStatusLabels])
   const resolutionOptions = useMemo(() => buildDictionaryOptions(resolutionLabels, PLANNER_RESOLUTION_VALUES), [resolutionLabels])
 
+  const updateConflictFilter = useCallback(
+    <K extends keyof ConflitsTabFilters>(key: K, value: ConflitsTabFilters[K]) => {
+      setConflictFilters((prev) => ({ ...prev, [key]: value }))
+      setPage(1)
+    },
+    [setConflictFilters],
+  )
+
+  const hasAdvancedConflictFilters =
+    !!conflictFilters.conflictTypeFilter ||
+    !!conflictFilters.assetId ||
+    !!conflictFilters.dateFrom ||
+    !!conflictFilters.dateTo
+
+  const resetConflictFilters = useCallback(() => {
+    setConflictFilters(DEFAULT_CONFLITS_FILTERS)
+    setPage(1)
+  }, [setConflictFilters])
+
   const { data, isLoading } = useConflicts({
     page,
     page_size: pageSize,
-    status: statusFilter || undefined,
+    status: conflictFilters.statusFilter || undefined,
+    asset_id: conflictFilters.assetId || undefined,
+    conflict_date_from: conflictFilters.dateFrom || undefined,
+    conflict_date_to: conflictFilters.dateTo || undefined,
   })
 
-  const items: PlannerConflict[] = data?.items ?? []
+  const rawItems: PlannerConflict[] = data?.items ?? []
+  // Filter conflict_type client-side since the backend list endpoint doesn't
+  // expose a conflict_type query parameter yet (the column was added later;
+  // backend filtering can be added separately when we batch backend changes).
+  const items: PlannerConflict[] = useMemo(() => {
+    if (!conflictFilters.conflictTypeFilter) return rawItems
+    return rawItems.filter((c) => c.conflict_type === conflictFilters.conflictTypeFilter)
+  }, [rawItems, conflictFilters.conflictTypeFilter])
   const revisionSignals: PlannerRevisionSignal[] = revisionSignalsData?.items ?? []
   const incomingRevisionRequests: PlannerRevisionDecisionRequest[] = incomingRevisionRequestsData?.items ?? []
   const outgoingRevisionRequests: PlannerRevisionDecisionRequest[] = outgoingRevisionRequestsData?.items ?? []
@@ -994,6 +1140,18 @@ function ConflitsTab() {
   const [resolutionNote, setResolutionNote] = useState('')
   const { data: conflictAudit, isLoading: conflictAuditLoading } = useConflictAudit(resolveModal ?? undefined)
 
+  // ── Bulk resolve state ─────────────────────────────────────────
+  // The DataTable's `selectable` + `batchActions` props give us row
+  // checkboxes for free. We capture the selection in `bulkSelection`,
+  // then `bulkResolveOpen` triggers a modal that asks for one
+  // resolution + note that's applied to every selected open conflict.
+  // Already-resolved rows are filtered out client-side before POST.
+  const [bulkSelection, setBulkSelection] = useState<PlannerConflict[]>([])
+  const [bulkResolveOpen, setBulkResolveOpen] = useState(false)
+  const [bulkResolution, setBulkResolution] = useState('')
+  const [bulkResolutionNote, setBulkResolutionNote] = useState('')
+  const bulkResolveConflicts = useBulkResolveConflicts()
+
   const handleResolve = useCallback(() => {
     if (!resolveModal || !resolution) return
     resolveConflict.mutate(
@@ -1001,6 +1159,43 @@ function ConflitsTab() {
       { onSuccess: () => { setResolveModal(null); setResolution(''); setResolutionNote('') } },
     )
   }, [resolveModal, resolution, resolutionNote, resolveConflict])
+
+  const handleBulkResolve = useCallback(() => {
+    if (!bulkResolution) return
+    const openOnly = bulkSelection.filter((c) => c.status === 'open')
+    if (openOnly.length === 0) {
+      setBulkResolveOpen(false)
+      return
+    }
+    bulkResolveConflicts.mutate(
+      openOnly.map((c) => ({
+        conflict_id: c.id,
+        resolution: bulkResolution,
+        resolution_note: bulkResolutionNote || undefined,
+      })),
+      {
+        onSuccess: (result) => {
+          setBulkResolveOpen(false)
+          setBulkResolution('')
+          setBulkResolutionNote('')
+          setBulkSelection([])
+          const errCount = result.errors?.length ?? 0
+          toast({
+            title: `${result.resolved} conflits résolus`,
+            description: errCount > 0
+              ? `${errCount} échec(s), ${result.skipped} ignoré(s)`
+              : result.skipped > 0 ? `${result.skipped} ignoré(s)` : undefined,
+            variant: errCount > 0 ? 'error' : 'success',
+          })
+        },
+        onError: (err) => toast({
+          title: 'Échec résolution en masse',
+          description: extractApiError(err),
+          variant: 'error',
+        }),
+      },
+    )
+  }, [bulkResolution, bulkResolutionNote, bulkSelection, bulkResolveConflicts, toast])
 
   const handleRequestDecision = useCallback(() => {
     if (!requestDecisionModal) return
@@ -1085,6 +1280,30 @@ function ConflitsTab() {
       ),
     },
     {
+      accessorKey: 'conflict_type',
+      header: 'Type',
+      size: 130,
+      cell: ({ row }) => {
+        const ct = row.original.conflict_type
+        const overflow = row.original.overflow_amount
+        const isPriority = ct === 'priority_clash'
+        return (
+          <span
+            className={cn(
+              'gl-badge inline-flex items-center gap-1',
+              isPriority ? 'gl-badge-purple' : 'gl-badge-warning',
+            )}
+            title={isPriority ? 'Conflit de priorité' : `Dépassement POB${overflow != null ? ` (+${overflow})` : ''}`}
+          >
+            {isPriority ? 'Priorité' : 'POB'}
+            {!isPriority && overflow != null && overflow > 0 && (
+              <span className="tabular-nums">+{overflow}</span>
+            )}
+          </span>
+        )
+      },
+    },
+    {
       id: 'activities',
       header: 'Activites impliquees',
       cell: ({ row }) => (
@@ -1152,17 +1371,60 @@ function ConflitsTab() {
           {conflictStatusOptions.map((opt) => (
             <button
               key={opt.value}
-              onClick={() => { setStatusFilter(opt.value); setPage(1) }}
+              onClick={() => updateConflictFilter('statusFilter', opt.value)}
               className={cn(
                 'px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap',
-                statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground',
+                conflictFilters.statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
             >
               {opt.label}
             </button>
           ))}
         </div>
+        <select
+          value={conflictFilters.conflictTypeFilter}
+          onChange={(e) => updateConflictFilter('conflictTypeFilter', e.target.value)}
+          className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          title="Filtrer par type de conflit"
+        >
+          <option value="">Tous types</option>
+          <option value="pax_overflow">Dépassement POB</option>
+          <option value="priority_clash">Conflit priorité</option>
+        </select>
+        {hasAdvancedConflictFilters && (
+          <button
+            type="button"
+            onClick={resetConflictFilters}
+            className="h-6 px-2 text-[10px] font-medium text-muted-foreground hover:text-foreground border border-border rounded"
+            title="Réinitialiser tous les filtres"
+          >
+            Réinitialiser
+          </button>
+        )}
         {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{total} conflits</span>}
+      </div>
+
+      {/* Advanced filter row (asset, date range) */}
+      <div className="flex items-center gap-2 border-b border-border px-3.5 h-10 shrink-0 bg-background-subtle">
+        <div className="flex-1 min-w-0 max-w-[300px]">
+          <AssetPicker
+            value={conflictFilters.assetId}
+            onChange={(id) => updateConflictFilter('assetId', id)}
+            placeholder="Tous assets"
+            clearable
+          />
+        </div>
+        <div className="flex items-center gap-1.5 ml-auto">
+          <span className="text-[10px] uppercase text-muted-foreground tracking-wide">Période</span>
+          <DateRangePicker
+            startDate={conflictFilters.dateFrom}
+            endDate={conflictFilters.dateTo}
+            onStartChange={(d) => updateConflictFilter('dateFrom', d || null)}
+            onEndChange={(d) => updateConflictFilter('dateTo', d || null)}
+            startLabel="Début"
+            endLabel="Fin"
+          />
+        </div>
       </div>
 
       <div className="border-b border-border px-4 py-3">
@@ -1423,6 +1685,31 @@ function ConflitsTab() {
           emptyIcon={AlertTriangle}
           emptyTitle={t('planner.no_conflict')}
           storageKey="planner-conflicts"
+          selectable
+          onSelectionChange={(rows) => setBulkSelection(rows)}
+          batchActions={[
+            {
+              id: 'bulk-resolve',
+              label: 'Résoudre en masse',
+              variant: 'default',
+              onAction: (rows) => {
+                // Filter to open only — already-resolved/deferred rows
+                // can't be re-resolved, opening the modal with 0 actionable
+                // rows would be confusing.
+                const openRows = rows.filter((r) => r.status === 'open')
+                if (openRows.length === 0) {
+                  toast({
+                    title: 'Aucun conflit ouvert dans la sélection',
+                    description: 'Sélectionnez au moins un conflit avec le statut "ouvert".',
+                    variant: 'warning',
+                  })
+                  return
+                }
+                setBulkSelection(openRows)
+                setBulkResolveOpen(true)
+              },
+            },
+          ]}
         />
       </PanelContent>
 
@@ -1487,6 +1774,66 @@ function ConflitsTab() {
                 disabled={!resolution || resolveConflict.isPending}
               >
                 {resolveConflict.isPending ? <Loader2 size={12} className="animate-spin" /> : t('planner.confirm_resolution')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk resolve conflicts modal */}
+      {bulkResolveOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => !bulkResolveConflicts.isPending && setBulkResolveOpen(false)}
+        >
+          <div
+            className="bg-background rounded-lg border border-border shadow-lg w-full max-w-md p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Résolution en masse</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {bulkSelection.filter((c) => c.status === 'open').length} conflit(s) ouvert(s) sélectionné(s) — la même résolution sera appliquée à tous.
+              </p>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.resolve_conflict_field')}</label>
+              <select
+                value={bulkResolution}
+                onChange={(e) => setBulkResolution(e.target.value)}
+                className="w-full h-8 px-2 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">{t('planner.resolve_conflict_placeholder')}</option>
+                {resolutionOptions.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.resolve_conflict_note')}</label>
+              <textarea
+                value={bulkResolutionNote}
+                onChange={(e) => setBulkResolutionNote(e.target.value)}
+                className="w-full min-h-[60px] px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder={t('planner.resolve_conflict_note_placeholder')}
+              />
+            </div>
+            <div className="flex items-center gap-2 justify-end">
+              <button
+                className="gl-button-sm gl-button-default"
+                onClick={() => setBulkResolveOpen(false)}
+                disabled={bulkResolveConflicts.isPending}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                className="gl-button-sm gl-button-confirm"
+                onClick={handleBulkResolve}
+                disabled={!bulkResolution || bulkResolveConflicts.isPending}
+              >
+                {bulkResolveConflicts.isPending
+                  ? <Loader2 size={12} className="animate-spin" />
+                  : `Appliquer à ${bulkSelection.filter((c) => c.status === 'open').length}`}
               </button>
             </div>
           </div>

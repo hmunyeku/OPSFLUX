@@ -74,6 +74,21 @@ async def get_current_user(
     return user
 
 
+async def get_optional_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    """Best-effort current user resolver for routes that may be public.
+
+    Returns ``None`` when no bearer token is provided. Invalid credentials still
+    raise 401 because they indicate an active but bad auth attempt rather than
+    an anonymous public access.
+    """
+    if not credentials:
+        return None
+    return await get_current_user(credentials=credentials, db=db)
+
+
 async def get_current_entity(
     request: Request,
     x_entity_id: str | None = Header(None, alias="X-Entity-ID"),
@@ -153,9 +168,53 @@ def require_module_enabled(module_slug: str):
     """Factory returning a dependency that blocks access when a module is disabled for the entity."""
 
     async def _check_module_enabled(
-        entity_id: UUID = Depends(get_current_entity),
+        request: Request,
+        current_user: User | None = Depends(get_optional_current_user),
         db: AsyncSession = Depends(get_db),
     ) -> None:
+        entity_id: UUID | None = None
+
+        x_entity_id = request.headers.get("X-Entity-ID")
+        if x_entity_id:
+            try:
+                entity_id = UUID(x_entity_id)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid X-Entity-ID header",
+                ) from exc
+        elif current_user and current_user.default_entity_id:
+            entity_id = current_user.default_entity_id
+
+        # Public external Pax routes must still be module-gated, but they do not
+        # carry a bearer token. Resolve the entity through the external link token.
+        if (
+            entity_id is None
+            and module_slug == "paxlog"
+            and "/api/v1/pax/external/" in request.url.path
+        ):
+            from app.models.paxlog import Ads, ExternalAccessLink
+
+            token = request.path_params.get("token")
+            if token:
+                result = await db.execute(
+                    select(Ads.entity_id)
+                    .select_from(ExternalAccessLink)
+                    .join(Ads, Ads.id == ExternalAccessLink.ads_id)
+                    .where(
+                        ExternalAccessLink.token == token,
+                        ExternalAccessLink.revoked == False,  # noqa: E712
+                    )
+                    .limit(1)
+                )
+                entity_id = result.scalar_one_or_none()
+
+        if entity_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No entity context for module check",
+            )
+
         if not await is_module_enabled(db, entity_id, module_slug):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

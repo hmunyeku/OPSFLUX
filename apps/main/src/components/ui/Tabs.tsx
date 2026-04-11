@@ -71,7 +71,11 @@ export function TabBar<T extends string = string>({
         className,
       )}
     >
-      <div className="flex items-center gap-1 min-w-0 overflow-x-auto">
+      {/* Tabs container — scrolls horizontally on narrow viewports
+          while the rightSlot stays anchored. Scrollbar is hidden via
+          inline arbitrary variants so the bar stays clean (matches the
+          outer .gl-tab-bar rule which already hides its own scrollbar). */}
+      <div className="flex items-center gap-1 min-w-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {items
           ? items
               .filter((t) => !t.hidden)

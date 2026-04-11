@@ -2475,6 +2475,71 @@ interface PlannerTimelinePref {
 
 const VALID_SCALES: ReadonlySet<TimeScale> = new Set<TimeScale>(['day', 'week', 'month', 'quarter', 'semester'])
 
+/**
+ * Repair an old persisted timeline range that was bitten by the pre-fix
+ * `toISO` UTC-drift bug.
+ *
+ * Before the toISO fix, calling `toISO(new Date(y, 0, 1))` in a local TZ
+ * east of UTC (e.g. Paris) returned `"(y-1)-12-31"` instead of `"y-01-01"`,
+ * because `toISOString` converts the instant to UTC first. As a result,
+ * every "this_year" / "this_month" / "this_quarter" preset the user ever
+ * clicked was persisted with a start one day before the intended boundary
+ * (e.g. `"2025-12-31"` for the 2026 year view) and an end one day before
+ * the real last day of the range.
+ *
+ * For month/quarter/semester scales — which only ever want clean month
+ * boundaries — we detect this symptom (start day > 25 OR end day < 5) and
+ * re-snap the range to the surrounding calendar month boundaries in the
+ * LOCAL timezone. Day/week scales are left untouched because they legitimately
+ * start/end on arbitrary dates.
+ */
+function repairTimelineRange(
+  scale: TimeScale,
+  start: string,
+  end: string,
+): { start: string; end: string } {
+  if (scale !== 'month' && scale !== 'quarter' && scale !== 'semester') {
+    return { start, end }
+  }
+  // Parse as LOCAL calendar dates so a TZ offset doesn't bleed in.
+  const parseLocal = (iso: string): Date | null => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+    if (!m) return null
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  }
+  const sDate = parseLocal(start)
+  const eDate = parseLocal(end)
+  if (!sDate || !eDate) return { start, end }
+
+  const fmt = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
+  let startFixed = sDate
+  // A start day > 25 means the previous `toISO` call shifted a "1st of month"
+  // one day back — snap forward to the first day of the next month.
+  if (sDate.getDate() > 25) {
+    startFixed = new Date(sDate.getFullYear(), sDate.getMonth() + 1, 1)
+  } else if (sDate.getDate() !== 1) {
+    // Any non-1st start on a month scale is a stale artefact — snap to the 1st.
+    startFixed = new Date(sDate.getFullYear(), sDate.getMonth(), 1)
+  }
+
+  let endFixed = eDate
+  // A stale end usually lands on day 30 of a 31-day month (Dec/Aug/...) or on
+  // the 29th/28th of a 31-day month — always 1 day before the real last day.
+  // Snap to the real last day of whichever month the stored date falls in.
+  const lastOfMonth = new Date(eDate.getFullYear(), eDate.getMonth() + 1, 0)
+  if (eDate.getDate() !== lastOfMonth.getDate()) {
+    endFixed = lastOfMonth
+  }
+
+  return { start: fmt(startFixed), end: fmt(endFixed) }
+}
+
 export function PlannerPage() {
   const [activeTab, setActiveTab] = useState<PlannerTab>('gantt')
 
@@ -2488,7 +2553,7 @@ export function PlannerPage() {
       ? persistedTimeline.scale
       : 'month'
   const initialRange = persistedTimeline?.start && persistedTimeline?.end
-    ? { start: persistedTimeline.start, end: persistedTimeline.end }
+    ? repairTimelineRange(initialScale, persistedTimeline.start, persistedTimeline.end)
     : getDefaultDateRange(initialScale)
 
   const [sharedTimelineScale, setSharedTimelineScale] = useState<TimeScale>(initialScale)
@@ -2504,7 +2569,9 @@ export function PlannerPage() {
     hydratedFromPrefsRef.current = true
     setSharedTimelineScale(persistedTimeline.scale)
     if (persistedTimeline.start && persistedTimeline.end) {
-      setSharedTimelineRange({ start: persistedTimeline.start, end: persistedTimeline.end })
+      setSharedTimelineRange(
+        repairTimelineRange(persistedTimeline.scale, persistedTimeline.start, persistedTimeline.end),
+      )
     }
   }, [persistedTimeline])
 

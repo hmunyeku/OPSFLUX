@@ -38,7 +38,29 @@ export const SCALE_META: Record<TimeScale, {
 
 // ── Date helpers ─────────────────────────────────────────────────
 
-export const toISO = (d: Date) => d.toISOString().slice(0, 10)
+/**
+ * Serialize a Date as YYYY-MM-DD using its LOCAL year/month/day components.
+ *
+ * WHY NOT toISOString().slice(0,10):
+ *   toISOString() first converts the instant to UTC, which shifts the date
+ *   by ±1 day for any local timezone ≠ UTC. Example in Paris (UTC+1):
+ *     new Date(2026, 0, 1).toISOString()  // "2025-12-31T23:00:00.000Z"
+ *   So `toISO(new Date(2026, 0, 1))` would return "2025-12-31" instead of
+ *   "2026-01-01". When that string was fed back into buildCells and parsed
+ *   with `new Date("2025-12-31")` (which parses as UTC midnight), the year
+ *   view got a phantom 1-day "Dec 2025" sliver cell before January and
+ *   shifted every subsequent month index by one, causing the heatmap cells
+ *   and bars to look decorrelated from the month header.
+ *
+ * Using the LOCAL components keeps the YYYY-MM-DD in sync with what
+ * `new Date(y, m, d)` was meant to represent in the user's calendar.
+ */
+export const toISO = (d: Date) => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 export const daysB = (a: string, b: string) => Math.ceil((new Date(b).getTime() - new Date(a).getTime()) / 86400000)
 export const addD = (s: string, n: number) => { const d = new Date(s); d.setDate(d.getDate() + n); return toISO(d) }
 
@@ -53,6 +75,14 @@ export function getISOWeek(d: Date): number {
 
 export function buildCells(scale: TimeScale, start: Date, end: Date): TimeCell[] {
   const cells: TimeCell[] = []
+  // Normalize to LOCAL midnight so a fractional-hour start/end — which
+  // happens when a YYYY-MM-DD string is parsed with `new Date(...)` (always
+  // UTC midnight) in a non-UTC timezone — doesn't create a phantom 1-day
+  // cell at the head of the range. This guarantees clean Jan..Dec cells for
+  // a year view even when older persisted timelines still contain pre-fix
+  // off-by-one ISO strings.
+  start = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+  end = new Date(end.getFullYear(), end.getMonth(), end.getDate())
   const cur = new Date(start)
 
   while (cur <= end) {

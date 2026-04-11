@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils'
 import { TabBar } from '@/components/ui/Tabs'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { normalizeNames } from '@/lib/normalize'
+import { validateTierForm, validateTierContactForm, type FormErrors } from '@/lib/formValidation'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePageSize } from '@/hooks/usePageSize'
 import { usePermission } from '@/hooks/usePermission'
@@ -93,6 +94,7 @@ const EMPTY_CONTACT_FORM: TierContactCreate = {
 
 function CreateTierPanel() {
   const { t } = useTranslation()
+  const { toast } = useToast()
   const createTier = useCreateTier()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const tierTypeOptions = useDictionaryOptions('tier_type')
@@ -100,6 +102,9 @@ function CreateTierPanel() {
   const currencyOptions = useDictionaryOptions('currency')
   const languageOptions = useDictionaryOptions('language')
   const countryOptions = useDictionaryOptions('country')
+  // formErrors is set on submit-failure for future field-level UI surfaces.
+  // Currently only the first error is surfaced via the toast in handleSubmit.
+  const [, setFormErrors] = useState<FormErrors>({})
   const [form, setForm] = useState<TierCreate>({
     name: '',
     type: 'client',
@@ -133,6 +138,22 @@ function CreateTierPanel() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Client-side validation gate — surface errors immediately so the
+    // user doesn't wait for a server roundtrip to discover a typo.
+    // The server still validates everything via Pydantic; this is
+    // just for UX latency.
+    const errors = validateTierForm(form)
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      const firstError = Object.values(errors)[0]
+      toast({
+        title: 'Formulaire incomplet',
+        description: firstError,
+        variant: 'error',
+      })
+      return
+    }
+    setFormErrors({})
     await createTier.mutateAsync(normalizeNames(form))
     closeDynamicPanel()
   }
@@ -874,7 +895,18 @@ function ContactListSection({
   useEffect(() => { setVisibleCount(CONTACTS_PAGE_SIZE) }, [contactSearch])
 
   const handleCreate = useCallback(async () => {
-    if (!form.first_name.trim() || !form.last_name.trim()) return
+    // Client-side validation gate. Server-side Pydantic still validates;
+    // this catches typos before the network roundtrip.
+    const errors = validateTierContactForm(form)
+    if (Object.keys(errors).length > 0) {
+      const firstError = Object.values(errors)[0]
+      toast({
+        title: 'Formulaire incomplet',
+        description: firstError,
+        variant: 'error',
+      })
+      return
+    }
     try {
       await createContact.mutateAsync({ tierId, payload: normalizeNames(form) })
       setForm(EMPTY_CONTACT_FORM)

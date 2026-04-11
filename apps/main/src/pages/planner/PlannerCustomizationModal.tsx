@@ -81,6 +81,12 @@ export interface PlannerGanttViewPrefs {
   // Empty array = show all (default). Toggled via the same legend row as
   // the type chips (next to the Validé / Brouillon swatches).
   activity_validity_filter: ('validated' | 'draft')[]
+
+  // Show / hide the legend area at the top of the gantt (saturation
+  // colour scale + activity-type chips + validity chips). When hidden,
+  // the user loses the ability to toggle filters via the chips but
+  // gains vertical space. Default: true (visible).
+  show_legend: boolean
 }
 
 export const DEFAULT_PLANNER_GANTT_VIEW: PlannerGanttViewPrefs = {
@@ -105,6 +111,7 @@ export const DEFAULT_PLANNER_GANTT_VIEW: PlannerGanttViewPrefs = {
   drag_cascade_mode: 'warn',
   activity_type_filter: [],
   activity_validity_filter: [],
+  show_legend: true,
 }
 
 /**
@@ -212,6 +219,11 @@ export function PlannerCustomizationSections({ prefs, onChange, barHeight = 18 }
           <Toggle label="Activités" checked={prefs.show_activity_rows} onChange={(v) => update('show_activity_rows', v)} />
         </div>
         <div className="mt-2 pt-2 border-t border-border/50 space-y-2">
+          <Toggle
+            label="Afficher la légende (saturation, types d'activité, validé/brouillon)"
+            checked={prefs.show_legend}
+            onChange={(v) => update('show_legend', v)}
+          />
           <Toggle
             label="Masquer les lignes vides (sans activité)"
             checked={prefs.hide_empty_rows}

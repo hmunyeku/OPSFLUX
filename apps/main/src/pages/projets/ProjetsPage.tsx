@@ -79,6 +79,7 @@ import {
   useActivityFeed,
   useExportProjectPdf,
 } from '@/hooks/useProjets'
+import { useCurrentEntity } from '@/hooks/useEntities'
 import type {
   GoutiCatalogFilters, GoutiCatalogProject, GoutiCatalogTask, GoutiSelectionPayload,
   GoutiProjectSelection, GoutiTaskSelection,
@@ -1136,6 +1137,11 @@ function CreateProjectPanel() {
   const projectPriorityLabels = useDictionaryLabels('project_priority', PROJECT_PRIORITY_LABELS_FALLBACK)
   const projectStatusOptions = useMemo(() => buildDictionaryOptions(projectStatusLabels, PROJECT_STATUS_VALUES), [projectStatusLabels])
   const projectPriorityOptions = useMemo(() => buildDictionaryOptions(projectPriorityLabels, PROJECT_PRIORITY_VALUES), [projectPriorityLabels])
+  // Used to label the "no override" option of the progress weight method
+  // picker as "Standard (CODE_ENTITE)" so the user knows which fallback
+  // they get (configured in Paramètres → Projets per entity).
+  const currentEntity = useCurrentEntity()
+  const standardLabel = currentEntity?.code ? `Standard (${currentEntity.code})` : 'Standard'
   // Form state allows asset_id to be empty (null) during edition; we
   // re-validate in handleSubmit before sending to the backend, where the
   // schema requires it (spec §1.4).
@@ -1251,7 +1257,7 @@ function CreateProjectPanel() {
 
               <FormSection title="Avancement" collapsible defaultExpanded>
                 <p className="text-[11px] text-muted-foreground mb-2">
-                  Comment l'avancement du projet sera calculé à partir de l'avancement de chaque tâche. Laissez sur « Défaut admin » pour utiliser le réglage entité.
+                  Comment l'avancement du projet sera calculé à partir de l'avancement de chaque tâche. Laissez sur « {standardLabel} » pour utiliser le réglage entité.
                 </p>
                 <DynamicPanelField label="Méthode de calcul">
                   <select
@@ -1259,7 +1265,7 @@ function CreateProjectPanel() {
                     onChange={(e) => setForm({ ...form, progress_weight_method: (e.target.value || null) as ProgressWeightMethod | null })}
                     className={panelInputClass}
                   >
-                    <option value="">Défaut admin</option>
+                    <option value="">{standardLabel}</option>
                     {PROGRESS_WEIGHT_METHOD_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
@@ -2633,6 +2639,10 @@ function ProjectDetailPanel({ id }: { id: string }) {
   const projectStatusOptions = useMemo(() => buildDictionaryOptions(projectStatusLabels, PROJECT_STATUS_VALUES), [projectStatusLabels])
   const projectPriorityOptions = useMemo(() => buildDictionaryOptions(projectPriorityLabels, PROJECT_PRIORITY_VALUES), [projectPriorityLabels])
   const projectWeatherOptions = useMemo(() => buildDictionaryOptions(projectWeatherLabels, PROJECT_WEATHER_VALUES), [projectWeatherLabels])
+  // Used to label the "no override" option of the progress weight method
+  // picker as "Standard (CODE_ENTITE)".
+  const currentEntity = useCurrentEntity()
+  const standardLabel = currentEntity?.code ? `Standard (${currentEntity.code})` : 'Standard'
 
   const handleSave = useCallback((field: string, value: string | number | null) => {
     updateProject.mutate({ id, payload: normalizeNames({ [field]: value }) }, {
@@ -2816,7 +2826,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
                   className={`${panelInputClass} w-full text-xs mt-0.5`}
                   disabled={!isProjectFieldEditable(project, 'progress_weight_method', capabilities)}
                 >
-                  <option value="">Défaut admin</option>
+                  <option value="">{standardLabel}</option>
                   {PROGRESS_WEIGHT_METHOD_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
@@ -2828,7 +2838,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
                 )}
                 {!project.progress_weight_method && (
                   <p className="text-[11px] text-muted-foreground/80 italic mt-1.5">
-                    Aucune surcharge — utilise le défaut configuré dans <strong>Paramètres → Projets</strong>.
+                    Mode <strong>{standardLabel}</strong> — utilise la méthode configurée dans <strong>Paramètres → Projets</strong>.
                   </p>
                 )}
               </div>

@@ -54,6 +54,17 @@ export function useEntity(id: string | undefined) {
   })
 }
 
+/** Convenience: returns the entity object currently selected in the auth
+ *  store. Reads `currentEntityId` from useAuthStore and resolves the
+ *  corresponding entity from useMyEntities (which is cached). Returns
+ *  undefined while the data is loading or if no entity is selected. */
+export function useCurrentEntity() {
+  const currentEntityId = useAuthStore((s) => s.currentEntityId)
+  const { data: myEntities } = useMyEntities()
+  if (!currentEntityId || !myEntities) return undefined
+  return myEntities.find((e) => e.id === currentEntityId)
+}
+
 export function useCreateEntity() {
   const qc = useQueryClient()
   const { toast } = useToast()

@@ -1800,9 +1800,15 @@ export function GanttView({
   // swatches in the legend don't match what the user sees on the grid.
   const liveHeatmapConfig = heatmapData?.config ?? DEFAULT_HEATMAP_CONFIG
 
+  // User pref: when false, the saturation/activity-type/validity legend
+  // area at the top of the gantt is hidden to free vertical space.
+  // Toggled via the customization modal (`Niveaux affichés` section).
+  const showLegend = viewPrefs.show_legend !== false
+
   return (
     <div className="flex-1 min-h-[400px] flex flex-col">
       {/* ── Legends (saturation + activity types + validity) ── */}
+      {showLegend && <>
       <div className="mb-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground px-1">
         <span className="font-semibold uppercase tracking-wide text-[10px]">Saturation</span>
         <span className="inline-flex items-center gap-1.5">
@@ -1924,6 +1930,7 @@ export function GanttView({
           )}
         </span>
       </div>
+      </>}
 
       <GanttCore
         key={`${scale}:${startDate}:${endDate}`}

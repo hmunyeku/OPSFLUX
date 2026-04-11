@@ -1605,7 +1605,18 @@ async def validate_manifest(
     _: None = require_permission("travelwiz.manifest.validate"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Validate a manifest — freezes it for departure."""
+    """Validate a manifest — freezes it for departure.
+
+    Before flipping the manifest to ``validated`` we run a hard
+    safety check on the combined PAX + cargo weight against the
+    vessel/heli weight capacity. ``assess_manifest_weight`` returns
+    ``is_blocked=True`` when the combined weight equals or exceeds
+    the vector's ``weight_capacity_kg``. Validating an overweight
+    manifest is an operational safety risk: the cargo + crew on
+    departure would exceed the certified payload of the vehicle.
+    Operators must reduce PAX, reduce cargo, or assign to a larger
+    vessel before validation can proceed.
+    """
     await _get_voyage_or_404(db, voyage_id, entity_id)
     result = await db.execute(
         select(VoyageManifest).where(
@@ -1619,6 +1630,35 @@ async def validate_manifest(
         raise HTTPException(400, "Manifest already validated")
     if manifest.status == "closed":
         raise HTTPException(400, "Manifest is closed")
+
+    # ── Combined PAX + cargo weight enforcement ─────────────────
+    # Read-only safety gate. The function reads ManifestPassenger
+    # (PAX weight) and CargoItem (cargo weight) for this manifest's
+    # voyage and compares to the vector's certified capacity.
+    try:
+        weight_check = await assess_manifest_weight(
+            db,
+            voyage_id=voyage_id,
+            manifest_id=manifest_id,
+            entity_id=entity_id,
+        )
+    except ValueError as exc:
+        # Manifest/voyage/vector not found at the deeper level —
+        # surface as 404 instead of leaking the ValueError.
+        raise HTTPException(404, str(exc)) from exc
+
+    if weight_check.get("is_blocked"):
+        capacity_kg = weight_check.get("weight_capacity_kg")
+        current_kg = weight_check.get("current_weight_kg")
+        raise HTTPException(
+            400,
+            (
+                f"Cannot validate manifest: combined PAX + cargo weight "
+                f"({current_kg} kg) meets or exceeds the vector capacity "
+                f"({capacity_kg} kg). Reduce PAX, reduce cargo, or reassign "
+                f"to a larger vector before validation."
+            ),
+        )
 
     manifest.status = "validated"
     manifest.validated_by = current_user.id

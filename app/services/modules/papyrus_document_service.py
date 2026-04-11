@@ -43,20 +43,22 @@ async def _record_papyrus_snapshot(
     from app.models.papyrus_document import DocType
     from app.services.modules.papyrus_versioning_service import record_document_version
 
-    doc_type = await db.get(DocType, doc.doc_type_id) if getattr(doc, "doc_type_id", None) else None
+    doc_data = getattr(doc, "__dict__", {})
+    doc_type_id = doc_data.get("doc_type_id")
+    doc_type = await db.get(DocType, doc_type_id) if doc_type_id else None
     return await record_document_version(
         db=db,
-        entity_id=doc.entity_id,
-        document_id=doc.id,
+        entity_id=doc_data.get("entity_id"),
+        document_id=doc_data.get("id"),
         revision_id=getattr(revision, "id", None),
         actor_id=actor_id,
-        title=doc.title,
+        title=doc_data.get("title"),
         workflow_id=getattr(doc_type, "default_workflow_id", None),
-        current_state=doc.status,
+        current_state=doc_data.get("status"),
         previous_content=previous_content,
         new_content=new_content,
-        created_at=getattr(doc, "created_at", None),
-        updated_at=getattr(doc, "updated_at", None),
+        created_at=doc_data.get("created_at"),
+        updated_at=doc_data.get("updated_at"),
         message=message,
         workflow_tag=workflow_tag,
     )

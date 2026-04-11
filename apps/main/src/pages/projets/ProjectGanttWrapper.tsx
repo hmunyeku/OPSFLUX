@@ -654,10 +654,13 @@ export function ProjectGanttWrapper() {
           initialSettings={getPref('gantt_settings', { barHeight: 20, rowHeight: 34, showBaselines: true })}
           onSettingsChange={(s) => setPref('gantt_settings', s)}
           onViewChange={(scale, start, end) => {
-            setCurrentScale(scale)
+            // GanttCore types `scale` as plain string for cross-module
+            // reuse, but our local state is the narrower TimeScale union.
+            const s = scale as TimeScale
+            setCurrentScale(s)
             setCurrentStart(start)
             setCurrentEnd(end)
-            setPref('gantt_scale', scale)
+            setPref('gantt_scale', s)
             setPref('gantt_viewStart', start)
             setPref('gantt_viewEnd', end)
           }}

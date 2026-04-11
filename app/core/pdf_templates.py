@@ -290,6 +290,40 @@ def _ensure_ads_ticket_operational_elements(
     return f"{body_html}{fallback_panel}", header_html, footer_html
 
 
+def _ensure_packlog_lt_operational_elements(
+    *,
+    body_html: str,
+    header_html: str | None,
+    footer_html: str | None,
+    variables: dict | None,
+) -> tuple[str, str | None, str | None]:
+    ctx = variables or {}
+    qr_payload = ctx.get("request_qr_data") or ctx.get("request_code")
+    if not isinstance(qr_payload, str) or not qr_payload.strip():
+        return body_html, header_html, footer_html
+
+    if any(_has_rendered_qr_markup(section) for section in (body_html, header_html, footer_html)):
+        return body_html, header_html, footer_html
+
+    qr_link = ctx.get("request_qr_url") or qr_payload
+    qr_image = generate_qr_base64(qr_payload)
+    if not qr_image:
+        return body_html, header_html, footer_html
+
+    fallback_panel = f"""
+<section class="qr-fallback" style="margin-top:12px;padding:12px;border:1px dashed #94a3b8;border-radius:10px;background:#f8fafc;">
+  <div style="display:flex;align-items:center;gap:14px;">
+    <img src="{qr_image}" alt="QR Code" style="width:96px;height:96px;flex:0 0 auto;border:1px solid #e2e8f0;background:#fff;padding:4px;border-radius:8px;" />
+    <div style="min-width:0;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#0f172a;">Scanner pour ouvrir la demande d'expedition</div>
+      <div style="margin-top:4px;font-size:12px;color:#334155;">Ce QR ouvre directement la fiche PackLog de la lettre de transport et permet ensuite d'ouvrir les colis rattachés.</div>
+      <div style="margin-top:6px;font-size:10px;word-break:break-all;color:#64748b;">{qr_link}</div>
+    </div>
+  </div>
+</section>"""
+    return f"{body_html}{fallback_panel}", header_html, footer_html
+
+
 def _build_pdf_document_html(
     *,
     body_html: str,
@@ -625,10 +659,15 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
             "requester_name": "Requester name",
             "description": "Shipping request description",
             "imputation_reference": "Imputation reference",
+            "request_qr_data": "QR target URL for the transport request",
+            "request_qr_url": "PackLog request URL",
+            "request_ready": "Whether the request is complete and ready",
+            "request_missing_requirements": "Missing request requirements",
             "cargo_items": "List of cargo items linked to the request",
             "total_cargo_items": "Total cargo item count",
             "total_weight_kg": "Total cargo weight",
             "total_packages": "Total package count",
+            "status_breakdown": "Cargo status counters",
             "generated_at": "Generation timestamp",
         },
         "default_versions": {
@@ -1584,67 +1623,146 @@ _CARGO_LT_BODY_FR = """\
 <meta charset="utf-8"/>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10pt; color: #1a1a2e; }
-  .header { text-align: center; padding-bottom: 12px; border-bottom: 2px solid #16213e; margin-bottom: 16px; }
-  .header .title { font-size: 16pt; font-weight: 700; color: #16213e; }
-  .header .subtitle { font-size: 10pt; color: #555; margin-top: 4px; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10pt; color: #122033; }
+  .document { width: 100%; }
+  .hero { border: 1px solid #d8e1eb; border-radius: 14px; overflow: hidden; margin-bottom: 14px; }
+  .hero-top { background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%); color: white; padding: 16px 18px; display: flex; justify-content: space-between; gap: 16px; }
+  .hero-title { font-size: 18pt; font-weight: 800; letter-spacing: 0.02em; }
+  .hero-subtitle { font-size: 9pt; opacity: 0.82; margin-top: 4px; }
+  .hero-ref { text-align: right; min-width: 180px; }
+  .hero-ref .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.18em; opacity: 0.72; }
+  .hero-ref .value { font-size: 16pt; font-weight: 800; margin-top: 3px; }
+  .hero-body { display: flex; gap: 18px; padding: 16px 18px; background: #f8fafc; }
+  .hero-main { flex: 1; }
+  .hero-side { width: 148px; border-left: 1px dashed #cbd5e1; padding-left: 18px; text-align: center; }
+  .hero-side img { width: 118px; height: 118px; object-fit: contain; }
+  .hero-side .scan { font-size: 7pt; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.12em; color: #475569; }
+  .status-line { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+  .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+  .badge-ready { background: #dcfce7; color: #166534; }
+  .badge-pending { background: #fef3c7; color: #92400e; }
+  .badge-status { background: #dbeafe; color: #1d4ed8; }
+  .metrics { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .metric { min-width: 120px; flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }
+  .metric .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.14em; color: #64748b; }
+  .metric .value { margin-top: 4px; font-size: 14pt; font-weight: 800; color: #0f172a; }
   .meta-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
-  .meta-item { flex: 1; min-width: 160px; padding: 8px; background: #f8f9fa; border-radius: 4px; }
-  .meta-item .label { font-size: 7pt; text-transform: uppercase; color: #888; }
-  .meta-item .value { font-size: 10pt; font-weight: 600; }
-  .description { margin-bottom: 14px; padding: 10px; background: #f8f9fa; border-left: 3px solid #16213e; white-space: pre-wrap; }
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  th { background: #16213e; color: #fff; text-align: left; padding: 6px 8px; font-size: 8pt; text-transform: uppercase; }
-  td { padding: 5px 8px; border-bottom: 1px solid #ddd; font-size: 9pt; }
-  tr:nth-child(even) { background: #f8f9fa; }
-  .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 7pt; color: #888; display: flex; justify-content: space-between; }
+  .meta-item { flex: 1; min-width: 170px; padding: 10px 12px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
+  .meta-item .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.12em; color: #64748b; }
+  .meta-item .value { font-size: 10pt; font-weight: 700; margin-top: 4px; }
+  .section { margin-bottom: 14px; }
+  .section-title { font-size: 9pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em; color: #0f172a; margin-bottom: 8px; }
+  .description { padding: 12px 14px; background: #f8fafc; border: 1px solid #d8e1eb; border-radius: 10px; white-space: pre-wrap; line-height: 1.45; }
+  .requirements { margin-top: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid #e5e7eb; background: white; }
+  .requirements .line { font-size: 8pt; color: #475569; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #0f172a; color: #fff; text-align: left; padding: 7px 8px; font-size: 7pt; text-transform: uppercase; letter-spacing: 0.12em; }
+  td { padding: 7px 8px; border-bottom: 1px solid #dbe4ee; font-size: 8.5pt; vertical-align: top; }
+  tr:nth-child(even) { background: #f8fafc; }
+  .mono { font-family: 'Courier New', monospace; font-size: 8pt; }
+  .mini-qr img { width: 48px; height: 48px; object-fit: contain; }
+  .status-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 7pt; font-weight: 700; background: #e2e8f0; color: #334155; }
+  .footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #cbd5e1; font-size: 7pt; color: #64748b; display: flex; justify-content: space-between; }
 </style>
 </head>
 <body>
-  <div class="header">
-    <div class="title">LETTRE DE TRANSPORT</div>
-    <div class="subtitle">{{ entity.name | default('OpsFlux') }}</div>
+  <div class="document">
+  <div class="hero">
+    <div class="hero-top">
+      <div>
+        <div class="hero-title">LETTRE DE TRANSPORT</div>
+        <div class="hero-subtitle">{{ entity.name | default('OpsFlux') }} · dossier logistique PackLog</div>
+      </div>
+      <div class="hero-ref">
+        <div class="label">Référence LT</div>
+        <div class="value">{{ request_code }}</div>
+      </div>
+    </div>
+    <div class="hero-body">
+      <div class="hero-main">
+        <div class="status-line">
+          <span class="badge badge-status">{{ request_status }}</span>
+          {% if request_ready %}
+            <span class="badge badge-ready">Dossier complet</span>
+          {% else %}
+            <span class="badge badge-pending">Dossier à compléter</span>
+          {% endif %}
+        </div>
+        <div class="metrics">
+          <div class="metric"><div class="label">Colis</div><div class="value">{{ total_cargo_items }}</div></div>
+          <div class="metric"><div class="label">Poids total</div><div class="value">{{ total_weight_kg }} kg</div></div>
+          <div class="metric"><div class="label">Packages</div><div class="value">{{ total_packages }}</div></div>
+          <div class="metric"><div class="label">Livrés</div><div class="value">{{ status_breakdown.delivered_final | default(0) }}</div></div>
+        </div>
+        <div class="meta-grid">
+          <div class="meta-item"><div class="label">Intitulé</div><div class="value">{{ request_title }}</div></div>
+          <div class="meta-item"><div class="label">Expéditeur</div><div class="value">{{ sender_name | default('--') }}</div></div>
+          <div class="meta-item"><div class="label">Contact entreprise</div><div class="value">{{ sender_contact_name | default('--') }}</div></div>
+          <div class="meta-item"><div class="label">Destinataire</div><div class="value">{{ receiver_name | default('--') }}</div></div>
+          <div class="meta-item"><div class="label">Destination</div><div class="value">{{ destination_name | default('--') }}</div></div>
+          <div class="meta-item"><div class="label">Demandeur</div><div class="value">{{ requester_name | default('--') }}</div></div>
+          <div class="meta-item"><div class="label">Imputation</div><div class="value">{{ imputation_reference | default('--') }}</div></div>
+        </div>
+      </div>
+      <div class="hero-side">
+        {% if request_qr_data or request_code %}
+          <img src="{{ qr_code(request_qr_data | default(request_code)) }}" alt="QR LT"/>
+          <div class="scan">Scanner pour ouvrir la demande dans PackLog</div>
+        {% endif %}
+      </div>
+    </div>
   </div>
-  <div class="meta-grid">
-    <div class="meta-item"><div class="label">Reference</div><div class="value">{{ request_code }}</div></div>
-    <div class="meta-item"><div class="label">Intitule</div><div class="value">{{ request_title }}</div></div>
-    <div class="meta-item"><div class="label">Statut</div><div class="value">{{ request_status }}</div></div>
-    <div class="meta-item"><div class="label">Expediteur</div><div class="value">{{ sender_name | default('--') }}</div></div>
-    <div class="meta-item"><div class="label">Destinataire</div><div class="value">{{ receiver_name | default('--') }}</div></div>
-    <div class="meta-item"><div class="label">Destination</div><div class="value">{{ destination_name | default('--') }}</div></div>
-    <div class="meta-item"><div class="label">Demandeur</div><div class="value">{{ requester_name | default('--') }}</div></div>
-    <div class="meta-item"><div class="label">Imputation</div><div class="value">{{ imputation_reference | default('--') }}</div></div>
+  <div class="section">
+    <div class="section-title">Instructions dossier</div>
+    <div class="description">{{ description | default('--') }}</div>
+    {% if request_missing_requirements and request_missing_requirements|length > 0 %}
+      <div class="requirements">
+        <strong>Points bloquants détectés</strong>
+        {% for item in request_missing_requirements %}
+          <div class="line">• {{ item }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
   </div>
-  <div class="description">{{ description | default('--') }}</div>
-  <table>
+  <div class="section">
+    <div class="section-title">Colis rattachés</div>
+    <table>
     <thead>
       <tr>
         <th>#</th>
         <th>Tracking</th>
-        <th>Designation</th>
+        <th>Désignation</th>
         <th>Type</th>
         <th>Poids</th>
         <th>Colis</th>
         <th>Statut</th>
+        <th>QR</th>
       </tr>
     </thead>
     <tbody>
       {% for cargo in cargo_items %}
       <tr>
         <td>{{ loop.index }}</td>
-        <td>{{ cargo.tracking_code }}</td>
+        <td><div class="mono">{{ cargo.tracking_code }}</div></td>
         <td>{{ cargo.designation | default(cargo.description) }}</td>
         <td>{{ cargo.cargo_type | default('--') }}</td>
-        <td>{{ cargo.weight_kg | default('--') }}</td>
+        <td>{{ cargo.weight_kg | default('--') }} kg</td>
         <td>{{ cargo.package_count | default('--') }}</td>
-        <td>{{ cargo.status_label | default(cargo.status) }}</td>
+        <td><span class="status-chip">{{ cargo.status_label | default(cargo.status) }}</span></td>
+        <td class="mini-qr">
+          {% if cargo.qr_data %}
+            <img src="{{ qr_code(cargo.qr_data) }}" alt="QR {{ cargo.tracking_code }}"/>
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
   <div class="footer">
-    <span>Genere le {{ generated_at | default('--') }}</span>
-    <span>{{ entity.name | default('OpsFlux') }} -- LT Cargo</span>
+    <span>Généré le {{ generated_at | default('--') }}</span>
+    <span>{{ entity.name | default('OpsFlux') }} · LT Cargo · exploitation PackLog</span>
+  </div>
   </div>
 </body>
 </html>"""
@@ -1656,39 +1774,110 @@ _CARGO_LT_BODY_EN = """\
 <meta charset="utf-8"/>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10pt; color: #1a1a2e; }
-  .header { text-align: center; padding-bottom: 12px; border-bottom: 2px solid #16213e; margin-bottom: 16px; }
-  .header .title { font-size: 16pt; font-weight: 700; color: #16213e; }
-  .header .subtitle { font-size: 10pt; color: #555; margin-top: 4px; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10pt; color: #122033; }
+  .document { width: 100%; }
+  .hero { border: 1px solid #d8e1eb; border-radius: 14px; overflow: hidden; margin-bottom: 14px; }
+  .hero-top { background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%); color: white; padding: 16px 18px; display: flex; justify-content: space-between; gap: 16px; }
+  .hero-title { font-size: 18pt; font-weight: 800; letter-spacing: 0.02em; }
+  .hero-subtitle { font-size: 9pt; opacity: 0.82; margin-top: 4px; }
+  .hero-ref { text-align: right; min-width: 180px; }
+  .hero-ref .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.18em; opacity: 0.72; }
+  .hero-ref .value { font-size: 16pt; font-weight: 800; margin-top: 3px; }
+  .hero-body { display: flex; gap: 18px; padding: 16px 18px; background: #f8fafc; }
+  .hero-main { flex: 1; }
+  .hero-side { width: 148px; border-left: 1px dashed #cbd5e1; padding-left: 18px; text-align: center; }
+  .hero-side img { width: 118px; height: 118px; object-fit: contain; }
+  .hero-side .scan { font-size: 7pt; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.12em; color: #475569; }
+  .status-line { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+  .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+  .badge-ready { background: #dcfce7; color: #166534; }
+  .badge-pending { background: #fef3c7; color: #92400e; }
+  .badge-status { background: #dbeafe; color: #1d4ed8; }
+  .metrics { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .metric { min-width: 120px; flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }
+  .metric .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.14em; color: #64748b; }
+  .metric .value { margin-top: 4px; font-size: 14pt; font-weight: 800; color: #0f172a; }
   .meta-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
-  .meta-item { flex: 1; min-width: 160px; padding: 8px; background: #f8f9fa; border-radius: 4px; }
-  .meta-item .label { font-size: 7pt; text-transform: uppercase; color: #888; }
-  .meta-item .value { font-size: 10pt; font-weight: 600; }
-  .description { margin-bottom: 14px; padding: 10px; background: #f8f9fa; border-left: 3px solid #16213e; white-space: pre-wrap; }
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  th { background: #16213e; color: #fff; text-align: left; padding: 6px 8px; font-size: 8pt; text-transform: uppercase; }
-  td { padding: 5px 8px; border-bottom: 1px solid #ddd; font-size: 9pt; }
-  tr:nth-child(even) { background: #f8f9fa; }
-  .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 7pt; color: #888; display: flex; justify-content: space-between; }
+  .meta-item { flex: 1; min-width: 170px; padding: 10px 12px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
+  .meta-item .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.12em; color: #64748b; }
+  .meta-item .value { font-size: 10pt; font-weight: 700; margin-top: 4px; }
+  .section { margin-bottom: 14px; }
+  .section-title { font-size: 9pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em; color: #0f172a; margin-bottom: 8px; }
+  .description { padding: 12px 14px; background: #f8fafc; border: 1px solid #d8e1eb; border-radius: 10px; white-space: pre-wrap; line-height: 1.45; }
+  .requirements { margin-top: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid #e5e7eb; background: white; }
+  .requirements .line { font-size: 8pt; color: #475569; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #0f172a; color: #fff; text-align: left; padding: 7px 8px; font-size: 7pt; text-transform: uppercase; letter-spacing: 0.12em; }
+  td { padding: 7px 8px; border-bottom: 1px solid #dbe4ee; font-size: 8.5pt; vertical-align: top; }
+  tr:nth-child(even) { background: #f8fafc; }
+  .mono { font-family: 'Courier New', monospace; font-size: 8pt; }
+  .mini-qr img { width: 48px; height: 48px; object-fit: contain; }
+  .status-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 7pt; font-weight: 700; background: #e2e8f0; color: #334155; }
+  .footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #cbd5e1; font-size: 7pt; color: #64748b; display: flex; justify-content: space-between; }
 </style>
 </head>
 <body>
-  <div class="header">
-    <div class="title">TRANSPORT LETTER</div>
-    <div class="subtitle">{{ entity.name | default('OpsFlux') }}</div>
+  <div class="document">
+  <div class="hero">
+    <div class="hero-top">
+      <div>
+        <div class="hero-title">TRANSPORT LETTER</div>
+        <div class="hero-subtitle">{{ entity.name | default('OpsFlux') }} · PackLog logistics dossier</div>
+      </div>
+      <div class="hero-ref">
+        <div class="label">LT reference</div>
+        <div class="value">{{ request_code }}</div>
+      </div>
+    </div>
+    <div class="hero-body">
+      <div class="hero-main">
+        <div class="status-line">
+          <span class="badge badge-status">{{ request_status }}</span>
+          {% if request_ready %}
+            <span class="badge badge-ready">Complete file</span>
+          {% else %}
+            <span class="badge badge-pending">File to complete</span>
+          {% endif %}
+        </div>
+        <div class="metrics">
+          <div class="metric"><div class="label">Cargo items</div><div class="value">{{ total_cargo_items }}</div></div>
+          <div class="metric"><div class="label">Total weight</div><div class="value">{{ total_weight_kg }} kg</div></div>
+          <div class="metric"><div class="label">Packages</div><div class="value">{{ total_packages }}</div></div>
+          <div class="metric"><div class="label">Delivered</div><div class="value">{{ status_breakdown.delivered_final | default(0) }}</div></div>
+        </div>
+        <div class="meta-grid">
+          <div class="meta-item"><div class="label">Title</div><div class="value">{{ request_title }}</div></div>
+          <div class="meta-item"><div class="label">Sender</div><div class="value">{{ sender_name | default('--') }}</div></div>
+          <div class="meta-item"><div class="label">Company contact</div><div class="value">{{ sender_contact_name | default('--') }}</div></div>
+          <div class="meta-item"><div class="label">Receiver</div><div class="value">{{ receiver_name | default('--') }}</div></div>
+          <div class="meta-item"><div class="label">Destination</div><div class="value">{{ destination_name | default('--') }}</div></div>
+          <div class="meta-item"><div class="label">Requester</div><div class="value">{{ requester_name | default('--') }}</div></div>
+          <div class="meta-item"><div class="label">Imputation</div><div class="value">{{ imputation_reference | default('--') }}</div></div>
+        </div>
+      </div>
+      <div class="hero-side">
+        {% if request_qr_data or request_code %}
+          <img src="{{ qr_code(request_qr_data | default(request_code)) }}" alt="LT QR"/>
+          <div class="scan">Scan to open this request in PackLog</div>
+        {% endif %}
+      </div>
+    </div>
   </div>
-  <div class="meta-grid">
-    <div class="meta-item"><div class="label">Reference</div><div class="value">{{ request_code }}</div></div>
-    <div class="meta-item"><div class="label">Title</div><div class="value">{{ request_title }}</div></div>
-    <div class="meta-item"><div class="label">Status</div><div class="value">{{ request_status }}</div></div>
-    <div class="meta-item"><div class="label">Sender</div><div class="value">{{ sender_name | default('--') }}</div></div>
-    <div class="meta-item"><div class="label">Receiver</div><div class="value">{{ receiver_name | default('--') }}</div></div>
-    <div class="meta-item"><div class="label">Destination</div><div class="value">{{ destination_name | default('--') }}</div></div>
-    <div class="meta-item"><div class="label">Requester</div><div class="value">{{ requester_name | default('--') }}</div></div>
-    <div class="meta-item"><div class="label">Imputation</div><div class="value">{{ imputation_reference | default('--') }}</div></div>
+  <div class="section">
+    <div class="section-title">Operational instructions</div>
+    <div class="description">{{ description | default('--') }}</div>
+    {% if request_missing_requirements and request_missing_requirements|length > 0 %}
+      <div class="requirements">
+        <strong>Open completion points</strong>
+        {% for item in request_missing_requirements %}
+          <div class="line">• {{ item }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
   </div>
-  <div class="description">{{ description | default('--') }}</div>
-  <table>
+  <div class="section">
+    <div class="section-title">Linked cargo items</div>
+    <table>
     <thead>
       <tr>
         <th>#</th>
@@ -1698,25 +1887,33 @@ _CARGO_LT_BODY_EN = """\
         <th>Weight</th>
         <th>Packages</th>
         <th>Status</th>
+        <th>QR</th>
       </tr>
     </thead>
     <tbody>
       {% for cargo in cargo_items %}
       <tr>
         <td>{{ loop.index }}</td>
-        <td>{{ cargo.tracking_code }}</td>
+        <td><div class="mono">{{ cargo.tracking_code }}</div></td>
         <td>{{ cargo.designation | default(cargo.description) }}</td>
         <td>{{ cargo.cargo_type | default('--') }}</td>
-        <td>{{ cargo.weight_kg | default('--') }}</td>
+        <td>{{ cargo.weight_kg | default('--') }} kg</td>
         <td>{{ cargo.package_count | default('--') }}</td>
-        <td>{{ cargo.status_label | default(cargo.status) }}</td>
+        <td><span class="status-chip">{{ cargo.status_label | default(cargo.status) }}</span></td>
+        <td class="mini-qr">
+          {% if cargo.qr_data %}
+            <img src="{{ qr_code(cargo.qr_data) }}" alt="QR {{ cargo.tracking_code }}"/>
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
   <div class="footer">
     <span>Generated on {{ generated_at | default('--') }}</span>
-    <span>{{ entity.name | default('OpsFlux') }} -- Cargo LT</span>
+    <span>{{ entity.name | default('OpsFlux') }} · Cargo LT · PackLog operations</span>
+  </div>
   </div>
 </body>
 </html>"""
@@ -2592,6 +2789,13 @@ async def render_pdf_preview(
             footer_html=footer_html,
             variables=ctx,
         )
+    elif slug == "cargo.lt":
+        body_html, header_html, footer_html = _ensure_packlog_lt_operational_elements(
+            body_html=body_html,
+            header_html=header_html,
+            footer_html=footer_html,
+            variables=ctx,
+        )
 
     return _build_pdf_document_html(
         body_html=body_html,
@@ -2633,6 +2837,13 @@ async def render_pdf_from_version(
             footer_html=footer_html,
             variables=ctx,
         )
+    elif template.slug == "cargo.lt":
+        body_html, header_html, footer_html = _ensure_packlog_lt_operational_elements(
+            body_html=body_html,
+            header_html=header_html,
+            footer_html=footer_html,
+            variables=ctx,
+        )
 
     return _html_to_pdf(
         _build_pdf_document_html(
@@ -2668,6 +2879,13 @@ async def render_html_from_version(
     footer_html = render_template_string(version.footer_html, ctx) if version.footer_html else None
     if template and template.slug == "ads.ticket":
         body_html, header_html, footer_html = _ensure_ads_ticket_operational_elements(
+            body_html=body_html,
+            header_html=header_html,
+            footer_html=footer_html,
+            variables=ctx,
+        )
+    elif template and template.slug == "cargo.lt":
+        body_html, header_html, footer_html = _ensure_packlog_lt_operational_elements(
             body_html=body_html,
             header_html=header_html,
             footer_html=footer_html,

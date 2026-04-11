@@ -3491,6 +3491,21 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
   const [editForm, setEditForm] = useState<CargoRequestUpdate>({})
   const requestCargo = requestCargoData?.items ?? []
   const missingRequirements = cargoRequest?.missing_requirements ?? []
+  const totalWeightKg = requestCargo.reduce((sum, cargo) => sum + Number(cargo.weight_kg || 0), 0)
+  const totalPackages = requestCargo.reduce((sum, cargo) => sum + Number(cargo.package_count || 0), 0)
+  const deliveredCount = requestCargo.filter((cargo) => cargo.status === 'delivered_final').length
+  const inTransitCount = requestCargo.filter((cargo) => cargo.status === 'in_transit').length
+  const blockedCount = requestCargo.filter((cargo) => ['damaged', 'missing'].includes(cargo.status)).length
+  const assignedCount = requestCargo.filter((cargo) => Boolean(cargo.manifest_id)).length
+  const completionRatio = Math.max(
+    0,
+    Math.min(
+      100,
+      cargoRequest?.is_ready_for_submission
+        ? 100
+        : Math.round(((Math.max(7 - missingRequirements.length, 0)) / 7) * 100),
+    ),
+  )
 
   const startEdit = useCallback(() => {
     if (!cargoRequest) return
@@ -3684,6 +3699,65 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
           </FormSection>
         ) : (
           <>
+            <div className="rounded-2xl border border-border/70 bg-card shadow-sm overflow-hidden">
+              <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-blue-900 px-5 py-4 text-white">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-white/65">Demande d’expédition</p>
+                    <h3 className="mt-1 text-lg font-semibold">{cargoRequest.request_code}</h3>
+                    <p className="mt-1 text-sm text-white/80">{cargoRequest.title}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-white/12 px-3 py-1 text-[11px] font-medium uppercase tracking-wide">
+                      {requestStatusLabels[cargoRequest.status] ?? cargoRequest.status}
+                    </span>
+                    <span className={cn(
+                      'rounded-full px-3 py-1 text-[11px] font-medium uppercase tracking-wide',
+                      cargoRequest.is_ready_for_submission
+                        ? 'bg-emerald-400/20 text-emerald-100'
+                        : 'bg-amber-300/20 text-amber-50',
+                    )}>
+                      {cargoRequest.is_ready_for_submission ? 'Prête à opérer' : 'À compléter'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="grid gap-3 px-5 py-4 md:grid-cols-4">
+                <div className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Complétude</p>
+                  <p className="mt-1 text-2xl font-semibold text-foreground">{completionRatio}%</p>
+                  <div className="mt-2 h-2 rounded-full bg-muted">
+                    <div
+                      className={cn(
+                        'h-2 rounded-full transition-all',
+                        cargoRequest.is_ready_for_submission ? 'bg-emerald-500' : 'bg-amber-500',
+                      )}
+                      style={{ width: `${completionRatio}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Colis / packages</p>
+                  <p className="mt-1 text-2xl font-semibold text-foreground">{requestCargo.length}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{totalPackages.toLocaleString('fr-FR')} packages déclarés</p>
+                </div>
+                <div className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Poids / chargement</p>
+                  <p className="mt-1 text-2xl font-semibold text-foreground">{totalWeightKg.toLocaleString('fr-FR')} kg</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{assignedCount} colis déjà affectés à un manifeste</p>
+                </div>
+                <div className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Insights</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">
+                    {deliveredCount} livrés · {inTransitCount} en transit · {blockedCount} bloqués
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {loadingOptions?.length ? `${loadingOptions.length} option(s) de chargement disponible(s)` : 'Aucune option de chargement calculée'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <FormSection title="Demande d’expédition">
               <DetailRow label="Code" value={cargoRequest.request_code} />
               <DetailRow label="Intitulé" value={cargoRequest.title} />

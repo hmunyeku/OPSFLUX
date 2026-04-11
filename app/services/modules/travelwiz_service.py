@@ -7,10 +7,15 @@ Integrates with:
 - EventBus: publishes travelwiz.* events for notification handlers
 """
 
-import logging
+import csv
+import io
 import json
+import logging
 import math
+import re
+import unicodedata
 from datetime import datetime, timedelta, timezone
+from difflib import SequenceMatcher
 from uuid import UUID
 
 from jose import JWTError, jwt
@@ -96,6 +101,9 @@ EVENT_TO_STATUS = {
     "ARRIVED_DESTINATION": "arrived",
     "BOARDING_START": "boarding",
 }
+
+SAP_MATCH_MIN_CONFIDENCE = 0.42
+SAP_MATCH_STRONG_CONFIDENCE = 0.68
 
 
 async def _get_entity_numeric_setting(
@@ -1783,73 +1791,435 @@ async def initiate_back_cargo(
 # SAP CODE MATCHING
 # ==============================================================================
 
+def normalize_article_description(description: str) -> str:
+    text_value = unicodedata.normalize("NFKD", description or "")
+    text_value = "".join(ch for ch in text_value if not unicodedata.combining(ch))
+    text_value = text_value.lower()
+    text_value = re.sub(r"[^a-z0-9]+", " ", text_value)
+    return " ".join(text_value.split())
 
-async def match_sap_code(db: AsyncSession, description: str, entity_id: UUID) -> list[dict]:
-    """Match a cargo description to SAP codes using fuzzy search.
 
-    Uses pg_trgm similarity on article_catalog.description_normalized.
-    Returns top 5 matches with confidence scores.
+def _normalize_sap_code(value: str | None) -> str:
+    return re.sub(r"[^A-Z0-9]", "", (value or "").upper())
 
-    Returns::
 
-        [
-            {
-                "sap_code": str,
-                "description": str,
-                "management_type": str,
-                "similarity": float,  # 0.0 to 1.0
-            }
-        ]
+def _tokenize_sap_text(value: str) -> set[str]:
+    stopwords = {
+        "de", "des", "du", "la", "le", "les", "et", "ou", "pour", "avec",
+        "the", "and", "for", "with", "sur", "sous", "piece", "pieces",
+        "article", "colis", "cargo", "pkg", "pack", "kit",
+    }
+    return {token for token in normalize_article_description(value).split() if token and token not in stopwords}
+
+
+def _parse_csv_bool(value: str | None) -> bool:
+    if value is None:
+        return False
+    normalized = value.strip().lower()
+    return normalized in {"1", "true", "yes", "y", "oui", "o"}
+
+
+def _parse_csv_decimal(value: str | None) -> float | None:
+    if value is None:
+        return None
+    normalized = value.strip().replace(",", ".")
+    if not normalized:
+        return None
+    return float(normalized)
+
+
+def parse_article_csv_row(row: dict[str, str], line_number: int) -> dict:
+    sap_code = (row.get("sap_code") or "").strip()
+    description_fr = (row.get("description_fr") or row.get("description") or "").strip()
+    if not sap_code:
+        raise ValueError(f"Ligne {line_number}: sap_code requis")
+    if not description_fr:
+        raise ValueError(f"Ligne {line_number}: description requise")
+
+    return {
+        "sap_code": sap_code,
+        "internal_code": (row.get("internal_code") or "").strip() or None,
+        "description_fr": description_fr,
+        "description_en": (row.get("description_en") or "").strip() or None,
+        "description_normalized": normalize_article_description(description_fr),
+        "management_type": (row.get("management_type") or "standard").strip() or "standard",
+        "unit_of_measure": (row.get("unit_of_measure") or row.get("unit") or "").strip() or None,
+        "packaging_type": (row.get("packaging_type") or "").strip() or None,
+        "is_hazmat": _parse_csv_bool(row.get("is_hazmat")),
+        "hazmat_class": (row.get("hazmat_class") or "").strip() or None,
+        "unit_weight_kg": _parse_csv_decimal(row.get("unit_weight_kg")),
+        "active": _parse_csv_bool(row.get("active")) if "active" in row else True,
+    }
+
+
+def _sequence_score(left: str, right: str) -> float:
+    if not left or not right:
+        return 0.0
+    return SequenceMatcher(None, left, right).ratio()
+
+
+def _jaccard_score(left: set[str], right: set[str]) -> float:
+    if not left or not right:
+        return 0.0
+    union = left | right
+    if not union:
+        return 0.0
+    return len(left & right) / len(union)
+
+
+def _score_sap_candidate(query: str, query_tokens: set[str], query_code: str, row: dict) -> tuple[float, dict]:
+    article_id = str(row.get("id"))
+    sap_code = str(row.get("sap_code") or "")
+    description_fr = str(row.get("description_fr") or row.get("description") or "")
+    description_en = str(row.get("description_en") or "")
+    description = description_fr or description_en
+    internal_code = str(row.get("internal_code") or "")
+    management_type = row.get("management_type")
+    db_similarity = float(row.get("db_similarity") or 0.0)
+
+    normalized_description = normalize_article_description(description)
+    english_description = normalize_article_description(description_en)
+    description_tokens = _tokenize_sap_text(description)
+    english_tokens = _tokenize_sap_text(description_en)
+    article_code = _normalize_sap_code(sap_code)
+    article_internal_code = _normalize_sap_code(internal_code)
+
+    code_exact = 1.0 if query_code and query_code in {article_code, article_internal_code} else 0.0
+    code_partial = 0.0
+    if query_code and not code_exact:
+        if article_code.startswith(query_code) or query_code.startswith(article_code):
+            code_partial = 0.75
+        elif query_code and article_code and query_code in article_code:
+            code_partial = 0.55
+
+    fr_sequence = _sequence_score(query, normalized_description)
+    en_sequence = _sequence_score(query, english_description)
+    best_sequence = max(fr_sequence, en_sequence)
+    best_overlap = max(
+        _jaccard_score(query_tokens, description_tokens),
+        _jaccard_score(query_tokens, english_tokens),
+    )
+    containment = 1.0 if query and (query in normalized_description or normalized_description in query) else 0.0
+
+    score = (
+        code_exact * 0.48
+        + code_partial * 0.22
+        + best_sequence * 0.18
+        + best_overlap * 0.18
+        + db_similarity * 0.14
+        + containment * 0.10
+    )
+    confidence = round(min(score, 1.0), 3)
+    return confidence, {
+        "article_id": article_id,
+        "sap_code": sap_code or None,
+        "description": description,
+        "confidence": confidence,
+        "matched": confidence >= SAP_MATCH_MIN_CONFIDENCE,
+        "management_type": management_type,
+    }
+
+
+async def list_article_catalog(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    search: str | None = None,
+    sap_code: str | None = None,
+    management_type: str | None = None,
+    is_hazmat: bool | None = None,
+) -> list[dict]:
+    conditions = ["entity_id = :eid", "COALESCE(active, TRUE) = TRUE"]
+    params: dict[str, object] = {"eid": str(entity_id)}
+
+    if search:
+        conditions.append("(description_fr ILIKE :search OR description_en ILIKE :search OR sap_code ILIKE :search OR internal_code ILIKE :search)")
+        params["search"] = f"%{search}%"
+    if sap_code:
+        conditions.append("sap_code = :sap")
+        params["sap"] = sap_code
+    if management_type:
+        conditions.append("management_type = :mt")
+        params["mt"] = management_type
+    if is_hazmat is not None:
+        conditions.append("is_hazmat = :haz")
+        params["haz"] = is_hazmat
+
+    where_clause = " AND ".join(conditions)
+    result = await db.execute(
+        text(
+            f"SELECT id, sap_code, description_fr, management_type, unit_of_measure, "
+            f"  is_hazmat, hazmat_class, created_at "
+            f"FROM article_catalog "
+            f"WHERE {where_clause} "
+            f"ORDER BY sap_code "
+            f"LIMIT 200"
+        ),
+        params,
+    )
+    return [
+        {
+            "id": row[0],
+            "sap_code": row[1],
+            "description": row[2],
+            "management_type": row[3],
+            "unit": row[4],
+            "is_hazmat": row[5],
+            "hazmat_class": row[6],
+            "created_at": row[7],
+        }
+        for row in result.all()
+    ]
+
+
+async def create_article_catalog_entry(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    sap_code: str,
+    description: str,
+    management_type: str = "standard",
+    unit: str = "EA",
+    is_hazmat: bool = False,
+    hazmat_class: str | None = None,
+) -> dict:
+    normalized = normalize_article_description(description)
+    result = await db.execute(
+        text(
+            "INSERT INTO article_catalog "
+            "(entity_id, sap_code, description_fr, description_normalized, "
+            "  management_type, unit_of_measure, is_hazmat, hazmat_class, source, last_imported_at) "
+            "VALUES (:eid, :sap, :desc, :norm, :mt, :unit, :haz, :hclass, :source, :imported_at) "
+            "RETURNING id, sap_code, description_fr, management_type, unit_of_measure, is_hazmat, hazmat_class"
+        ),
+        {
+            "eid": str(entity_id),
+            "sap": sap_code,
+            "desc": description,
+            "norm": normalized,
+            "mt": management_type,
+            "unit": unit,
+            "haz": is_hazmat,
+            "hclass": hazmat_class,
+            "source": "manual",
+            "imported_at": datetime.now(timezone.utc),
+        },
+    )
+    row = result.first()
+    await db.commit()
+    return {
+        "id": row[0],
+        "sap_code": row[1],
+        "description": row[2],
+        "management_type": row[3],
+        "unit": row[4],
+        "is_hazmat": row[5],
+        "hazmat_class": row[6],
+    }
+
+
+async def import_article_catalog_csv(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    filename: str | None,
+    raw_bytes: bytes,
+) -> dict:
+    if not filename or not filename.lower().endswith(".csv"):
+        raise ValueError("Le fichier doit être un CSV")
+
+    try:
+        content = raw_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ValueError("Le fichier CSV doit être encodé en UTF-8") from exc
+
+    reader = csv.DictReader(io.StringIO(content))
+    if not reader.fieldnames:
+        raise ValueError("Le fichier CSV est vide")
+
+    imported = 0
+    updated = 0
+    errors: list[str] = []
+    imported_at = datetime.now(timezone.utc)
+
+    for line_number, row in enumerate(reader, start=2):
+        try:
+            payload = parse_article_csv_row(row, line_number)
+            existing = await db.execute(
+                text(
+                    "SELECT id FROM article_catalog "
+                    "WHERE entity_id = :eid AND sap_code = :sap "
+                    "LIMIT 1"
+                ),
+                {"eid": str(entity_id), "sap": payload["sap_code"]},
+            )
+            article_id = existing.scalar_one_or_none()
+            if article_id:
+                await db.execute(
+                    text(
+                        "UPDATE article_catalog "
+                        "SET internal_code = :internal_code, "
+                        "    description_fr = :description_fr, "
+                        "    description_en = :description_en, "
+                        "    description_normalized = :description_normalized, "
+                        "    management_type = :management_type, "
+                        "    unit_of_measure = :unit_of_measure, "
+                        "    packaging_type = :packaging_type, "
+                        "    is_hazmat = :is_hazmat, "
+                        "    hazmat_class = :hazmat_class, "
+                        "    unit_weight_kg = :unit_weight_kg, "
+                        "    source = :source, "
+                        "    last_imported_at = :last_imported_at, "
+                        "    active = :active "
+                        "WHERE id = :article_id"
+                    ),
+                    {
+                        **payload,
+                        "article_id": article_id,
+                        "source": "csv",
+                        "last_imported_at": imported_at,
+                    },
+                )
+                updated += 1
+            else:
+                await db.execute(
+                    text(
+                        "INSERT INTO article_catalog ("
+                        "entity_id, sap_code, internal_code, description_fr, description_en, "
+                        "description_normalized, management_type, unit_of_measure, packaging_type, "
+                        "is_hazmat, hazmat_class, unit_weight_kg, source, last_imported_at, active"
+                        ") VALUES ("
+                        ":entity_id, :sap_code, :internal_code, :description_fr, :description_en, "
+                        ":description_normalized, :management_type, :unit_of_measure, :packaging_type, "
+                        ":is_hazmat, :hazmat_class, :unit_weight_kg, :source, :last_imported_at, :active"
+                        ")"
+                    ),
+                    {
+                        **payload,
+                        "entity_id": str(entity_id),
+                        "source": "csv",
+                        "last_imported_at": imported_at,
+                    },
+                )
+                imported += 1
+        except ValueError as exc:
+            errors.append(str(exc))
+
+    await db.commit()
+    return {
+        "status": "completed",
+        "imported": imported,
+        "updated": updated,
+        "errors": errors,
+        "total_rows": max(0, imported + updated + len(errors)),
+    }
+
+
+async def match_sap_code(db: AsyncSession, description: str, entity_id: UUID) -> dict:
+    """Return the best SAP article match for a cargo description.
+
+    The scoring is hybrid:
+    - exact/partial SAP code hit
+    - trigram similarity from PostgreSQL when available
+    - normalized text sequence similarity
+    - token overlap
+    - phrase containment
     """
     if not description or len(description.strip()) < 2:
-        return []
+        return {
+            "article_id": None,
+            "sap_code": None,
+            "description": description.strip() if description else "",
+            "confidence": 0.0,
+            "matched": False,
+            "candidates": [],
+        }
 
-    normalized = description.strip().lower()
+    query = normalize_article_description(description)
+    query_tokens = _tokenize_sap_text(description)
+    query_code = _normalize_sap_code(description)
+    rows: list[dict] = []
 
     try:
         result = await db.execute(
             text(
-                "SELECT sap_code, description, management_type, "
-                "  similarity(description_normalized, :desc) AS sim "
+                "SELECT id, sap_code, internal_code, description_fr, description_en, "
+                "  description_normalized, management_type, "
+                "  GREATEST("
+                "    similarity(COALESCE(description_normalized, ''), :query), "
+                "    similarity(COALESCE(description_fr, ''), :raw), "
+                "    similarity(COALESCE(description_en, ''), :raw), "
+                "    similarity(COALESCE(sap_code, ''), :code), "
+                "    similarity(COALESCE(internal_code, ''), :code)"
+                "  ) AS db_similarity "
                 "FROM article_catalog "
                 "WHERE entity_id = :eid "
-                "  AND similarity(description_normalized, :desc) > 0.1 "
-                "ORDER BY sim DESC "
-                "LIMIT 5"
+                "  AND COALESCE(active, TRUE) = TRUE "
+                "  AND ("
+                "    similarity(COALESCE(description_normalized, ''), :query) > 0.08 "
+                "    OR description_fr ILIKE :pattern "
+                "    OR description_en ILIKE :pattern "
+                "    OR sap_code ILIKE :pattern "
+                "    OR internal_code ILIKE :pattern"
+                "  ) "
+                "ORDER BY db_similarity DESC NULLS LAST, sap_code "
+                "LIMIT 40"
             ),
-            {"desc": normalized, "eid": str(entity_id)},
+            {
+                "query": query,
+                "raw": description.strip(),
+                "code": query_code,
+                "pattern": f"%{description.strip()}%",
+                "eid": str(entity_id),
+            },
         )
-        rows = result.all()
+        rows = [dict(row._mapping) for row in result]
     except Exception:
-        # Fallback to ILIKE if pg_trgm is not available or table doesn't exist
-        logger.debug("pg_trgm search failed, falling back to ILIKE")
+        logger.debug("pg_trgm search failed for SAP match, using fallback scorer", exc_info=True)
+
+    if not rows:
         try:
             result = await db.execute(
                 text(
-                    "SELECT sap_code, description, management_type, "
-                    "  0.5 AS sim "
+                    "SELECT id, sap_code, internal_code, description_fr, description_en, "
+                    "  description_normalized, management_type, 0.0 AS db_similarity "
                     "FROM article_catalog "
-                    "WHERE entity_id = :eid "
-                    "  AND description_normalized ILIKE :pattern "
-                    "ORDER BY description "
-                    "LIMIT 5"
+                    "WHERE entity_id = :eid AND COALESCE(active, TRUE) = TRUE "
+                    "ORDER BY last_imported_at DESC NULLS LAST, created_at DESC NULLS LAST "
+                    "LIMIT 200"
                 ),
-                {"eid": str(entity_id), "pattern": f"%{normalized}%"},
+                {"eid": str(entity_id)},
             )
-            rows = result.all()
+            rows = [dict(row._mapping) for row in result]
         except Exception:
-            logger.debug("article_catalog table may not exist yet")
-            return []
+            logger.debug("article_catalog table may not exist yet", exc_info=True)
+            rows = []
 
-    return [
-        {
-            "sap_code": row[0],
-            "description": row[1],
-            "management_type": row[2],
-            "similarity": round(float(row[3]), 3),
+    if not rows:
+        return {
+            "article_id": None,
+            "sap_code": None,
+            "description": description.strip(),
+            "confidence": 0.0,
+            "matched": False,
+            "candidates": [],
         }
-        for row in rows
-    ]
+
+    scored = [_score_sap_candidate(query, query_tokens, query_code, row) for row in rows]
+    scored.sort(key=lambda item: item[0], reverse=True)
+    candidates = [candidate for _, candidate in scored[:5]]
+    best = candidates[0]
+    matched = bool(best["confidence"] >= SAP_MATCH_MIN_CONFIDENCE)
+
+    return {
+        "article_id": best["article_id"] if matched else None,
+        "sap_code": best["sap_code"] if matched else None,
+        "description": best["description"] if matched else description.strip(),
+        "confidence": best["confidence"],
+        "matched": matched,
+        "candidates": candidates,
+        "strong_match": bool(best["confidence"] >= SAP_MATCH_STRONG_CONFIDENCE),
+    }
 
 
 # ==============================================================================

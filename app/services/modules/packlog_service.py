@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import func as sqla_func, select, text
 
+from app.core.config import settings
 from app.core.rbac import get_user_permissions
 from app.models.asset_registry import Installation
 from app.models.common import Attachment, ImputationReference, Tier, TierContact, User
@@ -57,6 +58,12 @@ PACKLOG_PUBLIC_STATUS_LABELS = {
     "reintegrated": "Réintégré stock",
     "scrapped": "Mis au rebut",
 }
+
+
+def _build_packlog_frontend_url(path: str) -> str:
+    base_url = settings.FRONTEND_URL.rstrip("/")
+    normalized_path = path if path.startswith("/") else f"/{path}"
+    return f"{base_url}{normalized_path}"
 
 
 async def has_packlog_permission(
@@ -587,13 +594,27 @@ async def build_packlog_lt_variables(
     cargo_items: list[dict[str, Any]] = []
     total_weight = 0.0
     total_packages = 0
+    status_breakdown = {
+        "registered": 0,
+        "ready_for_loading": 0,
+        "loaded": 0,
+        "in_transit": 0,
+        "delivered_final": 0,
+        "damaged": 0,
+        "missing": 0,
+    }
+    request_url = _build_packlog_frontend_url(f"/packlog?request={cargo_request.id}")
     for cargo in cargo_rows:
         weight_value = float(cargo.weight_kg or 0)
         package_count = int(cargo.package_count or 0)
         total_weight += weight_value
         total_packages += package_count
+        normalized_status = str(cargo.status or "")
+        if normalized_status in status_breakdown:
+            status_breakdown[normalized_status] += 1
         cargo_items.append(
             {
+                "id": str(cargo.id),
                 "tracking_code": cargo.tracking_code,
                 "designation": cargo.designation,
                 "description": cargo.description,
@@ -602,6 +623,8 @@ async def build_packlog_lt_variables(
                 "package_count": package_count,
                 "status": cargo.status,
                 "status_label": PACKLOG_PUBLIC_STATUS_LABELS.get(cargo.status, cargo.status),
+                "qr_data": _build_packlog_frontend_url(f"/packlog?cargo={cargo.id}"),
+                "qr_url": _build_packlog_frontend_url(f"/packlog?cargo={cargo.id}"),
             }
         )
     return {
@@ -623,10 +646,15 @@ async def build_packlog_lt_variables(
             ]
             if part
         ) or None,
+        "request_qr_data": request_url,
+        "request_qr_url": request_url,
+        "request_ready": bool(request_payload.get("is_ready_for_submission")),
+        "request_missing_requirements": request_payload.get("missing_requirements") or [],
         "cargo_items": cargo_items,
         "total_cargo_items": len(cargo_items),
         "total_weight_kg": round(total_weight, 2),
         "total_packages": total_packages,
+        "status_breakdown": status_breakdown,
         "generated_at": _format_packlog_pdf_datetime(datetime.now(timezone.utc)),
     }
 

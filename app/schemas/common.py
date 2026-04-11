@@ -1643,6 +1643,7 @@ class ProjectRead(OpsFluxSchema):
     end_date: datetime | None = None
     actual_end_date: datetime | None = None
     budget: float | None = None
+    currency: str = "XAF"
     manager_id: UUID | None = None
     parent_id: UUID | None = None
     tier_id: UUID | None = None
@@ -1676,6 +1677,7 @@ class ProjectCreate(BaseModel):
     start_date: datetime | None = None
     end_date: datetime | None = None
     budget: float | None = None
+    currency: str = "XAF"
     manager_id: UUID | None = None
     parent_id: UUID | None = None
     tier_id: UUID | None = None
@@ -1694,6 +1696,7 @@ class ProjectUpdate(BaseModel):
     end_date: datetime | None = None
     actual_end_date: datetime | None = None
     budget: float | None = None
+    currency: str | None = None
     manager_id: UUID | None = None
     parent_id: UUID | None = None
     tier_id: UUID | None = None

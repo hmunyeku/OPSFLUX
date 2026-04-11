@@ -1593,6 +1593,7 @@ class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     actual_end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     budget: Mapped[float | None] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(10), nullable=False, default="XAF")
     manager_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     parent_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"))
     tier_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("tiers.id"))

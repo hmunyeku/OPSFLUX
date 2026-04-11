@@ -9,12 +9,13 @@
 import { useState, useMemo, useCallback } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import {
-  X, Search, CheckSquare, Square, Loader2, Calendar, Send, Zap,
+  X, Search, CheckSquare, Square, Loader2, Calendar, Send, Zap, Eye, Unlink,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useProjectTasks, usePlannerLinks, useSendToPlanner } from '@/hooks/useProjets'
+import { useProjectTasks, usePlannerLinks, useSendToPlanner, useUnlinkTaskFromPlanner } from '@/hooks/useProjets'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useToast } from '@/components/ui/Toast'
+import { useUIStore } from '@/stores/uiStore'
 import type { ProjectTask } from '@/types/api'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -39,6 +40,8 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
   const { data: tasks } = useProjectTasks(open ? projectId : undefined)
   const { data: links } = usePlannerLinks(open ? projectId : undefined)
   const sendToPlanner = useSendToPlanner()
+  const unlinkTaskFromPlanner = useUnlinkTaskFromPlanner()
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { toast } = useToast()
 
   const [search, setSearch] = useState('')
@@ -53,6 +56,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
 
   // Already-linked task IDs
   const linkedIds = useMemo(() => new Set((links || []).map(l => l.task_id)), [links])
+  const linkedByTaskId = useMemo(() => new Map((links || []).map(l => [l.task_id, l])), [links])
 
   // Filter tasks
   const filteredTasks = useMemo(() => {
@@ -143,6 +147,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
   const renderTask = (task: ProjectTask, depth: number): React.ReactNode => {
     const children = tree.get(task.id) || []
     const linked = linkedIds.has(task.id)
+    const linkedEntry = linkedByTaskId.get(task.id)
     const checked = selectedIds.has(task.id)
     const isLeaf = children.length === 0
 
@@ -204,7 +209,39 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
               <Calendar size={9} />{new Date(task.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
             </span>
           )}
-          {linked && <span className="text-green-600 text-[10px]">Déjà planifié</span>}
+          {linked && (
+            <>
+              <span className="text-green-600 text-[10px]">Déjà planifié</span>
+              {linkedEntry?.activity_id && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openDynamicPanel({ type: 'detail', module: 'planner', id: linkedEntry.activity_id })
+                  }}
+                  className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted"
+                >
+                  <Eye size={10} />
+                  Ouvrir
+                </button>
+              )}
+              <button
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  try {
+                    await unlinkTaskFromPlanner.mutateAsync({ projectId, taskId: task.id })
+                    toast({ title: 'Lien Planner supprimé', variant: 'success' })
+                  } catch {
+                    toast({ title: 'Impossible de retirer cette activité du Planner', variant: 'error' })
+                  }
+                }}
+                className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted"
+                disabled={unlinkTaskFromPlanner.isPending}
+              >
+                <Unlink size={10} />
+                Retirer
+              </button>
+            </>
+          )}
         </div>
         {children.map(c => renderTask(c, depth + 1))}
       </div>

@@ -86,6 +86,7 @@ import { ProjectGanttWrapper } from './ProjectGanttWrapper'
 import { TaskDetailPanel } from './TaskDetailPanel'
 import { ProjectSelectorModal } from '@/components/shared/ProjectSelectorModal'
 import { PlannerLinkModal } from '@/components/shared/PlannerLinkModal'
+import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { useProjectFilter } from '@/hooks/useProjectFilter'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { useUsers } from '@/hooks/useUsers'
@@ -1127,7 +1128,6 @@ function CreateProjectPanel() {
   const createProject = useCreateProject()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
-  const { data: projectsData } = useProjects({ page_size: 100 })
   const projectStatusLabels = useDictionaryLabels('project_status', PROJECT_STATUS_LABELS_FALLBACK)
   const projectPriorityLabels = useDictionaryLabels('project_priority', PROJECT_PRIORITY_LABELS_FALLBACK)
   const projectStatusOptions = useMemo(() => buildDictionaryOptions(projectStatusLabels, PROJECT_STATUS_VALUES), [projectStatusLabels])
@@ -1189,16 +1189,13 @@ function CreateProjectPanel() {
                     <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Nom du projet" />
                   </DynamicPanelField>
                   <DynamicPanelField label="Macro-projet (parent)">
-                    <select
-                      value={form.parent_id ?? ''}
-                      onChange={(e) => setForm({ ...form, parent_id: e.target.value || null })}
-                      className={panelInputClass}
-                    >
-                      <option value="">Aucun (projet indépendant)</option>
-                      {projectsData?.items?.map(p => (
-                        <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-                      ))}
-                    </select>
+                    <ProjectPicker
+                      value={form.parent_id || null}
+                      onChange={(id) => setForm({ ...form, parent_id: id || null })}
+                      filterStatus={['draft', 'planned', 'active', 'on_hold']}
+                      clearable
+                      placeholder="Aucun (projet indépendant)"
+                    />
                   </DynamicPanelField>
                   <DynamicPanelField label="Site">
                     <AssetPicker
@@ -2633,6 +2630,16 @@ function ProjectDetailPanel({ id }: { id: string }) {
   }
 
   const isGouti = isGoutiProject(project)
+  const projectCurrency = project.currency || 'XAF'
+  const toDateInputValue = (value: string | null | undefined) => value ? value.slice(0, 10) : ''
+  const toDateDisplayValue = (value: string | null | undefined) => {
+    if (!value) return ''
+    try {
+      return new Date(value).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    } catch {
+      return value.slice(0, 10)
+    }
+  }
 
   return (
     <DynamicPanelShell
@@ -2732,7 +2739,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
                     <CrossModuleLink module="tiers" id={project.tier_id} label={project.tier_name || project.tier_id} mode="navigate" />
                   ) : (project.tier_name || '--')
                 } />
-                <InlineEditableRow label="Budget" value={project.budget != null ? String(project.budget) : ''} onSave={(v) => handleSave('budget', v ? Number(v) : null)} type="number" suffix="XAF" />
+                <InlineEditableRow label="Budget" value={project.budget != null ? String(project.budget) : ''} onSave={(v) => handleSave('budget', v ? Number(v) : null)} type="number" suffix={projectCurrency} />
                 <div>
                   <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Site / Asset</label>
                   <AssetPicker
@@ -2747,9 +2754,9 @@ function ProjectDetailPanel({ id }: { id: string }) {
 
             <FormSection title="Planning" collapsible defaultExpanded storageKey="project-detail-planning">
               <DetailFieldGrid>
-                <InlineEditableRow label="Début" value={project.start_date || ''} onSave={(v) => handleSave('start_date', v || null)} type="date" />
-                <InlineEditableRow label="Fin prévue" value={project.end_date || ''} onSave={(v) => handleSave('end_date', v || null)} type="date" />
-                <InlineEditableRow label="Fin réelle" value={project.actual_end_date || ''} onSave={(v) => handleSave('actual_end_date', v || null)} type="date" />
+                <InlineEditableRow label="Début" value={toDateInputValue(project.start_date)} displayValue={toDateDisplayValue(project.start_date)} onSave={(v) => handleSave('start_date', v || null)} type="date" />
+                <InlineEditableRow label="Fin prévue" value={toDateInputValue(project.end_date)} displayValue={toDateDisplayValue(project.end_date)} onSave={(v) => handleSave('end_date', v || null)} type="date" />
+                <InlineEditableRow label="Fin réelle" value={toDateInputValue(project.actual_end_date)} displayValue={toDateDisplayValue(project.actual_end_date)} onSave={(v) => handleSave('actual_end_date', v || null)} type="date" />
               </DetailFieldGrid>
             </FormSection>
 

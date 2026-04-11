@@ -1289,6 +1289,7 @@ export interface Project {
   end_date: string | null
   actual_end_date: string | null
   budget: number | null
+  currency: string
   manager_id: string | null
   parent_id: string | null
   tier_id: string | null
@@ -1317,6 +1318,7 @@ export interface ProjectCreate {
   start_date?: string | null
   end_date?: string | null
   budget?: number | null
+  currency?: string
   manager_id?: string | null
   parent_id?: string | null
   tier_id?: string | null
@@ -1335,6 +1337,7 @@ export interface ProjectUpdate {
   end_date?: string | null
   actual_end_date?: string | null
   budget?: number | null
+  currency?: string | null
   manager_id?: string | null
   tier_id?: string | null
   asset_id?: string | null

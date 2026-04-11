@@ -63,12 +63,14 @@ const STATUS_COLORS: Record<string, string> = {
 // ── Props ────────────────────────────────────────────────────
 interface ProjectPickerProps {
   value?: string | null
-  onChange: (projectId: string | null, project?: { id: string; code: string; name: string }) => void
+  onChange: (projectId: string | null, project?: { id: string; code: string; name: string; asset_id?: string | null; status?: string | null }) => void
   placeholder?: string
   disabled?: boolean
   className?: string
   /** Filter by status */
   filterStatus?: string[]
+  /** Filter by linked site/asset */
+  assetId?: string | null
   /** Label shown above the picker */
   label?: string
   /** Show clear button */
@@ -83,6 +85,7 @@ export function ProjectPicker({
   disabled,
   className,
   filterStatus,
+  assetId,
   label,
   clearable = true,
 }: ProjectPickerProps) {
@@ -93,7 +96,7 @@ export function ProjectPicker({
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Fetch all projects (lightweight list)
-  const { data, isLoading } = useProjects({ page_size: 200 })
+  const { data, isLoading } = useProjects({ page_size: 200, asset_id: assetId || undefined })
   const projects = useMemo(() => {
     const items = (data as any)?.items ?? data ?? []
     if (filterStatus?.length) return items.filter((p: any) => filterStatus.includes(p.status))
@@ -126,7 +129,7 @@ export function ProjectPicker({
 
   const handleSelect = useCallback((project: any) => {
     trackProjectUsage({ id: project.id, code: project.code, name: project.name, status: project.status })
-    onChange(project.id, { id: project.id, code: project.code, name: project.name })
+    onChange(project.id, { id: project.id, code: project.code, name: project.name, asset_id: project.asset_id ?? null, status: project.status ?? null })
     setOpen(false)
     setSearch('')
   }, [onChange])

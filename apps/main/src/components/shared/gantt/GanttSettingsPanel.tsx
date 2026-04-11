@@ -27,8 +27,13 @@ interface GanttSettingsPanelProps {
   onSavePreset?: (name: string) => void
   onLoadPreset?: (preset: GanttPreset) => void
   onDeletePreset?: (name: string) => void
-  /** Extra sections injected at the bottom of the panel by the host */
-  extraContent?: ReactNode
+  /**
+   * Extra sections injected at the bottom of the panel by the host. Accepts
+   * either a static node or a function that receives the live GanttCore
+   * settings, so host-provided controls (e.g. the Planner heatmap row
+   * height slider) can react to edits made elsewhere in this same panel.
+   */
+  extraContent?: ReactNode | ((settings: GanttSettings) => ReactNode)
 }
 
 export function GanttSettingsPanel({ settings, onChange, statuses = [], priorities = [], columns = [], presets = [], onSavePreset, onLoadPreset, onDeletePreset, extraContent }: GanttSettingsPanelProps) {
@@ -249,7 +254,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
         {/* ── Host-provided extra sections ─────────────────── */}
         {extraContent && (
           <div className="border-t border-border/50 -mx-3 px-3 pt-4">
-            {extraContent}
+            {typeof extraContent === 'function' ? extraContent(settings) : extraContent}
           </div>
         )}
 

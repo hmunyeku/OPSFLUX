@@ -105,12 +105,26 @@ export function validatePlannerGanttPrefs(p: PlannerGanttViewPrefs): PlannerGant
 
 // ── Sections (host inside any container) ────────────────────────
 
+/**
+ * Lower bound for the heatmap row height slider. Below 18px the
+ * saturation % / PAX count labels are too cramped to read (`text-[9px]` is
+ * already on the floor of legibility).
+ */
+export const HEATMAP_ROW_HEIGHT_MIN = 18
+
 interface Props {
   prefs: PlannerGanttViewPrefs
   onChange: (prefs: PlannerGanttViewPrefs) => void
+  /**
+   * Current GanttCore bar height (px). The heatmap row height slider is
+   * capped at this value so heatmap rows can never be visually taller than
+   * the activity bars underneath — that would break the rhythm of the
+   * chart. Defaults to 18 (the GanttCore default) when not provided.
+   */
+  barHeight?: number
 }
 
-export function PlannerCustomizationSections({ prefs, onChange }: Props) {
+export function PlannerCustomizationSections({ prefs, onChange, barHeight = 18 }: Props) {
   const { data: hierarchy = [] } = useAssetHierarchy()
 
   // ── Field/Site/Installation options derived from hierarchy ──
@@ -192,22 +206,43 @@ export function PlannerCustomizationSections({ prefs, onChange }: Props) {
             onChange={(v) => update('show_row_sublabels', v)}
           />
           <div>
-            <label className="text-xs text-foreground flex items-center justify-between">
-              Hauteur des lignes heatmap
-              <span className="text-muted-foreground tabular-nums">{prefs.heatmap_row_height}px</span>
-            </label>
-            <input
-              type="range"
-              min={14}
-              max={56}
-              step={2}
-              value={prefs.heatmap_row_height}
-              onChange={(e) => update('heatmap_row_height', Number(e.target.value))}
-              className="w-full h-1.5 mt-1 accent-primary"
-            />
-            <p className="text-[9px] text-muted-foreground mt-0.5">
-              Plafonné à la hauteur des lignes Gantt globale (paramétrée plus haut).
-            </p>
+            {(() => {
+              // Clamp slider bounds: floor at HEATMAP_ROW_HEIGHT_MIN (18 px —
+              // below that the `text-[9px]` saturation labels stop being
+              // legible) and cap at the current GanttCore barHeight so a
+              // heatmap row can never be taller than the activity bars
+              // underneath. If the stored value is out of the current range
+              // (e.g. barHeight was lowered later), display the clamped value
+              // so the UI and the rendered chart always agree.
+              const ceiling = Math.max(HEATMAP_ROW_HEIGHT_MIN, barHeight)
+              const displayed = Math.min(
+                ceiling,
+                Math.max(HEATMAP_ROW_HEIGHT_MIN, prefs.heatmap_row_height),
+              )
+              return (
+                <>
+                  <label className="text-xs text-foreground flex items-center justify-between">
+                    Hauteur des lignes heatmap
+                    <span className="text-muted-foreground tabular-nums">{displayed}px</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={HEATMAP_ROW_HEIGHT_MIN}
+                    max={ceiling}
+                    step={2}
+                    value={displayed}
+                    onChange={(e) => {
+                      const next = Math.min(ceiling, Math.max(HEATMAP_ROW_HEIGHT_MIN, Number(e.target.value)))
+                      update('heatmap_row_height', next)
+                    }}
+                    className="w-full h-1.5 mt-1 accent-primary"
+                  />
+                  <p className="text-[9px] text-muted-foreground mt-0.5">
+                    Entre {HEATMAP_ROW_HEIGHT_MIN}px (lisibilité des libellés) et {ceiling}px (hauteur des barres Gantt).
+                  </p>
+                </>
+              )
+            })()}
           </div>
         </div>
       </Section>

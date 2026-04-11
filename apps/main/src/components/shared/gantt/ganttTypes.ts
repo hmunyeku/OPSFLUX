@@ -307,8 +307,12 @@ export interface GanttCoreProps {
    * Used by GanttView to add Planner-specific customization (levels, scope
    * filters, totals, heatmap text mode, bar title position) to the same
    * settings panel that opens via the toolbar gear button.
+   *
+   * When a function is passed, it is called with the *live* GanttCore
+   * settings so the extra section can react to in-panel edits (e.g. the
+   * Planner heatmap row height slider needs to cap at the current barHeight).
    */
-  extraSettingsContent?: ReactNode
+  extraSettingsContent?: ReactNode | ((settings: GanttSettings) => ReactNode)
 
   // ── Toolbar actions ──
   /** Show action buttons (add task, milestone, indent) in toolbar */

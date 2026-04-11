@@ -54,16 +54,20 @@ export default defineConfig({
         // auto-reloads once and the user sees the new version.
         skipWaiting: true,
         clientsClaim: true,
-        // NO navigateFallback. Setting it to 'index.html' while
-        // index.html is not in globPatterns makes workbox throw
-        // `non-precached-url` at boot — and that exception crashes
-        // the SW BEFORE it can register any runtimeCaching rule, so
-        // EVERY fetch (including our API calls) ends up unhandled and
-        // the browser reports them as CORS failures. The HTML
-        // NetworkFirst rule below handles online navigation; offline
-        // navigation falls back to the html-cache via the rule's
-        // default cached response.
-        navigateFallbackDenylist: [/^\/api\//],
+        // NO navigateFallback — and NO navigateFallbackDenylist either.
+        //
+        // The denylist alone (without an actual navigateFallback URL) still
+        // makes workbox-build inject a
+        //   s.registerRoute(new NavigationRoute(createHandlerBoundToURL("index.html"), {denylist}))
+        // line into the generated sw.js. That handler calls
+        // createHandlerBoundToURL("index.html") at SW install time, which
+        // throws `non-precached-url` because we deliberately excluded HTML
+        // from globPatterns to avoid stale-bundle flashes. Once that
+        // exception fires during install, the SW bails BEFORE registering
+        // the runtimeCaching rules, so every fetch (including our API
+        // calls) ends up unhandled and the browser reports them as CORS
+        // failures. The HTML NetworkFirst rule below is the ONE handler
+        // that covers navigation — we don't need any fallback machinery.
         runtimeCaching: [
           // HTML navigation requests: NetworkFirst with a short timeout.
           // When online, always fetch the freshest index.html from the

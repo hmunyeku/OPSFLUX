@@ -1212,6 +1212,20 @@ export function GanttView({
     openDynamicPanel({ type: 'detail', module: 'planner', id: barId })
   }, [openDynamicPanel])
 
+  // ── Double-click on an activity row label (left panel) → open detail ──
+  // Previously only double-clicking the bar opened the panel, which was
+  // surprising: users who click on the activity name in the label column
+  // expected the same behaviour as clicking the bar itself. Activity rows
+  // carry the id "a:<activityId>"; hierarchy/total rows use other prefixes
+  // (f:, s:, i:, total-*) and are ignored here so double-clicking a Field
+  // or Site row doesn't accidentally fire a planner detail lookup.
+  const handleRowDoubleClick = useCallback((rowId: string) => {
+    if (!rowId.startsWith('a:')) return
+    const activityId = rowId.slice(2)
+    if (!activityId) return
+    openDynamicPanel({ type: 'detail', module: 'planner', id: activityId })
+  }, [openDynamicPanel])
+
   // ── Export Gantt as A3 PDF via the system PDF template ──
   // Server-side rendering: we build a JSON payload from the local
   // rows/bars/cells and POST it to /export/gantt-pdf. The backend's
@@ -1433,11 +1447,17 @@ export function GanttView({
   )
 
   // ── Customization sections injected into the GanttCore settings panel ──
-  const customizationSections = useMemo(
-    () => (
+  // We use a render-prop so the sections receive the LIVE GanttCore settings
+  // (not the stale persisted snapshot). That lets the heatmap row height
+  // slider cap at the current barHeight — if the user drags the bar height
+  // slider above the current value in the same panel, the heatmap slider's
+  // ceiling moves with it in real time.
+  const customizationSections = useCallback(
+    (liveSettings: import('@/components/shared/gantt/ganttTypes').GanttSettings) => (
       <PlannerCustomizationSections
         prefs={viewPrefs}
         onChange={(p) => onViewPrefsChange?.(p)}
+        barHeight={liveSettings.barHeight}
       />
     ),
     [viewPrefs, onViewPrefsChange],
@@ -1584,6 +1604,7 @@ export function GanttView({
         initialSettings={{ barHeight: 18, rowHeight: 30, showProgress: true, ...ganttSettings }}
         onSettingsChange={onGanttSettingsChange}
         onBarDoubleClick={handleBarDoubleClick}
+        onRowClick={handleRowDoubleClick}
         onDeleteDependency={handleDeleteDependency}
         onEditDependency={handleEditDependency}
         onExportPdf={handleExportPdf}

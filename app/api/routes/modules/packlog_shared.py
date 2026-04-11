@@ -280,10 +280,13 @@ async def create_cargo_request_impl(
         imputation_reference_id=body.imputation_reference_id,
     )
     request_code = await _generate_cargo_request_code(db, entity_id)
+    now = datetime.now(timezone.utc)
     cargo_request = CargoRequest(
         entity_id=entity_id,
         request_code=request_code,
         requested_by=current_user.id,
+        created_at=now,
+        updated_at=now,
         **body.model_dump(),
     )
     db.add(cargo_request)

@@ -71,6 +71,13 @@ class ActivityRead(PlannerSchema):
     rejected_at: datetime | None = None
     rejection_reason: str | None = None
     created_by: UUID
+    # Per-activity progress weighting override (NULL → fall back to
+    # linked Project's method, then to entity-scoped admin setting,
+    # then to 'equal'). See _resolve_activity_progress_method() in
+    # planner_service.py for the resolution chain.
+    progress_weight_method: str | None = None
+    # Manual weight used when the resolved method is 'manual'.
+    weight: float | None = None
     active: bool
     created_at: datetime
     updated_at: datetime
@@ -106,6 +113,12 @@ class ActivityCreate(BaseModel):
     # Regulatory / maintenance
     regulatory_ref: str | None = None
     work_order_ref: str | None = None
+    # Progress weighting (optional override on creation)
+    progress_weight_method: str | None = Field(
+        default=None,
+        pattern=r"^(equal|effort|duration|manual)$",
+    )
+    weight: float | None = Field(default=None, ge=0)
 
 
 class ActivityUpdate(BaseModel):
@@ -135,6 +148,13 @@ class ActivityUpdate(BaseModel):
     drilling_program_ref: str | None = None
     regulatory_ref: str | None = None
     work_order_ref: str | None = None
+    # Progress weighting override (NULL clears the override → fall back
+    # to linked project / entity default).
+    progress_weight_method: str | None = Field(
+        default=None,
+        pattern=r"^(equal|effort|duration|manual)$",
+    )
+    weight: float | None = Field(default=None, ge=0)
 
 
 class ActivityStatusUpdate(BaseModel):

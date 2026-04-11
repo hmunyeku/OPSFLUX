@@ -12,6 +12,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     func,
@@ -120,6 +121,20 @@ class PlannerActivity(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
     created_by: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
+    # Per-activity override of the progress weighting method, with the
+    # following resolution chain (see _resolve_activity_progress_method
+    # in app/services/modules/planner_service.py):
+    #   1. activity.progress_weight_method (this field — explicit override)
+    #   2. linked Project.progress_weight_method (when activity.project_id set)
+    #   3. entity-scoped setting `planner.default_progress_weight_method`
+    #   4. fallback 'equal'
+    # Allowed values: 'equal' | 'effort' | 'duration' | 'manual'
+    progress_weight_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Manual weight used when the resolved method is 'manual'. NULL/0
+    # means the activity contributes nothing to its parent's weighted
+    # average (the parent then falls back to equal weighting if ALL
+    # children have NULL/0 weights — same fallback as for project tasks).
+    weight: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships

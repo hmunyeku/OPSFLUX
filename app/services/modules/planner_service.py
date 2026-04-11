@@ -518,7 +518,7 @@ async def get_gantt_data(
     # Batch-fetch linked project task progress for activities that reference
     # a source_task_id. This lets the Gantt bar show the task progress bar
     # without N+1 queries.
-    from app.models.common import ProjectTask
+    from app.models.common import ProjectTask, Project
     linked_task_ids = {act.source_task_id for act in activities if getattr(act, "source_task_id", None)}
     task_progress_by_id: dict[UUID, int] = {}
     if linked_task_ids:
@@ -530,11 +530,112 @@ async def get_gantt_data(
         for row in task_rows.all():
             task_progress_by_id[row[0]] = int(row[1] or 0)
 
-    def _compute_activity_progress(act) -> int:
-        """Resolve the effective progress for an activity.
-        Priority: linked project task's progress → status-based defaults →
-        time-based fraction.
-        """
+    # ── WBS roll-up support ──────────────────────────────────────────
+    # The progress of a parent activity = weighted average of its
+    # children using the resolved weighting method. The chain is
+    # documented in PlannerActivity.progress_weight_method.
+    #
+    # To compute this correctly we need every active activity in the
+    # entity (parents may have children outside the date filter), plus
+    # the linked Project methods (for the chain), plus the entity-level
+    # admin default. All loaded in batched queries.
+
+    # 1. Load every ACTIVE activity in the entity (no date/status filter)
+    #    so the parent ↔ children graph is complete even when the gantt
+    #    is filtered by a narrow time window.
+    all_acts_result = await db.execute(
+        select(PlannerActivity).where(
+            PlannerActivity.entity_id == entity_id,
+            PlannerActivity.active == True,  # noqa: E712
+            PlannerActivity.deleted_at.is_(None),
+        )
+    )
+    all_acts = list(all_acts_result.scalars().all())
+    all_acts_by_id: dict[UUID, PlannerActivity] = {a.id: a for a in all_acts}
+    children_by_parent: dict[UUID | None, list[PlannerActivity]] = {}
+    for a in all_acts:
+        children_by_parent.setdefault(a.parent_id, []).append(a)
+
+    # 2. Linked Project methods (batched)
+    project_method_by_id: dict[UUID, str | None] = {}
+    distinct_project_ids = {a.project_id for a in all_acts if a.project_id}
+    if distinct_project_ids:
+        proj_rows = await db.execute(
+            select(Project.id, Project.progress_weight_method).where(
+                Project.id.in_(distinct_project_ids)
+            )
+        )
+        for row in proj_rows.all():
+            project_method_by_id[row[0]] = row[1]
+
+    # 3. Entity-scoped Planner default
+    planner_default_method = "equal"
+    try:
+        from sqlalchemy import text as _text
+        setting_row = await db.execute(
+            _text(
+                """
+                SELECT value FROM settings
+                WHERE key = 'planner.default_progress_weight_method'
+                  AND scope = 'entity' AND scope_id = :sid
+                LIMIT 1
+                """
+            ),
+            {"sid": str(entity_id)},
+        )
+        row = setting_row.first()
+        if row:
+            raw = row[0]
+            if isinstance(raw, dict) and "value" in raw:
+                raw = raw["value"]
+            if isinstance(raw, str) and raw in ("equal", "effort", "duration", "manual"):
+                planner_default_method = raw
+    except Exception:
+        pass
+
+    def _resolve_method_for_activity(act) -> str:
+        """Resolve the progress weighting method for one activity using
+        the documented chain."""
+        if act.progress_weight_method in ("equal", "effort", "duration", "manual"):
+            return act.progress_weight_method
+        if act.project_id:
+            pm = project_method_by_id.get(act.project_id)
+            if pm in ("equal", "effort", "duration", "manual"):
+                return pm
+        return planner_default_method
+
+    def _activity_raw_weight(act, method: str) -> float:
+        """Per-activity weight in the parent's weighted average. Same
+        semantics as ProjectTask in projets.py:_task_raw_weight."""
+        if method == "effort":
+            # planner activities don't have estimated_hours, so we
+            # approximate effort by pax_quota * duration_in_days
+            # (a 10-pax activity for 5 days = 50 person-days of effort)
+            if act.start_date and act.end_date:
+                days = max(1, (act.end_date - act.start_date).days or 1)
+            else:
+                days = 1
+            return float(int(act.pax_quota or 0) * days)
+        if method == "duration":
+            if act.start_date and act.end_date:
+                return float(max((act.end_date - act.start_date).days, 0))
+            return 0.0
+        if method == "manual":
+            return float(act.weight or 0)
+        # 'equal'
+        return 1.0
+
+    def _weighted_avg(items: list[tuple[float, float]]) -> float:
+        if not items:
+            return 0.0
+        total = sum(w for _, w in items)
+        if total > 0:
+            return sum(v * w for v, w in items) / total
+        return sum(v for v, _ in items) / len(items)
+
+    def _leaf_progress(act) -> int:
+        """Existing leaf progress logic — linked project task → status →
+        time-based fraction."""
         stid = getattr(act, "source_task_id", None)
         if stid and stid in task_progress_by_id:
             return task_progress_by_id[stid]
@@ -553,6 +654,30 @@ async def get_gantt_data(
                     return 100
                 return int(round((now_ts - start_ts) / (end_ts - start_ts) * 100))
         return 0
+
+    # Memoised recursive computation (DFS with cycle guard)
+    progress_cache: dict[UUID, int] = {}
+    in_progress_set: set[UUID] = set()
+
+    def _compute_activity_progress(act) -> int:
+        if act.id in progress_cache:
+            return progress_cache[act.id]
+        if act.id in in_progress_set:
+            return 0  # cycle break
+        in_progress_set.add(act.id)
+        children = children_by_parent.get(act.id, [])
+        if not children:
+            value = _leaf_progress(act)
+        else:
+            method = _resolve_method_for_activity(act)
+            child_items = [
+                (float(_compute_activity_progress(c)), _activity_raw_weight(c, method))
+                for c in children
+            ]
+            value = int(round(max(0.0, min(100.0, _weighted_avg(child_items)))))
+        progress_cache[act.id] = value
+        in_progress_set.discard(act.id)
+        return value
 
     # Group by asset
     asset_map: dict[UUID | None, dict] = {}

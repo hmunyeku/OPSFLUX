@@ -40,13 +40,8 @@ from app.models.pid_pfd import (  # noqa: F401
     PIDLock,
 )
 from app.models.travelwiz import (  # noqa: F401
-    ArticleCatalog,
-    CargoItem,
     CaptainLog,
-    DeckLayout,
-    DeckLayoutItem,
     ManifestPassenger,
-    PackageElement,
     PickupRound,
     PickupStop,
     TransportRotation,
@@ -62,6 +57,15 @@ from app.models.travelwiz import (  # noqa: F401
     VoyageManifest,
     VoyageStop,
     WeatherData,
+)
+from app.models.packlog import (  # noqa: F401
+    ArticleCatalog,
+    CargoAttachmentEvidence,
+    CargoItem,
+    CargoRequest,
+    DeckLayout,
+    DeckLayoutItem,
+    PackageElement,
 )
 from app.models.paxlog import (  # noqa: F401
     Ads,

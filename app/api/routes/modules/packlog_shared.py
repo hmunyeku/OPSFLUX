@@ -14,11 +14,13 @@ from app.core.audit import record_audit
 from app.core.pagination import PaginationParams, paginate
 from app.models.asset_registry import Installation
 from app.models.common import Attachment, AuditLog, ImputationReference, Tier, TierContact, User, UserGroup, UserGroupMember
-from app.models.travelwiz import (
+from app.models.packlog import (
     CargoAttachmentEvidence,
     CargoItem,
     CargoRequest,
     PackageElement,
+)
+from app.models.travelwiz import (
     TransportVector,
     TransportVectorZone,
     Voyage,

@@ -2,6 +2,8 @@
 
 import csv
 import io
+import json
+import logging
 import re
 import unicodedata
 from difflib import SequenceMatcher
@@ -18,11 +20,13 @@ from app.core.config import settings
 from app.core.rbac import get_user_permissions
 from app.models.asset_registry import Installation
 from app.models.common import Attachment, ImputationReference, Tier, TierContact, User
-from app.models.travelwiz import (
+from app.models.packlog import (
     CargoAttachmentEvidence,
     CargoItem,
     CargoRequest,
     PackageElement,
+)
+from app.models.travelwiz import (
     TransportVector,
     TransportVectorZone,
     Voyage,
@@ -30,6 +34,28 @@ from app.models.travelwiz import (
     VoyageStop,
 )
 from app.services.core.fsm_service import FSMError, fsm_service
+
+logger = logging.getLogger(__name__)
+
+# ── Cargo lifecycle transitions (moved from travelwiz_service during isolation) ──
+# Forward lifecycle: a cargo born `registered` flows toward `delivered_final`.
+CARGO_FORWARD_TRANSITIONS = {
+    "registered": {"ready_for_loading"},
+    "ready_for_loading": {"loaded"},
+    "loaded": {"in_transit"},
+    "in_transit": {"delivered_intermediate", "delivered_final", "damaged", "missing"},
+    "delivered_intermediate": {"delivered_final", "damaged"},
+    "delivered_final": set(),
+}
+
+# Return lifecycle: a delivered cargo can be sent back to base in 5 ways.
+CARGO_RETURN_TRANSITIONS = {
+    "delivered_final": {"return_declared"},
+    "delivered_intermediate": {"return_declared"},
+    "return_declared": {"return_in_transit"},
+    "return_in_transit": {"returned"},
+    "returned": {"reintegrated", "scrapped"},
+}
 
 PACKLOG_WORKFLOW_SLUG = "packlog-cargo-workflow"
 PACKLOG_WORKFLOW_ENTITY_TYPE = "cargo_item_workflow"
@@ -832,6 +858,84 @@ async def get_packlog_request_or_404(
     return cargo_request
 
 
+async def update_cargo_status(
+    db: AsyncSession,
+    cargo_item_id: UUID,
+    new_status: str,
+    entity_id: UUID,
+    user_id: UUID,
+    location_asset_id: UUID | None = None,
+) -> dict:
+    """Update cargo item status through lifecycle.
+
+    Forward:  registered -> ready_for_loading -> loaded -> in_transit -> delivered
+    Return:   return_declared -> return_in_transit -> returned -> reintegrated/scrapped
+
+    Validates allowed transitions. Records status change in cargo_status_log
+    (raw SQL). Moved from travelwiz_service during PackLog isolation —
+    cargo lifecycle is a PackLog concern, not a TravelWiz concern.
+    """
+    cargo_result = await db.execute(
+        select(CargoItem).where(
+            CargoItem.id == cargo_item_id,
+            CargoItem.entity_id == entity_id,
+        )
+    )
+    cargo = cargo_result.scalar_one_or_none()
+    if not cargo:
+        raise ValueError(f"Cargo item {cargo_item_id} not found")
+
+    old_status = cargo.status
+
+    forward_allowed = CARGO_FORWARD_TRANSITIONS.get(old_status, set())
+    return_allowed = CARGO_RETURN_TRANSITIONS.get(old_status, set())
+    all_allowed = forward_allowed | return_allowed
+
+    if new_status not in all_allowed:
+        raise ValueError(
+            f"Cannot transition cargo from '{old_status}' to '{new_status}'. "
+            f"Allowed: {all_allowed}"
+        )
+
+    cargo.status = new_status
+
+    if new_status in ("delivered_final", "returned"):
+        cargo.received_by = user_id
+        cargo.received_at = datetime.now(timezone.utc)
+
+    try:
+        await db.execute(
+            text(
+                "INSERT INTO cargo_status_log "
+                "(cargo_item_id, from_status, to_status, changed_by, location_asset_id, changed_at) "
+                "VALUES (:cid, :from_s, :to_s, :uid, :loc, NOW())"
+            ),
+            {
+                "cid": str(cargo_item_id),
+                "from_s": old_status,
+                "to_s": new_status,
+                "uid": str(user_id),
+                "loc": str(location_asset_id) if location_asset_id else None,
+            },
+        )
+    except Exception:
+        logger.debug("cargo_status_log table may not exist yet, skipping log insert")
+
+    await db.flush()
+
+    logger.info(
+        "Cargo %s: %s -> %s (by %s)", cargo.tracking_code, old_status, new_status, user_id
+    )
+
+    return {
+        "cargo_item_id": cargo.id,
+        "tracking_code": cargo.tracking_code,
+        "old_status": old_status,
+        "new_status": new_status,
+        "location_asset_id": location_asset_id,
+    }
+
+
 async def update_packlog_cargo_status(
     db: AsyncSession,
     *,
@@ -841,8 +945,9 @@ async def update_packlog_cargo_status(
     user_id: UUID,
     location_asset_id: UUID | None = None,
 ) -> dict[str, Any]:
-    from app.services.modules.travelwiz_service import update_cargo_status
-
+    """Keyword-only wrapper around update_cargo_status (kept for callers
+    that prefer the explicit kwargs convention used elsewhere in this
+    module). Both names are exported."""
     return await update_cargo_status(
         db,
         cargo_item_id=cargo_item_id,
@@ -851,6 +956,135 @@ async def update_packlog_cargo_status(
         user_id=user_id,
         location_asset_id=location_asset_id,
     )
+
+
+def _validate_back_cargo_prerequisites(
+    *,
+    return_type: str,
+    notes: str | None,
+    metadata: dict,
+) -> None:
+    """Validate that the supplied return metadata satisfies the
+    type-specific requirements before we transition the cargo to
+    `return_declared`. Moved from travelwiz_service during PackLog isolation."""
+    if return_type == "waste":
+        if not metadata.get("waste_manifest_ref"):
+            raise ValueError("Waste return requires waste_manifest_ref")
+    elif return_type == "contractor_return":
+        if not metadata.get("pass_number"):
+            raise ValueError("Contractor return requires pass_number")
+        if not metadata.get("inventory_reference"):
+            raise ValueError("Contractor return requires inventory_reference")
+        if not metadata.get("double_signature_confirmed"):
+            raise ValueError("Contractor return requires double_signature_confirmed")
+    elif return_type == "stock_reintegration":
+        if not metadata.get("sap_code_confirmed"):
+            raise ValueError("Stock reintegration requires sap_code_confirmed")
+        if not metadata.get("inventory_reference"):
+            raise ValueError("Stock reintegration requires inventory_reference")
+    elif return_type == "scrap":
+        has_scrap_label = "ferraille" in (notes or "").lower()
+        has_photo_evidence = int(metadata.get("photo_evidence_count") or 0) > 0
+        if not (has_scrap_label or has_photo_evidence):
+            raise ValueError("Scrap return requires 'ferraille' mention or photo evidence")
+    elif return_type == "yard_storage":
+        if "stockage yard" not in (notes or "").lower():
+            raise ValueError("Yard storage requires 'stockage Yard' mention in notes")
+        if not metadata.get("yard_justification"):
+            raise ValueError("Yard storage requires yard_justification")
+
+
+async def initiate_back_cargo(
+    db: AsyncSession,
+    cargo_item_id: UUID,
+    entity_id: UUID,
+    user_id: UUID,
+    return_type: str,
+    notes: str | None = None,
+    return_metadata: dict | None = None,
+) -> dict:
+    """Initiate back cargo workflow.
+
+    Steps:
+    1. Validate cargo is in a deliverable state
+    2. Set cargo status to return_declared
+    3. Set return_type (waste, contractor_return, stock_reintegration, scrap, yard_storage)
+    4. Create return manifest entry (raw SQL)
+
+    Moved from travelwiz_service during PackLog isolation.
+    """
+    valid_return_types = {"waste", "contractor_return", "stock_reintegration", "scrap", "yard_storage"}
+    if return_type not in valid_return_types:
+        raise ValueError(
+            f"Invalid return_type '{return_type}'. Valid: {valid_return_types}"
+        )
+    return_metadata = return_metadata or {}
+
+    _validate_back_cargo_prerequisites(
+        return_type=return_type,
+        notes=notes,
+        metadata=return_metadata,
+    )
+
+    cargo_result = await db.execute(
+        select(CargoItem).where(
+            CargoItem.id == cargo_item_id,
+            CargoItem.entity_id == entity_id,
+        )
+    )
+    cargo = cargo_result.scalar_one_or_none()
+    if not cargo:
+        raise ValueError(f"Cargo item {cargo_item_id} not found")
+
+    if cargo.status not in ("delivered_final", "delivered_intermediate", "in_transit"):
+        raise ValueError(
+            f"Cannot initiate return for cargo in status '{cargo.status}'. "
+            f"Must be delivered_final, delivered_intermediate, or in_transit."
+        )
+
+    old_status = cargo.status
+    cargo.status = "return_declared"
+
+    persisted_notes = json.dumps(
+        {
+            "notes": notes,
+            "return_metadata": return_metadata,
+        },
+        ensure_ascii=True,
+    )
+
+    try:
+        await db.execute(
+            text(
+                "INSERT INTO cargo_returns "
+                "(cargo_item_id, return_type, declared_by, notes, declared_at) "
+                "VALUES (:cid, :rt, :uid, :notes, NOW())"
+            ),
+            {
+                "cid": str(cargo_item_id),
+                "rt": return_type,
+                "uid": str(user_id),
+                "notes": persisted_notes,
+            },
+        )
+    except Exception:
+        logger.debug("cargo_returns table may not exist yet, skipping return record insert")
+
+    await db.flush()
+
+    logger.info(
+        "Back cargo initiated: %s (%s -> return_declared, type=%s)",
+        cargo.tracking_code, old_status, return_type,
+    )
+
+    return {
+        "cargo_item_id": cargo.id,
+        "tracking_code": cargo.tracking_code,
+        "return_type": return_type,
+        "new_status": "return_declared",
+        "notes": notes,
+        "return_metadata": return_metadata,
+    }
 
 
 async def initiate_packlog_back_cargo(
@@ -863,8 +1097,7 @@ async def initiate_packlog_back_cargo(
     notes: str | None = None,
     return_metadata: dict | None = None,
 ) -> dict[str, Any]:
-    from app.services.modules.travelwiz_service import initiate_back_cargo
-
+    """Keyword-only wrapper around initiate_back_cargo."""
     return await initiate_back_cargo(
         db,
         cargo_item_id=cargo_item_id,
@@ -874,6 +1107,135 @@ async def initiate_packlog_back_cargo(
         notes=notes,
         return_metadata=return_metadata,
     )
+
+
+async def suggest_deck_layout(
+    db: AsyncSession,
+    trip_id: UUID,
+    deck_surface_id: UUID,
+    entity_id: UUID,
+) -> dict:
+    """Algorithm for deck placement suggestions.
+
+    Rules:
+    1. Heavy items at bottom (stack_level=0)
+    2. Hazmat isolated (separate zone)
+    3. Explosive cargo separated from other hazmat
+    4. Group by destination for efficient unloading
+    5. Respect weight distribution limits per zone
+
+    Moved from travelwiz_service during PackLog isolation. Reads
+    TransportVectorZone (TravelWiz) and VoyageManifest (TravelWiz) via
+    cross-module FKs — both still imported at the top of this file.
+    """
+    zone_result = await db.execute(
+        select(TransportVectorZone).where(TransportVectorZone.id == deck_surface_id)
+    )
+    zone = zone_result.scalar_one_or_none()
+    if not zone:
+        raise ValueError(f"Deck surface {deck_surface_id} not found")
+
+    cargo_result = await db.execute(
+        select(CargoItem)
+        .join(VoyageManifest, CargoItem.manifest_id == VoyageManifest.id)
+        .where(
+            VoyageManifest.voyage_id == trip_id,
+            VoyageManifest.manifest_type == "cargo",
+            VoyageManifest.active == True,  # noqa: E712
+            CargoItem.active == True,  # noqa: E712
+            CargoItem.status.in_(["registered", "ready_for_loading", "loaded"]),
+        )
+        .order_by(CargoItem.weight_kg.desc())
+    )
+    cargo_items = cargo_result.scalars().all()
+
+    placements = []
+    warnings = []
+    total_weight = 0.0
+
+    hazmat_items = [c for c in cargo_items if c.cargo_type == "hazmat"]
+    regular_items = [c for c in cargo_items if c.cargo_type != "hazmat"]
+
+    dest_groups: dict[str, list] = {}
+    for item in regular_items:
+        dest_key = str(item.destination_asset_id) if item.destination_asset_id else "unknown"
+        dest_groups.setdefault(dest_key, []).append(item)
+
+    deck_width = zone.width_m or 10.0
+    deck_length = zone.length_m or 20.0
+
+    x_cursor = 0.5
+    y_cursor = 0.5
+    row_height = 0.0
+
+    for dest_key, items in dest_groups.items():
+        for item in items:
+            item_w = (item.width_cm or 100) / 100.0
+            item_l = (item.length_cm or 100) / 100.0
+
+            if x_cursor + item_w > deck_width:
+                x_cursor = 0.5
+                y_cursor += row_height + 0.3
+                row_height = 0.0
+
+            if y_cursor + item_l > deck_length:
+                warnings.append(
+                    f"Cargo {item.tracking_code} may not fit on deck "
+                    f"(deck full at {y_cursor:.1f}m / {deck_length:.1f}m)"
+                )
+
+            placements.append({
+                "cargo_item_id": item.id,
+                "tracking_code": item.tracking_code,
+                "suggested_x": round(x_cursor, 2),
+                "suggested_y": round(y_cursor, 2),
+                "stack_level": 0,
+                "zone": "main",
+                "reason": f"Grouped by destination ({dest_key[:8]}...)" if dest_key != "unknown" else "Standard placement",
+            })
+
+            total_weight += item.weight_kg
+            x_cursor += item_w + 0.3
+            row_height = max(row_height, item_l)
+
+    hazmat_y = max(y_cursor + row_height + 2.0, deck_length * 0.75)
+    hazmat_x = 0.5
+
+    for item in hazmat_items:
+        placements.append({
+            "cargo_item_id": item.id,
+            "tracking_code": item.tracking_code,
+            "suggested_x": round(hazmat_x, 2),
+            "suggested_y": round(hazmat_y, 2),
+            "stack_level": 0,
+            "zone": "hazmat_isolated",
+            "reason": "Hazmat cargo isolated per safety regulations",
+        })
+        total_weight += item.weight_kg
+        hazmat_x += 2.0
+
+        if item.description and "explos" in item.description.lower():
+            warnings.append(
+                f"EXPLOSIVE cargo {item.tracking_code} -- requires dedicated isolation zone"
+            )
+
+    max_weight = zone.max_weight_kg
+    utilization_pct = 0.0
+    if max_weight and max_weight > 0:
+        utilization_pct = round((total_weight / max_weight) * 100, 1)
+        if total_weight > max_weight:
+            warnings.append(
+                f"OVERWEIGHT: {total_weight:.0f} kg exceeds deck limit of {max_weight:.0f} kg"
+            )
+
+    return {
+        "deck_surface_id": deck_surface_id,
+        "total_weight_kg": round(total_weight, 2),
+        "max_weight_kg": max_weight,
+        "utilization_pct": utilization_pct,
+        "placements": placements,
+        "warnings": warnings,
+    }
 
 
 async def try_packlog_workflow_transition(

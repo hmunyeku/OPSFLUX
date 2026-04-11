@@ -7,27 +7,10 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.schemas.common import OpsFluxSchema
-from app.schemas.packlog import (
-    BackCargoReturnRequest,
-    CargoAttachmentEvidenceRead,
-    CargoAttachmentEvidenceUpdate,
-    CargoCreate,
-    CargoLoadingOptionRead,
-    CargoRead,
-    CargoReceiptConfirm,
-    CargoRequestCreate,
-    CargoRequestRead,
-    CargoRequestUpdate,
-    CargoStatusUpdate,
-    CargoTrackingEventRead,
-    CargoTrackingRead,
-    CargoUpdate,
-    CargoWorkflowStatusUpdate,
-    PackageElementDispositionUpdate,
-    PackageElementReturnUpdate,
-    VoyageCargoTrackingItemRead,
-    VoyageCargoTrackingRead,
-)
+
+# Cargo schemas (CargoCreate, CargoRequestRead, CargoTrackingRead, etc.)
+# live in app/schemas/packlog.py — TravelWiz no longer re-exports them.
+# See memory/project_packlog_isolation.md.
 
 
 # ─── Transport Vectors ──────────────────────────────────────────────────────

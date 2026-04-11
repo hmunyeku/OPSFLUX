@@ -29,13 +29,15 @@ from app.core.pagination import PaginationParams, paginate
 from app.models.asset_registry import Installation
 from app.models.common import Attachment, AuditLog, ImputationReference, Tier, TierContact, User
 from app.services.core.fsm_service import fsm_service, FSMError
-from app.models.travelwiz import (
-    CaptainLog,
+from app.models.packlog import (
+    CargoAttachmentEvidence,
     CargoItem,
     CargoRequest,
-    CargoAttachmentEvidence,
-    ManifestPassenger,
     PackageElement,
+)
+from app.models.travelwiz import (
+    CaptainLog,
+    ManifestPassenger,
     PickupRound,
     PickupStopAssignment,
     PickupStop,
@@ -104,12 +106,12 @@ from app.services.modules.travelwiz_service import (
     get_weight_alert_ratio,
     rebalance_manifest_passenger_standby,
     reassign_voyage_passengers,
-    update_cargo_status as apply_cargo_status_transition,
 )
 from app.services.modules.packlog_service import (
     PACKLOG_WORKFLOW_ENTITY_TYPE,
     PACKLOG_WORKFLOW_SLUG,
     PACKLOG_PUBLIC_STATUS_LABELS,
+    update_cargo_status as apply_cargo_status_transition,
     build_packlog_operations_report,
     build_packlog_cargo_read_data,
     build_packlog_loading_options,
@@ -2564,7 +2566,9 @@ async def suggest_layout(
     db: AsyncSession = Depends(get_db),
 ):
     """Run deck placement algorithm for a specific deck surface."""
-    from app.services.modules.travelwiz_service import suggest_deck_layout as _suggest
+    # suggest_deck_layout lives in packlog_service since the PackLog
+    # isolation refactor — deck placement is a cargo concern.
+    from app.services.modules.packlog_service import suggest_deck_layout as _suggest
 
     await _get_voyage_or_404(db, voyage_id, entity_id)
     try:
@@ -2715,7 +2719,9 @@ async def sap_match(
     db: AsyncSession = Depends(get_db),
 ):
     """Find matching SAP codes for a cargo description."""
-    from app.services.modules.travelwiz_service import match_sap_code as _match
+    # SAP matching lives in packlog_service since the PackLog isolation
+    # refactor — article catalog and SAP codes are cargo concerns.
+    from app.services.modules.packlog_service import match_packlog_sap_code as _match
 
     return await _match(db, description=description, entity_id=entity_id)
 

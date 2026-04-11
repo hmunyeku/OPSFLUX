@@ -4758,40 +4758,6 @@ function CargoDetailPanel({ id }: { id: string }) {
     })
   }
 
-  if (isLoading || !cargo) {
-    return (
-      <DynamicPanelShell title="Chargement..." icon={<Package size={14} className="text-primary" />}>
-        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
-      </DynamicPanelShell>
-    )
-  }
-
-  const isDelivered = ['delivered', 'delivered_final', 'delivered_intermediate'].includes(cargo.status)
-  const projectLabel = cargo.project_id
-    ? (projects?.items ?? []).find((project) => project.id === cargo.project_id)?.name ?? cargo.project_id
-    : null
-  const manifestLabel = cargo.manifest_id
-    ? (manifests?.items ?? []).find((manifest) => manifest.id === cargo.manifest_id)?.reference ?? cargo.manifest_id
-    : null
-  const volumeLabel = cargo.volume_m3 ? `${cargo.volume_m3.toLocaleString('fr-FR')} m³` : '—'
-  const cargoRequest = cargo.request_id
-    ? cargoRequests.find((request) => request.id === cargo.request_id) ?? null
-    : null
-  const cargoRequestStatusLabel = cargoRequest?.status
-    ? (cargoRequestStatusLabels[cargoRequest.status] ?? cargoRequest.status)
-    : '—'
-  const requiredEvidenceTypes = getRequiredCargoEvidenceTypes(cargo.cargo_type)
-  const evidenceTypeSet = new Set((attachmentEvidence ?? []).map((item) => item.evidence_type))
-  const missingRequirements = [
-    ...assessCargoReadiness(cargo),
-    ...requiredEvidenceTypes.filter((type) => !evidenceTypeSet.has(type)),
-  ]
-  const pickupMapUrl = buildPickupMapUrl(cargo.pickup_latitude, cargo.pickup_longitude)
-  const pickupMapEmbedUrl = buildPickupMapEmbedUrl(cargo.pickup_latitude, cargo.pickup_longitude)
-  const editingPickupMapUrl = buildPickupMapUrl(editForm.pickup_latitude, editForm.pickup_longitude)
-  const editingPickupMapEmbedUrl = buildPickupMapEmbedUrl(editForm.pickup_latitude, editForm.pickup_longitude)
-  const evidenceByAttachmentId = new Map((attachmentEvidence ?? []).map((item) => [item.attachment_id, item.evidence_type]))
-
   const handleWorkflowChange = async (workflowStatus: CargoItem['workflow_status']) => {
     try {
       setWorkflowBlockingItems([])
@@ -4892,6 +4858,40 @@ function CargoDetailPanel({ id }: { id: string }) {
       })
     }
   }, [id, initiateReturn, returnDraft, toast])
+
+  if (isLoading || !cargo) {
+    return (
+      <DynamicPanelShell title="Chargement..." icon={<Package size={14} className="text-primary" />}>
+        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+      </DynamicPanelShell>
+    )
+  }
+
+  const isDelivered = ['delivered', 'delivered_final', 'delivered_intermediate'].includes(cargo.status)
+  const projectLabel = cargo.project_id
+    ? (projects?.items ?? []).find((project) => project.id === cargo.project_id)?.name ?? cargo.project_id
+    : null
+  const manifestLabel = cargo.manifest_id
+    ? (manifests?.items ?? []).find((manifest) => manifest.id === cargo.manifest_id)?.reference ?? cargo.manifest_id
+    : null
+  const volumeLabel = cargo.volume_m3 ? `${cargo.volume_m3.toLocaleString('fr-FR')} m³` : '—'
+  const cargoRequest = cargo.request_id
+    ? cargoRequests.find((request) => request.id === cargo.request_id) ?? null
+    : null
+  const cargoRequestStatusLabel = cargoRequest?.status
+    ? (cargoRequestStatusLabels[cargoRequest.status] ?? cargoRequest.status)
+    : '—'
+  const requiredEvidenceTypes = getRequiredCargoEvidenceTypes(cargo.cargo_type)
+  const evidenceTypeSet = new Set((attachmentEvidence ?? []).map((item) => item.evidence_type))
+  const missingRequirements = [
+    ...assessCargoReadiness(cargo),
+    ...requiredEvidenceTypes.filter((type) => !evidenceTypeSet.has(type)),
+  ]
+  const pickupMapUrl = buildPickupMapUrl(cargo.pickup_latitude, cargo.pickup_longitude)
+  const pickupMapEmbedUrl = buildPickupMapEmbedUrl(cargo.pickup_latitude, cargo.pickup_longitude)
+  const editingPickupMapUrl = buildPickupMapUrl(editForm.pickup_latitude, editForm.pickup_longitude)
+  const editingPickupMapEmbedUrl = buildPickupMapEmbedUrl(editForm.pickup_latitude, editForm.pickup_longitude)
+  const evidenceByAttachmentId = new Map((attachmentEvidence ?? []).map((item) => [item.attachment_id, item.evidence_type]))
 
   return (
     <DynamicPanelShell title={cargo.code} subtitle={cargo.description || 'Colis'} icon={<Package size={14} className="text-primary" />}

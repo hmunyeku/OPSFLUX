@@ -216,6 +216,9 @@ _OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
     "project_wbs_node": ("project.read", "project.update"),
     # Planner — activities carry attachments, notes, tags via the shared managers
     "planner_activity": ("planner.activity.read", "planner.activity.update"),
+    # PackLog / cargo
+    "cargo_item": ("packlog.cargo.read", "packlog.cargo.update"),
+    "cargo_request": ("packlog.cargo.read", "packlog.cargo.update"),
 }
 
 

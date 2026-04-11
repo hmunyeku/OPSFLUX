@@ -209,6 +209,38 @@ def require_module_enabled(module_slug: str):
                 )
                 entity_id = result.scalar_one_or_none()
 
+        # Public PackLog tracking routes have the same shape: anyone with a
+        # tracking code (cargo or voyage) can hit them without auth.
+        # Resolve the entity by looking up the cargo or voyage and reading
+        # its entity_id. The caller learns nothing about other tenants
+        # because the tracking_code is unique per cargo and the entity is
+        # used only for module-gating, not for content filtering.
+        if (
+            entity_id is None
+            and module_slug == "packlog"
+            and "/api/v1/packlog/public/" in request.url.path
+        ):
+            from app.models.packlog import CargoItem
+            from app.models.travelwiz import Voyage
+
+            tracking_code = request.path_params.get("tracking_code")
+            if tracking_code:
+                result = await db.execute(
+                    select(CargoItem.entity_id)
+                    .where(CargoItem.tracking_code == tracking_code)
+                    .limit(1)
+                )
+                entity_id = result.scalar_one_or_none()
+            else:
+                voyage_code = request.path_params.get("voyage_code")
+                if voyage_code:
+                    result = await db.execute(
+                        select(Voyage.entity_id)
+                        .where(Voyage.code == voyage_code)
+                        .limit(1)
+                    )
+                    entity_id = result.scalar_one_or_none()
+
         if entity_id is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

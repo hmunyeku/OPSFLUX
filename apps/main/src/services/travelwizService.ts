@@ -667,7 +667,7 @@ export const travelwizService = {
 
   // ── SAP Matching ──
   sapMatch: async (description: string): Promise<SapMatchResult> => {
-    const { data } = await api.post(`${BASE}/articles/sap-match`, { description })
+    const { data } = await api.post(`${BASE}/cargo/sap-match`, { description })
     return data
   },
 

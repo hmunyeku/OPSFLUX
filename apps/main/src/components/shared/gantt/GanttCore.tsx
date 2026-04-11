@@ -501,8 +501,19 @@ export function GanttCore(props: GanttCoreProps) {
 
   /**
    * Apply a smart range preset. Snaps the view to a human-friendly span
-   * (today, this week, this month, ...) and notifies the parent via
-   * onViewChange so the cells / labels stay in sync.
+   * (today, this week, this month, this year, ...) WITHOUT touching the
+   * display scale.
+   *
+   * Spec clarification: the range picker only changes WHICH window of
+   * time is visible, never HOW it is rendered. The scale (day / week /
+   * month / quarter / semester) is chosen independently by the user
+   * through the scale selector and must survive any range change.
+   * Previously this helper opinionatedly snapped to "day" for the week
+   * preset, "month" for the year preset, etc. — that surprised the user
+   * because switching to "Cette année" silently forced them out of day
+   * view, and it was ALSO the mechanism behind the heatmap/gantt
+   * decorrelation bug: scale-change and date-change landed in different
+   * commit lanes.
    */
   const applyRangePreset = useCallback((preset: string) => {
     const now = new Date()
@@ -511,65 +522,54 @@ export function GanttCore(props: GanttCoreProps) {
     const d = now.getDate()
     let s: Date
     let e: Date
-    let targetScale: TimeScale = settings.scale
 
     switch (preset) {
       case 'today':
         s = new Date(y, m, d)
         e = new Date(y, m, d)
-        targetScale = 'day'
         break
       case 'this_week': {
         const day = now.getDay()
         const monOffset = (day + 6) % 7
         s = new Date(y, m, d - monOffset)
         e = new Date(y, m, d - monOffset + 6)
-        targetScale = 'day'
         break
       }
       case 'this_month':
         s = new Date(y, m, 1)
         e = new Date(y, m + 1, 0)
-        targetScale = 'day'
         break
       case 'next_month':
         s = new Date(y, m + 1, 1)
         e = new Date(y, m + 2, 0)
-        targetScale = 'day'
         break
       case 'this_quarter': {
         const q = Math.floor(m / 3)
         s = new Date(y, q * 3, 1)
         e = new Date(y, q * 3 + 3, 0)
-        targetScale = 'week'
         break
       }
       case 'this_semester': {
         const sem = m < 6 ? 0 : 1
         s = new Date(y, sem * 6, 1)
         e = new Date(y, sem * 6 + 6, 0)
-        targetScale = 'week'
         break
       }
       case 'this_year':
         s = new Date(y, 0, 1)
         e = new Date(y, 12, 0)
-        targetScale = 'month'
         break
       case 'next_12_months':
         s = new Date(y, m, 1)
         e = new Date(y, m + 12, 0)
-        targetScale = 'month'
         break
       case 'last_12_months':
         s = new Date(y, m - 11, 1)
         e = new Date(y, m + 1, 0)
-        targetScale = 'month'
         break
       case 'next_3_years':
         s = new Date(y, m, 1)
         e = new Date(y + 3, m, 0)
-        targetScale = 'quarter'
         break
       default:
         return
@@ -578,12 +578,9 @@ export function GanttCore(props: GanttCoreProps) {
     const eIso = toISO(e)
     setViewStart(sIso)
     setViewEnd(eIso)
-    if (targetScale !== settings.scale) {
-      updateSettings({ scale: targetScale })
-    }
-    onViewChange?.(targetScale, sIso, eIso)
+    onViewChange?.(settings.scale, sIso, eIso)
     setRangeMenuOpen(false)
-  }, [settings.scale, updateSettings, onViewChange])
+  }, [settings.scale, onViewChange])
 
   /** Apply a custom (user-entered) date range. */
   const applyCustomRange = useCallback((start: string, end: string) => {

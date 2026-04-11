@@ -479,6 +479,15 @@ export function GanttView({
           cell.endDate.getDate(),
         ) + MS_PER_DAY - 1
 
+        // Cell span in whole days (at least 1). We need this to convert
+        // totalPax (which is a sum of pax-days) into an average "people
+        // physically on site on any given day in this cell" — i.e. the
+        // daily headcount rolled up to the current display granularity.
+        const cellDays = Math.max(
+          1,
+          Math.round((cellEndUTC - cellStartUTC + 1) / MS_PER_DAY),
+        )
+
         // ── Frontend computation: sum + peak per-day saturation ──
         const { totalPax, peakPax, peakDaySat, daysCovered } = sumActivityPaxForCell(
           contributingAssetIds,
@@ -513,23 +522,50 @@ export function GanttView({
         const satForColor = Math.round(peakDaySat)
         const color = colorForSaturation(satForColor, cfg)
 
-        let value: number
-        let label: string
-        let tooltipHTML: string
+        // ── PAX count label: always a PER-DAY average ──
+        // Spec clarification (2026-04-11): the number inside each heatmap
+        // cell is "people per day", rolled up to the current display scale.
+        // For day scale the cell is 1 day and avg === totalPax. For week /
+        // month / quarter / semester scales we show `totalPax / cellDays`,
+        // i.e. the average daily headcount over the cell's span. Summing
+        // pax-days (the old behaviour) was misleading — a 10-pax × 10-day
+        // activity in January rendered "100" in the month cell, which the
+        // user read as "100 people on site in January" instead of "about 3
+        // people per day on average".
+        //
+        // The average always reflects the TOTAL people on site (all
+        // contributing assets combined per day), which is what the ops
+        // team actually cares about when arbitrating capacity. It is
+        // intentionally the same for `sum` and `peak` aggregation modes
+        // at this display-layer level — aggregation still changes the
+        // row COLOR semantics (peakDaySat is computed from the worst
+        // per-asset day) but the headcount label itself is unambiguous.
+        const avgDailyPax = totalPax / cellDays
+        const avgLabel =
+          cellDays === 1 || Number.isInteger(avgDailyPax)
+            ? String(Math.round(avgDailyPax))
+            : avgDailyPax.toFixed(1)
 
-        if (aggregation === 'sum') {
-          value = totalPax
-          if (viewPrefs.heatmap_text_mode === 'pax_count') label = `${totalPax}`
-          else if (viewPrefs.heatmap_text_mode === 'percentage') label = `${satForColor}%`
-          else label = ''
-          tooltipHTML = `Σ prév. ${totalPax} · cap ${totalCap} · pic ${satForColor}%`
-        } else {
-          value = peakPax
-          if (viewPrefs.heatmap_text_mode === 'percentage') label = `${satForColor}%`
-          else if (viewPrefs.heatmap_text_mode === 'pax_count') label = `${peakPax}`
-          else label = ''
-          tooltipHTML = `Pic ${peakPax} PAX (${satForColor}%) · prév. tot. ${totalPax} · pob réel ${totalReal} · cap ${totalCap}`
-        }
+        // Value stored on the cell (used by callers that still read the
+        // raw number). Keep the mode distinction so `sum` callers get the
+        // pax-day total (for rollups) and `peak` callers get the worst
+        // per-day pax. The LABEL is always the average.
+        const value = aggregation === 'sum' ? totalPax : peakPax
+
+        let label: string
+        if (viewPrefs.heatmap_text_mode === 'pax_count') label = avgLabel
+        else if (viewPrefs.heatmap_text_mode === 'percentage') label = `${satForColor}%`
+        else label = ''
+
+        // Tooltip: show BOTH the average (so it matches the label) and
+        // the underlying totals / capacity so a curious user can inspect
+        // how the average was computed.
+        const totalLine = aggregation === 'sum'
+          ? `Σ prév. ${totalPax} pax·jours`
+          : `Pic ${peakPax} pax (${satForColor}%) · Σ ${totalPax} pax·jours`
+        const tooltipHTML =
+          `~${avgLabel} pax/jour (moy. ${cellDays}j) · ${totalLine}` +
+          ` · pob réel ${totalReal} · cap ${totalCap}`
 
         result.push({ cellIdx: idx, color, value, label, tooltipHTML })
       })

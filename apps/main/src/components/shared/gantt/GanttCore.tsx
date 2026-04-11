@@ -265,6 +265,12 @@ export function GanttCore(props: GanttCoreProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const headerScrollRef = useRef<HTMLDivElement>(null)
   const bodyScrollRef = useRef<HTMLDivElement>(null)
+  // Dedicated scroll container for the sticky "Plan de charge" footer
+  // row. Lives OUTSIDE `bodyScrollRef` so it never participates in
+  // the vertical scroll; its horizontal scrollLeft is kept in sync
+  // with `bodyScrollRef` (and `headerScrollRef`) via onBodyScroll so
+  // cells stay aligned on all three tracks.
+  const footerScrollRef = useRef<HTMLDivElement>(null)
   // Flipped to `true` by `changeScale` so the next post-render effect
   // horizontally re-centers the body scroll on "today" (or the first
   // bar in the range, falling back to viewStart). This lets the user
@@ -475,6 +481,12 @@ export function GanttCore(props: GanttCoreProps) {
   const onBodyScroll = useCallback(() => {
     if (headerScrollRef.current && bodyScrollRef.current) {
       headerScrollRef.current.scrollLeft = bodyScrollRef.current.scrollLeft
+    }
+    // Sync the footer's horizontal scroll so the Plan de charge stacks
+    // stay column-aligned with the main body even while the footer
+    // lives outside the body's scroll container.
+    if (footerScrollRef.current && bodyScrollRef.current) {
+      footerScrollRef.current.scrollLeft = bodyScrollRef.current.scrollLeft
     }
     // Sync vertical scroll between panel and body
     if (panelBodyRef.current && bodyScrollRef.current) {
@@ -1333,29 +1345,32 @@ export function GanttCore(props: GanttCoreProps) {
                     ))}
                   </div>
                 ))}
-                {/* ── Sticky footer row (Plan de charge label) ── */}
-                {footerRow && (
-                  <div
-                    className="sticky bottom-0 z-10 flex items-center gap-1.5 px-2 border-t border-b text-xs bg-background"
-                    style={{
-                      height: footerRowH,
-                      paddingLeft: 8 + footerRow.level * 18,
-                    }}
-                  >
-                    <div className="truncate min-w-0 flex-1">
-                      <span className="font-semibold">{footerRow.label}</span>
-                      {footerRow.labelSuffix && (
-                        <span className="ml-1 text-[10px] font-normal text-muted-foreground/70 tabular-nums">
-                          {footerRow.labelSuffix}
-                        </span>
-                      )}
-                      {footerRow.sublabel && (
-                        <div className="text-[10px] text-muted-foreground">{footerRow.sublabel}</div>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
+              {/* ── Panel footer (sticky-bottom via flex layout) ──
+                  Rendered OUTSIDE the scroll container so it never
+                  moves with the vertical scroll. Fixed height, always
+                  visible at the bottom of the panel column. */}
+              {footerRow && (
+                <div
+                  className="flex items-center gap-1.5 px-2 border-t text-xs bg-background shrink-0"
+                  style={{
+                    height: footerRowH,
+                    paddingLeft: 8 + footerRow.level * 18,
+                  }}
+                >
+                  <div className="truncate min-w-0 flex-1">
+                    <span className="font-semibold">{footerRow.label}</span>
+                    {footerRow.labelSuffix && (
+                      <span className="ml-1 text-[10px] font-normal text-muted-foreground/70 tabular-nums">
+                        {footerRow.labelSuffix}
+                      </span>
+                    )}
+                    {footerRow.sublabel && (
+                      <div className="text-[10px] text-muted-foreground">{footerRow.sublabel}</div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Resize handle */}
@@ -1701,166 +1716,141 @@ export function GanttCore(props: GanttCoreProps) {
                 )
               })}
             </div>
-            {/* ── Sticky footer row body (Plan de charge chart) ──
-                Renders three layers at the bottom of the scroll
-                container, all inside a single sticky container:
-                  1. Per-cell stacked bars (validated = opaque,
-                     draft = 45% opacity, same type color)
-                  2. Per-segment label + per-column total above the
-                     stack
-                  3. Optional cumulative curve (SVG polyline) when
-                     `workloadShowCumulative` is on, normalized to
-                     its own Y range so it fills the row height
-            */}
-            {footerRow && footerRow.heatmapCells && footerRow.heatmapCells.length > 0 && (() => {
-              const cellsList = footerRow.heatmapCells
-              const COLUMN_TOTAL_H = 14   // pixels reserved at the top for the total label
-              const innerTop = COLUMN_TOTAL_H + 2
-              const innerBottom = 4
-              const stackAreaH = Math.max(0, footerRowH - innerTop - innerBottom)
-              // Cumulative path points (normalized to the global max
-              // cumulative so the curve spans the full stack area).
-              const maxCumul = cellsList.reduce(
-                (m, hc) => (hc.cumulative != null && hc.cumulative > m ? hc.cumulative : m),
-                0,
-              )
-              const cumulPoints = workloadShowCumulative && maxCumul > 0
-                ? cellsList
-                    .filter((hc) => hc.cumulative != null)
-                    .map((hc) => {
-                      const w = cellWidths[hc.cellIdx]
-                      const cx = cellLefts[hc.cellIdx] + w / 2
-                      const ratio = (hc.cumulative as number) / maxCumul
-                      const cy = innerTop + stackAreaH - ratio * stackAreaH
-                      return { x: cx, y: cy }
-                    })
-                : []
-              return (
-                <div
-                  className="sticky bottom-0 z-20 border-t bg-background"
-                  style={{ width: totalWidth, height: footerRowH }}
-                >
-                  <div className="relative w-full h-full">
-                    {cellsList.map((hc) => {
-                      if (hc.cellIdx < 0 || hc.cellIdx >= cellLefts.length) return null
-                      const w = cellWidths[hc.cellIdx]
-                      const innerW = Math.max(0, w - 2)
-                      const left = cellLefts[hc.cellIdx] + 1
+          </div>
+          {/* ── Plan de charge footer row (outside bodyScrollRef) ──
+              Kept as a flex-child sibling of the scroll container so
+              it's always visible at the bottom of the gantt body
+              regardless of vertical scroll position. Horizontal
+              scroll is manually synced with `bodyScrollRef` via
+              `onBodyScroll` → `footerScrollRef.scrollLeft = …`, so
+              the stacks stay column-aligned with the main grid. */}
+          {footerRow && footerRow.heatmapCells && footerRow.heatmapCells.length > 0 && (() => {
+            const cellsList = footerRow.heatmapCells
+            const COLUMN_TOTAL_H = 14 // reserved at the top for the total label
+            const innerTop = COLUMN_TOTAL_H + 2
+            const innerBottom = 4
+            const stackAreaH = Math.max(0, footerRowH - innerTop - innerBottom)
+            const maxCumul = cellsList.reduce(
+              (m, hc) => (hc.cumulative != null && hc.cumulative > m ? hc.cumulative : m),
+              0,
+            )
+            const cumulPoints = workloadShowCumulative && maxCumul > 0
+              ? cellsList
+                  .filter((hc) => hc.cumulative != null)
+                  .map((hc) => {
+                    const w = cellWidths[hc.cellIdx]
+                    const cx = cellLefts[hc.cellIdx] + w / 2
+                    const ratio = (hc.cumulative as number) / maxCumul
+                    const cy = innerTop + stackAreaH - ratio * stackAreaH
+                    return { x: cx, y: cy }
+                  })
+              : []
+            return (
+              <div
+                ref={footerScrollRef}
+                className="shrink-0 border-t bg-background overflow-x-auto overflow-y-hidden"
+                style={{ height: footerRowH }}
+              >
+                <div className="relative" style={{ width: totalWidth, height: footerRowH }}>
+                  {cellsList.map((hc) => {
+                    if (hc.cellIdx < 0 || hc.cellIdx >= cellLefts.length) return null
+                    const w = cellWidths[hc.cellIdx]
+                    const innerW = Math.max(0, w - 2)
+                    const left = cellLefts[hc.cellIdx] + 1
 
-                      if (hc.stacks && hc.stacks.length > 0) {
-                        const stackMax =
-                          hc.stackMax ?? hc.stacks.reduce((s, x) => s + x.value, 0)
-                        let stackedBelow = 0
-                        return (
-                          <div
-                            key={`footer-${hc.cellIdx}`}
-                            className="absolute pointer-events-auto"
-                            style={{ left, top: 0, width: innerW, height: footerRowH }}
-                            {...(hc.tooltipHTML
-                              ? { 'data-heatmap-tooltip': hc.tooltipHTML }
-                              : {})}
-                          >
-                            {/* Column total above the stack.
-                                Hidden when narrower than ~18px or
-                                when value is 0. */}
-                            {hc.label && innerW >= 18 && (
-                              <div
-                                className="absolute left-0 right-0 text-[9px] text-foreground font-semibold text-center tabular-nums"
-                                style={{ top: 0, height: COLUMN_TOTAL_H, lineHeight: `${COLUMN_TOTAL_H}px` }}
-                              >
-                                {hc.label}
-                              </div>
-                            )}
-                            {/* Stack segments */}
-                            {hc.stacks.map((seg, segIdx) => {
-                              if (seg.value <= 0 || stackMax <= 0) return null
-                              const segH = (seg.value / stackMax) * stackAreaH
-                              const bottom = innerBottom + stackedBelow
-                              stackedBelow += segH
-                              // Show the per-segment value label when
-                              // the segment is tall enough to fit one
-                              // line of 9px text (~12px min).
-                              const showSegLabel = segH >= 12 && innerW >= 22
-                              const perDay = hc.stacks!.length > 0
-                                ? Math.round(seg.value / 1) // raw pax-days
-                                : 0
-                              return (
-                                <div
-                                  key={segIdx}
-                                  className="absolute left-0 right-0 flex items-center justify-center text-[8px] font-semibold tabular-nums"
-                                  style={{
-                                    bottom,
-                                    height: segH,
-                                    backgroundColor: seg.color,
-                                    opacity: seg.opacity ?? 1,
-                                    color: textColorForBackground(seg.color),
-                                  }}
-                                  title={seg.label || `${seg.value}`}
-                                >
-                                  {showSegLabel ? perDay : null}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )
-                      }
-
-                      // Plain flat cell fallback (unused for Plan de
-                      // charge but kept so any other future footer row
-                      // can render a regular heatmap).
+                    if (hc.stacks && hc.stacks.length > 0) {
+                      const stackMax =
+                        hc.stackMax ?? hc.stacks.reduce((s, x) => s + x.value, 0)
+                      let stackedBelow = 0
                       return (
                         <div
                           key={`footer-${hc.cellIdx}`}
-                          className="absolute flex items-center justify-center text-[9px] font-medium tabular-nums"
-                          style={{
-                            left,
-                            top: innerTop,
-                            width: innerW,
-                            height: stackAreaH,
-                            backgroundColor: hc.color,
-                            color: textColorForBackground(hc.color),
-                            borderRadius: 2,
-                          }}
+                          className="absolute pointer-events-auto"
+                          style={{ left, top: 0, width: innerW, height: footerRowH }}
                           {...(hc.tooltipHTML
                             ? { 'data-heatmap-tooltip': hc.tooltipHTML }
                             : {})}
                         >
-                          {hc.label}
+                          {hc.label && innerW >= 18 && (
+                            <div
+                              className="absolute left-0 right-0 text-[9px] text-foreground font-semibold text-center tabular-nums"
+                              style={{ top: 0, height: COLUMN_TOTAL_H, lineHeight: `${COLUMN_TOTAL_H}px` }}
+                            >
+                              {hc.label}
+                            </div>
+                          )}
+                          {hc.stacks.map((seg, segIdx) => {
+                            if (seg.value <= 0 || stackMax <= 0) return null
+                            const segH = (seg.value / stackMax) * stackAreaH
+                            const bottom = innerBottom + stackedBelow
+                            stackedBelow += segH
+                            const showSegLabel = segH >= 12 && innerW >= 22
+                            return (
+                              <div
+                                key={segIdx}
+                                className="absolute left-0 right-0 flex items-center justify-center text-[8px] font-semibold tabular-nums"
+                                style={{
+                                  bottom,
+                                  height: segH,
+                                  backgroundColor: seg.color,
+                                  opacity: seg.opacity ?? 1,
+                                  color: textColorForBackground(seg.color),
+                                }}
+                                title={seg.label || `${seg.value}`}
+                              >
+                                {showSegLabel ? Math.round(seg.value) : null}
+                              </div>
+                            )
+                          })}
                         </div>
                       )
-                    })}
+                    }
 
-                    {/* Cumulative trend line overlay */}
-                    {cumulPoints.length > 1 && (
-                      <svg
-                        className="absolute pointer-events-none"
-                        style={{ left: 0, top: 0, width: totalWidth, height: footerRowH }}
-                        width={totalWidth}
-                        height={footerRowH}
+                    return (
+                      <div
+                        key={`footer-${hc.cellIdx}`}
+                        className="absolute flex items-center justify-center text-[9px] font-medium tabular-nums"
+                        style={{
+                          left,
+                          top: innerTop,
+                          width: innerW,
+                          height: stackAreaH,
+                          backgroundColor: hc.color,
+                          color: textColorForBackground(hc.color),
+                          borderRadius: 2,
+                        }}
+                        {...(hc.tooltipHTML
+                          ? { 'data-heatmap-tooltip': hc.tooltipHTML }
+                          : {})}
                       >
-                        <polyline
-                          points={cumulPoints.map((p) => `${p.x},${p.y}`).join(' ')}
-                          fill="none"
-                          stroke="#1e40af"
-                          strokeWidth={2}
-                          strokeLinejoin="round"
-                        />
-                        {cumulPoints.map((p, i) => (
-                          <circle
-                            key={i}
-                            cx={p.x}
-                            cy={p.y}
-                            r={2}
-                            fill="#1e40af"
-                          />
-                        ))}
-                      </svg>
-                    )}
-                  </div>
+                        {hc.label}
+                      </div>
+                    )
+                  })}
+
+                  {cumulPoints.length > 1 && (
+                    <svg
+                      className="absolute pointer-events-none"
+                      style={{ left: 0, top: 0, width: totalWidth, height: footerRowH }}
+                      width={totalWidth}
+                      height={footerRowH}
+                    >
+                      <polyline
+                        points={cumulPoints.map((p) => `${p.x},${p.y}`).join(' ')}
+                        fill="none"
+                        stroke="#1e40af"
+                        strokeWidth={2}
+                        strokeLinejoin="round"
+                      />
+                      {cumulPoints.map((p, i) => (
+                        <circle key={i} cx={p.x} cy={p.y} r={2} fill="#1e40af" />
+                      ))}
+                    </svg>
+                  )}
                 </div>
-              )
-            })()}
-          </div>
+              </div>
+            )
+          })()}
         </div>
       </div>
 

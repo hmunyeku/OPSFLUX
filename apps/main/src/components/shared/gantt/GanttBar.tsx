@@ -16,8 +16,6 @@ import { cn } from '@/lib/utils'
 import { addD, STATUS_COLORS, PRIORITY_COLORS, TYPE_COLORS, textColorForBackground } from './ganttEngine'
 import type { GanttBarData } from './ganttTypes'
 
-const MIN_LABEL_PX = 60
-
 export function resolveBarColor(bar: GanttBarData): string {
   if (bar.color) return bar.color
   if (bar.status && STATUS_COLORS[bar.status]) return STATUS_COLORS[bar.status]
@@ -46,7 +44,6 @@ interface GanttBarProps {
   onDoubleClick?: () => void
   onDrag?: (newStart: string, newEnd: string) => void
   onResize?: (edge: 'left' | 'right', newDate: string) => void
-  onTitleEdit?: (newTitle: string) => void
   onProgressChange?: (newProgress: number) => void
   onLinkStart?: (barId: string, edge: 'start' | 'end', x: number, y: number) => void
   onHover?: (e: React.MouseEvent) => void
@@ -59,14 +56,12 @@ export function GanttBarComponent({
   showProgress, showLabels, showBaselines,
   baselineLeft, baselineWidth,
   cellLefts, cellWidths,
-  onClick, onDoubleClick, onDrag, onResize, onTitleEdit, onProgressChange, onLinkStart, onHover, onLeave, onRightClick,
+  onClick, onDoubleClick, onDrag, onResize, onProgressChange, onLinkStart, onHover, onLeave, onRightClick,
 }: GanttBarProps) {
   const color = resolveBarColor(bar)
   // Pick black or white text for every on-bar label based on bar luminance.
   // The draft opacity (0.5) doesn't matter for the base contrast choice.
   const labelColor = textColorForBackground(color)
-  const [editing, setEditing] = useState(false)
-  const [editValue, setEditValue] = useState(bar.title)
 
   // ── Live drag / resize preview ──
   // During a drag we keep a local state { dxDays, mode } that offsets the
@@ -277,13 +272,18 @@ export function GanttBarComponent({
           />
         )}
 
-        {/* Bar label — cellLabels takes priority over title.
-            cellLabels render one centered label per intersected timeline cell,
-            so the bar shows its PAX values aligned with each day/week/month.
-            PAX cell labels are INDEPENDENT of `showLabels` because they
-            carry essential planning data; the `showLabels` toggle only
-            affects the activity title. */}
-        {bar.cellLabels && bar.cellLabels.length > 0 && cellLefts && cellWidths ? (
+        {/* Bar content — only the per-cell PAX labels (cellLabels) are
+            rendered INSIDE normal activity bars. The activity title is
+            no longer rendered inside the bar; it now lives exclusively
+            outside the bar via the planner-level `bar_title_position`
+            setting (none / before / after) which is handled by GanttCore.
+            This kills the redundancy between the old `showLabels` toggle
+            and `bar_title_position` — see GanttSettingsPanel where the
+            former has been renamed to "Texte des jalons & parents" to
+            reflect its narrower scope (milestones + summary brackets
+            only). PAX cell labels remain independent of any toggle
+            because they carry essential planning data. */}
+        {bar.cellLabels && bar.cellLabels.length > 0 && cellLefts && cellWidths && (
           <div className="absolute inset-0 pointer-events-none">
             {bar.cellLabels.map((cl) => {
               const cw = cellWidths[cl.cellIdx]
@@ -300,43 +300,7 @@ export function GanttBarComponent({
               )
             })}
           </div>
-        ) : showLabels && width >= MIN_LABEL_PX && bar.title ? (
-          <div
-            className="absolute inset-0 flex items-center px-2 min-w-0"
-            onDoubleClick={(e) => {
-              if (!onTitleEdit) return
-              e.stopPropagation()
-              setEditing(true)
-              setEditValue(bar.title)
-            }}
-          >
-            {editing ? (
-              <input
-                autoFocus
-                value={editValue}
-                onChange={e => setEditValue(e.target.value)}
-                onBlur={() => {
-                  setEditing(false)
-                  if (editValue.trim() && editValue !== bar.title) onTitleEdit?.(editValue.trim())
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') { setEditing(false); if (editValue.trim() && editValue !== bar.title) onTitleEdit?.(editValue.trim()) }
-                  if (e.key === 'Escape') { setEditing(false); setEditValue(bar.title) }
-                }}
-                onClick={e => e.stopPropagation()}
-                className="w-full bg-transparent text-[10px] font-semibold outline-none border-b border-current/50"
-                style={{ color: labelColor }}
-              />
-            ) : (
-              <span
-                className="truncate text-[10px] font-semibold drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)] leading-tight"
-                style={{ color: labelColor }}
-              >
-                {bar.title}
-              </span>
-            )}
-          </div>
-        ) : null}
+        )}
 
         {/* Progress text is now rendered OUTSIDE the bar (in GanttCore),
             on the opposite side of the external activity title. This avoids

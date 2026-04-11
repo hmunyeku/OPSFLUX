@@ -1,15 +1,38 @@
-import React from 'react'
+import React, { Suspense, lazy } from 'react'
+import { EuiEmptyPrompt, EuiLoadingSpinner } from '@elastic/eui'
 import { isPapyrusFormMode, isTrackingMode } from './lib/api'
-import WizardPage from './pages/WizardPage'
-import TrackingPage from './pages/TrackingPage'
-import PapyrusExternalFormPage from './pages/PapyrusExternalFormPage'
+
+const WizardPage = lazy(() => import('./pages/WizardPage'))
+const TrackingPage = lazy(() => import('./pages/TrackingPage'))
+const PapyrusExternalFormPage = lazy(() => import('./pages/PapyrusExternalFormPage'))
+
+function AppLoadingFallback() {
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+      }}
+    >
+      <EuiEmptyPrompt
+        icon={<EuiLoadingSpinner size="xl" />}
+        title={<h2>Chargement du portail</h2>}
+        body={<p>Préparation de l’espace externe…</p>}
+      />
+    </div>
+  )
+}
 
 export default function App() {
+  let page = <WizardPage />
   if (isTrackingMode()) {
-    return <TrackingPage />
+    page = <TrackingPage />
+  } else if (isPapyrusFormMode()) {
+    page = <PapyrusExternalFormPage />
   }
-  if (isPapyrusFormMode()) {
-    return <PapyrusExternalFormPage />
-  }
-  return <WizardPage />
+
+  return <Suspense fallback={<AppLoadingFallback />}>{page}</Suspense>
 }

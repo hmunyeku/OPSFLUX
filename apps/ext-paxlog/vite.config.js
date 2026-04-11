@@ -4,5 +4,14 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: { port: 5175, host: '0.0.0.0', strictPort: true },
-  build: { outDir: 'dist' },
+  build: {
+    outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('@elastic/eui') || id.includes('@emotion/')) return 'vendor-eui'
+        },
+      },
+    },
+  },
 })

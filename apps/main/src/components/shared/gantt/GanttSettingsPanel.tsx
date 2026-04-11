@@ -120,7 +120,7 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
             {/* Toggle switches */}
             <div className="grid grid-cols-2 gap-2">
               {[
-                { key: 'showLabels' as const, label: 'Labels' },
+                { key: 'showLabels' as const, label: 'Texte des jalons & parents' },
                 { key: 'showProgress' as const, label: 'Progression' },
                 { key: 'showBaselines' as const, label: 'Baselines' },
                 { key: 'showDependencies' as const, label: 'Dépendances' },

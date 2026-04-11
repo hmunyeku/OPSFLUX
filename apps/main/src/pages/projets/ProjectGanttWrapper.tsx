@@ -678,20 +678,6 @@ export function ProjectGanttWrapper() {
     )
   }, [bars, toast, updateTaskMutation])
 
-  const handleBarTitleEdit = useCallback((barId: string, newTitle: string) => {
-    if (barId.startsWith('proj-') || barId.startsWith('ms-')) return
-    const bar = bars.find(b => b.id === barId)
-    const projectId = bar?.meta?.projectId as string
-    if (!projectId) return
-    updateTaskMutation.mutate(
-      { projectId, taskId: barId, payload: { title: newTitle } },
-      {
-        onSuccess: () => toast({ title: 'Titre modifié', variant: 'success' }),
-        onError: () => toast({ title: 'Erreur', variant: 'error' }),
-      },
-    )
-  }, [bars, toast, updateTaskMutation])
-
   // ── Cell edit (inline grid editing) ────────────────────────────
 
   const handleCellEdit = useCallback((rowId: string, columnId: string, value: string) => {
@@ -1001,7 +987,6 @@ export function ProjectGanttWrapper() {
           }}
           onBarDrag={handleBarDrag}
           onBarResize={handleBarResize}
-          onBarTitleEdit={handleBarTitleEdit}
           onCellEdit={handleCellEdit}
           expandedRows={expanded}
           onToggleRow={toggleRow}

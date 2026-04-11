@@ -300,8 +300,6 @@ export interface GanttCoreProps {
   // ── Callbacks ──
   onBarClick?: (barId: string, meta?: Record<string, unknown>) => void
   onBarDoubleClick?: (barId: string) => void
-  /** Called when bar title is edited inline (double-click on bar label) */
-  onBarTitleEdit?: (barId: string, newTitle: string) => void
   onBarDrag?: (barId: string, newStart: string, newEnd: string) => void
   onBarResize?: (barId: string, edge: 'left' | 'right', newDate: string) => void
   onRowClick?: (rowId: string) => void

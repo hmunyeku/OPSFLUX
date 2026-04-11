@@ -17,7 +17,7 @@
  * - Keyboard: arrow keys to navigate, +/- to zoom
  */
 
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronRight as ChevronCollapsed,
   Loader2, ZoomIn, ZoomOut, Maximize, Download,
@@ -263,6 +263,12 @@ export function GanttCore(props: GanttCoreProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const headerScrollRef = useRef<HTMLDivElement>(null)
   const bodyScrollRef = useRef<HTMLDivElement>(null)
+  // Flipped to `true` by `changeScale` so the next post-render effect
+  // horizontally re-centers the body scroll on "today" (or the first
+  // bar in the range, falling back to viewStart). This lets the user
+  // keep their bearings when cells resize across scales without forcing
+  // the range to reset.
+  const recenterOnNextRenderRef = useRef(false)
   const panelBodyRef = useRef<HTMLDivElement>(null)
   // Panel width: task name (200px min) + all visible column widths
   const columnsWidth = columns.reduce((sum, c) => sum + c.width, 0)
@@ -338,6 +344,71 @@ export function GanttCore(props: GanttCoreProps) {
     return (d >= 0 && d <= totalDays) ? d * effectivePPD : null
   }, [viewStart, todayISO, totalDays, effectivePPD])
 
+  // Horizontally recenter the body scroll after a scale change so the
+  // user doesn't lose their place when cells resize to the new
+  // granularity. Priority order for the focus date:
+  //   1. Previous scroll-center date (so the view stays anchored to
+  //      whatever the user was actually looking at)
+  //   2. Today (if today is within the current range)
+  //   3. First bar start date in the range
+  //   4. viewStart (the left edge)
+  //
+  // This is a layout effect so it runs AFTER cells/totalWidth are
+  // measured with the new scale but BEFORE the browser paints — no
+  // visible jump for the user.
+  const prevEffectivePPDRef = useRef(effectivePPD)
+  const prevScrollCenterDateRef = useRef<string | null>(null)
+  // Track the date currently at the center of the viewport, so we can
+  // restore it when the scale changes.
+  const onBodyScrollCaptureCenter = useCallback(() => {
+    const el = bodyScrollRef.current
+    if (!el || effectivePPD <= 0) return
+    const centerPx = el.scrollLeft + el.clientWidth / 2
+    const centerDays = centerPx / effectivePPD
+    const d = new Date(viewStart)
+    d.setDate(d.getDate() + Math.round(centerDays))
+    prevScrollCenterDateRef.current = toISO(d)
+  }, [viewStart, effectivePPD])
+
+  useLayoutEffect(() => {
+    if (!recenterOnNextRenderRef.current) {
+      // Normal render: update the prev PPD ref and do nothing.
+      prevEffectivePPDRef.current = effectivePPD
+      return
+    }
+    recenterOnNextRenderRef.current = false
+    const el = bodyScrollRef.current
+    if (!el) return
+
+    // Decide the focus date in order of preference.
+    let focusISO: string | null = prevScrollCenterDateRef.current
+    if (!focusISO) {
+      // Fall back to today if it's in range.
+      const d = daysB(viewStart, todayISO)
+      if (d >= 0 && d <= totalDays) focusISO = todayISO
+    }
+    if (!focusISO) {
+      // Last resort: first bar in the range.
+      const firstBar = bars.find((b) => b.startDate && b.endDate)
+      if (firstBar) focusISO = firstBar.startDate
+    }
+    if (!focusISO) focusISO = viewStart
+
+    const daysFromStart = daysB(viewStart, focusISO)
+    if (daysFromStart < 0 || daysFromStart > totalDays) return
+
+    const focusPx = daysFromStart * effectivePPD
+    const viewportW = el.clientWidth
+    const newScrollLeft = Math.max(
+      0,
+      Math.min(el.scrollWidth - viewportW, focusPx - viewportW / 2),
+    )
+    el.scrollLeft = newScrollLeft
+    // Sync the header
+    if (headerScrollRef.current) headerScrollRef.current.scrollLeft = newScrollLeft
+    prevEffectivePPDRef.current = effectivePPD
+  }, [effectivePPD, viewStart, totalDays, todayISO, bars])
+
   // ── Navigation ─────────────────────────────────────────────────
 
   const shift = useCallback((dir: -1 | 1) => {
@@ -347,12 +418,23 @@ export function GanttCore(props: GanttCoreProps) {
   }, [meta.shiftDays, settings.scale, viewEnd, onViewChange])
 
   const changeScale = useCallback((newScale: TimeScale) => {
+    // Spec: the scale selector changes ONLY the display granularity,
+    // never the visible period. Keep the current viewStart / viewEnd
+    // intact, and rely on the ResizeObserver-driven horizontal scroll
+    // effect below to re-center on "today" (or the currently-visible
+    // focus date) so the user doesn't lose their bearings when the
+    // cells resize. Previously this callback called
+    // `getDefaultDateRange(newScale)` and stomped on the range — users
+    // who were inspecting a specific window had to re-apply a preset
+    // after every scale change, which defeats the whole point of
+    // having a separate range picker.
     updateSettings({ scale: newScale })
-    const range = getDefaultDateRange(newScale)
-    setViewStart(range.start)
-    setViewEnd(range.end)
-    onViewChange?.(newScale, range.start, range.end)
-  }, [updateSettings, onViewChange])
+    // Flag the next render as "auto-recenter" so the horizontal scroll
+    // handler can jump the viewport to the expected focus after cells
+    // have been re-measured with the new scale.
+    recenterOnNextRenderRef.current = true
+    onViewChange?.(newScale, viewStart, viewEnd)
+  }, [updateSettings, onViewChange, viewStart, viewEnd])
 
   const zoom = useCallback((dir: 1 | -1) => {
     updateSettings({
@@ -390,7 +472,11 @@ export function GanttCore(props: GanttCoreProps) {
     if (panelBodyRef.current && bodyScrollRef.current) {
       panelBodyRef.current.scrollTop = bodyScrollRef.current.scrollTop
     }
-  }, [])
+    // Remember where the user is focused so a subsequent scale change
+    // can recenter back to the same date. Throttled via rAF to avoid
+    // doing the date math on every scroll event.
+    onBodyScrollCaptureCenter()
+  }, [onBodyScrollCaptureCenter])
 
   const onPanelScroll = useCallback(() => {
     if (panelBodyRef.current && bodyScrollRef.current) {

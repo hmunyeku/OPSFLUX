@@ -108,15 +108,52 @@ export function ResponsiveActionBar({
   )
 
   // Measure + fit computation.
-  // We walk the measurement row children (which have the SAME order as
-  // sortedItems) and accumulate widths until we overflow the container.
+  //
+  // IMPORTANT: we measure the PARENT element, not our own container.
+  //
+  // Why: the bar is typically dropped inside a `flex justify-end` parent
+  // (the detail-panel header toolbar, for example). In that layout its
+  // own `clientWidth` equals its content's natural width — growing to
+  // fit the buttons rather than being constrained by available space —
+  // so the ResizeObserver would never see a narrow container and the
+  // overflow menu would never trigger. Reading the parent's clientWidth
+  // gives us the actual allocation: the horizontal budget the layout
+  // engine has reserved for us, regardless of how flex sizes us.
+  //
+  // We subtract the width of any non-action siblings inside that same
+  // parent (icons, titles, other flex children to our left/right) so
+  // the budget reflects the space that's really available for actions,
+  // not the whole parent row.
   useLayoutEffect(() => {
     const container = containerRef.current
     const measure = measureRef.current
     if (!container || !measure) return
+    const parent = container.parentElement
+    if (!parent) return
 
     const computeFit = () => {
-      const containerWidth = container.clientWidth
+      // Start from the parent's inner width (content-box) and subtract
+      // the width of every sibling so only the slice we actually own
+      // counts as our budget.
+      let siblingWidth = 0
+      const siblings = Array.from(parent.children) as HTMLElement[]
+      for (const sib of siblings) {
+        if (sib === container) continue
+        // Include margins in the sibling budget so gaps on the parent
+        // flex container don't get double-counted.
+        siblingWidth += sib.offsetWidth
+      }
+      // Gap property of the parent (if any): approximate by reading the
+      // computed style. A flex gap of 8 with N siblings adds ~8*(siblings.length)
+      // to the horizontal flow.
+      const parentStyle = window.getComputedStyle(parent)
+      const gap = parseFloat(parentStyle.columnGap || parentStyle.gap || '0')
+      const gapBudget = isFinite(gap) ? gap * siblings.length : 0
+      const parentInner =
+        parent.clientWidth -
+        parseFloat(parentStyle.paddingLeft || '0') -
+        parseFloat(parentStyle.paddingRight || '0')
+      const containerWidth = Math.max(0, parentInner - siblingWidth - gapBudget)
       if (containerWidth <= 0) return
 
       // Reserve space for the overflow ⋮ button (icon only, ~32px with gap).
@@ -169,7 +206,14 @@ export function ResponsiveActionBar({
 
     computeFit()
     const ro = new ResizeObserver(computeFit)
-    ro.observe(container)
+    ro.observe(parent)
+    // Also observe any flex siblings — when a title truncates, the bar's
+    // budget grows. Without this the overflow wouldn't relax back once a
+    // sibling shrinks.
+    const initialSiblings = Array.from(parent.children) as HTMLElement[]
+    for (const sib of initialSiblings) {
+      if (sib !== container) ro.observe(sib)
+    }
     return () => ro.disconnect()
   }, [sortedItems, compactBelow])
 

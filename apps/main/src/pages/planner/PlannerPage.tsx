@@ -2918,6 +2918,11 @@ function ActivityDetailPanel({ id }: { id: string }) {
   const { hasPermission } = usePermission()
   const canUpdate = hasPermission('planner.activity.update')
   const canDelete = hasPermission('planner.activity.delete')
+  // Spec §2.2: the "Forcer la priorité (DO)" action is an arbitrage lever
+  // reserved for the DO role, NOT the activity requester. The backend
+  // permission is `planner.priority.override` — gate the button behind it
+  // so regular users never see the escape hatch.
+  const canOverridePriority = hasPermission('planner.priority.override')
   const activityTypeLabels = useDictionaryLabels('planner_activity_type', ACTIVITY_TYPE_LABELS_FALLBACK)
   const priorityLabels = useDictionaryLabels('planner_activity_priority', PRIORITY_LABELS_FALLBACK)
   const activityStatusLabels = useDictionaryLabels('planner_activity_status', ACTIVITY_STATUS_LABELS_FALLBACK)
@@ -3906,7 +3911,9 @@ function ActivityDetailPanel({ id }: { id: string }) {
               </FormSection>
             )}
 
-            {/* Priority Override (DO-level action) */}
+            {/* Priority Override (DO-level action) — gated on
+                planner.priority.override so non-arbitres never see it. */}
+            {canOverridePriority && (
             <FormSection title="Actions avancees">
               {showPriorityOverride ? (
                 <div className="space-y-2 p-2.5 rounded-lg border border-border bg-background-subtle">
@@ -3955,6 +3962,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                 </button>
               )}
             </FormSection>
+            )}
 
             {/* Tags, Notes & Attachments */}
             <FormSection title="Tags, notes & fichiers" collapsible defaultExpanded={false}>

@@ -131,8 +131,15 @@ export function GanttCore(props: GanttCoreProps) {
 
   const [settings, setSettings] = useState<GanttSettings>(() => ({
     ...DEFAULT_SETTINGS,
-    scale: initialScale || DEFAULT_SETTINGS.scale,
     ...initialSettings,
+    // initialScale MUST win over a stale `initialSettings.scale` that
+    // may still be lingering in persisted prefs from before the parent
+    // updated its sharedTimelineScale. Without this last-line override
+    // the spread above would let a stale "day" stored in
+    // planner.gantt_core clobber a fresh "month" passed via initialScale,
+    // leaving GanttCore's internal scale out of sync with the timeline
+    // and rendering 365 day-cells under 12 month-scoped heatmap entries.
+    scale: initialScale || initialSettings?.scale || DEFAULT_SETTINGS.scale,
   }))
 
   // Hydrate from `initialSettings` ONCE when the parent finishes loading
@@ -153,16 +160,42 @@ export function GanttCore(props: GanttCoreProps) {
     if (!initialSettings) return
     if (Object.keys(initialSettings).length === 0) return
     hydratedFromPropRef.current = true
-    setSettings(prev => ({ ...prev, ...initialSettings }))
-  }, [initialSettings])
+    setSettings(prev => ({
+      ...prev,
+      ...initialSettings,
+      // Same rationale as the useState initializer: preserve the scale
+      // set by the parent via initialScale, because prefs may still hold
+      // a stale scale from a previous session.
+      scale: initialScale || initialSettings.scale || prev.scale,
+    }))
+  }, [initialSettings, initialScale])
 
   const updateSettings = useCallback((patch: Partial<GanttSettings>) => {
-    setSettings(prev => {
-      const next = { ...prev, ...patch }
-      onSettingsChange?.(next)
-      return next
-    })
-  }, [onSettingsChange])
+    // Compute the next state from the closure-captured settings and fire
+    // the parent notification AS A SIBLING OPERATION in the same event
+    // handler — not nested inside the setSettings updater.
+    //
+    // Why: calling a state setter (setPref → setPrefs) from *inside*
+    // another state setter's updater function is a React antipattern.
+    // In React 18 it can cause the nested update to land in a different
+    // lane than the outer one. For `applyRangePreset('this_year')`, two
+    // separate prefs have to move in lockstep — `planner.timeline`
+    // (fired from an event-handler direct call via onViewChange) and
+    // `planner.gantt_core` (fired from this nested setPref inside the
+    // setSettings updater). When they split across lanes, only one
+    // actually commits, leaving GanttCore's persisted scale stuck on
+    // "day" while the timeline pref correctly moves to "month" — that
+    // is exactly the heatmap/gantt decorrelation bug the user keeps
+    // reporting on the yearly range.
+    //
+    // Calling onSettingsChange at the event-handler scope (as a sibling
+    // to setSettings, not nested inside it) keeps both writes batched
+    // into the same React commit and guarantees the two prefs stay in
+    // sync.
+    const next = { ...settings, ...patch }
+    setSettings(next)
+    onSettingsChange?.(next)
+  }, [settings, onSettingsChange])
 
   // ── Visible columns (filtered by hiddenColumns) ────────────────
 

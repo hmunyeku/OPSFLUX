@@ -54,20 +54,28 @@ export default defineConfig({
         // auto-reloads once and the user sees the new version.
         skipWaiting: true,
         clientsClaim: true,
-        // NO navigateFallback — and NO navigateFallbackDenylist either.
+        // EXPLICITLY disable the SPA navigation fallback.
         //
-        // The denylist alone (without an actual navigateFallback URL) still
-        // makes workbox-build inject a
-        //   s.registerRoute(new NavigationRoute(createHandlerBoundToURL("index.html"), {denylist}))
-        // line into the generated sw.js. That handler calls
-        // createHandlerBoundToURL("index.html") at SW install time, which
-        // throws `non-precached-url` because we deliberately excluded HTML
-        // from globPatterns to avoid stale-bundle flashes. Once that
-        // exception fires during install, the SW bails BEFORE registering
-        // the runtimeCaching rules, so every fetch (including our API
-        // calls) ends up unhandled and the browser reports them as CORS
-        // failures. The HTML NetworkFirst rule below is the ONE handler
-        // that covers navigation — we don't need any fallback machinery.
+        // vite-plugin-pwa merges our workbox options over its own defaults,
+        // and the defaults include `navigateFallback: "index.html"` (see
+        // node_modules/vite-plugin-pwa/dist/index.js). When that default
+        // wins, workbox-build injects
+        //   registerRoute(new NavigationRoute(
+        //     createHandlerBoundToURL("index.html")))
+        // into the generated sw.js. `createHandlerBoundToURL("index.html")`
+        // throws `non-precached-url` at SW install time because we
+        // deliberately excluded HTML from globPatterns (precaching
+        // index.html would pin the old JS chunk hashes and cause the stale
+        // "ancienne vue" flash). That exception kills the SW install BEFORE
+        // the runtimeCaching rules register, so every fetch ends up
+        // unhandled and the browser reports all API calls as CORS failures.
+        //
+        // Passing `undefined` in the spread wouldn't override the default;
+        // we must set it to a falsy value (`null`) so the workbox sw-template
+        // `<% if (navigateFallback) %>` conditional skips the NavigationRoute
+        // entirely. Cast because the plugin's type rejects null even though
+        // the template accepts it.
+        navigateFallback: null as unknown as string,
         runtimeCaching: [
           // HTML navigation requests: NetworkFirst with a short timeout.
           // When online, always fetch the freshest index.html from the

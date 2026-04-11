@@ -1770,7 +1770,7 @@ async def create_wbs_node(
     project_id: UUID,
     body: ProjectWBSNodeCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.update"),
+    _: None = require_permission("project.wbs.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -1797,7 +1797,7 @@ async def update_wbs_node(
     node_id: UUID,
     body: ProjectWBSNodeUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.update"),
+    _: None = require_permission("project.wbs.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -1826,7 +1826,7 @@ async def delete_wbs_node(
     node_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("project.update"),
+    _: None = require_permission("project.wbs.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -1883,7 +1883,7 @@ async def list_task_assignees(
 async def add_task_assignee(
     project_id: UUID, task_id: UUID, body: TaskAssigneeCreate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.task.update"),
+    _: None = require_permission("project.task.assign"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -1938,7 +1938,7 @@ async def add_task_assignee(
 async def remove_task_assignee(
     project_id: UUID, task_id: UUID, assignee_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.task.update"),
+    _: None = require_permission("project.task.assign"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
@@ -1983,7 +1983,7 @@ async def create_task_comment(
     project_id: UUID, task_id: UUID, body: ProjectCommentCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("project.read"), db: AsyncSession = Depends(get_db),
+    _: None = require_permission("project.comment.create"), db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
     comment = ProjectComment(owner_type="project_task", owner_id=task_id, author_id=current_user.id, body=body.body, mentions=[str(m) for m in body.mentions] if body.mentions else None, parent_id=body.parent_id)
@@ -1998,7 +1998,7 @@ async def create_project_comment(
     project_id: UUID, body: ProjectCommentCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("project.read"), db: AsyncSession = Depends(get_db),
+    _: None = require_permission("project.comment.create"), db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
     comment = ProjectComment(owner_type="project", owner_id=project_id, author_id=current_user.id, body=body.body, mentions=[str(m) for m in body.mentions] if body.mentions else None, parent_id=body.parent_id)
@@ -2013,7 +2013,7 @@ async def delete_comment(
     project_id: UUID, comment_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("project.update"), db: AsyncSession = Depends(get_db),
+    _: None = require_permission("project.comment.delete"), db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
     comment = (await db.execute(select(ProjectComment).where(ProjectComment.id == comment_id))).scalar_one_or_none()
@@ -2092,7 +2092,7 @@ async def unlink_task_from_planner(
     task_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("project.update"),
+    _: None = require_permission("project.planner.send"),
     db: AsyncSession = Depends(get_db),
 ):
     """Spec 1.5 / 2.3: 'Retirer du Planner' toggle for a single task.
@@ -2273,7 +2273,7 @@ async def send_tasks_to_planner(
     body: SendToPlannerRequest,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("project.update"),
+    _: None = require_permission("project.planner.send"),
     db: AsyncSession = Depends(get_db),
 ):
     """Batch-create Planner activities from selected project tasks.

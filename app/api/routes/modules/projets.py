@@ -2309,6 +2309,135 @@ async def export_project_pdf(project_id: UUID, entity_id: UUID = Depends(get_cur
     return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename={project.code}_report.pdf'})
 
 
+# ── Gantt PDF export (A3 landscape) ──────────────────────────────────────
+#
+# This endpoint mirrors the planner one (POST /api/v1/planner/export/gantt-pdf)
+# but uses the `project.read` permission and a "Projets — Gantt" title. It
+# reuses the same shared `planner.gantt_export` PDF template (slug is generic
+# — it just renders rows + columns + bars regardless of source module). The
+# request payload schema is intentionally identical so the frontend ports
+# the planner client code with minimal changes.
+
+
+class ProjectGanttPdfColumn(BaseModel):
+    key: str
+    label: str
+    group_label: str | None = None
+    is_today: bool = False
+    is_weekend: bool = False
+    is_dim: bool = False
+
+
+class ProjectGanttPdfHeatmapCell(BaseModel):
+    value: str = ""
+    bg: str | None = None
+    fg: str | None = None
+
+
+class ProjectGanttPdfBar(BaseModel):
+    start_col: int
+    end_col: int
+    color: str
+    text_color: str = "#ffffff"
+    label: str | None = None
+    is_draft: bool = False
+    is_critical: bool = False
+    progress: int | None = None
+    cell_labels: list[str] | None = None
+
+
+class ProjectGanttPdfRow(BaseModel):
+    id: str
+    label: str
+    sublabel: str | None = None
+    level: int = 0
+    is_heatmap: bool = False
+    heatmap_cells: list[ProjectGanttPdfHeatmapCell] = Field(default_factory=list)
+    bar: ProjectGanttPdfBar | None = None
+
+
+class ProjectGanttPdfExportRequest(BaseModel):
+    """Server-side rendered Projets Gantt PDF payload — same shape as the
+    planner export request. Uses the shared `planner.gantt_export` template."""
+    title: str | None = None
+    subtitle: str | None = None
+    date_range: str | None = None
+    scale: str | None = None
+    columns: list[ProjectGanttPdfColumn] = Field(default_factory=list)
+    rows: list[ProjectGanttPdfRow] = Field(default_factory=list)
+    task_col_label: str = "Tâche"
+
+
+@router.post("/export/gantt-pdf")
+async def export_projects_gantt_pdf(
+    payload: ProjectGanttPdfExportRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Render the Projets Gantt as an A3 landscape PDF (vector, server-side).
+
+    Reuses the system PDF template `planner.gantt_export` — the slug is named
+    after the planner module for historical reasons but the template itself is
+    a generic gantt renderer that takes rows + columns + bars and produces
+    crisp vector output via WeasyPrint.
+    """
+    from fastapi.responses import Response
+    from app.core.pdf_templates import render_pdf
+    from app.models.common import Entity
+
+    entity = await db.get(Entity, entity_id)
+    generated_at = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
+    generated_by = getattr(current_user, "full_name", None) or current_user.email
+
+    column_groups: list[dict] = []
+    if payload.columns:
+        current_label: str | None = None
+        for col in payload.columns:
+            if col.group_label and col.group_label != current_label:
+                column_groups.append({"label": col.group_label, "span": 1})
+                current_label = col.group_label
+            elif column_groups:
+                column_groups[-1]["span"] += 1
+
+    try:
+        pdf_bytes = await render_pdf(
+            db,
+            slug="planner.gantt_export",
+            entity_id=entity_id,
+            language="fr",
+            variables={
+                "title": payload.title or "Projets — Gantt",
+                "subtitle": payload.subtitle or "",
+                "date_range": payload.date_range or "",
+                "scale": payload.scale or "",
+                "generated_at": generated_at,
+                "generated_by": generated_by,
+                "entity": {"name": entity.name if entity else ""},
+                "task_col_label": payload.task_col_label,
+                "columns": [c.model_dump() for c in payload.columns],
+                "column_groups": column_groups,
+                "rows": [r.model_dump() for r in payload.rows],
+            },
+        )
+    except Exception as e:
+        raise HTTPException(500, f"PDF generation failed: {e}")
+
+    if pdf_bytes is None:
+        raise HTTPException(
+            404,
+            "PDF template 'planner.gantt_export' not found. Run the seed_pdf_templates job.",
+        )
+
+    filename = f"projets-gantt-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 # ── Activity Feed ──────────────────────────────────────────────────────
 
 

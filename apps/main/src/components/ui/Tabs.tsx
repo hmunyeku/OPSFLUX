@@ -40,6 +40,14 @@ interface TabBarProps<T extends string = string> {
   className?: string
   /** Variant: 'default' (border-bottom tabs), 'muted' (muted bg tabs) */
   variant?: 'default' | 'muted'
+  /**
+   * Optional content rendered on the FAR RIGHT of the tab bar row.
+   * Used by pages to attach contextual controls aligned with the
+   * current tab — typically the "Modifier le tableau de bord" button
+   * when the active tab is the module dashboard. The slot is fully
+   * controlled by the parent: pass `null` to hide it.
+   */
+  rightSlot?: React.ReactNode
 }
 
 export function TabBar<T extends string = string>({
@@ -49,29 +57,41 @@ export function TabBar<T extends string = string>({
   onTabChange,
   className,
   variant = 'default',
+  rightSlot,
 }: TabBarProps<T>) {
   return (
     <div
       className={cn(
         'gl-tab-bar',
         variant === 'muted' && 'bg-muted/30',
+        // Spread tab buttons to the left, push the right slot to the
+        // far end via flex justify-between. The first child is the
+        // tabs container; the second (when present) is the right slot.
+        rightSlot && 'justify-between',
         className,
       )}
     >
-      {items
-        ? items
-            .filter((t) => !t.hidden)
-            .map((item) => (
-              <TabButton
-                key={item.id}
-                icon={item.icon}
-                label={item.label}
-                active={activeId === item.id}
-                badge={item.badge}
-                onClick={() => onTabChange?.(item.id)}
-              />
-            ))
-        : children}
+      <div className="flex items-center gap-1 min-w-0 overflow-x-auto">
+        {items
+          ? items
+              .filter((t) => !t.hidden)
+              .map((item) => (
+                <TabButton
+                  key={item.id}
+                  icon={item.icon}
+                  label={item.label}
+                  active={activeId === item.id}
+                  badge={item.badge}
+                  onClick={() => onTabChange?.(item.id)}
+                />
+              ))
+          : children}
+      </div>
+      {rightSlot && (
+        <div className="flex items-center gap-1.5 shrink-0 pl-3">
+          {rightSlot}
+        </div>
+      )}
     </div>
   )
 }

@@ -538,6 +538,72 @@ export const projetsService = {
     const { data } = await api.get(`/api/v1/projects/${projectId}/pdf`, { responseType: 'blob' })
     return data
   },
+
+  // ── Gantt PDF export (A3 landscape, server-side HTML rendering) ──
+  // Mirrors plannerService.exportGanttPdf — same payload shape, same backend
+  // template (`planner.gantt_export`), only the endpoint URL and the title
+  // change. The frontend builds the columns + rows + bars JSON from its
+  // memoised gantt state and POSTs it; the backend renders the A3 PDF via
+  // WeasyPrint and returns a Blob.
+  exportGanttPdf: async (payload: GanttPdfExportPayload): Promise<Blob> => {
+    const { data } = await api.post('/api/v1/projects/export/gantt-pdf', payload, {
+      responseType: 'blob',
+    })
+    return data as Blob
+  },
+}
+
+// ── Gantt PDF export types ──
+//
+// Re-declared here (instead of imported from plannerService) so the projets
+// gantt has zero coupling to the planner service surface. Both endpoints
+// accept the exact same JSON shape — the backend templates are shared.
+
+export interface GanttPdfHeatmapCell {
+  value?: string
+  bg?: string | null
+  fg?: string | null
+}
+
+export interface GanttPdfBar {
+  start_col: number
+  end_col: number
+  color: string
+  text_color?: string
+  label?: string | null
+  is_draft?: boolean
+  is_critical?: boolean
+  progress?: number | null
+  cell_labels?: string[] | null
+}
+
+export interface GanttPdfRow {
+  id: string
+  label: string
+  sublabel?: string | null
+  level?: number
+  is_heatmap?: boolean
+  heatmap_cells?: GanttPdfHeatmapCell[]
+  bar?: GanttPdfBar | null
+}
+
+export interface GanttPdfColumn {
+  key: string
+  label: string
+  group_label?: string | null
+  is_today?: boolean
+  is_weekend?: boolean
+  is_dim?: boolean
+}
+
+export interface GanttPdfExportPayload {
+  title?: string
+  subtitle?: string
+  date_range?: string
+  scale?: string
+  columns: GanttPdfColumn[]
+  rows: GanttPdfRow[]
+  task_col_label?: string
 }
 
 // Helper to detect Gouti-imported projects from the external_ref field

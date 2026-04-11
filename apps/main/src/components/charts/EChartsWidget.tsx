@@ -15,6 +15,11 @@ export interface EChartsWidgetProps {
   yFields?: string[]
   title?: string
   height?: number | string
+  /** Stack multi-series bar/area charts on top of each other (e.g. plan de
+   *  charge: stacked bars by activity type per time bucket). When true, all
+   *  series share `stack: 'total'` and labels move to the top of the stack
+   *  instead of each segment. Ignored for single-series charts. */
+  stacked?: boolean
   /** Click handler for cross-filtering — receives ECharts event params */
   onChartClick?: (params: Record<string, unknown>) => void
 }
@@ -64,6 +69,7 @@ export function EChartsWidget({
   yFields = ['value'],
   title,
   height = '100%',
+  stacked = false,
   onChartClick,
 }: EChartsWidgetProps) {
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme)
@@ -120,9 +126,12 @@ export function EChartsWidget({
           yAxis: { type: 'value', ...axisCommon, minInterval: 1 },
           series: yFields.map((field, i) => {
             const isSingleSeries = yFields.length === 1
+            const isStacked = stacked && !isSingleSeries
+            const isTopOfStack = isStacked && i === yFields.length - 1
             return {
               name: field,
               type: 'bar',
+              ...(isStacked ? { stack: 'total' } : {}),
               data: data.map((d, j) => ({
                 value: d[field] ?? 0,
                 // Single series: each bar gets a different color from palette
@@ -130,18 +139,34 @@ export function EChartsWidget({
               })),
               barMaxWidth: 36,
               itemStyle: {
-                borderRadius: [4, 4, 0, 0],
+                // For stacked bars, only round the top of the stack
+                borderRadius: isStacked ? (isTopOfStack ? [4, 4, 0, 0] : [0, 0, 0, 0]) : [4, 4, 0, 0],
                 ...(isSingleSeries ? {} : { color: COLOR_PALETTE[i % COLOR_PALETTE.length] }),
               },
               emphasis: {
                 itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.15)' },
               },
               label: {
-                show: data.length <= 12,
+                // Stacked: only show the total label on the top of each stack
+                show: isStacked
+                  ? (isTopOfStack && data.length <= 16)
+                  : data.length <= 12,
                 position: 'top' as const,
                 fontSize: 9,
                 color: baseTextStyle.color,
-                formatter: (p: { value: number }) => p.value >= 1000 ? `${(p.value / 1000).toFixed(1)}k` : String(p.value),
+                formatter: isStacked
+                  ? (p: { dataIndex: number }) => {
+                      // Sum across all series for this x to display the column total
+                      const row = data[p.dataIndex] as Record<string, unknown> | undefined
+                      if (!row) return ''
+                      let total = 0
+                      for (const f of yFields) {
+                        const v = row[f]
+                        if (typeof v === 'number') total += v
+                      }
+                      return total >= 1000 ? `${(total / 1000).toFixed(1)}k` : String(total)
+                    }
+                  : (p: { value: number }) => p.value >= 1000 ? `${(p.value / 1000).toFixed(1)}k` : String(p.value),
               },
             }
           }),

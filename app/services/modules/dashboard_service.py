@@ -40,7 +40,14 @@ def register_widget(widget_id: str, entry: WidgetCatalogEntry) -> None:
 
 
 def _init_predefined_widgets() -> None:
-    """Populate catalog with predefined widgets from the spec."""
+    """Populate catalog with predefined widgets from the spec.
+
+    Forwards every documented field of `WidgetCatalogEntry` from the
+    PREDEFINED_WIDGETS dict, including `description`, `permissions` and
+    `default_config` so widgets can ship pre-configured (e.g. stacked bar
+    charts with explicit `y_fields`) without requiring users to tweak the
+    settings panel after dropping the widget on a dashboard.
+    """
     for wid, meta in PREDEFINED_WIDGETS.items():
         if wid not in WIDGET_CATALOG:
             register_widget(
@@ -49,8 +56,11 @@ def _init_predefined_widgets() -> None:
                     id=wid,
                     type=meta["type"],
                     title=meta["title"],
+                    description=meta.get("description"),
                     source_module=meta["source"],
                     roles=meta.get("roles", ["*"]),
+                    permissions=meta.get("permissions", []),
+                    default_config=meta.get("default_config", {}),
                 ),
             )
 
@@ -394,6 +404,38 @@ PREDEFINED_WIDGETS: dict[str, dict[str, Any]] = {
     "planner_by_status": {"type": "chart", "title": "Activités par statut", "source": "planner", "roles": ["*"]},
     "planner_conflicts_kpi": {"type": "kpi", "title": "Conflits actifs", "source": "planner", "roles": ["*"]},
     "planner_pax_by_site": {"type": "chart", "title": "PAX par site", "source": "planner", "roles": ["*"]},
+    "planner_workload_chart": {
+        "type": "chart",
+        "title": "Plan de charge",
+        "description": "Histogramme empilé du POB planifié par type d'activité, par période. Mode validé/brouillon, fenêtre temporelle configurable.",
+        "source": "planner",
+        "roles": ["*"],
+        "default_config": {
+            # Stacked bar chart of pax_quota summed per (bucket, activity_type)
+            "chart_type": "bar",
+            "stacked": True,
+            "x_field": "name",
+            "y_fields": [
+                "project",
+                "workover",
+                "drilling",
+                "integrity",
+                "maintenance",
+                "permanent_ops",
+                "inspection",
+                "event",
+            ],
+            # Provider params:
+            #   - bucket: 'day' | 'week' | 'month' | 'quarter' (default: week)
+            #   - lookback_days: how many days back to start the window (default: 7)
+            #   - lookahead_days: how many days forward to extend (default: 84 = 12 weeks)
+            #   - include_drafts: include 'draft'/'submitted' activities (default: True)
+            "bucket": "week",
+            "lookback_days": 7,
+            "lookahead_days": 84,
+            "include_drafts": True,
+        },
+    },
     # ── Papyrus ──
     "papyrus_overview": {
         "type": "kpi",

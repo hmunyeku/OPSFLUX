@@ -4,18 +4,19 @@
  * Uses useQueries to load tasks/milestones/dependencies for each
  * expanded project in parallel, then combines into GanttCore format.
  */
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { useUIStore } from '@/stores/uiStore'
 import { useProjects, useUpdateProjectTask } from '@/hooks/useProjets'
 import { projetsService, isGoutiProject } from '@/services/projetsService'
+import type { GanttPdfExportPayload, GanttPdfRow } from '@/services/projetsService'
 import { useToast } from '@/components/ui/Toast'
 import { useUserPreferences } from '@/hooks/useUserPreferences'
 import { ProjectSelectorModal } from '@/components/shared/ProjectSelectorModal'
 import type { ProjectSelection } from '@/components/shared/ProjectSelectorModal'
 import { GanttCore } from '@/components/shared/gantt/GanttCore'
 import type { GanttRow, GanttBarData, GanttDependencyData, GanttColumn } from '@/components/shared/gantt/GanttCore'
-import { daysB } from '@/components/shared/gantt/ganttEngine'
+import { daysB, buildCells, toISO, type TimeScale } from '@/components/shared/gantt/ganttEngine'
 import type { ProjectTask } from '@/types/api'
 
 // ── Colors ──────────────────────────────────────────────────────
@@ -69,6 +70,26 @@ export function ProjectGanttWrapper() {
   const { toast } = useToast()
   const { getPref, setPref } = useUserPreferences()
   const updateTaskMutation = useUpdateProjectTask()
+
+  // ── Persisted timeline scale + range ──
+  // Mirrors the planner's once-after-mount hydration pattern: localStorage
+  // gives us an initial value synchronously, but the API may overwrite it
+  // shortly after mount; we sync once via `hydratedFromPrefsRef` so the
+  // user sees their saved scale without overwriting their interactions.
+  const persistedScale = getPref<TimeScale>('gantt_scale', 'month')
+  const persistedStart = getPref<string | undefined>('gantt_viewStart', undefined)
+  const persistedEnd = getPref<string | undefined>('gantt_viewEnd', undefined)
+  const [currentScale, setCurrentScale] = useState<TimeScale>(persistedScale)
+  const [currentStart, setCurrentStart] = useState<string | undefined>(persistedStart)
+  const [currentEnd, setCurrentEnd] = useState<string | undefined>(persistedEnd)
+  const hydratedFromPrefsRef = useRef(false)
+  useEffect(() => {
+    if (hydratedFromPrefsRef.current) return
+    hydratedFromPrefsRef.current = true
+    if (persistedScale) setCurrentScale(persistedScale)
+    if (persistedStart) setCurrentStart(persistedStart)
+    if (persistedEnd) setCurrentEnd(persistedEnd)
+  }, [persistedScale, persistedStart, persistedEnd])
 
   // Project selection
   const [showProjectSelector, setShowProjectSelector] = useState(false)
@@ -487,6 +508,126 @@ export function ProjectGanttWrapper() {
     }
   }, [findProjectForRow, toast])
 
+  // ── Export Gantt as A3 PDF (server-side, vector) ──
+  // Mirrors the planner export pipeline: build a JSON payload from the
+  // local rows/bars and POST it to /api/v1/projects/export/gantt-pdf. The
+  // backend renders the shared `planner.gantt_export` template via
+  // WeasyPrint, returning a crisp vector PDF (no html2canvas screenshot).
+  const handleExportPdf = useCallback(async () => {
+    try {
+      const scale: TimeScale = currentScale ?? 'month'
+      // If the user hasn't navigated yet, fall back to the project envelope
+      // so the PDF still has a sensible window.
+      let start = currentStart
+      let end = currentEnd
+      if (!start || !end) {
+        const dates = projects
+          .flatMap(p => [p.start_date, p.end_date])
+          .filter((d): d is string => !!d)
+          .map(d => d.split('T')[0])
+        if (dates.length > 0) {
+          start = dates.reduce((a, b) => (a < b ? a : b))
+          end = dates.reduce((a, b) => (a > b ? a : b))
+        } else {
+          // Last-resort default: today → 6 months
+          const today = new Date()
+          start = toISO(today)
+          const future = new Date(today)
+          future.setMonth(future.getMonth() + 6)
+          end = toISO(future)
+        }
+      }
+
+      const cells = buildCells(scale, new Date(start), new Date(end))
+      const todayISO = toISO(new Date())
+
+      const dateToCol = (iso: string): number => {
+        const t = new Date(iso).getTime()
+        for (let i = 0; i < cells.length; i++) {
+          const cs = cells[i].startDate.getTime()
+          const ce = cells[i].endDate.getTime() + 86_400_000 - 1
+          if (t >= cs && t <= ce) return i
+        }
+        if (t < cells[0].startDate.getTime()) return 0
+        return cells.length - 1
+      }
+
+      const monthFmt = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' })
+      const pdfColumns = cells.map((c) => ({
+        key: c.key,
+        label: c.label,
+        group_label: monthFmt.format(c.startDate),
+        is_today: scale === 'day' && c.startDate.toISOString().slice(0, 10) === todayISO,
+        is_weekend: scale === 'day' && (c.startDate.getDay() === 0 || c.startDate.getDay() === 6),
+        is_dim: scale === 'day' && (c.startDate.getDay() === 0 || c.startDate.getDay() === 6),
+      }))
+
+      const barsByRow = new Map<string, typeof bars[number][]>()
+      for (const b of bars) {
+        const list = barsByRow.get(b.rowId) ?? []
+        list.push(b)
+        barsByRow.set(b.rowId, list)
+      }
+
+      const pdfRows: GanttPdfRow[] = []
+      for (const row of rows) {
+        const rowBars = barsByRow.get(row.id) ?? []
+        if (rowBars.length === 0) {
+          pdfRows.push({
+            id: row.id,
+            label: row.label,
+            sublabel: row.sublabel ?? null,
+            level: row.level ?? 0,
+            is_heatmap: false,
+          })
+          continue
+        }
+        for (const b of rowBars) {
+          const startCol = dateToCol(b.startDate)
+          const endCol = dateToCol(b.endDate)
+          pdfRows.push({
+            id: `${row.id}::${b.id}`,
+            label: row.label,
+            sublabel: row.sublabel ?? null,
+            level: row.level ?? 0,
+            is_heatmap: false,
+            bar: {
+              start_col: startCol,
+              end_col: endCol,
+              color: b.color || '#3b82f6',
+              text_color: '#ffffff',
+              label: b.title || null,
+              is_draft: !!b.isDraft,
+              is_critical: !!b.isCritical,
+              progress: typeof b.progress === 'number' ? b.progress : null,
+              cell_labels: null,
+            },
+          })
+        }
+      }
+
+      const dateRangeLabel = `${start} → ${end}`
+      const payload: GanttPdfExportPayload = {
+        title: 'Projets — Gantt',
+        date_range: dateRangeLabel,
+        scale,
+        columns: pdfColumns,
+        rows: pdfRows,
+        task_col_label: 'Projet / tâche',
+      }
+      const blob = await projetsService.exportGanttPdf(payload)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `projets-gantt-${toISO(new Date())}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast({ title: 'PDF généré', variant: 'success' })
+    } catch {
+      toast({ title: "Erreur lors de la génération du PDF", variant: 'error' })
+    }
+  }, [currentScale, currentStart, currentEnd, projects, rows, bars, toast])
+
   const isLoading = projLoading || taskQueries.some(q => q.isLoading)
 
   return (
@@ -507,16 +648,20 @@ export function ProjectGanttWrapper() {
           bars={bars}
           dependencies={deps}
           columns={COLUMNS}
-          initialScale={getPref('gantt_scale', 'month')}
-          initialStart={getPref('gantt_viewStart', undefined)}
-          initialEnd={getPref('gantt_viewEnd', undefined)}
+          initialScale={currentScale}
+          initialStart={currentStart}
+          initialEnd={currentEnd}
           initialSettings={getPref('gantt_settings', { barHeight: 20, rowHeight: 34, showBaselines: true })}
           onSettingsChange={(s) => setPref('gantt_settings', s)}
           onViewChange={(scale, start, end) => {
+            setCurrentScale(scale)
+            setCurrentStart(start)
+            setCurrentEnd(end)
             setPref('gantt_scale', scale)
             setPref('gantt_viewStart', start)
             setPref('gantt_viewEnd', end)
           }}
+          onExportPdf={handleExportPdf}
           onBarClick={handleBarClick}
           onRowClick={(rowId) => {
             // Double-click: projects → project detail, tasks → task detail

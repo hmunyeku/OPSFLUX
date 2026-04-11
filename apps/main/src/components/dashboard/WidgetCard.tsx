@@ -614,6 +614,7 @@ function ChartWidget({
   const chartType = (config.chart_type as string) || 'bar'
   const xField = (config.x_field as string) || 'name'
   const yFields = (config.y_fields as string[]) || ['value']
+  const stacked = config.stacked === true
   const crossFilterEnabled = config.cross_filter !== false
 
   // Provider may return {data: [...], series: [...]} or a flat array
@@ -647,6 +648,7 @@ function ChartWidget({
       data={translatedData}
       xField={xField}
       yFields={yFields}
+      stacked={stacked}
       height="100%"
       onChartClick={handleChartClick}
     />

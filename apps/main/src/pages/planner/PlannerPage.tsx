@@ -114,7 +114,7 @@ type PlannerTab = 'dashboard' | 'gantt' | 'activities' | 'conflicts' | 'capacity
 
 const TABS: { id: PlannerTab; label: string; icon: typeof CalendarRange }[] = [
   { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-  { id: 'gantt', label: 'Gantt', icon: GanttChart },
+  { id: 'gantt', label: 'Plan', icon: GanttChart },
   { id: 'activities', label: 'Activites', icon: ListTodo },
   { id: 'conflicts', label: 'Conflits', icon: AlertTriangle },
   { id: 'capacity', label: 'Capacite', icon: BarChart3 },
@@ -2544,7 +2544,7 @@ function repairTimelineRange(
 }
 
 export function PlannerPage() {
-  const [activeTab, setActiveTab] = useState<PlannerTab>('gantt')
+  const [activeTab, setActiveTab] = useState<PlannerTab>('dashboard')
 
   // Load persisted timeline pref (loaded from localStorage instantly, then API)
   const { getPref, setPref } = useUserPreferences()
@@ -2647,16 +2647,19 @@ export function PlannerPage() {
           </PanelHeader>
 
           {/* Tab bar — uses the shared `TabBar` component for visual
-              parity with Tiers / Projets / PaxLog / TravelWiz. */}
+              parity with Tiers / Projets / PaxLog / TravelWiz.
+              The rightSlot hosts the dashboard "Modifier" toolbar via
+              portal, only when the dashboard tab is active. */}
           <TabBar
             items={TABS}
             activeId={activeTab}
             onTabChange={setActiveTab}
+            rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-planner" /> : null}
           />
 
           {activeTab === 'dashboard' && (
             <div className="flex-1 min-h-0 overflow-y-auto">
-              <ModuleDashboard module="planner" title="Planner" />
+              <ModuleDashboard module="planner" title="Planner" toolbarPortalId="dash-toolbar-planner" />
             </div>
           )}
           {activeTab === 'gantt' && (

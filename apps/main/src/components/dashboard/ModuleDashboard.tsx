@@ -17,7 +17,8 @@
  *
  * Or without children — toolbar renders inline above the grid.
  */
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Settings2, Check, X, Plus, Undo2, Redo2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -38,9 +39,18 @@ interface ModuleDashboardProps {
   className?: string
   /** Render prop: receives toolbar JSX that the parent can place in its tab bar */
   children?: (toolbar: React.ReactNode) => React.ReactNode
+  /**
+   * Optional DOM id of an element where the dashboard's edit toolbar
+   * (Modifier / Save / Cancel / Undo / Redo) should be portalled. Use
+   * this so the toolbar lives in the host page's tab bar (via
+   * `<TabBar rightSlot={<div id="..." />} />`) instead of floating
+   * above the dashboard grid. When the target element exists, the
+   * legacy floating toolbar is suppressed.
+   */
+  toolbarPortalId?: string
 }
 
-export function ModuleDashboard({ module, title, className, children }: ModuleDashboardProps) {
+export function ModuleDashboard({ module, title, className, children, toolbarPortalId }: ModuleDashboardProps) {
   const { t } = useTranslation()
   const { hasPermission } = usePermission()
   const canEdit = hasPermission('dashboard.customize') || hasPermission('dashboard.admin')
@@ -51,6 +61,28 @@ export function ModuleDashboard({ module, title, className, children }: ModuleDa
 
   const [editMode, setEditMode] = useState(false)
   const editorRef = useRef<DashboardEditorHandle>(null)
+
+  // Resolve the toolbar portal target lazily — the target div is
+  // mounted by the host page (typically inside `<TabBar rightSlot>`)
+  // so it may not exist on first render. We retry once after mount
+  // to catch the case where the page renders the slot AFTER the
+  // dashboard mounts.
+  const [portalEl, setPortalEl] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    if (!toolbarPortalId) {
+      setPortalEl(null)
+      return
+    }
+    const el = document.getElementById(toolbarPortalId)
+    setPortalEl(el)
+    if (!el) {
+      // Slot wasn't mounted yet — retry on next frame
+      const id = requestAnimationFrame(() => {
+        setPortalEl(document.getElementById(toolbarPortalId))
+      })
+      return () => cancelAnimationFrame(id)
+    }
+  }, [toolbarPortalId])
 
   const tab = tabsData?.mandatory?.[0] || tabsData?.personal?.[0] || null
   const widgets: DashboardWidget[] = Array.isArray(tab?.widgets) ? tab.widgets : []
@@ -120,13 +152,26 @@ export function ModuleDashboard({ module, title, className, children }: ModuleDa
     )
   }
 
+  // When the host page provides a portal slot for the toolbar (via
+  // `toolbarPortalId`), we send the edit toolbar there instead of
+  // floating it over the grid. This is what makes the "Modifier"
+  // button live inside the page's TabBar rightSlot rather than on
+  // top of the dashboard.
+  const usePortalToolbar = !!toolbarPortalId
+  const portalledToolbar = usePortalToolbar && portalEl && toolbarJsx
+    ? createPortal(toolbarJsx, portalEl)
+    : null
+
   // ── Render ──
   const content = (
     <div className={cn('flex flex-col flex-1 min-h-0 relative', className)}>
-      {/* Floating toolbar — overlays top-right of grid area */}
-      {!editMode && toolbarJsx && (
+      {/* Legacy floating toolbar — only when no portal target was
+          requested. Pages that opt into the new tab-bar slot will see
+          {portalledToolbar} render the toolbar inside the slot div. */}
+      {!usePortalToolbar && !editMode && toolbarJsx && (
         <div className="absolute top-2 right-4 z-10">{toolbarJsx}</div>
       )}
+      {portalledToolbar}
       {editMode && tab ? (
         <DashboardEditorLayout
           ref={editorRef}

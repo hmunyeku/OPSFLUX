@@ -6024,7 +6024,9 @@ export function PaxLogPage() {
           </PanelHeader>
 
           {/* Tab bar — uses the shared `TabBar` component for visual
-              parity with Tiers / Projets / Planner / TravelWiz. */}
+              parity with Tiers / Projets / Planner / TravelWiz.
+              The rightSlot hosts the dashboard "Modifier" toolbar via
+              portal, only when the dashboard tab is active. */}
           <TabBar
             items={visibleTabs.map((tab) => ({
               id: tab.id,
@@ -6033,6 +6035,7 @@ export function PaxLogPage() {
             }))}
             activeId={effectiveTab}
             onTabChange={(id) => setActiveTab(id as typeof effectiveTab)}
+            rightSlot={effectiveTab === 'dashboard' && !isRequesterProfile && !isValidatorProfile ? <div id="dash-toolbar-paxlog" /> : null}
           />
 
           {effectiveTab === 'dashboard' && (
@@ -6040,7 +6043,7 @@ export function PaxLogPage() {
               ? <RequesterHomeTab onCreateAds={() => openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'ads' } })} onCreateAvm={() => openDynamicPanel({ type: 'create', module: 'paxlog', meta: { subtype: 'avm' } })} onOpenAds={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'ads' } })} onOpenAvm={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'avm' } })} />
               : isValidatorProfile
                 ? <ValidatorHomeTab onOpenAds={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'ads' } })} onOpenAvm={(id) => openDynamicPanel({ type: 'detail', module: 'paxlog', id, meta: { subtype: 'avm' } })} />
-                : <ModuleDashboard module="paxlog" />
+                : <ModuleDashboard module="paxlog" toolbarPortalId="dash-toolbar-paxlog" />
           )}
           {effectiveTab === 'ads' && <AdsTab openDetail={handleOpenDetail} requesterOnly={isRequesterProfile} validatorOnly={isValidatorProfile} />}
           {effectiveTab === 'waitlist' && <WaitlistTab openDetail={handleOpenDetail} />}

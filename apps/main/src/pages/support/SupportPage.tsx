@@ -895,15 +895,16 @@ export function SupportPage() {
 
         <TabBar
           items={[
+            { id: 'dashboard' as const, label: 'Tableau de bord', icon: LayoutDashboard },
             { id: 'tickets' as const, label: 'Tickets', icon: LifeBuoy },
-            { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
             ...(canManageAnnouncements ? [{ id: 'announcements' as const, label: 'Annonces', icon: Megaphone }] : []),
           ]}
           activeId={activeTab}
           onTabChange={(id) => setActiveTab(id as SupportTab)}
+          rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-support" /> : null}
         />
 
-        {activeTab === 'dashboard' && <ModuleDashboard module="support" />}
+        {activeTab === 'dashboard' && <ModuleDashboard module="support" toolbarPortalId="dash-toolbar-support" />}
 
         {activeTab === 'tickets' && (
           <>

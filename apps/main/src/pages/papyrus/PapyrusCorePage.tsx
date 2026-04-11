@@ -1629,7 +1629,7 @@ export function ReportEditorPage() {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <ModuleDashboard module="papyrus" />
+          <ModuleDashboard module="papyrus" toolbarPortalId="dash-toolbar-papyrus" />
         )
 
       case 'documents':
@@ -1901,7 +1901,12 @@ export function ReportEditorPage() {
             {toolbarAction}
           </PanelHeader>
 
-          <TabBar items={TABS} activeId={activeTab} onTabChange={handleTabChange} />
+          <TabBar
+            items={TABS}
+            activeId={activeTab}
+            onTabChange={handleTabChange}
+            rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-papyrus" /> : null}
+          />
 
           <PanelContent>
             {renderTabContent()}

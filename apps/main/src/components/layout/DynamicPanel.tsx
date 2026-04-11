@@ -356,11 +356,13 @@ export function DynamicPanelShell({
           </div>
         )}
 
-        {/* Content — constrained width in full mode for readability */}
+        {/* Content — full-width scroll container; the inner
+            `PanelContentLayout` (used by detail panels) handles its own
+            max-width cap so we don't need to clamp here. Removing this
+            outer wrapper unlocks the full main-area width on wide
+            monitors. */}
         <div className="flex-1 overflow-y-auto @container">
-          <div className="max-w-6xl mx-auto">
-            {children}
-          </div>
+          {children}
         </div>
       </div>
     )
@@ -521,7 +523,11 @@ export function SectionColumns({
     <div
       className={cn(
         'grid gap-x-8 gap-y-5 grid-cols-1',
-        '@[700px]:grid-cols-2',
+        // Kick into 2 columns earlier (was @[700px]) so docked panels
+        // benefit too. Detail panels typically pass 2 children — wider
+        // breakpoints are not added here because that would leave an
+        // empty column.
+        '@[640px]:grid-cols-2',
         className,
       )}
     >
@@ -551,6 +557,11 @@ export function DetailFieldGrid({
         // ~240px for its value — enough for typical dates / labels without
         // breaking long strings character-by-character.
         '@[500px]:grid-cols-2',
+        // 3 cols on very wide containers (e.g. full-mode panel column on a
+        // 1920px monitor where each SectionColumns half is ~870px). Lets
+        // dense field groups (Identité, Informations légales) lay out as
+        // 3-up instead of 2-up + lots of empty space.
+        '@[860px]:grid-cols-3',
         className,
       )}
     >
@@ -577,7 +588,12 @@ export function PanelContentLayout({
       className={cn(
         'p-4 space-y-5',
         '@[800px]:px-8 @[800px]:py-6',
-        '@[1200px]:max-w-[1400px] @[1200px]:mx-auto',
+        // Wider cap on big screens — readable line length is preserved by
+        // the per-section grids (SectionColumns / DetailFieldGrid) which
+        // split into 2 columns once the container is wide enough. The cap
+        // only kicks in around ~2000px so detail panels in full mode use
+        // the full main area on typical 1440-1920px monitors.
+        '@[1200px]:max-w-[1800px] @[1200px]:mx-auto',
         className,
       )}
     >

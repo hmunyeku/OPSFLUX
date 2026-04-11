@@ -1641,7 +1641,7 @@ export function TiersPage() {
           )}
         </PanelHeader>
 
-        {/* Tab bar */}
+        {/* Tab bar — rightSlot hosts the dashboard "Modifier" button via portal */}
         <TabBar
           items={TABS.map((tab) => ({
             ...tab,
@@ -1650,11 +1650,12 @@ export function TiersPage() {
           }))}
           activeId={activeTab}
           onTabChange={handleTabChange}
+          rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-tiers" /> : null}
         />
 
         <PanelContent>
           {activeTab === 'dashboard' ? (
-            <div className="p-4"><ModuleDashboard module="tiers" /></div>
+            <div className="p-4"><ModuleDashboard module="tiers" toolbarPortalId="dash-toolbar-tiers" /></div>
           ) : activeTab === 'entreprises' ? (
             <DataTable<Tier>
               columns={tierColumns}

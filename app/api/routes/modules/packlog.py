@@ -1,8 +1,4 @@
-"""PackLog API routes.
-
-This namespace hosts the cargo/package public surface for PackLog while
-remaining compatible with legacy TravelWiz permissions during the migration.
-"""
+"""PackLog API routes."""
 
 from __future__ import annotations
 
@@ -12,7 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_entity, get_current_user, require_any_permission, require_module_enabled
+from app.api.deps import get_current_entity, get_current_user, require_module_enabled, require_permission
 from app.core.database import get_db
 from app.models.common import User
 from app.schemas.common import PaginatedResponse
@@ -64,19 +60,19 @@ from app.api.routes.modules.packlog_shared import (
     update_package_element_disposition_impl,
     update_package_element_return_impl,
 )
-from app.services.modules.travelwiz_service import (
-    create_article_catalog_entry,
-    get_article_catalog_entry,
-    import_article_catalog_csv,
-    list_article_catalog,
+from app.services.modules.packlog_service import (
+    create_packlog_article_catalog_entry,
+    get_packlog_article_catalog_entry,
+    import_packlog_article_catalog_csv,
+    list_packlog_article_catalog,
 )
 
 router = APIRouter(prefix="/api/v1/packlog", tags=["packlog"], dependencies=[require_module_enabled("packlog")])
 
-PACKLOG_READ = require_any_permission("packlog.cargo.read", "travelwiz.cargo.read")
-PACKLOG_CREATE = require_any_permission("packlog.cargo.create", "travelwiz.cargo.create")
-PACKLOG_UPDATE = require_any_permission("packlog.cargo.update", "travelwiz.cargo.update")
-PACKLOG_RECEIVE = require_any_permission("packlog.cargo.receive", "travelwiz.cargo.receive")
+PACKLOG_READ = require_permission("packlog.cargo.read")
+PACKLOG_CREATE = require_permission("packlog.cargo.create")
+PACKLOG_UPDATE = require_permission("packlog.cargo.update")
+PACKLOG_RECEIVE = require_permission("packlog.cargo.receive")
 
 
 @router.get("/cargo-requests", response_model=PaginatedResponse[CargoRequestRead])
@@ -532,7 +528,7 @@ async def list_articles(
     _: None = PACKLOG_READ,
     db: AsyncSession = Depends(get_db),
 ):
-    return await list_article_catalog(
+    return await list_packlog_article_catalog(
         db,
         entity_id=entity_id,
         search=search,
@@ -550,7 +546,7 @@ async def get_article(
     _: None = PACKLOG_READ,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    article = await get_article_catalog_entry(
+    article = await get_packlog_article_catalog_entry(
         db,
         entity_id=entity_id,
         article_id=article_id,
@@ -573,7 +569,7 @@ async def create_article(
     _: None = PACKLOG_CREATE,
     db: AsyncSession = Depends(get_db),
 ):
-    return await create_article_catalog_entry(
+    return await create_packlog_article_catalog_entry(
         db,
         entity_id=entity_id,
         sap_code=sap_code,
@@ -595,7 +591,7 @@ async def import_articles_csv(
 ):
     try:
         raw_bytes = await file.read()
-        return await import_article_catalog_csv(
+        return await import_packlog_article_catalog_csv(
             db,
             entity_id=entity_id,
             filename=file.filename,

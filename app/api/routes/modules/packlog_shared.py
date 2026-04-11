@@ -55,14 +55,12 @@ from app.services.modules.packlog_service import (
     get_packlog_package_element_or_404,
     get_packlog_request_or_404,
     has_packlog_permission,
+    initiate_packlog_back_cargo,
+    match_packlog_sap_code,
     normalize_packlog_status,
     packlog_request_to_payload,
+    update_packlog_cargo_status,
     try_packlog_workflow_transition,
-)
-from app.services.modules.travelwiz_service import (
-    initiate_back_cargo as initiate_back_cargo_service,
-    match_sap_code,
-    update_cargo_status as apply_cargo_status_transition,
 )
 
 
@@ -895,7 +893,7 @@ async def update_cargo_status_impl(
     if body.damage_notes is not None:
         cargo.damage_notes = body.damage_notes
     try:
-        await apply_cargo_status_transition(
+        await update_packlog_cargo_status(
             db,
             cargo_item_id=cargo.id,
             new_status=target_status,
@@ -945,7 +943,7 @@ async def receive_cargo_impl(
     previous_status = cargo.status
     cargo.damage_notes = receipt.damage_notes
     try:
-        await apply_cargo_status_transition(
+        await update_packlog_cargo_status(
             db,
             cargo_item_id=cargo.id,
             new_status="delivered_final",
@@ -990,7 +988,7 @@ async def initiate_return_impl(
     db: AsyncSession,
 ):
     try:
-        result = await initiate_back_cargo_service(
+        result = await initiate_packlog_back_cargo(
             db,
             cargo_item_id=cargo_id,
             entity_id=entity_id,
@@ -1175,7 +1173,7 @@ async def update_package_element_disposition_impl(
 
 
 async def sap_match_impl(*, description: str, entity_id: UUID, db: AsyncSession):
-    return await match_sap_code(db, description=description, entity_id=entity_id)
+    return await match_packlog_sap_code(db, description=description, entity_id=entity_id)
 
 
 def _build_public_cargo_tracking_event(entry: AuditLog) -> dict:

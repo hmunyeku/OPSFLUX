@@ -21,6 +21,7 @@ import { DataTable } from '@/components/ui/DataTable/DataTable'
 import { useToast } from '@/components/ui/Toast'
 import { usePageSize } from '@/hooks/usePageSize'
 import { useDebounce } from '@/hooks/useDebounce'
+import { useDictionaryLabels, useDictionaryOptions } from '@/hooks/useDictionary'
 import { usePermission } from '@/hooks/usePermission'
 import { useAllManifests } from '@/hooks/useTravelWiz'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
@@ -40,6 +41,7 @@ import { CreateArticlePanel, PackLogArticleDetailPanel } from '@/pages/packlog/P
 import { CreateCargoPanel, CreateCargoRequestPanel } from '@/pages/packlog/PackLogCreatePanels'
 import { CargoRequestDetailPanel } from '@/pages/packlog/PackLogRequestDetailPanel'
 import { CargoDetailPanel } from '@/pages/packlog/PackLogCargoDetailPanel'
+import { useTranslation } from 'react-i18next'
 import type { CargoItem, CargoRequest, Manifest, TravelArticle } from '@/types/api'
 
 type PackLogTab = 'dashboard' | 'requests' | 'cargo' | 'catalog' | 'tracking' | 'alerts'
@@ -77,43 +79,26 @@ registerPanelRenderer('packlog', (view) => {
   return null
 })
 
-const REQUEST_STATUS_OPTIONS = [
-  { value: '', label: 'Tous' },
-  { value: 'draft', label: 'Brouillon' },
-  { value: 'submitted', label: 'Soumis' },
-  { value: 'approved', label: 'Approuvés' },
-  { value: 'assigned', label: 'Affectés' },
-  { value: 'in_progress', label: 'En cours' },
-  { value: 'closed', label: 'Clôturés' },
-]
-
-const CARGO_STATUS_OPTIONS = [
-  { value: '', label: 'Tous' },
-  { value: 'registered', label: 'Enregistrés' },
-  { value: 'ready', label: 'Prêts' },
-  { value: 'loaded', label: 'Chargés' },
-  { value: 'in_transit', label: 'En transit' },
-  { value: 'delivered_final', label: 'Livrés' },
-  { value: 'damaged', label: 'Endommagés' },
-  { value: 'missing', label: 'Manquants' },
-]
-
-function formatDateShort(value: string | null | undefined) {
+function formatDateShort(value: string | null | undefined, locale = 'fr-FR') {
   if (!value) return '—'
   try {
-    return new Date(value).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+    return new Date(value).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })
   } catch {
     return value
   }
 }
 
-function formatDateTimeShort(value: string | null | undefined) {
+function formatDateTimeShort(value: string | null | undefined, locale = 'fr-FR') {
   if (!value) return '—'
   try {
-    return new Date(value).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    return new Date(value).toLocaleString(locale, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
   } catch {
     return value
   }
+}
+
+function isCargoReceivedLike(item: Pick<CargoItem, 'status' | 'received_at'>) {
+  return Boolean(item.received_at) || item.status === 'delivered_final'
 }
 
 function parsePackLogScanValue(raw: string): { kind: 'cargo-id' | 'request-id' | 'tracking'; value: string } | null {
@@ -168,11 +153,15 @@ function buildAlerts(requests: CargoRequest[], cargo: CargoItem[]): AlertRow[] {
 }
 
 function RequestsTab() {
+  const { t, i18n } = useTranslation()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
+  const locale = i18n.language?.startsWith('fr') ? 'fr-FR' : 'en-US'
+  const requestStatusOptions = useDictionaryOptions('packlog_cargo_request_status')
+  const requestStatusLabels = useDictionaryLabels('packlog_cargo_request_status')
   const debouncedSearch = useDebounce(search, 250)
   const { data, isLoading } = usePackLogCargoRequests({ page, page_size: pageSize, search: debouncedSearch || undefined, status: status || undefined })
   const items = data?.items ?? []
@@ -184,27 +173,27 @@ function RequestsTab() {
   }), [data?.total, items])
 
   const columns = useMemo<ColumnDef<CargoRequest, unknown>[]>(() => [
-    { accessorKey: 'request_code', header: 'Référence', cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.request_code}</span> },
-    { accessorKey: 'title', header: 'Intitulé', cell: ({ row }) => <span className="font-medium text-foreground">{row.original.title}</span> },
-    { id: 'sender', header: 'Expéditeur', cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.sender_name ?? '—'}</span> },
-    { id: 'destination', header: 'Destination', cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.destination_name ?? row.original.receiver_name ?? '—'}</span> },
-    { id: 'cargo_count', header: 'Colis', cell: ({ row }) => <span className="text-xs text-foreground">{row.original.cargo_count}</span> },
-    { id: 'status', header: 'Statut', cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.status}</span> },
-    { id: 'readiness', header: 'Complétude', cell: ({ row }) => <span className={row.original.is_ready_for_submission ? 'text-emerald-600 text-xs font-medium' : 'text-amber-600 text-xs font-medium'}>{row.original.is_ready_for_submission ? 'Prête' : 'À compléter'}</span> },
-    { id: 'created_at', header: 'Créée le', cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDateShort(row.original.created_at)}</span> },
-  ], [])
+    { accessorKey: 'request_code', header: t('packlog.requests.columns.reference'), cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.request_code}</span> },
+    { accessorKey: 'title', header: t('packlog.requests.columns.title'), cell: ({ row }) => <span className="font-medium text-foreground">{row.original.title}</span> },
+    { id: 'sender', header: t('packlog.requests.columns.sender'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.sender_name ?? '—'}</span> },
+    { id: 'destination', header: t('packlog.requests.columns.destination'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.destination_name ?? row.original.receiver_name ?? '—'}</span> },
+    { id: 'cargo_count', header: t('packlog.requests.columns.cargo_count'), cell: ({ row }) => <span className="text-xs text-foreground">{row.original.cargo_count}</span> },
+    { id: 'status', header: t('packlog.requests.columns.status'), cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{requestStatusLabels[row.original.status] ?? row.original.status}</span> },
+    { id: 'readiness', header: t('packlog.requests.columns.readiness'), cell: ({ row }) => <span className={row.original.is_ready_for_submission ? 'text-emerald-600 text-xs font-medium' : 'text-amber-600 text-xs font-medium'}>{row.original.is_ready_for_submission ? t('packlog.requests.readiness.ready') : t('packlog.requests.readiness.pending')}</span> },
+    { id: 'created_at', header: t('packlog.requests.columns.created_at'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDateShort(row.original.created_at, locale)}</span> },
+  ], [locale, requestStatusLabels, t])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="grid gap-3 border-b border-border px-4 py-3 md:grid-cols-4">
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Demandes</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.total}</p></div>
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Prêtes</p><p className="mt-1 text-lg font-semibold text-emerald-600">{stats.ready}</p></div>
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Bloquées</p><p className="mt-1 text-lg font-semibold text-amber-600">{stats.blocked}</p></div>
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Soumises</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.submitted}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.requests.stats.total')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.total}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.requests.stats.ready')}</p><p className="mt-1 text-lg font-semibold text-emerald-600">{stats.ready}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.requests.stats.blocked')}</p><p className="mt-1 text-lg font-semibold text-amber-600">{stats.blocked}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.requests.stats.submitted')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.submitted}</p></div>
       </div>
       <div className="flex items-center gap-2 border-b border-border px-4 py-2">
         <div className="flex flex-wrap gap-1">
-          {REQUEST_STATUS_OPTIONS.map((option) => (
+          {[{ value: '', label: t('packlog.common.all') }, ...requestStatusOptions].map((option) => (
             <button
               key={option.value || 'all'}
               className={status === option.value ? 'gl-button-sm gl-button-default' : 'gl-button-sm gl-button-default opacity-70 hover:opacity-100'}
@@ -224,10 +213,10 @@ function RequestsTab() {
           onPaginationChange={setPage}
           searchValue={search}
           onSearchChange={(value) => { setSearch(value); setPage(1) }}
-          searchPlaceholder="Rechercher par référence, titre, expéditeur..."
+          searchPlaceholder={t('packlog.requests.search_placeholder')}
           onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'packlog', id: row.id, meta: { subtype: 'cargo-request' } })}
           emptyIcon={FileText}
-          emptyTitle="Aucune demande"
+          emptyTitle={t('packlog.requests.empty')}
           storageKey="packlog-requests"
         />
       </PanelContent>
@@ -236,11 +225,15 @@ function RequestsTab() {
 }
 
 function CargoTab() {
+  const { t, i18n } = useTranslation()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
+  const locale = i18n.language?.startsWith('fr') ? 'fr-FR' : 'en-US'
+  const cargoStatusOptions = useDictionaryOptions('packlog_cargo_status')
+  const cargoStatusLabels = useDictionaryLabels('packlog_cargo_status')
   const debouncedSearch = useDebounce(search, 250)
   const { data, isLoading } = usePackLogCargo({ page, page_size: pageSize, search: debouncedSearch || undefined, status: status || undefined })
   const items = data?.items ?? []
@@ -252,26 +245,26 @@ function CargoTab() {
   }), [data?.total, items])
 
   const columns = useMemo<ColumnDef<CargoItem, unknown>[]>(() => [
-    { accessorKey: 'tracking_code', header: 'Tracking', cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.tracking_code}</span> },
-    { id: 'designation', header: 'Colis', cell: ({ row }) => <span className="font-medium text-foreground">{row.original.designation || row.original.description}</span> },
-    { id: 'request', header: 'Demande', cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.request_code ?? '—'}</span> },
-    { id: 'destination', header: 'Destination', cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.destination_name ?? row.original.receiver_name ?? '—'}</span> },
-    { id: 'weight', header: 'Poids', cell: ({ row }) => <span className="text-xs text-foreground">{row.original.weight_kg.toLocaleString('fr-FR')} kg</span> },
-    { id: 'status', header: 'Statut', cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.status}</span> },
-    { id: 'created_at', header: 'Créé le', cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDateShort(row.original.created_at)}</span> },
-  ], [])
+    { accessorKey: 'tracking_code', header: t('packlog.cargo.columns.tracking'), cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.tracking_code}</span> },
+    { id: 'designation', header: t('packlog.cargo.columns.label'), cell: ({ row }) => <span className="font-medium text-foreground">{row.original.designation || row.original.description}</span> },
+    { id: 'request', header: t('packlog.cargo.columns.request'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.request_code ?? '—'}</span> },
+    { id: 'destination', header: t('packlog.cargo.columns.destination'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.destination_name ?? row.original.receiver_name ?? '—'}</span> },
+    { id: 'weight', header: t('packlog.cargo.columns.weight'), cell: ({ row }) => <span className="text-xs text-foreground">{row.original.weight_kg.toLocaleString(locale)} kg</span> },
+    { id: 'status', header: t('packlog.cargo.columns.status'), cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[row.original.status] ?? row.original.status}</span> },
+    { id: 'created_at', header: t('packlog.cargo.columns.created_at'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDateShort(row.original.created_at, locale)}</span> },
+  ], [cargoStatusLabels, locale, t])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="grid gap-3 border-b border-border px-4 py-3 md:grid-cols-4">
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Colis</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.total}</p></div>
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">En transit</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.inTransit}</p></div>
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Livrés</p><p className="mt-1 text-lg font-semibold text-emerald-600">{stats.delivered}</p></div>
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Incidents</p><p className="mt-1 text-lg font-semibold text-destructive">{stats.incidents}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.cargo.stats.total')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.total}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.cargo.stats.in_transit')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.inTransit}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.cargo.stats.delivered')}</p><p className="mt-1 text-lg font-semibold text-emerald-600">{stats.delivered}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.cargo.stats.incidents')}</p><p className="mt-1 text-lg font-semibold text-destructive">{stats.incidents}</p></div>
       </div>
       <div className="flex items-center gap-2 border-b border-border px-4 py-2">
         <div className="flex flex-wrap gap-1">
-          {CARGO_STATUS_OPTIONS.map((option) => (
+          {[{ value: '', label: t('packlog.common.all') }, ...cargoStatusOptions].map((option) => (
             <button
               key={option.value || 'all'}
               className={status === option.value ? 'gl-button-sm gl-button-default' : 'gl-button-sm gl-button-default opacity-70 hover:opacity-100'}
@@ -291,10 +284,10 @@ function CargoTab() {
           onPaginationChange={setPage}
           searchValue={search}
           onSearchChange={(value) => { setSearch(value); setPage(1) }}
-          searchPlaceholder="Rechercher par tracking, description, demande..."
+          searchPlaceholder={t('packlog.cargo.search_placeholder')}
           onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'packlog', id: row.id, meta: { subtype: 'cargo' } })}
           emptyIcon={Package}
-          emptyTitle="Aucun colis"
+          emptyTitle={t('packlog.cargo.empty')}
           storageKey="packlog-cargo"
         />
       </PanelContent>
@@ -395,6 +388,7 @@ function CatalogTab() {
 }
 
 function TrackingTab() {
+  const { t, i18n } = useTranslation()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { toast } = useToast()
   const [page, setPage] = useState(1)
@@ -413,13 +407,16 @@ function TrackingTab() {
     page_size: 8,
     search: debouncedScan || undefined,
   })
+  const locale = i18n.language?.startsWith('fr') ? 'fr-FR' : 'en-US'
+  const cargoStatusLabels = useDictionaryLabels('packlog_cargo_status')
   const receiveCargo = useReceivePackLogCargo()
   const updateCargoStatus = useUpdatePackLogCargoStatus()
   const items = data?.items ?? []
   const stats = useMemo(() => ({
     tracked: items.length,
     assigned: items.filter((item) => Boolean(item.voyage_code)).length,
-    received: items.filter((item) => Boolean(item.received_at)).length,
+    received: items.filter((item) => isCargoReceivedLike(item)).length,
+    pendingReceipt: items.filter((item) => item.status === 'in_transit' || item.status === 'delivered_intermediate').length,
   }), [items])
   const manifestGroups = useMemo(() => {
     const manifests = (manifestsData?.items ?? []).filter((manifest) => manifest.manifest_type === 'cargo')
@@ -438,15 +435,50 @@ function TrackingTab() {
         manifest: manifestMap.get(manifestId) ?? null,
         manifestId,
         items: manifestCargo.sort((a, b) => a.tracking_code.localeCompare(b.tracking_code)),
+        actionableItems: manifestCargo
+          .filter((item) => !isCargoReceivedLike(item))
+          .sort((a, b) => a.tracking_code.localeCompare(b.tracking_code)),
       }))
+      .filter((group) => group.items.length > 0)
       .sort((a, b) => {
+        const actionableDelta = b.actionableItems.length - a.actionableItems.length
+        if (actionableDelta !== 0) return actionableDelta
         const aDate = a.manifest?.created_at ? new Date(a.manifest.created_at).getTime() : 0
         const bDate = b.manifest?.created_at ? new Date(b.manifest.created_at).getTime() : 0
         return bDate - aDate
       })
   }, [items, manifestsData?.items])
   const scanCandidates = scanMatches?.items ?? []
-  const quickTarget = scannedCargo ?? scanCandidates[0] ?? null
+  const exactScanCandidate = useMemo(() => {
+    const query = scanTracking.trim().toLowerCase()
+    if (!query) return null
+    return scanCandidates.find((item) => {
+      const tracking = item.tracking_code.trim().toLowerCase()
+      return tracking === query
+    }) ?? null
+  }, [scanCandidates, scanTracking])
+  const quickTarget = scannedCargo ?? exactScanCandidate ?? scanCandidates[0] ?? null
+
+  async function handleManifestQuickStatus(item: CargoItem, status: 'received' | 'damaged' | 'missing') {
+    try {
+      if (status === 'received') {
+        await receiveCargo.mutateAsync({ id: item.id, payload: { notes: 'Réception manifeste PackLog' } })
+      } else {
+        await updateCargoStatus.mutateAsync({ id: item.id, status })
+      }
+      toast({
+        title:
+          status === 'received'
+            ? t('packlog.tracking.toasts.received', { tracking: item.tracking_code })
+            : status === 'damaged'
+              ? t('packlog.tracking.toasts.damaged', { tracking: item.tracking_code })
+              : t('packlog.tracking.toasts.missing', { tracking: item.tracking_code }),
+        variant: status === 'received' ? 'success' : 'warning',
+      })
+    } catch {
+      toast({ title: t('packlog.tracking.toasts.update_error'), variant: 'error' })
+    }
+  }
 
   async function handleQuickStatus(status: 'received' | 'damaged' | 'missing') {
     if (!quickTarget) return
@@ -459,14 +491,14 @@ function TrackingTab() {
       toast({
         title:
           status === 'received'
-            ? `Colis ${quickTarget.tracking_code} déclaré reçu`
+            ? t('packlog.tracking.toasts.received', { tracking: quickTarget.tracking_code })
             : status === 'damaged'
-              ? `Colis ${quickTarget.tracking_code} déclaré endommagé`
-              : `Colis ${quickTarget.tracking_code} déclaré manquant`,
+              ? t('packlog.tracking.toasts.damaged', { tracking: quickTarget.tracking_code })
+              : t('packlog.tracking.toasts.missing', { tracking: quickTarget.tracking_code }),
         variant: status === 'received' ? 'success' : 'warning',
       })
     } catch {
-      toast({ title: 'Impossible de mettre à jour ce colis depuis le mode scan.', variant: 'error' })
+      toast({ title: t('packlog.tracking.toasts.scan_update_error'), variant: 'error' })
     }
   }
 
@@ -476,38 +508,42 @@ function TrackingTab() {
     if (parsed.kind === 'cargo-id') {
       setScannedCargoId(parsed.value)
       setScanTracking('')
+      setScanInput('')
       openDynamicPanel({ type: 'detail', module: 'packlog', id: parsed.value, meta: { subtype: 'cargo' } })
       return
     }
     if (parsed.kind === 'request-id') {
       setScannedCargoId(null)
       setScanTracking('')
+      setScanInput('')
       openDynamicPanel({ type: 'detail', module: 'packlog', id: parsed.value, meta: { subtype: 'cargo-request' } })
       return
     }
     setScannedCargoId(null)
     setScanTracking(parsed.value)
+    setScanInput(parsed.value)
   }
 
   const columns = useMemo<ColumnDef<CargoItem, unknown>[]>(() => [
-    { accessorKey: 'tracking_code', header: 'Tracking', cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.tracking_code}</span> },
-    { id: 'description', header: 'Colis', cell: ({ row }) => <span className="font-medium text-foreground">{row.original.designation || row.original.description}</span> },
-    { id: 'status', header: 'Statut', cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.status}</span> },
-    { id: 'voyage', header: 'Voyage', cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.voyage_code ?? '—'}</span> },
-    { id: 'received_at', header: 'Dernier point', cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDateTimeShort(row.original.received_at ?? row.original.created_at)}</span> },
-  ], [])
+    { accessorKey: 'tracking_code', header: t('packlog.tracking.columns.tracking'), cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.tracking_code}</span> },
+    { id: 'description', header: t('packlog.tracking.columns.cargo'), cell: ({ row }) => <span className="font-medium text-foreground">{row.original.designation || row.original.description}</span> },
+    { id: 'status', header: t('packlog.tracking.columns.status'), cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[row.original.status] ?? row.original.status}</span> },
+    { id: 'voyage', header: t('packlog.tracking.columns.voyage'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.voyage_code ?? '—'}</span> },
+    { id: 'received_at', header: t('packlog.tracking.columns.last_event'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDateTimeShort(row.original.received_at ?? row.original.created_at, locale)}</span> },
+  ], [cargoStatusLabels, locale, t])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="grid gap-3 border-b border-border px-4 py-3 md:grid-cols-3">
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Suivis visibles</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.tracked}</p></div>
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Affectés à un voyage</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.assigned}</p></div>
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Reçus</p><p className="mt-1 text-lg font-semibold text-emerald-600">{stats.received}</p></div>
+      <div className="grid gap-3 border-b border-border px-4 py-3 md:grid-cols-4">
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.stats.tracked')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.tracked}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.stats.assigned')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.assigned}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.stats.received')}</p><p className="mt-1 text-lg font-semibold text-emerald-600">{stats.received}</p></div>
+        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.stats.pending_receipt')}</p><p className="mt-1 text-lg font-semibold text-amber-600">{stats.pendingReceipt}</p></div>
       </div>
       <div className="border-b border-border px-4 py-3">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
           <div className="rounded-lg border border-border/60 bg-card px-3 py-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Réception scan</p>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.scan.title')}</p>
             <div className="mt-2 flex gap-2">
               <input
                 type="text"
@@ -515,10 +551,10 @@ function TrackingTab() {
                 onChange={(event) => setScanInput(event.target.value)}
                 onKeyDown={(event) => { if (event.key === 'Enter') handleScanSubmit() }}
                 className="gl-form-input"
-                placeholder="Coller un QR, un lien PackLog ou un tracking"
+                placeholder={t('packlog.tracking.scan.placeholder')}
               />
               <button className="gl-button-sm gl-button-default" onClick={handleScanSubmit}>
-                Scanner
+                {t('packlog.tracking.scan.action')}
               </button>
             </div>
             {quickTarget && (
@@ -528,33 +564,33 @@ function TrackingTab() {
                     <p className="font-mono text-xs text-foreground">{quickTarget.tracking_code}</p>
                     <p className="mt-1 text-sm font-medium text-foreground">{quickTarget.designation || quickTarget.description}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {quickTarget.request_code ?? 'Sans demande'} · {quickTarget.destination_name ?? quickTarget.receiver_name ?? 'Destination non renseignée'}
+                      {quickTarget.request_code ?? t('packlog.tracking.scan.no_request')} · {quickTarget.destination_name ?? quickTarget.receiver_name ?? t('packlog.tracking.scan.no_destination')}
                     </p>
                   </div>
-                  <span className="gl-badge gl-badge-neutral">{quickTarget.status}</span>
+                  <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[quickTarget.status] ?? quickTarget.status}</span>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <button className="gl-button-sm gl-button-default" onClick={() => handleQuickStatus('received')} disabled={receiveCargo.isPending}>
-                    Déclarer reçu
+                  <button className="gl-button-sm gl-button-default" onClick={() => handleQuickStatus('received')} disabled={receiveCargo.isPending || isCargoReceivedLike(quickTarget)}>
+                    {t('packlog.tracking.actions.receive')}
                   </button>
-                  <button className="gl-button-sm gl-button-default" onClick={() => handleQuickStatus('damaged')} disabled={updateCargoStatus.isPending}>
-                    Endommagé
+                  <button className="gl-button-sm gl-button-default" onClick={() => handleQuickStatus('damaged')} disabled={updateCargoStatus.isPending || isCargoReceivedLike(quickTarget)}>
+                    {t('packlog.tracking.actions.damaged')}
                   </button>
-                  <button className="gl-button-sm gl-button-default" onClick={() => handleQuickStatus('missing')} disabled={updateCargoStatus.isPending}>
-                    Manquant
+                  <button className="gl-button-sm gl-button-default" onClick={() => handleQuickStatus('missing')} disabled={updateCargoStatus.isPending || isCargoReceivedLike(quickTarget)}>
+                    {t('packlog.tracking.actions.missing')}
                   </button>
                   <button className="gl-button-sm gl-button-default" onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: quickTarget.id, meta: { subtype: 'cargo' } })}>
-                    Ouvrir la fiche
+                    {t('packlog.tracking.actions.open')}
                   </button>
                 </div>
               </div>
             )}
           </div>
           <div className="rounded-lg border border-border/60 bg-card px-3 py-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Résultats de scan</p>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.scan_results.title')}</p>
             <div className="mt-2 space-y-2">
               {isScanLoading && debouncedScan ? (
-                <p className="text-xs text-muted-foreground">Recherche en cours…</p>
+                <p className="text-xs text-muted-foreground">{t('packlog.tracking.scan_results.loading')}</p>
               ) : scanCandidates.length > 0 ? (
                 scanCandidates.map((item) => (
                   <button
@@ -565,67 +601,71 @@ function TrackingTab() {
                     <div>
                       <p className="font-mono text-xs text-foreground">{item.tracking_code}</p>
                       <p className="mt-1 text-sm font-medium text-foreground">{item.designation || item.description}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{item.request_code ?? '—'} · {item.voyage_code ?? 'Hors voyage'}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{item.request_code ?? '—'} · {item.voyage_code ?? t('packlog.tracking.scan_results.no_voyage')}</p>
                     </div>
-                    <span className="gl-badge gl-badge-neutral">{item.status}</span>
+                    <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[item.status] ?? item.status}</span>
                   </button>
                 ))
               ) : (
-                <p className="text-xs text-muted-foreground">Scanne un QR ou colle un tracking pour retrouver un colis et agir rapidement dessus.</p>
+                <p className="text-xs text-muted-foreground">{t('packlog.tracking.scan_results.empty')}</p>
               )}
             </div>
           </div>
         </div>
         <div className="mt-3 rounded-lg border border-border/60 bg-card px-3 py-3">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Réception par manifeste</p>
-            <span className="text-xs text-muted-foreground">{manifestGroups.length} manifeste(s) cargo</span>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.manifests.title')}</p>
+            <span className="text-xs text-muted-foreground">{t('packlog.tracking.manifests.count', { count: manifestGroups.filter((group) => group.actionableItems.length > 0).length })}</span>
           </div>
           <div className="mt-3 space-y-3">
-            {manifestGroups.length > 0 ? (
+            {manifestGroups.some((group) => group.actionableItems.length > 0) ? (
               manifestGroups.map((group) => {
-                const receivedCount = group.items.filter((item) => Boolean(item.received_at) || item.status === 'delivered_final').length
+                if (group.actionableItems.length === 0) return null
+                const receivedCount = group.items.filter((item) => isCargoReceivedLike(item)).length
                 return (
                   <div key={group.manifestId} className="rounded-lg border border-border/60 px-3 py-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-medium text-foreground">{group.manifest?.reference || group.manifestId}</p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Voyage {group.items[0]?.voyage_code ?? '—'} · {receivedCount}/{group.items.length} reçu(s)
+                          {t('packlog.tracking.manifests.summary', { voyage: group.items[0]?.voyage_code ?? '—', received: receivedCount, total: group.items.length, pending: group.actionableItems.length })}
                         </p>
                       </div>
                       <span className="gl-badge gl-badge-neutral">{group.manifest?.status ?? 'draft'}</span>
                     </div>
                     <div className="mt-3 space-y-2">
-                      {group.items.slice(0, 8).map((item) => (
+                      {group.actionableItems.slice(0, 8).map((item) => (
                         <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/50 px-2 py-2">
                           <div className="min-w-0">
                             <p className="font-mono text-xs text-foreground">{item.tracking_code}</p>
                             <p className="truncate text-sm text-foreground">{item.designation || item.description}</p>
                           </div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="gl-badge gl-badge-neutral">{item.status}</span>
-                            <button className="gl-button-sm gl-button-default" onClick={() => receiveCargo.mutate({ id: item.id, payload: { notes: 'Réception manifeste PackLog' } })} disabled={receiveCargo.isPending}>
-                              Reçu
+                            <span className="gl-badge gl-badge-neutral">{cargoStatusLabels[item.status] ?? item.status}</span>
+                            <button className="gl-button-sm gl-button-default" onClick={() => handleManifestQuickStatus(item, 'received')} disabled={receiveCargo.isPending}>
+                              {t('packlog.tracking.actions.receive')}
                             </button>
-                            <button className="gl-button-sm gl-button-default" onClick={() => updateCargoStatus.mutate({ id: item.id, status: 'damaged' })} disabled={updateCargoStatus.isPending}>
-                              Endommagé
+                            <button className="gl-button-sm gl-button-default" onClick={() => handleManifestQuickStatus(item, 'damaged')} disabled={updateCargoStatus.isPending}>
+                              {t('packlog.tracking.actions.damaged')}
+                            </button>
+                            <button className="gl-button-sm gl-button-default" onClick={() => handleManifestQuickStatus(item, 'missing')} disabled={updateCargoStatus.isPending}>
+                              {t('packlog.tracking.actions.missing')}
                             </button>
                             <button className="gl-button-sm gl-button-default" onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: item.id, meta: { subtype: 'cargo' } })}>
-                              Ouvrir
+                              {t('packlog.tracking.actions.open')}
                             </button>
                           </div>
                         </div>
                       ))}
-                      {group.items.length > 8 && (
-                        <p className="text-xs text-muted-foreground">+{group.items.length - 8} autre(s) colis dans ce manifeste.</p>
+                      {group.actionableItems.length > 8 && (
+                        <p className="text-xs text-muted-foreground">{t('packlog.tracking.manifests.more_pending', { count: group.actionableItems.length - 8 })}</p>
                       )}
                     </div>
                   </div>
                 )
               })
             ) : (
-              <p className="text-xs text-muted-foreground">Aucun manifeste cargo chargé pour le moment.</p>
+              <p className="text-xs text-muted-foreground">{t('packlog.tracking.manifests.empty')}</p>
             )}
           </div>
         </div>
@@ -639,10 +679,10 @@ function TrackingTab() {
           onPaginationChange={setPage}
           searchValue={search}
           onSearchChange={(value) => { setSearch(value); setPage(1) }}
-          searchPlaceholder="Rechercher par tracking, voyage, destination..."
+          searchPlaceholder={t('packlog.tracking.search_placeholder')}
           onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'packlog', id: row.id, meta: { subtype: 'cargo' } })}
           emptyIcon={Truck}
-          emptyTitle="Aucun suivi"
+          emptyTitle={t('packlog.tracking.empty')}
           storageKey="packlog-tracking"
         />
       </PanelContent>

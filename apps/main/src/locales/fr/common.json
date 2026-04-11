@@ -3711,5 +3711,103 @@
     "remove_user": "Retirer",
     "no_entities": "Aucune entité",
     "stats": "Statistiques"
+  },
+  "packlog": {
+    "common": {
+      "all": "Tous"
+    },
+    "requests": {
+      "stats": {
+        "total": "Demandes",
+        "ready": "Prêtes",
+        "blocked": "Bloquées",
+        "submitted": "Soumises"
+      },
+      "columns": {
+        "reference": "Référence",
+        "title": "Intitulé",
+        "sender": "Expéditeur",
+        "destination": "Destination",
+        "cargo_count": "Colis",
+        "status": "Statut",
+        "readiness": "Complétude",
+        "created_at": "Créée le"
+      },
+      "readiness": {
+        "ready": "Prête",
+        "pending": "À compléter"
+      },
+      "search_placeholder": "Rechercher par référence, titre, expéditeur...",
+      "empty": "Aucune demande"
+    },
+    "cargo": {
+      "stats": {
+        "total": "Colis",
+        "in_transit": "En transit",
+        "delivered": "Livrés",
+        "incidents": "Incidents"
+      },
+      "columns": {
+        "tracking": "Tracking",
+        "label": "Colis",
+        "request": "Demande",
+        "destination": "Destination",
+        "weight": "Poids",
+        "status": "Statut",
+        "created_at": "Créé le"
+      },
+      "search_placeholder": "Rechercher par tracking, description, demande...",
+      "empty": "Aucun colis"
+    },
+    "tracking": {
+      "stats": {
+        "tracked": "Suivis visibles",
+        "assigned": "Affectés à un voyage",
+        "received": "Reçus",
+        "pending_receipt": "En attente réception"
+      },
+      "columns": {
+        "tracking": "Tracking",
+        "cargo": "Colis",
+        "status": "Statut",
+        "voyage": "Voyage",
+        "last_event": "Dernier point"
+      },
+      "scan": {
+        "title": "Réception scan",
+        "placeholder": "Coller un QR, un lien PackLog ou un tracking",
+        "action": "Scanner",
+        "no_request": "Sans demande",
+        "no_destination": "Destination non renseignée"
+      },
+      "scan_results": {
+        "title": "Résultats de scan",
+        "loading": "Recherche en cours…",
+        "no_voyage": "Hors voyage",
+        "empty": "Scanne un QR ou colle un tracking pour retrouver un colis et agir rapidement dessus."
+      },
+      "actions": {
+        "receive": "Déclarer reçu",
+        "damaged": "Endommagé",
+        "missing": "Manquant",
+        "open": "Ouvrir la fiche"
+      },
+      "manifests": {
+        "title": "Réception par manifeste",
+        "count": "{{count}} manifeste(s) à traiter",
+        "summary": "Voyage {{voyage}} · {{received}}/{{total}} reçu(s) · {{pending}} en attente",
+        "more_pending": "+{{count}} autre(s) colis à traiter dans ce manifeste.",
+        "empty": "Aucun manifeste cargo chargé pour le moment."
+      },
+      "toasts": {
+        "received": "Colis {{tracking}} déclaré reçu",
+        "damaged": "Colis {{tracking}} déclaré endommagé",
+        "missing": "Colis {{tracking}} déclaré manquant",
+        "update_error": "Impossible de mettre à jour ce colis.",
+        "scan_update_error": "Impossible de mettre à jour ce colis depuis le mode scan."
+      },
+      "search_placeholder": "Rechercher par tracking, voyage, destination...",
+      "empty": "Aucun suivi"
+    }
   }
 }

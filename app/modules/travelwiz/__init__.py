@@ -1,5 +1,5 @@
-"""TravelWiz module manifest — transport logistics: vectors, voyages, PAX manifests,
-cargo tracking, deck planning, captain portal."""
+"""TravelWiz module manifest — transport logistics: vectors, voyages, manifests,
+deck planning, captain portal."""
 
 from app.core.module_registry import ModuleManifest
 
@@ -24,12 +24,6 @@ MANIFEST = ModuleManifest(
         "travelwiz.manifest.read",
         "travelwiz.manifest.create",
         "travelwiz.manifest.validate",
-        # Cargo
-        "travelwiz.cargo.read",
-        "travelwiz.cargo.read_all",
-        "travelwiz.cargo.create",
-        "travelwiz.cargo.update",
-        "travelwiz.cargo.receive",
         # Boarding / check-in
         "travelwiz.boarding.manage",
         # Deck planning
@@ -55,8 +49,8 @@ MANIFEST = ModuleManifest(
                 "travelwiz.voyage.create", "travelwiz.voyage.update",
                 "travelwiz.voyage.validate",
                 "travelwiz.manifest.read", "travelwiz.manifest.create", "travelwiz.manifest.validate",
-                "travelwiz.cargo.read", "travelwiz.cargo.read_all",
-                "travelwiz.cargo.create", "travelwiz.cargo.update", "travelwiz.cargo.receive",
+                "packlog.cargo.read", "packlog.cargo.read_all",
+                "packlog.cargo.create", "packlog.cargo.update", "packlog.cargo.receive",
                 "travelwiz.boarding.manage", "travelwiz.deck.manage",
                 "travelwiz.emergency.declare", "travelwiz.pickup.manage",
                 "travelwiz.pickup.create", "travelwiz.pickup.update",
@@ -99,7 +93,7 @@ MANIFEST = ModuleManifest(
             "permissions": [
                 "travelwiz.voyage.read",
                 "travelwiz.manifest.read",
-                "travelwiz.cargo.read", "travelwiz.cargo.create", "travelwiz.cargo.receive",
+                "packlog.cargo.read", "packlog.cargo.create", "packlog.cargo.receive",
                 "travelwiz.boarding.manage",
                 "travelwiz.emergency.declare",
                 "travelwiz.tracking.update",

@@ -1805,7 +1805,7 @@ async def create_cargo_request(
     body: CargoRequestCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.cargo.create"),
+    _: None = require_permission("packlog.cargo.create"),
     db: AsyncSession = Depends(get_db),
 ):
     return await create_cargo_request_impl(
@@ -1831,7 +1831,7 @@ async def download_cargo_request_lt_pdf(
     request_id: UUID,
     language: str = "fr",
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.cargo.read"),
+    _: None = require_permission("packlog.cargo.read"),
     db: AsyncSession = Depends(get_db),
 ):
     return await download_cargo_request_lt_pdf_impl(
@@ -1848,7 +1848,7 @@ async def update_cargo_request(
     body: CargoRequestUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.cargo.update"),
+    _: None = require_permission("packlog.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
     return await update_cargo_request_impl(
@@ -1876,7 +1876,7 @@ async def apply_cargo_request_loading_option(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.cargo.update"),
+    _: None = require_permission("packlog.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
     return await apply_cargo_request_loading_option_impl(
@@ -1929,7 +1929,7 @@ async def create_cargo(
     body: CargoCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.cargo.create"),
+    _: None = require_permission("packlog.cargo.create"),
     db: AsyncSession = Depends(get_db),
 ):
     return await create_cargo_impl(
@@ -1967,7 +1967,7 @@ async def set_cargo_attachment_evidence_type(
     body: CargoAttachmentEvidenceUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.cargo.update"),
+    _: None = require_permission("packlog.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
     return await set_cargo_attachment_evidence_type_impl(
@@ -2117,7 +2117,7 @@ async def update_cargo(
     cargo_id: UUID,
     body: CargoUpdate,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.cargo.update"),
+    _: None = require_permission("packlog.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
     return await update_cargo_impl(cargo_id=cargo_id, body=body, entity_id=entity_id, db=db)
@@ -2129,7 +2129,7 @@ async def update_cargo_workflow_status(
     body: CargoWorkflowStatusUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.cargo.update"),
+    _: None = require_permission("packlog.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
     return await update_cargo_workflow_status_impl(
@@ -2147,7 +2147,7 @@ async def update_cargo_status(
     body: CargoStatusUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.cargo.update"),
+    _: None = require_permission("packlog.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
     return await update_cargo_status_impl(
@@ -2165,7 +2165,7 @@ async def receive_cargo(
     body: CargoReceiptConfirm | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.cargo.receive"),
+    _: None = require_permission("packlog.cargo.receive"),
     db: AsyncSession = Depends(get_db),
 ):
     return await receive_cargo_impl(
@@ -2621,7 +2621,7 @@ async def initiate_return(
     body: BackCargoReturnRequest,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.cargo.update"),
+    _: None = require_permission("packlog.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
     return await initiate_return_impl(
@@ -2652,7 +2652,7 @@ async def add_package_element(
     sap_code: str | None = None,
     notes: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.cargo.create"),
+    _: None = require_permission("packlog.cargo.create"),
     db: AsyncSession = Depends(get_db),
 ):
     return await add_package_element_impl(
@@ -2674,7 +2674,7 @@ async def update_package_element_return(
     body: PackageElementReturnUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.cargo.update"),
+    _: None = require_permission("packlog.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
     return await update_package_element_return_impl(
@@ -2694,7 +2694,7 @@ async def update_package_element_disposition(
     body: PackageElementDispositionUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("travelwiz.cargo.update"),
+    _: None = require_permission("packlog.cargo.update"),
     db: AsyncSession = Depends(get_db),
 ):
     return await update_package_element_disposition_impl(
@@ -3148,7 +3148,7 @@ async def create_article(
     is_hazmat: bool = False,
     hazmat_class: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.cargo.create"),
+    _: None = require_permission("packlog.cargo.create"),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new article catalog entry."""
@@ -3195,7 +3195,7 @@ async def create_article(
 async def import_articles_csv(
     file: UploadFile = File(...),
     entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("travelwiz.cargo.create"),
+    _: None = require_permission("packlog.cargo.create"),
     db: AsyncSession = Depends(get_db),
 ):
     """Bulk import SAP articles from a CSV file."""

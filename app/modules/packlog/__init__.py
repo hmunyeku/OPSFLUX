@@ -1,9 +1,4 @@
-"""PackLog module manifest — independent cargo and package operations module.
-
-PackLog now owns its API namespace and backend cargo handlers. Legacy
-``travelwiz.cargo.*`` permissions are still accepted as compatibility aliases
-until RBAC migration is completed.
-"""
+"""PackLog module manifest — independent cargo and package operations module."""
 
 from app.core.module_registry import ModuleManifest
 

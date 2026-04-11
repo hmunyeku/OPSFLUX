@@ -186,7 +186,7 @@ def _default_workflow_definitions() -> list[dict]:
         },
         {
             "slug": "packlog-cargo-workflow",
-            "legacy_slugs": ["travelwiz-cargo-workflow"],
+            "legacy_slugs": [],
             "name": "PackLog Cargo Workflow",
             "entity_type": "cargo_item_workflow",
             "states": [

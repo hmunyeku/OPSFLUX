@@ -35,8 +35,6 @@ STATUS_DOTTED_CHANGED_EVENT_TEMPLATE = "{entity_type}.status.changed"
 
 PACKLOG_CARGO_WORKFLOW_CHANGED_EVENT = "packlog.cargo.workflow.changed"
 PACKLOG_CARGO_WORKFLOW_STATE_EVENT_TEMPLATE = "packlog.cargo.workflow.{to_state}"
-TRAVELWIZ_CARGO_WORKFLOW_CHANGED_EVENT = "travelwiz.cargo.workflow.changed"
-TRAVELWIZ_CARGO_WORKFLOW_STATE_EVENT_TEMPLATE = "travelwiz.cargo.workflow.{to_state}"
 
 PAXLOG_AVM_STATUS_CHANGED_EVENT = "paxlog.avm.status.changed"
 PAXLOG_AVM_STATE_EVENT_TEMPLATE = "paxlog.avm.{to_state}"
@@ -53,25 +51,6 @@ WORKFLOW_SEMANTIC_BRIDGES: dict[tuple[str, str], dict[str, object]] = {
         "aliases": [
             PACKLOG_CARGO_WORKFLOW_STATE_EVENT_TEMPLATE,
             PACKLOG_CARGO_WORKFLOW_CHANGED_EVENT,
-            TRAVELWIZ_CARGO_WORKFLOW_STATE_EVENT_TEMPLATE,
-            TRAVELWIZ_CARGO_WORKFLOW_CHANGED_EVENT,
-        ],
-        "payload_map": {
-            "cargo_id": "entity_id",
-            "from_status": "from_state",
-            "to_status": "to_state",
-        },
-    },
-    (
-        "travelwiz-cargo-workflow",
-        "cargo_item_workflow",
-    ): {
-        "state_filter": None,
-        "aliases": [
-            PACKLOG_CARGO_WORKFLOW_STATE_EVENT_TEMPLATE,
-            PACKLOG_CARGO_WORKFLOW_CHANGED_EVENT,
-            TRAVELWIZ_CARGO_WORKFLOW_STATE_EVENT_TEMPLATE,
-            TRAVELWIZ_CARGO_WORKFLOW_CHANGED_EVENT,
         ],
         "payload_map": {
             "cargo_id": "entity_id",

@@ -84,9 +84,7 @@ import { usePermission } from '@/hooks/usePermission'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { FleetMap } from '@/components/travelwiz/FleetMap'
 import { CreateArticlePanel } from '@/pages/packlog/PackLogArticlePanels'
-import { CargoDetailPanel as PackLogCargoDetailPanel } from '@/pages/packlog/PackLogCargoDetailPanel'
 import {
-  CargoWorkspaceProvider,
   useCargoWorkspace,
   useCargoDictionaryCategory,
   useWorkspaceApplyCargoRequestLoadingOption,
@@ -117,7 +115,7 @@ import type {
 type TravelWizTab = 'dashboard' | 'voyages' | 'manifests' | 'vectors' | 'fleet_map' | 'pickup' | 'weather'
 
 const TABS: { id: TravelWizTab; label: string; icon: typeof Plane }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { id: 'voyages', label: 'Voyages', icon: Plane },
   { id: 'manifests', label: 'Manifestes PAX', icon: FileText },
   { id: 'vectors', label: 'Vecteurs', icon: Ship },
@@ -734,7 +732,7 @@ function VoyageCargoOperationsSection({
               <button
                 key={item.cargo_id}
                 type="button"
-                onClick={() => openDynamicPanel({ type: 'detail', module: 'travelwiz', id: item.cargo_id, meta: { subtype: 'cargo' } })}
+                onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: item.cargo_id, meta: { subtype: 'cargo' } })}
                 className="w-full rounded-lg border border-border/60 bg-card px-3 py-3 text-left hover:bg-muted/40"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -1580,14 +1578,17 @@ export function TravelWizPage() {
             {showCreate && canCreate && <ToolbarButton icon={Plus} label={createLabel} variant="primary" onClick={handleCreate} />}
           </PanelHeader>
 
-          {/* Tab bar — uses the shared `TabBar` for cross-module visual parity */}
+          {/* Tab bar — uses the shared `TabBar` for cross-module visual parity.
+              The rightSlot hosts the dashboard "Modifier" toolbar via portal,
+              only when the dashboard tab is active. */}
           <TabBar
             items={TABS}
             activeId={activeTab}
             onTabChange={setActiveTab}
+            rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-travelwiz" /> : null}
           />
 
-          {activeTab === 'dashboard' && <ModuleDashboard module="travelwiz" />}
+          {activeTab === 'dashboard' && <ModuleDashboard module="travelwiz" toolbarPortalId="dash-toolbar-travelwiz" />}
           {activeTab === 'voyages' && <VoyagesTab />}
           {activeTab === 'manifests' && <ManifestesTab />}
           {activeTab === 'vectors' && <VecteursTab />}
@@ -3652,15 +3653,10 @@ registerPanelRenderer('travelwiz', (view) => {
   if (view.type === 'create') {
     if (view.meta?.subtype === 'voyage') return <CreateVoyagePanel />
     if (view.meta?.subtype === 'vector') return <CreateVectorPanel />
-    if (view.meta?.subtype === 'cargo-request') return <CargoWorkspaceProvider module="travelwiz" label="TravelWiz"><CreateCargoRequestPanel /></CargoWorkspaceProvider>
-    if (view.meta?.subtype === 'cargo') return <CargoWorkspaceProvider module="travelwiz" label="TravelWiz"><CreateCargoPanel /></CargoWorkspaceProvider>
-    if (view.meta?.subtype === 'article') return <CreateArticlePanel />
   }
   if (view.type === 'detail' && 'id' in view) {
     if (view.meta?.subtype === 'voyage') return <VoyageDetailPanel id={view.id} />
     if (view.meta?.subtype === 'vector') return <VectorDetailPanel id={view.id} />
-    if (view.meta?.subtype === 'cargo-request') return <CargoWorkspaceProvider module="travelwiz" label="TravelWiz"><CargoRequestDetailPanel id={view.id} /></CargoWorkspaceProvider>
-    if (view.meta?.subtype === 'cargo') return <CargoWorkspaceProvider module="travelwiz" label="TravelWiz"><PackLogCargoDetailPanel id={view.id} /></CargoWorkspaceProvider>
   }
   return null
 })

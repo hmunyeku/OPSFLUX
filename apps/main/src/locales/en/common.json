@@ -3707,5 +3707,103 @@
     "remove_user": "Remove",
     "no_entities": "No entities",
     "stats": "Statistics"
+  },
+  "packlog": {
+    "common": {
+      "all": "All"
+    },
+    "requests": {
+      "stats": {
+        "total": "Requests",
+        "ready": "Ready",
+        "blocked": "Blocked",
+        "submitted": "Submitted"
+      },
+      "columns": {
+        "reference": "Reference",
+        "title": "Title",
+        "sender": "Sender",
+        "destination": "Destination",
+        "cargo_count": "Cargo",
+        "status": "Status",
+        "readiness": "Completeness",
+        "created_at": "Created on"
+      },
+      "readiness": {
+        "ready": "Ready",
+        "pending": "To complete"
+      },
+      "search_placeholder": "Search by reference, title, sender...",
+      "empty": "No request"
+    },
+    "cargo": {
+      "stats": {
+        "total": "Cargo",
+        "in_transit": "In transit",
+        "delivered": "Delivered",
+        "incidents": "Incidents"
+      },
+      "columns": {
+        "tracking": "Tracking",
+        "label": "Cargo",
+        "request": "Request",
+        "destination": "Destination",
+        "weight": "Weight",
+        "status": "Status",
+        "created_at": "Created on"
+      },
+      "search_placeholder": "Search by tracking, description, request...",
+      "empty": "No cargo"
+    },
+    "tracking": {
+      "stats": {
+        "tracked": "Visible tracking",
+        "assigned": "Assigned to a voyage",
+        "received": "Received",
+        "pending_receipt": "Pending receipt"
+      },
+      "columns": {
+        "tracking": "Tracking",
+        "cargo": "Cargo",
+        "status": "Status",
+        "voyage": "Voyage",
+        "last_event": "Last event"
+      },
+      "scan": {
+        "title": "Scan receipt",
+        "placeholder": "Paste a QR, a PackLog link, or a tracking code",
+        "action": "Scan",
+        "no_request": "No request",
+        "no_destination": "Destination not specified"
+      },
+      "scan_results": {
+        "title": "Scan results",
+        "loading": "Searching…",
+        "no_voyage": "No voyage",
+        "empty": "Scan a QR or paste a tracking code to find a cargo item and act on it quickly."
+      },
+      "actions": {
+        "receive": "Mark received",
+        "damaged": "Damaged",
+        "missing": "Missing",
+        "open": "Open record"
+      },
+      "manifests": {
+        "title": "Receipt by manifest",
+        "count": "{{count}} manifest(s) to process",
+        "summary": "Voyage {{voyage}} · {{received}}/{{total}} received · {{pending}} pending",
+        "more_pending": "+{{count}} more cargo item(s) to process in this manifest.",
+        "empty": "No cargo manifest loaded at the moment."
+      },
+      "toasts": {
+        "received": "Cargo {{tracking}} marked as received",
+        "damaged": "Cargo {{tracking}} marked as damaged",
+        "missing": "Cargo {{tracking}} marked as missing",
+        "update_error": "Could not update this cargo item.",
+        "scan_update_error": "Could not update this cargo item from scan mode."
+      },
+      "search_placeholder": "Search by tracking, voyage, destination...",
+      "empty": "No tracking data"
+    }
   }
 }

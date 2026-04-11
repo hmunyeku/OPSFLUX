@@ -292,29 +292,3 @@ export function usePackLogPublicVoyageTracking(voyageCode: string | undefined) {
   })
 }
 
-// Backward-compatible aliases while shared cargo panels are extracted from TravelWiz.
-export const useCargoRequests = usePackLogCargoRequests
-export const useCargoRequest = usePackLogCargoRequest
-export const useCargoRequestLtPdf = usePackLogCargoRequestLtPdf
-export const useCargoRequestLoadingOptions = usePackLogCargoRequestLoadingOptions
-export const useCreateCargoRequest = useCreatePackLogCargoRequest
-export const useUpdateCargoRequest = useUpdatePackLogCargoRequest
-export const useApplyCargoRequestLoadingOption = useApplyPackLogCargoRequestLoadingOption
-export const useCargo = usePackLogCargo
-export const useCargoItem = usePackLogCargoItem
-export const useCreateCargo = useCreatePackLogCargo
-export const useUpdateCargo = useUpdatePackLogCargo
-export const useUpdateCargoStatus = useUpdatePackLogCargoStatus
-export const useUpdateCargoWorkflowStatus = useUpdatePackLogCargoWorkflowStatus
-export const useReceiveCargo = useReceivePackLogCargo
-export const useCargoAttachmentEvidence = usePackLogCargoAttachmentEvidence
-export const useUpdateCargoAttachmentEvidence = useUpdatePackLogCargoAttachmentEvidence
-export const useInitiateCargoReturn = useInitiatePackLogCargoReturn
-export const usePackageElements = usePackLogPackageElements
-export const useUpdatePackageElementReturn = useUpdatePackLogPackageElementReturn
-export const useUpdatePackageElementDisposition = useUpdatePackLogPackageElementDisposition
-export const useCargoHistory = usePackLogCargoHistory
-export const useSapMatch = usePackLogSapMatch
-export const useArticles = usePackLogArticles
-export const useCreateArticle = useCreatePackLogArticle
-export const useImportArticlesCsv = useImportPackLogArticlesCsv

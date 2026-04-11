@@ -11,17 +11,15 @@ import {
   PanelActionButton,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
-import { useCreateArticle } from '@/hooks/useTravelWiz'
 import { useCreatePackLogArticle, usePackLogArticle } from '@/hooks/usePackLog'
 import { useCargoWorkspace } from '@/pages/packlog/packlogWorkspace'
 import type { TravelArticleCreate } from '@/types/api'
 
 export function CreateArticlePanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
-  const { panelModule, moduleLabel } = useCargoWorkspace()
-  const travelwizCreateArticle = useCreateArticle()
+  const { moduleLabel } = useCargoWorkspace()
   const packlogCreateArticle = useCreatePackLogArticle()
-  const createArticle = panelModule === 'packlog' ? packlogCreateArticle : travelwizCreateArticle
+  const createArticle = packlogCreateArticle
   const { toast } = useToast()
   const [form, setForm] = useState<TravelArticleCreate>({
     sap_code: '',

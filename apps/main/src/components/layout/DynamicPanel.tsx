@@ -28,6 +28,11 @@ import {
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
 import type { DetachedPanel } from '@/stores/uiStore'
+import { ResponsiveActionBar, type ActionItem } from '@/components/shared/ResponsiveActionBar'
+
+// Re-export so consumers that already pull DynamicPanelShell from this file
+// can also pick up the typed action item shape without a second import.
+export type { ActionItem } from '@/components/shared/ResponsiveActionBar'
 
 /**
  * Context: true when rendering inside a FloatingPanel.
@@ -62,8 +67,29 @@ interface DynamicPanelShellProps {
   subtitle?: string
   icon?: React.ReactNode
   children: React.ReactNode
-  /** Compact action buttons rendered in a sticky toolbar below the header. */
+  /**
+   * Compact action buttons rendered in a sticky toolbar below the header.
+   *
+   * LEGACY: opaque ReactNode fragment. Kept for backwards compat with
+   * existing detail panels — new code should prefer `actionItems` which
+   * gets responsive overflow (priority-based kebab menu) out of the box.
+   */
   actions?: React.ReactNode
+  /**
+   * Responsive action list. When provided, takes precedence over `actions`
+   * and is rendered through `ResponsiveActionBar` so buttons that don't
+   * fit horizontally collapse into an overflow menu instead of being
+   * clipped off-screen on narrow viewports.
+   */
+  actionItems?: ActionItem[]
+  /**
+   * Confirm dialog resolver for `actionItems` entries that carry a
+   * `confirm` config. Typically wired to `useConfirm()`. Only required if
+   * any of the provided `actionItems` have a `confirm` block.
+   */
+  onActionConfirm?: (
+    cfg: NonNullable<ActionItem['confirm']>,
+  ) => Promise<boolean>
   /** Extra content rendered in the header bar (right side, before detach/close buttons). */
   headerRight?: React.ReactNode
   /**
@@ -80,8 +106,31 @@ interface DynamicPanelShellProps {
   className?: string
 }
 
-export function DynamicPanelShell({ title, subtitle, icon, children, actions, headerRight, inline, onClose, inlineWidth = 360, className }: DynamicPanelShellProps) {
+export function DynamicPanelShell({
+  title,
+  subtitle,
+  icon,
+  children,
+  actions,
+  actionItems,
+  onActionConfirm,
+  headerRight,
+  inline,
+  onClose,
+  inlineWidth = 360,
+  className,
+}: DynamicPanelShellProps) {
   const isFloating = useIsInsideFloatingPanel()
+
+  // Resolve the actions region once so the three render branches below stay
+  // identical. `actionItems` (typed, responsive) wins over legacy `actions`
+  // (opaque ReactNode) when both are provided.
+  const actionsNode =
+    actionItems && actionItems.length > 0 ? (
+      <ResponsiveActionBar items={actionItems} onConfirm={onActionConfirm} />
+    ) : actions ? (
+      <>{actions}</>
+    ) : null
 
   // ── INLINE MODE — lightweight embedded panel ──
   if (inline) {
@@ -101,11 +150,11 @@ export function DynamicPanelShell({ title, subtitle, icon, children, actions, he
             {subtitle && <p className="text-xs text-muted-foreground truncate leading-tight">{subtitle}</p>}
           </div>
           {/* Inline actions in header (same pattern as docked mode) */}
-          {actions && (
+          {actionsNode && (
             <>
               <div className="w-px h-4 bg-border/60 shrink-0" />
-              <div className="flex items-center gap-1.5 shrink-0">
-                {actions}
+              <div className="flex items-center gap-1.5 shrink-0 min-w-0">
+                {actionsNode}
               </div>
             </>
           )}
@@ -206,9 +255,9 @@ export function DynamicPanelShell({ title, subtitle, icon, children, actions, he
   if (isFloating) {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-hidden">
-        {actions && (
-          <div className="flex items-center justify-end gap-2 border-b border-border px-4 py-1.5 shrink-0 bg-background-subtle">
-            {actions}
+        {actionsNode && (
+          <div className="flex items-center justify-end gap-2 border-b border-border px-4 py-1.5 shrink-0 bg-background-subtle min-w-0">
+            {actionsNode}
           </div>
         )}
         <div className="flex-1 overflow-y-auto min-h-0">
@@ -301,9 +350,9 @@ export function DynamicPanelShell({ title, subtitle, icon, children, actions, he
         </div>
 
         {/* Actions toolbar */}
-        {actions && (
-          <div className="flex items-center justify-end gap-2 border-b border-border px-4 py-1.5 shrink-0 bg-background-subtle">
-            {actions}
+        {actionsNode && (
+          <div className="flex items-center justify-end gap-2 border-b border-border px-4 py-1.5 shrink-0 bg-background-subtle min-w-0">
+            {actionsNode}
           </div>
         )}
 
@@ -372,11 +421,11 @@ export function DynamicPanelShell({ title, subtitle, icon, children, actions, he
           )}
 
           {/* Inline actions (e.g. Désactiver) — embedded in header for docked mode */}
-          {actions && (
+          {actionsNode && (
             <>
               <div className="w-px h-4 bg-border/60 shrink-0" />
-              <div className="flex items-center gap-1.5 shrink-0">
-                {actions}
+              <div className="flex items-center gap-1.5 shrink-0 min-w-0">
+                {actionsNode}
               </div>
             </>
           )}

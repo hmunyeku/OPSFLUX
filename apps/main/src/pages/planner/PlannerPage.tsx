@@ -30,10 +30,10 @@ import {
   DetailFieldGrid,
   DynamicPanelField,
   PanelActionButton,
-  DangerConfirmButton,
   DetailRow,
   InlineEditableRow,
   panelInputClass,
+  type ActionItem,
 } from '@/components/layout/DynamicPanel'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { GanttView } from './GanttView'
@@ -3260,61 +3260,116 @@ function ActivityDetailPanel({ id }: { id: string }) {
   const st = activity.status
   const tp = activity.type
 
-  // Build action buttons based on status
-  const actionButtons = (
-    <>
-      {editing ? (
-        <>
-          <PanelActionButton onClick={() => { setEditing(false); setShowImpact(false) }}>Annuler</PanelActionButton>
-          <PanelActionButton variant="primary" disabled={updateActivity.isPending} onClick={handleSave}>
-            {updateActivity.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
-          </PanelActionButton>
-        </>
-      ) : (
-        <>
-          {canUpdate && (
-            <button
-              onClick={startEdit}
-              className="gl-button-sm gl-button-default flex items-center gap-1"
-              title="Modifier"
-            >
-              <Pencil size={12} />
-              Modifier
-            </button>
-          )}
-          {canUpdate && st === 'draft' && (
-            <PanelActionButton variant="primary" onClick={handleSubmit} disabled={submitActivity.isPending}>
-              <Send size={12} /> Soumettre
-            </PanelActionButton>
-          )}
-          {canUpdate && st === 'submitted' && (
-            <>
-              <PanelActionButton variant="primary" onClick={handleValidate} disabled={validateActivity.isPending}>
-                <CheckCircle2 size={12} /> Valider
-              </PanelActionButton>
-              <PanelActionButton onClick={handleReject} disabled={rejectActivity.isPending}>
-                <XCircle size={12} /> Rejeter
-              </PanelActionButton>
-            </>
-          )}
-          {canUpdate && !['completed', 'cancelled'].includes(st) && (
-            <PanelActionButton onClick={handleCancel} disabled={cancelActivity.isPending}>
-              <Ban size={12} /> Annuler
-            </PanelActionButton>
-          )}
-          {canDelete && (
-            <DangerConfirmButton
-              icon={<Trash2 size={12} />}
-              onConfirm={handleDelete}
-              confirmLabel="Confirmer ?"
-            >
-              Supprimer
-            </DangerConfirmButton>
-          )}
-        </>
-      )}
-    </>
-  )
+  // Build the typed action list for the responsive panel header.
+  //
+  // Priorities are hand-picked so that on a narrow viewport the bar
+  // preserves the flow the user actually needs:
+  //   - The main CTA that matches the current status (Soumettre / Valider /
+  //     Enregistrer) stays visible as the primary button no matter how
+  //     narrow the screen gets.
+  //   - Secondary flows (Modifier, Rejeter, Annuler) collapse next.
+  //   - Destructive "Supprimer" is always first to collapse — it sits at
+  //     the bottom of the overflow menu inside a red-styled item.
+  //
+  // Delete goes through `confirm` instead of the old in-place two-step
+  // DangerConfirmButton so it works identically whether the item is
+  // rendered inline on desktop or inside the kebab menu on mobile.
+  const actionItems: ActionItem[] = editing
+    ? [
+        {
+          id: 'cancel-edit',
+          label: 'Annuler',
+          icon: XCircle,
+          onClick: () => {
+            setEditing(false)
+            setShowImpact(false)
+          },
+          priority: 40,
+        },
+        {
+          id: 'save-edit',
+          label: 'Enregistrer',
+          icon: CheckCircle2,
+          variant: 'primary',
+          onClick: handleSave,
+          disabled: updateActivity.isPending,
+          loading: updateActivity.isPending,
+          priority: 100,
+        },
+      ]
+    : [
+        ...(canUpdate
+          ? [{
+              id: 'edit',
+              label: 'Modifier',
+              icon: Pencil,
+              onClick: startEdit,
+              priority: 60,
+            } as ActionItem]
+          : []),
+        ...(canUpdate && st === 'draft'
+          ? [{
+              id: 'submit',
+              label: 'Soumettre',
+              icon: Send,
+              variant: 'primary',
+              onClick: handleSubmit,
+              disabled: submitActivity.isPending,
+              loading: submitActivity.isPending,
+              priority: 100,
+            } as ActionItem]
+          : []),
+        ...(canUpdate && st === 'submitted'
+          ? [
+              {
+                id: 'validate',
+                label: 'Valider',
+                icon: CheckCircle2,
+                variant: 'primary',
+                onClick: handleValidate,
+                disabled: validateActivity.isPending,
+                loading: validateActivity.isPending,
+                priority: 100,
+              } as ActionItem,
+              {
+                id: 'reject',
+                label: 'Rejeter',
+                icon: XCircle,
+                onClick: handleReject,
+                disabled: rejectActivity.isPending,
+                loading: rejectActivity.isPending,
+                priority: 55,
+              } as ActionItem,
+            ]
+          : []),
+        ...(canUpdate && !['completed', 'cancelled'].includes(st)
+          ? [{
+              id: 'cancel-activity',
+              label: 'Annuler',
+              icon: Ban,
+              onClick: handleCancel,
+              disabled: cancelActivity.isPending,
+              priority: 40,
+            } as ActionItem]
+          : []),
+        ...(canDelete
+          ? [{
+              id: 'delete',
+              label: 'Supprimer',
+              icon: Trash2,
+              variant: 'danger',
+              onClick: handleDelete,
+              confirm: {
+                title: 'Supprimer l\u2019activité ?',
+                message: 'Cette action est définitive. L\u2019activité et ses dépendances seront retirées du planner.',
+                confirmLabel: 'Supprimer',
+                cancelLabel: 'Conserver',
+                variant: 'danger',
+              },
+              priority: 20,
+            } as ActionItem]
+          : []),
+      ]
 
   const typeEntry = ACTIVITY_TYPE_META[tp]
   const priorityEntry = { label: priorityLabels[activity.priority] ?? activity.priority, cls: PRIORITY_CLASS_MAP[activity.priority] || 'text-muted-foreground' }
@@ -3325,7 +3380,16 @@ function ActivityDetailPanel({ id }: { id: string }) {
       title={activity.title}
       subtitle={activityTypeLabels[tp] || tp}
       icon={<CalendarRange size={14} className="text-primary" />}
-      actions={actionButtons}
+      actionItems={actionItems}
+      onActionConfirm={async (cfg) =>
+        confirm({
+          title: cfg.title,
+          message: cfg.message,
+          confirmLabel: cfg.confirmLabel,
+          cancelLabel: cfg.cancelLabel,
+          variant: cfg.variant,
+        })
+      }
     >
       <PanelContentLayout>
         {editing ? (

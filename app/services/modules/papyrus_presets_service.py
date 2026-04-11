@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from types import SimpleNamespace
 from typing import Any
 from uuid import UUID
@@ -62,16 +63,37 @@ def _field_supervision_form_schema() -> dict[str, Any]:
             {"id": "report_date", "type": "input_date", "label": "Date du rapport", "required": True, "section": "context"},
             {"id": "report_shift", "type": "input_text", "label": "Quart / plage horaire", "section": "context"},
             {"id": "project_name", "type": "input_text", "label": "Projet", "required": True, "section": "context"},
+            {"id": "project_code", "type": "input_text", "label": "Code projet", "section": "context"},
             {"id": "site_name", "type": "input_text", "label": "Site / zone", "required": True, "section": "context"},
+            {"id": "workfront_area", "type": "input_text", "label": "Zone de travail / front", "section": "context"},
             {"id": "supervisor_name", "type": "input_text", "label": "Superviseur", "section": "context"},
             {"id": "company_name", "type": "input_text", "label": "Entreprise principale", "section": "context"},
+            {"id": "client_name", "type": "input_text", "label": "Client / donneur d'ordre", "section": "context"},
+            {"id": "permit_reference", "type": "input_text", "label": "Permis / référence", "section": "context"},
             {"id": "weather_conditions", "type": "input_text", "label": "Conditions / météo", "section": "context"},
+            {"id": "progress_percent", "type": "input_number", "label": "Avancement estimé (%)", "section": "context"},
+            {
+                "id": "hse_topics",
+                "type": "input_multiselect",
+                "label": "Points HSE suivis",
+                "section": "context",
+                "options": [
+                    {"label": "Causerie sécurité", "value": "toolbox_talk"},
+                    {"label": "EPI conformes", "value": "ppe_ok"},
+                    {"label": "Balisage / consignation", "value": "isolation"},
+                    {"label": "Levage", "value": "lifting"},
+                    {"label": "Travail en hauteur", "value": "working_at_height"},
+                    {"label": "Coactivité", "value": "simultaneous_operations"},
+                ],
+            },
             {"id": "section_observations", "type": "section", "label": "Observations terrain"},
             {"id": "general_observations", "type": "textarea", "label": "Observations générales", "section": "observations"},
             {"id": "achievements", "type": "textarea", "label": "Réalisations", "section": "observations"},
             {"id": "blocking_points", "type": "textarea", "label": "Blocages", "section": "observations"},
             {"id": "forecast_next_steps", "type": "textarea", "label": "Prévisions / prochaines étapes", "section": "observations"},
             {"id": "safety_highlights", "type": "textarea", "label": "Sécurité / incidents", "section": "observations"},
+            {"id": "next_day_requirements", "type": "textarea", "label": "Besoins pour la suite", "section": "observations"},
+            {"id": "section_resources", "type": "section", "label": "Ressources engagées"},
             {
                 "id": "personnel_table",
                 "type": "input_table",
@@ -92,10 +114,42 @@ def _field_supervision_form_schema() -> dict[str, Any]:
                 "columns": [
                     {"key": "designation", "label": "Équipement"},
                     {"key": "quantity", "label": "Qté", "type": "number"},
-                    {"key": "status", "label": "État"},
+                    {
+                        "key": "status",
+                        "label": "État",
+                        "type": "select",
+                        "options": [
+                            {"label": "Disponible", "value": "available"},
+                            {"label": "En service", "value": "in_service"},
+                            {"label": "En panne", "value": "down"},
+                            {"label": "En attente", "value": "standby"},
+                        ],
+                    },
                     {"key": "remarks", "label": "Remarques"},
                 ],
             },
+            {
+                "id": "incidents_table",
+                "type": "input_table",
+                "label": "Incidents / écarts",
+                "section": "observations",
+                "columns": [
+                    {"key": "category", "label": "Catégorie"},
+                    {"key": "description", "label": "Description"},
+                    {
+                        "key": "severity",
+                        "label": "Sévérité",
+                        "type": "select",
+                        "options": [
+                            {"label": "Faible", "value": "low"},
+                            {"label": "Moyenne", "value": "medium"},
+                            {"label": "Critique", "value": "critical"},
+                        ],
+                    },
+                    {"key": "action_taken", "label": "Action prise"},
+                ],
+            },
+            {"id": "section_actions", "type": "section", "label": "Actions et décisions"},
             {
                 "id": "actions_table",
                 "type": "input_table",
@@ -105,9 +159,21 @@ def _field_supervision_form_schema() -> dict[str, Any]:
                     {"key": "title", "label": "Action"},
                     {"key": "owner", "label": "Responsable"},
                     {"key": "due_date", "label": "Échéance", "type": "date"},
-                    {"key": "status", "label": "Statut"},
+                    {
+                        "key": "status",
+                        "label": "Statut",
+                        "type": "select",
+                        "options": [
+                            {"label": "Ouvert", "value": "open"},
+                            {"label": "En cours", "value": "in_progress"},
+                            {"label": "Clos", "value": "closed"},
+                        ],
+                    },
                 ],
             },
+            {"id": "section_attachments", "type": "section", "label": "Preuves et photos"},
+            {"id": "site_photos", "type": "input_file", "label": "Photos de terrain", "section": "attachments"},
+            {"id": "safety_evidence", "type": "input_file", "label": "Preuves sécurité", "section": "attachments"},
             {
                 "id": "attachments_overview",
                 "type": "textarea",
@@ -146,7 +212,32 @@ def _field_supervision_template_structure() -> dict[str, Any]:
       <div><div style="font-size: 11px; color: #64748b;">Superviseur</div><div style="font-weight: 600;">{{ document.form_data.get("supervisor_name") or "--" }}</div></div>
       <div><div style="font-size: 11px; color: #64748b;">Entreprise</div><div style="font-weight: 600;">{{ document.form_data.get("company_name") or "--" }}</div></div>
     </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 10px;">
+      <div><div style="font-size: 11px; color: #64748b;">Projet</div><div style="font-weight: 600;">{{ document.form_data.get("project_name") or "--" }}</div></div>
+      <div><div style="font-size: 11px; color: #64748b;">Code projet</div><div style="font-weight: 600;">{{ document.form_data.get("project_code") or "--" }}</div></div>
+      <div><div style="font-size: 11px; color: #64748b;">Quart</div><div style="font-weight: 600;">{{ document.form_data.get("report_shift") or "--" }}</div></div>
+      <div><div style="font-size: 11px; color: #64748b;">Avancement</div><div style="font-weight: 600;">{{ document.form_data.get("progress_percent") or "--" }}{% if document.form_data.get("progress_percent") %}%{% endif %}</div></div>
+    </div>
   </header>
+
+  <section style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px;">
+    <div><div style="font-size: 11px; color: #64748b;">Zone de travail</div><div style="font-weight: 600;">{{ document.form_data.get("workfront_area") or "--" }}</div></div>
+    <div><div style="font-size: 11px; color: #64748b;">Client</div><div style="font-weight: 600;">{{ document.form_data.get("client_name") or "--" }}</div></div>
+    <div><div style="font-size: 11px; color: #64748b;">Permis / référence</div><div style="font-weight: 600;">{{ document.form_data.get("permit_reference") or "--" }}</div></div>
+    <div><div style="font-size: 11px; color: #64748b;">Météo</div><div style="font-weight: 600;">{{ document.form_data.get("weather_conditions") or "--" }}</div></div>
+  </section>
+
+  {% set hse_topics = document.form_data.get("hse_topics") or [] %}
+  {% if hse_topics %}
+  <section style="margin-bottom: 18px;">
+    <h2 style="font-size: 16px; margin-bottom: 8px;">Points HSE suivis</h2>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+      {% for item in hse_topics %}
+      <span style="display: inline-block; border: 1px solid #cbd5e1; border-radius: 9999px; padding: 4px 10px; font-size: 11px;">{{ item }}</span>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
 
   <section style="margin-bottom: 18px;">
     <h2 style="font-size: 16px; margin-bottom: 8px;">Observations générales</h2>
@@ -158,6 +249,11 @@ def _field_supervision_template_structure() -> dict[str, Any]:
     <div><h3 style="font-size: 14px; margin-bottom: 6px;">Blocages</h3><div style="white-space: pre-wrap;">{{ document.form_data.get("blocking_points") or "--" }}</div></div>
     <div><h3 style="font-size: 14px; margin-bottom: 6px;">Prévisions</h3><div style="white-space: pre-wrap;">{{ document.form_data.get("forecast_next_steps") or "--" }}</div></div>
     <div><h3 style="font-size: 14px; margin-bottom: 6px;">Sécurité / incidents</h3><div style="white-space: pre-wrap;">{{ document.form_data.get("safety_highlights") or "--" }}</div></div>
+  </section>
+
+  <section style="margin-bottom: 18px;">
+    <h2 style="font-size: 16px; margin-bottom: 8px;">Besoins pour la suite</h2>
+    <div style="white-space: pre-wrap;">{{ document.form_data.get("next_day_requirements") or "--" }}</div>
   </section>
 
   {% set personnel = document.form_data.get("personnel_table") or [] %}
@@ -207,6 +303,33 @@ def _field_supervision_template_structure() -> dict[str, Any]:
           <td style="border-bottom: 1px solid #e2e8f0; padding: 6px;">{{ row.get("quantity") or "--" }}</td>
           <td style="border-bottom: 1px solid #e2e8f0; padding: 6px;">{{ row.get("status") or "--" }}</td>
           <td style="border-bottom: 1px solid #e2e8f0; padding: 6px;">{{ row.get("remarks") or "--" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+  {% set incidents = document.form_data.get("incidents_table") or [] %}
+  {% if incidents %}
+  <section style="margin-bottom: 18px;">
+    <h2 style="font-size: 16px; margin-bottom: 8px;">Incidents / écarts</h2>
+    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+      <thead>
+        <tr>
+          <th style="text-align: left; border-bottom: 1px solid #cbd5e1; padding: 6px;">Catégorie</th>
+          <th style="text-align: left; border-bottom: 1px solid #cbd5e1; padding: 6px;">Description</th>
+          <th style="text-align: left; border-bottom: 1px solid #cbd5e1; padding: 6px;">Sévérité</th>
+          <th style="text-align: left; border-bottom: 1px solid #cbd5e1; padding: 6px;">Action prise</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in incidents %}
+        <tr>
+          <td style="border-bottom: 1px solid #e2e8f0; padding: 6px;">{{ row.get("category") or "--" }}</td>
+          <td style="border-bottom: 1px solid #e2e8f0; padding: 6px;">{{ row.get("description") or "--" }}</td>
+          <td style="border-bottom: 1px solid #e2e8f0; padding: 6px;">{{ row.get("severity") or "--" }}</td>
+          <td style="border-bottom: 1px solid #e2e8f0; padding: 6px;">{{ row.get("action_taken") or "--" }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -306,8 +429,10 @@ async def _build_field_supervision_prefill(
 ) -> dict[str, Any]:
     prefill: dict[str, Any] = {
         "report_title": title,
+        "report_date": date.today().isoformat(),
         "personnel_table": [],
         "equipment_table": [],
+        "incidents_table": [],
         "actions_table": [],
     }
     if not project_id:

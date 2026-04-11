@@ -619,6 +619,7 @@ async def get_papyrus_document(
         current_state=doc.status,
         created_at=doc.created_at,
         updated_at=doc.updated_at,
+        form_data=revision.form_data if revision else {},
     )
 
 

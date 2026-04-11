@@ -111,6 +111,7 @@ export interface PapyrusDocument {
   meta: PapyrusMeta
   blocks: Array<Record<string, unknown>>
   refs: Array<Record<string, unknown> | string>
+  data: Record<string, unknown>
   workflow: Record<string, unknown>
   schedule: Record<string, unknown>
   render: Record<string, unknown>
@@ -134,6 +135,7 @@ export interface PapyrusForm {
   id: string
   entity_id: string
   document_id: string | null
+  doc_type_id: string | null
   name: string
   description: string | null
   schema_json: Record<string, unknown>
@@ -169,6 +171,42 @@ export interface PapyrusSubmission {
   status: string
   processed_by: string | null
   processed_at: string | null
+}
+
+export interface PapyrusPreset {
+  key: string
+  name: Record<string, string>
+  description: Record<string, string>
+  tags: string[]
+  capabilities: string[]
+}
+
+export interface PapyrusPresetInstantiation {
+  preset: PapyrusPreset
+  doc_type: {
+    id: string
+    code: string
+    name: Record<string, string>
+    default_template_id: string | null
+  }
+  template: {
+    id: string
+    name: string
+    doc_type_id: string | null
+    version: number
+  }
+  form: {
+    id: string
+    name: string
+    document_id: string | null
+    doc_type_id: string | null
+  }
+  document: {
+    id: string
+    number: string
+    title: string
+    doc_type_id: string
+  } | null
 }
 
 export interface PapyrusEpiCollectProject {
@@ -460,8 +498,28 @@ export const reportEditorService = {
     return data
   },
 
+  listPapyrusPresets: async (): Promise<PapyrusPreset[]> => {
+    const { data } = await api.get('/api/v1/documents/papyrus/presets')
+    return data
+  },
+
+  instantiatePapyrusPreset: async (
+    presetKey: string,
+    payload: {
+      project_id?: string
+      title?: string
+      language?: string
+      classification?: string
+      create_document?: boolean
+    } = {},
+  ): Promise<PapyrusPresetInstantiation> => {
+    const { data } = await api.post(`/api/v1/documents/papyrus/presets/${presetKey}/instantiate`, payload)
+    return data
+  },
+
   createPapyrusForm: async (payload: {
     document_id?: string
+    doc_type_id?: string
     name: string
     description?: string
     schema_json?: Record<string, unknown>
@@ -482,6 +540,8 @@ export const reportEditorService = {
   },
 
   updatePapyrusForm: async (formId: string, payload: {
+    document_id?: string
+    doc_type_id?: string
     name?: string
     description?: string
     schema_json?: Record<string, unknown>

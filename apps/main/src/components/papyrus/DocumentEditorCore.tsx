@@ -35,6 +35,7 @@ export interface PapyrusDocumentShape {
   }
   blocks: PapyrusBlock[]
   refs: Array<Record<string, unknown> | string>
+  data: Record<string, unknown>
   workflow: Record<string, unknown>
   schedule: Record<string, unknown>
   render: Record<string, unknown>
@@ -66,6 +67,7 @@ function createEmptyPapyrusDocument(existing?: Partial<PapyrusDocumentShape>): P
     },
     blocks: Array.isArray(existing?.blocks) ? existing.blocks : [],
     refs: Array.isArray(existing?.refs) ? existing.refs : [],
+    data: existing?.data ?? {},
     workflow: existing?.workflow ?? {},
     schedule: existing?.schedule ?? {},
     render: existing?.render ?? { html: true, pdf: true, pdf_engine: 'opsflux_pdf_service' },

@@ -186,11 +186,39 @@ export function usePapyrusForms() {
   })
 }
 
+export function usePapyrusPresets() {
+  return useQuery({
+    queryKey: [...PAPYRUS_QUERY_ROOT, 'papyrus-presets'],
+    queryFn: () => papyrusService.listPapyrusPresets(),
+    staleTime: 300_000,
+  })
+}
+
+export function useInstantiatePapyrusPreset() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ presetKey, payload }: {
+      presetKey: string
+      payload?: {
+        project_id?: string
+        title?: string
+        language?: string
+        classification?: string
+        create_document?: boolean
+      }
+    }) => papyrusService.instantiatePapyrusPreset(presetKey, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PAPYRUS_QUERY_ROOT })
+    },
+  })
+}
+
 export function useCreatePapyrusForm() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (payload: {
       document_id?: string
+      doc_type_id?: string
       name: string
       description?: string
       schema_json?: Record<string, unknown>
@@ -211,6 +239,8 @@ export function useUpdatePapyrusForm() {
     mutationFn: ({ formId, payload }: {
       formId: string
       payload: {
+        document_id?: string
+        doc_type_id?: string
         name?: string
         description?: string
         schema_json?: Record<string, unknown>
@@ -229,6 +259,7 @@ export function useImportPapyrusEpiCollect() {
   return useMutation({
     mutationFn: (payload: {
       document_id?: string
+      doc_type_id?: string
       name: string
       description?: string
       project: Record<string, unknown>

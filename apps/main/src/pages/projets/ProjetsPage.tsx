@@ -1134,7 +1134,10 @@ function CreateProjectPanel() {
   const projectPriorityLabels = useDictionaryLabels('project_priority', PROJECT_PRIORITY_LABELS_FALLBACK)
   const projectStatusOptions = useMemo(() => buildDictionaryOptions(projectStatusLabels, PROJECT_STATUS_VALUES), [projectStatusLabels])
   const projectPriorityOptions = useMemo(() => buildDictionaryOptions(projectPriorityLabels, PROJECT_PRIORITY_VALUES), [projectPriorityLabels])
-  const [form, setForm] = useState<ProjectCreate>({
+  // Form state allows asset_id to be empty (null) during edition; we
+  // re-validate in handleSubmit before sending to the backend, where the
+  // schema requires it (spec §1.4).
+  const [form, setForm] = useState<Omit<ProjectCreate, 'asset_id'> & { asset_id: string | null }>({
     name: '',
     description: null,
     status: 'draft',
@@ -1151,8 +1154,15 @@ function CreateProjectPanel() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Spec §1.4: site/installation obligatoire pour création native.
+    if (!form.asset_id) {
+      toast({ title: t('projets.errors.asset_required', 'Site / installation obligatoire'), variant: 'error' })
+      return
+    }
     try {
-      await createProject.mutateAsync(normalizeNames(form))
+      // Narrow the form type — asset_id is non-null at this point.
+      const payload: ProjectCreate = { ...form, asset_id: form.asset_id }
+      await createProject.mutateAsync(normalizeNames(payload))
       closeDynamicPanel()
       toast({ title: 'Projet cree', variant: 'success' })
     } catch {
@@ -1199,11 +1209,11 @@ function CreateProjectPanel() {
                       placeholder="Aucun (projet indépendant)"
                     />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Site">
+                  <DynamicPanelField label="Site / installation" required>
                     <AssetPicker
                       value={form.asset_id || null}
                       onChange={(id) => setForm({ ...form, asset_id: id || null })}
-                      label="Site"
+                      label="Site / installation"
                     />
                   </DynamicPanelField>
                 </FormGrid>

@@ -72,6 +72,8 @@ import {
   usePapyrusDispatchRuns,
   useRunPapyrusDispatchNow,
   usePapyrusForms,
+  usePapyrusPresets,
+  useInstantiatePapyrusPreset,
   useCreatePapyrusForm,
   useUpdatePapyrusForm,
   useImportPapyrusEpiCollect,
@@ -88,6 +90,7 @@ import {
 import { papyrusService } from '@/services/papyrusService'
 import { DocumentEditor } from '@/components/papyrus/DocumentEditor'
 import { PapyrusFormBuilder } from '@/components/papyrus/PapyrusFormBuilder'
+import { PapyrusFormRunner } from '@/components/papyrus/PapyrusFormRunner'
 import { useProjects } from '@/hooks/useProjets'
 import type {
   Document as REDocument,
@@ -455,8 +458,9 @@ function DocumentDetailPanel({ id }: { id: string }) {
   const { data: papyrusDispatchRuns } = usePapyrusDispatchRuns(id)
   const { data: papyrusForms } = usePapyrusForms()
   const linkedPapyrusForm = useMemo(
-    () => papyrusForms?.find((form: PapyrusForm) => form.document_id === id),
-    [papyrusForms, id],
+    () => papyrusForms?.find((form: PapyrusForm) => form.document_id === id)
+      ?? papyrusForms?.find((form: PapyrusForm) => !form.document_id && form.doc_type_id === doc?.doc_type_id),
+    [doc?.doc_type_id, papyrusForms, id],
   )
   const { data: papyrusSubmissions } = usePapyrusSubmissions(linkedPapyrusForm?.id)
 
@@ -549,6 +553,21 @@ function DocumentDetailPanel({ id }: { id: string }) {
     },
     [id, saveDraft],
   )
+
+  const handleSaveStructuredFormData = useCallback(async (formData: Record<string, unknown>) => {
+    try {
+      await saveDraft.mutateAsync({
+        id,
+        payload: {
+          content: (papyrusDocument ?? currentRevision?.content ?? {}) as Record<string, unknown>,
+          form_data: formData,
+        },
+      })
+      toast({ title: 'Donnees structurees enregistrees', variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur lors de l’enregistrement des donnees structurees', variant: 'error' })
+    }
+  }, [currentRevision?.content, id, papyrusDocument, saveDraft, toast])
 
   const handleCreateRevision = useCallback(async () => {
     try {
@@ -645,6 +664,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
       const title = papyrusFormName.trim() || `${doc?.title || 'Document'} - Formulaire`
       await createPapyrusForm.mutateAsync({
         document_id: id,
+        doc_type_id: doc?.doc_type_id,
         name: title,
         description: papyrusFormDescription.trim() || undefined,
         schema_json: {
@@ -661,7 +681,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
     } catch {
       toast({ title: 'Erreur lors de la creation du formulaire Papyrus', variant: 'error' })
     }
-  }, [createPapyrusForm, doc?.title, id, papyrusFormDescription, papyrusFormName, toast])
+  }, [createPapyrusForm, doc?.doc_type_id, doc?.title, id, papyrusFormDescription, papyrusFormName, toast])
 
   const handleGenerateExternalFormLink = useCallback(async () => {
     if (!linkedPapyrusForm) {
@@ -977,7 +997,18 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 <ReadOnlyRow label="Nom" value={linkedPapyrusForm.name} />
                 <ReadOnlyRow label="Actif" value={linkedPapyrusForm.is_active ? 'Oui' : 'Non'} />
                 <ReadOnlyRow label="Cree le" value={formatDate(linkedPapyrusForm.created_at)} />
+                <ReadOnlyRow label="Portee" value={linkedPapyrusForm.document_id ? 'Document' : linkedPapyrusForm.doc_type_id ? 'Type de document' : '--'} />
               </DetailFieldGrid>
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground">Saisie structurée</div>
+                <PapyrusFormRunner
+                  schema={linkedPapyrusForm.schema_json}
+                  value={currentRevision?.form_data as Record<string, unknown> | undefined}
+                  readOnly={doc.status !== 'draft' || !hasPermission('document.edit')}
+                  isSaving={saveDraft.isPending}
+                  onSave={handleSaveStructuredFormData}
+                />
+              </div>
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Builder de formulaire</div>
                 <PapyrusFormBuilder
@@ -1394,6 +1425,7 @@ export function ReportEditorPage() {
   // ── Permissions ──
   const { hasPermission } = usePermission()
   const canCreate = hasPermission('document.create')
+  const canAdminPapyrus = hasPermission('document.admin')
   // canEdit / canDelete / canPublish / canApprove checked in DocumentDetailPanel via its own usePermission() call
 
   const [activeTab, setActiveTab] = useState<ReportEditorTab>('dashboard')
@@ -1415,6 +1447,8 @@ export function ReportEditorPage() {
   // ── MDR Import ──
   const mdrFileRef = useRef<HTMLInputElement>(null)
   const importMDR = useImportMDR()
+  const { data: papyrusPresets } = usePapyrusPresets()
+  const instantiatePapyrusPreset = useInstantiatePapyrusPreset()
   const { toast } = useToast()
 
   const handleMDRFileChange = useCallback(
@@ -1451,6 +1485,26 @@ export function ReportEditorPage() {
     setSelectedNodeId(null)
     setPage(1)
   }, [])
+
+  const handleInstantiatePreset = useCallback(async (presetKey: string) => {
+    try {
+      const result = await instantiatePapyrusPreset.mutateAsync({
+        presetKey,
+        payload: { create_document: true },
+      })
+      toast({
+        title: 'Preset Papyrus instancie',
+        description: result.document?.number || result.doc_type.code,
+        variant: 'success',
+      })
+      if (result.document) {
+        setActiveTab('documents')
+        openDynamicPanel({ type: 'detail', module: 'papyrus', id: result.document.id })
+      }
+    } catch {
+      toast({ title: 'Erreur lors de l’instanciation du preset Papyrus', variant: 'error' })
+    }
+  }, [instantiatePapyrusPreset, openDynamicPanel, toast])
 
   // -- Data -------------------------------------------------------------------
 
@@ -1629,7 +1683,52 @@ export function ReportEditorPage() {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <ModuleDashboard module="papyrus" toolbarPortalId="dash-toolbar-papyrus" />
+          <div className="space-y-4 p-4">
+            <ModuleDashboard module="papyrus" toolbarPortalId="dash-toolbar-papyrus" />
+            <div className="rounded-lg border border-border bg-background">
+              <div className="border-b border-border px-4 py-3">
+                <div className="text-sm font-semibold text-foreground">Presets Papyrus</div>
+                <div className="text-xs text-muted-foreground">
+                  Kits de démarrage réutilisables pour tester et étendre l’architecture Papyrus.
+                </div>
+              </div>
+              <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+                {(papyrusPresets ?? []).map((preset) => {
+                  const presetName = preset.name.fr || preset.name.en || preset.key
+                  const presetDescription = preset.description.fr || preset.description.en || '--'
+                  return (
+                    <div key={preset.key} className="rounded-lg border border-border bg-muted/10 p-4 space-y-3">
+                      <div className="space-y-1">
+                        <div className="text-sm font-semibold text-foreground">{presetName}</div>
+                        <div className="text-xs text-muted-foreground">{presetDescription}</div>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {preset.tags.map((tag) => (
+                          <span key={tag} className="inline-flex items-center rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        className="gl-button-sm gl-button-confirm"
+                        disabled={!canAdminPapyrus || instantiatePapyrusPreset.isPending}
+                        onClick={() => handleInstantiatePreset(preset.key)}
+                      >
+                        {instantiatePapyrusPreset.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                        <span>Créer le kit</span>
+                      </button>
+                    </div>
+                  )
+                })}
+                {papyrusPresets && papyrusPresets.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+                    Aucun preset disponible.
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
         )
 
       case 'documents':

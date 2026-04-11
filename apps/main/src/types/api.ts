@@ -1322,7 +1322,9 @@ export interface ProjectCreate {
   manager_id?: string | null
   parent_id?: string | null
   tier_id?: string | null
-  asset_id?: string | null
+  // Spec §1.4: site/installation rattachement obligatoire pour création
+  // native (Gouti import contourne ce schema).
+  asset_id: string
 }
 
 export interface ProjectUpdate {

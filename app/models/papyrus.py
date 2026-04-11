@@ -71,6 +71,9 @@ class PapyrusForm(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     document_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("documents.id", ondelete="SET NULL")
     )
+    doc_type_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("doc_types.id", ondelete="SET NULL")
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     schema_json: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")

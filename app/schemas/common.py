@@ -1681,7 +1681,13 @@ class ProjectCreate(BaseModel):
     manager_id: UUID | None = None
     parent_id: UUID | None = None
     tier_id: UUID | None = None
-    asset_id: UUID | None = None
+    # Site / installation — REQUIRED for native creation per spec §1.4:
+    # "Chaque projet doit être associé à un site ou une installation."
+    # Gouti-imported projects bypass this schema (they go through
+    # _upsert_project_from_gouti which constructs Project() directly), so
+    # the Gouti import path remains unaffected and the user can fill the
+    # asset later via PATCH (ProjectUpdate keeps it Optional).
+    asset_id: UUID = Field(..., description="Site/installation rattachement (obligatoire)")
 
 
 class ProjectUpdate(BaseModel):

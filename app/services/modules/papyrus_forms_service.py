@@ -85,6 +85,7 @@ async def create_form(
     form = PapyrusForm(
         entity_id=entity_id,
         document_id=getattr(body, "document_id", None),
+        doc_type_id=getattr(body, "doc_type_id", None),
         name=body.name,
         description=getattr(body, "description", None),
         schema_json=getattr(body, "form_schema", {}) or {},
@@ -114,6 +115,7 @@ async def import_epicollect_form(
             (),
             {
                 "document_id": getattr(body, "document_id", None),
+                "doc_type_id": getattr(body, "doc_type_id", None),
                 "name": body.name,
                 "description": getattr(body, "description", None),
                 "form_schema": schema_json,

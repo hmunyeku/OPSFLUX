@@ -30,6 +30,10 @@ async def render_papyrus_document(
 
     rendered = deepcopy(document)
     rendered_refs: dict[str, Any] = {}
+    rendered_data: dict[str, Any] = rendered.get("data", {}) if isinstance(rendered.get("data"), dict) else {}
+    rendered_form_data: dict[str, Any] = (
+        rendered_data.get("form_data", {}) if isinstance(rendered_data.get("form_data"), dict) else {}
+    )
 
     refs = rendered.get("refs", [])
     if isinstance(refs, list):
@@ -47,6 +51,8 @@ async def render_papyrus_document(
                 entity_id=entity_id,
                 block=block,
                 rendered_refs=rendered_refs,
+                rendered_form_data=rendered_form_data,
+                rendered_data=rendered_data,
             )
         )
 
@@ -62,6 +68,8 @@ async def _render_block(
     entity_id: UUID,
     block: dict[str, Any],
     rendered_refs: dict[str, Any],
+    rendered_form_data: dict[str, Any],
+    rendered_data: dict[str, Any],
 ) -> dict[str, Any]:
     current = deepcopy(block)
     block_type = current.get("type")
@@ -98,9 +106,12 @@ async def _render_block(
                 template_source,
                 {
                     "refs": rendered_refs,
+                    "form_data": rendered_form_data,
                     "block": current,
                     "document": {
                         "resolved_refs": rendered_refs,
+                        "form_data": rendered_form_data,
+                        "data": rendered_data,
                     },
                 },
             )
@@ -108,7 +119,14 @@ async def _render_block(
     children = current.get("children")
     if isinstance(children, list):
         current["children"] = [
-            await _render_block(db=db, entity_id=entity_id, block=child, rendered_refs=rendered_refs)
+            await _render_block(
+                db=db,
+                entity_id=entity_id,
+                block=child,
+                rendered_refs=rendered_refs,
+                rendered_form_data=rendered_form_data,
+                rendered_data=rendered_data,
+            )
             if isinstance(child, dict)
             else child
             for child in children

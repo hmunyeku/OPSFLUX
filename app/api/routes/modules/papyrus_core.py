@@ -36,6 +36,45 @@ router = APIRouter(prefix="/api/v1/documents", tags=["papyrus"], dependencies=[r
 
 
 @router.get(
+    "/papyrus/presets",
+    dependencies=[require_permission("document.read")],
+    summary="List Papyrus report presets",
+)
+async def list_papyrus_presets():
+    from app.services.modules.papyrus_presets_service import list_presets
+
+    return list_presets()
+
+
+@router.post(
+    "/papyrus/presets/{preset_key}/instantiate",
+    dependencies=[require_permission("document.admin")],
+    summary="Instantiate a Papyrus preset",
+)
+async def instantiate_papyrus_preset(
+    preset_key: str,
+    body: dict | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.schemas.papyrus import PapyrusPresetInstantiate
+    from app.services.modules.papyrus_presets_service import instantiate_preset
+
+    parsed = PapyrusPresetInstantiate(**(body or {}))
+    try:
+        return await instantiate_preset(
+            preset_key=preset_key,
+            entity_id=entity_id,
+            created_by=current_user.id,
+            body=parsed,
+            db=db,
+        )
+    except KeyError as exc:
+        raise HTTPException(404, f"Papyrus preset '{preset_key}' not found") from exc
+
+
+@router.get(
     "/papyrus/forms",
     dependencies=[require_permission("document.read")],
     summary="List Papyrus forms",

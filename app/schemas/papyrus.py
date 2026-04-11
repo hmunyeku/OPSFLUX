@@ -42,6 +42,7 @@ class PapyrusDocument(BaseModel):
     meta: PapyrusMeta
     blocks: list[dict[str, Any]] = Field(default_factory=list)
     refs: list[dict[str, Any] | str] = Field(default_factory=list)
+    data: dict[str, Any] = Field(default_factory=dict)
     workflow: PapyrusWorkflow = Field(default_factory=PapyrusWorkflow)
     schedule: dict[str, Any] = Field(default_factory=dict)
     render: PapyrusRender = Field(default_factory=PapyrusRender)
@@ -63,6 +64,7 @@ class PapyrusFormCreate(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     document_id: UUID | None = None
+    doc_type_id: UUID | None = None
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
     form_schema: dict[str, Any] = Field(default_factory=dict, alias="schema_json")
@@ -72,6 +74,8 @@ class PapyrusFormCreate(BaseModel):
 class PapyrusFormUpdate(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
+    document_id: UUID | None = None
+    doc_type_id: UUID | None = None
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
     form_schema: dict[str, Any] | None = Field(default=None, alias="schema_json")
@@ -85,6 +89,7 @@ class PapyrusFormRead(BaseModel):
     id: UUID
     entity_id: UUID
     document_id: UUID | None = None
+    doc_type_id: UUID | None = None
     name: str
     description: str | None = None
     form_schema: dict[str, Any] = Field(alias="schema_json")
@@ -191,3 +196,23 @@ class PapyrusDispatchRunRead(BaseModel):
     triggered_by: UUID | None = None
     created_at: datetime
     finished_at: datetime | None = None
+
+
+class PapyrusPresetRead(BaseModel):
+    key: str
+    name: dict[str, str]
+    description: dict[str, str]
+    tags: list[str] = Field(default_factory=list)
+    capabilities: list[str] = Field(default_factory=list)
+
+
+class PapyrusPresetInstantiate(BaseModel):
+    project_id: UUID | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    language: str = Field(default="fr", max_length=10)
+    classification: str = Field(
+        default="INT",
+        max_length=20,
+        pattern=r"^(INT|CONF|REST|PUB)$",
+    )
+    create_document: bool = True

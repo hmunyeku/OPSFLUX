@@ -7,7 +7,7 @@ PAX identity lives on User (internal) and TierContact (external).
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.common import OpsFluxSchema
 
@@ -228,6 +228,23 @@ class AdsCreate(BaseModel):
     return_departure_base_id: UUID | None = None
     return_notes: str | None = None
     is_round_trip_no_overnight: bool = False
+
+    @model_validator(mode="after")
+    def _check_round_trip_no_overnight(self) -> "AdsCreate":
+        # Spec §3.5: ADS aller-retour sans nuitée n'occupe qu'une journée
+        # de POB. On force start_date == end_date côté serveur pour que les
+        # SQL `BETWEEN` produisent un comptage single-day, peu importe ce
+        # que le client envoie. Sans ça, un client malveillant ou un bug
+        # frontal pourrait laisser end_date > start_date et faire compter
+        # le pax sur plusieurs jours.
+        if self.is_round_trip_no_overnight and self.end_date != self.start_date:
+            raise ValueError(
+                "Pour une ADS aller-retour sans nuitée, la date de fin "
+                "doit être identique à la date de début."
+            )
+        if self.end_date < self.start_date:
+            raise ValueError("end_date doit être >= start_date")
+        return self
 
 
 class AdsUpdate(BaseModel):

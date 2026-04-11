@@ -25,6 +25,7 @@ def ensure_papyrus_document(
     current_state: str | None = None,
     created_at: datetime | None = None,
     updated_at: datetime | None = None,
+    form_data: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Normalize legacy editor content into the Papyrus root contract."""
 
@@ -50,6 +51,9 @@ def ensure_papyrus_document(
             },
             "blocks": _coerce_blocks(content),
             "refs": [],
+            "data": {
+                "form_data": deepcopy(form_data or {}),
+            },
             "workflow": {
                 "workflow_id": str(workflow_id) if workflow_id else None,
                 "current_state": current_state,
@@ -75,6 +79,8 @@ def ensure_papyrus_document(
     meta["updated_at"] = updated_at.isoformat() if updated_at else meta.get("updated_at")
     normalized.setdefault("blocks", [])
     normalized.setdefault("refs", [])
+    data = normalized.setdefault("data", {})
+    data["form_data"] = deepcopy(form_data or data.get("form_data") or {})
     workflow = normalized.setdefault("workflow", {})
     workflow["workflow_id"] = str(workflow_id) if workflow_id else workflow.get("workflow_id")
     workflow["current_state"] = current_state if current_state is not None else workflow.get("current_state")

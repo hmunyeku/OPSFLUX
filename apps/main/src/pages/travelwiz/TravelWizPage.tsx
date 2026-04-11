@@ -1578,17 +1578,13 @@ export function TravelWizPage() {
             {showCreate && canCreate && <ToolbarButton icon={Plus} label={createLabel} variant="primary" onClick={handleCreate} />}
           </PanelHeader>
 
-          {/* Tab bar — uses the shared `TabBar` for cross-module visual parity.
-              The rightSlot hosts the dashboard "Modifier" toolbar via portal,
-              only when the dashboard tab is active. */}
           <TabBar
             items={TABS}
             activeId={activeTab}
             onTabChange={setActiveTab}
-            rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-travelwiz" /> : null}
           />
 
-          {activeTab === 'dashboard' && <ModuleDashboard module="travelwiz" toolbarPortalId="dash-toolbar-travelwiz" />}
+          {activeTab === 'dashboard' && <ModuleDashboard module="travelwiz" />}
           {activeTab === 'voyages' && <VoyagesTab />}
           {activeTab === 'manifests' && <ManifestesTab />}
           {activeTab === 'vectors' && <VecteursTab />}

@@ -1919,6 +1919,7 @@ export function GanttView({
         extraSettingsContent={customizationSections}
         footerRow={workloadFooter}
         workloadShowCumulative={viewPrefs.show_workload_cumulative}
+        workloadBarWidthPct={viewPrefs.workload_bar_width_pct}
       />
 
       {/* ── Dependency edit modal ── */}

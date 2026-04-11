@@ -39,6 +39,11 @@ export interface PlannerGanttViewPrefs {
   // line on top of the stacks so the user can see whether the load is
   // ramping up or down over the range.
   show_workload_cumulative: boolean
+  // Width of each histogram bar as a PERCENTAGE of the cell width.
+  // 100 = fill the full cell (no gap between adjacent bars),
+  // 90 = default with a small gap for readability,
+  // 30 = minimum practical width.
+  workload_bar_width_pct: number
 
   // What to render inside heatmap cells
   heatmap_text_mode: 'percentage' | 'pax_count' | 'none'
@@ -90,6 +95,7 @@ export const DEFAULT_PLANNER_GANTT_VIEW: PlannerGanttViewPrefs = {
   show_total_sum: false,
   show_workload_chart: false,
   show_workload_cumulative: false,
+  workload_bar_width_pct: 90,
   heatmap_text_mode: 'percentage',
   bar_title_position: 'none',
   hide_empty_rows: true,
@@ -276,6 +282,26 @@ export function PlannerCustomizationSections({ prefs, onChange, barHeight = 18 }
             />
           )}
         </div>
+        {prefs.show_workload_chart && (
+          <div className="mt-2">
+            <label className="text-xs text-foreground flex items-center justify-between">
+              Largeur des barres
+              <span className="text-muted-foreground tabular-nums">{prefs.workload_bar_width_pct}%</span>
+            </label>
+            <input
+              type="range"
+              min={30}
+              max={100}
+              step={5}
+              value={prefs.workload_bar_width_pct}
+              onChange={(e) => update('workload_bar_width_pct', Number(e.target.value))}
+              className="w-full h-1.5 mt-1 accent-primary"
+            />
+            <p className="text-[9px] text-muted-foreground mt-0.5">
+              Pourcentage de la largeur de cellule occupée par chaque barre histogramme (100 % = jointes, 30 % = très espacées).
+            </p>
+          </div>
+        )}
         <p className="text-[9px] text-muted-foreground mt-1">
           Le plan de charge s'affiche en bas du Gantt, pinné pendant le défilement vertical, synchronisé avec le scale et tous les filtres actifs.
         </p>

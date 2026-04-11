@@ -372,6 +372,14 @@ export interface GanttCoreProps {
    * (normalized to max cumulative) so it always fits the row height.
    */
   workloadShowCumulative?: boolean
+  /**
+   * Width of each histogram bar in the Plan de charge footer,
+   * expressed as a percentage of the cell width. 100 means the bars
+   * touch each other (no gap); lower values leave breathing space
+   * between adjacent bars. Clamped to [30, 100] by the caller.
+   * Defaults to 90 when not provided.
+   */
+  workloadBarWidthPct?: number
 
   // ── Toolbar actions ──
   /** Show action buttons (add task, milestone, indent) in toolbar */

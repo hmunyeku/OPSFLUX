@@ -127,6 +127,7 @@ export function GanttCore(props: GanttCoreProps) {
     extraSettingsContent,
     footerRow,
     workloadShowCumulative,
+    workloadBarWidthPct,
   } = props
 
   // ── Settings state ─────────────────────────────────────────────
@@ -1755,8 +1756,14 @@ export function GanttCore(props: GanttCoreProps) {
                   {cellsList.map((hc) => {
                     if (hc.cellIdx < 0 || hc.cellIdx >= cellLefts.length) return null
                     const w = cellWidths[hc.cellIdx]
-                    const innerW = Math.max(0, w - 2)
-                    const left = cellLefts[hc.cellIdx] + 1
+                    // Respect the user's bar-width preference: take a
+                    // percentage of the cell's inner width (w-2 to keep
+                    // the 1 px margin on each side) and center the bar
+                    // inside the cell. Clamped to a minimum of 4 px so
+                    // bars never vanish entirely at extreme settings.
+                    const pct = Math.max(30, Math.min(100, workloadBarWidthPct ?? 90))
+                    const innerW = Math.max(4, Math.round(((w - 2) * pct) / 100))
+                    const left = cellLefts[hc.cellIdx] + Math.round((w - innerW) / 2)
 
                     if (hc.stacks && hc.stacks.length > 0) {
                       const stackMax =

@@ -2961,6 +2961,29 @@ function ActivityDetailPanel({ id }: { id: string }) {
     )
   }, [id, updateActivity, toast])
 
+  // Debounced save for the variable POB editor rendered inline in read
+  // mode. The editor fires `onChange` on every cell edit, so we collapse
+  // rapid bursts into a single mutation with a short trailing delay to
+  // avoid hammering the backend when the user types through a whole
+  // schedule. The payload is the full daily map, not a string — bypasses
+  // `handleInlineSave` which normalizes strings.
+  const pobSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const handleInlinePobSave = useCallback((next: Record<string, number>) => {
+    if (pobSaveTimerRef.current) clearTimeout(pobSaveTimerRef.current)
+    pobSaveTimerRef.current = setTimeout(() => {
+      updateActivity.mutate(
+        { id, payload: { pax_quota_daily: next } },
+        {
+          onSuccess: () => toast({ title: 'Plan POB mis a jour', variant: 'success' }),
+          onError: () => toast({ title: 'Erreur lors de la mise a jour', variant: 'error' }),
+        },
+      )
+    }, 400)
+  }, [id, updateActivity, toast])
+  useEffect(() => () => {
+    if (pobSaveTimerRef.current) clearTimeout(pobSaveTimerRef.current)
+  }, [])
+
   const startEdit = useCallback(() => {
     if (!activity) return
     setEditForm({
@@ -3671,6 +3694,29 @@ function ActivityDetailPanel({ id }: { id: string }) {
                     />
                   )}
                 </DetailFieldGrid>
+                {/* Inline variable POB editor in READ mode — the user
+                    can tweak the per-day schedule directly without
+                    switching to the full edit form. Auto-saves on
+                    change via a short debounce. Only rendered when the
+                    activity is variable and has a valid range. */}
+                {activity.pax_quota_mode === 'variable'
+                  && activity.start_date
+                  && activity.end_date
+                  && canUpdate && (
+                  <div className="mt-3">
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Plan POB jour par jour (modifications auto-enregistrées) :
+                    </p>
+                    <VariablePobEditor
+                      startDate={activity.start_date}
+                      endDate={activity.end_date}
+                      value={activity.pax_quota_daily ?? null}
+                      onChange={handleInlinePobSave}
+                      defaultValue={activity.pax_quota || 1}
+                      compact
+                    />
+                  </div>
+                )}
               </FormSection>
 
               {/* Rattachement */}

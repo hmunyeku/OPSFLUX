@@ -2346,6 +2346,8 @@ export interface PlannerActivityUpdate {
   description?: string | null
   priority?: string | null
   pax_quota?: number | null
+  pax_quota_mode?: 'constant' | 'variable' | null
+  pax_quota_daily?: Record<string, number> | null
   start_date?: string | null
   end_date?: string | null
   actual_start?: string | null

@@ -622,6 +622,36 @@ export function GanttView({
       return true
     }
 
+    // ── Max concurrent POB capacity helpers ──
+    // For a single installation, "max POB" is the peak of its daily
+    // `capacity_limit` values over the current range — the highest
+    // headcount the installation was configured to hold on any day in
+    // the window. For rollup rows (site / field / total) we SUM the
+    // children's max POBs because installations host people
+    // independently — the site can physically hold as many people as
+    // all of its installations combined.
+    //
+    // Reading from `daysByAsset` (the heatmap payload) lets us surface
+    // the value the user already configured via the capacity editor,
+    // without requiring a new field on the hierarchy endpoint.
+    const maxCapForInst = (instId: string): number => {
+      const days = daysByAsset.get(instId)
+      if (!days) return 0
+      let max = 0
+      for (const [, day] of days) {
+        if (day.capacity_limit > max) max = day.capacity_limit
+      }
+      return max
+    }
+    const maxCapForAssets = (assetIds: string[]): number => {
+      let total = 0
+      for (const id of assetIds) total += maxCapForInst(id)
+      return total
+    }
+    // Format "[N]" suffix if the max is non-zero; empty string otherwise
+    // so rows without configured capacity don't sprout empty brackets.
+    const capSuffix = (n: number): string => (n > 0 ? ` [${n}]` : '')
+
     const rowList: GanttRow[] = []
     const barList: GanttBarData[] = []
     const heatmapRowH = viewPrefs.heatmap_row_height
@@ -719,7 +749,7 @@ export function GanttView({
       if (viewPrefs.show_field_rows) {
         rowList.push({
           id: fieldId,
-          label: field.name,
+          label: `${field.name}${capSuffix(maxCapForAssets(fieldAssetIds))}`,
           sublabel: `${field.sites.length} site${field.sites.length > 1 ? 's' : ''}`,
           level: 0,
           hasChildren: viewPrefs.show_site_rows || viewPrefs.show_installation_rows || viewPrefs.show_activity_rows,
@@ -740,7 +770,7 @@ export function GanttView({
         if (viewPrefs.show_site_rows) {
           rowList.push({
             id: siteId,
-            label: site.name,
+            label: `${site.name}${capSuffix(maxCapForAssets(siteAssetIds))}`,
             sublabel: `${site.installations.length} install.`,
             level: viewPrefs.show_field_rows ? 1 : 0,
             hasChildren: viewPrefs.show_installation_rows || viewPrefs.show_activity_rows,
@@ -769,7 +799,7 @@ export function GanttView({
             else if (!viewPrefs.show_field_rows || !viewPrefs.show_site_rows) lvl = 1
             rowList.push({
               id: installId,
-              label: inst.name,
+              label: `${inst.name}${capSuffix(maxCapForInst(inst.id))}`,
               sublabel: matchingCount > 0
                 ? `${matchingCount} activité${matchingCount > 1 ? 's' : ''}`
                 : '—',

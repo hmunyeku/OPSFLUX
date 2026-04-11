@@ -18,7 +18,9 @@ import React, {
 } from 'react'
 import { useLocation } from 'react-router-dom'
 import { X, ChevronDown, ChevronRight, Lightbulb, BookOpen } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { usePermission } from '@/hooks/usePermission'
 import mermaid from 'mermaid'
 
 // ── Mermaid initialisation ─────────────────────────────────
@@ -68,6 +70,8 @@ interface WorkflowHelp {
   title: string
   steps: string[]
   diagram?: string // Mermaid flowchart string
+  requiredPermission?: string
+  requiredAnyPermissions?: string[]
 }
 
 interface ModuleHelp {
@@ -90,6 +94,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     workflows: [
       {
         title: 'Personnaliser le dashboard',
+        requiredAnyPermissions: ['dashboard.customize', 'dashboard.admin'],
         steps: [
           'Cliquez sur "Modifier" en haut a droite',
           'Glissez-deposez les widgets pour les reorganiser',
@@ -113,6 +118,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     workflows: [
       {
         title: 'Creer un utilisateur',
+        requiredAnyPermissions: ['user.create', 'core.users.manage'],
         steps: [
           'Cliquez "+ Nouvel utilisateur"',
           'Renseignez nom, prenom, email',
@@ -122,6 +128,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
       },
       {
         title: 'Gerer les permissions',
+        requiredAnyPermissions: ['core.rbac.manage', 'admin.rbac'],
         steps: [
           'Cliquez sur un utilisateur dans la liste',
           'Allez dans l\'onglet "Permissions"',
@@ -147,6 +154,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
       },
       {
         title: 'Affecter un role via un groupe',
+        requiredAnyPermissions: ['core.rbac.manage', 'admin.rbac'],
         steps: [
           'Allez dans l\'onglet "Groupes"',
           'Creez un groupe ou selectionnez un existant',
@@ -170,6 +178,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     workflows: [
       {
         title: 'Creer un projet',
+        requiredPermission: 'project.create',
         steps: [
           'Cliquez "+ Nouveau projet"',
           'Renseignez le nom, code, dates, budget',
@@ -188,6 +197,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
       },
       {
         title: "Suivre l'avancement",
+        requiredPermission: 'project.read',
         steps: [
           'Le Gantt montre la timeline des taches',
           "Double-cliquez une tache pour l'editer",
@@ -221,6 +231,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     workflows: [
       {
         title: 'Soumettre un avis de séjour (AdS)',
+        requiredAnyPermissions: ['paxlog.ads.read', 'paxlog.ads.create', 'paxlog.ads.submit', 'paxlog.ads.update'],
         steps: [
           'Cliquez "+ Nouvel AdS" dans l\'onglet Avis de séjour',
           'Choisissez le type (individuel ou equipe)',
@@ -232,6 +243,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
       },
       {
         title: 'Parcours de validation AdS',
+        requiredAnyPermissions: ['paxlog.ads.approve', 'paxlog.ads.read'],
         steps: [
           'Brouillon \u2192 Soumis',
           'Controle conformite automatique',
@@ -276,6 +288,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     workflows: [
       {
         title: 'Creer une activite',
+        requiredAnyPermissions: ['planner.activity.create', 'planner.activity.read'],
         steps: [
           'Cliquez "+ Nouvelle activite"',
           "Choisissez l'asset, les dates, le type",
@@ -299,6 +312,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     workflows: [
       {
         title: 'Ajouter une entreprise',
+        requiredAnyPermissions: ['tier.create', 'tier.read'],
         steps: [
           'Cliquez "+ Nouveau tiers"',
           'Renseignez la raison sociale, SIRET, type',
@@ -321,6 +335,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     workflows: [
       {
         title: "Verifier la conformite d'un PAX",
+        requiredAnyPermissions: ['conformite.verify', 'conformite.record.read'],
         steps: [
           'Allez dans l\'onglet Verifications',
           'Recherchez le PAX par nom',
@@ -364,6 +379,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     workflows: [
       {
         title: 'Signaler un bug',
+        requiredPermission: 'support.ticket.create',
         steps: [
           'Cliquez le bouton \u{1F4AC} en bas a droite',
           'Choisissez "Bug"',
@@ -392,6 +408,85 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     ],
     elementHelp: {},
   },
+}
+
+function getSettingsHelp(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  hash: string,
+): ModuleHelp {
+  const section = hash.replace(/^#/, '') || 'profile'
+  const profileFirst = section === 'profile'
+
+  const profileWorkflow: WorkflowHelp = {
+    title: t('settings.help.profile_workflow.title'),
+    steps: [
+      t('settings.help.profile_workflow.steps.0'),
+      t('settings.help.profile_workflow.steps.1'),
+      t('settings.help.profile_workflow.steps.2'),
+      t('settings.help.profile_workflow.steps.3'),
+      t('settings.help.profile_workflow.steps.4'),
+    ],
+  }
+  const notificationWorkflow: WorkflowHelp = {
+    title: t('settings.help.notifications_workflow.title'),
+    steps: [
+      t('settings.help.notifications_workflow.steps.0'),
+      t('settings.help.notifications_workflow.steps.1'),
+      t('settings.help.notifications_workflow.steps.2'),
+      t('settings.help.notifications_workflow.steps.3'),
+    ],
+  }
+  const securityWorkflow: WorkflowHelp = {
+    title: t('settings.help.security_workflow.title'),
+    steps: [
+      t('settings.help.security_workflow.steps.0'),
+      t('settings.help.security_workflow.steps.1'),
+      t('settings.help.security_workflow.steps.2'),
+      t('settings.help.security_workflow.steps.3'),
+    ],
+  }
+
+  return {
+    title: profileFirst ? t('settings.help.profile_title') : t('settings.help.title'),
+    icon: '\u2699\uFE0F',
+    description: profileFirst
+      ? t('settings.help.profile_description')
+      : t('settings.help.description'),
+    workflows: profileFirst
+      ? [profileWorkflow, notificationWorkflow, securityWorkflow]
+      : [notificationWorkflow, securityWorkflow, profileWorkflow],
+    tips: [
+      t('settings.help.tips.0'),
+      t('settings.help.tips.1'),
+      t('settings.help.tips.2'),
+    ],
+    elementHelp: {},
+  }
+}
+
+function getHelpContent(
+  currentModule: string,
+  hash: string,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): ModuleHelp | undefined {
+  if (currentModule === 'settings') return getSettingsHelp(t, hash)
+  return HELP_CONTENT[currentModule]
+}
+
+function filterHelpByPermissions(
+  help: ModuleHelp | undefined,
+  hasPermission: (code: string) => boolean,
+  hasAny: (codes: string[]) => boolean,
+): ModuleHelp | undefined {
+  if (!help) return help
+  return {
+    ...help,
+    workflows: help.workflows.filter((workflow) => {
+      if (workflow.requiredPermission && !hasPermission(workflow.requiredPermission)) return false
+      if (workflow.requiredAnyPermissions && !hasAny(workflow.requiredAnyPermissions)) return false
+      return true
+    }),
+  }
 }
 
 // ── Derive current module slug from pathname ────────────────
@@ -506,7 +601,10 @@ function WorkflowItem({ workflow }: { workflow: WorkflowHelp }) {
 // ── HelpPanel ───────────────────────────────────────────────
 
 export function HelpPanel() {
+  const { t } = useTranslation()
+  const { hash } = useLocation()
   const { currentModule, hoveredElement, isHelpOpen, toggleHelp } = useHelp()
+  const { hasPermission, hasAny } = usePermission()
 
   // Keyboard shortcut: ? to toggle (outside inputs)
   useEffect(() => {
@@ -524,7 +622,10 @@ export function HelpPanel() {
     return () => window.removeEventListener('keydown', handler)
   }, [toggleHelp])
 
-  const help = HELP_CONTENT[currentModule]
+  const help = useMemo(
+    () => filterHelpByPermissions(getHelpContent(currentModule, hash, t), hasPermission, hasAny),
+    [currentModule, hash, t, hasPermission, hasAny],
+  )
 
   if (!isHelpOpen) return null
 
@@ -557,7 +658,7 @@ export function HelpPanel() {
                 {help?.title ?? currentModule}
               </h2>
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                Aide contextuelle
+                {t('help_system.contextual')}
               </span>
             </div>
           </div>
@@ -568,7 +669,7 @@ export function HelpPanel() {
             <button
               onClick={toggleHelp}
               className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              aria-label="Fermer l'aide"
+              aria-label={t('help_system.close')}
             >
               <X size={14} />
             </button>
@@ -581,7 +682,7 @@ export function HelpPanel() {
           {hoveredElement && help?.elementHelp[hoveredElement] && (
             <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5">
               <p className="text-xs font-medium text-primary mb-1">
-                Element selectionne
+                {t('help_system.selected_element')}
               </p>
               <p className="text-xs text-foreground leading-relaxed">
                 {help.elementHelp[hoveredElement]}
@@ -591,7 +692,7 @@ export function HelpPanel() {
 
           {!help && (
             <div className="text-sm text-muted-foreground">
-              Aucune aide disponible pour cette page.
+              {t('help_system.empty')}
             </div>
           )}
 
@@ -602,7 +703,7 @@ export function HelpPanel() {
                 <div className="flex items-center gap-1.5 mb-2">
                   <BookOpen size={13} className="text-muted-foreground" />
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Description
+                    {t('help_system.description')}
                   </h3>
                 </div>
                 <p className="text-sm text-foreground leading-relaxed">
@@ -614,7 +715,7 @@ export function HelpPanel() {
               {help.workflows.length > 0 && (
                 <section>
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                    Workflows
+                    {t('help_system.workflows')}
                   </h3>
                   <div className="space-y-2">
                     {help.workflows.map((wf, i) => (
@@ -630,7 +731,7 @@ export function HelpPanel() {
                   <div className="flex items-center gap-1.5 mb-2">
                     <Lightbulb size={13} className="text-amber-500" />
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Astuces
+                      {t('help_system.tips')}
                     </h3>
                   </div>
                   <ul className="space-y-2">
@@ -654,7 +755,7 @@ export function HelpPanel() {
 
         {/* Footer */}
         <div className="px-4 py-2.5 border-t border-border bg-muted/20 text-[10px] text-muted-foreground text-center">
-          Appuyez sur <kbd className="px-1 py-0.5 rounded border border-border bg-muted font-mono">?</kbd> pour afficher/masquer l'aide
+          {t('help_system.shortcut_prefix')} <kbd className="px-1 py-0.5 rounded border border-border bg-muted font-mono">?</kbd> {t('help_system.shortcut_suffix')}
         </div>
       </aside>
     </>

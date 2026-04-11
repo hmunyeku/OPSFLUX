@@ -2897,6 +2897,45 @@
     "default_policy": "Default policy"
   },
   "settings": {
+    "help": {
+      "title": "Settings",
+      "description": "Centralizes profile setup, personal preferences, security, and the application settings that can be administered.",
+      "profile_title": "Settings — Profile",
+      "profile_description": "The Profile section is where users maintain their identity, contact details, and personal reference data. Complete it first so workflows, signatures, notifications, and compliance checks can rely on accurate information.",
+      "profile_workflow": {
+        "title": "Configure your profile",
+        "steps": [
+          "Open Settings, then the Profile tab.",
+          "Fill in your identity, contact details, position, and any user record information required by your organization.",
+          "Add or update addresses, secondary emails, and other contact methods if your organization uses them.",
+          "Verify that your photo, language, and personal preferences match your day-to-day usage.",
+          "Save your changes, then review the completeness score or status if it is displayed."
+        ]
+      },
+      "notifications_workflow": {
+        "title": "Tune your notifications",
+        "steps": [
+          "Open the Notifications tab to choose which channels are used per event or per module.",
+          "Keep only the alerts that are operationally useful to reduce noise.",
+          "Then review the Preferences tab for language, appearance, and personal behaviors.",
+          "Validate the setup on a real event or with a known notification."
+        ]
+      },
+      "security_workflow": {
+        "title": "Secure your access",
+        "steps": [
+          "Use the Password tab to rotate your access secrets.",
+          "Review Active Sessions and close the ones that should no longer remain open.",
+          "Create access tokens only when there is an explicit and limited need.",
+          "Revoke any token or connected application as soon as it is no longer needed."
+        ]
+      },
+      "tips": [
+        "An up-to-date profile improves signatures, notifications, and compliance checks.",
+        "Personal preferences affect your user experience, but they do not replace permissions managed by administrators.",
+        "Review your active sessions and tokens regularly if you use OpsFlux across multiple devices."
+      ]
+    },
     "pdf_templates": {
       "count_summary": "{{count}} PDF template(s) configured",
       "seed_defaults": "Initialize default templates",
@@ -3339,6 +3378,17 @@
       "reset": "Reset",
       "saved": "Template saved"
     }
+  },
+  "help_system": {
+    "contextual": "Contextual help",
+    "close": "Close help",
+    "selected_element": "Selected element",
+    "empty": "No help is available for this page.",
+    "description": "Description",
+    "workflows": "Guides",
+    "tips": "Tips",
+    "shortcut_prefix": "Press",
+    "shortcut_suffix": "to show or hide help"
   },
   "notifications": {
     "just_now": "just now",

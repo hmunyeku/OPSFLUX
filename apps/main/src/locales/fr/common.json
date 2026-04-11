@@ -2901,6 +2901,45 @@
     "default_policy": "Politique par défaut"
   },
   "settings": {
+    "help": {
+      "title": "Paramètres",
+      "description": "Centralise la configuration de votre profil, de vos préférences, de votre sécurité et des réglages administrables de l'application.",
+      "profile_title": "Paramètres — Profil",
+      "profile_description": "La section Profil sert à maintenir votre identité, vos coordonnées et vos informations personnelles de référence. Complétez-la en premier pour fiabiliser les workflows, signatures, notifications et contrôles de conformité.",
+      "profile_workflow": {
+        "title": "Configurer son profil",
+        "steps": [
+          "Ouvrez Paramètres puis l’onglet Profil.",
+          "Renseignez votre identité, vos coordonnées, votre poste et vos informations utiles au dossier utilisateur.",
+          "Ajoutez ou mettez à jour vos adresses, emails secondaires et autres moyens de contact si votre organisation les utilise.",
+          "Vérifiez que votre photo, votre langue et vos préférences personnelles sont cohérentes avec votre usage quotidien.",
+          "Enregistrez vos changements puis contrôlez le score ou l’état de complétude si celui-ci est affiché."
+        ]
+      },
+      "notifications_workflow": {
+        "title": "Régler ses notifications",
+        "steps": [
+          "Ouvrez l’onglet Notifications pour choisir les canaux utilisés par événement ou par module.",
+          "Activez uniquement les alertes réellement utiles pour éviter le bruit opérationnel.",
+          "Contrôlez ensuite l’onglet Préférences pour la langue, l’apparence et les comportements personnels.",
+          "Testez vos réglages sur un événement réel ou via une notification connue."
+        ]
+      },
+      "security_workflow": {
+        "title": "Sécuriser son accès",
+        "steps": [
+          "Utilisez l’onglet Mot de passe pour renouveler vos secrets d’accès.",
+          "Contrôlez les Sessions actives et fermez celles qui ne doivent plus rester ouvertes.",
+          "Générez des jetons d’accès uniquement si vous en avez un besoin explicite et limité.",
+          "Révoquez immédiatement tout jeton ou application qui n’est plus nécessaire."
+        ]
+      },
+      "tips": [
+        "Un profil à jour améliore la qualité des signatures, des notifications et des contrôles de conformité.",
+        "Les préférences personnelles agissent sur votre expérience utilisateur, mais ne remplacent pas les droits gérés par l’administrateur.",
+        "Pensez à vérifier régulièrement vos sessions et vos jetons si vous utilisez OpsFlux sur plusieurs appareils."
+      ]
+    },
     "pdf_templates": {
       "count_summary": "{{count}} modèle(s) PDF configuré(s)",
       "seed_defaults": "Initialiser les modèles par défaut",
@@ -3343,6 +3382,17 @@
       "reset": "Réinitialiser",
       "saved": "Modèle enregistré"
     }
+  },
+  "help_system": {
+    "contextual": "Aide contextuelle",
+    "close": "Fermer l'aide",
+    "selected_element": "Élément sélectionné",
+    "empty": "Aucune aide disponible pour cette page.",
+    "description": "Description",
+    "workflows": "Guides",
+    "tips": "Astuces",
+    "shortcut_prefix": "Appuyez sur",
+    "shortcut_suffix": "pour afficher ou masquer l'aide"
   },
   "notifications": {
     "just_now": "maintenant",

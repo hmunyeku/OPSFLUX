@@ -1,14 +1,15 @@
 # Overnight Handoff — 2026-04-11
 
-Travail autonome de la nuit : audit + corrections sur la chaîne **Projects → Planner → Paxlog → TravelWiz** + UX cleanup. Tout est déployé sur https://app.opsflux.io et vérifié en direct via Chrome DevTools.
+Travail autonome de la nuit : audit + corrections sur la chaîne **Projects → Planner → Paxlog → TravelWiz** + UX cleanup + **système de pondération d'avancement projet** (sur ta demande explicite). Tout est déployé sur https://app.opsflux.io et vérifié en direct via Chrome DevTools.
 
 ## TL;DR (1 minute)
 
-- ✅ **6 batches déployés** sur le VPS (commits 537c479 → 7e008e9, plus papyrus en parallèle)
+- ✅ **7 batches déployés** sur le VPS (commits 537c479 → 6aa3095, plus papyrus en parallèle)
 - ✅ **3 bugs runtime résolus** (404 stale projects, 500 packlog articles, scrollbar tab bar)
 - ✅ **8 écarts de spec corrigés** sur les 11 critiques identifiés par l'audit
 - ✅ **Refonte complète du TaskDetailPanel projets** (visuel + fonctionnel)
 - ✅ **Cascade des dépendances** portée du Planner vers le gantt Projets
+- ✅ **Système de pondération d'avancement projet** (sur demande) — 4 méthodes + admin default + WBS roll-up récursif, vérifié bout-en-bout en live
 - ✅ **TypeScript clean** sur tout, build VPS Dokploy OK
 - ⚠️ **3 gros chantiers laissés en TODO** (workflow multi-niveaux, multi-imputation par sous-période, i18n complet Paxlog) — détaillés ci-dessous
 
@@ -47,6 +48,40 @@ La création native d'un projet **exige maintenant** un site/installation. L'imp
 ### 4. Aller-retour sans nuitée — validateur backend
 
 L'`AdsCreate` a un nouveau validator pydantic : si `is_round_trip_no_overnight=true` alors `start_date == end_date` est obligatoire. Sinon 422. Verrouille la sémantique single-day-counting côté serveur.
+
+### 5. Système de pondération d'avancement projet (NOUVEAU)
+
+Le calcul de `Project.progress` n'est plus une moyenne arithmétique simple. Quatre méthodes disponibles :
+
+| Méthode | Formule | Cas d'usage |
+|---|---|---|
+| **`equal`** | moyenne arithmétique | Tâches homogènes (default backward-compat) |
+| **`effort`** ⭐ | pondéré par `estimated_hours` | Standard pragmatique — recommandé |
+| **`duration`** | pondéré par `(due_date − start_date)` jours | Quand pas d'heures saisies mais des dates |
+| **`manual`** | pondéré par `ProjectTask.weight` | Contrôle total chef de projet |
+
+**Hiérarchie de résolution** :
+1. `Project.progress_weight_method` (override par projet)
+2. Setting admin entité `projets.default_progress_weight_method`
+3. Fallback `equal`
+
+**Roll-up WBS récursif** :
+- Tâches feuilles → utilisent leur `progress` saisi manuellement
+- Tâches parents → progress calculé automatiquement = moyenne pondérée des enfants (slider verrouillé en UI)
+- Projet → moyenne pondérée des tâches racines
+
+**Fallback elegance** : si toutes les sous-tâches d'un même groupe ont un poids 0 (ex. mode `effort` mais aucune tâche n'a d'`estimated_hours`), le groupe retombe automatiquement en mode `equal` POUR CE NIVEAU UNIQUEMENT. Aucun projet n'affichera 0% juste parce que les heures estimées sont vides.
+
+**Détection de cycles** dans le graphe parent_id (cache `visited` + set `in_progress`) — protection défensive contre les graphes malformés.
+
+**Où c'est exposé** :
+- `Paramètres → Projets` : nouveau tab admin avec picker de méthode + cards de référence
+- Nouvelle section "Avancement" dans `CreateProjectPanel`
+- Nouvelle section "Calcul d'avancement" dans `ProjectDetailPanel` (collapsible, défaut closed)
+- Champ "Poids" dans `TaskDetailPanel` : visible uniquement quand `project.progress_weight_method === 'manual'` ET tâche feuille
+- Slider de progression `disabled` sur les tâches parents avec badge "(calculé)" et note explicative
+
+**Vérifié bout-en-bout en live** : sur le projet ASP-1 Dewatering Process (133 tâches), bascule de `effort` (73%) à `equal` (79%) → backend recalcule correctement, frontend affiche le nouveau pourcentage. Migration `122_project_progress_weight` appliquée, colonnes `progress_weight_method` et `weight` présentes en BDD.
 
 ---
 
@@ -207,7 +242,12 @@ b4c8b6e  fix(packlog): query settings via (scope, scope_id) + refonte TaskDetail
 33bbf04  feat(projets/gantt): port cascade dependency handler from Planner
 9a941f3  fix(tabs): hide horizontal scrollbar on inner tabs container
 7e008e9  feat(spec): planner recurrence horizon configurable + i18n task planner toggle
+6aa3095  feat(projets): weighted progress system with 4 methods + admin default + WBS roll-up
 ```
+
+**Migrations Alembic ajoutées cette nuit** :
+- `121_add_entity_id_to_article_catalog` — colonne `article_catalog.entity_id` (nullable)
+- `122_project_progress_weight` — colonnes `projects.progress_weight_method` + `project_tasks.weight`
 
 ---
 

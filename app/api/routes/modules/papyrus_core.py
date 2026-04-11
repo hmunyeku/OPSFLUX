@@ -1300,7 +1300,7 @@ async def create_share_link(
     from app.services.modules.papyrus_document_service import create_share_link as svc_create
     body = body or {}
     return await svc_create(
-        document_id=UUID(doc_id),
+        document_id=doc_id,
         entity_id=entity_id,
         expires_days=body.get("expires_days", 30),
         otp_required=body.get("otp_required", False),

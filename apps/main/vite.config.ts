@@ -77,6 +77,17 @@ export default defineConfig({
         // the template accepts it.
         navigateFallback: null as unknown as string,
         runtimeCaching: [
+          // Binary exports/downloads can legitimately take longer than the
+          // short API timeout below. Keep them network-only so Workbox does
+          // not abort with "no-response" during PDF/DOCX generation.
+          {
+            urlPattern: /\/api\/v1\/documents\/[^/]+\/export\/(?:pdf|docx)$/i,
+            handler: 'NetworkOnly',
+          },
+          {
+            urlPattern: /\/api\/v1\/attachments\/[^/]+\/download$/i,
+            handler: 'NetworkOnly',
+          },
           // HTML navigation requests: NetworkFirst with a short timeout.
           // When online, always fetch the freshest index.html from the
           // server; when offline, fall back to the SPA cache.

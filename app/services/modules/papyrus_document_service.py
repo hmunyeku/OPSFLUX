@@ -1890,18 +1890,43 @@ def _count_words(content: dict) -> int:
 
 
 async def _get_tenant_slug(entity_id: UUID, db: AsyncSession) -> str:
-    """Get tenant slug from entity → tenant relationship."""
+    """Get tenant slug with legacy-schema fallbacks."""
     from sqlalchemy import text
-    result = await db.execute(
-        text(
-            "SELECT t.slug FROM tenants t "
-            "JOIN entities e ON e.tenant_id = t.id "
-            "WHERE e.id = :eid"
-        ),
-        {"eid": entity_id},
-    )
-    row = result.first()
-    return row[0].upper() if row else "OPF"
+    from sqlalchemy.exc import ProgrammingError
+
+    try:
+        result = await db.execute(
+            text(
+                "SELECT t.slug FROM tenants t "
+                "JOIN entities e ON e.tenant_id = t.id "
+                "WHERE e.id = :eid"
+            ),
+            {"eid": entity_id},
+        )
+        row = result.first()
+        if row and row[0]:
+            return str(row[0]).upper()
+    except ProgrammingError:
+        await db.rollback()
+
+    fallback_queries = [
+        "SELECT slug FROM entities WHERE id = :eid",
+        "SELECT code FROM entities WHERE id = :eid",
+        "SELECT short_name FROM entities WHERE id = :eid",
+        "SELECT name FROM entities WHERE id = :eid",
+    ]
+    for query in fallback_queries:
+        try:
+            result = await db.execute(text(query), {"eid": entity_id})
+            row = result.first()
+            if row and row[0]:
+                value = str(row[0]).strip()
+                if value:
+                    return value.upper().replace(" ", "_")
+        except ProgrammingError:
+            await db.rollback()
+
+    return "OPF"
 
 
 async def _get_project_code(project_id: UUID, db: AsyncSession) -> str | None:

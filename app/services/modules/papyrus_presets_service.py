@@ -524,8 +524,16 @@ async def instantiate_preset(
         await db.refresh(doc_type)
 
     doc_type_id = doc_type.id
+    doc_type_code = doc_type.code
+    doc_type_name = doc_type.name
     template_id = template.id
+    template_name = template.name
+    template_doc_type_id = template.doc_type_id
+    template_version = template.version
     form_id = form.id if form else None
+    form_name = form.name if form else None
+    form_document_id = form.document_id if form else None
+    form_doc_type_id = form.doc_type_id if form else None
     default_template_id = doc_type.default_template_id
 
     if not form:
@@ -546,8 +554,12 @@ async def instantiate_preset(
             db=db,
         )
         form_id = form.id
+        form_name = form.name
+        form_document_id = form.document_id
+        form_doc_type_id = form.doc_type_id
 
     document = None
+    document_payload = None
     if getattr(body, "create_document", True):
         document_title = (
             getattr(body, "title", None)
@@ -570,6 +582,12 @@ async def instantiate_preset(
             created_by=created_by,
             db=db,
         )
+        document_payload = {
+            "id": str(document.id),
+            "number": document.number,
+            "title": document.title,
+            "doc_type_id": str(document.doc_type_id),
+        }
         revision = await db.get(Revision, document.current_revision_id) if document.current_revision_id else None
         if revision:
             revision.form_data = await _build_field_supervision_prefill(
@@ -583,28 +601,21 @@ async def instantiate_preset(
         "preset": preset,
         "doc_type": {
             "id": str(doc_type_id),
-            "code": doc_type.code,
-            "name": doc_type.name,
+            "code": doc_type_code,
+            "name": doc_type_name,
             "default_template_id": str(default_template_id) if default_template_id else None,
         },
         "template": {
             "id": str(template_id),
-            "name": template.name,
-            "doc_type_id": str(template.doc_type_id) if template.doc_type_id else None,
-            "version": template.version,
+            "name": template_name,
+            "doc_type_id": str(template_doc_type_id) if template_doc_type_id else None,
+            "version": template_version,
         },
         "form": {
             "id": str(form_id),
-            "name": form.name,
-            "document_id": str(form.document_id) if form.document_id else None,
-            "doc_type_id": str(form.doc_type_id) if form.doc_type_id else None,
+            "name": form_name,
+            "document_id": str(form_document_id) if form_document_id else None,
+            "doc_type_id": str(form_doc_type_id) if form_doc_type_id else None,
         },
-        "document": {
-            "id": str(document.id),
-            "number": document.number,
-            "title": document.title,
-            "doc_type_id": str(document.doc_type_id),
-        }
-        if document
-        else None,
+        "document": document_payload,
     }

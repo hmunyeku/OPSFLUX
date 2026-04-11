@@ -54,10 +54,15 @@ export default defineConfig({
         // auto-reloads once and the user sees the new version.
         skipWaiting: true,
         clientsClaim: true,
-        // Offline fallback only — the SPA fallback to index.html is
-        // still honored for offline navigation, but during normal
-        // online usage the network is used first for HTML.
-        navigateFallback: 'index.html',
+        // NO navigateFallback. Setting it to 'index.html' while
+        // index.html is not in globPatterns makes workbox throw
+        // `non-precached-url` at boot — and that exception crashes
+        // the SW BEFORE it can register any runtimeCaching rule, so
+        // EVERY fetch (including our API calls) ends up unhandled and
+        // the browser reports them as CORS failures. The HTML
+        // NetworkFirst rule below handles online navigation; offline
+        // navigation falls back to the html-cache via the rule's
+        // default cached response.
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           // HTML navigation requests: NetworkFirst with a short timeout.

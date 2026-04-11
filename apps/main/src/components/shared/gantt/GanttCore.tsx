@@ -505,6 +505,17 @@ export function GanttCore(props: GanttCoreProps) {
     }
   }, [])
 
+  // When the Plan de charge footer is the ONLY horizontal scrollbar
+  // visible, its scroll drives the body + header instead of the other
+  // way around. The body has `overflow-x-hidden` in that mode, so
+  // scrollLeft can only move programmatically via this handler.
+  const onFooterScroll = useCallback(() => {
+    const f = footerScrollRef.current
+    if (!f) return
+    if (bodyScrollRef.current) bodyScrollRef.current.scrollLeft = f.scrollLeft
+    if (headerScrollRef.current) headerScrollRef.current.scrollLeft = f.scrollLeft
+  }, [])
+
   // ── Tooltip handlers ───────────────────────────────────────────
 
   const showTooltipFor = useCallback((e: React.MouseEvent, bar: GanttBarData) => {
@@ -1397,12 +1408,20 @@ export function GanttCore(props: GanttCoreProps) {
           />
           </div>
 
-          {/* Grid body — drag to pan on empty areas */}
+          {/* Grid body — drag to pan on empty areas.
+              When a `footerRow` is present we hide the body's HORIZONTAL
+              scrollbar so the page only shows ONE horizontal scrollbar
+              (the footer's) — avoids the stacked-scrollbars look the
+              user flagged. The body's scrollLeft is still adjustable
+              programmatically via `onFooterScroll` (footer drives). */}
           <div
             ref={bodyScrollRef}
             data-gantt-body
             data-gantt-body-scroll
-            className="flex-1 overflow-auto cursor-grab active:cursor-grabbing"
+            className={cn(
+              'flex-1 cursor-grab active:cursor-grabbing',
+              footerRow ? 'overflow-x-hidden overflow-y-auto' : 'overflow-auto',
+            )}
             onScroll={onBodyScroll}
             onMouseDown={onDragScroll}
           >
@@ -1534,12 +1553,25 @@ export function GanttCore(props: GanttCoreProps) {
                   const showLabel = hc.label && w >= 28 && rh >= 18
                   // Faint cells when value === 0 (or explicit opacity override)
                   const opacity = hc.opacity ?? (hc.value === 0 ? 0.22 : 1)
-                  // Auto-contrast: pick black or white text based on background luminance
-                  const textColor = textColorForBackground(hc.color)
+                  // Auto-contrast text color.
+                  //
+                  // IMPORTANT: when the cell is rendered `transparent`
+                  // (the `colorless: true` path used by the Total rows),
+                  // `textColorForBackground` can't parse the keyword and
+                  // falls back to white — which is invisible on a light
+                  // theme. In that case we let the text INHERIT the
+                  // foreground color from the surrounding panel (via
+                  // Tailwind `text-foreground`), so it always reads
+                  // correctly regardless of the active theme.
+                  const isTransparent = hc.color === 'transparent'
+                  const textColor = isTransparent ? undefined : textColorForBackground(hc.color)
                   return (
                     <div
                       key={`hm-${rowIdx}-${hc.cellIdx}`}
-                      className="absolute pointer-events-auto z-[5] flex items-center justify-center text-[9px] font-medium tabular-nums"
+                      className={cn(
+                        'absolute pointer-events-auto z-[5] flex items-center justify-center text-[9px] font-medium tabular-nums',
+                        isTransparent && 'text-foreground',
+                      )}
                       style={{
                         left: cellLefts[hc.cellIdx] + 1,
                         width: Math.max(0, w - 2),
@@ -1749,8 +1781,10 @@ export function GanttCore(props: GanttCoreProps) {
             return (
               <div
                 ref={footerScrollRef}
-                className="shrink-0 border-t bg-background overflow-x-auto overflow-y-hidden"
+                className="shrink-0 border-t bg-background overflow-x-auto overflow-y-hidden cursor-grab active:cursor-grabbing"
                 style={{ height: footerRowH }}
+                onScroll={onFooterScroll}
+                onMouseDown={onDragScroll}
               >
                 <div className="relative" style={{ width: totalWidth, height: footerRowH }}>
                   {cellsList.map((hc) => {

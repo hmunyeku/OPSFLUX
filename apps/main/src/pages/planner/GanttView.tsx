@@ -1640,6 +1640,38 @@ export function GanttView({
           }
         }
 
+        // ── Plan de charge row in the PDF ──
+        // The workloadFooter is NOT in the `rows` list (it lives in a
+        // separate prop for sticky-bottom rendering), so we append it
+        // manually here when the feature is enabled. We export it as a
+        // single heatmap row whose per-cell value is the column total
+        // (average daily pax) — the PDF template doesn't understand
+        // stacked bars, but a row of totals is enough to read the
+        // workload at a glance.
+        if (workloadFooter && workloadFooter.heatmapCells && workloadFooter.heatmapCells.length > 0) {
+          const byIdx = new Map<number, typeof workloadFooter.heatmapCells[number]>()
+          for (const hc of workloadFooter.heatmapCells) byIdx.set(hc.cellIdx, hc)
+          const heatmap_cells = cells.map((_c, idx) => {
+            const hc = byIdx.get(idx)
+            return {
+              value: hc?.label ?? '',
+              // Transparent cells map to null so the PDF template
+              // renders them without a fill — matches the "no
+              // coloriage" semantic of the total rows.
+              bg: hc && hc.color !== 'transparent' ? hc.color : null,
+              fg: null,
+            }
+          })
+          pdfRows.push({
+            id: workloadFooter.id,
+            label: workloadFooter.label,
+            sublabel: workloadFooter.sublabel ?? null,
+            level: 0,
+            is_heatmap: true,
+            heatmap_cells,
+          })
+        }
+
         const dateRangeLabel = `${startDate ?? ''} → ${endDate ?? ''}`
         const scaleLabel = (scale ?? 'month').toString()
         const blob = await plannerService.exportGanttPdf({
@@ -1661,7 +1693,7 @@ export function GanttView({
         toast({ title: "Erreur lors de la génération du PDF", variant: 'error' })
       }
     },
-    [startDate, endDate, scale, toast, rows, bars],
+    [startDate, endDate, scale, toast, rows, bars, workloadFooter],
   )
 
   // ── Dependency edit modal state (triggered by double-click on arrow) ──

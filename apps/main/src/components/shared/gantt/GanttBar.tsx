@@ -279,8 +279,11 @@ export function GanttBarComponent({
 
         {/* Bar label — cellLabels takes priority over title.
             cellLabels render one centered label per intersected timeline cell,
-            so the bar shows its PAX values aligned with each day/week/month. */}
-        {showLabels && bar.cellLabels && bar.cellLabels.length > 0 && cellLefts && cellWidths ? (
+            so the bar shows its PAX values aligned with each day/week/month.
+            PAX cell labels are INDEPENDENT of `showLabels` because they
+            carry essential planning data; the `showLabels` toggle only
+            affects the activity title. */}
+        {bar.cellLabels && bar.cellLabels.length > 0 && cellLefts && cellWidths ? (
           <div className="absolute inset-0 pointer-events-none">
             {bar.cellLabels.map((cl) => {
               const cw = cellWidths[cl.cellIdx]

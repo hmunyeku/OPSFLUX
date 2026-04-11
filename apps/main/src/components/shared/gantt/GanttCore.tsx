@@ -1302,6 +1302,11 @@ export function GanttCore(props: GanttCoreProps) {
                     {/* Label */}
                     <div className="truncate min-w-0 flex-1">
                       <span className={cn('font-medium', row.level === 0 && 'font-semibold')}>{row.label}</span>
+                      {row.labelSuffix && (
+                        <span className="ml-1 text-[10px] font-normal text-muted-foreground/70 tabular-nums">
+                          {row.labelSuffix}
+                        </span>
+                      )}
                       {row.sublabel && (
                         <span className="ml-1.5 text-[10px] text-muted-foreground">{row.sublabel}</span>
                       )}
@@ -1337,6 +1342,7 @@ export function GanttCore(props: GanttCoreProps) {
           <div onMouseDown={onDragScroll} className="cursor-grab active:cursor-grabbing">
           <GanttHeader
             ref={headerScrollRef}
+            scale={settings.scale}
             cells={cells}
             headerGroups={headerGroups}
             cellWidths={cellWidths}
@@ -1405,12 +1411,20 @@ export function GanttCore(props: GanttCoreProps) {
               {/* Column separators */}
               {cells.map((c, i) => {
                 const isWeekend = c.startDate.getDay() === 0 || c.startDate.getDay() === 6
+                // On day scale, the FIRST day of each month gets a
+                // stronger left border so the user can spot month
+                // boundaries at a glance. At other scales (week, month,
+                // quarter, semester) the cells already correspond to
+                // those boundaries and an extra line would be redundant.
+                const isMonthBoundary =
+                  settings.scale === 'day' && c.startDate.getDate() === 1
                 return (
                   <div
                     key={c.key}
                     className={cn(
                       'absolute top-0 border-r',
                       isWeekend && settings.showWeekends ? 'border-border/20 bg-muted/10' : 'border-border/10',
+                      isMonthBoundary && 'border-l-2 border-l-border/60',
                     )}
                     style={{ left: cellLefts[i], width: cellWidths[i], height: bodyH }}
                   />

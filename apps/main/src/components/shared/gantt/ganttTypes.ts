@@ -16,6 +16,14 @@ export interface GanttRow {
   id: string
   /** Display label in the left panel */
   label: string
+  /**
+   * Optional suffix rendered AFTER the label in a muted color, so
+   * callers can append side-information (e.g. max POB capacity
+   * "[900]") without it competing visually with the asset name.
+   * Kept as a plain string so the panel's left-column truncation and
+   * accessibility tree still treat it as text.
+   */
+  labelSuffix?: string
   /** Secondary text (e.g., status, assignee) */
   sublabel?: string
   /** Nesting depth (0 = root) */

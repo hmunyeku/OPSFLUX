@@ -513,48 +513,30 @@ export function GanttView({
           }
         }
 
-        // No data at all (no activities AND no capacity) → skip the cell
+        // Nothing at all to draw — no activity AND no capacity entries.
         if (daysCovered === 0 && backendDayCount === 0) return
 
+        // Determine the visual mode for this cell:
+        //   - "capacity-aware" (backendDayCount > 0): normal saturation
+        //     color based on totalPax / totalCap.
+        //   - "neutral"        (backendDayCount === 0): the asset has
+        //     no configured capacity, so we can't compute a meaningful
+        //     saturation. Show a neutral gray background with the pax
+        //     label (if any) instead of painting the row red — that
+        //     was the "chaotique" behaviour the user flagged for rows
+        //     like Rio Del Rey East / West where capacity has never
+        //     been set up in the admin.
+        const capacityAware = backendDayCount > 0
+
         // ── Cell color = AGGREGATE saturation over the cell period ──
-        // Site capacity is always expressed per day (e.g. 100 POB/day). To
-        // color a multi-day cell consistently with that daily unit we must
-        // compare the cell's total pax-days against the cell's total
-        // pax-day capacity — *not* peak-day against daily capacity.
-        //
-        // Previous behaviour used `peakDaySat` (the worst per-asset-per-day
-        // saturation anywhere in the cell). That made the whole month cell
-        // go red as soon as a single day hit capacity, even if the rest of
-        // the month was empty — the user's words: "le heat se mettre
-        // obligatoirement en rouge alors qu'il n'y a pas de sujet".
-        //
-        // New behaviour:
-        //   satForColor = (totalPax / totalCap) * 100
-        //
-        // where totalPax is the sum of pax-day values over the cell
-        // (all contributing assets × all days) and totalCap is the sum of
-        // the same (asset, day) pairs' daily capacity. For a 1-day cell
-        // this degenerates to `dayPax / dayCap` — exactly the legacy day
-        // saturation. For week/month/quarter/semester cells it produces
-        // the "average daily saturation over the cell period", which
-        // matches the average-pax-per-day label and avoids false red.
-        //
-        // Peak-day saturation is preserved as `peakDaySat` and surfaced
-        // in the tooltip so the safety signal (a single dangerous
-        // overshoot day hidden inside an otherwise quiet month) is still
-        // one hover away.
-        let satForColor: number
-        if (totalCap > 0) {
-          satForColor = Math.round((totalPax / totalCap) * 100)
-        } else if (totalPax > 0) {
-          // Pax without configured capacity → treat as overflow (same
-          // semantics as the old per-day fallback in sumActivityPaxForCell).
-          satForColor = 101
-        } else {
-          satForColor = 0
-        }
+        // (Only relevant in capacity-aware mode. In neutral mode we
+        // force a muted gray background instead.)
+        const satForColor =
+          totalCap > 0 ? Math.round((totalPax / totalCap) * 100) : 0
         const peakSatForTooltip = Math.round(peakDaySat)
-        const color = colorForSaturation(satForColor, cfg)
+        const color = capacityAware
+          ? colorForSaturation(satForColor, cfg)
+          : 'rgba(148, 163, 184, 0.18)' // slate-400 @ 18% — quiet neutral
 
         // ── PAX count label: always a PER-DAY average ──
         // Spec clarification (2026-04-11): the number inside each heatmap
@@ -591,22 +573,25 @@ export function GanttView({
         else if (viewPrefs.heatmap_text_mode === 'percentage') label = `${satForColor}%`
         else label = ''
 
-        // Tooltip: surface all four numbers the user cares about:
-        //   1. the label itself (avg daily pax) + the cell span in days
-        //   2. the aggregate saturation that drove the cell color
-        //   3. the peak single-day saturation (safety signal — if any
-        //      individual day spiked over capacity, show it here so the
-        //      overshoot doesn't disappear just because the average looks
-        //      calm)
-        //   4. the raw totals (pax-days, real POB, capacity pax-days)
-        //     so the user can audit the computation.
-        const peakSuffix = peakSatForTooltip > satForColor
-          ? ` · pic quotidien ${peakSatForTooltip}%`
-          : ''
-        const tooltipHTML =
-          `~${avgLabel} pax/jour (moy. ${cellDays}j, ${satForColor}% cap)` +
-          peakSuffix +
-          ` · Σ prév. ${totalPax} pax·jours · pob réel ${totalReal} · cap ${totalCap}`
+        // Tooltip: adapt text depending on whether we have capacity
+        // data. Capacity-aware cells get the full breakdown (avg sat,
+        // peak day, totals). Neutral cells drop the sat % (there isn't
+        // one) and explicitly flag the missing configuration.
+        let tooltipHTML: string
+        if (capacityAware) {
+          const peakSuffix = peakSatForTooltip > satForColor
+            ? ` · pic quotidien ${peakSatForTooltip}%`
+            : ''
+          tooltipHTML =
+            `~${avgLabel} pax/jour (moy. ${cellDays}j, ${satForColor}% cap)` +
+            peakSuffix +
+            ` · Σ prév. ${totalPax} pax·jours · pob réel ${totalReal} · cap ${totalCap}`
+        } else {
+          tooltipHTML =
+            `~${avgLabel} pax/jour (moy. ${cellDays}j)` +
+            ` · Σ prév. ${totalPax} pax·jours` +
+            ` · capacité non configurée`
+        }
 
         result.push({ cellIdx: idx, color, value, label, tooltipHTML })
       })
@@ -650,7 +635,9 @@ export function GanttView({
     }
     // Format "[N]" suffix if the max is non-zero; empty string otherwise
     // so rows without configured capacity don't sprout empty brackets.
-    const capSuffix = (n: number): string => (n > 0 ? ` [${n}]` : '')
+    // The returned string is rendered by GanttCore as `row.labelSuffix`
+    // in a muted color alongside the asset name.
+    const capSuffix = (n: number): string => (n > 0 ? `[${n}]` : '')
 
     const rowList: GanttRow[] = []
     const barList: GanttBarData[] = []
@@ -749,7 +736,8 @@ export function GanttView({
       if (viewPrefs.show_field_rows) {
         rowList.push({
           id: fieldId,
-          label: `${field.name}${capSuffix(maxCapForAssets(fieldAssetIds))}`,
+          label: field.name,
+          labelSuffix: capSuffix(maxCapForAssets(fieldAssetIds)),
           sublabel: `${field.sites.length} site${field.sites.length > 1 ? 's' : ''}`,
           level: 0,
           hasChildren: viewPrefs.show_site_rows || viewPrefs.show_installation_rows || viewPrefs.show_activity_rows,
@@ -770,7 +758,8 @@ export function GanttView({
         if (viewPrefs.show_site_rows) {
           rowList.push({
             id: siteId,
-            label: `${site.name}${capSuffix(maxCapForAssets(siteAssetIds))}`,
+            label: site.name,
+            labelSuffix: capSuffix(maxCapForAssets(siteAssetIds)),
             sublabel: `${site.installations.length} install.`,
             level: viewPrefs.show_field_rows ? 1 : 0,
             hasChildren: viewPrefs.show_installation_rows || viewPrefs.show_activity_rows,
@@ -799,7 +788,8 @@ export function GanttView({
             else if (!viewPrefs.show_field_rows || !viewPrefs.show_site_rows) lvl = 1
             rowList.push({
               id: installId,
-              label: `${inst.name}${capSuffix(maxCapForInst(inst.id))}`,
+              label: inst.name,
+              labelSuffix: capSuffix(maxCapForInst(inst.id)),
               sublabel: matchingCount > 0
                 ? `${matchingCount} activité${matchingCount > 1 ? 's' : ''}`
                 : '—',

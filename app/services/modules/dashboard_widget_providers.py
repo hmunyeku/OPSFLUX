@@ -1137,6 +1137,178 @@ async def provider_tiers_recent(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  PackLog — module-contextual providers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def provider_packlog_overview(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    requests = await db.execute(text("""
+        SELECT
+            COUNT(*) AS total_requests,
+            COUNT(*) FILTER (WHERE status IN ('draft', 'submitted', 'approved', 'assigned', 'in_progress')) AS active_requests,
+            COUNT(*) FILTER (WHERE COALESCE(is_ready_for_submission, FALSE) = FALSE) AS blocked_requests,
+            COALESCE(SUM(cargo_count), 0) AS cargo_count
+        FROM cargo_requests
+        WHERE entity_id = :eid AND active = TRUE
+    """), {"eid": str(entity_id)})
+    request_row = requests.mappings().first() or {}
+
+    cargo = await db.execute(text("""
+        SELECT
+            COALESCE(SUM(weight_kg), 0) AS total_weight_kg,
+            COUNT(*) FILTER (WHERE status IN ('loaded', 'in_transit')) AS in_motion,
+            COUNT(*) FILTER (WHERE status IN ('damaged', 'missing')) AS incidents
+        FROM cargo_items
+        WHERE entity_id = :eid AND active = TRUE
+    """), {"eid": str(entity_id)})
+    cargo_row = cargo.mappings().first() or {}
+
+    return {
+        "value": request_row.get("total_requests", 0),
+        "label": "Demandes d'expédition",
+        "unit": "demandes",
+        "details": {
+            "active_requests": request_row.get("active_requests", 0),
+            "blocked_requests": request_row.get("blocked_requests", 0),
+            "cargo_count": request_row.get("cargo_count", 0),
+            "total_weight_kg": float(cargo_row.get("total_weight_kg", 0) or 0),
+            "in_motion": cargo_row.get("in_motion", 0),
+            "incidents": cargo_row.get("incidents", 0),
+        },
+    }
+
+
+async def provider_packlog_requests_by_status(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    r = await db.execute(text("""
+        SELECT status AS name, COUNT(*) AS value
+        FROM cargo_requests
+        WHERE entity_id = :eid AND active = TRUE
+        GROUP BY status ORDER BY value DESC
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()]}
+
+
+async def provider_packlog_cargo_by_status(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    r = await db.execute(text("""
+        SELECT status AS name, COUNT(*) AS value
+        FROM cargo_items
+        WHERE entity_id = :eid AND active = TRUE
+        GROUP BY status ORDER BY value DESC
+    """), {"eid": str(entity_id)})
+    return {"data": [dict(row) for row in r.mappings().all()]}
+
+
+async def provider_packlog_tracking(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    r = await db.execute(text("""
+        SELECT
+            ci.tracking_code,
+            ci.description,
+            ci.status,
+            ci.voyage_code,
+            COALESCE(ci.destination_name, ci.receiver_name) AS destination_name,
+            COALESCE(ci.received_at, ci.created_at) AS updated_at
+        FROM cargo_items ci
+        WHERE ci.entity_id = :eid AND ci.active = TRUE
+        ORDER BY COALESCE(ci.received_at, ci.created_at) DESC
+        LIMIT 12
+    """), {"eid": str(entity_id)})
+    return {
+        "columns": [
+            {"key": "tracking_code", "label": "Tracking"},
+            {"key": "description", "label": "Description"},
+            {"key": "status", "label": "Statut"},
+            {"key": "voyage_code", "label": "Voyage"},
+            {"key": "destination_name", "label": "Destination"},
+        ],
+        "rows": [dict(row) for row in r.mappings().all()],
+    }
+
+
+async def provider_packlog_alerts(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    r = await db.execute(text("""
+        SELECT *
+        FROM (
+            SELECT
+                'request' AS item_type,
+                cr.request_code AS reference,
+                cr.title AS label,
+                CASE
+                    WHEN COALESCE(cr.is_ready_for_submission, FALSE) = FALSE THEN 'Dossier incomplet'
+                    WHEN cr.status = 'submitted' AND cr.created_at < NOW() - INTERVAL '2 days' THEN 'Soumis sans suite'
+                    ELSE NULL
+                END AS alert
+            FROM cargo_requests cr
+            WHERE cr.entity_id = :eid AND cr.active = TRUE
+
+            UNION ALL
+
+            SELECT
+                'cargo' AS item_type,
+                ci.tracking_code AS reference,
+                ci.description AS label,
+                CASE
+                    WHEN ci.status = 'missing' THEN 'Colis manquant'
+                    WHEN ci.status = 'damaged' THEN 'Colis endommagé'
+                    WHEN ci.status IN ('registered', 'ready') AND ci.created_at < NOW() - INTERVAL '5 days' THEN 'Retard de traitement'
+                    ELSE NULL
+                END AS alert
+            FROM cargo_items ci
+            WHERE ci.entity_id = :eid AND ci.active = TRUE
+        ) alerts
+        WHERE alert IS NOT NULL
+        LIMIT 15
+    """), {"eid": str(entity_id)})
+    return {
+        "columns": [
+            {"key": "reference", "label": "Référence"},
+            {"key": "label", "label": "Objet"},
+            {"key": "alert", "label": "Alerte"},
+            {"key": "item_type", "label": "Type"},
+        ],
+        "rows": [dict(row) for row in r.mappings().all()],
+    }
+
+
+async def provider_packlog_catalog_overview(
+    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
+    user: Any, db: AsyncSession,
+) -> dict:
+    r = await db.execute(text("""
+        SELECT
+            COUNT(*) AS total_articles,
+            COUNT(*) FILTER (WHERE COALESCE(active, TRUE) = TRUE) AS active_articles,
+            COUNT(*) FILTER (WHERE is_hazmat = TRUE) AS hazmat_articles
+        FROM article_catalog
+        WHERE entity_id = :eid
+    """), {"eid": str(entity_id)})
+    row = r.mappings().first() or {}
+    return {
+        "value": row.get("total_articles", 0),
+        "label": "Articles SAP",
+        "unit": "articles",
+        "details": {
+            "active_articles": row.get("active_articles", 0),
+            "hazmat_articles": row.get("hazmat_articles", 0),
+        },
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Registration
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1288,7 +1460,6 @@ async def provider_users_orphans(
         ],
         "rows": [dict(row) for row in r.mappings().all()],
     }
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Support Module Providers
@@ -1870,6 +2041,13 @@ _PROVIDER_MAP: dict[str, Any] = {
     "users_recent_activity": provider_users_recent_activity,
     "users_mfa_stats": provider_users_mfa_stats,
     "users_orphans": provider_users_orphans,
+    # ── PackLog module ──
+    "packlog_overview": provider_packlog_overview,
+    "packlog_requests_by_status": provider_packlog_requests_by_status,
+    "packlog_cargo_by_status": provider_packlog_cargo_by_status,
+    "packlog_tracking": provider_packlog_tracking,
+    "packlog_alerts": provider_packlog_alerts,
+    "packlog_catalog_overview": provider_packlog_catalog_overview,
     # ── Support module ──
     "support_overview": provider_support_overview,
     "support_tickets_recent": provider_support_tickets_recent,

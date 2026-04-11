@@ -321,6 +321,49 @@ PREDEFINED_WIDGETS: dict[str, dict[str, Any]] = {
         "source": "users",
         "roles": ["*"],
     },
+    # ── PackLog module ──
+    "packlog_overview": {
+        "type": "kpi",
+        "title": "Vue d'ensemble PackLog",
+        "description": "Demandes, colis, poids total et blocages",
+        "source": "packlog",
+        "roles": ["*"],
+    },
+    "packlog_requests_by_status": {
+        "type": "chart",
+        "title": "Demandes par statut",
+        "description": "Répartition des demandes d'expédition",
+        "source": "packlog",
+        "roles": ["*"],
+    },
+    "packlog_cargo_by_status": {
+        "type": "chart",
+        "title": "Colis par statut",
+        "description": "Répartition logistique des colis",
+        "source": "packlog",
+        "roles": ["*"],
+    },
+    "packlog_tracking": {
+        "type": "table",
+        "title": "Tracking récent",
+        "description": "Derniers colis et événements de suivi",
+        "source": "packlog",
+        "roles": ["*"],
+    },
+    "packlog_alerts": {
+        "type": "table",
+        "title": "Alertes PackLog",
+        "description": "Retards, pertes, avaries et dossiers incomplets",
+        "source": "packlog",
+        "roles": ["*"],
+    },
+    "packlog_catalog_overview": {
+        "type": "kpi",
+        "title": "Catalogue SAP",
+        "description": "Articles SAP et matières dangereuses",
+        "source": "packlog",
+        "roles": ["*"],
+    },
     # ── Support module ──
     "support_overview": {
         "type": "kpi",

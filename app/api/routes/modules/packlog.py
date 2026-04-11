@@ -6,9 +6,10 @@ remaining compatible with legacy TravelWiz permissions during the migration.
 
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_any_permission, require_module_enabled
@@ -62,6 +63,12 @@ from app.api.routes.modules.packlog_shared import (
     update_cargo_workflow_status_impl,
     update_package_element_disposition_impl,
     update_package_element_return_impl,
+)
+from app.services.modules.travelwiz_service import (
+    create_article_catalog_entry,
+    get_article_catalog_entry,
+    import_article_catalog_csv,
+    list_article_catalog,
 )
 
 router = APIRouter(prefix="/api/v1/packlog", tags=["packlog"], dependencies=[require_module_enabled("packlog")])
@@ -512,3 +519,87 @@ async def sap_match(
     db: AsyncSession = Depends(get_db),
 ):
     return await sap_match_impl(description=description, entity_id=entity_id, db=db)
+
+
+@router.get("/articles")
+async def list_articles(
+    search: str | None = None,
+    sap_code: str | None = None,
+    management_type: str | None = None,
+    is_hazmat: bool | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = PACKLOG_READ,
+    db: AsyncSession = Depends(get_db),
+):
+    return await list_article_catalog(
+        db,
+        entity_id=entity_id,
+        search=search,
+        sap_code=sap_code,
+        management_type=management_type,
+        is_hazmat=is_hazmat,
+    )
+
+
+@router.get("/articles/{article_id}")
+async def get_article(
+    article_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = PACKLOG_READ,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    article = await get_article_catalog_entry(
+        db,
+        entity_id=entity_id,
+        article_id=article_id,
+    )
+    if not article:
+        raise HTTPException(status_code=404, detail="Article introuvable")
+    return article
+
+
+@router.post("/articles", status_code=201)
+async def create_article(
+    sap_code: str,
+    description: str,
+    management_type: str = "standard",
+    unit: str = "EA",
+    is_hazmat: bool = False,
+    hazmat_class: str | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = PACKLOG_CREATE,
+    db: AsyncSession = Depends(get_db),
+):
+    return await create_article_catalog_entry(
+        db,
+        entity_id=entity_id,
+        sap_code=sap_code,
+        description=description,
+        management_type=management_type,
+        unit=unit,
+        is_hazmat=is_hazmat,
+        hazmat_class=hazmat_class,
+    )
+
+
+@router.post("/articles/import-csv")
+async def import_articles_csv(
+    file: UploadFile = File(...),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = PACKLOG_CREATE,
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        raw_bytes = await file.read()
+        return await import_article_catalog_csv(
+            db,
+            entity_id=entity_id,
+            filename=file.filename,
+            raw_bytes=raw_bytes,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc

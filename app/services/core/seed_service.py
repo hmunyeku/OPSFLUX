@@ -794,6 +794,33 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
                              {"x": 0, "y": 6, "w": 12, "h": 5}),
             ],
         },
+        # PackLog module dashboard
+        {
+            "name": "PackLog",
+            "target_role": None,
+            "target_module": "packlog",
+            "tab_order": 0,
+            "widgets": [
+                _make_widget("packlog_overview", "Vue d'ensemble",
+                             {"source": "packlog"},
+                             {"x": 0, "y": 0, "w": 3, "h": 2}),
+                _make_widget("packlog_catalog_overview", "Catalogue SAP",
+                             {"source": "packlog"},
+                             {"x": 3, "y": 0, "w": 3, "h": 2}),
+                _make_widget("packlog_requests_by_status", "Demandes par statut",
+                             {"source": "packlog", "chart_type": "pie", "x_field": "name", "y_fields": ["value"]},
+                             {"x": 6, "y": 0, "w": 3, "h": 4}),
+                _make_widget("packlog_cargo_by_status", "Colis par statut",
+                             {"source": "packlog", "chart_type": "bar", "x_field": "name", "y_fields": ["value"]},
+                             {"x": 9, "y": 0, "w": 3, "h": 4}),
+                _make_widget("packlog_tracking", "Tracking récent",
+                             {"source": "packlog"},
+                             {"x": 0, "y": 2, "w": 7, "h": 5}),
+                _make_widget("packlog_alerts", "Alertes",
+                             {"source": "packlog"},
+                             {"x": 7, "y": 4, "w": 5, "h": 4}),
+            ],
+        },
         # Projets module dashboard
         {
             "name": "Projets",

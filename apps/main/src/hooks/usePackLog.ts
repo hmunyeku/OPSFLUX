@@ -12,6 +12,7 @@ import type {
   PackageElementDispositionUpdate,
   PackageElementReturnUpdate,
   PaginationParams,
+  TravelArticleCreate,
 } from '@/types/api'
 
 async function openPdfBlob(loader: () => Promise<Blob>) {
@@ -39,6 +40,14 @@ export function usePackLogCargoRequest(id: string | undefined) {
   return useQuery({
     queryKey: ['packlog', 'cargo-requests', id],
     queryFn: () => packlogService.getCargoRequest(id!),
+    enabled: !!id,
+  })
+}
+
+export function usePackLogArticle(id: string | undefined) {
+  return useQuery({
+    queryKey: ['packlog', 'articles', id],
+    queryFn: () => packlogService.getArticle(id!),
     enabled: !!id,
   })
 }
@@ -224,6 +233,54 @@ export function useUpdatePackLogPackageElementDisposition() {
   })
 }
 
+export function usePackLogSapMatch() {
+  return useMutation({
+    mutationFn: (description: string) => packlogService.sapMatch(description),
+  })
+}
+
+export function usePackLogArticles(params: PaginationParams & {
+  search?: string; sap_code?: string; management_type?: string; is_hazmat?: boolean;
+} = {}) {
+  return useQuery({
+    queryKey: ['packlog', 'articles', params],
+    queryFn: () => packlogService.listArticles(params),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useCreatePackLogArticle() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: TravelArticleCreate) => packlogService.createArticle(payload),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['packlog', 'articles'] }) },
+  })
+}
+
+export function useImportPackLogArticlesCsv() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => packlogService.importArticlesCsv(file),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['packlog', 'articles'] }) },
+  })
+}
+
+export function usePackLogPublicCargoTracking(trackingCode: string | undefined) {
+  return useQuery({
+    queryKey: ['packlog', 'tracking', 'cargo', trackingCode],
+    queryFn: () => packlogService.getPublicCargoTracking(trackingCode!),
+    enabled: !!trackingCode,
+  })
+}
+
+export function usePackLogPublicVoyageTracking(voyageCode: string | undefined) {
+  return useQuery({
+    queryKey: ['packlog', 'tracking', 'voyage', voyageCode],
+    queryFn: () => packlogService.getPublicVoyageCargoTracking(voyageCode!),
+    enabled: !!voyageCode,
+  })
+}
+
 // Backward-compatible aliases while shared cargo panels are extracted from TravelWiz.
 export const useCargoRequests = usePackLogCargoRequests
 export const useCargoRequest = usePackLogCargoRequest
@@ -245,3 +302,7 @@ export const usePackageElements = usePackLogPackageElements
 export const useUpdatePackageElementReturn = useUpdatePackLogPackageElementReturn
 export const useUpdatePackageElementDisposition = useUpdatePackLogPackageElementDisposition
 export const useCargoHistory = usePackLogCargoHistory
+export const useSapMatch = usePackLogSapMatch
+export const useArticles = usePackLogArticles
+export const useCreateArticle = useCreatePackLogArticle
+export const useImportArticlesCsv = useImportPackLogArticlesCsv

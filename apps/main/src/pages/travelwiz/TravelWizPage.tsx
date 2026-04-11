@@ -1,16 +1,16 @@
 /**
- * TravelWiz page — Dashboard, Voyages, Manifestes PAX, Cargo, Vecteurs, Articles.
+ * TravelWiz page — Dashboard, Voyages, Manifestes PAX, Cargo, Vecteurs.
  *
  * Static Panel: tab bar + DataTable per tab.
  * Dynamic Panel: create/detail forms per entity.
  */
-import { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext, Component, type ReactNode, type ErrorInfo } from 'react'
+import { useState, useEffect, useCallback, useMemo, Component, type ReactNode, type ErrorInfo } from 'react'
 import {
   Plane, Ship, Package, FileText, Plus, LayoutDashboard,
   Anchor, Truck, Users, ArrowRight, Calendar, Weight,
   Loader2, Pencil, Trash2, Save, MapPin, AlertTriangle,
-  Bell, CheckCircle2, XCircle, Box, CloudSun, Route,
-  BarChart3, Search, Undo2, Boxes, Map as MapIcon,
+  Bell, CheckCircle2, XCircle, CloudSun, Route,
+  BarChart3, Search, Undo2, Map as MapIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
@@ -69,32 +69,9 @@ import {
   useUpdateVector,
   useDeleteVector,
   useVectorZones,
-  useCargo,
-  useCargoRequests,
-  useCargoRequest,
-  useCargoRequestLtPdf,
-  useCargoRequestLoadingOptions,
-  useCreateCargoRequest,
-  useCargoItem,
-  useCreateCargo,
-  useUpdateCargo,
-  useUpdateCargoStatus,
-  useUpdateCargoRequest,
-  useApplyCargoRequestLoadingOption,
-  useCargoAttachmentEvidence,
-  useUpdateCargoWorkflowStatus,
-  useUpdateCargoAttachmentEvidence,
-  useInitiateCargoReturn,
-  usePackageElements,
-  useUpdatePackageElementDisposition,
-  useUpdatePackageElementReturn,
-  useCargoHistory,
   useSapMatch,
   useAllManifests,
   useValidateManifest,
-  useArticles,
-  useCreateArticle,
-  useImportArticlesCsv,
   useTripsToday,
   useFleetKpis,
   usePickupRounds,
@@ -105,190 +82,80 @@ import {
   useCreateRotation,
   useUpdateRotation,
 } from '@/hooks/useTravelWiz'
-import {
-  useCargoRequests as usePackLogCargoRequests,
-  useCargoRequest as usePackLogCargoRequest,
-  useCargoRequestLtPdf as usePackLogCargoRequestLtPdf,
-  useCargoRequestLoadingOptions as usePackLogCargoRequestLoadingOptions,
-  useCreateCargoRequest as useCreatePackLogCargoRequest,
-  useCargo as usePackLogCargo,
-  useCargoItem as usePackLogCargoItem,
-  useCreateCargo as useCreatePackLogCargo,
-  useUpdateCargo as useUpdatePackLogCargo,
-  useUpdateCargoStatus as useUpdatePackLogCargoStatus,
-  useUpdateCargoRequest as useUpdatePackLogCargoRequest,
-  useCargoAttachmentEvidence as usePackLogCargoAttachmentEvidence,
-  useUpdateCargoWorkflowStatus as useUpdatePackLogCargoWorkflowStatus,
-  useUpdateCargoAttachmentEvidence as useUpdatePackLogCargoAttachmentEvidence,
-  useInitiateCargoReturn as useInitiatePackLogCargoReturn,
-  usePackageElements as usePackLogPackageElements,
-  useUpdatePackageElementDisposition as useUpdatePackLogPackageElementDisposition,
-  useUpdatePackageElementReturn as useUpdatePackLogPackageElementReturn,
-  useCargoHistory as usePackLogCargoHistory,
-} from '@/hooks/usePackLog'
-import { useApplyPackLogCargoRequestLoadingOption } from '@/hooks/usePackLog'
 import { usePermission } from '@/hooks/usePermission'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { FleetMap } from '@/components/travelwiz/FleetMap'
+import { CreateArticlePanel } from '@/pages/packlog/PackLogArticlePanels'
+import {
+  CargoWorkspaceProvider,
+  useCargoWorkspace,
+  useCargoDictionaryCategory,
+  useWorkspaceApplyCargoRequestLoadingOption,
+  useWorkspaceCargo,
+  useWorkspaceCargoAttachmentEvidence,
+  useWorkspaceCargoHistory,
+  useWorkspaceCargoItem,
+  useWorkspaceCargoRequest,
+  useWorkspaceCargoRequestLoadingOptions,
+  useWorkspaceCargoRequestLtPdf,
+  useWorkspaceCargoRequests,
+  useWorkspaceCreateCargo,
+  useWorkspaceCreateCargoRequest,
+  useWorkspaceInitiateCargoReturn,
+  useWorkspacePackageElements,
+  useWorkspaceUpdateCargo,
+  useWorkspaceUpdateCargoAttachmentEvidence,
+  useWorkspaceUpdateCargoRequest,
+  useWorkspaceUpdateCargoStatus,
+  useWorkspaceUpdateCargoWorkflowStatus,
+  useWorkspaceUpdatePackageElementDisposition,
+  useWorkspaceUpdatePackageElementReturn,
+} from '@/pages/packlog/packlogWorkspace'
+import {
+  assessCargoReadiness,
+  buildPickupMapEmbedUrl,
+  buildPickupMapUrl,
+  CargoBackReturnSection,
+  CargoEvidenceQualificationSection,
+  CargoFilesSection,
+  CargoHistorySection,
+  CargoLocationSection,
+  CargoPackageElementsSection,
+  CargoReadinessSection,
+  CargoReturnSummarySection,
+  CARGO_READINESS_LABELS,
+  getRequiredCargoEvidenceTypes,
+  type CargoReturnDraft,
+  type PackageElementReturnDraft,
+} from '@/pages/packlog/PackLogCargoDetailSections'
 import type {
   VoyageCreate, VoyageUpdate,
   TravelVectorCreate, TravelVectorUpdate,
-  CargoAttachmentEvidence, CargoItem, CargoItemCreate, CargoItemUpdate,
+  CargoItem, CargoItemCreate, CargoItemUpdate,
   PackageElement,
   PackageElementDispositionUpdate,
   PackageElementReturnUpdate,
   CargoRequestCreate, CargoRequestUpdate,
   RotationCreate, RotationUpdate,
-  TravelArticleCreate,
 } from '@/types/api'
 
 // ── Tab definitions ───────────────────────────────────────────
 
-type TravelWizTab = 'dashboard' | 'voyages' | 'manifests' | 'vectors' | 'articles' | 'fleet_map' | 'pickup' | 'weather'
+type TravelWizTab = 'dashboard' | 'voyages' | 'manifests' | 'vectors' | 'fleet_map' | 'pickup' | 'weather'
 
 const TABS: { id: TravelWizTab; label: string; icon: typeof Plane }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'voyages', label: 'Voyages', icon: Plane },
   { id: 'manifests', label: 'Manifestes PAX', icon: FileText },
   { id: 'vectors', label: 'Vecteurs', icon: Ship },
-  { id: 'articles', label: 'Articles', icon: Boxes },
   { id: 'fleet_map', label: 'Carte flotte', icon: MapIcon },
   { id: 'pickup', label: 'Ramassage', icon: Route },
   { id: 'weather', label: 'Météo', icon: CloudSun },
 ]
 
-type CargoWorkspaceModule = 'travelwiz' | 'packlog'
 
-const CargoWorkspaceContext = createContext<{ panelModule: CargoWorkspaceModule; moduleLabel: string; queryNamespace: 'travelwiz' | 'packlog' }>({
-  panelModule: 'travelwiz',
-  moduleLabel: 'TravelWiz',
-  queryNamespace: 'travelwiz',
-})
 
-export function CargoWorkspaceProvider({
-  module,
-  label,
-  children,
-}: {
-  module: CargoWorkspaceModule
-  label: string
-  children: ReactNode
-}) {
-  return (
-    <CargoWorkspaceContext.Provider value={{ panelModule: module, moduleLabel: label, queryNamespace: module === 'packlog' ? 'packlog' : 'travelwiz' }}>
-      {children}
-    </CargoWorkspaceContext.Provider>
-  )
-}
 
-function useCargoWorkspace() {
-  return useContext(CargoWorkspaceContext)
-}
-
-function useWorkspaceCargoRequests(params: Parameters<typeof useCargoRequests>[0]) {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogCargoRequests(params) : useCargoRequests(params)
-}
-
-function useWorkspaceCargoRequest(id: string | undefined) {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogCargoRequest(id) : useCargoRequest(id)
-}
-
-function useWorkspaceCargoRequestLtPdf() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogCargoRequestLtPdf() : useCargoRequestLtPdf()
-}
-
-function useWorkspaceCargoRequestLoadingOptions(id: string | undefined) {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogCargoRequestLoadingOptions(id) : useCargoRequestLoadingOptions(id)
-}
-
-function useWorkspaceCreateCargoRequest() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useCreatePackLogCargoRequest() : useCreateCargoRequest()
-}
-
-function useWorkspaceUpdateCargoRequest() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useUpdatePackLogCargoRequest() : useUpdateCargoRequest()
-}
-
-function useWorkspaceApplyCargoRequestLoadingOption() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useApplyPackLogCargoRequestLoadingOption() : useApplyCargoRequestLoadingOption()
-}
-
-function useWorkspaceCargo(params: Parameters<typeof useCargo>[0]) {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogCargo(params) : useCargo(params)
-}
-
-function useWorkspaceCargoItem(id: string | undefined) {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogCargoItem(id) : useCargoItem(id)
-}
-
-function useWorkspaceCreateCargo() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useCreatePackLogCargo() : useCreateCargo()
-}
-
-function useWorkspaceUpdateCargo() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useUpdatePackLogCargo() : useUpdateCargo()
-}
-
-function useWorkspaceUpdateCargoStatus() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useUpdatePackLogCargoStatus() : useUpdateCargoStatus()
-}
-
-function useWorkspaceUpdateCargoWorkflowStatus() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useUpdatePackLogCargoWorkflowStatus() : useUpdateCargoWorkflowStatus()
-}
-
-function useWorkspaceCargoAttachmentEvidence(id: string | undefined) {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogCargoAttachmentEvidence(id) : useCargoAttachmentEvidence(id)
-}
-
-function useWorkspaceUpdateCargoAttachmentEvidence() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useUpdatePackLogCargoAttachmentEvidence() : useUpdateCargoAttachmentEvidence()
-}
-
-function useWorkspaceInitiateCargoReturn() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useInitiatePackLogCargoReturn() : useInitiateCargoReturn()
-}
-
-function useWorkspacePackageElements(id: string | undefined) {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogPackageElements(id) : usePackageElements(id)
-}
-
-function useWorkspaceUpdatePackageElementReturn() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useUpdatePackLogPackageElementReturn() : useUpdatePackageElementReturn()
-}
-
-function useWorkspaceUpdatePackageElementDisposition() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useUpdatePackLogPackageElementDisposition() : useUpdatePackageElementDisposition()
-}
-
-function useWorkspaceCargoHistory(id: string | undefined) {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogCargoHistory(id) : useCargoHistory(id)
-}
-
-function useCargoDictionaryCategory(suffix: string) {
-  const { queryNamespace } = useCargoWorkspace()
-  return `${queryNamespace === 'packlog' ? 'packlog' : 'travelwiz'}_${suffix}`
-}
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -379,13 +246,6 @@ const CARGO_STATUS_BADGES: Record<string, string> = {
   missing: 'gl-badge-danger',
 }
 
-const PACKAGE_DISPOSITION_VALUES: PackageElementDispositionUpdate['return_status'][] = [
-  'returned',
-  'reintegrated',
-  'scrapped',
-  'yard_storage',
-]
-
 // ── Helpers ───────────────────────────────────────────────────
 
 function StatusBadge({ status, labels, badges }: { status: string; labels: Record<string, string>; badges: Record<string, string> }) {
@@ -404,23 +264,6 @@ function formatDateShort(d: string | null | undefined) {
 function formatDateTime(d: string | null | undefined) {
   if (!d) return '—'
   return new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-}
-
-function buildPickupMapUrl(latitude: number | null | undefined, longitude: number | null | undefined) {
-  if (latitude == null || longitude == null) return null
-  return `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=16/${latitude}/${longitude}`
-}
-
-function buildPickupMapEmbedUrl(latitude: number | null | undefined, longitude: number | null | undefined) {
-  if (latitude == null || longitude == null) return null
-  const delta = 0.008
-  const bbox = [
-    longitude - delta,
-    latitude - delta,
-    longitude + delta,
-    latitude + delta,
-  ].join('%2C')
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitude}%2C${longitude}`
 }
 
 function buildStatusOptions(labels: Record<string, string>, values: string[]) {
@@ -844,600 +687,6 @@ function VoyagesTab() {
   )
 }
 
-const CARGO_READINESS_LABELS: Record<string, string> = {
-  description: 'Description',
-  designation: 'Désignation',
-  weight_kg: 'Poids',
-  destination_asset_id: 'Installation de destination',
-  pickup_location_label: 'Lieu d’enlèvement',
-  pickup_contact: 'Contact d’enlèvement',
-  available_from: 'Date de mise à disposition',
-  imputation_reference_id: 'Imputation',
-  cargo_photo: 'Photo du colis',
-  weight_ticket: 'Ticket de pesée',
-  transport_document: 'Document de transport',
-  hazmat_document: 'Document HAZMAT',
-  lifting_certificate: 'Certification levage',
-  hazmat_validated: 'Validation HAZMAT',
-  lifting_points_certified: 'Certification des oreilles de levage',
-}
-
-function getRequiredCargoEvidenceTypes(cargoType: string): CargoAttachmentEvidence['evidence_type'][] {
-  const required: CargoAttachmentEvidence['evidence_type'][] = ['cargo_photo', 'weight_ticket', 'transport_document']
-  if (['unit', 'bulk', 'hazmat'].includes(cargoType)) required.push('lifting_certificate')
-  if (cargoType === 'hazmat') required.push('hazmat_document')
-  return required
-}
-
-function assessCargoReadiness(cargo: CargoItem): string[] {
-  const missing: string[] = []
-  if (!cargo.description) missing.push('description')
-  if (!cargo.designation) missing.push('designation')
-  if (!cargo.weight_kg) missing.push('weight_kg')
-  if (!cargo.destination_asset_id) missing.push('destination_asset_id')
-  if (!cargo.pickup_location_label) missing.push('pickup_location_label')
-  if (!(cargo.pickup_contact_user_id || cargo.pickup_contact_tier_contact_id || cargo.pickup_contact_name)) {
-    missing.push('pickup_contact')
-  }
-  if (!cargo.available_from) missing.push('available_from')
-  if (!cargo.imputation_reference_id) missing.push('imputation_reference_id')
-  if (cargo.cargo_type === 'hazmat' && !cargo.hazmat_validated) missing.push('hazmat_validated')
-  if (['unit', 'bulk', 'hazmat'].includes(cargo.cargo_type) && !cargo.lifting_points_certified) {
-    missing.push('lifting_points_certified')
-  }
-  return missing
-}
-
-function CargoReadinessSection({
-  missingRequirements,
-  workflowBlockingItems,
-}: {
-  missingRequirements: string[]
-  workflowBlockingItems: string[]
-}) {
-  const displayedItems = workflowBlockingItems.length > 0 ? workflowBlockingItems : missingRequirements
-  return (
-    <FormSection title="Complétude du dossier" collapsible defaultExpanded>
-      <div className="space-y-2">
-        <div className={cn(
-          'rounded-lg border px-3 py-2 text-xs',
-          missingRequirements.length === 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-900',
-        )}>
-          {missingRequirements.length === 0
-            ? 'Le dossier cargo contient les éléments minimums pour passer en revue/validation.'
-            : `${missingRequirements.length} élément(s) bloquant(s) restent à compléter.`}
-        </div>
-        {displayedItems.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {displayedItems.map((item) => (
-              <div key={item} className="rounded-lg border border-border/60 bg-card px-3 py-2 text-xs text-muted-foreground">
-                {CARGO_READINESS_LABELS[item] ?? item}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </FormSection>
-  )
-}
-
-function CargoLocationSection({
-  pickupLocationLabel,
-  pickupCoordinatesLabel,
-  pickupMapUrl,
-  pickupMapEmbedUrl,
-}: {
-  pickupLocationLabel: string | null | undefined
-  pickupCoordinatesLabel: string
-  pickupMapUrl: string | null
-  pickupMapEmbedUrl: string | null
-}) {
-  return (
-    <FormSection title="Localisation d’enlèvement" collapsible defaultExpanded>
-      <div className="space-y-2">
-        <DetailRow label="Lieu" value={pickupLocationLabel ?? '—'} />
-        <DetailRow label="Coordonnées" value={pickupCoordinatesLabel} />
-        {pickupMapEmbedUrl ? (
-          <div className="space-y-2">
-            <div className="overflow-hidden rounded-lg border border-border">
-              <iframe
-                title="Pickup location preview"
-                src={pickupMapEmbedUrl}
-                className="h-56 w-full bg-muted"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-            </div>
-            {pickupMapUrl && (
-              <a
-                href={pickupMapUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:bg-muted/40"
-              >
-                <MapPin size={12} />
-                Ouvrir la localisation sur la carte
-              </a>
-            )}
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground">Aucune coordonnée cartographique renseignée.</p>
-        )}
-      </div>
-    </FormSection>
-  )
-}
-
-function CargoFilesSection({
-  cargoId,
-  attachmentEvidence,
-}: {
-  cargoId: string
-  attachmentEvidence: CargoAttachmentEvidence[] | undefined
-}) {
-  const photoCount = attachmentEvidence?.filter((item) => item.evidence_type === 'cargo_photo').length ?? 0
-  const otherCount = attachmentEvidence?.filter((item) => item.evidence_type !== 'cargo_photo').length ?? 0
-  return (
-    <FormSection title="Fichiers opérationnels" collapsible defaultExpanded>
-      <div className="space-y-3">
-        <AttachmentManager ownerType="cargo_item" ownerId={cargoId} compact />
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Photos qualifiées</p>
-            <p className="text-sm font-semibold text-foreground">{photoCount}</p>
-          </div>
-          <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Autres preuves</p>
-            <p className="text-sm font-semibold text-foreground">{otherCount}</p>
-          </div>
-        </div>
-      </div>
-    </FormSection>
-  )
-}
-
-type PackageElementReturnDraft = {
-  quantity_returned: number
-  return_notes: string
-  disposition: PackageElementDispositionUpdate['return_status']
-}
-
-type CargoReturnDraft = {
-  return_type: string
-  notes: string
-  waste_manifest_ref: string
-  pass_number: string
-  inventory_reference: string
-  sap_code_confirmed: boolean
-  photo_evidence_count: number
-  double_signature_confirmed: boolean
-  yard_justification: string
-}
-
-function buildCargoReturnSummary(elements: PackageElement[] | undefined) {
-  if (!elements || elements.length === 0) {
-    return {
-      totalSent: 0,
-      totalReturned: 0,
-      coverageRatio: 0,
-      aggregateStatus: 'no_elements',
-      aggregateDisposition: 'none',
-      returnedElements: 0,
-      partialElements: 0,
-      pendingElements: 0,
-      dispositionCounts: {} as Record<string, number>,
-    }
-  }
-
-  const totalSent = elements.reduce((sum, element) => sum + (element.quantity ?? 0), 0)
-  const totalReturned = elements.reduce((sum, element) => sum + (element.quantity_returned ?? 0), 0)
-  const returnedElements = elements.filter((element) => (element.quantity_returned ?? 0) > 0).length
-  const partialElements = elements.filter((element) => element.return_status === 'partial').length
-  const pendingElements = elements.filter((element) => element.return_status === 'pending').length
-  const dispositionCounts = elements.reduce<Record<string, number>>((acc, element) => {
-    const key = element.return_status || 'pending'
-    acc[key] = (acc[key] ?? 0) + 1
-    return acc
-  }, {})
-
-  let aggregateStatus = 'not_started'
-  if (totalReturned > 0 && totalReturned < totalSent) aggregateStatus = 'partial_return'
-  if (totalSent > 0 && totalReturned >= totalSent) aggregateStatus = 'fully_returned'
-  if (returnedElements === 0) aggregateStatus = 'not_started'
-
-  const finalizedStatuses = ['reintegrated', 'scrapped', 'yard_storage']
-  const finalizedCount = elements.filter((element) => finalizedStatuses.includes(element.return_status)).length
-  let aggregateDisposition = 'not_dispatched'
-  if (finalizedCount > 0 && finalizedCount < elements.length) aggregateDisposition = 'mixed'
-  if (finalizedCount === elements.length) {
-    const uniqueFinal = Array.from(new Set(elements.map((element) => element.return_status)))
-    aggregateDisposition = uniqueFinal.length === 1 ? uniqueFinal[0] : 'mixed'
-  }
-
-  return {
-    totalSent,
-    totalReturned,
-    coverageRatio: totalSent > 0 ? totalReturned / totalSent : 0,
-    aggregateStatus,
-    aggregateDisposition,
-    returnedElements,
-    partialElements,
-    pendingElements,
-    dispositionCounts,
-  }
-}
-
-function CargoPackageElementsSection({
-  cargoStatus,
-  elements,
-  drafts,
-  cargoStatusLabels,
-  packageReturnStatusLabels,
-  packageReturnStatusOptions,
-  onDraftChange,
-  onSubmitReturn,
-  onSubmitDisposition,
-  savingReturn,
-  savingDisposition,
-}: {
-  cargoStatus: string
-  elements: PackageElement[] | undefined
-  drafts: Record<string, PackageElementReturnDraft>
-  cargoStatusLabels: Record<string, string>
-  packageReturnStatusLabels: Record<string, string>
-  packageReturnStatusOptions: { value: string; label: string }[]
-  onDraftChange: (elementId: string, patch: Partial<PackageElementReturnDraft>) => void
-  onSubmitReturn: (element: PackageElement) => Promise<void>
-  onSubmitDisposition: (element: PackageElement) => Promise<void>
-  savingReturn: boolean
-  savingDisposition: boolean
-}) {
-  return (
-    <FormSection title={`Éléments du colis (${elements?.length ?? 0})`} collapsible defaultExpanded>
-      {elements && elements.length > 0 ? (
-        <div className="space-y-3">
-          {elements.map((element) => {
-            const draft = drafts[element.id] ?? {
-              quantity_returned: element.quantity_returned ?? 0,
-              return_notes: element.return_notes ?? '',
-              disposition: 'returned',
-            }
-            const maxQuantity = element.quantity ?? 0
-            const hasReturn = (element.quantity_returned ?? 0) > 0
-            return (
-              <div key={element.id} className="rounded-lg border border-border/60 bg-card p-3 space-y-3">
-                <div className="flex items-start gap-3">
-                  <Box size={14} className="text-muted-foreground shrink-0 mt-0.5" />
-                  <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium text-foreground truncate">{element.description}</p>
-                      <span className="gl-badge gl-badge-neutral">{packageReturnStatusLabels[element.return_status] ?? element.return_status}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Expédié: {element.quantity}
-                      {' • '}Retourné: {element.quantity_returned ?? 0}
-                      {element.weight_kg ? ` • ${element.weight_kg} kg` : ''}
-                      {element.sap_code ? ` • SAP: ${element.sap_code}` : ''}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,160px)_minmax(0,1fr)_auto]">
-                  <DynamicPanelField label="Quantité de retour">
-                    <input
-                      type="number"
-                      min={0}
-                      max={maxQuantity}
-                      step="any"
-                      value={Number.isFinite(draft.quantity_returned) ? draft.quantity_returned : 0}
-                      onChange={(e) => onDraftChange(element.id, { quantity_returned: e.target.value ? Number(e.target.value) : 0 })}
-                      className={panelInputClass}
-                    />
-                  </DynamicPanelField>
-                  <DynamicPanelField label="Notes retour">
-                    <input
-                      type="text"
-                      value={draft.return_notes}
-                      onChange={(e) => onDraftChange(element.id, { return_notes: e.target.value })}
-                      className={panelInputClass}
-                      placeholder="Observation retour / écarts / zone"
-                    />
-                  </DynamicPanelField>
-                  <div className="flex items-end">
-                    <button
-                      className="gl-button-sm gl-button-default text-xs"
-                      onClick={() => void onSubmitReturn(element)}
-                      disabled={savingReturn || draft.quantity_returned < 0}
-                    >
-                      {savingReturn ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer retour'}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,220px)_minmax(0,1fr)_auto]">
-                  <DynamicPanelField label="Disposition base">
-                    <select
-                      value={draft.disposition}
-                      onChange={(e) => onDraftChange(element.id, { disposition: e.target.value as PackageElementDispositionUpdate['return_status'] })}
-                      className={panelInputClass}
-                    >
-                      {packageReturnStatusOptions
-                        .filter((option) => PACKAGE_DISPOSITION_VALUES.includes(option.value as PackageElementDispositionUpdate['return_status']))
-                        .map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                      ))}
-                    </select>
-                  </DynamicPanelField>
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    {hasReturn
-                      ? `Statut cargo actuel: ${cargoStatusLabels[cargoStatus] ?? CARGO_STATUS_LABELS_FALLBACK[cargoStatus] ?? cargoStatus}`
-                      : 'Déclare d’abord une quantité retournée avant le dispatch base.'}
-                  </div>
-                  <div className="flex items-end">
-                    <button
-                      className="gl-button-sm gl-button-primary text-xs"
-                      onClick={() => void onSubmitDisposition(element)}
-                      disabled={savingDisposition || !hasReturn}
-                    >
-                      {savingDisposition ? <Loader2 size={12} className="animate-spin" /> : 'Appliquer disposition'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-          <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-            Le suivi par élément permet maintenant de couvrir les retours totaux et partiels avant la disposition finale à la base.
-          </div>
-        </div>
-      ) : (
-        <p className="text-xs text-muted-foreground py-2">
-          Aucun élément détaillé. Ajoute des sous-éléments pour suivre les retours partiels, les réintégrations et les mises au rebut.
-        </p>
-      )}
-    </FormSection>
-  )
-}
-
-function CargoBackReturnSection({
-  isDelivered,
-  returnDraft,
-  returnTypeOptions,
-  returnTypeLabels,
-  onChange,
-  onSubmit,
-  isSubmitting,
-}: {
-  isDelivered: boolean
-  returnDraft: CargoReturnDraft
-  returnTypeOptions: Array<{ value: string; label: string }>
-  returnTypeLabels: Record<string, string>
-  onChange: (patch: Partial<CargoReturnDraft>) => void
-  onSubmit: () => Promise<void>
-  isSubmitting: boolean
-}) {
-  const returnType = returnDraft.return_type
-  const needsWaste = returnType === 'waste'
-  const needsContractor = returnType === 'contractor_return'
-  const needsReintegration = returnType === 'stock_reintegration'
-  const needsScrap = returnType === 'scrap'
-  const needsYard = returnType === 'yard_storage'
-
-  return (
-    <FormSection title="Initiation back cargo" collapsible defaultExpanded={false}>
-      {!isDelivered ? (
-        <p className="text-xs text-muted-foreground">
-          Le back cargo ne peut être initié qu’après une livraison finale ou intermédiaire.
-        </p>
-      ) : (
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <DynamicPanelField label="Type de retour">
-              <select
-                value={returnDraft.return_type}
-                onChange={(e) => onChange({ return_type: e.target.value })}
-                className={panelInputClass}
-              >
-                {returnTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </DynamicPanelField>
-            <DynamicPanelField label="Photos de preuve">
-              <input
-                type="number"
-                min={0}
-                step={1}
-                value={returnDraft.photo_evidence_count}
-                onChange={(e) => onChange({ photo_evidence_count: e.target.value ? Number(e.target.value) : 0 })}
-                className={panelInputClass}
-              />
-            </DynamicPanelField>
-            <DynamicPanelField label="Notes" span="full">
-              <textarea
-                value={returnDraft.notes}
-                onChange={(e) => onChange({ notes: e.target.value })}
-                className={`${panelInputClass} min-h-[72px] resize-y`}
-                rows={3}
-                placeholder={`Précise le contexte du retour ${returnTypeLabels[returnType] ?? ''}`.trim()}
-              />
-            </DynamicPanelField>
-            {needsWaste && (
-              <DynamicPanelField label="Bordereau déchet">
-                <input
-                  type="text"
-                  value={returnDraft.waste_manifest_ref}
-                  onChange={(e) => onChange({ waste_manifest_ref: e.target.value })}
-                  className={panelInputClass}
-                />
-              </DynamicPanelField>
-            )}
-            {needsContractor && (
-              <>
-                <DynamicPanelField label="Laissez-passer">
-                  <input
-                    type="text"
-                    value={returnDraft.pass_number}
-                    onChange={(e) => onChange({ pass_number: e.target.value })}
-                    className={panelInputClass}
-                  />
-                </DynamicPanelField>
-                <DynamicPanelField label="Référence inventaire">
-                  <input
-                    type="text"
-                    value={returnDraft.inventory_reference}
-                    onChange={(e) => onChange({ inventory_reference: e.target.value })}
-                    className={panelInputClass}
-                  />
-                </DynamicPanelField>
-                <DynamicPanelField label="Double signature">
-                  <label className="inline-flex items-center gap-2 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={returnDraft.double_signature_confirmed}
-                      onChange={(e) => onChange({ double_signature_confirmed: e.target.checked })}
-                    />
-                    Double signature confirmée
-                  </label>
-                </DynamicPanelField>
-              </>
-            )}
-            {needsReintegration && (
-              <>
-                <DynamicPanelField label="Référence inventaire">
-                  <input
-                    type="text"
-                    value={returnDraft.inventory_reference}
-                    onChange={(e) => onChange({ inventory_reference: e.target.value })}
-                    className={panelInputClass}
-                  />
-                </DynamicPanelField>
-                <DynamicPanelField label="Code SAP confirmé">
-                  <label className="inline-flex items-center gap-2 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={returnDraft.sap_code_confirmed}
-                      onChange={(e) => onChange({ sap_code_confirmed: e.target.checked })}
-                    />
-                    Confirmation SAP reçue
-                  </label>
-                </DynamicPanelField>
-              </>
-            )}
-            {needsYard && (
-              <DynamicPanelField label="Justification stockage yard" span="full">
-                <textarea
-                  value={returnDraft.yard_justification}
-                  onChange={(e) => onChange({ yard_justification: e.target.value })}
-                  className={`${panelInputClass} min-h-[72px] resize-y`}
-                  rows={3}
-                />
-              </DynamicPanelField>
-            )}
-            {needsScrap && (
-              <div className="md:col-span-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                Pour la ferraille, le backend exige soit la mention "ferraille" dans les notes, soit au moins une preuve photo.
-              </div>
-            )}
-          </div>
-          <div className="flex justify-end">
-            <button
-              className="gl-button-sm gl-button-default text-xs"
-              onClick={() => void onSubmit()}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? <Loader2 size={12} className="animate-spin" /> : 'Initier le back cargo'}
-            </button>
-          </div>
-        </div>
-      )}
-    </FormSection>
-  )
-}
-
-function CargoReturnSummarySection({
-  elements,
-  packageReturnStatusLabels,
-}: {
-  elements: PackageElement[] | undefined
-  packageReturnStatusLabels: Record<string, string>
-}) {
-  const summary = buildCargoReturnSummary(elements)
-
-  const aggregateStatusLabel = (() => {
-    switch (summary.aggregateStatus) {
-      case 'partial_return':
-        return 'Retour partiel en cours'
-      case 'fully_returned':
-        return 'Retour déclaré sur 100% des quantités'
-      case 'not_started':
-        return 'Aucun retour saisi'
-      default:
-        return 'Aucun élément détaillé'
-    }
-  })()
-
-  const aggregateDispositionLabel = (() => {
-    switch (summary.aggregateDisposition) {
-      case 'not_dispatched':
-        return 'Aucune disposition finale'
-      case 'mixed':
-        return 'Disposition mixte'
-      case 'reintegrated':
-      case 'scrapped':
-      case 'yard_storage':
-        return packageReturnStatusLabels[summary.aggregateDisposition] ?? summary.aggregateDisposition
-      default:
-        return '—'
-    }
-  })()
-
-  return (
-    <FormSection title="Synthèse retour colis" collapsible defaultExpanded>
-      {(!elements || elements.length === 0) ? (
-        <p className="text-xs text-muted-foreground">
-          Aucun élément détaillé. La synthèse retour deviendra exploitable quand le colis sera découpé en sous-éléments.
-        </p>
-      ) : (
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Couverture retour</p>
-              <p className="mt-1 text-sm font-semibold text-foreground">
-                {Math.round(summary.coverageRatio * 100)}%
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {summary.totalReturned} / {summary.totalSent} unités
-              </p>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">État agrégé</p>
-              <p className="mt-1 text-sm font-semibold text-foreground">{aggregateStatusLabel}</p>
-              <p className="text-xs text-muted-foreground">
-                {summary.returnedElements} élément(s) avec retour saisi
-              </p>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Disposition base</p>
-              <p className="mt-1 text-sm font-semibold text-foreground">{aggregateDispositionLabel}</p>
-              <p className="text-xs text-muted-foreground">
-                {summary.partialElements} partiel(s), {summary.pendingElements} en attente
-              </p>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Ventilation</p>
-              <div className="mt-1 space-y-1 text-xs text-muted-foreground">
-                {Object.entries(summary.dispositionCounts).map(([status, count]) => (
-                  <p key={status}>{packageReturnStatusLabels[status] ?? status}: {count}</p>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </FormSection>
-  )
-}
 
 function VoyageCargoOperationsSection({
   report,
@@ -1561,88 +810,6 @@ function getAggregateReturnStatusLabel(status: string): string {
     default:
       return status
   }
-}
-
-function CargoHistorySection({ cargoHistory }: { cargoHistory: AnyRow[] | undefined }) {
-  return (
-    <FormSection title="Historique statut" collapsible defaultExpanded={false}>
-      {cargoHistory && cargoHistory.length > 0 ? (
-        <div className="space-y-2">
-          {cargoHistory.map((entry) => {
-            const details = entry.details ?? {}
-            const fromStatus = typeof details.from_status === 'string' ? details.from_status : null
-            const toStatus = typeof details.to_status === 'string' ? details.to_status : null
-            const changedFields = details.changes && typeof details.changes === 'object'
-              ? Object.keys(details.changes as Record<string, unknown>)
-              : []
-            return (
-              <div key={entry.id} className="rounded-lg border border-border/60 bg-card px-3 py-2">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-foreground">{entry.action}</p>
-                  <p className="text-[11px] text-muted-foreground">{new Date(entry.created_at).toLocaleString('fr-FR')}</p>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {entry.actor_name || 'Systeme'}
-                  {fromStatus && toStatus ? ` • ${fromStatus} -> ${toStatus}` : ''}
-                  {!fromStatus && changedFields.length > 0 ? ` • Champs: ${changedFields.join(', ')}` : ''}
-                </p>
-              </div>
-            )
-          })}
-        </div>
-      ) : (
-        <p className="text-xs text-muted-foreground py-2">Aucun historique disponible.</p>
-      )}
-    </FormSection>
-  )
-}
-
-function CargoEvidenceQualificationSection({
-  cargoId,
-  attachments,
-  evidenceByAttachmentId,
-  cargoEvidenceOptions,
-  updateCargoAttachmentEvidence,
-}: {
-  cargoId: string
-  attachments: AnyRow[] | undefined
-  evidenceByAttachmentId: Map<string, CargoAttachmentEvidence['evidence_type']>
-  cargoEvidenceOptions: Array<{ value: string; label: string }>
-  updateCargoAttachmentEvidence: { mutate: (args: { cargoId: string; attachmentId: string; evidence_type: CargoAttachmentEvidence['evidence_type'] }) => void }
-}) {
-  return (
-    <FormSection title="Qualification des preuves" collapsible defaultExpanded={false}>
-      {attachments && attachments.length > 0 ? (
-        <div className="space-y-2">
-          {attachments.map((attachment) => (
-            <div key={attachment.id} className="rounded-lg border border-border/60 bg-card px-3 py-2">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{attachment.original_name}</p>
-                  <p className="text-[11px] text-muted-foreground">{attachment.content_type}</p>
-                </div>
-                <select
-                  className="text-xs border border-border rounded px-2 py-1 bg-background text-foreground"
-                  value={evidenceByAttachmentId.get(attachment.id) ?? 'other'}
-                  onChange={(e) => updateCargoAttachmentEvidence.mutate({
-                    cargoId,
-                    attachmentId: attachment.id,
-                    evidence_type: e.target.value as CargoAttachmentEvidence['evidence_type'],
-                  })}
-                >
-                  {cargoEvidenceOptions.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-muted-foreground">Aucune pièce jointe à qualifier.</p>
-      )}
-    </FormSection>
-  )
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2112,122 +1279,6 @@ function VecteursTab() {
 // ── ARTICLES TAB ─────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════
 
-function ArticlesTab() {
-  const [page, setPage] = useState(1)
-  const { pageSize } = usePageSize()
-  const [search, setSearch] = useState('')
-  const debouncedSearch = useDebounce(search, 300)
-  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
-  const sapMatch = useSapMatch()
-
-  const { data, isLoading } = useArticles({
-    page,
-    page_size: pageSize,
-    search: debouncedSearch || undefined,
-  })
-
-  const items: AnyRow[] = data?.items ?? []
-
-  const stats = useMemo(() => {
-    const hazmat = items.filter((a: AnyRow) => a.is_hazmat).length
-    return { count: items.length, hazmat }
-  }, [items])
-
-  const columns = useMemo<ColumnDef<AnyRow, unknown>[]>(() => [
-    {
-      accessorKey: 'sap_code',
-      header: 'Code SAP',
-      size: 120,
-      cell: ({ row }) => <span className="font-medium font-mono text-xs text-foreground">{row.original.sap_code}</span>,
-    },
-    {
-      accessorKey: 'description',
-      header: 'Description',
-      cell: ({ row }) => <span className="text-foreground truncate max-w-[250px] block">{row.original.description}</span>,
-    },
-    {
-      accessorKey: 'management_type',
-      header: 'Gestion',
-      size: 100,
-      cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.management_type || '—'}</span>,
-    },
-    {
-      accessorKey: 'packaging',
-      header: 'Conditionnement',
-      size: 120,
-      cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.packaging || '—'}</span>,
-    },
-    {
-      id: 'hazmat',
-      header: 'HAZMAT',
-      size: 70,
-      cell: ({ row }) => row.original.is_hazmat ? (
-        <span className="inline-flex items-center gap-1 text-destructive">
-          <AlertTriangle size={12} />
-          <span className="text-xs">{row.original.hazmat_class || 'Oui'}</span>
-        </span>
-      ) : <span className="text-xs text-muted-foreground">Non</span>,
-    },
-  ], [])
-
-  // SAP matching tool state
-  const [sapQuery, setSapQuery] = useState('')
-
-  return (
-    <>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
-        <StatCard label="Articles" value={stats.count} icon={Boxes} />
-        <StatCard label="HAZMAT" value={stats.hazmat} icon={AlertTriangle} accent="text-destructive" />
-        <StatCard label="Total (page)" value={data?.total ?? 0} icon={Box} />
-        <div className="rounded-lg border border-border bg-background p-3">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <Search size={13} />
-            <span className="text-[10px] font-medium uppercase tracking-wide">SAP Match</span>
-          </div>
-          <div className="flex gap-1">
-            <input
-              type="text"
-              value={sapQuery}
-              onChange={(e) => setSapQuery(e.target.value)}
-              className="flex-1 text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground"
-              placeholder="Description..."
-            />
-            <button
-              className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20"
-              onClick={() => { if (sapQuery.trim()) sapMatch.mutate(sapQuery.trim()) }}
-              disabled={sapMatch.isPending}
-            >
-              {sapMatch.isPending ? <Loader2 size={10} className="animate-spin" /> : 'Go'}
-            </button>
-          </div>
-          {sapMatch.data && (
-            <p className="text-[10px] text-muted-foreground mt-1">
-              {sapMatch.data.matched ? `${sapMatch.data.sap_code} (${Math.round(sapMatch.data.confidence * 100)}%)` : 'Aucun match'}
-            </p>
-          )}
-        </div>
-      </div>
-
-      <PanelContent>
-        <DataTable<AnyRow>
-          columns={columns}
-          data={items}
-          isLoading={isLoading}
-          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
-          onPaginationChange={(p) => setPage(p)}
-          searchValue={search}
-          onSearchChange={(v) => { setSearch(v); setPage(1) }}
-          searchPlaceholder="Rechercher par code SAP, description..."
-          onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'travelwiz', id: row.id, meta: { subtype: 'article' } })}
-          emptyIcon={Boxes}
-          emptyTitle="Aucun article"
-          storageKey="travelwiz-articles"
-        />
-      </PanelContent>
-    </>
-  )
-}
-
 // ══════════════════════════════════════════════════════════════
 // ── FLEET MAP TAB ────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════
@@ -2524,12 +1575,9 @@ function WeatherTab() {
 
 export function TravelWizPage() {
   const [activeTab, setActiveTab] = useState<TravelWizTab>('dashboard')
-  const articleImportInputRef = useRef<HTMLInputElement | null>(null)
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
-  const importArticlesCsv = useImportArticlesCsv()
-  const { toast } = useToast()
 
   const isFullPanel = panelMode === 'full' && dynamicPanel !== null && dynamicPanel.module === 'travelwiz'
 
@@ -2537,67 +1585,27 @@ export function TravelWizPage() {
   const canCreate =
     activeTab === 'voyages' ? hasPermission('travelwiz.voyage.create')
       : activeTab === 'vectors' ? hasPermission('travelwiz.vector.create')
-        : activeTab === 'articles' ? hasPermission('travelwiz.cargo.create')
           : false
 
   const handleCreate = useCallback(() => {
     if (activeTab === 'voyages') openDynamicPanel({ type: 'create', module: 'travelwiz', meta: { subtype: 'voyage' } })
     else if (activeTab === 'vectors') openDynamicPanel({ type: 'create', module: 'travelwiz', meta: { subtype: 'vector' } })
-    else if (activeTab === 'articles') openDynamicPanel({ type: 'create', module: 'travelwiz', meta: { subtype: 'article' } })
   }, [activeTab, openDynamicPanel])
 
   const createLabel =
     activeTab === 'voyages' ? 'Nouveau voyage'
       : activeTab === 'vectors' ? 'Nouveau vecteur'
-        : activeTab === 'articles' ? 'Nouvel article'
           : ''
 
-  const showCreate = ['voyages', 'vectors', 'articles'].includes(activeTab)
-  const showArticleImport = activeTab === 'articles' && hasPermission('travelwiz.cargo.create')
-
-  const handleImportArticlesClick = useCallback(() => {
-    articleImportInputRef.current?.click()
-  }, [])
-
-  const handleArticleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    try {
-      const result = await importArticlesCsv.mutateAsync(file)
-      toast({
-        title: `Import CSV terminé: ${result.imported} créés, ${result.updated} mis à jour`,
-        description: result.errors.length ? `${result.errors.length} ligne(s) rejetée(s)` : undefined,
-        variant: result.errors.length ? 'warning' : 'success',
-      })
-    } catch {
-      toast({ title: 'Erreur lors de l’import CSV des articles', variant: 'error' })
-    } finally {
-      event.target.value = ''
-    }
-  }, [importArticlesCsv, toast])
+  const showCreate = ['voyages', 'vectors'].includes(activeTab)
 
   return (
     <div className="flex h-full">
       {!isFullPanel && (
         <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
           <PanelHeader icon={Plane} title="TravelWiz" subtitle="Transport et logistique">
-            {showArticleImport && (
-              <ToolbarButton
-                icon={FileText}
-                label={importArticlesCsv.isPending ? 'Import en cours…' : 'Importer CSV'}
-                onClick={handleImportArticlesClick}
-                disabled={importArticlesCsv.isPending}
-              />
-            )}
             {showCreate && canCreate && <ToolbarButton icon={Plus} label={createLabel} variant="primary" onClick={handleCreate} />}
           </PanelHeader>
-          <input
-            ref={articleImportInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            className="hidden"
-            onChange={handleArticleFileChange}
-          />
 
           {/* Tab bar */}
           <div className="flex items-center gap-1 border-b border-border px-3.5 h-9 shrink-0">
@@ -2625,7 +1633,6 @@ export function TravelWizPage() {
           {activeTab === 'voyages' && <VoyagesTab />}
           {activeTab === 'manifests' && <ManifestesTab />}
           {activeTab === 'vectors' && <VecteursTab />}
-          {activeTab === 'articles' && <ArticlesTab />}
           {activeTab === 'fleet_map' && <FleetMapTab />}
           {activeTab === 'pickup' && <PickupTab />}
           {activeTab === 'weather' && <WeatherTab />}
@@ -3014,7 +2021,7 @@ function CreateVectorPanel() {
   )
 }
 
-function CreateCargoRequestPanel() {
+export function CreateCargoRequestPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createCargoRequest = useWorkspaceCreateCargoRequest()
   const { toast } = useToast()
@@ -3042,6 +2049,18 @@ function CreateCargoRequestPanel() {
     }
   }
 
+  const readinessChecklist = [
+    { label: 'Intitulé métier de la demande', done: Boolean(form.title.trim()) },
+    { label: 'Description opérationnelle', done: Boolean((form.description ?? '').trim()) },
+    { label: 'Entreprise expéditrice', done: Boolean(form.sender_tier_id) },
+    { label: 'Contact entreprise', done: Boolean(form.sender_contact_tier_contact_id) },
+    { label: 'Destinataire', done: Boolean((form.receiver_name ?? '').trim()) },
+    { label: 'Site de destination', done: Boolean(form.destination_asset_id) },
+    { label: 'Imputation', done: Boolean(form.imputation_reference_id) },
+    { label: 'Demandeur', done: Boolean(form.requester_user_id || (form.requester_name ?? '').trim()) },
+  ]
+  const readinessScore = Math.round((readinessChecklist.filter((item) => item.done).length / readinessChecklist.length) * 100)
+
   return (
     <DynamicPanelShell
       title="Nouvelle demande d’expédition"
@@ -3062,91 +2081,130 @@ function CreateCargoRequestPanel() {
     >
       <form id="create-cargo-request-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title="Demande">
-            <FormGrid>
-              <DynamicPanelField label="Référence">
-                <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                  Générée automatiquement par la numérotation OpsFlux à l’enregistrement de la demande.
+          <div className="space-y-5">
+            <div className="space-y-3 rounded-xl border border-border/70 bg-card p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="gl-badge gl-badge-info">Brouillon</span>
+                <span className={cn('gl-badge', readinessScore >= 100 ? 'gl-badge-success' : 'gl-badge-warning')}>
+                  {readinessScore >= 100 ? 'Prête pour saisie colis' : 'Préparation dossier'}
+                </span>
+              </div>
+              <div className="grid gap-3 md:grid-cols-4">
+                <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Référence</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Générée automatiquement à l’enregistrement</p>
                 </div>
-              </DynamicPanelField>
-              <DynamicPanelField label="Intitulé" required>
-                <input
-                  type="text"
-                  required
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className={panelInputClass}
-                  placeholder="Demande d’expédition équipements forage"
-                />
-              </DynamicPanelField>
-              <DynamicPanelField label="Description" span="full">
-                <textarea
-                  value={form.description ?? ''}
-                  onChange={(e) => setForm({ ...form, description: e.target.value || null })}
-                  className={`${panelInputClass} min-h-[72px] resize-y`}
-                  rows={3}
-                />
-              </DynamicPanelField>
-              <DynamicPanelField label="Projet">
-                <ProjectPicker
-                  value={form.project_id ?? null}
-                  onChange={(projectId) => setForm({ ...form, project_id: projectId ?? null })}
-                  clearable
-                  placeholder="Sélectionner un projet..."
-                />
-              </DynamicPanelField>
-              <DynamicPanelField label="Imputation">
-                <ImputationPicker
-                  value={form.imputation_reference_id ?? null}
-                  onChange={(id) => setForm({ ...form, imputation_reference_id: id ?? null })}
-                  placeholder="Sélectionner une imputation..."
-                />
-              </DynamicPanelField>
-              <DynamicPanelField label="Entreprise expéditrice">
-                <CompanyPicker
-                  value={form.sender_tier_id ?? null}
-                  onChange={(id) => setForm({ ...form, sender_tier_id: id ?? null, sender_contact_tier_contact_id: null })}
-                  placeholder="Sélectionner une entreprise..."
-                />
-              </DynamicPanelField>
-              <DynamicPanelField label="Contact entreprise">
-                <ContactPicker
-                  value={form.sender_contact_tier_contact_id ?? null}
-                  onChange={(id) => setForm({ ...form, sender_contact_tier_contact_id: id ?? null })}
-                  placeholder="Sélectionner un contact..."
-                  tierId={form.sender_tier_id ?? null}
-                />
-              </DynamicPanelField>
-              <DynamicPanelField label="Destinataire">
-                <input type="text" value={form.receiver_name ?? ''} onChange={(e) => setForm({ ...form, receiver_name: e.target.value || null })} className={panelInputClass} />
-              </DynamicPanelField>
-              <DynamicPanelField label="Installation de destination" span="full">
-                <AssetPicker
-                  value={form.destination_asset_id ?? null}
-                  onChange={(assetId) => setForm({ ...form, destination_asset_id: assetId ?? null })}
-                  clearable
-                  placeholder="Sélectionner l'installation de destination..."
-                />
-              </DynamicPanelField>
-              <DynamicPanelField label="Demandeur">
-                <UserPicker
-                  value={form.requester_user_id ?? null}
-                  onChange={(id) => setForm({ ...form, requester_user_id: id ?? null })}
-                  placeholder="Sélectionner un utilisateur..."
-                />
-              </DynamicPanelField>
-              <DynamicPanelField label="Demandeur libre">
-                <input type="text" value={form.requester_name ?? ''} onChange={(e) => setForm({ ...form, requester_name: e.target.value || null })} className={panelInputClass} placeholder="Fallback si le demandeur n'existe pas dans le référentiel" />
-              </DynamicPanelField>
-            </FormGrid>
-          </FormSection>
+                <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Complétude</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">{readinessScore}%</p>
+                </div>
+                <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Projet</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">{form.project_id ? 'Renseigné' : 'Optionnel'}</p>
+                </div>
+                <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Demandeur</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">{form.requester_user_id || form.requester_name ? 'Renseigné' : 'À préciser'}</p>
+                </div>
+              </div>
+              <div className="grid gap-2 md:grid-cols-2">
+                {readinessChecklist.map((item) => (
+                  <div key={item.label} className="flex items-center gap-2 text-xs">
+                    <span className={cn('inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px]', item.done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>
+                      {item.done ? '✓' : '•'}
+                    </span>
+                    <span className={item.done ? 'text-foreground' : 'text-muted-foreground'}>{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <FormSection title="Demande d’expédition">
+              <FormGrid>
+                <DynamicPanelField label="Intitulé" required>
+                  <input
+                    type="text"
+                    required
+                    value={form.title}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    className={panelInputClass}
+                    placeholder="Demande d’expédition équipements forage"
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label="Projet">
+                  <ProjectPicker
+                    value={form.project_id ?? null}
+                    onChange={(projectId) => setForm({ ...form, project_id: projectId ?? null })}
+                    clearable
+                    placeholder="Sélectionner un projet..."
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label="Description" span="full">
+                  <textarea
+                    value={form.description ?? ''}
+                    onChange={(e) => setForm({ ...form, description: e.target.value || null })}
+                    className={`${panelInputClass} min-h-[72px] resize-y`}
+                    rows={3}
+                  />
+                </DynamicPanelField>
+              </FormGrid>
+            </FormSection>
+
+            <FormSection title="Contexte logistique">
+              <FormGrid>
+                <DynamicPanelField label="Imputation">
+                  <ImputationPicker
+                    value={form.imputation_reference_id ?? null}
+                    onChange={(id) => setForm({ ...form, imputation_reference_id: id ?? null })}
+                    placeholder="Sélectionner une imputation..."
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label="Entreprise expéditrice">
+                  <CompanyPicker
+                    value={form.sender_tier_id ?? null}
+                    onChange={(id) => setForm({ ...form, sender_tier_id: id ?? null, sender_contact_tier_contact_id: null })}
+                    placeholder="Sélectionner une entreprise..."
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label="Contact entreprise">
+                  <ContactPicker
+                    value={form.sender_contact_tier_contact_id ?? null}
+                    onChange={(id) => setForm({ ...form, sender_contact_tier_contact_id: id ?? null })}
+                    placeholder="Sélectionner un contact..."
+                    tierId={form.sender_tier_id ?? null}
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label="Destinataire">
+                  <input type="text" value={form.receiver_name ?? ''} onChange={(e) => setForm({ ...form, receiver_name: e.target.value || null })} className={panelInputClass} />
+                </DynamicPanelField>
+                <DynamicPanelField label="Installation de destination" span="full">
+                  <AssetPicker
+                    value={form.destination_asset_id ?? null}
+                    onChange={(assetId) => setForm({ ...form, destination_asset_id: assetId ?? null })}
+                    clearable
+                    placeholder="Sélectionner l'installation de destination..."
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label="Demandeur">
+                  <UserPicker
+                    value={form.requester_user_id ?? null}
+                    onChange={(id) => setForm({ ...form, requester_user_id: id ?? null })}
+                    placeholder="Sélectionner un utilisateur..."
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label="Demandeur libre">
+                  <input type="text" value={form.requester_name ?? ''} onChange={(e) => setForm({ ...form, requester_name: e.target.value || null })} className={panelInputClass} placeholder="Fallback si le demandeur n'existe pas dans le référentiel" />
+                </DynamicPanelField>
+              </FormGrid>
+            </FormSection>
+          </div>
         </PanelContentLayout>
       </form>
     </DynamicPanelShell>
   )
 }
 
-function CreateCargoPanel() {
+export function CreateCargoPanel() {
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
@@ -3199,8 +2257,8 @@ function CreateCargoPanel() {
   const preselectedRequestId = dynamicPanel?.module === panelModule && dynamicPanel.type === 'create' && dynamicPanel.meta?.subtype === 'cargo'
     ? ((dynamicPanel.meta as { requestId?: string }).requestId ?? null)
     : null
-  const preselectedRequest = preselectedRequestId
-    ? cargoRequests.find((request) => request.id === preselectedRequestId) ?? null
+  const selectedRequest = form.request_id
+    ? cargoRequests.find((request) => request.id === form.request_id) ?? null
     : null
   const pickupMapUrl = buildPickupMapUrl(form.pickup_latitude, form.pickup_longitude)
   const pickupMapEmbedUrl = buildPickupMapEmbedUrl(form.pickup_latitude, form.pickup_longitude)
@@ -3210,6 +2268,19 @@ function CreateCargoPanel() {
       setForm((current) => current.request_id === preselectedRequestId ? current : { ...current, request_id: preselectedRequestId })
     }
   }, [preselectedRequestId])
+
+  useEffect(() => {
+    if (!selectedRequest) return
+    setForm((current) => ({
+      ...current,
+      sender_tier_id: selectedRequest.sender_tier_id ?? null,
+      receiver_name: selectedRequest.receiver_name ?? null,
+      destination_asset_id: selectedRequest.destination_asset_id ?? null,
+      project_id: selectedRequest.project_id ?? null,
+      imputation_reference_id: selectedRequest.imputation_reference_id ?? null,
+      requester_name: selectedRequest.requester_display_name ?? selectedRequest.requester_name ?? current.requester_name ?? null,
+    }))
+  }, [selectedRequest])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -3252,9 +2323,9 @@ function CreateCargoPanel() {
                     <option key={request.id} value={request.id}>{request.request_code} — {request.title}</option>
                   ))}
                 </select>
-                {preselectedRequest && (
+                {selectedRequest && (
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    Ce colis sera créé dans la demande ` {preselectedRequest.request_code} `.
+                    Ce colis sera créé dans la demande ` {selectedRequest.request_code} `.
                   </p>
                 )}
               </DynamicPanelField>
@@ -3287,24 +2358,35 @@ function CreateCargoPanel() {
                 />
               </DynamicPanelField>
             </FormGrid>
+            {selectedRequest && (
+              <div className="mt-3 rounded-xl border border-border/60 bg-muted/20 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="gl-badge gl-badge-info">Hérité de la demande</span>
+                  <span className="text-xs font-medium text-foreground">{selectedRequest.request_code} — {selectedRequest.title}</span>
+                </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-4">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Projet</p>
+                    <p className="mt-1 text-sm text-foreground">{selectedRequest.project_id ? 'Renseigné' : '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Imputation</p>
+                    <p className="mt-1 text-sm text-foreground">{selectedRequest.imputation_reference_name ?? selectedRequest.imputation_reference_code ?? '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Destination</p>
+                    <p className="mt-1 text-sm text-foreground">{selectedRequest.destination_name ?? '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Demandeur</p>
+                    <p className="mt-1 text-sm text-foreground">{selectedRequest.requester_display_name ?? selectedRequest.requester_name ?? '—'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
               </FormSection>
-              <FormSection title="Dossier logistique" collapsible defaultExpanded>
+              <FormSection title="Préparation logistique" collapsible defaultExpanded>
             <FormGrid>
-              <DynamicPanelField label="Projet">
-                <ProjectPicker
-                  value={form.project_id ?? null}
-                  onChange={(projectId) => setForm({ ...form, project_id: projectId ?? null })}
-                  clearable
-                  placeholder="Sélectionner un projet..."
-                />
-              </DynamicPanelField>
-              <DynamicPanelField label="Imputation">
-                <ImputationPicker
-                  value={form.imputation_reference_id ?? null}
-                  onChange={(id) => setForm({ ...form, imputation_reference_id: id ?? null })}
-                  placeholder="Sélectionner une imputation..."
-                />
-              </DynamicPanelField>
               <DynamicPanelField label="Propriété du matériel">
                 <select value={form.ownership_type ?? ''} onChange={(e) => setForm({ ...form, ownership_type: e.target.value || null })} className={panelInputClass}>
                   <option value="">Sélectionner...</option>
@@ -3312,9 +2394,6 @@ function CreateCargoPanel() {
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
-              </DynamicPanelField>
-              <DynamicPanelField label="Demandeur">
-                <input type="text" value={form.requester_name ?? ''} onChange={(e) => setForm({ ...form, requester_name: e.target.value || null })} className={panelInputClass} placeholder="Nom du demandeur" />
               </DynamicPanelField>
               <DynamicPanelField label="Document préparé le">
                 <input type="datetime-local" value={form.document_prepared_at ?? ''} onChange={(e) => setForm({ ...form, document_prepared_at: e.target.value || null })} className={panelInputClass} />
@@ -3357,26 +2436,8 @@ function CreateCargoPanel() {
               Les dimensions physiques sont utilisées pour raisonner la place occupée et préparer le placement pont, pas seulement un volume libre saisi à la main.
             </p>
               </FormSection>
-              <FormSection title="Affectation" collapsible defaultExpanded>
+              <FormSection title="Conformité colis" collapsible defaultExpanded>
             <FormGrid>
-              <DynamicPanelField label="Expéditeur">
-                <CompanyPicker
-                  value={form.sender_tier_id ?? null}
-                  onChange={(id) => setForm({ ...form, sender_tier_id: id ?? null })}
-                  placeholder="Sélectionner une entreprise..."
-                />
-              </DynamicPanelField>
-              <DynamicPanelField label="Destinataire">
-                <input type="text" value={form.receiver_name ?? ''} onChange={(e) => setForm({ ...form, receiver_name: e.target.value || null })} className={panelInputClass} placeholder="Nom du destinataire ou du service cible" />
-              </DynamicPanelField>
-              <DynamicPanelField label="Site de destination" span="full">
-                <AssetPicker
-                  value={form.destination_asset_id ?? null}
-                  onChange={(assetId) => setForm({ ...form, destination_asset_id: assetId ?? null })}
-                  placeholder="Sélectionner le site de destination..."
-                  clearable
-                />
-              </DynamicPanelField>
               <DynamicPanelField label="Validation HAZMAT">
                 <label className="inline-flex items-center gap-2 text-xs">
                   <input type="checkbox" checked={form.hazmat_validated ?? false} onChange={(e) => setForm({ ...form, hazmat_validated: e.target.checked })} />
@@ -3475,7 +2536,7 @@ function CreateCargoPanel() {
   )
 }
 
-function CargoRequestDetailPanel({ id }: { id: string }) {
+export function CargoRequestDetailPanel({ id }: { id: string }) {
   const { panelModule } = useCargoWorkspace()
   const cargoRequestStatusCategory = useCargoDictionaryCategory('cargo_request_status')
   const { data: cargoRequest, isLoading } = useWorkspaceCargoRequest(id)
@@ -3497,6 +2558,15 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
   const inTransitCount = requestCargo.filter((cargo) => cargo.status === 'in_transit').length
   const blockedCount = requestCargo.filter((cargo) => ['damaged', 'missing'].includes(cargo.status)).length
   const assignedCount = requestCargo.filter((cargo) => Boolean(cargo.manifest_id)).length
+  const requestStatusBadges: Record<string, string> = {
+    draft: 'gl-badge-neutral',
+    submitted: 'gl-badge-warning',
+    approved: 'gl-badge-info',
+    assigned: 'gl-badge-info',
+    in_progress: 'gl-badge-info',
+    closed: 'gl-badge-success',
+    cancelled: 'gl-badge-danger',
+  }
   const completionRatio = Math.max(
     0,
     Math.min(
@@ -3605,7 +2675,7 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
               variant="primary"
               onClick={() => useUIStore.getState().openDynamicPanel({
                 type: 'create',
-                module: 'travelwiz',
+                module: panelModule,
                 meta: { subtype: 'cargo', requestId: id, requestTitle: cargoRequest.title, requestCode: cargoRequest.request_code },
               })}
               icon={<Plus size={12} />}
@@ -3699,64 +2769,66 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
           </FormSection>
         ) : (
           <>
-            <div className="rounded-2xl border border-border/70 bg-card shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-blue-900 px-5 py-4 text-white">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-white/65">Demande d’expédition</p>
-                    <h3 className="mt-1 text-lg font-semibold">{cargoRequest.request_code}</h3>
-                    <p className="mt-1 text-sm text-white/80">{cargoRequest.title}</p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-white/12 px-3 py-1 text-[11px] font-medium uppercase tracking-wide">
-                      {requestStatusLabels[cargoRequest.status] ?? cargoRequest.status}
-                    </span>
-                    <span className={cn(
-                      'rounded-full px-3 py-1 text-[11px] font-medium uppercase tracking-wide',
-                      cargoRequest.is_ready_for_submission
-                        ? 'bg-emerald-400/20 text-emerald-100'
-                        : 'bg-amber-300/20 text-amber-50',
-                    )}>
-                      {cargoRequest.is_ready_for_submission ? 'Prête à opérer' : 'À compléter'}
-                    </span>
-                  </div>
-                </div>
+            <div className="space-y-3 rounded-xl border border-border/70 bg-card p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={cn('gl-badge', requestStatusBadges[cargoRequest.status] ?? 'gl-badge-neutral')}>
+                  {requestStatusLabels[cargoRequest.status] ?? cargoRequest.status}
+                </span>
+                <span className={cn('gl-badge', cargoRequest.is_ready_for_submission ? 'gl-badge-success' : 'gl-badge-warning')}>
+                  {cargoRequest.is_ready_for_submission ? 'Prête à soumettre' : 'À compléter'}
+                </span>
+                {loadingOptions?.length ? <span className="gl-badge gl-badge-info">{loadingOptions.length} option(s) de chargement</span> : null}
               </div>
-              <div className="grid gap-3 px-5 py-4 md:grid-cols-4">
-                <div className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Complétude</p>
-                  <p className="mt-1 text-2xl font-semibold text-foreground">{completionRatio}%</p>
-                  <div className="mt-2 h-2 rounded-full bg-muted">
-                    <div
-                      className={cn(
-                        'h-2 rounded-full transition-all',
-                        cargoRequest.is_ready_for_submission ? 'bg-emerald-500' : 'bg-amber-500',
-                      )}
-                      style={{ width: `${completionRatio}%` }}
-                    />
-                  </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Demande d’expédition</p>
+                <h3 className="mt-1 text-lg font-semibold text-foreground">{cargoRequest.request_code}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{cargoRequest.title}</p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-4">
+                <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Complétude</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">{completionRatio}%</p>
                 </div>
-                <div className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Colis / packages</p>
-                  <p className="mt-1 text-2xl font-semibold text-foreground">{requestCargo.length}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{totalPackages.toLocaleString('fr-FR')} packages déclarés</p>
+                <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Colis</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">{requestCargo.length}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{totalPackages.toLocaleString('fr-FR')} packages</p>
                 </div>
-                <div className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Poids / chargement</p>
-                  <p className="mt-1 text-2xl font-semibold text-foreground">{totalWeightKg.toLocaleString('fr-FR')} kg</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{assignedCount} colis déjà affectés à un manifeste</p>
+                <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Poids total</p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">{totalWeightKg.toLocaleString('fr-FR')} kg</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{assignedCount} affectés à un manifeste</p>
                 </div>
-                <div className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Insights</p>
-                  <p className="mt-1 text-sm font-medium text-foreground">
-                    {deliveredCount} livrés · {inTransitCount} en transit · {blockedCount} bloqués
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {loadingOptions?.length ? `${loadingOptions.length} option(s) de chargement disponible(s)` : 'Aucune option de chargement calculée'}
-                  </p>
+                <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Suivi</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">{deliveredCount} livrés · {inTransitCount} en transit</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{blockedCount} colis bloqués</p>
                 </div>
               </div>
             </div>
+
+            <FormSection title="Lecture opérationnelle" collapsible defaultExpanded>
+              <div className="space-y-2">
+                {[
+                  { label: 'Intitulé de la demande', done: Boolean(cargoRequest.title?.trim()) },
+                  { label: 'Description de la demande', done: Boolean(cargoRequest.description?.trim()) },
+                  { label: 'Entreprise expéditrice', done: Boolean(cargoRequest.sender_tier_id) },
+                  { label: 'Contact entreprise', done: Boolean(cargoRequest.sender_contact_tier_contact_id) },
+                  { label: 'Destinataire', done: Boolean(cargoRequest.receiver_name?.trim()) },
+                  { label: 'Installation de destination', done: Boolean(cargoRequest.destination_asset_id) },
+                  { label: 'Imputation', done: Boolean(cargoRequest.imputation_reference_id) },
+                  { label: 'Demandeur', done: Boolean(cargoRequest.requester_user_id || cargoRequest.requester_name?.trim()) },
+                  { label: 'Au moins un colis rattaché', done: requestCargo.length > 0 },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center gap-2 text-xs">
+                    <span className={cn('inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px]', item.done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>
+                      {item.done ? '✓' : '•'}
+                    </span>
+                    <span className={item.done ? 'text-foreground' : 'text-muted-foreground'}>{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            </FormSection>
 
             <FormSection title="Demande d’expédition">
               <DetailRow label="Code" value={cargoRequest.request_code} />
@@ -3907,76 +2979,6 @@ function CargoRequestDetailPanel({ id }: { id: string }) {
           </>
         )}
       </PanelContentLayout>
-    </DynamicPanelShell>
-  )
-}
-
-function CreateArticlePanel() {
-  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
-  const createArticle = useCreateArticle()
-  const { toast } = useToast()
-  const [form, setForm] = useState<TravelArticleCreate>({
-    sap_code: '', description: '', management_type: null, packaging: null,
-    is_hazmat: false, hazmat_class: null, unit: null,
-  })
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      await createArticle.mutateAsync(form)
-      toast({ title: 'Article cree avec succes', variant: 'success' })
-      closeDynamicPanel()
-    } catch { toast({ title: 'Erreur lors de la creation de l\'article', variant: 'error' }) }
-  }
-
-  return (
-    <DynamicPanelShell title="Nouvel article" subtitle="TravelWiz" icon={<Boxes size={14} className="text-primary" />}
-      actions={<>
-        <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
-        <PanelActionButton variant="primary" disabled={createArticle.isPending}
-          onClick={() => (document.getElementById('create-article-form') as HTMLFormElement)?.requestSubmit()}>
-          {createArticle.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Creer'}
-        </PanelActionButton>
-      </>}
-    >
-      <form id="create-article-form" onSubmit={handleSubmit}>
-        <PanelContentLayout>
-          <FormSection title="Identification">
-            <FormGrid>
-              <DynamicPanelField label="Code SAP" required>
-                <input type="text" required value={form.sap_code} onChange={(e) => setForm({ ...form, sap_code: e.target.value })} className={panelInputClass} placeholder="MAT-00001" />
-              </DynamicPanelField>
-              <DynamicPanelField label="Description" required>
-                <input type="text" required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={panelInputClass} placeholder="Description de l'article" />
-              </DynamicPanelField>
-              <DynamicPanelField label="Type de gestion">
-                <input type="text" value={form.management_type ?? ''} onChange={(e) => setForm({ ...form, management_type: e.target.value || null })} className={panelInputClass} placeholder="Consommable, Stock..." />
-              </DynamicPanelField>
-              <DynamicPanelField label="Conditionnement">
-                <input type="text" value={form.packaging ?? ''} onChange={(e) => setForm({ ...form, packaging: e.target.value || null })} className={panelInputClass} placeholder="Carton, Palette..." />
-              </DynamicPanelField>
-              <DynamicPanelField label="Unite">
-                <input type="text" value={form.unit ?? ''} onChange={(e) => setForm({ ...form, unit: e.target.value || null })} className={panelInputClass} placeholder="kg, m, pce..." />
-              </DynamicPanelField>
-            </FormGrid>
-          </FormSection>
-          <FormSection title="HAZMAT">
-            <FormGrid>
-              <DynamicPanelField label="Matiere dangereuse">
-                <label className="inline-flex items-center gap-2 text-xs">
-                  <input type="checkbox" checked={form.is_hazmat ?? false} onChange={(e) => setForm({ ...form, is_hazmat: e.target.checked })} />
-                  HAZMAT
-                </label>
-              </DynamicPanelField>
-              {form.is_hazmat && (
-                <DynamicPanelField label="Classe HAZMAT">
-                  <input type="text" value={form.hazmat_class ?? ''} onChange={(e) => setForm({ ...form, hazmat_class: e.target.value || null })} className={panelInputClass} placeholder="Classe 1, 2..." />
-                </DynamicPanelField>
-              )}
-            </FormGrid>
-          </FormSection>
-        </PanelContentLayout>
-      </form>
     </DynamicPanelShell>
   )
 }
@@ -4690,7 +3692,7 @@ function RotationDetailPanel({ id }: { id: string }) {
 
 // ── Cargo Detail Panel (enhanced with package elements, return workflow, SAP) ──
 
-function CargoDetailPanel({ id }: { id: string }) {
+export function CargoDetailPanel({ id }: { id: string }) {
   const { panelModule } = useCargoWorkspace()
   const cargoTypeCategory = useCargoDictionaryCategory('cargo_type')
   const ownershipCategory = useCargoDictionaryCategory('cargo_ownership_type')
@@ -5398,18 +4400,6 @@ registerPanelRenderer('travelwiz', (view) => {
     if (view.meta?.subtype === 'vector') return <VectorDetailPanel id={view.id} />
     if (view.meta?.subtype === 'cargo-request') return <CargoWorkspaceProvider module="travelwiz" label="TravelWiz"><CargoRequestDetailPanel id={view.id} /></CargoWorkspaceProvider>
     if (view.meta?.subtype === 'cargo') return <CargoWorkspaceProvider module="travelwiz" label="TravelWiz"><CargoDetailPanel id={view.id} /></CargoWorkspaceProvider>
-  }
-  return null
-})
-
-registerPanelRenderer('packlog', (view) => {
-  if (view.type === 'create') {
-    if (view.meta?.subtype === 'cargo-request') return <CargoWorkspaceProvider module="packlog" label="PackLog"><CreateCargoRequestPanel /></CargoWorkspaceProvider>
-    if (view.meta?.subtype === 'cargo') return <CargoWorkspaceProvider module="packlog" label="PackLog"><CreateCargoPanel /></CargoWorkspaceProvider>
-  }
-  if (view.type === 'detail' && 'id' in view) {
-    if (view.meta?.subtype === 'cargo-request') return <CargoWorkspaceProvider module="packlog" label="PackLog"><CargoRequestDetailPanel id={view.id} /></CargoWorkspaceProvider>
-    if (view.meta?.subtype === 'cargo') return <CargoWorkspaceProvider module="packlog" label="PackLog"><CargoDetailPanel id={view.id} /></CargoWorkspaceProvider>
   }
   return null
 })

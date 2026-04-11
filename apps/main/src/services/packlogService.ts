@@ -5,7 +5,6 @@ import type {
   CargoItemCreate,
   CargoItemUpdate,
   CargoLoadingOption,
-  CargoReceive,
   CargoRequest,
   CargoRequestCreate,
   CargoRequestUpdate,
@@ -19,6 +18,10 @@ import type {
   CargoHistoryEntry,
   PaginationParams,
   PaginatedResponse,
+  SapMatchResult,
+  TravelArticle,
+  TravelArticleCreate,
+  TravelArticleImportResult,
 } from '@/types/api'
 
 const BASE = '/api/v1/packlog'
@@ -158,6 +161,30 @@ function normalizeCargoLoadingOption(data: Record<string, unknown>): CargoLoadin
   }
 }
 
+function normalizeTravelArticle(data: Record<string, unknown>): TravelArticle {
+  return {
+    id: String(data.id),
+    entity_id: typeof data.entity_id === 'string' ? data.entity_id : undefined,
+    sap_code: String(data.sap_code ?? ''),
+    description: String(data.description ?? data.description_fr ?? ''),
+    management_type: typeof data.management_type === 'string' ? data.management_type : null,
+    packaging: typeof data.packaging === 'string'
+      ? data.packaging
+      : typeof data.packaging_type === 'string'
+        ? data.packaging_type
+        : null,
+    is_hazmat: Boolean(data.is_hazmat),
+    hazmat_class: typeof data.hazmat_class === 'string' ? data.hazmat_class : null,
+    unit: typeof data.unit === 'string'
+      ? data.unit
+      : typeof data.unit_of_measure === 'string'
+        ? data.unit_of_measure
+        : null,
+    active: typeof data.active === 'boolean' ? data.active : true,
+    created_at: typeof data.created_at === 'string' ? data.created_at : new Date().toISOString(),
+  }
+}
+
 interface CargoListParams extends PaginationParams {
   status?: string
   cargo_type?: string
@@ -173,6 +200,15 @@ interface CargoRequestListParams extends PaginationParams {
   search?: string
 }
 
+interface ArticleListParams extends PaginationParams {
+  search?: string
+  sap_code?: string
+  management_type?: string
+  is_hazmat?: boolean
+}
+
+type PackLogTrackingPayload = Record<string, unknown>
+
 export const packlogService = {
   listCargoRequests: async (params: CargoRequestListParams = {}): Promise<PaginatedResponse<CargoRequest>> => {
     const { data } = await api.get(`${BASE}/cargo-requests`, { params })
@@ -181,6 +217,10 @@ export const packlogService = {
   getCargoRequest: async (id: string): Promise<CargoRequest> => {
     const { data } = await api.get(`${BASE}/cargo-requests/${id}`)
     return normalizeCargoRequest(data)
+  },
+  getArticle: async (id: string): Promise<TravelArticle> => {
+    const { data } = await api.get(`${BASE}/articles/${id}`)
+    return normalizeTravelArticle(data)
   },
   getCargoRequestLtPdf: async (id: string): Promise<Blob> => {
     const { data } = await api.get(`${BASE}/cargo-requests/${id}/pdf/lt`, { responseType: 'blob' })
@@ -234,7 +274,7 @@ export const packlogService = {
     const { data } = await api.put(`${BASE}/cargo/${cargoId}/attachments/${attachmentId}/evidence-type`, { evidence_type })
     return data
   },
-  receiveCargo: async (id: string, payload: CargoReceive = {}): Promise<CargoItem> => {
+  receiveCargo: async (id: string, payload: { received_by?: string | null; notes?: string | null } = {}): Promise<CargoItem> => {
     const { data } = await api.post(`${BASE}/cargo/${id}/receive`, payload)
     return normalizeCargo(data)
   },
@@ -260,6 +300,49 @@ export const packlogService = {
   },
   updatePackageElementDisposition: async (cargoItemId: string, elementId: string, payload: PackageElementDispositionUpdate): Promise<PackageElement> => {
     const { data } = await api.patch(`${BASE}/cargo/${cargoItemId}/elements/${elementId}/disposition`, payload)
+    return data
+  },
+  sapMatch: async (description: string): Promise<SapMatchResult> => {
+    const { data } = await api.post(`${BASE}/cargo/sap-match`, { description })
+    return data
+  },
+  listArticles: async (params: ArticleListParams = {}): Promise<PaginatedResponse<TravelArticle>> => {
+    const { data } = await api.get(`${BASE}/articles`, { params })
+    if (Array.isArray(data)) {
+      const items = data.map((item) => normalizeTravelArticle(item))
+      return {
+        items,
+        total: items.length,
+        page: 1,
+        page_size: items.length || 1,
+        pages: 1,
+      }
+    }
+    return {
+      ...data,
+      items: Array.isArray(data.items)
+        ? data.items.map((item: Record<string, unknown>) => normalizeTravelArticle(item))
+        : [],
+    }
+  },
+  createArticle: async (payload: TravelArticleCreate): Promise<TravelArticle> => {
+    const { data } = await api.post(`${BASE}/articles`, payload)
+    return normalizeTravelArticle(data)
+  },
+  importArticlesCsv: async (file: File): Promise<TravelArticleImportResult> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const { data } = await api.post(`${BASE}/articles/import-csv`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data
+  },
+  getPublicCargoTracking: async (trackingCode: string): Promise<PackLogTrackingPayload> => {
+    const { data } = await api.get(`${BASE}/public/cargo/${encodeURIComponent(trackingCode)}`)
+    return data
+  },
+  getPublicVoyageCargoTracking: async (voyageCode: string): Promise<PackLogTrackingPayload> => {
+    const { data } = await api.get(`${BASE}/public/voyages/${encodeURIComponent(voyageCode)}/cargo`)
     return data
   },
 }

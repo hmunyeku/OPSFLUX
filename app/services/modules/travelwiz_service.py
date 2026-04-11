@@ -1972,6 +1972,43 @@ async def list_article_catalog(
     ]
 
 
+async def get_article_catalog_entry(
+    db: AsyncSession,
+    *,
+    entity_id: UUID,
+    article_id: UUID,
+) -> dict | None:
+    result = await db.execute(
+        text(
+            """
+            SELECT id, entity_id, sap_code, description_fr, management_type,
+                   packaging_type, unit_of_measure, is_hazmat, hazmat_class,
+                   COALESCE(active, TRUE) AS active, created_at
+            FROM article_catalog
+            WHERE entity_id = :eid AND id = :article_id
+            LIMIT 1
+            """
+        ),
+        {"eid": str(entity_id), "article_id": str(article_id)},
+    )
+    row = result.first()
+    if not row:
+        return None
+    return {
+        "id": row[0],
+        "entity_id": row[1],
+        "sap_code": row[2],
+        "description": row[3],
+        "management_type": row[4],
+        "packaging": row[5],
+        "unit": row[6],
+        "is_hazmat": row[7],
+        "hazmat_class": row[8],
+        "active": row[9],
+        "created_at": row[10],
+    }
+
+
 async def create_article_catalog_entry(
     db: AsyncSession,
     *,

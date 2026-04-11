@@ -513,13 +513,18 @@ async def instantiate_preset(
         await db.commit()
         await db.refresh(doc_type)
 
+    doc_type_id = doc_type.id
+    template_id = template.id
+    form_id = form.id if form else None
+    default_template_id = doc_type.default_template_id
+
     if not form:
         form = await create_form(
             entity_id=entity_id,
             created_by=created_by,
             body=SimpleNamespace(
                 document_id=None,
-                doc_type_id=doc_type.id,
+                doc_type_id=doc_type_id,
                 name=preset["name"].get(language) or preset["name"].get("fr") or "Field supervision report",
                 description=preset["description"].get(language) or preset["description"].get("fr"),
                 form_schema=_field_supervision_form_schema(),
@@ -530,6 +535,7 @@ async def instantiate_preset(
             ),
             db=db,
         )
+        form_id = form.id
 
     document = None
     if getattr(body, "create_document", True):
@@ -541,7 +547,7 @@ async def instantiate_preset(
         )
         document = await create_document(
             body=SimpleNamespace(
-                doc_type_id=doc_type.id,
+                doc_type_id=doc_type_id,
                 project_id=getattr(body, "project_id", None),
                 arborescence_node_id=None,
                 title=document_title,
@@ -566,19 +572,19 @@ async def instantiate_preset(
     return {
         "preset": preset,
         "doc_type": {
-            "id": str(doc_type.id),
+            "id": str(doc_type_id),
             "code": doc_type.code,
             "name": doc_type.name,
-            "default_template_id": str(doc_type.default_template_id) if doc_type.default_template_id else None,
+            "default_template_id": str(default_template_id) if default_template_id else None,
         },
         "template": {
-            "id": str(template.id),
+            "id": str(template_id),
             "name": template.name,
             "doc_type_id": str(template.doc_type_id) if template.doc_type_id else None,
             "version": template.version,
         },
         "form": {
-            "id": str(form.id),
+            "id": str(form_id),
             "name": form.name,
             "document_id": str(form.document_id) if form.document_id else None,
             "doc_type_id": str(form.doc_type_id) if form.doc_type_id else None,

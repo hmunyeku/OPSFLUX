@@ -1447,6 +1447,7 @@ export function ReportEditorPage() {
   const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
   const [showTreeSidebar, setShowTreeSidebar] = useState(true)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [presetProjectIds, setPresetProjectIds] = useState<Record<string, string>>({})
   const { t } = useTranslation()
 
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
@@ -1499,10 +1500,15 @@ export function ReportEditorPage() {
   }, [])
 
   const handleInstantiatePreset = useCallback(async (presetKey: string) => {
+    const selectedProjectId = presetProjectIds[presetKey]
+    if (presetKey === 'field_supervision_report' && !selectedProjectId) {
+      toast({ title: 'Sélectionnez un projet pour ce preset', variant: 'error' })
+      return
+    }
     try {
       const result = await instantiatePapyrusPreset.mutateAsync({
         presetKey,
-        payload: { create_document: true },
+        payload: { create_document: true, project_id: selectedProjectId },
       })
       toast({
         title: t('papyrus.presets.instantiated'),
@@ -1516,7 +1522,7 @@ export function ReportEditorPage() {
     } catch {
       toast({ title: t('papyrus.presets.instantiate_error'), variant: 'error' })
     }
-  }, [instantiatePapyrusPreset, openDynamicPanel, t, toast])
+  }, [instantiatePapyrusPreset, openDynamicPanel, presetProjectIds, t, toast])
 
   // -- Data -------------------------------------------------------------------
 
@@ -1714,6 +1720,21 @@ export function ReportEditorPage() {
                         <div className="text-sm font-semibold text-foreground">{presetName}</div>
                         <div className="text-xs text-muted-foreground">{presetDescription}</div>
                       </div>
+                      {preset.key === 'field_supervision_report' ? (
+                        <div className="space-y-1">
+                          <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Projet</div>
+                          <select
+                            value={presetProjectIds[preset.key] ?? ''}
+                            onChange={(event) => setPresetProjectIds((current) => ({ ...current, [preset.key]: event.target.value }))}
+                            className={panelInputClass}
+                          >
+                            <option value="">Sélectionner un projet...</option>
+                            {(projectsData?.items ?? []).map((project: { id: string; name: string }) => (
+                              <option key={project.id} value={project.id}>{project.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : null}
                       <div className="flex flex-wrap gap-1">
                         {preset.tags.map((tag) => (
                           <span key={tag} className="inline-flex items-center rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">

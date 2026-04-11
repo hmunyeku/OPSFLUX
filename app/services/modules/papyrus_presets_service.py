@@ -469,12 +469,22 @@ async def instantiate_preset(
     body: Any,
     db: AsyncSession,
 ) -> dict[str, Any]:
+    from fastapi import HTTPException
+
     if preset_key != "field_supervision_report":
         raise KeyError(preset_key)
 
     preset = _get_preset(preset_key)
     language = getattr(body, "language", None) or "fr"
     classification = getattr(body, "classification", None) or "INT"
+    project_id = getattr(body, "project_id", None)
+
+    if getattr(body, "create_document", True) and not project_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Le preset 'Field supervision report' requiert un projet. Sélectionnez un projet avant de créer le kit.",
+        )
+
     doc_type, template, form = await _find_field_supervision_assets(entity_id=entity_id, db=db)
 
     if not doc_type:
@@ -548,7 +558,7 @@ async def instantiate_preset(
         document = await create_document(
             body=SimpleNamespace(
                 doc_type_id=doc_type_id,
-                project_id=getattr(body, "project_id", None),
+                project_id=project_id,
                 arborescence_node_id=None,
                 title=document_title,
                 language=language,
@@ -563,7 +573,7 @@ async def instantiate_preset(
         revision = await db.get(Revision, document.current_revision_id) if document.current_revision_id else None
         if revision:
             revision.form_data = await _build_field_supervision_prefill(
-                project_id=getattr(body, "project_id", None),
+                project_id=project_id,
                 title=document_title,
                 db=db,
             )

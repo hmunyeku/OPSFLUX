@@ -1,5 +1,20 @@
-import React, { useState, useRef, useCallback } from 'react'
-import { Shield, Send, KeyRound, Clock, Hash, Mail, CheckCircle2, Lock } from 'lucide-react'
+import React, { useRef, useState } from 'react'
+import {
+  EuiBadge,
+  EuiButton,
+  EuiCallOut,
+  EuiCode,
+  EuiDescribedFormGroup,
+  EuiFieldText,
+  EuiFlexGrid,
+  EuiFlexGroup,
+  EuiFlexItem,
+  EuiPanel,
+  EuiSpacer,
+  EuiStat,
+  EuiText,
+  EuiTitle,
+} from '@elastic/eui'
 import { t, getLang } from '../lib/i18n'
 import { formatDateTime } from '../lib/utils'
 import StatusBadge from '../components/StatusBadge'
@@ -20,212 +35,154 @@ export default function SecurityStep({ linkInfo, authenticated, loading, onSendO
 
   const otpCode = digits.join('')
 
-  const handleDigitChange = useCallback((index: number, value: string) => {
-    // Only accept digits
+  const handleDigitChange = (index: number, value: string) => {
     const digit = value.replace(/\D/g, '').slice(-1)
-    setDigits(prev => {
+    setDigits((prev) => {
       const next = [...prev]
       next[index] = digit
       return next
     })
-    // Auto-focus next box
     if (digit && index < 5) {
       inputRefs.current[index + 1]?.focus()
     }
-  }, [])
+  }
 
-  const handleKeyDown = useCallback((index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !digits[index] && index > 0) {
+  const handleKeyDown = (index: number, event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Backspace' && !digits[index] && index > 0) {
       inputRefs.current[index - 1]?.focus()
     }
-  }, [digits])
+  }
 
-  const handlePaste = useCallback((e: React.ClipboardEvent) => {
-    e.preventDefault()
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+  const handlePaste = (event: React.ClipboardEvent) => {
+    event.preventDefault()
+    const pasted = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
     if (!pasted) return
-    const newDigits = [...digits]
-    for (let i = 0; i < 6; i++) {
-      newDigits[i] = pasted[i] || ''
+    const nextDigits = [...digits]
+    for (let i = 0; i < 6; i += 1) {
+      nextDigits[i] = pasted[i] || ''
     }
-    setDigits(newDigits)
-    // Focus last filled or next empty
-    const focusIndex = Math.min(pasted.length, 5)
-    inputRefs.current[focusIndex]?.focus()
-  }, [digits])
+    setDigits(nextDigits)
+    inputRefs.current[Math.min(pasted.length, 5)]?.focus()
+  }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const code = digits.join('')
-    if (code.length !== 6) return
-    onVerifyOtp(code)
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault()
+    if (otpCode.length !== 6) return
+    onVerifyOtp(otpCode)
   }
 
   return (
-    <div className="animate-fade-in-up space-y-6">
-      {/* ── Hero boarding-pass header ── */}
-      <div className="ext-card overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <Shield className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="text-blue-200 text-[11px] font-semibold uppercase tracking-widest">{t('dossier')}</p>
-                <h3 className="text-white text-lg font-bold mono">{linkInfo?.ads_reference || '\u2014'}</h3>
-              </div>
-            </div>
-            <div className="text-right hidden sm:block">
-              <p className="text-blue-200 text-[11px] font-semibold uppercase tracking-widest">{t('company')}</p>
-              <p className="text-white text-sm font-semibold">{linkInfo?.company_name || '\u2014'}</p>
-            </div>
-          </div>
-        </div>
-        {linkInfo?.site_name && (
-          <div className="px-6 py-3 bg-blue-50 border-b border-blue-100 flex items-center gap-2">
-            <Lock className="w-3.5 h-3.5 text-blue-500" />
-            <p className="text-xs text-blue-700 font-medium">{linkInfo.site_name}</p>
-          </div>
-        )}
-      </div>
+    <EuiFlexGroup direction="column" gutterSize="l">
+      <EuiFlexItem grow={false}>
+        <EuiPanel hasBorder hasShadow paddingSize="l">
+          <EuiFlexGroup justifyContent="spaceBetween" alignItems="center">
+            <EuiFlexItem>
+              <EuiTitle size="s">
+                <h3>{t('wizard_access_title')}</h3>
+              </EuiTitle>
+              <EuiSpacer size="s" />
+              <EuiText size="s" color="subdued">
+                <p>{t('wizard_access_text')}</p>
+              </EuiText>
+              <EuiSpacer size="s" />
+              <EuiCode>{linkInfo?.ads_reference || '—'}</EuiCode>
+            </EuiFlexItem>
+            <EuiFlexItem grow={false}>
+              <StatusBadge status={authenticated || !linkInfo?.otp_required ? 'approved' : 'pending_check'} />
+            </EuiFlexItem>
+          </EuiFlexGroup>
+        </EuiPanel>
+      </EuiFlexItem>
 
-      {/* ── Info chips ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 stagger">
-        <div className="ext-card flex items-center gap-3 p-4">
-          <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-            <Hash className="w-4 h-4 text-blue-600" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">{t('remaining_uses')}</p>
-            <p className="text-sm font-bold text-slate-900 mono">{linkInfo?.remaining_uses ?? '\u2014'}</p>
-          </div>
-        </div>
-        <div className="ext-card flex items-center gap-3 p-4">
-          <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-            <Clock className="w-4 h-4 text-amber-600" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">{t('expires_at')}</p>
-            <p className="text-sm font-bold text-slate-900">{formatDateTime(linkInfo?.expires_at, lang)}</p>
-          </div>
-        </div>
-        <div className="ext-card flex items-center gap-3 p-4">
-          <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-            <Mail className="w-4 h-4 text-slate-600" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">{t('otp_destination')}</p>
-            <p className="text-sm font-bold text-slate-900 truncate">{linkInfo?.otp_destination_masked || '\u2014'}</p>
-          </div>
-        </div>
-      </div>
+      <EuiFlexItem grow={false}>
+        <EuiFlexGrid columns={3}>
+          <EuiFlexItem>
+            <EuiPanel hasBorder paddingSize="m">
+              <EuiStat title={String(linkInfo?.remaining_uses ?? '—')} description={t('remaining_uses')} titleSize="s" />
+            </EuiPanel>
+          </EuiFlexItem>
+          <EuiFlexItem>
+            <EuiPanel hasBorder paddingSize="m">
+              <EuiText size="s">
+                <p><strong>{t('expires_at')}</strong></p>
+                <p>{formatDateTime(linkInfo?.expires_at, lang)}</p>
+              </EuiText>
+            </EuiPanel>
+          </EuiFlexItem>
+          <EuiFlexItem>
+            <EuiPanel hasBorder paddingSize="m">
+              <EuiText size="s">
+                <p><strong>{t('otp_destination')}</strong></p>
+                <p>{linkInfo?.otp_destination_masked || '—'}</p>
+              </EuiText>
+            </EuiPanel>
+          </EuiFlexItem>
+        </EuiFlexGrid>
+      </EuiFlexItem>
 
-      {/* ── Status banner ── */}
       {authenticated ? (
-        <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-5 flex items-center gap-4 animate-fade-in-up">
-          <div className="w-11 h-11 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-emerald-800">{t('authenticated')}</p>
-            <p className="text-xs text-emerald-600 mt-0.5">{t('otp_not_required')}</p>
-          </div>
-          <StatusBadge status="approved" className="ml-auto" />
-        </div>
+        <EuiFlexItem grow={false}>
+          <EuiCallOut title={t('authenticated')} color="success" iconType="check" />
+        </EuiFlexItem>
       ) : !linkInfo?.otp_required ? (
-        <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-5 flex items-center gap-4 animate-fade-in-up">
-          <div className="w-11 h-11 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-emerald-800">{t('otp_not_required')}</p>
-            <p className="text-xs text-emerald-600 mt-0.5">{t('authenticated')}</p>
-          </div>
-          <StatusBadge status="approved" className="ml-auto" />
-        </div>
+        <EuiFlexItem grow={false}>
+          <EuiCallOut title={t('otp_not_required')} color="success" iconType="checkInCircleFilled" />
+        </EuiFlexItem>
       ) : (
-        <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-            <KeyRound className="w-4 h-4 text-amber-600" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-amber-800">{t('otp_required')}</p>
-            <p className="text-xs text-amber-600">{t('wizard_access_text')}</p>
-          </div>
-          <StatusBadge status="pending_check" className="ml-auto" />
-        </div>
+        <EuiFlexItem grow={false}>
+          <EuiCallOut title={t('otp_required')} color="warning" iconType="lock" />
+        </EuiFlexItem>
       )}
 
-      {/* ── OTP Form ── */}
-      {linkInfo?.otp_required && !authenticated && (
-        <div className="ext-card animate-fade-in-up">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                <Shield className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-slate-900">{t('wizard_access_title')}</h4>
-                <p className="text-xs text-slate-500 mt-0.5">{t('wizard_access_text')}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6 space-y-6">
-            {/* Send OTP button */}
-            <button
-              onClick={onSendOtp}
-              disabled={loading}
-              className="ext-btn-primary w-full sm:w-auto disabled:opacity-50"
+      {linkInfo?.otp_required && !authenticated ? (
+        <EuiFlexItem grow={false}>
+          <EuiPanel hasBorder paddingSize="l">
+            <EuiDescribedFormGroup
+              title={<h4>{t('wizard_access_title')}</h4>}
+              description={<p>{t('wizard_access_text')}</p>}
             >
-              {loading ? <Spinner size="sm" /> : <Send className="w-4 h-4" />}
-              {t('send_code')}
-            </button>
-
-            {/* 6-digit OTP input boxes */}
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label className="ext-label text-center block mb-4">{t('otp_code')}</label>
-                <div className="flex items-center justify-center gap-2 sm:gap-3" onPaste={handlePaste}>
-                  {digits.map((digit, i) => (
-                    <React.Fragment key={i}>
-                      {i === 3 && (
-                        <div className="w-3 flex items-center justify-center">
-                          <div className="w-2 h-0.5 bg-slate-300 rounded-full" />
-                        </div>
-                      )}
-                      <input
-                        ref={el => { inputRefs.current[i] = el }}
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={1}
-                        value={digit}
-                        onChange={(e) => handleDigitChange(i, e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(i, e)}
-                        className="w-12 h-14 sm:w-14 sm:h-16 rounded-xl border-2 border-slate-200 bg-white text-center text-xl sm:text-2xl font-bold text-slate-900 mono
-                                   focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10
-                                   transition-all duration-150 placeholder:text-slate-200"
-                        placeholder="\u2022"
-                        aria-label={`${t('otp_code')} ${i + 1}`}
-                      />
-                    </React.Fragment>
-                  ))}
+              <EuiButton onClick={onSendOtp} isLoading={loading}>
+                {t('send_code')}
+              </EuiButton>
+              <EuiSpacer size="l" />
+              <form onSubmit={handleSubmit}>
+                <EuiText size="s">
+                  <strong>{t('otp_code')}</strong>
+                </EuiText>
+                <EuiSpacer size="m" />
+                <div onPaste={handlePaste}>
+                  <EuiFlexGroup gutterSize="s" responsive={false} justifyContent="center">
+                    {digits.map((digit, index) => (
+                      <EuiFlexItem key={index} grow={false}>
+                        <EuiFieldText
+                          inputRef={(el) => { inputRefs.current[index] = el }}
+                          value={digit}
+                          onChange={(event) => handleDigitChange(index, event.target.value)}
+                          onKeyDown={(event) => handleKeyDown(index, event)}
+                          maxLength={1}
+                          compressed={false}
+                          style={{ width: 48, textAlign: 'center' }}
+                          aria-label={`${t('otp_code')} ${index + 1}`}
+                        />
+                      </EuiFlexItem>
+                    ))}
+                  </EuiFlexGroup>
                 </div>
-              </div>
+                <EuiSpacer size="l" />
+                <EuiButton type="submit" fill isLoading={loading} isDisabled={otpCode.length !== 6}>
+                  {t('verify_code')}
+                </EuiButton>
+              </form>
+            </EuiDescribedFormGroup>
+          </EuiPanel>
+        </EuiFlexItem>
+      ) : null}
 
-              <button
-                type="submit"
-                disabled={loading || otpCode.length !== 6}
-                className="ext-btn-primary w-full disabled:opacity-50"
-              >
-                {loading ? <Spinner size="sm" /> : <KeyRound className="w-4 h-4" />}
-                {t('verify_code')}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+      {loading ? (
+        <EuiFlexItem grow={false}>
+          <Spinner label={t('loading')} />
+        </EuiFlexItem>
+      ) : null}
+    </EuiFlexGroup>
   )
 }

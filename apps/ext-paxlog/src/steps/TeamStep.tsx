@@ -1,10 +1,23 @@
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import {
-  UserPlus, Users, ArrowRight, Search, CheckCircle2, Lock, User,
-  Mail, Phone, Briefcase, MapPin, ChevronRight, Percent,
-} from 'lucide-react'
+  EuiBadge,
+  EuiButton,
+  EuiCallOut,
+  EuiCard,
+  EuiDescriptionList,
+  EuiFieldText,
+  EuiFlexGrid,
+  EuiFlexGroup,
+  EuiFlexItem,
+  EuiForm,
+  EuiFormRow,
+  EuiPanel,
+  EuiSelect,
+  EuiSpacer,
+  EuiText,
+  EuiTitle,
+} from '@elastic/eui'
 import { t } from '../lib/i18n'
-import { cn, objectFromFormData } from '../lib/utils'
 import { apiRequest } from '../lib/api'
 import StatusBadge from '../components/StatusBadge'
 import Spinner from '../components/Spinner'
@@ -32,15 +45,10 @@ export default function TeamStep({
   const matchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   if (!authenticated) {
-    return (
-      <div className="rounded-xl bg-amber-50 border border-amber-200 p-8 text-center animate-fade-in-up">
-        <Lock className="w-8 h-8 text-amber-500 mx-auto mb-3" />
-        <p className="text-sm font-semibold text-amber-800">{t('wizard_locked_access')}</p>
-      </div>
-    )
+    return <EuiCallOut title={t('wizard_locked_access')} color="warning" iconType="lock" />
   }
   if (!dossier) {
-    return <Spinner label={t('loading')} className="py-12" size="lg" />
+    return <Spinner label={t('loading')} paddingBlock={48} size="xl" />
   }
 
   const pax = dossier.pax || []
@@ -91,10 +99,13 @@ export default function TeamStep({
     setMatchesLoading(false)
   }
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    const payload = objectFromFormData(formData)
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault()
+    const form = new FormData(event.currentTarget as HTMLFormElement)
+    const payload: Record<string, string | null> = {}
+    Array.from(form.entries()).forEach(([key, value]) => {
+      payload[key] = String(value || '') || null
+    })
     onCreatePax(payload).then(() => {
       setDraft({})
       setMatches([])
@@ -102,270 +113,159 @@ export default function TeamStep({
   }
 
   return (
-    <div className="animate-fade-in-up space-y-6">
-      {/* ── Summary bar ── */}
-      <div className="ext-card p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-              <Users className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">{t('wizard_team_title')}</h3>
-              <p className="text-xs text-slate-500 mt-0.5">{t('wizard_team_text')}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <StatChip label={t('pax_count')} value={summary.total ?? 0} color="blue" />
-            <StatChip label={t('approved')} value={summary.approved ?? 0} color="emerald" />
-            {(summary.pending_check ?? 0) > 0 && (
-              <StatChip label={t('pending_check')} value={summary.pending_check} color="amber" />
-            )}
-            {(summary.blocked ?? 0) > 0 && (
-              <StatChip label={t('blocked')} value={summary.blocked} color="red" />
-            )}
-          </div>
-        </div>
-      </div>
+    <EuiFlexGroup direction="column" gutterSize="l">
+      <EuiFlexItem grow={false}>
+        <EuiPanel hasBorder hasShadow paddingSize="m">
+          <EuiFlexGroup justifyContent="spaceBetween" alignItems="center">
+            <EuiFlexItem>
+              <EuiTitle size="s">
+                <h3>{t('wizard_team_title')}</h3>
+              </EuiTitle>
+              <EuiSpacer size="xs" />
+              <EuiText size="s" color="subdued">
+                <p>{t('wizard_team_text')}</p>
+              </EuiText>
+            </EuiFlexItem>
+            <EuiFlexItem grow={false}>
+              <EuiFlexGroup gutterSize="s" wrap responsive={false}>
+                <EuiFlexItem grow={false}><EuiBadge color="primary">{t('pax_count')}: {summary.total ?? 0}</EuiBadge></EuiFlexItem>
+                <EuiFlexItem grow={false}><EuiBadge color="success">{t('approved')}: {summary.approved ?? 0}</EuiBadge></EuiFlexItem>
+                {(summary.pending_check ?? 0) > 0 ? <EuiFlexItem grow={false}><EuiBadge color="warning">{t('pending_check')}: {summary.pending_check}</EuiBadge></EuiFlexItem> : null}
+                {(summary.blocked ?? 0) > 0 ? <EuiFlexItem grow={false}><EuiBadge color="danger">{t('blocked')}: {summary.blocked}</EuiBadge></EuiFlexItem> : null}
+              </EuiFlexGroup>
+            </EuiFlexItem>
+          </EuiFlexGroup>
+        </EuiPanel>
+      </EuiFlexItem>
 
-      {/* ── Add PAX form ── */}
-      <form onSubmit={handleSubmit} className="ext-card">
-        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
-              <UserPlus className="w-4 h-4 text-blue-600" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-slate-900">{t('add_pax')}</h4>
-              <p className="text-xs text-slate-500">{t('wizard_team_helper')}</p>
-            </div>
-          </div>
-        </div>
+      <EuiFlexItem grow={false}>
+        <EuiPanel hasBorder paddingSize="l">
+          <EuiTitle size="s">
+            <h3>{t('add_pax')}</h3>
+          </EuiTitle>
+          <EuiSpacer size="s" />
+          <EuiText size="s" color="subdued">
+            <p>{t('wizard_team_helper')}</p>
+          </EuiText>
+          <EuiSpacer size="m" />
+          <EuiForm component="form" onSubmit={handleSubmit}>
+            <EuiFlexGrid columns={3}>
+              <EuiFlexItem><EuiFormRow label={t('first_name')}><EuiFieldText name="first_name" required value={draft.first_name || ''} onChange={(e) => updateDraft('first_name', e.target.value)} /></EuiFormRow></EuiFlexItem>
+              <EuiFlexItem><EuiFormRow label={t('last_name')}><EuiFieldText name="last_name" required value={draft.last_name || ''} onChange={(e) => updateDraft('last_name', e.target.value)} /></EuiFormRow></EuiFlexItem>
+              <EuiFlexItem><EuiFormRow label={t('birth_date')}><EuiFieldText type="date" name="birth_date" value={draft.birth_date || ''} onChange={(e) => updateDraft('birth_date', e.target.value)} /></EuiFormRow></EuiFlexItem>
+              <EuiFlexItem><EuiFormRow label={t('nationality')}><EuiFieldText name="nationality" value={draft.nationality || ''} onChange={(e) => updateDraft('nationality', e.target.value)} /></EuiFormRow></EuiFlexItem>
+              <EuiFlexItem><EuiFormRow label={t('badge_number')}><EuiFieldText name="badge_number" value={draft.badge_number || ''} onChange={(e) => updateDraft('badge_number', e.target.value)} /></EuiFormRow></EuiFlexItem>
+              <EuiFlexItem><EuiFormRow label={t('photo_url')}><EuiFieldText type="url" name="photo_url" value={draft.photo_url || ''} onChange={(e) => updateDraft('photo_url', e.target.value)} /></EuiFormRow></EuiFlexItem>
+              <EuiFlexItem><EuiFormRow label={t('email')}><EuiFieldText type="email" name="email" value={draft.email || ''} onChange={(e) => updateDraft('email', e.target.value)} /></EuiFormRow></EuiFlexItem>
+              <EuiFlexItem><EuiFormRow label={t('phone')}><EuiFieldText name="phone" value={draft.phone || ''} onChange={(e) => updateDraft('phone', e.target.value)} /></EuiFormRow></EuiFlexItem>
+              <EuiFlexItem><EuiFormRow label={t('position')}><EuiSelect name="job_position_id" value={draft.job_position_id || ''} onChange={(e) => updateDraft('job_position_id', e.target.value)} options={[{ value: '', text: t('position') }, ...jobPositions.map((jp) => ({ value: jp.id, text: `${jp.name}${jp.code ? ` (${jp.code})` : ''}` }))]} /></EuiFormRow></EuiFlexItem>
+              <EuiFlexItem><EuiFormRow label={t('pickup_address_line1')}><EuiFieldText name="pickup_address_line1" value={draft.pickup_address_line1 || ''} onChange={(e) => updateDraft('pickup_address_line1', e.target.value)} /></EuiFormRow></EuiFlexItem>
+              <EuiFlexItem><EuiFormRow label={t('pickup_address_line2')}><EuiFieldText name="pickup_address_line2" value={draft.pickup_address_line2 || ''} onChange={(e) => updateDraft('pickup_address_line2', e.target.value)} /></EuiFormRow></EuiFlexItem>
+              <EuiFlexItem><EuiFormRow label={t('pickup_city')}><EuiFieldText name="pickup_city" value={draft.pickup_city || ''} onChange={(e) => updateDraft('pickup_city', e.target.value)} /></EuiFormRow></EuiFlexItem>
+              <EuiFlexItem><EuiFormRow label={t('pickup_state_province')}><EuiFieldText name="pickup_state_province" value={draft.pickup_state_province || ''} onChange={(e) => updateDraft('pickup_state_province', e.target.value)} /></EuiFormRow></EuiFlexItem>
+              <EuiFlexItem><EuiFormRow label={t('pickup_postal_code')}><EuiFieldText name="pickup_postal_code" value={draft.pickup_postal_code || ''} onChange={(e) => updateDraft('pickup_postal_code', e.target.value)} /></EuiFormRow></EuiFlexItem>
+              <EuiFlexItem><EuiFormRow label={t('pickup_country')}><EuiFieldText name="pickup_country" value={draft.pickup_country || ''} onChange={(e) => updateDraft('pickup_country', e.target.value)} /></EuiFormRow></EuiFlexItem>
+            </EuiFlexGrid>
+            <EuiSpacer size="m" />
+            <EuiFlexGroup justifyContent="flexEnd">
+              <EuiFlexItem grow={false}>
+                <EuiButton type="submit" fill isLoading={loading}>
+                  {t('add_pax')}
+                </EuiButton>
+              </EuiFlexItem>
+            </EuiFlexGroup>
+          </EuiForm>
+        </EuiPanel>
+      </EuiFlexItem>
 
-        <div className="p-6 space-y-6">
-          {/* Section: Identity */}
-          <div>
-            <SectionHeader icon={User} title={t('first_name') + ' / ' + t('last_name')} />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
-              <FormField name="first_name" label={t('first_name')} required value={draft.first_name || ''} onChange={updateDraft} />
-              <FormField name="last_name" label={t('last_name')} required value={draft.last_name || ''} onChange={updateDraft} />
-              <FormField name="birth_date" label={t('birth_date')} type="date" value={draft.birth_date || ''} onChange={updateDraft} />
-              <FormField name="nationality" label={t('nationality')} value={draft.nationality || ''} onChange={updateDraft} />
-              <FormField name="badge_number" label={t('badge_number')} value={draft.badge_number || ''} onChange={updateDraft} />
-              <FormField name="photo_url" label={t('photo_url')} type="url" value={draft.photo_url || ''} onChange={updateDraft} />
-            </div>
-          </div>
+      {matchesLoading ? (
+        <EuiFlexItem grow={false}>
+          <Spinner label={t('searching_existing_pax')} size="m" />
+        </EuiFlexItem>
+      ) : null}
 
-          {/* Section: Contact */}
-          <div>
-            <SectionHeader icon={Mail} title={t('email') + ' / ' + t('phone')} />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
-              <FormField name="email" label={t('email')} type="email" value={draft.email || ''} onChange={updateDraft} />
-              <FormField name="phone" label={t('phone')} value={draft.phone || ''} onChange={updateDraft} />
-              <div>
-                <label className="ext-label">{t('position')}</label>
-                <select
-                  name="job_position_id"
-                  value={draft.job_position_id || ''}
-                  onChange={(e) => updateDraft('job_position_id', e.target.value)}
-                  className="ext-select"
-                >
-                  <option value="">{t('position')}</option>
-                  {jobPositions.map((jp) => (
-                    <option key={jp.id} value={jp.id}>{jp.name}{jp.code ? ` (${jp.code})` : ''}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Section: Pickup address */}
-          <div>
-            <SectionHeader icon={MapPin} title={t('pickup_address')} />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
-              <FormField name="pickup_address_line1" label={t('pickup_address_line1')} value={draft.pickup_address_line1 || ''} onChange={updateDraft} />
-              <FormField name="pickup_address_line2" label={t('pickup_address_line2')} value={draft.pickup_address_line2 || ''} onChange={updateDraft} />
-              <FormField name="pickup_city" label={t('pickup_city')} value={draft.pickup_city || ''} onChange={updateDraft} />
-              <FormField name="pickup_state_province" label={t('pickup_state_province')} value={draft.pickup_state_province || ''} onChange={updateDraft} />
-              <FormField name="pickup_postal_code" label={t('pickup_postal_code')} value={draft.pickup_postal_code || ''} onChange={updateDraft} />
-              <FormField name="pickup_country" label={t('pickup_country')} value={draft.pickup_country || ''} onChange={updateDraft} />
-            </div>
-          </div>
-
-          {/* Duplicate matches */}
-          {matchesLoading && (
-            <div className="flex items-center gap-2 text-sm text-slate-500 py-2">
-              <Search className="w-4 h-4 animate-pulse" />
-              {t('searching_existing_pax')}
-            </div>
-          )}
-          {matches.length > 0 && (
-            <div className="rounded-xl bg-amber-50 border border-amber-200 p-5 space-y-3 animate-fade-in-up">
-              <div className="flex items-center gap-2">
-                <Search className="w-4 h-4 text-amber-600" />
-                <div>
-                  <p className="text-sm font-bold text-amber-800">{t('duplicate_candidates')}</p>
-                  <p className="text-xs text-amber-600 mt-0.5">{t('duplicate_candidates_hint')}</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {matches.map((match: any) => (
-                  <button
-                    key={match.contact_id}
-                    type="button"
+      {matches.length > 0 ? (
+        <EuiFlexItem grow={false}>
+          <EuiPanel color="warning" hasBorder paddingSize="m">
+            <EuiTitle size="xxs">
+              <h4>{t('duplicate_candidates')}</h4>
+            </EuiTitle>
+            <EuiSpacer size="s" />
+            <EuiText size="s" color="subdued">
+              <p>{t('duplicate_candidates_hint')}</p>
+            </EuiText>
+            <EuiSpacer size="m" />
+            <EuiFlexGroup direction="column" gutterSize="s">
+              {matches.map((match: any) => (
+                <EuiFlexItem key={match.contact_id} grow={false}>
+                  <EuiCard
+                    title={`${match.first_name} ${match.last_name}`}
+                    description={match.job_position_name || match.position || '—'}
                     onClick={() => onAttachExisting(match.contact_id)}
-                    disabled={loading}
-                    className="w-full ext-card p-4 flex items-center justify-between gap-3 hover:border-blue-300 hover:shadow-sm transition-all duration-150 disabled:opacity-50 text-left"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                        <span className="text-sm font-bold text-amber-700">
-                          {(match.first_name?.[0] || '').toUpperCase()}{(match.last_name?.[0] || '').toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 truncate">{match.first_name} {match.last_name}</p>
-                        <p className="text-xs text-slate-500 truncate">{match.job_position_name || match.position || '\u2014'}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="text-right">
-                        <div className="flex items-center gap-1 text-xs font-semibold text-amber-700">
-                          <Percent className="w-3 h-3" />
-                          {match.match_score}
-                        </div>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{(match.match_reasons || []).join(', ') || '\u2014'}</p>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-400" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+                    footer={<EuiBadge color="warning">{match.match_score}</EuiBadge>}
+                  />
+                </EuiFlexItem>
+              ))}
+            </EuiFlexGroup>
+          </EuiPanel>
+        </EuiFlexItem>
+      ) : null}
 
-          {/* Submit */}
-          <div className="flex justify-end pt-1">
-            <button type="submit" disabled={loading} className="ext-btn-primary disabled:opacity-50">
-              <UserPlus className="w-4 h-4" />
-              {t('add_pax')}
-            </button>
-          </div>
-        </div>
-      </form>
-
-      {/* ── PAX list ── */}
       {pax.length === 0 ? (
-        <div className="ext-card p-12 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-            <Users className="w-7 h-7 text-slate-400" />
-          </div>
-          <p className="text-sm font-semibold text-slate-600">{t('no_pax')}</p>
-          <p className="text-xs text-slate-400 mt-1">{t('wizard_team_helper')}</p>
-        </div>
+        <EuiFlexItem grow={false}>
+          <EuiCallOut title={t('no_pax')} color="primary" iconType="users" />
+        </EuiFlexItem>
       ) : (
-        <div className="space-y-3 stagger">
-          {pax.map((item: any) => (
-            <div
-              key={item.contact_id}
-              className="ext-card p-4 flex flex-col sm:flex-row sm:items-center gap-4 hover:shadow-sm hover:border-slate-300 transition-all duration-150"
-            >
-              {/* Avatar */}
-              <div className={cn(
-                'w-11 h-11 rounded-full flex items-center justify-center shrink-0 text-sm font-bold',
-                item.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                item.status === 'blocked' ? 'bg-red-100 text-red-700' :
-                'bg-blue-100 text-blue-700'
-              )}>
-                {(item.first_name?.[0] || '').toUpperCase()}{(item.last_name?.[0] || '').toUpperCase()}
-              </div>
-
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-bold text-slate-900">{item.first_name} {item.last_name}</p>
-                  <StatusBadge status={item.status || 'pending_check'} />
-                </div>
-                <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                  <Briefcase className="w-3 h-3" />
-                  {item.job_position_name || item.position || '\u2014'}
-                </p>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-slate-400">
-                  {item.birth_date && <span>{t('birth_date')}: {item.birth_date}</span>}
-                  {item.badge_number && <span className="mono">{t('badge_number')}: {item.badge_number}</span>}
-                  {item.email && <span>{item.email}</span>}
-                </div>
-              </div>
-
-              {/* Action */}
-              <button
-                onClick={() => onOpenCompliance(item.contact_id)}
-                className="ext-btn-secondary text-xs shrink-0"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                {t('open_compliance_dossier')}
-              </button>
-            </div>
-          ))}
-        </div>
+        <EuiFlexItem grow={false}>
+          <EuiFlexGroup direction="column" gutterSize="s">
+            {pax.map((item: any) => (
+              <EuiFlexItem key={item.contact_id} grow={false}>
+                <EuiPanel hasBorder paddingSize="m">
+                  <EuiFlexGroup alignItems="center" justifyContent="spaceBetween">
+                    <EuiFlexItem>
+                      <EuiTitle size="xxs">
+                        <h4>{item.first_name} {item.last_name}</h4>
+                      </EuiTitle>
+                      <EuiSpacer size="xs" />
+                      <EuiDescriptionList
+                        compressed
+                        type="inline"
+                        listItems={[
+                          { title: t('position'), description: item.job_position_name || item.position || '—' },
+                          { title: t('birth_date'), description: item.birth_date || '—' },
+                          { title: t('badge_number'), description: item.badge_number || '—' },
+                        ]}
+                      />
+                    </EuiFlexItem>
+                    <EuiFlexItem grow={false}>
+                      <EuiFlexGroup alignItems="center" gutterSize="s" responsive={false}>
+                        <EuiFlexItem grow={false}><StatusBadge status={item.status || 'pending_check'} /></EuiFlexItem>
+                        <EuiFlexItem grow={false}>
+                          <EuiButton size="s" onClick={() => onOpenCompliance(item.contact_id)}>
+                            {t('open_compliance_dossier')}
+                          </EuiButton>
+                        </EuiFlexItem>
+                      </EuiFlexGroup>
+                    </EuiFlexItem>
+                  </EuiFlexGroup>
+                </EuiPanel>
+              </EuiFlexItem>
+            ))}
+          </EuiFlexGroup>
+        </EuiFlexItem>
       )}
 
-      {/* ── Continue ── */}
-      {pax.length > 0 && (
-        <div className="flex justify-end pt-2">
-          <button onClick={onContinue} className="ext-btn-primary">
-            {t('continue_to_compliance')}
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/* ── Sub-components ── */
-
-function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
-  return (
-    <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-      <Icon className="w-3.5 h-3.5 text-slate-400" />
-      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{title}</p>
-    </div>
-  )
-}
-
-function FormField({ name, label, type = 'text', required = false, value, onChange }: {
-  name: string; label: string; type?: string; required?: boolean; value: string; onChange: (name: string, val: string) => void
-}) {
-  return (
-    <div>
-      <label className="ext-label">
-        {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
-      </label>
-      <input
-        type={type}
-        name={name}
-        required={required}
-        value={value}
-        onChange={(e) => onChange(name, e.target.value)}
-        className="ext-input"
-      />
-    </div>
-  )
-}
-
-function StatChip({ label, value, color }: { label: string; value: number; color: 'blue' | 'emerald' | 'amber' | 'red' }) {
-  const styles: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-700 border-blue-200',
-    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    amber: 'bg-amber-50 text-amber-700 border-amber-200',
-    red: 'bg-red-50 text-red-700 border-red-200',
-  }
-  return (
-    <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border', styles[color])}>
-      {label}
-      <span className="font-bold">{value}</span>
-    </span>
+      {pax.length > 0 ? (
+        <EuiFlexItem grow={false}>
+          <EuiFlexGroup justifyContent="flexEnd">
+            <EuiFlexItem grow={false}>
+              <EuiButton fill onClick={onContinue}>
+                {t('continue_to_compliance')}
+              </EuiButton>
+            </EuiFlexItem>
+          </EuiFlexGroup>
+        </EuiFlexItem>
+      ) : null}
+    </EuiFlexGroup>
   )
 }

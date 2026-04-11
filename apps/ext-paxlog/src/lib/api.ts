@@ -93,6 +93,18 @@ export function isTrackingMode(): boolean {
   return url.pathname.startsWith('/tracking') || Boolean(code && !url.searchParams.get('token'))
 }
 
+export function getPapyrusFormIdFromUrl(): string {
+  const url = new URL(window.location.href)
+  const parts = url.pathname.split('/').filter(Boolean)
+  if (parts[0] === 'f' && parts[1]) return decodeURIComponent(parts[1])
+  return ''
+}
+
+export function isPapyrusFormMode(): boolean {
+  const url = new URL(window.location.href)
+  return url.pathname.startsWith('/f/')
+}
+
 export function parseApiErrorDetail(error: unknown): any {
   if (!(error instanceof Error) || !error.message) return null
   try {

@@ -1,6 +1,5 @@
 import React from 'react'
-import { Check } from 'lucide-react'
-import { cn } from '../lib/utils'
+import { EuiBadge, EuiIcon, EuiPanel, EuiProgress, EuiSteps, EuiText, EuiTitle } from '@elastic/eui'
 import { t } from '../lib/i18n'
 
 export interface WizardStep {
@@ -44,96 +43,49 @@ export function buildSteps(authenticated: boolean, dossier: any): WizardStep[] {
 }
 
 export default function WizardNav({ steps, onStepClick }: WizardNavProps) {
+  const currentIndex = Math.max(steps.findIndex((step) => step.current), 0)
+  const percent = ((currentIndex + 1) / Math.max(steps.length, 1)) * 100
+
   return (
-    <>
-      {/* Desktop sidebar */}
-      <nav className="hidden lg:flex flex-col w-72 shrink-0 sticky top-[3.5rem] h-[calc(100vh-3.5rem)] bg-[var(--surface)] border-r border-[var(--border)] overflow-y-auto">
-        <div className="px-5 pt-6 pb-4">
-          <p className="text-[10px] uppercase tracking-widest font-semibold text-brand-500 mb-1">{t('wizard_title')}</p>
-          <p className="text-xs text-[var(--text-tertiary)] leading-relaxed">{t('wizard_subtitle')}</p>
-        </div>
-        <div className="flex-1 px-3 pb-6">
-          <div className="flex flex-col gap-1">
-            {steps.map((step, i) => (
+    <EuiPanel hasBorder paddingSize="m">
+      <EuiTitle size="xxs">
+        <h3>{t('wizard_title')}</h3>
+      </EuiTitle>
+      <EuiText size="s" color="subdued">
+        <p>{t('wizard_subtitle')}</p>
+      </EuiText>
+      <EuiProgress value={percent} max={100} size="s" />
+      <div style={{ marginTop: 16 }}>
+        <EuiSteps
+          steps={steps.map((step, index) => ({
+            title: step.title,
+            children: (
               <button
-                key={step.id}
-                onClick={() => onStepClick(i)}
-                className={cn(
-                  'group flex items-start gap-3 w-full px-3 py-3 rounded-xl text-left transition-all duration-200',
-                  step.current
-                    ? 'bg-brand-50 dark:bg-brand-950/30'
-                    : 'hover:bg-[var(--surface-raised)]',
-                )}
+                type="button"
+                onClick={() => onStepClick(index)}
+                style={{
+                  border: 0,
+                  background: 'transparent',
+                  padding: 0,
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
               >
-                <StepIndicator index={i} done={step.done} current={step.current} />
-                <div className="flex-1 min-w-0">
-                  <p className={cn(
-                    'text-sm font-medium leading-tight truncate',
-                    step.current ? 'text-brand-600 dark:text-brand-400' : step.done ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]',
-                  )}>
-                    {step.title}
-                  </p>
-                  <p className={cn(
-                    'text-xs mt-0.5 leading-tight truncate',
-                    step.current ? 'text-brand-500/70 dark:text-brand-400/60' : 'text-[var(--text-tertiary)]',
-                  )}>
-                    {step.description}
-                  </p>
-                </div>
+                <EuiText size="s" color="subdued">
+                  <p>{step.description}</p>
+                </EuiText>
               </button>
-            ))}
-          </div>
-        </div>
-      </nav>
-
-      {/* Mobile top bar */}
-      <nav className="lg:hidden sticky top-14 z-20 bg-[var(--surface)] border-b border-[var(--border)]">
-        <div className="flex items-center gap-1 px-4 py-3 overflow-x-auto">
-          {steps.map((step, i) => (
-            <button
-              key={step.id}
-              onClick={() => onStepClick(i)}
-              className={cn(
-                'flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-all shrink-0',
-                step.current
-                  ? 'bg-brand-500 text-white shadow-sm'
-                  : step.done
-                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
-                    : 'bg-[var(--surface-raised)] text-[var(--text-tertiary)]',
-              )}
-            >
-              {step.done ? (
-                <Check className="w-3.5 h-3.5" />
-              ) : (
-                <span className="w-4 h-4 flex items-center justify-center text-[10px] font-bold">{i + 1}</span>
-              )}
-              <span className="hidden sm:inline">{step.description}</span>
-            </button>
-          ))}
-        </div>
-      </nav>
-    </>
-  )
-}
-
-function StepIndicator({ index, done, current }: { index: number; done: boolean; current: boolean }) {
-  if (done) {
-    return (
-      <div className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center shrink-0 mt-0.5">
-        <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
+            ),
+            status: step.done ? 'complete' : step.current ? 'current' : 'incomplete',
+          }))}
+        />
       </div>
-    )
-  }
-  if (current) {
-    return (
-      <div className="w-7 h-7 rounded-full bg-brand-500 flex items-center justify-center shrink-0 mt-0.5 shadow-sm shadow-brand-500/30">
-        <span className="text-xs font-bold text-white">{index + 1}</span>
+      <div style={{ marginTop: 8 }}>
+        <EuiBadge color="primary">
+          <EuiIcon type="editorComment" />
+          &nbsp;{String(currentIndex + 1).padStart(2, '0')} / {String(steps.length).padStart(2, '0')}
+        </EuiBadge>
       </div>
-    )
-  }
-  return (
-    <div className="w-7 h-7 rounded-full border-2 border-[var(--border)] flex items-center justify-center shrink-0 mt-0.5">
-      <span className="text-xs font-medium text-[var(--text-tertiary)]">{index + 1}</span>
-    </div>
+    </EuiPanel>
   )
 }

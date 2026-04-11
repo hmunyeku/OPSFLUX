@@ -1,24 +1,27 @@
 import React from 'react'
-import { Loader2 } from 'lucide-react'
-import { cn } from '../lib/utils'
+import { EuiFlexGroup, EuiFlexItem, EuiLoadingSpinner, EuiText } from '@elastic/eui'
 
 interface SpinnerProps {
-  className?: string
-  size?: 'sm' | 'md' | 'lg'
   label?: string
+  size?: 's' | 'm' | 'l' | 'xl' | 'xxl'
+  paddingBlock?: number
 }
 
-const sizes = {
-  sm: 'w-4 h-4',
-  md: 'w-5 h-5',
-  lg: 'w-8 h-8',
-}
-
-export default function Spinner({ className, size = 'md', label }: SpinnerProps) {
+export default function Spinner({ label, size = 'l', paddingBlock = 0 }: SpinnerProps) {
   return (
-    <div className={cn('flex items-center justify-center gap-2', className)}>
-      <Loader2 className={cn('animate-spinner text-brand-500', sizes[size])} />
-      {label && <span className="text-sm text-[var(--text-secondary)]">{label}</span>}
+    <div style={{ paddingBlock }}>
+      <EuiFlexGroup alignItems="center" justifyContent="center" gutterSize="m" responsive={false}>
+        <EuiFlexItem grow={false}>
+          <EuiLoadingSpinner size={size} />
+        </EuiFlexItem>
+        {label ? (
+          <EuiFlexItem grow={false}>
+            <EuiText size="s" color="subdued">
+              <p>{label}</p>
+            </EuiText>
+          </EuiFlexItem>
+        ) : null}
+      </EuiFlexGroup>
     </div>
   )
 }

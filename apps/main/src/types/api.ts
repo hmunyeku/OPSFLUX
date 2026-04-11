@@ -2032,6 +2032,9 @@ export interface CargoItem {
   imputation_reference_name?: string | null
   request_code?: string | null
   request_title?: string | null
+  request_project_id?: string | null
+  request_receiver_name?: string | null
+  request_requester_name?: string | null
   planned_zone_name?: string | null
   voyage_code?: string | null
   hazmat_class?: string | null

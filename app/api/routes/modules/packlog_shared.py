@@ -613,8 +613,7 @@ async def create_cargo_impl(
         ("destination_asset_id", "destination_asset_id"),
         ("requester_name", "requester_name"),
     ):
-        if not payload_data.get(cargo_field):
-            payload_data[cargo_field] = getattr(cargo_request, request_field, None)
+        payload_data[cargo_field] = getattr(cargo_request, request_field, None)
     if payload_data.get("manifest_id"):
         manifest_result = await db.execute(select(VoyageManifest).where(VoyageManifest.id == payload_data["manifest_id"]))
         manifest = manifest_result.scalars().first()
@@ -768,6 +767,16 @@ async def update_cargo_impl(*, cargo_id: UUID, body: CargoUpdate, entity_id: UUI
     changes = body.model_dump(exclude_unset=True)
     resulting_request_id = changes["request_id"] if "request_id" in changes else cargo.request_id
     ensure_packlog_request_parent(resulting_request_id)
+    cargo_request = await get_packlog_request_or_404(db, resulting_request_id, entity_id)
+    for cargo_field, request_field in (
+        ("project_id", "project_id"),
+        ("imputation_reference_id", "imputation_reference_id"),
+        ("sender_tier_id", "sender_tier_id"),
+        ("receiver_name", "receiver_name"),
+        ("destination_asset_id", "destination_asset_id"),
+        ("requester_name", "requester_name"),
+    ):
+        changes[cargo_field] = getattr(cargo_request, request_field, None)
     for field, value in changes.items():
         setattr(cargo, field, value)
     await db.commit()

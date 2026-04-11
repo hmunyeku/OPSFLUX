@@ -363,11 +363,43 @@ async def build_packlog_cargo_read_data(
 
     request_code = None
     request_title = None
+    request_project_id = None
+    request_receiver_name = None
+    request_requester_name = None
     if request_id:
         cargo_request = await db.get(CargoRequest, request_id)
         if cargo_request:
             request_code = cargo_request.request_code
             request_title = cargo_request.title
+            request_project_id = cargo_request.project_id
+            request_receiver_name = cargo_request.receiver_name
+            request_requester_name = cargo_request.requester_name
+            if sender_tier_id is None:
+                sender_tier_id = cargo_request.sender_tier_id
+                data["sender_tier_id"] = sender_tier_id
+                if sender_name is None and sender_tier_id:
+                    tier = await db.get(Tier, sender_tier_id)
+                    sender_name = tier.name if tier else None
+            if destination_asset_id is None:
+                destination_asset_id = cargo_request.destination_asset_id
+                data["destination_asset_id"] = destination_asset_id
+                if destination_name is None and destination_asset_id:
+                    installation = await db.get(Installation, destination_asset_id)
+                    destination_name = installation.name if installation else None
+            if imputation_reference_id is None:
+                imputation_reference_id = cargo_request.imputation_reference_id
+                data["imputation_reference_id"] = imputation_reference_id
+                if imputation_reference_name is None and imputation_reference_id:
+                    imputation = await db.get(ImputationReference, imputation_reference_id)
+                    if imputation:
+                        imputation_reference_name = imputation.name
+                        imputation_reference_code = imputation.code
+            if data.get("project_id") is None:
+                data["project_id"] = cargo_request.project_id
+            if not data.get("receiver_name"):
+                data["receiver_name"] = cargo_request.receiver_name
+            if not data.get("requester_name"):
+                data["requester_name"] = cargo_request.requester_name
     planned_zone_name = None
     if planned_zone_id:
         planned_zone = await db.get(TransportVectorZone, planned_zone_id)
@@ -399,6 +431,9 @@ async def build_packlog_cargo_read_data(
     data["pickup_contact_display_name"] = pickup_contact_display_name
     data["request_code"] = request_code
     data["request_title"] = request_title
+    data["request_project_id"] = request_project_id
+    data["request_receiver_name"] = request_receiver_name
+    data["request_requester_name"] = request_requester_name
     data["planned_zone_name"] = planned_zone_name
     data["photo_evidence_count"] = max(int(getattr(cargo, "photo_evidence_count", 0) or 0), image_count)
     data["document_attachment_count"] = max(int(getattr(cargo, "document_attachment_count", 0) or 0), document_count)

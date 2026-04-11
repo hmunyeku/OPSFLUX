@@ -1560,31 +1560,105 @@ async def _promote_waitlisted_ads_pax_if_capacity_available(
         ))
 
     if promoted_entries:
-        from app.core.notifications import send_in_app
+        # Spec §3.10: auto-notification waitlist promotion, configurable
+        # via the entity-scoped setting `paxlog.waitlist_auto_notify`
+        # (defaults to enabled). When disabled, we still log the
+        # AdsEvent rows above for audit but skip the in-app push.
+        waitlist_auto_notify = True
+        try:
+            setting_row = await db.execute(
+                select(Setting).where(
+                    Setting.key == "paxlog.waitlist_auto_notify",
+                    Setting.scope.in_(["entity", "tenant"]),
+                )
+            )
+            rows_found = setting_row.scalars().all()
+            entity_match = next(
+                (r for r in rows_found if r.scope == "entity" and r.scope_id == str(entity_id)),
+                None,
+            )
+            tenant_match = next(
+                (r for r in rows_found if r.scope == "tenant" and r.scope_id in (None, "")),
+                None,
+            )
+            resolved = entity_match or tenant_match
+            if resolved and isinstance(resolved.value, dict):
+                raw = resolved.value.get("v", resolved.value)
+                if isinstance(raw, str):
+                    waitlist_auto_notify = raw.lower() not in {"disabled", "false", "0", "off", "no"}
+                elif isinstance(raw, bool):
+                    waitlist_auto_notify = raw
+        except Exception:
+            logger.warning("Failed to read paxlog.waitlist_auto_notify setting; defaulting to enabled", exc_info=True)
 
-        notified_ads_ids: set[UUID] = set()
-        for item in promoted_entries:
-            ads_id = item["ads_id"]
-            if ads_id in notified_ads_ids or not item["requester_id"]:
-                continue
-            notified_ads_ids.add(ads_id)
+        if waitlist_auto_notify:
+            from app.core.notifications import send_in_app
+
             release_message = (
                 "Une place s'est libérée sur l'activité liée."
                 if planner_activity_id
                 else "Une place s'est libérée sur le site concerné."
             )
-            await send_in_app(
-                db,
-                user_id=item["requester_id"],
-                entity_id=entity_id,
-                title="Place libérée sur activité Planner" if planner_activity_id else "Place libérée sur site",
-                body=(
-                    f"{release_message} "
-                    f"L'AdS {item['reference']} revient dans le flux de validation."
-                ),
-                category="paxlog",
-                link=f"/paxlog/ads/{ads_id}",
-            )
+
+            # Notify the requester once per promoted ADS
+            notified_ads_ids: set[UUID] = set()
+            # Notify each promoted passenger individually when they have
+            # a user_id (internal OpsFlux user). External pax (contact_id
+            # only) don't have an in-app inbox — we still notify via the
+            # requester path above.
+            for item in promoted_entries:
+                ads_id = item["ads_id"]
+                ads_pax_id = item.get("ads_pax_id")
+
+                # ── Notify the requester of the ADS once ──
+                if ads_id not in notified_ads_ids and item.get("requester_id"):
+                    notified_ads_ids.add(ads_id)
+                    try:
+                        await send_in_app(
+                            db,
+                            user_id=item["requester_id"],
+                            entity_id=entity_id,
+                            title="Place libérée sur activité Planner" if planner_activity_id else "Place libérée sur site",
+                            body=(
+                                f"{release_message} "
+                                f"L'AdS {item['reference']} revient dans le flux de validation."
+                            ),
+                            category="paxlog",
+                            link=f"/paxlog/ads/{ads_id}",
+                            event_type="paxlog.waitlist_promoted",
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Failed to notify requester %s of waitlist promotion for ADS %s",
+                            item.get("requester_id"), ads_id, exc_info=True,
+                        )
+
+                # ── Notify the promoted passenger themselves (if user) ──
+                if ads_pax_id:
+                    pax_row = await db.execute(
+                        select(AdsPax.user_id).where(AdsPax.id == ads_pax_id)
+                    )
+                    pax_user_id = pax_row.scalar_one_or_none()
+                    if pax_user_id and pax_user_id != item.get("requester_id"):
+                        try:
+                            await send_in_app(
+                                db,
+                                user_id=pax_user_id,
+                                entity_id=entity_id,
+                                title="Vous avez obtenu une place",
+                                body=(
+                                    f"Une place s'est libérée et vous avez été promu de la liste d'attente "
+                                    f"sur l'AdS {item['reference']}. Elle repart en flux de validation."
+                                ),
+                                category="paxlog",
+                                link=f"/paxlog/ads/{ads_id}",
+                                event_type="paxlog.waitlist_promoted",
+                            )
+                        except Exception:
+                            logger.warning(
+                                "Failed to notify promoted pax %s on AdS %s",
+                                pax_user_id, ads_id, exc_info=True,
+                            )
 
     return promoted_entries
 

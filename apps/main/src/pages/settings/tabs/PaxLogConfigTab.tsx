@@ -89,6 +89,39 @@ export function PaxLogConfigTab() {
               <span className="text-xs text-muted-foreground">jours</span>
             </div>
           </SettingRow>
+          <SettingRow
+            label="Délai relance multi-imputation (heures)"
+            description="Spec 3.7 : intervalle entre chaque relance des chefs de projet non répondants sur une AdS multi-imputation bloquée, et notification du demandeur."
+          >
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                max={720}
+                step={1}
+                className="gl-form-input w-20 text-sm text-right font-mono"
+                defaultValue={(s['paxlog.multi_imputation_reminder_delay_hours'] as number) ?? 24}
+                onBlur={(e) => save(
+                  'paxlog.multi_imputation_reminder_delay_hours',
+                  Math.max(1, Math.min(720, Math.round(Number(e.target.value) || 24))),
+                )}
+              />
+              <span className="text-xs text-muted-foreground">heures</span>
+            </div>
+          </SettingRow>
+          <SettingRow
+            label="Notification waitlist automatique"
+            description="Spec 3.10 : notifier les passagers en liste d'attente quand une place se libère (activation + canal configurés globalement dans le profil utilisateur)."
+          >
+            <select
+              className="gl-form-select text-sm"
+              value={(s['paxlog.waitlist_auto_notify'] as string) ?? 'enabled'}
+              onChange={(e) => save('paxlog.waitlist_auto_notify', e.target.value)}
+            >
+              <option value="enabled">Activée</option>
+              <option value="disabled">Désactivée</option>
+            </select>
+          </SettingRow>
         </div>
       </CollapsibleSection>
     </>

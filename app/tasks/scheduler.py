@@ -225,6 +225,21 @@ def _register_jobs() -> None:
     from app.tasks.jobs.paxlog_requires_review_followup import process_requires_review_followup
     scheduler.add_job(process_requires_review_followup, trigger=CronTrigger(hour=1, minute=45), id="paxlog_requires_review_followup", name="Rappeler les AdS bloquées en nécessite révision", replace_existing=True, max_instances=1)
 
+    # Spec 3.7: auto-relance des chefs de projet non répondants sur les AdS
+    # multi-imputation bloquées en pending_project_review, + notification
+    # du demandeur sur l'état bloqué. Exécution horaire — l'intérieur
+    # respecte un délai configurable (paxlog.multi_imputation_reminder_delay_hours,
+    # défaut 24h) pour éviter le spam.
+    from app.tasks.jobs.paxlog_multi_imputation_followup import process_multi_imputation_followup
+    scheduler.add_job(
+        process_multi_imputation_followup,
+        trigger=CronTrigger(minute=15),
+        id="paxlog_multi_imputation_followup",
+        name="Relancer les chefs de projet sur les AdS multi-imputation bloquées",
+        replace_existing=True,
+        max_instances=1,
+    )
+
     from app.tasks.jobs.travelwiz_operational_watch import process_travelwiz_operational_watch
     from app.tasks.jobs.travelwiz_pickup_reminders import process_travelwiz_pickup_reminders
     from app.tasks.jobs.travelwiz_weather_sync import process_travelwiz_weather_sync

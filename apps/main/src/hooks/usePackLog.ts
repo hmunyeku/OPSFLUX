@@ -161,6 +161,17 @@ export function useUpdatePackLogCargoWorkflowStatus() {
   })
 }
 
+export function useReceivePackLogCargo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload?: { notes?: string | null } }) => packlogService.receiveCargo(id, payload),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['packlog', 'cargo'] })
+      qc.invalidateQueries({ queryKey: ['packlog', 'cargo', id] })
+    },
+  })
+}
+
 export function usePackLogCargoAttachmentEvidence(id: string | undefined) {
   return useQuery({
     queryKey: ['packlog', 'cargo', id, 'attachment-evidence'],
@@ -295,6 +306,7 @@ export const useCreateCargo = useCreatePackLogCargo
 export const useUpdateCargo = useUpdatePackLogCargo
 export const useUpdateCargoStatus = useUpdatePackLogCargoStatus
 export const useUpdateCargoWorkflowStatus = useUpdatePackLogCargoWorkflowStatus
+export const useReceiveCargo = useReceivePackLogCargo
 export const useCargoAttachmentEvidence = usePackLogCargoAttachmentEvidence
 export const useUpdateCargoAttachmentEvidence = useUpdatePackLogCargoAttachmentEvidence
 export const useInitiateCargoReturn = useInitiatePackLogCargoReturn

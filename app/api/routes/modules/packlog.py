@@ -17,7 +17,7 @@ from app.core.database import get_db
 from app.models.common import User
 from app.schemas.common import PaginatedResponse
 from app.core.pagination import PaginationParams
-from app.schemas.travelwiz import (
+from app.schemas.packlog import (
     BackCargoReturnRequest,
     CargoAttachmentEvidenceRead,
     CargoAttachmentEvidenceUpdate,

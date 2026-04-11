@@ -22,13 +22,17 @@ import { useToast } from '@/components/ui/Toast'
 import { usePageSize } from '@/hooks/usePageSize'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePermission } from '@/hooks/usePermission'
+import { useAllManifests } from '@/hooks/useTravelWiz'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import {
   usePackLogArticles,
   usePackLogCargo,
+  usePackLogCargoItem,
   usePackLogCargoRequests,
+  useReceivePackLogCargo,
   usePackLogSapMatch,
   useImportPackLogArticlesCsv,
+  useUpdatePackLogCargoStatus,
 } from '@/hooks/usePackLog'
 import { useUIStore } from '@/stores/uiStore'
 import { CargoWorkspaceProvider } from '@/pages/packlog/packlogWorkspace'
@@ -36,7 +40,7 @@ import { CreateArticlePanel, PackLogArticleDetailPanel } from '@/pages/packlog/P
 import { CreateCargoPanel, CreateCargoRequestPanel } from '@/pages/packlog/PackLogCreatePanels'
 import { CargoRequestDetailPanel } from '@/pages/packlog/PackLogRequestDetailPanel'
 import { CargoDetailPanel } from '@/pages/packlog/PackLogCargoDetailPanel'
-import type { CargoItem, CargoRequest, TravelArticle } from '@/types/api'
+import type { CargoItem, CargoRequest, Manifest, TravelArticle } from '@/types/api'
 
 type PackLogTab = 'dashboard' | 'requests' | 'cargo' | 'catalog' | 'tracking' | 'alerts'
 
@@ -110,6 +114,23 @@ function formatDateTimeShort(value: string | null | undefined) {
   } catch {
     return value
   }
+}
+
+function parsePackLogScanValue(raw: string): { kind: 'cargo-id' | 'request-id' | 'tracking'; value: string } | null {
+  const value = raw.trim()
+  if (!value) return null
+  try {
+    const url = new URL(value)
+    const cargoId = url.searchParams.get('cargo')
+    if (cargoId) return { kind: 'cargo-id', value: cargoId }
+    const requestId = url.searchParams.get('request')
+    if (requestId) return { kind: 'request-id', value: requestId }
+    const publicCargoMatch = url.pathname.match(/\/public\/cargo\/([^/]+)$/)
+    if (publicCargoMatch?.[1]) return { kind: 'tracking', value: decodeURIComponent(publicCargoMatch[1]) }
+  } catch {
+    // Not a URL, continue with raw parsing.
+  }
+  return { kind: 'tracking', value }
 }
 
 function buildAlerts(requests: CargoRequest[], cargo: CargoItem[]): AlertRow[] {
@@ -375,17 +396,98 @@ function CatalogTab() {
 
 function TrackingTab() {
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const { toast } = useToast()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
+  const [scanInput, setScanInput] = useState('')
+  const [scanTracking, setScanTracking] = useState('')
+  const [scannedCargoId, setScannedCargoId] = useState<string | null>(null)
   const debouncedSearch = useDebounce(search, 250)
+  const debouncedScan = useDebounce(scanTracking, 150)
   const { data, isLoading } = usePackLogCargo({ page, page_size: pageSize, search: debouncedSearch || undefined })
+  const { data: manifestsData } = useAllManifests({ page: 1, page_size: 100 })
+  const { data: scannedCargo } = usePackLogCargoItem(scannedCargoId ?? undefined)
+  const { data: scanMatches, isLoading: isScanLoading } = usePackLogCargo({
+    page: 1,
+    page_size: 8,
+    search: debouncedScan || undefined,
+  })
+  const receiveCargo = useReceivePackLogCargo()
+  const updateCargoStatus = useUpdatePackLogCargoStatus()
   const items = data?.items ?? []
   const stats = useMemo(() => ({
     tracked: items.length,
     assigned: items.filter((item) => Boolean(item.voyage_code)).length,
     received: items.filter((item) => Boolean(item.received_at)).length,
   }), [items])
+  const manifestGroups = useMemo(() => {
+    const manifests = (manifestsData?.items ?? []).filter((manifest) => manifest.manifest_type === 'cargo')
+    const manifestMap = new Map<string, Manifest>(manifests.map((manifest) => [manifest.id, manifest]))
+    const grouped = items
+      .filter((item) => item.manifest_id)
+      .reduce<Map<string, CargoItem[]>>((acc, item) => {
+        const key = item.manifest_id!
+        const current = acc.get(key) ?? []
+        current.push(item)
+        acc.set(key, current)
+        return acc
+      }, new Map())
+    return Array.from(grouped.entries())
+      .map(([manifestId, manifestCargo]) => ({
+        manifest: manifestMap.get(manifestId) ?? null,
+        manifestId,
+        items: manifestCargo.sort((a, b) => a.tracking_code.localeCompare(b.tracking_code)),
+      }))
+      .sort((a, b) => {
+        const aDate = a.manifest?.created_at ? new Date(a.manifest.created_at).getTime() : 0
+        const bDate = b.manifest?.created_at ? new Date(b.manifest.created_at).getTime() : 0
+        return bDate - aDate
+      })
+  }, [items, manifestsData?.items])
+  const scanCandidates = scanMatches?.items ?? []
+  const quickTarget = scannedCargo ?? scanCandidates[0] ?? null
+
+  async function handleQuickStatus(status: 'received' | 'damaged' | 'missing') {
+    if (!quickTarget) return
+    try {
+      if (status === 'received') {
+        await receiveCargo.mutateAsync({ id: quickTarget.id, payload: { notes: 'Réception terrain via scan PackLog' } })
+      } else {
+        await updateCargoStatus.mutateAsync({ id: quickTarget.id, status })
+      }
+      toast({
+        title:
+          status === 'received'
+            ? `Colis ${quickTarget.tracking_code} déclaré reçu`
+            : status === 'damaged'
+              ? `Colis ${quickTarget.tracking_code} déclaré endommagé`
+              : `Colis ${quickTarget.tracking_code} déclaré manquant`,
+        variant: status === 'received' ? 'success' : 'warning',
+      })
+    } catch {
+      toast({ title: 'Impossible de mettre à jour ce colis depuis le mode scan.', variant: 'error' })
+    }
+  }
+
+  function handleScanSubmit() {
+    const parsed = parsePackLogScanValue(scanInput)
+    if (!parsed) return
+    if (parsed.kind === 'cargo-id') {
+      setScannedCargoId(parsed.value)
+      setScanTracking('')
+      openDynamicPanel({ type: 'detail', module: 'packlog', id: parsed.value, meta: { subtype: 'cargo' } })
+      return
+    }
+    if (parsed.kind === 'request-id') {
+      setScannedCargoId(null)
+      setScanTracking('')
+      openDynamicPanel({ type: 'detail', module: 'packlog', id: parsed.value, meta: { subtype: 'cargo-request' } })
+      return
+    }
+    setScannedCargoId(null)
+    setScanTracking(parsed.value)
+  }
 
   const columns = useMemo<ColumnDef<CargoItem, unknown>[]>(() => [
     { accessorKey: 'tracking_code', header: 'Tracking', cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.tracking_code}</span> },
@@ -401,6 +503,132 @@ function TrackingTab() {
         <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Suivis visibles</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.tracked}</p></div>
         <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Affectés à un voyage</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.assigned}</p></div>
         <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Reçus</p><p className="mt-1 text-lg font-semibold text-emerald-600">{stats.received}</p></div>
+      </div>
+      <div className="border-b border-border px-4 py-3">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+          <div className="rounded-lg border border-border/60 bg-card px-3 py-3">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Réception scan</p>
+            <div className="mt-2 flex gap-2">
+              <input
+                type="text"
+                value={scanInput}
+                onChange={(event) => setScanInput(event.target.value)}
+                onKeyDown={(event) => { if (event.key === 'Enter') handleScanSubmit() }}
+                className="gl-form-input"
+                placeholder="Coller un QR, un lien PackLog ou un tracking"
+              />
+              <button className="gl-button-sm gl-button-default" onClick={handleScanSubmit}>
+                Scanner
+              </button>
+            </div>
+            {quickTarget && (
+              <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-mono text-xs text-foreground">{quickTarget.tracking_code}</p>
+                    <p className="mt-1 text-sm font-medium text-foreground">{quickTarget.designation || quickTarget.description}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {quickTarget.request_code ?? 'Sans demande'} · {quickTarget.destination_name ?? quickTarget.receiver_name ?? 'Destination non renseignée'}
+                    </p>
+                  </div>
+                  <span className="gl-badge gl-badge-neutral">{quickTarget.status}</span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button className="gl-button-sm gl-button-default" onClick={() => handleQuickStatus('received')} disabled={receiveCargo.isPending}>
+                    Déclarer reçu
+                  </button>
+                  <button className="gl-button-sm gl-button-default" onClick={() => handleQuickStatus('damaged')} disabled={updateCargoStatus.isPending}>
+                    Endommagé
+                  </button>
+                  <button className="gl-button-sm gl-button-default" onClick={() => handleQuickStatus('missing')} disabled={updateCargoStatus.isPending}>
+                    Manquant
+                  </button>
+                  <button className="gl-button-sm gl-button-default" onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: quickTarget.id, meta: { subtype: 'cargo' } })}>
+                    Ouvrir la fiche
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="rounded-lg border border-border/60 bg-card px-3 py-3">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Résultats de scan</p>
+            <div className="mt-2 space-y-2">
+              {isScanLoading && debouncedScan ? (
+                <p className="text-xs text-muted-foreground">Recherche en cours…</p>
+              ) : scanCandidates.length > 0 ? (
+                scanCandidates.map((item) => (
+                  <button
+                    key={item.id}
+                    className="flex w-full items-center justify-between rounded-lg border border-border/60 px-3 py-2 text-left hover:bg-muted/20"
+                    onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: item.id, meta: { subtype: 'cargo' } })}
+                  >
+                    <div>
+                      <p className="font-mono text-xs text-foreground">{item.tracking_code}</p>
+                      <p className="mt-1 text-sm font-medium text-foreground">{item.designation || item.description}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{item.request_code ?? '—'} · {item.voyage_code ?? 'Hors voyage'}</p>
+                    </div>
+                    <span className="gl-badge gl-badge-neutral">{item.status}</span>
+                  </button>
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground">Scanne un QR ou colle un tracking pour retrouver un colis et agir rapidement dessus.</p>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 rounded-lg border border-border/60 bg-card px-3 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Réception par manifeste</p>
+            <span className="text-xs text-muted-foreground">{manifestGroups.length} manifeste(s) cargo</span>
+          </div>
+          <div className="mt-3 space-y-3">
+            {manifestGroups.length > 0 ? (
+              manifestGroups.map((group) => {
+                const receivedCount = group.items.filter((item) => Boolean(item.received_at) || item.status === 'delivered_final').length
+                return (
+                  <div key={group.manifestId} className="rounded-lg border border-border/60 px-3 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-foreground">{group.manifest?.reference || group.manifestId}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Voyage {group.items[0]?.voyage_code ?? '—'} · {receivedCount}/{group.items.length} reçu(s)
+                        </p>
+                      </div>
+                      <span className="gl-badge gl-badge-neutral">{group.manifest?.status ?? 'draft'}</span>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      {group.items.slice(0, 8).map((item) => (
+                        <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/50 px-2 py-2">
+                          <div className="min-w-0">
+                            <p className="font-mono text-xs text-foreground">{item.tracking_code}</p>
+                            <p className="truncate text-sm text-foreground">{item.designation || item.description}</p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="gl-badge gl-badge-neutral">{item.status}</span>
+                            <button className="gl-button-sm gl-button-default" onClick={() => receiveCargo.mutate({ id: item.id, payload: { notes: 'Réception manifeste PackLog' } })} disabled={receiveCargo.isPending}>
+                              Reçu
+                            </button>
+                            <button className="gl-button-sm gl-button-default" onClick={() => updateCargoStatus.mutate({ id: item.id, status: 'damaged' })} disabled={updateCargoStatus.isPending}>
+                              Endommagé
+                            </button>
+                            <button className="gl-button-sm gl-button-default" onClick={() => openDynamicPanel({ type: 'detail', module: 'packlog', id: item.id, meta: { subtype: 'cargo' } })}>
+                              Ouvrir
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {group.items.length > 8 && (
+                        <p className="text-xs text-muted-foreground">+{group.items.length - 8} autre(s) colis dans ce manifeste.</p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })
+            ) : (
+              <p className="text-xs text-muted-foreground">Aucun manifeste cargo chargé pour le moment.</p>
+            )}
+          </div>
+        </div>
       </div>
       <PanelContent>
         <DataTable<CargoItem>

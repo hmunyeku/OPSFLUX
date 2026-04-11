@@ -24,7 +24,7 @@ from app.models.travelwiz import (
     Voyage,
     VoyageManifest,
 )
-from app.schemas.travelwiz import (
+from app.schemas.packlog import (
     BackCargoReturnRequest,
     CargoAttachmentEvidenceUpdate,
     CargoCreate,

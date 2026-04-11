@@ -11,13 +11,27 @@ import { useProjects, useUpdateProjectTask } from '@/hooks/useProjets'
 import { projetsService, isGoutiProject } from '@/services/projetsService'
 import type { GanttPdfExportPayload, GanttPdfRow } from '@/services/projetsService'
 import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { useUserPreferences } from '@/hooks/useUserPreferences'
 import { ProjectSelectorModal } from '@/components/shared/ProjectSelectorModal'
 import type { ProjectSelection } from '@/components/shared/ProjectSelectorModal'
 import { GanttCore } from '@/components/shared/gantt/GanttCore'
 import type { GanttRow, GanttBarData, GanttDependencyData, GanttColumn } from '@/components/shared/gantt/GanttCore'
 import { daysB, buildCells, toISO, type TimeScale } from '@/components/shared/gantt/ganttEngine'
+import { useQueryClient } from '@tanstack/react-query'
 import type { ProjectTask } from '@/types/api'
+
+// Cascade mode persisted user preference. Same semantics as the planner
+// gantt:
+//   'warn'    — confirm a constraint violation, then commit only the
+//                dragged task. The user accepts a partially-broken
+//                schedule consciously.
+//   'cascade' — walk the dependency graph downstream from the dragged
+//                task, propose minimum-shift updates for every successor
+//                whose constraint would otherwise be violated, then
+//                commit them all in one batch after confirmation.
+//   'strict'  — refuse the drag entirely if any constraint would break.
+type DragCascadeMode = 'warn' | 'cascade' | 'strict'
 
 // ── Colors ──────────────────────────────────────────────────────
 
@@ -68,8 +82,13 @@ export function ProjectGanttWrapper() {
   const { data: pd, isLoading: projLoading } = useProjects({ page_size: 200 })
   const openPanel = useUIStore(s => s.openDynamicPanel)
   const { toast } = useToast()
+  const confirm = useConfirm()
+  const qc = useQueryClient()
   const { getPref, setPref } = useUserPreferences()
   const updateTaskMutation = useUpdateProjectTask()
+  // Cascade mode preference (per spec §1.5: a date change cascades
+  // through the dependency graph). Persisted across sessions.
+  const dragCascadeMode = getPref<DragCascadeMode>('projets_gantt_drag_cascade_mode', 'warn')
 
   // ── Persisted timeline scale + range ──
   // Mirrors the planner's once-after-mount hydration pattern: localStorage
@@ -192,17 +211,35 @@ export function ProjectGanttWrapper() {
   }, [expandedIds, taskQueries])
 
   // Map projectId → dependencies
+  type ProjectDep = { id: string; from_task_id: string; to_task_id: string; dependency_type: string; lag_days?: number | null }
   const depsByProject = useMemo(() => {
-    const m = new Map<string, { id: string; from_task_id: string; to_task_id: string; dependency_type: string }[]>()
+    const m = new Map<string, ProjectDep[]>()
     expandedIds.forEach((pid, i) => {
       const q = depQueries[i]
       if (q.data) {
         const items = Array.isArray(q.data) ? q.data : (q.data as { items?: unknown[] }).items ?? []
-        m.set(pid, items as { id: string; from_task_id: string; to_task_id: string; dependency_type: string }[])
+        m.set(pid, items as ProjectDep[])
       }
     })
     return m
   }, [expandedIds, depQueries])
+
+  // Flat task index across all loaded projects (taskId → task) used by
+  // the cascade walker. Built once per re-render of tasksByProject.
+  const taskIndex = useMemo(() => {
+    const idx = new Map<string, ProjectTask & { _projectId: string }>()
+    for (const [pid, list] of tasksByProject) {
+      for (const t of list) idx.set(t.id, { ...t, _projectId: pid })
+    }
+    return idx
+  }, [tasksByProject])
+
+  // Flat dependency list across all projects (used by the cascade walker)
+  const allDepsFlat = useMemo(() => {
+    const out: ProjectDep[] = []
+    for (const list of depsByProject.values()) out.push(...list)
+    return out
+  }, [depsByProject])
 
   // ── Build GanttCore data ──────────────────────────────────────
 
@@ -365,19 +402,266 @@ export function ProjectGanttWrapper() {
     }
   }, [openPanel])
 
-  const handleBarDrag = useCallback((barId: string, newStart: string, newEnd: string) => {
+  // ── Drag with cascade / warn / strict (ported from Planner GanttView) ──
+  //
+  // Spec §1.5: "Si les champs dates, POB ou statut d'une tâche déjà
+  // présente dans Planner sont modifiés, une notification est
+  // automatiquement envoyée à l'arbitre Planner. Cette notification
+  // contient une proposition de nouvelle révision du Planner."
+  //
+  // Three modes (configurable via the gantt settings panel):
+  //  • warn    — confirm before allowing a constraint violation, then
+  //              commit only the dragged task. Default.
+  //  • cascade — BFS-walk the dependency graph downstream, propose
+  //              minimum shifts for every successor whose constraint
+  //              would otherwise break, commit them in batch.
+  //  • strict  — refuse the drag entirely if any constraint would break.
+  //
+  // Same FS/SS/FF/SF semantics as the planner. Cycle detection prevents
+  // infinite loops on malformed graphs.
+  const handleBarDrag = useCallback(async (barId: string, newStart: string, newEnd: string) => {
     if (barId.startsWith('proj-')) return
-    const bar = bars.find(b => b.id === barId)
-    const projectId = bar?.meta?.projectId as string
-    if (!projectId) return
-    updateTaskMutation.mutate(
-      { projectId, taskId: barId, payload: { start_date: newStart, due_date: newEnd } },
-      {
-        onSuccess: () => toast({ title: 'Tâche replanifiée', variant: 'success' }),
-        onError: () => toast({ title: 'Erreur', variant: 'error' }),
-      },
-    )
-  }, [bars, toast, updateTaskMutation])
+    const seedTask = taskIndex.get(barId)
+    if (!seedTask) return
+    const projectId = seedTask._projectId
+    const MS = 86_400_000
+
+    // ── Build proposed slot map (taskId → {start_ms, end_ms, title}) ──
+    type Slot = { start: number; end: number; title: string }
+    const proposed = new Map<string, Slot>()
+    proposed.set(barId, {
+      start: new Date(newStart).getTime(),
+      end: new Date(newEnd).getTime(),
+      title: seedTask.title,
+    })
+
+    const slotOf = (taskId: string): Slot | null => {
+      const p = proposed.get(taskId)
+      if (p) return p
+      const t = taskIndex.get(taskId)
+      if (!t || !t.start_date || !t.due_date) return null
+      return {
+        start: new Date(t.start_date).getTime(),
+        end: new Date(t.due_date).getTime(),
+        title: t.title,
+      }
+    }
+
+    // ── Index deps by predecessor and successor ──
+    const depsByPredecessor = new Map<string, ProjectDep[]>()
+    const depsBySuccessor = new Map<string, ProjectDep[]>()
+    for (const dep of allDepsFlat) {
+      const out = depsByPredecessor.get(dep.from_task_id) ?? []
+      out.push(dep)
+      depsByPredecessor.set(dep.from_task_id, out)
+      const inn = depsBySuccessor.get(dep.to_task_id) ?? []
+      inn.push(dep)
+      depsBySuccessor.set(dep.to_task_id, inn)
+    }
+
+    const violations: string[] = []
+    type Shift = { id: string; projectId: string; title: string; oldStart: string; oldEnd: string; newStart: string; newEnd: string }
+    const cascadeShifts: Shift[] = []
+
+    // ── Pass 1: incoming constraints on the dragged bar itself ──
+    const draggedIncoming = depsBySuccessor.get(barId) ?? []
+    for (const dep of draggedIncoming) {
+      const predSlot = slotOf(dep.from_task_id)
+      const draggedSlot = slotOf(barId)
+      const predTask = taskIndex.get(dep.from_task_id)
+      if (!predSlot || !draggedSlot || !predTask) continue
+      const lag = (dep.lag_days ?? 0) * MS
+      let ok = true
+      let label = ''
+      // Project deps store the type as full strings ("finish_to_start" etc)
+      // OR the short form (FS/SS/FF/SF). Normalise to the short form.
+      const t = (dep.dependency_type || 'FS').toUpperCase()
+      const dt = t.startsWith('FINISH_TO_START') || t === 'FS' ? 'FS'
+        : t.startsWith('START_TO_START') || t === 'SS' ? 'SS'
+        : t.startsWith('FINISH_TO_FINISH') || t === 'FF' ? 'FF'
+        : t.startsWith('START_TO_FINISH') || t === 'SF' ? 'SF' : 'FS'
+      if (dt === 'FS' && draggedSlot.start < predSlot.end + lag) ok = false
+      else if (dt === 'SS' && draggedSlot.start < predSlot.start + lag) ok = false
+      else if (dt === 'FF' && draggedSlot.end < predSlot.end + lag) ok = false
+      else if (dt === 'SF' && draggedSlot.end < predSlot.start + lag) ok = false
+      if (!ok) {
+        const lagSign = (dep.lag_days ?? 0) >= 0 ? '+' : ''
+        label = `${predTask.title} → ${draggedSlot.title} (${dt}${lagSign}${dep.lag_days ?? 0}j)`
+        violations.push(label)
+      }
+    }
+
+    // ── Pass 2: outgoing BFS walk to detect / propagate ──
+    const visited = new Set<string>()
+    const queue: string[] = [barId]
+    const MAX_STEPS = 500
+    let steps = 0
+    let cycleDetected = false
+
+    while (queue.length > 0 && steps < MAX_STEPS) {
+      steps++
+      const currentId = queue.shift()!
+      if (visited.has(currentId)) {
+        if (currentId !== barId) cycleDetected = true
+        continue
+      }
+      visited.add(currentId)
+
+      const currentSlot = slotOf(currentId)
+      if (!currentSlot) continue
+
+      const outgoing = depsByPredecessor.get(currentId) ?? []
+      for (const dep of outgoing) {
+        const succTask = taskIndex.get(dep.to_task_id)
+        const succSlot = slotOf(dep.to_task_id)
+        if (!succTask || !succSlot) continue
+
+        const lag = (dep.lag_days ?? 0) * MS
+        const t = (dep.dependency_type || 'FS').toUpperCase()
+        const dt = t.startsWith('FINISH_TO_START') || t === 'FS' ? 'FS'
+          : t.startsWith('START_TO_START') || t === 'SS' ? 'SS'
+          : t.startsWith('FINISH_TO_FINISH') || t === 'FF' ? 'FF'
+          : t.startsWith('START_TO_FINISH') || t === 'SF' ? 'SF' : 'FS'
+
+        let requiredStart = succSlot.start
+        let requiredEnd = succSlot.end
+        if (dt === 'FS') {
+          const minStart = currentSlot.end + lag
+          if (succSlot.start < minStart) {
+            const delta = minStart - succSlot.start
+            requiredStart = succSlot.start + delta
+            requiredEnd = succSlot.end + delta
+          }
+        } else if (dt === 'SS') {
+          const minStart = currentSlot.start + lag
+          if (succSlot.start < minStart) {
+            const delta = minStart - succSlot.start
+            requiredStart = succSlot.start + delta
+            requiredEnd = succSlot.end + delta
+          }
+        } else if (dt === 'FF') {
+          const minEnd = currentSlot.end + lag
+          if (succSlot.end < minEnd) {
+            const delta = minEnd - succSlot.end
+            requiredStart = succSlot.start + delta
+            requiredEnd = succSlot.end + delta
+          }
+        } else if (dt === 'SF') {
+          const minEnd = currentSlot.start + lag
+          if (succSlot.end < minEnd) {
+            const delta = minEnd - succSlot.end
+            requiredStart = succSlot.start + delta
+            requiredEnd = succSlot.end + delta
+          }
+        }
+
+        const needsShift = requiredStart !== succSlot.start || requiredEnd !== succSlot.end
+        if (!needsShift) continue
+
+        const lagSign = (dep.lag_days ?? 0) >= 0 ? '+' : ''
+        violations.push(`${currentSlot.title} → ${succTask.title} (${dt}${lagSign}${dep.lag_days ?? 0}j)`)
+
+        if (dragCascadeMode === 'cascade') {
+          proposed.set(dep.to_task_id, { start: requiredStart, end: requiredEnd, title: succTask.title })
+          queue.push(dep.to_task_id)
+        }
+      }
+    }
+
+    if (steps >= MAX_STEPS) cycleDetected = true
+
+    // ── Build cascade list from proposed map ──
+    if (dragCascadeMode === 'cascade') {
+      for (const [tid, slot] of proposed) {
+        if (tid === barId) continue
+        const orig = taskIndex.get(tid)
+        if (!orig?.start_date || !orig?.due_date) continue
+        cascadeShifts.push({
+          id: tid,
+          projectId: orig._projectId,
+          title: slot.title,
+          oldStart: orig.start_date.slice(0, 10),
+          oldEnd: orig.due_date.slice(0, 10),
+          newStart: new Date(slot.start).toISOString().slice(0, 10),
+          newEnd: new Date(slot.end).toISOString().slice(0, 10),
+        })
+      }
+    }
+
+    // ── Apply strategy ──
+    if (dragCascadeMode === 'strict' && violations.length > 0) {
+      await confirm({
+        title: 'Déplacement refusé',
+        message:
+          `Ce déplacement viole ${violations.length} contrainte(s) :\n\n` +
+          violations.slice(0, 10).map((v) => `• ${v}`).join('\n') +
+          (violations.length > 10 ? `\n… et ${violations.length - 10} de plus` : '') +
+          `\n\nAjustez manuellement les tâches liées ou passez en mode « cascade » dans les paramètres du gantt.`,
+        confirmLabel: 'Compris',
+        cancelLabel: '',
+        variant: 'danger',
+      })
+      return
+    }
+
+    if (dragCascadeMode === 'warn' && violations.length > 0) {
+      const proceed = await confirm({
+        title: `${violations.length} contrainte(s) violée(s)`,
+        message:
+          violations.slice(0, 10).map((v) => `• ${v}`).join('\n') +
+          (violations.length > 10 ? `\n… et ${violations.length - 10} de plus` : '') +
+          `\n\nAppliquer quand même ?`,
+        confirmLabel: 'Appliquer',
+        cancelLabel: 'Annuler',
+        variant: 'warning',
+      })
+      if (!proceed) return
+    }
+
+    if (dragCascadeMode === 'cascade' && cascadeShifts.length > 0) {
+      const cycleNote = cycleDetected
+        ? '\n\n⚠️ Cycle ou chaîne trop longue détecté(e). Certains décalages peuvent être incomplets.'
+        : ''
+      const proceed = await confirm({
+        title: `Cascade : ${cascadeShifts.length} successeur(s) décalé(s)`,
+        message:
+          cascadeShifts.slice(0, 10).map((s) => `• ${s.title} : ${s.oldStart} → ${s.newStart}`).join('\n') +
+          (cascadeShifts.length > 10 ? `\n… et ${cascadeShifts.length - 10} de plus` : '') +
+          cycleNote,
+        confirmLabel: 'Appliquer',
+        cancelLabel: 'Annuler',
+        variant: 'warning',
+      })
+      if (!proceed) return
+    }
+
+    // ── Commit dragged + cascade ──
+    try {
+      const ops: Promise<unknown>[] = [
+        projetsService.updateTask(projectId, barId, { start_date: newStart, due_date: newEnd }),
+      ]
+      for (const shift of cascadeShifts) {
+        ops.push(projetsService.updateTask(shift.projectId, shift.id, {
+          start_date: shift.newStart,
+          due_date: shift.newEnd,
+        }))
+      }
+      await Promise.all(ops)
+      // Invalidate every affected project's task list so all bars
+      // re-fetch with the new dates.
+      const affectedProjectIds = new Set<string>([projectId])
+      for (const s of cascadeShifts) affectedProjectIds.add(s.projectId)
+      for (const pid of affectedProjectIds) {
+        qc.invalidateQueries({ queryKey: ['project-tasks', pid] })
+      }
+      const cascadeMsg = cascadeShifts.length > 0
+        ? ` (+${cascadeShifts.length} en cascade)`
+        : ''
+      toast({ title: `Tâche replanifiée${cascadeMsg}`, variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur lors du déplacement', variant: 'error' })
+    }
+  }, [taskIndex, allDepsFlat, dragCascadeMode, confirm, toast, qc])
 
   const handleBarResize = useCallback((barId: string, edge: 'left' | 'right', newDate: string) => {
     if (barId.startsWith('proj-')) return

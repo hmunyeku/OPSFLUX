@@ -166,37 +166,49 @@ export function ResponsiveActionBar({
         return
       }
 
-      // First pass at natural (non-compact) widths.
+      // Strategy:
+      //   1. Prefer labeled buttons. Fit items by priority, reserving
+      //      OVERFLOW_WIDTH for the kebab whenever there will be at
+      //      least one item left over.
+      //   2. If NOTHING fits with labels (not even one), fall back to
+      //      compact (icon-only) mode and repeat the fit. Compact mode
+      //      strips labels from the inline buttons; the popover still
+      //      shows the full labels so the action stays discoverable.
+      //   3. Always keep at least 1 item inline so the primary CTA is
+      //      one tap away even on the tiniest viewport.
+      //
+      // This is intentionally NOT gated by a `containerWidth < threshold`
+      // check — that kind of pre-emptive collapse (what the old
+      // `compactBelow` flag did) removed labels too aggressively. For
+      // example on a 375px mobile the container budget was ~343px,
+      // which is plenty of room for 3 labeled buttons + a kebab menu;
+      // forcing compact mode made all 4 go icon-only instead of
+      // surfacing the primary label clearly.
       let width = 0
       let count = 0
       for (let i = 0; i < itemEls.length; i++) {
         const itemWidth = itemEls[i].offsetWidth + (i === 0 ? 0 : GAP)
-        const needMenu = i < itemEls.length - 1
-        const budget = containerWidth - (needMenu ? OVERFLOW_WIDTH + GAP : 0)
+        const hasOverflow = i < itemEls.length - 1
+        const budget = containerWidth - (hasOverflow ? OVERFLOW_WIDTH + GAP : 0)
         if (width + itemWidth > budget) break
         width += itemWidth
         count++
       }
 
-      // If NOTHING fits at natural width, force compact mode and retry.
-      // Compact mode strips labels from the inline buttons, falling back
-      // to icon-only — the popover still shows the full labels so the
-      // action remains discoverable.
-      if (count === 0 || containerWidth < compactBelow) {
+      if (count === 0) {
+        // Not even one labeled button fits → go icon-only.
         setCompact(true)
-        // Compact button is ~32px (icon only, matching gl-button-sm).
         const COMPACT_WIDTH = 32
         width = 0
         count = 0
         for (let i = 0; i < itemEls.length; i++) {
           const w = COMPACT_WIDTH + (i === 0 ? 0 : GAP)
-          const needMenu = i < itemEls.length - 1
-          const budget = containerWidth - (needMenu ? OVERFLOW_WIDTH + GAP : 0)
+          const hasOverflow = i < itemEls.length - 1
+          const budget = containerWidth - (hasOverflow ? OVERFLOW_WIDTH + GAP : 0)
           if (width + w > budget) break
           width += w
           count++
         }
-        // Always keep at least 1 inline so the primary CTA is one click away.
         setVisibleCount(Math.max(1, count))
       } else {
         setCompact(false)

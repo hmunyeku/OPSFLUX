@@ -700,12 +700,24 @@ class TripKPI(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 # ─── Article Catalog (SAP matching) ───────────────────────────────────────
 
 class ArticleCatalog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """SAP article master for cargo matching."""
+    """SAP article master for cargo matching.
+
+    The catalog can be either GLOBAL (entity_id NULL — shared across all
+    entities of the tenant) or PER-ENTITY (entity_id set). The choice is
+    governed by the entity-scoped admin setting
+    `packlog.article_catalog_global` (default: False → per-entity with NULL
+    fallback so shared seed data remains visible to every entity).
+    """
     __tablename__ = "article_catalog"
     __table_args__ = (
         Index("idx_article_sap", "sap_code"),
+        Index("idx_article_catalog_entity_id", "entity_id"),
+        Index("idx_article_catalog_entity_sap", "entity_id", "sap_code"),
     )
 
+    entity_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"),
+    )
     sap_code: Mapped[str | None] = mapped_column(String(50), unique=True)
     internal_code: Mapped[str | None] = mapped_column(String(50))
     description_fr: Mapped[str] = mapped_column(String(500), nullable=False)

@@ -60,6 +60,48 @@ PACKLOG_PUBLIC_STATUS_LABELS = {
 }
 
 
+async def _is_article_catalog_global(db: AsyncSession, entity_id: UUID) -> bool:
+    """Read the entity-scoped setting that controls SAP catalog scoping.
+
+    `packlog.article_catalog_global` = True  → catalog is shared globally,
+                                                entity_id is ignored on
+                                                read AND on write
+    `packlog.article_catalog_global` = False → catalog is per-entity:
+                                                reads return rows whose
+                                                entity_id matches the
+                                                current entity OR is NULL
+                                                (shared seed data fallback);
+                                                writes set entity_id =
+                                                current entity.
+    Default: False (per-entity).
+    """
+    result = await db.execute(
+        text(
+            """
+            SELECT value
+            FROM settings
+            WHERE key = 'packlog.article_catalog_global'
+              AND scope = 'entity'
+              AND entity_id = :eid
+            LIMIT 1
+            """
+        ),
+        {"eid": str(entity_id)},
+    )
+    row = result.first()
+    if not row:
+        return False
+    val = row[0]
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return val.strip().lower() in ("true", "1", "yes", "on")
+    if isinstance(val, dict) and "value" in val:
+        v = val["value"]
+        return bool(v) if isinstance(v, bool) else str(v).strip().lower() in ("true", "1", "yes", "on")
+    return bool(val)
+
+
 async def list_packlog_article_catalog(
     db: AsyncSession,
     *,
@@ -69,8 +111,20 @@ async def list_packlog_article_catalog(
     management_type: str | None = None,
     is_hazmat: bool | None = None,
 ) -> list[dict[str, Any]]:
-    conditions = ["entity_id = :eid", "COALESCE(active, TRUE) = TRUE"]
-    params: dict[str, object] = {"eid": str(entity_id)}
+    """List SAP articles, scoped per the `packlog.article_catalog_global` setting.
+
+    See `_is_article_catalog_global()` for the scoping rules. In per-entity
+    mode (default) we also surface NULL-entity rows as a fallback so seed
+    data and globally-imported articles remain visible to every entity.
+    """
+    is_global = await _is_article_catalog_global(db, entity_id)
+
+    conditions = ["COALESCE(active, TRUE) = TRUE"]
+    params: dict[str, object] = {}
+
+    if not is_global:
+        conditions.append("(entity_id = :eid OR entity_id IS NULL)")
+        params["eid"] = str(entity_id)
 
     if search:
         conditions.append("(description_fr ILIKE :search OR description_en ILIKE :search OR sap_code ILIKE :search OR internal_code ILIKE :search)")
@@ -118,18 +172,27 @@ async def get_packlog_article_catalog_entry(
     entity_id: UUID,
     article_id: UUID,
 ) -> dict[str, Any] | None:
+    """Fetch one SAP article. Scoping rules match list_packlog_article_catalog."""
+    is_global = await _is_article_catalog_global(db, entity_id)
+
+    where = "id = :article_id"
+    params: dict[str, object] = {"article_id": str(article_id)}
+    if not is_global:
+        where += " AND (entity_id = :eid OR entity_id IS NULL)"
+        params["eid"] = str(entity_id)
+
     result = await db.execute(
         text(
-            """
+            f"""
             SELECT id, entity_id, sap_code, description_fr, management_type,
                    packaging_type, unit_of_measure, is_hazmat, hazmat_class,
                    COALESCE(active, TRUE) AS active, created_at
             FROM article_catalog
-            WHERE entity_id = :eid AND id = :article_id
+            WHERE {where}
             LIMIT 1
             """
         ),
-        {"eid": str(entity_id), "article_id": str(article_id)},
+        params,
     )
     row = result.first()
     if not row:
@@ -161,6 +224,10 @@ async def create_packlog_article_catalog_entry(
     hazmat_class: str | None = None,
 ) -> dict[str, Any]:
     normalized = normalize_packlog_article_description(description)
+    # In global mode the row is shared (entity_id NULL), in per-entity mode
+    # we tag the row with the current entity. Same setting as for reads.
+    is_global = await _is_article_catalog_global(db, entity_id)
+    persisted_eid = None if is_global else str(entity_id)
     result = await db.execute(
         text(
             "INSERT INTO article_catalog "
@@ -170,7 +237,7 @@ async def create_packlog_article_catalog_entry(
             "RETURNING id, sap_code, description_fr, management_type, unit_of_measure, is_hazmat, hazmat_class"
         ),
         {
-            "eid": str(entity_id),
+            "eid": persisted_eid,
             "sap": sap_code,
             "desc": description,
             "norm": normalized,
@@ -219,17 +286,30 @@ async def import_packlog_article_catalog_csv(
     errors: list[str] = []
     imported_at = datetime.now(timezone.utc)
 
+    is_global = await _is_article_catalog_global(db, entity_id)
+    persisted_eid = None if is_global else str(entity_id)
+
     for line_number, row in enumerate(reader, start=2):
         try:
             payload = parse_packlog_article_csv_row(row, line_number)
-            existing = await db.execute(
-                text(
-                    "SELECT id FROM article_catalog "
-                    "WHERE entity_id = :eid AND sap_code = :sap "
-                    "LIMIT 1"
-                ),
-                {"eid": str(entity_id), "sap": payload["sap_code"]},
-            )
+            # Look up existing article in the same scope: in global mode
+            # we match across all rows; in per-entity mode we match the
+            # current entity OR NULL (so a previously-shared entry gets
+            # upgraded in place rather than duplicated).
+            if is_global:
+                existing = await db.execute(
+                    text("SELECT id FROM article_catalog WHERE sap_code = :sap LIMIT 1"),
+                    {"sap": payload["sap_code"]},
+                )
+            else:
+                existing = await db.execute(
+                    text(
+                        "SELECT id FROM article_catalog "
+                        "WHERE (entity_id = :eid OR entity_id IS NULL) AND sap_code = :sap "
+                        "LIMIT 1"
+                    ),
+                    {"eid": str(entity_id), "sap": payload["sap_code"]},
+                )
             article_id = existing.scalar_one_or_none()
             if article_id:
                 await db.execute(
@@ -273,7 +353,7 @@ async def import_packlog_article_catalog_csv(
                     ),
                     {
                         **payload,
-                        "entity_id": str(entity_id),
+                        "entity_id": persisted_eid,
                         "source": "csv",
                         "last_imported_at": imported_at,
                     },
@@ -308,6 +388,12 @@ async def match_packlog_sap_code(db: AsyncSession, *, description: str, entity_i
     query_code = _normalize_packlog_sap_code(description)
     rows: list[dict[str, Any]] = []
 
+    is_global = await _is_article_catalog_global(db, entity_id)
+    scope_clause = (
+        "" if is_global else "  AND (entity_id = :eid OR entity_id IS NULL) "
+    )
+    common_params: dict[str, object] = {} if is_global else {"eid": str(entity_id)}
+
     try:
         result = await db.execute(
             text(
@@ -321,8 +407,8 @@ async def match_packlog_sap_code(db: AsyncSession, *, description: str, entity_i
                 "    similarity(COALESCE(internal_code, ''), :code)"
                 "  ) AS db_similarity "
                 "FROM article_catalog "
-                "WHERE entity_id = :eid "
-                "  AND COALESCE(active, TRUE) = TRUE "
+                "WHERE COALESCE(active, TRUE) = TRUE "
+                f"{scope_clause}"
                 "  AND ("
                 "    similarity(COALESCE(description_normalized, ''), :query) > 0.08 "
                 "    OR description_fr ILIKE :pattern "
@@ -334,7 +420,7 @@ async def match_packlog_sap_code(db: AsyncSession, *, description: str, entity_i
                 "LIMIT 25"
             ),
             {
-                "eid": str(entity_id),
+                **common_params,
                 "query": query,
                 "raw": description,
                 "code": query_code,
@@ -348,13 +434,13 @@ async def match_packlog_sap_code(db: AsyncSession, *, description: str, entity_i
                 "SELECT id, sap_code, internal_code, description_fr, description_en, "
                 "  description_normalized, management_type, 0.0 AS db_similarity "
                 "FROM article_catalog "
-                "WHERE entity_id = :eid "
-                "  AND COALESCE(active, TRUE) = TRUE "
+                "WHERE COALESCE(active, TRUE) = TRUE "
+                f"{scope_clause}"
                 "  AND (description_fr ILIKE :pattern OR description_en ILIKE :pattern OR sap_code ILIKE :pattern OR internal_code ILIKE :pattern) "
                 "ORDER BY sap_code "
                 "LIMIT 25"
             ),
-            {"eid": str(entity_id), "pattern": f"%{description.strip()}%"},
+            {**common_params, "pattern": f"%{description.strip()}%"},
         )
         rows = [dict(row._mapping) for row in result]
 

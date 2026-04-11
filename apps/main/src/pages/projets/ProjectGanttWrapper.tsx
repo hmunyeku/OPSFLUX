@@ -121,9 +121,44 @@ export function ProjectGanttWrapper() {
     }
   }, [projects.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Prune stale IDs from `expanded` whenever the projects list changes.
+  // Without this, a project that was deleted (or moved to another entity)
+  // remains in the persisted `gantt_expanded` localStorage entry and
+  // triggers 404 task fetches every time the gantt loads.
+  useEffect(() => {
+    if (allProjects.length === 0 || expanded.size === 0) return
+    const validIds = new Set(allProjects.map(p => p.id))
+    let pruned = false
+    const next = new Set<string>()
+    for (const id of expanded) {
+      if (validIds.has(id)) next.add(id)
+      else pruned = true
+    }
+    if (pruned) {
+      setExpanded(next)
+      setPref('gantt_expanded', [...next])
+    }
+    // We deliberately depend on allProjects.length and the projects map —
+    // not on `expanded` — to avoid an infinite loop. allProjects is a
+    // stable reference between fetches.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allProjects.length])
+
   // ── Load tasks for each expanded project in parallel ──────────
 
-  const expandedIds = useMemo(() => [...expanded], [expanded])
+  // Compute the list of expanded IDs that ALSO exist in the visible
+  // projects list. This double-filter (alongside the prune effect above)
+  // protects the queries from stale localStorage entries even on the
+  // first render before the prune effect runs, eliminating the 404
+  // burst on initial mount.
+  const visibleProjectIds = useMemo(
+    () => new Set(allProjects.map(p => p.id)),
+    [allProjects],
+  )
+  const expandedIds = useMemo(
+    () => [...expanded].filter(id => visibleProjectIds.has(id)),
+    [expanded, visibleProjectIds],
+  )
 
   const taskQueries = useQueries({
     queries: expandedIds.map(pid => ({

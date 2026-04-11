@@ -150,6 +150,7 @@ import { SecurityPolicyTab } from './tabs/SecurityPolicyTab'
 import { PaxLogConfigTab } from './tabs/PaxLogConfigTab'
 import { PlannerConfigTab } from './tabs/PlannerConfigTab'
 import { TravelWizConfigTab } from './tabs/TravelWizConfigTab'
+import { PackLogConfigTab } from './tabs/PackLogConfigTab'
 import { GdprTab } from './tabs/GdprTab'
 import { AdminerTab } from './tabs/AdminerTab'
 import { SystemTab } from './tabs/SystemTab'
@@ -192,6 +193,7 @@ registerSettingsSection({ id: 'numbering', label: 'Numérotation', icon: Hash, c
 registerSettingsSection({ id: 'paxlog-config', label: 'PaxLog', icon: Users, component: PaxLogConfigTab, category: 'general', order: 36, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'planner-config', label: 'Planner', icon: CalendarClock, component: PlannerConfigTab, category: 'general', order: 37, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'travelwiz-config', label: 'TravelWiz', icon: Ship, component: TravelWizConfigTab, category: 'general', order: 38, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'packlog-config', label: 'PackLog', icon: Boxes, component: PackLogConfigTab, category: 'general', order: 39, requiredPermission: 'core.settings.manage' })
 
 registerSettingsSection({ id: 'gdpr', label: 'RGPD / Protection des donnees', icon: Shield, component: GdprTab, category: 'general', order: 40, requiredPermission: 'admin.system' })
 registerSettingsSection({ id: 'security-policy', label: 'Sécurité & Authentification', icon: ShieldCheck, component: SecurityPolicyTab, category: 'general', order: 45, requiredPermission: 'admin.system' })

@@ -36,7 +36,10 @@ export default function TrackingPage() {
     setLoading(true)
     setVoyageTracking(null)
     try {
-      const result = await apiRequest(null, `/api/v1/travelwiz/public/cargo/${encodeURIComponent(code)}`)
+      // Canonical PackLog tracking endpoint. The legacy /travelwiz path
+      // still exists server-side for backwards compat but PackLog now
+      // owns the cargo + tracking domain end-to-end.
+      const result = await apiRequest(null, `/api/v1/packlog/public/cargo/${encodeURIComponent(code)}`)
       setTracking(result)
       const url = new URL(window.location.href)
       url.searchParams.set('tracking', code)
@@ -47,7 +50,7 @@ export default function TrackingPage() {
       if (msg.includes('404')) {
         setMessage({ text: t('cargo_tracking_try_voyage'), color: 'primary' })
         try {
-          const vResult = await apiRequest(null, `/api/v1/travelwiz/public/voyages/${encodeURIComponent(code)}/cargo`)
+          const vResult = await apiRequest(null, `/api/v1/packlog/public/voyages/${encodeURIComponent(code)}/cargo`)
           setVoyageTracking(vResult)
           const url = new URL(window.location.href)
           url.searchParams.set('tracking', code)

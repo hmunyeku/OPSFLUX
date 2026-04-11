@@ -8,9 +8,46 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.common import OpsFluxSchema
+
+
+def _validate_pickup_contact_xor(values: "CargoCreate | CargoUpdate") -> "CargoCreate | CargoUpdate":
+    """Reject inputs that supply more than one pickup contact source.
+
+    A cargo's pickup contact identifies WHO the driver should call when
+    arriving at the pickup site. There are three mutually exclusive
+    sources we accept:
+
+      - pickup_contact_user_id        → an internal OpsFlux User
+      - pickup_contact_tier_contact_id → a contact in the Tiers module
+      - pickup_contact_name + phone   → a free-text fallback for external
+                                         drivers we don't track in any
+                                         OpsFlux entity
+
+    Allowing more than one creates ambiguity: which channel does the
+    driver actually use? It also breaks downstream notification routing
+    (we'd send the same instruction twice or pick one arbitrarily).
+
+    All three being null is fine — many cargos don't need a pickup
+    contact at all (warehouse pickup, scheduled batch, etc.).
+    """
+    sources = sum(
+        1
+        for v in (
+            getattr(values, "pickup_contact_user_id", None),
+            getattr(values, "pickup_contact_tier_contact_id", None),
+            getattr(values, "pickup_contact_name", None),
+        )
+        if v
+    )
+    if sources > 1:
+        raise ValueError(
+            "Specify at most one pickup contact source: pickup_contact_user_id, "
+            "pickup_contact_tier_contact_id, or pickup_contact_name (with phone)."
+        )
+    return values
 
 
 class BackCargoReturnRequest(BaseModel):
@@ -46,7 +83,11 @@ class CargoCreate(BaseModel):
     description: str = Field(..., min_length=1, max_length=500)
     designation: str | None = Field(None, max_length=255)
     cargo_type: str = Field(..., pattern=r"^(unit|bulk|consumable|packaging|waste|hazmat)$")
-    weight_kg: float = Field(..., gt=0)
+    # 100 t upper bound — anything over that is almost certainly a unit
+    # entry mistake (kg vs t) and would also exceed any vessel/heli we
+    # operate. Cargo above this need a dedicated heavy-lift workflow
+    # outside the standard PackLog form.
+    weight_kg: float = Field(..., gt=0, le=100_000)
     width_cm: float | None = None
     length_cm: float | None = None
     height_cm: float | None = None
@@ -79,13 +120,15 @@ class CargoCreate(BaseModel):
     sap_article_code: str | None = Field(None, max_length=50)
     hazmat_validated: bool = False
 
+    _check_pickup_contact_xor = model_validator(mode="after")(_validate_pickup_contact_xor)
+
 
 class CargoUpdate(BaseModel):
     request_id: UUID | None = None
     description: str | None = None
     designation: str | None = None
     cargo_type: str | None = None
-    weight_kg: float | None = None
+    weight_kg: float | None = Field(None, gt=0, le=100_000)
     width_cm: float | None = None
     length_cm: float | None = None
     height_cm: float | None = None
@@ -117,6 +160,8 @@ class CargoUpdate(BaseModel):
     planned_zone_id: UUID | None = None
     sap_article_code: str | None = None
     hazmat_validated: bool | None = None
+
+    _check_pickup_contact_xor = model_validator(mode="after")(_validate_pickup_contact_xor)
 
 
 class CargoWorkflowStatusUpdate(BaseModel):

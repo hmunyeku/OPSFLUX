@@ -11,7 +11,7 @@ import {
   Calendar, Clock, Users, CheckCircle2, XCircle, Send, Ban,
   Wrench, HardHat, Gauge, Shield, Drill, Pencil, Trash2, Link2, Loader2,
   ChevronLeft, ChevronRight, ChevronDown, GanttChart, Eye, Repeat, ArrowUpDown,
-  FlaskConical, TrendingUp,
+  FlaskConical, TrendingUp, LayoutDashboard,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
@@ -37,6 +37,7 @@ import {
 } from '@/components/layout/DynamicPanel'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { GanttView } from './GanttView'
+import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { buildCells, buildHeaderGroups, getDefaultDateRange } from '@/components/shared/gantt/ganttEngine'
 import type { TimeScale } from '@/components/shared/gantt/ganttEngine'
 import type { GanttSettings } from '@/components/shared/gantt/ganttTypes'
@@ -108,9 +109,10 @@ import type { HierarchyFieldNode } from '@/types/assetRegistry'
 
 // ── Tab definitions ───────────────────────────────────────────
 
-type PlannerTab = 'gantt' | 'activities' | 'conflicts' | 'capacity' | 'scenarios' | 'forecast'
+type PlannerTab = 'dashboard' | 'gantt' | 'activities' | 'conflicts' | 'capacity' | 'scenarios' | 'forecast'
 
 const TABS: { id: PlannerTab; label: string; icon: typeof CalendarRange }[] = [
+  { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { id: 'gantt', label: 'Gantt', icon: GanttChart },
   { id: 'activities', label: 'Activites', icon: ListTodo },
   { id: 'conflicts', label: 'Conflits', icon: AlertTriangle },
@@ -2665,6 +2667,11 @@ export function PlannerPage() {
             })}
           </div>
 
+          {activeTab === 'dashboard' && (
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <ModuleDashboard module="planner" title="Planner" />
+            </div>
+          )}
           {activeTab === 'gantt' && (
             <div className="flex-1 min-h-0 flex flex-col p-3">
               {/* Unified Gantt + heatmap — single shared timeline */}

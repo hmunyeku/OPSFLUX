@@ -1790,14 +1790,20 @@ export function GanttCore(props: GanttCoreProps) {
                   {cellsList.map((hc) => {
                     if (hc.cellIdx < 0 || hc.cellIdx >= cellLefts.length) return null
                     const w = cellWidths[hc.cellIdx]
-                    // Respect the user's bar-width preference: take a
-                    // percentage of the cell's inner width (w-2 to keep
-                    // the 1 px margin on each side) and center the bar
-                    // inside the cell. Clamped to a minimum of 4 px so
-                    // bars never vanish entirely at extreme settings.
+                    // CELL width (constant) — used for label visibility
+                    // and for the wrapper div, so labels stay centered
+                    // on the cell regardless of how narrow the
+                    // user-selected bar width is.
+                    const cellInnerW = Math.max(0, w - 2)
+                    const cellLeft = cellLefts[hc.cellIdx] + 1
+                    // BAR width (variable) — derived from the user's
+                    // workload_bar_width_pct preference. Only the
+                    // colored stack rectangles use this width; labels
+                    // span the full cell so adjusting the slider has
+                    // no effect on their visibility.
                     const pct = Math.max(30, Math.min(100, workloadBarWidthPct ?? 90))
-                    const innerW = Math.max(4, Math.round(((w - 2) * pct) / 100))
-                    const left = cellLefts[hc.cellIdx] + Math.round((w - innerW) / 2)
+                    const barW = Math.max(4, Math.round(cellInnerW * pct / 100))
+                    const barOffsetLeft = Math.round((cellInnerW - barW) / 2)
 
                     if (hc.stacks && hc.stacks.length > 0) {
                       const stackMax =
@@ -1807,12 +1813,15 @@ export function GanttCore(props: GanttCoreProps) {
                         <div
                           key={`footer-${hc.cellIdx}`}
                           className="absolute pointer-events-auto"
-                          style={{ left, top: 0, width: innerW, height: footerRowH }}
+                          style={{ left: cellLeft, top: 0, width: cellInnerW, height: footerRowH }}
                           {...(hc.tooltipHTML
                             ? { 'data-heatmap-tooltip': hc.tooltipHTML }
                             : {})}
                         >
-                          {hc.label && innerW >= 18 && (
+                          {/* Column total — gated on the CELL width
+                              (not the bar width), so changing the bar
+                              width slider never hides the totals. */}
+                          {hc.label && cellInnerW >= 18 && (
                             <div
                               className="absolute left-0 right-0 text-[9px] text-foreground font-semibold text-center tabular-nums"
                               style={{ top: 0, height: COLUMN_TOTAL_H, lineHeight: `${COLUMN_TOTAL_H}px` }}
@@ -1825,12 +1834,19 @@ export function GanttCore(props: GanttCoreProps) {
                             const segH = (seg.value / stackMax) * stackAreaH
                             const bottom = innerBottom + stackedBelow
                             stackedBelow += segH
-                            const showSegLabel = segH >= 12 && innerW >= 22
+                            // Segment label visibility: gated on the
+                            // CELL width and the segment height — never
+                            // on the bar width, otherwise narrowing the
+                            // slider would hide labels the user wants
+                            // to keep.
+                            const showSegLabel = segH >= 12 && cellInnerW >= 22
                             return (
                               <div
                                 key={segIdx}
-                                className="absolute left-0 right-0 flex items-center justify-center text-[8px] font-semibold tabular-nums"
+                                className="absolute flex items-center justify-center text-[8px] font-semibold tabular-nums"
                                 style={{
+                                  left: barOffsetLeft,
+                                  width: barW,
                                   bottom,
                                   height: segH,
                                   backgroundColor: seg.color,
@@ -1852,9 +1868,9 @@ export function GanttCore(props: GanttCoreProps) {
                         key={`footer-${hc.cellIdx}`}
                         className="absolute flex items-center justify-center text-[9px] font-medium tabular-nums"
                         style={{
-                          left,
+                          left: cellLeft + barOffsetLeft,
                           top: innerTop,
-                          width: innerW,
+                          width: barW,
                           height: stackAreaH,
                           backgroundColor: hc.color,
                           color: textColorForBackground(hc.color),

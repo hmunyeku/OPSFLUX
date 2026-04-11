@@ -1599,6 +1599,16 @@ class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     tier_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("tiers.id"))
     asset_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"))
     external_ref: Mapped[str | None] = mapped_column(String(200), index=True)  # e.g. "gouti:<id>" for synced projects
+    # How `Project.progress` is computed from the leaf tasks. NULL → fall
+    # back to the entity-scoped admin default (`projets.default_progress_weight_method`),
+    # then to 'equal' if no setting exists. Allowed values:
+    #   'equal'    — arithmetic mean of all task progresses
+    #   'effort'   — weighted by ProjectTask.estimated_hours
+    #   'duration' — weighted by ProjectTask (due_date - start_date) in days
+    #   'manual'   — weighted by ProjectTask.weight (set manually per task)
+    # See _update_project_progress() in app/api/routes/modules/projets.py
+    # for the recursive WBS roll-up implementation.
+    progress_weight_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
@@ -1652,6 +1662,11 @@ class ProjectTask(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     estimated_hours: Mapped[float | None] = mapped_column(Float)
     actual_hours: Mapped[float | None] = mapped_column(Float)
+    # Manual weight used by Project.progress_weight_method == 'manual'.
+    # NULL/0 means the task contributes nothing to the weighted average
+    # in manual mode (in practice the parent falls back to equal if ALL
+    # children have NULL/0 manual weights). Ignored in other modes.
+    weight: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
     # Spec section 1.5 / 2.4: POB (Persons On Board) demande for the task.
     # Owned by the project task — when the task is sent to the Planner, the
     # PlannerActivity inherits this value as its initial pax_quota. Subsequent

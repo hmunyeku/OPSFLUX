@@ -102,7 +102,9 @@ import type {
   ProjectWBSNode,
   CPMTaskInfo,
   ActivityFeedItem,
+  ProgressWeightMethod,
 } from '@/types/api'
+import { PROGRESS_WEIGHT_METHOD_OPTIONS } from '@/types/api'
 
 // -- Constants ----------------------------------------------------------------
 
@@ -1137,6 +1139,9 @@ function CreateProjectPanel() {
   // Form state allows asset_id to be empty (null) during edition; we
   // re-validate in handleSubmit before sending to the backend, where the
   // schema requires it (spec §1.4).
+  // Form state allows asset_id to be empty (null) during edition; we
+  // re-validate in handleSubmit before sending to the backend, where the
+  // schema requires it (spec §1.4).
   const [form, setForm] = useState<Omit<ProjectCreate, 'asset_id'> & { asset_id: string | null }>({
     name: '',
     description: null,
@@ -1150,6 +1155,9 @@ function CreateProjectPanel() {
     parent_id: null,
     tier_id: null,
     asset_id: null,
+    // null → backend uses the entity-scoped admin default
+    // (`projets.default_progress_weight_method`).
+    progress_weight_method: null,
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1239,6 +1247,29 @@ function CreateProjectPanel() {
 
               <FormSection title="Priorité">
                 <TagSelector options={projectPriorityOptions} value={form.priority || 'medium'} onChange={(v) => setForm({ ...form, priority: v })} />
+              </FormSection>
+
+              <FormSection title="Avancement" collapsible defaultExpanded>
+                <p className="text-[11px] text-muted-foreground mb-2">
+                  Comment l'avancement du projet sera calculé à partir de l'avancement de chaque tâche. Laissez sur « Défaut admin » pour utiliser le réglage entité.
+                </p>
+                <DynamicPanelField label="Méthode de calcul">
+                  <select
+                    value={form.progress_weight_method || ''}
+                    onChange={(e) => setForm({ ...form, progress_weight_method: (e.target.value || null) as ProgressWeightMethod | null })}
+                    className={panelInputClass}
+                  >
+                    <option value="">Défaut admin</option>
+                    {PROGRESS_WEIGHT_METHOD_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </DynamicPanelField>
+                {form.progress_weight_method && (
+                  <p className="text-[11px] text-muted-foreground/80 italic mt-1.5">
+                    {PROGRESS_WEIGHT_METHOD_OPTIONS.find((o) => o.value === form.progress_weight_method)?.description}
+                  </p>
+                )}
               </FormSection>
 
               <FormSection title="Description" collapsible defaultExpanded={false}>
@@ -2770,6 +2801,37 @@ function ProjectDetailPanel({ id }: { id: string }) {
                 <InlineEditableRow label="Fin prévue" value={toDateInputValue(project.end_date)} displayValue={toDateDisplayValue(project.end_date)} onSave={(v) => handleSave('end_date', v || null)} type="date" />
                 <InlineEditableRow label="Fin réelle" value={toDateInputValue(project.actual_end_date)} displayValue={toDateDisplayValue(project.actual_end_date)} onSave={(v) => handleSave('actual_end_date', v || null)} type="date" />
               </DetailFieldGrid>
+            </FormSection>
+
+            {/* Calcul d'avancement — méthode de pondération choisie pour ce projet */}
+            <FormSection title="Calcul d'avancement" collapsible defaultExpanded={false} storageKey="project-detail-progress-method">
+              <p className="text-[11px] text-muted-foreground mb-2">
+                Détermine comment l'avancement de ce projet ({project.progress}%) est calculé à partir de l'avancement de chaque tâche. La modification recalcule immédiatement l'avancement.
+              </p>
+              <div>
+                <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Méthode</label>
+                <select
+                  value={project.progress_weight_method || ''}
+                  onChange={(e) => handleSave('progress_weight_method', e.target.value || null)}
+                  className={`${panelInputClass} w-full text-xs mt-0.5`}
+                  disabled={!isProjectFieldEditable(project, 'progress_weight_method', capabilities)}
+                >
+                  <option value="">Défaut admin</option>
+                  {PROGRESS_WEIGHT_METHOD_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                {project.progress_weight_method && (
+                  <p className="text-[11px] text-muted-foreground/80 italic mt-1.5">
+                    {PROGRESS_WEIGHT_METHOD_OPTIONS.find((o) => o.value === project.progress_weight_method)?.description}
+                  </p>
+                )}
+                {!project.progress_weight_method && (
+                  <p className="text-[11px] text-muted-foreground/80 italic mt-1.5">
+                    Aucune surcharge — utilise le défaut configuré dans <strong>Paramètres → Projets</strong>.
+                  </p>
+                )}
+              </div>
             </FormSection>
 
             {/* Sub-projects — macro-projet hierarchy */}

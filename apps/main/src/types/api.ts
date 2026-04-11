@@ -1297,6 +1297,10 @@ export interface Project {
   external_ref: string | null  // e.g. "gouti:<id>" for imported projects
   project_type: string  // project, workover, drilling, integrity, maintenance, inspection, event
   department_id: string | null
+  /** Méthode de pondération pour calculer Project.progress depuis les tâches.
+   *  null → utilise le défaut admin (`projets.default_progress_weight_method`),
+   *  puis 'equal' en dernier recours. Voir _resolve_project_progress_method() backend. */
+  progress_weight_method?: ProgressWeightMethod | null
   active: boolean
   archived: boolean
   created_at: string
@@ -1307,6 +1311,39 @@ export interface Project {
   member_count?: number
   children_count?: number
 }
+
+export type ProgressWeightMethod = 'equal' | 'effort' | 'duration' | 'manual'
+
+/** UI-friendly metadata for each weighting method. Reused by the
+ *  CreateProjectPanel picker, the ProjectDetailPanel inline edit and the
+ *  admin default setting tab. Single source of truth for labels +
+ *  descriptions so the wording stays consistent across the app. */
+export const PROGRESS_WEIGHT_METHOD_OPTIONS: { value: ProgressWeightMethod; label: string; description: string }[] = [
+  {
+    value: 'equal',
+    label: 'Égale',
+    description:
+      'Toutes les tâches comptent pour autant. Moyenne arithmétique simple. Adapté quand les tâches sont homogènes en taille.',
+  },
+  {
+    value: 'effort',
+    label: 'Par effort estimé',
+    description:
+      "Pondération par les heures estimées de chaque tâche. Le standard pragmatique : une tâche estimée à 100h pèse 100× plus qu'une tâche estimée à 1h. Tâches sans estimation : retombent en mode égal.",
+  },
+  {
+    value: 'duration',
+    label: 'Par durée',
+    description:
+      'Pondération par la durée prévue de chaque tâche (date de fin − date de début). Utile quand les heures estimées ne sont pas saisies mais les dates le sont.',
+  },
+  {
+    value: 'manual',
+    label: 'Manuelle',
+    description:
+      'Pondération par un champ "poids" saisi à la main sur chaque tâche. Donne le contrôle total au chef de projet pour gérer les jalons et tâches non standard.',
+  },
+]
 
 export interface ProjectCreate {
   code?: string
@@ -1325,6 +1362,8 @@ export interface ProjectCreate {
   // Spec §1.4: site/installation rattachement obligatoire pour création
   // native (Gouti import contourne ce schema).
   asset_id: string
+  // Optionnel : laisser vide pour utiliser le défaut admin.
+  progress_weight_method?: ProgressWeightMethod | null
 }
 
 export interface ProjectUpdate {
@@ -1343,6 +1382,7 @@ export interface ProjectUpdate {
   manager_id?: string | null
   tier_id?: string | null
   asset_id?: string | null
+  progress_weight_method?: ProgressWeightMethod | null
 }
 
 export interface ProjectMember {
@@ -1380,6 +1420,10 @@ export interface ProjectTask {
   actual_hours: number | null
   /** POB demande for the task — inherited by linked PlannerActivity (spec 1.5 / 2.4). */
   pob_quota: number
+  /** Manual weight — only used when the project's progress_weight_method == 'manual'.
+   *  Setting this on a task that's a parent has no effect (parent progress is
+   *  always derived from its children). */
+  weight: number | null
   order: number
   active: boolean
   created_at: string
@@ -1404,6 +1448,7 @@ export interface ProjectTaskCreate {
   due_date?: string | null
   estimated_hours?: number | null
   pob_quota?: number
+  weight?: number | null
 }
 
 export interface ProjectTaskUpdate {
@@ -1420,6 +1465,7 @@ export interface ProjectTaskUpdate {
   actual_hours?: number | null
   order?: number
   pob_quota?: number
+  weight?: number | null
 }
 
 export interface ProjectMilestone {

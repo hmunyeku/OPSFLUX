@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import delete as sql_delete, select, func as sqla_func
+from sqlalchemy import delete as sql_delete, select, func as sqla_func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_module_enabled, require_permission
@@ -53,35 +53,182 @@ PROJECT_ENTITY_TYPE = "project"
 # ── Helpers ───────────────────────────────────────────────────────────────
 
 
+PROGRESS_WEIGHT_METHODS = ("equal", "effort", "duration", "manual")
+
+
+async def _resolve_project_progress_method(db: AsyncSession, project: Project) -> str:
+    """Resolve the progress weighting method to apply for a project.
+
+    Order of precedence:
+      1. project.progress_weight_method (per-project override)
+      2. entity-scoped admin setting `projets.default_progress_weight_method`
+      3. hardcoded fallback 'equal' (backward compat with the old behaviour)
+    """
+    if project.progress_weight_method in PROGRESS_WEIGHT_METHODS:
+        return project.progress_weight_method
+    try:
+        result = await db.execute(
+            text(
+                """
+                SELECT value FROM settings
+                WHERE key = 'projets.default_progress_weight_method'
+                  AND scope = 'entity'
+                  AND scope_id = :sid
+                LIMIT 1
+                """
+            ),
+            {"sid": str(project.entity_id)},
+        )
+        row = result.first()
+        if row:
+            raw = row[0]
+            if isinstance(raw, dict) and "value" in raw:
+                raw = raw["value"]
+            if isinstance(raw, str) and raw in PROGRESS_WEIGHT_METHODS:
+                return raw
+    except Exception:
+        pass
+    return "equal"
+
+
+def _task_raw_weight(task: ProjectTask, method: str) -> float:
+    """Return the raw weight of a task for a given weighting method.
+
+    A return value of 0 means the task contributes nothing to its
+    parent's weighted average. The aggregator below applies a per-group
+    fallback to equal weighting when ALL siblings have weight 0, so a
+    project with no estimated hours still computes a sensible average.
+    """
+    if method == "effort":
+        return float(task.estimated_hours or 0)
+    if method == "duration":
+        if task.start_date and task.due_date:
+            delta = (task.due_date - task.start_date).days
+            return float(max(delta, 0))
+        return 0.0
+    if method == "manual":
+        return float(task.weight or 0)
+    # 'equal' (and fallback): every task counts the same
+    return 1.0
+
+
+def _weighted_average(items: list[tuple[float, float]]) -> float:
+    """Compute a weighted average of (value, weight) tuples.
+
+    Falls back to a plain mean if all weights are zero — this is the key
+    invariant: a project never returns 0% just because its tasks have no
+    estimated hours / no dates / no manual weight. It degrades to equal.
+    """
+    if not items:
+        return 0.0
+    total_weight = sum(w for _, w in items)
+    if total_weight > 0:
+        return sum(v * w for v, w in items) / total_weight
+    # Equal-weight fallback
+    return sum(v for v, _ in items) / len(items)
+
+
 async def _update_project_progress(db: AsyncSession, project_id: UUID) -> None:
-    """Recalculate project progress from task completion percentages."""
-    result = await db.execute(
-        select(ProjectTask.progress)
-        .where(ProjectTask.project_id == project_id, ProjectTask.active == True)
-    )
-    tasks = result.scalars().all()
-    if not tasks:
-        return
-    avg_progress = sum(tasks) / len(tasks)
+    """Recalculate project progress + WBS roll-up from leaf-task percentages.
 
-    # Also derive project status from task statuses
-    task_statuses_result = await db.execute(
-        select(ProjectTask.status)
-        .where(ProjectTask.project_id == project_id, ProjectTask.active == True)
-    )
-    statuses = task_statuses_result.scalars().all()
+    Strategy (replaces the old simple arithmetic mean):
+      1. Resolve the project's weighting method (per-project override →
+         entity admin default → 'equal').
+      2. Load all active tasks of the project.
+      3. Build a parent-id → children index.
+      4. Walk the tree depth-first from each leaf, computing each
+         parent's progress as the weighted average of its children
+         using the resolved method. Memoise to avoid recomputation.
+      5. Persist the computed progress for non-leaf (parent) tasks
+         only — leaves keep their manually-entered value untouched.
+      6. Compute the project's progress as the weighted average of its
+         root-level tasks (parent_id IS NULL) using the same method.
+      7. Auto-update the project status from the task statuses (same
+         logic as before).
 
+    Edge cases handled:
+      • Cycles in the parent_id graph → cycle detection via `visited`,
+        cycles get value=0 (defensive — should not happen with the
+        SET NULL ondelete on parent_id but cheaper than crashing).
+      • A task with no children and progress=NULL → counted as 0.
+      • All siblings have weight 0 → fallback to equal weighting at
+        that level only (does not affect siblings at other levels).
+    """
     project_result = await db.execute(select(Project).where(Project.id == project_id))
     project = project_result.scalar_one_or_none()
     if not project:
         return
 
-    project.progress = round(avg_progress)
+    method = await _resolve_project_progress_method(db, project)
 
-    # Auto-complete project if all tasks are done
+    # Load every active task in one round-trip
+    tasks_result = await db.execute(
+        select(ProjectTask).where(
+            ProjectTask.project_id == project_id,
+            ProjectTask.active == True,
+        )
+    )
+    tasks = list(tasks_result.scalars().all())
+    if not tasks:
+        return
+
+    # parent_id (or None for roots) → list[ProjectTask]
+    children_by_parent: dict[UUID | None, list[ProjectTask]] = {}
+    tasks_by_id: dict[UUID, ProjectTask] = {}
+    for t in tasks:
+        children_by_parent.setdefault(t.parent_id, []).append(t)
+        tasks_by_id[t.id] = t
+
+    computed: dict[UUID, float] = {}
+    in_progress: set[UUID] = set()  # cycle guard
+
+    def compute(task_id: UUID) -> float:
+        if task_id in computed:
+            return computed[task_id]
+        if task_id in in_progress:
+            # Cycle — break with 0 to avoid infinite recursion
+            return 0.0
+        in_progress.add(task_id)
+        task = tasks_by_id.get(task_id)
+        if task is None:
+            in_progress.discard(task_id)
+            return 0.0
+        children = children_by_parent.get(task_id, [])
+        if not children:
+            value = float(task.progress or 0)
+        else:
+            child_items = [
+                (compute(c.id), _task_raw_weight(c, method))
+                for c in children
+            ]
+            value = _weighted_average(child_items)
+        computed[task_id] = value
+        in_progress.discard(task_id)
+        return value
+
+    for t in tasks:
+        compute(t.id)
+
+    # Persist the computed progress on parent tasks ONLY. Leaf tasks
+    # keep their stored value (which is what the user manually entered).
+    # This is the core of the WBS roll-up: parents become read-only at
+    # the UI level because their value is fully derived.
+    for t in tasks:
+        if children_by_parent.get(t.id):
+            new_progress = max(0, min(100, round(computed[t.id])))
+            if t.progress != new_progress:
+                t.progress = new_progress
+
+    # Project-level: weighted average of root-level tasks
+    roots = children_by_parent.get(None, [])
+    if roots:
+        root_items = [(computed[r.id], _task_raw_weight(r, method)) for r in roots]
+        project.progress = max(0, min(100, round(_weighted_average(root_items))))
+
+    # ── Auto-update project status from task statuses (unchanged) ──
+    statuses = [t.status for t in tasks]
     if all(s == "done" for s in statuses) and project.status == "active":
         project.status = "completed"
-    # If any task moves to in_progress and project is still planned/draft
     elif any(s in ("in_progress", "review") for s in statuses) and project.status in ("draft", "planned"):
         project.status = "active"
 

@@ -216,6 +216,14 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
   const tasks = (tasksData?.items ?? []) as ProjectTask[]
   const task = tasks.find(t => t.id === taskId)
   const childTasks = tasks.filter((t) => t.parent_id === taskId)
+  // A task is a "parent" (i.e. has children) → its progress is auto-derived
+  // by the backend roll-up. The slider must be disabled and a hint shown.
+  const isParentTask = childTasks.length > 0
+  // Project context — used to know whether to show the manual `weight`
+  // field. We only show it when the project explicitly opts into manual
+  // weighting; if the project relies on the admin default, the user can
+  // switch to manual on the project detail panel first.
+  const isManualMethod = project?.progress_weight_method === 'manual'
 
   // Ancestry path for breadcrumb
   const ancestry = useMemo(() => task ? buildAncestry(taskId, tasks) : [], [taskId, tasks, task])
@@ -547,6 +555,14 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                 <div className="flex items-center justify-between mb-1.5">
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium flex items-center gap-1">
                     <TrendingUp size={10} /> Avancement
+                    {isParentTask && (
+                      <span
+                        className="ml-1 text-[9px] font-normal text-muted-foreground/70 normal-case"
+                        title="Cette tâche est un parent — son avancement est calculé automatiquement à partir de ses sous-tâches selon la méthode de pondération du projet."
+                      >
+                        (calculé)
+                      </span>
+                    )}
                   </p>
                   <span className="text-sm font-semibold tabular-nums" style={{ color: statusInfo.color }}>
                     {task.progress ?? 0}%
@@ -556,8 +572,13 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                   <input
                     type="range" min={0} max={100} step={5}
                     value={task.progress ?? 0}
-                    onChange={(e) => handleSave('progress', Number(e.target.value))}
-                    className="flex-1 h-1.5 accent-primary"
+                    onChange={(e) => !isParentTask && handleSave('progress', Number(e.target.value))}
+                    disabled={isParentTask}
+                    title={isParentTask ? "Calculé depuis les sous-tâches — non modifiable manuellement" : undefined}
+                    className={cn(
+                      'flex-1 h-1.5 accent-primary',
+                      isParentTask && 'opacity-50 cursor-not-allowed',
+                    )}
                   />
                 </div>
                 <div className="mt-1.5 h-2 bg-muted rounded-full overflow-hidden">
@@ -566,6 +587,12 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                     style={{ width: `${task.progress ?? 0}%`, backgroundColor: statusInfo.color }}
                   />
                 </div>
+                {isParentTask && (
+                  <p className="mt-1.5 text-[10px] text-muted-foreground/80 italic">
+                    <AlertCircle size={10} className="inline mr-0.5" />
+                    Avancement agrégé automatiquement depuis les {childTasks.length} sous-tâche{childTasks.length > 1 ? 's' : ''} selon la méthode du projet.
+                  </p>
+                )}
               </div>
             </FormSection>
 
@@ -645,6 +672,27 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                 <ReadOnlyRow label="Heures réelles" value={task.actual_hours ? `${task.actual_hours} h` : '—'} />
                 <div />
               </DetailFieldGrid>
+              {/* Manual weight — only useful when the parent project uses the
+                  'manual' weighting method. Hidden otherwise to keep the
+                  panel uncluttered. */}
+              {isManualMethod && !isParentTask && (
+                <DetailFieldGrid>
+                  <InlineEditableRow
+                    label="Poids"
+                    value={task.weight != null ? String(task.weight) : ''}
+                    displayValue={task.weight != null ? String(task.weight) : '— (non pondéré)'}
+                    onSave={(v) => handleSave('weight', v ? Number(v) : null)}
+                    type="number"
+                  />
+                  <div />
+                </DetailFieldGrid>
+              )}
+              {isManualMethod && (
+                <p className="mt-2 text-[10px] text-muted-foreground/80 italic">
+                  <AlertCircle size={10} className="inline mr-1" />
+                  Le projet utilise la pondération manuelle. Les tâches sans poids comptent pour 0 dans le calcul de l'avancement.
+                </p>
+              )}
               <p className="mt-2 text-[10px] text-muted-foreground/80 italic">
                 <AlertCircle size={10} className="inline mr-1" />
                 Modifier le POB d'une tâche liée au Planner déclenche une notification à l'arbitre.

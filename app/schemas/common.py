@@ -1651,6 +1651,8 @@ class ProjectRead(OpsFluxSchema):
     external_ref: str | None = None  # e.g. "gouti:<id>" for imported projects
     project_type: str = "project"
     department_id: UUID | None = None
+    # 'equal' | 'effort' | 'duration' | 'manual' | None (→ admin default)
+    progress_weight_method: str | None = None
     active: bool
     archived: bool
     created_at: datetime
@@ -1688,6 +1690,13 @@ class ProjectCreate(BaseModel):
     # the Gouti import path remains unaffected and the user can fill the
     # asset later via PATCH (ProjectUpdate keeps it Optional).
     asset_id: UUID = Field(..., description="Site/installation rattachement (obligatoire)")
+    # Optional override of how `progress` is computed. None → fall back to
+    # the entity-scoped admin default.
+    progress_weight_method: str | None = Field(
+        default=None,
+        pattern=r"^(equal|effort|duration|manual)$",
+        description="Méthode de pondération pour calculer l'avancement projet",
+    )
 
 
 class ProjectUpdate(BaseModel):
@@ -1707,6 +1716,11 @@ class ProjectUpdate(BaseModel):
     parent_id: UUID | None = None
     tier_id: UUID | None = None
     asset_id: UUID | None = None
+    progress_weight_method: str | None = Field(
+        default=None,
+        pattern=r"^(equal|effort|duration|manual)$",
+        description="Méthode de pondération pour calculer l'avancement projet (NULL pour utiliser le défaut admin)",
+    )
     active: bool | None = None
 
 
@@ -1746,6 +1760,10 @@ class ProjectTaskRead(OpsFluxSchema):
     estimated_hours: float | None = None
     actual_hours: float | None = None
     pob_quota: int = 0
+    # Manual weight — only used when the project's
+    # progress_weight_method == 'manual'. Read-only computed weight is
+    # NOT exposed; this is the user-set value only.
+    weight: float | None = None
     order: int
     active: bool
     created_at: datetime
@@ -1772,6 +1790,7 @@ class ProjectTaskCreate(BaseModel):
     due_date: datetime | None = None
     estimated_hours: float | None = None
     pob_quota: int = Field(default=0, ge=0)
+    weight: float | None = Field(default=None, ge=0, description="Poids manuel pour le calcul d'avancement (utilisé en mode 'manual')")
 
 
 class ProjectTaskUpdate(BaseModel):
@@ -1791,6 +1810,7 @@ class ProjectTaskUpdate(BaseModel):
     actual_hours: float | None = None
     order: int | None = None
     pob_quota: int | None = Field(default=None, ge=0)
+    weight: float | None = Field(default=None, ge=0)
 
 
 class ProjectMilestoneRead(OpsFluxSchema):

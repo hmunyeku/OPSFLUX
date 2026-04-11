@@ -20,7 +20,7 @@ import {
   ChevronRight, ChevronDown,
   Globe, Plug, FileText, FileOutput, Trash2,
   Activity, Hash, BookOpen, ShieldCheck, Database,
-  Users, CalendarClock, Ship, Boxes,
+  Users, CalendarClock, Ship, Boxes, FolderKanban,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
@@ -151,6 +151,7 @@ import { PaxLogConfigTab } from './tabs/PaxLogConfigTab'
 import { PlannerConfigTab } from './tabs/PlannerConfigTab'
 import { TravelWizConfigTab } from './tabs/TravelWizConfigTab'
 import { PackLogConfigTab } from './tabs/PackLogConfigTab'
+import { ProjetsConfigTab } from './tabs/ProjetsConfigTab'
 import { GdprTab } from './tabs/GdprTab'
 import { AdminerTab } from './tabs/AdminerTab'
 import { SystemTab } from './tabs/SystemTab'
@@ -190,6 +191,7 @@ registerSettingsSection({ id: 'dictionnaire', label: 'Dictionnaire', icon: BookO
 registerSettingsSection({ id: 'numbering', label: 'Numérotation', icon: Hash, component: NumberingTab, category: 'general', order: 35, requiredPermission: 'core.settings.manage' })
 
 // ── Module-specific configuration tabs ──
+registerSettingsSection({ id: 'projets-config', label: 'Projets', icon: FolderKanban, component: ProjetsConfigTab, category: 'general', order: 35, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'paxlog-config', label: 'PaxLog', icon: Users, component: PaxLogConfigTab, category: 'general', order: 36, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'planner-config', label: 'Planner', icon: CalendarClock, component: PlannerConfigTab, category: 'general', order: 37, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'travelwiz-config', label: 'TravelWiz', icon: Ship, component: TravelWizConfigTab, category: 'general', order: 38, requiredPermission: 'core.settings.manage' })

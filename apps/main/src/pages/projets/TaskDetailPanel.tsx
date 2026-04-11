@@ -594,6 +594,29 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                   </p>
                 )}
               </div>
+
+              {/* Manual weight — conceptually tied to the progress calculation
+                  (it's the per-task weight used in the project's weighted
+                  average). Only shown when the project uses 'manual' mode
+                  AND the task is a leaf (parents are auto-derived). */}
+              {isManualMethod && !isParentTask && (
+                <div className="mt-3">
+                  <DetailFieldGrid>
+                    <InlineEditableRow
+                      label="Poids"
+                      value={task.weight != null ? String(task.weight) : ''}
+                      displayValue={task.weight != null ? String(task.weight) : '— (non pondéré)'}
+                      onSave={(v) => handleSave('weight', v ? Number(v) : null)}
+                      type="number"
+                    />
+                    <div />
+                  </DetailFieldGrid>
+                  <p className="mt-1.5 text-[10px] text-muted-foreground/80 italic">
+                    <AlertCircle size={10} className="inline mr-0.5" />
+                    Le projet utilise la pondération manuelle. Les tâches sans poids comptent pour 0 dans le calcul de l'avancement.
+                  </p>
+                </div>
+              )}
             </FormSection>
 
             <FormSection title="Assignation" collapsible defaultExpanded storageKey="task-detail-assign">
@@ -672,27 +695,6 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
                 <ReadOnlyRow label="Heures réelles" value={task.actual_hours ? `${task.actual_hours} h` : '—'} />
                 <div />
               </DetailFieldGrid>
-              {/* Manual weight — only useful when the parent project uses the
-                  'manual' weighting method. Hidden otherwise to keep the
-                  panel uncluttered. */}
-              {isManualMethod && !isParentTask && (
-                <DetailFieldGrid>
-                  <InlineEditableRow
-                    label="Poids"
-                    value={task.weight != null ? String(task.weight) : ''}
-                    displayValue={task.weight != null ? String(task.weight) : '— (non pondéré)'}
-                    onSave={(v) => handleSave('weight', v ? Number(v) : null)}
-                    type="number"
-                  />
-                  <div />
-                </DetailFieldGrid>
-              )}
-              {isManualMethod && (
-                <p className="mt-2 text-[10px] text-muted-foreground/80 italic">
-                  <AlertCircle size={10} className="inline mr-1" />
-                  Le projet utilise la pondération manuelle. Les tâches sans poids comptent pour 0 dans le calcul de l'avancement.
-                </p>
-              )}
               <p className="mt-2 text-[10px] text-muted-foreground/80 italic">
                 <AlertCircle size={10} className="inline mr-1" />
                 Modifier le POB d'une tâche liée au Planner déclenche une notification à l'arbitre.

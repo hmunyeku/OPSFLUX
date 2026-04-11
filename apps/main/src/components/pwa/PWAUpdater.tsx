@@ -1,38 +1,23 @@
 /**
- * PWAUpdater — Renders toast notifications for PWA lifecycle events.
+ * PWAUpdater — Side-effect component for PWA lifecycle.
  *
- * Shows:
- *   - "Mise a jour disponible" with a refresh button when new SW is waiting
- *   - "Application prete pour le mode hors ligne" when SW finishes caching
+ * Since commit 5169038+ we AUTO-APPLY updates silently:
+ *   - usePWA registers the SW with auto-reload on controllerchange
+ *   - workbox precaches only JS/CSS/SVG (index.html comes from network)
+ *   - the old "Mise à jour disponible" toast is no longer shown because
+ *     the page auto-reloads before the user could have clicked it.
  *
- * Must be rendered inside ToastProvider.
+ * We still mount the hook here so registerSW runs on app start.
+ * Offline-ready toast kept because it's informational and non-disruptive.
  */
 import { useEffect, useRef } from 'react'
 import { usePWA } from '@/hooks/usePWA'
 import { useToast } from '@/components/ui/Toast'
 
 export function PWAUpdater() {
-  const { isUpdateAvailable, isOfflineReady, update } = usePWA()
+  const { isOfflineReady } = usePWA()
   const { toast } = useToast()
-  const shownUpdateRef = useRef(false)
   const shownOfflineRef = useRef(false)
-
-  // Show update available toast
-  useEffect(() => {
-    if (isUpdateAvailable && !shownUpdateRef.current) {
-      shownUpdateRef.current = true
-      toast({
-        title: 'Mise à jour disponible',
-        description: 'Une nouvelle version est disponible. Cliquez pour rafraîchir.',
-        variant: 'default',
-        duration: 0, // persistent until dismissed
-      })
-      // Auto-update after a short delay to let user see the toast
-      setTimeout(() => {
-        update()
-      }, 3000)
-    }
-  }, [isUpdateAvailable, toast, update])
 
   // Show offline ready toast
   useEffect(() => {

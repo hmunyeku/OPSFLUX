@@ -40,11 +40,39 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg}'],
-        // Precache navigated HTML routes (SPA fallback)
+        // IMPORTANT: do NOT precache HTML files. When index.html is
+        // precached, the SW keeps serving the OLD index.html (which
+        // references old JS chunks by hash) until the precache is
+        // refreshed — this causes the "ancienne vue de l'appli qui
+        // apparaît pendant le chargement" flash. By omitting .html
+        // from globPatterns, index.html is always fetched from the
+        // network so the correct current JS chunks are loaded.
+        globPatterns: ['**/*.{js,css,svg}'],
+        // Skip waiting + claim clients so a newly installed SW takes
+        // over IMMEDIATELY, without needing a user gesture. Combined
+        // with the controllerchange listener in usePWA, the page
+        // auto-reloads once and the user sees the new version.
+        skipWaiting: true,
+        clientsClaim: true,
+        // Offline fallback only — the SPA fallback to index.html is
+        // still honored for offline navigation, but during normal
+        // online usage the network is used first for HTML.
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
+          // HTML navigation requests: NetworkFirst with a short timeout.
+          // When online, always fetch the freshest index.html from the
+          // server; when offline, fall back to the SPA cache.
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'html-cache',
+              networkTimeoutSeconds: 3,
+              expiration: { maxEntries: 4, maxAgeSeconds: 3600 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           // API responses — NetworkFirst (try network, fall back to cache)
           {
             urlPattern: /\/api\//i,

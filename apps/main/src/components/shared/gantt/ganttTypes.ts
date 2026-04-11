@@ -64,6 +64,19 @@ export interface GanttHeatmapCell {
   label?: string
   /** Optional opacity override (0-1). Defaults to 1. Used to fade out 0-value cells. */
   opacity?: number
+  /**
+   * Optional STACKED BAR payload. When present, the cell is rendered
+   * as a vertical stack of colored segments (bottom-up) instead of a
+   * single flat rectangle — used by the Planner "Plan de charge" row
+   * to break a cell's total pax down by activity type. Each segment's
+   * vertical height is `value / stackMax` of the cell's inner height,
+   * so values must be normalized by the CALLER against a shared
+   * per-row max (typically the highest total across all cells in the
+   * same row, so bar heights compare fairly across the timeline).
+   */
+  stacks?: Array<{ color: string; value: number; label?: string }>
+  /** Per-row normalization max used when rendering `stacks`. */
+  stackMax?: number
 }
 
 // ── Column (grid config) ─────────────────────────────────────────

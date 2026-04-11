@@ -298,13 +298,14 @@ export function GanttCore(props: GanttCoreProps) {
   const totalWidth = totalDays * effectivePPD
 
   // ── Per-row heights & cumulative offsets ──
-  // Each row may override the global rowHeight via row.rowHeight (used by the
-  // Planner to make heatmap rows shorter than activity rows). The override is
-  // hard-clamped to the global rowHeight so a per-row value can never exceed
-  // the activity row height — this guarantees alignment and prevents the
-  // hierarchy heatmap rows from looking taller than the activity rows below.
+  // Each row may override the global rowHeight via row.rowHeight. This is
+  // used by the Planner to make hierarchy / heatmap rows SHORTER than
+  // activity rows (e.g. 22 px) as well as for special summary rows
+  // (e.g. the "Plan de charge" stacked-bar chart) that need to be TALLER
+  // than the default activity row. The caller is responsible for picking
+  // sensible values.
   const rowHeights = useMemo(
-    () => rows.map((r) => Math.min(r.rowHeight ?? settings.rowHeight, settings.rowHeight)),
+    () => rows.map((r) => r.rowHeight ?? settings.rowHeight),
     [rows, settings.rowHeight],
   )
   const rowOffsets = useMemo(() => {
@@ -1439,6 +1440,52 @@ export function GanttCore(props: GanttCoreProps) {
                 return row.heatmapCells.map((hc) => {
                   if (hc.cellIdx < 0 || hc.cellIdx >= cellLefts.length) return null
                   const w = cellWidths[hc.cellIdx]
+
+                  // ── STACKED BAR variant (plan de charge row) ──
+                  // When a cell provides `stacks`, render vertical colored
+                  // segments (bottom-up) instead of the flat heatmap rect.
+                  // Each segment's height = (value / stackMax) * cellHeight,
+                  // so bars compare fairly across the row. Segments with
+                  // value === 0 collapse to nothing.
+                  if (hc.stacks && hc.stacks.length > 0) {
+                    const stackMax = hc.stackMax ?? hc.stacks.reduce((s, x) => s + x.value, 0)
+                    const innerH = Math.max(0, rh - 6)
+                    const innerW = Math.max(0, w - 2)
+                    const top = rowOffsets[rowIdx] + 3
+                    const left = cellLefts[hc.cellIdx] + 1
+                    // Build the stack bottom-up: we'll position each
+                    // segment by its cumulative offset FROM THE TOP,
+                    // which is `innerH - stackedSoFar - segmentHeight`.
+                    let stackedBelow = 0
+                    return (
+                      <div
+                        key={`hm-${rowIdx}-${hc.cellIdx}`}
+                        className="absolute pointer-events-auto z-[5]"
+                        style={{ left, top, width: innerW, height: innerH }}
+                        {...(hc.tooltipHTML ? { 'data-heatmap-tooltip': hc.tooltipHTML } : {})}
+                      >
+                        {hc.stacks.map((seg, segIdx) => {
+                          if (seg.value <= 0 || stackMax <= 0) return null
+                          const segH = (seg.value / stackMax) * innerH
+                          const bottom = stackedBelow
+                          stackedBelow += segH
+                          return (
+                            <div
+                              key={segIdx}
+                              className="absolute left-0 right-0"
+                              style={{
+                                bottom,
+                                height: segH,
+                                backgroundColor: seg.color,
+                              }}
+                              title={seg.label || `${seg.value}`}
+                            />
+                          )
+                        })}
+                      </div>
+                    )
+                  }
+
                   const showLabel = hc.label && w >= 28 && rh >= 18
                   // Faint cells when value === 0 (or explicit opacity override)
                   const opacity = hc.opacity ?? (hc.value === 0 ? 0.22 : 1)

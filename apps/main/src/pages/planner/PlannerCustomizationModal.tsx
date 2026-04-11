@@ -31,6 +31,11 @@ export interface PlannerGanttViewPrefs {
   show_total_peak: boolean         // global max saturation
   show_total_sum: boolean          // global sum of forecast PAX
 
+  // Workload plan row (stacked bars by activity type) at the bottom
+  // of the gantt. Shows the daily total headcount split by activity
+  // type, scrolling in sync with the main timeline.
+  show_workload_chart: boolean
+
   // What to render inside heatmap cells
   heatmap_text_mode: 'percentage' | 'pax_count' | 'none'
 
@@ -79,6 +84,7 @@ export const DEFAULT_PLANNER_GANTT_VIEW: PlannerGanttViewPrefs = {
   installation_filter: null,
   show_total_peak: false,
   show_total_sum: false,
+  show_workload_chart: false,
   heatmap_text_mode: 'percentage',
   bar_title_position: 'none',
   hide_empty_rows: true,
@@ -252,7 +258,15 @@ export function PlannerCustomizationSections({ prefs, onChange, barHeight = 18 }
         <div className="grid grid-cols-1 gap-1.5">
           <Toggle label="Pic max global (%)" checked={prefs.show_total_peak} onChange={(v) => update('show_total_peak', v)} />
           <Toggle label="Somme PAX globale" checked={prefs.show_total_sum} onChange={(v) => update('show_total_sum', v)} />
+          <Toggle
+            label="Plan de charge par type d'activité"
+            checked={prefs.show_workload_chart}
+            onChange={(v) => update('show_workload_chart', v)}
+          />
         </div>
+        <p className="text-[9px] text-muted-foreground mt-1">
+          Le plan de charge s'affiche en bas du Gantt, synchronisé avec le scale et tous les filtres actifs.
+        </p>
       </Section>
 
       {/* ── Aggregation mode for parent rows ── */}

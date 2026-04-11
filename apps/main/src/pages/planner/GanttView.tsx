@@ -464,6 +464,7 @@ export function GanttView({
     function buildHeatmapCells(
       contributingAssetIds: string[],
       aggregation: 'peak' | 'sum' = 'peak',
+      opts: { colorless?: boolean } = {},
     ): GanttHeatmapCell[] {
       const result: GanttHeatmapCell[] = []
 
@@ -534,9 +535,18 @@ export function GanttView({
         const satForColor =
           totalCap > 0 ? Math.round((totalPax / totalCap) * 100) : 0
         const peakSatForTooltip = Math.round(peakDaySat)
-        const color = capacityAware
-          ? colorForSaturation(satForColor, cfg)
-          : 'rgba(148, 163, 184, 0.18)' // slate-400 @ 18% — quiet neutral
+        // "Total" rows (global pax rollup across all assets) pass
+        // `colorless: true` because there is no meaningful fleet-wide
+        // saturation constraint to color against — the user explicitly
+        // asked for the total row to show just the number without any
+        // background tint. For everything else, capacity-aware cells
+        // get their saturation color and uncapped cells get the
+        // muted neutral gray introduced above.
+        const color = opts.colorless
+          ? 'transparent'
+          : capacityAware
+            ? colorForSaturation(satForColor, cfg)
+            : 'rgba(148, 163, 184, 0.18)' // slate-400 @ 18% — quiet neutral
 
         // ── PAX count label: always a PER-DAY average ──
         // Spec clarification (2026-04-11): the number inside each heatmap
@@ -597,6 +607,123 @@ export function GanttView({
       })
 
       return result
+    }
+
+    /**
+     * Build the "Plan de charge" row — a single series of heatmap cells
+     * where each cell is a STACKED BAR broken down by activity type.
+     * The stack segments use the same `TYPE_COLORS` palette as the
+     * legend above the gantt, and each segment represents the daily
+     * average headcount for that type within the cell's period.
+     *
+     * All filters that already apply to the hierarchy rows are
+     * inherited automatically because we're iterating the same
+     * `activitiesByAsset` map (pre-filtered in the caller via
+     * `passesActivityFilters`).
+     */
+    function buildWorkloadCells(contributingAssetIds: string[]): GanttHeatmapCell[] {
+      // Precompute per-cell per-type totals. `byCellType[cellIdx][type]`
+      // holds the sum of pax-days contributed by all matching activities.
+      const perCell: Array<Record<string, number>> = cells.map(() => ({}))
+
+      for (const assetId of contributingAssetIds) {
+        const acts = activitiesByAsset.get(assetId) ?? []
+        for (const act of acts) {
+          if (!act.start_date || !act.end_date) continue
+          // Respect the same type / validity filters as the rest of
+          // the gantt — users would be confused if the workload chart
+          // counted activities they had hidden via the legend chips.
+          if (!passesActivityFilters(act)) continue
+
+          const actStartUTC = parseISODateUTC(act.start_date)
+          const actEndUTC = parseISODateUTC(act.end_date) + MS_PER_DAY - 1
+          const constantQuota = act.pax_quota ?? 0
+          const isVariable = act.pax_quota_mode === 'variable'
+          const dailyMap = act.pax_quota_daily || {}
+
+          cells.forEach((cell, idx) => {
+            const cellStartUTC = Date.UTC(
+              cell.startDate.getFullYear(),
+              cell.startDate.getMonth(),
+              cell.startDate.getDate(),
+            )
+            const cellEndUTC = Date.UTC(
+              cell.endDate.getFullYear(),
+              cell.endDate.getMonth(),
+              cell.endDate.getDate(),
+            ) + MS_PER_DAY - 1
+            if (cellEndUTC < actStartUTC || cellStartUTC > actEndUTC) return
+
+            const from = Math.max(cellStartUTC, actStartUTC)
+            const to = Math.min(cellEndUTC, actEndUTC)
+            let cur = Math.floor(from / MS_PER_DAY) * MS_PER_DAY
+            const bucket = perCell[idx]
+            let safety = 0
+            while (cur <= to) {
+              const iso = utcDateKey(cur)
+              const v = isVariable
+                ? (typeof dailyMap[iso] === 'number' ? dailyMap[iso] : constantQuota)
+                : constantQuota
+              bucket[act.type] = (bucket[act.type] ?? 0) + v
+              cur += MS_PER_DAY
+              if (++safety > 10000) break
+            }
+          })
+        }
+      }
+
+      // Collect the list of types encountered and find the per-cell
+      // max so the stacks are normalized to a consistent Y range. We
+      // want the TALLEST cell in the current range to fill the full
+      // height of the row, and every other cell to scale proportionally.
+      let maxTotal = 0
+      for (let i = 0; i < perCell.length; i++) {
+        let sum = 0
+        for (const t in perCell[i]) sum += perCell[i][t]
+        if (sum > maxTotal) maxTotal = sum
+      }
+      if (maxTotal === 0) return [] // nothing to draw
+
+      // Produce one GanttHeatmapCell per non-empty cell. Stacks are
+      // ordered so the most common types land at the bottom (visual
+      // "base") and the smaller ones stack on top — mirrors the way
+      // the legend colors appear and keeps the chart stable as the
+      // user scrolls.
+      const cellsOut: GanttHeatmapCell[] = []
+      cells.forEach((cell, idx) => {
+        const bucket = perCell[idx]
+        const cellDays = Math.max(
+          1,
+          Math.round(
+            ((cell.endDate.getTime() + MS_PER_DAY - 1 - cell.startDate.getTime()) / MS_PER_DAY),
+          ),
+        )
+        const entries = Object.entries(bucket)
+          .filter(([, v]) => v > 0)
+          .sort((a, b) => b[1] - a[1])
+        if (entries.length === 0) return
+        const total = entries.reduce((s, [, v]) => s + v, 0)
+        const avgDaily = total / cellDays
+        const stacks = entries.map(([type, v]) => ({
+          color: TYPE_COLORS[type] || '#94a3b8',
+          value: v,
+          label: `${TYPE_LABELS_FR[type] || type}: ${(v / cellDays).toFixed(1)} pax/j`,
+        }))
+        const tooltipHTML = `Plan de charge — ${avgDaily.toFixed(1)} pax/jour (moy. ${cellDays}j)\n` +
+          entries.map(([type, v]) =>
+            `${TYPE_LABELS_FR[type] || type}: ${(v / cellDays).toFixed(1)} pax/j`,
+          ).join(' · ')
+        cellsOut.push({
+          cellIdx: idx,
+          color: 'transparent',
+          value: Math.round(avgDaily),
+          label: avgDaily >= 1 ? String(Math.round(avgDaily)) : '',
+          tooltipHTML,
+          stacks,
+          stackMax: maxTotal,
+        })
+      })
+      return cellsOut
     }
 
     // ── Apply scope filters: filter the hierarchy down ──
@@ -700,26 +827,31 @@ export function GanttView({
     }
 
     // ── TOTAL rows (top of the table) ──
+    // These aggregate ACROSS all assets in scope, so there is no
+    // meaningful fleet-wide saturation to color against. Pass
+    // `colorless: true` so the cells render as transparent rectangles
+    // with just the number — the "Total" row is a counting view, not
+    // a safety view.
     if (viewPrefs.show_total_peak) {
       rowList.push({
         id: 'total-peak',
         label: 'Total — pic',
-        sublabel: 'Saturation max',
+        sublabel: 'Pax/jour (max)',
         level: 0,
         hasChildren: false,
         rowHeight: heatmapRowH,
-        heatmapCells: buildHeatmapCells(allInstIdsInScope, 'peak'),
+        heatmapCells: buildHeatmapCells(allInstIdsInScope, 'peak', { colorless: true }),
       })
     }
     if (viewPrefs.show_total_sum) {
       rowList.push({
         id: 'total-sum',
         label: 'Total — somme',
-        sublabel: 'PAX prévus globaux',
+        sublabel: 'Pax/jour (moy.)',
         level: 0,
         hasChildren: false,
         rowHeight: heatmapRowH,
-        heatmapCells: buildHeatmapCells(allInstIdsInScope, 'sum'),
+        heatmapCells: buildHeatmapCells(allInstIdsInScope, 'sum', { colorless: true }),
       })
     }
 
@@ -925,6 +1057,30 @@ export function GanttView({
             }
           }
         }
+      }
+    }
+
+    // ── Plan de charge row (bottom of the gantt) ──
+    // Appended LAST so it sits below every activity / hierarchy row.
+    // The row is a single-cell-per-timestep stacked bar chart broken
+    // down by activity type. It inherits scale / range / scroll sync
+    // for free because it uses the same cells array and rides on the
+    // standard heatmapCells path.
+    if (viewPrefs.show_workload_chart) {
+      const workloadCells = buildWorkloadCells(allInstIdsInScope)
+      if (workloadCells.length > 0) {
+        rowList.push({
+          id: 'workload-chart',
+          label: 'Plan de charge',
+          sublabel: 'par type d\u2019activit\u00e9',
+          level: 0,
+          hasChildren: false,
+          // Substantially taller than a heatmap row so the stacks
+          // are readable; the panel label column and the heatmap
+          // column will both grow to match.
+          rowHeight: 110,
+          heatmapCells: workloadCells,
+        })
       }
     }
 

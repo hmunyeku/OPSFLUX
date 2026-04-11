@@ -59,9 +59,58 @@ VALIDATION_LEVELS: dict[str, list[str]] = {
 WO_PREFIX = "ACT"
 
 # Recurrence horizon — how far ahead the daily APScheduler job will
-# create recurring activity instances. Extended from 30 → 90 days so
-# the capacity heatmap and forecast see upcoming recurring load.
+# create recurring activity instances. Default is 90 days but the
+# admin can override at runtime via the entity-scoped setting
+# `planner.recurrence_horizon_days` (read by `_get_recurrence_horizon_days`
+# below). Extending this lets the capacity heatmap and forecast see
+# further upcoming recurring load.
 RECURRENCE_HORIZON_DAYS = 90
+RECURRENCE_HORIZON_SETTING_KEY = "planner.recurrence_horizon_days"
+RECURRENCE_HORIZON_MAX_DAYS = 365 * 2  # safety cap on the configured value
+
+
+async def _get_recurrence_horizon_days(db: AsyncSession, entity_id: UUID | None) -> int:
+    """Read the entity-scoped horizon override; fall back to the default.
+
+    Settings are stored as JSONB in `settings.value`. We accept any
+    castable form (int / float / numeric string / dict with a 'value' key)
+    and clamp the result to a sane range so a typo can't blow up the
+    daily APScheduler job.
+    """
+    if entity_id is None:
+        return RECURRENCE_HORIZON_DAYS
+    try:
+        result = await db.execute(
+            text(
+                """
+                SELECT value
+                FROM settings
+                WHERE key = :key
+                  AND scope = 'entity'
+                  AND scope_id = :sid
+                LIMIT 1
+                """
+            ),
+            {"key": RECURRENCE_HORIZON_SETTING_KEY, "sid": str(entity_id)},
+        )
+        row = result.first()
+        if not row:
+            return RECURRENCE_HORIZON_DAYS
+        raw = row[0]
+        if isinstance(raw, dict) and "value" in raw:
+            raw = raw["value"]
+        if raw is None:
+            return RECURRENCE_HORIZON_DAYS
+        try:
+            n = int(float(raw))
+        except (TypeError, ValueError):
+            return RECURRENCE_HORIZON_DAYS
+        if n <= 0:
+            return RECURRENCE_HORIZON_DAYS
+        return min(n, RECURRENCE_HORIZON_MAX_DAYS)
+    except Exception:
+        # Never let a settings lookup error break the cron job
+        return RECURRENCE_HORIZON_DAYS
 
 
 def validate_priority_floor(activity_type: str, subtype: str | None, priority: str) -> str:
@@ -1058,11 +1107,13 @@ async def generate_recurring_activities(db: AsyncSession, entity_id: UUID) -> in
             if end_dt and next_date > end_dt:
                 continue
 
-            # Generate within the configurable horizon (default 90 days).
-            # This aligns with the heatmap's extended range so recurring
-            # activities appear on the capacity forecast before managers
-            # notice a gap.
-            horizon = date.today() + timedelta(days=RECURRENCE_HORIZON_DAYS)
+            # Generate within the configurable horizon (default 90 days,
+            # overridable via the `planner.recurrence_horizon_days` admin
+            # setting). This aligns with the heatmap's extended range so
+            # recurring activities appear on the capacity forecast before
+            # managers notice a gap.
+            horizon_days = await _get_recurrence_horizon_days(db, entity_id)
+            horizon = date.today() + timedelta(days=horizon_days)
             if next_date > horizon:
                 continue
 

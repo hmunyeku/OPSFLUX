@@ -73,6 +73,23 @@ export function PlannerConfigTab() {
             }}
           />
         </SettingRow>
+        <SettingRow
+          label="Horizon de génération des activités récurrentes (jours)"
+          description="Combien de jours à l'avance le job APScheduler quotidien crée les instances futures d'activités récurrentes. Plus la valeur est élevée, plus le forecast et la heatmap voient loin."
+        >
+          <input
+            type="number"
+            min={7}
+            max={730}
+            className="gl-form-input w-24 text-sm text-right font-mono"
+            defaultValue={(s['planner.recurrence_horizon_days'] as number) ?? 90}
+            onBlur={(e) => {
+              const v = Math.max(7, Math.min(730, Number(e.target.value) || 90))
+              save('planner.recurrence_horizon_days', v)
+            }}
+          />
+          <span className="text-xs text-muted-foreground ml-2">jours</span>
+        </SettingRow>
       </div>
     </CollapsibleSection>
 

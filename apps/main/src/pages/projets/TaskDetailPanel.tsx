@@ -283,9 +283,9 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
     if (isLinkedToPlanner) {
       try {
         await unlinkFromPlanner.mutateAsync({ projectId, taskId })
-        toast({ title: 'Tâche retirée du Planner', variant: 'success' })
+        toast({ title: t('projets.task.planner.unlinked', 'Tâche retirée du Planner'), variant: 'success' })
       } catch {
-        toast({ title: 'Erreur lors du retrait', variant: 'error' })
+        toast({ title: t('projets.task.planner.unlink_error', 'Erreur lors du retrait'), variant: 'error' })
       }
     } else {
       try {
@@ -294,18 +294,18 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
           items: [{ task_id: taskId, priority: task?.priority || 'medium' }],
         })
         if (res.created > 0) {
-          toast({ title: 'Tâche envoyée au Planner', variant: 'success' })
+          toast({ title: t('projets.task.planner.sent', 'Tâche envoyée au Planner'), variant: 'success' })
         } else if (res.skipped > 0) {
-          toast({ title: 'Tâche déjà liée au Planner', variant: 'warning' })
+          toast({ title: t('projets.task.planner.already_linked', 'Tâche déjà liée au Planner'), variant: 'warning' })
         } else {
-          toast({ title: res.errors[0] || 'Erreur', variant: 'error' })
+          toast({ title: res.errors[0] || t('common.error', 'Erreur'), variant: 'error' })
         }
       } catch (err) {
-        const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Erreur'
+        const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? t('common.error', 'Erreur')
         toast({ title: String(msg), variant: 'error' })
       }
     }
-  }, [isLinkedToPlanner, projectId, taskId, sendToPlanner, unlinkFromPlanner, toast, task])
+  }, [isLinkedToPlanner, projectId, taskId, sendToPlanner, unlinkFromPlanner, toast, task, t])
 
   const handleRespondRevision = useCallback((request: PlannerRevisionDecisionRequest, response: 'accepted' | 'counter_proposed') => {
     respondRevisionDecisionRequest.mutate(
@@ -362,14 +362,16 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
             disabled={sendToPlanner.isPending || unlinkFromPlanner.isPending}
             onClick={handleTogglePlannerLink}
           >
-            {isLinkedToPlanner ? 'Retirer du Planner' : 'Planner'}
+            {isLinkedToPlanner
+              ? t('projets.task.planner.unlink_button', 'Retirer du Planner')
+              : t('projets.task.planner.link_button', 'Lier au Planner')}
           </PanelActionButton>
           <PanelActionButton
             variant="default"
             icon={<FolderKanban size={12} />}
             onClick={() => openDynamicPanel({ type: 'detail', module: 'projets', id: projectId })}
           >
-            Voir le projet
+            {t('projets.task.view_project', 'Voir le projet')}
           </PanelActionButton>
         </>
       }

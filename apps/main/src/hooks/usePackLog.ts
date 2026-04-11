@@ -15,6 +15,30 @@ import type {
   TravelArticleCreate,
 } from '@/types/api'
 
+/**
+ * Invalidate the TravelWiz views that depend on cargo state.
+ *
+ * Why this exists: a cargo item lives in PackLog but its lifecycle
+ * (create / status update / return / receipt) directly affects the
+ * voyage that carries it AND the manifest the cargo is attached to.
+ * Without cross-module invalidation, a user who marks a cargo as
+ * `loaded` from the PackLog tab and then switches to the TravelWiz
+ * voyage detail panel sees stale weight/cargo-count numbers until
+ * the next manual refresh.
+ *
+ * Scope of invalidation:
+ *   - ['travelwiz', 'voyages']    → voyage list + voyage detail
+ *                                    (cargo_count, weight totals)
+ *   - ['travelwiz', 'manifests']  → manifest list (cargo aggregation)
+ *
+ * We deliberately do NOT invalidate ['travelwiz', 'vectors'] or
+ * ['travelwiz', 'rotations'] — those don't depend on cargo state.
+ */
+function invalidateTravelWizCargoViews(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['travelwiz', 'voyages'] })
+  qc.invalidateQueries({ queryKey: ['travelwiz', 'manifests'] })
+}
+
 async function openPdfBlob(loader: () => Promise<Blob>) {
   const popup = window.open('', '_blank')
   if (popup) {
@@ -95,8 +119,12 @@ export function useApplyPackLogCargoRequestLoadingOption() {
       qc.invalidateQueries({ queryKey: ['packlog', 'cargo-requests', id] })
       qc.invalidateQueries({ queryKey: ['packlog', 'cargo-requests', id, 'loading-options'] })
       qc.invalidateQueries({ queryKey: ['packlog', 'cargo'] })
-      qc.invalidateQueries({ queryKey: ['travelwiz', 'voyages'] })
-      qc.invalidateQueries({ queryKey: ['travelwiz', 'all-manifests'] })
+      // Apply-loading-option creates VoyageManifest entries on the TravelWiz
+      // side and assigns cargo to a voyage. Invalidate the corresponding
+      // TravelWiz views so the voyage/manifest list refreshes immediately.
+      // (The previous code invalidated 'all-manifests' which doesn't exist
+      //  as a queryKey — useTravelWizManifests uses 'manifests'.)
+      invalidateTravelWizCargoViews(qc)
     },
   })
 }
@@ -123,7 +151,14 @@ export function useCreatePackLogCargo() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (payload: CargoItemCreate) => packlogService.createCargo(payload),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['packlog', 'cargo'] }) },
+    onSuccess: (created) => {
+      qc.invalidateQueries({ queryKey: ['packlog', 'cargo'] })
+      // If the new cargo was created already attached to a manifest,
+      // the corresponding voyage's cargo aggregation changes.
+      if (created?.manifest_id) {
+        invalidateTravelWizCargoViews(qc)
+      }
+    },
   })
 }
 
@@ -131,9 +166,19 @@ export function useUpdatePackLogCargo() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: CargoItemUpdate }) => packlogService.updateCargo(id, payload),
-    onSuccess: (_, { id }) => {
+    onSuccess: (updated, { id, payload }) => {
       qc.invalidateQueries({ queryKey: ['packlog', 'cargo'] })
       qc.invalidateQueries({ queryKey: ['packlog', 'cargo', id] })
+      // Manifest re-assignment, weight changes, dimension changes all
+      // potentially affect voyage capacity calculations.
+      const touchesManifest = payload.manifest_id !== undefined
+        || payload.weight_kg !== undefined
+        || payload.width_cm !== undefined
+        || payload.length_cm !== undefined
+        || payload.height_cm !== undefined
+      if (touchesManifest || updated?.manifest_id) {
+        invalidateTravelWizCargoViews(qc)
+      }
     },
   })
 }
@@ -145,6 +190,9 @@ export function useUpdatePackLogCargoStatus() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['packlog', 'cargo'] })
       qc.invalidateQueries({ queryKey: ['packlog', 'cargo', id] })
+      // Status transitions (loaded → in_transit → delivered_*) affect
+      // the voyage's "cargo loaded / in transit / delivered" counters.
+      invalidateTravelWizCargoViews(qc)
     },
   })
 }
@@ -157,6 +205,10 @@ export function useUpdatePackLogCargoWorkflowStatus() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['packlog', 'cargo'] })
       qc.invalidateQueries({ queryKey: ['packlog', 'cargo', id] })
+      // Workflow transitions (draft → ready_for_review → approved →
+      // assigned → in_transit → delivered) trigger voyage/manifest
+      // aggregation refresh.
+      invalidateTravelWizCargoViews(qc)
     },
   })
 }
@@ -168,6 +220,9 @@ export function useReceivePackLogCargo() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['packlog', 'cargo'] })
       qc.invalidateQueries({ queryKey: ['packlog', 'cargo', id] })
+      // Receipt closes a cargo on a manifest — voyage aggregation
+      // shifts ("delivered" counter increments).
+      invalidateTravelWizCargoViews(qc)
     },
   })
 }
@@ -198,6 +253,9 @@ export function useInitiatePackLogCargoReturn() {
     onSuccess: (_, { cargoItemId }) => {
       qc.invalidateQueries({ queryKey: ['packlog', 'cargo'] })
       qc.invalidateQueries({ queryKey: ['packlog', 'cargo', cargoItemId] })
+      // Return declaration shifts the cargo into the return lifecycle —
+      // voyage manifest cargo count and weight totals change.
+      invalidateTravelWizCargoViews(qc)
     },
   })
 }

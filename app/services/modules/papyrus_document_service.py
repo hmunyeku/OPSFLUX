@@ -247,6 +247,12 @@ async def create_document(
         from fastapi import HTTPException
         raise HTTPException(404, "Doc type not found or inactive")
 
+    doc_type_id = doc_type.id
+    doc_type_pattern = doc_type.nomenclature_pattern
+    doc_type_discipline = doc_type.discipline
+    doc_type_code = doc_type.code
+    default_template_id = doc_type.default_template_id
+
     # Retrieve tenant slug and project code for nomenclature
     tenant_slug = await _get_tenant_slug(entity_id, db)
     project_code = None
@@ -259,10 +265,10 @@ async def create_document(
 
     # Generate the document number
     number = await generate_document_number(
-        doc_type_id=doc_type.id,
-        nomenclature_pattern=doc_type.nomenclature_pattern,
-        discipline=doc_type.discipline,
-        doc_type_code=doc_type.code,
+        doc_type_id=doc_type_id,
+        nomenclature_pattern=doc_type_pattern,
+        discipline=doc_type_discipline,
+        doc_type_code=doc_type_code,
         project_code=project_code,
         project_id=body.project_id,
         tenant_slug=tenant_slug,
@@ -275,7 +281,7 @@ async def create_document(
     doc = Document(
         entity_id=entity_id,
         bu_id=bu_id,
-        doc_type_id=doc_type.id,
+        doc_type_id=doc_type_id,
         project_id=body.project_id,
         arborescence_node_id=getattr(body, "arborescence_node_id", None),
         number=number,
@@ -291,10 +297,10 @@ async def create_document(
     # Create initial revision (Rev 0)
     initial_content = {}
     # If the doc_type has a default template, build initial content from it
-    if doc_type.default_template_id:
+    if default_template_id:
         template = await db.get(
             __import__("app.models.papyrus_document", fromlist=["Template"]).Template,
-            doc_type.default_template_id,
+            default_template_id,
         )
         if template:
             initial_content = template.structure or {}

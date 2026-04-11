@@ -125,6 +125,8 @@ export function GanttCore(props: GanttCoreProps) {
     minHeight = 400,
     className,
     extraSettingsContent,
+    footerRow,
+    workloadShowCumulative,
   } = props
 
   // ── Settings state ─────────────────────────────────────────────
@@ -318,6 +320,11 @@ export function GanttCore(props: GanttCoreProps) {
     () => rowHeights.reduce((s, h) => s + h, 0),
     [rowHeights],
   )
+  // Height of the sticky footer row (Plan de charge). Falls back to the
+  // global rowHeight when no explicit override is provided. Kept as a
+  // separate variable so layouts can reserve space for it at the bottom
+  // of BOTH the panel scroll area and the grid body scroll area.
+  const footerRowH = footerRow ? (footerRow.rowHeight ?? settings.rowHeight) : 0
 
   // Bar positions
   const barPositions = useMemo(() => {
@@ -1326,6 +1333,28 @@ export function GanttCore(props: GanttCoreProps) {
                     ))}
                   </div>
                 ))}
+                {/* ── Sticky footer row (Plan de charge label) ── */}
+                {footerRow && (
+                  <div
+                    className="sticky bottom-0 z-10 flex items-center gap-1.5 px-2 border-t border-b text-xs bg-background"
+                    style={{
+                      height: footerRowH,
+                      paddingLeft: 8 + footerRow.level * 18,
+                    }}
+                  >
+                    <div className="truncate min-w-0 flex-1">
+                      <span className="font-semibold">{footerRow.label}</span>
+                      {footerRow.labelSuffix && (
+                        <span className="ml-1 text-[10px] font-normal text-muted-foreground/70 tabular-nums">
+                          {footerRow.labelSuffix}
+                        </span>
+                      )}
+                      {footerRow.sublabel && (
+                        <div className="text-[10px] text-muted-foreground">{footerRow.sublabel}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1672,6 +1701,165 @@ export function GanttCore(props: GanttCoreProps) {
                 )
               })}
             </div>
+            {/* ── Sticky footer row body (Plan de charge chart) ──
+                Renders three layers at the bottom of the scroll
+                container, all inside a single sticky container:
+                  1. Per-cell stacked bars (validated = opaque,
+                     draft = 45% opacity, same type color)
+                  2. Per-segment label + per-column total above the
+                     stack
+                  3. Optional cumulative curve (SVG polyline) when
+                     `workloadShowCumulative` is on, normalized to
+                     its own Y range so it fills the row height
+            */}
+            {footerRow && footerRow.heatmapCells && footerRow.heatmapCells.length > 0 && (() => {
+              const cellsList = footerRow.heatmapCells
+              const COLUMN_TOTAL_H = 14   // pixels reserved at the top for the total label
+              const innerTop = COLUMN_TOTAL_H + 2
+              const innerBottom = 4
+              const stackAreaH = Math.max(0, footerRowH - innerTop - innerBottom)
+              // Cumulative path points (normalized to the global max
+              // cumulative so the curve spans the full stack area).
+              const maxCumul = cellsList.reduce(
+                (m, hc) => (hc.cumulative != null && hc.cumulative > m ? hc.cumulative : m),
+                0,
+              )
+              const cumulPoints = workloadShowCumulative && maxCumul > 0
+                ? cellsList
+                    .filter((hc) => hc.cumulative != null)
+                    .map((hc) => {
+                      const w = cellWidths[hc.cellIdx]
+                      const cx = cellLefts[hc.cellIdx] + w / 2
+                      const ratio = (hc.cumulative as number) / maxCumul
+                      const cy = innerTop + stackAreaH - ratio * stackAreaH
+                      return { x: cx, y: cy }
+                    })
+                : []
+              return (
+                <div
+                  className="sticky bottom-0 z-20 border-t bg-background"
+                  style={{ width: totalWidth, height: footerRowH }}
+                >
+                  <div className="relative w-full h-full">
+                    {cellsList.map((hc) => {
+                      if (hc.cellIdx < 0 || hc.cellIdx >= cellLefts.length) return null
+                      const w = cellWidths[hc.cellIdx]
+                      const innerW = Math.max(0, w - 2)
+                      const left = cellLefts[hc.cellIdx] + 1
+
+                      if (hc.stacks && hc.stacks.length > 0) {
+                        const stackMax =
+                          hc.stackMax ?? hc.stacks.reduce((s, x) => s + x.value, 0)
+                        let stackedBelow = 0
+                        return (
+                          <div
+                            key={`footer-${hc.cellIdx}`}
+                            className="absolute pointer-events-auto"
+                            style={{ left, top: 0, width: innerW, height: footerRowH }}
+                            {...(hc.tooltipHTML
+                              ? { 'data-heatmap-tooltip': hc.tooltipHTML }
+                              : {})}
+                          >
+                            {/* Column total above the stack.
+                                Hidden when narrower than ~18px or
+                                when value is 0. */}
+                            {hc.label && innerW >= 18 && (
+                              <div
+                                className="absolute left-0 right-0 text-[9px] text-foreground font-semibold text-center tabular-nums"
+                                style={{ top: 0, height: COLUMN_TOTAL_H, lineHeight: `${COLUMN_TOTAL_H}px` }}
+                              >
+                                {hc.label}
+                              </div>
+                            )}
+                            {/* Stack segments */}
+                            {hc.stacks.map((seg, segIdx) => {
+                              if (seg.value <= 0 || stackMax <= 0) return null
+                              const segH = (seg.value / stackMax) * stackAreaH
+                              const bottom = innerBottom + stackedBelow
+                              stackedBelow += segH
+                              // Show the per-segment value label when
+                              // the segment is tall enough to fit one
+                              // line of 9px text (~12px min).
+                              const showSegLabel = segH >= 12 && innerW >= 22
+                              const perDay = hc.stacks!.length > 0
+                                ? Math.round(seg.value / 1) // raw pax-days
+                                : 0
+                              return (
+                                <div
+                                  key={segIdx}
+                                  className="absolute left-0 right-0 flex items-center justify-center text-[8px] font-semibold tabular-nums"
+                                  style={{
+                                    bottom,
+                                    height: segH,
+                                    backgroundColor: seg.color,
+                                    opacity: seg.opacity ?? 1,
+                                    color: textColorForBackground(seg.color),
+                                  }}
+                                  title={seg.label || `${seg.value}`}
+                                >
+                                  {showSegLabel ? perDay : null}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )
+                      }
+
+                      // Plain flat cell fallback (unused for Plan de
+                      // charge but kept so any other future footer row
+                      // can render a regular heatmap).
+                      return (
+                        <div
+                          key={`footer-${hc.cellIdx}`}
+                          className="absolute flex items-center justify-center text-[9px] font-medium tabular-nums"
+                          style={{
+                            left,
+                            top: innerTop,
+                            width: innerW,
+                            height: stackAreaH,
+                            backgroundColor: hc.color,
+                            color: textColorForBackground(hc.color),
+                            borderRadius: 2,
+                          }}
+                          {...(hc.tooltipHTML
+                            ? { 'data-heatmap-tooltip': hc.tooltipHTML }
+                            : {})}
+                        >
+                          {hc.label}
+                        </div>
+                      )
+                    })}
+
+                    {/* Cumulative trend line overlay */}
+                    {cumulPoints.length > 1 && (
+                      <svg
+                        className="absolute pointer-events-none"
+                        style={{ left: 0, top: 0, width: totalWidth, height: footerRowH }}
+                        width={totalWidth}
+                        height={footerRowH}
+                      >
+                        <polyline
+                          points={cumulPoints.map((p) => `${p.x},${p.y}`).join(' ')}
+                          fill="none"
+                          stroke="#1e40af"
+                          strokeWidth={2}
+                          strokeLinejoin="round"
+                        />
+                        {cumulPoints.map((p, i) => (
+                          <circle
+                            key={i}
+                            cx={p.x}
+                            cy={p.y}
+                            r={2}
+                            fill="#1e40af"
+                          />
+                        ))}
+                      </svg>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         </div>
       </div>

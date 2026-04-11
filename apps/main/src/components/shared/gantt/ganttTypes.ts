@@ -74,9 +74,27 @@ export interface GanttHeatmapCell {
    * per-row max (typically the highest total across all cells in the
    * same row, so bar heights compare fairly across the timeline).
    */
-  stacks?: Array<{ color: string; value: number; label?: string }>
+  stacks?: Array<{
+    color: string
+    value: number
+    label?: string
+    /**
+     * Optional 0..1 opacity override for the segment. Used by the
+     * Plan de charge to render non-validated (draft / submitted) pax
+     * in the same type color but translucent, so the user can tell
+     * confirmed load from uncertain load at a glance.
+     */
+    opacity?: number
+  }>
   /** Per-row normalization max used when rendering `stacks`. */
   stackMax?: number
+  /**
+   * Optional cumulative value for the cell (sum of pax from the start
+   * of the visible range up to and including this cell). Used by the
+   * Plan de charge's trend line overlay. Consumers that don't render
+   * a trend line can ignore this.
+   */
+  cumulative?: number
 }
 
 // ── Column (grid config) ─────────────────────────────────────────
@@ -334,6 +352,26 @@ export interface GanttCoreProps {
    * Planner heatmap row height slider needs to cap at the current barHeight).
    */
   extraSettingsContent?: ReactNode | ((settings: GanttSettings) => ReactNode)
+  /**
+   * Optional sticky footer row rendered at the bottom of the gantt
+   * body. Layout works identically to a regular GanttRow (label on the
+   * panel, heatmap cells on the body) but the footer is PINNED to the
+   * bottom of the viewport via `position: sticky; bottom: 0` on BOTH
+   * the panel column and the body column, so vertical scrolling of
+   * the activity list leaves it visible at all times.
+   *
+   * Used by the Planner "Plan de charge" row so users can always see
+   * the workload summary while they scroll through activities.
+   */
+  footerRow?: GanttRow
+  /**
+   * When true and a `footerRow` with `cumulative` values is provided,
+   * GanttCore overlays a cumulative trend line (running sum) on top of
+   * the footer's stacks so the user can read the global trajectory
+   * alongside the per-cell bars. Trend line uses its OWN Y-scale
+   * (normalized to max cumulative) so it always fits the row height.
+   */
+  workloadShowCumulative?: boolean
 
   // ── Toolbar actions ──
   /** Show action buttons (add task, milestone, indent) in toolbar */

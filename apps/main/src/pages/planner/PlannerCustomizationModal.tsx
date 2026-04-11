@@ -35,6 +35,10 @@ export interface PlannerGanttViewPrefs {
   // of the gantt. Shows the daily total headcount split by activity
   // type, scrolling in sync with the main timeline.
   show_workload_chart: boolean
+  // When `show_workload_chart` is on, also overlay a cumulative trend
+  // line on top of the stacks so the user can see whether the load is
+  // ramping up or down over the range.
+  show_workload_cumulative: boolean
 
   // What to render inside heatmap cells
   heatmap_text_mode: 'percentage' | 'pax_count' | 'none'
@@ -85,6 +89,7 @@ export const DEFAULT_PLANNER_GANTT_VIEW: PlannerGanttViewPrefs = {
   show_total_peak: false,
   show_total_sum: false,
   show_workload_chart: false,
+  show_workload_cumulative: false,
   heatmap_text_mode: 'percentage',
   bar_title_position: 'none',
   hide_empty_rows: true,
@@ -263,9 +268,16 @@ export function PlannerCustomizationSections({ prefs, onChange, barHeight = 18 }
             checked={prefs.show_workload_chart}
             onChange={(v) => update('show_workload_chart', v)}
           />
+          {prefs.show_workload_chart && (
+            <Toggle
+              label="Courbe cumulée (tendance)"
+              checked={prefs.show_workload_cumulative}
+              onChange={(v) => update('show_workload_cumulative', v)}
+            />
+          )}
         </div>
         <p className="text-[9px] text-muted-foreground mt-1">
-          Le plan de charge s'affiche en bas du Gantt, synchronisé avec le scale et tous les filtres actifs.
+          Le plan de charge s'affiche en bas du Gantt, pinné pendant le défilement vertical, synchronisé avec le scale et tous les filtres actifs.
         </p>
       </Section>
 

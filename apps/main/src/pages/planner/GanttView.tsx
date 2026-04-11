@@ -409,7 +409,7 @@ export function GanttView({
   }, [hierarchyData, collapsed])
 
   // ── Build the unified tree (rows + bars) ──
-  const { rows, bars, deps } = useMemo(() => {
+  const { rows, bars, deps, footerRow: workloadFooter } = useMemo(() => {
     const cells = buildCells(scale, new Date(startDate), new Date(endDate))
     const cfg = heatmapData?.config ?? DEFAULT_HEATMAP_CONFIG
 
@@ -612,28 +612,38 @@ export function GanttView({
     /**
      * Build the "Plan de charge" row — a single series of heatmap cells
      * where each cell is a STACKED BAR broken down by activity type.
-     * The stack segments use the same `TYPE_COLORS` palette as the
-     * legend above the gantt, and each segment represents the daily
-     * average headcount for that type within the cell's period.
      *
-     * All filters that already apply to the hierarchy rows are
-     * inherited automatically because we're iterating the same
-     * `activitiesByAsset` map (pre-filtered in the caller via
-     * `passesActivityFilters`).
+     * Each type contributes UP TO TWO segments per cell:
+     *   - a fully-opaque segment for pax coming from VALIDATED activities
+     *     (status ∈ {validated, in_progress, completed})
+     *   - a semi-transparent segment (opacity 0.45) stacked on top for
+     *     pax coming from DRAFT / submitted / rejected / cancelled
+     *     activities
+     *
+     * So a user can tell the confirmed base load from the uncertain
+     * overflow at a glance while still seeing the type colors from the
+     * legend.
+     *
+     * All filters that already apply to the hierarchy rows are inherited
+     * automatically because we iterate the same `activitiesByAsset` map
+     * through `passesActivityFilters`.
+     *
+     * Cumulative values (running sum of pax-days) are precomputed and
+     * attached to each cell so the GanttCore renderer can overlay a
+     * trend line when the user toggles `show_workload_cumulative`.
      */
     function buildWorkloadCells(contributingAssetIds: string[]): GanttHeatmapCell[] {
-      // Precompute per-cell per-type totals. `byCellType[cellIdx][type]`
-      // holds the sum of pax-days contributed by all matching activities.
-      const perCell: Array<Record<string, number>> = cells.map(() => ({}))
+      // Per-cell, per-type, split validated vs draft.
+      type TypeSplit = { validated: number; draft: number }
+      const perCell: Array<Record<string, TypeSplit>> = cells.map(() => ({}))
 
       for (const assetId of contributingAssetIds) {
         const acts = activitiesByAsset.get(assetId) ?? []
         for (const act of acts) {
           if (!act.start_date || !act.end_date) continue
-          // Respect the same type / validity filters as the rest of
-          // the gantt — users would be confused if the workload chart
-          // counted activities they had hidden via the legend chips.
           if (!passesActivityFilters(act)) continue
+          const status = (act.status ?? '').toLowerCase()
+          const isValidated = VALIDATED_STATUSES.has(status)
 
           const actStartUTC = parseISODateUTC(act.start_date)
           const actEndUTC = parseISODateUTC(act.end_date) + MS_PER_DAY - 1
@@ -658,13 +668,15 @@ export function GanttView({
             const to = Math.min(cellEndUTC, actEndUTC)
             let cur = Math.floor(from / MS_PER_DAY) * MS_PER_DAY
             const bucket = perCell[idx]
+            if (!bucket[act.type]) bucket[act.type] = { validated: 0, draft: 0 }
             let safety = 0
             while (cur <= to) {
               const iso = utcDateKey(cur)
               const v = isVariable
                 ? (typeof dailyMap[iso] === 'number' ? dailyMap[iso] : constantQuota)
                 : constantQuota
-              bucket[act.type] = (bucket[act.type] ?? 0) + v
+              if (isValidated) bucket[act.type].validated += v
+              else bucket[act.type].draft += v
               cur += MS_PER_DAY
               if (++safety > 10000) break
             }
@@ -672,24 +684,24 @@ export function GanttView({
         }
       }
 
-      // Collect the list of types encountered and find the per-cell
-      // max so the stacks are normalized to a consistent Y range. We
-      // want the TALLEST cell in the current range to fill the full
-      // height of the row, and every other cell to scale proportionally.
+      // Global max total (validated + draft) — shared normalizer so
+      // stacks compare visually across the timeline.
       let maxTotal = 0
       for (let i = 0; i < perCell.length; i++) {
         let sum = 0
-        for (const t in perCell[i]) sum += perCell[i][t]
+        for (const t in perCell[i]) sum += perCell[i][t].validated + perCell[i][t].draft
         if (sum > maxTotal) maxTotal = sum
       }
-      if (maxTotal === 0) return [] // nothing to draw
+      if (maxTotal === 0) return []
 
-      // Produce one GanttHeatmapCell per non-empty cell. Stacks are
-      // ordered so the most common types land at the bottom (visual
-      // "base") and the smaller ones stack on top — mirrors the way
-      // the legend colors appear and keeps the chart stable as the
-      // user scrolls.
+      // Emit one GanttHeatmapCell per non-empty cell. Within each, the
+      // stacks are ordered:
+      //   1. VALIDATED segments first (bottom), sorted by value desc
+      //   2. DRAFT segments on top, sorted by value desc
+      // so the confirmed load sits at the base and the uncertain load
+      // visually "floats" above it.
       const cellsOut: GanttHeatmapCell[] = []
+      let cumul = 0
       cells.forEach((cell, idx) => {
         const bucket = perCell[idx]
         const cellDays = Math.max(
@@ -698,29 +710,65 @@ export function GanttView({
             ((cell.endDate.getTime() + MS_PER_DAY - 1 - cell.startDate.getTime()) / MS_PER_DAY),
           ),
         )
-        const entries = Object.entries(bucket)
-          .filter(([, v]) => v > 0)
-          .sort((a, b) => b[1] - a[1])
-        if (entries.length === 0) return
-        const total = entries.reduce((s, [, v]) => s + v, 0)
-        const avgDaily = total / cellDays
-        const stacks = entries.map(([type, v]) => ({
-          color: TYPE_COLORS[type] || '#94a3b8',
-          value: v,
-          label: `${TYPE_LABELS_FR[type] || type}: ${(v / cellDays).toFixed(1)} pax/j`,
-        }))
-        const tooltipHTML = `Plan de charge — ${avgDaily.toFixed(1)} pax/jour (moy. ${cellDays}j)\n` +
-          entries.map(([type, v]) =>
-            `${TYPE_LABELS_FR[type] || type}: ${(v / cellDays).toFixed(1)} pax/j`,
-          ).join(' · ')
+        const typeEntries = Object.entries(bucket).filter(
+          ([, split]) => split.validated + split.draft > 0,
+        )
+        const cellTotal = typeEntries.reduce(
+          (s, [, split]) => s + split.validated + split.draft,
+          0,
+        )
+        cumul += cellTotal
+        if (typeEntries.length === 0) return
+
+        // Build the stack bottom-up: validated segments first.
+        const validatedEntries = typeEntries
+          .filter(([, split]) => split.validated > 0)
+          .sort((a, b) => b[1].validated - a[1].validated)
+        const draftEntries = typeEntries
+          .filter(([, split]) => split.draft > 0)
+          .sort((a, b) => b[1].draft - a[1].draft)
+
+        const stacks: NonNullable<GanttHeatmapCell['stacks']> = []
+        for (const [type, split] of validatedEntries) {
+          stacks.push({
+            color: TYPE_COLORS[type] || '#94a3b8',
+            value: split.validated,
+            opacity: 1,
+            label: `${TYPE_LABELS_FR[type] || type} (validé): ${(split.validated / cellDays).toFixed(1)} pax/j`,
+          })
+        }
+        for (const [type, split] of draftEntries) {
+          stacks.push({
+            color: TYPE_COLORS[type] || '#94a3b8',
+            value: split.draft,
+            opacity: 0.45,
+            label: `${TYPE_LABELS_FR[type] || type} (brouillon): ${(split.draft / cellDays).toFixed(1)} pax/j`,
+          })
+        }
+
+        const avgDaily = cellTotal / cellDays
+        const tooltipLines: string[] = [
+          `Plan de charge — ${avgDaily.toFixed(1)} pax/jour (moy. ${cellDays}j)`,
+        ]
+        for (const [type, split] of typeEntries) {
+          const parts: string[] = []
+          if (split.validated > 0)
+            parts.push(`validé ${(split.validated / cellDays).toFixed(1)}`)
+          if (split.draft > 0)
+            parts.push(`brouillon ${(split.draft / cellDays).toFixed(1)}`)
+          tooltipLines.push(`${TYPE_LABELS_FR[type] || type}: ${parts.join(' + ')}`)
+        }
+
         cellsOut.push({
           cellIdx: idx,
           color: 'transparent',
           value: Math.round(avgDaily),
-          label: avgDaily >= 1 ? String(Math.round(avgDaily)) : '',
-          tooltipHTML,
+          // Column total label — shown above the stack in GanttCore.
+          label: avgDaily >= 0.5 ? String(Math.round(avgDaily)) : '',
+          tooltipHTML: tooltipLines.join(' · '),
           stacks,
           stackMax: maxTotal,
+          cumulative: cumul,
         })
       })
       return cellsOut
@@ -1060,27 +1108,27 @@ export function GanttView({
       }
     }
 
-    // ── Plan de charge row (bottom of the gantt) ──
-    // Appended LAST so it sits below every activity / hierarchy row.
-    // The row is a single-cell-per-timestep stacked bar chart broken
-    // down by activity type. It inherits scale / range / scroll sync
-    // for free because it uses the same cells array and rides on the
-    // standard heatmapCells path.
+    // ── Plan de charge row ──
+    // This row is NOT pushed into rowList — it's handed off separately
+    // as a "footerRow" to GanttCore so it can render as a sticky
+    // element pinned to the bottom of the gantt body (both panel and
+    // grid sides). Keeping it outside the main rows list means the
+    // activity list scrolls normally while the workload summary
+    // stays visible at all times.
+    let workloadFooterRow: import('@/components/shared/gantt/ganttTypes').GanttRow | undefined
     if (viewPrefs.show_workload_chart) {
       const workloadCells = buildWorkloadCells(allInstIdsInScope)
       if (workloadCells.length > 0) {
-        rowList.push({
+        workloadFooterRow = {
           id: 'workload-chart',
           label: 'Plan de charge',
           sublabel: 'par type d\u2019activit\u00e9',
           level: 0,
           hasChildren: false,
-          // Substantially taller than a heatmap row so the stacks
-          // are readable; the panel label column and the heatmap
-          // column will both grow to match.
-          rowHeight: 110,
+          // Tall enough for labels + stack + cumulative curve.
+          rowHeight: 120,
           heatmapCells: workloadCells,
-        })
+        }
       }
     }
 
@@ -1099,7 +1147,7 @@ export function GanttView({
       lag: d.lag_days,
     }))
 
-    return { rows: finalRows, bars: barList, deps: depList }
+    return { rows: finalRows, bars: barList, deps: depList, footerRow: workloadFooterRow }
   }, [
     scale, startDate, endDate, ganttData, heatmapData, hierarchyData,
     expandedRows, pendingRevisionRequests, statusLabels, t, viewPrefs,
@@ -1869,6 +1917,8 @@ export function GanttView({
         isLoading={isLoadingGantt}
         emptyMessage={t('planner.gantt.empty_message')}
         extraSettingsContent={customizationSections}
+        footerRow={workloadFooter}
+        workloadShowCumulative={viewPrefs.show_workload_cumulative}
       />
 
       {/* ── Dependency edit modal ── */}

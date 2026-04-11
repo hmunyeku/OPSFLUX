@@ -18,7 +18,9 @@ import {
   Camera, Play, FlaskConical, Star,
   Zap, GitBranch, ChevronDown, Filter, Search, Settings2,
   FileDown, Copy, MessageSquare, Activity, Send, LayoutTemplate,
+  LayoutDashboard,
 } from 'lucide-react'
+import { TabBar } from '@/components/ui/Tabs'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef, InlineEditConfig } from '@/components/ui/DataTable/types'
@@ -4457,36 +4459,17 @@ void _OldDashboardView_REMOVED
 type ViewTab = 'projets' | 'tableur' | 'kanban' | 'planning' | 'dashboard'
 
 function ViewTabSelector({ active, onChange }: { active: ViewTab; onChange: (tab: ViewTab) => void }) {
-  const tabs: { id: ViewTab; label: string; icon: typeof FolderKanban }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: Target },
-    { id: 'projets', label: 'Projets', icon: FolderKanban },
-    { id: 'tableur', label: 'Tableur', icon: Sheet },
-    { id: 'kanban', label: 'Kanban', icon: Layers },
-    { id: 'planning', label: 'Planning', icon: CalendarRange },
+  // Use the shared `TabBar` for cross-module visual parity (same
+  // styling as Tiers / Planner / PaxLog / TravelWiz). The "Dashboard"
+  // tab uses LayoutDashboard for icon consistency with other modules.
+  const tabs = [
+    { id: 'dashboard' as const, label: 'Tableau de bord', icon: LayoutDashboard },
+    { id: 'projets' as const, label: 'Projets', icon: FolderKanban },
+    { id: 'tableur' as const, label: 'Tableur', icon: Sheet },
+    { id: 'kanban' as const, label: 'Kanban', icon: Layers },
+    { id: 'planning' as const, label: 'Planning', icon: CalendarRange },
   ]
-
-  return (
-    <div className="flex items-center gap-0.5 px-1 py-0.5 bg-muted/50 rounded-md">
-      {tabs.map(tab => {
-        const Icon = tab.icon
-        return (
-          <button
-            key={tab.id}
-            onClick={() => onChange(tab.id)}
-            className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors',
-              active === tab.id
-                ? 'bg-background text-foreground shadow-sm font-medium'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-            )}
-          >
-            <Icon size={12} />
-            {tab.label}
-          </button>
-        )
-      })}
-    </div>
-  )
+  return <TabBar items={tabs} activeId={active} onTabChange={onChange} />
 }
 
 // -- Main Page ----------------------------------------------------------------

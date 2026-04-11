@@ -38,6 +38,7 @@ import {
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { GanttView } from './GanttView'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
+import { TabBar } from '@/components/ui/Tabs'
 import { buildCells, buildHeaderGroups, getDefaultDateRange } from '@/components/shared/gantt/ganttEngine'
 import type { TimeScale } from '@/components/shared/gantt/ganttEngine'
 import type { GanttSettings } from '@/components/shared/gantt/ganttTypes'
@@ -2645,27 +2646,13 @@ export function PlannerPage() {
             )}
           </PanelHeader>
 
-          {/* Tab bar */}
-          <div className="flex items-center gap-1 border-b border-border px-3.5 h-9 shrink-0">
-            {TABS.map((tab) => {
-              const Icon = tab.icon
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
-                    activeTab === tab.id
-                      ? 'bg-primary/[0.16] text-foreground'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-accent',
-                  )}
-                >
-                  <Icon size={12} />
-                  {tab.label}
-                </button>
-              )
-            })}
-          </div>
+          {/* Tab bar — uses the shared `TabBar` component for visual
+              parity with Tiers / Projets / PaxLog / TravelWiz. */}
+          <TabBar
+            items={TABS}
+            activeId={activeTab}
+            onTabChange={setActiveTab}
+          />
 
           {activeTab === 'dashboard' && (
             <div className="flex-1 min-h-0 overflow-y-auto">

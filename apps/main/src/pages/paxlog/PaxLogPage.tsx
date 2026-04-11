@@ -46,6 +46,7 @@ import { paxlogService } from '@/services/paxlogService'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
+import { TabBar } from '@/components/ui/Tabs'
 import {
   DynamicPanelShell,
   DynamicPanelField,
@@ -6022,22 +6023,17 @@ export function PaxLogPage() {
             {showCreate && <ToolbarButton icon={Plus} label={createLabel} variant="primary" onClick={handleCreate} />}
           </PanelHeader>
 
-          {/* Tab bar */}
-          <div className="flex items-center gap-1 border-b border-border px-3.5 h-9 shrink-0 overflow-x-auto">
-            {visibleTabs.map((tab) => {
-              const Icon = tab.icon
-              return (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap',
-                    effectiveTab === tab.id ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent',
-                  )}>
-                  <Icon size={12} />
-                  {t(tab.labelKey)}
-                </button>
-              )
-            })}
-          </div>
+          {/* Tab bar — uses the shared `TabBar` component for visual
+              parity with Tiers / Projets / Planner / TravelWiz. */}
+          <TabBar
+            items={visibleTabs.map((tab) => ({
+              id: tab.id,
+              label: t(tab.labelKey),
+              icon: tab.icon,
+            }))}
+            activeId={effectiveTab}
+            onTabChange={(id) => setActiveTab(id as typeof effectiveTab)}
+          />
 
           {effectiveTab === 'dashboard' && (
             isRequesterProfile

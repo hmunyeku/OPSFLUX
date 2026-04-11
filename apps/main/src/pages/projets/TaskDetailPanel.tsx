@@ -10,12 +10,13 @@
  *
  * Opened from Gantt chart double-click on a task.
  */
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Calendar, User, Flag, CheckCircle2, Clock, ListTodo,
   MessageSquare, Link2, ChevronRight, FolderKanban, Loader2,
-  Send, X, Users as UsersIcon,
+  Send, X, ArrowRight, ArrowLeft,
+  FileText, AlertCircle, TrendingUp, Pencil, Check,
 } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import {
@@ -31,12 +32,97 @@ import {
   DynamicPanelShell,
   PanelActionButton,
   PanelContentLayout,
+  SectionColumns,
   FormSection,
   DetailFieldGrid,
   ReadOnlyRow,
   InlineEditableRow,
+  InlineEditableSelect,
 } from '@/components/layout/DynamicPanel'
+import { TagManager } from '@/components/shared/TagManager'
+import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import type { PlannerRevisionDecisionRequest, ProjectTask } from '@/types/api'
+
+// ── Inline editable textarea (multiline) ─────────────────────
+// InlineEditableRow only supports single-line input. For long-form
+// fields like description we use a local textarea wrapper that mimics
+// the same UX (double-click to edit, Esc to cancel, blur/Cmd+Enter to
+// commit) but renders a multi-line area.
+
+function InlineEditableTextarea({
+  value,
+  placeholder,
+  onSave,
+  disabled,
+}: {
+  value: string
+  placeholder?: string
+  onSave: (newValue: string) => void
+  disabled?: boolean
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const taRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => { if (editing) { setDraft(value); setTimeout(() => taRef.current?.focus(), 0) } }, [editing, value])
+
+  const commit = useCallback(() => {
+    if (draft !== value) onSave(draft)
+    setEditing(false)
+  }, [draft, value, onSave])
+
+  const cancel = useCallback(() => { setDraft(value); setEditing(false) }, [value])
+
+  const onKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') cancel()
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) commit()
+  }, [commit, cancel])
+
+  if (editing && !disabled) {
+    return (
+      <div className="rounded-md border border-primary/30 bg-background p-2">
+        <textarea
+          ref={taRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={onKeyDown}
+          rows={5}
+          placeholder={placeholder}
+          className="w-full text-sm bg-transparent resize-y focus:outline-none min-h-[5rem]"
+        />
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
+          <span className="text-[10px] text-muted-foreground mr-auto">⌘+Entrée pour valider · Esc pour annuler</span>
+          <button onClick={cancel} className="h-7 px-2 rounded text-xs text-muted-foreground hover:bg-accent inline-flex items-center gap-1">
+            <X size={12} /> Annuler
+          </button>
+          <button onClick={commit} className="h-7 px-2 rounded text-xs bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-1">
+            <Check size={12} /> Enregistrer
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className={cn(
+        'group rounded-md border border-dashed border-border/60 px-3 py-2.5 transition-colors min-h-[3.5rem]',
+        !disabled && 'hover:border-primary/40 cursor-text',
+      )}
+      onDoubleClick={() => !disabled && setEditing(true)}
+      onClick={() => !disabled && !value && setEditing(true)}
+      title={disabled ? undefined : 'Double-cliquer pour modifier'}
+    >
+      {value ? (
+        <p className="text-sm text-foreground whitespace-pre-wrap break-words">{value}</p>
+      ) : (
+        <p className="text-sm text-muted-foreground italic">{placeholder || 'Aucune description — cliquer pour ajouter'}</p>
+      )}
+      {!disabled && (
+        <Pencil size={11} className="float-right -mt-4 text-transparent group-hover:text-muted-foreground transition-colors" />
+      )}
+    </div>
+  )
+}
 
 // ── Status/Priority labels & colors ────────────────────────────
 
@@ -139,9 +225,14 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
   const createComment = useCreateTaskComment()
   const [commentText, setCommentText] = useState('')
 
-  // Dependencies
+  // Dependencies — both predecessors (incoming → this task) and
+  // successors (this task → outgoing) so the panel shows the full
+  // upstream/downstream context.
   const { data: deps } = useTaskDependencies(projectId)
-  const taskDeps = (deps || []).filter((d: { to_task_id: string }) => d.to_task_id === taskId)
+  type Dep = { id: string; from_task_id: string; to_task_id: string; dependency_type: string; lag_days?: number | null }
+  const allDeps = (deps || []) as Dep[]
+  const incomingDeps = allDeps.filter((d) => d.to_task_id === taskId)
+  const outgoingDeps = allDeps.filter((d) => d.from_task_id === taskId)
   const { data: incomingRevisionRequestsData } = useRevisionDecisionRequests({
     page: 1,
     page_size: 20,
@@ -397,8 +488,8 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
           )}
         </div>
 
-        {/* ── Fiche tâche ─────────────────────────────────── */}
-        <FormSection title="Fiche tâche" collapsible defaultExpanded storageKey="task-detail-fiche">
+        {/* ── Identification (full width) ────────────────── */}
+        <FormSection title="Identification" collapsible defaultExpanded storageKey="task-detail-identity">
           <DetailFieldGrid>
             <InlineEditableRow
               label="Titre"
@@ -406,148 +497,205 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
               onSave={(v) => handleSave('title', v)}
               type="text"
             />
-            <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{task.code || '—'}</span>} />
+            <ReadOnlyRow
+              label="Code"
+              value={<span className="text-sm font-mono font-medium text-foreground">{task.code || '—'}</span>}
+            />
           </DetailFieldGrid>
 
-          <DetailFieldGrid>
-            <div>
-              <label className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                <Flag size={10} /> Statut
-              </label>
-              <select
-                value={task.status}
-                onChange={(e) => handleSave('status', e.target.value)}
-                className="w-full h-7 px-2 text-xs border rounded bg-background mt-0.5"
-              >
-                {STATUS_OPTIONS.map(s => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                <Flag size={10} /> Priorité
-              </label>
-              <select
-                value={task.priority || 'medium'}
-                onChange={(e) => handleSave('priority', e.target.value)}
-                className="w-full h-7 px-2 text-xs border rounded bg-background mt-0.5"
-              >
-                {PRIORITY_OPTIONS.map(p => (
-                  <option key={p.value} value={p.value}>{p.label}</option>
-                ))}
-              </select>
-            </div>
-          </DetailFieldGrid>
+          <div className="mt-3">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1.5 flex items-center gap-1">
+              <FileText size={10} /> Description
+            </p>
+            <InlineEditableTextarea
+              value={task.description || ''}
+              placeholder="Aucune description — cliquer ou double-cliquer pour ajouter"
+              onSave={(v) => handleSave('description', v || null)}
+            />
+          </div>
 
-          <DetailFieldGrid>
-            <div>
-              <label className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                <User size={10} /> Assigné
-              </label>
-              <select
-                value={task.assignee_id || ''}
-                onChange={(e) => handleSave('assignee_id', e.target.value || null)}
-                className="w-full h-7 px-2 text-xs border rounded bg-background mt-0.5"
-              >
-                <option value="">Non assigné</option>
-                {(usersData?.items ?? []).map(u => (
-                  <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                <Clock size={10} /> Progression
-              </label>
-              <div className="flex items-center gap-2 mt-0.5">
-                <input
-                  type="range" min={0} max={100} step={5}
-                  value={task.progress ?? 0}
-                  onChange={(e) => handleSave('progress', Number(e.target.value))}
-                  className="flex-1 h-1.5 accent-primary"
+          <div className="mt-3">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1.5">Tags</p>
+            <TagManager ownerType="project_task" ownerId={taskId} compact />
+          </div>
+        </FormSection>
+
+        {/* ── 2-column layout: État/Assignation | Planning/POB ── */}
+        <SectionColumns>
+          <div className="@container space-y-5">
+            <FormSection title="État & priorité" collapsible defaultExpanded storageKey="task-detail-state">
+              <DetailFieldGrid>
+                <InlineEditableSelect
+                  label="Statut"
+                  value={task.status}
+                  displayValue={STATUS_MAP[task.status]?.label || task.status}
+                  options={STATUS_OPTIONS.map((s) => ({ value: s.value, label: s.label }))}
+                  onSave={(v) => handleSave('status', v)}
                 />
-                <span className="text-xs font-semibold tabular-nums w-8 text-right">{task.progress ?? 0}%</span>
+                <InlineEditableSelect
+                  label="Priorité"
+                  value={task.priority || 'medium'}
+                  displayValue={PRIORITY_MAP[task.priority || 'medium']?.label || task.priority}
+                  options={PRIORITY_OPTIONS.map((p) => ({ value: p.value, label: p.label }))}
+                  onSave={(v) => handleSave('priority', v)}
+                />
+              </DetailFieldGrid>
+
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium flex items-center gap-1">
+                    <TrendingUp size={10} /> Avancement
+                  </p>
+                  <span className="text-sm font-semibold tabular-nums" style={{ color: statusInfo.color }}>
+                    {task.progress ?? 0}%
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range" min={0} max={100} step={5}
+                    value={task.progress ?? 0}
+                    onChange={(e) => handleSave('progress', Number(e.target.value))}
+                    className="flex-1 h-1.5 accent-primary"
+                  />
+                </div>
+                <div className="mt-1.5 h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${task.progress ?? 0}%`, backgroundColor: statusInfo.color }}
+                  />
+                </div>
               </div>
-            </div>
-          </DetailFieldGrid>
-        </FormSection>
+            </FormSection>
 
-        {/* ── Planning ─────────────────────────────────────── */}
-        <FormSection title="Planning" collapsible defaultExpanded storageKey="task-detail-planning">
-          <DetailFieldGrid>
-            <ReadOnlyRow label="Début" value={task.start_date ? new Date(task.start_date).toLocaleDateString('fr-FR') : '—'} />
-            <ReadOnlyRow label="Échéance" value={task.due_date ? new Date(task.due_date).toLocaleDateString('fr-FR') : '—'} />
-          </DetailFieldGrid>
-          <DetailFieldGrid>
-            <ReadOnlyRow label="Heures estimées" value={task.estimated_hours ? `${task.estimated_hours}h` : '—'} />
-            <ReadOnlyRow label="Heures réelles" value={task.actual_hours ? `${task.actual_hours}h` : '—'} />
-          </DetailFieldGrid>
-          <DetailFieldGrid>
-            <div>
-              <label className="text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                <UsersIcon size={10} /> POB demandé
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={task.pob_quota ?? 0}
-                onChange={(e) => handleSave('pob_quota', Math.max(0, Number(e.target.value) || 0))}
-                className="w-full h-7 px-2 text-xs border rounded bg-background mt-0.5 tabular-nums"
-                title="POB demandé pour la tâche — hérité par l'activité Planner liée. Toute modification déclenche une notification à l'arbitre Planner."
-              />
-              <p className="text-[9px] text-muted-foreground/70 mt-0.5">
-                Hérité par l'activité Planner. Modifier déclenche une révision.
+            <FormSection title="Assignation" collapsible defaultExpanded storageKey="task-detail-assign">
+              <DetailFieldGrid>
+                <InlineEditableSelect
+                  label="Assigné"
+                  value={task.assignee_id || ''}
+                  displayValue={
+                    task.assignee_id
+                      ? (usersData?.items ?? []).find((u) => u.id === task.assignee_id)
+                          ? `${(usersData!.items.find((u) => u.id === task.assignee_id)!).first_name} ${(usersData!.items.find((u) => u.id === task.assignee_id)!).last_name}`
+                          : task.assignee_name || '—'
+                      : 'Non assigné'
+                  }
+                  options={[
+                    { value: '', label: 'Non assigné' },
+                    ...((usersData?.items ?? []).map((u) => ({
+                      value: u.id,
+                      label: `${u.first_name} ${u.last_name}`,
+                    }))),
+                  ]}
+                  onSave={(v) => handleSave('assignee_id', v || null)}
+                />
+              </DetailFieldGrid>
+            </FormSection>
+          </div>
+
+          <div className="@container space-y-5">
+            <FormSection title="Planning" collapsible defaultExpanded storageKey="task-detail-planning">
+              <DetailFieldGrid>
+                <InlineEditableRow
+                  label="Début"
+                  value={task.start_date ? task.start_date.split('T')[0] : ''}
+                  displayValue={task.start_date ? new Date(task.start_date).toLocaleDateString('fr-FR') : '—'}
+                  onSave={(v) => handleSave('start_date', v || null)}
+                  type="date"
+                />
+                <InlineEditableRow
+                  label="Échéance"
+                  value={task.due_date ? task.due_date.split('T')[0] : ''}
+                  displayValue={task.due_date ? new Date(task.due_date).toLocaleDateString('fr-FR') : '—'}
+                  onSave={(v) => handleSave('due_date', v || null)}
+                  type="date"
+                />
+              </DetailFieldGrid>
+              <DetailFieldGrid>
+                <ReadOnlyRow
+                  label="Durée"
+                  value={
+                    durationDays != null
+                      ? <span className="text-sm tabular-nums">{durationDays} jour{durationDays !== 1 ? 's' : ''}</span>
+                      : '—'
+                  }
+                />
+                {task.completed_at && (
+                  <ReadOnlyRow
+                    label="Terminé le"
+                    value={new Date(task.completed_at).toLocaleDateString('fr-FR')}
+                  />
+                )}
+              </DetailFieldGrid>
+            </FormSection>
+
+            <FormSection title="POB & Charge" collapsible defaultExpanded storageKey="task-detail-pob">
+              <DetailFieldGrid>
+                <InlineEditableRow
+                  label="POB demandé"
+                  value={String(task.pob_quota ?? 0)}
+                  displayValue={`${task.pob_quota ?? 0} pers.`}
+                  onSave={(v) => handleSave('pob_quota', Math.max(0, Number(v) || 0))}
+                  type="number"
+                />
+                <ReadOnlyRow label="Heures estimées" value={task.estimated_hours ? `${task.estimated_hours} h` : '—'} />
+              </DetailFieldGrid>
+              <DetailFieldGrid>
+                <ReadOnlyRow label="Heures réelles" value={task.actual_hours ? `${task.actual_hours} h` : '—'} />
+                <div />
+              </DetailFieldGrid>
+              <p className="mt-2 text-[10px] text-muted-foreground/80 italic">
+                <AlertCircle size={10} className="inline mr-1" />
+                Modifier le POB d'une tâche liée au Planner déclenche une notification à l'arbitre.
               </p>
-            </div>
-            <div />
-          </DetailFieldGrid>
-          {task.completed_at && (
-            <ReadOnlyRow label="Terminé le" value={new Date(task.completed_at).toLocaleDateString('fr-FR')} />
-          )}
-        </FormSection>
-
-        {/* ── Description ─────────────────────────────────── */}
-        <FormSection title="Description" collapsible defaultExpanded={!!task.description} storageKey="task-detail-desc">
-          <InlineEditableRow
-            label="Description"
-            value={task.description || ''}
-            onSave={(v) => handleSave('description', v || null)}
-            type="text"
-          />
-        </FormSection>
+            </FormSection>
+          </div>
+        </SectionColumns>
 
         {/* ── Sous-tâches ─────────────────────────────────── */}
         {childTasks.length > 0 && (
           <FormSection title={`Sous-tâches (${childTasks.length})`} collapsible defaultExpanded storageKey="task-detail-children">
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               {childTasks.map(child => {
                 const childPending = breakdownPendingByTask.get(child.id)
+                const childColor = STATUS_MAP[child.status]?.color || '#9ca3af'
                 return (
                   <div
                     key={child.id}
                     className={cn(
-                      'flex items-center gap-2 text-xs px-2 py-1.5 rounded cursor-pointer transition-colors',
+                      'group flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all border',
                       childPending
-                        ? 'bg-amber-50 dark:bg-amber-950/30 ring-1 ring-amber-400/60 hover:bg-amber-100 dark:hover:bg-amber-900/40'
-                        : 'hover:bg-muted/40',
+                        ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-400/60 hover:border-amber-500'
+                        : 'border-border/40 hover:border-primary/30 hover:bg-accent/30',
                     )}
                     onClick={() => openDynamicPanel({ type: 'task-detail', module: 'projets', id: child.id, meta: { projectId } })}
                   >
                     <span
-                      className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: STATUS_MAP[child.status]?.color || '#9ca3af' }}
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: childColor }}
                     />
-                    <span className="font-medium text-foreground truncate flex-1">{child.title}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{child.title}</p>
+                      {child.code && (
+                        <p className="text-[10px] text-muted-foreground font-mono">{child.code}</p>
+                      )}
+                    </div>
                     {childPending && (
-                      <span
-                        className="gl-badge gl-badge-warning text-[9px] shrink-0"
-                        title="Cette sous-tâche doit être mise à jour suite à une révision Planner acceptée sur la tâche parente."
-                      >
+                      <span className="gl-badge gl-badge-warning text-[10px] shrink-0">
                         à réviser
                       </span>
                     )}
-                    <span className="text-muted-foreground tabular-nums">{child.progress ?? 0}%</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${child.progress ?? 0}%`, backgroundColor: childColor }}
+                        />
+                      </div>
+                      <span className="text-xs font-semibold tabular-nums text-muted-foreground w-9 text-right">
+                        {child.progress ?? 0}%
+                      </span>
+                    </div>
+                    <ChevronRight size={14} className="text-muted-foreground/40 group-hover:text-foreground transition-colors shrink-0" />
                   </div>
                 )
               })}
@@ -665,60 +813,146 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
           )}
         </FormSection>
 
-        {/* ── Dependencies ─────────────────────────────────── */}
-        <FormSection title={`Dépendances (${taskDeps.length})`} collapsible defaultExpanded={taskDeps.length > 0} storageKey="task-detail-deps">
-          {taskDeps.length === 0 ? (
+        {/* ── Dependencies (predecessors + successors) ────── */}
+        <FormSection
+          title={`Dépendances (${incomingDeps.length + outgoingDeps.length})`}
+          collapsible
+          defaultExpanded={incomingDeps.length + outgoingDeps.length > 0}
+          storageKey="task-detail-deps"
+        >
+          {incomingDeps.length === 0 && outgoingDeps.length === 0 ? (
             <p className="text-xs text-muted-foreground italic">Aucune dépendance</p>
           ) : (
-            <div className="space-y-1">
-              {taskDeps.map((dep: { id: string; from_task_id: string; dependency_type: string }) => {
-                const predTask = tasks.find(t => t.id === dep.from_task_id)
-                return (
-                  <div
-                    key={dep.id}
-                    className="flex items-center gap-2 text-xs px-2 py-1 rounded hover:bg-muted/40 cursor-pointer transition-colors"
-                    onClick={() => predTask && openDynamicPanel({ type: 'task-detail', module: 'projets', id: predTask.id, meta: { projectId } })}
-                  >
-                    <Link2 size={10} className="text-muted-foreground" />
-                    <span className="font-medium text-foreground">{predTask?.title || dep.from_task_id.slice(0, 8)}</span>
-                    <span className="text-muted-foreground ml-auto">({dep.dependency_type})</span>
+            <SectionColumns>
+              {/* Predecessors */}
+              <div className="@container">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1.5 flex items-center gap-1.5">
+                  <ArrowLeft size={11} />
+                  Antécédents ({incomingDeps.length})
+                </p>
+                {incomingDeps.length === 0 ? (
+                  <p className="text-xs text-muted-foreground/70 italic px-2 py-1.5">Aucun</p>
+                ) : (
+                  <div className="space-y-1">
+                    {incomingDeps.map((dep) => {
+                      const predTask = tasks.find((t) => t.id === dep.from_task_id)
+                      return (
+                        <button
+                          key={dep.id}
+                          type="button"
+                          className="group w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 hover:border-primary/30 hover:bg-accent/30 transition-all"
+                          onClick={() => predTask && openDynamicPanel({ type: 'task-detail', module: 'projets', id: predTask.id, meta: { projectId } })}
+                        >
+                          <Link2 size={12} className="text-muted-foreground shrink-0" />
+                          <span className="text-sm font-medium text-foreground truncate flex-1">
+                            {predTask?.title || dep.from_task_id.slice(0, 8)}
+                          </span>
+                          <span className="gl-badge gl-badge-info text-[9px] shrink-0 font-mono">
+                            {dep.dependency_type}
+                            {typeof dep.lag_days === 'number' && dep.lag_days !== 0 && (
+                              <span className="ml-0.5">{dep.lag_days >= 0 ? '+' : ''}{dep.lag_days}j</span>
+                            )}
+                          </span>
+                          <ChevronRight size={12} className="text-muted-foreground/40 group-hover:text-foreground transition-colors shrink-0" />
+                        </button>
+                      )
+                    })}
                   </div>
-                )
-              })}
-            </div>
+                )}
+              </div>
+
+              {/* Successors */}
+              <div className="@container">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1.5 flex items-center gap-1.5">
+                  <ArrowRight size={11} />
+                  Successeurs ({outgoingDeps.length})
+                </p>
+                {outgoingDeps.length === 0 ? (
+                  <p className="text-xs text-muted-foreground/70 italic px-2 py-1.5">Aucun</p>
+                ) : (
+                  <div className="space-y-1">
+                    {outgoingDeps.map((dep) => {
+                      const succTask = tasks.find((t) => t.id === dep.to_task_id)
+                      return (
+                        <button
+                          key={dep.id}
+                          type="button"
+                          className="group w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40 hover:border-primary/30 hover:bg-accent/30 transition-all"
+                          onClick={() => succTask && openDynamicPanel({ type: 'task-detail', module: 'projets', id: succTask.id, meta: { projectId } })}
+                        >
+                          <Link2 size={12} className="text-muted-foreground shrink-0" />
+                          <span className="text-sm font-medium text-foreground truncate flex-1">
+                            {succTask?.title || dep.to_task_id.slice(0, 8)}
+                          </span>
+                          <span className="gl-badge gl-badge-info text-[9px] shrink-0 font-mono">
+                            {dep.dependency_type}
+                            {typeof dep.lag_days === 'number' && dep.lag_days !== 0 && (
+                              <span className="ml-0.5">{dep.lag_days >= 0 ? '+' : ''}{dep.lag_days}j</span>
+                            )}
+                          </span>
+                          <ChevronRight size={12} className="text-muted-foreground/40 group-hover:text-foreground transition-colors shrink-0" />
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </SectionColumns>
           )}
         </FormSection>
 
-        {/* ── Comments ─────────────────────────────────────── */}
-        <FormSection title={`Commentaires (${(comments as unknown[])?.length || 0})`} collapsible defaultExpanded storageKey="task-detail-comments">
-          {/* Comment list */}
-          {((comments || []) as unknown as { id: string; content?: string; body?: string; author_name?: string; created_at: string }[]).map(c => (
-            <div key={c.id} className="border-b border-border/30 pb-2 mb-2 last:border-0 last:pb-0 last:mb-0">
-              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                <MessageSquare size={9} />
-                <span className="font-medium">{c.author_name || 'Utilisateur'}</span>
-                <span>·</span>
-                <span>{new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+        {/* ── Pièces jointes ──────────────────────────────── */}
+        <FormSection
+          title="Pièces jointes"
+          collapsible
+          defaultExpanded={false}
+          storageKey="task-detail-attachments"
+        >
+          <AttachmentManager ownerType="project_task" ownerId={taskId} compact />
+        </FormSection>
+
+        {/* ── Commentaires ─────────────────────────────────── */}
+        <FormSection
+          title={`Commentaires (${(comments as unknown[])?.length || 0})`}
+          collapsible
+          defaultExpanded
+          storageKey="task-detail-comments"
+        >
+          <div className="space-y-2.5">
+            {((comments || []) as unknown as { id: string; content?: string; body?: string; author_name?: string; created_at: string }[]).map(c => (
+              <div key={c.id} className="rounded-lg border border-border/40 bg-muted/20 px-3 py-2">
+                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-1">
+                  <MessageSquare size={10} />
+                  <span className="font-semibold text-foreground/80">{c.author_name || 'Utilisateur'}</span>
+                  <span>·</span>
+                  <span className="tabular-nums">
+                    {new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{c.content || c.body}</p>
               </div>
-              <p className="text-xs mt-0.5 text-foreground">{c.content || c.body}</p>
-            </div>
-          ))}
+            ))}
+            {(comments as unknown[])?.length === 0 && (
+              <p className="text-xs text-muted-foreground italic px-2 py-1.5">Aucun commentaire pour le moment</p>
+            )}
+          </div>
 
           {/* Add comment */}
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-2 mt-3 pt-3 border-t border-border/30">
             <input
               type="text"
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
               placeholder="Ajouter un commentaire..."
-              className="flex-1 h-7 px-2 text-xs border rounded bg-background"
+              className="gl-form-input flex-1 h-8 px-2 text-sm"
             />
             <button
               onClick={handleAddComment}
               disabled={!commentText.trim() || createComment.isPending}
-              className="px-3 h-7 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 font-medium"
+              className="px-3 h-8 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 font-medium inline-flex items-center gap-1"
             >
+              <Send size={11} />
               Envoyer
             </button>
           </div>

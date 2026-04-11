@@ -75,6 +75,9 @@ async def _is_article_catalog_global(db: AsyncSession, entity_id: UUID) -> bool:
                                                 current entity.
     Default: False (per-entity).
     """
+    # The settings table uses (scope, scope_id) — not (entity_id) — for
+    # multi-tenant scoping. scope_id is a varchar(36) that holds the
+    # entity UUID as a string when scope='entity'.
     result = await db.execute(
         text(
             """
@@ -82,23 +85,29 @@ async def _is_article_catalog_global(db: AsyncSession, entity_id: UUID) -> bool:
             FROM settings
             WHERE key = 'packlog.article_catalog_global'
               AND scope = 'entity'
-              AND entity_id = :eid
+              AND scope_id = :sid
             LIMIT 1
             """
         ),
-        {"eid": str(entity_id)},
+        {"sid": str(entity_id)},
     )
     row = result.first()
     if not row:
         return False
     val = row[0]
+    # `value` is JSONB — Postgres returns it as a Python primitive
+    # (bool/str/int) or dict. Normalise to a strict bool.
     if isinstance(val, bool):
         return val
+    if isinstance(val, (int, float)):
+        return bool(val)
     if isinstance(val, str):
         return val.strip().lower() in ("true", "1", "yes", "on")
     if isinstance(val, dict) and "value" in val:
         v = val["value"]
-        return bool(v) if isinstance(v, bool) else str(v).strip().lower() in ("true", "1", "yes", "on")
+        if isinstance(v, bool):
+            return v
+        return str(v).strip().lower() in ("true", "1", "yes", "on")
     return bool(val)
 
 

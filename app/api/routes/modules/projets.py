@@ -772,10 +772,24 @@ async def update_project(
                 )
 
     old_status = project.status
+    method_changed = (
+        "progress_weight_method" in update_data
+        and update_data["progress_weight_method"] != project.progress_weight_method
+    )
     for field, value in update_data.items():
         setattr(project, field, value)
     await db.commit()
     await db.refresh(project)
+
+    # If the weighting method changed, recalculate the project's progress
+    # immediately so the UI reflects the new value without waiting for the
+    # next task patch. _update_project_progress walks the WBS tree and
+    # also rolls up parent task progresses, so the whole tree converges
+    # to the new method on the spot.
+    if method_changed:
+        await _update_project_progress(db, project_id)
+        await db.commit()
+        await db.refresh(project)
 
     # Emit event if status changed
     if "status" in update_data and old_status != project.status:

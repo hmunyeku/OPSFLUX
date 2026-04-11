@@ -219,6 +219,8 @@ _OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
     # PackLog / cargo
     "cargo_item": ("packlog.cargo.read", "packlog.cargo.update"),
     "cargo_request": ("packlog.cargo.read", "packlog.cargo.update"),
+    # Papyrus documents
+    "document": ("document.read", "document.edit"),
 }
 
 

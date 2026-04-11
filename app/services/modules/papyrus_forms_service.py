@@ -183,17 +183,43 @@ async def list_submissions(
     form_id: UUID,
     entity_id: UUID,
     db: AsyncSession,
-) -> list[PapyrusExternalSubmission]:
+) -> list[dict[str, Any]]:
     await get_form(form_id=form_id, entity_id=entity_id, db=db)
     result = await db.execute(
-        select(PapyrusExternalSubmission)
+        select(
+            PapyrusExternalSubmission.id,
+            PapyrusExternalSubmission.form_id,
+            PapyrusExternalSubmission.token_id,
+            PapyrusExternalSubmission.submitted_at,
+            PapyrusExternalSubmission.respondent,
+            PapyrusExternalSubmission.answers,
+            PapyrusExternalSubmission.ip_address,
+            PapyrusExternalSubmission.status,
+            PapyrusExternalSubmission.processed_by,
+            PapyrusExternalSubmission.processed_at,
+        )
         .where(
             PapyrusExternalSubmission.entity_id == entity_id,
             PapyrusExternalSubmission.form_id == form_id,
         )
         .order_by(PapyrusExternalSubmission.submitted_at.desc())
     )
-    return list(result.scalars().all())
+    rows = result.all()
+    return [
+        {
+            "id": row.id,
+            "form_id": row.form_id,
+            "token_id": row.token_id,
+            "submitted_at": row.submitted_at,
+            "respondent": row.respondent,
+            "answers": row.answers or {},
+            "ip_address": str(row.ip_address) if row.ip_address is not None else None,
+            "status": row.status,
+            "processed_by": row.processed_by,
+            "processed_at": row.processed_at,
+        }
+        for row in rows
+    ]
 
 
 async def create_external_link(

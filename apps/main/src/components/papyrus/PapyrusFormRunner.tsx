@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
+import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { cn } from '@/lib/utils'
 
 type PrimitiveFieldType =
@@ -9,6 +11,7 @@ type PrimitiveFieldType =
   | 'textarea'
   | 'input_number'
   | 'input_date'
+  | 'input_file'
   | 'input_select'
   | 'input_multiselect'
   | 'input_table'
@@ -35,6 +38,8 @@ interface PapyrusFormRunnerProps {
   value: Record<string, unknown> | undefined
   readOnly?: boolean
   isSaving?: boolean
+  attachmentOwnerType?: string
+  attachmentOwnerId?: string
   onSave: (value: Record<string, unknown>) => void
 }
 
@@ -89,9 +94,13 @@ export function PapyrusFormRunner({
   value,
   readOnly = false,
   isSaving = false,
+  attachmentOwnerType,
+  attachmentOwnerId,
   onSave,
 }: PapyrusFormRunnerProps) {
+  const { t } = useTranslation()
   const fields = useMemo(() => normalizeFields(schema), [schema])
+  const fileFields = useMemo(() => fields.filter((field) => field.type === 'input_file'), [fields])
   const [draft, setDraft] = useState<Record<string, unknown>>(() => normalizeValue(value))
 
   useEffect(() => {
@@ -106,7 +115,7 @@ export function PapyrusFormRunner({
     <div className="space-y-4">
       {fields.length === 0 ? (
         <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
-          Aucun champ configuré pour ce formulaire.
+          {t('papyrus.structured_form.no_fields')}
         </div>
       ) : null}
 
@@ -199,19 +208,19 @@ export function PapyrusFormRunner({
                   }}
                 >
                   <Plus size={12} />
-                  <span>Ajouter une ligne</span>
+                  <span>{t('papyrus.structured_form.add_row')}</span>
                 </button>
               </div>
               <div className="space-y-2">
                 {rows.length === 0 ? (
                   <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-                    Aucune ligne.
+                    {t('papyrus.structured_form.no_rows')}
                   </div>
                 ) : null}
                 {rows.map((row, rowIndex) => (
                   <div key={`${field.id}_${rowIndex}`} className="rounded-md border border-border bg-muted/10 p-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="text-xs font-medium text-muted-foreground">Ligne {rowIndex + 1}</div>
+                      <div className="text-xs font-medium text-muted-foreground">{t('papyrus.structured_form.row', { index: rowIndex + 1 })}</div>
                       <button
                         type="button"
                         className="gl-button-sm gl-button-danger"
@@ -219,7 +228,7 @@ export function PapyrusFormRunner({
                         onClick={() => setFieldValue(field.id, rows.filter((_, index) => index !== rowIndex))}
                       >
                         <Trash2 size={12} />
-                        <span>Supprimer</span>
+                        <span>{t('common.delete')}</span>
                       </button>
                     </div>
                     <div className="grid gap-2 md:grid-cols-2">
@@ -272,6 +281,17 @@ export function PapyrusFormRunner({
           )
         }
 
+        if (field.type === 'input_file') {
+          return (
+            <div key={field.id} className="space-y-1 rounded-md border border-dashed border-border bg-muted/10 p-3">
+              <div className="text-xs font-medium text-muted-foreground">{field.label}</div>
+              <div className="text-sm text-muted-foreground">
+                {t('papyrus.structured_form.file_field_help')}
+              </div>
+            </div>
+          )
+        }
+
         return (
           <label key={field.id} className="space-y-1">
             <div className="text-xs font-medium text-muted-foreground">{field.label}</div>
@@ -287,6 +307,29 @@ export function PapyrusFormRunner({
         )
       })}
 
+      {fileFields.length > 0 ? (
+        <div className="space-y-3 rounded-lg border border-border bg-background p-3">
+          <div className="space-y-1">
+            <div className="text-sm font-semibold text-foreground">{t('papyrus.structured_form.attachments_title')}</div>
+            <div className="text-xs text-muted-foreground">{t('papyrus.structured_form.attachments_description')}</div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {fileFields.map((field) => (
+              <span key={field.id} className="inline-flex items-center rounded bg-muted px-2 py-1 text-[11px] text-muted-foreground">
+                {field.label}
+              </span>
+            ))}
+          </div>
+          {attachmentOwnerType && attachmentOwnerId ? (
+            <AttachmentManager ownerType={attachmentOwnerType} ownerId={attachmentOwnerId} compact />
+          ) : (
+            <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+              {t('papyrus.structured_form.attachments_unavailable')}
+            </div>
+          )}
+        </div>
+      ) : null}
+
       <div className="flex justify-end">
         <button
           type="button"
@@ -294,7 +337,7 @@ export function PapyrusFormRunner({
           disabled={readOnly || isSaving}
           onClick={() => onSave(draft)}
         >
-          <span>{isSaving ? 'Enregistrement...' : 'Enregistrer les données structurées'}</span>
+          <span>{isSaving ? t('papyrus.structured_form.saving') : t('papyrus.structured_form.save')}</span>
         </button>
       </div>
     </div>

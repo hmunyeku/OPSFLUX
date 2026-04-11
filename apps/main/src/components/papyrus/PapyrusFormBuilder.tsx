@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
 import { ConditionBuilder } from '@/components/shared/ConditionBuilder'
 import { cn } from '@/lib/utils'
@@ -118,6 +119,7 @@ function normalizeSchema(schema: Record<string, unknown> | undefined): { version
 }
 
 export function PapyrusFormBuilder({ schema, disabled = false, isSaving = false, onSave }: PapyrusFormBuilderProps) {
+  const { t } = useTranslation()
   const normalized = useMemo(() => normalizeSchema(schema), [schema])
   const [version, setVersion] = useState(normalized.version)
   const [schemaExtras, setSchemaExtras] = useState(normalized.extras)
@@ -180,22 +182,22 @@ export function PapyrusFormBuilder({ schema, disabled = false, isSaving = false,
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div className="text-xs text-muted-foreground">
-          {fields.length} champ{fields.length > 1 ? 's' : ''} configure{fields.length > 1 ? 's' : ''}
+          {t('papyrus.builder.fields_configured', { count: fields.length })}
         </div>
         <div className="flex items-center gap-2">
           <button type="button" className="gl-button-sm gl-button-default" onClick={addField} disabled={disabled}>
             <Plus size={12} />
-            <span>Ajouter un champ</span>
+            <span>{t('papyrus.builder.add_field')}</span>
           </button>
           <button type="button" className="gl-button-sm gl-button-confirm" onClick={save} disabled={disabled || isSaving}>
-            <span>{isSaving ? 'Enregistrement...' : 'Enregistrer le schema'}</span>
+            <span>{isSaving ? t('papyrus.builder.saving') : t('papyrus.builder.save_schema')}</span>
           </button>
         </div>
       </div>
 
       {fields.length === 0 ? (
         <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
-          Aucun champ. Ajoutez au moins un champ pour construire le formulaire.
+          {t('papyrus.builder.no_fields')}
         </div>
       ) : null}
 

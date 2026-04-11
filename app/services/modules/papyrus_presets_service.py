@@ -9,8 +9,10 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.asset_registry import Installation
+from app.models.common import Project, User
 from app.models.papyrus import PapyrusForm
-from app.models.papyrus_document import DocType, Template
+from app.models.papyrus_document import DocType, Revision, Template
 from app.services.modules.papyrus_document_service import (
     create_doc_type,
     create_document,
@@ -56,6 +58,7 @@ def _field_supervision_form_schema() -> dict[str, Any]:
         "profile_key": "field_supervision_report",
         "fields": [
             {"id": "section_context", "type": "section", "label": "Contexte du rapport"},
+            {"id": "report_title", "type": "input_text", "label": "Titre du rapport", "required": True, "section": "context"},
             {"id": "report_date", "type": "input_date", "label": "Date du rapport", "required": True, "section": "context"},
             {"id": "report_shift", "type": "input_text", "label": "Quart / plage horaire", "section": "context"},
             {"id": "project_name", "type": "input_text", "label": "Projet", "required": True, "section": "context"},
@@ -136,7 +139,7 @@ def _field_supervision_template_structure() -> dict[str, Any]:
 <section style="font-family: Arial, sans-serif; color: #0f172a; padding: 8px 0;">
   <header style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px;">
     <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #475569;">Papyrus structured report</div>
-    <h1 style="margin: 4px 0 0; font-size: 24px;">{{ document.form_data.get("project_name") or document.data.get("profile_key") or "Rapport terrain" }}</h1>
+    <h1 style="margin: 4px 0 0; font-size: 24px;">{{ document.form_data.get("report_title") or document.form_data.get("project_name") or document.data.get("profile_key") or "Rapport terrain" }}</h1>
     <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 14px;">
       <div><div style="font-size: 11px; color: #64748b;">Date</div><div style="font-weight: 600;">{{ document.form_data.get("report_date") or "--" }}</div></div>
       <div><div style="font-size: 11px; color: #64748b;">Site</div><div style="font-weight: 600;">{{ document.form_data.get("site_name") or "--" }}</div></div>
@@ -295,6 +298,44 @@ async def _find_field_supervision_assets(
     return doc_type, template, form
 
 
+async def _build_field_supervision_prefill(
+    *,
+    project_id: UUID | None,
+    title: str,
+    db: AsyncSession,
+) -> dict[str, Any]:
+    prefill: dict[str, Any] = {
+        "report_title": title,
+        "personnel_table": [],
+        "equipment_table": [],
+        "actions_table": [],
+    }
+    if not project_id:
+        return prefill
+
+    project = await db.scalar(select(Project).where(Project.id == project_id))
+    if not project:
+        return prefill
+
+    prefill["project_name"] = project.name
+    prefill["project_code"] = getattr(project, "code", None)
+
+    if getattr(project, "asset_id", None):
+        installation = await db.scalar(select(Installation).where(Installation.id == project.asset_id))
+        if installation:
+            prefill["site_name"] = installation.name
+
+    if getattr(project, "manager_id", None):
+        manager = await db.scalar(select(User).where(User.id == project.manager_id))
+        if manager:
+            full_name = " ".join(
+                part for part in [getattr(manager, "first_name", None), getattr(manager, "last_name", None)] if part
+            ).strip()
+            prefill["supervisor_name"] = full_name or getattr(manager, "email", None) or ""
+
+    return prefill
+
+
 async def instantiate_preset(
     *,
     preset_key: str,
@@ -367,15 +408,18 @@ async def instantiate_preset(
 
     document = None
     if getattr(body, "create_document", True):
+        document_title = (
+            getattr(body, "title", None)
+            or preset["name"].get(language)
+            or preset["name"].get("fr")
+            or "Field supervision report"
+        )
         document = await create_document(
             body=SimpleNamespace(
                 doc_type_id=doc_type.id,
                 project_id=getattr(body, "project_id", None),
                 arborescence_node_id=None,
-                title=getattr(body, "title", None)
-                or preset["name"].get(language)
-                or preset["name"].get("fr")
-                or "Field supervision report",
+                title=document_title,
                 language=language,
                 classification=classification,
                 free_parts={},
@@ -385,6 +429,14 @@ async def instantiate_preset(
             created_by=created_by,
             db=db,
         )
+        revision = await db.get(Revision, document.current_revision_id) if document.current_revision_id else None
+        if revision:
+            revision.form_data = await _build_field_supervision_prefill(
+                project_id=getattr(body, "project_id", None),
+                title=document_title,
+                db=db,
+            )
+            await db.commit()
 
     return {
         "preset": preset,

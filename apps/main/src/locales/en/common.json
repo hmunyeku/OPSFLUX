@@ -2812,7 +2812,43 @@
     "signature": "Signature",
     "sign": "Sign",
     "share": "Share",
-    "distribution_list": "Distribution list"
+    "distribution_list": "Distribution list",
+    "scope": "Scope",
+    "scope_values": {
+      "document": "Document",
+      "doc_type": "Document type"
+    },
+    "structured_form": {
+      "title": "Structured entry",
+      "no_fields": "No fields are configured for this form.",
+      "add_row": "Add row",
+      "no_rows": "No rows.",
+      "row": "Row {{index}}",
+      "file_field_help": "Files for this field are managed through the document attachments.",
+      "attachments_title": "Structured attachments",
+      "attachments_description": "Use the document attachments to bind the photos, evidence, and files expected by this form.",
+      "attachments_unavailable": "Attachments are not available until the document has been saved.",
+      "save": "Save structured data",
+      "saving": "Saving...",
+      "saved": "Structured data saved",
+      "save_error": "Error while saving structured data"
+    },
+    "builder": {
+      "fields_configured_one": "{{count}} field configured",
+      "fields_configured_other": "{{count}} fields configured",
+      "add_field": "Add field",
+      "save_schema": "Save schema",
+      "saving": "Saving...",
+      "no_fields": "No fields. Add at least one field to build the form."
+    },
+    "presets": {
+      "title": "Papyrus presets",
+      "description": "Reusable starter kits to test and extend the Papyrus architecture.",
+      "create": "Create kit",
+      "instantiated": "Papyrus preset instantiated",
+      "instantiate_error": "Error while instantiating the Papyrus preset",
+      "none": "No preset available."
+    }
   },
   "pid_pfd": {
     "title": "PID / PFD",

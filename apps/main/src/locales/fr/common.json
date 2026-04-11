@@ -2816,7 +2816,43 @@
     "signature": "Signature",
     "sign": "Signer",
     "share": "Partager",
-    "distribution_list": "Liste de distribution"
+    "distribution_list": "Liste de distribution",
+    "scope": "Portée",
+    "scope_values": {
+      "document": "Document",
+      "doc_type": "Type de document"
+    },
+    "structured_form": {
+      "title": "Saisie structurée",
+      "no_fields": "Aucun champ configuré pour ce formulaire.",
+      "add_row": "Ajouter une ligne",
+      "no_rows": "Aucune ligne.",
+      "row": "Ligne {{index}}",
+      "file_field_help": "Les fichiers de ce champ sont gérés dans les pièces jointes du document.",
+      "attachments_title": "Pièces jointes structurées",
+      "attachments_description": "Utilisez les pièces jointes du document pour rattacher les photos, preuves et fichiers attendus par ce formulaire.",
+      "attachments_unavailable": "Les pièces jointes ne sont pas disponibles tant que le document n'est pas enregistré.",
+      "save": "Enregistrer les données structurées",
+      "saving": "Enregistrement...",
+      "saved": "Données structurées enregistrées",
+      "save_error": "Erreur lors de l'enregistrement des données structurées"
+    },
+    "builder": {
+      "fields_configured_one": "{{count}} champ configuré",
+      "fields_configured_other": "{{count}} champs configurés",
+      "add_field": "Ajouter un champ",
+      "save_schema": "Enregistrer le schéma",
+      "saving": "Enregistrement...",
+      "no_fields": "Aucun champ. Ajoutez au moins un champ pour construire le formulaire."
+    },
+    "presets": {
+      "title": "Presets Papyrus",
+      "description": "Kits de démarrage réutilisables pour tester et étendre l'architecture Papyrus.",
+      "create": "Créer le kit",
+      "instantiated": "Preset Papyrus instancié",
+      "instantiate_error": "Erreur lors de l'instanciation du preset Papyrus",
+      "none": "Aucun preset disponible."
+    }
   },
   "pid_pfd": {
     "title": "PID / PFD",

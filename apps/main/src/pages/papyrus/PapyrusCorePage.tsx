@@ -563,11 +563,11 @@ function DocumentDetailPanel({ id }: { id: string }) {
           form_data: formData,
         },
       })
-      toast({ title: 'Donnees structurees enregistrees', variant: 'success' })
+      toast({ title: t('papyrus.structured_form.saved'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de l’enregistrement des donnees structurees', variant: 'error' })
+      toast({ title: t('papyrus.structured_form.save_error'), variant: 'error' })
     }
-  }, [currentRevision?.content, id, papyrusDocument, saveDraft, toast])
+  }, [currentRevision?.content, id, papyrusDocument, saveDraft, t, toast])
 
   const handleCreateRevision = useCallback(async () => {
     try {
@@ -997,15 +997,26 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 <ReadOnlyRow label="Nom" value={linkedPapyrusForm.name} />
                 <ReadOnlyRow label="Actif" value={linkedPapyrusForm.is_active ? 'Oui' : 'Non'} />
                 <ReadOnlyRow label="Cree le" value={formatDate(linkedPapyrusForm.created_at)} />
-                <ReadOnlyRow label="Portee" value={linkedPapyrusForm.document_id ? 'Document' : linkedPapyrusForm.doc_type_id ? 'Type de document' : '--'} />
+                <ReadOnlyRow
+                  label={t('papyrus.scope')}
+                  value={
+                    linkedPapyrusForm.document_id
+                      ? t('papyrus.scope_values.document')
+                      : linkedPapyrusForm.doc_type_id
+                        ? t('papyrus.scope_values.doc_type')
+                        : '--'
+                  }
+                />
               </DetailFieldGrid>
               <div className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground">Saisie structurée</div>
+                <div className="text-xs font-medium text-muted-foreground">{t('papyrus.structured_form.title')}</div>
                 <PapyrusFormRunner
                   schema={linkedPapyrusForm.schema_json}
                   value={currentRevision?.form_data as Record<string, unknown> | undefined}
                   readOnly={doc.status !== 'draft' || !hasPermission('document.edit')}
                   isSaving={saveDraft.isPending}
+                  attachmentOwnerType="document"
+                  attachmentOwnerId={doc.id}
                   onSave={handleSaveStructuredFormData}
                 />
               </div>
@@ -1436,6 +1447,7 @@ export function ReportEditorPage() {
   const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
   const [showTreeSidebar, setShowTreeSidebar] = useState(true)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const { t } = useTranslation()
 
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
@@ -1493,7 +1505,7 @@ export function ReportEditorPage() {
         payload: { create_document: true },
       })
       toast({
-        title: 'Preset Papyrus instancie',
+        title: t('papyrus.presets.instantiated'),
         description: result.document?.number || result.doc_type.code,
         variant: 'success',
       })
@@ -1502,9 +1514,9 @@ export function ReportEditorPage() {
         openDynamicPanel({ type: 'detail', module: 'papyrus', id: result.document.id })
       }
     } catch {
-      toast({ title: 'Erreur lors de l’instanciation du preset Papyrus', variant: 'error' })
+      toast({ title: t('papyrus.presets.instantiate_error'), variant: 'error' })
     }
-  }, [instantiatePapyrusPreset, openDynamicPanel, toast])
+  }, [instantiatePapyrusPreset, openDynamicPanel, t, toast])
 
   // -- Data -------------------------------------------------------------------
 
@@ -1687,9 +1699,9 @@ export function ReportEditorPage() {
             <ModuleDashboard module="papyrus" toolbarPortalId="dash-toolbar-papyrus" />
             <div className="rounded-lg border border-border bg-background">
               <div className="border-b border-border px-4 py-3">
-                <div className="text-sm font-semibold text-foreground">Presets Papyrus</div>
+                <div className="text-sm font-semibold text-foreground">{t('papyrus.presets.title')}</div>
                 <div className="text-xs text-muted-foreground">
-                  Kits de démarrage réutilisables pour tester et étendre l’architecture Papyrus.
+                  {t('papyrus.presets.description')}
                 </div>
               </div>
               <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
@@ -1716,14 +1728,14 @@ export function ReportEditorPage() {
                         onClick={() => handleInstantiatePreset(preset.key)}
                       >
                         {instantiatePapyrusPreset.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-                        <span>Créer le kit</span>
+                        <span>{t('papyrus.presets.create')}</span>
                       </button>
                     </div>
                   )
                 })}
                 {papyrusPresets && papyrusPresets.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-                    Aucun preset disponible.
+                    {t('papyrus.presets.none')}
                   </div>
                 ) : null}
               </div>

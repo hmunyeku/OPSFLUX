@@ -516,10 +516,44 @@ export function GanttView({
         // No data at all (no activities AND no capacity) → skip the cell
         if (daysCovered === 0 && backendDayCount === 0) return
 
-        // The COLOR always reflects the worst per-day-per-asset saturation
-        // in the cell (peakDaySat). This prevents dilution when aggregating
-        // across many days or many assets with uneven workload distribution.
-        const satForColor = Math.round(peakDaySat)
+        // ── Cell color = AGGREGATE saturation over the cell period ──
+        // Site capacity is always expressed per day (e.g. 100 POB/day). To
+        // color a multi-day cell consistently with that daily unit we must
+        // compare the cell's total pax-days against the cell's total
+        // pax-day capacity — *not* peak-day against daily capacity.
+        //
+        // Previous behaviour used `peakDaySat` (the worst per-asset-per-day
+        // saturation anywhere in the cell). That made the whole month cell
+        // go red as soon as a single day hit capacity, even if the rest of
+        // the month was empty — the user's words: "le heat se mettre
+        // obligatoirement en rouge alors qu'il n'y a pas de sujet".
+        //
+        // New behaviour:
+        //   satForColor = (totalPax / totalCap) * 100
+        //
+        // where totalPax is the sum of pax-day values over the cell
+        // (all contributing assets × all days) and totalCap is the sum of
+        // the same (asset, day) pairs' daily capacity. For a 1-day cell
+        // this degenerates to `dayPax / dayCap` — exactly the legacy day
+        // saturation. For week/month/quarter/semester cells it produces
+        // the "average daily saturation over the cell period", which
+        // matches the average-pax-per-day label and avoids false red.
+        //
+        // Peak-day saturation is preserved as `peakDaySat` and surfaced
+        // in the tooltip so the safety signal (a single dangerous
+        // overshoot day hidden inside an otherwise quiet month) is still
+        // one hover away.
+        let satForColor: number
+        if (totalCap > 0) {
+          satForColor = Math.round((totalPax / totalCap) * 100)
+        } else if (totalPax > 0) {
+          // Pax without configured capacity → treat as overflow (same
+          // semantics as the old per-day fallback in sumActivityPaxForCell).
+          satForColor = 101
+        } else {
+          satForColor = 0
+        }
+        const peakSatForTooltip = Math.round(peakDaySat)
         const color = colorForSaturation(satForColor, cfg)
 
         // ── PAX count label: always a PER-DAY average ──
@@ -557,15 +591,22 @@ export function GanttView({
         else if (viewPrefs.heatmap_text_mode === 'percentage') label = `${satForColor}%`
         else label = ''
 
-        // Tooltip: show BOTH the average (so it matches the label) and
-        // the underlying totals / capacity so a curious user can inspect
-        // how the average was computed.
-        const totalLine = aggregation === 'sum'
-          ? `Σ prév. ${totalPax} pax·jours`
-          : `Pic ${peakPax} pax (${satForColor}%) · Σ ${totalPax} pax·jours`
+        // Tooltip: surface all four numbers the user cares about:
+        //   1. the label itself (avg daily pax) + the cell span in days
+        //   2. the aggregate saturation that drove the cell color
+        //   3. the peak single-day saturation (safety signal — if any
+        //      individual day spiked over capacity, show it here so the
+        //      overshoot doesn't disappear just because the average looks
+        //      calm)
+        //   4. the raw totals (pax-days, real POB, capacity pax-days)
+        //     so the user can audit the computation.
+        const peakSuffix = peakSatForTooltip > satForColor
+          ? ` · pic quotidien ${peakSatForTooltip}%`
+          : ''
         const tooltipHTML =
-          `~${avgLabel} pax/jour (moy. ${cellDays}j) · ${totalLine}` +
-          ` · pob réel ${totalReal} · cap ${totalCap}`
+          `~${avgLabel} pax/jour (moy. ${cellDays}j, ${satForColor}% cap)` +
+          peakSuffix +
+          ` · Σ prév. ${totalPax} pax·jours · pob réel ${totalReal} · cap ${totalCap}`
 
         result.push({ cellIdx: idx, color, value, label, tooltipHTML })
       })

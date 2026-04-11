@@ -1400,6 +1400,15 @@ async def _apply_accepted_revision_request(
         "task_requires_manual_breakdown": False,
         "applied_activity_count": 0,
         "applied_fields": [],
+        # Spec §2.8: when the modified task is a parent, OpsFlux must
+        # highlight the child tasks so the chef-de-projet knows which
+        # ones to update. We return the list of child IDs here so the
+        # frontend can highlight them immediately, and we ALSO persist
+        # one audit entry per child (resource_type='project_task_
+        # breakdown_pending') so the highlight survives page reloads
+        # until the chef-de-projet explicitly dismisses or the child's
+        # dates get updated.
+        "child_task_ids": [],
     }
 
     proposed_start_date = request_details.get("proposed_start_date")
@@ -1412,17 +1421,42 @@ async def _apply_accepted_revision_request(
     if task_id_raw:
         task = await db.get(ProjectTask, UUID(str(task_id_raw)))
         if task and task.project_id and task.active:
-            child_count = (
+            # Fetch child task ids (needed whether we flag breakdown
+            # or not — we use the count as a branching signal).
+            child_rows = (
                 await db.execute(
-                    select(sqla_func.count()).select_from(ProjectTask).where(
+                    select(ProjectTask.id).where(
                         ProjectTask.parent_id == task.id,
                         ProjectTask.active == True,  # noqa: E712
                     )
                 )
-            ).scalar() or 0
+            ).all()
+            child_ids = [row[0] for row in child_rows]
 
-            if child_count > 0:
+            if child_ids:
                 result["task_requires_manual_breakdown"] = True
+                result["child_task_ids"] = [str(cid) for cid in child_ids]
+                # Persist one breakdown-pending marker per child so the
+                # UI can highlight them across reloads and so the user
+                # can dismiss them individually after updating each one.
+                for child_id in child_ids:
+                    await record_audit(
+                        db,
+                        action="project.task.breakdown_pending",
+                        resource_type="project_task",
+                        resource_id=str(child_id),
+                        user_id=None,
+                        entity_id=entity_id,
+                        details={
+                            "project_id": str(task.project_id),
+                            "parent_task_id": str(task.id),
+                            "parent_task_title": task.title,
+                            "proposed_start_date": str(proposed_start_date) if proposed_start_date else None,
+                            "proposed_end_date": str(proposed_end_date) if proposed_end_date else None,
+                            "proposed_status": str(proposed_status) if proposed_status else None,
+                            "resolved": False,
+                        },
+                    )
             else:
                 if proposed_start_date:
                     task.start_date = datetime.fromisoformat(str(proposed_start_date))

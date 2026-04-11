@@ -619,6 +619,28 @@ export function useUnlinkTaskFromPlanner() {
   })
 }
 
+/** Spec §2.8: list tasks of a project flagged pending manual breakdown. */
+export function useBreakdownPending(projectId: string | undefined) {
+  return useQuery({
+    queryKey: ['projects', projectId, 'breakdown-pending'],
+    queryFn: () => projetsService.listBreakdownPending(projectId!),
+    enabled: !!projectId,
+    staleTime: 30_000,
+  })
+}
+
+/** Mark a task's breakdown pending marker as resolved. Idempotent. */
+export function useResolveBreakdownPending() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, taskId }: { projectId: string; taskId: string }) =>
+      projetsService.resolveBreakdownPending(projectId, taskId),
+    onSuccess: (_, { projectId }) => {
+      qc.invalidateQueries({ queryKey: ['projects', projectId, 'breakdown-pending'] })
+    },
+  })
+}
+
 // ── Templates ──────────────────────────────────────────────
 
 export function useProjectTemplates(category?: string) {

@@ -36,6 +36,7 @@ import {
   Link2,
   Briefcase,
   ArrowLeft,
+  Flag,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
@@ -3870,6 +3871,14 @@ function AdsDetailPanel({ id }: { id: string }) {
                       }>
                     }
                     const blockingResults = (complianceSummary?.results ?? []).filter((item) => item.blocking)
+                    // Spec §3.6: non-blocking issues must be surfaced as
+                    // warnings separately from blocking ones so the
+                    // validator can make an informed decision. Filter
+                    // out issues with an explicit OK status.
+                    const nonBlockingResults = (complianceSummary?.results ?? []).filter(
+                      (item) => !item.blocking && (item.status || '').toLowerCase() !== 'ok'
+                        && (item.status || '').toLowerCase() !== 'compliant',
+                    )
                     return (
                       <>
                   <div className="flex items-center justify-between">
@@ -3954,24 +3963,48 @@ function AdsDetailPanel({ id }: { id: string }) {
                           ))}
                         </div>
                       )}
-                      {blockingResults.length > 0 ? (
-                        <div className="rounded-md border border-amber-300/50 bg-amber-50/70 px-2 py-1.5 text-[11px] text-amber-900 dark:border-amber-700 dark:bg-amber-950/20 dark:text-amber-200">
-                          <p className="font-semibold">{t('paxlog.ads_detail.compliance.blocking_title')}</p>
+                      {/* Spec §3.6: BLOCKING issues (red) — pax cannot be approved */}
+                      {blockingResults.length > 0 && (
+                        <div className="rounded-md border border-red-400/60 bg-red-50/80 px-2 py-1.5 text-[11px] text-red-900 dark:border-red-700 dark:bg-red-950/30 dark:text-red-200">
+                          <p className="font-semibold flex items-center gap-1">
+                            <XCircle size={11} />
+                            {t('paxlog.ads_detail.compliance.blocking_title') || 'Non-conformités bloquantes'}
+                          </p>
                           <div className="mt-1 space-y-1">
                             {blockingResults.map((item, index) => (
-                              <p key={`${ap.id}-compliance-${index}`}>
+                              <p key={`${ap.id}-blocking-${index}`}>
                                 <span className="font-medium">{item.layer_label || item.layer || 'Compliance'}</span>
-                                {' - '}
+                                {' — '}
                                 {item.message}
                               </p>
                             ))}
                           </div>
                         </div>
-                      ) : complianceSummary.compliant === true ? (
-                        <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
+                      )}
+                      {/* Spec §3.6: NON-BLOCKING issues (amber warning) — pax can be approved but reviewer is warned */}
+                      {nonBlockingResults.length > 0 && (
+                        <div className="rounded-md border border-amber-400/60 bg-amber-50/80 px-2 py-1.5 text-[11px] text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+                          <p className="font-semibold flex items-center gap-1">
+                            <Flag size={11} />
+                            {t('paxlog.ads_detail.compliance.non_blocking_title') || 'Signalements non-bloquants'}
+                          </p>
+                          <div className="mt-1 space-y-1">
+                            {nonBlockingResults.map((item, index) => (
+                              <p key={`${ap.id}-nonblocking-${index}`}>
+                                <span className="font-medium">{item.layer_label || item.layer || 'Compliance'}</span>
+                                {' — '}
+                                {item.message}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {blockingResults.length === 0 && nonBlockingResults.length === 0 && complianceSummary.compliant === true && (
+                        <p className="text-[11px] text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                          <CheckCircle2 size={11} />
                           {t('paxlog.ads_detail.compliance.compliant')}
                         </p>
-                      ) : null}
+                      )}
                     </div>
                   )}
                   {paxRejectEntryId === ap.id && (

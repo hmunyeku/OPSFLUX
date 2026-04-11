@@ -21,10 +21,12 @@ import { useUIStore } from '@/stores/uiStore'
 import {
   useProject, useAllProjectTasks, useUpdateProjectTask, useTaskComments, useCreateTaskComment, useTaskDependencies,
   usePlannerLinks, useSendToPlanner, useUnlinkTaskFromPlanner,
+  useBreakdownPending, useResolveBreakdownPending,
 } from '@/hooks/useProjets'
 import { useRevisionDecisionRequests, useRespondRevisionDecisionRequest } from '@/hooks/usePlanner'
 import { useUsers } from '@/hooks/useUsers'
 import { useToast } from '@/components/ui/Toast'
+import { cn } from '@/lib/utils'
 import {
   DynamicPanelShell,
   PanelActionButton,
@@ -106,6 +108,19 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
   const sendToPlanner = useSendToPlanner()
   const unlinkFromPlanner = useUnlinkTaskFromPlanner()
   const isLinkedToPlanner = useMemo(() => plannerLinks.some((l) => l.task_id === taskId), [plannerLinks, taskId])
+
+  // Spec §2.8: list of child tasks flagged pending manual breakdown
+  // after a parent Planner revision was accepted. Used to badge the
+  // affected children in the "Sous-tâches" grid and to show an info
+  // banner on the task itself when IT is the one to update.
+  const { data: breakdownPendingList = [] } = useBreakdownPending(projectId)
+  const breakdownPendingByTask = useMemo(() => {
+    const m = new Map<string, typeof breakdownPendingList[number]>()
+    for (const item of breakdownPendingList) m.set(item.task_id, item)
+    return m
+  }, [breakdownPendingList])
+  const thisTaskBreakdownPending = breakdownPendingByTask.get(taskId)
+  const resolveBreakdown = useResolveBreakdownPending()
 
   // Load project info for breadcrumb
   const { data: project } = useProject(projectId)
@@ -300,6 +315,47 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
           })}
         </div>
 
+        {/* ── Spec §2.8: breakdown-pending banner ───────────── */}
+        {/* Displayed when THIS task was flagged as needing update     */}
+        {/* after a parent-task Planner revision was accepted.          */}
+        {thisTaskBreakdownPending && (
+          <div className="rounded-lg border border-amber-400/60 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 flex items-start gap-2.5">
+            <Flag size={14} className="mt-0.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                Mise à jour requise suite à la révision du parent
+              </p>
+              <p className="mt-0.5 text-[11px] text-amber-800/80 dark:text-amber-300/80">
+                {thisTaskBreakdownPending.parent_task_title
+                  ? `La tâche parente « ${thisTaskBreakdownPending.parent_task_title} » a accepté une révision Planner. `
+                  : 'Une révision Planner a été acceptée sur la tâche parente. '}
+                Merci de mettre à jour les dates ou le périmètre de cette sous-tâche en conséquence.
+              </p>
+              {(thisTaskBreakdownPending.proposed_start_date || thisTaskBreakdownPending.proposed_end_date) && (
+                <p className="mt-1 text-[10px] text-amber-700/70 dark:text-amber-400/70 tabular-nums">
+                  Proposition parent : {thisTaskBreakdownPending.proposed_start_date ? new Date(thisTaskBreakdownPending.proposed_start_date).toLocaleDateString('fr-FR') : '—'}
+                  {' → '}
+                  {thisTaskBreakdownPending.proposed_end_date ? new Date(thisTaskBreakdownPending.proposed_end_date).toLocaleDateString('fr-FR') : '—'}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => resolveBreakdown.mutate(
+                { projectId, taskId },
+                {
+                  onSuccess: () => toast({ title: 'Mise à jour marquée comme effectuée', variant: 'success' }),
+                  onError: () => toast({ title: 'Erreur', variant: 'error' }),
+                },
+              )}
+              disabled={resolveBreakdown.isPending}
+              className="shrink-0 rounded-md border border-amber-400/60 bg-white dark:bg-amber-900/20 px-2 py-1 text-[11px] font-medium text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40 disabled:opacity-50"
+            >
+              {resolveBreakdown.isPending ? 'Enregistrement…' : 'J\'ai mis à jour'}
+            </button>
+          </div>
+        )}
+
         {/* ── Quick stats row ──────────────────────────────── */}
         <div className="flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground">
           {statusBadge(task.status)}
@@ -465,20 +521,36 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
         {childTasks.length > 0 && (
           <FormSection title={`Sous-tâches (${childTasks.length})`} collapsible defaultExpanded storageKey="task-detail-children">
             <div className="space-y-1">
-              {childTasks.map(child => (
-                <div
-                  key={child.id}
-                  className="flex items-center gap-2 text-xs px-2 py-1.5 rounded hover:bg-muted/40 cursor-pointer transition-colors"
-                  onClick={() => openDynamicPanel({ type: 'task-detail', module: 'projets', id: child.id, meta: { projectId } })}
-                >
-                  <span
-                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: STATUS_MAP[child.status]?.color || '#9ca3af' }}
-                  />
-                  <span className="font-medium text-foreground truncate flex-1">{child.title}</span>
-                  <span className="text-muted-foreground tabular-nums">{child.progress ?? 0}%</span>
-                </div>
-              ))}
+              {childTasks.map(child => {
+                const childPending = breakdownPendingByTask.get(child.id)
+                return (
+                  <div
+                    key={child.id}
+                    className={cn(
+                      'flex items-center gap-2 text-xs px-2 py-1.5 rounded cursor-pointer transition-colors',
+                      childPending
+                        ? 'bg-amber-50 dark:bg-amber-950/30 ring-1 ring-amber-400/60 hover:bg-amber-100 dark:hover:bg-amber-900/40'
+                        : 'hover:bg-muted/40',
+                    )}
+                    onClick={() => openDynamicPanel({ type: 'task-detail', module: 'projets', id: child.id, meta: { projectId } })}
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: STATUS_MAP[child.status]?.color || '#9ca3af' }}
+                    />
+                    <span className="font-medium text-foreground truncate flex-1">{child.title}</span>
+                    {childPending && (
+                      <span
+                        className="gl-badge gl-badge-warning text-[9px] shrink-0"
+                        title="Cette sous-tâche doit être mise à jour suite à une révision Planner acceptée sur la tâche parente."
+                      >
+                        à réviser
+                      </span>
+                    )}
+                    <span className="text-muted-foreground tabular-nums">{child.progress ?? 0}%</span>
+                  </div>
+                )
+              })}
             </div>
           </FormSection>
         )}

@@ -446,6 +446,32 @@ export const projetsService = {
     await api.delete(`/api/v1/projects/${projectId}/tasks/${taskId}/planner-link`)
   },
 
+  /**
+   * Spec §2.8: list of child tasks tagged as "pending manual breakdown"
+   * after a parent-task Planner revision was accepted. Used to highlight
+   * the affected children in the task tree / Gantt so the chef-de-projet
+   * knows exactly which sub-tasks to update.
+   */
+  listBreakdownPending: async (projectId: string): Promise<Array<{
+    task_id: string
+    audit_id: string
+    parent_task_id: string | null
+    parent_task_title: string | null
+    proposed_start_date: string | null
+    proposed_end_date: string | null
+    proposed_status: string | null
+    created_at: string | null
+    resolved: boolean
+  }>> => {
+    const { data } = await api.get(`/api/v1/projects/${projectId}/breakdown-pending`)
+    return data
+  },
+
+  /** Mark a single task's breakdown-pending marker as resolved. Idempotent. */
+  resolveBreakdownPending: async (projectId: string, taskId: string): Promise<void> => {
+    await api.post(`/api/v1/projects/${projectId}/tasks/${taskId}/breakdown-resolve`)
+  },
+
   // ── Templates ──
   listTemplates: async (category?: string): Promise<ProjectTemplate[]> => {
     const { data } = await api.get('/api/v1/projects/templates', { params: category ? { category } : {} })

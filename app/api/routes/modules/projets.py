@@ -19,6 +19,7 @@ from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
 from app.services.core.fsm_service import fsm_service, FSMError
 from app.models.common import (
+    AuditLog,
     Project, ProjectMember, ProjectTask, ProjectMilestone,
     PlanningRevision, TaskDeliverable, TaskAction, TaskChangeLog,
     ProjectTaskDependency, ProjectWBSNode, CostCenter,
@@ -1976,6 +1977,135 @@ async def unlink_task_from_planner(
     return None
 
 
+# ── Breakdown pending markers (spec §2.8) ──────────────────────────────
+
+
+@router.get("/{project_id}/breakdown-pending")
+async def list_breakdown_pending_tasks(
+    project_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """List tasks of this project flagged as 'pending manual breakdown'.
+
+    Spec §2.8: when a parent-task revision is accepted, the chef-de-projet
+    must update each child task manually. Every affected child is tagged
+    via an AuditLog row with action='project.task.breakdown_pending'
+    (written by planner._apply_accepted_revision_request). We query those
+    rows here and return the latest unresolved one per task so the
+    frontend can badge the child tasks.
+    """
+    await _get_project_or_404(db, project_id, entity_id)
+
+    # Only the latest unresolved marker per task_id counts. "Unresolved"
+    # means details.resolved is not True. We query all breakdown events
+    # for the project, then filter in Python (simpler than JSON-aware SQL).
+    rows = (await db.execute(
+        select(AuditLog)
+        .where(
+            AuditLog.entity_id == entity_id,
+            AuditLog.action == "project.task.breakdown_pending",
+            AuditLog.resource_type == "project_task",
+        )
+        .order_by(AuditLog.created_at.desc())
+    )).scalars().all()
+
+    latest_per_task: dict[str, AuditLog] = {}
+    for row in rows:
+        task_id_str = row.resource_id
+        if not task_id_str or task_id_str in latest_per_task:
+            continue
+        details = row.details if isinstance(row.details, dict) else {}
+        if details.get("project_id") != str(project_id):
+            continue
+        latest_per_task[task_id_str] = row
+
+    return [
+        {
+            "task_id": tid,
+            "audit_id": str(audit.id),
+            "parent_task_id": (audit.details or {}).get("parent_task_id") if isinstance(audit.details, dict) else None,
+            "parent_task_title": (audit.details or {}).get("parent_task_title") if isinstance(audit.details, dict) else None,
+            "proposed_start_date": (audit.details or {}).get("proposed_start_date") if isinstance(audit.details, dict) else None,
+            "proposed_end_date": (audit.details or {}).get("proposed_end_date") if isinstance(audit.details, dict) else None,
+            "proposed_status": (audit.details or {}).get("proposed_status") if isinstance(audit.details, dict) else None,
+            "created_at": audit.created_at.isoformat() if audit.created_at else None,
+            "resolved": bool(((audit.details or {}) if isinstance(audit.details, dict) else {}).get("resolved", False)),
+        }
+        for tid, audit in latest_per_task.items()
+        if not bool(((audit.details or {}) if isinstance(audit.details, dict) else {}).get("resolved", False))
+    ]
+
+
+@router.post("/{project_id}/tasks/{task_id}/breakdown-resolve", status_code=204)
+async def resolve_breakdown_pending(
+    project_id: UUID,
+    task_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.task.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Mark a task's breakdown_pending marker as resolved.
+
+    Idempotent. Creates a new audit entry (action='project.task.
+    breakdown_resolved') and writes a new breakdown_pending row with
+    resolved=True so the list endpoint filters it out. We intentionally
+    do NOT mutate the old AuditLog rows: audit logs are append-only.
+    """
+    await _get_project_or_404(db, project_id, entity_id)
+
+    # Find the latest unresolved breakdown marker for this task
+    latest = (await db.execute(
+        select(AuditLog)
+        .where(
+            AuditLog.entity_id == entity_id,
+            AuditLog.action == "project.task.breakdown_pending",
+            AuditLog.resource_type == "project_task",
+            AuditLog.resource_id == str(task_id),
+        )
+        .order_by(AuditLog.created_at.desc())
+        .limit(1)
+    )).scalar_one_or_none()
+
+    base_details = latest.details if latest and isinstance(latest.details, dict) else {}
+
+    await record_audit(
+        db,
+        action="project.task.breakdown_resolved",
+        resource_type="project_task",
+        resource_id=str(task_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            **base_details,
+            "project_id": str(project_id),
+            "resolved": True,
+            "resolved_by": str(current_user.id),
+        },
+    )
+    # Also insert a fresh 'breakdown_pending' row with resolved=True so
+    # the list endpoint above filters out this task on subsequent reads
+    # (the endpoint reads the LATEST marker per task_id).
+    await record_audit(
+        db,
+        action="project.task.breakdown_pending",
+        resource_type="project_task",
+        resource_id=str(task_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            **base_details,
+            "project_id": str(project_id),
+            "resolved": True,
+            "resolved_by": str(current_user.id),
+        },
+    )
+    await db.commit()
+    return None
+
+
 @router.post("/{project_id}/send-to-planner", response_model=SendToPlannerResult)
 async def send_tasks_to_planner(
     project_id: UUID,
@@ -2166,7 +2296,7 @@ async def export_project_pdf(project_id: UUID, entity_id: UUID = Depends(get_cur
     wbs = (await db.execute(select(ProjectWBSNode).where(ProjectWBSNode.project_id == project_id, ProjectWBSNode.active == True).order_by(ProjectWBSNode.code))).scalars().all()
     manager = await db.get(User, project.manager_id) if project.manager_id else None
     variables = {
-        "project": {"code": project.code, "name": project.name, "status": project.status, "priority": project.priority, "progress": project.progress, "project_type": project.project_type, "weather": project.weather, "start_date": project.start_date.strftime("%d/%m/%Y") if project.start_date else "--", "end_date": project.end_date.strftime("%d/%m/%Y") if project.end_date else "--", "budget": f"{project.budget:,.0f} XAF" if project.budget else "--", "description": project.description or "", "manager_name": f"{manager.first_name} {manager.last_name}" if manager else "--"},
+        "project": {"code": project.code, "name": project.name, "status": project.status, "priority": project.priority, "progress": project.progress, "project_type": project.project_type, "weather": project.weather, "start_date": project.start_date.strftime("%d/%m/%Y") if project.start_date else "--", "end_date": project.end_date.strftime("%d/%m/%Y") if project.end_date else "--", "budget": f"{project.budget:,.0f} {project.currency or 'XAF'}" if project.budget else "--", "description": project.description or "", "manager_name": f"{manager.first_name} {manager.last_name}" if manager else "--"},
         "tasks": [{"title": t.title, "status": t.status, "priority": t.priority, "progress": t.progress, "start": t.start_date.strftime("%d/%m/%Y") if t.start_date else "--", "end": t.due_date.strftime("%d/%m/%Y") if t.due_date else "--"} for t in tasks],
         "milestones": [{"name": m.name, "due_date": m.due_date.strftime("%d/%m/%Y") if m.due_date else "--", "status": m.status} for m in milestones],
         "wbs_nodes": [{"code": w.code, "name": w.name, "budget": f"{w.budget:,.0f}" if w.budget else "--"} for w in wbs],

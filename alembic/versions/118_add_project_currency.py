@@ -1,7 +1,7 @@
 """add project currency
 
-Revision ID: 117_add_project_currency
-Revises: 116_add_packlog_request_requester_and_sender_contact
+Revision ID: 118_add_project_currency
+Revises: 117_project_task_pob_quota
 Create Date: 2026-04-11
 """
 
@@ -11,8 +11,8 @@ import sqlalchemy as sa
 from alembic import op
 
 
-revision: str = "117_add_project_currency"
-down_revision: str | Sequence[str] | None = "116_add_packlog_request_requester_and_sender_contact"
+revision: str = "118_add_project_currency"
+down_revision: str | Sequence[str] | None = "117_project_task_pob_quota"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

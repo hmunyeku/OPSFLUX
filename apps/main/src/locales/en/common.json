@@ -2023,7 +2023,8 @@
         }
       },
       "compliance": {
-        "blocking_title": "Blocking items",
+        "blocking_title": "Blocking compliance issues",
+        "non_blocking_title": "Non-blocking warnings",
         "compliant": "Compliance is OK for the selected site.",
         "layers": {
           "site_requirements": "Site requirements",

@@ -2027,7 +2027,8 @@
         }
       },
       "compliance": {
-        "blocking_title": "Rubriques bloquantes",
+        "blocking_title": "Non-conformités bloquantes",
+        "non_blocking_title": "Signalements non-bloquants",
         "compliant": "Conformité OK pour le site sélectionné.",
         "layers": {
           "site_requirements": "Règles site",

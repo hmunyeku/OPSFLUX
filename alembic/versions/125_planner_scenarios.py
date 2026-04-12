@@ -18,8 +18,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision = "125"
-down_revision = "124"
+revision = "125_planner_scenarios"
+down_revision = "124_add_performance_indexes"
 branch_labels = None
 depends_on = None
 

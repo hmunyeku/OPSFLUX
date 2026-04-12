@@ -27,8 +27,8 @@ Revision ID: 124
 
 from alembic import op
 
-revision = "124"
-down_revision = "123"
+revision = "124_add_performance_indexes"
+down_revision = "123_planner_activity_progress_weight"
 branch_labels = None
 depends_on = None
 

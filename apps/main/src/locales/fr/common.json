@@ -980,6 +980,20 @@
       "medical": "Médical",
       "epi": "EPI"
     },
+    "columns": {
+      "code": "Code",
+      "name": "Nom",
+      "category": "Catégorie",
+      "validity": "Validité",
+      "mandatory": "Obligatoire",
+      "type": "Type",
+      "object": "Objet",
+      "status": "Statut",
+      "expiration": "Expiration",
+      "issuer": "Émetteur",
+      "owner": "Propriétaire",
+      "reason": "Motif"
+    },
     "records": {
       "title": "Enregistrements",
       "create": "Nouvel enregistrement",

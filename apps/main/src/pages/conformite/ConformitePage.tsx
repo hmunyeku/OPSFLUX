@@ -1137,36 +1137,36 @@ export function ConformitePage() {
 
   // Columns
   const typeColumns = useMemo<ColumnDef<ComplianceType, unknown>[]>(() => [
-    { accessorKey: 'code', header: 'Code', size: 100, cell: ({ row }) => <span className="font-medium">{row.original.code}</span> },
-    { accessorKey: 'name', header: 'Nom', cell: ({ row }) => <span className="text-foreground">{row.original.name}</span> },
-    { accessorKey: 'category', header: 'Categorie', size: 120, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{categoryLabels[row.original.category] ?? row.original.category}</span> },
-    { accessorKey: 'validity_days', header: 'Validite', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.validity_days ? `${row.original.validity_days}j` : 'Permanent'}</span> },
-    { accessorKey: 'is_mandatory', header: 'Obligatoire', size: 90, cell: ({ row }) => row.original.is_mandatory ? <span className="gl-badge gl-badge-warning">Oui</span> : <span className="text-muted-foreground/40">--</span> },
+    { accessorKey: 'code', header: t('conformite.columns.code'), size: 100, cell: ({ row }) => <span className="font-medium">{row.original.code}</span> },
+    { accessorKey: 'name', header: t('conformite.columns.name'), cell: ({ row }) => <span className="text-foreground">{row.original.name}</span> },
+    { accessorKey: 'category', header: t('conformite.columns.category'), size: 120, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{categoryLabels[row.original.category] ?? row.original.category}</span> },
+    { accessorKey: 'validity_days', header: t('conformite.columns.validity'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.validity_days ? `${row.original.validity_days}j` : 'Permanent'}</span> },
+    { accessorKey: 'is_mandatory', header: t('conformite.columns.mandatory'), size: 90, cell: ({ row }) => row.original.is_mandatory ? <span className="gl-badge gl-badge-warning">Oui</span> : <span className="text-muted-foreground/40">--</span> },
   ], [categoryLabels])
 
   const recordColumns = useMemo<ColumnDef<ComplianceRecord, unknown>[]>(() => [
-    { accessorKey: 'type_name', header: 'Type', cell: ({ row }) => <span className="text-foreground font-medium">{row.original.type_name || '--'}</span> },
-    { accessorKey: 'type_category', header: 'Categorie', size: 110, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.type_category || '--'}</span> },
-    { accessorKey: 'owner_type', header: 'Objet', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.owner_type}</span> },
-    { accessorKey: 'status', header: 'Statut', size: 90, cell: ({ row }) => {
+    { accessorKey: 'type_name', header: t('conformite.columns.type'), cell: ({ row }) => <span className="text-foreground font-medium">{row.original.type_name || '--'}</span> },
+    { accessorKey: 'type_category', header: t('conformite.columns.category'), size: 110, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.type_category || '--'}</span> },
+    { accessorKey: 'owner_type', header: t('conformite.columns.object'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.owner_type}</span> },
+    { accessorKey: 'status', header: t('conformite.columns.status'), size: 90, cell: ({ row }) => {
       const s = row.original.status
       const cls = s === 'valid' ? 'gl-badge-success' : s === 'expired' ? 'gl-badge-danger' : s === 'pending' ? 'gl-badge-warning' : 'gl-badge-neutral'
       return <span className={cn('gl-badge', cls)}>{statusLabels[s] ?? s}</span>
     }},
-    { accessorKey: 'expires_at', header: 'Expiration', size: 110, cell: ({ row }) => row.original.expires_at ? <span className="text-muted-foreground text-xs">{new Date(row.original.expires_at).toLocaleDateString('fr-FR')}</span> : <span className="text-muted-foreground/40">--</span> },
-    { accessorKey: 'issuer', header: 'Emetteur', size: 120, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.issuer || '--'}</span> },
+    { accessorKey: 'expires_at', header: t('conformite.columns.expiration'), size: 110, cell: ({ row }) => row.original.expires_at ? <span className="text-muted-foreground text-xs">{new Date(row.original.expires_at).toLocaleDateString('fr-FR')}</span> : <span className="text-muted-foreground/40">--</span> },
+    { accessorKey: 'issuer', header: t('conformite.columns.issuer'), size: 120, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.issuer || '--'}</span> },
   ], [statusLabels])
 
   // Exemption columns
   const exemptionColumns = useMemo<ColumnDef<ComplianceExemption, unknown>[]>(() => [
-    { accessorKey: 'record_type_name', header: 'Type', cell: ({ row }) => <span className="text-foreground font-medium">{row.original.record_type_name || '--'}</span> },
-    { accessorKey: 'owner_name', header: 'Proprietaire', size: 150, cell: ({ row }) => <span className="text-foreground text-xs">{row.original.owner_name || '--'}</span> },
-    { accessorKey: 'status', header: 'Statut', size: 100, cell: ({ row }) => {
+    { accessorKey: 'record_type_name', header: t('conformite.columns.type'), cell: ({ row }) => <span className="text-foreground font-medium">{row.original.record_type_name || '--'}</span> },
+    { accessorKey: 'owner_name', header: t('conformite.columns.owner'), size: 150, cell: ({ row }) => <span className="text-foreground text-xs">{row.original.owner_name || '--'}</span> },
+    { accessorKey: 'status', header: t('conformite.columns.status'), size: 100, cell: ({ row }) => {
       const s = row.original.status
       const cls = s === 'approved' ? 'gl-badge-success' : s === 'rejected' ? 'gl-badge-danger' : s === 'pending' ? 'gl-badge-warning' : 'gl-badge-neutral'
       return <span className={cn('gl-badge', cls)}>{exemptionStatusLabels[s] ?? s}</span>
     }},
-    { accessorKey: 'reason', header: 'Motif', cell: ({ row }) => <span className="text-muted-foreground text-xs truncate max-w-[200px] block">{row.original.reason}</span> },
+    { accessorKey: 'reason', header: t('conformite.columns.reason'), cell: ({ row }) => <span className="text-muted-foreground text-xs truncate max-w-[200px] block">{row.original.reason}</span> },
     { accessorKey: 'start_date', header: 'Debut', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.start_date).toLocaleDateString('fr-FR')}</span> },
     { accessorKey: 'end_date', header: 'Fin', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.end_date).toLocaleDateString('fr-FR')}</span> },
     { accessorKey: 'approver_name', header: 'Approuve par', size: 130, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.approver_name || '--'}</span> },
@@ -1184,7 +1184,7 @@ export function ConformitePage() {
   // Rules columns (flat list -- not paginated)
   // @ts-expect-error — ruleColumns kept for future DataTable integration
   const ruleColumns = useMemo<ColumnDef<ComplianceRule, unknown>[]>(() => [
-    { accessorKey: 'compliance_type_id', header: 'Type', size: 200, cell: ({ row }) => {
+    { accessorKey: 'compliance_type_id', header: t('conformite.columns.type'), size: 200, cell: ({ row }) => {
       const ct = typesData?.items.find(t => t.id === row.original.compliance_type_id)
       return <span className="text-foreground font-medium">{ct ? `${ct.code} — ${ct.name}` : row.original.compliance_type_id.slice(0, 8)}</span>
     }},
@@ -1218,7 +1218,7 @@ export function ConformitePage() {
         : <span className="text-foreground text-xs">{row.original.to_tier_name || '--'}</span>,
     },
     { accessorKey: 'transfer_date', header: 'Date', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.transfer_date).toLocaleDateString('fr-FR')}</span> },
-    { accessorKey: 'reason', header: 'Motif', cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.reason || '--'}</span> },
+    { accessorKey: 'reason', header: t('conformite.columns.reason'), cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.reason || '--'}</span> },
   ], [ruleTargetLabels])
 
   const typesPagination: DataTablePagination | undefined = typesData ? { page: typesData.page, pageSize, total: typesData.total, pages: typesData.pages } : undefined
@@ -2866,7 +2866,7 @@ function VerificationsTab() {
     },
     {
       accessorKey: 'record_type',
-      header: 'Type',
+      header: t('conformite.columns.type'),
       size: 120,
       cell: ({ row }) => (
         <span className="gl-badge gl-badge-neutral text-[9px]">{recordTypeLabels[row.original.record_type] || row.original.record_type}</span>
@@ -2875,7 +2875,7 @@ function VerificationsTab() {
     { accessorKey: 'description', header: 'Description', size: 220 },
     {
       accessorKey: 'verification_status',
-      header: 'Statut',
+      header: t('conformite.columns.status'),
       size: 100,
       cell: ({ row }) => {
         const s = row.original.verification_status
@@ -2886,7 +2886,7 @@ function VerificationsTab() {
     },
     {
       accessorKey: 'issuer',
-      header: 'Emetteur',
+      header: t('conformite.columns.issuer'),
       size: 130,
       cell: ({ row }) => <span className="truncate">{(row.original as any).issuer as string || '—'}</span>,
     },
@@ -2898,7 +2898,7 @@ function VerificationsTab() {
     },
     {
       accessorKey: 'expires_at',
-      header: 'Expiration',
+      header: t('conformite.columns.expiration'),
       size: 100,
       cell: ({ row }) => {
         const exp = (row.original as any).expires_at as string | null

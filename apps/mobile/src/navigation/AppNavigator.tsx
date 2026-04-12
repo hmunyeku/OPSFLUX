@@ -22,6 +22,7 @@ import { Badge } from "react-native-paper";
 import { useAuthStore } from "../stores/auth";
 import { usePermissions } from "../stores/permissions";
 import { useNotifications, connectNotifications, disconnectNotifications } from "../services/notifications";
+import { useOfflineStore } from "../services/offline";
 import { colors } from "../utils/colors";
 
 // Screens
@@ -46,6 +47,10 @@ import AccountBlockedScreen from "../screens/AccountBlockedScreen";
 import ForceUpdateScreen, { compareVersions } from "../screens/ForceUpdateScreen";
 import { useAppState } from "../stores/appState";
 import { APP_VERSION } from "../services/api";
+import MaintenanceScreen from "../screens/MaintenanceScreen";
+import MyComplianceScreen from "../screens/MyComplianceScreen";
+import MyContactsScreen from "../screens/MyContactsScreen";
+import PreferencesScreen from "../screens/PreferencesScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 
 const Stack = createNativeStackNavigator();
@@ -63,6 +68,21 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
       <Text style={[tabStyles.iconText, focused && tabStyles.iconTextFocused]}>
         {label}
       </Text>
+    </View>
+  );
+}
+
+function HomeTabIcon({ focused }: { focused: boolean }) {
+  const isOnline = useOfflineStore((s) => s.isOnline);
+  return (
+    <View>
+      <TabIcon label="H" focused={focused} />
+      <View
+        style={[
+          tabStyles.connectDot,
+          { backgroundColor: isOnline ? colors.success : colors.danger },
+        ]}
+      />
     </View>
   );
 }
@@ -106,6 +126,16 @@ const tabStyles = StyleSheet.create({
     top: -2,
     right: -6,
     backgroundColor: colors.danger,
+  },
+  connectDot: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: colors.surface,
   },
 });
 
@@ -244,6 +274,21 @@ function SettingsStack() {
         component={SettingsScreen}
         options={{ title: "Paramètres" }}
       />
+      <Stack.Screen
+        name="MyCompliance"
+        component={MyComplianceScreen}
+        options={{ title: "Ma conformité" }}
+      />
+      <Stack.Screen
+        name="MyContacts"
+        component={MyContactsScreen}
+        options={{ title: "Mes contacts" }}
+      />
+      <Stack.Screen
+        name="Preferences"
+        component={PreferencesScreen}
+        options={{ title: "Préférences" }}
+      />
     </Stack.Navigator>
   );
 }
@@ -273,7 +318,7 @@ function MainTabs() {
         component={HomeStack}
         options={{
           tabBarLabel: "Accueil",
-          tabBarIcon: ({ focused }) => <TabIcon label="H" focused={focused} />,
+          tabBarIcon: ({ focused }) => <HomeTabIcon focused={focused} />,
         }}
       />
       <Tab.Screen
@@ -330,6 +375,7 @@ export default function AppNavigator() {
   const updateRequired = useAppState((s) => s.updateRequired);
   const updateSoft = useAppState((s) => s.updateSoft);
   const requiredVersion = useAppState((s) => s.requiredVersion);
+  const maintenance = useAppState((s) => s.maintenance);
 
   // On auth change: fetch permissions + connect notifications + check onboarding
   useEffect(() => {
@@ -351,6 +397,11 @@ export default function AppNavigator() {
   }, [isAuthenticated]);
 
   // ── Blocking screens take priority over everything ────────────────
+
+  // Server maintenance
+  if (maintenance) {
+    return <MaintenanceScreen />;
+  }
 
   // Force update required (non-dismissable)
   if (updateRequired && !updateSoft) {

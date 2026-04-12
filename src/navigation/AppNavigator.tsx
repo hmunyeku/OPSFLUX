@@ -3,20 +3,25 @@
  *
  * Main app uses a bottom tab bar with:
  *  - Portal Home (dynamic role-based dashboard)
- *  - Scanner ADS
- *  - Scanner Colis
+ *  - Scanner (ADS + Colis)
+ *  - Tracking (live fleet map)
+ *  - Notifications
  *  - Settings/Profile
  *
  * Each tab has its own stack for drill-down screens.
- * The DynamicForm screen is accessible from any tab via a shared stack.
+ * Shared screens (DynamicForm, detail views) are available from any tab.
+ * Permissions are fetched on login and filter all visible content.
  */
 
-import React from "react";
+import React, { useEffect } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Text, View, StyleSheet } from "react-native";
+import { Badge } from "react-native-paper";
 
 import { useAuthStore } from "../stores/auth";
+import { usePermissions } from "../stores/permissions";
+import { useNotifications, connectNotifications, disconnectNotifications } from "../services/notifications";
 import { colors } from "../utils/colors";
 
 // Screens
@@ -29,6 +34,9 @@ import CargoDetailScreen from "../screens/CargoDetailScreen";
 import AdsListScreen from "../screens/AdsListScreen";
 import CargoListScreen from "../screens/CargoListScreen";
 import DynamicFormScreen from "../screens/DynamicFormScreen";
+import SearchScreen from "../screens/SearchScreen";
+import NotificationsScreen from "../screens/NotificationsScreen";
+import LiveTrackingScreen from "../screens/LiveTrackingScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 
 const Stack = createNativeStackNavigator();
@@ -46,6 +54,20 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
       <Text style={[tabStyles.iconText, focused && tabStyles.iconTextFocused]}>
         {label}
       </Text>
+    </View>
+  );
+}
+
+function NotifTabIcon({ focused }: { focused: boolean }) {
+  const unreadCount = useNotifications((s) => s.unreadCount);
+  return (
+    <View>
+      <TabIcon label="N" focused={focused} />
+      {unreadCount > 0 && (
+        <Badge size={16} style={tabStyles.badge}>
+          {unreadCount > 9 ? "9+" : unreadCount}
+        </Badge>
+      )}
     </View>
   );
 }
@@ -70,39 +92,50 @@ const tabStyles = StyleSheet.create({
   iconTextFocused: {
     color: colors.primary,
   },
+  badge: {
+    position: "absolute",
+    top: -2,
+    right: -6,
+    backgroundColor: colors.danger,
+  },
 });
 
 // ── Shared screens injected into each stack ─────────────────────────
 
-function withSharedScreens(StackNav: typeof Stack) {
+function SharedScreens() {
   return (
     <>
-      <StackNav.Screen
+      <Stack.Screen
         name="DynamicForm"
         component={DynamicFormScreen}
         options={({ route }: any) => ({
           title: route.params?.formTitle ?? "Formulaire",
         })}
       />
-      <StackNav.Screen
+      <Stack.Screen
         name="AdsBoardingDetail"
         component={AdsBoardingDetailScreen}
         options={{ title: "Boarding ADS" }}
       />
-      <StackNav.Screen
+      <Stack.Screen
         name="CargoDetail"
         component={CargoDetailScreen}
         options={{ title: "Détail Colis" }}
       />
-      <StackNav.Screen
+      <Stack.Screen
         name="AdsList"
         component={AdsListScreen}
         options={{ title: "Avis de Séjour" }}
       />
-      <StackNav.Screen
+      <Stack.Screen
         name="CargoList"
         component={CargoListScreen}
         options={{ title: "Colis" }}
+      />
+      <Stack.Screen
+        name="Search"
+        component={SearchScreen}
+        options={{ title: "Recherche" }}
       />
     </>
   );
@@ -118,14 +151,14 @@ function HomeStack() {
         component={PortalHomeScreen}
         options={{ title: "OpsFlux" }}
       />
-      {withSharedScreens(Stack)}
+      {SharedScreens()}
     </Stack.Navigator>
   );
 }
 
-// ── ADS Scanner Stack ───────────────────────────────────────────────
+// ── Scanner Stack (ADS + Cargo) ─────────────────────────────────────
 
-function AdsStack() {
+function ScannerStack() {
   return (
     <Stack.Navigator screenOptions={defaultScreenOptions}>
       <Stack.Screen
@@ -133,22 +166,41 @@ function AdsStack() {
         component={ScanAdsScreen}
         options={{ title: "Scanner ADS" }}
       />
-      {withSharedScreens(Stack)}
-    </Stack.Navigator>
-  );
-}
-
-// ── Cargo Scanner Stack ─────────────────────────────────────────────
-
-function CargoStack() {
-  return (
-    <Stack.Navigator screenOptions={defaultScreenOptions}>
       <Stack.Screen
         name="ScanCargoMain"
         component={ScanCargoScreen}
         options={{ title: "Scanner Colis" }}
       />
-      {withSharedScreens(Stack)}
+      {SharedScreens()}
+    </Stack.Navigator>
+  );
+}
+
+// ── Tracking Stack ──────────────────────────────────────────────────
+
+function TrackingStack() {
+  return (
+    <Stack.Navigator screenOptions={defaultScreenOptions}>
+      <Stack.Screen
+        name="LiveTrackingMain"
+        component={LiveTrackingScreen}
+        options={{ title: "Suivi en direct" }}
+      />
+    </Stack.Navigator>
+  );
+}
+
+// ── Notifications Stack ─────────────────────────────────────────────
+
+function NotificationsStack() {
+  return (
+    <Stack.Navigator screenOptions={defaultScreenOptions}>
+      <Stack.Screen
+        name="NotificationsMain"
+        component={NotificationsScreen}
+        options={{ title: "Notifications" }}
+      />
+      {SharedScreens()}
     </Stack.Navigator>
   );
 }
@@ -170,6 +222,8 @@ function SettingsStack() {
 // ── Main Tab Navigator ──────────────────────────────────────────────
 
 function MainTabs() {
+  const hasTracking = usePermissions((s) => s.hasAny(["travelwiz.tracking.update", "travelwiz.boarding.manage"]));
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -182,10 +236,7 @@ function MainTabs() {
           paddingBottom: 4,
           height: 60,
         },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "600",
-        },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: "600" },
       }}
     >
       <Tab.Screen
@@ -193,29 +244,33 @@ function MainTabs() {
         component={HomeStack}
         options={{
           tabBarLabel: "Accueil",
-          tabBarIcon: ({ focused }) => (
-            <TabIcon label="H" focused={focused} />
-          ),
+          tabBarIcon: ({ focused }) => <TabIcon label="H" focused={focused} />,
         }}
       />
       <Tab.Screen
-        name="ScanAds"
-        component={AdsStack}
+        name="Scanner"
+        component={ScannerStack}
         options={{
-          tabBarLabel: "Scan ADS",
-          tabBarIcon: ({ focused }) => (
-            <TabIcon label="QR" focused={focused} />
-          ),
+          tabBarLabel: "Scanner",
+          tabBarIcon: ({ focused }) => <TabIcon label="QR" focused={focused} />,
         }}
       />
+      {hasTracking && (
+        <Tab.Screen
+          name="Tracking"
+          component={TrackingStack}
+          options={{
+            tabBarLabel: "Tracking",
+            tabBarIcon: ({ focused }) => <TabIcon label="GPS" focused={focused} />,
+          }}
+        />
+      )}
       <Tab.Screen
-        name="ScanCargo"
-        component={CargoStack}
+        name="Notifications"
+        component={NotificationsStack}
         options={{
-          tabBarLabel: "Scan Colis",
-          tabBarIcon: ({ focused }) => (
-            <TabIcon label="PKG" focused={focused} />
-          ),
+          tabBarLabel: "Notifs",
+          tabBarIcon: ({ focused }) => <NotifTabIcon focused={focused} />,
         }}
       />
       <Tab.Screen
@@ -223,9 +278,7 @@ function MainTabs() {
         component={SettingsStack}
         options={{
           tabBarLabel: "Profil",
-          tabBarIcon: ({ focused }) => (
-            <TabIcon label="U" focused={focused} />
-          ),
+          tabBarIcon: ({ focused }) => <TabIcon label="U" focused={focused} />,
         }}
       />
     </Tab.Navigator>
@@ -236,6 +289,19 @@ function MainTabs() {
 
 export default function AppNavigator() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const fetchPermissions = usePermissions((s) => s.fetchPermissions);
+  const clearPermissions = usePermissions((s) => s.clear);
+
+  // On auth change: fetch permissions + connect notifications
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchPermissions();
+      connectNotifications();
+    } else {
+      clearPermissions();
+      disconnectNotifications();
+    }
+  }, [isAuthenticated]);
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>

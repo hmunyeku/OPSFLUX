@@ -209,7 +209,7 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
               <GripVertical className="h-3 w-3 text-muted-foreground/25" />
             </div>
           )}
-          <span className={cn('text-[13px] font-semibold truncate flex-1', hasBgColor ? 'text-white/90' : 'text-primary')}>
+          <span className={cn('text-xs sm:text-[13px] font-semibold truncate flex-1', hasBgColor ? 'text-white/90' : 'text-primary')}>
             {widget.title}
           </span>
           {/* Toolbar dots — appears on hover */}
@@ -744,6 +744,14 @@ function TableWidget({
 
   const renderCell = (value: unknown, key: string, colIdx: number) => {
     if (value == null) return <span className="text-muted-foreground/30">—</span>
+    // Guard against objects — extract a display string instead of [object Object]
+    if (typeof value === 'object') {
+      const obj = value as Record<string, unknown>
+      const s = obj.name ?? obj.label ?? obj.code ?? obj.title ?? obj.value ?? obj.id
+      if (s != null) return renderCell(s, key, colIdx)
+      // Last resort: show JSON
+      try { return <span className="text-[10px] text-muted-foreground font-mono">{JSON.stringify(value)}</span> } catch { return <span className="text-muted-foreground/30">—</span> }
+    }
     const s = String(value)
 
     // Status badge

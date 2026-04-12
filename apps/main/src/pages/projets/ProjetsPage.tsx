@@ -7,6 +7,7 @@
  *  - CreateProjectPanel: full creation form
  */
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
 import {
@@ -4782,9 +4783,19 @@ function ProjectsListView() {
   )
 }
 
+const VALID_VIEW_TABS = new Set<ViewTab>(['dashboard', 'projets', 'tableur', 'kanban', 'planning'])
+
 export function ProjetsPage() {
   useTranslation()
-  const [viewTab, setViewTab] = useState<ViewTab>('dashboard')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabFromUrl = searchParams.get('tab') as ViewTab | null
+  const [viewTab, setViewTabRaw] = useState<ViewTab>(
+    tabFromUrl && VALID_VIEW_TABS.has(tabFromUrl) ? tabFromUrl : 'dashboard',
+  )
+  const setViewTab = useCallback((tab: ViewTab) => {
+    setViewTabRaw(tab)
+    setSearchParams(tab === 'dashboard' ? {} : { tab }, { replace: true })
+  }, [setSearchParams])
 
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)

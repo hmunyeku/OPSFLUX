@@ -5,6 +5,7 @@
  * Dynamic Panel: create/detail forms per entity.
  */
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   CalendarRange, ListTodo, AlertTriangle, BarChart3, Plus,
@@ -497,9 +498,9 @@ function _GanttTabLegacy() { // eslint-disable-line
           <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
             <GanttChart size={24} className="text-primary" />
           </div>
-          <h3 className="text-base font-semibold text-foreground mb-1">Aucune activite</h3>
+          <h3 className="text-base font-semibold text-foreground mb-1">Aucune activité</h3>
           <p className="text-sm text-muted-foreground max-w-sm">
-            Aucune activite trouvee pour cette periode. Ajustez les filtres ou la plage de dates.
+            Aucune activité trouvée pour cette période. Ajustez les filtres ou la plage de dates.
           </p>
         </div>
       ) : (
@@ -1018,7 +1019,7 @@ function ActivitiesTab() {
           searchPlaceholder="Rechercher par titre..."
           onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'planner', id: row.id, meta: { subtype: 'activity' } })}
           emptyIcon={ListTodo}
-          emptyTitle="Aucune activite"
+          emptyTitle="Aucune activité"
           importExport={canExport ? {
             exportFormats: ['csv', 'xlsx'],
             advancedExport: true,
@@ -2718,6 +2719,9 @@ function ScenariosTab() {
               <FlaskConical size={32} className="mx-auto mb-2 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">Aucun scénario</p>
               <p className="text-xs text-muted-foreground/60 mt-1">Créez un scénario what-if pour tester l'impact d'activités proposées.</p>
+              <button onClick={() => setShowCreate(true)} className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
+                <Plus size={12} /> Nouveau scénario
+              </button>
             </div>
           </div>
         ) : (
@@ -3075,9 +3079,19 @@ function repairTimelineRange(
   return { start: fmt(startFixed), end: fmt(endFixed) }
 }
 
+const VALID_PLANNER_TABS = new Set<PlannerTab>(['dashboard', 'gantt', 'activities', 'conflicts', 'capacity', 'scenarios', 'forecast'])
+
 export function PlannerPage() {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState<PlannerTab>('dashboard')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabFromUrl = searchParams.get('tab') as PlannerTab | null
+  const [activeTab, setActiveTabRaw] = useState<PlannerTab>(
+    tabFromUrl && VALID_PLANNER_TABS.has(tabFromUrl) ? tabFromUrl : 'dashboard',
+  )
+  const setActiveTab = useCallback((tab: PlannerTab) => {
+    setActiveTabRaw(tab)
+    setSearchParams(tab === 'dashboard' ? {} : { tab }, { replace: true })
+  }, [setSearchParams])
 
   // Translate tab labels from i18n keys so the UI follows the active language.
   const translatedTabs = useMemo(
@@ -4357,7 +4371,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">Aucune dependance</p>
+                <p className="text-xs text-muted-foreground">Aucune dépendance</p>
               )}
 
               {showDepAdd ? (

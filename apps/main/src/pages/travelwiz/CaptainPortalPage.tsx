@@ -28,19 +28,19 @@ const EVENT_TYPES = [
   { value: 'stop_arrival', label: 'Arrivee escale' },
   { value: 'stop_departure', label: 'Depart escale' },
   { value: 'pax_boarding', label: 'Embarquement PAX' },
-  { value: 'pax_disembark', label: 'Debarquement PAX' },
-  { value: 'cargo_loaded', label: 'Cargo charge' },
-  { value: 'cargo_unloaded', label: 'Cargo decharge' },
+  { value: 'pax_disembark', label: 'Débarquement PAX' },
+  { value: 'cargo_loaded', label: 'Cargo chargé' },
+  { value: 'cargo_unloaded', label: 'Cargo déchargé' },
   { value: 'delay', label: 'Retard' },
   { value: 'incident', label: 'Incident' },
-  { value: 'weather_change', label: 'Changement meteo' },
+  { value: 'weather_change', label: 'Changement météo' },
   { value: 'custom', label: 'Autre' },
 ]
 
 const SEA_STATES = [
   { value: 'calm', label: 'Calme' },
-  { value: 'slight', label: 'Peu agitee' },
-  { value: 'moderate', label: 'Agitee' },
+  { value: 'slight', label: 'Peu agitée' },
+  { value: 'moderate', label: 'Agitée' },
   { value: 'rough', label: 'Forte' },
   { value: 'very_rough', label: 'Tres forte' },
   { value: 'high', label: 'Grosse' },
@@ -345,12 +345,12 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
               Enregistrer l'evenement
             </button>
             {recordEvent.isSuccess && (
-              <p className="text-xs text-green-600 text-center">Evenement enregistre</p>
+              <p className="text-xs text-green-600 text-center">Événement enregistré</p>
             )}
           </div>
         )}
 
-        <SectionButton id="weather" label="Rapport meteo" icon={CloudSun} />
+        <SectionButton id="weather" label="Rapport météo" icon={CloudSun} />
         {activeSection === 'weather' && (
           <div className="bg-card border border-border rounded-xl p-4 space-y-3">
             <div className="grid grid-cols-2 gap-3">
@@ -415,10 +415,10 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
               className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {reportWeather.isPending ? <Loader2 size={18} className="animate-spin" /> : <CloudSun size={18} />}
-              Envoyer rapport meteo
+              Envoyer rapport météo
             </button>
             {reportWeather.isSuccess && (
-              <p className="text-xs text-green-600 text-center">Rapport envoye</p>
+              <p className="text-xs text-green-600 text-center">Rapport envoyé</p>
             )}
           </div>
         )}

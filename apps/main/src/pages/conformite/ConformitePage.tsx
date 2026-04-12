@@ -4,6 +4,7 @@
  * Onglets: Referentiel | Enregistrements | Exemptions | Fiches de poste | Regles | Transferts
  */
 import React, { useState, useCallback, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   ShieldCheck, Plus, Loader2, Trash2, FileCheck, ClipboardList,
@@ -1012,10 +1013,20 @@ function JobPositionDetailPanel({ id }: { id: string }) {
 
 // -- Main Page ----------------------------------------------------------------
 
+const VALID_CONF_TABS = new Set<ConformiteTab>(['dashboard', 'referentiel', 'enregistrements', 'verifications', 'exemptions', 'fiches', 'regles', 'transferts'])
+
 export function ConformitePage() {
   const { t } = useTranslation()
   const tabs = useConformiteTabs()
-  const [activeTab, setActiveTab] = useState<ConformiteTab>('dashboard')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabFromUrl = searchParams.get('tab') as ConformiteTab | null
+  const [activeTab, setActiveTabRaw] = useState<ConformiteTab>(
+    tabFromUrl && VALID_CONF_TABS.has(tabFromUrl) ? tabFromUrl : 'dashboard',
+  )
+  const setActiveTab = useCallback((tab: ConformiteTab) => {
+    setActiveTabRaw(tab)
+    setSearchParams(tab === 'dashboard' ? {} : { tab }, { replace: true })
+  }, [setSearchParams])
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')

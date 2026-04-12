@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
@@ -726,7 +726,20 @@ export function PackLogPage() {
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { hasPermission } = usePermission()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [activeTab, setActiveTab] = useState<PackLogTab>('dashboard')
+  const tabFromUrl = searchParams.get('tab') as PackLogTab | null
+  const VALID_PL_TABS = new Set<PackLogTab>(['dashboard', 'requests', 'cargo', 'catalog', 'tracking', 'alerts'])
+  const [activeTab, setActiveTabRaw] = useState<PackLogTab>(
+    tabFromUrl && VALID_PL_TABS.has(tabFromUrl) ? tabFromUrl : 'dashboard',
+  )
+  const setActiveTab = useCallback((tab: PackLogTab) => {
+    setActiveTabRaw(tab)
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (tab === 'dashboard') next.delete('tab')
+      else next.set('tab', tab)
+      return next
+    }, { replace: true })
+  }, [setSearchParams])
   const { data: requestsSummary } = usePackLogCargoRequests({ page: 1, page_size: 1 })
   const { data: cargoSummary } = usePackLogCargo({ page: 1, page_size: 1 })
   const { data: articlesSummary } = usePackLogArticles({ page: 1, page_size: 1 })

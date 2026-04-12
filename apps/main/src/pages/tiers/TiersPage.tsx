@@ -15,6 +15,7 @@
  *  - ALL fields available at creation (no "add later" message)
  */
 import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Building2, Plus, Loader2, Trash2, MapPin, Paperclip, MessageSquare,
@@ -1419,9 +1420,19 @@ function useContactColumns() {
   ], [t, civilityLabels])
 }
 
+const VALID_TIERS_TABS = new Set<TiersTab>(['dashboard', 'entreprises', 'contacts'])
+
 export function TiersPage() {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState<TiersTab>('dashboard')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabFromUrl = searchParams.get('tab') as TiersTab | null
+  const [activeTab, setActiveTabRaw] = useState<TiersTab>(
+    tabFromUrl && VALID_TIERS_TABS.has(tabFromUrl) ? tabFromUrl : 'dashboard',
+  )
+  const setActiveTab = useCallback((tab: TiersTab) => {
+    setActiveTabRaw(tab)
+    setSearchParams(tab === 'dashboard' ? {} : { tab }, { replace: true })
+  }, [setSearchParams])
   const tierTypeOptions = useDictionaryOptions('tier_type')
   const tierTypeLabels = useDictionaryLabels('tier_type')
   const legalFormLabels = useDictionaryLabels('legal_form')

@@ -7,6 +7,7 @@
  * Each tab manages its own search via DataTable visual query bar.
  */
 import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Users,
@@ -5962,9 +5963,19 @@ function AvmDetailPanel({ id }: { id?: string }) {
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════
 
+const VALID_PAXLOG_TABS = new Set<MainTabId>(['dashboard', 'ads', 'waitlist', 'profiles', 'compliance', 'signalements', 'rotations', 'avm'])
+
 export function PaxLogPage() {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState<MainTabId>('dashboard')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabFromUrl = searchParams.get('tab') as MainTabId | null
+  const [activeTab, setActiveTabRaw] = useState<MainTabId>(
+    tabFromUrl && VALID_PAXLOG_TABS.has(tabFromUrl) ? tabFromUrl : 'dashboard',
+  )
+  const setActiveTab = useCallback((tab: MainTabId) => {
+    setActiveTabRaw(tab)
+    setSearchParams(tab === 'dashboard' ? {} : { tab }, { replace: true })
+  }, [setSearchParams])
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)

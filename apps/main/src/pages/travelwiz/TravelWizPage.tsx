@@ -5,6 +5,7 @@
  * Dynamic Panel: create/detail forms per entity.
  */
 import { useState, useEffect, useCallback, useMemo, Component, type ReactNode, type ErrorInfo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Plane, Ship, Package, FileText, Plus, LayoutDashboard,
@@ -1479,8 +1480,8 @@ function WeatherTab() {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <CloudSun size={32} className="text-muted-foreground/30 mb-3" />
-        <p className="text-sm text-muted-foreground">Aucune donnee meteo disponible</p>
-        <p className="text-xs text-muted-foreground/70 mt-1">Les rapports meteo seront affiches ici</p>
+        <p className="text-sm text-muted-foreground">Aucune donnée météo disponible</p>
+        <p className="text-xs text-muted-foreground/70 mt-1">Les rapports météo seront affichés ici</p>
       </div>
     )
   }
@@ -1546,8 +1547,18 @@ function WeatherTab() {
 // ── MAIN PAGE COMPONENT ──────────────────────────────────────
 // ══════════════════════════════════════════════════════════════
 
+const VALID_TW_TABS = new Set<TravelWizTab>(['dashboard', 'voyages', 'manifests', 'vectors', 'fleet_map', 'pickup', 'weather'])
+
 export function TravelWizPage() {
-  const [activeTab, setActiveTab] = useState<TravelWizTab>('dashboard')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabFromUrl = searchParams.get('tab') as TravelWizTab | null
+  const [activeTab, setActiveTabRaw] = useState<TravelWizTab>(
+    tabFromUrl && VALID_TW_TABS.has(tabFromUrl) ? tabFromUrl : 'dashboard',
+  )
+  const setActiveTab = useCallback((tab: TravelWizTab) => {
+    setActiveTabRaw(tab)
+    setSearchParams(tab === 'dashboard' ? {} : { tab }, { replace: true })
+  }, [setSearchParams])
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
@@ -3309,7 +3320,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
                   <DetailRow label="Cargo total" value={`${kpis.total_cargo_kg.toLocaleString('fr-FR')} kg`} />
                   <DetailRow label="No-shows" value={kpis.no_shows} />
                   <DetailRow label="A l'heure" value={kpis.on_time ? 'Oui' : `Non (${kpis.delay_minutes ?? 0} min)`} />
-                  <DetailRow label="Evenements" value={kpis.events_count} />
+                  <DetailRow label="Événements" value={kpis.events_count} />
                   <DetailRow label="Articles HAZMAT" value={kpis.hazmat_items} />
                 </div>
               </FormSection>

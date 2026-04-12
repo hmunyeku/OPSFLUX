@@ -108,6 +108,10 @@ export default function App() {
                   <Route path="/files/*" element={<RequirePermission permission="core.settings.manage"><Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}><FileManagerPage /></Suspense></RequirePermission>} />
                   <Route path="/support/*" element={<RequireModuleEnabled module="support"><RequirePermission permission="support.ticket.read"><SupportPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/settings/*" element={<SettingsPage />} />
+                  {/* French path aliases → redirect to canonical English paths */}
+                  <Route path="/workflows/*" element={<Navigate to="/workflow" replace />} />
+                  <Route path="/fichiers/*" element={<Navigate to="/files" replace />} />
+                  <Route path="/entites/*" element={<Navigate to="/entities" replace />} />
                 </Routes>
               </Suspense>
             </AppLayout>

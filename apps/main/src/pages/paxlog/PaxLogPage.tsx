@@ -2891,7 +2891,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   const approvedProjectReviews = linkedProjects.filter((project) => approvedProjectIds.has(project.project_id))
   const isProjectReviewer = pendingProjectReviews.some((project) => project.project_manager_id === currentUser?.id)
   const isInitiatorReviewer = ads.status === 'pending_initiator_review' && ads.requester_id === currentUser?.id
-  const canSubmit = ads.status === 'draft' && hasPermission('paxlog.ads.submit')
+  const canSubmit = ['draft', 'requires_review'].includes(ads.status) && hasPermission('paxlog.ads.submit')
   const canCancel = !['cancelled', 'completed', 'rejected'].includes(ads.status) && hasPermission('paxlog.ads.cancel')
   const canApprove = (
     (['submitted', 'pending_validation'].includes(ads.status) && hasPermission('paxlog.ads.approve'))

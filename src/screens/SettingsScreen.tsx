@@ -47,7 +47,7 @@ import {
   PhoneEntry,
 } from "../services/profile";
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ navigation }: { navigation: any }) {
   const { t, i18n } = useTranslation();
   const { userDisplayName, baseUrl, entityId, logout } = useAuthStore();
   const permissionCount = usePermissions((s) => s.permissions.length);
@@ -192,6 +192,35 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Quick navigation */}
+      <Card style={styles.card}>
+        <Card.Content style={{ gap: 0 }}>
+          <List.Item
+            title="Ma conformité"
+            description="Documents, certifications, alertes expiration"
+            left={(props) => <List.Icon {...props} icon="shield-check" color={colors.success} />}
+            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+            onPress={() => navigation.navigate("MyCompliance")}
+          />
+          <Divider />
+          <List.Item
+            title="Mes contacts & adresses"
+            description="Téléphones, emails, adresses postales"
+            left={(props) => <List.Icon {...props} icon="card-account-phone" color={colors.info} />}
+            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+            onPress={() => navigation.navigate("MyContacts")}
+          />
+          <Divider />
+          <List.Item
+            title="Préférences"
+            description="Langue, thème, notifications, canal SMS"
+            left={(props) => <List.Icon {...props} icon="cog" color={colors.accent} />}
+            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+            onPress={() => navigation.navigate("Preferences")}
+          />
+        </Card.Content>
+      </Card>
+
       {/* Profile card */}
       <Card style={styles.card}>
         <Card.Content style={styles.profileContent}>

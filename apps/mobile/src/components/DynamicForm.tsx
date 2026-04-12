@@ -47,6 +47,7 @@ import {
   FieldMultiSelect,
   FieldTags,
   FieldGroup,
+  FieldMultiLookup,
 } from "./fields";
 import type { FieldDefinition, FormDefinition } from "../types/forms";
 import { colors } from "../utils/colors";
@@ -309,9 +310,8 @@ function renderFieldByType(
       );
 
     case "multi_lookup":
-      // For now, renders as a lookup (multi-select to be enhanced)
       return (
-        <FieldLookup
+        <FieldMultiLookup
           {...props}
           onChange={(v) => onChange(fieldName, v)}
         />

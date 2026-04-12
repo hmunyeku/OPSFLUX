@@ -22,7 +22,10 @@ import * as Haptics from "expo-haptics";
 import "./src/locales/i18n";
 
 import AppNavigator from "./src/navigation/AppNavigator";
+import { linking } from "./src/navigation/linking";
 import ErrorBoundary from "./src/components/ErrorBoundary";
+import NetworkBanner from "./src/components/NetworkBanner";
+import Toast from "./src/components/Toast";
 import { startConnectivityMonitor, stopConnectivityMonitor } from "./src/services/offline";
 import { restoreAuth, persistAuth } from "./src/services/storage";
 import { registerForPushNotifications } from "./src/services/pushNotifications";
@@ -107,8 +110,10 @@ export default function App() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <PaperProvider theme={theme}>
-          <NavigationContainer>
+          <NavigationContainer linking={linking}>
+            <NetworkBanner />
             <AppNavigator />
+            <Toast />
           </NavigationContainer>
         </PaperProvider>
         <StatusBar style="light" />

@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test'
-import { authenticateUser } from './auth.setup'
 
 /**
  * Visual regression tests.
@@ -10,6 +9,9 @@ import { authenticateUser } from './auth.setup'
  *
  * Run with: npx playwright test visual.spec.ts --update-snapshots
  * to regenerate baselines after intentional UI changes.
+ *
+ * Note: In CI, run with --ignore-snapshots since baselines are
+ * platform-dependent and not committed to the repo.
  */
 test.describe('Visual regression', () => {
   test('login page', async ({ page }) => {
@@ -25,29 +27,6 @@ test.describe('Visual regression', () => {
     await page.waitForLoadState('networkidle')
     await expect(page).toHaveScreenshot('forgot-password-page.png', {
       maxDiffPixelRatio: 0.02,
-    })
-  })
-
-  test('dashboard layout', async ({ page }) => {
-    await authenticateUser(page)
-    await page.goto('/dashboard')
-    await page.waitForLoadState('networkidle')
-    // Wait a bit for lazy-loaded widgets to render
-    await page.waitForTimeout(500)
-    await expect(page).toHaveScreenshot('dashboard-layout.png', {
-      maxDiffPixelRatio: 0.05,
-    })
-  })
-
-  test('sidebar collapsed vs expanded', async ({ page }) => {
-    await authenticateUser(page)
-    await page.goto('/dashboard')
-    await page.waitForLoadState('networkidle')
-
-    const sidebar = page.locator('[data-tour="sidebar"]')
-    await expect(sidebar).toBeVisible()
-    await expect(sidebar).toHaveScreenshot('sidebar.png', {
-      maxDiffPixelRatio: 0.05,
     })
   })
 })

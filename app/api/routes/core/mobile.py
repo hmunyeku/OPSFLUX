@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_entity, get_current_user
 from app.core.acting_context import resolve_acting_context
 from app.core.database import get_db
-from app.models.common import Entity, User
+from app.models.common import Entity, Setting, User
 from app.services.mobile.form_definitions import (
     get_all_form_definitions,
     get_portal_definitions,
@@ -43,10 +43,12 @@ async def mobile_bootstrap(
       - User profile (id, name, email, avatar)
       - Permissions (flat list of permission codes)
       - Available entities (for entity switch)
+      - Settings (user + entity level preferences)
+      - Enabled modules for this entity
       - Form definitions (all server-defined forms)
       - Portal configurations (role-based landing pages)
 
-    This avoids 5 separate API calls on startup and works
+    This avoids many separate API calls on startup and works
     well with offline caching (single cache key to invalidate).
     """
     # Resolve permissions via acting context
@@ -68,6 +70,40 @@ async def mobile_bootstrap(
                 "code": getattr(ent, "code", None),
             })
 
+    # Load user settings (preferences: language, theme, notifications, etc.)
+    user_settings = {}
+    user_settings_result = await db.execute(
+        select(Setting).where(
+            Setting.scope == "user",
+            Setting.scope_id == str(current_user.id),
+        )
+    )
+    for s in user_settings_result.scalars().all():
+        user_settings[s.key] = s.value
+
+    # Load entity settings (relevant mobile ones)
+    entity_settings = {}
+    entity_settings_result = await db.execute(
+        select(Setting).where(
+            Setting.scope.in_(["tenant", "entity"]),
+        )
+    )
+    for s in entity_settings_result.scalars().all():
+        # Only expose non-sensitive settings to mobile
+        if not any(
+            s.key.startswith(prefix)
+            for prefix in ("integration.", "smtp.", "ldap.", "jwt.", "auth.password")
+        ):
+            entity_settings[s.key] = s.value
+
+    # Active modules for this entity
+    from app.core.module_registry import ModuleRegistry
+    registry = ModuleRegistry()
+    enabled_modules = [
+        {"slug": m.slug, "name": m.name}
+        for m in registry.get_all_modules()
+    ]
+
     return {
         "user": {
             "id": str(current_user.id),
@@ -77,10 +113,16 @@ async def mobile_bootstrap(
             "display_name": f"{current_user.first_name} {current_user.last_name}",
             "avatar_url": current_user.avatar_url,
             "default_entity_id": str(current_user.default_entity_id) if current_user.default_entity_id else None,
+            "mfa_enabled": current_user.mfa_enabled,
         },
         "permissions": permissions,
         "entities": entities,
         "current_entity_id": str(entity_id),
+        "settings": {
+            "user": user_settings,
+            "entity": entity_settings,
+        },
+        "modules": enabled_modules,
         "forms": get_all_form_definitions(),
         "portals": get_portal_definitions(),
     }

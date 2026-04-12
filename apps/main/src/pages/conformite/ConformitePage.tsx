@@ -22,6 +22,7 @@ import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/Da
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
 import { useDebounce } from '@/hooks/useDebounce'
+import { useFilterPersistence } from '@/hooks/useFilterPersistence'
 import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
@@ -1031,7 +1032,7 @@ export function ConformitePage() {
   const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
-  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
+  const [activeFilters, setActiveFilters] = useFilterPersistence<Record<string, unknown>>('conformite.filters', {})
 
   const {
     categoryOptions,

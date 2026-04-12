@@ -26,6 +26,7 @@ import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/Da
 import { cn } from '@/lib/utils'
 import { TabBar } from '@/components/ui/Tabs'
 import { useDebounce } from '@/hooks/useDebounce'
+import { useFilterPersistence } from '@/hooks/useFilterPersistence'
 import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
@@ -809,7 +810,7 @@ export function PidPfdPage() {
   const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
-  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
+  const [activeFilters, setActiveFilters] = useFilterPersistence<Record<string, unknown>>('pidpfd.filters', {})
   const csvInputRef = useRef<HTMLInputElement>(null)
 
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)

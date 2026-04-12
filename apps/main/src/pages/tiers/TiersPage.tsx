@@ -32,6 +32,7 @@ import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { normalizeNames } from '@/lib/normalize'
 import { validateTierForm, validateTierContactForm, type FormErrors } from '@/lib/formValidation'
 import { useDebounce } from '@/hooks/useDebounce'
+import { useFilterPersistence } from '@/hooks/useFilterPersistence'
 import { usePageSize } from '@/hooks/usePageSize'
 import { usePermission } from '@/hooks/usePermission'
 import { useDictionaryOptions, useDictionaryLabels } from '@/hooks/useDictionary'
@@ -1442,7 +1443,7 @@ export function TiersPage() {
   const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
-  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
+  const [activeFilters, setActiveFilters] = useFilterPersistence<Record<string, unknown>>('tiers.filters', {})
   const { hasPermission } = usePermission()
 
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)

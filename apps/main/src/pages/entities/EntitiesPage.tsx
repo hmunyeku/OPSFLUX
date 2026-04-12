@@ -40,6 +40,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { usePermission } from '@/hooks/usePermission'
 import { useDebounce } from '@/hooks/useDebounce'
+import { useFilterPersistence } from '@/hooks/useFilterPersistence'
 import { usePageSize } from '@/hooks/usePageSize'
 import {
   useAllEntities,
@@ -865,7 +866,7 @@ function EntitiesListView() {
   const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
-  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
+  const [activeFilters, setActiveFilters] = useFilterPersistence<Record<string, unknown>>('entities.filters', {})
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const setNavItems = useUIStore((s) => s.setDynamicPanelNavItems)
   const { hasPermission } = usePermission()

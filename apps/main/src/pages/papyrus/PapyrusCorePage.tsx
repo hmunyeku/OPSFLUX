@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils'
 import { TabBar } from '@/components/ui/Tabs'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { useDebounce } from '@/hooks/useDebounce'
+import { useFilterPersistence } from '@/hooks/useFilterPersistence'
 import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import {
@@ -1444,7 +1445,7 @@ export function ReportEditorPage() {
   const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
-  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>({})
+  const [activeFilters, setActiveFilters] = useFilterPersistence<Record<string, unknown>>('papyrus.filters', {})
   const [showTreeSidebar, setShowTreeSidebar] = useState(true)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [presetProjectIds, setPresetProjectIds] = useState<Record<string, string>>({})

@@ -338,4 +338,44 @@ export const plannerService = {
     })
     return data
   },
+
+  // ── Scenarios (persistent what-if) ──
+  listScenarios: async (params: { page?: number; page_size?: number; status?: string; search?: string } = {}) => {
+    const { data } = await api.get(`${BASE}/scenarios`, { params })
+    return data
+  },
+  getScenario: async (id: string) => {
+    const { data } = await api.get(`${BASE}/scenarios/${id}`)
+    return data
+  },
+  createScenario: async (payload: { title: string; description?: string; proposed_activities?: unknown[] }) => {
+    const { data } = await api.post(`${BASE}/scenarios`, payload)
+    return data
+  },
+  updateScenario: async (id: string, payload: { title?: string; description?: string; status?: string }) => {
+    const { data } = await api.patch(`${BASE}/scenarios/${id}`, payload)
+    return data
+  },
+  deleteScenario: async (id: string) => {
+    await api.delete(`${BASE}/scenarios/${id}`)
+  },
+  addScenarioActivity: async (scenarioId: string, payload: Record<string, unknown>) => {
+    const { data } = await api.post(`${BASE}/scenarios/${scenarioId}/activities`, payload)
+    return data
+  },
+  updateScenarioActivity: async (scenarioId: string, activityId: string, payload: Record<string, unknown>) => {
+    const { data } = await api.patch(`${BASE}/scenarios/${scenarioId}/activities/${activityId}`, payload)
+    return data
+  },
+  removeScenarioActivity: async (scenarioId: string, activityId: string) => {
+    await api.delete(`${BASE}/scenarios/${scenarioId}/activities/${activityId}`)
+  },
+  simulateScenario: async (scenarioId: string) => {
+    const { data } = await api.post(`${BASE}/scenarios/${scenarioId}/simulate`)
+    return data
+  },
+  promoteScenario: async (scenarioId: string) => {
+    const { data } = await api.post(`${BASE}/scenarios/${scenarioId}/promote`)
+    return data
+  },
 }

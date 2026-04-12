@@ -478,3 +478,106 @@ export function useForecast(assetId: string | undefined, horizonDays = 90) {
     staleTime: 60_000,
   })
 }
+
+// ── Scenarios (persistent what-if) ──
+
+function invalidateScenarioViews(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['planner', 'scenarios'] })
+}
+
+export function useScenarios(params: { page?: number; page_size?: number; status?: string; search?: string } = {}) {
+  return useQuery({
+    queryKey: ['planner', 'scenarios', params],
+    queryFn: () => plannerService.listScenarios(params),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useScenario(id: string | undefined) {
+  return useQuery({
+    queryKey: ['planner', 'scenarios', id],
+    queryFn: () => plannerService.getScenario(id!),
+    enabled: !!id,
+  })
+}
+
+export function useCreateScenario() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: { title: string; description?: string }) =>
+      plannerService.createScenario(payload),
+    onSuccess: () => invalidateScenarioViews(qc),
+  })
+}
+
+export function useUpdateScenario() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: { title?: string; description?: string; status?: string } }) =>
+      plannerService.updateScenario(id, payload),
+    onSuccess: () => invalidateScenarioViews(qc),
+  })
+}
+
+export function useDeleteScenario() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => plannerService.deleteScenario(id),
+    onSuccess: () => invalidateScenarioViews(qc),
+  })
+}
+
+export function useAddScenarioActivity() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ scenarioId, payload }: { scenarioId: string; payload: Record<string, unknown> }) =>
+      plannerService.addScenarioActivity(scenarioId, payload),
+    onSuccess: (_, { scenarioId }) => {
+      invalidateScenarioViews(qc)
+      qc.invalidateQueries({ queryKey: ['planner', 'scenarios', scenarioId] })
+    },
+  })
+}
+
+export function useUpdateScenarioActivity() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ scenarioId, activityId, payload }: { scenarioId: string; activityId: string; payload: Record<string, unknown> }) =>
+      plannerService.updateScenarioActivity(scenarioId, activityId, payload),
+    onSuccess: (_, { scenarioId }) => {
+      qc.invalidateQueries({ queryKey: ['planner', 'scenarios', scenarioId] })
+    },
+  })
+}
+
+export function useRemoveScenarioActivity() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ scenarioId, activityId }: { scenarioId: string; activityId: string }) =>
+      plannerService.removeScenarioActivity(scenarioId, activityId),
+    onSuccess: (_, { scenarioId }) => {
+      invalidateScenarioViews(qc)
+      qc.invalidateQueries({ queryKey: ['planner', 'scenarios', scenarioId] })
+    },
+  })
+}
+
+export function useSimulateScenarioPersistent() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (scenarioId: string) => plannerService.simulateScenario(scenarioId),
+    onSuccess: () => invalidateScenarioViews(qc),
+  })
+}
+
+export function usePromoteScenario() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (scenarioId: string) => plannerService.promoteScenario(scenarioId),
+    onSuccess: () => {
+      invalidateScenarioViews(qc)
+      // Promotion creates real activities — invalidate the full activity views
+      invalidatePlannerViews(qc)
+    },
+  })
+}

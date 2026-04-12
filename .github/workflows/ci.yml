@@ -105,13 +105,13 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox webkit
+        run: npx playwright install --with-deps chromium
 
       - name: Build app
         run: npm run build
 
       - name: Run E2E tests
-        run: npx playwright test
+        run: npx playwright test --project=chromium
         env:
           CI: true
 

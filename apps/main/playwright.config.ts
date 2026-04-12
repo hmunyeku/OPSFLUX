@@ -19,7 +19,7 @@ export default defineConfig({
   reporter: process.env.CI ? 'github' : 'html',
 
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: process.env.CI ? 'http://localhost:4173' : 'http://localhost:5173',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -43,13 +43,12 @@ export default defineConfig({
     },
   ],
 
-  /* Start Vite dev server before running tests (local dev only).
-     In CI the server is started separately. */
-  webServer: process.env.CI
-    ? undefined
-    : {
-        command: 'npm run dev',
-        port: 5173,
-        reuseExistingServer: true,
-      },
+  /* Start a local server before running tests.
+     - Local dev: Vite dev server on port 5173
+     - CI: Vite preview (serves the built dist/) on port 4173 */
+  webServer: {
+    command: process.env.CI ? 'npm run preview' : 'npm run dev',
+    port: process.env.CI ? 4173 : 5173,
+    reuseExistingServer: !process.env.CI,
+  },
 })

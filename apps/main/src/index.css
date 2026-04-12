@@ -370,6 +370,32 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
+ * iOS Safari auto-zoom-on-focus prevention
+ *
+ * Mobile Safari aggressively zooms in whenever the user taps an
+ * input/select/textarea whose computed font-size is < 16px. This
+ * results in the page being zoomed and shifted on every focus, then
+ * a manual unzoom is required, breaking flow on every form.
+ *
+ * Fix: force a 16px font-size on form fields at < sm. The visual
+ * weight of the input grows by ~2px which is acceptable on mobile;
+ * the alternative (tiny inputs that trigger auto-zoom) is much
+ * worse.
+ *
+ * Targets:
+ * - all native form fields
+ * - applies only on viewports < 640px (sm) so desktop dense layout
+ *   is preserved.
+ * ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 639px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
  * Scrollbar
  * ═══════════════════════════════════════════════════════════════ */
 ::-webkit-scrollbar {

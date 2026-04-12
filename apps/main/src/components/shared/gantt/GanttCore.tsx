@@ -1551,6 +1551,9 @@ export function GanttCore(props: GanttCoreProps) {
                   }
 
                   const showLabel = hc.label && w >= 28 && rh >= 18
+                  // Show secondary label (POB réel) when the cell is tall
+                  // enough (>= 30px) and wide enough, and when a value exists.
+                  const showSecondary = hc.secondaryLabel && w >= 28 && rh >= 30
                   // Faint cells when value === 0 (or explicit opacity override)
                   const opacity = hc.opacity ?? (hc.value === 0 ? 0.22 : 1)
                   // Auto-contrast text color.
@@ -1569,7 +1572,7 @@ export function GanttCore(props: GanttCoreProps) {
                     <div
                       key={`hm-${rowIdx}-${hc.cellIdx}`}
                       className={cn(
-                        'absolute pointer-events-auto z-[5] flex items-center justify-center text-[9px] font-medium tabular-nums',
+                        'absolute pointer-events-auto z-[5] flex flex-col items-center justify-center text-[9px] font-medium tabular-nums leading-tight',
                         isTransparent && 'text-foreground',
                       )}
                       style={{
@@ -1585,7 +1588,15 @@ export function GanttCore(props: GanttCoreProps) {
                       title={hc.tooltipHTML ? undefined : `${hc.value}%`}
                       {...(hc.tooltipHTML ? { 'data-heatmap-tooltip': hc.tooltipHTML } : {})}
                     >
-                      {showLabel ? hc.label : null}
+                      {showLabel ? <span>{hc.label}</span> : null}
+                      {showSecondary ? (
+                        <span
+                          className="text-[7px] font-normal"
+                          style={{ opacity: 0.7 }}
+                        >
+                          {hc.secondaryLabel}
+                        </span>
+                      ) : null}
                     </div>
                   )
                 })

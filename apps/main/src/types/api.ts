@@ -2364,6 +2364,10 @@ export interface PlannerActivity {
   created_by_name: string | null
   submitted_by_name: string | null
   validated_by_name: string | null
+  // §2.5 — parent POB = sum of children POB
+  children_pob_total: number | null
+  children_pob_daily: Record<string, number> | null
+  has_children: boolean
 }
 
 export interface PlannerActivityCreate {
@@ -2577,11 +2581,16 @@ export interface GanttActivity {
   start_date: string
   end_date: string
   project_id: string | null
+  parent_id?: string | null
   source_task_id?: string | null
   progress?: number
   created_by: string
   well_reference: string | null
   work_order_ref: string | null
+  // §2.5 — parent POB = sum of children POB
+  children_pob_total?: number | null
+  children_pob_daily?: Record<string, number> | null
+  has_children?: boolean
 }
 
 export interface GanttAssetCapacity {

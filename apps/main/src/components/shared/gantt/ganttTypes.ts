@@ -62,6 +62,8 @@ export interface GanttHeatmapCell {
   tooltipHTML?: string
   /** Optional inline label (e.g. "85%") shown when there is enough room */
   label?: string
+  /** Optional secondary label displayed below the primary (e.g. POB réel) */
+  secondaryLabel?: string
   /** Optional opacity override (0-1). Defaults to 1. Used to fade out 0-value cells. */
   opacity?: number
   /**

@@ -702,6 +702,28 @@ async def get_gantt_data(
                 },
                 "activities": [],
             }
+        # §2.5 — Compute children POB summation for parent activities
+        act_children = children_by_parent.get(act.id, [])
+        has_children = len(act_children) > 0
+        children_pob_total: int | None = None
+        children_pob_daily: dict | None = None
+        if has_children:
+            _total_constant = 0
+            _merged_daily: dict[str, int] = {}
+            _any_variable = False
+            for child in act_children:
+                c_mode = getattr(child, "pax_quota_mode", "constant") or "constant"
+                c_quota = child.pax_quota or 0
+                c_daily = getattr(child, "pax_quota_daily", None)
+                if c_mode == "variable" and isinstance(c_daily, dict) and c_daily:
+                    _any_variable = True
+                    for dk, dv in c_daily.items():
+                        _merged_daily[dk] = _merged_daily.get(dk, 0) + int(dv or 0)
+                else:
+                    _total_constant += c_quota
+            children_pob_total = _total_constant if not _any_variable else sum(_merged_daily.values())
+            children_pob_daily = _merged_daily if _any_variable else None
+
         asset_map[aid]["activities"].append({
             "id": str(act.id),
             "title": act.title,
@@ -715,12 +737,16 @@ async def get_gantt_data(
             "start_date": act.start_date.isoformat() if act.start_date else None,
             "end_date": act.end_date.isoformat() if act.end_date else None,
             "project_id": str(act.project_id) if act.project_id else None,
+            "parent_id": str(act.parent_id) if act.parent_id else None,
             "source_task_id": str(act.source_task_id) if getattr(act, "source_task_id", None) else None,
             "progress": _compute_activity_progress(act),
             "created_by": str(act.created_by),
             "well_reference": act.well_reference,
             "rig_name": act.rig_name,
             "work_order_ref": act.work_order_ref,
+            "children_pob_total": children_pob_total,
+            "children_pob_daily": children_pob_daily,
+            "has_children": has_children,
         })
 
     # ── Dependencies between visible activities ──

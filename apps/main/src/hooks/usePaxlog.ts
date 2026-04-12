@@ -269,6 +269,9 @@ export function useUpdateAds() {
       paxlogService.updateAds(id, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+      // Cascade: ADS modification may change forecast (spec §5.1)
+      qc.invalidateQueries({ queryKey: ['planner', 'capacity-heatmap'] })
+      qc.invalidateQueries({ queryKey: ['planner', 'capacity'] })
     },
   })
 }
@@ -291,6 +294,10 @@ export function useCancelAds() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads-waitlist'] })
+      // Cascade: cancelled AdS changes Planner forecast (spec §5.1)
+      qc.invalidateQueries({ queryKey: ['planner', 'capacity-heatmap'] })
+      qc.invalidateQueries({ queryKey: ['planner', 'capacity'] })
+      qc.invalidateQueries({ queryKey: ['planner', 'gantt'] })
     },
   })
 }
@@ -311,6 +318,9 @@ export function useApproveAds() {
     mutationFn: (id: string) => paxlogService.approveAds(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+      // Cascade: approved AdS affects Planner forecast (spec §5.1)
+      qc.invalidateQueries({ queryKey: ['planner', 'capacity-heatmap'] })
+      qc.invalidateQueries({ queryKey: ['planner', 'capacity'] })
     },
   })
 }

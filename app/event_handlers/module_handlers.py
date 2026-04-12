@@ -1705,6 +1705,177 @@ async def on_planner_revision_forced(event: OpsFluxEvent) -> None:
         logger.exception("Error in on_planner_revision_forced for %s", request_id)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Handler: on_paxlog_boarding_updated
+# PaxLog → Planner: when boarding status changes, Planner POB réel is stale
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+async def on_paxlog_boarding_updated(event: OpsFluxEvent) -> None:
+    """When PaxLog boarding status changes — emit planner.pob.changed for cascade.
+
+    The Planner capacity heatmap reads POB réel live from the DB (ads_pax
+    .current_onboard), so no data recalculation is needed server-side.
+    This event exists to complete the signal chain per spec §5.1 and to
+    allow the frontend to invalidate its cached heatmap data.
+    """
+    payload = event.payload
+    entity_id = payload.get("entity_id")
+    updated_pax_count = payload.get("updated_pax_count", 0)
+    source = payload.get("source", "")
+
+    if not entity_id or not updated_pax_count:
+        return
+
+    try:
+        await event_bus.publish(OpsFluxEvent(
+            event_type="planner.pob.changed",
+            payload={
+                "entity_id": str(entity_id),
+                "source": source,
+                "updated_pax_count": updated_pax_count,
+                "destination_asset_id": payload.get("destination_asset_id"),
+            },
+        ))
+        logger.info(
+            "paxlog.boarding.updated → planner.pob.changed emitted (%d PAX, source=%s)",
+            updated_pax_count, source,
+        )
+    except Exception:
+        logger.exception("Error in on_paxlog_boarding_updated")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Handler: on_ads_cancelled_planner
+# PaxLog → Planner: when an AdS is cancelled, the forecast must be refreshed
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+async def on_ads_cancelled_planner(event: OpsFluxEvent) -> None:
+    """When an AdS is cancelled — emit planner.forecast.changed for cascade.
+
+    Cancelling an AdS removes PAX from the forecast calculation.  The Planner
+    heatmap queries activity data live, but linked planner activities may
+    need status updates and the frontend cache must be invalidated.
+    """
+    payload = event.payload
+    ads_id = payload.get("ads_id")
+    entity_id = payload.get("entity_id")
+
+    if not ads_id or not entity_id:
+        return
+
+    try:
+        from sqlalchemy import select
+        from app.models.paxlog import Ads
+
+        async with async_session_factory() as db:
+            ads = (await db.execute(
+                select(Ads.planner_activity_id, Ads.site_entry_asset_id)
+                .where(Ads.id == UUID(str(ads_id)))
+            )).first()
+            if not ads:
+                return
+
+            planner_activity_id = ads[0]
+            site_asset_id = ads[1]
+
+            await event_bus.publish(OpsFluxEvent(
+                event_type="planner.forecast.changed",
+                payload={
+                    "entity_id": str(entity_id),
+                    "source": "ads.cancelled",
+                    "ads_id": str(ads_id),
+                    "planner_activity_id": str(planner_activity_id) if planner_activity_id else None,
+                    "asset_id": str(site_asset_id) if site_asset_id else None,
+                },
+            ))
+            logger.info(
+                "ads.cancelled → planner.forecast.changed emitted for AdS %s",
+                ads_id,
+            )
+    except Exception:
+        logger.exception("Error in on_ads_cancelled_planner for %s", ads_id)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Handler: on_planner_revision_validated
+# Planner → PaxLog: when a revision is validated, notify PaxLog of new constraints
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+async def on_planner_revision_validated(event: OpsFluxEvent) -> None:
+    """When Planner revision is validated/responded — notify linked PaxLog AdS.
+
+    Per spec §5.1, a validated Planner revision may change dates/POB quotas
+    that affect existing AdS.  We put impacted AdS into requires_review and
+    notify requesters.
+    """
+    payload = event.payload
+    entity_id = payload.get("entity_id")
+    activity_id = payload.get("activity_id")
+    decision = payload.get("decision")
+
+    if not entity_id or not activity_id:
+        return
+    # Only trigger cascade for decisions that actually change the plan
+    if decision not in (None, "accept", "accept_with_changes"):
+        return
+
+    try:
+        from sqlalchemy import text
+        from app.core.notifications import send_in_app
+        from app.models.paxlog import AdsEvent
+
+        async with async_session_factory() as db:
+            result = await db.execute(
+                text(
+                    "UPDATE ads SET status = 'requires_review', "
+                    "updated_at = NOW() "
+                    "WHERE planner_activity_id = :aid "
+                    "AND status IN ('approved', 'in_progress') "
+                    "RETURNING id, reference, requester_id"
+                ),
+                {"aid": str(activity_id)},
+            )
+            affected = result.all()
+
+            for row in affected:
+                ads_id, ref, requester_id = row
+                db.add(
+                    AdsEvent(
+                        entity_id=UUID(str(entity_id)),
+                        ads_id=UUID(str(ads_id)),
+                        event_type="planner_revision_validated",
+                        new_status="requires_review",
+                        metadata_json={
+                            "planner_activity_id": str(activity_id),
+                            "decision": decision,
+                        },
+                    )
+                )
+                await send_in_app(
+                    db,
+                    user_id=UUID(str(requester_id)),
+                    entity_id=UUID(str(entity_id)),
+                    title="AdS en revision — Planner mis a jour",
+                    body=(
+                        f"L'AdS {ref} necessite une revision suite a la validation "
+                        f"d'une revision Planner sur l'activite associee."
+                    ),
+                    category="paxlog",
+                    link=f"/paxlog/ads/{ads_id}",
+                )
+
+            await db.commit()
+            logger.info(
+                "planner.revision.responded → %d AdS set to requires_review",
+                len(affected),
+            )
+    except Exception:
+        logger.exception("Error in on_planner_revision_validated for activity %s", activity_id)
+
+
 async def on_planner_activity_validated_bundle(event: OpsFluxEvent) -> None:
     """Execute all side effects attached to planner.activity.validated once."""
     await on_planner_activity_validated(event)
@@ -1737,12 +1908,16 @@ def register_module_handlers(event_bus: EventBus) -> None:
     event_bus.subscribe("ads.approved", on_ads_approved)
     event_bus.subscribe("ads.in_progress", on_paxlog_ads_in_progress)
     event_bus.subscribe("ads.completed", on_paxlog_ads_completed)
+    event_bus.subscribe("ads.cancelled", on_ads_cancelled_planner)
     event_bus.subscribe("travelwiz.manifest.closed", on_travelwiz_manifest_closed)
     event_bus.subscribe("travelwiz.trip.closed", on_travelwiz_trip_closed)
     event_bus.subscribe("travelwiz.voyage.cancelled", on_travelwiz_voyage_cancelled_packlog)
+    # PaxLog boarding → Planner POB réel cascade
+    event_bus.subscribe("paxlog.boarding.updated", on_paxlog_boarding_updated)
     event_bus.subscribe("project.task.planner_sync_required", on_project_task_planner_sync_required)
     event_bus.subscribe("planner.revision.requested", on_planner_revision_requested)
     event_bus.subscribe("planner.revision.responded", on_planner_revision_responded)
+    event_bus.subscribe("planner.revision.responded", on_planner_revision_validated)
     event_bus.subscribe("planner.revision.forced", on_planner_revision_forced)
     # Conformite & Projets events
     event_bus.subscribe("conformite.rule.created", on_compliance_rule_changed)

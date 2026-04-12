@@ -86,14 +86,26 @@ function fmtDate(iso: string | null | undefined): string {
   try { return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) } catch { return '—' }
 }
 
-function fmtPax(act: { pax_quota?: number; pax_quota_mode?: 'constant' | 'variable'; pax_quota_daily?: Record<string, number> | null }): string {
+function fmtPax(act: { pax_quota?: number; pax_quota_mode?: 'constant' | 'variable'; pax_quota_daily?: Record<string, number> | null; has_children?: boolean; children_pob_total?: number | null; children_pob_daily?: Record<string, number> | null }): string {
+  // §2.5 — Parent activities display sum of children POB
+  if (act.has_children) {
+    if (act.children_pob_daily && Object.keys(act.children_pob_daily).length > 0) {
+      const values = Object.values(act.children_pob_daily).filter((v) => typeof v === 'number') as number[]
+      if (values.length > 0) {
+        const min = Math.min(...values)
+        const max = Math.max(...values)
+        return min === max ? `\u03A3${min}` : `\u03A3${min}\u2013${max}`
+      }
+    }
+    return `\u03A3${act.children_pob_total ?? 0}`
+  }
   const mode = act.pax_quota_mode ?? 'constant'
   if (mode === 'variable' && act.pax_quota_daily && Object.keys(act.pax_quota_daily).length > 0) {
     const values = Object.values(act.pax_quota_daily).filter((v) => typeof v === 'number') as number[]
     if (values.length > 0) {
       const min = Math.min(...values)
       const max = Math.max(...values)
-      return min === max ? `${min}` : `${min}–${max}`
+      return min === max ? `${min}` : `${min}\u2013${max}`
     }
   }
   return String(act.pax_quota ?? 0)
@@ -166,9 +178,13 @@ function buildBarCellLabels(
   if (!act.start_date || !act.end_date) return []
   const actStartUTC = parseISODateUTC(act.start_date)
   const actEndUTC = parseISODateUTC(act.end_date) + MS_PER_DAY - 1
-  const constantQuota = act.pax_quota ?? 0
-  const isVariable = act.pax_quota_mode === 'variable'
-  const dailyMap = act.pax_quota_daily || {}
+  // §2.5 — For parent activities, use children POB sum instead of own pax_quota
+  const useChildrenPob = act.has_children && (act.children_pob_total != null || act.children_pob_daily != null)
+  const constantQuota = useChildrenPob ? (act.children_pob_total ?? 0) : (act.pax_quota ?? 0)
+  const isVariable = useChildrenPob
+    ? (act.children_pob_daily != null && Object.keys(act.children_pob_daily).length > 0)
+    : (act.pax_quota_mode === 'variable')
+  const dailyMap = useChildrenPob ? (act.children_pob_daily || {}) : (act.pax_quota_daily || {})
   const result: Array<{ cellIdx: number; label: string }> = []
 
   cells.forEach((cell, idx) => {
@@ -603,7 +619,17 @@ export function GanttView({
             ` · capacité non configurée`
         }
 
-        result.push({ cellIdx: idx, color, value, label, tooltipHTML })
+        // Secondary label: POB réel (confirmed on-site headcount).
+        // Computed as the average daily real POB over the cell span,
+        // mirroring the primary forecast label's per-day semantics.
+        const avgDailyReal = totalReal / cellDays
+        const secondaryLabel = totalReal > 0
+          ? 'R:' + (cellDays === 1 || Number.isInteger(avgDailyReal)
+            ? String(Math.round(avgDailyReal))
+            : avgDailyReal.toFixed(1))
+          : undefined
+
+        result.push({ cellIdx: idx, color, value, label, tooltipHTML, secondaryLabel })
       })
 
       return result
@@ -1002,14 +1028,17 @@ export function GanttView({
             for (const act of filteredActivities) {
               const actRowId = `a:${act.id}`
               const paxLabel = fmtPax(act)
-              const isVariable = act.pax_quota_mode === 'variable'
+              // §2.5 — For parent activities with children_pob_daily, show as variable
+              const isVariable = act.has_children
+                ? (act.children_pob_daily != null && Object.keys(act.children_pob_daily).length > 0)
+                : act.pax_quota_mode === 'variable'
 
               rowList.push({
                 id: actRowId,
                 label: act.title,
                 sublabel: statusLabels[act.status] || act.status,
                 level: actLevel,
-                hasChildren: false,
+                hasChildren: act.has_children ?? false,
                 columns: {
                   pax: isVariable ? `${paxLabel}*` : paxLabel,
                   start: fmtDate(act.start_date),

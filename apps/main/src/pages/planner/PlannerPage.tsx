@@ -644,7 +644,7 @@ function ActivityBar({ activity, viewStart, viewEnd, dayWidth, onClick }: {
         border: borderStyle,
         borderColor: color,
       }}
-      title={`${activity.title} (${activity.pax_quota} PAX)`}
+      title={`${activity.title} (${activity.has_children && activity.children_pob_total != null ? `\u03A3${activity.children_pob_total}` : activity.pax_quota} PAX)`}
     >
       {showProgress && (
         <div className="absolute inset-0 rounded-sm overflow-hidden">
@@ -652,7 +652,7 @@ function ActivityBar({ activity, viewStart, viewEnd, dayWidth, onClick }: {
         </div>
       )}
       <span className="relative z-10 truncate">{activity.title}</span>
-      <span className="relative z-10 shrink-0 text-[8px] opacity-80">{activity.pax_quota}</span>
+      <span className="relative z-10 shrink-0 text-[8px] opacity-80">{activity.has_children && activity.children_pob_total != null ? `\u03A3${activity.children_pob_total}` : activity.pax_quota}</span>
     </button>
   )
 }
@@ -795,12 +795,19 @@ function ActivitiesTab() {
       accessorKey: 'pax_quota',
       header: t('planner.columns.pax'),
       size: 60,
-      cell: ({ row }) => (
-        <span className="inline-flex items-center gap-1 text-xs">
-          <Users size={11} className="text-muted-foreground" />
-          {row.original.pax_quota}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const act = row.original
+        // §2.5 — Parent activities display sum of children POB
+        const displayPob = act.has_children && act.children_pob_total != null
+          ? `\u03A3${act.children_pob_total}`
+          : String(act.pax_quota)
+        return (
+          <span className="inline-flex items-center gap-1 text-xs" title={act.has_children ? 'Somme POB enfants' : undefined}>
+            <Users size={11} className="text-muted-foreground" />
+            {displayPob}
+          </span>
+        )
+      },
     },
     {
       accessorKey: 'start_date',
@@ -4247,6 +4254,28 @@ function ActivityDetailPanel({ id }: { id: string }) {
                     />
                   )}
                 </DetailFieldGrid>
+                {/* §2.5 — Show computed children POB total for parent activities */}
+                {activity.has_children && activity.children_pob_total != null && (
+                  <DetailFieldGrid>
+                    <DetailRow
+                      label="POB enfants (\u03A3)"
+                      value={
+                        <span className="inline-flex items-center gap-1 font-semibold text-primary">
+                          <Users size={12} />
+                          {activity.children_pob_daily && Object.keys(activity.children_pob_daily).length > 0
+                            ? (() => {
+                                const vals = Object.values(activity.children_pob_daily!).filter((v) => typeof v === 'number') as number[]
+                                if (vals.length === 0) return `\u03A3${activity.children_pob_total}`
+                                const min = Math.min(...vals)
+                                const max = Math.max(...vals)
+                                return min === max ? `\u03A3${min}` : `\u03A3${min}\u2013${max} /jour`
+                              })()
+                            : `\u03A3${activity.children_pob_total}`}
+                        </span>
+                      }
+                    />
+                  </DetailFieldGrid>
+                )}
                 {/* Inline variable POB editor in READ mode — the user
                     can tweak the per-day schedule directly without
                     switching to the full edit form. Auto-saves on

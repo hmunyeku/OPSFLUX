@@ -208,7 +208,54 @@ async def _enrich_activity(db: AsyncSession, activity: PlannerActivity) -> dict:
         d["validated_by_name"] = f"{validator.first_name} {validator.last_name}" if validator else None
     else:
         d["validated_by_name"] = None
+    # §2.5 — Children POB summation: parent POB = sum of children POB
+    d.update(await _compute_children_pob(db, activity.id, activity.entity_id))
     return d
+
+
+async def _compute_children_pob(
+    db: AsyncSession, activity_id, entity_id
+) -> dict:
+    """Compute children_pob_total, children_pob_daily, has_children for a
+    parent activity.  Sums pax_quota (constant mode) and merges
+    pax_quota_daily (variable mode) across all direct children."""
+    children_result = await db.execute(
+        select(
+            PlannerActivity.pax_quota,
+            PlannerActivity.pax_quota_mode,
+            PlannerActivity.pax_quota_daily,
+        ).where(
+            PlannerActivity.parent_id == activity_id,
+            PlannerActivity.entity_id == entity_id,
+            PlannerActivity.active == True,  # noqa: E712
+            PlannerActivity.deleted_at.is_(None),
+        )
+    )
+    children = children_result.all()
+    if not children:
+        return {"children_pob_total": None, "children_pob_daily": None, "has_children": False}
+
+    total_constant = 0
+    merged_daily: dict[str, int] = {}
+    has_any_variable = False
+
+    for child in children:
+        c_mode = child.pax_quota_mode or "constant"
+        c_quota = child.pax_quota or 0
+        c_daily = child.pax_quota_daily
+
+        if c_mode == "variable" and isinstance(c_daily, dict) and c_daily:
+            has_any_variable = True
+            for day_key, day_val in c_daily.items():
+                merged_daily[day_key] = merged_daily.get(day_key, 0) + int(day_val or 0)
+        else:
+            total_constant += c_quota
+
+    return {
+        "children_pob_total": total_constant if not has_any_variable else sum(merged_daily.values()),
+        "children_pob_daily": merged_daily if has_any_variable else None,
+        "has_children": True,
+    }
 
 
 async def _compute_daily_capacity(
@@ -449,7 +496,7 @@ async def list_activities(
 
     query = query.order_by(PlannerActivity.start_date.asc().nullslast(), PlannerActivity.created_at.desc())
 
-    def _transform(row):
+    async def _transform(row):
         activity = row[0]
         d = {c.key: getattr(activity, c.key) for c in activity.__table__.columns}
         d["asset_name"] = row[1]
@@ -457,6 +504,8 @@ async def list_activities(
         d["created_by_name"] = None
         d["submitted_by_name"] = None
         d["validated_by_name"] = None
+        # §2.5 — Children POB summation
+        d.update(await _compute_children_pob(db, activity.id, activity.entity_id))
         return d
 
     return await paginate(db, query, pagination, transform=_transform)

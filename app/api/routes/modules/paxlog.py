@@ -6115,6 +6115,10 @@ async def update_ads_boarding_scan_passenger(
     # ONLY trigger for the real POB statut on a passenger. Cascade the
     # boarding status to AdsPax.current_onboard so the Planner heatmap
     # immediately reflects the real_pob count for that asset/day.
+    # Spec §3.10: when boarding_status becomes no_show or offloaded,
+    # cascade to AdsPax.status = 'no_show' so the slot is freed for
+    # waitlisted passengers on the same activity/site.
+    released_slot = False
     if passenger.ads_pax_id:
         ads_pax_row = await db.execute(
             select(AdsPax).where(AdsPax.id == passenger.ads_pax_id)
@@ -6122,6 +6126,26 @@ async def update_ads_boarding_scan_passenger(
         ads_pax_obj = ads_pax_row.scalar_one_or_none()
         if ads_pax_obj is not None:
             ads_pax_obj.current_onboard = body.boarding_status == "boarded"
+
+            if body.boarding_status in {"no_show", "offloaded"} and ads_pax_obj.status not in {
+                "no_show", "rejected", "waitlisted", "blocked",
+            }:
+                old_pax_status = ads_pax_obj.status
+                ads_pax_obj.status = "no_show"
+                released_slot = True
+                db.add(AdsEvent(
+                    entity_id=entity_id,
+                    ads_id=ads.id,
+                    ads_pax_id=ads_pax_obj.id,
+                    event_type="pax_no_show",
+                    old_status=old_pax_status,
+                    new_status="no_show",
+                    actor_id=current_user.id,
+                    metadata_json={
+                        "boarding_status": body.boarding_status,
+                        "manifest_passenger_id": str(passenger.id),
+                    },
+                ))
 
     await db.flush()
     await record_audit(
@@ -6138,6 +6162,16 @@ async def update_ads_boarding_scan_passenger(
             "boarding_status": body.boarding_status,
         },
     )
+
+    # Spec §3.10: promote waitlisted pax when a slot is freed by no_show/offloaded
+    if released_slot:
+        await _promote_waitlisted_ads_pax_if_capacity_available(
+            db,
+            entity_id=entity_id,
+            ads=ads,
+            actor_id=current_user.id,
+        )
+
     await db.commit()
 
     # Emit a high-level event so any downstream consumer (Planner real_pob
@@ -6251,6 +6285,30 @@ async def create_incident(
             "pax_group_id": str(body.pax_group_id) if body.pax_group_id else None,
         },
     )
+
+    # Spec §3.10: when a signalement rejects ADS, freed capacity should
+    # trigger waitlist promotion for other waitlisted pax on the same
+    # planner activity / site.
+    rejected_ads_for_promotion: list = result.get("_rejected_ads", [])
+    if rejected_ads_for_promotion:
+        seen_keys: set[UUID] = set()
+        for rejected_ads in rejected_ads_for_promotion:
+            key = rejected_ads.planner_activity_id or rejected_ads.site_entry_asset_id
+            if key and key not in seen_keys:
+                seen_keys.add(key)
+                try:
+                    await _promote_waitlisted_ads_pax_if_capacity_available(
+                        db,
+                        entity_id=entity_id,
+                        ads=rejected_ads,
+                        actor_id=current_user.id,
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to promote waitlisted pax after signalement rejection of ADS %s",
+                        rejected_ads.id, exc_info=True,
+                    )
+
     await db.commit()
 
     incident_result = await db.execute(
@@ -9495,6 +9553,29 @@ async def create_signalement(
             "contact_id": str(contact_id) if contact_id else None,
         },
     )
+
+    # Spec §3.10: when a signalement rejects ADS, freed capacity should
+    # trigger waitlist promotion for other waitlisted pax.
+    rejected_ads_for_promo: list = result.get("_rejected_ads", [])
+    if rejected_ads_for_promo:
+        seen_keys: set[UUID] = set()
+        for rej_ads in rejected_ads_for_promo:
+            key = rej_ads.planner_activity_id or rej_ads.site_entry_asset_id
+            if key and key not in seen_keys:
+                seen_keys.add(key)
+                try:
+                    await _promote_waitlisted_ads_pax_if_capacity_available(
+                        db,
+                        entity_id=entity_id,
+                        ads=rej_ads,
+                        actor_id=current_user.id,
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to promote waitlisted pax after signalement for ADS %s",
+                        rej_ads.id, exc_info=True,
+                    )
+
     await db.commit()
 
     # Re-fetch for response model

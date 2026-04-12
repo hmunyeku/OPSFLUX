@@ -264,7 +264,7 @@ function GoutiTaskTree({
   taskMode: 'all' | 'some' | 'none'
   included: boolean
   selectedTaskIds: string[]
-  onToggleTaskId: (taskId: string) => void
+  onToggleTaskId: (taskId: string, ensureSelectedIds?: string[]) => void
 }) {
   // Build children map keyed by parent_ref (null for roots)
   const childrenOf = useMemo(() => {
@@ -279,6 +279,26 @@ function GoutiTaskTree({
     }
     return map
   }, [tasks])
+
+  // §1.3: Build gouti_id → parent gouti_id map for ancestor auto-inclusion
+  const parentOf = useMemo(() => {
+    const map = new Map<string, string | null>()
+    for (const t of tasks) {
+      map.set(t.gouti_id, t.parent_ref ?? null)
+    }
+    return map
+  }, [tasks])
+
+  // Walk up parent chain to collect all ancestor IDs
+  const getAncestorIds = useCallback((taskId: string): string[] => {
+    const ancestors: string[] = []
+    let current = parentOf.get(taskId)
+    while (current) {
+      ancestors.push(current)
+      current = parentOf.get(current) ?? null
+    }
+    return ancestors
+  }, [parentOf])
 
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const toggleCollapse = (id: string) => {
@@ -311,9 +331,12 @@ function GoutiTaskTree({
     if (leafIds.length === 0) return
     const allSelected = leafIds.every(id => selectedSet.has(id))
     for (const id of leafIds) {
-      if (allSelected || !selectedSet.has(id)) onToggleTaskId(id)
+      if (allSelected || !selectedSet.has(id)) {
+        // §1.3: when selecting, auto-include all ancestors up to root
+        onToggleTaskId(id, allSelected ? undefined : getAncestorIds(id))
+      }
     }
-  }, [getLeafDescendants, selectedSet, onToggleTaskId])
+  }, [getLeafDescendants, getAncestorIds, selectedSet, onToggleTaskId])
 
   const renderRow = (task: GoutiCatalogTask, depth: number): React.ReactNode => {
     const children = childrenOf.get(task.gouti_id) || []
@@ -344,7 +367,7 @@ function GoutiTaskTree({
           onClick={() => {
             if (disabled) return
             if (task.is_macro) toggleMacro(task.gouti_id)
-            else onToggleTaskId(task.gouti_id)
+            else onToggleTaskId(task.gouti_id, selectedSet.has(task.gouti_id) ? undefined : getAncestorIds(task.gouti_id))
           }}
         >
           {/* Expand/collapse chevron */}
@@ -367,7 +390,7 @@ function GoutiTaskTree({
               type="checkbox"
               checked={checked}
               disabled={disabled}
-              onChange={(e) => { e.stopPropagation(); onToggleTaskId(task.gouti_id) }}
+              onChange={(e) => { e.stopPropagation(); onToggleTaskId(task.gouti_id, selectedSet.has(task.gouti_id) ? undefined : getAncestorIds(task.gouti_id)) }}
               onClick={(e) => e.stopPropagation()}
               className="w-3 h-3 shrink-0"
             />
@@ -456,7 +479,7 @@ function GoutiProjectRow({
   selection: GoutiProjectSelection | undefined
   onToggleInclude: () => void
   onTaskModeChange: (mode: 'all' | 'none' | 'some') => void
-  onToggleTaskId: (taskId: string) => void
+  onToggleTaskId: (taskId: string, ensureSelectedIds?: string[]) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const included = !!selection?.include
@@ -622,12 +645,23 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
     })
   }
 
-  const toggleTaskId = (projectId: string, taskId: string) => {
+  const toggleTaskId = (projectId: string, taskId: string, ensureSelectedIds?: string[]) => {
     setProjectSelection(prev => {
       const current = prev[projectId] ?? { include: true, tasks: { mode: 'some' as const, task_ids: [] } }
-      const ids = current.tasks.task_ids.includes(taskId)
+      const isRemoving = current.tasks.task_ids.includes(taskId)
+      let ids = isRemoving
         ? current.tasks.task_ids.filter(x => x !== taskId)
         : [...current.tasks.task_ids, taskId]
+      // §1.3: when selecting a child, ensure all ancestor IDs are included
+      if (!isRemoving && ensureSelectedIds?.length) {
+        const idSet = new Set(ids)
+        for (const aid of ensureSelectedIds) {
+          if (!idSet.has(aid)) {
+            ids.push(aid)
+            idSet.add(aid)
+          }
+        }
+      }
       return {
         ...prev,
         [projectId]: {
@@ -969,7 +1003,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                     selection={getOrInit(p.gouti_id)}
                     onToggleInclude={() => toggleProject(p.gouti_id)}
                     onTaskModeChange={(mode) => setTaskMode(p.gouti_id, mode)}
-                    onToggleTaskId={(taskId) => toggleTaskId(p.gouti_id, taskId)}
+                    onToggleTaskId={(taskId, ensureSelectedIds) => toggleTaskId(p.gouti_id, taskId, ensureSelectedIds)}
                   />
                 ))}
               </div>

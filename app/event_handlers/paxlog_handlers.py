@@ -642,7 +642,7 @@ async def on_travelwiz_manifest_closed(event: OpsFluxEvent) -> None:
 
         async with async_session_factory() as db:
             # Update ads_pax where manifest entries are boarded
-            await db.execute(
+            result = await db.execute(
                 text(
                     "UPDATE ads_pax ap SET current_onboard = TRUE, "
                     "disembark_asset_id = :dest "
@@ -650,12 +650,29 @@ async def on_travelwiz_manifest_closed(event: OpsFluxEvent) -> None:
                     "WHERE pme.ads_pax_id = ap.id "
                     "AND pme.manifest_id = :mid "
                     "AND pme.status = 'boarded' "
-                    "AND ap.current_onboard = FALSE"
+                    "AND ap.current_onboard = FALSE "
+                    "RETURNING ap.id"
                 ),
                 {"mid": str(manifest_id), "dest": str(destination_asset_id) if destination_asset_id else None},
             )
+            updated_rows = result.all()
             await db.commit()
             logger.info("travelwiz.manifest.closed → ads_pax boarding updated for %s", manifest_id)
+
+            # ── Cascade: emit paxlog.boarding.updated so Planner POB réel refreshes ──
+            if updated_rows:
+                from app.core.events import event_bus as _event_bus
+
+                await _event_bus.publish(OpsFluxEvent(
+                    event_type="paxlog.boarding.updated",
+                    payload={
+                        "manifest_id": str(manifest_id),
+                        "entity_id": str(entity_id),
+                        "destination_asset_id": str(destination_asset_id) if destination_asset_id else None,
+                        "updated_pax_count": len(updated_rows),
+                        "source": "travelwiz.manifest.closed",
+                    },
+                ))
     except Exception:
         logger.exception("Error in on_travelwiz_manifest_closed for %s", manifest_id)
 

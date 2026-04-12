@@ -87,6 +87,10 @@ class ActivityRead(PlannerSchema):
     created_by_name: str | None = None
     submitted_by_name: str | None = None
     validated_by_name: str | None = None
+    # §2.5 — parent POB = sum of children POB
+    children_pob_total: int | None = None
+    children_pob_daily: dict | None = None
+    has_children: bool = False
 
 
 class ActivityCreate(BaseModel):
@@ -451,6 +455,7 @@ class GanttActivity(BaseModel):
     start_date: datetime | None = None
     end_date: datetime | None = None
     project_id: UUID | None = None
+    parent_id: UUID | None = None
     source_task_id: UUID | None = None
     # Progress 0..100. For activities linked to a project task via
     # source_task_id, this is the linked task's progress field. Otherwise
@@ -460,6 +465,10 @@ class GanttActivity(BaseModel):
     well_reference: str | None = None
     rig_name: str | None = None
     work_order_ref: str | None = None
+    # §2.5 — parent POB = sum of children POB
+    children_pob_total: int | None = None
+    children_pob_daily: dict | None = None
+    has_children: bool = False
 
 
 class GanttAsset(BaseModel):

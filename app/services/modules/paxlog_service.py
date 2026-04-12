@@ -1315,6 +1315,9 @@ async def create_signalement(
         "created_at": incident.created_at,
         "ads_rejected": impacted_ads["rejected"],
         "ads_flagged_for_review": impacted_ads["requires_review"],
+        # Spec §3.10: pass rejected ADS list so the caller can trigger
+        # waitlist promotion for freed capacity
+        "_rejected_ads": impacted_ads.get("rejected_ads", []),
     }
 
 
@@ -1387,6 +1390,7 @@ async def _apply_signalement_ads_effects(
         "contact_id": str(incident.contact_id) if incident.contact_id else None,
     }
 
+    rejected_ads_list: list[Ads] = []
     for ads in impacted_ads:
         from_state = ads.status
         if from_state in ADS_PENDING_SIGNALLEMENT_REJECTION_STATUSES:
@@ -1394,6 +1398,7 @@ async def _apply_signalement_ads_effects(
             ads.rejected_at = now
             ads.rejection_reason = reason
             rejected_count += 1
+            rejected_ads_list.append(ads)
             db.add(AdsEvent(
                 entity_id=entity_id,
                 ads_id=ads.id,
@@ -1419,7 +1424,11 @@ async def _apply_signalement_ads_effects(
                 metadata_json=target_scope,
             ))
 
-    return {"rejected": rejected_count, "requires_review": review_count}
+    return {
+        "rejected": rejected_count,
+        "requires_review": review_count,
+        "rejected_ads": rejected_ads_list,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

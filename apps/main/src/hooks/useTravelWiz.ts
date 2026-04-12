@@ -192,7 +192,17 @@ export function useUpdateVoyageStatus() {
   return useMutation({
     mutationFn: ({ id, status, notes }: { id: string; status: string; notes?: string | null }) =>
       travelwizService.updateVoyageStatus(id, { status, notes }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['travelwiz', 'voyages'] }) },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['travelwiz', 'voyages'] })
+      // Cascade: voyage status changes (especially closed/cancelled) affect
+      // PaxLog boarding status and Planner POB réel / forecast (spec §5.1)
+      if (['closed', 'cancelled', 'delayed'].includes(vars.status)) {
+        qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+        qc.invalidateQueries({ queryKey: ['planner', 'capacity-heatmap'] })
+        qc.invalidateQueries({ queryKey: ['planner', 'capacity'] })
+        qc.invalidateQueries({ queryKey: ['planner', 'gantt'] })
+      }
+    },
   })
 }
 
@@ -211,6 +221,12 @@ export function useCloseTrip() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['travelwiz', 'voyages'] })
       qc.invalidateQueries({ queryKey: ['travelwiz', 'dashboard'] })
+      // Cascade: closing a trip triggers manifest.closed → PaxLog boarding
+      // update → Planner POB réel change (spec §5.1)
+      qc.invalidateQueries({ queryKey: ['paxlog', 'ads'] })
+      qc.invalidateQueries({ queryKey: ['planner', 'capacity-heatmap'] })
+      qc.invalidateQueries({ queryKey: ['planner', 'capacity'] })
+      qc.invalidateQueries({ queryKey: ['planner', 'gantt'] })
     },
   })
 }

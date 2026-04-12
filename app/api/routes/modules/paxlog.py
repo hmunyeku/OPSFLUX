@@ -6842,6 +6842,17 @@ class ExternalOtpVerifyBody(BaseModel):
     code: str
 
 
+class ExternalPaxAttachBody(BaseModel):
+    """Body for attach-existing — all fields optional since contact already exists."""
+    first_name: str | None = None
+    last_name: str | None = None
+    birth_date: date | None = None
+    nationality: str | None = None
+    badge_number: str | None = None
+    email: str | None = None
+    phone: str | None = None
+
+
 class ExternalPaxUpsertBody(BaseModel):
     first_name: str
     last_name: str
@@ -7937,7 +7948,7 @@ async def create_external_ads_pax(
 async def attach_existing_external_ads_pax(
     token: str,
     contact_id: UUID,
-    body: ExternalPaxUpsertBody,
+    body: ExternalPaxAttachBody = ExternalPaxAttachBody(),
     request: Request,
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
@@ -7956,17 +7967,20 @@ async def attach_existing_external_ads_pax(
     contact = await db.get(TierContact, contact_id)
     if not contact or contact.tier_id not in allowed_company_ids or not contact.active:
         raise HTTPException(status_code=404, detail="Contact externe introuvable pour l'entreprise autorisée")
-    match_score, match_reasons = _score_external_contact_match(contact=contact, body=body)
-    if not _is_external_contact_match_strong(score=match_score, reasons=match_reasons):
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "code": "EXTERNAL_PAX_ATTACH_REQUIRES_MATCH",
-                "message": "Ce contact ne correspond pas suffisamment aux informations saisies",
-                "match_score": match_score,
-                "match_reasons": match_reasons,
-            },
-        )
+    # Skip match scoring when body is empty (explicit user selection)
+    has_identity = body.first_name or body.last_name
+    if has_identity:
+        match_score, match_reasons = _score_external_contact_match(contact=contact, body=body)
+        if not _is_external_contact_match_strong(score=match_score, reasons=match_reasons):
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "EXTERNAL_PAX_ATTACH_REQUIRES_MATCH",
+                    "message": "Ce contact ne correspond pas suffisamment aux informations saisies",
+                    "match_score": match_score,
+                    "match_reasons": match_reasons,
+                },
+            )
 
     existing_entry = (
         await db.execute(

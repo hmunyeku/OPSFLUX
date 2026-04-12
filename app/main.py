@@ -131,8 +131,13 @@ async def lifespan(app: FastAPI):
         sentry_sdk.init(
             dsn=settings.SENTRY_DSN,
             environment=settings.ENVIRONMENT,
+            release=f"opsflux@{settings.VERSION}" if hasattr(settings, "VERSION") else None,
             traces_sample_rate=0.1 if settings.is_prod else 1.0,
+            profiles_sample_rate=0.1 if settings.is_prod else 1.0,
+            send_default_pii=False,
+            enable_tracing=True,
         )
+        logger.info("Sentry initialized — env=%s", settings.ENVIRONMENT)
 
     await init_db()
     await init_redis()

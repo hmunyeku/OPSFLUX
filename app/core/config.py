@@ -106,6 +106,8 @@ class Settings(BaseSettings):
 
     # ── Monitoring ───────────────────────────────────────────────
     SENTRY_DSN: str = ""
+    SENTRY_FRONTEND_DSN: str = ""
+    VERSION: str = "1.0.0"
     PROMETHEUS_ENABLED: bool = False
 
     # ── Domains ──────────────────────────────────────────────────

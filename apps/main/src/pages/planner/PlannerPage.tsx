@@ -94,8 +94,12 @@ import {
   useOverridePriority,
   useSetRecurrence,
   useDeleteRecurrence,
-  useSimulateScenario,
   useForecast,
+  useScenarios,
+  useCreateScenario,
+  useDeleteScenario,
+  useSimulateScenarioPersistent,
+  usePromoteScenario,
 } from '@/hooks/usePlanner'
 import { usePermission } from '@/hooks/usePermission'
 import type {
@@ -105,7 +109,7 @@ import type {
   PlannerRevisionDecisionRequest,
   GanttActivity, GanttAsset,
   AssetCapacity,
-  ProposedActivity, ScenarioResult, ForecastDay,
+  ForecastDay,
 } from '@/types/api'
 import type { HierarchyFieldNode } from '@/types/assetRegistry'
 
@@ -2586,135 +2590,230 @@ function CapacityTab({
 // ── Scenarios Tab (what-if simulation) ──────────────────────────────────
 
 function ScenariosTab() {
-  const simulate = useSimulateScenario()
   const { toast } = useToast()
-  const [proposed, setProposed] = useState<ProposedActivity[]>([])
-  const [result, setResult] = useState<ScenarioResult | null>(null)
-  const [form, setForm] = useState({ asset_id: '', pax_quota: '', start_date: '', end_date: '', title: '' })
+  const { pageSize } = usePageSize()
+  const [page, setPage] = useState(1)
+  const [statusFilter, setStatusFilter] = useState('')
+  const { data, isLoading } = useScenarios({ page, page_size: pageSize, status: statusFilter || undefined })
+  const createScenario = useCreateScenario()
+  const deleteScenario = useDeleteScenario()
+  const simulateScenario = useSimulateScenarioPersistent()
+  const promoteScenario = usePromoteScenario()
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const confirmDialog = useConfirm()
+  const { hasPermission } = usePermission()
+  const canPromote = hasPermission('planner.activity.create')
 
-  const handleAdd = () => {
-    if (!form.asset_id || !form.pax_quota || !form.start_date || !form.end_date) return
-    setProposed(prev => [...prev, {
-      asset_id: form.asset_id,
-      pax_quota: Number(form.pax_quota),
-      start_date: form.start_date,
-      end_date: form.end_date,
-      title: form.title || undefined,
-    }])
-    setForm(f => ({ ...f, pax_quota: '', start_date: '', end_date: '', title: '' }))
-  }
+  const scenarios = data?.items ?? []
+  const total = data?.total ?? 0
 
-  const handleSimulate = async () => {
-    if (proposed.length === 0) return
-    const dates = proposed.flatMap(p => [p.start_date, p.end_date]).sort()
+  const [showCreate, setShowCreate] = useState(false)
+  const [createTitle, setCreateTitle] = useState('')
+  const [createDesc, setCreateDesc] = useState('')
+
+  const handleCreate = async () => {
+    if (!createTitle.trim()) return
     try {
-      const res = await simulate.mutateAsync({
-        proposed_activities: proposed,
-        start_date: dates[0],
-        end_date: dates[dates.length - 1],
-      })
-      setResult(res)
-    } catch (err) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Erreur'
-      toast({ title: 'Simulation échouée', description: String(msg), variant: 'error' })
+      await createScenario.mutateAsync({ title: createTitle.trim(), description: createDesc.trim() || undefined })
+      setShowCreate(false)
+      setCreateTitle('')
+      setCreateDesc('')
+      toast({ title: 'Scénario créé', variant: 'success' })
+    } catch {
+      toast({ title: 'Erreur', variant: 'error' })
     }
   }
 
+  const handleSimulate = async (scenarioId: string) => {
+    try {
+      await simulateScenario.mutateAsync(scenarioId)
+      toast({ title: 'Simulation terminée', variant: 'success' })
+    } catch (err) {
+      toast({ title: 'Simulation échouée', description: extractApiError(err), variant: 'error' })
+    }
+  }
+
+  const handlePromote = async (scenarioId: string) => {
+    const ok = await confirmDialog({
+      title: 'Promouvoir ce scénario ?',
+      message: 'Les activités proposées seront converties en activités réelles dans le plan. Cette action est irréversible.',
+      confirmLabel: 'Promouvoir',
+      variant: 'warning',
+    })
+    if (!ok) return
+    try {
+      const result = await promoteScenario.mutateAsync(scenarioId)
+      toast({
+        title: `${result.promoted_activity_count} activités promues`,
+        description: result.errors.length > 0 ? `${result.errors.length} erreur(s)` : undefined,
+        variant: result.errors.length > 0 ? 'error' : 'success',
+      })
+    } catch (err) {
+      toast({ title: 'Promotion échouée', description: extractApiError(err), variant: 'error' })
+    }
+  }
+
+  const handleDelete = async (scenarioId: string) => {
+    const ok = await confirmDialog({ title: 'Supprimer ce scénario ?', message: 'Le scénario sera archivé.', confirmLabel: 'Supprimer', variant: 'danger' })
+    if (!ok) return
+    await deleteScenario.mutateAsync(scenarioId)
+  }
+
+  const STATUS_BADGE: Record<string, string> = {
+    draft: 'gl-badge-neutral',
+    validated: 'gl-badge-info',
+    promoted: 'gl-badge-success',
+    archived: 'gl-badge-warning',
+  }
+  const STATUS_LABEL: Record<string, string> = {
+    draft: 'Brouillon',
+    validated: 'Validé',
+    promoted: 'Promu',
+    archived: 'Archivé',
+  }
+
   return (
-    <div className="p-4 space-y-4 overflow-y-auto">
-      <div className="text-xs text-muted-foreground mb-2">
-        <FlaskConical size={12} className="inline mr-1 text-primary" />
-        Testez l'impact de nouvelles activités sur la capacité sans rien enregistrer.
+    <>
+      {/* Stats + filter bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
+        <StatCard label="Total scénarios" value={total} icon={FlaskConical} />
+        <StatCard label="Brouillons" value={scenarios.filter((s: Record<string, unknown>) => s.status === 'draft').length} icon={Pencil} accent="text-muted-foreground" />
+        <StatCard label="Validés" value={scenarios.filter((s: Record<string, unknown>) => s.status === 'validated').length} icon={CheckCircle2} accent="text-blue-600 dark:text-blue-400" />
+        <StatCard label="Promus" value={scenarios.filter((s: Record<string, unknown>) => s.status === 'promoted').length} icon={TrendingUp} accent="text-emerald-600 dark:text-emerald-400" />
       </div>
 
-      <FormSection title="Activités proposées" collapsible defaultExpanded storageKey="planner-scenario-proposed">
-        <div className="grid grid-cols-[1fr_80px_120px_120px_auto] gap-2 text-xs items-end">
-          <AssetPicker value={form.asset_id} onChange={v => setForm(f => ({ ...f, asset_id: v || '' }))} label="Site" />
-          <div>
-            <label className="text-[10px] text-muted-foreground block mb-0.5">PAX</label>
-            <input type="number" min="1" value={form.pax_quota} onChange={e => setForm(f => ({ ...f, pax_quota: e.target.value }))} className={`${panelInputClass} w-full text-xs`} placeholder="PAX" />
-          </div>
-          <div>
-            <label className="text-[10px] text-muted-foreground block mb-0.5">Début</label>
-            <input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} className={`${panelInputClass} w-full text-xs`} />
-          </div>
-          <div>
-            <label className="text-[10px] text-muted-foreground block mb-0.5">Fin</label>
-            <input type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} className={`${panelInputClass} w-full text-xs`} />
-          </div>
-          <button onClick={handleAdd} disabled={!form.asset_id || !form.pax_quota || !form.start_date || !form.end_date} className="px-2 py-1 rounded bg-primary text-primary-foreground text-xs disabled:opacity-40 self-end">
-            <Plus size={12} />
+      <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
+        {['', 'draft', 'validated', 'promoted', 'archived'].map(s => (
+          <button
+            key={s}
+            onClick={() => { setStatusFilter(s); setPage(1) }}
+            className={cn(
+              'px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap',
+              statusFilter === s ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {s === '' ? 'Tous' : STATUS_LABEL[s] || s}
           </button>
-        </div>
-        {proposed.length > 0 && (
-          <div className="mt-2 space-y-1">
-            {proposed.map((p, i) => (
-              <div key={i} className="flex items-center gap-2 text-[11px] px-2 py-1 rounded bg-muted/40">
-                <span className="font-mono text-muted-foreground">{p.asset_id.slice(0, 8)}…</span>
-                <span className="font-medium">{p.title || 'Sans titre'}</span>
-                <span>{p.pax_quota} PAX</span>
-                <span className="text-muted-foreground">{p.start_date} → {p.end_date}</span>
-                <button onClick={() => setProposed(prev => prev.filter((_, j) => j !== i))} className="ml-auto text-muted-foreground hover:text-red-500"><Trash2 size={10} /></button>
+        ))}
+        <button
+          onClick={() => setShowCreate(true)}
+          className="ml-auto gl-button-sm gl-button-confirm flex items-center gap-1"
+        >
+          <Plus size={12} /> Nouveau scénario
+        </button>
+      </div>
+
+      {/* Scenario list */}
+      <PanelContent>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+        ) : scenarios.length === 0 ? (
+          <div className="flex items-center justify-center py-12 text-center">
+            <div>
+              <FlaskConical size={32} className="mx-auto mb-2 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">Aucun scénario</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Créez un scénario what-if pour tester l'impact d'activités proposées.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {scenarios.map((s: Record<string, unknown>) => (
+              <div
+                key={s.id as string}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 cursor-pointer group"
+                onClick={() => openDynamicPanel({ type: 'detail', module: 'planner', id: s.id as string, meta: { subtype: 'scenario' } })}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-foreground truncate">{s.title as string}</span>
+                    <span className={cn('gl-badge text-[10px]', STATUS_BADGE[s.status as string] || 'gl-badge-neutral')}>
+                      {STATUS_LABEL[s.status as string] || s.status as string}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground">
+                    <span>{s.created_by_name as string || '—'}</span>
+                    <span>{formatDateShort(s.created_at as string)}</span>
+                    <span>{(s.activity_count as number) || 0} activités</span>
+                    {(s.conflict_days as number) != null && (
+                      <span className={cn((s.conflict_days as number) > 0 && 'text-red-500 font-medium')}>
+                        {s.conflict_days as number}j conflit
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {s.status === 'draft' && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleSimulate(s.id as string) }}
+                      className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                      title="Simuler"
+                      disabled={simulateScenario.isPending}
+                    >
+                      <FlaskConical size={13} />
+                    </button>
+                  )}
+                  {canPromote && s.status === 'validated' && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handlePromote(s.id as string) }}
+                      className="p-1.5 rounded hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-600"
+                      title="Promouvoir en activités réelles"
+                    >
+                      <TrendingUp size={13} />
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(s.id as string) }}
+                    className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                    title="Supprimer"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
-        <button
-          onClick={handleSimulate}
-          disabled={proposed.length === 0 || simulate.isPending}
-          className="mt-2 px-3 py-1 rounded bg-primary text-primary-foreground text-xs disabled:opacity-40 flex items-center gap-1.5"
-        >
-          {simulate.isPending ? <Loader2 size={11} className="animate-spin" /> : <FlaskConical size={11} />}
-          Simuler ({proposed.length} activité{proposed.length > 1 ? 's' : ''})
-        </button>
-      </FormSection>
+      </PanelContent>
 
-      {result && (
-        <FormSection title="Résultats de la simulation" collapsible defaultExpanded storageKey="planner-scenario-results">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-            <div className="border rounded p-2 text-center">
-              <div className="text-[9px] uppercase text-muted-foreground">Jours analysés</div>
-              <div className="text-lg font-semibold tabular-nums">{result.summary.total_days}</div>
+      {/* Create scenario modal */}
+      {showCreate && (
+        <div className="gl-modal-backdrop" onClick={() => setShowCreate(false)}>
+          <div className="gl-modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-foreground">Nouveau scénario</h3>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Titre *</label>
+              <input
+                type="text"
+                value={createTitle}
+                onChange={(e) => setCreateTitle(e.target.value)}
+                className="w-full h-8 px-2 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="Ex: Ajout drilling Q3 Munja"
+                autoFocus
+              />
             </div>
-            <div className={cn('border rounded p-2 text-center', result.summary.conflict_days > 0 ? 'border-red-500/30 bg-red-500/5' : '')}>
-              <div className="text-[9px] uppercase text-muted-foreground">Jours en conflit</div>
-              <div className={cn('text-lg font-semibold tabular-nums', result.summary.conflict_days > 0 && 'text-red-600')}>{result.summary.conflict_days}</div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Description</label>
+              <textarea
+                value={createDesc}
+                onChange={(e) => setCreateDesc(e.target.value)}
+                className="w-full min-h-[60px] px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="Optionnel — contexte ou objectif du scénario"
+              />
             </div>
-            <div className={cn('border rounded p-2 text-center', result.summary.worst_overflow > 0 ? 'border-red-500/30 bg-red-500/5' : '')}>
-              <div className="text-[9px] uppercase text-muted-foreground">Pire dépassement</div>
-              <div className="text-lg font-semibold tabular-nums">{result.summary.worst_overflow} PAX</div>
-            </div>
-            <div className="border rounded p-2 text-center">
-              <div className="text-[9px] uppercase text-muted-foreground">Activités proposées</div>
-              <div className="text-lg font-semibold tabular-nums">{result.summary.proposed_count}</div>
+            <div className="flex items-center gap-2 justify-end">
+              <button className="gl-button-sm gl-button-default" onClick={() => setShowCreate(false)}>Annuler</button>
+              <button
+                className="gl-button-sm gl-button-confirm"
+                onClick={handleCreate}
+                disabled={!createTitle.trim() || createScenario.isPending}
+              >
+                {createScenario.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
+              </button>
             </div>
           </div>
-
-          {result.projected_conflicts.length > 0 && (
-            <div className="border border-red-500/30 rounded p-2 mb-3">
-              <div className="text-xs font-semibold text-red-600 mb-1 flex items-center gap-1">
-                <AlertTriangle size={12} /> Conflits projetés
-              </div>
-              <div className="space-y-0.5 max-h-[120px] overflow-y-auto">
-                {result.projected_conflicts.map((c, i) => (
-                  <div key={i} className="text-[10px] flex items-center gap-2">
-                    <span className="text-muted-foreground tabular-nums">{c.date}</span>
-                    <span className="font-mono text-[9px]">{c.asset_id.slice(0, 8)}</span>
-                    <span className="text-red-600 font-medium">+{c.overflow} PAX</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {result.projected_conflicts.length === 0 && (
-            <div className="text-[11px] text-green-600 flex items-center gap-1.5 p-2 rounded bg-green-500/5 border border-green-500/30">
-              <CheckCircle2 size={12} /> Aucun conflit projeté — la capacité est suffisante.
-            </div>
-          )}
-        </FormSection>
+        </div>
       )}
-    </div>
+    </>
   )
 }
 

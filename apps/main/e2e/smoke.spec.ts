@@ -23,9 +23,13 @@ test.describe('Smoke tests', () => {
     // Wait for the page to be fully loaded
     await page.waitForLoadState('networkidle')
 
-    // Filter out known acceptable errors (e.g. failed API calls when no backend)
+    // Filter out known acceptable errors (no backend running during E2E tests)
     const criticalErrors = errors.filter(
-      (e) => !e.includes('ERR_CONNECTION_REFUSED') && !e.includes('Failed to fetch')
+      (e) =>
+        !e.includes('ERR_CONNECTION_REFUSED') &&
+        !e.includes('Failed to fetch') &&
+        !e.includes('Failed to load resource') &&
+        !e.includes('NetworkError')
     )
     expect(criticalErrors).toHaveLength(0)
   })

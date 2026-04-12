@@ -72,7 +72,7 @@ async def test_forecast_capacity_includes_real_pob_summary(monkeypatch):
     async def fake_get_current_capacity(_db, _asset_id, _target):
         return {"max_pax_total": 20}
 
-    async def fake_compute_daily_load(_db, _entity_id, _asset_id, target, include_submitted=True):
+    async def fake_compute_daily_load(_db, _entity_id, _asset_id, target, include_submitted=True, **kwargs):
         if target == date.today():
             return {"total_used": 8}
         return {"total_used": 10}
@@ -98,7 +98,7 @@ async def test_forecast_capacity_includes_real_pob_summary(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_forecast_route_returns_real_pob_payload(monkeypatch):
-    async def fake_forecast_capacity(_db, _entity_id, _asset_id, _horizon_days):
+    async def fake_forecast_capacity(_db, _entity_id, _asset_id, _horizon_days, **kwargs):
         return {
             "forecast": [
                 {

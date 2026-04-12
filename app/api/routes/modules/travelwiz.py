@@ -2022,126 +2022,38 @@ async def set_cargo_attachment_evidence_type(
     )
 
 
+# ──────────────────────────────────────────────────────────────────────────
+# LEGACY PUBLIC TRACKING ROUTES
+#
+# These routes are DEPRECATED — the canonical endpoints live in the
+# PackLog router (/api/v1/packlog/public/cargo/{code} and
+# /api/v1/packlog/public/voyages/{code}/cargo). They are kept here as
+# thin delegations for backwards compatibility with any external consumer
+# that may still reference the old TravelWiz path. New consumers MUST use
+# the PackLog routes. See memory/project_packlog_isolation.md.
+# ──────────────────────────────────────────────────────────────────────────
+
+
 @router.get("/public/cargo/{tracking_code}", response_model=CargoTrackingRead)
-async def get_public_cargo_tracking(
+async def get_public_cargo_tracking_legacy(
     tracking_code: str,
     db: AsyncSession = Depends(get_db),
 ):
-    cargo_result = await db.execute(
-        select(
-            CargoItem,
-            Tier.name.label("sender_name"),
-            Installation.name.label("destination_name"),
-            Voyage.code.label("voyage_code"),
-        )
-        .outerjoin(Tier, CargoItem.sender_tier_id == Tier.id)
-        .outerjoin(Installation, CargoItem.destination_asset_id == Installation.id)
-        .outerjoin(VoyageManifest, CargoItem.manifest_id == VoyageManifest.id)
-        .outerjoin(Voyage, VoyageManifest.voyage_id == Voyage.id)
-        .where(
-            CargoItem.tracking_code == tracking_code,
-            CargoItem.active == True,  # noqa: E712
-        )
-    )
-    row = cargo_result.first()
-    if not row:
-        raise HTTPException(404, "Cargo tracking not found")
+    """DEPRECATED — use /api/v1/packlog/public/cargo/{tracking_code} instead."""
+    from app.api.routes.modules.packlog_shared import get_public_cargo_tracking_impl
 
-    cargo, sender_name, destination_name, voyage_code = row
-    history_result = await db.execute(
-        select(AuditLog)
-        .where(
-            AuditLog.resource_type == "cargo_item",
-            AuditLog.resource_id == str(cargo.id),
-        )
-        .order_by(AuditLog.created_at.asc())
-    )
-    audit_entries = history_result.scalars().all()
-    events = [_build_public_cargo_tracking_event(entry) for entry in audit_entries]
-    last_event_at = events[-1]["occurred_at"] if events else cargo.created_at
-
-    return {
-        "tracking_code": cargo.tracking_code,
-        "description": cargo.description,
-        "cargo_type": cargo.cargo_type,
-        "status": cargo.status,
-        "status_label": CARGO_PUBLIC_STATUS_LABELS.get(cargo.status, cargo.status),
-        "weight_kg": cargo.weight_kg,
-        "width_cm": cargo.width_cm,
-        "length_cm": cargo.length_cm,
-        "height_cm": cargo.height_cm,
-        "sender_name": sender_name,
-        "receiver_name": cargo.receiver_name,
-        "destination_name": destination_name,
-        "voyage_code": voyage_code,
-        "received_at": cargo.received_at,
-        "last_event_at": last_event_at,
-        "events": events,
-    }
+    return await get_public_cargo_tracking_impl(tracking_code=tracking_code, db=db)
 
 
 @router.get("/public/voyages/{voyage_code}/cargo", response_model=VoyageCargoTrackingRead)
-async def get_public_voyage_cargo_tracking(
+async def get_public_voyage_cargo_tracking_legacy(
     voyage_code: str,
     db: AsyncSession = Depends(get_db),
 ):
-    voyage_result = await db.execute(
-        select(Voyage).where(Voyage.code == voyage_code, Voyage.active == True)  # noqa: E712
-    )
-    voyage = voyage_result.scalar_one_or_none()
-    if not voyage:
-        raise HTTPException(404, "Voyage not found")
+    """DEPRECATED — use /api/v1/packlog/public/voyages/{voyage_code}/cargo instead."""
+    from app.api.routes.modules.packlog_shared import get_public_voyage_cargo_tracking_impl
 
-    cargo_result = await db.execute(
-        select(
-            CargoItem,
-            Installation.name.label("destination_name"),
-        )
-        .join(VoyageManifest, CargoItem.manifest_id == VoyageManifest.id)
-        .outerjoin(Installation, CargoItem.destination_asset_id == Installation.id)
-        .where(
-            VoyageManifest.voyage_id == voyage.id,
-            VoyageManifest.manifest_type == "cargo",
-            CargoItem.active == True,  # noqa: E712
-        )
-        .order_by(CargoItem.created_at.asc())
-    )
-
-    items = []
-    for cargo, destination_name in cargo_result.all():
-        last_event_result = await db.execute(
-            select(AuditLog.created_at)
-            .where(
-                AuditLog.resource_type == "cargo_item",
-                AuditLog.resource_id == str(cargo.id),
-            )
-            .order_by(AuditLog.created_at.desc())
-            .limit(1)
-        )
-        items.append(
-            {
-                "tracking_code": cargo.tracking_code,
-                "description": cargo.description,
-                "cargo_type": cargo.cargo_type,
-                "status": cargo.status,
-                "status_label": CARGO_PUBLIC_STATUS_LABELS.get(cargo.status, cargo.status),
-                "destination_name": destination_name,
-                "receiver_name": cargo.receiver_name,
-                "weight_kg": cargo.weight_kg,
-                "manifest_id": cargo.manifest_id,
-                "last_event_at": last_event_result.scalar_one_or_none(),
-            }
-        )
-
-    return {
-        "voyage_code": voyage.code,
-        "voyage_status": voyage.status,
-        "voyage_status_label": VOYAGE_PUBLIC_STATUS_LABELS.get(voyage.status, voyage.status),
-        "scheduled_departure": voyage.scheduled_departure,
-        "scheduled_arrival": voyage.scheduled_arrival,
-        "cargo_count": len(items),
-        "items": items,
-    }
+    return await get_public_voyage_cargo_tracking_impl(voyage_code=voyage_code, db=db)
 
 
 @router.get("/cargo/{cargo_id}/history")

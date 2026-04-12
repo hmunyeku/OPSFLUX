@@ -296,6 +296,7 @@ function CargoTab() {
 }
 
 function CatalogTab() {
+  const { t } = useTranslation()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -310,10 +311,10 @@ function CatalogTab() {
   const items = data?.items ?? []
 
   const columns = useMemo<ColumnDef<TravelArticle, unknown>[]>(() => [
-    { accessorKey: 'sap_code', header: 'Code SAP', cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.sap_code}</span> },
-    { accessorKey: 'description', header: 'Description', cell: ({ row }) => <span className="font-medium text-foreground">{row.original.description}</span> },
-    { id: 'management_type', header: 'Gestion', cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.management_type ?? '—'}</span> },
-    { id: 'packaging', header: 'Conditionnement', cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.packaging ?? '—'}</span> },
+    { accessorKey: 'sap_code', header: t('packlog.catalog.columns.sap_code'), cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.sap_code}</span> },
+    { accessorKey: 'description', header: t('packlog.catalog.columns.description'), cell: ({ row }) => <span className="font-medium text-foreground">{row.original.description}</span> },
+    { id: 'management_type', header: t('packlog.catalog.columns.management_type'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.management_type ?? '—'}</span> },
+    { id: 'packaging', header: t('packlog.catalog.columns.packaging'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.packaging ?? '—'}</span> },
     { id: 'hazmat', header: 'HAZMAT', cell: ({ row }) => <span className={row.original.is_hazmat ? 'text-destructive text-xs font-medium' : 'text-muted-foreground text-xs'}>{row.original.is_hazmat ? (row.original.hazmat_class ?? 'Oui') : 'Non'}</span> },
   ], [])
 

@@ -3993,6 +3993,27 @@
       },
       "search_placeholder": "Rechercher par tracking, voyage, destination...",
       "empty": "Aucun suivi"
+    },
+    "catalog": {
+      "columns": {
+        "sap_code": "Code SAP",
+        "description": "Description",
+        "management_type": "Gestion",
+        "packaging": "Conditionnement",
+        "hazmat": "HAZMAT"
+      },
+      "search_placeholder": "Rechercher par code SAP ou description...",
+      "empty": "Aucun article"
+    },
+    "alerts": {
+      "columns": {
+        "reference": "Référence",
+        "label": "Objet",
+        "alert": "Alerte",
+        "status": "Statut",
+        "detected_at": "Détectée le"
+      },
+      "empty": "Aucune alerte"
     }
   }
 }

@@ -44,7 +44,7 @@ def upgrade() -> None:
     op.create_index(
         "idx_ads_pax_status",
         "ads_pax",
-        ["ads_id", "pax_status"],
+        ["ads_id", "status"],
         if_not_exists=True,
     )
 

@@ -1005,15 +1005,23 @@ function ActivitiesTab() {
             clearable
           />
         </div>
-        <div className="flex items-center gap-1.5 ml-auto">
-          <span className="text-[10px] uppercase text-muted-foreground tracking-wide">Période</span>
-          <DateRangePicker
-            startDate={filters.startDate}
-            endDate={filters.endDate}
-            onStartChange={(d) => updateFilter('startDate', d || null)}
-            onEndChange={(d) => updateFilter('endDate', d || null)}
-            startLabel="Début"
-            endLabel="Fin"
+        <div className="flex items-center gap-1.5 ml-auto shrink-0">
+          <span className="text-[10px] uppercase text-muted-foreground tracking-wide hidden sm:inline">Période</span>
+          <input
+            type="date"
+            className="gl-form-input text-xs h-7 w-[130px]"
+            value={filters.startDate ?? ''}
+            onChange={(e) => updateFilter('startDate', e.target.value || null)}
+            title="Début"
+          />
+          <span className="text-muted-foreground text-xs">→</span>
+          <input
+            type="date"
+            className="gl-form-input text-xs h-7 w-[130px]"
+            value={filters.endDate ?? ''}
+            onChange={(e) => updateFilter('endDate', e.target.value || null)}
+            min={filters.startDate ?? undefined}
+            title="Fin"
           />
         </div>
       </div>
@@ -1436,15 +1444,23 @@ function ConflitsTab() {
             clearable
           />
         </div>
-        <div className="flex items-center gap-1.5 ml-auto">
-          <span className="text-[10px] uppercase text-muted-foreground tracking-wide">Période</span>
-          <DateRangePicker
-            startDate={conflictFilters.dateFrom}
-            endDate={conflictFilters.dateTo}
-            onStartChange={(d) => updateConflictFilter('dateFrom', d || null)}
-            onEndChange={(d) => updateConflictFilter('dateTo', d || null)}
-            startLabel="Début"
-            endLabel="Fin"
+        <div className="flex items-center gap-1.5 ml-auto shrink-0">
+          <span className="text-[10px] uppercase text-muted-foreground tracking-wide hidden sm:inline">Période</span>
+          <input
+            type="date"
+            className="gl-form-input text-xs h-7 w-[130px]"
+            value={conflictFilters.dateFrom ?? ''}
+            onChange={(e) => updateConflictFilter('dateFrom', e.target.value || null)}
+            title="Début"
+          />
+          <span className="text-muted-foreground text-xs">→</span>
+          <input
+            type="date"
+            className="gl-form-input text-xs h-7 w-[130px]"
+            value={conflictFilters.dateTo ?? ''}
+            onChange={(e) => updateConflictFilter('dateTo', e.target.value || null)}
+            min={conflictFilters.dateFrom ?? undefined}
+            title="Fin"
           />
         </div>
       </div>

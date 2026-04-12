@@ -39,6 +39,8 @@ import NotificationsScreen from "../screens/NotificationsScreen";
 import LiveTrackingScreen from "../screens/LiveTrackingScreen";
 import CaptainPortalScreen from "../screens/CaptainPortalScreen";
 import DriverPickupScreen from "../screens/DriverPickupScreen";
+import AdsDetailScreen from "../screens/AdsDetailScreen";
+import VoyageDetailScreen from "../screens/VoyageDetailScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 
 const Stack = createNativeStackNavigator();
@@ -148,6 +150,16 @@ function SharedScreens() {
         name="DriverPickup"
         component={DriverPickupScreen}
         options={{ title: "Mode Ramassage" }}
+      />
+      <Stack.Screen
+        name="AdsDetail"
+        component={AdsDetailScreen}
+        options={{ title: "Détail ADS" }}
+      />
+      <Stack.Screen
+        name="VoyageDetail"
+        component={VoyageDetailScreen}
+        options={{ title: "Détail Voyage" }}
       />
     </>
   );

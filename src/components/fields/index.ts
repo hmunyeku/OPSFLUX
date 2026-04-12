@@ -12,3 +12,4 @@ export { default as FieldLocation } from "./FieldLocation";
 export { default as FieldRepeater } from "./FieldRepeater";
 export { default as FieldTags } from "./FieldTags";
 export { default as FieldGroup } from "./FieldGroup";
+export { default as FieldMultiLookup } from "./FieldMultiLookup";

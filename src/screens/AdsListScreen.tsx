@@ -4,7 +4,6 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   StyleSheet,
@@ -13,30 +12,52 @@ import {
   View,
 } from "react-native";
 import { colors } from "../utils/colors";
+import { Chip } from "react-native-paper";
 import StatusBadge from "../components/StatusBadge";
+import { ListSkeleton } from "../components/SkeletonLoader";
 import { listAds } from "../services/paxlog";
 import type { AdsSummary } from "../types/api";
 
 interface Props {
+  route?: { params?: { status?: string; scope?: string } };
   navigation: any;
 }
 
-export default function AdsListScreen({ navigation }: Props) {
+const FILTER_OPTIONS = [
+  { label: "Tous", value: "" },
+  { label: "Mes ADS", value: "mine" },
+  { label: "Approuvés", value: "approved" },
+  { label: "En attente", value: "pending_validation" },
+  { label: "Brouillons", value: "draft" },
+];
+
+export default function AdsListScreen({ route, navigation }: Props) {
+  const initialStatus = route?.params?.status ?? "";
+  const initialScope = route?.params?.scope ?? "";
+
   const [ads, setAds] = useState<AdsSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
+  const [activeFilter, setActiveFilter] = useState(initialScope || initialStatus);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
   const fetchAds = useCallback(
     async (pageNum: number, isRefresh = false) => {
       try {
-        const result = await listAds({
+        const params: any = {
           search: search || undefined,
           page: pageNum,
           page_size: 20,
-        });
+        };
+        // Apply filter
+        if (activeFilter === "mine") {
+          params.scope = "mine";
+        } else if (activeFilter) {
+          params.status = activeFilter;
+        }
+        const result = await listAds(params);
         if (isRefresh || pageNum === 1) {
           setAds(result.items);
         } else {
@@ -50,14 +71,14 @@ export default function AdsListScreen({ navigation }: Props) {
         setRefreshing(false);
       }
     },
-    [search]
+    [search, activeFilter]
   );
 
   useEffect(() => {
     setLoading(true);
     setPage(1);
     fetchAds(1);
-  }, [search]);
+  }, [search, activeFilter]);
 
   function handleRefresh() {
     setRefreshing(true);
@@ -76,6 +97,7 @@ export default function AdsListScreen({ navigation }: Props) {
     <Pressable
       style={styles.card}
       onPress={() => navigation.navigate("AdsDetail", { adsId: item.id })}
+      onLongPress={() => navigation.navigate("AdsBoardingDetail", { adsId: item.id })}
     >
       <View style={styles.cardHeader}>
         <Text style={styles.reference}>{item.reference}</Text>
@@ -109,10 +131,25 @@ export default function AdsListScreen({ navigation }: Props) {
         autoCorrect={false}
       />
 
+      {/* Filter chips */}
+      <View style={styles.filterRow}>
+        {FILTER_OPTIONS.map((opt) => (
+          <Chip
+            key={opt.value}
+            selected={activeFilter === opt.value}
+            onPress={() => setActiveFilter(opt.value)}
+            compact
+            mode={activeFilter === opt.value ? "flat" : "outlined"}
+            selectedColor={colors.primary}
+            style={styles.filterChip}
+          >
+            {opt.label}
+          </Chip>
+        ))}
+      </View>
+
       {loading && ads.length === 0 ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <ListSkeleton items={6} />
       ) : (
         <FlatList
           data={ads}
@@ -148,6 +185,14 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     backgroundColor: colors.surface,
   },
+  filterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    paddingHorizontal: 14,
+    marginBottom: 10,
+  },
+  filterChip: {},
   center: {
     flex: 1,
     justifyContent: "center",

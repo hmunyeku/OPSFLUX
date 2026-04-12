@@ -175,6 +175,9 @@ class Settings(BaseSettings):
         for url_value in (self.APP_URL, self.FRONTEND_URL, self.WEB_URL, self.API_BASE_URL, self.API_URL):
             _add_related(url_value)
 
+        # Always include the external paxlog URL
+        _add(self.external_paxlog_url)
+
         return origins
 
     @property

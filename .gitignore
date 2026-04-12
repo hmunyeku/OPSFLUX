@@ -44,6 +44,12 @@ htmlcov/
 .pytest_cache/
 coverage/
 
+# Playwright
+/apps/main/test-results/
+/apps/main/playwright-report/
+/apps/main/blob-report/
+/apps/main/playwright/.cache/
+
 # Alembic
 alembic/versions/__pycache__/
 

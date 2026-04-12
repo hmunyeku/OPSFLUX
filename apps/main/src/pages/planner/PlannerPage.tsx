@@ -118,14 +118,16 @@ import type { HierarchyFieldNode } from '@/types/assetRegistry'
 
 type PlannerTab = 'dashboard' | 'gantt' | 'activities' | 'conflicts' | 'capacity' | 'scenarios' | 'forecast'
 
-const TABS: { id: PlannerTab; label: string; icon: typeof CalendarRange }[] = [
-  { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-  { id: 'gantt', label: 'Plan', icon: GanttChart },
-  { id: 'activities', label: 'Activites', icon: ListTodo },
-  { id: 'conflicts', label: 'Conflits', icon: AlertTriangle },
-  { id: 'capacity', label: 'Capacite', icon: BarChart3 },
-  { id: 'scenarios', label: 'Scénarios', icon: FlaskConical },
-  { id: 'forecast', label: 'Prévisions', icon: TrendingUp },
+// Tab definitions use i18n keys — the labels are resolved at render time
+// inside PlannerPageContent via useMemo + useTranslation.
+const TAB_DEFS: { id: PlannerTab; labelKey: string; icon: typeof CalendarRange }[] = [
+  { id: 'dashboard', labelKey: 'planner.tabs.dashboard', icon: LayoutDashboard },
+  { id: 'gantt', labelKey: 'planner.tabs.timeline', icon: GanttChart },
+  { id: 'activities', labelKey: 'planner.tabs.activities', icon: ListTodo },
+  { id: 'conflicts', labelKey: 'planner.tabs.conflicts', icon: AlertTriangle },
+  { id: 'capacity', labelKey: 'planner.tabs.capacity', icon: BarChart3 },
+  { id: 'scenarios', labelKey: 'planner.tabs.scenarios', icon: FlaskConical },
+  { id: 'forecast', labelKey: 'planner.tabs.forecast', icon: TrendingUp },
 ]
 
 // ── Constants ─────────────────────────────────────────────────
@@ -363,6 +365,7 @@ type TimeUnit = 'week' | 'month' | 'quarter'
 /* Legacy GanttTab — replaced by GanttView.tsx */
 /* @ts-expect-error keeping code for reference */
 function _GanttTabLegacy() { // eslint-disable-line
+  const { t } = useTranslation()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const activityTypeLabels = useDictionaryLabels('planner_activity_type', ACTIVITY_TYPE_LABELS_FALLBACK)
   const activityStatusLabels = useDictionaryLabels('planner_activity_status', ACTIVITY_STATUS_LABELS_FALLBACK)
@@ -464,7 +467,7 @@ function _GanttTabLegacy() { // eslint-disable-line
           onChange={(e) => setTypeFilter(e.target.value)}
           className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
         >
-          <option value="">Tous types</option>
+          <option value="">{t('planner.filters.all_types')}</option>
           {activityTypeOptions.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
@@ -678,6 +681,7 @@ const DEFAULT_ACTIVITIES_FILTERS: ActivitiesTabFilters = {
 }
 
 function ActivitiesTab() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [filters, setFilters] = useFilterPersistence<ActivitiesTabFilters>(
@@ -752,7 +756,7 @@ function ActivitiesTab() {
   const columns = useMemo<ColumnDef<PlannerActivity, unknown>[]>(() => [
     {
       accessorKey: 'title',
-      header: 'Titre',
+      header: t('planner.columns.title'),
       cell: ({ row }) => (
         <div className="min-w-0">
           <span className="font-medium text-foreground block truncate max-w-[220px]">{row.original.title}</span>
@@ -767,13 +771,13 @@ function ActivitiesTab() {
     },
     {
       accessorKey: 'type',
-      header: 'Type',
+      header: t('planner.columns.type'),
       size: 130,
       cell: ({ row }) => {
-        const t = ACTIVITY_TYPE_META[row.original.type]
-        const TIcon = t?.icon || ListTodo
+        const meta = ACTIVITY_TYPE_META[row.original.type]
+        const TIcon = meta?.icon || ListTodo
         return (
-          <span className={cn('gl-badge inline-flex items-center gap-1', t?.badge || 'gl-badge-neutral')}>
+          <span className={cn('gl-badge inline-flex items-center gap-1', meta?.badge || 'gl-badge-neutral')}>
             <TIcon size={10} />
             {activityTypeLabels[row.original.type] || row.original.type}
           </span>
@@ -782,13 +786,13 @@ function ActivitiesTab() {
     },
     {
       accessorKey: 'priority',
-      header: 'Priorité',
+      header: t('planner.columns.priority'),
       size: 90,
       cell: ({ row }) => <span className={cn('text-xs font-medium', PRIORITY_CLASS_MAP[row.original.priority] || 'text-muted-foreground')}>{priorityLabels[row.original.priority] || row.original.priority}</span>,
     },
     {
       accessorKey: 'pax_quota',
-      header: 'PAX',
+      header: t('planner.columns.pax'),
       size: 60,
       cell: ({ row }) => (
         <span className="inline-flex items-center gap-1 text-xs">
@@ -799,7 +803,7 @@ function ActivitiesTab() {
     },
     {
       accessorKey: 'start_date',
-      header: 'Debut',
+      header: t('planner.columns.start_date'),
       size: 100,
       cell: ({ row }) => (
         <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
@@ -809,7 +813,7 @@ function ActivitiesTab() {
     },
     {
       accessorKey: 'end_date',
-      header: 'Fin',
+      header: t('planner.columns.end_date'),
       size: 100,
       cell: ({ row }) => (
         <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
@@ -819,7 +823,7 @@ function ActivitiesTab() {
     },
     {
       accessorKey: 'status',
-      header: 'Statut',
+      header: t('planner.columns.status'),
       size: 110,
       cell: ({ row }) => <StatusBadge status={row.original.status} labels={activityStatusLabels} badges={ACTIVITY_STATUS_BADGES} />,
     },
@@ -916,10 +920,10 @@ function ActivitiesTab() {
     <>
       {/* Stats grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
-        <StatCard label="Total" value={total} icon={ListTodo} />
-        <StatCard label="En attente validation" value={stats.submitted} icon={Clock} accent="text-blue-600 dark:text-blue-400" />
-        <StatCard label="En cours" value={stats.inProgress} icon={CalendarRange} accent="text-amber-600 dark:text-amber-400" />
-        <StatCard label="PAX planifies" value={stats.totalPax} icon={Users} />
+        <StatCard label={t('planner.stats.total')} value={total} icon={ListTodo} />
+        <StatCard label={t('planner.stats.pending_validation')} value={stats.submitted} icon={Clock} accent="text-blue-600 dark:text-blue-400" />
+        <StatCard label={t('planner.stats.in_progress')} value={stats.inProgress} icon={CalendarRange} accent="text-amber-600 dark:text-amber-400" />
+        <StatCard label={t('planner.stats.pax_planned')} value={stats.totalPax} icon={Users} />
       </div>
 
       {/* Filter bar */}
@@ -943,7 +947,7 @@ function ActivitiesTab() {
           onChange={(e) => updateFilter('typeFilter', e.target.value)}
           className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary ml-1"
         >
-          <option value="">Tous types</option>
+          <option value="">{t('planner.filters.all_types')}</option>
           {activityTypeOptions.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
@@ -953,7 +957,7 @@ function ActivitiesTab() {
           onChange={(e) => updateFilter('priorityFilter', e.target.value)}
           className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
         >
-          <option value="">Toutes priorités</option>
+          <option value="">{t('planner.filters.all_priorities')}</option>
           {priorityOptions.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
@@ -1269,14 +1273,14 @@ function ConflitsTab() {
   const columns = useMemo<ColumnDef<PlannerConflict, unknown>[]>(() => [
     {
       accessorKey: 'asset_name',
-      header: 'Site',
+      header: t('planner.columns.site'),
       cell: ({ row }) => row.original.asset_id
         ? <CrossModuleLink module="assets" id={row.original.asset_id} label={row.original.asset_name || row.original.asset_id} showIcon={false} className="font-medium" />
         : <span className="font-medium text-foreground">{row.original.asset_name || '—'}</span>,
     },
     {
       accessorKey: 'conflict_date',
-      header: 'Date conflit',
+      header: t('planner.columns.conflict_date'),
       size: 120,
       cell: ({ row }) => (
         <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
@@ -1310,7 +1314,7 @@ function ConflitsTab() {
     },
     {
       id: 'activities',
-      header: 'Activites impliquees',
+      header: t('planner.columns.activities_involved'),
       cell: ({ row }) => (
         <div className="flex flex-col gap-0.5 max-w-[250px]">
           {row.original.activity_titles.length > 0 ? (
@@ -1325,7 +1329,7 @@ function ConflitsTab() {
     },
     {
       accessorKey: 'resolution',
-      header: 'Resolution',
+      header: t('planner.columns.resolution'),
       size: 140,
       cell: ({ row }) => {
         if (!row.original.resolution) return <span className="text-xs text-muted-foreground">{'—'}</span>
@@ -1334,7 +1338,7 @@ function ConflitsTab() {
     },
     {
       accessorKey: 'status',
-      header: 'Statut',
+      header: t('planner.columns.status'),
       size: 100,
       cell: ({ row }) => <StatusBadge status={row.original.status} labels={conflictStatusLabels} badges={CONFLICT_STATUS_BADGES} />,
     },
@@ -1364,10 +1368,10 @@ function ConflitsTab() {
     <>
       {/* Stats grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
-        <StatCard label="Total conflits" value={total} icon={AlertTriangle} />
-        <StatCard label="Ouverts" value={stats.open} icon={AlertTriangle} accent="text-destructive" />
-        <StatCard label="Resolus" value={stats.resolved} icon={CheckCircle2} accent="text-emerald-600 dark:text-emerald-400" />
-        <StatCard label="Differes" value={stats.deferred} icon={Clock} accent="text-amber-600 dark:text-amber-400" />
+        <StatCard label={t('planner.stats.total_conflicts')} value={total} icon={AlertTriangle} />
+        <StatCard label={t('planner.stats.open')} value={stats.open} icon={AlertTriangle} accent="text-destructive" />
+        <StatCard label={t('planner.stats.resolved')} value={stats.resolved} icon={CheckCircle2} accent="text-emerald-600 dark:text-emerald-400" />
+        <StatCard label={t('planner.stats.deferred')} value={stats.deferred} icon={Clock} accent="text-amber-600 dark:text-amber-400" />
       </div>
 
       {/* Filter bar */}
@@ -1392,7 +1396,7 @@ function ConflitsTab() {
           className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           title="Filtrer par type de conflit"
         >
-          <option value="">Tous types</option>
+          <option value="">{t('planner.filters.all_types')}</option>
           <option value="pax_overflow">Dépassement POB</option>
           <option value="priority_clash">Conflit priorité</option>
         </select>
@@ -2856,7 +2860,7 @@ function ForecastTab() {
             onChange={e => setTypeFilter(e.target.value)}
             className={`${panelInputClass} text-xs`}
           >
-            <option value="">Tous types</option>
+            <option value="">{t('planner.filters.all_types')}</option>
             {activityTypeOptions.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
@@ -3072,7 +3076,15 @@ function repairTimelineRange(
 }
 
 export function PlannerPage() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<PlannerTab>('dashboard')
+
+  // Translate tab labels from i18n keys so the UI follows the active language.
+  const translatedTabs = useMemo(
+    () => TAB_DEFS.map((tab) => ({ ...tab, label: t(tab.labelKey) })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t],
+  )
 
   // Load persisted timeline pref (loaded from localStorage instantly, then API)
   const { getPref, setPref } = useUserPreferences()
@@ -3168,9 +3180,9 @@ export function PlannerPage() {
     <div className="flex h-full">
       {!isFullPanel && (
         <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-          <PanelHeader icon={CalendarRange} title="Planner" subtitle="Planification des activites">
+          <PanelHeader icon={CalendarRange} title={t('planner.title')} subtitle={t('planner.subtitle')}>
             {canCreate && (activeTab === 'activities' || activeTab === 'gantt') && (
-              <ToolbarButton icon={Plus} label="Nouvelle activite" variant="primary" onClick={handleCreate} />
+              <ToolbarButton icon={Plus} label={t('planner.actions.new_activity')} variant="primary" onClick={handleCreate} />
             )}
           </PanelHeader>
 
@@ -3179,7 +3191,7 @@ export function PlannerPage() {
               The rightSlot hosts the dashboard "Modifier" toolbar via
               portal, only when the dashboard tab is active. */}
           <TabBar
-            items={TABS}
+            items={translatedTabs}
             activeId={activeTab}
             onTabChange={setActiveTab}
             rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-planner" /> : null}

@@ -9,6 +9,7 @@ Export (PDF, DOCX). Revision diff.
 import io
 import json
 import logging
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
@@ -991,7 +992,7 @@ async def export_pdf(
         "revision": revision.rev_code if revision else "-",
         "status": doc.status,
         "entity": {"name": entity.name if entity else ""},
-        "generated_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M"),
+        "generated_at": datetime.now(UTC).strftime("%d/%m/%Y %H:%M"),
         "document_language": getattr(doc, "language", "fr"),
         "classification": getattr(doc, "classification", ""),
         "doc_type_name": doc_type.name if doc_type else "",

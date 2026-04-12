@@ -158,16 +158,20 @@
 
 @layer components {
   /* ── Buttons ──────────────────────────────────────────────── */
+  /* Mobile bumps the height to ~44px (Apple HIG) while keeping the
+     dense desktop sizing (32px / 28px) intact via the sm: variant.
+     Mobile users get touch-friendly targets without bloating the
+     desktop UI. */
   .gl-button {
     @apply inline-flex items-center justify-center gap-1.5
-           h-8 px-3 text-sm font-normal leading-none
+           h-10 sm:h-8 px-3 text-sm font-normal leading-none
            transition-all whitespace-nowrap cursor-pointer
            disabled:opacity-50 disabled:pointer-events-none;
     border-radius: 0.5rem;
   }
   .gl-button-sm {
     @apply inline-flex items-center justify-center gap-1
-           h-7 px-2.5 text-xs font-normal leading-none
+           h-9 sm:h-7 px-2.5 text-xs font-normal leading-none
            transition-all whitespace-nowrap cursor-pointer
            disabled:opacity-50 disabled:pointer-events-none;
     border-radius: 0.5rem;
@@ -196,9 +200,13 @@
   }
 
   /* ── Form inputs (inset box-shadow border like GitLab) ───── */
+  /* Mobile bumps the height to 40px so taps land cleanly on iOS
+     Safari (which auto-zooms when an input is < 16px text). The
+     base font-size stays at sm:text-sm but mobile gets text-base
+     to prevent the iOS auto-zoom-on-focus zoom-in behaviour. */
   .gl-form-input {
-    @apply w-full h-8 border-0 bg-background
-           px-3 py-2 text-sm text-foreground
+    @apply w-full h-10 sm:h-8 border-0 bg-background
+           px-3 py-2 text-base sm:text-sm text-foreground
            placeholder:text-muted-foreground
            focus:outline-none
            transition-colors;
@@ -209,8 +217,8 @@
     box-shadow: inset 0 0 0 1px hsl(var(--ring)), 0 0 0 2px hsl(var(--ring) / 0.15);
   }
   .gl-form-select {
-    @apply w-full h-8 border-0 bg-background
-           pl-3 pr-8 py-2 text-sm text-foreground
+    @apply w-full h-10 sm:h-8 border-0 bg-background
+           pl-3 pr-8 py-2 text-base sm:text-sm text-foreground
            focus:outline-none
            transition-colors;
     border-radius: 0.5rem;

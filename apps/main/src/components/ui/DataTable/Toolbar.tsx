@@ -375,7 +375,10 @@ export function DataTableToolbar({
 
   return (
     <div className="border-b border-border shrink-0" ref={containerRef}>
-      <div className="flex items-center h-9 px-3 gap-2">
+      {/* Mobile: allow the toolbar to wrap to two lines so the search input
+          stays usable and the right-side action cluster doesn't push the
+          search field off-screen. Desktop: single 36px row as before. */}
+      <div className="flex flex-wrap sm:flex-nowrap items-center min-h-9 sm:h-9 px-2 sm:px-3 py-1 sm:py-0 gap-1.5 sm:gap-2">
 
         {/* ── Visual query search bar ── */}
         <div

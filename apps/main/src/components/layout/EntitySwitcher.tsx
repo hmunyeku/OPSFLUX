@@ -46,7 +46,7 @@ export function EntitySwitcher() {
     return (
       <div className="flex items-center gap-1 text-xs text-muted-foreground px-1.5">
         <EntityIcon size={12} />
-        <span className="animate-pulse">…</span>
+        <span className="animate-pulse hidden sm:inline">…</span>
       </div>
     )
   }
@@ -54,11 +54,14 @@ export function EntitySwitcher() {
   if (!entities || entities.length === 0) return null
 
   // Single entity — just show the name
+  // On screens < sm we hide the textual code and only render the icon
+  // to keep the topbar uncluttered. The icon already conveys the
+  // entity (logo) and the user can long-press for the title.
   if (entities.length === 1) {
     return (
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground px-1.5" title={entities[0].name}>
         <EntityIcon logoUrl={entities[0].logo_url} country={entities[0].country} size={14} />
-        <span className="truncate max-w-[120px]">{entities[0].code}</span>
+        <span className="truncate max-w-[120px] hidden sm:inline">{entities[0].code}</span>
       </div>
     )
   }
@@ -96,10 +99,12 @@ export function EntitySwitcher() {
           open && 'bg-chrome-hover text-foreground',
         )}
         title={currentEntity?.name ?? 'Switch entity'}
+        aria-label={currentEntity?.name ?? 'Switch entity'}
       >
         <EntityIcon logoUrl={currentEntity?.logo_url} country={currentEntity?.country} size={14} />
-        <span className="truncate max-w-[120px]">{currentEntity?.code ?? '—'}</span>
-        <ChevronDown size={10} className={cn('transition-transform', open && 'rotate-180')} />
+        {/* Code label hidden on < sm to free topbar space */}
+        <span className="truncate max-w-[120px] hidden sm:inline">{currentEntity?.code ?? '—'}</span>
+        <ChevronDown size={10} className={cn('transition-transform hidden sm:inline', open && 'rotate-180')} />
       </button>
 
       {open && (

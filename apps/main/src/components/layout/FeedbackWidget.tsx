@@ -308,11 +308,15 @@ export function FeedbackWidget() {
 
   return (
     <div ref={widgetRef}>
-      {/* Floating button */}
+      {/* Floating button — hidden on < sm so it doesn't overlap the
+          dynamic panel sticky action bar (Cancel/Save buttons) which
+          lives in the same bottom-right corner on mobile. The user
+          can still report issues via the assistant panel from the
+          mobile topbar. */}
       {!open && !recording && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-5 right-5 z-[80] h-11 w-11 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
+          className="hidden sm:flex fixed bottom-5 right-5 z-[80] h-11 w-11 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 items-center justify-center transition-transform hover:scale-105 active:scale-95"
           title="Signaler un problème"
         >
           <MessageSquarePlus size={18} />
@@ -323,7 +327,7 @@ export function FeedbackWidget() {
       {recording && !open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-5 right-5 z-[80] h-11 px-4 rounded-full bg-red-600 text-white shadow-lg flex items-center gap-2 animate-pulse"
+          className="hidden sm:flex fixed bottom-5 right-5 z-[80] h-11 px-4 rounded-full bg-red-600 text-white shadow-lg items-center gap-2 animate-pulse"
         >
           <div className="h-2.5 w-2.5 rounded-full bg-white animate-pulse" />
           <span className="text-xs font-semibold">{formatTime(recordingTime)}</span>

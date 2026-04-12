@@ -267,13 +267,35 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const globalSearch = useUIStore((s) => s.globalSearch)
   const setGlobalSearch = useUIStore((s) => s.setGlobalSearch)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  // ── Mobile search overlay state ─────────────────────────────
+  // On screens < sm we hide the inline search input from the
+  // topbar (it was getting squeezed to ~50px). A magnifier icon
+  // toggles a full-width slide-down search bar instead. Tapping
+  // outside or pressing Escape closes it.
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const mobileSearchRef = useRef<HTMLInputElement>(null)
   const { open: paletteOpen, setOpen: setPaletteOpen } = useCommandPalette()
   const { aiPanelOpen, toggleAIPanel } = useUIStore()
   const placeholder = useSearchPlaceholder()
   const { data: availableContexts = [] } = useActingContexts()
   const { data: currentActingContext } = useCurrentActingContext()
+
+  // Auto-focus the mobile search field when the overlay opens
+  useEffect(() => {
+    if (mobileSearchOpen) mobileSearchRef.current?.focus()
+  }, [mobileSearchOpen])
+
+  // Escape closes the mobile search overlay
+  useEffect(() => {
+    if (!mobileSearchOpen) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileSearchOpen(false)
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [mobileSearchOpen])
 
   const handleActingContextChange = (nextKey: string) => {
     setActingContext(nextKey)
@@ -322,11 +344,11 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
       <header
         role="banner"
         data-tour="topbar"
-        className="flex h-11 items-center border-b border-border bg-chrome px-3 shrink-0"
+        className="flex h-11 items-center border-b border-border bg-chrome px-2 sm:px-3 shrink-0 gap-1 sm:gap-2"
         style={{ zIndex: 'var(--z-topbar)' }}
       >
         {/* ── Left: Logo + mobile menu ── */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
             onClick={onToggleSidebar}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors lg:hidden"
@@ -338,6 +360,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           <button
             onClick={() => navigate('/dashboard')}
             className="flex items-center gap-1.5 shrink-0"
+            aria-label="OpsFlux"
           >
             <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-xs font-bold text-primary-foreground leading-none">OF</span>
@@ -349,8 +372,8 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           <EntitySwitcher />
         </div>
 
-        {/* ── Center: Contextual search input ── */}
-        <div data-tour="search-bar" className="flex-1 flex justify-center px-2 sm:px-4">
+        {/* ── Center: Contextual search input (hidden on < sm to free space) ── */}
+        <div data-tour="search-bar" className="hidden sm:flex flex-1 justify-center px-2 sm:px-4 min-w-0">
           <div className="relative w-full max-w-lg">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
@@ -372,6 +395,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
               <button
                 onClick={() => setGlobalSearch('')}
                 className="absolute right-10 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label={t('common.clear')}
               >
                 <X size={14} />
               </button>
@@ -382,9 +406,24 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           </div>
         </div>
 
+        {/* ── Mobile spacer pushes right actions to the edge ── */}
+        <div className="flex-1 sm:hidden" />
+
         {/* ── Right: Actions ── */}
         <div className="flex items-center shrink-0">
-          <TopbarIconButton icon={Plus} label={t('common.create')} />
+          {/* Mobile-only search trigger — opens the slide-down overlay */}
+          <button
+            onClick={() => setMobileSearchOpen(true)}
+            className="sm:hidden flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-chrome-hover hover:text-foreground transition-colors"
+            aria-label={t('common.search')}
+          >
+            <Search size={15} />
+          </button>
+
+          {/* Create button — desktop only (each module has its own create button) */}
+          <span className="hidden sm:inline-flex">
+            <TopbarIconButton icon={Plus} label={t('common.create')} />
+          </span>
 
           <div className="mx-1.5 h-4 w-px bg-border hidden sm:block" />
 
@@ -499,6 +538,61 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           </div>
         </div>
       </header>
+
+      {/* ── Mobile search overlay ── */}
+      {/* Slides down from under the topbar on screens < sm. Tapping the
+          backdrop or pressing Escape closes it. Submitting (Enter)
+          navigates to /search and closes the overlay. */}
+      {mobileSearchOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/40 sm:hidden"
+            style={{ zIndex: 'var(--z-topbar)' }}
+            onClick={() => setMobileSearchOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            className="fixed left-0 right-0 sm:hidden bg-chrome border-b border-border px-3 py-2 flex items-center gap-2"
+            style={{ top: 'var(--topbar-height, 2.75rem)', zIndex: 'calc(var(--z-topbar) + 1)' }}
+            role="search"
+          >
+            <div className="relative flex-1">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <input
+                ref={mobileSearchRef}
+                type="text"
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && globalSearch.trim()) {
+                    navigate(`/search?q=${encodeURIComponent(globalSearch.trim())}`)
+                    setMobileSearchOpen(false)
+                  }
+                }}
+                placeholder={placeholder}
+                autoComplete="off"
+                name="opsflux-mobile-search"
+                className="w-full h-9 rounded-lg border border-border bg-background px-3 pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/40 focus:ring-1 focus:ring-primary/20 outline-none"
+              />
+              {globalSearch && (
+                <button
+                  onClick={() => setGlobalSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={t('common.clear')}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setMobileSearchOpen(false)}
+              className="text-sm text-primary px-2 py-1 rounded-md hover:bg-chrome-hover"
+            >
+              {t('common.cancel')}
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Command Palette overlay */}
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />

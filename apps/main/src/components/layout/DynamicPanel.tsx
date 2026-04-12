@@ -349,9 +349,16 @@ export function DynamicPanelShell({
           </div>
         </div>
 
-        {/* Actions toolbar */}
+        {/* Actions toolbar
+            Desktop: rendered as a slim row UNDER the header (existing
+            behaviour preserved by `hidden sm:flex`).
+            Mobile: hidden here — instead the same actions are rendered
+            as a sticky bottom bar BELOW the scroll area so users don't
+            have to scroll a long form to reach the Save / Cancel
+            buttons. Both layouts share the same `actionsNode` so the
+            button labels stay consistent. */}
         {actionsNode && (
-          <div className="flex items-center justify-end gap-2 border-b border-border px-4 py-1.5 shrink-0 bg-background-subtle min-w-0">
+          <div className="hidden sm:flex items-center justify-end gap-2 border-b border-border px-4 py-1.5 shrink-0 bg-background-subtle min-w-0">
             {actionsNode}
           </div>
         )}
@@ -360,10 +367,26 @@ export function DynamicPanelShell({
             `PanelContentLayout` (used by detail panels) handles its own
             max-width cap so we don't need to clamp here. Removing this
             outer wrapper unlocks the full main-area width on wide
-            monitors. */}
-        <div className="flex-1 overflow-y-auto @container">
+            monitors.
+            Bottom padding on mobile reserves space for the sticky
+            action bar so the last form field stays scrollable above
+            the buttons. */}
+        <div className={cn(
+          'flex-1 overflow-y-auto @container',
+          actionsNode && 'pb-16 sm:pb-0',
+        )}>
           {children}
         </div>
+
+        {/* Mobile sticky bottom action bar — only renders on < sm */}
+        {actionsNode && (
+          <div
+            className="sm:hidden flex items-center justify-end gap-2 border-t border-border px-3 py-2 shrink-0 bg-background"
+            style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+          >
+            {actionsNode}
+          </div>
+        )}
       </div>
     )
   }

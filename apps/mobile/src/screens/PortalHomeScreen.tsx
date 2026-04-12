@@ -27,7 +27,9 @@ import {
 import { useFormRegistry } from "../hooks/useFormRegistry";
 import { useResponsive } from "../hooks/useResponsive";
 import { useAuthStore } from "../stores/auth";
+import { usePermissions } from "../stores/permissions";
 import { useOfflineStore } from "../services/offline";
+import { useNotifications } from "../services/notifications";
 import { colors } from "../utils/colors";
 import type { PortalAction, PortalDefinition } from "../types/forms";
 
@@ -39,22 +41,40 @@ export default function PortalHomeScreen({ navigation }: Props) {
   const { portals, forms, loading } = useFormRegistry();
   const { deviceType, contentPadding, gridColumns, cardWidth } = useResponsive();
   const userDisplayName = useAuthStore((s) => s.userDisplayName);
+  const permissions = usePermissions((s) => s.permissions);
+  const hasPermission = usePermissions((s) => s.hasAny);
   const isOnline = useOfflineStore((s) => s.isOnline);
   const queueLength = useOfflineStore((s) => s.queueLength);
+  const unreadCount = useNotifications((s) => s.unreadCount);
 
   const [activePortalId, setActivePortalId] = useState<string | null>(null);
 
+  // Filter portals by user permissions
+  const accessiblePortals = useMemo(() => {
+    return portals.filter((portal) => {
+      const perms = portal.access?.permissions ?? [];
+      const roles = portal.access?.role_slugs ?? [];
+      // If no permission requirement, everyone can access (e.g. "requester" portal)
+      if (perms.length === 0 && roles.length === 0) return true;
+      // User has at least one required permission
+      if (perms.length > 0 && hasPermission(perms)) return true;
+      // Role-based (always accessible for base roles)
+      if (roles.includes("user")) return true;
+      return false;
+    });
+  }, [portals, permissions]);
+
   // Select the first available portal (or let user switch)
   const activePortal = useMemo(() => {
-    if (activePortalId) return portals.find((p) => p.id === activePortalId);
-    return portals[0] ?? null;
-  }, [portals, activePortalId]);
+    if (activePortalId) return accessiblePortals.find((p) => p.id === activePortalId);
+    return accessiblePortals[0] ?? null;
+  }, [accessiblePortals, activePortalId]);
 
   useEffect(() => {
-    if (portals.length && !activePortalId) {
-      setActivePortalId(portals[0].id);
+    if (accessiblePortals.length && !activePortalId) {
+      setActivePortalId(accessiblePortals[0].id);
     }
-  }, [portals]);
+  }, [accessiblePortals]);
 
   // ── Action Handler ────────────────────────────────────────────────
 
@@ -140,14 +160,38 @@ export default function PortalHomeScreen({ navigation }: Props) {
         )}
       </View>
 
+      {/* Search + Notifications quick access */}
+      <View style={styles.quickBar}>
+        <Pressable
+          style={styles.quickButton}
+          onPress={() => navigation.navigate("Search")}
+        >
+          <Surface style={styles.quickButtonInner} elevation={1}>
+            <Text style={styles.quickButtonIcon}>S</Text>
+            <Text variant="bodySmall" style={styles.quickButtonLabel}>Rechercher</Text>
+          </Surface>
+        </Pressable>
+        {unreadCount > 0 && (
+          <Pressable
+            style={styles.quickButton}
+            onPress={() => navigation.navigate("Notifications")}
+          >
+            <Surface style={[styles.quickButtonInner, { borderLeftColor: colors.danger, borderLeftWidth: 3 }]} elevation={1}>
+              <Text style={[styles.quickButtonIcon, { color: colors.danger }]}>{unreadCount}</Text>
+              <Text variant="bodySmall" style={styles.quickButtonLabel}>Notifications</Text>
+            </Surface>
+          </Pressable>
+        )}
+      </View>
+
       {/* Portal switcher */}
-      {portals.length > 1 && (
+      {accessiblePortals.length > 1 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.portalSwitcher}
         >
-          {portals.map((portal) => (
+          {accessiblePortals.map((portal) => (
             <Chip
               key={portal.id}
               selected={portal.id === activePortal?.id}
@@ -261,6 +305,31 @@ const styles = StyleSheet.create({
   },
   offlineText: {
     color: colors.warning,
+    fontWeight: "600",
+  },
+  quickBar: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 16,
+  },
+  quickButton: {
+    flex: 1,
+  },
+  quickButtonInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 10,
+    padding: 12,
+    backgroundColor: colors.surface,
+    gap: 8,
+  },
+  quickButtonIcon: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.primary,
+  },
+  quickButtonLabel: {
+    color: colors.textSecondary,
     fontWeight: "600",
   },
   portalSwitcher: {

@@ -18,6 +18,10 @@ const config: ExpoConfig = {
     infoPlist: {
       NSCameraUsageDescription:
         "OpsFlux a besoin de la caméra pour scanner les QR codes des ADS et colis.",
+      NSLocationWhenInUseUsageDescription:
+        "OpsFlux utilise votre position pour le suivi en temps réel des voyages.",
+      NSLocationAlwaysAndWhenInUseUsageDescription:
+        "OpsFlux utilise votre position en arrière-plan pour le suivi des voyages.",
     },
   },
   android: {
@@ -25,7 +29,7 @@ const config: ExpoConfig = {
       backgroundColor: "#1e3a5f",
     },
     package: "com.opsflux.mobile",
-    permissions: ["CAMERA"],
+    permissions: ["CAMERA", "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
   },
   plugins: [
     [
@@ -33,6 +37,15 @@ const config: ExpoConfig = {
       {
         cameraPermission:
           "OpsFlux a besoin de la caméra pour scanner les QR codes des ADS et colis.",
+      },
+    ],
+    [
+      "expo-location",
+      {
+        locationAlwaysAndWhenInUsePermission:
+          "OpsFlux utilise votre position pour le suivi en temps réel des voyages.",
+        locationWhenInUsePermission:
+          "OpsFlux utilise votre position pour le suivi en temps réel.",
       },
     ],
   ],

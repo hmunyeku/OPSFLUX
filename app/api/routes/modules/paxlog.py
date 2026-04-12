@@ -7948,8 +7948,8 @@ async def create_external_ads_pax(
 async def attach_existing_external_ads_pax(
     token: str,
     contact_id: UUID,
-    body: ExternalPaxAttachBody = ExternalPaxAttachBody(),
     request: Request,
+    body: ExternalPaxAttachBody = ExternalPaxAttachBody(),
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):

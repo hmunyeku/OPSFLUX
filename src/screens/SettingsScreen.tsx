@@ -29,6 +29,7 @@ import { usePermissions } from "../stores/permissions";
 import { useOfflineStore, clearCache, flushQueue } from "../services/offline";
 import { useTrackingStore, stopTracking } from "../services/tracking";
 import { useTranslation } from "react-i18next";
+import { AVAILABLE_LANGUAGES } from "../locales/i18n";
 import { useThemeStore } from "../stores/theme";
 import { useBootstrap, BootstrapEntity } from "../hooks/useBootstrap";
 import { setBaseUrl } from "../services/api";
@@ -434,10 +435,12 @@ export default function SettingsScreen() {
           />
           <List.Item
             title={t("settings.language")}
-            description={i18n.language === "fr" ? "Français" : "English"}
+            description={AVAILABLE_LANGUAGES.find((l) => l.code === i18n.language)?.label ?? i18n.language}
             left={(props) => <List.Icon {...props} icon="translate" />}
             onPress={() => {
-              const next = i18n.language === "fr" ? "en" : "fr";
+              const codes = AVAILABLE_LANGUAGES.map((l) => l.code);
+              const idx = codes.indexOf(i18n.language);
+              const next = codes[(idx + 1) % codes.length];
               i18n.changeLanguage(next);
             }}
           />

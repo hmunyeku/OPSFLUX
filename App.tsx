@@ -28,8 +28,12 @@ import { restoreAuth, persistAuth } from "./src/services/storage";
 import { registerForPushNotifications } from "./src/services/pushNotifications";
 import { useAuthStore } from "./src/stores/auth";
 import { useThemeStore } from "./src/stores/theme";
+import { initSentry, setSentryUser, clearSentryUser } from "./src/services/sentry";
 import { colors } from "./src/utils/colors";
 import { darkColors } from "./src/utils/darkColors";
+
+// Initialize Sentry before anything else
+initSentry();
 
 function buildTheme(isDark: boolean) {
   const c = isDark ? darkColors : colors;

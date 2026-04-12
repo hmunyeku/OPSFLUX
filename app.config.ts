@@ -1,20 +1,35 @@
 import { ExpoConfig } from "expo/config";
 
+const IS_PROD = process.env.APP_ENV === "production";
+const IS_PREVIEW = process.env.APP_ENV === "staging";
+
 const config: ExpoConfig = {
-  name: "OpsFlux Mobile",
+  name: IS_PROD ? "OpsFlux" : IS_PREVIEW ? "OpsFlux (Preview)" : "OpsFlux (Dev)",
   slug: "opsflux-mobile",
   version: "1.0.0",
-  orientation: "portrait",
+  runtimeVersion: {
+    policy: "appVersion",
+  },
+  orientation: "default",
   icon: "./assets/icon.png",
-  userInterfaceStyle: "light",
+  userInterfaceStyle: "automatic",
   scheme: "opsflux",
   splash: {
+    image: "./assets/splash.png",
     backgroundColor: "#1e3a5f",
     resizeMode: "contain",
   },
+  updates: {
+    url: "https://u.expo.dev/opsflux-mobile",
+    fallbackToCacheTimeout: 30000,
+  },
   ios: {
     supportsTablet: true,
-    bundleIdentifier: "com.opsflux.mobile",
+    bundleIdentifier: IS_PROD
+      ? "com.opsflux.mobile"
+      : IS_PREVIEW
+      ? "com.opsflux.mobile.preview"
+      : "com.opsflux.mobile.dev",
     infoPlist: {
       NSCameraUsageDescription:
         "OpsFlux a besoin de la caméra pour scanner les QR codes des ADS et colis.",
@@ -22,14 +37,31 @@ const config: ExpoConfig = {
         "OpsFlux utilise votre position pour le suivi en temps réel des voyages.",
       NSLocationAlwaysAndWhenInUseUsageDescription:
         "OpsFlux utilise votre position en arrière-plan pour le suivi des voyages.",
+      UIBackgroundModes: ["location", "fetch", "remote-notification"],
+    },
+    config: {
+      usesNonExemptEncryption: false,
     },
   },
   android: {
     adaptiveIcon: {
+      foregroundImage: "./assets/adaptive-icon.png",
       backgroundColor: "#1e3a5f",
     },
-    package: "com.opsflux.mobile",
-    permissions: ["CAMERA", "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
+    package: IS_PROD
+      ? "com.opsflux.mobile"
+      : IS_PREVIEW
+      ? "com.opsflux.mobile.preview"
+      : "com.opsflux.mobile.dev",
+    permissions: [
+      "CAMERA",
+      "ACCESS_FINE_LOCATION",
+      "ACCESS_COARSE_LOCATION",
+      "ACCESS_BACKGROUND_LOCATION",
+      "VIBRATE",
+      "RECEIVE_BOOT_COMPLETED",
+    ],
+    googleServicesFile: IS_PROD ? "./google-services.json" : undefined,
   },
   plugins: [
     [
@@ -46,9 +78,25 @@ const config: ExpoConfig = {
           "OpsFlux utilise votre position pour le suivi en temps réel des voyages.",
         locationWhenInUsePermission:
           "OpsFlux utilise votre position pour le suivi en temps réel.",
+        isAndroidBackgroundLocationEnabled: true,
+        isAndroidForegroundServiceEnabled: true,
       },
     ],
+    [
+      "expo-notifications",
+      {
+        icon: "./assets/notification-icon.png",
+        color: "#1e3a5f",
+      },
+    ],
+    "expo-secure-store",
+    "expo-router",
   ],
+  extra: {
+    eas: {
+      projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? "",
+    },
+  },
 };
 
 export default config;

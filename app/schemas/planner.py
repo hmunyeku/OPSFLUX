@@ -507,6 +507,8 @@ class ScenarioRequest(BaseModel):
 class ForecastRequest(BaseModel):
     asset_id: UUID
     horizon_days: int = Field(90, ge=7, le=365)
+    activity_type: str | None = None  # filter by activity type (project, workover, drilling, ...)
+    project_id: UUID | None = None    # filter by linked project
 
 
 class ForecastDayRead(BaseModel):

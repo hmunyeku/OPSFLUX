@@ -2890,6 +2890,8 @@ async def forecast(
 
     return await forecast_capacity(
         db, entity_id, body.asset_id, body.horizon_days,
+        activity_type=body.activity_type,
+        project_id=body.project_id,
     )
 
 

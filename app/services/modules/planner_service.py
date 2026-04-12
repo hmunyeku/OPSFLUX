@@ -274,6 +274,8 @@ async def compute_daily_load(
     asset_id: UUID,
     target_date: date,
     include_submitted: bool = True,
+    activity_type: str | None = None,
+    project_id: UUID | None = None,
 ) -> dict:
     """Compute PAX load for a single asset on a single day.
 
@@ -289,22 +291,26 @@ async def compute_daily_load(
 
     # Sum pax_quota of activities in the relevant statuses overlapping the date
     # Supports both constant mode (pax_quota) and variable mode (pax_quota_daily)
-    activities_result = await db.execute(
-        select(
-            PlannerActivity.pax_quota,
-            PlannerActivity.pax_quota_mode,
-            PlannerActivity.pax_quota_daily,
-        ).where(
-            PlannerActivity.entity_id == entity_id,
-            PlannerActivity.asset_id == asset_id,
-            PlannerActivity.active == True,  # noqa: E712
-            PlannerActivity.status.in_(statuses),
-            PlannerActivity.start_date.isnot(None),
-            PlannerActivity.end_date.isnot(None),
-            PlannerActivity.start_date <= datetime.combine(target_date, datetime.max.time()),
-            PlannerActivity.end_date >= datetime.combine(target_date, datetime.min.time()),
-        )
+    query = select(
+        PlannerActivity.pax_quota,
+        PlannerActivity.pax_quota_mode,
+        PlannerActivity.pax_quota_daily,
+    ).where(
+        PlannerActivity.entity_id == entity_id,
+        PlannerActivity.asset_id == asset_id,
+        PlannerActivity.active == True,  # noqa: E712
+        PlannerActivity.status.in_(statuses),
+        PlannerActivity.start_date.isnot(None),
+        PlannerActivity.end_date.isnot(None),
+        PlannerActivity.start_date <= datetime.combine(target_date, datetime.max.time()),
+        PlannerActivity.end_date >= datetime.combine(target_date, datetime.min.time()),
     )
+    # Optional filters for forecast drilldown (don't affect capacity heatmap or conflicts)
+    if activity_type:
+        query = query.where(PlannerActivity.type == activity_type)
+    if project_id:
+        query = query.where(PlannerActivity.project_id == project_id)
+    activities_result = await db.execute(query)
     used_by_activities = 0
     day_key = target_date.isoformat()
     for row in activities_result.all():
@@ -1083,6 +1089,8 @@ async def forecast_capacity(
     entity_id: UUID,
     asset_id: UUID,
     horizon_days: int = 90,
+    activity_type: str | None = None,
+    project_id: UUID | None = None,
 ) -> dict:
     """Predict future capacity trends from historical activity patterns.
 
@@ -1120,7 +1128,10 @@ async def forecast_capacity(
     historical: dict[int, list[int]] = {i: [] for i in range(7)}  # weekday -> loads
     current = lookback_start
     while current < today:
-        load = await compute_daily_load(db, entity_id, asset_id, current, include_submitted=False)
+        load = await compute_daily_load(
+            db, entity_id, asset_id, current, include_submitted=False,
+            activity_type=activity_type, project_id=project_id,
+        )
         historical[current.weekday()].append(load["total_used"])
         current += timedelta(days=1)
 
@@ -1141,7 +1152,10 @@ async def forecast_capacity(
     while current <= end:
         projected = weekday_avg.get(current.weekday(), 0.0)
         # Scheduled load from already-planned activities
-        scheduled_load = await compute_daily_load(db, entity_id, asset_id, current, include_submitted=True)
+        scheduled_load = await compute_daily_load(
+            db, entity_id, asset_id, current, include_submitted=True,
+            activity_type=activity_type, project_id=project_id,
+        )
         scheduled = scheduled_load["total_used"]
         real_pob = await count_real_pob_for_asset_day(db, entity_id, asset_id, current)
         # Combined: max of projected trend and scheduled (don't double-count)

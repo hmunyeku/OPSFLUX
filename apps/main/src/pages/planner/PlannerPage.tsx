@@ -2824,7 +2824,11 @@ function ForecastTab() {
   const { t } = useTranslation()
   const [assetId, setAssetId] = useState('')
   const [horizon, setHorizon] = useState(90)
-  const { data, isLoading } = useForecast(assetId || undefined, horizon)
+  const [typeFilter, setTypeFilter] = useState('')
+  const [projectFilter, setProjectFilter] = useState<string | null>(null)
+  const activityTypeLabels = useDictionaryLabels('planner_activity_type', ACTIVITY_TYPE_LABELS_FALLBACK)
+  const activityTypeOptions = useMemo(() => buildDictionaryOptions(activityTypeLabels, PLANNER_ACTIVITY_TYPE_VALUES), [activityTypeLabels])
+  const { data, isLoading } = useForecast(assetId || undefined, horizon, typeFilter || undefined, projectFilter || undefined)
 
   return (
     <div className="p-4 space-y-4 overflow-y-auto">
@@ -2833,7 +2837,7 @@ function ForecastTab() {
         {t('planner.forecast.description')}
       </div>
 
-      <div className="flex items-end gap-3">
+      <div className="flex flex-wrap items-end gap-3">
         <AssetPicker value={assetId} onChange={v => setAssetId(v || '')} label="Site" />
         <div>
           <label className="text-[10px] text-muted-foreground block mb-0.5">Horizon (jours)</label>
@@ -2844,6 +2848,27 @@ function ForecastTab() {
             <option value={180}>6 mois</option>
             <option value={365}>1 an</option>
           </select>
+        </div>
+        <div>
+          <label className="text-[10px] text-muted-foreground block mb-0.5">Type d'activité</label>
+          <select
+            value={typeFilter}
+            onChange={e => setTypeFilter(e.target.value)}
+            className={`${panelInputClass} text-xs`}
+          >
+            <option value="">Tous types</option>
+            {activityTypeOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="min-w-0 max-w-[200px]">
+          <ProjectPicker
+            value={projectFilter}
+            onChange={id => setProjectFilter(id)}
+            placeholder="Tous projets"
+            clearable
+          />
         </div>
       </div>
 

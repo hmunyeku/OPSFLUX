@@ -470,10 +470,10 @@ export function useSimulateScenario() {
 
 // ── Capacity forecast ──
 
-export function useForecast(assetId: string | undefined, horizonDays = 90) {
+export function useForecast(assetId: string | undefined, horizonDays = 90, activityType?: string, projectId?: string) {
   return useQuery({
-    queryKey: ['planner', 'forecast', assetId, horizonDays],
-    queryFn: () => plannerService.forecast(assetId!, horizonDays),
+    queryKey: ['planner', 'forecast', assetId, horizonDays, activityType, projectId],
+    queryFn: () => plannerService.forecast(assetId!, horizonDays, activityType, projectId),
     enabled: !!assetId,
     staleTime: 60_000,
   })

@@ -331,10 +331,12 @@ export const plannerService = {
   },
 
   // ── Capacity forecast ──
-  forecast: async (assetId: string, horizonDays = 90): Promise<ForecastResult> => {
+  forecast: async (assetId: string, horizonDays = 90, activityType?: string, projectId?: string): Promise<ForecastResult> => {
     const { data } = await api.post(`${BASE}/forecast`, {
       asset_id: assetId,
       horizon_days: horizonDays,
+      activity_type: activityType || undefined,
+      project_id: projectId || undefined,
     })
     return data
   },

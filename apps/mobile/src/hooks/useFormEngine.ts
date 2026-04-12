@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useMemo, useState } from "react";
+import * as Haptics from "expo-haptics";
 import type {
   ConditionRule,
   FieldDefinition,
@@ -305,6 +306,7 @@ export function useFormEngine(form: FormDefinition) {
         payload
       );
 
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setState((prev) => ({
         ...prev,
         submitting: false,
@@ -313,6 +315,7 @@ export function useFormEngine(form: FormDefinition) {
       }));
       return true;
     } catch (err: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       const detail =
         err?.response?.data?.detail || "Erreur lors de la soumission.";
       setState((prev) => ({

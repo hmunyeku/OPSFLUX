@@ -649,6 +649,7 @@ async def list_vectors(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.vector.read"),
     db: AsyncSession = Depends(get_db),
 ):
     zone_count_sq = (
@@ -730,6 +731,7 @@ async def get_vector(
     vector_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.vector.read"),
     db: AsyncSession = Depends(get_db),
 ):
     vector = await _get_vector_or_404(db, vector_id, entity_id)
@@ -796,6 +798,7 @@ async def list_vector_zones(
     vector_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.vector.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_vector_or_404(db, vector_id, entity_id)
@@ -883,6 +886,7 @@ async def list_rotations(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.read"),
     db: AsyncSession = Depends(get_db),
 ):
     query = (
@@ -968,6 +972,7 @@ async def list_voyages(
     scope: str | None = None,
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("travelwiz.voyage.read"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1092,6 +1097,7 @@ async def get_voyage(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.read"),
     db: AsyncSession = Depends(get_db),
 ):
     voyage = await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -1393,6 +1399,7 @@ async def list_voyage_stops(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -1487,6 +1494,7 @@ async def list_all_manifests(
     status: Optional[str] = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.manifest.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List all manifests across all voyages (paginated)."""
@@ -1531,6 +1539,7 @@ async def list_manifests(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -1570,6 +1579,7 @@ async def get_voyage_cargo_operations_report(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -1712,6 +1722,7 @@ async def list_passengers(
     manifest_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -1831,6 +1842,7 @@ async def list_cargo_requests(
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("packlog.cargo.read"),
     db: AsyncSession = Depends(get_db),
 ):
     return await list_cargo_requests_impl(
@@ -1863,6 +1875,7 @@ async def get_cargo_request(
     request_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("packlog.cargo.read"),
     db: AsyncSession = Depends(get_db),
 ):
     return await get_cargo_request_impl(request_id=request_id, entity_id=entity_id, db=db)
@@ -1907,6 +1920,7 @@ async def get_cargo_request_loading_options(
     request_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("packlog.cargo.read"),
     db: AsyncSession = Depends(get_db),
 ):
     return await get_cargo_request_loading_options_impl(request_id=request_id, entity_id=entity_id, db=db)
@@ -1947,6 +1961,7 @@ async def list_cargo(
     scope: str | None = None,
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("packlog.cargo.read"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1987,6 +2002,7 @@ async def get_cargo(
     cargo_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("packlog.cargo.read"),
     db: AsyncSession = Depends(get_db),
 ):
     return await get_cargo_impl(cargo_id=cargo_id, entity_id=entity_id, db=db)
@@ -1997,6 +2013,7 @@ async def list_cargo_attachment_evidence(
     cargo_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("packlog.cargo.read"),
     db: AsyncSession = Depends(get_db),
 ):
     return await list_cargo_attachment_evidence_impl(cargo_id=cargo_id, entity_id=entity_id, db=db)
@@ -2061,6 +2078,7 @@ async def get_cargo_history(
     cargo_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("packlog.cargo.read"),
     db: AsyncSession = Depends(get_db),
 ):
     return await get_cargo_history_impl(cargo_id=cargo_id, entity_id=entity_id, db=db)
@@ -2141,6 +2159,7 @@ async def list_captain_logs(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -2178,6 +2197,7 @@ async def check_voyage_capacity(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Check current capacity usage for a voyage."""
@@ -2264,6 +2284,7 @@ async def get_voyage_delay_analysis(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -2279,6 +2300,7 @@ async def get_manifest_weight_analysis(
     manifest_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
@@ -2326,6 +2348,7 @@ async def list_voyage_events(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List all journal de bord events for a voyage, ordered chronologically."""
@@ -2406,6 +2429,7 @@ async def get_trip_kpis(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get computed KPIs for a trip."""
@@ -2483,6 +2507,7 @@ async def list_deck_layouts(
     voyage_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List deck zones for the vector assigned to this voyage."""
@@ -2594,6 +2619,7 @@ async def list_package_elements(
     cargo_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("packlog.cargo.read"),
     db: AsyncSession = Depends(get_db),
 ):
     return await list_package_elements_impl(cargo_id=cargo_id, entity_id=entity_id, db=db)
@@ -3046,6 +3072,7 @@ async def list_articles(
     is_hazmat: bool | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("packlog.cargo.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List article catalog entries with optional filtering."""
@@ -3257,6 +3284,7 @@ async def import_articles_csv(
 async def trips_today(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get voyages departing or arriving today. Used by dashboard widget."""
@@ -3312,6 +3340,7 @@ async def trips_today(
 async def cargo_pending(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get cargo items awaiting loading. Used by dashboard widget."""
@@ -3351,6 +3380,7 @@ async def cargo_pending(
 async def fleet_kpis(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.voyage.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get fleet-level KPIs. Used by dashboard widget."""
@@ -3440,6 +3470,7 @@ async def list_pickup_rounds(
     status: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.pickup.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """List pickup rounds with optional status filter."""
@@ -3480,6 +3511,7 @@ async def get_pickup_round_details(
     trip_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.pickup.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get pickup round details with stops for a trip."""
@@ -3695,6 +3727,7 @@ async def bulk_import_ais(
 async def get_fleet_positions_endpoint(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.tracking.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get latest positions of all vehicles (for fleet map widget)."""
@@ -3712,6 +3745,7 @@ async def get_vehicle_track_endpoint(
     end: datetime = Query(..., description="End datetime (ISO 8601)"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.tracking.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get position history for a vehicle between two timestamps."""
@@ -3723,6 +3757,7 @@ async def get_vehicle_track_endpoint(
 @router.get("/tracking/sse")
 async def tracking_sse(
     entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("travelwiz.tracking.read"),
     current_user: User = Depends(get_current_user),
 ):
     """SSE endpoint streaming position updates for the fleet map.
@@ -3796,6 +3831,7 @@ async def record_weather_observation(
 async def get_all_sites_weather(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.weather.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get latest weather for all operational sites.
@@ -3849,6 +3885,7 @@ async def get_weather_history(
     limit: int = Query(50, ge=1, le=500),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.weather.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get weather observation history for a site."""
@@ -3888,6 +3925,7 @@ async def get_flight_conditions(
     asset_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.weather.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Get current flight conditions (VFR/IFR) for helicopter operations at a site."""

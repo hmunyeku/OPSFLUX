@@ -36,7 +36,6 @@ import {
   FormGrid,
   FormSection,
   InlineEditableRow,
-  InlineEditableSelect,
   InlineEditableTags,
   ReadOnlyRow,
   PanelActionButton,
@@ -2773,19 +2772,21 @@ function ProjectDetailPanel({ id }: { id: string }) {
                 <InlineEditableTags label="Météo" value={project.weather} options={projectWeatherOptions} onSave={(v) => handleSave('weather', v)} />
               </DetailFieldGrid>
               <DetailFieldGrid>
-                <InlineEditableSelect
-                  label="Chef de projet"
-                  value={project.manager_id || ''}
-                  displayValue={project.manager_name || '-- Aucun --'}
-                  options={[
-                    { value: '', label: '-- Aucun --' },
-                    ...(allUsersData?.items ?? []).map(u => ({
-                      value: u.id,
-                      label: `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email,
-                    })),
-                  ]}
-                  onSave={(v: string) => handleSave('manager_id', v || null)}
-                />
+                <div>
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-0.5">Chef de projet</label>
+                  <select
+                    value={project.manager_id || ''}
+                    onChange={(e) => handleSave('manager_id', e.target.value || null)}
+                    className={`${panelInputClass} w-full text-xs`}
+                  >
+                    <option value="">-- Aucun --</option>
+                    {(allUsersData?.items ?? []).map(u => (
+                      <option key={u.id} value={u.id}>
+                        {`${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <ReadOnlyRow label="Entreprise" value={
                   project.tier_id ? (
                     <CrossModuleLink module="tiers" id={project.tier_id} label={project.tier_name || project.tier_id} mode="navigate" />

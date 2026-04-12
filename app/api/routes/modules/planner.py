@@ -3013,7 +3013,7 @@ async def list_scenarios(
         query = query.where(PlannerScenario.title.ilike(f"%{search}%"))
     query = query.order_by(PlannerScenario.created_at.desc())
 
-    total_result = await db.execute(select(func.count()).select_from(query.subquery()))
+    total_result = await db.execute(select(sqla_func.count()).select_from(query.subquery()))
     total = total_result.scalar() or 0
 
     result = await db.execute(query.offset((page - 1) * page_size).limit(page_size))

@@ -3768,7 +3768,7 @@ function AdsDetailPanel({ id }: { id: string }) {
           id="ads-pax"
           title={t('paxlog.ads_detail.sections.passengers', { count: adsPax?.length || 0 })}
           defaultExpanded
-          headerAction={ads && ['draft', 'requires_review'].includes(ads.status) ? (
+          headerAction={ads && ['draft', 'requires_review'].includes(ads.status) && hasPermission('paxlog.ads.update') ? (
             <button
               className="h-5 w-5 rounded flex items-center justify-center text-primary hover:bg-primary/10 transition-colors"
               onClick={() => setShowPaxPicker(true)}

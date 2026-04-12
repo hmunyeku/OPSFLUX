@@ -2912,7 +2912,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   const canStartProgress = ads.status === 'approved' && hasPermission('paxlog.ads.approve')
   const canCompleteAds = ads.status === 'in_progress' && hasPermission('paxlog.ads.approve')
   const canDownloadPdf = ['approved', 'in_progress', 'completed'].includes(ads.status)
-  const canGenerateLink = ['approved', 'in_progress'].includes(ads.status)
+  const canGenerateLink = ['draft', 'requires_review', 'approved', 'in_progress'].includes(ads.status)
   const hasAllowedCompaniesForExternalLink = (allowedCompaniesDraft?.length ?? 0) > 0
   const stayProgramsEnabled = ['draft', 'requires_review', 'approved', 'in_progress'].includes(ads.status)
   const canManageStayPrograms = stayProgramsEnabled && hasPermission('paxlog.stay.create')

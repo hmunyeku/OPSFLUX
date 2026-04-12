@@ -3881,7 +3881,7 @@ async def submit_ads(
             detail="Vous ne pouvez pas soumettre cette AdS.",
         )
 
-    if ads.status != "draft":
+    if ads.status not in ("draft", "requires_review"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Impossible de soumettre un AdS avec le statut '{ads.status}'.",

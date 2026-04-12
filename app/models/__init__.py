@@ -89,5 +89,14 @@ from app.models.paxlog import (  # noqa: F401
     ProfileType,
     StayProgram,
 )
+from app.models.planner import (  # noqa: F401
+    PlannerActivity,
+    PlannerConflict,
+    PlannerConflictActivity,
+    PlannerActivityDependency,
+    PlannerConflictAudit,
+    PlannerScenario,
+    PlannerScenarioActivity,
+)
 from app.models.common import CostImputation, ImportMapping  # noqa: F401
 

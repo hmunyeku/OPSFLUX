@@ -1,4 +1,5 @@
-"""Planner ORM models — activities, conflicts, dependencies, capacity scheduling."""
+"""Planner ORM models — activities, conflicts, dependencies, capacity scheduling,
+scenarios (what-if simulation with persistence)."""
 
 from datetime import date, datetime
 from uuid import UUID as PyUUID
@@ -13,6 +14,7 @@ from sqlalchemy import (
     Index,
     Integer,
     Numeric,
+    SmallInteger,
     String,
     Text,
     func,
@@ -288,3 +290,121 @@ class PlannerConflictAudit(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     new_resolution: Mapped[str | None] = mapped_column(String(50))
     resolution_note: Mapped[str | None] = mapped_column(Text)
     context: Mapped[str | None] = mapped_column(String(100))  # e.g. "single" | "bulk"
+
+
+# ─── Scenarios (What-If simulation with persistence) ────────────────────────
+
+class PlannerScenario(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
+    """Persistent what-if scenario for capacity/conflict simulation.
+
+    A scenario captures a set of **proposed activities** (new or modified)
+    that do NOT exist in the live plan. The user can:
+
+    1. Create a scenario (with title, description)
+    2. Add/modify/remove proposed activities inside the scenario
+    3. Simulate the impact (conflicts, saturation) via the existing
+       simulate_scenario service
+    4. Compare two scenarios side-by-side
+    5. Promote a scenario — convert its proposed activities into real
+       PlannerActivity rows in the live plan (arbiter permission)
+    6. Archive a scenario once it's no longer relevant
+
+    The baseline_snapshot_at captures the moment the scenario was created
+    so diff computations can compare the scenario's proposed state against
+    the plan as it was at creation time.
+    """
+
+    __tablename__ = "planner_scenarios"
+    __table_args__ = (
+        Index("idx_planner_scenario_entity", "entity_id"),
+        Index("idx_planner_scenario_status", "status"),
+        CheckConstraint(
+            "status IN ('draft','validated','promoted','archived')",
+            name="ck_planner_scenario_status",
+        ),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="draft"
+    )  # draft | validated | promoted | archived
+    created_by: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    promoted_by: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id")
+    )
+    promoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # JSONB snapshot of the plan state at the time the scenario was created.
+    # Used by diff computation to know "what changed compared to baseline".
+    # Contains: { activities: [...], capacity: {...} } — a lightweight
+    # summary, not a full clone of every row.
+    baseline_snapshot: Mapped[dict | None] = mapped_column(JSONB)
+    baseline_snapshot_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Last simulation result — cached so the list view can show
+    # conflict_days / worst_overflow without re-running the full algo.
+    last_simulation_result: Mapped[dict | None] = mapped_column(JSONB)
+    last_simulated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # Relationships
+    proposed_activities: Mapped[list["PlannerScenarioActivity"]] = relationship(
+        back_populates="scenario", cascade="all, delete-orphan"
+    )
+
+
+class PlannerScenarioActivity(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """A proposed or modified activity within a scenario.
+
+    Two modes:
+    - **New activity** (source_activity_id IS NULL): a brand-new activity
+      proposed by the scenario that doesn't exist in the live plan. All
+      fields (asset_id, pax_quota, dates, type, etc.) are on this row.
+    - **Modified activity** (source_activity_id IS NOT NULL): an override
+      of an existing live activity. Only the fields the user changed are
+      set; NULLs mean "keep the live value". The diff computation merges
+      the two to show what would change.
+
+    When a scenario is promoted, new activities are created as real
+    PlannerActivity rows and modified activities are PATCHed.
+    """
+
+    __tablename__ = "planner_scenario_activities"
+    __table_args__ = (
+        Index("idx_planner_scenario_act_scenario", "scenario_id"),
+        Index("idx_planner_scenario_act_source", "source_activity_id"),
+    )
+
+    scenario_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("planner_scenarios.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    # If set: this row is an override of an existing live activity.
+    # If NULL: this is a brand-new proposed activity.
+    source_activity_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("planner_activities.id", ondelete="SET NULL")
+    )
+    # Activity fields — all nullable so modified-activity rows can leave
+    # unchanged fields as NULL (meaning "keep the live value").
+    title: Mapped[str | None] = mapped_column(String(255))
+    asset_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_installations.id")
+    )
+    type: Mapped[str | None] = mapped_column(String(30))
+    priority: Mapped[str | None] = mapped_column(String(20))
+    pax_quota: Mapped[int | None] = mapped_column(Integer)
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    notes: Mapped[str | None] = mapped_column(Text)
+    # Flags
+    is_removed: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )  # True = "remove this activity from the plan in this scenario"
+
+    # Relationships
+    scenario: Mapped["PlannerScenario"] = relationship(back_populates="proposed_activities")

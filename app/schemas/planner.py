@@ -1,4 +1,4 @@
-"""Planner Pydantic schemas — activities, conflicts, capacity."""
+"""Planner Pydantic schemas — activities, conflicts, capacity, scenarios."""
 
 from datetime import date, datetime
 from uuid import UUID
@@ -555,3 +555,111 @@ class RecurrenceRuleRead(PlannerSchema):
     end_date: date | None = None
     last_generated_at: datetime | None = None
     active: bool
+
+
+# ─── Scenario schemas ───────────────────────────────────────────────────────
+
+class ScenarioActivityCreate(BaseModel):
+    """Add a proposed activity to a scenario."""
+    source_activity_id: UUID | None = None  # NULL = new, set = override
+    title: str | None = None
+    asset_id: UUID | None = None
+    type: str | None = None
+    priority: str | None = None
+    pax_quota: int | None = Field(None, ge=1)
+    start_date: date | None = None
+    end_date: date | None = None
+    notes: str | None = None
+    is_removed: bool = False
+
+
+class ScenarioActivityUpdate(BaseModel):
+    title: str | None = None
+    asset_id: UUID | None = None
+    type: str | None = None
+    priority: str | None = None
+    pax_quota: int | None = Field(None, ge=1)
+    start_date: date | None = None
+    end_date: date | None = None
+    notes: str | None = None
+    is_removed: bool | None = None
+
+
+class ScenarioActivityRead(PlannerSchema):
+    id: UUID
+    scenario_id: UUID
+    source_activity_id: UUID | None = None
+    title: str | None = None
+    asset_id: UUID | None = None
+    type: str | None = None
+    priority: str | None = None
+    pax_quota: int | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    notes: str | None = None
+    is_removed: bool
+    created_at: datetime
+    # Enriched (from source_activity if override)
+    source_activity_title: str | None = None
+    asset_name: str | None = None
+
+
+class ScenarioCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    description: str | None = None
+    # Optional: seed the scenario with a list of proposed activities
+    proposed_activities: list[ScenarioActivityCreate] | None = None
+
+
+class ScenarioUpdate(BaseModel):
+    title: str | None = Field(None, min_length=1, max_length=200)
+    description: str | None = None
+    status: str | None = Field(None, pattern=r"^(draft|validated|archived)$")
+
+
+class ScenarioRead(PlannerSchema):
+    id: UUID
+    entity_id: UUID
+    title: str
+    description: str | None = None
+    status: str
+    created_by: UUID
+    promoted_by: UUID | None = None
+    promoted_at: datetime | None = None
+    baseline_snapshot_at: datetime | None = None
+    last_simulated_at: datetime | None = None
+    active: bool
+    created_at: datetime
+    updated_at: datetime
+    # Enriched
+    created_by_name: str | None = None
+    promoted_by_name: str | None = None
+    activity_count: int = 0
+    # Cached simulation summary
+    conflict_days: int | None = None
+    worst_overflow: int | None = None
+
+
+class ScenarioDetailRead(ScenarioRead):
+    """Extended read with proposed activities + simulation result."""
+    proposed_activities: list[ScenarioActivityRead] = []
+    last_simulation_result: dict | None = None
+    baseline_snapshot: dict | None = None
+
+
+class ScenarioDiffRead(BaseModel):
+    """Diff between scenario and baseline."""
+    scenario_id: UUID
+    new_activities: int = 0
+    modified_activities: int = 0
+    removed_activities: int = 0
+    total_pax_delta: int = 0
+    new_conflict_days: int | None = None
+    items: list[dict] = []  # per-activity diff details
+
+
+class ScenarioPromoteResult(BaseModel):
+    scenario_id: UUID
+    promoted_activity_count: int
+    skipped_count: int
+    errors: list[str] = []

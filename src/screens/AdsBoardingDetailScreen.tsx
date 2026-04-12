@@ -8,6 +8,7 @@
  */
 
 import React, { useCallback, useState } from "react";
+import * as Haptics from "expo-haptics";
 import {
   ActivityIndicator,
   Alert,
@@ -57,6 +58,7 @@ export default function AdsBoardingDetailScreen({ route }: Props) {
         passenger.boarding_status === "boarded" ? "pending" : "boarded";
 
       setUpdatingId(passenger.id);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       try {
         const updated = await updateAdsBoardingPassenger(
           token,

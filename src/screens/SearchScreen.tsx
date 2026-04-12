@@ -5,7 +5,7 @@
  * grouped by type with navigation to detail screens.
  */
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
@@ -16,6 +16,7 @@ import {
 } from "react-native-paper";
 import StatusBadge from "../components/StatusBadge";
 import { globalSearch, SearchResult } from "../services/search";
+import { useDebounce } from "../hooks/useDebounce";
 import { colors } from "../utils/colors";
 
 const TYPE_LABELS: Record<string, string> = {
@@ -47,6 +48,14 @@ export default function SearchScreen({ navigation }: Props) {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const debouncedQuery = useDebounce(query, 350);
+
+  // Auto-search on debounced query change
+  useEffect(() => {
+    if (debouncedQuery.trim().length >= 2) {
+      doSearch(debouncedQuery);
+    }
+  }, [debouncedQuery]);
 
   const doSearch = useCallback(async (q: string) => {
     if (q.trim().length < 2) return;

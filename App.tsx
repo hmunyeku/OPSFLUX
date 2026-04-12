@@ -27,6 +27,7 @@ import ErrorBoundary from "./src/components/ErrorBoundary";
 import NetworkBanner from "./src/components/NetworkBanner";
 import Toast from "./src/components/Toast";
 import { startConnectivityMonitor, stopConnectivityMonitor } from "./src/services/offline";
+import { useAppLifecycle } from "./src/hooks/useAppLifecycle";
 import { restoreAuth, persistAuth } from "./src/services/storage";
 import { registerForPushNotifications } from "./src/services/pushNotifications";
 import { useAuthStore } from "./src/stores/auth";
@@ -82,6 +83,9 @@ export default function App() {
     init();
     return () => stopConnectivityMonitor();
   }, []);
+
+  // Refresh data when app comes back from background
+  useAppLifecycle();
 
   // Persist auth whenever tokens change
   useEffect(() => {

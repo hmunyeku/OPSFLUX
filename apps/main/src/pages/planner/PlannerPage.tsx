@@ -2950,14 +2950,14 @@ function ForecastTab() {
           {/* ── Cumulative trend chart (ECharts) ── */}
           <div className="border border-border rounded p-3">
             <div className="text-xs font-semibold mb-2 flex items-center gap-1">
-              <TrendingUp size={12} className="text-primary" /> Courbe cumulative — charge projetée vs capacité
+              <TrendingUp size={12} className="text-primary" /> {t('planner.forecast.cumulative_title')}
             </div>
             <ReactECharts
               style={{ height: 280 }}
               option={{
                 tooltip: { trigger: 'axis' },
                 legend: {
-                  data: ['Charge projetée', 'POB réel', 'Capacité max'],
+                  data: [t('planner.forecast.projected_load'), t('planner.forecast.real_pob'), t('planner.forecast.capacity_max')],
                   bottom: 0,
                   textStyle: { fontSize: 10 },
                 },
@@ -2965,7 +2965,7 @@ function ForecastTab() {
                 xAxis: {
                   type: 'category',
                   data: data.forecast.map((d: ForecastDay) => d.date),
-                  axisLabel: { fontSize: 9, rotate: 45 },
+                  axisLabel: { fontSize: 9, rotate: 45, interval: Math.max(0, Math.floor(data.forecast.length / 15) - 1) },
                   boundaryGap: false,
                 },
                 yAxis: {
@@ -2975,58 +2975,92 @@ function ForecastTab() {
                 },
                 series: [
                   {
-                    name: 'Charge projetée',
+                    name: t('planner.forecast.projected_load'),
                     type: 'line',
                     data: data.forecast.map((d: ForecastDay) => d.combined_load),
                     smooth: true,
                     lineStyle: { width: 2 },
                     areaStyle: { opacity: 0.1 },
                     itemStyle: { color: '#3b82f6' },
+                    showSymbol: false,
                   },
                   {
-                    name: 'POB réel',
+                    name: t('planner.forecast.real_pob'),
                     type: 'line',
                     data: data.forecast.map((d: ForecastDay) => d.real_pob),
                     smooth: true,
                     lineStyle: { width: 1.5, type: 'dashed' },
                     itemStyle: { color: '#10b981' },
+                    showSymbol: false,
                   },
                   {
-                    name: 'Capacité max',
+                    name: t('planner.forecast.capacity_max'),
                     type: 'line',
                     data: data.forecast.map((d: ForecastDay) => d.max_capacity),
                     lineStyle: { width: 1.5, type: 'dotted', color: '#ef4444' },
                     itemStyle: { color: '#ef4444' },
+                    showSymbol: false,
                   },
                 ],
               }}
             />
           </div>
 
+          {/* ── Calendar heatmap — saturation per day ── */}
           <div className="border border-border rounded p-3">
             <div className="text-xs font-semibold mb-2 flex items-center gap-1">
-              <TrendingUp size={12} className="text-primary" /> Charge jour par jour
+              <CalendarRange size={12} className="text-primary" /> Calendrier de saturation
             </div>
-            <div className="max-h-[400px] overflow-y-auto space-y-0.5">
-              {data.forecast.map((day: ForecastDay) => {
-                const pct = day.max_capacity > 0 ? (day.combined_load / day.max_capacity) * 100 : 0
-                const barColor = day.at_risk ? 'bg-orange-500' : pct > 50 ? 'bg-yellow-400' : 'bg-green-500'
-                return (
-                  <div key={day.date} className={cn('flex items-center gap-2 text-[10px] py-0.5', day.at_risk && 'bg-orange-500/5 rounded')}>
-                    <span className="w-[80px] text-muted-foreground tabular-nums shrink-0">{day.date}</span>
-                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                      <div className={cn('h-full rounded-full', barColor)} style={{ width: `${Math.min(100, pct)}%` }} />
-                    </div>
-                    <span className="w-[40px] text-right tabular-nums">{Math.round(day.combined_load)}</span>
-                    <span className="w-[30px] text-right tabular-nums text-muted-foreground">/{day.max_capacity}</span>
-                    <span className="w-[52px] text-right tabular-nums text-muted-foreground">
-                      {t('planner.forecast.real_pob_short', { count: day.real_pob })}
-                    </span>
-                    {day.at_risk && <AlertTriangle size={9} className="text-orange-500 shrink-0" />}
-                  </div>
-                )
-              })}
-            </div>
+            <ReactECharts
+              style={{ height: Math.max(180, Math.ceil(horizon / 30) * 120 + 60) }}
+              option={{
+                tooltip: {
+                  formatter: (params: { value?: [string, number] }) => {
+                    if (!params.value) return ''
+                    const [date, pct] = params.value
+                    const day = data.forecast.find((d: ForecastDay) => d.date === date)
+                    return `<strong>${date}</strong><br/>Charge: ${day?.combined_load ?? 0} / ${day?.max_capacity ?? 0}<br/>Saturation: ${Math.round(pct)}%<br/>POB réel: ${day?.real_pob ?? 0}`
+                  },
+                },
+                visualMap: {
+                  min: 0,
+                  max: 100,
+                  show: true,
+                  orient: 'horizontal',
+                  left: 'center',
+                  bottom: 0,
+                  itemWidth: 12,
+                  itemHeight: 80,
+                  textStyle: { fontSize: 9 },
+                  inRange: {
+                    color: ['#e8f5e9', '#a5d6a7', '#66bb6a', '#fdd835', '#fb8c00', '#e53935', '#b71c1c'],
+                  },
+                  formatter: (val: number) => `${Math.round(val)}%`,
+                },
+                calendar: Array.from({ length: Math.ceil(horizon / 30) }, (_, i) => {
+                  const start = new Date(data.forecast[0]?.date || new Date())
+                  const calStart = new Date(start.getFullYear(), start.getMonth() + i, 1)
+                  const calEnd = new Date(start.getFullYear(), start.getMonth() + i + 1, 0)
+                  return {
+                    top: i * 120 + 30,
+                    left: 60,
+                    right: 30,
+                    cellSize: ['auto', 15],
+                    range: [calStart.toISOString().slice(0, 10), calEnd.toISOString().slice(0, 10)],
+                    yearLabel: { show: false },
+                    monthLabel: { show: true, fontSize: 10 },
+                    dayLabel: { firstDay: 1, nameMap: ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'], fontSize: 9 },
+                    itemStyle: { borderWidth: 2, borderColor: 'var(--background, #fff)' },
+                  }
+                }),
+                series: Array.from({ length: Math.ceil(horizon / 30) }, (_, i) => ({
+                  type: 'heatmap',
+                  coordinateSystem: 'calendar',
+                  calendarIndex: i,
+                  data: data.forecast.map((d: ForecastDay) => [d.date, d.max_capacity > 0 ? Math.round((d.combined_load / d.max_capacity) * 100) : 0]),
+                })),
+              }}
+            />
           </div>
         </>
       )}

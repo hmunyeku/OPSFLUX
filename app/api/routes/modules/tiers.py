@@ -319,7 +319,7 @@ async def create_tier_contact(
     tier_id: UUID, body: TierContactCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("tier.update"),
+    _: None = require_permission("tier.contact.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     tier = await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
@@ -374,7 +374,7 @@ async def update_tier_contact(
     tier_id: UUID, contact_id: UUID, body: TierContactUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("tier.update"),
+    _: None = require_permission("tier.contact.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
@@ -394,7 +394,7 @@ async def delete_tier_contact(
     tier_id: UUID, contact_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("tier.update"),
+    _: None = require_permission("tier.contact.manage"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)

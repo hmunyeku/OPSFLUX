@@ -5405,7 +5405,7 @@ async def search_pax_candidates(
     search: str = Query("", min_length=0),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("paxlog.ads.update"),
+    _: None = require_permission("paxlog.ads.read"),
     db: AsyncSession = Depends(get_db),
 ):
     """Search for PAX candidates: Users + TierContacts.

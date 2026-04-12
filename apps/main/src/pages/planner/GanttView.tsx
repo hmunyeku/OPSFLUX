@@ -1171,6 +1171,20 @@ export function GanttView({
   const handleBarDrag = useCallback(async (barId: string, newStart: string, newEnd: string) => {
     if (barId.startsWith('proposal-')) return
 
+    // ── Date sanity check ──
+    // Reject drags where end < start (bar inverted). This can happen when
+    // the user drags a very short bar past its own boundary. The backend
+    // would reject it with a 400 anyway, but catching it here gives a
+    // cleaner UX with no network roundtrip.
+    if (newEnd < newStart) {
+      toast({
+        title: 'Dates invalides',
+        description: 'La date de fin ne peut pas être avant la date de début.',
+        variant: 'error',
+      })
+      return
+    }
+
     const allDeps = ganttData?.dependencies ?? []
     const allActsById = new Map<string, GanttActivity>()
     for (const asset of ganttData?.assets ?? []) {

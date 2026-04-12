@@ -1,22 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  EuiBadge,
-  EuiButton,
-  EuiCallOut,
-  EuiFlexGrid,
-  EuiFlexGroup,
-  EuiFlexItem,
-  EuiPanel,
-  EuiProgress,
-  EuiSpacer,
-  EuiText,
-  EuiTitle,
-} from '@elastic/eui'
+import { EuiButton, EuiCallOut } from '@elastic/eui'
 import { t } from '../lib/i18n'
 import { apiRequest, apiDownload, getTokenFromUrl, isSessionRequiredError, parseApiErrorDetail } from '../lib/api'
 import { sessionStorageKey } from '../lib/utils'
 import Layout from '../components/Layout'
-import { buildSteps } from '../components/WizardNav'
+import WizardNav, { buildSteps } from '../components/WizardNav'
 import Message, { type MessageData } from '../components/Message'
 import Spinner from '../components/Spinner'
 import SecurityStep from '../steps/SecurityStep'
@@ -302,6 +290,10 @@ export default function WizardPage() {
 
   const authenticated = Boolean(linkInfo?.authenticated)
   const steps = buildSteps(authenticated, dossier)
+  const adsRef = dossier?.ads?.reference || dossier?.ads?.ref || linkInfo?.ads_reference
+  const companyName = dossier?.allowed_company_name || null
+  const adsStatus = dossier?.ads?.status || null
+
   const goToStep = (index: number) => {
     setActiveStep(index)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -317,16 +309,6 @@ export default function WizardPage() {
     }, 200)
   }
 
-  const STEP_TITLES = [t('wizard_access_title'), t('wizard_ads_title'), t('wizard_team_title'), t('wizard_compliance_title'), t('wizard_finalize_title')]
-  const STEP_DESCS = ['Authentification', 'Informations dossier', 'Collaborateurs', 'Conformité', 'Soumission']
-  const STEP_LONG = [
-    'Authentifiez-vous par code à usage unique pour ouvrir une session sécurisée et accéder au dossier.',
-    'Vérifiez les informations publiques de l’avis de séjour avant d’engager le traitement opérationnel.',
-    'Déclarez ou rattachez les collaborateurs concernés. Les correspondances existantes sont proposées automatiquement.',
-    'Complétez le dossier de conformité de chaque passager avec les justificatifs et informations exigés.',
-    'Contrôlez le récapitulatif final, ajustez les préférences de transport puis soumettez le dossier.',
-  ]
-
   const stepContent = [
     <SecurityStep key="s1" linkInfo={linkInfo} authenticated={authenticated} loading={loading} onSendOtp={handleSendOtp} onVerifyOtp={handleVerifyOtp} />,
     <AdsInfoStep key="s2" dossier={dossier} loading={loading} onDownloadTicket={handleDownloadTicket} onContinue={goNext} />,
@@ -335,123 +317,36 @@ export default function WizardPage() {
     <FinalizeStep key="s5" dossier={dossier} authenticated={authenticated} loading={loading} departureBases={departureBases} onSubmit={handleSubmit} onResubmit={handleResubmit} onUpdateTransport={handleUpdateTransport} onDownloadTicket={handleDownloadTicket} />,
   ]
 
-  const progressPct = ((activeStep + 1) / 5) * 100
-  const adsRef = dossier?.ads?.reference || dossier?.ads?.ref || linkInfo?.ads_reference
-
   return (
-    <Layout>
-      <div style={{ padding: '0 16px' }}>
-        <EuiFlexGroup direction="column" gutterSize="l">
-          <EuiFlexItem grow={false}>
-            <EuiPanel hasBorder hasShadow paddingSize="m">
-              <EuiFlexGroup justifyContent="spaceBetween" alignItems="center">
-                <EuiFlexItem>
-                  <EuiText size="s" color="subdued"><p>Dossier externe AdS</p></EuiText>
-                  <EuiTitle size="s"><h2>{adsRef || 'Référence en attente'}</h2></EuiTitle>
-                </EuiFlexItem>
-                <EuiFlexItem grow={false}>
-                  <EuiBadge color="primary">{STEP_DESCS[activeStep]}</EuiBadge>
-                </EuiFlexItem>
-              </EuiFlexGroup>
-              <EuiSpacer size="m" />
-              <EuiProgress value={progressPct} max={100} size="m" />
-            </EuiPanel>
-          </EuiFlexItem>
+    <Layout adsRef={adsRef} companyName={companyName} status={adsStatus} authenticated={authenticated}>
+      <div className="flex flex-col gap-4">
+        {/* ── Horizontal step progress ── */}
+        <WizardNav steps={steps} activeStep={activeStep} onStepClick={goToStep} />
 
-          <EuiFlexItem grow={false}>
-            <EuiFlexGrid columns={3}>
-              <EuiFlexItem>
-                <EuiPanel hasBorder paddingSize="m">
-                  <EuiText size="s" color="subdued"><p>Avis de séjour</p></EuiText>
-                  <EuiSpacer size="xs" />
-                  <EuiText size="s"><p><strong>{adsRef || 'Non communiqué'}</strong></p></EuiText>
-                  {dossier?.ads?.title ? (
-                    <>
-                      <EuiSpacer size="s" />
-                      <EuiText size="s"><p>{dossier.ads.title}</p></EuiText>
-                    </>
-                  ) : null}
-                </EuiPanel>
-              </EuiFlexItem>
-              <EuiFlexItem>
-                <EuiPanel hasBorder paddingSize="m">
-                  <EuiTitle size="xxs"><h4>{STEP_TITLES[activeStep]}</h4></EuiTitle>
-                  <EuiSpacer size="s" />
-                  <EuiText size="s" color="subdued"><p>{STEP_LONG[activeStep]}</p></EuiText>
-                </EuiPanel>
-              </EuiFlexItem>
-              <EuiFlexItem>
-                <EuiPanel hasBorder paddingSize="m">
-                  <EuiFlexGrid columns={2}>
-                    <EuiFlexItem><Metric label="Passagers" value={dossier?.pax_summary?.total ?? 0} /></EuiFlexItem>
-                    <EuiFlexItem><Metric label="À vérifier" value={dossier?.pax_summary?.pending_check ?? 0} /></EuiFlexItem>
-                    <EuiFlexItem><Metric label="Approuvés" value={dossier?.pax_summary?.approved ?? 0} /></EuiFlexItem>
-                    <EuiFlexItem><Metric label="Bloqués" value={dossier?.pax_summary?.blocked ?? 0} /></EuiFlexItem>
-                  </EuiFlexGrid>
-                </EuiPanel>
-              </EuiFlexItem>
-            </EuiFlexGrid>
-          </EuiFlexItem>
+        {/* ── Toast / message ── */}
+        {message && (
+          <Message message={message} onDismiss={() => setMessage(null)} />
+        )}
 
-          <EuiFlexItem grow={false}>
-            <EuiPanel hasBorder paddingSize="m">
-              <EuiFlexGroup gutterSize="s" wrap responsive={false}>
-                {steps.map((step, index) => (
-                  <EuiFlexItem key={step.id} grow={false}>
-                    <EuiButton
-                      size="s"
-                      fill={index === activeStep}
-                      color={step.done ? 'success' : index === activeStep ? 'primary' : 'text'}
-                      onClick={() => goToStep(index)}
-                    >
-                      {index + 1}. {STEP_DESCS[index]}
-                    </EuiButton>
-                  </EuiFlexItem>
-                ))}
-              </EuiFlexGroup>
-            </EuiPanel>
-          </EuiFlexItem>
+        {/* ── Active step content ── */}
+        <div>
+          {stepContent[activeStep]}
+        </div>
 
-          {message ? (
-            <EuiFlexItem grow={false}>
-              <Message message={message} onDismiss={() => setMessage(null)} />
-            </EuiFlexItem>
-          ) : null}
-
-          <EuiFlexItem grow={false}>
-            {stepContent[activeStep]}
-          </EuiFlexItem>
-
-          <EuiFlexItem grow={false}>
-            <EuiFlexGroup justifyContent="spaceBetween" alignItems="center">
-              <EuiFlexItem grow={false}>
-                <EuiButton onClick={goPrev} isDisabled={activeStep === 0}>
-                  Précédent
-                </EuiButton>
-              </EuiFlexItem>
-              <EuiFlexItem grow={false}>
-                {activeStep < 4 ? (
-                  <EuiButton fill onClick={goNext}>
-                    Continuer
-                  </EuiButton>
-                ) : (
-                  <EuiBadge color="hollow">Étape finale</EuiBadge>
-                )}
-              </EuiFlexItem>
-            </EuiFlexGroup>
-          </EuiFlexItem>
-        </EuiFlexGroup>
+        {/* ── Prev / Next bar ── */}
+        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+          <EuiButton onClick={goPrev} isDisabled={activeStep === 0} size="s" color="text">
+            {t('step_previous')}
+          </EuiButton>
+          {activeStep < 4 ? (
+            <EuiButton fill onClick={goNext} size="s">
+              {t('step_next')}
+            </EuiButton>
+          ) : (
+            <span className="text-xs text-gray-400 font-medium">{t('step_final')}</span>
+          )}
+        </div>
       </div>
     </Layout>
-  )
-}
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <EuiPanel color="subdued" paddingSize="s" hasBorder>
-      <EuiText size="xs" color="subdued"><p>{label}</p></EuiText>
-      <EuiSpacer size="xs" />
-      <EuiTitle size="s"><h3>{value}</h3></EuiTitle>
-    </EuiPanel>
   )
 }

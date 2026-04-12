@@ -1,16 +1,5 @@
 import React from 'react'
-import {
-  EuiBadge,
-  EuiButton,
-  EuiDescriptionList,
-  EuiFlexGrid,
-  EuiFlexGroup,
-  EuiFlexItem,
-  EuiPanel,
-  EuiSpacer,
-  EuiText,
-  EuiTitle,
-} from '@elastic/eui'
+import { EuiBadge, EuiButton } from '@elastic/eui'
 import { t } from '../lib/i18n'
 import Spinner from '../components/Spinner'
 
@@ -32,127 +21,97 @@ export default function AdsInfoStep({ dossier, loading, onDownloadTicket, onCont
   const preconfiguredEntries = Object.entries(preconfigured).filter(([, value]) => value !== null && value !== '')
 
   return (
-    <EuiFlexGroup direction="column" gutterSize="l">
-      <EuiFlexItem grow={false}>
-        <EuiPanel hasBorder hasShadow paddingSize="l">
-          <EuiFlexGroup justifyContent="spaceBetween" alignItems="flexStart">
-            <EuiFlexItem>
-              <EuiTitle size="s">
-                <h3>{ads.reference}</h3>
-              </EuiTitle>
-              <EuiSpacer size="s" />
-              <EuiText color="subdued">
-                <p>{ads.visit_purpose || '—'}</p>
-              </EuiText>
-            </EuiFlexItem>
-            <EuiFlexItem grow={false}>
-              <EuiButton onClick={onDownloadTicket} isLoading={loading}>
-                {t('download_ticket')}
-              </EuiButton>
-            </EuiFlexItem>
-          </EuiFlexGroup>
-        </EuiPanel>
-      </EuiFlexItem>
+    <div className="flex flex-col gap-5 animate-fade-in">
+      {/* ── Rejection reason banner ── */}
+      {ads.rejection_reason && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">{t('correction_reason')}</p>
+          <p className="text-sm text-amber-800">{ads.rejection_reason}</p>
+        </div>
+      )}
 
-      <EuiFlexItem grow={false}>
-        <EuiFlexGrid columns={3}>
-          <EuiFlexItem>
-            <EuiPanel hasBorder paddingSize="m">
-              <EuiDescriptionList
-                type="column"
-                compressed
-                listItems={[
-                  { title: t('company'), description: dossier.allowed_company_name || '—' },
-                  { title: t('site'), description: ads.site_name || '—' },
-                ]}
-              />
-            </EuiPanel>
-          </EuiFlexItem>
-          <EuiFlexItem>
-            <EuiPanel hasBorder paddingSize="m">
-              <EuiDescriptionList
-                type="column"
-                compressed
-                listItems={[
-                  { title: t('dates'), description: `${ads.start_date || '—'} → ${ads.end_date || '—'}` },
-                  { title: t('category'), description: ads.visit_category || '—' },
-                ]}
-              />
-            </EuiPanel>
-          </EuiFlexItem>
-          <EuiFlexItem>
-            <EuiPanel hasBorder paddingSize="m">
-              <EuiDescriptionList
-                type="column"
-                compressed
-                listItems={[
-                  { title: t('outbound_transport'), description: ads.outbound_transport_mode || '—' },
-                  { title: t('return_transport'), description: ads.return_transport_mode || '—' },
-                ]}
-              />
-            </EuiPanel>
-          </EuiFlexItem>
-        </EuiFlexGrid>
-      </EuiFlexItem>
+      {/* ── Info grid ── */}
+      <div className="section-card">
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">{ads.reference}</h3>
+            {ads.visit_purpose && <p className="text-sm text-gray-500 mt-0.5">{ads.visit_purpose}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={onDownloadTicket}
+            className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium flex-shrink-0"
+            disabled={loading}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            {t('download_ticket')}
+          </button>
+        </div>
 
-      {linkedProjects.length > 0 ? (
-        <EuiFlexItem grow={false}>
-          <EuiPanel hasBorder paddingSize="m">
-            <EuiTitle size="xxs">
-              <h4>{t('linked_projects')}</h4>
-            </EuiTitle>
-            <EuiSpacer size="s" />
-            <EuiFlexGroup wrap gutterSize="s">
-              {linkedProjects.map((item: any, index: number) => (
-                <EuiFlexItem key={index} grow={false}>
-                  <EuiBadge color="primary">{item.project_name || item.project_id || '—'}</EuiBadge>
-                </EuiFlexItem>
-              ))}
-            </EuiFlexGroup>
-          </EuiPanel>
-        </EuiFlexItem>
-      ) : null}
+        <dl className="label-value-grid">
+          <div>
+            <dt>{t('company')}</dt>
+            <dd>{dossier.allowed_company_name || '\u2014'}</dd>
+          </div>
+          <div>
+            <dt>{t('site')}</dt>
+            <dd>{ads.site_name || '\u2014'}</dd>
+          </div>
+          <div>
+            <dt>{t('dates')}</dt>
+            <dd>{ads.start_date || '\u2014'} &rarr; {ads.end_date || '\u2014'}</dd>
+          </div>
+          <div>
+            <dt>{t('category')}</dt>
+            <dd>{ads.visit_category || '\u2014'}</dd>
+          </div>
+          <div>
+            <dt>{t('outbound_transport')}</dt>
+            <dd>{ads.outbound_transport_mode || '\u2014'}</dd>
+          </div>
+          <div>
+            <dt>{t('return_transport')}</dt>
+            <dd>{ads.return_transport_mode || '\u2014'}</dd>
+          </div>
+        </dl>
+      </div>
 
-      {preconfiguredEntries.length > 0 ? (
-        <EuiFlexItem grow={false}>
-          <EuiPanel hasBorder paddingSize="m">
-            <EuiTitle size="xxs">
-              <h4>{t('preconfigured')}</h4>
-            </EuiTitle>
-            <EuiSpacer size="s" />
-            <EuiFlexGroup wrap gutterSize="s">
-              {preconfiguredEntries.map(([key, value]) => (
-                <EuiFlexItem key={key} grow={false}>
-                  <EuiBadge color="hollow">
-                    {key}: {Array.isArray(value) ? value.join(', ') : String(value)}
-                  </EuiBadge>
-                </EuiFlexItem>
-              ))}
-            </EuiFlexGroup>
-          </EuiPanel>
-        </EuiFlexItem>
-      ) : null}
+      {/* ── Linked projects ── */}
+      {linkedProjects.length > 0 && (
+        <div className="section-card">
+          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t('linked_projects')}</h4>
+          <div className="flex flex-wrap gap-1.5">
+            {linkedProjects.map((item: any, index: number) => (
+              <EuiBadge key={index} color="primary">{item.project_name || item.project_id || '\u2014'}</EuiBadge>
+            ))}
+          </div>
+        </div>
+      )}
 
-      {ads.rejection_reason ? (
-        <EuiFlexItem grow={false}>
-          <EuiPanel color="warning" hasBorder paddingSize="m">
-            <EuiText size="s">
-              <p><strong>{t('correction_reason')}</strong></p>
-              <p>{ads.rejection_reason}</p>
-            </EuiText>
-          </EuiPanel>
-        </EuiFlexItem>
-      ) : null}
+      {/* ── Preconfigured data ── */}
+      {preconfiguredEntries.length > 0 && (
+        <div className="section-card">
+          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t('preconfigured')}</h4>
+          <div className="flex flex-wrap gap-1.5">
+            {preconfiguredEntries.map(([key, value]) => (
+              <EuiBadge key={key} color="hollow">
+                {key}: {Array.isArray(value) ? value.join(', ') : String(value)}
+              </EuiBadge>
+            ))}
+          </div>
+        </div>
+      )}
 
-      <EuiFlexItem grow={false}>
-        <EuiFlexGroup justifyContent="flexEnd">
-          <EuiFlexItem grow={false}>
-            <EuiButton fill onClick={onContinue}>
-              {t('continue_to_team')}
-            </EuiButton>
-          </EuiFlexItem>
-        </EuiFlexGroup>
-      </EuiFlexItem>
-    </EuiFlexGroup>
+      {/* ── Continue ── */}
+      <div className="flex justify-end">
+        <EuiButton fill onClick={onContinue}>
+          {t('continue_to_team')}
+        </EuiButton>
+      </div>
+    </div>
   )
 }

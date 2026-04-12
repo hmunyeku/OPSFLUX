@@ -1,5 +1,4 @@
 import React from 'react'
-import { EuiBadge, EuiIcon, EuiPanel, EuiProgress, EuiSteps, EuiText, EuiTitle } from '@elastic/eui'
 import { t } from '../lib/i18n'
 
 export interface WizardStep {
@@ -12,6 +11,7 @@ export interface WizardStep {
 
 interface WizardNavProps {
   steps: WizardStep[]
+  activeStep: number
   onStepClick: (stepIndex: number) => void
 }
 
@@ -42,50 +42,51 @@ export function buildSteps(authenticated: boolean, dossier: any): WizardStep[] {
   return steps
 }
 
-export default function WizardNav({ steps, onStepClick }: WizardNavProps) {
-  const currentIndex = Math.max(steps.findIndex((step) => step.current), 0)
-  const percent = ((currentIndex + 1) / Math.max(steps.length, 1)) * 100
-
+export default function WizardNav({ steps, activeStep, onStepClick }: WizardNavProps) {
   return (
-    <EuiPanel hasBorder paddingSize="m">
-      <EuiTitle size="xxs">
-        <h3>{t('wizard_title')}</h3>
-      </EuiTitle>
-      <EuiText size="s" color="subdued">
-        <p>{t('wizard_subtitle')}</p>
-      </EuiText>
-      <EuiProgress value={percent} max={100} size="s" />
-      <div style={{ marginTop: 16 }}>
-        <EuiSteps
-          steps={steps.map((step, index) => ({
-            title: step.title,
-            children: (
+    <nav className="section-card" style={{ padding: '12px 16px' }}>
+      <div className="flex items-center gap-0">
+        {steps.map((step, index) => {
+          const isActive = index === activeStep
+          const isDone = step.done
+          return (
+            <React.Fragment key={step.id}>
+              {index > 0 && (
+                <div className={`step-connector${isDone || (index <= activeStep) ? ' done' : ''}`} />
+              )}
               <button
                 type="button"
                 onClick={() => onStepClick(index)}
-                style={{
-                  border: 0,
-                  background: 'transparent',
-                  padding: 0,
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                }}
+                className={`step-dot${isActive ? ' active' : ''}${isDone && !isActive ? ' done' : ''}`}
+                title={step.title}
+                aria-current={isActive ? 'step' : undefined}
               >
-                <EuiText size="s" color="subdued">
-                  <p>{step.description}</p>
-                </EuiText>
+                {isDone && !isActive ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  index + 1
+                )}
               </button>
-            ),
-            status: step.done ? 'complete' : step.current ? 'current' : 'incomplete',
-          }))}
-        />
+            </React.Fragment>
+          )
+        })}
       </div>
-      <div style={{ marginTop: 8 }}>
-        <EuiBadge color="primary">
-          <EuiIcon type="editorComment" />
-          &nbsp;{String(currentIndex + 1).padStart(2, '0')} / {String(steps.length).padStart(2, '0')}
-        </EuiBadge>
+      {/* Step label below on wider screens */}
+      <div className="hidden sm:flex items-center mt-2 px-1" style={{ gap: 0 }}>
+        {steps.map((step, index) => (
+          <React.Fragment key={`label-${step.id}`}>
+            {index > 0 && <div className="flex-1" />}
+            <span
+              className={`text-xs font-medium text-center ${index === activeStep ? 'text-blue-700' : step.done ? 'text-green-700' : 'text-gray-400'}`}
+              style={{ width: 32, flexShrink: 0 }}
+            >
+              {step.title}
+            </span>
+          </React.Fragment>
+        ))}
       </div>
-    </EuiPanel>
+    </nav>
   )
 }

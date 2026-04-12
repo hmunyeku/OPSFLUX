@@ -3,19 +3,10 @@ import {
   EuiBadge,
   EuiButton,
   EuiCallOut,
-  EuiCard,
-  EuiDescriptionList,
   EuiFieldText,
-  EuiFlexGrid,
-  EuiFlexGroup,
-  EuiFlexItem,
   EuiForm,
   EuiFormRow,
-  EuiPanel,
   EuiSelect,
-  EuiSpacer,
-  EuiText,
-  EuiTitle,
 } from '@elastic/eui'
 import { t } from '../lib/i18n'
 import { apiRequest } from '../lib/api'
@@ -42,6 +33,8 @@ export default function TeamStep({
   const [draft, setDraft] = useState<Record<string, string>>({})
   const [matches, setMatches] = useState<any[]>([])
   const [matchesLoading, setMatchesLoading] = useState(false)
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [showMoreInfo, setShowMoreInfo] = useState(false)
   const matchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   if (!authenticated) {
@@ -109,163 +102,208 @@ export default function TeamStep({
     onCreatePax(payload).then(() => {
       setDraft({})
       setMatches([])
+      setShowCreateForm(false)
     })
   }
 
   return (
-    <EuiFlexGroup direction="column" gutterSize="l">
-      <EuiFlexItem grow={false}>
-        <EuiPanel hasBorder hasShadow paddingSize="m">
-          <EuiFlexGroup justifyContent="spaceBetween" alignItems="center">
-            <EuiFlexItem>
-              <EuiTitle size="s">
-                <h3>{t('wizard_team_title')}</h3>
-              </EuiTitle>
-              <EuiSpacer size="xs" />
-              <EuiText size="s" color="subdued">
-                <p>{t('wizard_team_text')}</p>
-              </EuiText>
-            </EuiFlexItem>
-            <EuiFlexItem grow={false}>
-              <EuiFlexGroup gutterSize="s" wrap responsive={false}>
-                <EuiFlexItem grow={false}><EuiBadge color="primary">{t('pax_count')}: {summary.total ?? 0}</EuiBadge></EuiFlexItem>
-                <EuiFlexItem grow={false}><EuiBadge color="success">{t('approved')}: {summary.approved ?? 0}</EuiBadge></EuiFlexItem>
-                {(summary.pending_check ?? 0) > 0 ? <EuiFlexItem grow={false}><EuiBadge color="warning">{t('pending_check')}: {summary.pending_check}</EuiBadge></EuiFlexItem> : null}
-                {(summary.blocked ?? 0) > 0 ? <EuiFlexItem grow={false}><EuiBadge color="danger">{t('blocked')}: {summary.blocked}</EuiBadge></EuiFlexItem> : null}
-              </EuiFlexGroup>
-            </EuiFlexItem>
-          </EuiFlexGroup>
-        </EuiPanel>
-      </EuiFlexItem>
+    <div className="flex flex-col gap-5 animate-fade-in">
+      {/* ── Summary bar ── */}
+      <div className="flex flex-wrap items-center gap-2">
+        <EuiBadge color="primary">{t('pax_count')}: {summary.total ?? 0}</EuiBadge>
+        <EuiBadge color="success">{t('approved')}: {summary.approved ?? 0}</EuiBadge>
+        {(summary.pending_check ?? 0) > 0 && <EuiBadge color="warning">{t('pending_check')}: {summary.pending_check}</EuiBadge>}
+        {(summary.blocked ?? 0) > 0 && <EuiBadge color="danger">{t('blocked')}: {summary.blocked}</EuiBadge>}
+      </div>
 
-      <EuiFlexItem grow={false}>
-        <EuiPanel hasBorder paddingSize="l">
-          <EuiTitle size="s">
-            <h3>{t('add_pax')}</h3>
-          </EuiTitle>
-          <EuiSpacer size="s" />
-          <EuiText size="s" color="subdued">
-            <p>{t('wizard_team_helper')}</p>
-          </EuiText>
-          <EuiSpacer size="m" />
-          <EuiForm component="form" onSubmit={handleSubmit}>
-            <EuiFlexGrid columns={3}>
-              <EuiFlexItem><EuiFormRow label={t('first_name')}><EuiFieldText name="first_name" required value={draft.first_name || ''} onChange={(e) => updateDraft('first_name', e.target.value)} /></EuiFormRow></EuiFlexItem>
-              <EuiFlexItem><EuiFormRow label={t('last_name')}><EuiFieldText name="last_name" required value={draft.last_name || ''} onChange={(e) => updateDraft('last_name', e.target.value)} /></EuiFormRow></EuiFlexItem>
-              <EuiFlexItem><EuiFormRow label={t('birth_date')}><EuiFieldText type="date" name="birth_date" value={draft.birth_date || ''} onChange={(e) => updateDraft('birth_date', e.target.value)} /></EuiFormRow></EuiFlexItem>
-              <EuiFlexItem><EuiFormRow label={t('nationality')}><EuiFieldText name="nationality" value={draft.nationality || ''} onChange={(e) => updateDraft('nationality', e.target.value)} /></EuiFormRow></EuiFlexItem>
-              <EuiFlexItem><EuiFormRow label={t('badge_number')}><EuiFieldText name="badge_number" value={draft.badge_number || ''} onChange={(e) => updateDraft('badge_number', e.target.value)} /></EuiFormRow></EuiFlexItem>
-              <EuiFlexItem><EuiFormRow label={t('photo_url')}><EuiFieldText type="url" name="photo_url" value={draft.photo_url || ''} onChange={(e) => updateDraft('photo_url', e.target.value)} /></EuiFormRow></EuiFlexItem>
-              <EuiFlexItem><EuiFormRow label={t('email')}><EuiFieldText type="email" name="email" value={draft.email || ''} onChange={(e) => updateDraft('email', e.target.value)} /></EuiFormRow></EuiFlexItem>
-              <EuiFlexItem><EuiFormRow label={t('phone')}><EuiFieldText name="phone" value={draft.phone || ''} onChange={(e) => updateDraft('phone', e.target.value)} /></EuiFormRow></EuiFlexItem>
-              <EuiFlexItem><EuiFormRow label={t('position')}><EuiSelect name="job_position_id" value={draft.job_position_id || ''} onChange={(e) => updateDraft('job_position_id', e.target.value)} options={[{ value: '', text: t('position') }, ...jobPositions.map((jp) => ({ value: jp.id, text: `${jp.name}${jp.code ? ` (${jp.code})` : ''}` }))]} /></EuiFormRow></EuiFlexItem>
-              <EuiFlexItem><EuiFormRow label={t('pickup_address_line1')}><EuiFieldText name="pickup_address_line1" value={draft.pickup_address_line1 || ''} onChange={(e) => updateDraft('pickup_address_line1', e.target.value)} /></EuiFormRow></EuiFlexItem>
-              <EuiFlexItem><EuiFormRow label={t('pickup_address_line2')}><EuiFieldText name="pickup_address_line2" value={draft.pickup_address_line2 || ''} onChange={(e) => updateDraft('pickup_address_line2', e.target.value)} /></EuiFormRow></EuiFlexItem>
-              <EuiFlexItem><EuiFormRow label={t('pickup_city')}><EuiFieldText name="pickup_city" value={draft.pickup_city || ''} onChange={(e) => updateDraft('pickup_city', e.target.value)} /></EuiFormRow></EuiFlexItem>
-              <EuiFlexItem><EuiFormRow label={t('pickup_state_province')}><EuiFieldText name="pickup_state_province" value={draft.pickup_state_province || ''} onChange={(e) => updateDraft('pickup_state_province', e.target.value)} /></EuiFormRow></EuiFlexItem>
-              <EuiFlexItem><EuiFormRow label={t('pickup_postal_code')}><EuiFieldText name="pickup_postal_code" value={draft.pickup_postal_code || ''} onChange={(e) => updateDraft('pickup_postal_code', e.target.value)} /></EuiFormRow></EuiFlexItem>
-              <EuiFlexItem><EuiFormRow label={t('pickup_country')}><EuiFieldText name="pickup_country" value={draft.pickup_country || ''} onChange={(e) => updateDraft('pickup_country', e.target.value)} /></EuiFormRow></EuiFlexItem>
-            </EuiFlexGrid>
-            <EuiSpacer size="m" />
-            <EuiFlexGroup justifyContent="flexEnd">
-              <EuiFlexItem grow={false}>
-                <EuiButton type="submit" fill isLoading={loading}>
+      {/* ── Create new pax: collapsible ── */}
+      <div className="section-card" style={{ padding: 0, overflow: 'hidden' }}>
+        <button
+          type="button"
+          className="collapsible-toggle"
+          aria-expanded={showCreateForm}
+          onClick={() => setShowCreateForm((v) => !v)}
+          style={{ borderRadius: showCreateForm ? '8px 8px 0 0' : undefined }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+          {t('create_new_pax')}
+        </button>
+
+        {showCreateForm && (
+          <div className="px-4 pb-4 pt-3 sm:px-5">
+            <p className="text-xs text-gray-500 mb-3">{t('wizard_team_helper')}</p>
+
+            <EuiForm component="form" onSubmit={handleSubmit}>
+              {/* Essential fields */}
+              <div className="form-grid">
+                <EuiFormRow label={t('first_name')} fullWidth>
+                  <EuiFieldText name="first_name" required value={draft.first_name || ''} onChange={(e) => updateDraft('first_name', e.target.value)} fullWidth />
+                </EuiFormRow>
+                <EuiFormRow label={t('last_name')} fullWidth>
+                  <EuiFieldText name="last_name" required value={draft.last_name || ''} onChange={(e) => updateDraft('last_name', e.target.value)} fullWidth />
+                </EuiFormRow>
+                <EuiFormRow label={t('birth_date')} fullWidth>
+                  <EuiFieldText type="date" name="birth_date" value={draft.birth_date || ''} onChange={(e) => updateDraft('birth_date', e.target.value)} fullWidth />
+                </EuiFormRow>
+                <EuiFormRow label={t('badge_number')} fullWidth>
+                  <EuiFieldText name="badge_number" value={draft.badge_number || ''} onChange={(e) => updateDraft('badge_number', e.target.value)} fullWidth />
+                </EuiFormRow>
+                <EuiFormRow label={t('email')} fullWidth>
+                  <EuiFieldText type="email" name="email" value={draft.email || ''} onChange={(e) => updateDraft('email', e.target.value)} fullWidth />
+                </EuiFormRow>
+                <EuiFormRow label={t('phone')} fullWidth>
+                  <EuiFieldText name="phone" value={draft.phone || ''} onChange={(e) => updateDraft('phone', e.target.value)} fullWidth />
+                </EuiFormRow>
+              </div>
+
+              {/* ── Matches inline ── */}
+              {matchesLoading && (
+                <div className="mt-3">
+                  <Spinner label={t('searching_existing_pax')} size="s" />
+                </div>
+              )}
+              {matches.length > 0 && (
+                <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-xs font-semibold text-amber-700 mb-2">{t('duplicate_candidates')}</p>
+                  <div className="flex flex-col gap-1.5">
+                    {matches.map((match: any) => (
+                      <button
+                        key={match.contact_id}
+                        type="button"
+                        className="flex items-center justify-between px-3 py-2 rounded border border-amber-200 bg-white hover:bg-amber-50 text-left transition-colors"
+                        onClick={() => onAttachExisting(match.contact_id)}
+                      >
+                        <span className="text-sm font-medium text-gray-800">{match.first_name} {match.last_name}</span>
+                        <span className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">{match.job_position_name || match.position || ''}</span>
+                          <EuiBadge color="warning">{t('attach_pax')}</EuiBadge>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── More info: collapsible ── */}
+              <div className="mt-3">
+                <button
+                  type="button"
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                  onClick={() => setShowMoreInfo((v) => !v)}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ transform: showMoreInfo ? 'rotate(180deg)' : undefined, transition: 'transform 0.2s' }}>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                  {t('more_info')}
+                </button>
+                {showMoreInfo && (
+                  <div className="form-grid mt-2">
+                    <EuiFormRow label={t('nationality')} fullWidth>
+                      <EuiFieldText name="nationality" value={draft.nationality || ''} onChange={(e) => updateDraft('nationality', e.target.value)} fullWidth />
+                    </EuiFormRow>
+                    <EuiFormRow label={t('photo_url')} fullWidth>
+                      <EuiFieldText type="url" name="photo_url" value={draft.photo_url || ''} onChange={(e) => updateDraft('photo_url', e.target.value)} fullWidth />
+                    </EuiFormRow>
+                    <EuiFormRow label={t('position')} fullWidth>
+                      <EuiSelect name="job_position_id" value={draft.job_position_id || ''} onChange={(e) => updateDraft('job_position_id', e.target.value)} options={[{ value: '', text: t('position') }, ...jobPositions.map((jp) => ({ value: jp.id, text: `${jp.name}${jp.code ? ` (${jp.code})` : ''}` }))]} fullWidth />
+                    </EuiFormRow>
+                    <EuiFormRow label={t('pickup_address_line1')} fullWidth>
+                      <EuiFieldText name="pickup_address_line1" value={draft.pickup_address_line1 || ''} onChange={(e) => updateDraft('pickup_address_line1', e.target.value)} fullWidth />
+                    </EuiFormRow>
+                    <EuiFormRow label={t('pickup_address_line2')} fullWidth>
+                      <EuiFieldText name="pickup_address_line2" value={draft.pickup_address_line2 || ''} onChange={(e) => updateDraft('pickup_address_line2', e.target.value)} fullWidth />
+                    </EuiFormRow>
+                    <EuiFormRow label={t('pickup_city')} fullWidth>
+                      <EuiFieldText name="pickup_city" value={draft.pickup_city || ''} onChange={(e) => updateDraft('pickup_city', e.target.value)} fullWidth />
+                    </EuiFormRow>
+                    <EuiFormRow label={t('pickup_state_province')} fullWidth>
+                      <EuiFieldText name="pickup_state_province" value={draft.pickup_state_province || ''} onChange={(e) => updateDraft('pickup_state_province', e.target.value)} fullWidth />
+                    </EuiFormRow>
+                    <EuiFormRow label={t('pickup_postal_code')} fullWidth>
+                      <EuiFieldText name="pickup_postal_code" value={draft.pickup_postal_code || ''} onChange={(e) => updateDraft('pickup_postal_code', e.target.value)} fullWidth />
+                    </EuiFormRow>
+                    <EuiFormRow label={t('pickup_country')} fullWidth>
+                      <EuiFieldText name="pickup_country" value={draft.pickup_country || ''} onChange={(e) => updateDraft('pickup_country', e.target.value)} fullWidth />
+                    </EuiFormRow>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end mt-4">
+                <EuiButton type="submit" fill isLoading={loading} size="s">
                   {t('add_pax')}
                 </EuiButton>
-              </EuiFlexItem>
-            </EuiFlexGroup>
-          </EuiForm>
-        </EuiPanel>
-      </EuiFlexItem>
+              </div>
+            </EuiForm>
+          </div>
+        )}
+      </div>
 
-      {matchesLoading ? (
-        <EuiFlexItem grow={false}>
-          <Spinner label={t('searching_existing_pax')} size="m" />
-        </EuiFlexItem>
-      ) : null}
-
-      {matches.length > 0 ? (
-        <EuiFlexItem grow={false}>
-          <EuiPanel color="warning" hasBorder paddingSize="m">
-            <EuiTitle size="xxs">
-              <h4>{t('duplicate_candidates')}</h4>
-            </EuiTitle>
-            <EuiSpacer size="s" />
-            <EuiText size="s" color="subdued">
-              <p>{t('duplicate_candidates_hint')}</p>
-            </EuiText>
-            <EuiSpacer size="m" />
-            <EuiFlexGroup direction="column" gutterSize="s">
-              {matches.map((match: any) => (
-                <EuiFlexItem key={match.contact_id} grow={false}>
-                  <EuiCard
-                    title={`${match.first_name} ${match.last_name}`}
-                    description={match.job_position_name || match.position || '—'}
-                    onClick={() => onAttachExisting(match.contact_id)}
-                    footer={<EuiBadge color="warning">{match.match_score}</EuiBadge>}
-                  />
-                </EuiFlexItem>
-              ))}
-            </EuiFlexGroup>
-          </EuiPanel>
-        </EuiFlexItem>
-      ) : null}
-
+      {/* ── Pax table ── */}
       {pax.length === 0 ? (
-        <EuiFlexItem grow={false}>
-          <EuiCallOut title={t('no_pax')} color="primary" iconType="users" />
-        </EuiFlexItem>
+        <div className="section-card text-center py-8">
+          <svg className="mx-auto mb-3 text-gray-300" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          <p className="text-sm text-gray-500">{t('no_pax')}</p>
+        </div>
       ) : (
-        <EuiFlexItem grow={false}>
-          <EuiFlexGroup direction="column" gutterSize="s">
-            {pax.map((item: any) => (
-              <EuiFlexItem key={item.contact_id} grow={false}>
-                <EuiPanel hasBorder paddingSize="m">
-                  <EuiFlexGroup alignItems="center" justifyContent="spaceBetween">
-                    <EuiFlexItem>
-                      <EuiTitle size="xxs">
-                        <h4>{item.first_name} {item.last_name}</h4>
-                      </EuiTitle>
-                      <EuiSpacer size="xs" />
-                      <EuiDescriptionList
-                        compressed
-                        type="inline"
-                        listItems={[
-                          { title: t('position'), description: item.job_position_name || item.position || '—' },
-                          { title: t('birth_date'), description: item.birth_date || '—' },
-                          { title: t('badge_number'), description: item.badge_number || '—' },
-                        ]}
-                      />
-                    </EuiFlexItem>
-                    <EuiFlexItem grow={false}>
-                      <EuiFlexGroup alignItems="center" gutterSize="s" responsive={false}>
-                        <EuiFlexItem grow={false}><StatusBadge status={item.status || 'pending_check'} /></EuiFlexItem>
-                        <EuiFlexItem grow={false}>
-                          <EuiButton size="s" onClick={() => onOpenCompliance(item.contact_id)}>
-                            {t('open_compliance_dossier')}
-                          </EuiButton>
-                        </EuiFlexItem>
-                      </EuiFlexGroup>
-                    </EuiFlexItem>
-                  </EuiFlexGroup>
-                </EuiPanel>
-              </EuiFlexItem>
-            ))}
-          </EuiFlexGroup>
-        </EuiFlexItem>
+        <div className="section-card" style={{ padding: 0, overflow: 'hidden' }}>
+          <table className="pax-table">
+            <thead>
+              <tr>
+                <th>{t('pax_table_name')}</th>
+                <th>{t('pax_table_position')}</th>
+                <th>{t('pax_table_badge')}</th>
+                <th>{t('pax_table_status')}</th>
+                <th style={{ textAlign: 'right' }}>{t('pax_table_actions')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pax.map((item: any) => (
+                <tr key={item.contact_id}>
+                  <td className="font-medium text-gray-800">
+                    {item.first_name} {item.last_name}
+                  </td>
+                  <td className="text-gray-600">
+                    {item.job_position_name || item.position || '\u2014'}
+                  </td>
+                  <td className="font-mono text-xs text-gray-500">
+                    {item.badge_number || '\u2014'}
+                  </td>
+                  <td>
+                    <StatusBadge status={item.status || 'pending_check'} />
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenCompliance(item.contact_id)}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      {t('open_compliance_dossier')}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {pax.length > 0 ? (
-        <EuiFlexItem grow={false}>
-          <EuiFlexGroup justifyContent="flexEnd">
-            <EuiFlexItem grow={false}>
-              <EuiButton fill onClick={onContinue}>
-                {t('continue_to_compliance')}
-              </EuiButton>
-            </EuiFlexItem>
-          </EuiFlexGroup>
-        </EuiFlexItem>
-      ) : null}
-    </EuiFlexGroup>
+      {/* ── Continue ── */}
+      {pax.length > 0 && (
+        <div className="flex justify-end">
+          <EuiButton fill onClick={onContinue}>
+            {t('continue_to_compliance')}
+          </EuiButton>
+        </div>
+      )}
+    </div>
   )
 }

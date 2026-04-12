@@ -1,24 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
-import {
-  EuiBadge,
-  EuiButton,
-  EuiCallOut,
-  EuiCode,
-  EuiDescribedFormGroup,
-  EuiFieldText,
-  EuiFlexGrid,
-  EuiFlexGroup,
-  EuiFlexItem,
-  EuiPanel,
-  EuiSpacer,
-  EuiStat,
-  EuiText,
-  EuiTitle,
-} from '@elastic/eui'
-import { t, getLang } from '../lib/i18n'
-import { formatDateTime } from '../lib/utils'
-import StatusBadge from '../components/StatusBadge'
-import Spinner from '../components/Spinner'
+import { EuiButton, EuiCallOut, EuiLoadingSpinner } from '@elastic/eui'
+import { t } from '../lib/i18n'
 
 interface SecurityStepProps {
   linkInfo: any
@@ -28,9 +10,6 @@ interface SecurityStepProps {
   onVerifyOtp: (code: string) => Promise<void>
 }
 
-// Backend OTP TTL — kept in sync with the 10-minute window enforced in
-// app/api/routes/modules/paxlog.py (otp_expires_at = now + 10 minutes).
-// If the backend window changes this constant must follow.
 const OTP_TTL_SECONDS = 600
 
 function formatRemaining(seconds: number): string {
@@ -43,15 +22,6 @@ function formatRemaining(seconds: number): string {
 export default function SecurityStep({ linkInfo, authenticated, loading, onSendOtp, onVerifyOtp }: SecurityStepProps) {
   const [digits, setDigits] = useState<string[]>(['', '', '', '', '', ''])
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
-  const lang = getLang()
-
-  // ── OTP countdown state ──
-  // We track the moment the user requested the OTP (otpSentAt) and a
-  // tick-on-second `now` value to recompute the remaining seconds.
-  // The backend OTP expires 10 minutes after send; we stop the verify
-  // form once the countdown hits zero so the user can't waste time
-  // entering a code that the API will reject anyway. A new send resets
-  // the timer.
   const [otpSentAt, setOtpSentAt] = useState<number | null>(null)
   const [now, setNow] = useState<number>(() => Date.now())
   const [sendError, setSendError] = useState<string | null>(null)
@@ -72,8 +42,6 @@ export default function SecurityStep({ linkInfo, authenticated, loading, onSendO
     try {
       await onSendOtp()
       setOtpSentAt(Date.now())
-      // Clear any digits the user may have typed for a previous code
-      // that's now obsolete.
       setDigits(['', '', '', '', '', ''])
     } catch (err: any) {
       setSendError(String(err?.message || err) || t('otp_required'))
@@ -118,129 +86,100 @@ export default function SecurityStep({ linkInfo, authenticated, loading, onSendO
     onVerifyOtp(otpCode)
   }
 
+  // ── Already authenticated ──
+  if (authenticated) {
+    return (
+      <div className="flex flex-col items-center py-10 gap-4 animate-fade-in">
+        <div className="w-14 h-14 rounded-full bg-green-50 border-2 border-green-200 flex items-center justify-center">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#017d73" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+        <p className="text-base font-medium text-green-800">{t('authenticated')}</p>
+      </div>
+    )
+  }
+
+  // ── OTP not required ──
+  if (!linkInfo?.otp_required) {
+    return (
+      <div className="flex flex-col items-center py-10 gap-4 animate-fade-in">
+        <div className="w-14 h-14 rounded-full bg-green-50 border-2 border-green-200 flex items-center justify-center">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#017d73" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+        <p className="text-base font-medium text-green-800">{t('otp_not_required')}</p>
+      </div>
+    )
+  }
+
+  // ── OTP flow ──
   return (
-    <EuiFlexGroup direction="column" gutterSize="l">
-      <EuiFlexItem grow={false}>
-        <EuiPanel hasBorder hasShadow paddingSize="l">
-          <EuiFlexGroup justifyContent="spaceBetween" alignItems="center">
-            <EuiFlexItem>
-              <EuiTitle size="s">
-                <h3>{t('wizard_access_title')}</h3>
-              </EuiTitle>
-              <EuiSpacer size="s" />
-              <EuiText size="s" color="subdued">
-                <p>{t('wizard_access_text')}</p>
-              </EuiText>
-              <EuiSpacer size="s" />
-              <EuiCode>{linkInfo?.ads_reference || '—'}</EuiCode>
-            </EuiFlexItem>
-            <EuiFlexItem grow={false}>
-              <StatusBadge status={authenticated || !linkInfo?.otp_required ? 'approved' : 'pending_check'} />
-            </EuiFlexItem>
-          </EuiFlexGroup>
-        </EuiPanel>
-      </EuiFlexItem>
+    <div className="flex justify-center animate-fade-in-up">
+      <div className="section-card w-full max-w-md">
+        {/* Icon */}
+        <div className="flex justify-center mb-5">
+          <div className="w-14 h-14 rounded-full bg-blue-50 border-2 border-blue-100 flex items-center justify-center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0077cc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          </div>
+        </div>
 
-      <EuiFlexItem grow={false}>
-        <EuiFlexGrid columns={3}>
-          <EuiFlexItem>
-            <EuiPanel hasBorder paddingSize="m">
-              <EuiStat title={String(linkInfo?.remaining_uses ?? '—')} description={t('remaining_uses')} titleSize="s" />
-            </EuiPanel>
-          </EuiFlexItem>
-          <EuiFlexItem>
-            <EuiPanel hasBorder paddingSize="m">
-              <EuiText size="s">
-                <p><strong>{t('expires_at')}</strong></p>
-                <p>{formatDateTime(linkInfo?.expires_at, lang)}</p>
-              </EuiText>
-            </EuiPanel>
-          </EuiFlexItem>
-          <EuiFlexItem>
-            <EuiPanel hasBorder paddingSize="m">
-              <EuiText size="s">
-                <p><strong>{t('otp_destination')}</strong></p>
-                <p>{linkInfo?.otp_destination_masked || '—'}</p>
-              </EuiText>
-            </EuiPanel>
-          </EuiFlexItem>
-        </EuiFlexGrid>
-      </EuiFlexItem>
+        {/* Instruction */}
+        <p className="text-center text-sm text-gray-600 mb-6">
+          {t('otp_enter_code')} <span className="font-medium text-gray-800">{linkInfo?.otp_destination_masked || '***'}</span>
+        </p>
 
-      {authenticated ? (
-        <EuiFlexItem grow={false}>
-          <EuiCallOut title={t('authenticated')} color="success" iconType="check" />
-        </EuiFlexItem>
-      ) : !linkInfo?.otp_required ? (
-        <EuiFlexItem grow={false}>
-          <EuiCallOut title={t('otp_not_required')} color="success" iconType="checkInCircleFilled" />
-        </EuiFlexItem>
-      ) : (
-        <EuiFlexItem grow={false}>
-          <EuiCallOut title={t('otp_required')} color="warning" iconType="lock" />
-        </EuiFlexItem>
-      )}
-
-      {linkInfo?.otp_required && !authenticated ? (
-        <EuiFlexItem grow={false}>
-          <EuiPanel hasBorder paddingSize="l">
-            <EuiDescribedFormGroup
-              title={<h4>{t('wizard_access_title')}</h4>}
-              description={<p>{t('wizard_access_text')}</p>}
-            >
-              <EuiFlexGroup gutterSize="m" alignItems="center" responsive={false}>
-                <EuiFlexItem grow={false}>
-                  <EuiButton onClick={handleSend} isLoading={loading}>
-                    {otpSentAt == null ? t('send_code') : t('send_code')}
-                  </EuiButton>
-                </EuiFlexItem>
-                {otpSentAt != null && remainingSeconds != null && !otpExpired && (
-                  <EuiFlexItem grow={false}>
-                    <EuiBadge color="hollow" iconType="clock">
-                      {`${formatRemaining(remainingSeconds)} ${t('expires_at')}`}
-                    </EuiBadge>
-                  </EuiFlexItem>
-                )}
-                {otpExpired && (
-                  <EuiFlexItem grow={false}>
-                    <EuiBadge color="warning" iconType="alert">
-                      {t('otp_required')}
-                    </EuiBadge>
-                  </EuiFlexItem>
-                )}
-              </EuiFlexGroup>
-              {sendError && (
-                <>
-                  <EuiSpacer size="s" />
-                  <EuiCallOut size="s" color="danger" iconType="alert" title={sendError} />
-                </>
-              )}
-              <EuiSpacer size="l" />
-              <form onSubmit={handleSubmit}>
-                <EuiText size="s">
-                  <strong>{t('otp_code')}</strong>
-                </EuiText>
-                <EuiSpacer size="m" />
-                <div onPaste={handlePaste}>
-                  <EuiFlexGroup gutterSize="s" responsive={false} justifyContent="center">
-                    {digits.map((digit, index) => (
-                      <EuiFlexItem key={index} grow={false}>
-                        <EuiFieldText
-                          inputRef={(el) => { inputRefs.current[index] = el }}
-                          value={digit}
-                          onChange={(event) => handleDigitChange(index, event.target.value)}
-                          onKeyDown={(event) => handleKeyDown(index, event)}
-                          maxLength={1}
-                          compressed={false}
-                          style={{ width: 48, textAlign: 'center' }}
-                          aria-label={`${t('otp_code')} ${index + 1}`}
-                          disabled={otpExpired}
-                        />
-                      </EuiFlexItem>
-                    ))}
-                  </EuiFlexGroup>
+        {/* Send / Resend button */}
+        {otpSentAt == null ? (
+          <div className="flex justify-center mb-6">
+            <EuiButton onClick={handleSend} isLoading={loading}>
+              {t('send_code')}
+            </EuiButton>
+          </div>
+        ) : (
+          <>
+            {/* Timer or expired */}
+            <div className="flex justify-center mb-4">
+              {otpExpired ? (
+                <div className="flex flex-col items-center gap-2">
+                  <span className="text-xs text-amber-600 font-medium">{t('otp_expired_resend')}</span>
+                  <button type="button" onClick={handleSend} className="text-sm text-blue-600 hover:text-blue-800 font-medium underline">
+                    {t('resend_code')}
+                  </button>
                 </div>
-                <EuiSpacer size="l" />
+              ) : (
+                <span className="text-xs text-gray-500 tabular-nums">
+                  {formatRemaining(remainingSeconds!)} {t('otp_timer_remaining')}
+                </span>
+              )}
+            </div>
+
+            {/* 6-digit input */}
+            <form onSubmit={handleSubmit}>
+              <div className="flex justify-center gap-2 mb-6" onPaste={handlePaste}>
+                {digits.map((digit, index) => (
+                  <input
+                    key={index}
+                    ref={(el) => { inputRefs.current[index] = el }}
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={digit}
+                    onChange={(e) => handleDigitChange(index, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(index, e)}
+                    maxLength={1}
+                    className="otp-digit-input"
+                    aria-label={`${t('otp_code')} ${index + 1}`}
+                    disabled={otpExpired}
+                  />
+                ))}
+              </div>
+
+              <div className="flex justify-center">
                 <EuiButton
                   type="submit"
                   fill
@@ -249,17 +188,23 @@ export default function SecurityStep({ linkInfo, authenticated, loading, onSendO
                 >
                   {t('verify_code')}
                 </EuiButton>
-              </form>
-            </EuiDescribedFormGroup>
-          </EuiPanel>
-        </EuiFlexItem>
-      ) : null}
+              </div>
+            </form>
+          </>
+        )}
 
-      {loading ? (
-        <EuiFlexItem grow={false}>
-          <Spinner label={t('loading')} />
-        </EuiFlexItem>
-      ) : null}
-    </EuiFlexGroup>
+        {sendError && (
+          <div className="mt-4">
+            <EuiCallOut size="s" color="danger" iconType="alert" title={sendError} />
+          </div>
+        )}
+
+        {loading && (
+          <div className="flex justify-center mt-4">
+            <EuiLoadingSpinner size="m" />
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

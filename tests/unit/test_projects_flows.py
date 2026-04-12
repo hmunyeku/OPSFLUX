@@ -120,6 +120,9 @@ class _ExecuteResult:
     def scalars(self):
         return _ScalarsResult(self._values)
 
+    def all(self):
+        return list(self._values)
+
 
 class _ScalarValueResult:
     def __init__(self, value):
@@ -127,6 +130,9 @@ class _ScalarValueResult:
 
     def scalar(self):
         return self._value
+
+    def all(self):
+        return []
 
 
 class PlannerRouteFakeDB(FakeDB):
@@ -748,9 +754,11 @@ async def test_apply_accepted_revision_request_updates_leaf_task_and_activity():
 
 
 @pytest.mark.asyncio
-async def test_apply_accepted_revision_request_marks_parent_task_for_manual_breakdown():
+async def test_apply_accepted_revision_request_marks_parent_task_for_manual_breakdown(monkeypatch):
     entity_id = uuid4()
     task_id = uuid4()
+    child_id_1 = uuid4()
+    child_id_2 = uuid4()
     task = SimpleNamespace(
         id=task_id,
         project_id=uuid4(),
@@ -758,6 +766,7 @@ async def test_apply_accepted_revision_request_marks_parent_task_for_manual_brea
         start_date=None,
         due_date=None,
         status="todo",
+        title="Parent task",
     )
 
     class ApplyParentDB(FakeDB):
@@ -767,9 +776,14 @@ async def test_apply_accepted_revision_request_marks_parent_task_for_manual_brea
             return None
 
         async def execute(self, _query):
-            return _ScalarValueResult(2)
+            return _ExecuteResult([(child_id_1,), (child_id_2,)])
 
     db = ApplyParentDB()
+
+    async def fake_record_audit(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(planner, "record_audit", fake_record_audit)
 
     result = await planner._apply_accepted_revision_request(
         db,

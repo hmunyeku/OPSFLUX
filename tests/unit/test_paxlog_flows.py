@@ -1608,7 +1608,7 @@ async def test_add_pax_to_ads_denies_non_owner_without_approve(monkeypatch):
 async def test_create_external_link_denies_non_owner_without_approve(monkeypatch):
     ads = _build_ads(status="draft")
     outsider_id = uuid4()
-    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+    db = FakeDB([FakeResult(scalar_one_or_none=ads), FakeResult(all_rows=[(uuid4(), "Acme Corp")])])
 
     async def fake_has_user_permission(_user, _entity_id, permission_code, _db):
         assert permission_code == "paxlog.ads.approve"
@@ -1634,7 +1634,7 @@ async def test_create_external_link_denies_non_owner_without_approve(monkeypatch
 async def test_create_external_link_returns_external_portal_url(monkeypatch):
     ads = _build_ads(status="approved")
     current_user = SimpleNamespace(id=ads.requester_id)
-    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+    db = FakeDB([FakeResult(scalar_one_or_none=ads), FakeResult(all_rows=[(uuid4(), "Acme Corp")])])
 
     audit_calls = []
 
@@ -1675,7 +1675,7 @@ async def test_create_external_link_uses_selected_recipient_destination(monkeypa
     ads = _build_ads(status="approved")
     current_user = SimpleNamespace(id=ads.requester_id)
     selected_contact_id = uuid4()
-    db = FakeDB([FakeResult(scalar_one_or_none=ads)])
+    db = FakeDB([FakeResult(scalar_one_or_none=ads), FakeResult(all_rows=[(uuid4(), "Acme Corp")])])
 
     captured = {}
 
@@ -2321,6 +2321,8 @@ async def test_promote_waitlisted_ads_pax_if_capacity_available_promotes_oldest_
             FakeResult(all_rows=[(ads_pax_id, ads_id, "ADS-200", requester_id)]),
             FakeResult(),
             FakeResult(),
+            FakeResult(all_rows=[]),  # paxlog.waitlist_auto_notify setting query
+            FakeResult(scalar_one_or_none=None),  # pax_row user_id lookup
         ]
     )
     notifications = []
@@ -5050,8 +5052,17 @@ async def test_resubmit_external_ads_uses_finalize_flow(monkeypatch):
         finalized_calls.append(kwargs)
         return kwargs["ads"]
 
+    async def fake_resolve_companies(_db, *, ads, link, fallback_company_id):
+        return [uuid4()], ["Acme Corp"], uuid4(), "Acme Corp"
+
+    async def fake_build_pax_data(_db, *, ads_id, allowed_company_ids):
+        return [], {"total": 0}
+
     monkeypatch.setattr(paxlog, "_require_external_session", fake_require_session)
     monkeypatch.setattr(paxlog, "_get_external_ads_and_context", fake_get_ads_and_context)
+    monkeypatch.setattr(paxlog, "_resolve_external_allowed_companies", fake_resolve_companies)
+    monkeypatch.setattr(paxlog_service, "build_external_dossier_pax_data", fake_build_pax_data)
+    monkeypatch.setattr(paxlog, "_build_external_submission_blockers", lambda **kwargs: [])
     monkeypatch.setattr(paxlog, "_finalize_external_ads_submission", fake_finalize_external_ads_submission)
 
     response = await paxlog.resubmit_external_ads(
@@ -6548,7 +6559,7 @@ async def test_workflow_transition_semantic_bridge_emits_cargo_aliases(monkeypat
         OpsFluxEvent(
             event_type="workflow.transition",
             payload={
-                "workflow_slug": "travelwiz-cargo-workflow",
+                "workflow_slug": "packlog-cargo-workflow",
                 "entity_type": "cargo_item_workflow",
                 "entity_id": str(uuid4()),
                 "from_state": "approved",
@@ -6561,8 +6572,6 @@ async def test_workflow_transition_semantic_bridge_emits_cargo_aliases(monkeypat
     assert [event.event_type for event in published] == [
         "packlog.cargo.workflow.assigned",
         "packlog.cargo.workflow.changed",
-        "travelwiz.cargo.workflow.assigned",
-        "travelwiz.cargo.workflow.changed",
     ]
     assert published[0].payload["to_status"] == "assigned"
 

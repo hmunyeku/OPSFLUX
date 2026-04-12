@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Boxes, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import {
@@ -21,6 +22,7 @@ export function CreateArticlePanel() {
   const packlogCreateArticle = useCreatePackLogArticle()
   const createArticle = packlogCreateArticle
   const { toast } = useToast()
+  const { t } = useTranslation()
   const [form, setForm] = useState<TravelArticleCreate>({
     sap_code: '',
     description: '',
@@ -35,10 +37,10 @@ export function CreateArticlePanel() {
     e.preventDefault()
     try {
       await createArticle.mutateAsync(form)
-      toast({ title: 'Article cree avec succes', variant: 'success' })
+      toast({ title: t('packlog.toast.article_created'), variant: 'success' })
       closeDynamicPanel()
     } catch {
-      toast({ title: "Erreur lors de la creation de l'article", variant: 'error' })
+      toast({ title: t('packlog.toast.article_create_error'), variant: 'error' })
     }
   }
 

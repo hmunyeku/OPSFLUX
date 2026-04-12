@@ -7,6 +7,7 @@
  * 3. Permissions — read-only matrix with rich tooltips
  */
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ShieldCheck, Users, Lock, Loader2, Search,
   ChevronRight, ChevronDown, Check, X, UserPlus, Trash2,
@@ -93,6 +94,7 @@ function InlineDetailPanel({
 }
 
 export function RbacAdminTab() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<RbacSubTab>('roles')
   const { data: permMode } = usePermissionMode()
   const setModeMut = useSetPermissionMode()
@@ -104,7 +106,7 @@ export function RbacAdminTab() {
     const newMode = currentMode === 'additive' ? 'restrictive' : 'additive'
     setModeMut.mutate(newMode, {
       onSuccess: () => toast({
-        title: `Mode ${newMode === 'additive' ? 'additif' : 'restrictif'} activé`,
+        title: newMode === 'additive' ? t('settings.toast.rbac.mode_additive') : t('settings.toast.rbac.mode_restrictive'),
         variant: 'success',
       }),
     })
@@ -405,6 +407,7 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
 // ── Create Role Form ─────────────────────────────────────────
 
 function CreateRoleForm({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const createMut = useCreateRole()
   const [code, setCode] = useState('')
@@ -423,11 +426,11 @@ function CreateRoleForm({ onClose }: { onClose: () => void }) {
       },
       {
         onSuccess: () => {
-          toast({ title: `Rôle "${code}" créé`, variant: 'success' })
+          toast({ title: t('settings.toast.rbac.role_created', { code }), variant: 'success' })
           onClose()
         },
         onError: (err: Error) => {
-          toast({ title: 'Erreur', description: err.message, variant: 'error' })
+          toast({ title: t('settings.toast.error'), description: err.message, variant: 'error' })
         },
       },
     )
@@ -470,6 +473,7 @@ function CreateRoleForm({ onClose }: { onClose: () => void }) {
 // ── Role Detail Panel ────────────────────────────────────────
 
 export function RoleDetailPanel({ code, onClose, inline = true }: { code: string; onClose: () => void; inline?: boolean }) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data: role, isLoading } = useRole(code)
   const { data: allPermissions } = usePermissions()
@@ -520,11 +524,11 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
       { code, permissionCodes: Array.from(pendingPerms) },
       {
         onSuccess: () => {
-          toast({ title: 'Permissions mises à jour', variant: 'success' })
+          toast({ title: t('settings.toast.rbac.permissions_updated'), variant: 'success' })
           setPendingPerms(null)
         },
         onError: (err: Error) => {
-          toast({ title: 'Erreur', description: err.message, variant: 'error' })
+          toast({ title: t('settings.toast.error'), description: err.message, variant: 'error' })
         },
       },
     )
@@ -573,11 +577,11 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
   const handleDeleteRole = () => {
     deleteRoleMut.mutate(code, {
       onSuccess: () => {
-        toast({ title: 'Rôle supprimé', variant: 'success' })
+        toast({ title: t('settings.toast.rbac.role_deleted'), variant: 'success' })
         onClose()
       },
       onError: (err: Error) => {
-        toast({ title: 'Erreur', description: err.message, variant: 'error' })
+        toast({ title: t('settings.toast.error'), description: err.message, variant: 'error' })
       },
     })
   }
@@ -1069,6 +1073,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
 // ── Create Group Form ────────────────────────────────────────
 
 export function CreateGroupForm({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const createMut = useCreateGroup()
   const { data: roles } = useRoles()
@@ -1087,11 +1092,11 @@ export function CreateGroupForm({ onClose }: { onClose: () => void }) {
       { name: name.trim(), role_codes: selectedRoleCodes },
       {
         onSuccess: () => {
-          toast({ title: `Groupe "${name}" créé`, variant: 'success' })
+          toast({ title: t('settings.toast.rbac.group_created', { name }), variant: 'success' })
           onClose()
         },
         onError: (err: Error) => {
-          toast({ title: 'Erreur', description: err.message, variant: 'error' })
+          toast({ title: t('settings.toast.error'), description: err.message, variant: 'error' })
         },
       },
     )
@@ -1616,6 +1621,7 @@ function RolePicker({ values, roles, onChange, disabled }: {
 type GroupSubTab = 'fiche' | 'permissions'
 
 export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId: string; onClose: () => void; inline?: boolean }) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data: group, isLoading } = useGroup(groupId)
   const primaryRoleCode = group?.role_codes?.[0] || ''
@@ -1745,11 +1751,11 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
       { groupId, overrides },
       {
         onSuccess: () => {
-          toast({ title: 'Permissions du groupe mises à jour', variant: 'success' })
+          toast({ title: t('settings.toast.rbac.group_permissions_updated'), variant: 'success' })
           setPendingOverrides(null)
         },
         onError: (err: Error) => {
-          toast({ title: 'Erreur', description: err.message, variant: 'error' })
+          toast({ title: t('settings.toast.error'), description: err.message, variant: 'error' })
         },
       },
     )
@@ -1759,8 +1765,8 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
     removeMemberMut.mutate(
       { groupId, userId },
       {
-        onSuccess: () => toast({ title: 'Membre retiré', variant: 'success' }),
-        onError: (err: Error) => toast({ title: 'Erreur', description: err.message, variant: 'error' }),
+        onSuccess: () => toast({ title: t('settings.toast.rbac.member_removed'), variant: 'success' }),
+        onError: (err: Error) => toast({ title: t('settings.toast.error'), description: err.message, variant: 'error' }),
       },
     )
   }
@@ -1769,8 +1775,8 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
     addMembersMut.mutate(
       { groupId, userIds: [userId] },
       {
-        onSuccess: () => { toast({ title: 'Membre ajouté', variant: 'success' }); setShowAddUser(false); setUserSearch('') },
-        onError: (err: Error) => toast({ title: 'Erreur', description: err.message, variant: 'error' }),
+        onSuccess: () => { toast({ title: t('settings.toast.rbac.member_added'), variant: 'success' }); setShowAddUser(false); setUserSearch('') },
+        onError: (err: Error) => toast({ title: t('settings.toast.error'), description: err.message, variant: 'error' }),
       },
     )
   }
@@ -1793,7 +1799,7 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
     updateMut.mutate(
       { id: groupId, payload: { active: !group.active } },
       {
-        onSuccess: () => toast({ title: group.active ? 'Groupe désactivé' : 'Groupe activé', variant: 'success' }),
+        onSuccess: () => toast({ title: group.active ? t('settings.toast.rbac.group_toggled_inactive') : t('settings.toast.rbac.group_toggled_active'), variant: 'success' }),
       },
     )
   }
@@ -1801,11 +1807,11 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
   const handleDeleteGroup = () => {
     deleteGroupMut.mutate(groupId, {
       onSuccess: () => {
-        toast({ title: 'Groupe supprimé', variant: 'success' })
+        toast({ title: t('settings.toast.rbac.group_deleted'), variant: 'success' })
         onClose()
       },
       onError: (err: Error) => {
-        toast({ title: 'Erreur', description: err.message, variant: 'error' })
+        toast({ title: t('settings.toast.error'), description: err.message, variant: 'error' })
       },
     })
   }

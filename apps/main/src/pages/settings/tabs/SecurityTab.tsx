@@ -7,6 +7,7 @@
  * Collapsible sections with deep-link: #password, #mfa
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff, Loader2, ShieldCheck, ShieldOff, Copy, Check, RefreshCw, KeyRound } from 'lucide-react'
 import { useChangePassword, useMFAStatus, useMFASetup, useMFAVerifySetup, useMFADisable, useMFARegenerateCodes } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
@@ -39,6 +40,7 @@ export function SecurityTab() {
 
 /* ── Password Change Section ── */
 function PasswordSection() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const changePassword = useChangePassword()
 
@@ -54,13 +56,13 @@ function PasswordSection() {
   const handleSubmit = async () => {
     try {
       await changePassword.mutateAsync({ current_password: currentPwd, new_password: newPwd })
-      toast({ title: 'Mot de passe modifié', description: 'Votre mot de passe a été mis à jour avec succès.', variant: 'success' })
+      toast({ title: t('settings.toast.security.password_changed'), description: t('settings.toast.security.password_changed_desc'), variant: 'success' })
       setCurrentPwd('')
       setNewPwd('')
       setConfirmPwd('')
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Impossible de changer le mot de passe.'
-      toast({ title: 'Erreur', description: message, variant: 'error' })
+      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || t('settings.toast.security.password_change_error')
+      toast({ title: t('settings.toast.error'), description: message, variant: 'error' })
     }
   }
 
@@ -108,6 +110,7 @@ function PasswordSection() {
 
 /* ── MFA (Two-Factor Authentication) Section ── */
 function MFASection() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data: mfaStatus, isLoading: statusLoading } = useMFAStatus()
   const setupMutation = useMFASetup()
@@ -138,7 +141,7 @@ function MFASection() {
       setVerifyCode('')
       setBackupCodes(null)
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de démarrer la configuration MFA.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.security.mfa_setup_error'), variant: 'error' })
     }
   }
 
@@ -147,10 +150,10 @@ function MFASection() {
       const data = await verifySetupMutation.mutateAsync(verifyCode)
       setBackupCodes(data.backup_codes)
       setSetupData(null)
-      toast({ title: 'MFA activé', description: 'L\'authentification à deux facteurs est maintenant active.', variant: 'success' })
+      toast({ title: t('settings.toast.security.mfa_enabled'), description: t('settings.toast.security.mfa_enabled_desc'), variant: 'success' })
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Code invalide.'
-      toast({ title: 'Erreur', description: message, variant: 'error' })
+      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || t('settings.toast.security.mfa_code_invalid')
+      toast({ title: t('settings.toast.error'), description: message, variant: 'error' })
     }
   }
 
@@ -159,10 +162,10 @@ function MFASection() {
       await disableMutation.mutateAsync(disablePassword)
       setShowDisable(false)
       setDisablePassword('')
-      toast({ title: 'MFA désactivé', description: 'L\'authentification à deux facteurs a été désactivée.', variant: 'success' })
+      toast({ title: t('settings.toast.security.mfa_disabled'), description: t('settings.toast.security.mfa_disabled_desc'), variant: 'success' })
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Mot de passe incorrect.'
-      toast({ title: 'Erreur', description: message, variant: 'error' })
+      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || t('settings.toast.security.mfa_password_incorrect')
+      toast({ title: t('settings.toast.error'), description: message, variant: 'error' })
     }
   }
 
@@ -172,10 +175,10 @@ function MFASection() {
       setBackupCodes(data.backup_codes)
       setShowRegenerate(false)
       setRegenPassword('')
-      toast({ title: 'Codes régénérés', description: 'De nouveaux codes de secours ont été générés.', variant: 'success' })
+      toast({ title: t('settings.toast.security.mfa_codes_regenerated'), description: t('settings.toast.security.mfa_codes_regenerated_desc'), variant: 'success' })
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Mot de passe incorrect.'
-      toast({ title: 'Erreur', description: message, variant: 'error' })
+      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || t('settings.toast.security.mfa_password_incorrect')
+      toast({ title: t('settings.toast.error'), description: message, variant: 'error' })
     }
   }
 

@@ -69,19 +69,19 @@ export function PdfTemplatesTab() {
       const result = await seedMutation.mutateAsync()
       if (result.count > 0) {
         toast({
-          title: 'Modèles PDF créés',
-          description: `${result.count} modèle(s) par défaut créé(s) : ${result.seeded.join(', ')}`,
+          title: t('settings.toast.pdf_templates.created'),
+          description: t('settings.toast.pdf_templates.created_desc', { count: result.count, list: result.seeded.join(', ') }),
           variant: 'success',
         })
       } else {
         toast({
-          title: 'Aucun modèle créé',
-          description: 'Tous les modèles PDF par défaut existent déjà.',
+          title: t('settings.toast.pdf_templates.no_created'),
+          description: t('settings.toast.pdf_templates.no_created_desc'),
           variant: 'default',
         })
       }
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de créer les modèles par défaut.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.pdf_templates.seed_error'), variant: 'error' })
     }
   }, [seedMutation, toast])
 
@@ -90,11 +90,11 @@ export function PdfTemplatesTab() {
       try {
         await updateMutation.mutateAsync({ id: template.id, enabled: !template.enabled })
         toast({
-          title: template.enabled ? 'Modèle désactivé' : 'Modèle activé',
+          title: template.enabled ? t('settings.toast.pdf_templates.toggled_disabled') : t('settings.toast.pdf_templates.toggled_enabled'),
           variant: 'success',
         })
       } catch {
-        toast({ title: 'Erreur', variant: 'error' })
+        toast({ title: t('settings.toast.error'), variant: 'error' })
       }
     },
     [updateMutation, toast],

@@ -7,6 +7,7 @@
  *     own `progress_weight_method` is NULL. Each project can override.
  */
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
@@ -26,14 +27,15 @@ function SettingRow({ label, description, children }: { label: string; descripti
 }
 
 export function ProjetsConfigTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data: settings, isLoading } = useScopedSettingsMap('entity')
   const mutation = useSaveScopedSetting('entity')
 
   const save = useCallback((key: string, value: unknown) => {
     mutation.mutate({ key, value }, {
-      onSuccess: () => toast({ title: 'Paramètre enregistré', variant: 'success' }),
-      onError: () => toast({ title: 'Erreur', variant: 'error' }),
+      onSuccess: () => toast({ title: t('settings.toast.general.setting_saved'), variant: 'success' }),
+      onError: () => toast({ title: t('settings.toast.error'), variant: 'error' }),
     })
   }, [mutation, toast])
 

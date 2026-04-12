@@ -1116,17 +1116,17 @@ function UserDetailPanel({ id }: { id: string }) {
     })
     if (!ok) return
     deleteUser.mutate(id, {
-      onSuccess: () => toast({ title: 'Utilisateur supprimé', variant: 'success' }),
+      onSuccess: () => toast({ title: t('users.toast.deleted'), variant: 'success' }),
       onError: (err) => {
         const detail = (err as { response?: { data?: { detail?: { message?: string; blockers?: string[] } | string } } })?.response?.data?.detail
         if (typeof detail === 'object' && detail?.blockers) {
           toast({
-            title: detail.message || 'Suppression impossible',
+            title: detail.message || t('users.toast.delete_blocked'),
             description: detail.blockers.join(', '),
             variant: 'error',
           })
         } else {
-          toast({ title: String(detail || 'Erreur lors de la suppression'), variant: 'error' })
+          toast({ title: String(detail || t('users.toast.delete_error')), variant: 'error' })
         }
       },
     })
@@ -1145,15 +1145,15 @@ function UserDetailPanel({ id }: { id: string }) {
   const handleAvatarFromURL = useCallback(() => {
     if (!avatarUrl.trim()) return
     setAvatarFromURL.mutate({ userId: id, url: avatarUrl.trim() }, {
-      onSuccess: () => { setShowUrlInput(false); setAvatarUrl(''); toast({ title: 'Avatar mis à jour', variant: 'success' }) },
-      onError: () => toast({ title: 'Erreur lors du téléchargement de l\'image', variant: 'error' }),
+      onSuccess: () => { setShowUrlInput(false); setAvatarUrl(''); toast({ title: t('users.toast.avatar_updated'), variant: 'success' }) },
+      onError: () => toast({ title: t('users.toast.avatar_upload_error'), variant: 'error' }),
     })
   }, [id, avatarUrl, setAvatarFromURL, toast])
 
   const handlePasswordReset = useCallback(() => {
     if (user?.email) sendPasswordReset.mutate(user.email, {
-      onSuccess: () => toast({ title: `Email de réinitialisation envoyé à ${user.email}`, variant: 'success' }),
-      onError: () => toast({ title: 'Erreur lors de l\'envoi de l\'email', variant: 'error' }),
+      onSuccess: () => toast({ title: t('users.toast.reset_email_sent', { email: user.email }), variant: 'success' }),
+      onError: () => toast({ title: t('users.toast.reset_email_error'), variant: 'error' }),
     })
   }, [user?.email, sendPasswordReset, toast])
 
@@ -1934,6 +1934,7 @@ function UserJournalTab({ userId }: { userId: string }) {
 import { PermissionMatrix } from '@/components/shared/PermissionMatrix'
 
 function UserPermissionsTab({ userId }: { userId: string }) {
+  const { t } = useTranslation()
   const { hasPermission } = usePermission()
   const canEdit = hasPermission('admin.rbac')
   const { data: overridesData } = useUserPermissionOverrides(userId)
@@ -1963,8 +1964,8 @@ function UserPermissionsTab({ userId }: { userId: string }) {
     setOverrides.mutate(
       { userId, overrides: newOverrides },
       {
-        onSuccess: () => toast({ title: `Permission ${granted ? 'accordée' : 'retirée'}`, variant: 'success' }),
-        onError: () => toast({ title: 'Erreur', variant: 'error' }),
+        onSuccess: () => toast({ title: granted ? t('users.toast.permission_granted') : t('users.toast.permission_revoked'), variant: 'success' }),
+        onError: () => toast({ title: t('users.toast.permission_error'), variant: 'error' }),
       },
     )
   }, [userId, overridesData, setOverrides, toast])

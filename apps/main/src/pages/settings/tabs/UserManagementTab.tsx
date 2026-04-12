@@ -4,6 +4,7 @@
  * Sections: #admin-users-list
  */
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Loader2, Search, LockOpen, KeyRound, UserX, UserCheck,
@@ -142,6 +143,7 @@ function ConfirmDialog({
 }
 
 export function UserManagementTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const qc = useQueryClient()
   const [filter, setFilter] = useState<StatusFilter>('all')
@@ -171,22 +173,22 @@ export function UserManagementTab() {
     mutationFn: (userId: string) => api.post(`/api/v1/admin/users/${userId}/unlock`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'users'] })
-      toast({ title: 'Compte déverrouillé', variant: 'success' })
+      toast({ title: t('settings.toast.users.unlocked'), variant: 'success' })
       setConfirmAction(null)
     },
     onError: () => {
-      toast({ title: 'Erreur', description: 'Impossible de déverrouiller le compte.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.users.unlock_error'), variant: 'error' })
     },
   })
 
   const resetMutation = useMutation({
     mutationFn: (userId: string) => api.post(`/api/v1/admin/users/${userId}/force-password-reset`),
     onSuccess: () => {
-      toast({ title: 'Email de réinitialisation envoyé', variant: 'success' })
+      toast({ title: t('settings.toast.users.reset_sent'), variant: 'success' })
       setConfirmAction(null)
     },
     onError: () => {
-      toast({ title: 'Erreur', description: 'Impossible d\'envoyer l\'email.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.users.reset_error'), variant: 'error' })
     },
   })
 
@@ -194,11 +196,11 @@ export function UserManagementTab() {
     mutationFn: (userId: string) => api.post(`/api/v1/admin/users/${userId}/deactivate`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'users'] })
-      toast({ title: 'Compte désactivé', variant: 'success' })
+      toast({ title: t('settings.toast.users.deactivated'), variant: 'success' })
       setConfirmAction(null)
     },
     onError: (err: any) => {
-      toast({ title: 'Erreur', description: err?.response?.data?.detail || 'Impossible de désactiver le compte.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: err?.response?.data?.detail || t('settings.toast.users.deactivate_error'), variant: 'error' })
     },
   })
 
@@ -206,11 +208,11 @@ export function UserManagementTab() {
     mutationFn: (userId: string) => api.post(`/api/v1/admin/users/${userId}/reactivate`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'users'] })
-      toast({ title: 'Compte réactivé', variant: 'success' })
+      toast({ title: t('settings.toast.users.reactivated'), variant: 'success' })
       setConfirmAction(null)
     },
     onError: () => {
-      toast({ title: 'Erreur', description: 'Impossible de réactiver le compte.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.users.reactivate_error'), variant: 'error' })
     },
   })
 

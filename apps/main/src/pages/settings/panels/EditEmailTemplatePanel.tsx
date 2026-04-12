@@ -41,6 +41,7 @@ import {
   Type,
   Variable,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
@@ -296,6 +297,7 @@ function ToolbarSep() {
 // ═══════════════════════════════════════════════════════════════
 
 function CreatePanel() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
@@ -317,7 +319,7 @@ function CreatePanel() {
         description: description.trim() || undefined,
         object_type: objectType,
       })
-      toast({ title: 'Modèle créé', variant: 'success' })
+      toast({ title: t('settings.toast.email_templates.created'), variant: 'success' })
       openDynamicPanel({
         module: 'settings-email-template',
         type: 'edit',
@@ -325,8 +327,8 @@ function CreatePanel() {
         data: { templateId: result.id },
       })
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Erreur lors de la création.'
-      toast({ title: 'Erreur', description: message, variant: 'error' })
+      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || t('settings.toast.email_templates.create_error')
+      toast({ title: t('settings.toast.error'), description: message, variant: 'error' })
     }
   }
 
@@ -399,6 +401,7 @@ function CreatePanel() {
 // ═══════════════════════════════════════════════════════════════
 
 function EditPanel({ templateId }: { templateId: string }) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const confirm = useConfirm()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
@@ -454,10 +457,10 @@ function EditPanel({ templateId }: { templateId: string }) {
         description: editDescription.trim() || undefined,
         object_type: editObjectType,
       })
-      toast({ title: 'Modèle mis à jour', variant: 'success' })
+      toast({ title: t('settings.toast.email_templates.updated'), variant: 'success' })
       setShowMetadataEdit(false)
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('settings.toast.error'), variant: 'error' })
     }
   }, [templateId, editName, editDescription, editObjectType, updateTemplateMutation, template, toast])
 
@@ -471,10 +474,10 @@ function EditPanel({ templateId }: { templateId: string }) {
     if (!ok) return
     try {
       await deleteMutation.mutateAsync(templateId)
-      toast({ title: 'Modèle supprimé', variant: 'success' })
+      toast({ title: t('settings.toast.email_templates.deleted'), variant: 'success' })
       closeDynamicPanel()
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('settings.toast.error'), variant: 'error' })
     }
   }, [templateId, deleteMutation, toast, closeDynamicPanel, confirm])
 
@@ -490,7 +493,7 @@ function EditPanel({ templateId }: { templateId: string }) {
         valid_from: newValidFrom || null,
         valid_until: newValidUntil || null,
       })
-      toast({ title: 'Version créée', variant: 'success' })
+      toast({ title: t('settings.toast.email_templates.version_created'), variant: 'success' })
       setShowNewVersion(false)
       setNewSubject('')
       setNewBody('')
@@ -498,16 +501,16 @@ function EditPanel({ templateId }: { templateId: string }) {
       setNewValidUntil('')
       setActiveVersionId(created.id)
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('settings.toast.error'), variant: 'error' })
     }
   }, [templateId, newLang, newSubject, newBody, createVersionMutation, toast])
 
   const handleActivate = useCallback(async (versionId: string) => {
     try {
       await activateVersionMutation.mutateAsync({ templateId, versionId })
-      toast({ title: 'Version activée', variant: 'success' })
+      toast({ title: t('settings.toast.email_templates.version_activated'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('settings.toast.error'), variant: 'error' })
     }
   }, [templateId, activateVersionMutation, toast])
 
@@ -521,10 +524,10 @@ function EditPanel({ templateId }: { templateId: string }) {
     if (!ok) return
     try {
       await deleteVersionMutation.mutateAsync({ templateId, versionId })
-      toast({ title: 'Version supprimée', variant: 'success' })
+      toast({ title: t('settings.toast.email_templates.version_deleted'), variant: 'success' })
       if (activeVersionId === versionId) setActiveVersionId(null)
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('settings.toast.error'), variant: 'error' })
     }
   }, [templateId, deleteVersionMutation, toast, activeVersionId, confirm])
 
@@ -539,15 +542,15 @@ function EditPanel({ templateId }: { templateId: string }) {
         is_active: false,
       })
       toast({
-        title: 'Version dupliquée',
-        description: `Copié vers ${LANG_OPTIONS.find((l) => l.value === targetLang)?.label ?? targetLang}. Pensez à traduire le contenu.`,
+        title: t('settings.toast.email_templates.version_duplicated'),
+        description: t('settings.toast.email_templates.version_duplicated_desc', { lang: LANG_OPTIONS.find((l) => l.value === targetLang)?.label ?? targetLang }),
         variant: 'success',
       })
       setActiveVersionId(created.id)
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('settings.toast.error'), variant: 'error' })
     }
-  }, [templateId, createVersionMutation, toast])
+  }, [templateId, createVersionMutation, toast, t])
 
   const handlePreview = useCallback(async (version: EmailTemplateVersion) => {
     try {
@@ -558,7 +561,7 @@ function EditPanel({ templateId }: { templateId: string }) {
       })
       setPreviewHtml({ subject: result.subject, body: result.body_html })
     } catch {
-      toast({ title: 'Erreur de prévisualisation', variant: 'error' })
+      toast({ title: t('settings.toast.email_templates.preview_error'), variant: 'error' })
     }
   }, [templateId, previewMutation, toast])
 
@@ -747,9 +750,9 @@ function EditPanel({ templateId }: { templateId: string }) {
                   valid_from: validFrom,
                   valid_until: validUntil,
                 })
-                toast({ title: 'Version mise à jour', variant: 'success' })
+                toast({ title: t('settings.toast.email_templates.version_updated'), variant: 'success' })
               } catch {
-                toast({ title: 'Erreur', variant: 'error' })
+                toast({ title: t('settings.toast.error'), variant: 'error' })
               }
             }}
             isSaving={updateVersionMutation.isPending}

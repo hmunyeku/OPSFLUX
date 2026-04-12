@@ -6,6 +6,7 @@
  * defaults to current user if not specified.
  */
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MapPin, Loader2, LocateFixed } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -42,6 +43,7 @@ const LABEL_OPTIONS = [
 ]
 
 export function CreateAddressPanel() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
@@ -91,7 +93,7 @@ export function CreateAddressPanel() {
 
   const handleGeolocate = useCallback(() => {
     if (!navigator.geolocation) {
-      toast({ title: 'Non supporté', description: 'La géolocalisation n\'est pas disponible.', variant: 'warning' })
+      toast({ title: t('settings.toast.addresses.geolocation_unsupported'), description: t('settings.toast.addresses.geolocation_unsupported_desc'), variant: 'warning' })
       return
     }
     setGeoLoading(true)
@@ -100,11 +102,11 @@ export function CreateAddressPanel() {
         setLatitude(String(pos.coords.latitude))
         setLongitude(String(pos.coords.longitude))
         setGeoLoading(false)
-        toast({ title: 'Position obtenue', variant: 'success' })
+        toast({ title: t('settings.toast.addresses.position_obtained'), variant: 'success' })
       },
       (err) => {
         setGeoLoading(false)
-        toast({ title: 'Erreur GPS', description: err.message, variant: 'error' })
+        toast({ title: t('settings.toast.addresses.gps_error'), description: err.message, variant: 'error' })
       },
       { enableHighAccuracy: true, timeout: 10000 },
     )
@@ -129,18 +131,18 @@ export function CreateAddressPanel() {
     try {
       if (isEdit && editId) {
         await updateAddress.mutateAsync({ id: editId, payload: addressData })
-        toast({ title: 'Adresse modifiée', variant: 'success' })
+        toast({ title: t('settings.toast.addresses.updated'), variant: 'success' })
       } else {
         await createAddress.mutateAsync({
           owner_type: ownerType,
           owner_id: ownerId,
           ...addressData,
         } as AddressCreate)
-        toast({ title: 'Adresse créée', variant: 'success' })
+        toast({ title: t('settings.toast.addresses.created'), variant: 'success' })
       }
       closeDynamicPanel()
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible d\'enregistrer l\'adresse.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.addresses.save_error'), variant: 'error' })
     }
   }
 

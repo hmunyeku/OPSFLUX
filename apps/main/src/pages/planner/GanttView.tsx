@@ -1178,8 +1178,8 @@ export function GanttView({
     // cleaner UX with no network roundtrip.
     if (newEnd < newStart) {
       toast({
-        title: 'Dates invalides',
-        description: 'La date de fin ne peut pas être avant la date de début.',
+        title: t('planner.gantt.toasts.dates_invalid'),
+        description: t('planner.gantt.toasts.dates_invalid_desc'),
         variant: 'error',
       })
       return
@@ -1509,7 +1509,7 @@ export function GanttView({
 
     // Refuse zero or negative duration resizes
     if (new Date(newEnd).getTime() < new Date(newStart).getTime()) {
-      toast({ title: 'Durée invalide', variant: 'warning' })
+      toast({ title: t('planner.gantt.toasts.duration_invalid'), variant: 'warning' })
       return
     }
 
@@ -1702,9 +1702,9 @@ export function GanttView({
         a.download = `planner-gantt-${toISO(new Date())}.pdf`
         a.click()
         URL.revokeObjectURL(url)
-        toast({ title: 'PDF généré', variant: 'success' })
+        toast({ title: t('planner.gantt.toasts.pdf_generated'), variant: 'success' })
       } catch {
-        toast({ title: "Erreur lors de la génération du PDF", variant: 'error' })
+        toast({ title: t('planner.gantt.toasts.pdf_error'), variant: 'error' })
       }
     },
     [startDate, endDate, scale, toast, rows, bars, workloadFooter],
@@ -1764,11 +1764,11 @@ export function GanttView({
         dependency_type: editDepForm.dependency_type,
         lag_days: editDepForm.lag_days,
       })
-      toast({ title: 'Dépendance modifiée', variant: 'success' })
+      toast({ title: t('planner.gantt.toasts.dependency_modified'), variant: 'success' })
       setEditingDep(null)
       qc.invalidateQueries({ queryKey: ['planner', 'gantt'] })
     } catch {
-      toast({ title: 'Erreur lors de la modification', variant: 'error' })
+      toast({ title: t('planner.gantt.toasts.dependency_modification_error'), variant: 'error' })
     }
   }, [editingDep, editDepForm, toast, qc])
 
@@ -1784,10 +1784,10 @@ export function GanttView({
         // activities involved is valid (predecessor OR successor). Pass the
         // predecessor for consistency with the UI model.
         await plannerService.removeDependency(fromId, dep.id)
-        toast({ title: 'Dépendance supprimée', variant: 'success' })
+        toast({ title: t('planner.gantt.toasts.dependency_deleted'), variant: 'success' })
         qc.invalidateQueries({ queryKey: ['planner', 'gantt'] })
       } catch {
-        toast({ title: 'Erreur lors de la suppression', variant: 'error' })
+        toast({ title: t('planner.gantt.toasts.dependency_deletion_error'), variant: 'error' })
       }
     },
     [ganttData, toast, qc],

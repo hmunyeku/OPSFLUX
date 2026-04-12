@@ -7,6 +7,7 @@
  * API-backed: GET /api/v1/sessions, DELETE /sessions/:id, POST /sessions/revoke-all
  */
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Monitor, Smartphone, Tablet, Loader2, ShieldAlert } from 'lucide-react'
 import { useSessions, useRevokeSession, useRevokeAllSessions } from '@/hooks/useSettings'
 import { useToast } from '@/components/ui/Toast'
@@ -34,6 +35,7 @@ const deviceIcons: Record<string, React.ElementType> = {
 }
 
 export function SessionsTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data: sessions, isLoading } = useSessions()
   const revokeSession = useRevokeSession()
@@ -46,18 +48,18 @@ export function SessionsTab() {
   const handleRevoke = async (id: string) => {
     try {
       await revokeSession.mutateAsync(id)
-      toast({ title: 'Session révoquée', variant: 'success' })
+      toast({ title: t('settings.toast.sessions.revoked'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('settings.toast.error'), variant: 'error' })
     }
   }
 
   const handleRevokeAll = async () => {
     try {
       const result = await revokeAll.mutateAsync()
-      toast({ title: `${result.revoked_count} session(s) révoquée(s)`, variant: 'success' })
+      toast({ title: t('settings.toast.sessions.revoked_all', { count: result.revoked_count }), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('settings.toast.error'), variant: 'error' })
     }
   }
 

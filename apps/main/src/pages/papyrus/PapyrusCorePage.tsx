@@ -240,6 +240,7 @@ function WorkflowActions({ docId }: { docId: string }) {
   const { data: wfState, isLoading } = useDocumentWorkflowState(docId)
   const transition = useDocumentTransition()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const [commentFor, setCommentFor] = useState<string | null>(null)
   const [comment, setComment] = useState('')
 
@@ -253,8 +254,8 @@ function WorkflowActions({ docId }: { docId: string }) {
     transition.mutate(
       { docId, toState },
       {
-        onSuccess: () => toast({ title: 'Transition effectuee', variant: 'success' }),
-        onError: () => toast({ title: 'Erreur lors de la transition', variant: 'error' }),
+        onSuccess: () => toast({ title: t('papyrus.toast.transition_success'), variant: 'success' }),
+        onError: () => toast({ title: t('papyrus.toast.transition_error'), variant: 'error' }),
       },
     )
   }
@@ -299,9 +300,9 @@ function WorkflowActions({ docId }: { docId: string }) {
                     onSuccess: () => {
                       setCommentFor(null)
                       setComment('')
-                      toast({ title: 'Transition effectuee', variant: 'success' })
+                      toast({ title: t('papyrus.toast.transition_success'), variant: 'success' })
                     },
-                    onError: () => toast({ title: 'Erreur lors de la transition', variant: 'error' }),
+                    onError: () => toast({ title: t('papyrus.toast.transition_error'), variant: 'error' }),
                   },
                 )
               }}
@@ -573,9 +574,9 @@ function DocumentDetailPanel({ id }: { id: string }) {
   const handleCreateRevision = useCallback(async () => {
     try {
       await createRevision.mutateAsync(id)
-      toast({ title: 'Nouvelle revision creee', variant: 'success' })
+      toast({ title: t('papyrus.toast.new_revision_created'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de la creation de revision', variant: 'error' })
+      toast({ title: t('papyrus.toast.new_revision_error'), variant: 'error' })
     }
   }, [id, createRevision, toast])
 
@@ -583,60 +584,60 @@ function DocumentDetailPanel({ id }: { id: string }) {
     try {
       await deleteDocument.mutateAsync(id)
       closeDynamicPanel()
-      toast({ title: 'Document supprime', variant: 'success' })
+      toast({ title: t('papyrus.toast.document_deleted'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de la suppression', variant: 'error' })
+      toast({ title: t('papyrus.toast.document_delete_error'), variant: 'error' })
     }
   }, [id, deleteDocument, closeDynamicPanel, toast])
 
   const handleArchive = useCallback(async () => {
     try {
       await archiveDocument.mutateAsync(id)
-      toast({ title: 'Document archive', variant: 'success' })
+      toast({ title: t('papyrus.toast.document_archived'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de l\'archivage', variant: 'error' })
+      toast({ title: t('papyrus.toast.document_archive_error'), variant: 'error' })
     }
   }, [id, archiveDocument, toast])
 
   const handleSubmit = useCallback(async () => {
     try {
       await submitDocument.mutateAsync({ id })
-      toast({ title: 'Document soumis pour revue', variant: 'success' })
+      toast({ title: t('papyrus.toast.document_submitted'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de la soumission', variant: 'error' })
+      toast({ title: t('papyrus.toast.document_submit_error'), variant: 'error' })
     }
   }, [id, submitDocument, toast])
 
   const handleApprove = useCallback(async () => {
     try {
       await approveDocument.mutateAsync({ id })
-      toast({ title: 'Document approuve', variant: 'success' })
+      toast({ title: t('papyrus.toast.document_approved'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de l\'approbation', variant: 'error' })
+      toast({ title: t('papyrus.toast.document_approve_error'), variant: 'error' })
     }
   }, [id, approveDocument, toast])
 
   const handleReject = useCallback(async () => {
     if (!rejectReason.trim()) {
-      toast({ title: 'Veuillez indiquer un motif de rejet', variant: 'error' })
+      toast({ title: t('papyrus.toast.reject_reason_required'), variant: 'error' })
       return
     }
     try {
       await rejectDocument.mutateAsync({ id, reason: rejectReason })
       setShowRejectInput(false)
       setRejectReason('')
-      toast({ title: 'Document rejete', variant: 'success' })
+      toast({ title: t('papyrus.toast.document_rejected'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors du rejet', variant: 'error' })
+      toast({ title: t('papyrus.toast.document_reject_error'), variant: 'error' })
     }
   }, [id, rejectReason, rejectDocument, toast])
 
   const handlePublish = useCallback(async () => {
     try {
       await publishDocument.mutateAsync({ id })
-      toast({ title: 'Document publie', variant: 'success' })
+      toast({ title: t('papyrus.toast.document_published'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de la publication', variant: 'error' })
+      toast({ title: t('papyrus.toast.document_publish_error'), variant: 'error' })
     }
   }, [id, publishDocument, toast])
 
@@ -644,9 +645,9 @@ function DocumentDetailPanel({ id }: { id: string }) {
     try {
       const link = await createShareLink.mutateAsync({ docId: id, payload: { expires_days: 30 } })
       await navigator.clipboard.writeText(`${window.location.origin}/share/${link.token}`)
-      toast({ title: 'Lien de partage copie dans le presse-papiers', variant: 'success' })
+      toast({ title: t('papyrus.toast.share_link_copied'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de la creation du lien', variant: 'error' })
+      toast({ title: t('papyrus.toast.share_link_error'), variant: 'error' })
     }
   }, [id, createShareLink, toast])
 
@@ -678,15 +679,15 @@ function DocumentDetailPanel({ id }: { id: string }) {
       })
       setPapyrusFormName('')
       setPapyrusFormDescription('')
-      toast({ title: 'Formulaire Papyrus cree', variant: 'success' })
+      toast({ title: t('papyrus.toast.papyrus_form_created'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de la creation du formulaire Papyrus', variant: 'error' })
+      toast({ title: t('papyrus.toast.papyrus_form_create_error'), variant: 'error' })
     }
   }, [createPapyrusForm, doc?.doc_type_id, doc?.title, id, papyrusFormDescription, papyrusFormName, toast])
 
   const handleGenerateExternalFormLink = useCallback(async () => {
     if (!linkedPapyrusForm) {
-      toast({ title: 'Cree d’abord un formulaire Papyrus', variant: 'error' })
+      toast({ title: t('papyrus.toast.papyrus_form_required'), variant: 'error' })
       return
     }
     try {
@@ -701,9 +702,9 @@ function DocumentDetailPanel({ id }: { id: string }) {
       })
       setLatestExternalUrl(link.external_url)
       await navigator.clipboard.writeText(link.external_url)
-      toast({ title: 'Lien externe Papyrus copie', variant: 'success' })
+      toast({ title: t('papyrus.toast.external_link_copied'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de la generation du lien externe', variant: 'error' })
+      toast({ title: t('papyrus.toast.external_link_error'), variant: 'error' })
     }
   }, [createPapyrusExternalLink, doc?.number, doc?.title, id, linkedPapyrusForm, toast])
 
@@ -723,9 +724,9 @@ function DocumentDetailPanel({ id }: { id: string }) {
       setEpicollectImportJson('')
       setPapyrusFormName('')
       setPapyrusFormDescription('')
-      toast({ title: 'Formulaire EpiCollect importe', variant: 'success' })
+      toast({ title: t('papyrus.toast.epicollect_imported'), variant: 'success' })
     } catch {
-      toast({ title: 'JSON EpiCollect invalide', variant: 'error' })
+      toast({ title: t('papyrus.toast.epicollect_invalid_json'), variant: 'error' })
     }
   }, [doc?.title, id, importPapyrusEpiCollect, epicollectImportJson, papyrusFormDescription, papyrusFormName, toast])
 
@@ -738,9 +739,9 @@ function DocumentDetailPanel({ id }: { id: string }) {
           schema_json: schema,
         },
       })
-      toast({ title: 'Schema du formulaire Papyrus enregistre', variant: 'success' })
+      toast({ title: t('papyrus.toast.papyrus_form_schema_saved'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de l’enregistrement du formulaire', variant: 'error' })
+      toast({ title: t('papyrus.toast.papyrus_form_save_error'), variant: 'error' })
     }
   }, [linkedPapyrusForm, toast, updatePapyrusForm])
 
@@ -755,9 +756,9 @@ function DocumentDetailPanel({ id }: { id: string }) {
       anchor.download = `${linkedPapyrusForm.name || 'papyrus-form'}.epicollect.json`
       anchor.click()
       URL.revokeObjectURL(url)
-      toast({ title: 'Export EpiCollect genere', variant: 'success' })
+      toast({ title: t('papyrus.toast.epicollect_export_success'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de l’export EpiCollect', variant: 'error' })
+      toast({ title: t('papyrus.toast.epicollect_export_error'), variant: 'error' })
     }
   }, [exportPapyrusEpiCollect, linkedPapyrusForm, toast])
 
@@ -782,18 +783,18 @@ function DocumentDetailPanel({ id }: { id: string }) {
           channel: scheduleForm.channel,
         },
       })
-      toast({ title: 'Planification Papyrus enregistree', variant: 'success' })
+      toast({ title: t('papyrus.toast.schedule_saved'), variant: 'success' })
     } catch {
-      toast({ title: 'Configuration schedule invalide', variant: 'error' })
+      toast({ title: t('papyrus.toast.schedule_invalid'), variant: 'error' })
     }
   }, [id, scheduleConditionsJson, scheduleForm, scheduleRecipientsInput, toast, updatePapyrusSchedule])
 
   const handleRunDispatchNow = useCallback(async () => {
     try {
       await runPapyrusDispatchNow.mutateAsync(id)
-      toast({ title: 'Dispatch Papyrus lance', variant: 'success' })
+      toast({ title: t('papyrus.toast.dispatch_launched'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors du dispatch Papyrus', variant: 'error' })
+      toast({ title: t('papyrus.toast.dispatch_error'), variant: 'error' })
     }
   }, [id, runPapyrusDispatchNow, toast])
 
@@ -1472,18 +1473,18 @@ export function ReportEditorPage() {
       try {
         const result = await importMDR.mutateAsync({ file })
         const parts: string[] = []
-        if (result.created_types > 0) parts.push(`${result.created_types} type(s) cree(s)`)
-        if (result.updated_types > 0) parts.push(`${result.updated_types} type(s) mis a jour`)
-        if (result.created_documents > 0) parts.push(`${result.created_documents} document(s) cree(s)`)
-        if (result.errors.length > 0) parts.push(`${result.errors.length} erreur(s)`)
+        if (result.created_types > 0) parts.push(t('papyrus.toast.mdr_import_types_created', { count: result.created_types }))
+        if (result.updated_types > 0) parts.push(t('papyrus.toast.mdr_import_types_updated', { count: result.updated_types }))
+        if (result.created_documents > 0) parts.push(t('papyrus.toast.mdr_import_docs_created', { count: result.created_documents }))
+        if (result.errors.length > 0) parts.push(t('papyrus.toast.mdr_import_errors', { count: result.errors.length }))
         toast({
-          title: 'Import MDR',
-          description: parts.join(', ') || 'Import termine',
+          title: t('papyrus.toast.mdr_import_title'),
+          description: parts.join(', ') || t('papyrus.toast.mdr_import_done'),
           variant: result.errors.length > 0 ? 'warning' : 'success',
         })
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Erreur lors de l\'import MDR'
-        toast({ title: 'Erreur import MDR', description: msg, variant: 'error' })
+        const msg = err instanceof Error ? err.message : t('papyrus.toast.mdr_import_error_default')
+        toast({ title: t('papyrus.toast.mdr_import_error_title'), description: msg, variant: 'error' })
       } finally {
         // Reset file input so same file can be re-imported
         if (mdrFileRef.current) mdrFileRef.current.value = ''
@@ -1503,7 +1504,7 @@ export function ReportEditorPage() {
   const handleInstantiatePreset = useCallback(async (presetKey: string) => {
     const selectedProjectId = presetProjectIds[presetKey]
     if (presetKey === 'field_supervision_report' && !selectedProjectId) {
-      toast({ title: 'Sélectionnez un projet pour ce preset', variant: 'error' })
+      toast({ title: t('papyrus.toast.preset_select_project'), variant: 'error' })
       return
     }
     try {
@@ -2080,6 +2081,7 @@ export const PapyrusPage = ReportEditorPage
 function CreateDocumentPanel() {
   const { closeDynamicPanel } = useUIStore()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const createDoc = useCreateDocument()
   const { data: docTypes } = useDocTypes()
   const [form, setForm] = useState({ title: '', doc_type_id: '', classification: 'INT', language: 'fr' })
@@ -2087,17 +2089,17 @@ function CreateDocumentPanel() {
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.title.trim() || !form.doc_type_id) {
-      toast({ title: 'Erreur', description: 'Titre et type de document requis', variant: 'error' })
+      toast({ title: t('papyrus.toast.error'), description: t('papyrus.toast.title_and_type_required'), variant: 'error' })
       return
     }
     try {
       await createDoc.mutateAsync(form)
-      toast({ title: 'Document cree' })
+      toast({ title: t('papyrus.toast.document_created') })
       closeDynamicPanel()
     } catch {
-      toast({ title: 'Erreur', description: 'Echec de la creation', variant: 'error' })
+      toast({ title: t('papyrus.toast.error'), description: t('papyrus.toast.creation_failed'), variant: 'error' })
     }
-  }, [form, createDoc, toast, closeDynamicPanel])
+  }, [form, createDoc, toast, closeDynamicPanel, t])
 
   return (
     <DynamicPanelShell
@@ -2199,6 +2201,7 @@ function CreateDocumentPanel() {
 function CreateDocTypePanel() {
   const { closeDynamicPanel } = useUIStore()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [form, setForm] = useState({
     code: '',
@@ -2213,7 +2216,7 @@ function CreateDocTypePanel() {
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.name_fr.trim() || !form.nomenclature_pattern.trim()) {
-      toast({ title: 'Erreur', description: 'Nom et nomenclature requis', variant: 'error' })
+      toast({ title: t('papyrus.toast.error'), description: t('papyrus.toast.name_and_nomenclature_required'), variant: 'error' })
       return
     }
     try {
@@ -2226,12 +2229,12 @@ function CreateDocTypePanel() {
         default_language: form.default_language,
       })
       queryClient.invalidateQueries({ queryKey: ['papyrus', 'doc-types'] })
-      toast({ title: 'Type de document cree' })
+      toast({ title: t('papyrus.toast.doc_type_created') })
       closeDynamicPanel()
     } catch {
-      toast({ title: 'Erreur', description: 'Echec de la creation', variant: 'error' })
+      toast({ title: t('papyrus.toast.error'), description: t('papyrus.toast.creation_failed'), variant: 'error' })
     }
-  }, [form, toast, closeDynamicPanel, queryClient])
+  }, [form, toast, closeDynamicPanel, queryClient, t])
 
   return (
     <DynamicPanelShell
@@ -2309,6 +2312,7 @@ function CreateDocTypePanel() {
 function CreateTemplatePanel() {
   const { closeDynamicPanel } = useUIStore()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { data: docTypes } = useDocTypes()
   const [form, setForm] = useState({
@@ -2320,7 +2324,7 @@ function CreateTemplatePanel() {
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.name.trim()) {
-      toast({ title: 'Erreur', description: 'Nom du template requis', variant: 'error' })
+      toast({ title: t('papyrus.toast.error'), description: t('papyrus.toast.template_name_required'), variant: 'error' })
       return
     }
     try {
@@ -2332,12 +2336,12 @@ function CreateTemplatePanel() {
         styles: {},
       })
       queryClient.invalidateQueries({ queryKey: ['papyrus', 'templates'] })
-      toast({ title: 'Template cree' })
+      toast({ title: t('papyrus.toast.template_created') })
       closeDynamicPanel()
     } catch {
-      toast({ title: 'Erreur', description: 'Echec de la creation', variant: 'error' })
+      toast({ title: t('papyrus.toast.error'), description: t('papyrus.toast.creation_failed'), variant: 'error' })
     }
-  }, [form, toast, closeDynamicPanel, queryClient])
+  }, [form, toast, closeDynamicPanel, queryClient, t])
 
   return (
     <DynamicPanelShell
@@ -2389,6 +2393,7 @@ function CreateTemplatePanel() {
 
 function DocTypeDetailPanel({ id }: { id: string }) {
   const { toast } = useToast()
+  const { t } = useTranslation()
   const { data: docTypes, isLoading } = useDocTypes()
   const updateDocType = useUpdateDocType()
 
@@ -2419,12 +2424,12 @@ function DocTypeDetailPanel({ id }: { id: string }) {
           nomenclature_pattern: form.nomenclature_pattern,
         },
       })
-      toast({ title: 'Type de document mis a jour', variant: 'success' })
+      toast({ title: t('papyrus.toast.doc_type_updated'), variant: 'success' })
       setEditing(false)
     } catch {
-      toast({ title: 'Erreur', description: 'Echec de la mise a jour', variant: 'error' })
+      toast({ title: t('papyrus.toast.error'), description: t('papyrus.toast.update_failed'), variant: 'error' })
     }
-  }, [docType, form, updateDocType, toast])
+  }, [docType, form, updateDocType, toast, t])
 
   if (isLoading) {
     return (
@@ -2509,11 +2514,12 @@ function DocTypeDetailPanel({ id }: { id: string }) {
 
 function TemplateDetailPanel({ id }: { id: string }) {
   const { toast } = useToast()
+  const { t } = useTranslation()
   const { data: templates, isLoading } = useTemplates()
   const { data: docTypes } = useDocTypes()
   const updateTemplate = useUpdateTemplate()
 
-  const template = useMemo(() => templates?.find((t) => t.id === id), [templates, id])
+  const template = useMemo(() => templates?.find((tmpl) => tmpl.id === id), [templates, id])
   const docTypeName = useMemo(() => {
     if (!template?.doc_type_id || !docTypes) return '--'
     const dt = docTypes.find((d) => d.id === template.doc_type_id)
@@ -2542,12 +2548,12 @@ function TemplateDetailPanel({ id }: { id: string }) {
           description: form.description || undefined,
         },
       })
-      toast({ title: 'Template mis a jour', variant: 'success' })
+      toast({ title: t('papyrus.toast.template_updated'), variant: 'success' })
       setEditing(false)
     } catch {
-      toast({ title: 'Erreur', description: 'Echec de la mise a jour', variant: 'error' })
+      toast({ title: t('papyrus.toast.error'), description: t('papyrus.toast.update_failed'), variant: 'error' })
     }
-  }, [template, form, updateTemplate, toast])
+  }, [template, form, updateTemplate, toast, t])
 
   if (isLoading) {
     return (

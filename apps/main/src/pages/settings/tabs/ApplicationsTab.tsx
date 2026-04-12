@@ -5,6 +5,7 @@
  * API-backed: GET /api/v1/oauth/applications, /authorizations
  * Create via DynamicPanel (CreateAppPanel).
  */
+import { useTranslation } from 'react-i18next'
 import { AppWindow, Loader2, Trash2 } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import { useOAuthApps, useDeactivateOAuthApp, useOAuthAuthorizations, useRevokeOAuthAuthorization } from '@/hooks/useSettings'
@@ -12,6 +13,7 @@ import { useToast } from '@/components/ui/Toast'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 
 export function ApplicationsTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { data: apps, isLoading: appsLoading } = useOAuthApps()
@@ -22,18 +24,18 @@ export function ApplicationsTab() {
   const handleDeactivate = async (id: string) => {
     try {
       await deactivateApp.mutateAsync(id)
-      toast({ title: 'Application désactivée', variant: 'success' })
+      toast({ title: t('settings.toast.applications.deactivated'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de désactiver l\'application.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.applications.deactivate_error'), variant: 'error' })
     }
   }
 
   const handleRevokeAuth = async (id: string) => {
     try {
       await revokeAuth.mutateAsync(id)
-      toast({ title: 'Autorisation révoquée', variant: 'success' })
+      toast({ title: t('settings.toast.applications.auth_revoked'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de révoquer l\'autorisation.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.applications.auth_revoke_error'), variant: 'error' })
     }
   }
 

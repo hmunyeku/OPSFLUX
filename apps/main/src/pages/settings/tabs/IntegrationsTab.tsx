@@ -9,6 +9,7 @@
  * Configured services are reusable across the entire application.
  */
 import { useCallback, useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Loader2, Key, Eye, EyeOff,
   Cloud, Shield, Plus, X, ExternalLink,
@@ -839,6 +840,7 @@ function AddConnectorDialog({
 // ── Main IntegrationsTab ───────────────────────────────────
 
 export function IntegrationsTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const qc = useQueryClient()
   const { data: settings, isLoading } = useQuery({
@@ -851,10 +853,10 @@ export function IntegrationsTab() {
       saveSetting(key, value, 'entity').then(() => silent),
     onSuccess: (silent) => {
       qc.invalidateQueries({ queryKey: ['settings', 'entity'] })
-      if (!silent) toast({ title: 'Configuration enregistrée', variant: 'success' })
+      if (!silent) toast({ title: t('settings.toast.integrations.config_saved'), variant: 'success' })
     },
     onError: () => {
-      toast({ title: 'Erreur', description: 'Impossible d\'enregistrer la configuration.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.integrations.config_save_error'), variant: 'error' })
     },
   })
 
@@ -878,14 +880,14 @@ export function IntegrationsTab() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['settings', 'entity'] })
       if (data.status === 'ok') {
-        toast({ title: 'Connexion réussie', description: data.message, variant: 'success' })
+        toast({ title: t('settings.toast.integrations.connection_success'), description: data.message, variant: 'success' })
       } else {
-        toast({ title: 'Échec de connexion', description: data.message, variant: 'error' })
+        toast({ title: t('settings.toast.integrations.connection_failed'), description: data.message, variant: 'error' })
       }
       setTestingConnectorId(null)
     },
     onError: () => {
-      toast({ title: 'Erreur', description: 'Impossible de tester la connexion.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.integrations.connection_test_error'), variant: 'error' })
       setTestingConnectorId(null)
     },
   })
@@ -901,14 +903,14 @@ export function IntegrationsTab() {
     },
     onSuccess: (data) => {
       if (data.status === 'ok') {
-        toast({ title: 'Test envoyé', description: data.message, variant: 'success' })
+        toast({ title: t('settings.toast.integrations.test_sent'), description: data.message, variant: 'success' })
       } else {
-        toast({ title: 'Échec d\'envoi', description: data.message, variant: 'error' })
+        toast({ title: t('settings.toast.integrations.test_send_failed'), description: data.message, variant: 'error' })
       }
       setSendingConnectorId(null)
     },
     onError: () => {
-      toast({ title: 'Erreur', description: 'Impossible d\'envoyer le test.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.integrations.test_send_error'), variant: 'error' })
       setSendingConnectorId(null)
     },
   })

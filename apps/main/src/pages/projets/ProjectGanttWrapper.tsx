@@ -5,6 +5,7 @@
  * expanded project in parallel, then combines into GanttCore format.
  */
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQueries } from '@tanstack/react-query'
 import { useUIStore } from '@/stores/uiStore'
 import { useProjects, useUpdateProjectTask } from '@/hooks/useProjets'
@@ -79,6 +80,7 @@ function fmtDate(iso: string | null | undefined): string {
 // ── Main Component ──────────────────────────────────────────────
 
 export function ProjectGanttWrapper() {
+  const { t } = useTranslation()
   const { data: pd, isLoading: projLoading } = useProjects({ page_size: 200 })
   const openPanel = useUIStore(s => s.openDynamicPanel)
   const { toast } = useToast()
@@ -654,14 +656,14 @@ export function ProjectGanttWrapper() {
       for (const pid of affectedProjectIds) {
         qc.invalidateQueries({ queryKey: ['project-tasks', pid] })
       }
-      const cascadeMsg = cascadeShifts.length > 0
-        ? ` (+${cascadeShifts.length} en cascade)`
-        : ''
-      toast({ title: `Tâche replanifiée${cascadeMsg}`, variant: 'success' })
+      const toastTitle = cascadeShifts.length > 0
+        ? t('projets.toast.task_rescheduled_cascade', { count: cascadeShifts.length })
+        : t('projets.toast.task_rescheduled')
+      toast({ title: toastTitle, variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors du déplacement', variant: 'error' })
+      toast({ title: t('projets.toast.drag_error'), variant: 'error' })
     }
-  }, [taskIndex, allDepsFlat, dragCascadeMode, confirm, toast, qc])
+  }, [taskIndex, allDepsFlat, dragCascadeMode, confirm, toast, qc, t])
 
   const handleBarResize = useCallback((barId: string, edge: 'left' | 'right', newDate: string) => {
     if (barId.startsWith('proj-')) return
@@ -672,11 +674,11 @@ export function ProjectGanttWrapper() {
     updateTaskMutation.mutate(
       { projectId, taskId: barId, payload: patch },
       {
-        onSuccess: () => toast({ title: edge === 'left' ? 'Début modifié' : 'Fin modifiée', variant: 'success' }),
-        onError: () => toast({ title: 'Erreur', variant: 'error' }),
+        onSuccess: () => toast({ title: edge === 'left' ? t('projets.toast.start_modified') : t('projets.toast.end_modified'), variant: 'success' }),
+        onError: () => toast({ title: t('projets.toast.error'), variant: 'error' }),
       },
     )
-  }, [bars, toast, updateTaskMutation])
+  }, [bars, toast, updateTaskMutation, t])
 
   // ── Cell edit (inline grid editing) ────────────────────────────
 
@@ -694,12 +696,12 @@ export function ProjectGanttWrapper() {
       updateTaskMutation.mutate(
         { projectId, taskId: rowId, payload: patch as Record<string, string | number | null> },
         {
-          onSuccess: () => toast({ title: 'Mis à jour', variant: 'success' }),
-          onError: () => toast({ title: 'Erreur de mise à jour', variant: 'error' }),
+          onSuccess: () => toast({ title: t('projets.toast.updated'), variant: 'success' }),
+          onError: () => toast({ title: t('projets.toast.update_error'), variant: 'error' }),
         },
       )
     }
-  }, [bars, toast, updateTaskMutation])
+  }, [bars, toast, updateTaskMutation, t])
 
   // ── Row selection (for indent/delete context) ──────────────────
 
@@ -716,7 +718,7 @@ export function ProjectGanttWrapper() {
   const handleAddTask = useCallback(async () => {
     // Add to the first expanded project, or the selected row's project
     const projectId = selectedRowId ? findProjectForRow(selectedRowId) : projects[0]?.id
-    if (!projectId) { toast({ title: 'Sélectionnez un projet', variant: 'warning' }); return }
+    if (!projectId) { toast({ title: t('projets.toast.select_project'), variant: 'warning' }); return }
 
     const today = new Date().toISOString().slice(0, 10)
     const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
@@ -729,17 +731,17 @@ export function ProjectGanttWrapper() {
         due_date: nextWeek,
         parent_id: selectedRowId && !selectedRowId.startsWith('proj-') ? selectedRowId : undefined,
       })
-      toast({ title: 'Tâche créée', variant: 'success' })
+      toast({ title: t('projets.toast.task_created'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('projets.toast.error'), variant: 'error' })
     }
-  }, [selectedRowId, projects, findProjectForRow, toast])
+  }, [selectedRowId, projects, findProjectForRow, toast, t])
 
   // ── Add milestone ─────────────────────────────────────────────
 
   const handleAddMilestone = useCallback(async () => {
     const projectId = selectedRowId ? findProjectForRow(selectedRowId) : projects[0]?.id
-    if (!projectId) { toast({ title: 'Sélectionnez un projet', variant: 'warning' }); return }
+    if (!projectId) { toast({ title: t('projets.toast.select_project'), variant: 'warning' }); return }
 
     const nextMonth = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
     try {
@@ -747,11 +749,11 @@ export function ProjectGanttWrapper() {
         name: 'Nouveau jalon',
         due_date: nextMonth,
       })
-      toast({ title: 'Jalon créé', variant: 'success' })
+      toast({ title: t('projets.toast.milestone_created'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('projets.toast.error'), variant: 'error' })
     }
-  }, [selectedRowId, projects, findProjectForRow, toast])
+  }, [selectedRowId, projects, findProjectForRow, toast, t])
 
   // ── Indent (make child of previous sibling) ───────────────────
 
@@ -772,11 +774,11 @@ export function ProjectGanttWrapper() {
 
     try {
       await projetsService.updateTask(projectId, rowId, { parent_id: prevSibling } as Record<string, unknown>)
-      toast({ title: 'Tâche indentée', variant: 'success' })
+      toast({ title: t('projets.toast.task_indented'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('projets.toast.error'), variant: 'error' })
     }
-  }, [rows, findProjectForRow, toast])
+  }, [rows, findProjectForRow, toast, t])
 
   // ── Outdent (move to parent's level) ──────────────────────────
 
@@ -792,11 +794,11 @@ export function ProjectGanttWrapper() {
     const parent = tasks.find(t => t.id === task.parent_id)
     try {
       await projetsService.updateTask(projectId, rowId, { parent_id: parent?.parent_id || null } as Record<string, unknown>)
-      toast({ title: 'Tâche désindentée', variant: 'success' })
+      toast({ title: t('projets.toast.task_outdented'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('projets.toast.error'), variant: 'error' })
     }
-  }, [tasksByProject, findProjectForRow, toast])
+  }, [tasksByProject, findProjectForRow, toast, t])
 
   // ── Delete row ────────────────────────────────────────────────
 
@@ -806,12 +808,12 @@ export function ProjectGanttWrapper() {
 
     try {
       await projetsService.deleteTask(projectId, rowId)
-      toast({ title: 'Tâche supprimée', variant: 'success' })
+      toast({ title: t('projets.toast.task_deleted'), variant: 'success' })
       setSelectedRowId(null)
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('projets.toast.error'), variant: 'error' })
     }
-  }, [findProjectForRow, toast])
+  }, [findProjectForRow, toast, t])
 
   // ── Export Gantt as A3 PDF (server-side, vector) ──
   // Mirrors the planner export pipeline: build a JSON payload from the
@@ -927,11 +929,11 @@ export function ProjectGanttWrapper() {
       a.download = `projets-gantt-${toISO(new Date())}.pdf`
       a.click()
       URL.revokeObjectURL(url)
-      toast({ title: 'PDF généré', variant: 'success' })
+      toast({ title: t('projets.toast.pdf_generated'), variant: 'success' })
     } catch {
-      toast({ title: "Erreur lors de la génération du PDF", variant: 'error' })
+      toast({ title: t('projets.toast.pdf_error'), variant: 'error' })
     }
-  }, [currentScale, currentStart, currentEnd, projects, rows, bars, toast])
+  }, [currentScale, currentStart, currentEnd, projects, rows, bars, toast, t])
 
   const isLoading = projLoading || taskQueries.some(q => q.isLoading)
 

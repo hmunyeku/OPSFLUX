@@ -6,6 +6,7 @@
  * Create via DynamicPanel (CreateTokenPanel).
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Key, Plus } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -15,6 +16,7 @@ import { useToast } from '@/components/ui/Toast'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 
 export function AccessTokensTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { data, isLoading } = useAccessTokens()
@@ -42,9 +44,9 @@ export function AccessTokensTab() {
   const handleRevoke = async (id: string) => {
     try {
       await revokeToken.mutateAsync(id)
-      toast({ title: 'Jeton révoqué', description: 'Le jeton a été désactivé.', variant: 'success' })
+      toast({ title: t('settings.toast.tokens.revoked'), description: t('settings.toast.tokens.revoked_desc'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de révoquer le jeton.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.tokens.revoke_error'), variant: 'error' })
     }
   }
 

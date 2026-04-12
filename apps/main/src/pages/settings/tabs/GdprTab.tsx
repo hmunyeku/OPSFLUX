@@ -5,6 +5,7 @@
  * breach log viewer, and data export for admins.
  */
 import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2, AlertTriangle } from 'lucide-react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useToast } from '@/components/ui/Toast'
@@ -25,14 +26,15 @@ function SettingRow({ label, description, children }: { label: string; descripti
 }
 
 export function GdprTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data: settings, isLoading } = useScopedSettingsMap('tenant')
   const mutation = useSaveScopedSetting('tenant')
 
   const save = useCallback((key: string, value: unknown) => {
     mutation.mutate({ key, value }, {
-      onSuccess: () => toast({ title: 'Enregistre', variant: 'success' }),
-      onError: () => toast({ title: 'Erreur', variant: 'error' }),
+      onSuccess: () => toast({ title: t('settings.toast.gdpr.saved'), variant: 'success' }),
+      onError: () => toast({ title: t('settings.toast.error'), variant: 'error' }),
     })
   }, [mutation, toast])
 
@@ -48,7 +50,7 @@ export function GdprTab() {
   const breachMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => api.post('/api/v1/gdpr/breach-report', data),
     onSuccess: () => {
-      toast({ title: 'Incident enregistre', variant: 'success' })
+      toast({ title: t('settings.toast.gdpr.incident_saved'), variant: 'success' })
       setShowBreachForm(false)
       setBreachForm({ title: '', description: '', affected_data_types: '', measures_taken: '' })
     },

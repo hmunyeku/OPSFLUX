@@ -269,22 +269,22 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
     updateTask.mutate(
       { projectId, taskId, payload: { [field]: value } },
       {
-        onSuccess: () => toast({ title: 'Mis à jour', variant: 'success' }),
-        onError: () => toast({ title: 'Erreur', variant: 'error' }),
+        onSuccess: () => toast({ title: t('projets.toast.updated'), variant: 'success' }),
+        onError: () => toast({ title: t('projets.toast.error'), variant: 'error' }),
       },
     )
-  }, [projectId, taskId, updateTask, toast])
+  }, [projectId, taskId, updateTask, toast, t])
 
   const handleAddComment = useCallback(() => {
     if (!commentText.trim()) return
     createComment.mutate(
       { projectId, taskId, payload: { body: commentText.trim() } },
       {
-        onSuccess: () => { setCommentText(''); toast({ title: 'Commentaire ajouté', variant: 'success' }) },
-        onError: () => toast({ title: 'Erreur', variant: 'error' }),
+        onSuccess: () => { setCommentText(''); toast({ title: t('projets.toast.comment_added'), variant: 'success' }) },
+        onError: () => toast({ title: t('projets.toast.error'), variant: 'error' }),
       },
     )
-  }, [projectId, taskId, commentText, createComment, toast])
+  }, [projectId, taskId, commentText, createComment, toast, t])
 
   // Spec 1.5 / 2.3: per-task toggle "Lien Planner" / "Retirer du Planner".
   const handleTogglePlannerLink = useCallback(async () => {
@@ -445,8 +445,8 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
               onClick={() => resolveBreakdown.mutate(
                 { projectId, taskId },
                 {
-                  onSuccess: () => toast({ title: 'Mise à jour marquée comme effectuée', variant: 'success' }),
-                  onError: () => toast({ title: 'Erreur', variant: 'error' }),
+                  onSuccess: () => toast({ title: t('projets.toast.breakdown_resolved'), variant: 'success' }),
+                  onError: () => toast({ title: t('projets.toast.error'), variant: 'error' }),
                 },
               )}
               disabled={resolveBreakdown.isPending}

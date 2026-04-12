@@ -10,6 +10,7 @@ import {
   Search,
   Undo2,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import {
   DynamicPanelShell,
@@ -162,6 +163,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
   const cargoEvidenceOptions = useDictionaryOptions(cargoEvidenceCategory)
   const cargoEvidenceLabels = useDictionaryLabels(cargoEvidenceCategory)
   const { toast } = useToast()
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<CargoItemUpdate>({})
   const [workflowBlockingItems, setWorkflowBlockingItems] = useState<string[]>([])
@@ -242,15 +244,15 @@ export function CargoDetailPanel({ id }: { id: string }) {
 
   const handleSave = async () => {
     if (!editForm.request_id) {
-      toast({ title: 'Le colis doit rester rattaché à une demande d’expédition', variant: 'error' })
+      toast({ title: t('packlog.toast.cargo_must_have_request'), variant: 'error' })
       return
     }
     try {
       await updateCargo.mutateAsync({ id, payload: editForm })
-      toast({ title: 'Colis mis a jour', variant: 'success' })
+      toast({ title: t('packlog.toast.cargo_updated'), variant: 'success' })
       setEditing(false)
     } catch {
-      toast({ title: 'Erreur lors de la mise a jour', variant: 'error' })
+      toast({ title: t('packlog.toast.cargo_update_error'), variant: 'error' })
     }
   }
 
@@ -258,8 +260,8 @@ export function CargoDetailPanel({ id }: { id: string }) {
     const firstType = backCargoReturnTypeOptions[0]?.value ?? 'waste'
     setReturnDraft((current) => ({ ...current, return_type: current.return_type || firstType }))
     toast({
-      title: 'Retour à qualifier',
-      description: 'Renseigne la section back cargo avec le type de retour et ses prérequis documentaires.',
+      title: t('packlog.toast.return_qualify'),
+      description: t('packlog.toast.return_qualify_description'),
     })
   }
 
@@ -267,7 +269,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
     try {
       setWorkflowBlockingItems([])
       await updateCargoWorkflowStatus.mutateAsync({ id, workflow_status: workflowStatus })
-      toast({ title: 'Étape workflow mise à jour', variant: 'success' })
+      toast({ title: t('packlog.toast.workflow_updated'), variant: 'success' })
     } catch (error: unknown) {
       const missing = Array.isArray((error as { response?: { data?: { detail?: { missing_requirements?: string[] } } } })?.response?.data?.detail?.missing_requirements)
         ? ((error as { response?: { data?: { detail?: { missing_requirements?: string[] } } } }).response?.data?.detail?.missing_requirements ?? [])
@@ -275,13 +277,13 @@ export function CargoDetailPanel({ id }: { id: string }) {
       if (missing.length > 0) {
         setWorkflowBlockingItems(missing)
         toast({
-          title: 'Dossier cargo incomplet',
+          title: t('packlog.toast.workflow_incomplete'),
           description: missing.map((item) => CARGO_READINESS_LABELS[item] ?? item).join(', '),
           variant: 'error',
         })
         return
       }
-      toast({ title: 'Erreur lors du changement d’étape workflow', variant: 'error' })
+      toast({ title: t('packlog.toast.workflow_change_error'), variant: 'error' })
     }
   }
 
@@ -309,9 +311,9 @@ export function CargoDetailPanel({ id }: { id: string }) {
           return_notes: draft.return_notes || null,
         } satisfies PackageElementReturnUpdate,
       })
-      toast({ title: 'Retour élément enregistré', variant: 'success' })
+      toast({ title: t('packlog.toast.element_return_saved'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de l’enregistrement du retour', variant: 'error' })
+      toast({ title: t('packlog.toast.element_return_error'), variant: 'error' })
     }
   }, [id, packageElementDrafts, toast, updatePackageElementReturn])
 
@@ -327,9 +329,9 @@ export function CargoDetailPanel({ id }: { id: string }) {
           return_notes: draft.return_notes || null,
         } satisfies PackageElementDispositionUpdate,
       })
-      toast({ title: 'Disposition appliquée', variant: 'success' })
+      toast({ title: t('packlog.toast.disposition_applied'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de la disposition finale', variant: 'error' })
+      toast({ title: t('packlog.toast.disposition_error'), variant: 'error' })
     }
   }, [id, packageElementDrafts, toast, updatePackageElementDisposition])
 
@@ -353,11 +355,11 @@ export function CargoDetailPanel({ id }: { id: string }) {
           yard_justification: returnDraft.yard_justification || null,
         },
       })
-      toast({ title: 'Back cargo initié', variant: 'success' })
+      toast({ title: t('packlog.toast.back_cargo_initiated'), variant: 'success' })
     } catch (error: unknown) {
       const message = ((error as { response?: { data?: { detail?: string } } })?.response?.data?.detail)
       toast({
-        title: 'Erreur lors de l’initiation du back cargo',
+        title: t('packlog.toast.back_cargo_error'),
         description: typeof message === 'string' ? message : undefined,
         variant: 'error',
       })

@@ -42,10 +42,10 @@ export function PreferencesTab() {
     localStorage.setItem('language', lang)
     try {
       await updateProfile.mutateAsync({ language: lang })
-      toast({ title: 'Langue mise à jour', variant: 'success' })
+      toast({ title: t('settings.toast.preferences.language_updated'), variant: 'success' })
     } catch {
       // Language is already applied locally even if API fails
-      toast({ title: 'Attention', description: 'La langue a été appliquée localement mais n\'a pas pu être sauvegardée sur le serveur.', variant: 'warning' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.preferences.language_local_warning'), variant: 'warning' })
     }
   }
 
@@ -133,6 +133,7 @@ export function PreferencesTab() {
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 
 function PageSizeSection() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { pageSize, setPageSize } = usePageSize()
   const maxPageSize = useMaxPageSize()
@@ -143,18 +144,18 @@ function PageSizeSection() {
     setPageSize(value)
     setShowCustom(false)
     setCustomValue('')
-    toast({ title: `Affichage: ${value} lignes par page`, variant: 'success' })
+    toast({ title: t('settings.toast.preferences.page_size', { value }), variant: 'success' })
   }
 
   const handleCustomSubmit = () => {
     const num = parseInt(customValue)
     if (!num || num < 1) return
     if (num > maxPageSize) {
-      toast({ title: `Maximum ${maxPageSize} lignes`, variant: 'warning' })
+      toast({ title: t('settings.toast.preferences.page_size_max', { max: maxPageSize }), variant: 'warning' })
       return
     }
     setPageSize(num)
-    toast({ title: `Affichage: ${num} lignes par page`, variant: 'success' })
+    toast({ title: t('settings.toast.preferences.page_size', { value: num }), variant: 'success' })
   }
 
   return (
@@ -323,6 +324,7 @@ const CHANNEL_OPTIONS = [
 ]
 
 function MessagingChannelSection() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const updateProfile = useUpdateProfile()
   const user = useAuthStore((s) => s.user)
@@ -331,9 +333,9 @@ function MessagingChannelSection() {
   const handleChange = async (value: string) => {
     try {
       await updateProfile.mutateAsync({ preferred_messaging_channel: value })
-      toast({ title: 'Préférence de canal mise à jour', variant: 'success' })
+      toast({ title: t('settings.toast.preferences.channel_updated'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('settings.toast.error'), variant: 'error' })
     }
   }
 

@@ -10,6 +10,7 @@
  * Sections are collapsible with deep-link support.
  */
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Mail,
   Plus,
@@ -44,6 +45,7 @@ const LANG_LABELS: Record<string, string> = {
 }
 
 export function EmailTemplatesTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data: templates, isLoading } = useEmailTemplates()
   const seedMutation = useSeedEmailTemplates()
@@ -55,19 +57,19 @@ export function EmailTemplatesTab() {
       const result = await seedMutation.mutateAsync()
       if (result.count > 0) {
         toast({
-          title: 'Modèles créés',
-          description: `${result.count} modèle(s) par défaut créé(s) : ${result.seeded.join(', ')}`,
+          title: t('settings.toast.email_templates.templates_seeded'),
+          description: t('settings.toast.email_templates.templates_seeded_desc', { count: result.count, list: result.seeded.join(', ') }),
           variant: 'success',
         })
       } else {
         toast({
-          title: 'Aucun modèle créé',
-          description: 'Tous les modèles par défaut existent déjà.',
+          title: t('settings.toast.email_templates.no_templates_seeded'),
+          description: t('settings.toast.email_templates.no_templates_seeded_desc'),
           variant: 'default',
         })
       }
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de créer les modèles par défaut.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.email_templates.seed_error'), variant: 'error' })
     }
   }, [seedMutation, toast])
 
@@ -76,11 +78,11 @@ export function EmailTemplatesTab() {
       try {
         await updateMutation.mutateAsync({ id: template.id, enabled: !template.enabled })
         toast({
-          title: template.enabled ? 'Modèle désactivé' : 'Modèle activé',
+          title: template.enabled ? t('settings.toast.email_templates.toggled_disabled') : t('settings.toast.email_templates.toggled_enabled'),
           variant: 'success',
         })
       } catch {
-        toast({ title: 'Erreur', variant: 'error' })
+        toast({ title: t('settings.toast.error'), variant: 'error' })
       }
     },
     [updateMutation, toast],

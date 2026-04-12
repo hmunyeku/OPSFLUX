@@ -148,6 +148,7 @@ const FILTER_DEFS: DataTableFilterDef[] = [
 // ── Create Ticket Panel ─────────────────────────────────────
 
 function CreateTicketPanel() {
+  const { t } = useTranslation()
   const createTicket = useCreateTicket()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
@@ -170,10 +171,10 @@ function CreateTicketPanel() {
     if (!form.title.trim()) return
     try {
       await createTicket.mutateAsync(form)
-      toast({ title: 'Ticket soumis avec succès', variant: 'success' })
+      toast({ title: t('support.toast.ticket_submitted'), variant: 'success' })
       closeDynamicPanel()
     } catch {
-      toast({ title: 'Erreur lors de la soumission', variant: 'error' })
+      toast({ title: t('support.toast.ticket_submit_error'), variant: 'error' })
     }
   }
 
@@ -265,14 +266,14 @@ function TicketDetailPanel({ id }: { id: string }) {
     setIsDeleting(true)
     await deleteTicket.mutateAsync(id)
     closeDynamicPanel()
-    toast({ title: 'Ticket archivé', variant: 'success' })
+    toast({ title: t('support.toast.ticket_archived'), variant: 'success' })
   }, [id, deleteTicket, closeDynamicPanel, toast])
 
   const handleAddComment = useCallback(async () => {
     if (!commentText.trim()) return
     await addComment.mutateAsync({ ticketId: id, body: commentText, isInternal })
     setCommentText('')
-    toast({ title: 'Commentaire ajouté', variant: 'success' })
+    toast({ title: t('support.toast.comment_added'), variant: 'success' })
   }, [id, commentText, isInternal, addComment, toast])
 
   if (!ticket || isDeleting) {
@@ -448,6 +449,7 @@ function TicketDetailPanel({ id }: { id: string }) {
 // ── Ticket Todo List ────────────────────────────────────────
 
 function TicketTodoList({ ticketId }: { ticketId: string }) {
+  const { t } = useTranslation()
   const { data: todos } = useTicketTodos(ticketId)
   const addTodo = useAddTodo()
   const updateTodo = useUpdateTodo()
@@ -459,7 +461,7 @@ function TicketTodoList({ ticketId }: { ticketId: string }) {
     if (!newTitle.trim()) return
     await addTodo.mutateAsync({ ticketId, title: newTitle.trim(), order: (todos?.length ?? 0) })
     setNewTitle('')
-    toast({ title: 'Tâche ajoutée', variant: 'success' })
+    toast({ title: t('support.toast.todo_added'), variant: 'success' })
   }
 
   const handleToggle = async (todo: TicketTodo) => {
@@ -552,6 +554,7 @@ const ANN_PRIORITY_LABELS: Record<string, string> = { info: 'Info', warning: 'At
 // ── Create Announcement Panel ────────────────────────────────
 
 function CreateAnnouncementPanel() {
+  const { t } = useTranslation()
   const createAnn = useCreateAnnouncement()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const { toast } = useToast()
@@ -566,10 +569,10 @@ function CreateAnnouncementPanel() {
     if (!form.title.trim() || !form.body.trim()) return
     try {
       await createAnn.mutateAsync(form)
-      toast({ title: 'Annonce publiée', variant: 'success' })
+      toast({ title: t('support.toast.announcement_published'), variant: 'success' })
       closeDynamicPanel()
     } catch {
-      toast({ title: 'Erreur lors de la publication', variant: 'error' })
+      toast({ title: t('support.toast.announcement_publish_error'), variant: 'error' })
     }
   }
 
@@ -693,14 +696,14 @@ function AnnouncementDetailPanel({ id }: { id: string }) {
   const handleDelete = useCallback(async () => {
     await deleteAnn.mutateAsync(id)
     closeDynamicPanel()
-    toast({ title: 'Annonce supprimée', variant: 'success' })
-  }, [id, deleteAnn, closeDynamicPanel, toast])
+    toast({ title: t('support.toast.announcement_deleted'), variant: 'success' })
+  }, [id, deleteAnn, closeDynamicPanel, toast, t])
 
   const handleToggleActive = useCallback(async () => {
     if (!ann) return
     await updateAnn.mutateAsync({ id, body: { active: !ann.active } })
-    toast({ title: ann.active ? 'Annonce désactivée' : 'Annonce activée', variant: 'success' })
-  }, [id, ann, updateAnn, toast])
+    toast({ title: ann.active ? t('support.toast.announcement_deactivated') : t('support.toast.announcement_activated'), variant: 'success' })
+  }, [id, ann, updateAnn, toast, t])
 
   if (!ann) {
     return (
@@ -770,6 +773,7 @@ const DISPLAY_LABELS: Record<string, string> = { dashboard: 'Tableau de bord', b
 const PRIORITY_BADGE: Record<string, 'info' | 'warning' | 'danger' | 'neutral'> = { info: 'info', warning: 'warning', critical: 'danger', maintenance: 'neutral' }
 
 function AnnouncementsAdminTab() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
   const isMobile = useIsMobile()
@@ -782,14 +786,14 @@ function AnnouncementsAdminTab() {
 
   const handleToggleActive = async (ann: Announcement) => {
     await updateAnn.mutateAsync({ id: ann.id, body: { active: !ann.active } })
-    toast({ title: ann.active ? 'Annonce désactivée' : 'Annonce activée', variant: 'success' })
+    toast({ title: ann.active ? t('support.toast.announcement_deactivated') : t('support.toast.announcement_activated'), variant: 'success' })
   }
 
   const handleDelete = async (ann: Announcement) => {
     const ok = await confirm({ title: 'Supprimer l\'annonce ?', message: ann.title, variant: 'danger', confirmLabel: 'Supprimer' })
     if (ok) {
       await deleteAnn.mutateAsync(ann.id)
-      toast({ title: 'Annonce supprimée', variant: 'success' })
+      toast({ title: t('support.toast.announcement_deleted'), variant: 'success' })
     }
   }
 

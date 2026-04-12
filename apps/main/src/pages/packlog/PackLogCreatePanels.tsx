@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { FileText, Loader2, MapPin, Package } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
@@ -50,6 +51,7 @@ export function CreateCargoRequestPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createCargoRequest = useWorkspaceCreateCargoRequest()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const { moduleLabel } = useCargoWorkspace()
   const [form, setForm] = useState<CargoRequestCreate>({
     title: '',
@@ -68,10 +70,10 @@ export function CreateCargoRequestPanel() {
     e.preventDefault()
     try {
       await createCargoRequest.mutateAsync(form)
-      toast({ title: "Demande d'expédition créée", variant: 'success' })
+      toast({ title: t('packlog.toast.request_created'), variant: 'success' })
       closeDynamicPanel()
     } catch {
-      toast({ title: "Erreur lors de la création de la demande d'expédition", variant: 'error' })
+      toast({ title: t('packlog.toast.request_create_error'), variant: 'error' })
     }
   }
 
@@ -203,6 +205,7 @@ export function CreateCargoPanel() {
   const cargoTypeOptions = useDictionaryOptions(cargoTypeCategory)
   const ownershipOptions = useDictionaryOptions(ownershipCategory)
   const { toast } = useToast()
+  const { t } = useTranslation()
   const [form, setForm] = useState<CargoItemCreate>({
     request_id: null,
     description: '',
@@ -271,15 +274,15 @@ export function CreateCargoPanel() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.request_id) {
-      toast({ title: 'Sélectionne d’abord une demande d’expédition', variant: 'error' })
+      toast({ title: t('packlog.toast.select_request_first'), variant: 'error' })
       return
     }
     try {
       const createdCargo = await createCargo.mutateAsync(form)
-      toast({ title: 'Colis cree avec succes', description: 'Vous pouvez maintenant ajouter les photos et documents au colis.', variant: 'success' })
+      toast({ title: t('packlog.toast.cargo_created'), description: t('packlog.toast.cargo_created_description'), variant: 'success' })
       openDynamicPanel({ type: 'detail', module: panelModule, id: createdCargo.id, meta: { subtype: 'cargo' } })
     } catch {
-      toast({ title: 'Erreur lors de la creation du colis', variant: 'error' })
+      toast({ title: t('packlog.toast.cargo_create_error'), variant: 'error' })
     }
   }
 

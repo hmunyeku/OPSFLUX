@@ -5,6 +5,7 @@
  * On success, displays client_id and client_secret (shown only once).
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AppWindow, Loader2, Copy, Check } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import { useCreateOAuthApp } from '@/hooks/useSettings'
@@ -27,6 +28,7 @@ const scopeOptions = [
 ]
 
 export function CreateAppPanel() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createApp = useCreateOAuthApp()
@@ -53,10 +55,10 @@ export function CreateAppPanel() {
         confidential,
       })
       setCreatedApp(result)
-      toast({ title: 'Application créée', description: 'Copiez les identifiants maintenant.', variant: 'success', duration: 8000 })
+      toast({ title: t('settings.toast.apps.created'), description: t('settings.toast.apps.created_desc'), variant: 'success', duration: 8000 })
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Impossible de créer l\'application.'
-      toast({ title: 'Erreur', description: message, variant: 'error' })
+      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || t('settings.toast.apps.create_error')
+      toast({ title: t('settings.toast.error'), description: message, variant: 'error' })
     }
   }
 

@@ -5,6 +5,7 @@
  * API-backed: GET /api/v1/emails, POST, DELETE, POST /:id/primary, POST /:id/verify
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Mail, Plus, Check, Loader2, Trash2, Send, Star } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useUserEmails, useAddEmail, useRemoveEmail, useSetPrimaryEmail, useResendVerification } from '@/hooks/useSettings'
@@ -12,6 +13,7 @@ import { useToast } from '@/components/ui/Toast'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 
 export function EmailsTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data: emails, isLoading } = useUserEmails()
   const addEmail = useAddEmail()
@@ -24,39 +26,39 @@ export function EmailsTab() {
     if (!newEmail.trim()) return
     try {
       await addEmail.mutateAsync(newEmail.trim())
-      toast({ title: 'Email ajouté', description: 'Un email de vérification a été envoyé.', variant: 'success' })
+      toast({ title: t('settings.toast.emails.added'), description: t('settings.toast.emails.added_desc'), variant: 'success' })
       setNewEmail('')
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Impossible d\'ajouter cet email.'
-      toast({ title: 'Erreur', description: message, variant: 'error' })
+      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || t('settings.toast.emails.add_error')
+      toast({ title: t('settings.toast.error'), description: message, variant: 'error' })
     }
   }
 
   const handleRemove = async (id: string) => {
     try {
       await removeEmail.mutateAsync(id)
-      toast({ title: 'Email supprimé', variant: 'success' })
+      toast({ title: t('settings.toast.emails.removed'), variant: 'success' })
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Impossible de supprimer cet email.'
-      toast({ title: 'Erreur', description: message, variant: 'error' })
+      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || t('settings.toast.emails.remove_error')
+      toast({ title: t('settings.toast.error'), description: message, variant: 'error' })
     }
   }
 
   const handleSetPrimary = async (id: string) => {
     try {
       await setPrimary.mutateAsync(id)
-      toast({ title: 'Email principal défini', variant: 'success' })
+      toast({ title: t('settings.toast.emails.primary_set'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de définir l\'email principal.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.emails.primary_error'), variant: 'error' })
     }
   }
 
   const handleResendVerification = async (id: string) => {
     try {
       await resendVerification.mutateAsync(id)
-      toast({ title: 'Email envoyé', description: 'Un nouvel email de vérification a été envoyé.', variant: 'success' })
+      toast({ title: t('settings.toast.emails.verification_sent'), description: t('settings.toast.emails.verification_sent_desc'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible d\'envoyer l\'email.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.emails.verification_send_error'), variant: 'error' })
     }
   }
 

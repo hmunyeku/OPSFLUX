@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { FileText, Loader2, Pencil, Plus, Save } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
@@ -73,6 +74,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
   const requestStatusOptions = useDictionaryOptions(cargoRequestStatusCategory)
   const requestStatusLabels = useDictionaryLabels(cargoRequestStatusCategory)
   const { toast } = useToast()
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<CargoRequestUpdate>({})
   const requestCargo = requestCargoData?.items ?? []
@@ -112,7 +114,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
   const handleSave = async () => {
     try {
       await updateCargoRequest.mutateAsync({ id, payload: editForm })
-      toast({ title: "Demande d'expédition mise à jour", variant: 'success' })
+      toast({ title: t('packlog.toast.request_updated'), variant: 'success' })
       setEditing(false)
     } catch (error) {
       const missing = Array.isArray((error as { response?: { data?: { detail?: { missing_requirements?: string[] } } } })?.response?.data?.detail?.missing_requirements)
@@ -128,13 +130,13 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
   const handleApplyLoadingOption = async (voyageId: string) => {
     try {
       await applyLoadingOption.mutateAsync({ id, voyageId })
-      toast({ title: 'Proposition de chargement appliquée', variant: 'success' })
+      toast({ title: t('packlog.toast.loading_option_applied'), variant: 'success' })
     } catch (error) {
       const blockingReasons = Array.isArray((error as { response?: { data?: { detail?: { blocking_reasons?: string[] } } } })?.response?.data?.detail?.blocking_reasons)
         ? ((error as { response?: { data?: { detail?: { blocking_reasons?: string[] } } } }).response?.data?.detail?.blocking_reasons ?? [])
         : []
       toast({
-        title: blockingReasons.length > 0 ? `Chargement impossible: ${blockingReasons.map((item) => REASON_LABELS[item] ?? item).join(', ')}` : 'Erreur lors de l’affectation au voyage',
+        title: blockingReasons.length > 0 ? t('packlog.toast.loading_impossible', { details: blockingReasons.map((item) => REASON_LABELS[item] ?? item).join(', ') }) : t('packlog.toast.loading_assign_error'),
         variant: 'error',
       })
     }
@@ -144,7 +146,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
     try {
       await downloadCargoRequestLtPdf.mutateAsync(id)
     } catch {
-      toast({ title: 'Impossible d imprimer la LT', description: 'Verifiez le modele PDF cargo.lt.', variant: 'error' })
+      toast({ title: t('packlog.toast.print_lt_error'), description: t('packlog.toast.print_lt_error_description'), variant: 'error' })
     }
   }
 

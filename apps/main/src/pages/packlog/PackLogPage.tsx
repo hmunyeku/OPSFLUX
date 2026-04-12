@@ -336,9 +336,9 @@ function CatalogTab() {
               if (!file) return
               try {
                 const result = await importCsv.mutateAsync(file)
-                toast({ title: `Import terminé: ${result.imported} créés, ${result.updated} mis à jour`, variant: result.errors.length ? 'warning' : 'success' })
+                toast({ title: t('packlog.toast.csv_import_success', { imported: result.imported, updated: result.updated }), variant: result.errors.length ? 'warning' : 'success' })
               } catch {
-                toast({ title: 'Erreur lors de l’import CSV du catalogue SAP', variant: 'error' })
+                toast({ title: t('packlog.toast.csv_import_error'), variant: 'error' })
               } finally {
                 event.target.value = ''
               }

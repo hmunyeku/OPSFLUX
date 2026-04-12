@@ -5,6 +5,7 @@
  * On success, displays the full token value (shown only once, user must copy).
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Key, Loader2, Copy, Check } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import { useCreateToken } from '@/hooks/useSettings'
@@ -25,6 +26,7 @@ const scopeOptions = [
 ]
 
 export function CreateTokenPanel() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createToken = useCreateToken()
@@ -54,10 +56,10 @@ export function CreateTokenPanel() {
         expires_at: expiresAt || null,
       })
       setCreatedToken(result.token)
-      toast({ title: 'Jeton créé', description: 'Copiez le jeton maintenant — il ne sera plus affiché.', variant: 'success', duration: 8000 })
+      toast({ title: t('settings.toast.tokens.created'), description: t('settings.toast.tokens.created_desc'), variant: 'success', duration: 8000 })
     } catch (err: unknown) {
-      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Impossible de créer le jeton.'
-      toast({ title: 'Erreur', description: message, variant: 'error' })
+      const message = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || t('settings.toast.tokens.create_error')
+      toast({ title: t('settings.toast.error'), description: message, variant: 'error' })
     }
   }
 

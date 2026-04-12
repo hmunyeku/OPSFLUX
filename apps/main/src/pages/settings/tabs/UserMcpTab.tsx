@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
@@ -141,6 +142,7 @@ function BackendCard({ backend, mcpBaseUrl }: { backend: Backend; mcpBaseUrl: st
 }
 
 export function UserMcpTab() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const { toast } = useToast()
   const { data: backends = [], isLoading: backendsLoading } = useQuery({ queryKey: ['mcp-user-backends'], queryFn: fetchBackends })
@@ -160,7 +162,7 @@ export function UserMcpTab() {
     onSuccess: (data) => {
       setCreatedToken(data)
       qc.invalidateQueries({ queryKey: ['mcp-user-tokens'] })
-      toast({ title: 'Token MCP créé', variant: 'success' })
+      toast({ title: t('settings.toast.mcp.token_created'), variant: 'success' })
     },
   })
 
@@ -168,7 +170,7 @@ export function UserMcpTab() {
     mutationFn: (id: string) => api.post(`/api/v1/mcp/tokens/${id}/revoke`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['mcp-user-tokens'] })
-      toast({ title: 'Token révoqué', variant: 'success' })
+      toast({ title: t('settings.toast.mcp.token_revoked'), variant: 'success' })
     },
   })
 
@@ -176,13 +178,13 @@ export function UserMcpTab() {
     mutationFn: (id: string) => api.delete(`/api/v1/mcp/tokens/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['mcp-user-tokens'] })
-      toast({ title: 'Token supprimé', variant: 'success' })
+      toast({ title: t('settings.toast.mcp.token_deleted'), variant: 'success' })
     },
   })
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      toast({ title: 'Nom requis', variant: 'error' })
+      toast({ title: t('settings.toast.mcp.name_required'), variant: 'error' })
       return
     }
     await createToken.mutateAsync({

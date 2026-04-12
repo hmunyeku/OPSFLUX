@@ -7,6 +7,7 @@
  * Toast display settings (position, duration, opacity) are stored in localStorage.
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Bell, Loader2 } from 'lucide-react'
 import { useNotificationPreferences, useUpdateNotificationPreferences, useUserEmails, useUserGroups } from '@/hooks/useSettings'
 import { useUserPreferences } from '@/hooks/useUserPreferences'
@@ -90,6 +91,7 @@ const defaultNotificationEventMatrix = Object.fromEntries(
 )
 
 export function NotificationsTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data: prefs, isLoading: prefsLoading } = useNotificationPreferences()
   const { data: emails } = useUserEmails()
@@ -135,9 +137,9 @@ export function NotificationsTab() {
       })
       setPref('notifications_matrix', notificationMatrix)
       setPref('notification_event_matrix', notificationEventMatrix)
-      toast({ title: 'Préférences enregistrées', variant: 'success' })
+      toast({ title: t('settings.toast.notifications.prefs_saved'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible d\'enregistrer les préférences.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.notifications.prefs_save_error'), variant: 'error' })
     }
   }
 
@@ -372,6 +374,7 @@ function europeanChannelLabel(channel: 'in_app' | 'email' | 'digest' | 'sms' | '
 
 // ── Toast configuration section ────────────────────────────
 function ToastSettingsSection() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const [position, setPosition] = useState<ToastPosition>(getToastPosition)
   const [duration, setDuration] = useState(getToastDuration)
@@ -380,7 +383,7 @@ function ToastSettingsSection() {
   const handlePositionChange = (pos: ToastPosition) => {
     setPosition(pos)
     setToastPosition(pos)
-    toast({ title: 'Position mise à jour', description: `Les notifications s'afficheront en ${TOAST_POSITIONS.find(p => p.value === pos)?.label?.toLowerCase()}.`, variant: 'success' })
+    toast({ title: t('settings.toast.notifications.position_updated'), description: t('settings.toast.notifications.position_updated_desc', { position: TOAST_POSITIONS.find(p => p.value === pos)?.label?.toLowerCase() }), variant: 'success' })
   }
 
   const handleDurationChange = (ms: number) => {
@@ -389,7 +392,7 @@ function ToastSettingsSection() {
   }
 
   const handleDurationCommit = () => {
-    toast({ title: `Durée : ${(duration / 1000).toFixed(1)}s`, description: 'La durée a été mise à jour.', variant: 'success' })
+    toast({ title: t('settings.toast.notifications.duration_updated', { value: (duration / 1000).toFixed(1) }), description: t('settings.toast.notifications.duration_updated_desc'), variant: 'success' })
   }
 
   const handleOpacityChange = (val: number) => {
@@ -398,7 +401,7 @@ function ToastSettingsSection() {
   }
 
   const handleOpacityCommit = () => {
-    toast({ title: `Opacité : ${opacity}%`, description: 'L\'opacité a été mise à jour.', variant: 'success' })
+    toast({ title: t('settings.toast.notifications.opacity_updated', { value: opacity }), description: t('settings.toast.notifications.opacity_updated_desc'), variant: 'success' })
   }
 
   return (

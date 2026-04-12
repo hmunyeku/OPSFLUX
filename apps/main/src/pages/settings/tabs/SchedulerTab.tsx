@@ -5,6 +5,7 @@
  * Features: pause/resume/run now, status badges, auto-refresh 30s.
  */
 import { useState, useMemo, Fragment } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Loader2, Play, Pause, RotateCcw, Clock, RefreshCw,
@@ -228,6 +229,7 @@ function JobHistoryRows({ jobId }: { jobId: string }) {
 // ── Main Component ──────────────────────────────────────────
 
 export function SchedulerTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const qc = useQueryClient()
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set())
@@ -250,24 +252,24 @@ export function SchedulerTab() {
       return data
     },
     onSuccess: (_, jobId) => {
-      toast({ title: `Job "${jobId}" exécuté`, variant: 'success' })
+      toast({ title: t('settings.toast.scheduler.job_executed', { jobId }), variant: 'success' })
       qc.invalidateQueries({ queryKey: ['admin-scheduler-jobs'] })
       qc.invalidateQueries({ queryKey: ['admin-scheduler-history'] })
     },
     onError: (err: any) => {
-      toast({ title: 'Erreur', description: err?.response?.data?.detail || 'Échec', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: err?.response?.data?.detail || t('settings.toast.scheduler.job_error'), variant: 'error' })
       qc.invalidateQueries({ queryKey: ['admin-scheduler-history'] })
     },
   })
 
   const pauseJob = useMutation({
     mutationFn: async (jobId: string) => { await api.post('/api/v1/admin/scheduler/pause', { job_id: jobId }) },
-    onSuccess: () => { toast({ title: 'Job mis en pause', variant: 'success' }); qc.invalidateQueries({ queryKey: ['admin-scheduler-jobs'] }) },
+    onSuccess: () => { toast({ title: t('settings.toast.scheduler.job_paused'), variant: 'success' }); qc.invalidateQueries({ queryKey: ['admin-scheduler-jobs'] }) },
   })
 
   const resumeJob = useMutation({
     mutationFn: async (jobId: string) => { await api.post('/api/v1/admin/scheduler/resume', { job_id: jobId }) },
-    onSuccess: () => { toast({ title: 'Job repris', variant: 'success' }); qc.invalidateQueries({ queryKey: ['admin-scheduler-jobs'] }) },
+    onSuccess: () => { toast({ title: t('settings.toast.scheduler.job_resumed'), variant: 'success' }); qc.invalidateQueries({ queryKey: ['admin-scheduler-jobs'] }) },
   })
 
   const toggleExpand = (jobId: string) => {

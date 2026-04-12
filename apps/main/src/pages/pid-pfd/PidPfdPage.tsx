@@ -347,9 +347,9 @@ function PIDDetailPanel({ id }: { id: string }) {
   const handleSaveXml = useCallback(async (xml: string) => {
     try {
       await saveXml.mutateAsync({ id, xmlContent: xml })
-      toast({ title: 'Diagramme sauvegarde', variant: 'success' })
+      toast({ title: t('pidpfd.toast.diagram_saved'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de la sauvegarde du diagramme', variant: 'error' })
+      toast({ title: t('pidpfd.toast.diagram_save_error'), variant: 'error' })
     }
   }, [id, saveXml, toast])
 
@@ -357,24 +357,24 @@ function PIDDetailPanel({ id }: { id: string }) {
     try {
       const result = await validateAfc.mutateAsync(id)
       if (result.is_valid) {
-        toast({ title: 'Validation AFC reussie', variant: 'success' })
+        toast({ title: t('pidpfd.toast.afc_validation_success'), variant: 'success' })
       } else {
         toast({
-          title: `Validation AFC echouee — ${result.errors.length} erreur(s)`,
+          title: t('pidpfd.toast.afc_validation_failed', { count: result.errors.length }),
           variant: 'error',
         })
       }
     } catch {
-      toast({ title: 'Erreur lors de la validation', variant: 'error' })
+      toast({ title: t('pidpfd.toast.afc_validation_error'), variant: 'error' })
     }
   }, [id, validateAfc, toast])
 
   const handleCreateRevision = useCallback(async () => {
     try {
       await createRevision.mutateAsync({ pidId: id, payload: { change_type: 'minor' } })
-      toast({ title: 'Nouvelle revision creee', variant: 'success' })
+      toast({ title: t('pidpfd.toast.revision_created'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de la creation de revision', variant: 'error' })
+      toast({ title: t('pidpfd.toast.revision_create_error'), variant: 'error' })
     }
   }, [id, createRevision, toast])
 
@@ -389,16 +389,16 @@ function PIDDetailPanel({ id }: { id: string }) {
   const handleAcquireLock = useCallback(async () => {
     try {
       await acquireLock.mutateAsync(id)
-      toast({ title: 'Verrou acquis', variant: 'success' })
+      toast({ title: t('pidpfd.toast.lock_acquired'), variant: 'success' })
     } catch {
-      toast({ title: 'Impossible d\'acquerir le verrou', variant: 'error' })
+      toast({ title: t('pidpfd.toast.lock_acquire_error'), variant: 'error' })
     }
   }, [id, acquireLock, toast])
 
   const handleFieldSave = useCallback((field: string) => (newValue: string) => {
     updateDoc.mutate({ id, payload: { [field]: newValue } }, {
-      onSuccess: () => toast({ title: 'Champ mis a jour', variant: 'success' }),
-      onError: () => toast({ title: 'Erreur lors de la mise a jour', variant: 'error' }),
+      onSuccess: () => toast({ title: t('pidpfd.toast.field_updated'), variant: 'success' }),
+      onError: () => toast({ title: t('pidpfd.toast.field_update_error'), variant: 'error' }),
     })
   }, [id, updateDoc, toast])
 
@@ -797,7 +797,7 @@ function LibraryTab() {
 // -- Main Page ----------------------------------------------------------------
 
 export function PidPfdPage() {
-  useTranslation() // loaded for future i18n
+  const { t } = useTranslation()
   const { toast } = useToast()
 
   // ── Permissions ──
@@ -1116,16 +1116,16 @@ export function PidPfdPage() {
     const projectId = filteredProjectId || fallbackProjectId
 
     if (!projectId) {
-      toast({ title: 'Veuillez selectionner un projet avant d\'importer un CSV', variant: 'error' })
+      toast({ title: t('pidpfd.toast.csv_select_project'), variant: 'error' })
       if (csvInputRef.current) csvInputRef.current.value = ''
       return
     }
 
     try {
       await importCsv.mutateAsync({ projectId, file })
-      toast({ title: 'Import CSV reussi', variant: 'success' })
+      toast({ title: t('pidpfd.toast.csv_import_success'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de l\'import CSV', variant: 'error' })
+      toast({ title: t('pidpfd.toast.csv_import_error'), variant: 'error' })
     }
     // Reset input
     if (csvInputRef.current) csvInputRef.current.value = ''
@@ -1370,21 +1370,22 @@ export function PidPfdPage() {
 
 function CreatePIDPanel() {
   const { closeDynamicPanel } = useUIStore()
+  const { t } = useTranslation()
   const { toast } = useToast()
   const createPID = useCreatePIDDocument()
   const [form, setForm] = useState({ title: '', pid_type: 'pid', sheet_format: 'A1', scale: '1:50', drawing_number: '' })
 
   const handleSubmit = useCallback(async () => {
     if (!form.title.trim()) {
-      toast({ title: 'Erreur', description: 'Le titre est requis', variant: 'error' })
+      toast({ title: t('pidpfd.toast.error'), description: t('pidpfd.toast.title_required'), variant: 'error' })
       return
     }
     try {
       await createPID.mutateAsync(form)
-      toast({ title: 'Succès', description: 'PID créé' })
+      toast({ title: t('pidpfd.toast.success'), description: t('pidpfd.toast.pid_created') })
       closeDynamicPanel()
     } catch {
-      toast({ title: 'Erreur', description: 'Échec de la création', variant: 'error' })
+      toast({ title: t('pidpfd.toast.error'), description: t('pidpfd.toast.pid_create_error'), variant: 'error' })
     }
   }, [form, createPID, toast, closeDynamicPanel])
 
@@ -1438,6 +1439,7 @@ function CreatePIDPanel() {
 
 function CreateEquipmentPanel() {
   const { closeDynamicPanel } = useUIStore()
+  const { t } = useTranslation()
   const { toast } = useToast()
   const createEquipment = useCreateEquipment()
   const { data: docsData } = usePIDDocuments({ page: 1, page_size: 200 })
@@ -1456,7 +1458,7 @@ function CreateEquipmentPanel() {
 
   const handleSubmit = useCallback(async () => {
     if (!form.tag.trim()) {
-      toast({ title: 'Erreur', description: 'Le tag est requis', variant: 'error' })
+      toast({ title: t('pidpfd.toast.error'), description: t('pidpfd.toast.tag_required'), variant: 'error' })
       return
     }
     const payload: Record<string, unknown> = {
@@ -1473,12 +1475,12 @@ function CreateEquipmentPanel() {
     if (form.fluid_phase) payload.fluid_phase = form.fluid_phase
     try {
       await createEquipment.mutateAsync(payload)
-      toast({ title: 'Equipement cree', variant: 'success' })
+      toast({ title: t('pidpfd.toast.equipment_created'), variant: 'success' })
       closeDynamicPanel()
     } catch {
-      toast({ title: 'Erreur lors de la creation', variant: 'error' })
+      toast({ title: t('pidpfd.toast.equipment_create_error'), variant: 'error' })
     }
-  }, [form, createEquipment, toast, closeDynamicPanel])
+  }, [form, createEquipment, toast, closeDynamicPanel, t])
 
   const set = (field: string, value: string) => setForm((f) => ({ ...f, [field]: value }))
 
@@ -1568,6 +1570,7 @@ function EquipmentDetailPanel({ id }: { id: string }) {
   const { hasPermission } = usePermission()
   const canDeleteEquip = hasPermission('pid.delete')
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data: equip, isLoading } = useEquipmentDetail(id)
   const updateEquipment = useUpdateEquipment()
@@ -1580,10 +1583,10 @@ function EquipmentDetailPanel({ id }: { id: string }) {
   const handleDelete = useCallback(async () => {
     try {
       await deleteEquipment.mutateAsync(id)
-      toast({ title: 'Equipement supprime', variant: 'success' })
+      toast({ title: t('pidpfd.toast.equipment_deleted'), variant: 'success' })
       closeDynamicPanel()
     } catch {
-      toast({ title: 'Erreur lors de la suppression', variant: 'error' })
+      toast({ title: t('pidpfd.toast.equipment_delete_error'), variant: 'error' })
     }
   }, [id, deleteEquipment, toast, closeDynamicPanel])
 
@@ -1698,6 +1701,7 @@ function EquipmentDetailPanel({ id }: { id: string }) {
 
 function CreateProcessLinePanel() {
   const { closeDynamicPanel } = useUIStore()
+  const { t } = useTranslation()
   const { toast } = useToast()
   const createLine = useCreateProcessLine()
   const { data: docsData } = usePIDDocuments({ page: 1, page_size: 200 })
@@ -1715,7 +1719,7 @@ function CreateProcessLinePanel() {
 
   const handleSubmit = useCallback(async () => {
     if (!form.line_number.trim()) {
-      toast({ title: 'Erreur', description: 'Le numero de ligne est requis', variant: 'error' })
+      toast({ title: t('pidpfd.toast.error'), description: t('pidpfd.toast.line_number_required'), variant: 'error' })
       return
     }
     const payload: Record<string, unknown> = {
@@ -1731,12 +1735,12 @@ function CreateProcessLinePanel() {
     if (form.material_of_construction) payload.material_of_construction = form.material_of_construction
     try {
       await createLine.mutateAsync(payload)
-      toast({ title: 'Ligne process creee', variant: 'success' })
+      toast({ title: t('pidpfd.toast.process_line_created'), variant: 'success' })
       closeDynamicPanel()
     } catch {
-      toast({ title: 'Erreur lors de la creation', variant: 'error' })
+      toast({ title: t('pidpfd.toast.process_line_create_error'), variant: 'error' })
     }
-  }, [form, createLine, toast, closeDynamicPanel])
+  }, [form, createLine, toast, closeDynamicPanel, t])
 
   const set = (field: string, value: string) => setForm((f) => ({ ...f, [field]: value }))
 
@@ -1816,6 +1820,7 @@ function CreateProcessLinePanel() {
 
 function CreateDCSTagPanel() {
   const { closeDynamicPanel } = useUIStore()
+  const { t } = useTranslation()
   const { toast } = useToast()
   const createTag = useCreateDCSTag()
   const { data: equipData } = useEquipment({ page: 1, page_size: 500 })
@@ -1831,7 +1836,7 @@ function CreateDCSTagPanel() {
 
   const handleSubmit = useCallback(async () => {
     if (!form.tag_name.trim()) {
-      toast({ title: 'Erreur', description: 'Le nom du tag est requis', variant: 'error' })
+      toast({ title: t('pidpfd.toast.error'), description: t('pidpfd.toast.tag_name_required'), variant: 'error' })
       return
     }
     const payload: Record<string, unknown> = {
@@ -1845,12 +1850,12 @@ function CreateDCSTagPanel() {
     if (form.range_max) payload.range_max = Number(form.range_max)
     try {
       await createTag.mutateAsync(payload)
-      toast({ title: 'Tag DCS cree', variant: 'success' })
+      toast({ title: t('pidpfd.toast.dcs_tag_created'), variant: 'success' })
       closeDynamicPanel()
     } catch {
-      toast({ title: 'Erreur lors de la creation du tag', variant: 'error' })
+      toast({ title: t('pidpfd.toast.dcs_tag_create_error'), variant: 'error' })
     }
-  }, [form, createTag, toast, closeDynamicPanel])
+  }, [form, createTag, toast, closeDynamicPanel, t])
 
   const set = (field: string, value: string) => setForm((f) => ({ ...f, [field]: value }))
 

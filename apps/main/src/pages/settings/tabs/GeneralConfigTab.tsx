@@ -8,6 +8,7 @@
  *   #langue-region, #cartographie, #emails-config
  */
 import { useCallback, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2, Crosshair, MapPin, Upload, Image as ImageIcon } from 'lucide-react'
 import { useMutation } from '@tanstack/react-query'
 import type { UseMutationResult } from '@tanstack/react-query'
@@ -40,6 +41,7 @@ function SettingRow({
 }
 
 export function GeneralConfigTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { data: settings, isLoading } = useScopedSettingsMap('entity')
   const mutation = useSaveScopedSetting('entity')
@@ -49,10 +51,10 @@ export function GeneralConfigTab() {
       { key, value },
       {
         onSuccess: () => {
-          toast({ title: 'Paramètre enregistré', variant: 'success' })
+          toast({ title: t('settings.toast.general.setting_saved'), variant: 'success' })
         },
         onError: () => {
-          toast({ title: 'Erreur', description: "Impossible d'enregistrer le paramètre.", variant: 'error' })
+          toast({ title: t('settings.toast.error'), description: t('settings.toast.general.setting_save_error'), variant: 'error' })
         },
       },
     )
@@ -69,7 +71,7 @@ export function GeneralConfigTab() {
       return `/static/${data.path || `branding/${file.name}`}`
     },
     onSuccess: () => {
-      toast({ title: 'Logo chargé', variant: 'success' })
+      toast({ title: t('settings.toast.general.logo_uploaded'), variant: 'success' })
     },
   })
 

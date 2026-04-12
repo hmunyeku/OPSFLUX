@@ -7,6 +7,7 @@
  * Sections: #password-policy, #account-lockout, #rate-limiting, #bot-protection, #sessions-notifications
  */
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
@@ -104,6 +105,7 @@ async function fetchSecuritySettings(): Promise<Record<string, any>> {
 }
 
 export function SecurityPolicyTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const qc = useQueryClient()
   const { data: cfg, isLoading } = useQuery({
@@ -116,10 +118,10 @@ export function SecurityPolicyTab() {
       api.put('/api/v1/admin/security-settings', { settings: updates }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'security-settings'] })
-      toast({ title: 'Paramètre enregistré', variant: 'success' })
+      toast({ title: t('settings.toast.security_policy.setting_saved'), variant: 'success' })
     },
     onError: () => {
-      toast({ title: 'Erreur', description: 'Impossible d\'enregistrer le paramètre.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.security_policy.setting_save_error'), variant: 'error' })
     },
   })
 

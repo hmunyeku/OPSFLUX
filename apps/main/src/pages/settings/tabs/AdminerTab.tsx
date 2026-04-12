@@ -19,6 +19,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { useToast } from '@/components/ui/Toast'
 
@@ -75,6 +76,7 @@ const MAX_ROWS_OPTIONS = [100, 500, 1000, 5000]
 // ── Component ───────────────────────────────────────────────────────────────
 
 export function AdminerTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const [copied, setCopied] = useState<string | null>(null)
   const [query, setQuery] = useState('')
@@ -118,7 +120,7 @@ export function AdminerTab() {
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text)
     setCopied(label)
-    toast({ title: `${label} copié`, variant: 'success' })
+    toast({ title: t('settings.toast.adminer.copied', { label }), variant: 'success' })
     setTimeout(() => setCopied(null), 2000)
   }
 
@@ -137,7 +139,7 @@ export function AdminerTab() {
       })
       setResult(data)
       if (data.error) {
-        toast({ title: 'Erreur SQL', description: data.error, variant: 'error' })
+        toast({ title: t('settings.toast.adminer.sql_error'), description: data.error, variant: 'error' })
       }
     } catch (err: any) {
       const msg = err?.response?.data?.detail || err.message || 'Erreur inconnue'
@@ -149,7 +151,7 @@ export function AdminerTab() {
         error: msg,
         truncated: false,
       })
-      toast({ title: 'Erreur', description: msg, variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: msg, variant: 'error' })
     } finally {
       setIsRunning(false)
     }

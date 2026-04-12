@@ -267,9 +267,9 @@ export function ProfileTab() {
       if (form.job_position_id !== (user?.job_position_id || '')) payload.job_position_id = (form.job_position_id as string) || null
 
       await updateProfile.mutateAsync(payload)
-      toast({ title: 'Profil mis à jour', description: 'Vos informations ont été enregistrées.', variant: 'success' })
+      toast({ title: t('settings.toast.profile.updated'), description: t('settings.toast.profile.updated_desc'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de mettre à jour le profil.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.profile.update_error'), variant: 'error' })
     }
   }
 
@@ -327,7 +327,7 @@ export function ProfileTab() {
       link.remove()
       window.URL.revokeObjectURL(blobUrl)
     } catch {
-      toast({ title: 'Erreur', description: "Impossible de télécharger l'export.", variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.profile.export_download_error'), variant: 'error' })
     }
   }
 
@@ -335,9 +335,9 @@ export function ProfileTab() {
     try {
       await api.delete(`/api/v1/gdpr/my-exports/${filename}`)
       queryClient.invalidateQueries({ queryKey: ['gdpr', 'my-exports'] })
-      toast({ title: 'Export supprimé', description: "L'export JSON a été retiré de l'historique.", variant: 'success' })
+      toast({ title: t('settings.toast.profile.export_deleted'), description: t('settings.toast.profile.export_deleted_desc'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: "Impossible de supprimer l'export.", variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.profile.export_delete_error'), variant: 'error' })
     }
   }
 
@@ -346,11 +346,11 @@ export function ProfileTab() {
     if (!file) return
     const validTypes = ['image/png', 'image/jpeg', 'image/webp']
     if (!validTypes.includes(file.type)) {
-      toast({ title: 'Format invalide', description: 'Seuls les formats PNG, JPG et WebP sont acceptés.', variant: 'error' })
+      toast({ title: t('settings.toast.profile.avatar_invalid_format'), description: t('settings.toast.profile.avatar_invalid_format_desc'), variant: 'error' })
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast({ title: 'Fichier trop volumineux', description: 'La taille maximale est de 5 Mo.', variant: 'error' })
+      toast({ title: t('settings.toast.profile.avatar_too_large'), description: t('settings.toast.profile.avatar_too_large_desc'), variant: 'error' })
       return
     }
     const url = URL.createObjectURL(file)
@@ -363,9 +363,9 @@ export function ProfileTab() {
     try {
       const file = new File([blob], 'avatar.png', { type: 'image/png' })
       await uploadAvatar.mutateAsync(file)
-      toast({ title: 'Avatar mis à jour', variant: 'success' })
+      toast({ title: t('settings.toast.profile.avatar_updated'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: "Impossible de téléverser l'avatar.", variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.profile.avatar_upload_error'), variant: 'error' })
     }
   }
 
@@ -383,7 +383,7 @@ export function ProfileTab() {
     } catch (err: any) {
       // Revert on failure
       setForm((prev) => ({ ...prev, [field]: previousValue }))
-      toast({ title: 'Erreur', description: err?.response?.data?.detail || 'Impossible de sauvegarder.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: err?.response?.data?.detail || t('settings.toast.profile.save_error'), variant: 'error' })
     }
   }
 
@@ -848,7 +848,7 @@ export function ProfileTab() {
                 try {
                   await api.post('/api/v1/gdpr/request-export')
                   queryClient.invalidateQueries({ queryKey: ['gdpr', 'my-exports'] })
-                  toast({ title: 'Export demande', description: 'Vous recevrez une notification quand il sera pret.', variant: 'success' })
+                  toast({ title: t('settings.toast.profile.export_requested'), description: t('settings.toast.profile.export_requested_desc'), variant: 'success' })
                 } catch { /* toast handled by interceptor */ }
               }}
             >
@@ -1003,6 +1003,7 @@ function InlineNameEditor({ firstName, lastName, onFirstNameChange, onLastNameCh
 
 
 function LinkedSSOAccounts() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const [linked, setLinked] = useState<Array<{ id: string; provider: string; email: string | null; display_name: string | null; linked_at: string | null }>>([])
   const [available, setAvailable] = useState<Array<{ id: string; name: string; icon: string }>>([])
@@ -1031,13 +1032,13 @@ function LinkedSSOAccounts() {
     const params = new URLSearchParams(window.location.search)
     const ssoLink = params.get('sso_link')
     if (ssoLink === 'success') {
-      toast({ title: 'Compte lié avec succès', variant: 'success' })
+      toast({ title: t('settings.toast.profile.sso_linked'), variant: 'success' })
       window.history.replaceState({}, '', window.location.pathname + window.location.hash)
     } else if (ssoLink === 'already_linked') {
-      toast({ title: 'Ce fournisseur est déjà lié', variant: 'warning' })
+      toast({ title: t('settings.toast.profile.sso_already_linked'), variant: 'warning' })
       window.history.replaceState({}, '', window.location.pathname + window.location.hash)
     } else if (ssoLink === 'error') {
-      toast({ title: 'Erreur lors du lien SSO', variant: 'error' })
+      toast({ title: t('settings.toast.profile.sso_link_error'), variant: 'error' })
       window.history.replaceState({}, '', window.location.pathname + window.location.hash)
     }
   }, [toast])
@@ -1048,7 +1049,7 @@ function LinkedSSOAccounts() {
       const res = await api.get(`/api/v1/auth/sso/link?provider=${providerId}`)
       window.location.href = res.data.authorize_url
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de démarrer le lien SSO.', variant: 'error' })
+      toast({ title: t('settings.toast.error'), description: t('settings.toast.profile.sso_start_error'), variant: 'error' })
     }
   }
 
@@ -1058,9 +1059,9 @@ function LinkedSSOAccounts() {
       await api.delete(`/api/v1/auth/sso/linked-providers/${linkId}`)
       setLinked((prev) => prev.filter((p) => p.id !== linkId))
       setUnlinkingId(null)
-      toast({ title: 'Compte dissocié', variant: 'success' })
+      toast({ title: t('settings.toast.profile.sso_unlinked'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('settings.toast.error'), variant: 'error' })
     }
   }
 

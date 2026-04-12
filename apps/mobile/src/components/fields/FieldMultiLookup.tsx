@@ -20,6 +20,7 @@ import {
   TouchableRipple,
 } from "react-native-paper";
 import { fetchWithOfflineFallback } from "../../services/offline";
+import { getCachedLookup } from "../../services/lookupCache";
 import type { FieldDefinition } from "../../types/forms";
 import { colors } from "../../utils/colors";
 
@@ -60,8 +61,20 @@ export default function FieldMultiLookup({ field, value, error, required, onChan
         if (query && source.search_param) {
           params[source.search_param] = query;
         }
-        const result = await fetchWithOfflineFallback<any>(source.endpoint, params);
-        const list = Array.isArray(result.data) ? result.data : result.data?.items ?? [];
+        let list: LookupItem[];
+        try {
+          const result = await fetchWithOfflineFallback<any>(source.endpoint, params);
+          list = Array.isArray(result.data) ? result.data : result.data?.items ?? [];
+        } catch {
+          const cached = await getCachedLookup(source.endpoint);
+          list = (cached as LookupItem[]) ?? [];
+          if (query && source.display) {
+            const q = query.toLowerCase();
+            list = list.filter((item) =>
+              String(item[source.display] ?? "").toLowerCase().includes(q)
+            );
+          }
+        }
         setItems(list);
       } catch {
         // keep existing

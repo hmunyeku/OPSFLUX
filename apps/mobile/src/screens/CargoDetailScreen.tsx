@@ -241,23 +241,20 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
         </View>
       )}
 
-      {/* Receive button */}
+      {/* Receive button — navigates to full reception workflow */}
       {cargo &&
         !["received", "delivered_final", "returned"].includes(
           cargo.status
         ) && (
           <Pressable
-            style={[styles.receiveButton, receiving && { opacity: 0.6 }]}
-            onPress={handleReceive}
-            disabled={receiving}
+            style={styles.receiveButton}
+            onPress={() =>
+              navigation.navigate("CargoReception", { cargo })
+            }
           >
-            {receiving ? (
-              <ActivityIndicator color={colors.textInverse} />
-            ) : (
-              <Text style={styles.receiveButtonText}>
-                Confirmer la réception
-              </Text>
-            )}
+            <Text style={styles.receiveButtonText}>
+              Confirmer la réception
+            </Text>
           </Pressable>
         )}
 

@@ -30,6 +30,20 @@ export const api = axios.create({
   },
 });
 
+// ── Automatic retry on network errors (1 retry after 2s) ─────────
+
+api.interceptors.response.use(undefined, async (error: AxiosError) => {
+  const config = error.config as InternalAxiosRequestConfig & { _retried?: boolean };
+  if (!config || config._retried) return Promise.reject(error);
+
+  // Only retry on network errors (no response = network issue)
+  if (error.response) return Promise.reject(error);
+
+  config._retried = true;
+  await new Promise((r) => setTimeout(r, 2000));
+  return api(config);
+});
+
 /** Attach JWT access token + entity header to every request. */
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const { accessToken, entityId } = useAuthStore.getState();

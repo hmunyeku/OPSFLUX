@@ -20,6 +20,7 @@ import {
   TouchableRipple,
 } from "react-native-paper";
 import { fetchWithOfflineFallback } from "../../services/offline";
+import { getCachedLookup } from "../../services/lookupCache";
 import type { FieldDefinition } from "../../types/forms";
 import { colors } from "../../utils/colors";
 
@@ -73,10 +74,27 @@ export default function FieldLookup({ field, value, error, required, onChange }:
           params[source.search_param] = query;
         }
 
-        const result = await fetchWithOfflineFallback<any>(source.endpoint, params);
-        const data = result.data;
-        // Handle both paginated and flat array responses
-        const list = Array.isArray(data) ? data : data?.items ?? [];
+        let list: LookupItem[];
+        try {
+          const result = await fetchWithOfflineFallback<any>(source.endpoint, params);
+          const data = result.data;
+          list = Array.isArray(data) ? data : data?.items ?? [];
+        } catch {
+          // Offline — fallback to pre-fetched lookup cache
+          const cached = await getCachedLookup(source.endpoint);
+          if (cached) {
+            list = cached as LookupItem[];
+            // Client-side filter if we have a search query
+            if (query && source.display) {
+              const q = query.toLowerCase();
+              list = list.filter((item) =>
+                String(item[source.display] ?? "").toLowerCase().includes(q)
+              );
+            }
+          } else {
+            list = [];
+          }
+        }
         setItems(list);
       } catch {
         // Keep existing items on error

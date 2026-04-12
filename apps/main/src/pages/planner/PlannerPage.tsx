@@ -1715,8 +1715,8 @@ function ConflitsTab() {
 
       {/* Resolve conflict modal */}
       {resolveModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setResolveModal(null)}>
-          <div className="bg-background rounded-lg border border-border shadow-lg w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="gl-modal-backdrop" onClick={() => setResolveModal(null)}>
+          <div className="gl-modal-card" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-foreground">{t('planner.resolve_conflict_title')}</h3>
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.resolve_conflict_field')}</label>
@@ -1783,11 +1783,11 @@ function ConflitsTab() {
       {/* Bulk resolve conflicts modal */}
       {bulkResolveOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          className="gl-modal-backdrop"
           onClick={() => !bulkResolveConflicts.isPending && setBulkResolveOpen(false)}
         >
           <div
-            className="bg-background rounded-lg border border-border shadow-lg w-full max-w-md p-5 space-y-4"
+            className="gl-modal-card"
             onClick={(e) => e.stopPropagation()}
           >
             <div>
@@ -1841,8 +1841,8 @@ function ConflitsTab() {
       )}
 
       {requestDecisionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setRequestDecisionModal(null)}>
-          <div className="bg-background rounded-lg border border-border shadow-lg w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="gl-modal-backdrop" onClick={() => setRequestDecisionModal(null)}>
+          <div className="gl-modal-card" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-foreground">{t('planner.revision_requests.request_title')}</h3>
             <p className="text-xs text-muted-foreground">
               {requestDecisionModal.project_code || t('planner.revision_signals.project_fallback')} · {requestDecisionModal.task_title || t('planner.revision_signals.task_fallback')}
@@ -1925,8 +1925,8 @@ function ConflitsTab() {
       )}
 
       {respondDecisionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setRespondDecisionModal(null)}>
-          <div className="bg-background rounded-lg border border-border shadow-lg w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="gl-modal-backdrop" onClick={() => setRespondDecisionModal(null)}>
+          <div className="gl-modal-card" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-foreground">{t('planner.revision_requests.respond_title')}</h3>
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.revision_requests.response')}</label>
@@ -2530,8 +2530,8 @@ function CapacityTab({
 
       {/* Modify capacity modal */}
       {showCapModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowCapModal(false)}>
-          <div className="bg-background rounded-lg border border-border shadow-lg w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="gl-modal-backdrop" onClick={() => setShowCapModal(false)}>
+          <div className="gl-modal-card" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-foreground">Modifier la capacite</h3>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -4368,8 +4368,8 @@ function ActivityDetailPanel({ id }: { id: string }) {
 
       {/* Impact Preview Modal */}
       {showImpact && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowImpact(false)}>
-          <div className="bg-background rounded-lg border border-border shadow-lg w-full max-w-lg p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="gl-modal-backdrop" onClick={() => setShowImpact(false)}>
+          <div className="gl-modal-card max-w-lg" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <AlertTriangle size={14} className="text-amber-500" />
               Impact de la modification

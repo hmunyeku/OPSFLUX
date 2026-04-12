@@ -117,8 +117,8 @@ function ConfirmDialog({
 }) {
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-sm rounded-lg border border-border bg-card p-5 shadow-lg">
+    <div className="gl-modal-backdrop">
+      <div className="gl-modal-card !bg-card !max-w-sm">
         <h3 className="text-sm font-semibold text-foreground mb-1">{title}</h3>
         <p className="text-xs text-muted-foreground mb-4">{message}</p>
         <div className="flex justify-end gap-2">

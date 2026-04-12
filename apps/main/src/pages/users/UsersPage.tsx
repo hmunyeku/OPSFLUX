@@ -2221,8 +2221,8 @@ function BatchAssignModal({ title, subtitle, searchPlaceholder, items, isPending
   }, [items, search])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-card border border-border rounded-lg shadow-xl w-96 p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+    <div className="gl-modal-backdrop" onClick={onClose}>
+      <div className="gl-modal-card !bg-card !max-w-sm" onClick={(e) => e.stopPropagation()}>
         <div>
           <h3 className="text-sm font-semibold text-foreground">{title}</h3>
           <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>

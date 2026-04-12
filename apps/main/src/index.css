@@ -276,6 +276,20 @@
     padding-right: 1.5rem;
   }
 
+  /* ── Inline modal pattern ─────────────────────────────────── */
+  /* Used by pages that render their own ad-hoc modals (resolve
+     conflict, decide revision, etc.) instead of using the shared
+     Dialog component. Mobile-friendly defaults: full-width with
+     small horizontal margin, capped height with internal scroll. */
+  .gl-modal-backdrop {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-0;
+  }
+  .gl-modal-card {
+    @apply bg-background rounded-lg border border-border shadow-lg
+           w-full max-w-md p-4 sm:p-5 space-y-4
+           max-h-[90vh] overflow-y-auto;
+  }
+
   /* ── Badges ───────────────────────────────────────────────── */
   .gl-badge {
     @apply inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-medium leading-none;

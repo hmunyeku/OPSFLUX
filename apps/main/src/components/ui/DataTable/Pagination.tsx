@@ -25,8 +25,8 @@ export function DataTablePaginationBar({
   if (total === 0) return null
 
   return (
-    <div className="flex items-center justify-between border-t border-border px-3 h-7 shrink-0">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-3 gap-y-1 border-t border-border px-3 py-1 sm:py-0 sm:h-7 shrink-0">
+      <div className="flex items-center gap-2 order-2 sm:order-1">
         <span className="text-[11px] text-muted-foreground tabular-nums">
           {start}–{end} sur {total.toLocaleString('fr-FR')}
         </span>
@@ -35,7 +35,7 @@ export function DataTablePaginationBar({
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="text-[11px] bg-transparent border border-border rounded px-1 py-0 text-foreground h-5 cursor-pointer"
+            className="text-[11px] bg-transparent border border-border rounded px-1 py-0 text-foreground h-6 sm:h-5 cursor-pointer"
           >
             {pageSizeOptions.map((size) => (
               <option key={size} value={size}>{size} / page</option>
@@ -44,12 +44,12 @@ export function DataTablePaginationBar({
         )}
       </div>
 
-      <div className="flex items-center gap-0">
+      <div className="flex items-center gap-0 order-1 sm:order-2 ml-auto sm:ml-0">
         <NavButton disabled={page <= 1} onClick={() => onPageChange(1)} title="Première page">
-          <ChevronsLeft size={12} />
+          <ChevronsLeft size={14} />
         </NavButton>
         <NavButton disabled={page <= 1} onClick={() => onPageChange(page - 1)} title="Précédent">
-          <ChevronLeft size={12} />
+          <ChevronLeft size={14} />
         </NavButton>
 
         {generatePageNumbers(page, pages).map((p, i) => (
@@ -60,7 +60,7 @@ export function DataTablePaginationBar({
               key={p}
               onClick={() => onPageChange(p as number)}
               className={cn(
-                'min-w-[22px] h-[22px] rounded text-[11px] font-medium transition-colors tabular-nums',
+                'min-w-[28px] sm:min-w-[22px] h-[28px] sm:h-[22px] rounded text-[11px] font-medium transition-colors tabular-nums',
                 p === page
                   ? 'bg-primary/10 text-primary'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -72,10 +72,10 @@ export function DataTablePaginationBar({
         ))}
 
         <NavButton disabled={page >= pages} onClick={() => onPageChange(page + 1)} title="Suivant">
-          <ChevronRight size={12} />
+          <ChevronRight size={14} />
         </NavButton>
         <NavButton disabled={page >= pages} onClick={() => onPageChange(pages)} title="Dernière page">
-          <ChevronsRight size={12} />
+          <ChevronsRight size={14} />
         </NavButton>
       </div>
     </div>
@@ -90,8 +90,10 @@ function NavButton({ disabled, onClick, title, children }: {
       disabled={disabled}
       onClick={onClick}
       title={title}
+      aria-label={title}
       className={cn(
-        'p-0.5 rounded text-muted-foreground transition-colors',
+        // Mobile: 28px touch target — desktop: dense 4px padding
+        'h-7 w-7 sm:h-auto sm:w-auto sm:p-0.5 flex items-center justify-center rounded text-muted-foreground transition-colors',
         disabled ? 'opacity-25 cursor-not-allowed' : 'hover:bg-accent hover:text-foreground',
       )}
     >

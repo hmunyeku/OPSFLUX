@@ -42,6 +42,8 @@ import {
   FieldPhoto,
   FieldBarcode,
   FieldSignature,
+  FieldLocation,
+  FieldRepeater,
 } from "./fields";
 import type { FieldDefinition, FormDefinition } from "../types/forms";
 import { colors } from "../utils/colors";
@@ -331,6 +333,22 @@ function renderFieldByType(
     case "signature":
       return (
         <FieldSignature
+          {...props}
+          onChange={(v) => onChange(fieldName, v)}
+        />
+      );
+
+    case "location":
+      return (
+        <FieldLocation
+          {...props}
+          onChange={(v) => onChange(fieldName, v)}
+        />
+      );
+
+    case "repeater":
+      return (
+        <FieldRepeater
           {...props}
           onChange={(v) => onChange(fieldName, v)}
         />

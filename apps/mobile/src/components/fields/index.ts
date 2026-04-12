@@ -7,3 +7,5 @@ export { default as FieldLookup } from "./FieldLookup";
 export { default as FieldPhoto } from "./FieldPhoto";
 export { default as FieldBarcode } from "./FieldBarcode";
 export { default as FieldSignature } from "./FieldSignature";
+export { default as FieldLocation } from "./FieldLocation";
+export { default as FieldRepeater } from "./FieldRepeater";

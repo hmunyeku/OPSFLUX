@@ -25,7 +25,7 @@ export function DataTablePaginationBar({
   if (total === 0) return null
 
   return (
-    <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-3 gap-y-1 border-t border-border px-3 py-1 sm:py-0 sm:h-7 shrink-0">
+    <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-3 gap-y-1 border-t border-border px-3 py-1 sm:py-0 sm:h-7 shrink-0 sticky bottom-0 bg-background z-10">
       <div className="flex items-center gap-2 order-2 sm:order-1">
         <span className="text-[11px] text-muted-foreground tabular-nums">
           {start}–{end} sur {total.toLocaleString('fr-FR')}

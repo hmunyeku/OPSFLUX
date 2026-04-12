@@ -555,6 +555,21 @@ def get_portal_definitions() -> list[dict]:
             ],
         ),
         build_portal_config(
+            portal_id="driver",
+            title="Portail Chauffeur",
+            description="Ramassage pax, itinéraire et suivi en temps réel",
+            icon="car",
+            permissions=["travelwiz.boarding.manage"],
+            actions=[
+                {"id": "driver_pickup", "type": "screen", "title": "Mode Ramassage", "icon": "navigation", "screen": "DriverPickup"},
+                {"id": "captain_auth", "type": "screen", "title": "Accès code rotation", "icon": "key", "screen": "CaptainAuth"},
+                {"id": "live_tracking", "type": "screen", "title": "Suivi GPS", "icon": "map-pin", "screen": "LiveTracking"},
+            ],
+            quick_scans=[
+                {"type": "qr", "label": "Scan passager", "target": "ScanAds"},
+            ],
+        ),
+        build_portal_config(
             portal_id="requester",
             title="Portail Demandeur",
             description="Créer et suivre vos demandes",

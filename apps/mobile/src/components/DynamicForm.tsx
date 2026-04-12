@@ -39,6 +39,8 @@ import {
   FieldDate,
   FieldToggle,
   FieldLookup,
+  FieldPhoto,
+  FieldBarcode,
 } from "./fields";
 import type { FieldDefinition, FormDefinition } from "../types/forms";
 import { colors } from "../utils/colors";
@@ -309,10 +311,17 @@ function renderFieldByType(
         />
       );
 
-    case "barcode":
-      // Renders as text with scan button — QrScanner integration
+    case "photo":
       return (
-        <FieldText
+        <FieldPhoto
+          {...props}
+          onChange={(v) => onChange(fieldName, v)}
+        />
+      );
+
+    case "barcode":
+      return (
+        <FieldBarcode
           {...props}
           onChange={(v) => onChange(fieldName, v)}
         />

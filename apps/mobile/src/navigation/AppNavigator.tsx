@@ -37,6 +37,8 @@ import DynamicFormScreen from "../screens/DynamicFormScreen";
 import SearchScreen from "../screens/SearchScreen";
 import NotificationsScreen from "../screens/NotificationsScreen";
 import LiveTrackingScreen from "../screens/LiveTrackingScreen";
+import CaptainPortalScreen from "../screens/CaptainPortalScreen";
+import DriverPickupScreen from "../screens/DriverPickupScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 
 const Stack = createNativeStackNavigator();
@@ -136,6 +138,16 @@ function SharedScreens() {
         name="Search"
         component={SearchScreen}
         options={{ title: "Recherche" }}
+      />
+      <Stack.Screen
+        name="CaptainAuth"
+        component={CaptainPortalScreen}
+        options={{ title: "Portail Capitaine" }}
+      />
+      <Stack.Screen
+        name="DriverPickup"
+        component={DriverPickupScreen}
+        options={{ title: "Mode Ramassage" }}
       />
     </>
   );

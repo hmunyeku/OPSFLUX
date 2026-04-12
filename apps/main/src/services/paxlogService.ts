@@ -1291,8 +1291,10 @@ export const paxlogService = {
   },
 
   /** Search PAX candidates: existing profiles + users + contacts */
-  searchPaxCandidates: async (search: string): Promise<PaxCandidate[]> => {
-    const { data } = await api.get('/api/v1/pax/candidates', { params: { search } })
+  searchPaxCandidates: async (search: string, adsId?: string): Promise<PaxCandidate[]> => {
+    const params: Record<string, string> = { search }
+    if (adsId) params.ads_id = adsId
+    const { data } = await api.get('/api/v1/pax/candidates', { params })
     return data
   },
 

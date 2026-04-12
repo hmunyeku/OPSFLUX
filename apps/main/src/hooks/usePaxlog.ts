@@ -492,10 +492,10 @@ export function useAddPaxToAdsV2() {
 }
 
 /** Search PAX candidates (profiles + users + contacts) */
-export function usePaxCandidates(search: string) {
+export function usePaxCandidates(search: string, adsId?: string) {
   return useQuery({
-    queryKey: ['paxlog', 'candidates', search],
-    queryFn: () => paxlogService.searchPaxCandidates(search),
+    queryKey: ['paxlog', 'candidates', search, adsId],
+    queryFn: () => paxlogService.searchPaxCandidates(search, adsId),
     enabled: search.length >= 1,
     staleTime: 10_000,
   })

@@ -5403,6 +5403,7 @@ class AddPaxBody(BaseModel):
 @router.get("/candidates")
 async def search_pax_candidates(
     search: str = Query("", min_length=0),
+    ads_id: UUID | None = Query(None),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("paxlog.ads.read"),
@@ -5411,11 +5412,33 @@ async def search_pax_candidates(
     """Search for PAX candidates: Users + TierContacts.
 
     Returns a unified list for the PAX picker in the AdS detail panel.
+
+    When *ads_id* is supplied the endpoint enforces the company-scope rules
+    from spec §3.3:
+    - team ADS with no allowed companies → empty list (no suggestions)
+    - team ADS with allowed companies   → contacts filtered to those companies
+    - individual ADS                    → no company filtering
+    Internal users (source='user') are always returned regardless of filter.
     """
+    # ── Resolve allowed-company scope when an ADS is specified ──
+    allowed_company_ids: list[UUID] | None = None  # None = no filtering
+    if ads_id is not None:
+        ads_row = (
+            await db.execute(
+                select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
+            )
+        ).scalar_one_or_none()
+        if ads_row is not None and ads_row.type == "team":
+            company_ids, _ = await _get_ads_allowed_company_scope(db, ads_id=ads_row.id)
+            if not company_ids:
+                # §3.3: no allowed companies → no suggestions at all
+                return []
+            allowed_company_ids = company_ids
+
     candidates = []
     like = f"%{search}%"
 
-    # 1. Users (internal PAX)
+    # 1. Users (internal PAX) — always shown regardless of company filter
     user_q = select(User).where(User.active == True)  # noqa: E712
     if current_user.user_type == "external":
         user_q = user_q.where(User.id == current_user.id)
@@ -5451,6 +5474,9 @@ async def search_pax_candidates(
     linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
     if linked_tier_ids is not None:
         contact_q = contact_q.where(TierContact.tier_id.in_(linked_tier_ids))
+    # §3.3: restrict contacts to allowed companies for team ADS
+    if allowed_company_ids is not None:
+        contact_q = contact_q.where(TierContact.tier_id.in_(allowed_company_ids))
     if search:
         contact_q = contact_q.where(
             or_(
@@ -8262,14 +8288,14 @@ async def resubmit_external_ads(
 # STAY PROGRAMS (deplacements intra-champ)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-STAY_PROGRAM_ACTIVE_ADS_STATUSES = {"approved", "in_progress"}
+STAY_PROGRAM_ACTIVE_ADS_STATUSES = {"draft", "requires_review", "approved", "in_progress"}
 
 
 def _ensure_stay_program_ads_status(ads_status: str) -> None:
     if ads_status not in STAY_PROGRAM_ACTIVE_ADS_STATUSES:
         raise HTTPException(
             status_code=400,
-            detail="Le programme de sejour n'est autorise que pour une AdS approuvee ou en cours.",
+            detail="Le programme de sejour n'est autorise qu'a partir du statut brouillon.",
         )
 
 

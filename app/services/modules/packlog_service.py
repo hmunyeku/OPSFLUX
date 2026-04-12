@@ -1587,7 +1587,9 @@ async def build_packlog_lt_variables(
     ).scalars().all()
     cargo_items: list[dict[str, Any]] = []
     total_weight = 0.0
+    total_volume = 0.0
     total_packages = 0
+    has_hazmat = False
     status_breakdown = {
         "registered": 0,
         "ready_for_loading": 0,
@@ -1606,6 +1608,15 @@ async def build_packlog_lt_variables(
         normalized_status = str(cargo.status or "")
         if normalized_status in status_breakdown:
             status_breakdown[normalized_status] += 1
+        # Dimensions & volume
+        w = float(cargo.width_cm or 0)
+        l = float(cargo.length_cm or 0)
+        h = float(cargo.height_cm or 0)
+        volume_m3 = round((w * l * h) / 1_000_000, 4) if (w and l and h) else 0.0
+        total_volume += volume_m3
+        is_hazmat = cargo.cargo_type == "hazmat" or bool(cargo.hazmat_validated)
+        if is_hazmat:
+            has_hazmat = True
         cargo_items.append(
             {
                 "id": str(cargo.id),
@@ -1614,19 +1625,70 @@ async def build_packlog_lt_variables(
                 "description": cargo.description,
                 "cargo_type": cargo.cargo_type,
                 "weight_kg": round(weight_value, 2),
+                "weight_subtotal": round(weight_value * package_count, 2),
                 "package_count": package_count,
+                "width_cm": round(w, 1) if w else None,
+                "length_cm": round(l, 1) if l else None,
+                "height_cm": round(h, 1) if h else None,
+                "volume_m3": round(volume_m3, 4) if volume_m3 else None,
+                "is_hazmat": is_hazmat,
+                "stackable": bool(cargo.stackable),
+                "pickup_location": cargo.pickup_location_label,
+                "pickup_contact_name": cargo.pickup_contact_name,
+                "pickup_contact_phone": cargo.pickup_contact_phone,
                 "status": cargo.status,
                 "status_label": PACKLOG_PUBLIC_STATUS_LABELS.get(cargo.status, cargo.status),
                 "qr_data": _build_packlog_frontend_url(f"/packlog?cargo={cargo.id}"),
                 "qr_url": _build_packlog_frontend_url(f"/packlog?cargo={cargo.id}"),
             }
         )
+
+    # ── Sender company address (from Tier) ──────────────────────────────
+    sender_address = None
+    if cargo_request.sender_tier_id:
+        tier = await db.get(Tier, cargo_request.sender_tier_id)
+        if tier:
+            addr_parts = [
+                p for p in [
+                    tier.address_line1,
+                    tier.address_line2,
+                    ", ".join(p2 for p2 in [tier.zip_code, tier.city] if p2),
+                    tier.state,
+                    tier.country,
+                ] if p
+            ]
+            sender_address = "\n".join(addr_parts) if addr_parts else None
+
+    # ── Transport details (voyage linked to any loaded cargo) ───────────
+    transport_voyage_code = None
+    transport_vector_name = None
+    transport_vector_registration = None
+    loaded_manifest_ids = [
+        cargo.manifest_id for cargo in cargo_rows if cargo.manifest_id
+    ]
+    if loaded_manifest_ids:
+        manifest_row = (
+            await db.execute(
+                select(VoyageManifest)
+                .where(VoyageManifest.id == loaded_manifest_ids[0])
+            )
+        ).scalar_one_or_none()
+        if manifest_row:
+            voyage = await db.get(Voyage, manifest_row.voyage_id)
+            if voyage:
+                transport_voyage_code = voyage.code
+                vector = await db.get(TransportVector, voyage.vector_id)
+                if vector:
+                    transport_vector_name = vector.name
+                    transport_vector_registration = vector.registration
+
     return {
         "entity": entity,
         "request_code": request_payload.get("request_code"),
         "request_title": request_payload.get("title"),
         "request_status": request_payload.get("status"),
         "sender_name": request_payload.get("sender_name"),
+        "sender_address": sender_address,
         "receiver_name": request_payload.get("receiver_name"),
         "destination_name": request_payload.get("destination_name"),
         "requester_name": request_payload.get("requester_display_name") or request_payload.get("requester_name"),
@@ -1647,7 +1709,12 @@ async def build_packlog_lt_variables(
         "cargo_items": cargo_items,
         "total_cargo_items": len(cargo_items),
         "total_weight_kg": round(total_weight, 2),
+        "total_volume_m3": round(total_volume, 4),
         "total_packages": total_packages,
+        "has_hazmat": has_hazmat,
+        "transport_voyage_code": transport_voyage_code,
+        "transport_vector_name": transport_vector_name,
+        "transport_vector_registration": transport_vector_registration,
         "status_breakdown": status_breakdown,
         "generated_at": _format_packlog_pdf_datetime(datetime.now(timezone.utc)),
     }

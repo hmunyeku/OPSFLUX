@@ -365,7 +365,7 @@ export const travelwizService = {
 
   // ── Weather ──
   getLatestWeather: async (siteId?: string): Promise<WeatherData[]> => {
-    const { data } = await api.get(`${BASE}/weather/latest`, { params: siteId ? { site_id: siteId } : {} })
+    const { data } = await api.get(`${BASE}/weather/sites`, { params: siteId ? { site_id: siteId } : {} })
     return data
   },
 

@@ -2805,7 +2805,7 @@ function AdsDetailPanel({ id }: { id: string }) {
     { effective_date: '', from_location: '', to_location: '', transport_mode: '', notes: '' },
   ])
   const debouncedPaxSearch = useDebounce(paxSearch, 300)
-  const { data: paxCandidates } = usePaxCandidates(debouncedPaxSearch)
+  const { data: paxCandidates } = usePaxCandidates(debouncedPaxSearch, id)
 
   // Resolve asset name from tree
   const resolveAssetName = useCallback((assetId: string | null | undefined): string | null => {
@@ -2914,7 +2914,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   const canDownloadPdf = ['approved', 'in_progress', 'completed'].includes(ads.status)
   const canGenerateLink = ['approved', 'in_progress'].includes(ads.status)
   const hasAllowedCompaniesForExternalLink = (allowedCompaniesDraft?.length ?? 0) > 0
-  const stayProgramsEnabled = ['approved', 'in_progress'].includes(ads.status)
+  const stayProgramsEnabled = ['draft', 'requires_review', 'approved', 'in_progress'].includes(ads.status)
   const canManageStayPrograms = stayProgramsEnabled && hasPermission('paxlog.stay.create')
   const canApproveStayPrograms = stayProgramsEnabled && hasPermission('paxlog.stay.approve')
   const canEditAllowedCompanies = ['draft', 'requires_review'].includes(ads.status) && hasPermission('paxlog.ads.update')

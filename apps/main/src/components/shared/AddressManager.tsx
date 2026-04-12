@@ -385,7 +385,7 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
 
       {/* Address grid */}
       {!isLoading && addresses.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 @[500px]:grid-cols-2 @[900px]:grid-cols-3 gap-3">
           {addresses.map((addr) => {
             const badge = getLabelBadge(addr.label, dictLabels)
             const isConfirming = confirmDeleteId === addr.id

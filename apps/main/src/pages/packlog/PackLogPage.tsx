@@ -720,6 +720,8 @@ function AlertsTab() {
   )
 }
 
+const VALID_PL_TABS = new Set<PackLogTab>(['dashboard', 'requests', 'cargo', 'catalog', 'tracking', 'alerts'])
+
 export function PackLogPage() {
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
@@ -727,18 +729,12 @@ export function PackLogPage() {
   const { hasPermission } = usePermission()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabFromUrl = searchParams.get('tab') as PackLogTab | null
-  const VALID_PL_TABS = new Set<PackLogTab>(['dashboard', 'requests', 'cargo', 'catalog', 'tracking', 'alerts'])
   const [activeTab, setActiveTabRaw] = useState<PackLogTab>(
     tabFromUrl && VALID_PL_TABS.has(tabFromUrl) ? tabFromUrl : 'dashboard',
   )
   const setActiveTab = useCallback((tab: PackLogTab) => {
     setActiveTabRaw(tab)
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev)
-      if (tab === 'dashboard') next.delete('tab')
-      else next.set('tab', tab)
-      return next
-    }, { replace: true })
+    setSearchParams(tab === 'dashboard' ? {} : { tab }, { replace: true })
   }, [setSearchParams])
   const { data: requestsSummary } = usePackLogCargoRequests({ page: 1, page_size: 1 })
   const { data: cargoSummary } = usePackLogCargo({ page: 1, page_size: 1 })
@@ -751,23 +747,20 @@ export function PackLogPage() {
   const requestId = searchParams.get('request')
   const cargoId = searchParams.get('cargo')
 
+  // Deep-link: ?request=<id> or ?cargo=<id> opens the right tab + detail panel
   useEffect(() => {
     if (requestId && dynamicPanel?.module !== 'packlog') {
-      setActiveTab('requests')
+      setActiveTabRaw('requests')
       openDynamicPanel({ type: 'detail', module: 'packlog', id: requestId, meta: { subtype: 'cargo-request' } })
-      const next = new URLSearchParams(searchParams)
-      next.delete('request')
-      setSearchParams(next, { replace: true })
+      setSearchParams({ tab: 'requests' }, { replace: true })
       return
     }
     if (cargoId && dynamicPanel?.module !== 'packlog') {
-      setActiveTab('cargo')
+      setActiveTabRaw('cargo')
       openDynamicPanel({ type: 'detail', module: 'packlog', id: cargoId, meta: { subtype: 'cargo' } })
-      const next = new URLSearchParams(searchParams)
-      next.delete('cargo')
-      setSearchParams(next, { replace: true })
+      setSearchParams({ tab: 'cargo' }, { replace: true })
     }
-  }, [cargoId, dynamicPanel?.module, openDynamicPanel, requestId, searchParams, setSearchParams])
+  }, [cargoId, dynamicPanel?.module, openDynamicPanel, requestId, setSearchParams])
 
   const tabItems = useMemo(() => TABS.map((tab) => ({
     ...tab,
@@ -801,16 +794,21 @@ export function PackLogPage() {
               )}
             </PanelHeader>
 
-            <div className="shrink-0 border-b border-border px-3 py-2">
-              <TabBar items={tabItems} activeId={activeTab} onTabChange={setActiveTab} />
-            </div>
+            <TabBar
+              items={tabItems}
+              activeId={activeTab}
+              onTabChange={setActiveTab}
+              rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-packlog" /> : null}
+            />
 
-            {activeTab === 'dashboard' && <ModuleDashboard module="packlog" />}
-            {activeTab === 'requests' && <RequestsTab />}
-            {activeTab === 'cargo' && <CargoTab />}
-            {activeTab === 'catalog' && <CatalogTab />}
-            {activeTab === 'tracking' && <TrackingTab />}
-            {activeTab === 'alerts' && <AlertsTab />}
+            <PanelContent>
+              {activeTab === 'dashboard' && <ModuleDashboard module="packlog" toolbarPortalId="dash-toolbar-packlog" />}
+              {activeTab === 'requests' && <RequestsTab />}
+              {activeTab === 'cargo' && <CargoTab />}
+              {activeTab === 'catalog' && <CatalogTab />}
+              {activeTab === 'tracking' && <TrackingTab />}
+              {activeTab === 'alerts' && <AlertsTab />}
+            </PanelContent>
           </div>
         )}
 

@@ -28,6 +28,7 @@ import {
 import { api } from "../services/api";
 import { useAuthStore } from "../stores/auth";
 import { useTrackingStore, startTracking, stopTracking } from "../services/tracking";
+import FleetMap, { MapPosition } from "../components/FleetMap";
 import { colors } from "../utils/colors";
 
 // ── Types ─────────────────────────────────────────────────────────────
@@ -183,6 +184,17 @@ export default function LiveTrackingScreen({ navigation }: Props) {
         </Card.Content>
       </Card>
 
+      {/* Fleet map */}
+      {positions.length > 0 && (
+        <Surface style={styles.mapContainer} elevation={1}>
+          <FleetMap
+            positions={positions as MapPosition[]}
+            showUserLocation={trackingEnabled}
+            style={styles.mapView}
+          />
+        </Surface>
+      )}
+
       {/* Fleet positions list */}
       <Text variant="titleMedium" style={styles.sectionTitle}>
         Positions de la flotte
@@ -260,6 +272,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   beaconCoord: { color: colors.textMuted, fontFamily: "monospace" },
+  mapContainer: { borderRadius: 12, overflow: "hidden" },
+  mapView: { height: 280, borderRadius: 12 },
   sectionTitle: { fontWeight: "700", color: colors.textPrimary, marginTop: 4 },
   emptyText: { textAlign: "center", color: colors.textMuted, marginTop: 24, fontSize: 14 },
   positionCard: {

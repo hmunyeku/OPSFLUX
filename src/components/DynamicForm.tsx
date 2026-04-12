@@ -41,6 +41,7 @@ import {
   FieldLookup,
   FieldPhoto,
   FieldBarcode,
+  FieldSignature,
 } from "./fields";
 import type { FieldDefinition, FormDefinition } from "../types/forms";
 import { colors } from "../utils/colors";
@@ -322,6 +323,14 @@ function renderFieldByType(
     case "barcode":
       return (
         <FieldBarcode
+          {...props}
+          onChange={(v) => onChange(fieldName, v)}
+        />
+      );
+
+    case "signature":
+      return (
+        <FieldSignature
           {...props}
           onChange={(v) => onChange(fieldName, v)}
         />

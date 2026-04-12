@@ -467,6 +467,7 @@ async def list_projects(
             Tier.name.label("tier_name"),
             ParentProject.c.name.label("parent_name"),
             sqla_func.coalesce(children_count_sq.c.children_count, 0).label("children_count"),
+            Installation.name.label("asset_name"),
         )
         .outerjoin(task_count_sq, Project.id == task_count_sq.c.project_id)
         .outerjoin(member_count_sq, Project.id == member_count_sq.c.project_id)
@@ -474,6 +475,7 @@ async def list_projects(
         .outerjoin(Tier, Project.tier_id == Tier.id)
         .outerjoin(ParentProject, Project.parent_id == ParentProject.c.id)
         .outerjoin(children_count_sq, Project.id == children_count_sq.c.parent_id)
+        .outerjoin(Installation, Project.asset_id == Installation.id)
         .where(Project.entity_id == entity_id, Project.archived == False)
     )
 
@@ -507,6 +509,7 @@ async def list_projects(
         d["tier_name"] = row[5]
         d["parent_name"] = row[6]
         d["children_count"] = row[7]
+        d["asset_name"] = row[8]
         return d
 
     return await paginate(db, query, pagination, transform=_transform)
@@ -645,6 +648,12 @@ async def get_project(
     # Children count
     cc = await db.execute(select(sqla_func.count()).select_from(Project).where(Project.parent_id == project_id, Project.archived == False))
     d["children_count"] = cc.scalar() or 0
+    # Asset name
+    if project.asset_id:
+        asset = await db.get(Installation, project.asset_id)
+        d["asset_name"] = asset.name if asset else None
+    else:
+        d["asset_name"] = None
     return d
 
 

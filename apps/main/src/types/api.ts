@@ -1307,6 +1307,7 @@ export interface Project {
   manager_name?: string | null
   tier_name?: string | null
   parent_name?: string | null
+  asset_name?: string | null
   task_count?: number
   member_count?: number
   children_count?: number

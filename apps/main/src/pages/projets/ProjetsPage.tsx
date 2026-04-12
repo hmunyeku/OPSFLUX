@@ -1126,6 +1126,53 @@ function WeatherIcon({ weather, size = 14 }: { weather: string; size?: number })
   return <Icon size={size} className={color} />
 }
 
+// -- Inline Picker Field (read mode + double-click → rich picker) ----
+
+/**
+ * Shows a value as plain text (read mode). On double-click, replaces it
+ * with a rich picker component (AssetPicker, user <select>, etc.).
+ * When the picker fires a selection, the parent saves and we return to
+ * read mode via the `onDone` callback passed to `renderPicker`.
+ *
+ * This gives the same UX as InlineEditableRow (text → double-click →
+ * input → blur → save) but for complex picker components that can't
+ * be simplified to a text input.
+ */
+function InlinePickerField({
+  label,
+  displayValue,
+  renderPicker,
+}: {
+  label: string
+  displayValue: string
+  renderPicker: (onDone: () => void) => React.ReactNode
+}) {
+  const [editing, setEditing] = useState(false)
+
+  if (editing) {
+    return (
+      <div>
+        <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-0.5">{label}</label>
+        {renderPicker(() => setEditing(false))}
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="group cursor-pointer"
+      onDoubleClick={() => setEditing(true)}
+      title="Double-cliquez pour modifier"
+    >
+      <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-0.5">{label}</label>
+      <span className="text-sm text-foreground group-hover:text-primary transition-colors">
+        {displayValue}
+      </span>
+    </div>
+  )
+}
+
+
 // -- Create Project Panel -----------------------------------------------------
 
 function CreateProjectPanel() {
@@ -2772,41 +2819,50 @@ function ProjectDetailPanel({ id }: { id: string }) {
                 <InlineEditableTags label="Météo" value={project.weather} options={projectWeatherOptions} onSave={(v) => handleSave('weather', v)} />
               </DetailFieldGrid>
               <DetailFieldGrid>
-                <div>
-                  <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-0.5">Chef de projet</label>
-                  <select
-                    value={project.manager_id || ''}
-                    onChange={(e) => handleSave('manager_id', e.target.value || null)}
-                    className={`${panelInputClass} w-full text-xs`}
-                  >
-                    <option value="">-- Aucun --</option>
-                    {(allUsersData?.items ?? []).map(u => (
-                      <option key={u.id} value={u.id}>
-                        {`${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <InlinePickerField
+                  label="Chef de projet"
+                  displayValue={project.manager_name || '--'}
+                  renderPicker={(onDone) => (
+                    <select
+                      autoFocus
+                      value={project.manager_id || ''}
+                      onChange={(e) => { handleSave('manager_id', e.target.value || null); onDone() }}
+                      onBlur={onDone}
+                      className={`${panelInputClass} w-full text-xs`}
+                    >
+                      <option value="">-- Aucun --</option>
+                      {(allUsersData?.items ?? []).map(u => (
+                        <option key={u.id} value={u.id}>
+                          {`${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                />
                 <ReadOnlyRow label="Entreprise" value={
                   project.tier_id ? (
                     <CrossModuleLink module="tiers" id={project.tier_id} label={project.tier_name || project.tier_id} mode="navigate" />
                   ) : (project.tier_name || '--')
                 } />
                 <InlineEditableRow label="Budget" value={project.budget != null ? String(project.budget) : ''} onSave={(v) => handleSave('budget', v ? Number(v) : null)} type="number" suffix={projectCurrency} />
-                <div>
-                  <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-0.5">Site / Installation</label>
-                  <AssetPicker
-                    value={project.asset_id || null}
-                    onChange={(id) => {
-                      updateProject.mutate(
-                        { id: project.id, payload: { asset_id: id || null } },
-                        { onError: () => toast({ title: t('common.error'), variant: 'error' }) },
-                      )
-                    }}
-                    placeholder="Sélectionner un site..."
-                    clearable
-                  />
-                </div>
+                <InlinePickerField
+                  label="Site / Installation"
+                  displayValue={project.asset_name || '--'}
+                  renderPicker={(onDone) => (
+                    <AssetPicker
+                      value={project.asset_id || null}
+                      onChange={(id) => {
+                        updateProject.mutate(
+                          { id: project.id, payload: { asset_id: id || null } },
+                          { onError: () => toast({ title: t('common.error'), variant: 'error' }) },
+                        )
+                        onDone()
+                      }}
+                      placeholder="Sélectionner un site..."
+                      clearable
+                    />
+                  )}
+                />
               </DetailFieldGrid>
             </FormSection>
 

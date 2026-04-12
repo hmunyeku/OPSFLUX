@@ -395,6 +395,10 @@ function renderFieldByType(
       );
 
     default:
+      // Unknown field type — log warning and fall back to text
+      if (__DEV__) {
+        console.warn(`[DynamicForm] Unknown field type "${field.type}" for "${fieldName}", falling back to text`);
+      }
       return (
         <FieldText
           {...props}

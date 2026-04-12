@@ -150,12 +150,22 @@ export async function getPendingMutations(): Promise<QueuedMutation[]> {
 
 const MAX_RETRIES = 5;
 
+/** Atomic lock to prevent concurrent flushQueue calls. */
+let flushLock = false;
+
 export async function flushQueue(): Promise<{
   success: number;
   failed: number;
 }> {
+  // Prevent concurrent flushes (race condition fix)
+  if (flushLock) return { success: 0, failed: 0 };
+  flushLock = true;
+
   const store = useOfflineStore.getState();
-  if (store.syncing || !store.isOnline) return { success: 0, failed: 0 };
+  if (store.syncing || !store.isOnline) {
+    flushLock = false;
+    return { success: 0, failed: 0 };
+  }
 
   store.setSyncing(true);
   let success = 0;
@@ -192,6 +202,7 @@ export async function flushQueue(): Promise<{
     }
   } finally {
     store.setSyncing(false);
+    flushLock = false;
   }
 
   return { success, failed };

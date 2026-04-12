@@ -32,6 +32,7 @@ import { useOfflineStore } from "../services/offline";
 import { useNotifications } from "../services/notifications";
 import * as Haptics from "expo-haptics";
 import DashboardCard from "../components/DashboardCard";
+import { useToast } from "../components/Toast";
 import { colors } from "../utils/colors";
 import type { PortalAction, PortalDefinition } from "../types/forms";
 
@@ -49,6 +50,7 @@ export default function PortalHomeScreen({ navigation }: Props) {
   const queueLength = useOfflineStore((s) => s.queueLength);
   const unreadCount = useNotifications((s) => s.unreadCount);
 
+  const toast = useToast();
   const [activePortalId, setActivePortalId] = useState<string | null>(null);
 
   // Filter portals by user permissions
@@ -89,7 +91,12 @@ export default function PortalHomeScreen({ navigation }: Props) {
           break;
         case "form":
           if (action.form_id) {
-            navigation.navigate("DynamicForm", { formId: action.form_id });
+            const formDef = forms.find((f) => f.id === action.form_id);
+            if (formDef) {
+              navigation.navigate("DynamicForm", { formId: action.form_id, formTitle: formDef.title });
+            } else {
+              toast.show(`Formulaire "${action.form_id}" non disponible`, "warning");
+            }
           }
           break;
         case "list":

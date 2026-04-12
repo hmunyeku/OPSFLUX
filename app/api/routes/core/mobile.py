@@ -104,6 +104,15 @@ async def mobile_bootstrap(
         for m in registry.get_all_modules()
     ]
 
+    # Min app version from settings (for force update)
+    min_app_version = entity_settings.get("mobile.min_app_version")
+
+    # User account status
+    user_status = getattr(current_user, "status", None) or "active"
+    is_active = getattr(current_user, "is_active", True)
+    if not is_active:
+        user_status = "deactivated"
+
     return {
         "user": {
             "id": str(current_user.id),
@@ -114,6 +123,7 @@ async def mobile_bootstrap(
             "avatar_url": current_user.avatar_url,
             "default_entity_id": str(current_user.default_entity_id) if current_user.default_entity_id else None,
             "mfa_enabled": current_user.mfa_enabled,
+            "status": user_status,
         },
         "permissions": permissions,
         "entities": entities,
@@ -123,6 +133,7 @@ async def mobile_bootstrap(
             "entity": entity_settings,
         },
         "modules": enabled_modules,
+        "min_app_version": min_app_version,
         "forms": get_all_form_definitions(),
         "portals": get_portal_definitions(),
     }

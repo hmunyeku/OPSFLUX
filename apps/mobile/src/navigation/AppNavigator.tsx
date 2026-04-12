@@ -42,6 +42,10 @@ import DriverPickupScreen from "../screens/DriverPickupScreen";
 import AdsDetailScreen from "../screens/AdsDetailScreen";
 import VoyageDetailScreen from "../screens/VoyageDetailScreen";
 import OnboardingScreen, { isOnboardingComplete } from "../screens/OnboardingScreen";
+import AccountBlockedScreen from "../screens/AccountBlockedScreen";
+import ForceUpdateScreen, { compareVersions } from "../screens/ForceUpdateScreen";
+import { useAppState } from "../stores/appState";
+import { APP_VERSION } from "../services/api";
 import SettingsScreen from "../screens/SettingsScreen";
 
 const Stack = createNativeStackNavigator();
@@ -319,6 +323,14 @@ export default function AppNavigator() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
 
+  // App-level blocking states
+  const accountBlocked = useAppState((s) => s.accountBlocked);
+  const blockReason = useAppState((s) => s.blockReason);
+  const blockMessage = useAppState((s) => s.blockMessage);
+  const updateRequired = useAppState((s) => s.updateRequired);
+  const updateSoft = useAppState((s) => s.updateSoft);
+  const requiredVersion = useAppState((s) => s.requiredVersion);
+
   // On auth change: fetch permissions + connect notifications + check onboarding
   useEffect(() => {
     if (isAuthenticated) {
@@ -334,8 +346,31 @@ export default function AppNavigator() {
       clearPermissions();
       disconnectNotifications();
       setOnboardingChecked(false);
+      useAppState.getState().clear();
     }
   }, [isAuthenticated]);
+
+  // ── Blocking screens take priority over everything ────────────────
+
+  // Force update required (non-dismissable)
+  if (updateRequired && !updateSoft) {
+    return (
+      <ForceUpdateScreen
+        currentVersion={APP_VERSION}
+        requiredVersion={requiredVersion ?? "unknown"}
+      />
+    );
+  }
+
+  // Account blocked/suspended/deleted
+  if (accountBlocked && isAuthenticated) {
+    return (
+      <AccountBlockedScreen
+        reason={blockReason ?? "unknown"}
+        message={blockMessage ?? undefined}
+      />
+    );
+  }
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>

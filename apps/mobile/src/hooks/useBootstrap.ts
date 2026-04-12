@@ -20,6 +20,9 @@ import { usePermissions } from "../stores/permissions";
 import { useSettings } from "../stores/settings";
 import { setSentryUser } from "../services/sentry";
 import { persistAuth } from "../services/storage";
+import { useAppState } from "../stores/appState";
+import { APP_VERSION } from "../services/api";
+import { compareVersions } from "../screens/ForceUpdateScreen";
 import type { FormDefinition, PortalDefinition } from "../types/forms";
 
 const BOOTSTRAP_URL = "/api/v1/mobile/bootstrap";
@@ -77,6 +80,26 @@ export function useBootstrap() {
     try {
       const result = await fetchWithOfflineFallback<BootstrapData>(BOOTSTRAP_URL);
       const data = result.data;
+
+      // 0. Check app version + account status BEFORE anything else
+      const appState = useAppState.getState();
+      if ((data as any).min_app_version) {
+        const minVersion = (data as any).min_app_version;
+        if (compareVersions(APP_VERSION, minVersion) < 0) {
+          appState.setUpdateRequired(true, minVersion, false);
+          setState((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+      }
+      if ((data as any).user?.status && (data as any).user.status !== "active") {
+        const status = (data as any).user.status;
+        appState.setAccountBlocked(
+          status === "blocked" ? "blocked" : status === "suspended" ? "suspended" : "deactivated",
+          `Votre compte est ${status}.`
+        );
+        setState((prev) => ({ ...prev, loading: false }));
+        return;
+      }
 
       // 1. Populate auth store with user info
       const authStore = useAuthStore.getState();

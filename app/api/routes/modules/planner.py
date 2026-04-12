@@ -846,6 +846,81 @@ async def reject_activity(
     return await _enrich_activity(db, activity)
 
 
+# ── Bulk activity transitions ──
+
+
+class BulkActivityTransitionRequest(BaseModel):
+    activity_ids: list[UUID] = Field(..., min_length=1, max_length=100)
+    reason: str | None = None  # for reject
+
+
+class BulkActivityTransitionResult(BaseModel):
+    success: int
+    skipped: int
+    errors: list[str]
+
+
+@router.post("/activities/bulk-validate", response_model=BulkActivityTransitionResult)
+async def bulk_validate_activities(
+    body: BulkActivityTransitionRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.validate"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Validate multiple submitted activities at once."""
+    success = 0
+    skipped = 0
+    errors: list[str] = []
+
+    for aid in body.activity_ids:
+        try:
+            activity = await _get_activity_or_404(db, aid, entity_id)
+            if activity.status != "submitted":
+                skipped += 1
+                continue
+            activity.status = "validated"
+            activity.validated_by = current_user.id
+            activity.validated_at = datetime.now(timezone.utc)
+            success += 1
+        except HTTPException:
+            errors.append(f"Activity {aid} not found")
+
+    await db.commit()
+    return BulkActivityTransitionResult(success=success, skipped=skipped, errors=errors)
+
+
+@router.post("/activities/bulk-reject", response_model=BulkActivityTransitionResult)
+async def bulk_reject_activities(
+    body: BulkActivityTransitionRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.validate"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Reject multiple submitted activities at once."""
+    success = 0
+    skipped = 0
+    errors: list[str] = []
+
+    for aid in body.activity_ids:
+        try:
+            activity = await _get_activity_or_404(db, aid, entity_id)
+            if activity.status != "submitted":
+                skipped += 1
+                continue
+            activity.status = "rejected"
+            activity.rejected_by = current_user.id
+            activity.rejected_at = datetime.now(timezone.utc)
+            activity.rejection_reason = body.reason
+            success += 1
+        except HTTPException:
+            errors.append(f"Activity {aid} not found")
+
+    await db.commit()
+    return BulkActivityTransitionResult(success=success, skipped=skipped, errors=errors)
+
+
 @router.post("/activities/{activity_id}/cancel", response_model=ActivityRead)
 async def cancel_activity(
     activity_id: UUID,

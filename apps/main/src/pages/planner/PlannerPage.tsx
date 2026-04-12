@@ -37,6 +37,7 @@ import {
   type ActionItem,
 } from '@/components/layout/DynamicPanel'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
+import ReactECharts from 'echarts-for-react'
 import { GanttView } from './GanttView'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { TabBar } from '@/components/ui/Tabs'
@@ -2882,6 +2883,62 @@ function ForecastTab() {
               <div className="text-[9px] uppercase text-muted-foreground">Capacité max</div>
               <div className="text-lg font-semibold tabular-nums">{data.summary.max_capacity}</div>
             </div>
+          </div>
+
+          {/* ── Cumulative trend chart (ECharts) ── */}
+          <div className="border border-border rounded p-3">
+            <div className="text-xs font-semibold mb-2 flex items-center gap-1">
+              <TrendingUp size={12} className="text-primary" /> Courbe cumulative — charge projetée vs capacité
+            </div>
+            <ReactECharts
+              style={{ height: 280 }}
+              option={{
+                tooltip: { trigger: 'axis' },
+                legend: {
+                  data: ['Charge projetée', 'POB réel', 'Capacité max'],
+                  bottom: 0,
+                  textStyle: { fontSize: 10 },
+                },
+                grid: { left: 45, right: 15, top: 10, bottom: 40 },
+                xAxis: {
+                  type: 'category',
+                  data: data.forecast.map((d: ForecastDay) => d.date),
+                  axisLabel: { fontSize: 9, rotate: 45 },
+                  boundaryGap: false,
+                },
+                yAxis: {
+                  type: 'value',
+                  axisLabel: { fontSize: 9 },
+                  splitLine: { lineStyle: { opacity: 0.15 } },
+                },
+                series: [
+                  {
+                    name: 'Charge projetée',
+                    type: 'line',
+                    data: data.forecast.map((d: ForecastDay) => d.combined_load),
+                    smooth: true,
+                    lineStyle: { width: 2 },
+                    areaStyle: { opacity: 0.1 },
+                    itemStyle: { color: '#3b82f6' },
+                  },
+                  {
+                    name: 'POB réel',
+                    type: 'line',
+                    data: data.forecast.map((d: ForecastDay) => d.real_pob),
+                    smooth: true,
+                    lineStyle: { width: 1.5, type: 'dashed' },
+                    itemStyle: { color: '#10b981' },
+                  },
+                  {
+                    name: 'Capacité max',
+                    type: 'line',
+                    data: data.forecast.map((d: ForecastDay) => d.max_capacity),
+                    lineStyle: { width: 1.5, type: 'dotted', color: '#ef4444' },
+                    itemStyle: { color: '#ef4444' },
+                  },
+                ],
+              }}
+            />
           </div>
 
           <div className="border border-border rounded p-3">

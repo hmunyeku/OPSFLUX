@@ -3516,7 +3516,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
   const promptInput = usePromptInput()
   const confirm = useConfirm()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
-  const { data: activity, isLoading } = useActivity(id)
+  const { data: activity, isLoading, isError } = useActivity(id)
   const updateActivity = useUpdateActivity()
   const deleteActivity = useDeleteActivity()
   const submitActivity = useSubmitActivity()
@@ -3545,6 +3545,11 @@ function ActivityDetailPanel({ id }: { id: string }) {
   const activityTypeOptions = useMemo(() => buildDictionaryOptions(activityTypeLabels, PLANNER_ACTIVITY_TYPE_VALUES), [activityTypeLabels])
   const priorityOptions = useMemo(() => buildDictionaryOptions(priorityLabels, PLANNER_PRIORITY_VALUES), [priorityLabels])
   const dependencyTypeOptions = useMemo(() => buildDictionaryOptions(dependencyTypeLabels, PLANNER_DEP_TYPE_VALUES), [dependencyTypeLabels])
+
+  // Auto-close panel if activity was deleted (404)
+  useEffect(() => {
+    if (isError && id) closeDynamicPanel()
+  }, [isError, id, closeDynamicPanel])
 
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<Record<string, unknown>>({})

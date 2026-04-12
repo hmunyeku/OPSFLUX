@@ -41,6 +41,14 @@ export function useActivity(id: string | undefined) {
     queryKey: ['planner', 'activities', id],
     queryFn: () => plannerService.getActivity(id!),
     enabled: !!id,
+    retry: (failureCount, error) => {
+      // Don't retry on 404 (deleted/missing activity)
+      if (error && typeof error === 'object' && 'response' in error) {
+        const status = (error as { response?: { status?: number } }).response?.status
+        if (status === 404 || status === 403) return false
+      }
+      return failureCount < 2
+    },
   })
 }
 

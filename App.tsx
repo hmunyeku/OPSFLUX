@@ -2,51 +2,73 @@
  * OpsFlux Mobile — entry point.
  *
  * Lifecycle:
- *  1. Restore auth from SecureStore (persisted session)
- *  2. Start connectivity monitor for offline sync
- *  3. Render navigation (auth gate → main tabs)
- *  4. Persist auth on every token change
+ *  1. Initialize i18n (FR/EN auto-detected)
+ *  2. Restore auth from SecureStore
+ *  3. Start connectivity monitor
+ *  4. Apply theme (light/dark/system)
+ *  5. Register push notifications
+ *  6. Render navigation
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, View, StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { PaperProvider, MD3LightTheme, Text } from "react-native-paper";
+import { PaperProvider, MD3LightTheme, MD3DarkTheme, Text } from "react-native-paper";
 import { StatusBar } from "expo-status-bar";
+import * as Haptics from "expo-haptics";
+
+// Initialize i18n before any component renders
+import "./src/locales/i18n";
+
 import AppNavigator from "./src/navigation/AppNavigator";
 import { startConnectivityMonitor, stopConnectivityMonitor } from "./src/services/offline";
 import { restoreAuth, persistAuth } from "./src/services/storage";
+import { registerForPushNotifications } from "./src/services/pushNotifications";
 import { useAuthStore } from "./src/stores/auth";
+import { useThemeStore } from "./src/stores/theme";
 import { colors } from "./src/utils/colors";
+import { darkColors } from "./src/utils/darkColors";
 
-const theme = {
-  ...MD3LightTheme,
-  colors: {
-    ...MD3LightTheme.colors,
-    primary: colors.primary,
-    primaryContainer: colors.primaryLight + "20",
-    secondary: colors.accent,
-    secondaryContainer: colors.accent + "20",
-    error: colors.danger,
-    surface: colors.surface,
-    surfaceVariant: colors.surfaceAlt,
-    background: colors.background,
-    outline: colors.border,
-    onPrimary: colors.textInverse,
-    onSurface: colors.textPrimary,
-    onSurfaceVariant: colors.textSecondary,
-  },
-  roundness: 10,
-};
+function buildTheme(isDark: boolean) {
+  const c = isDark ? darkColors : colors;
+  const base = isDark ? MD3DarkTheme : MD3LightTheme;
+  return {
+    ...base,
+    colors: {
+      ...base.colors,
+      primary: c.primary,
+      primaryContainer: c.primaryLight + "20",
+      secondary: c.accent,
+      secondaryContainer: c.accent + "20",
+      error: c.danger,
+      surface: c.surface,
+      surfaceVariant: c.surfaceAlt,
+      background: c.background,
+      outline: c.border,
+      onPrimary: isDark ? darkColors.textInverse : colors.textInverse,
+      onSurface: c.textPrimary,
+      onSurfaceVariant: c.textSecondary,
+    },
+    roundness: 10,
+  };
+}
 
 export default function App() {
   const [initializing, setInitializing] = useState(true);
+  const isDark = useThemeStore((s) => s.isDark);
+  const theme = useMemo(() => buildTheme(isDark), [isDark]);
 
   useEffect(() => {
     async function init() {
       await restoreAuth();
       startConnectivityMonitor();
+
+      // Register push after auth restore
+      if (useAuthStore.getState().isAuthenticated) {
+        registerForPushNotifications();
+      }
+
       setInitializing(false);
     }
     init();
@@ -59,6 +81,7 @@ export default function App() {
       if (state.accessToken !== prev.accessToken) {
         if (state.accessToken) {
           persistAuth();
+          registerForPushNotifications();
         }
       }
     });
@@ -67,9 +90,10 @@ export default function App() {
 
   if (initializing) {
     return (
-      <View style={splashStyles.container}>
+      <View style={[splashStyles.container, isDark && splashStyles.containerDark]}>
         <Text style={splashStyles.logo}>OpsFlux</Text>
-        <ActivityIndicator size="large" color="#fff" style={{ marginTop: 20 }} />
+        <Text style={splashStyles.sub}>Mobile</Text>
+        <ActivityIndicator size="large" color="#fff" style={{ marginTop: 24 }} />
       </View>
     );
   }
@@ -81,7 +105,7 @@ export default function App() {
           <AppNavigator />
         </NavigationContainer>
       </PaperProvider>
-      <StatusBar style="light" />
+      <StatusBar style={isDark ? "light" : "light"} />
     </SafeAreaProvider>
   );
 }
@@ -93,10 +117,20 @@ const splashStyles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.primary,
   },
+  containerDark: {
+    backgroundColor: darkColors.primaryDark,
+  },
   logo: {
-    fontSize: 36,
+    fontSize: 40,
     fontWeight: "800",
     color: "#fff",
     letterSpacing: 2,
+  },
+  sub: {
+    fontSize: 16,
+    color: "rgba(255,255,255,0.6)",
+    marginTop: 4,
+    letterSpacing: 4,
+    textTransform: "uppercase",
   },
 });

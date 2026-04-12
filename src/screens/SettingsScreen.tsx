@@ -28,6 +28,10 @@ import { useAuthStore } from "../stores/auth";
 import { usePermissions } from "../stores/permissions";
 import { useOfflineStore, clearCache, flushQueue } from "../services/offline";
 import { useTrackingStore, stopTracking } from "../services/tracking";
+import { useTranslation } from "react-i18next";
+import { useThemeStore } from "../stores/theme";
+import { useBootstrap, BootstrapEntity } from "../hooks/useBootstrap";
+import { setBaseUrl } from "../services/api";
 import {
   getProfile,
   updateProfile,
@@ -39,10 +43,13 @@ import {
 } from "../services/profile";
 
 export default function SettingsScreen() {
+  const { t, i18n } = useTranslation();
   const { userDisplayName, baseUrl, entityId, logout } = useAuthStore();
   const permissionCount = usePermissions((s) => s.permissions.length);
   const { isOnline, queueLength, syncing, lastSyncAt } = useOfflineStore();
   const trackingEnabled = useTrackingStore((s) => s.enabled);
+  const { isDark, mode: themeMode, setMode: setThemeMode } = useThemeStore();
+  const { entities } = useBootstrap();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [phones, setPhones] = useState<PhoneEntry[]>([]);
@@ -372,6 +379,65 @@ export default function SettingsScreen() {
         </Card.Content>
       </Card>
 
+      {/* Entity switch */}
+      {entities.length > 1 && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleSmall" style={styles.sectionTitle}>
+              {t("settings.switchEntity")}
+            </Text>
+            {entities.map((ent) => (
+              <List.Item
+                key={ent.id}
+                title={ent.name}
+                description={ent.code ?? undefined}
+                left={(props) => (
+                  <List.Icon
+                    {...props}
+                    icon={ent.id === entityId ? "check-circle" : "circle-outline"}
+                    color={ent.id === entityId ? colors.primary : colors.textMuted}
+                  />
+                )}
+                onPress={() => {
+                  useAuthStore.getState().setEntity(ent.id);
+                  // Refetch permissions for new entity
+                  usePermissions.getState().fetchPermissions();
+                }}
+              />
+            ))}
+          </Card.Content>
+        </Card>
+      )}
+
+      {/* Preferences */}
+      <Card style={styles.card}>
+        <Card.Content>
+          <Text variant="titleSmall" style={styles.sectionTitle}>
+            Préférences
+          </Text>
+          <List.Item
+            title={t("settings.darkMode")}
+            left={(props) => <List.Icon {...props} icon="brightness-6" />}
+            right={() => (
+              <Switch
+                value={isDark}
+                onValueChange={(v) => setThemeMode(v ? "dark" : "light")}
+                color={colors.primary}
+              />
+            )}
+          />
+          <List.Item
+            title={t("settings.language")}
+            description={i18n.language === "fr" ? "Français" : "English"}
+            left={(props) => <List.Icon {...props} icon="translate" />}
+            onPress={() => {
+              const next = i18n.language === "fr" ? "en" : "fr";
+              i18n.changeLanguage(next);
+            }}
+          />
+        </Card.Content>
+      </Card>
+
       {/* Logout */}
       <Button
         mode="contained"
@@ -379,7 +445,7 @@ export default function SettingsScreen() {
         onPress={handleLogout}
         style={styles.logoutButton}
       >
-        Se déconnecter
+        {t("auth.logout")}
       </Button>
 
       <View style={{ height: 32 }} />

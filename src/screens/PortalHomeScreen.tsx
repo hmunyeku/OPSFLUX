@@ -30,6 +30,8 @@ import { useAuthStore } from "../stores/auth";
 import { usePermissions } from "../stores/permissions";
 import { useOfflineStore } from "../services/offline";
 import { useNotifications } from "../services/notifications";
+import * as Haptics from "expo-haptics";
+import DashboardCard from "../components/DashboardCard";
 import { colors } from "../utils/colors";
 import type { PortalAction, PortalDefinition } from "../types/forms";
 
@@ -80,6 +82,7 @@ export default function PortalHomeScreen({ navigation }: Props) {
 
   const handleAction = useCallback(
     (action: PortalAction) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       switch (action.type) {
         case "scan":
           navigation.navigate(action.screen ?? "ScanAds");
@@ -258,14 +261,7 @@ export default function PortalHomeScreen({ navigation }: Props) {
           </Text>
           <View style={styles.dashboardGrid}>
             {activePortal.dashboard_cards.map((card, i) => (
-              <Surface key={i} style={styles.dashboardCard} elevation={1}>
-                <Text variant="bodySmall" style={styles.dashboardLabel}>
-                  {card.title}
-                </Text>
-                <Text variant="headlineMedium" style={styles.dashboardValue}>
-                  —
-                </Text>
-              </Surface>
+              <DashboardCard key={i} card={card} />
             ))}
           </View>
         </>

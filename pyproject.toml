@@ -107,7 +107,7 @@ testpaths = ["tests"]
 filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.setuptools.packages.find]
-include = ["app*"]
+include = ["app", "app.*"]
 
 [build-system]
 requires = ["setuptools>=68.0"]

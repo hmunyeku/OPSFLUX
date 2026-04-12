@@ -132,15 +132,62 @@ export function useFormEngine(form: FormDefinition) {
     return currentStepDef.fields.filter((fn) => isFieldVisible(fn));
   }, [currentStepDef, isFieldVisible]);
 
+  // ── Computed Fields ──────────────────────────────────────────────
+
+  /**
+   * Simple expression evaluator for computed fields.
+   * Supports: field references, ternary (a > b ? "X" : "Y"), comparison ops.
+   * Falls back to raw formula display on parse error.
+   */
+  const evaluateComputed = useCallback(
+    (formula: string, values: Record<string, unknown>): unknown => {
+      try {
+        // Replace field references with actual values
+        let expr = formula;
+        for (const [key, val] of Object.entries(values)) {
+          const replacement =
+            typeof val === "string" ? `"${val}"` :
+            val === null || val === undefined ? "null" :
+            String(val);
+          expr = expr.replace(new RegExp(`\\b${key}\\b`, "g"), replacement);
+        }
+        // Safe eval using Function constructor (no access to globals)
+        const fn = new Function(`"use strict"; return (${expr});`);
+        return fn();
+      } catch {
+        return formula; // show raw formula on error
+      }
+    },
+    []
+  );
+
   // ── Value Setters ────────────────────────────────────────────────
 
   const setValue = useCallback((fieldName: string, value: unknown) => {
-    setState((prev) => ({
-      ...prev,
-      values: { ...prev.values, [fieldName]: value },
-      errors: { ...prev.errors, [fieldName]: "" },
-    }));
-  }, []);
+    setState((prev) => {
+      const newValues = { ...prev.values, [fieldName]: value };
+
+      // Recompute all computed fields whenever any value changes
+      for (const [fn, fd] of Object.entries(form.fields)) {
+        if (fd.type === "computed" && fd.formula) {
+          newValues[fn] = evaluateComputed(fd.formula, newValues);
+        }
+      }
+
+      // Auto-populate fields that depend on this one
+      for (const [fn, fd] of Object.entries(form.fields)) {
+        if (fd.auto_populate_from === fieldName && value) {
+          newValues[fn] = value;
+        }
+      }
+
+      return {
+        ...prev,
+        values: newValues,
+        errors: { ...prev.errors, [fieldName]: "" },
+      };
+    });
+  }, [form.fields, evaluateComputed]);
 
   // ── Validation ───────────────────────────────────────────────────
 

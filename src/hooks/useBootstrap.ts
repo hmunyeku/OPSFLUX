@@ -23,6 +23,7 @@ import { persistAuth } from "../services/storage";
 import { useAppState } from "../stores/appState";
 import { APP_VERSION } from "../services/api";
 import { compareVersions } from "../screens/ForceUpdateScreen";
+import { prefetchLookups, extractLookupEndpoints } from "../services/lookupCache";
 import type { FormDefinition, PortalDefinition } from "../types/forms";
 
 const BOOTSTRAP_URL = "/api/v1/mobile/bootstrap";
@@ -147,6 +148,12 @@ export function useBootstrap() {
         error: null,
         fromCache: result.fromCache,
       });
+
+      // 6. Pre-fetch lookup data for offline use (non-blocking)
+      if (!result.fromCache && data.forms) {
+        const endpoints = extractLookupEndpoints(data.forms);
+        prefetchLookups(endpoints).catch(() => {});
+      }
     } catch (err: any) {
       setState((prev) => ({
         ...prev,

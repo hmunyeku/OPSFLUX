@@ -42,6 +42,7 @@ import CaptainPortalScreen from "../screens/CaptainPortalScreen";
 import DriverPickupScreen from "../screens/DriverPickupScreen";
 import AdsDetailScreen from "../screens/AdsDetailScreen";
 import VoyageDetailScreen from "../screens/VoyageDetailScreen";
+import CargoReceptionScreen from "../screens/CargoReceptionScreen";
 import OnboardingScreen, { isOnboardingComplete } from "../screens/OnboardingScreen";
 import AccountBlockedScreen from "../screens/AccountBlockedScreen";
 import ForceUpdateScreen, { compareVersions } from "../screens/ForceUpdateScreen";
@@ -195,6 +196,11 @@ function SharedScreens() {
         name="VoyageDetail"
         component={VoyageDetailScreen}
         options={{ title: "Détail Voyage" }}
+      />
+      <Stack.Screen
+        name="CargoReception"
+        component={CargoReceptionScreen}
+        options={{ title: "Réception Colis" }}
       />
     </>
   );

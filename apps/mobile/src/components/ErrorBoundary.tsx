@@ -5,6 +5,7 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Button, Text } from "react-native-paper";
+import { captureError } from "../services/sentry";
 import { colors } from "../utils/colors";
 
 interface Props {
@@ -25,6 +26,7 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("ErrorBoundary caught:", error, info);
+    captureError(error, { componentStack: info.componentStack ?? "" });
   }
 
   handleReset = () => {

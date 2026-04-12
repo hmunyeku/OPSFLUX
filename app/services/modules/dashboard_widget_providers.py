@@ -982,13 +982,28 @@ async def provider_paxlog_expiring_credentials(
 ) -> dict:
     """Credentials expiring in the next 30 days."""
     days = int(config.get("days_ahead", 30))
+    # PaxCredential links to a User (user_id) OR a TierContact (contact_id)
+    # via an XOR constraint — there's no pax_group_id column. We LEFT JOIN
+    # both and COALESCE the name.
     r = await db.execute(text("""
-        SELECT pc.id, pg.name AS pax_name, ct.name AS credential_type,
-               pc.expiry_date, pc.expiry_date - CURRENT_DATE AS days_remaining
+        SELECT pc.id,
+               COALESCE(
+                   u.first_name || ' ' || u.last_name,
+                   tc.first_name || ' ' || tc.last_name,
+                   '—'
+               ) AS pax_name,
+               ct.name AS credential_type,
+               pc.expiry_date,
+               pc.expiry_date - CURRENT_DATE AS days_remaining
         FROM pax_credentials pc
-        JOIN pax_groups pg ON pg.id = pc.pax_group_id
+        LEFT JOIN users u ON u.id = pc.user_id
+        LEFT JOIN tier_contacts tc ON tc.id = pc.contact_id
         JOIN credential_types ct ON ct.id = pc.credential_type_id
-        WHERE pg.entity_id = :eid AND pc.active = TRUE
+        WHERE (u.default_entity_id = :eid OR tc.id IN (
+            SELECT tcc.id FROM tier_contacts tcc
+            JOIN tiers t ON t.id = tcc.tier_id
+            WHERE t.entity_id = :eid
+        ))
           AND pc.expiry_date BETWEEN CURRENT_DATE AND CURRENT_DATE + :days * INTERVAL '1 day'
         ORDER BY pc.expiry_date LIMIT 15
     """), {"eid": str(entity_id), "days": days})

@@ -7149,16 +7149,28 @@ async def _apply_external_pax_contact_updates(
         entity_id=entity_id,
         job_position_id=body.job_position_id,
     )
-    contact.first_name = body.first_name
-    contact.last_name = body.last_name
-    contact.birth_date = body.birth_date
-    contact.nationality = body.nationality
-    contact.badge_number = body.badge_number
-    contact.photo_url = body.photo_url
-    contact.email = body.email
-    contact.phone = body.phone
-    contact.position = job_position.name if job_position else body.position
-    contact.job_position_id = job_position.id if job_position else None
+    # Only update fields that are explicitly provided (non-None)
+    if body.first_name is not None:
+        contact.first_name = body.first_name
+    if body.last_name is not None:
+        contact.last_name = body.last_name
+    if body.birth_date is not None:
+        contact.birth_date = body.birth_date
+    if body.nationality is not None:
+        contact.nationality = body.nationality
+    if body.badge_number is not None:
+        contact.badge_number = body.badge_number
+    if body.photo_url is not None:
+        contact.photo_url = body.photo_url
+    if body.email is not None:
+        contact.email = body.email
+    if body.phone is not None:
+        contact.phone = body.phone
+    if job_position:
+        contact.position = job_position.name
+        contact.job_position_id = job_position.id
+    elif body.position is not None:
+        contact.position = body.position
     await _sync_external_pax_travel_profile(db, contact=contact, linked_user=linked_user, body=body)
 
 

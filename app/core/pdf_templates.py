@@ -1649,26 +1649,43 @@ _CARGO_LT_BODY_FR = """\
   .badge-ready { background: #dcfce7; color: #166534; }
   .badge-pending { background: #fef3c7; color: #92400e; }
   .badge-status { background: #dbeafe; color: #1d4ed8; }
+  .badge-hazmat { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
   .metrics { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-  .metric { min-width: 120px; flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }
+  .metric { min-width: 100px; flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }
   .metric .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.14em; color: #64748b; }
   .metric .value { margin-top: 4px; font-size: 14pt; font-weight: 800; color: #0f172a; }
+  .addr-grid { display: flex; gap: 14px; margin-bottom: 14px; }
+  .addr-block { flex: 1; padding: 12px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
+  .addr-block .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.14em; color: #64748b; margin-bottom: 6px; font-weight: 700; }
+  .addr-block .name { font-size: 10pt; font-weight: 800; color: #0f172a; }
+  .addr-block .addr { font-size: 8.5pt; color: #334155; white-space: pre-line; margin-top: 4px; line-height: 1.4; }
+  .addr-block .contact { font-size: 8pt; color: #475569; margin-top: 6px; }
   .meta-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
   .meta-item { flex: 1; min-width: 170px; padding: 10px 12px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
   .meta-item .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.12em; color: #64748b; }
   .meta-item .value { font-size: 10pt; font-weight: 700; margin-top: 4px; }
+  .transport-bar { display: flex; gap: 10px; margin-bottom: 14px; padding: 10px 14px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; }
+  .transport-bar .item { flex: 1; }
+  .transport-bar .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.12em; color: #1e40af; }
+  .transport-bar .value { font-size: 10pt; font-weight: 700; color: #1e3a5f; margin-top: 2px; }
   .section { margin-bottom: 14px; }
   .section-title { font-size: 9pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em; color: #0f172a; margin-bottom: 8px; }
   .description { padding: 12px 14px; background: #f8fafc; border: 1px solid #d8e1eb; border-radius: 10px; white-space: pre-wrap; line-height: 1.45; }
   .requirements { margin-top: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid #e5e7eb; background: white; }
   .requirements .line { font-size: 8pt; color: #475569; margin-top: 4px; }
+  .hazmat-banner { padding: 8px 12px; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .hazmat-banner .icon { font-size: 14pt; }
+  .hazmat-banner .text { font-size: 8.5pt; font-weight: 700; color: #991b1b; text-transform: uppercase; letter-spacing: 0.08em; }
   table { width: 100%; border-collapse: collapse; }
-  th { background: #0f172a; color: #fff; text-align: left; padding: 7px 8px; font-size: 7pt; text-transform: uppercase; letter-spacing: 0.12em; }
-  td { padding: 7px 8px; border-bottom: 1px solid #dbe4ee; font-size: 8.5pt; vertical-align: top; }
+  th { background: #0f172a; color: #fff; text-align: left; padding: 6px 6px; font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.10em; }
+  td { padding: 6px 6px; border-bottom: 1px solid #dbe4ee; font-size: 8pt; vertical-align: top; }
   tr:nth-child(even) { background: #f8fafc; }
-  .mono { font-family: 'Courier New', monospace; font-size: 8pt; }
-  .mini-qr img { width: 48px; height: 48px; object-fit: contain; }
-  .status-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 7pt; font-weight: 700; background: #e2e8f0; color: #334155; }
+  .mono { font-family: 'Courier New', monospace; font-size: 7.5pt; }
+  .mini-qr img { width: 40px; height: 40px; object-fit: contain; }
+  .status-chip { display: inline-block; padding: 2px 6px; border-radius: 999px; font-size: 6.5pt; font-weight: 700; background: #e2e8f0; color: #334155; }
+  .hazmat-chip { display: inline-block; padding: 2px 6px; border-radius: 999px; font-size: 6.5pt; font-weight: 700; background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+  .dim { font-size: 7pt; color: #64748b; }
+  .totals-row td { font-weight: 800; background: #f1f5f9; border-top: 2px solid #0f172a; }
   .footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #cbd5e1; font-size: 7pt; color: #64748b; display: flex; justify-content: space-between; }
 </style>
 </head>
@@ -1694,19 +1711,19 @@ _CARGO_LT_BODY_FR = """\
           {% else %}
             <span class="badge badge-pending">Dossier à compléter</span>
           {% endif %}
+          {% if has_hazmat %}
+            <span class="badge badge-hazmat">HAZMAT</span>
+          {% endif %}
         </div>
         <div class="metrics">
           <div class="metric"><div class="label">Colis</div><div class="value">{{ total_cargo_items }}</div></div>
           <div class="metric"><div class="label">Poids total</div><div class="value">{{ total_weight_kg }} kg</div></div>
+          <div class="metric"><div class="label">Volume total</div><div class="value">{{ total_volume_m3 }} m³</div></div>
           <div class="metric"><div class="label">Packages</div><div class="value">{{ total_packages }}</div></div>
           <div class="metric"><div class="label">Livrés</div><div class="value">{{ status_breakdown.delivered_final | default(0) }}</div></div>
         </div>
         <div class="meta-grid">
           <div class="meta-item"><div class="label">Intitulé</div><div class="value">{{ request_title }}</div></div>
-          <div class="meta-item"><div class="label">Expéditeur</div><div class="value">{{ sender_name | default('--') }}</div></div>
-          <div class="meta-item"><div class="label">Contact entreprise</div><div class="value">{{ sender_contact_name | default('--') }}</div></div>
-          <div class="meta-item"><div class="label">Destinataire</div><div class="value">{{ receiver_name | default('--') }}</div></div>
-          <div class="meta-item"><div class="label">Destination</div><div class="value">{{ destination_name | default('--') }}</div></div>
           <div class="meta-item"><div class="label">Demandeur</div><div class="value">{{ requester_name | default('--') }}</div></div>
           <div class="meta-item"><div class="label">Imputation</div><div class="value">{{ imputation_reference | default('--') }}</div></div>
         </div>
@@ -1719,6 +1736,42 @@ _CARGO_LT_BODY_FR = """\
       </div>
     </div>
   </div>
+  <div class="addr-grid">
+    <div class="addr-block">
+      <div class="label">Expéditeur</div>
+      <div class="name">{{ sender_name | default('--') }}</div>
+      {% if sender_address %}
+        <div class="addr">{{ sender_address }}</div>
+      {% endif %}
+      {% if sender_contact_name %}
+        <div class="contact">Contact : {{ sender_contact_name }}</div>
+      {% endif %}
+    </div>
+    <div class="addr-block">
+      <div class="label">Destinataire</div>
+      <div class="name">{{ receiver_name | default('--') }}</div>
+      {% if destination_name %}
+        <div class="addr">{{ destination_name }}</div>
+      {% endif %}
+    </div>
+  </div>
+  {% if transport_voyage_code %}
+  <div class="transport-bar">
+    <div class="item"><div class="label">Voyage</div><div class="value">{{ transport_voyage_code }}</div></div>
+    {% if transport_vector_name %}
+      <div class="item"><div class="label">Vecteur</div><div class="value">{{ transport_vector_name }}</div></div>
+    {% endif %}
+    {% if transport_vector_registration %}
+      <div class="item"><div class="label">Immatriculation</div><div class="value">{{ transport_vector_registration }}</div></div>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% if has_hazmat %}
+  <div class="hazmat-banner">
+    <div class="icon">&#9888;</div>
+    <div class="text">Ce dossier contient des marchandises dangereuses (HAZMAT) — manipuler avec précaution</div>
+  </div>
+  {% endif %}
   <div class="section">
     <div class="section-title">Instructions dossier</div>
     <div class="description">{{ description | default('--') }}</div>
@@ -1740,8 +1793,11 @@ _CARGO_LT_BODY_FR = """\
         <th>Tracking</th>
         <th>Désignation</th>
         <th>Type</th>
-        <th>Poids</th>
+        <th>Dimensions (L×l×H)</th>
+        <th>Vol.</th>
+        <th>Poids unit.</th>
         <th>Colis</th>
+        <th>Poids total</th>
         <th>Statut</th>
         <th>QR</th>
       </tr>
@@ -1751,10 +1807,28 @@ _CARGO_LT_BODY_FR = """\
       <tr>
         <td>{{ loop.index }}</td>
         <td><div class="mono">{{ cargo.tracking_code }}</div></td>
-        <td>{{ cargo.designation | default(cargo.description) }}</td>
+        <td>
+          {{ cargo.designation | default(cargo.description) }}
+          {% if cargo.is_hazmat %}<span class="hazmat-chip">HAZMAT</span>{% endif %}
+          {% if cargo.pickup_contact_name %}
+            <div class="dim">Enlèvement : {{ cargo.pickup_contact_name }}{% if cargo.pickup_contact_phone %} · {{ cargo.pickup_contact_phone }}{% endif %}</div>
+          {% endif %}
+          {% if cargo.pickup_location %}
+            <div class="dim">Lieu : {{ cargo.pickup_location }}</div>
+          {% endif %}
+        </td>
         <td>{{ cargo.cargo_type | default('--') }}</td>
-        <td>{{ cargo.weight_kg | default('--') }} kg</td>
+        <td>
+          {% if cargo.length_cm and cargo.width_cm and cargo.height_cm %}
+            <span class="dim">{{ cargo.length_cm }}×{{ cargo.width_cm }}×{{ cargo.height_cm }} cm</span>
+          {% else %}
+            <span class="dim">--</span>
+          {% endif %}
+        </td>
+        <td>{% if cargo.volume_m3 %}{{ cargo.volume_m3 }} m³{% else %}--{% endif %}</td>
+        <td>{{ cargo.weight_kg }} kg</td>
         <td>{{ cargo.package_count | default('--') }}</td>
+        <td>{{ cargo.weight_subtotal }} kg</td>
         <td><span class="status-chip">{{ cargo.status_label | default(cargo.status) }}</span></td>
         <td class="mini-qr">
           {% if cargo.qr_data %}
@@ -1764,6 +1838,16 @@ _CARGO_LT_BODY_FR = """\
       </tr>
       {% endfor %}
     </tbody>
+    <tfoot>
+      <tr class="totals-row">
+        <td colspan="5" style="text-align:right;">TOTAUX</td>
+        <td>{{ total_volume_m3 }} m³</td>
+        <td></td>
+        <td>{{ total_packages }}</td>
+        <td>{{ total_weight_kg }} kg</td>
+        <td colspan="2"></td>
+      </tr>
+    </tfoot>
   </table>
   </div>
   <div class="footer">
@@ -1800,26 +1884,43 @@ _CARGO_LT_BODY_EN = """\
   .badge-ready { background: #dcfce7; color: #166534; }
   .badge-pending { background: #fef3c7; color: #92400e; }
   .badge-status { background: #dbeafe; color: #1d4ed8; }
+  .badge-hazmat { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
   .metrics { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-  .metric { min-width: 120px; flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }
+  .metric { min-width: 100px; flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }
   .metric .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.14em; color: #64748b; }
   .metric .value { margin-top: 4px; font-size: 14pt; font-weight: 800; color: #0f172a; }
+  .addr-grid { display: flex; gap: 14px; margin-bottom: 14px; }
+  .addr-block { flex: 1; padding: 12px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
+  .addr-block .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.14em; color: #64748b; margin-bottom: 6px; font-weight: 700; }
+  .addr-block .name { font-size: 10pt; font-weight: 800; color: #0f172a; }
+  .addr-block .addr { font-size: 8.5pt; color: #334155; white-space: pre-line; margin-top: 4px; line-height: 1.4; }
+  .addr-block .contact { font-size: 8pt; color: #475569; margin-top: 6px; }
   .meta-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
   .meta-item { flex: 1; min-width: 170px; padding: 10px 12px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
   .meta-item .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.12em; color: #64748b; }
   .meta-item .value { font-size: 10pt; font-weight: 700; margin-top: 4px; }
+  .transport-bar { display: flex; gap: 10px; margin-bottom: 14px; padding: 10px 14px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; }
+  .transport-bar .item { flex: 1; }
+  .transport-bar .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.12em; color: #1e40af; }
+  .transport-bar .value { font-size: 10pt; font-weight: 700; color: #1e3a5f; margin-top: 2px; }
   .section { margin-bottom: 14px; }
   .section-title { font-size: 9pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em; color: #0f172a; margin-bottom: 8px; }
   .description { padding: 12px 14px; background: #f8fafc; border: 1px solid #d8e1eb; border-radius: 10px; white-space: pre-wrap; line-height: 1.45; }
   .requirements { margin-top: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid #e5e7eb; background: white; }
   .requirements .line { font-size: 8pt; color: #475569; margin-top: 4px; }
+  .hazmat-banner { padding: 8px 12px; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .hazmat-banner .icon { font-size: 14pt; }
+  .hazmat-banner .text { font-size: 8.5pt; font-weight: 700; color: #991b1b; text-transform: uppercase; letter-spacing: 0.08em; }
   table { width: 100%; border-collapse: collapse; }
-  th { background: #0f172a; color: #fff; text-align: left; padding: 7px 8px; font-size: 7pt; text-transform: uppercase; letter-spacing: 0.12em; }
-  td { padding: 7px 8px; border-bottom: 1px solid #dbe4ee; font-size: 8.5pt; vertical-align: top; }
+  th { background: #0f172a; color: #fff; text-align: left; padding: 6px 6px; font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.10em; }
+  td { padding: 6px 6px; border-bottom: 1px solid #dbe4ee; font-size: 8pt; vertical-align: top; }
   tr:nth-child(even) { background: #f8fafc; }
-  .mono { font-family: 'Courier New', monospace; font-size: 8pt; }
-  .mini-qr img { width: 48px; height: 48px; object-fit: contain; }
-  .status-chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 7pt; font-weight: 700; background: #e2e8f0; color: #334155; }
+  .mono { font-family: 'Courier New', monospace; font-size: 7.5pt; }
+  .mini-qr img { width: 40px; height: 40px; object-fit: contain; }
+  .status-chip { display: inline-block; padding: 2px 6px; border-radius: 999px; font-size: 6.5pt; font-weight: 700; background: #e2e8f0; color: #334155; }
+  .hazmat-chip { display: inline-block; padding: 2px 6px; border-radius: 999px; font-size: 6.5pt; font-weight: 700; background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+  .dim { font-size: 7pt; color: #64748b; }
+  .totals-row td { font-weight: 800; background: #f1f5f9; border-top: 2px solid #0f172a; }
   .footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #cbd5e1; font-size: 7pt; color: #64748b; display: flex; justify-content: space-between; }
 </style>
 </head>
@@ -1845,19 +1946,19 @@ _CARGO_LT_BODY_EN = """\
           {% else %}
             <span class="badge badge-pending">File to complete</span>
           {% endif %}
+          {% if has_hazmat %}
+            <span class="badge badge-hazmat">HAZMAT</span>
+          {% endif %}
         </div>
         <div class="metrics">
           <div class="metric"><div class="label">Cargo items</div><div class="value">{{ total_cargo_items }}</div></div>
           <div class="metric"><div class="label">Total weight</div><div class="value">{{ total_weight_kg }} kg</div></div>
+          <div class="metric"><div class="label">Total volume</div><div class="value">{{ total_volume_m3 }} m³</div></div>
           <div class="metric"><div class="label">Packages</div><div class="value">{{ total_packages }}</div></div>
           <div class="metric"><div class="label">Delivered</div><div class="value">{{ status_breakdown.delivered_final | default(0) }}</div></div>
         </div>
         <div class="meta-grid">
           <div class="meta-item"><div class="label">Title</div><div class="value">{{ request_title }}</div></div>
-          <div class="meta-item"><div class="label">Sender</div><div class="value">{{ sender_name | default('--') }}</div></div>
-          <div class="meta-item"><div class="label">Company contact</div><div class="value">{{ sender_contact_name | default('--') }}</div></div>
-          <div class="meta-item"><div class="label">Receiver</div><div class="value">{{ receiver_name | default('--') }}</div></div>
-          <div class="meta-item"><div class="label">Destination</div><div class="value">{{ destination_name | default('--') }}</div></div>
           <div class="meta-item"><div class="label">Requester</div><div class="value">{{ requester_name | default('--') }}</div></div>
           <div class="meta-item"><div class="label">Imputation</div><div class="value">{{ imputation_reference | default('--') }}</div></div>
         </div>
@@ -1870,6 +1971,42 @@ _CARGO_LT_BODY_EN = """\
       </div>
     </div>
   </div>
+  <div class="addr-grid">
+    <div class="addr-block">
+      <div class="label">Sender</div>
+      <div class="name">{{ sender_name | default('--') }}</div>
+      {% if sender_address %}
+        <div class="addr">{{ sender_address }}</div>
+      {% endif %}
+      {% if sender_contact_name %}
+        <div class="contact">Contact: {{ sender_contact_name }}</div>
+      {% endif %}
+    </div>
+    <div class="addr-block">
+      <div class="label">Receiver</div>
+      <div class="name">{{ receiver_name | default('--') }}</div>
+      {% if destination_name %}
+        <div class="addr">{{ destination_name }}</div>
+      {% endif %}
+    </div>
+  </div>
+  {% if transport_voyage_code %}
+  <div class="transport-bar">
+    <div class="item"><div class="label">Voyage</div><div class="value">{{ transport_voyage_code }}</div></div>
+    {% if transport_vector_name %}
+      <div class="item"><div class="label">Vector</div><div class="value">{{ transport_vector_name }}</div></div>
+    {% endif %}
+    {% if transport_vector_registration %}
+      <div class="item"><div class="label">Registration</div><div class="value">{{ transport_vector_registration }}</div></div>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% if has_hazmat %}
+  <div class="hazmat-banner">
+    <div class="icon">&#9888;</div>
+    <div class="text">This shipment contains hazardous materials (HAZMAT) — handle with care</div>
+  </div>
+  {% endif %}
   <div class="section">
     <div class="section-title">Operational instructions</div>
     <div class="description">{{ description | default('--') }}</div>
@@ -1891,8 +2028,11 @@ _CARGO_LT_BODY_EN = """\
         <th>Tracking</th>
         <th>Description</th>
         <th>Type</th>
-        <th>Weight</th>
-        <th>Packages</th>
+        <th>Dimensions (L×W×H)</th>
+        <th>Vol.</th>
+        <th>Unit wt.</th>
+        <th>Pkgs</th>
+        <th>Total wt.</th>
         <th>Status</th>
         <th>QR</th>
       </tr>
@@ -1902,10 +2042,28 @@ _CARGO_LT_BODY_EN = """\
       <tr>
         <td>{{ loop.index }}</td>
         <td><div class="mono">{{ cargo.tracking_code }}</div></td>
-        <td>{{ cargo.designation | default(cargo.description) }}</td>
+        <td>
+          {{ cargo.designation | default(cargo.description) }}
+          {% if cargo.is_hazmat %}<span class="hazmat-chip">HAZMAT</span>{% endif %}
+          {% if cargo.pickup_contact_name %}
+            <div class="dim">Pickup: {{ cargo.pickup_contact_name }}{% if cargo.pickup_contact_phone %} · {{ cargo.pickup_contact_phone }}{% endif %}</div>
+          {% endif %}
+          {% if cargo.pickup_location %}
+            <div class="dim">Location: {{ cargo.pickup_location }}</div>
+          {% endif %}
+        </td>
         <td>{{ cargo.cargo_type | default('--') }}</td>
-        <td>{{ cargo.weight_kg | default('--') }} kg</td>
+        <td>
+          {% if cargo.length_cm and cargo.width_cm and cargo.height_cm %}
+            <span class="dim">{{ cargo.length_cm }}×{{ cargo.width_cm }}×{{ cargo.height_cm }} cm</span>
+          {% else %}
+            <span class="dim">--</span>
+          {% endif %}
+        </td>
+        <td>{% if cargo.volume_m3 %}{{ cargo.volume_m3 }} m³{% else %}--{% endif %}</td>
+        <td>{{ cargo.weight_kg }} kg</td>
         <td>{{ cargo.package_count | default('--') }}</td>
+        <td>{{ cargo.weight_subtotal }} kg</td>
         <td><span class="status-chip">{{ cargo.status_label | default(cargo.status) }}</span></td>
         <td class="mini-qr">
           {% if cargo.qr_data %}
@@ -1915,6 +2073,16 @@ _CARGO_LT_BODY_EN = """\
       </tr>
       {% endfor %}
     </tbody>
+    <tfoot>
+      <tr class="totals-row">
+        <td colspan="5" style="text-align:right;">TOTALS</td>
+        <td>{{ total_volume_m3 }} m³</td>
+        <td></td>
+        <td>{{ total_packages }}</td>
+        <td>{{ total_weight_kg }} kg</td>
+        <td colspan="2"></td>
+      </tr>
+    </tfoot>
   </table>
   </div>
   <div class="footer">

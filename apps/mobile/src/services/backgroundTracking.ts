@@ -12,12 +12,15 @@ import { enqueueMutation } from "./offline";
 
 const BACKGROUND_TRACKING_TASK = "opsflux-background-tracking";
 
-// Register the background task at module load time (required by Expo)
-TaskManager.defineTask(BACKGROUND_TRACKING_TASK, async ({ data, error }) => {
-  if (error) return;
-  if (!data) return;
+// Register the background task at module load time (required by Expo).
+// Wrapped in try-catch because native TaskManager may not be available
+// on all platforms/configurations.
+try {
+  TaskManager.defineTask(BACKGROUND_TRACKING_TASK, async ({ data, error }) => {
+    if (error) return;
+    if (!data) return;
 
-  const { locations } = data as { locations: Location.LocationObject[] };
+    const { locations } = data as { locations: Location.LocationObject[] };
   const state = useTrackingStore.getState();
 
   if (!state.enabled || !state.vehicleId) return;
@@ -37,7 +40,10 @@ TaskManager.defineTask(BACKGROUND_TRACKING_TASK, async ({ data, error }) => {
       positionCount: prev.positionCount + 1,
     }));
   }
-});
+  });
+} catch (err) {
+  if (__DEV__) console.warn("[backgroundTracking] defineTask failed:", err);
+}
 
 /** Start background location tracking. */
 export async function startBackgroundTracking(vehicleId: string): Promise<boolean> {

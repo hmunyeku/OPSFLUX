@@ -1,17 +1,17 @@
 /**
- * Hook to fetch and cache the form registry from the server.
+ * Hook to access form and portal definitions.
  *
- * On mount: checks local cache, then fetches fresh definitions.
- * The sync manifest endpoint is used to detect stale definitions
- * without re-downloading everything.
+ * Delegates to useBootstrap for the initial load (single API call),
+ * with a fallback to individual endpoints for incremental refresh.
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { fetchWithOfflineFallback, setCache, getCached } from "../services/offline";
+import { fetchWithOfflineFallback } from "../services/offline";
 import type { FormDefinition, PortalDefinition } from "../types/forms";
 
-const FORMS_CACHE_URL = "/api/v1/mobile/form-definitions";
-const PORTALS_CACHE_URL = "/api/v1/mobile/portal-config";
+const FORMS_URL = "/api/v1/mobile/form-definitions";
+const PORTALS_URL = "/api/v1/mobile/portal-config";
+const BOOTSTRAP_URL = "/api/v1/mobile/bootstrap";
 
 interface FormRegistryState {
   forms: FormDefinition[];
@@ -30,23 +30,38 @@ export function useFormRegistry() {
 
   const fetchRegistry = useCallback(async () => {
     try {
-      const [formsResult, portalsResult] = await Promise.all([
-        fetchWithOfflineFallback<{ forms: FormDefinition[] }>(FORMS_CACHE_URL),
-        fetchWithOfflineFallback<{ portals: PortalDefinition[] }>(PORTALS_CACHE_URL),
-      ]);
+      // Try bootstrap first (single call, may already be cached)
+      const result = await fetchWithOfflineFallback<{
+        forms: FormDefinition[];
+        portals: PortalDefinition[];
+      }>(BOOTSTRAP_URL);
 
       setState({
-        forms: formsResult.data.forms,
-        portals: portalsResult.data.portals,
+        forms: result.data.forms ?? [],
+        portals: result.data.portals ?? [],
         loading: false,
         error: null,
       });
-    } catch (err: any) {
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: err.message || "Impossible de charger les définitions.",
-      }));
+    } catch {
+      // Fallback to individual endpoints
+      try {
+        const [formsResult, portalsResult] = await Promise.all([
+          fetchWithOfflineFallback<{ forms: FormDefinition[] }>(FORMS_URL),
+          fetchWithOfflineFallback<{ portals: PortalDefinition[] }>(PORTALS_URL),
+        ]);
+        setState({
+          forms: formsResult.data.forms,
+          portals: portalsResult.data.portals,
+          loading: false,
+          error: null,
+        });
+      } catch (err: any) {
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          error: err.message || "Impossible de charger les définitions.",
+        }));
+      }
     }
   }, []);
 

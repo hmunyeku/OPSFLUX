@@ -32,6 +32,8 @@ import { useTranslation } from "react-i18next";
 import { useThemeStore } from "../stores/theme";
 import { useBootstrap, BootstrapEntity } from "../hooks/useBootstrap";
 import { setBaseUrl } from "../services/api";
+import { clearPersistedAuth } from "../services/storage";
+import { disconnectNotifications, useNotifications } from "../services/notifications";
 import {
   getProfile,
   updateProfile,
@@ -145,8 +147,12 @@ export default function SettingsScreen() {
       {
         text: "Déconnexion",
         style: "destructive",
-        onPress: () => {
+        onPress: async () => {
           if (trackingEnabled) stopTracking();
+          disconnectNotifications();
+          useNotifications.getState().clear();
+          usePermissions.getState().clear();
+          await clearPersistedAuth();
           logout();
         },
       },

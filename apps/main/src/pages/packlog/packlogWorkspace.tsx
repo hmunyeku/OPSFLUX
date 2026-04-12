@@ -1,27 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import {
-  useApplyCargoRequestLoadingOption as useLegacyCargoRequestLoadingOption,
-  useCargo as useLegacyCargo,
-  useCargoAttachmentEvidence as useLegacyCargoAttachmentEvidence,
-  useCargoHistory as useLegacyCargoHistory,
-  useCargoItem as useLegacyCargoItem,
-  useCargoRequest as useLegacyCargoRequest,
-  useCargoRequestLoadingOptions as useLegacyCargoRequestLoadingOptions,
-  useCargoRequestLtPdf as useLegacyCargoRequestLtPdf,
-  useCargoRequests as useLegacyCargoRequests,
-  useCreateCargo as useLegacyCreateCargo,
-  useCreateCargoRequest as useLegacyCreateCargoRequest,
-  useInitiateCargoReturn as useLegacyInitiateCargoReturn,
-  usePackageElements as useLegacyPackageElements,
-  useUpdateCargo as useLegacyUpdateCargo,
-  useUpdateCargoAttachmentEvidence as useLegacyUpdateCargoAttachmentEvidence,
-  useUpdateCargoRequest as useLegacyUpdateCargoRequest,
-  useUpdateCargoStatus as useLegacyUpdateCargoStatus,
-  useUpdateCargoWorkflowStatus as useLegacyUpdateCargoWorkflowStatus,
-  useUpdatePackageElementDisposition as useLegacyUpdatePackageElementDisposition,
-  useUpdatePackageElementReturn as useLegacyUpdatePackageElementReturn,
-} from '@/hooks/useTravelWiz'
-import {
   useApplyPackLogCargoRequestLoadingOption,
   useCreatePackLogCargo,
   useCreatePackLogCargoRequest,
@@ -43,13 +21,14 @@ import {
   useUpdatePackLogPackageElementDisposition,
   useUpdatePackLogPackageElementReturn,
 } from '@/hooks/usePackLog'
+import type { PaginationParams } from '@/types/api'
 
 export type CargoWorkspaceModule = 'travelwiz' | 'packlog'
 
-const CargoWorkspaceContext = createContext<{ panelModule: CargoWorkspaceModule; moduleLabel: string; queryNamespace: 'travelwiz' | 'packlog' }>({
-  panelModule: 'travelwiz',
-  moduleLabel: 'TravelWiz',
-  queryNamespace: 'travelwiz',
+const CargoWorkspaceContext = createContext<{ panelModule: CargoWorkspaceModule; moduleLabel: string; queryNamespace: 'packlog' }>({
+  panelModule: 'packlog',
+  moduleLabel: 'PackLog',
+  queryNamespace: 'packlog',
 })
 
 export function CargoWorkspaceProvider({
@@ -62,7 +41,7 @@ export function CargoWorkspaceProvider({
   children: ReactNode
 }) {
   return (
-    <CargoWorkspaceContext.Provider value={{ panelModule: module, moduleLabel: label, queryNamespace: module === 'packlog' ? 'packlog' : 'travelwiz' }}>
+    <CargoWorkspaceContext.Provider value={{ panelModule: module, moduleLabel: label, queryNamespace: 'packlog' }}>
       {children}
     </CargoWorkspaceContext.Provider>
   )
@@ -72,107 +51,88 @@ export function useCargoWorkspace() {
   return useContext(CargoWorkspaceContext)
 }
 
-export function useWorkspaceCargoRequests(params: Parameters<typeof useLegacyCargoRequests>[0]) {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogCargoRequests(params) : useLegacyCargoRequests(params)
+// ── All workspace hooks now point directly to PackLog ──
+
+export function useWorkspaceCargoRequests(params: PaginationParams & { status?: string; search?: string }) {
+  return usePackLogCargoRequests(params)
 }
 
 export function useWorkspaceCargoRequest(id: string | undefined) {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogCargoRequest(id) : useLegacyCargoRequest(id)
+  return usePackLogCargoRequest(id)
 }
 
 export function useWorkspaceCargoRequestLtPdf() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogCargoRequestLtPdf() : useLegacyCargoRequestLtPdf()
+  return usePackLogCargoRequestLtPdf()
 }
 
 export function useWorkspaceCargoRequestLoadingOptions(id: string | undefined) {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogCargoRequestLoadingOptions(id) : useLegacyCargoRequestLoadingOptions(id)
+  return usePackLogCargoRequestLoadingOptions(id)
 }
 
 export function useWorkspaceCreateCargoRequest() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useCreatePackLogCargoRequest() : useLegacyCreateCargoRequest()
+  return useCreatePackLogCargoRequest()
 }
 
 export function useWorkspaceUpdateCargoRequest() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useUpdatePackLogCargoRequest() : useLegacyUpdateCargoRequest()
+  return useUpdatePackLogCargoRequest()
 }
 
 export function useWorkspaceApplyCargoRequestLoadingOption() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useApplyPackLogCargoRequestLoadingOption() : useLegacyCargoRequestLoadingOption()
+  return useApplyPackLogCargoRequestLoadingOption()
 }
 
-export function useWorkspaceCargo(params: Parameters<typeof useLegacyCargo>[0]) {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogCargo(params) : useLegacyCargo(params)
+export function useWorkspaceCargo(params: PaginationParams & { status?: string; cargo_type?: string; manifest_id?: string; destination_asset_id?: string; request_id?: string; search?: string; scope?: string }) {
+  return usePackLogCargo(params)
 }
 
 export function useWorkspaceCargoItem(id: string | undefined) {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogCargoItem(id) : useLegacyCargoItem(id)
+  return usePackLogCargoItem(id)
 }
 
 export function useWorkspaceCreateCargo() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useCreatePackLogCargo() : useLegacyCreateCargo()
+  return useCreatePackLogCargo()
 }
 
 export function useWorkspaceUpdateCargo() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useUpdatePackLogCargo() : useLegacyUpdateCargo()
+  return useUpdatePackLogCargo()
 }
 
 export function useWorkspaceUpdateCargoStatus() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useUpdatePackLogCargoStatus() : useLegacyUpdateCargoStatus()
+  return useUpdatePackLogCargoStatus()
 }
 
 export function useWorkspaceUpdateCargoWorkflowStatus() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useUpdatePackLogCargoWorkflowStatus() : useLegacyUpdateCargoWorkflowStatus()
+  return useUpdatePackLogCargoWorkflowStatus()
 }
 
 export function useWorkspaceCargoAttachmentEvidence(id: string | undefined) {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogCargoAttachmentEvidence(id) : useLegacyCargoAttachmentEvidence(id)
+  return usePackLogCargoAttachmentEvidence(id)
 }
 
 export function useWorkspaceUpdateCargoAttachmentEvidence() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useUpdatePackLogCargoAttachmentEvidence() : useLegacyUpdateCargoAttachmentEvidence()
+  return useUpdatePackLogCargoAttachmentEvidence()
 }
 
 export function useWorkspaceInitiateCargoReturn() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useInitiatePackLogCargoReturn() : useLegacyInitiateCargoReturn()
+  return useInitiatePackLogCargoReturn()
 }
 
 export function useWorkspacePackageElements(id: string | undefined) {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogPackageElements(id) : useLegacyPackageElements(id)
+  return usePackLogPackageElements(id)
 }
 
 export function useWorkspaceUpdatePackageElementReturn() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useUpdatePackLogPackageElementReturn() : useLegacyUpdatePackageElementReturn()
+  return useUpdatePackLogPackageElementReturn()
 }
 
 export function useWorkspaceUpdatePackageElementDisposition() {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? useUpdatePackLogPackageElementDisposition() : useLegacyUpdatePackageElementDisposition()
+  return useUpdatePackLogPackageElementDisposition()
 }
 
 export function useWorkspaceCargoHistory(id: string | undefined) {
-  const { queryNamespace } = useCargoWorkspace()
-  return queryNamespace === 'packlog' ? usePackLogCargoHistory(id) : useLegacyCargoHistory(id)
+  return usePackLogCargoHistory(id)
 }
 
 export function useCargoDictionaryCategory(suffix: string) {
-  const { queryNamespace } = useCargoWorkspace()
-  return `${queryNamespace === 'packlog' ? 'packlog' : 'travelwiz'}_${suffix}`
+  return `packlog_${suffix}`
 }

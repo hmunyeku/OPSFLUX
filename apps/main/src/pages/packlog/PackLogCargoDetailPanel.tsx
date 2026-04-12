@@ -28,7 +28,8 @@ import { ContactPicker } from '@/components/shared/ContactPicker'
 import { useToast } from '@/components/ui/Toast'
 import { useAttachments } from '@/hooks/useSettings'
 import { useDictionaryLabels, useDictionaryOptions } from '@/hooks/useDictionary'
-import { useAllManifests, useSapMatch, useVectorZones, useVoyage } from '@/hooks/useTravelWiz'
+import { useAllManifests, useVectorZones, useVoyage } from '@/hooks/useTravelWiz'
+import { usePackLogSapMatch } from '@/hooks/usePackLog'
 import {
   useCargoDictionaryCategory,
   useCargoWorkspace,
@@ -146,7 +147,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
   const updatePackageElementReturn = useWorkspaceUpdatePackageElementReturn()
   const updatePackageElementDisposition = useWorkspaceUpdatePackageElementDisposition()
   const { data: cargoHistory } = useWorkspaceCargoHistory(id)
-  const sapMatch = useSapMatch()
+  const sapMatch = usePackLogSapMatch()
   const cargoTypeOptions = useDictionaryOptions(cargoTypeCategory)
   const ownershipOptions = useDictionaryOptions(ownershipCategory)
   const backCargoReturnTypeOptions = useDictionaryOptions(backCargoReturnTypeCategory)

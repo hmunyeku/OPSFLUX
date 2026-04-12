@@ -556,6 +556,7 @@ function GoutiProjectRow({
 }
 
 function GoutiImportModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation()
   const { data: facets, isLoading: facetsLoading } = useGoutiFacets()
   const { data: defaultFilters } = useGoutiDefaultFilters()
   const setDefaultFilters = useGoutiSetDefaultFilters()
@@ -639,7 +640,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
 
   const handleSaveAndSync = async () => {
     if (includedCount === 0) {
-      toast({ title: 'Aucun projet sélectionné', variant: 'warning' })
+      toast({ title: t('projets.toast.no_project_selected'), variant: 'warning' })
       return
     }
     const payload: GoutiSelectionPayload = { projects: {} }
@@ -656,18 +657,18 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
       })
       onClose()
     } catch (err) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Erreur'
-      toast({ title: 'Échec de l\'import', description: String(msg), variant: 'error' })
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? t('projets.toast.error')
+      toast({ title: t('projets.toast.import_failed'), description: String(msg), variant: 'error' })
     }
   }
 
   const handleSaveAsAdminDefault = async () => {
     try {
       await setDefaultFilters.mutateAsync(filters)
-      toast({ title: 'Filtres par défaut enregistrés', variant: 'success' })
+      toast({ title: t('projets.toast.default_filters_saved'), variant: 'success' })
       setShowAdminDefaults(false)
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('projets.toast.error'), variant: 'error' })
     }
   }
 
@@ -1009,6 +1010,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
 
 // ── Split button: main click = force sync (if selection saved), dropdown = reopen modal ─
 function GoutiSyncToolbar() {
+  const { t } = useTranslation()
   const { data: status } = useGoutiStatus()
   const syncSelected = useGoutiSyncSelected()
   const { toast } = useToast()
@@ -1040,13 +1042,13 @@ function GoutiSyncToolbar() {
     try {
       const res = await syncSelected.mutateAsync()
       toast({
-        title: 'Sync Gouti terminée',
+        title: t('projets.toast.gouti_sync_completed'),
         description: `${res.created} créés, ${res.updated} mis à jour${res.errors.length ? `, ${res.errors.length} erreurs` : ''}`,
         variant: res.errors.length > 0 ? 'warning' : 'success',
       })
     } catch (err) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Erreur'
-      toast({ title: 'Sync échouée', description: String(msg).slice(0, 200), variant: 'error' })
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? t('projets.toast.error')
+      toast({ title: t('projets.toast.sync_failed'), description: String(msg).slice(0, 200), variant: 'error' })
     }
   }
 
@@ -1227,9 +1229,9 @@ function CreateProjectPanel() {
       const payload: ProjectCreate = { ...form, asset_id: form.asset_id }
       await createProject.mutateAsync(normalizeNames(payload))
       closeDynamicPanel()
-      toast({ title: 'Projet cree', variant: 'success' })
+      toast({ title: t('projets.toast.project_created'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('projets.toast.error'), variant: 'error' })
     }
   }
 
@@ -1363,6 +1365,7 @@ function nextTaskStatus(current: string): string {
 // -- Task Create Form (full, like Gouti task sheet) ---------------------------
 
 function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+  const { t } = useTranslation()
   const createTask = useCreateProjectTask()
   const { toast } = useToast()
   const taskStatusLabels = useDictionaryLabels('project_task_status', PROJECT_TASK_STATUS_LABELS_FALLBACK)
@@ -1394,10 +1397,10 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
           estimated_hours: form.estimated_hours ? Number(form.estimated_hours) : null,
         },
       })
-      toast({ title: 'Tache creee', variant: 'success' })
+      toast({ title: t('projets.toast.task_created'), variant: 'success' })
       onClose()
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('projets.toast.error'), variant: 'error' })
     }
   }
 
@@ -1500,6 +1503,7 @@ function TaskDependenciesSection({ task, projectId, allTasks }: {
   allTasks: ProjectTask[]
 }) {
   const { data: deps = [] } = useTaskDependencies(projectId)
+  const { t } = useTranslation()
   const createDep = useCreateTaskDependency()
   const deleteDep = useDeleteTaskDependency()
   const { toast } = useToast()
@@ -1527,12 +1531,12 @@ function TaskDependenciesSection({ task, projectId, allTasks }: {
           lag_days: depForm.lag_days,
         },
       })
-      toast({ title: 'Dépendance ajoutée', variant: 'success' })
+      toast({ title: t('projets.toast.dependency_added'), variant: 'success' })
       setShowAdd(false)
       setDepForm({ to_task_id: '', dependency_type: 'finish_to_start', lag_days: 0 })
     } catch (err) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Erreur'
-      toast({ title: 'Impossible d\'ajouter la dépendance', description: String(msg), variant: 'error' })
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? t('projets.toast.error')
+      toast({ title: t('projets.toast.dependency_add_failed'), description: String(msg), variant: 'error' })
     }
   }
 
@@ -2307,6 +2311,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
 // -- Templates Section --------------------------------------------------------
 
 function TemplatesSection({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
   const { data: templates = [], isLoading } = useProjectTemplates()
   const saveAsTemplate = useSaveAsTemplate()
   const cloneFromTemplate = useCloneFromTemplate()
@@ -2323,18 +2328,18 @@ function TemplatesSection({ projectId }: { projectId: string }) {
     if (!tplName.trim()) return
     try {
       await saveAsTemplate.mutateAsync({ project_id: projectId, name: tplName, description: tplDesc || undefined })
-      toast({ title: 'Template sauvegarde', variant: 'success' })
+      toast({ title: t('projets.toast.template_saved'), variant: 'success' })
       setShowSave(false); setTplName(''); setTplDesc('')
-    } catch { toast({ title: 'Erreur sauvegarde template', variant: 'error' }) }
+    } catch { toast({ title: t('projets.toast.template_save_error'), variant: 'error' }) }
   }
 
   const handleClone = async () => {
     if (!selectedTpl || !cloneName.trim()) return
     try {
       await cloneFromTemplate.mutateAsync({ templateId: selectedTpl, name: cloneName })
-      toast({ title: 'Projet cree depuis template', variant: 'success' })
+      toast({ title: t('projets.toast.project_created_from_template'), variant: 'success' })
       setShowClone(false); setSelectedTpl(''); setCloneName('')
-    } catch { toast({ title: 'Erreur clone template', variant: 'error' }) }
+    } catch { toast({ title: t('projets.toast.template_clone_error'), variant: 'error' }) }
   }
 
   return (
@@ -2413,6 +2418,7 @@ function TemplatesSection({ projectId }: { projectId: string }) {
 // -- Custom Fields Section ----------------------------------------------------
 
 function CustomFieldsSection({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
   const { data: fields = [], isLoading } = useCustomFields(projectId)
   const setFieldValue = useSetCustomFieldValue()
   const { toast } = useToast()
@@ -2423,7 +2429,7 @@ function CustomFieldsSection({ projectId }: { projectId: string }) {
   const handleSave = async (fieldDefId: string, value: string) => {
     try {
       await setFieldValue.mutateAsync({ projectId, fieldDefId, payload: { value_text: value } })
-    } catch { toast({ title: 'Erreur sauvegarde champ', variant: 'error' }) }
+    } catch { toast({ title: t('projets.toast.field_save_error'), variant: 'error' }) }
   }
 
   return (
@@ -2445,6 +2451,7 @@ function CustomFieldsSection({ projectId }: { projectId: string }) {
 // -- Comments Section ---------------------------------------------------------
 
 function CommentsSection({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
   const { data: comments = [], isLoading } = useProjectComments(projectId)
   const createComment = useCreateProjectComment()
   const deleteComment = useDeleteComment()
@@ -2508,13 +2515,13 @@ function CommentsSection({ projectId }: { projectId: string }) {
         payload: { body, parent_id: replyTo || undefined, mentions: mentionIds.length > 0 ? mentionIds : undefined },
       })
       setBody(''); setReplyTo(null); setMentionIds([])
-    } catch { toast({ title: 'Erreur commentaire', variant: 'error' }) }
+    } catch { toast({ title: t('projets.toast.comment_error'), variant: 'error' }) }
   }
 
   const handleDelete = async (commentId: string) => {
     try {
       await deleteComment.mutateAsync({ projectId, commentId })
-    } catch { toast({ title: 'Erreur suppression', variant: 'error' }) }
+    } catch { toast({ title: t('projets.toast.deletion_error'), variant: 'error' }) }
   }
 
   const rootComments = comments.filter((c) => !c.parent_id && c.active)
@@ -2702,7 +2709,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
   const handleArchive = useCallback(async () => {
     await archiveProject.mutateAsync(id)
     closeDynamicPanel()
-    toast({ title: 'Projet archive', variant: 'success' })
+    toast({ title: t('projets.toast.project_archived'), variant: 'success' })
   }, [id, archiveProject, closeDynamicPanel, toast])
 
   const handleResyncGouti = useCallback(async () => {
@@ -2712,14 +2719,14 @@ function ProjectDetailPanel({ id }: { id: string }) {
     try {
       const res = await goutiSyncOne.mutateAsync(gid)
       toast({
-        title: 'Projet resynchronisé',
+        title: t('projets.toast.project_resynchronized'),
         description: `${res.action === 'created' ? 'Créé' : 'Mis à jour'} depuis Gouti — ${res.reports_synced} rapport(s)`,
         variant: 'success',
       })
     } catch (err) {
       const msg = (err as { response?: { data?: { detail?: string } }; message?: string })
-        ?.response?.data?.detail ?? (err as Error)?.message ?? 'Erreur inconnue'
-      toast({ title: 'Resync échouée', description: String(msg).slice(0, 200), variant: 'error' })
+        ?.response?.data?.detail ?? (err as Error)?.message ?? t('projets.toast.error')
+      toast({ title: t('projets.toast.resync_failed'), description: String(msg).slice(0, 200), variant: 'error' })
     }
   }, [project, goutiSyncOne, toast])
 
@@ -3008,6 +3015,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
 // -- WBS Section (Work Breakdown Structure) ----------------------------------
 
 function WbsSection({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
   const { data: nodes = [] } = useWbsNodes(projectId)
   const createNode = useCreateWbsNode()
   const deleteNode = useDeleteWbsNode()
@@ -3041,12 +3049,12 @@ function WbsSection({ projectId }: { projectId: string }) {
           budget: form.budget ? Number(form.budget) : null,
         },
       })
-      toast({ title: 'Nœud WBS créé', variant: 'success' })
+      toast({ title: t('projets.toast.wbs_node_created'), variant: 'success' })
       setForm({ parent_id: '', code: '', name: '', budget: '' })
       setShowAdd(false)
     } catch (err) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Erreur'
-      toast({ title: 'Impossible de créer', description: String(msg), variant: 'error' })
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? t('projets.toast.error')
+      toast({ title: t('projets.toast.creation_failed'), description: String(msg), variant: 'error' })
     }
   }
 
@@ -3264,6 +3272,7 @@ function CpmSection({ projectId }: { projectId: string }) {
 // -- Planning Revisions Section (in ProjectDetailPanel) ----------------------
 
 function PlanningRevisionsSection({ projectId }: { projectId: string }) {
+  const { t } = useTranslation()
   const { data: revisions = [] } = usePlanningRevisions(projectId)
   const createRev = useCreateRevision()
   const applyRev = useApplyRevision()
@@ -3292,8 +3301,8 @@ function PlanningRevisionsSection({ projectId }: { projectId: string }) {
       setRevName('')
       setRevDesc('')
     } catch (err) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Erreur'
-      toast({ title: 'Erreur création révision', description: String(msg), variant: 'error' })
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? t('projets.toast.error')
+      toast({ title: t('projets.toast.revision_creation_error'), description: String(msg), variant: 'error' })
     }
   }
 
@@ -3302,8 +3311,8 @@ function PlanningRevisionsSection({ projectId }: { projectId: string }) {
       await applyRev.mutateAsync({ projectId, revisionId: rev.id })
       toast({ title: `Révision "${rev.name}" activée`, variant: 'success' })
     } catch (err) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Erreur'
-      toast({ title: 'Impossible d\'appliquer', description: String(msg), variant: 'error' })
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? t('projets.toast.error')
+      toast({ title: t('projets.toast.revision_apply_failed'), description: String(msg), variant: 'error' })
     }
   }
 
@@ -3608,9 +3617,9 @@ function SpreadsheetView() {
     if (row._isGroupHeader) return
     try {
       await projetsService.updateTask(row.project_id, row.id, { [columnId]: value })
-      toast({ title: 'Modifié', variant: 'success' })
+      toast({ title: t('projets.toast.modified'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('projets.toast.error'), variant: 'error' })
     }
   }, [toast])
 
@@ -4274,6 +4283,7 @@ function KanbanColumn({
 }
 
 function KanbanView() {
+  const { t } = useTranslation()
   const { selection, setSelection, filteredProjectIds, isFiltered } = useProjectFilter()
   const [showSelector, setShowSelector] = useState(false)
   const [search, setSearch] = useState('')
@@ -4308,8 +4318,8 @@ function KanbanView() {
     updateTask.mutate(
       { projectId: task.project_id, taskId, payload: { status: newStatus } },
       {
-        onSuccess: () => toast({ title: 'Statut mis à jour', variant: 'success' }),
-        onError: () => toast({ title: 'Erreur mise à jour', variant: 'error' }),
+        onSuccess: () => toast({ title: t('projets.toast.status_updated'), variant: 'success' }),
+        onError: () => toast({ title: t('projets.toast.update_error'), variant: 'error' }),
       },
     )
   }, [tasks, updateTask, toast])

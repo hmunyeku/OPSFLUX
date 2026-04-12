@@ -1628,6 +1628,7 @@ function CreateVoyagePanel() {
   const { data: vectorsData } = useVectors({ page: 1, page_size: 100 })
   const { data: rotationsData } = useRotations({ page: 1, page_size: 100 })
   const { toast } = useToast()
+  const { t } = useTranslation()
   const [form, setForm] = useState<VoyageCreate>({
     vector_id: '',
     departure_base_id: '',
@@ -1645,9 +1646,9 @@ function CreateVoyagePanel() {
     e.preventDefault()
     try {
       await createVoyage.mutateAsync(form)
-      toast({ title: 'Voyage cree avec succes', variant: 'success' })
+      toast({ title: t('travelwiz.toast.voyage_created'), variant: 'success' })
       closeDynamicPanel()
-    } catch { toast({ title: 'Erreur lors de la creation du voyage', variant: 'error' }) }
+    } catch { toast({ title: t('travelwiz.toast.voyage_creation_error'), variant: 'error' }) }
   }
 
   return (
@@ -1746,6 +1747,7 @@ function CreateRotationPanel() {
   const createRotation = useCreateRotation()
   const { data: vectorsData } = useVectors({ page: 1, page_size: 100 })
   const { toast } = useToast()
+  const { t } = useTranslation()
   const [form, setForm] = useState<RotationCreate>({
     name: '',
     vector_id: '',
@@ -1759,10 +1761,10 @@ function CreateRotationPanel() {
     e.preventDefault()
     try {
       await createRotation.mutateAsync(form)
-      toast({ title: 'Rotation créée avec succès', variant: 'success' })
+      toast({ title: t('travelwiz.toast.rotation_created'), variant: 'success' })
       closeDynamicPanel()
     } catch {
-      toast({ title: 'Erreur lors de la création de la rotation', variant: 'error' })
+      toast({ title: t('travelwiz.toast.rotation_creation_error'), variant: 'error' })
     }
   }
 
@@ -1898,9 +1900,9 @@ function CreateVectorPanel() {
     e.preventDefault()
     try {
       await createVector.mutateAsync(form)
-      toast({ title: 'Vecteur cree avec succes', variant: 'success' })
+      toast({ title: t('travelwiz.toast.vector_created'), variant: 'success' })
       closeDynamicPanel()
-    } catch { toast({ title: 'Erreur lors de la creation du vecteur', variant: 'error' }) }
+    } catch { toast({ title: t('travelwiz.toast.vector_creation_error'), variant: 'error' }) }
   }
 
   return (
@@ -1994,6 +1996,7 @@ export function CreateCargoRequestPanel() {
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createCargoRequest = useWorkspaceCreateCargoRequest()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const { moduleLabel } = useCargoWorkspace()
   const [form, setForm] = useState<CargoRequestCreate>({
     title: '',
@@ -2011,10 +2014,10 @@ export function CreateCargoRequestPanel() {
     e.preventDefault()
     try {
       await createCargoRequest.mutateAsync(form)
-      toast({ title: "Demande d'expédition créée", variant: 'success' })
+      toast({ title: t('travelwiz.toast.shipment_request_created'), variant: 'success' })
       closeDynamicPanel()
     } catch {
-      toast({ title: "Erreur lors de la création de la demande d'expédition", variant: 'error' })
+      toast({ title: t('travelwiz.toast.shipment_request_creation_error'), variant: 'error' })
     }
   }
 
@@ -2032,7 +2035,7 @@ export function CreateCargoRequestPanel() {
 
   return (
     <DynamicPanelShell
-      title="Nouvelle demande d’expédition"
+      title="Nouvelle demande d'expédition"
       subtitle={moduleLabel}
       icon={<FileText size={14} className="text-primary" />}
       actions={
@@ -2061,7 +2064,7 @@ export function CreateCargoRequestPanel() {
               <div className="grid gap-3 md:grid-cols-4">
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Référence</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Générée automatiquement à l’enregistrement</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Générée automatiquement à l'enregistrement</p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Complétude</p>
@@ -2088,7 +2091,7 @@ export function CreateCargoRequestPanel() {
               </div>
             </div>
 
-            <FormSection title="Demande d’expédition">
+            <FormSection title="Demande d'expédition">
               <FormGrid>
                 <DynamicPanelField label="Intitulé" required>
                   <input
@@ -2097,7 +2100,7 @@ export function CreateCargoRequestPanel() {
                     value={form.title}
                     onChange={(e) => setForm({ ...form, title: e.target.value })}
                     className={panelInputClass}
-                    placeholder="Demande d’expédition équipements forage"
+                    placeholder="Demande d'expédition équipements forage"
                   />
                 </DynamicPanelField>
                 <DynamicPanelField label="Projet">
@@ -2185,6 +2188,7 @@ export function CreateCargoPanel() {
   const cargoTypeOptions = useDictionaryOptions(cargoTypeCategory)
   const ownershipOptions = useDictionaryOptions(ownershipCategory)
   const { toast } = useToast()
+  const { t } = useTranslation()
   const [form, setForm] = useState<CargoItemCreate>({
     request_id: null,
     description: '',
@@ -2254,14 +2258,14 @@ export function CreateCargoPanel() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.request_id) {
-      toast({ title: 'Sélectionne d’abord une demande d’expédition', variant: 'error' })
+      toast({ title: t('travelwiz.toast.select_request_first'), variant: 'error' })
       return
     }
     try {
       const createdCargo = await createCargo.mutateAsync(form)
-      toast({ title: 'Colis cree avec succes', description: 'Vous pouvez maintenant ajouter les photos et documents au colis.', variant: 'success' })
+      toast({ title: t('travelwiz.toast.parcel_created'), description: t('travelwiz.toast.parcel_created_description'), variant: 'success' })
       openDynamicPanel({ type: 'detail', module: panelModule, id: createdCargo.id, meta: { subtype: 'cargo' } })
-    } catch { toast({ title: 'Erreur lors de la creation du colis', variant: 'error' }) }
+    } catch { toast({ title: t('travelwiz.toast.parcel_creation_error'), variant: 'error' }) }
   }
 
   return (
@@ -2280,7 +2284,7 @@ export function CreateCargoPanel() {
             <div className="@container space-y-5">
               <FormSection title="Identification">
             <FormGrid>
-              <DynamicPanelField label="Demande d’expédition">
+              <DynamicPanelField label="Demande d'expédition">
                 <select
                   value={form.request_id ?? ''}
                   onChange={(e) => setForm({ ...form, request_id: e.target.value || null })}
@@ -2300,7 +2304,7 @@ export function CreateCargoPanel() {
               </DynamicPanelField>
               <DynamicPanelField label="Référence">
                 <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                  Générée automatiquement par la numérotation TravelWiz à l’enregistrement du colis.
+                  Générée automatiquement par la numérotation TravelWiz à l'enregistrement du colis.
                 </div>
               </DynamicPanelField>
               <DynamicPanelField label="Type de colis" required>
@@ -2322,7 +2326,7 @@ export function CreateCargoPanel() {
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   className={`${panelInputClass} min-h-[60px] resize-y`}
-                  placeholder="Description opérationnelle du colis, de l’unité ou du lot..."
+                  placeholder="Description opérationnelle du colis, de l'unité ou du lot..."
                   rows={3}
                 />
               </DynamicPanelField>
@@ -2417,7 +2421,7 @@ export function CreateCargoPanel() {
               </FormSection>
               <FormSection title="Enlèvement et preuves" collapsible defaultExpanded>
             <FormGrid>
-              <DynamicPanelField label="Lieu d’enlèvement" span="full">
+              <DynamicPanelField label="Lieu d'enlèvement" span="full">
                 <input type="text" value={form.pickup_location_label ?? ''} onChange={(e) => setForm({ ...form, pickup_location_label: e.target.value || null })} className={panelInputClass} placeholder="Base, quai, magasin, yard..." />
               </DynamicPanelField>
               <DynamicPanelField label="Latitude">
@@ -2492,7 +2496,7 @@ export function CreateCargoPanel() {
               </DynamicPanelField>
               <DynamicPanelField label="Photos et documents" span="full">
                 <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                  Les fichiers joints, photos terrain et preuves documentaires se gèrent après création du colis via l’onglet fichiers du détail colis.
+                  Les fichiers joints, photos terrain et preuves documentaires se gèrent après création du colis via l'onglet fichiers du détail colis.
                 </div>
               </DynamicPanelField>
             </FormGrid>
@@ -2517,6 +2521,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
   const requestStatusOptions = useDictionaryOptions(cargoRequestStatusCategory)
   const requestStatusLabels = useDictionaryLabels(cargoRequestStatusCategory)
   const { toast } = useToast()
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<CargoRequestUpdate>({})
   const requestCargo = requestCargoData?.items ?? []
@@ -2567,7 +2572,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
   const handleSave = async () => {
     try {
       await updateCargoRequest.mutateAsync({ id, payload: editForm })
-      toast({ title: "Demande d'expédition mise à jour", variant: 'success' })
+      toast({ title: t('travelwiz.toast.request_updated'), variant: 'success' })
       setEditing(false)
     } catch (error) {
       const missing = Array.isArray((error as { response?: { data?: { detail?: { missing_requirements?: string[] } } } })?.response?.data?.detail?.missing_requirements)
@@ -2586,8 +2591,8 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
       }
       toast({
         title: missing.length > 0
-          ? `Demande incomplète: ${missing.map((item) => requirementLabels[item] ?? item).join(', ')}`
-          : "Erreur lors de la mise à jour de la demande",
+          ? `${t('travelwiz.toast.request_incomplete')}: ${missing.map((item) => requirementLabels[item] ?? item).join(', ')}`
+          : t('travelwiz.toast.request_update_error'),
         variant: 'error',
       })
     }
@@ -2596,7 +2601,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
   const handleApplyLoadingOption = async (voyageId: string) => {
     try {
       await applyLoadingOption.mutateAsync({ id, voyageId })
-      toast({ title: 'Proposition de chargement appliquée', variant: 'success' })
+      toast({ title: t('travelwiz.toast.loading_applied'), variant: 'success' })
     } catch (error) {
       const blockingReasons = Array.isArray((error as { response?: { data?: { detail?: { blocking_reasons?: string[] } } } })?.response?.data?.detail?.blocking_reasons)
         ? ((error as { response?: { data?: { detail?: { blocking_reasons?: string[] } } } }).response?.data?.detail?.blocking_reasons ?? [])
@@ -2609,8 +2614,8 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
       }
       toast({
         title: blockingReasons.length > 0
-          ? `Chargement impossible: ${blockingReasons.map((item) => reasonLabels[item] ?? item).join(', ')}`
-          : 'Erreur lors de l’affectation au voyage',
+          ? `${t('travelwiz.toast.loading_impossible')}: ${blockingReasons.map((item) => reasonLabels[item] ?? item).join(', ')}`
+          : t('travelwiz.toast.voyage_assignment_error'),
         variant: 'error',
       })
     }
@@ -2620,7 +2625,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
     try {
       await downloadCargoRequestLtPdf.mutateAsync(id)
     } catch {
-      toast({ title: 'Impossible d imprimer la LT', description: 'Verifiez le modele PDF cargo.lt.', variant: 'error' })
+      toast({ title: t('travelwiz.toast.lt_print_error'), description: t('travelwiz.toast.check_cargo_lt_pdf'), variant: 'error' })
     }
   }
 
@@ -2667,7 +2672,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
     >
       <PanelContentLayout>
         {editing ? (
-          <FormSection title="Demande d’expédition">
+          <FormSection title="Demande d'expédition">
             <FormGrid>
               <DynamicPanelField label="Intitulé">
                 <input type="text" value={editForm.title ?? ''} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} className={panelInputClass} />
@@ -2749,7 +2754,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                 {loadingOptions?.length ? <span className="gl-badge gl-badge-info">{loadingOptions.length} option(s) de chargement</span> : null}
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Demande d’expédition</p>
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Demande d'expédition</p>
                 <h3 className="mt-1 text-lg font-semibold text-foreground">{cargoRequest.request_code}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{cargoRequest.title}</p>
               </div>
@@ -2799,7 +2804,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
               </div>
             </FormSection>
 
-            <FormSection title="Demande d’expédition">
+            <FormSection title="Demande d'expédition">
               <DetailRow label="Code" value={cargoRequest.request_code} />
               <DetailRow label="Intitulé" value={cargoRequest.title} />
               <DetailRow label="Statut" value={requestStatusLabels[cargoRequest.status] ?? cargoRequest.status} />
@@ -2819,7 +2824,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                 <div className={`rounded-lg border px-3 py-2 text-xs ${cargoRequest.is_ready_for_submission ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
                   {cargoRequest.is_ready_for_submission
                     ? 'La demande est prête pour soumission.'
-                    : 'La demande n’est pas encore prête pour soumission.'}
+                    : "La demande n'est pas encore prête pour soumission."}
                 </div>
                 {missingRequirements.length > 0 ? (
                   <div className="space-y-1">
@@ -2988,6 +2993,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
     [voyageStatusLabels],
   )
   const { toast } = useToast()
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [cargoReportExportOpen, setCargoReportExportOpen] = useState(false)
   const [editForm, setEditForm] = useState<VoyageUpdate>({})
@@ -3005,25 +3011,25 @@ function VoyageDetailPanel({ id }: { id: string }) {
   }, [voyage])
 
   const handleSave = async () => {
-    try { await updateVoyage.mutateAsync({ id, payload: editForm }); toast({ title: 'Voyage mis a jour', variant: 'success' }); setEditing(false) }
-    catch { toast({ title: 'Erreur lors de la mise a jour', variant: 'error' }) }
+    try { await updateVoyage.mutateAsync({ id, payload: editForm }); toast({ title: t('travelwiz.toast.voyage_updated'), variant: 'success' }); setEditing(false) }
+    catch { toast({ title: t('travelwiz.toast.voyage_update_error'), variant: 'error' }) }
   }
 
   const handleDelete = async () => {
-    try { await deleteVoyage.mutateAsync(id); toast({ title: 'Voyage supprime', variant: 'success' }); closeDynamicPanel() }
-    catch { toast({ title: 'Erreur lors de la suppression', variant: 'error' }) }
+    try { await deleteVoyage.mutateAsync(id); toast({ title: t('travelwiz.toast.voyage_deleted'), variant: 'success' }); closeDynamicPanel() }
+    catch { toast({ title: t('travelwiz.toast.voyage_deletion_error'), variant: 'error' }) }
   }
 
   const handleClose = async () => {
-    try { await closeTrip.mutateAsync(id); toast({ title: 'Voyage cloture', variant: 'success' }) }
-    catch { toast({ title: 'Erreur lors de la cloture', variant: 'error' }) }
+    try { await closeTrip.mutateAsync(id); toast({ title: t('travelwiz.toast.voyage_closed'), variant: 'success' }) }
+    catch { toast({ title: t('travelwiz.toast.voyage_close_error'), variant: 'error' }) }
   }
 
   const handlePrintPaxManifest = async () => {
     try {
       await downloadPaxManifestPdf.mutateAsync(id)
     } catch {
-      toast({ title: 'Impossible d imprimer le manifeste PAX', description: 'Verifiez le modele PDF voyage.manifest.', variant: 'error' })
+      toast({ title: t('travelwiz.toast.pax_manifest_print_error'), description: t('travelwiz.toast.check_pax_manifest_pdf'), variant: 'error' })
     }
   }
 
@@ -3031,7 +3037,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
     try {
       await downloadCargoManifestPdf.mutateAsync(id)
     } catch {
-      toast({ title: 'Impossible d imprimer le manifeste cargo', description: 'Verifiez le modele PDF voyage.cargo_manifest.', variant: 'error' })
+      toast({ title: t('travelwiz.toast.cargo_manifest_print_error'), description: t('travelwiz.toast.check_cargo_manifest_pdf'), variant: 'error' })
     }
   }
 
@@ -3374,6 +3380,7 @@ function VectorDetailPanel({ id }: { id: string }) {
   const deleteVector = useDeleteVector()
   const { data: zones } = useVectorZones(id)
   const { toast } = useToast()
+  const { t } = useTranslation()
   const { hasPermission } = usePermission()
   const canUpdate = hasPermission('travelwiz.voyage.update')
   const canDelete = hasPermission('travelwiz.voyage.delete')
@@ -3402,13 +3409,13 @@ function VectorDetailPanel({ id }: { id: string }) {
   }
 
   const handleSave = async () => {
-    try { await updateVector.mutateAsync({ id, payload: editForm }); toast({ title: 'Vecteur mis a jour', variant: 'success' }); setEditing(false) }
-    catch { toast({ title: 'Erreur lors de la mise a jour', variant: 'error' }) }
+    try { await updateVector.mutateAsync({ id, payload: editForm }); toast({ title: t('travelwiz.toast.vector_updated'), variant: 'success' }); setEditing(false) }
+    catch { toast({ title: t('travelwiz.toast.vector_update_error'), variant: 'error' }) }
   }
 
   const handleDelete = async () => {
-    try { await deleteVector.mutateAsync(id); toast({ title: 'Vecteur supprime', variant: 'success' }); closeDynamicPanel() }
-    catch { toast({ title: 'Erreur lors de la suppression', variant: 'error' }) }
+    try { await deleteVector.mutateAsync(id); toast({ title: t('travelwiz.toast.vector_deleted'), variant: 'success' }); closeDynamicPanel() }
+    catch { toast({ title: t('travelwiz.toast.vector_deletion_error'), variant: 'error' }) }
   }
 
   if (isLoading || !vector) {
@@ -3543,6 +3550,7 @@ function RotationDetailPanel({ id }: { id: string }) {
   const { data: vectorsData } = useVectors({ page: 1, page_size: 100 })
   const updateRotation = useUpdateRotation()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<RotationUpdate>({})
 
@@ -3567,10 +3575,10 @@ function RotationDetailPanel({ id }: { id: string }) {
   const handleSave = async () => {
     try {
       await updateRotation.mutateAsync({ id, payload: editForm })
-      toast({ title: 'Rotation mise à jour', variant: 'success' })
+      toast({ title: t('travelwiz.toast.rotation_updated'), variant: 'success' })
       setEditing(false)
     } catch {
-      toast({ title: 'Erreur lors de la mise à jour', variant: 'error' })
+      toast({ title: t('travelwiz.toast.rotation_update_error'), variant: 'error' })
     }
   }
 

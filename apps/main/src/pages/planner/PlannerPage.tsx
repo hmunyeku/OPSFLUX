@@ -840,9 +840,9 @@ function ActivitiesTab() {
               <button
                 className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
                 onClick={(e) => handleAction(e, () => submitActivity.mutate(row.original.id, {
-                  onSuccess: () => toast({ title: 'Activité soumise', variant: 'success' }),
+                  onSuccess: () => toast({ title: t('planner.toast.activity_submitted'), variant: 'success' }),
                   onError: (err) => toast({
-                    title: 'Soumission refusée',
+                    title: t('planner.toast.submission_refused'),
                     description: extractApiError(err),
                     variant: 'error',
                   }),
@@ -857,9 +857,9 @@ function ActivitiesTab() {
                 <button
                   className="p-1 rounded hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-600"
                   onClick={(e) => handleAction(e, () => validateActivity.mutate(row.original.id, {
-                    onSuccess: () => toast({ title: 'Activité validée', variant: 'success' }),
+                    onSuccess: () => toast({ title: t('planner.toast.activity_validated'), variant: 'success' }),
                     onError: (err) => toast({
-                      title: 'Validation refusée',
+                      title: t('planner.toast.validation_refused'),
                       description: extractApiError(err),
                       variant: 'error',
                     }),
@@ -871,11 +871,11 @@ function ActivitiesTab() {
                 <button
                   className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
                   onClick={(e) => handleAction(e, async () => {
-                    const reason = await promptInput({ title: 'Rejeter l\'activité', placeholder: 'Motif du rejet...' })
+                    const reason = await promptInput({ title: t('planner.toast.reject_activity_title'), placeholder: 'Motif du rejet...' })
                     if (reason !== null) rejectActivity.mutate({ id: row.original.id, reason }, {
-                      onSuccess: () => toast({ title: 'Activité rejetée', variant: 'success' }),
+                      onSuccess: () => toast({ title: t('planner.toast.activity_rejected'), variant: 'success' }),
                       onError: (err) => toast({
-                        title: 'Rejet refusé',
+                        title: t('planner.toast.rejection_refused'),
                         description: extractApiError(err),
                         variant: 'error',
                       }),
@@ -1191,15 +1191,15 @@ function ConflitsTab() {
           setBulkSelection([])
           const errCount = result.errors?.length ?? 0
           toast({
-            title: `${result.resolved} conflits résolus`,
+            title: t('planner.toast.conflicts_resolved', { count: result.resolved }),
             description: errCount > 0
-              ? `${errCount} échec(s), ${result.skipped} ignoré(s)`
-              : result.skipped > 0 ? `${result.skipped} ignoré(s)` : undefined,
+              ? t('planner.toast.errors_count', { count: errCount, skipped: result.skipped })
+              : result.skipped > 0 ? t('planner.toast.skipped_count', { count: result.skipped }) : undefined,
             variant: errCount > 0 ? 'error' : 'success',
           })
         },
         onError: (err) => toast({
-          title: 'Échec résolution en masse',
+          title: t('planner.toast.bulk_resolve_failed'),
           description: extractApiError(err),
           variant: 'error',
         }),
@@ -1709,8 +1709,8 @@ function ConflitsTab() {
                 const openRows = rows.filter((r) => r.status === 'open')
                 if (openRows.length === 0) {
                   toast({
-                    title: 'Aucun conflit ouvert dans la sélection',
-                    description: 'Sélectionnez au moins un conflit avec le statut "ouvert".',
+                    title: t('planner.toast.no_open_conflict'),
+                    description: t('planner.toast.no_open_conflict_desc'),
                     variant: 'warning',
                   })
                   return
@@ -2068,11 +2068,11 @@ function CapacityTab({
       { assetId, payload: capForm },
       {
         onSuccess: () => {
-          toast({ title: 'Capacite mise a jour', variant: 'success' })
+          toast({ title: t('planner.toast.capacity_updated'), variant: 'success' })
           setShowCapModal(false)
           setCapForm({ max_pax_total: 0, permanent_ops_quota: 0, reason: '' })
         },
-        onError: () => toast({ title: 'Erreur lors de la mise a jour', variant: 'error' }),
+        onError: () => toast({ title: t('planner.toast.update_error'), variant: 'error' }),
       },
     )
   }, [assetId, capForm, createAssetCapacity, toast])
@@ -2596,6 +2596,7 @@ function CapacityTab({
 // ── Scenarios Tab (what-if simulation) ──────────────────────────────────
 
 function ScenariosTab() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const { pageSize } = usePageSize()
   const [page, setPage] = useState(1)
@@ -2624,18 +2625,18 @@ function ScenariosTab() {
       setShowCreate(false)
       setCreateTitle('')
       setCreateDesc('')
-      toast({ title: 'Scénario créé', variant: 'success' })
+      toast({ title: t('planner.toast.scenario_created'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('planner.toast.error_generic'), variant: 'error' })
     }
   }
 
   const handleSimulate = async (scenarioId: string) => {
     try {
       await simulateScenario.mutateAsync(scenarioId)
-      toast({ title: 'Simulation terminée', variant: 'success' })
+      toast({ title: t('planner.toast.simulation_done'), variant: 'success' })
     } catch (err) {
-      toast({ title: 'Simulation échouée', description: extractApiError(err), variant: 'error' })
+      toast({ title: t('planner.toast.simulation_failed'), description: extractApiError(err), variant: 'error' })
     }
   }
 
@@ -2650,12 +2651,12 @@ function ScenariosTab() {
     try {
       const result = await promoteScenario.mutateAsync(scenarioId)
       toast({
-        title: `${result.promoted_activity_count} activités promues`,
-        description: result.errors.length > 0 ? `${result.errors.length} erreur(s)` : undefined,
+        title: t('planner.toast.activities_promoted', { count: result.promoted_activity_count }),
+        description: result.errors.length > 0 ? t('planner.toast.errors_short', { count: result.errors.length }) : undefined,
         variant: result.errors.length > 0 ? 'error' : 'success',
       })
     } catch (err) {
-      toast({ title: 'Promotion échouée', description: extractApiError(err), variant: 'error' })
+      toast({ title: t('planner.toast.promote_failed'), description: extractApiError(err), variant: 'error' })
     }
   }
 
@@ -3448,6 +3449,7 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
 }
 
 function ActivityDetailPanel({ id }: { id: string }) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const promptInput = usePromptInput()
   const confirm = useConfirm()
@@ -3506,8 +3508,8 @@ function ActivityDetailPanel({ id }: { id: string }) {
     updateActivity.mutate(
       { id, payload: normalizeNames({ [field]: value }) },
       {
-        onSuccess: () => toast({ title: 'Champ mis a jour', variant: 'success' }),
-        onError: () => toast({ title: 'Erreur lors de la mise a jour', variant: 'error' }),
+        onSuccess: () => toast({ title: t('planner.toast.field_updated'), variant: 'success' }),
+        onError: () => toast({ title: t('planner.toast.update_error'), variant: 'error' }),
       },
     )
   }, [id, updateActivity, toast])
@@ -3525,8 +3527,8 @@ function ActivityDetailPanel({ id }: { id: string }) {
       updateActivity.mutate(
         { id, payload: { pax_quota_daily: next } },
         {
-          onSuccess: () => toast({ title: 'Plan POB mis a jour', variant: 'success' }),
-          onError: () => toast({ title: 'Erreur lors de la mise a jour', variant: 'error' }),
+          onSuccess: () => toast({ title: t('planner.toast.pob_plan_updated'), variant: 'success' }),
+          onError: () => toast({ title: t('planner.toast.update_error'), variant: 'error' }),
         },
       )
     }, 400)
@@ -3590,11 +3592,11 @@ function ActivityDetailPanel({ id }: { id: string }) {
       { id, payload: normalizeNames(editForm as Record<string, string | number | null>) },
       {
         onSuccess: () => {
-          toast({ title: 'Activite mise a jour', variant: 'success' })
+          toast({ title: t('planner.toast.activity_updated'), variant: 'success' })
           setEditing(false)
           setShowImpact(false)
         },
-        onError: () => toast({ title: 'Erreur lors de la mise a jour', variant: 'error' }),
+        onError: () => toast({ title: t('planner.toast.update_error'), variant: 'error' }),
       },
     )
   }, [id, editForm, updateActivity, toast])
@@ -3602,18 +3604,18 @@ function ActivityDetailPanel({ id }: { id: string }) {
   const handleDelete = useCallback(() => {
     deleteActivity.mutate(id, {
       onSuccess: () => {
-        toast({ title: 'Activite supprimee', variant: 'success' })
+        toast({ title: t('planner.toast.activity_deleted'), variant: 'success' })
         closeDynamicPanel()
       },
-      onError: () => toast({ title: 'Erreur lors de la suppression', variant: 'error' }),
+      onError: () => toast({ title: t('planner.toast.deletion_error'), variant: 'error' }),
     })
   }, [id, deleteActivity, toast, closeDynamicPanel])
 
   const handleSubmit = useCallback(() => {
     submitActivity.mutate(id, {
-      onSuccess: () => toast({ title: 'Activité soumise', variant: 'success' }),
+      onSuccess: () => toast({ title: t('planner.toast.activity_submitted'), variant: 'success' }),
       onError: (err) => toast({
-        title: 'Soumission refusée',
+        title: t('planner.toast.submission_refused'),
         description: extractApiError(err),
         variant: 'error',
       }),
@@ -3622,9 +3624,9 @@ function ActivityDetailPanel({ id }: { id: string }) {
 
   const handleValidate = useCallback(() => {
     validateActivity.mutate(id, {
-      onSuccess: () => toast({ title: 'Activité validée', variant: 'success' }),
+      onSuccess: () => toast({ title: t('planner.toast.activity_validated'), variant: 'success' }),
       onError: (err) => toast({
-        title: 'Validation refusée',
+        title: t('planner.toast.validation_refused'),
         description: extractApiError(err),
         variant: 'error',
       }),
@@ -3632,14 +3634,14 @@ function ActivityDetailPanel({ id }: { id: string }) {
   }, [id, validateActivity, toast])
 
   const handleReject = useCallback(async () => {
-    const reason = await promptInput({ title: 'Rejeter l\'activité', placeholder: 'Motif du rejet...' })
+    const reason = await promptInput({ title: t('planner.toast.reject_activity_title'), placeholder: 'Motif du rejet...' })
     if (reason === null) return
     rejectActivity.mutate(
       { id, reason },
       {
-        onSuccess: () => toast({ title: 'Activité rejetée', variant: 'success' }),
+        onSuccess: () => toast({ title: t('planner.toast.activity_rejected'), variant: 'success' }),
         onError: (err) => toast({
-          title: 'Rejet refusé',
+          title: t('planner.toast.rejection_refused'),
           description: extractApiError(err),
           variant: 'error',
         }),
@@ -3649,8 +3651,8 @@ function ActivityDetailPanel({ id }: { id: string }) {
 
   const handleCancel = useCallback(() => {
     cancelActivity.mutate(id, {
-      onSuccess: () => toast({ title: 'Activite annulee', variant: 'success' }),
-      onError: () => toast({ title: "Erreur lors de l'annulation", variant: 'error' }),
+      onSuccess: () => toast({ title: t('planner.toast.activity_cancelled'), variant: 'success' }),
+      onError: () => toast({ title: t('planner.toast.cancellation_error'), variant: 'error' }),
     })
   }, [id, cancelActivity, toast])
 
@@ -3671,7 +3673,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
           lag_days: lagDays,
         },
       })
-      toast({ title: 'Dépendance ajoutée', variant: 'success' })
+      toast({ title: t('planner.toast.dependency_added'), variant: 'success' })
 
       // Step 2: check if the new constraint is violated by the current dates
       // of this activity (the successor). If so, compute the minimum shift
@@ -3721,7 +3723,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                   end_date: newEnd,
                 })
                 toast({
-                  title: `Tâche décalée de ${deltaDays} jour${deltaDays > 1 ? 's' : ''}`,
+                  title: t('planner.toast.task_shifted', { count: deltaDays }),
                   variant: 'success',
                 })
               }
@@ -3736,7 +3738,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
       setShowDepAdd(false)
     } catch (err) {
       toast({
-        title: "Ajout refusé",
+        title: t('planner.toast.addition_refused'),
         description: extractApiError(err),
         variant: 'error',
       })
@@ -3747,8 +3749,8 @@ function ActivityDetailPanel({ id }: { id: string }) {
     removeDependency.mutate(
       { activityId: id, dependencyId: depId },
       {
-        onSuccess: () => toast({ title: 'Dependance supprimee', variant: 'success' }),
-        onError: () => toast({ title: 'Erreur lors de la suppression', variant: 'error' }),
+        onSuccess: () => toast({ title: t('planner.toast.dependency_deleted'), variant: 'success' }),
+        onError: () => toast({ title: t('planner.toast.deletion_error'), variant: 'error' }),
       },
     )
   }, [id, removeDependency, toast])
@@ -3781,12 +3783,12 @@ function ActivityDetailPanel({ id }: { id: string }) {
               },
             },
             {
-              onSuccess: () => toast({ title: 'Dependance modifiee', variant: 'success' }),
-              onError: () => toast({ title: 'Erreur lors de la modification', variant: 'error' }),
+              onSuccess: () => toast({ title: t('planner.toast.dependency_modified'), variant: 'success' }),
+              onError: () => toast({ title: t('planner.toast.modification_error'), variant: 'error' }),
             },
           )
         },
-        onError: () => toast({ title: 'Erreur lors de la modification', variant: 'error' }),
+        onError: () => toast({ title: t('planner.toast.modification_error'), variant: 'error' }),
       },
     )
   }, [id, removeDependency, addDependency, toast])
@@ -3804,10 +3806,10 @@ function ActivityDetailPanel({ id }: { id: string }) {
       },
       {
         onSuccess: () => {
-          toast({ title: 'Recurrence configuree', variant: 'success' })
+          toast({ title: t('planner.toast.recurrence_configured'), variant: 'success' })
           setShowRecurrence(false)
         },
-        onError: () => toast({ title: 'Erreur', variant: 'error' }),
+        onError: () => toast({ title: t('planner.toast.error_generic'), variant: 'error' }),
       },
     )
   }, [id, recForm, setRecurrence, toast])
@@ -3818,10 +3820,10 @@ function ActivityDetailPanel({ id }: { id: string }) {
       { activityId: id, priority: priorityOverrideForm.priority, reason: priorityOverrideForm.reason },
       {
         onSuccess: () => {
-          toast({ title: 'Priorité modifiee', variant: 'success' })
+          toast({ title: t('planner.toast.priority_modified'), variant: 'success' })
           setShowPriorityOverride(false)
         },
-        onError: () => toast({ title: 'Erreur', variant: 'error' }),
+        onError: () => toast({ title: t('planner.toast.error_generic'), variant: 'error' }),
       },
     )
   }, [id, priorityOverrideForm, overridePriority, toast])
@@ -4489,7 +4491,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                       <button
                         className="gl-button-sm text-xs text-destructive hover:text-destructive/80 ml-auto"
                         onClick={() => deleteRecurrence.mutate(id, {
-                          onSuccess: () => { toast({ title: 'Recurrence supprimee', variant: 'success' }); setShowRecurrence(false) },
+                          onSuccess: () => { toast({ title: t('planner.toast.recurrence_deleted'), variant: 'success' }); setShowRecurrence(false) },
                         })}
                         disabled={deleteRecurrence.isPending}
                       >
@@ -4633,6 +4635,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
 // ── Create Activity Panel ──────────────────────────────────────
 
 function CreateActivityPanel() {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createActivity = useCreateActivity()
@@ -4668,10 +4671,10 @@ function CreateActivityPanel() {
     e.preventDefault()
     createActivity.mutate(normalizeNames(form), {
       onSuccess: () => {
-        toast({ title: 'Activite creee avec succes', variant: 'success' })
+        toast({ title: t('planner.toast.activity_created'), variant: 'success' })
         closeDynamicPanel()
       },
-      onError: () => toast({ title: "Erreur lors de la creation de l'activite", variant: 'error' }),
+      onError: () => toast({ title: t('planner.toast.creation_error'), variant: 'error' }),
     })
   }, [form, createActivity, toast, closeDynamicPanel])
 

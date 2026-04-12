@@ -180,9 +180,9 @@ function CreateTypePanel() {
     try {
       await createType.mutateAsync(normalizeNames(form))
       closeDynamicPanel()
-      toast({ title: 'Type de conformite cree', variant: 'success' })
+      toast({ title: t('conformite.toast.type_created'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('conformite.toast.error'), variant: 'error' })
     }
   }
 
@@ -275,7 +275,7 @@ function TypeDetailPanel({ id }: { id: string }) {
   const handleDelete = useCallback(async () => {
     await deleteType.mutateAsync(id)
     closeDynamicPanel()
-    toast({ title: 'Type archive', variant: 'success' })
+    toast({ title: t('conformite.toast.type_archived'), variant: 'success' })
   }, [id, deleteType, closeDynamicPanel, toast])
 
   if (!ct) {
@@ -573,15 +573,15 @@ function CreateExemptionPanel() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.compliance_record_id) {
-      toast({ title: 'Selectionnez un enregistrement de conformite', variant: 'error' })
+      toast({ title: t('conformite.toast.select_record'), variant: 'error' })
       return
     }
     try {
       await createExemption.mutateAsync(form)
       closeDynamicPanel()
-      toast({ title: 'Exemption creee', variant: 'success' })
+      toast({ title: t('conformite.toast.exemption_created'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur lors de la creation', variant: 'error' })
+      toast({ title: t('conformite.toast.exemption_creation_error'), variant: 'error' })
     }
   }
 
@@ -678,30 +678,30 @@ function ExemptionDetailPanel({ id }: { id: string }) {
   const handleApprove = useCallback(async () => {
     try {
       await approveExemption.mutateAsync(id)
-      toast({ title: 'Exemption approuvee', variant: 'success' })
+      toast({ title: t('conformite.toast.exemption_approved'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('conformite.toast.error'), variant: 'error' })
     }
   }, [id, approveExemption, toast])
 
   const handleReject = useCallback(async () => {
     if (!rejectReason.trim()) {
-      toast({ title: 'Veuillez saisir un motif de rejet', variant: 'error' })
+      toast({ title: t('conformite.toast.reject_reason_required'), variant: 'error' })
       return
     }
     try {
       await rejectExemption.mutateAsync({ id, reason: rejectReason })
       setShowRejectForm(false)
-      toast({ title: 'Exemption rejetee', variant: 'success' })
+      toast({ title: t('conformite.toast.exemption_rejected'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('conformite.toast.error'), variant: 'error' })
     }
   }, [id, rejectReason, rejectExemption, toast])
 
   const handleDelete = useCallback(async () => {
     await deleteExemption.mutateAsync(id)
     closeDynamicPanel()
-    toast({ title: 'Exemption archivee', variant: 'success' })
+    toast({ title: t('conformite.toast.exemption_archived'), variant: 'success' })
   }, [id, deleteExemption, closeDynamicPanel, toast])
   const { exemptionStatusLabels } = useConformiteDictionaryState()
 
@@ -826,9 +826,9 @@ function CreateJobPositionPanel() {
     try {
       await createJP.mutateAsync(normalizeNames(form))
       closeDynamicPanel()
-      toast({ title: 'Fiche de poste creee', variant: 'success' })
+      toast({ title: t('conformite.toast.job_position_created'), variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('conformite.toast.error'), variant: 'error' })
     }
   }
 
@@ -909,7 +909,7 @@ function JobPositionDetailPanel({ id }: { id: string }) {
   const handleDelete = useCallback(async () => {
     await deleteJP.mutateAsync(id)
     closeDynamicPanel()
-    toast({ title: 'Fiche de poste archivee', variant: 'success' })
+    toast({ title: t('conformite.toast.job_position_archived'), variant: 'success' })
   }, [id, deleteJP, closeDynamicPanel, toast])
 
   // Helper to resolve a type from its ID
@@ -2509,6 +2509,7 @@ function RuleFormFields({ form, setForm, typesData, jpData, typeReadOnly }: {
 // ── Edit Rule Panel ──────────────────────────────────────────────────────
 
 function EditRulePanel() {
+  const { t } = useTranslation()
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const updateRule = useUpdateComplianceRule()
@@ -2542,7 +2543,7 @@ function EditRulePanel() {
 
   const handleSave = async () => {
     if (!changeReason.trim()) {
-      toast({ title: 'Veuillez indiquer la raison de la modification', variant: 'error' })
+      toast({ title: t('conformite.toast.change_reason_required'), variant: 'error' })
       return
     }
     try {
@@ -2563,20 +2564,20 @@ function EditRulePanel() {
           change_reason: changeReason,
         },
       })
-      toast({ title: 'Règle mise à jour', variant: 'success' })
+      toast({ title: t('conformite.toast.rule_updated'), variant: 'success' })
       closeDynamicPanel()
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('conformite.toast.error'), variant: 'error' })
     }
   }
 
   const handleDelete = async () => {
     try {
       await deleteRule.mutateAsync({ id: rule.id })
-      toast({ title: 'Règle supprimée', variant: 'success' })
+      toast({ title: t('conformite.toast.rule_deleted'), variant: 'success' })
       closeDynamicPanel()
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('conformite.toast.error'), variant: 'error' })
     }
   }
 
@@ -2653,6 +2654,7 @@ function EditRulePanel() {
 // ── Create Rule Panel ────────────────────────────────────────────────────
 
 function CreateRulePanel() {
+  const { t } = useTranslation()
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const createRule = useCreateComplianceRule()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
@@ -2697,10 +2699,10 @@ function CreateRulePanel() {
         renewal_reminder_days: form.renewal_reminder_days,
         condition_json: form.condition_json,
       })
-      toast({ title: 'Règle créée', variant: 'success' })
+      toast({ title: t('conformite.toast.rule_created'), variant: 'success' })
       closeDynamicPanel()
     } catch {
-      toast({ title: 'Erreur', variant: 'error' })
+      toast({ title: t('conformite.toast.error'), variant: 'error' })
     }
   }
 
@@ -2837,17 +2839,17 @@ function VerificationsTab() {
   const handleVerify = async (recordType: string, recordId: string) => {
     try {
       await verifyRecord.mutateAsync({ recordType, recordId, action: 'verify' })
-      toast({ title: 'Verifie', variant: 'success' })
-    } catch { toast({ title: 'Erreur', variant: 'error' }) }
+      toast({ title: t('conformite.toast.verified'), variant: 'success' })
+    } catch { toast({ title: t('conformite.toast.error'), variant: 'error' }) }
   }
 
   const handleReject = async (recordType: string, recordId: string) => {
     if (!rejectReason.trim()) return
     try {
       await verifyRecord.mutateAsync({ recordType, recordId, action: 'reject', rejectionReason: rejectReason })
-      toast({ title: 'Rejete', variant: 'success' })
+      toast({ title: t('conformite.toast.rejected'), variant: 'success' })
       setRejectingId(null); setRejectReason('')
-    } catch { toast({ title: 'Erreur', variant: 'error' }) }
+    } catch { toast({ title: t('conformite.toast.error'), variant: 'error' }) }
   }
 
   const fmtDate = (d: string | null | undefined) => {
@@ -3086,22 +3088,22 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
     }
     try {
       await verifyRecord.mutateAsync({ recordType: item.record_type, recordId: item.id, action: 'verify' })
-      toast({ title: 'Document verifie', variant: 'success' })
+      toast({ title: t('conformite.toast.document_verified'), variant: 'success' })
       // Navigate to next or close
       if (currentIdx < items.length - 1) goTo(currentIdx + 1)
       else closeDynamicPanel()
-    } catch { toast({ title: 'Erreur', variant: 'error' }) }
+    } catch { toast({ title: t('conformite.toast.error'), variant: 'error' }) }
   }
 
   const handleReject = async () => {
     if (!item || !rejectReason.trim()) return
     try {
       await verifyRecord.mutateAsync({ recordType: item.record_type, recordId: item.id, action: 'reject', rejectionReason: rejectReason })
-      toast({ title: 'Document rejete', variant: 'success' })
+      toast({ title: t('conformite.toast.document_rejected'), variant: 'success' })
       setShowReject(false); setRejectReason('')
       if (currentIdx < items.length - 1) goTo(currentIdx + 1)
       else closeDynamicPanel()
-    } catch { toast({ title: 'Erreur', variant: 'error' }) }
+    } catch { toast({ title: t('conformite.toast.error'), variant: 'error' }) }
   }
 
   if (!item) {

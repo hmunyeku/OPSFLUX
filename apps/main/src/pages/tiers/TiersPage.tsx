@@ -509,11 +509,12 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                   <a href={tier.website} target="_blank" rel="noopener noreferrer" className="hover:text-primary truncate">{tier.website}</a>
                 </div>
               )}
+              {/* Website is kept as a direct field because it's a single
+                  value with no polymorphic equivalent. Phone / email / fax
+                  are managed exclusively by PhoneManager / ContactEmailManager
+                  below — the old direct fields were causing duplication. */}
               <DetailFieldGrid>
                 <InlineEditableRow label={t('tiers.ui.website')} value={tier.website || ''} onSave={(v) => handleInlineSave('website', v)} />
-                <InlineEditableRow label={t('common.email')} value={tier.email || ''} onSave={(v) => handleInlineSave('email', v)} />
-                <InlineEditableRow label={t('common.phone')} value={tier.phone || ''} onSave={(v) => handleInlineSave('phone', v)} />
-                <InlineEditableRow label={t('tiers.ui.fax')} value={tier.fax || ''} onSave={(v) => handleInlineSave('fax', v)} />
               </DetailFieldGrid>
               <div className="border-t border-border/40 pt-3 mt-3">
                 <DetailFieldGrid>
@@ -1752,6 +1753,7 @@ export function TiersPage() {
       {dynamicPanel?.module === 'tiers' && dynamicPanel.type === 'create' && <CreateTierPanel />}
       {dynamicPanel?.module === 'tiers' && dynamicPanel.type === 'detail' && (
         <TierDetailPanel
+          key={`${dynamicPanel.id}-${dynamicPanel.meta?.contact_id ?? 'company'}`}
           id={dynamicPanel.id}
           initialContactId={typeof dynamicPanel.meta?.contact_id === 'string' ? dynamicPanel.meta.contact_id as string : undefined}
         />

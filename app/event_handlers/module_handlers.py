@@ -1728,7 +1728,8 @@ def register_module_handlers(event_bus: EventBus) -> None:
     event_bus.subscribe("planner.activity.validated", on_planner_activity_validated_bundle)
     event_bus.subscribe("planner.activity.cancelled", on_planner_activity_cancelled_bundle)
     event_bus.subscribe("planner.activity.completed", on_planner_activity_completed_bundle)
-    event_bus.subscribe("planner.conflict.detected", on_planner_conflict_detected)
+    # The submit_activity route emits "planner.conflict.created" (not "detected")
+    event_bus.subscribe("planner.conflict.created", on_planner_conflict_detected)
     event_bus.subscribe("planner.conflict.resolved", on_planner_conflict_resolved)
     # PaxLog → Planner: when an AdS actually starts, auto-mark the linked
     # planner activity as in_progress so the arbitration dashboard reflects

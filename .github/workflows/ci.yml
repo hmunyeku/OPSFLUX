@@ -105,7 +105,7 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Install Playwright browsers
-        run: npx playwright install chromium --with-deps
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Build app
         run: npm run build

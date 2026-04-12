@@ -6,6 +6,9 @@ import { defineConfig, devices } from '@playwright/test'
  * - Runs against Vite dev server on port 5173
  * - Backend API is expected at localhost:8000 (proxied by Vite)
  * - CI uses the built preview server instead
+ *
+ * Cross-browser: Chromium, Firefox, and WebKit (Safari) are all tested.
+ * Mobile viewport is also covered via Mobile Chrome.
  */
 export default defineConfig({
   testDir: './e2e',
@@ -25,6 +28,18 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
+    {
+      name: 'mobile-chrome',
+      use: { ...devices['Pixel 5'] },
     },
   ],
 

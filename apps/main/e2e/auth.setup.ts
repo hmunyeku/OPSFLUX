@@ -1,46 +1,95 @@
 /**
  * Authentication helper for E2E tests.
  *
- * Usage: import and call `authenticateUser(page)` in tests
- * that need an authenticated session.
- *
- * This mocks the auth state in localStorage/zustand so tests
- * don't depend on a running backend for basic UI tests.
+ * The OpsFlux auth store checks `localStorage.getItem('access_token')`
+ * on init to decide isAuthenticated. API calls that happen after load
+ * (fetchUser, /me/entities) are intercepted by route-mocking so the
+ * app thinks it's talking to a real backend.
  */
 import { Page } from '@playwright/test'
 
+/** Fake user object matching the backend User model. */
+const MOCK_USER = {
+  id: 'e2e-user-id',
+  email: 'e2e@opsflux.com',
+  first_name: 'E2E',
+  last_name: 'Tester',
+  role: 'admin',
+  is_active: true,
+  default_entity_id: 'e2e-entity',
+  language: 'fr',
+  permissions: [
+    'dashboard:read',
+    'assets:read',
+    'tiers:read',
+    'projects:read',
+    'planner:read',
+    'conformite:read',
+    'settings:read',
+    'users:read',
+    'files:read',
+    'imputations:read',
+    'packlog:read',
+    'paxlog:read',
+    'travelwiz:read',
+    'papyrus:read',
+    'workflow:read',
+  ],
+}
+
+const MOCK_ENTITY = {
+  id: 'e2e-entity',
+  name: 'E2E Test Entity',
+  slug: 'e2e-test',
+}
+
 /**
- * Inject a fake auth session into the app so protected routes
- * can be tested without a real backend.
- *
- * The tokens below are dummy values — they only need to look
- * plausible enough for the Zustand auth store to consider the
- * user "authenticated".
+ * Inject a fake auth session and mock the critical API endpoints
+ * so protected routes can be tested without a running backend.
  */
 export async function authenticateUser(page: Page) {
-  // Navigate to the app first so we can set localStorage on the correct origin
+  // Mock API responses BEFORE navigating so the app never hits a real server
+  await page.route('**/api/v1/auth/me', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_USER) }),
+  )
+  await page.route('**/api/v1/auth/me/entities', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([MOCK_ENTITY]) }),
+  )
+  await page.route('**/api/v1/modules', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        { slug: 'assets', enabled: true },
+        { slug: 'tiers', enabled: true },
+        { slug: 'projects', enabled: true },
+        { slug: 'planner', enabled: true },
+        { slug: 'conformite', enabled: true },
+        { slug: 'paxlog', enabled: true },
+        { slug: 'travelwiz', enabled: true },
+        { slug: 'packlog', enabled: true },
+        { slug: 'imputations', enabled: true },
+        { slug: 'papyrus', enabled: true },
+        { slug: 'pid-pfd', enabled: true },
+        { slug: 'workflow', enabled: true },
+        { slug: 'files', enabled: true },
+      ]),
+    }),
+  )
+  // Catch-all for other API calls to prevent network errors
+  await page.route('**/api/v1/**', (route) => {
+    // Only intercept if not already handled above
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  })
+
+  // Go to login page to set localStorage on the correct origin
   await page.goto('/login')
 
-  // Inject a mock auth state matching the Zustand authStore shape
+  // Inject tokens that the auth store reads on init
   await page.evaluate(() => {
-    const mockAuthState = {
-      state: {
-        token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0QG9wc2ZsdXguY29tIiwiZXhwIjoxOTk5OTk5OTk5fQ.mock',
-        refreshToken: 'mock-refresh-token',
-        user: {
-          id: 'test-user-id',
-          email: 'test@opsflux.com',
-          first_name: 'Test',
-          last_name: 'User',
-          role: 'admin',
-          is_active: true,
-          entity_id: 'test-entity',
-        },
-        isAuthenticated: true,
-        mfaPending: false,
-      },
-      version: 0,
-    }
-    localStorage.setItem('auth-storage', JSON.stringify(mockAuthState))
+    localStorage.setItem('access_token', 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJlMmVAb3BzZmx1eC5jb20iLCJleHAiOjE5OTk5OTk5OTl9.fake')
+    localStorage.setItem('refresh_token', 'e2e-mock-refresh-token')
+    localStorage.setItem('entity_id', 'e2e-entity')
+    localStorage.setItem('acting_context', 'own')
   })
 }

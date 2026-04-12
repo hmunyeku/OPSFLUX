@@ -425,10 +425,10 @@ export function AddressManager({ ownerType, ownerId, compact, initialShowForm, h
                   )}
                 </div>
 
-                {/* Address content */}
+                {/* Address content — never truncate addresses, they must be fully readable */}
                 <div className="min-w-0 mb-3">
-                  <p className="text-sm font-medium text-foreground truncate">{formatAddress(addr)}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 truncate">{formatCityLine(addr)}</p>
+                  <p className="text-sm font-medium text-foreground break-words">{formatAddress(addr)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 break-words">{formatCityLine(addr)}</p>
                   {(addr.latitude != null && addr.longitude != null) && (
                     <div className="flex items-center gap-1.5 mt-1.5">
                       <LocateFixed size={11} className="text-primary/60 shrink-0" />

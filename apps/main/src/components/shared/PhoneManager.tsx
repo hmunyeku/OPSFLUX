@@ -361,7 +361,7 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
             return (
               <div
                 key={phone.id}
-                className="flex items-center gap-2 py-2 px-3 rounded-lg border border-border/40 bg-card hover:border-border hover:shadow-sm group cursor-pointer transition-all"
+                className="flex flex-wrap sm:flex-nowrap items-center gap-2 py-2 px-3 rounded-lg border border-border/40 bg-card hover:border-border hover:shadow-sm group cursor-pointer transition-all"
                 onDoubleClick={() => setEditingId(phone.id)}
                 title="Double-cliquez pour modifier"
               >
@@ -372,11 +372,11 @@ export function PhoneManager({ ownerType, ownerId, compact, hideAddButton, onAdd
                     <PhoneIcon size={12} className="text-blue-500" />
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-foreground font-mono whitespace-nowrap">
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <p className="text-xs font-medium text-foreground font-mono truncate">
                     {phone.country_code ? `${phone.country_code} ` : ''}{phone.number}
                   </p>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[10px] font-medium text-muted-foreground uppercase">
                       {PHONE_LABELS.find((l) => l.value === phone.label)?.label ?? phone.label}
                     </span>

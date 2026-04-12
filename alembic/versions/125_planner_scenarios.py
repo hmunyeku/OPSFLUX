@@ -40,6 +40,7 @@ def upgrade() -> None:
         sa.Column("last_simulation_result", postgresql.JSONB, nullable=True),
         sa.Column("last_simulated_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("active", sa.Boolean, nullable=False, server_default=sa.text("true")),
+        sa.Column("archived", sa.Boolean, nullable=False, server_default=sa.text("false")),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now(), nullable=False),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),

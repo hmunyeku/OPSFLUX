@@ -53,6 +53,30 @@ interface PickupPassenger {
   boarding_status: "pending" | "boarded" | "no_show" | "offloaded";
   priority_score: number;
   declared_weight_kg: number | null;
+  /** Computed client-side from driver GPS. */
+  distance_km?: number;
+  eta_minutes?: number;
+}
+
+/** Haversine distance in km between two lat/lon points. */
+function haversineKm(
+  lat1: number, lon1: number,
+  lat2: number, lon2: number,
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Estimate ETA in minutes assuming average city speed (30 km/h). */
+function estimateEta(distanceKm: number): number {
+  return Math.round((distanceKm / 30) * 60);
 }
 
 interface Props {
@@ -119,7 +143,6 @@ export default function DriverPickupScreen({ navigation }: Props) {
         })
       );
 
-      setPassengers(pax);
       setStep("pickup");
 
       // Start tracking beacon if vehicle assigned
@@ -127,12 +150,27 @@ export default function DriverPickupScreen({ navigation }: Props) {
         startTracking(data.vehicle_id, 15_000); // every 15s for pickup
       }
 
-      // Get driver position
+      // Get driver position and compute distances + sort by proximity
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === "granted") {
         const loc = await Location.getCurrentPositionAsync({});
-        setDriverLat(loc.coords.latitude);
-        setDriverLon(loc.coords.longitude);
+        const dLat = loc.coords.latitude;
+        const dLon = loc.coords.longitude;
+        setDriverLat(dLat);
+        setDriverLon(dLon);
+
+        // Enrich with distance & ETA, sort by proximity
+        const enriched = pax.map((p) => {
+          if (p.pickup_lat != null && p.pickup_lon != null) {
+            const dist = haversineKm(dLat, dLon, p.pickup_lat, p.pickup_lon);
+            return { ...p, distance_km: dist, eta_minutes: estimateEta(dist) };
+          }
+          return p;
+        });
+        enriched.sort((a, b) => (a.distance_km ?? 9999) - (b.distance_km ?? 9999));
+        setPassengers(enriched);
+      } else {
+        setPassengers(pax);
       }
     } catch (err: any) {
       Alert.alert("Erreur", err?.response?.data?.detail || "Code invalide.");
@@ -309,6 +347,24 @@ export default function DriverPickupScreen({ navigation }: Props) {
             </Text>
           )}
 
+          {/* Distance & ETA */}
+          {(item.distance_km != null || item.eta_minutes != null) && isPending && (
+            <View style={styles.distanceRow}>
+              {item.distance_km != null && (
+                <Chip compact icon="map-marker-distance" style={styles.distanceChip}>
+                  {item.distance_km < 1
+                    ? `${Math.round(item.distance_km * 1000)}m`
+                    : `${item.distance_km.toFixed(1)} km`}
+                </Chip>
+              )}
+              {item.eta_minutes != null && (
+                <Chip compact icon="clock-outline" style={styles.etaChip}>
+                  ~{item.eta_minutes < 1 ? "<1" : item.eta_minutes} min
+                </Chip>
+              )}
+            </View>
+          )}
+
           {/* Phone */}
           {item.phone && (
             <Button
@@ -460,6 +516,9 @@ const styles = StyleSheet.create({
   paxName: { fontWeight: "700", color: colors.textPrimary },
   paxCompany: { color: colors.textSecondary },
   paxAddress: { color: colors.textPrimary, marginTop: 4 },
+  distanceRow: { flexDirection: "row", gap: 8, marginTop: 6 },
+  distanceChip: { backgroundColor: colors.info + "15" },
+  etaChip: { backgroundColor: colors.accent + "15" },
   phoneButton: { alignSelf: "flex-start", marginTop: 4 },
   actionRow: { flexDirection: "row", gap: 8, marginTop: 12 },
   navButton: { flex: 1 },

@@ -6842,20 +6842,32 @@ class ExternalOtpVerifyBody(BaseModel):
     code: str
 
 
-class ExternalPaxAttachBody(BaseModel):
-    """Body for attach-existing — all fields optional since contact already exists."""
-    first_name: str | None = None
-    last_name: str | None = None
-    birth_date: date | None = None
-    nationality: str | None = None
-    badge_number: str | None = None
-    email: str | None = None
-    phone: str | None = None
-
-
 class ExternalPaxUpsertBody(BaseModel):
     first_name: str
     last_name: str
+    birth_date: date | None = None
+    nationality: str | None = None
+    badge_number: str | None = None
+    photo_url: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    position: str | None = None
+    job_position_id: UUID | None = None
+    contractual_airport: str | None = None
+    nearest_airport: str | None = None
+    nearest_station: str | None = None
+    pickup_address_line1: str | None = None
+    pickup_address_line2: str | None = None
+    pickup_city: str | None = None
+    pickup_state_province: str | None = None
+    pickup_postal_code: str | None = None
+    pickup_country: str | None = None
+
+
+class ExternalPaxAttachBody(BaseModel):
+    """All-optional version for attach-existing (contact already in DB)."""
+    first_name: str | None = None
+    last_name: str | None = None
     birth_date: date | None = None
     nationality: str | None = None
     badge_number: str | None = None

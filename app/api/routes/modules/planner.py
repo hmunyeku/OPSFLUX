@@ -33,6 +33,8 @@ from app.models.planner import (
     PlannerConflictActivity,
     PlannerConflictAudit,
     PlannerActivityDependency,
+    PlannerScenario,
+    PlannerScenarioActivity,
 )
 from app.schemas.planner import (
     ActivityCreate,
@@ -57,6 +59,14 @@ from app.schemas.planner import (
     ScenarioRequest,
     ForecastRequest,
     ForecastResponse,
+    ScenarioCreate,
+    ScenarioUpdate,
+    ScenarioRead,
+    ScenarioDetailRead,
+    ScenarioActivityCreate,
+    ScenarioActivityUpdate,
+    ScenarioActivityRead,
+    ScenarioPromoteResult,
 )
 from app.schemas.common import PaginatedResponse
 from app.services.core.fsm_service import fsm_service, FSMError, FSMPermissionError
@@ -2805,4 +2815,487 @@ async def forecast(
 
     return await forecast_capacity(
         db, entity_id, body.asset_id, body.horizon_days,
+    )
+
+
+# ==============================================================================
+# SCENARIOS — persistent what-if simulation (CRUD + promote)
+# ==============================================================================
+
+
+async def _build_scenario_read(db: AsyncSession, scenario: PlannerScenario) -> dict:
+    """Enrich a PlannerScenario row into a ScenarioRead dict."""
+    creator = await db.get(User, scenario.created_by)
+    promoter = await db.get(User, scenario.promoted_by) if scenario.promoted_by else None
+
+    act_count_result = await db.execute(
+        select(func.count()).select_from(PlannerScenarioActivity)
+        .where(PlannerScenarioActivity.scenario_id == scenario.id)
+    )
+    act_count = act_count_result.scalar() or 0
+
+    sim = scenario.last_simulation_result or {}
+
+    return {
+        **{c.key: getattr(scenario, c.key) for c in scenario.__table__.columns
+           if c.key not in ("baseline_snapshot", "last_simulation_result", "deleted_at")},
+        "created_by_name": f"{creator.first_name} {creator.last_name}" if creator else None,
+        "promoted_by_name": f"{promoter.first_name} {promoter.last_name}" if promoter else None,
+        "activity_count": act_count,
+        "conflict_days": sim.get("conflict_days"),
+        "worst_overflow": sim.get("worst_overflow"),
+    }
+
+
+async def _build_scenario_activity_read(db: AsyncSession, act: PlannerScenarioActivity) -> dict:
+    """Enrich a PlannerScenarioActivity row."""
+    d = {c.key: getattr(act, c.key) for c in act.__table__.columns}
+    # Source activity title (for overrides)
+    if act.source_activity_id:
+        source = await db.get(PlannerActivity, act.source_activity_id)
+        d["source_activity_title"] = source.title if source else None
+    else:
+        d["source_activity_title"] = None
+    # Asset name
+    if act.asset_id:
+        asset = await db.get(Installation, act.asset_id)
+        d["asset_name"] = asset.name if asset else None
+    else:
+        d["asset_name"] = None
+    return d
+
+
+@router.get("/scenarios", response_model=PaginatedResponse[ScenarioRead])
+async def list_scenarios(
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.capacity.read"),
+    db: AsyncSession = Depends(get_db),
+    page: int = 1,
+    page_size: int = 25,
+    status: str | None = None,
+    search: str | None = None,
+):
+    """List all scenarios for the entity with pagination."""
+    query = (
+        select(PlannerScenario)
+        .where(PlannerScenario.entity_id == entity_id, PlannerScenario.active == True)  # noqa: E712
+    )
+    if status:
+        query = query.where(PlannerScenario.status == status)
+    if search:
+        query = query.where(PlannerScenario.title.ilike(f"%{search}%"))
+    query = query.order_by(PlannerScenario.created_at.desc())
+
+    total_result = await db.execute(select(func.count()).select_from(query.subquery()))
+    total = total_result.scalar() or 0
+
+    result = await db.execute(query.offset((page - 1) * page_size).limit(page_size))
+    items = []
+    for scenario in result.scalars().all():
+        items.append(await _build_scenario_read(db, scenario))
+
+    pages = (total + page_size - 1) // page_size if total > 0 else 0
+    return {"items": items, "total": total, "page": page, "page_size": page_size, "pages": pages}
+
+
+@router.get("/scenarios/{scenario_id}", response_model=ScenarioDetailRead)
+async def get_scenario(
+    scenario_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.capacity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get scenario detail with proposed activities and simulation result."""
+    result = await db.execute(
+        select(PlannerScenario).where(
+            PlannerScenario.id == scenario_id,
+            PlannerScenario.entity_id == entity_id,
+            PlannerScenario.active == True,  # noqa: E712
+        )
+    )
+    scenario = result.scalar_one_or_none()
+    if not scenario:
+        raise HTTPException(404, "Scenario not found")
+
+    base = await _build_scenario_read(db, scenario)
+
+    acts_result = await db.execute(
+        select(PlannerScenarioActivity)
+        .where(PlannerScenarioActivity.scenario_id == scenario_id)
+        .order_by(PlannerScenarioActivity.created_at.asc())
+    )
+    proposed = []
+    for act in acts_result.scalars().all():
+        proposed.append(await _build_scenario_activity_read(db, act))
+
+    return {
+        **base,
+        "proposed_activities": proposed,
+        "last_simulation_result": scenario.last_simulation_result,
+        "baseline_snapshot": scenario.baseline_snapshot,
+    }
+
+
+@router.post("/scenarios", response_model=ScenarioRead, status_code=201)
+async def create_scenario(
+    body: ScenarioCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.capacity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new scenario with optional seed activities."""
+    from datetime import timezone as tz
+
+    # Capture baseline snapshot — lightweight summary of current plan state
+    act_count_result = await db.execute(
+        select(func.count()).select_from(PlannerActivity)
+        .where(PlannerActivity.entity_id == entity_id, PlannerActivity.active == True)  # noqa: E712
+    )
+    total_activities = act_count_result.scalar() or 0
+
+    baseline = {
+        "total_activities": total_activities,
+        "captured_at": datetime.now(tz.utc).isoformat(),
+    }
+
+    scenario = PlannerScenario(
+        entity_id=entity_id,
+        title=body.title,
+        description=body.description,
+        created_by=current_user.id,
+        baseline_snapshot=baseline,
+        baseline_snapshot_at=datetime.now(tz.utc),
+    )
+    db.add(scenario)
+    await db.flush()
+
+    # Seed with proposed activities if provided
+    if body.proposed_activities:
+        for pa in body.proposed_activities:
+            act = PlannerScenarioActivity(
+                scenario_id=scenario.id,
+                **pa.model_dump(),
+            )
+            db.add(act)
+
+    await db.commit()
+    await db.refresh(scenario)
+    return await _build_scenario_read(db, scenario)
+
+
+@router.patch("/scenarios/{scenario_id}", response_model=ScenarioRead)
+async def update_scenario(
+    scenario_id: UUID,
+    body: ScenarioUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.capacity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update scenario metadata (title, description, status)."""
+    result = await db.execute(
+        select(PlannerScenario).where(
+            PlannerScenario.id == scenario_id,
+            PlannerScenario.entity_id == entity_id,
+            PlannerScenario.active == True,  # noqa: E712
+        )
+    )
+    scenario = result.scalar_one_or_none()
+    if not scenario:
+        raise HTTPException(404, "Scenario not found")
+    if scenario.status == "promoted":
+        raise HTTPException(400, "Cannot modify a promoted scenario")
+
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(scenario, field, value)
+    await db.commit()
+    await db.refresh(scenario)
+    return await _build_scenario_read(db, scenario)
+
+
+@router.delete("/scenarios/{scenario_id}", status_code=204)
+async def delete_scenario(
+    scenario_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.capacity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete a scenario."""
+    result = await db.execute(
+        select(PlannerScenario).where(
+            PlannerScenario.id == scenario_id,
+            PlannerScenario.entity_id == entity_id,
+            PlannerScenario.active == True,  # noqa: E712
+        )
+    )
+    scenario = result.scalar_one_or_none()
+    if not scenario:
+        raise HTTPException(404, "Scenario not found")
+    scenario.active = False
+    await db.commit()
+
+
+# ── Scenario Activities ──
+
+
+@router.post("/scenarios/{scenario_id}/activities", response_model=ScenarioActivityRead, status_code=201)
+async def add_scenario_activity(
+    scenario_id: UUID,
+    body: ScenarioActivityCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.capacity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Add a proposed activity to a scenario."""
+    result = await db.execute(
+        select(PlannerScenario).where(
+            PlannerScenario.id == scenario_id,
+            PlannerScenario.entity_id == entity_id,
+            PlannerScenario.active == True,  # noqa: E712
+        )
+    )
+    scenario = result.scalar_one_or_none()
+    if not scenario:
+        raise HTTPException(404, "Scenario not found")
+    if scenario.status == "promoted":
+        raise HTTPException(400, "Cannot modify a promoted scenario")
+
+    act = PlannerScenarioActivity(scenario_id=scenario_id, **body.model_dump())
+    db.add(act)
+    await db.commit()
+    await db.refresh(act)
+    return await _build_scenario_activity_read(db, act)
+
+
+@router.patch("/scenarios/{scenario_id}/activities/{activity_id}", response_model=ScenarioActivityRead)
+async def update_scenario_activity(
+    scenario_id: UUID,
+    activity_id: UUID,
+    body: ScenarioActivityUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.capacity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a proposed activity in a scenario."""
+    act_result = await db.execute(
+        select(PlannerScenarioActivity).where(
+            PlannerScenarioActivity.id == activity_id,
+            PlannerScenarioActivity.scenario_id == scenario_id,
+        )
+    )
+    act = act_result.scalar_one_or_none()
+    if not act:
+        raise HTTPException(404, "Scenario activity not found")
+
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(act, field, value)
+    await db.commit()
+    await db.refresh(act)
+    return await _build_scenario_activity_read(db, act)
+
+
+@router.delete("/scenarios/{scenario_id}/activities/{activity_id}", status_code=204)
+async def remove_scenario_activity(
+    scenario_id: UUID,
+    activity_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.capacity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a proposed activity from a scenario."""
+    act_result = await db.execute(
+        select(PlannerScenarioActivity).where(
+            PlannerScenarioActivity.id == activity_id,
+            PlannerScenarioActivity.scenario_id == scenario_id,
+        )
+    )
+    act = act_result.scalar_one_or_none()
+    if not act:
+        raise HTTPException(404, "Scenario activity not found")
+    await db.delete(act)
+    await db.commit()
+
+
+# ── Scenario Simulation + Promotion ──
+
+
+@router.post("/scenarios/{scenario_id}/simulate")
+async def simulate_scenario_persistent(
+    scenario_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.capacity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Run simulation on a saved scenario and cache the result.
+
+    Reads the scenario's proposed activities, builds a ScenarioRequest
+    compatible payload, calls the existing simulate_scenario service,
+    and saves the result in scenario.last_simulation_result.
+    """
+    from app.services.modules.planner_service import simulate_scenario
+
+    result = await db.execute(
+        select(PlannerScenario).where(
+            PlannerScenario.id == scenario_id,
+            PlannerScenario.entity_id == entity_id,
+            PlannerScenario.active == True,  # noqa: E712
+        )
+    )
+    scenario = result.scalar_one_or_none()
+    if not scenario:
+        raise HTTPException(404, "Scenario not found")
+
+    acts_result = await db.execute(
+        select(PlannerScenarioActivity)
+        .where(
+            PlannerScenarioActivity.scenario_id == scenario_id,
+            PlannerScenarioActivity.is_removed == False,  # noqa: E712
+        )
+    )
+    proposed = acts_result.scalars().all()
+
+    if not proposed:
+        raise HTTPException(400, "Scenario has no proposed activities to simulate")
+
+    # Build the payload for the existing simulate service
+    from datetime import timezone as tz
+    today = date.today()
+    proposed_activities = []
+    for pa in proposed:
+        proposed_activities.append({
+            "asset_id": str(pa.asset_id) if pa.asset_id else None,
+            "pax_quota": pa.pax_quota or 0,
+            "start_date": (pa.start_date or today).isoformat(),
+            "end_date": (pa.end_date or today).isoformat(),
+            "title": pa.title,
+        })
+
+    # Use earliest/latest dates as simulation window
+    start_dates = [pa.start_date for pa in proposed if pa.start_date]
+    end_dates = [pa.end_date for pa in proposed if pa.end_date]
+    sim_start = min(start_dates) if start_dates else today
+    sim_end = max(end_dates) if end_dates else today
+
+    sim_result = await simulate_scenario(
+        db, entity_id,
+        proposed_activities=proposed_activities,
+        start_date=sim_start,
+        end_date=sim_end,
+    )
+
+    # Cache the result
+    scenario.last_simulation_result = sim_result
+    scenario.last_simulated_at = datetime.now(tz.utc)
+    await db.commit()
+
+    return sim_result
+
+
+@router.post("/scenarios/{scenario_id}/promote", response_model=ScenarioPromoteResult)
+async def promote_scenario(
+    scenario_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.create"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Promote a scenario — convert proposed activities to live PlannerActivity rows.
+
+    Requires planner.activity.create permission (typically arbiter/DO level).
+    """
+    from datetime import timezone as tz
+
+    result = await db.execute(
+        select(PlannerScenario).where(
+            PlannerScenario.id == scenario_id,
+            PlannerScenario.entity_id == entity_id,
+            PlannerScenario.active == True,  # noqa: E712
+        )
+    )
+    scenario = result.scalar_one_or_none()
+    if not scenario:
+        raise HTTPException(404, "Scenario not found")
+    if scenario.status == "promoted":
+        raise HTTPException(400, "Scenario already promoted")
+    if scenario.status == "archived":
+        raise HTTPException(400, "Cannot promote an archived scenario")
+
+    acts_result = await db.execute(
+        select(PlannerScenarioActivity)
+        .where(PlannerScenarioActivity.scenario_id == scenario_id)
+    )
+    proposed = acts_result.scalars().all()
+
+    promoted_count = 0
+    skipped_count = 0
+    errors: list[str] = []
+
+    for pa in proposed:
+        if pa.is_removed:
+            # Mark the source activity as cancelled if it exists
+            if pa.source_activity_id:
+                source = await db.get(PlannerActivity, pa.source_activity_id)
+                if source and source.status not in ("cancelled", "completed"):
+                    source.status = "cancelled"
+                    promoted_count += 1
+                else:
+                    skipped_count += 1
+            continue
+
+        if pa.source_activity_id:
+            # Override: PATCH the existing activity with non-null fields
+            source = await db.get(PlannerActivity, pa.source_activity_id)
+            if not source:
+                errors.append(f"Source activity {pa.source_activity_id} not found")
+                continue
+            if pa.title is not None: source.title = pa.title
+            if pa.asset_id is not None: source.asset_id = pa.asset_id
+            if pa.type is not None: source.type = pa.type
+            if pa.priority is not None: source.priority = pa.priority
+            if pa.pax_quota is not None: source.pax_quota = pa.pax_quota
+            if pa.start_date is not None: source.start_date = pa.start_date
+            if pa.end_date is not None: source.end_date = pa.end_date
+            promoted_count += 1
+        else:
+            # New activity: create a PlannerActivity from the proposal
+            if not pa.title or not pa.asset_id or not pa.start_date or not pa.end_date:
+                errors.append(f"Proposed activity missing required fields (title/asset/dates)")
+                skipped_count += 1
+                continue
+            new_act = PlannerActivity(
+                entity_id=entity_id,
+                asset_id=pa.asset_id,
+                title=pa.title,
+                type=pa.type or "project",
+                priority=pa.priority or "medium",
+                pax_quota=pa.pax_quota or 0,
+                start_date=pa.start_date,
+                end_date=pa.end_date,
+                status="draft",
+                description=pa.notes,
+                created_by=current_user.id,
+            )
+            db.add(new_act)
+            promoted_count += 1
+
+    # Mark scenario as promoted
+    scenario.status = "promoted"
+    scenario.promoted_by = current_user.id
+    scenario.promoted_at = datetime.now(tz.utc)
+
+    await db.commit()
+
+    return ScenarioPromoteResult(
+        scenario_id=scenario_id,
+        promoted_activity_count=promoted_count,
+        skipped_count=skipped_count,
+        errors=errors,
     )

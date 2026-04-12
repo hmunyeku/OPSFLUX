@@ -10,13 +10,15 @@
  *  6. Render navigation
  */
 
+import "react-native-gesture-handler";
+
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, View, StyleSheet } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { NavigationContainer } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { PaperProvider, MD3LightTheme, MD3DarkTheme, Text } from "react-native-paper";
 import { StatusBar } from "expo-status-bar";
-import * as Haptics from "expo-haptics";
 
 // Initialize i18n before any component renders
 import "./src/locales/i18n";
@@ -36,8 +38,8 @@ import { initSentry, setSentryUser, clearSentryUser } from "./src/services/sentr
 import { colors } from "./src/utils/colors";
 import { darkColors } from "./src/utils/darkColors";
 
-// Initialize Sentry before anything else
-initSentry();
+// Initialize Sentry lazily (non-blocking, safe if not installed)
+initSentry().catch(() => {});
 
 function buildTheme(isDark: boolean) {
   const c = isDark ? darkColors : colors;
@@ -111,18 +113,20 @@ export default function App() {
   }
 
   return (
-    <ErrorBoundary>
-      <SafeAreaProvider>
-        <PaperProvider theme={theme}>
-          <NavigationContainer linking={linking}>
-            <NetworkBanner />
-            <AppNavigator />
-            <Toast />
-          </NavigationContainer>
-        </PaperProvider>
-        <StatusBar style="light" />
-      </SafeAreaProvider>
-    </ErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ErrorBoundary>
+        <SafeAreaProvider>
+          <PaperProvider theme={theme}>
+            <NavigationContainer linking={linking}>
+              <NetworkBanner />
+              <AppNavigator />
+              <Toast />
+            </NavigationContainer>
+          </PaperProvider>
+          <StatusBar style="light" />
+        </SafeAreaProvider>
+      </ErrorBoundary>
+    </GestureHandlerRootView>
   );
 }
 

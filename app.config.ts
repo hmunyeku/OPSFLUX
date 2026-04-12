@@ -19,10 +19,7 @@ const config: ExpoConfig = {
     backgroundColor: "#1e3a5f",
     resizeMode: "contain",
   },
-  updates: {
-    url: "https://u.expo.dev/opsflux-mobile",
-    fallbackToCacheTimeout: 30000,
-  },
+  assetBundlePatterns: ["**/*"],
   ios: {
     supportsTablet: true,
     bundleIdentifier: IS_PROD
@@ -61,7 +58,6 @@ const config: ExpoConfig = {
       "VIBRATE",
       "RECEIVE_BOOT_COMPLETED",
     ],
-    googleServicesFile: IS_PROD ? "./google-services.json" : undefined,
   },
   plugins: [
     [
@@ -82,15 +78,8 @@ const config: ExpoConfig = {
         isAndroidForegroundServiceEnabled: true,
       },
     ],
-    [
-      "expo-notifications",
-      {
-        icon: "./assets/notification-icon.png",
-        color: "#1e3a5f",
-      },
-    ],
+    "expo-notifications",
     "expo-secure-store",
-    "expo-router",
   ],
   extra: {
     eas: {

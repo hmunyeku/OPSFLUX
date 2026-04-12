@@ -1,71 +1,93 @@
 /**
  * Sentry initialization — crash reporting + performance monitoring.
  *
- * Wraps @sentry/react-native with OpsFlux-specific configuration.
  * Only active when EXPO_PUBLIC_SENTRY_DSN is set.
+ * Uses lazy import so missing/unlinked native Sentry module doesn't crash the app.
  */
-
-import * as Sentry from "@sentry/react-native";
 
 const DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
 const APP_ENV = process.env.APP_ENV ?? "development";
 
-export function initSentry(): void {
-  if (!DSN) return;
+let SentryLib: any = null;
+let initialized = false;
 
-  Sentry.init({
-    dsn: DSN,
-    environment: APP_ENV,
-    enableAutoSessionTracking: true,
-    sessionTrackingIntervalMillis: 30_000,
-    tracesSampleRate: APP_ENV === "production" ? 0.2 : 1.0,
-    enableNativeFramesTracking: true,
-    attachScreenshot: true,
-    debug: APP_ENV === "development",
-  });
+async function loadSentry(): Promise<any> {
+  if (SentryLib !== null) return SentryLib;
+  try {
+    // Lazy import — only loads native module if available
+    const mod = await import("@sentry/react-native");
+    SentryLib = mod;
+    return mod;
+  } catch {
+    SentryLib = false; // mark as unavailable
+    return null;
+  }
 }
 
-/** Set the authenticated user context for Sentry. */
-export function setSentryUser(user: {
+export async function initSentry(): Promise<void> {
+  if (!DSN || initialized) return;
+  const Sentry = await loadSentry();
+  if (!Sentry) return;
+
+  try {
+    Sentry.init({
+      dsn: DSN,
+      environment: APP_ENV,
+      enableAutoSessionTracking: true,
+      sessionTrackingIntervalMillis: 30_000,
+      tracesSampleRate: APP_ENV === "production" ? 0.2 : 1.0,
+      debug: APP_ENV === "development",
+    });
+    initialized = true;
+  } catch (err) {
+    // Sentry init itself failed — not fatal
+    if (__DEV__) console.warn("[Sentry] init failed:", err);
+  }
+}
+
+export async function setSentryUser(user: {
   id: string;
   email?: string;
   displayName?: string;
-}): void {
-  Sentry.setUser({
-    id: user.id,
-    email: user.email,
-    username: user.displayName,
-  });
+}): Promise<void> {
+  if (!initialized) return;
+  try {
+    SentryLib?.setUser({
+      id: user.id,
+      email: user.email,
+      username: user.displayName,
+    });
+  } catch {}
 }
 
-/** Clear user context on logout. */
-export function clearSentryUser(): void {
-  Sentry.setUser(null);
+export async function clearSentryUser(): Promise<void> {
+  if (!initialized) return;
+  try {
+    SentryLib?.setUser(null);
+  } catch {}
 }
 
-/** Capture a handled exception with extra context. */
-export function captureError(
+export async function captureError(
   error: Error,
   context?: Record<string, unknown>
-): void {
-  if (context) {
-    Sentry.setContext("extra", context);
+): Promise<void> {
+  if (!initialized) {
+    if (__DEV__) console.error("[captureError]", error, context);
+    return;
   }
-  Sentry.captureException(error);
+  try {
+    if (context) SentryLib?.setContext("extra", context);
+    SentryLib?.captureException(error);
+  } catch {}
 }
 
-/** Add a breadcrumb for navigation/action tracking. */
-export function addBreadcrumb(
+export async function addBreadcrumb(
   category: string,
   message: string,
   data?: Record<string, unknown>
-): void {
-  Sentry.addBreadcrumb({
-    category,
-    message,
-    data,
-    level: "info",
-  });
+): Promise<void> {
+  if (!initialized) return;
+  try {
+    SentryLib?.addBreadcrumb({ category, message, data, level: "info" });
+  } catch {}
 }
-
-export { Sentry };

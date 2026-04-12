@@ -13,14 +13,19 @@ import * as Device from "expo-device";
 import { Platform } from "react-native";
 import { api } from "./api";
 
-// Configure how notifications appear when app is in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Configure how notifications appear when app is in foreground.
+// Wrapped in try-catch because notification module may not be available.
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+} catch (err) {
+  if (__DEV__) console.warn("[pushNotifications] handler setup failed:", err);
+}
 
 /** Register for push notifications and send token to server. */
 export async function registerForPushNotifications(): Promise<string | null> {

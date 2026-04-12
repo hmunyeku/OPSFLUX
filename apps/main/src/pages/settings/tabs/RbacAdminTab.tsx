@@ -176,6 +176,7 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
   createTrigger?: number
   onOpenPanel?: (view: { type: string; module: string; id?: string }) => void
 } = {}) {
+  const { t } = useTranslation()
   const [internalSearch, setInternalSearch] = useState('')
   const search = externalSearch ?? internalSearch
   const [filterModule, setFilterModule] = useState<string | undefined>(undefined)
@@ -222,7 +223,7 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
   const roleColumns = useMemo<ColumnDef<RoleRead, unknown>[]>(() => [
     {
       accessorKey: 'name',
-      header: 'Nom',
+      header: t('settings.columns.rbac_roles.name'),
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <ShieldCheck size={13} className="text-muted-foreground shrink-0" />
@@ -233,7 +234,7 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
     },
     {
       accessorKey: 'code',
-      header: 'Code',
+      header: t('settings.columns.rbac_roles.code'),
       cell: ({ row }) => (
         <span className="font-mono text-[10px] text-muted-foreground">{row.original.code}</span>
       ),
@@ -241,7 +242,7 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
     },
     {
       accessorKey: 'module',
-      header: 'Module',
+      header: t('settings.columns.rbac_roles.module'),
       cell: ({ row }) => row.original.module ? (
         <span className="gl-badge gl-badge-neutral text-[10px]">{row.original.module}</span>
       ) : (
@@ -251,14 +252,14 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
     },
     {
       accessorKey: 'description',
-      header: 'Description',
+      header: t('settings.columns.rbac_roles.description'),
       cell: ({ row }) => (
         <span className="text-muted-foreground text-xs truncate">{row.original.description || '—'}</span>
       ),
     },
     {
       accessorKey: 'permission_count',
-      header: 'Permissions',
+      header: t('settings.columns.rbac_roles.permissions'),
       cell: ({ row }) => (
         <span className="gl-badge gl-badge-neutral text-[10px]">
           <Lock size={9} className="mr-0.5" />{row.original.permission_count}
@@ -268,7 +269,7 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
     },
     {
       accessorKey: 'group_count',
-      header: 'Groupes',
+      header: t('settings.columns.rbac_roles.groups'),
       cell: ({ row }) => (
         <span className="gl-badge gl-badge-neutral text-[10px]">
           <Users size={9} className="mr-0.5" />{row.original.group_count}
@@ -278,7 +279,7 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
     },
     {
       accessorKey: 'user_count',
-      header: 'Utilisateurs',
+      header: t('settings.columns.rbac_roles.users'),
       cell: ({ row }) => (
         <span className="gl-badge gl-badge-neutral text-[10px]">
           <Users size={9} className="mr-0.5" />{row.original.user_count ?? 0}
@@ -288,7 +289,7 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
     },
     {
       accessorKey: 'created_at',
-      header: 'Créé le',
+      header: t('settings.columns.rbac_roles.created_at'),
       cell: ({ row }) => row.original.created_at ? (
         <span className="text-muted-foreground text-xs">{new Date(row.original.created_at).toLocaleDateString('fr-FR')}</span>
       ) : <span className="text-muted-foreground/50">—</span>,
@@ -296,13 +297,13 @@ export function RolesTab({ externalSearch, createTrigger, onOpenPanel }: {
     },
     {
       accessorKey: 'updated_at',
-      header: 'Modifié le',
+      header: t('settings.columns.rbac_roles.updated_at'),
       cell: ({ row }) => row.original.updated_at ? (
         <span className="text-muted-foreground text-xs">{new Date(row.original.updated_at).toLocaleDateString('fr-FR')}</span>
       ) : <span className="text-muted-foreground/50">—</span>,
       size: 100,
     },
-  ], [])
+  ], [t])
 
   const moduleFilterDefs = useMemo(() => {
     const moduleOptions = [
@@ -786,6 +787,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
   createTrigger?: number
   onOpenPanel?: (view: { type: string; module: string; id?: string }) => void
 } = {}) {
+  const { t } = useTranslation()
   const [internalSearch, setInternalSearch] = useState('')
   const search = externalSearch ?? internalSearch
   const [page, setPage] = useState(1)
@@ -831,7 +833,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
   const groupColumns = useMemo<ColumnDef<GroupRead, unknown>[]>(() => [
     {
       accessorKey: 'name',
-      header: 'Nom',
+      header: t('settings.columns.rbac_groups.name'),
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Users size={13} className="text-muted-foreground shrink-0" />
@@ -842,7 +844,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
     },
     {
       id: 'role',
-      header: 'Rôles',
+      header: t('settings.columns.rbac_groups.roles'),
       cell: ({ row }) => (
         <div className="flex flex-wrap gap-0.5">
           {row.original.role_codes.map((code, i) => (
@@ -863,13 +865,13 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
     },
     {
       accessorKey: 'member_count',
-      header: 'Membres',
+      header: t('settings.columns.rbac_groups.members'),
       cell: ({ row }) => <span className="text-muted-foreground">{row.original.member_count}</span>,
       size: 70,
     },
     {
       id: 'scope',
-      header: 'Scope',
+      header: t('settings.columns.rbac_groups.scope'),
       cell: ({ row }) => row.original.asset_scope_name ? (
         <span className="gl-badge gl-badge-neutral text-[10px]">{row.original.asset_scope_name}</span>
       ) : (
@@ -878,7 +880,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
     },
     {
       accessorKey: 'entity_name',
-      header: 'Entité',
+      header: t('settings.columns.rbac_groups.entity'),
       cell: ({ row }) => row.original.entity_name ? (
         <CrossModuleLink module="entities" id={row.original.entity_id} label={row.original.entity_name} showIcon={false} className="text-xs" />
       ) : (
@@ -887,7 +889,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
     },
     {
       accessorKey: 'active',
-      header: 'Statut',
+      header: t('settings.columns.rbac_groups.status'),
       cell: ({ getValue }) => {
         const active = getValue() as boolean
         return <BadgeCell value={active ? 'Actif' : 'Inactif'} variant={active ? 'success' : 'neutral'} />
@@ -896,7 +898,7 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
     },
     {
       accessorKey: 'created_at',
-      header: 'Créé le',
+      header: t('settings.columns.rbac_groups.created_at'),
       cell: ({ row }) => row.original.created_at ? (
         <span className="text-muted-foreground text-xs">{new Date(row.original.created_at).toLocaleDateString('fr-FR')}</span>
       ) : <span className="text-muted-foreground/50">—</span>,
@@ -904,13 +906,13 @@ export function GroupsTab({ externalSearch, createTrigger, onOpenPanel }: {
     },
     {
       accessorKey: 'updated_at',
-      header: 'Modifié le',
+      header: t('settings.columns.rbac_groups.updated_at'),
       cell: ({ row }) => row.original.updated_at ? (
         <span className="text-muted-foreground text-xs">{new Date(row.original.updated_at).toLocaleDateString('fr-FR')}</span>
       ) : <span className="text-muted-foreground/50">—</span>,
       size: 100,
     },
-  ], [])
+  ], [t])
 
   const groupFilterDefs = useMemo(() => [
     {

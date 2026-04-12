@@ -1179,18 +1179,18 @@ export function ConformitePage() {
       return <span className={cn('gl-badge', cls)}>{exemptionStatusLabels[s] ?? s}</span>
     }},
     { accessorKey: 'reason', header: t('conformite.columns.reason'), cell: ({ row }) => <span className="text-muted-foreground text-xs truncate max-w-[200px] block">{row.original.reason}</span> },
-    { accessorKey: 'start_date', header: 'Debut', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.start_date).toLocaleDateString('fr-FR')}</span> },
-    { accessorKey: 'end_date', header: 'Fin', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.end_date).toLocaleDateString('fr-FR')}</span> },
-    { accessorKey: 'approver_name', header: 'Approuve par', size: 130, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.approver_name || '--'}</span> },
-    { accessorKey: 'created_at', header: 'Cree le', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.created_at).toLocaleDateString('fr-FR')}</span> },
+    { accessorKey: 'start_date', header: t('conformite.columns.start_date'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.start_date).toLocaleDateString('fr-FR')}</span> },
+    { accessorKey: 'end_date', header: t('conformite.columns.end_date'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.end_date).toLocaleDateString('fr-FR')}</span> },
+    { accessorKey: 'approver_name', header: t('conformite.columns.approved_by'), size: 130, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.approver_name || '--'}</span> },
+    { accessorKey: 'created_at', header: t('conformite.columns.created_at'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.created_at).toLocaleDateString('fr-FR')}</span> },
   ], [exemptionStatusLabels])
 
   // Job Position columns
   const jpColumns = useMemo<ColumnDef<JobPosition, unknown>[]>(() => [
-    { accessorKey: 'code', header: 'Code', size: 100, cell: ({ row }) => <span className="font-medium">{row.original.code}</span> },
-    { accessorKey: 'name', header: 'Intitule', cell: ({ row }) => <span className="text-foreground">{row.original.name}</span> },
-    { accessorKey: 'department', header: 'Departement', size: 140, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.department || '--'}</span> },
-    { accessorKey: 'created_at', header: 'Cree le', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs">{new Date(row.original.created_at).toLocaleDateString('fr-FR')}</span> },
+    { accessorKey: 'code', header: t('conformite.columns.code'), size: 100, cell: ({ row }) => <span className="font-medium">{row.original.code}</span> },
+    { accessorKey: 'name', header: t('conformite.columns.title'), cell: ({ row }) => <span className="text-foreground">{row.original.name}</span> },
+    { accessorKey: 'department', header: t('conformite.columns.department'), size: 140, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.department || '--'}</span> },
+    { accessorKey: 'created_at', header: t('conformite.columns.created_at'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs">{new Date(row.original.created_at).toLocaleDateString('fr-FR')}</span> },
   ], [])
 
   // Rules columns (flat list -- not paginated)
@@ -1200,8 +1200,8 @@ export function ConformitePage() {
       const ct = typesData?.items.find(t => t.id === row.original.compliance_type_id)
       return <span className="text-foreground font-medium">{ct ? `${ct.code} — ${ct.name}` : row.original.compliance_type_id.slice(0, 8)}</span>
     }},
-    { accessorKey: 'target_type', header: 'Cible', size: 130, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{ruleTargetLabels[row.original.target_type] ?? row.original.target_type}</span> },
-    { accessorKey: 'target_value', header: 'Valeur', size: 200, cell: ({ row }) => {
+    { accessorKey: 'target_type', header: t('conformite.columns.target'), size: 130, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{ruleTargetLabels[row.original.target_type] ?? row.original.target_type}</span> },
+    { accessorKey: 'target_value', header: t('conformite.columns.value'), size: 200, cell: ({ row }) => {
       const val = row.original.target_value
       if (!val) return <span className="text-muted-foreground text-xs">N/A</span>
       if (row.original.target_type === 'job_position') {
@@ -1210,7 +1210,7 @@ export function ConformitePage() {
       }
       return <span className="text-muted-foreground text-xs">{val}</span>
     }},
-    { accessorKey: 'description', header: 'Description', cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.description || '--'}</span> },
+    { accessorKey: 'description', header: t('conformite.columns.description'), cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.description || '--'}</span> },
     { id: 'actions', header: '', size: 50, cell: ({ row }) => canDeleteRule ? (
       <button onClick={(e) => { e.stopPropagation(); deleteRule.mutate({ id: row.original.id }) }} className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
         <Trash2 size={12} />
@@ -1220,16 +1220,16 @@ export function ConformitePage() {
 
   // Transfer columns
   const transferColumns = useMemo<ColumnDef<TierContactTransfer, unknown>[]>(() => [
-    { accessorKey: 'contact_name', header: 'Employe', cell: ({ row }) => <span className="text-foreground font-medium">{row.original.contact_name || '--'}</span> },
-    { accessorKey: 'from_tier_name', header: 'De', size: 180, cell: ({ row }) => row.original.from_tier_id
+    { accessorKey: 'contact_name', header: t('conformite.columns.employee'), cell: ({ row }) => <span className="text-foreground font-medium">{row.original.contact_name || '--'}</span> },
+    { accessorKey: 'from_tier_name', header: t('conformite.columns.from'), size: 180, cell: ({ row }) => row.original.from_tier_id
         ? <CrossModuleLink module="tiers" id={row.original.from_tier_id} label={row.original.from_tier_name || row.original.from_tier_id} showIcon={false} className="text-xs" />
         : <span className="text-muted-foreground text-xs">{row.original.from_tier_name || '--'}</span>,
     },
-    { accessorKey: 'to_tier_name', header: 'Vers', size: 180, cell: ({ row }) => row.original.to_tier_id
+    { accessorKey: 'to_tier_name', header: t('conformite.columns.to'), size: 180, cell: ({ row }) => row.original.to_tier_id
         ? <CrossModuleLink module="tiers" id={row.original.to_tier_id} label={row.original.to_tier_name || row.original.to_tier_id} showIcon={false} className="text-xs" />
         : <span className="text-foreground text-xs">{row.original.to_tier_name || '--'}</span>,
     },
-    { accessorKey: 'transfer_date', header: 'Date', size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.transfer_date).toLocaleDateString('fr-FR')}</span> },
+    { accessorKey: 'transfer_date', header: t('conformite.columns.date'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{new Date(row.original.transfer_date).toLocaleDateString('fr-FR')}</span> },
     { accessorKey: 'reason', header: t('conformite.columns.reason'), cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.reason || '--'}</span> },
   ], [ruleTargetLabels])
 
@@ -1982,16 +1982,16 @@ function RulesMatrixView({
           }
         })}
         columns={[
-          { id: 'type_code', header: 'Code Type' },
-          { id: 'type_name', header: 'Nom Type' },
-          { id: 'category', header: 'Categorie' },
-          { id: 'target_type', header: 'Cible' },
-          { id: 'target_value_display', header: 'Valeur Cible' },
-          { id: 'priority', header: 'Priorité' },
-          { id: 'applicability', header: 'Applicabilite' },
-          { id: 'description', header: 'Description' },
-          { id: 'effective_from', header: 'Depuis' },
-          { id: 'effective_to', header: "Jusqu'a" },
+          { id: 'type_code', header: t('conformite.columns.type_code') },
+          { id: 'type_name', header: t('conformite.columns.type_name') },
+          { id: 'category', header: t('conformite.columns.category') },
+          { id: 'target_type', header: t('conformite.columns.target') },
+          { id: 'target_value_display', header: t('conformite.columns.target_value') },
+          { id: 'priority', header: t('conformite.columns.priority') },
+          { id: 'applicability', header: t('conformite.columns.applicability') },
+          { id: 'description', header: t('conformite.columns.description') },
+          { id: 'effective_from', header: t('conformite.columns.effective_from') },
+          { id: 'effective_to', header: t('conformite.columns.effective_to') },
         ]}
         filenamePrefix="conformite-regles"
       />
@@ -2865,7 +2865,7 @@ function VerificationsTab() {
   const verColumns: ColumnDef<Record<string, any>>[] = useMemo(() => [
     {
       accessorKey: 'owner_name',
-      header: 'Personne',
+      header: t('conformite.columns.person'),
       size: 160,
       cell: ({ row }) => {
         return (
@@ -2886,7 +2886,7 @@ function VerificationsTab() {
         <span className="gl-badge gl-badge-neutral text-[9px]">{recordTypeLabels[row.original.record_type] || row.original.record_type}</span>
       ),
     },
-    { accessorKey: 'description', header: 'Description', size: 220 },
+    { accessorKey: 'description', header: t('conformite.columns.description'), size: 220 },
     {
       accessorKey: 'verification_status',
       header: t('conformite.columns.status'),
@@ -2906,7 +2906,7 @@ function VerificationsTab() {
     },
     {
       accessorKey: 'submitted_at',
-      header: 'Date',
+      header: t('conformite.columns.date'),
       size: 100,
       cell: ({ row }) => fmtDate((row.original as any).issued_at as string || row.original.submitted_at),
     },
@@ -2926,7 +2926,7 @@ function VerificationsTab() {
     },
     {
       accessorKey: 'attachment_count',
-      header: 'PJ',
+      header: t('conformite.columns.attachment'),
       size: 110,
       cell: ({ row }) => {
         const count = row.original.attachment_count ?? 0
@@ -2942,7 +2942,7 @@ function VerificationsTab() {
     },
     {
       accessorKey: 'verified_by_name',
-      header: 'Par',
+      header: t('conformite.columns.verified_by'),
       size: 120,
       cell: ({ row }) => <span className="text-muted-foreground">{row.original.verified_by_name || '—'}</span>,
     },

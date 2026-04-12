@@ -315,7 +315,7 @@ function CatalogTab() {
     { accessorKey: 'description', header: t('packlog.catalog.columns.description'), cell: ({ row }) => <span className="font-medium text-foreground">{row.original.description}</span> },
     { id: 'management_type', header: t('packlog.catalog.columns.management_type'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.management_type ?? '—'}</span> },
     { id: 'packaging', header: t('packlog.catalog.columns.packaging'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.packaging ?? '—'}</span> },
-    { id: 'hazmat', header: 'HAZMAT', cell: ({ row }) => <span className={row.original.is_hazmat ? 'text-destructive text-xs font-medium' : 'text-muted-foreground text-xs'}>{row.original.is_hazmat ? (row.original.hazmat_class ?? 'Oui') : 'Non'}</span> },
+    { id: 'hazmat', header: t('packlog.catalog.columns.hazmat'), cell: ({ row }) => <span className={row.original.is_hazmat ? 'text-destructive text-xs font-medium' : 'text-muted-foreground text-xs'}>{row.original.is_hazmat ? (row.original.hazmat_class ?? 'Oui') : 'Non'}</span> },
   ], [])
 
   return (
@@ -692,17 +692,18 @@ function TrackingTab() {
 }
 
 function AlertsTab() {
+  const { t } = useTranslation()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { data: requestsData } = usePackLogCargoRequests({ page: 1, page_size: 100 })
   const { data: cargoData } = usePackLogCargo({ page: 1, page_size: 200 })
   const alerts = useMemo(() => buildAlerts(requestsData?.items ?? [], cargoData?.items ?? []), [cargoData?.items, requestsData?.items])
 
   const columns = useMemo<ColumnDef<AlertRow, unknown>[]>(() => [
-    { accessorKey: 'reference', header: 'Référence', cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.reference}</span> },
-    { accessorKey: 'label', header: 'Objet', cell: ({ row }) => <span className="font-medium text-foreground">{row.original.label}</span> },
-    { accessorKey: 'alert', header: 'Alerte', cell: ({ row }) => <span className="text-xs font-medium text-destructive">{row.original.alert}</span> },
-    { accessorKey: 'status', header: 'Statut', cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.status}</span> },
-    { accessorKey: 'created_at', header: 'Détectée le', cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDateShort(row.original.created_at)}</span> },
+    { accessorKey: 'reference', header: t('packlog.alerts.columns.reference'), cell: ({ row }) => <span className="font-mono text-xs text-foreground">{row.original.reference}</span> },
+    { accessorKey: 'label', header: t('packlog.alerts.columns.label'), cell: ({ row }) => <span className="font-medium text-foreground">{row.original.label}</span> },
+    { accessorKey: 'alert', header: t('packlog.alerts.columns.alert'), cell: ({ row }) => <span className="text-xs font-medium text-destructive">{row.original.alert}</span> },
+    { accessorKey: 'status', header: t('packlog.alerts.columns.status'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.status}</span> },
+    { accessorKey: 'created_at', header: t('packlog.alerts.columns.detected_at'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDateShort(row.original.created_at)}</span> },
   ], [])
 
   return (

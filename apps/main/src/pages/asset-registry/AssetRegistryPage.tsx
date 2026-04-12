@@ -593,7 +593,7 @@ function EquipmentTab() {
   const columns = useMemo<ColumnDef<RegistryEquipment, unknown>[]>(() => [
     {
       accessorKey: 'tag_number',
-      header: 'Tag',
+      header: t('assets.columns.tag'),
       cell: ({ row }) => <span className="font-mono font-semibold text-foreground">{row.original.tag_number}</span>,
     },
     {
@@ -722,7 +722,7 @@ function PipelinesTab() {
   const columns = useMemo<ColumnDef<RegistryPipeline, unknown>[]>(() => [
     {
       accessorKey: 'pipeline_id',
-      header: 'ID Pipeline',
+      header: t('assets.columns.pipeline_id'),
       cell: ({ row }) => <span className="font-mono font-semibold">{row.original.pipeline_id}</span>,
     },
     {
@@ -736,7 +736,7 @@ function PipelinesTab() {
     },
     {
       accessorKey: 'nominal_diameter_in',
-      header: 'DN (in)',
+      header: t('assets.columns.dn_in'),
       cell: ({ row }) => `${row.original.nominal_diameter_in}"`,
     },
     {

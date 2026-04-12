@@ -92,74 +92,77 @@ const COUNTRY_OPTIONS = [
 
 // ── Column definitions ─────────────────────────────────────
 
-const entityColumns: ColumnDef<EntityRead, unknown>[] = [
-  {
-    accessorKey: 'code',
-    header: 'Code',
-    cell: ({ getValue }) => (
-      <span className="font-mono text-xs font-semibold text-foreground">
-        {getValue() as string}
-      </span>
-    ),
-    size: 120,
-    enableHiding: false,
-  },
-  {
-    accessorKey: 'name',
-    header: 'Nom',
-    cell: ({ getValue }) => (
-      <span className="font-medium text-foreground truncate max-w-[300px] block">
-        {getValue() as string}
-      </span>
-    ),
-  },
-  {
-    accessorKey: 'country',
-    header: 'Pays',
-    cell: ({ getValue }) => {
-      const v = getValue() as string | null
-      if (!v) return <span className="text-muted-foreground">—</span>
-      const label = COUNTRY_OPTIONS.find((c) => c.value === v)?.label ?? v
-      return <span className="text-sm text-muted-foreground">{label}</span>
+function useEntityColumns() {
+  const { t } = useTranslation()
+  return useMemo<ColumnDef<EntityRead, unknown>[]>(() => [
+    {
+      accessorKey: 'code',
+      header: t('settings.columns.entities.code'),
+      cell: ({ getValue }) => (
+        <span className="font-mono text-xs font-semibold text-foreground">
+          {getValue() as string}
+        </span>
+      ),
+      size: 120,
+      enableHiding: false,
     },
-    size: 140,
-  },
-  {
-    accessorKey: 'timezone',
-    header: 'Fuseau horaire',
-    cell: ({ getValue }) => (
-      <span className="text-xs text-muted-foreground font-mono">
-        {getValue() as string}
-      </span>
-    ),
-    size: 180,
-  },
-  {
-    accessorKey: 'user_count',
-    header: 'Utilisateurs',
-    cell: ({ getValue }) => (
-      <span className="text-sm text-muted-foreground">
-        {getValue() as number}
-      </span>
-    ),
-    size: 110,
-  },
-  {
-    accessorKey: 'active',
-    header: 'Statut',
-    cell: ({ getValue }) => {
-      const active = getValue() as boolean
-      return <BadgeCell value={active ? 'Active' : 'Archivée'} variant={active ? 'success' : 'neutral'} />
+    {
+      accessorKey: 'name',
+      header: t('settings.columns.entities.name'),
+      cell: ({ getValue }) => (
+        <span className="font-medium text-foreground truncate max-w-[300px] block">
+          {getValue() as string}
+        </span>
+      ),
     },
-    size: 100,
-  },
-  {
-    accessorKey: 'created_at',
-    header: 'Créé le',
-    cell: ({ getValue }) => <DateCell value={getValue() as string} />,
-    size: 110,
-  },
-]
+    {
+      accessorKey: 'country',
+      header: t('settings.columns.entities.country'),
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null
+        if (!v) return <span className="text-muted-foreground">—</span>
+        const label = COUNTRY_OPTIONS.find((c) => c.value === v)?.label ?? v
+        return <span className="text-sm text-muted-foreground">{label}</span>
+      },
+      size: 140,
+    },
+    {
+      accessorKey: 'timezone',
+      header: t('settings.columns.entities.timezone'),
+      cell: ({ getValue }) => (
+        <span className="text-xs text-muted-foreground font-mono">
+          {getValue() as string}
+        </span>
+      ),
+      size: 180,
+    },
+    {
+      accessorKey: 'user_count',
+      header: t('settings.columns.entities.users'),
+      cell: ({ getValue }) => (
+        <span className="text-sm text-muted-foreground">
+          {getValue() as number}
+        </span>
+      ),
+      size: 110,
+    },
+    {
+      accessorKey: 'active',
+      header: t('settings.columns.entities.status'),
+      cell: ({ getValue }) => {
+        const active = getValue() as boolean
+        return <BadgeCell value={active ? 'Active' : 'Archivée'} variant={active ? 'success' : 'neutral'} />
+      },
+      size: 100,
+    },
+    {
+      accessorKey: 'created_at',
+      header: t('settings.columns.entities.created_at'),
+      cell: ({ getValue }) => <DateCell value={getValue() as string} />,
+      size: 110,
+    },
+  ], [t])
+}
 
 
 // ── Create Entity Panel ─────────────────────────────────────
@@ -521,6 +524,7 @@ function EntityDetailPanel({ id }: { id: string }) {
 
 export function EntitiesTab() {
   const { t } = useTranslation()
+  const entityColumns = useEntityColumns()
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
   const [statusFilterValue, setStatusFilterValue] = useState<string | undefined>(undefined)

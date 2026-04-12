@@ -4,7 +4,7 @@
  * User view: own tickets + submit form.
  * Admin view: all tickets + filters + stats + assignment.
  */
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LifeBuoy, Plus, Loader2, Trash2, Bug, Lightbulb, HelpCircle, MoreHorizontal,
@@ -59,74 +59,77 @@ const STATUS_VARIANTS: Record<string, 'neutral' | 'info' | 'warning' | 'success'
 
 // ── Column definitions ───────────────────────────────────────
 
-const ticketColumns: ColumnDef<SupportTicket, unknown>[] = [
-  {
-    accessorKey: 'reference',
-    header: 'Réf.',
-    cell: ({ getValue }) => <span className="text-xs font-mono font-semibold text-primary">{getValue() as string}</span>,
-    size: 90,
-  },
-  {
-    accessorKey: 'title',
-    header: 'Titre',
-    cell: ({ getValue }) => <span className="text-sm font-medium text-foreground truncate block max-w-[180px] sm:max-w-[300px]">{getValue() as string}</span>,
-    size: 300,
-  },
-  {
-    accessorKey: 'ticket_type',
-    header: 'Type',
-    cell: ({ getValue }) => {
-      const t = getValue() as string
-      const Icon = TYPE_ICONS[t] || HelpCircle
-      return (
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Icon size={12} />
-          {TYPE_LABELS_FALLBACK[t] || t}
-        </span>
-      )
+function useTicketColumns() {
+  const { t } = useTranslation()
+  return useMemo<ColumnDef<SupportTicket, unknown>[]>(() => [
+    {
+      accessorKey: 'reference',
+      header: t('support.columns.ref'),
+      cell: ({ getValue }) => <span className="text-xs font-mono font-semibold text-primary">{getValue() as string}</span>,
+      size: 90,
     },
-    size: 110,
-  },
-  {
-    accessorKey: 'priority',
-    header: 'Priorité',
-    cell: ({ getValue }) => <BadgeCell value={PRIORITY_LABELS_FALLBACK[getValue() as string] || (getValue() as string)} variant={PRIORITY_VARIANTS[getValue() as string] || 'neutral'} />,
-    size: 90,
-  },
-  {
-    accessorKey: 'status',
-    header: 'Statut',
-    cell: ({ getValue }) => <BadgeCell value={STATUS_LABELS_FALLBACK[getValue() as string] || (getValue() as string)} variant={STATUS_VARIANTS[getValue() as string] || 'neutral'} />,
-    size: 100,
-  },
-  {
-    accessorKey: 'reporter_name',
-    header: 'Rapporté par',
-    cell: ({ getValue }) => <span className="text-xs text-muted-foreground truncate">{(getValue() as string) || '—'}</span>,
-    size: 130,
-  },
-  {
-    accessorKey: 'assignee_name',
-    header: 'Assigné à',
-    cell: ({ getValue }) => <span className="text-xs text-muted-foreground truncate">{(getValue() as string) || '—'}</span>,
-    size: 130,
-  },
-  {
-    accessorKey: 'comment_count',
-    header: '',
-    cell: ({ getValue }) => {
-      const c = getValue() as number
-      return c > 0 ? <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground"><MessageSquare size={10} />{c}</span> : null
+    {
+      accessorKey: 'title',
+      header: t('support.columns.title'),
+      cell: ({ getValue }) => <span className="text-sm font-medium text-foreground truncate block max-w-[180px] sm:max-w-[300px]">{getValue() as string}</span>,
+      size: 300,
     },
-    size: 40,
-  },
-  {
-    accessorKey: 'created_at',
-    header: 'Créé le',
-    cell: ({ getValue }) => <DateCell value={getValue() as string} />,
-    size: 120,
-  },
-]
+    {
+      accessorKey: 'ticket_type',
+      header: t('support.columns.type'),
+      cell: ({ getValue }) => {
+        const tt = getValue() as string
+        const Icon = TYPE_ICONS[tt] || HelpCircle
+        return (
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Icon size={12} />
+            {TYPE_LABELS_FALLBACK[tt] || tt}
+          </span>
+        )
+      },
+      size: 110,
+    },
+    {
+      accessorKey: 'priority',
+      header: t('support.columns.priority'),
+      cell: ({ getValue }) => <BadgeCell value={PRIORITY_LABELS_FALLBACK[getValue() as string] || (getValue() as string)} variant={PRIORITY_VARIANTS[getValue() as string] || 'neutral'} />,
+      size: 90,
+    },
+    {
+      accessorKey: 'status',
+      header: t('support.columns.status'),
+      cell: ({ getValue }) => <BadgeCell value={STATUS_LABELS_FALLBACK[getValue() as string] || (getValue() as string)} variant={STATUS_VARIANTS[getValue() as string] || 'neutral'} />,
+      size: 100,
+    },
+    {
+      accessorKey: 'reporter_name',
+      header: t('support.columns.reporter'),
+      cell: ({ getValue }) => <span className="text-xs text-muted-foreground truncate">{(getValue() as string) || '—'}</span>,
+      size: 130,
+    },
+    {
+      accessorKey: 'assignee_name',
+      header: t('support.columns.assignee'),
+      cell: ({ getValue }) => <span className="text-xs text-muted-foreground truncate">{(getValue() as string) || '—'}</span>,
+      size: 130,
+    },
+    {
+      accessorKey: 'comment_count',
+      header: '',
+      cell: ({ getValue }) => {
+        const c = getValue() as number
+        return c > 0 ? <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground"><MessageSquare size={10} />{c}</span> : null
+      },
+      size: 40,
+    },
+    {
+      accessorKey: 'created_at',
+      header: t('support.columns.created_at'),
+      cell: ({ getValue }) => <DateCell value={getValue() as string} />,
+      size: 120,
+    },
+  ], [t])
+}
 
 // ── Filter definitions ───────────────────────────────────────
 
@@ -798,16 +801,16 @@ function AnnouncementsAdminTab() {
   }
 
   const annColumns: ColumnDef<Announcement, unknown>[] = [
-    { accessorKey: 'title', header: 'Titre', cell: ({ getValue }) => <span className="text-sm font-medium truncate block max-w-[160px] sm:max-w-[250px]">{getValue() as string}</span>, size: 250 },
-    { accessorKey: 'priority', header: 'Priorité', cell: ({ getValue }) => <BadgeCell value={String(getValue())} variant={PRIORITY_BADGE[getValue() as string] || 'neutral'} />, size: 90 },
-    { accessorKey: 'display_location', header: 'Emplacement', cell: ({ getValue }) => <span className="text-xs text-muted-foreground">{DISPLAY_LABELS[getValue() as string] || String(getValue())}</span>, size: 110 },
-    { accessorKey: 'active', header: 'Actif', cell: ({ row }) => (
+    { accessorKey: 'title', header: t('support.announcements.columns.title'), cell: ({ getValue }) => <span className="text-sm font-medium truncate block max-w-[160px] sm:max-w-[250px]">{getValue() as string}</span>, size: 250 },
+    { accessorKey: 'priority', header: t('support.announcements.columns.priority'), cell: ({ getValue }) => <BadgeCell value={String(getValue())} variant={PRIORITY_BADGE[getValue() as string] || 'neutral'} />, size: 90 },
+    { accessorKey: 'display_location', header: t('support.announcements.columns.location'), cell: ({ getValue }) => <span className="text-xs text-muted-foreground">{DISPLAY_LABELS[getValue() as string] || String(getValue())}</span>, size: 110 },
+    { accessorKey: 'active', header: t('support.announcements.columns.active'), cell: ({ row }) => (
       <button onClick={(e) => { e.stopPropagation(); handleToggleActive(row.original) }} className="p-0.5">
         {row.original.active ? <Eye size={14} className="text-emerald-500" /> : <EyeOff size={14} className="text-muted-foreground" />}
       </button>
     ), size: 50 },
     { accessorKey: 'pinned', header: '', cell: ({ row }) => row.original.pinned ? <Pin size={11} className="text-amber-500" /> : null, size: 30 },
-    { accessorKey: 'created_at', header: 'Créé le', cell: ({ getValue }) => <DateCell value={getValue() as string} />, size: 120 },
+    { accessorKey: 'created_at', header: t('support.announcements.columns.created_at'), cell: ({ getValue }) => <DateCell value={getValue() as string} />, size: 120 },
     { id: 'actions', header: '', size: 40, cell: ({ row }) => (
       <button onClick={(e) => { e.stopPropagation(); handleDelete(row.original) }} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
         <Trash2 size={12} />
@@ -841,7 +844,8 @@ const MOBILE_HIDDEN_TICKET_COLS = new Set(['reporter_name', 'assignee_name', 'co
 const MOBILE_HIDDEN_ANN_COLS = new Set(['display_location', 'created_at', 'active'])
 
 export function SupportPage() {
-  useTranslation() // loaded for future i18n
+  useTranslation()
+  const ticketColumns = useTicketColumns()
   const isMobile = useIsMobile()
   const [activeTab, setActiveTab] = useState<SupportTab>('dashboard')
   const [page, setPage] = useState(1)

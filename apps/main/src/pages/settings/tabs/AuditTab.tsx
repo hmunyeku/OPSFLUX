@@ -63,69 +63,72 @@ const ACTION_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'neutral
   archive: 'warning',
 }
 
-const auditColumns: ColumnDef<AuditLogEntry, unknown>[] = [
-  {
-    accessorKey: 'created_at',
-    header: 'Date',
-    cell: ({ getValue }) => <DateCell value={getValue() as string} />,
-    size: 150,
-  },
-  {
-    accessorKey: 'user_id',
-    header: 'Utilisateur',
-    cell: ({ row }) => (
-      <span className="text-sm text-foreground truncate max-w-[140px] block">
-        {row.original.user_id ? row.original.user_id.slice(0, 8) + '...' : '—'}
-      </span>
-    ),
-    size: 120,
-  },
-  {
-    accessorKey: 'action',
-    header: 'Action',
-    cell: ({ getValue }) => {
-      const action = getValue() as string
-      return <BadgeCell value={action} variant={ACTION_VARIANT[action] || 'neutral'} />
+function useAuditColumns() {
+  const { t } = useTranslation()
+  return useMemo<ColumnDef<AuditLogEntry, unknown>[]>(() => [
+    {
+      accessorKey: 'created_at',
+      header: t('settings.columns.audit.date'),
+      cell: ({ getValue }) => <DateCell value={getValue() as string} />,
+      size: 150,
     },
-    size: 110,
-  },
-  {
-    accessorKey: 'resource_type',
-    header: 'Module',
-    cell: ({ getValue }) => (
-      <span className="text-sm text-muted-foreground">{getValue() as string}</span>
-    ),
-    size: 120,
-  },
-  {
-    accessorKey: 'resource_id',
-    header: 'Objet',
-    cell: ({ getValue }) => (
-      <span className="text-xs text-muted-foreground font-mono truncate max-w-[140px] block">
-        {(getValue() as string | null) || '—'}
-      </span>
-    ),
-    size: 140,
-  },
-  {
-    accessorKey: 'details',
-    header: 'Details',
-    cell: ({ getValue }) => {
-      const details = getValue() as Record<string, unknown> | null
-      if (!details) return <span className="text-muted-foreground">—</span>
-      const summary = Object.entries(details)
-        .slice(0, 3)
-        .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
-        .join(', ')
-      return (
-        <span className="text-xs text-muted-foreground truncate max-w-[200px] block" title={JSON.stringify(details, null, 2)}>
-          {summary || '—'}
+    {
+      accessorKey: 'user_id',
+      header: t('settings.columns.audit.user'),
+      cell: ({ row }) => (
+        <span className="text-sm text-foreground truncate max-w-[140px] block">
+          {row.original.user_id ? row.original.user_id.slice(0, 8) + '...' : '—'}
         </span>
-      )
+      ),
+      size: 120,
     },
-    size: 220,
-  },
-]
+    {
+      accessorKey: 'action',
+      header: t('settings.columns.audit.action'),
+      cell: ({ getValue }) => {
+        const action = getValue() as string
+        return <BadgeCell value={action} variant={ACTION_VARIANT[action] || 'neutral'} />
+      },
+      size: 110,
+    },
+    {
+      accessorKey: 'resource_type',
+      header: t('settings.columns.audit.module'),
+      cell: ({ getValue }) => (
+        <span className="text-sm text-muted-foreground">{getValue() as string}</span>
+      ),
+      size: 120,
+    },
+    {
+      accessorKey: 'resource_id',
+      header: t('settings.columns.audit.object'),
+      cell: ({ getValue }) => (
+        <span className="text-xs text-muted-foreground font-mono truncate max-w-[140px] block">
+          {(getValue() as string | null) || '—'}
+        </span>
+      ),
+      size: 140,
+    },
+    {
+      accessorKey: 'details',
+      header: t('settings.columns.audit.details'),
+      cell: ({ getValue }) => {
+        const details = getValue() as Record<string, unknown> | null
+        if (!details) return <span className="text-muted-foreground">—</span>
+        const summary = Object.entries(details)
+          .slice(0, 3)
+          .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
+          .join(', ')
+        return (
+          <span className="text-xs text-muted-foreground truncate max-w-[200px] block" title={JSON.stringify(details, null, 2)}>
+            {summary || '—'}
+          </span>
+        )
+      },
+      size: 220,
+    },
+  ], [t])
+}
 
 // ── CSV export ────────────────────────────────────────────────
 
@@ -244,6 +247,7 @@ function AuditDetailModal({ entry, onClose }: { entry: AuditLogEntry; onClose: (
 
 export function AuditTab() {
   const { t } = useTranslation()
+  const auditColumns = useAuditColumns()
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
   const [selectedEntry, setSelectedEntry] = useState<AuditLogEntry | null>(null)

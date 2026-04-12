@@ -903,18 +903,18 @@ export function PidPfdPage() {
   const docColumns = useMemo<ColumnDef<PIDDocument, unknown>[]>(() => [
     {
       accessorKey: 'number',
-      header: 'Numero',
+      header: t('pid_pfd.columns.number'),
       size: 130,
       cell: ({ row }) => <span className="font-medium font-mono text-foreground">{row.original.number}</span>,
     },
     {
       accessorKey: 'title',
-      header: 'Titre',
+      header: t('pid_pfd.columns.title'),
       cell: ({ row }) => <span className="text-foreground">{row.original.title}</span>,
     },
     {
       accessorKey: 'pid_type',
-      header: 'Type',
+      header: t('pid_pfd.columns.type'),
       size: 110,
       cell: ({ row }) => (
         <span className="gl-badge gl-badge-info">
@@ -924,31 +924,31 @@ export function PidPfdPage() {
     },
     {
       accessorKey: 'revision',
-      header: 'Revision',
+      header: t('pid_pfd.columns.revision'),
       size: 80,
       cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.original.revision}</span>,
     },
     {
       accessorKey: 'status',
-      header: 'Statut',
+      header: t('pid_pfd.columns.status'),
       size: 100,
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
       accessorKey: 'sheet_format',
-      header: 'Format',
+      header: t('pid_pfd.columns.format'),
       size: 80,
       cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.sheet_format || '--'}</span>,
     },
     {
       accessorKey: 'equipment_count',
-      header: 'Equipements',
+      header: t('pid_pfd.columns.equipment_count'),
       size: 100,
       cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{row.original.equipment_count}</span>,
     },
     {
       accessorKey: 'updated_at',
-      header: 'Date',
+      header: t('pid_pfd.columns.date'),
       size: 100,
       cell: ({ row }) => (
         <span className="text-muted-foreground text-xs tabular-nums">
@@ -961,18 +961,18 @@ export function PidPfdPage() {
   const equipColumns = useMemo<ColumnDef<Equipment, unknown>[]>(() => [
     {
       accessorKey: 'tag',
-      header: 'Tag',
+      header: t('pid_pfd.columns.tag'),
       size: 120,
       cell: ({ row }) => <span className="font-medium font-mono text-foreground">{row.original.tag}</span>,
     },
     {
       accessorKey: 'description',
-      header: 'Description',
+      header: t('pid_pfd.columns.description'),
       cell: ({ row }) => <span className="text-foreground">{row.original.description || '--'}</span>,
     },
     {
       accessorKey: 'equipment_type',
-      header: 'Type',
+      header: t('pid_pfd.columns.type'),
       size: 110,
       cell: ({ row }) => (
         <span className="gl-badge gl-badge-neutral">
@@ -982,19 +982,19 @@ export function PidPfdPage() {
     },
     {
       accessorKey: 'service',
-      header: 'Service',
+      header: t('pid_pfd.columns.service'),
       size: 100,
       cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.service || '--'}</span>,
     },
     {
       accessorKey: 'fluid',
-      header: 'Fluide',
+      header: t('pid_pfd.columns.fluid'),
       size: 100,
       cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.fluid || '--'}</span>,
     },
     {
       accessorKey: 'pid_number',
-      header: 'PID#',
+      header: t('pid_pfd.columns.pid_number'),
       size: 120,
       cell: ({ row }) => <span className="text-muted-foreground text-xs font-mono">{row.original.pid_number || '--'}</span>,
     },
@@ -1003,13 +1003,13 @@ export function PidPfdPage() {
   const lineColumns = useMemo<ColumnDef<ProcessLine, unknown>[]>(() => [
     {
       accessorKey: 'line_number',
-      header: 'N° Ligne',
+      header: t('pid_pfd.columns.line_number'),
       size: 140,
       cell: ({ row }) => <span className="font-medium font-mono text-foreground">{row.original.line_number}</span>,
     },
     {
       accessorKey: 'nominal_diameter_inch',
-      header: 'Diametre',
+      header: t('pid_pfd.columns.diameter'),
       size: 90,
       cell: ({ row }) => {
         const d = row.original
@@ -1020,25 +1020,25 @@ export function PidPfdPage() {
     },
     {
       accessorKey: 'pipe_schedule',
-      header: 'Schedule',
+      header: t('pid_pfd.columns.schedule'),
       size: 90,
       cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.pipe_schedule || '--'}</span>,
     },
     {
       accessorKey: 'spec_class',
-      header: 'Classe spec',
+      header: t('pid_pfd.columns.spec_class'),
       size: 100,
       cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.spec_class || '--'}</span>,
     },
     {
       accessorKey: 'fluid',
-      header: 'Fluide',
+      header: t('pid_pfd.columns.fluid'),
       size: 100,
       cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.fluid || row.original.fluid_full_name || '--'}</span>,
     },
     {
       accessorKey: 'insulation_type',
-      header: 'Isolation',
+      header: t('pid_pfd.columns.insulation'),
       size: 100,
       cell: ({ row }) => {
         const ins = row.original.insulation_type
@@ -1051,36 +1051,36 @@ export function PidPfdPage() {
   const tagColumns = useMemo<ColumnDef<DCSTag, unknown>[]>(() => [
     {
       accessorKey: 'tag_name',
-      header: 'Tag',
+      header: t('pid_pfd.columns.tag'),
       size: 140,
       cell: ({ row }) => <span className="font-medium font-mono text-foreground">{row.original.tag_name}</span>,
     },
     {
       accessorKey: 'description',
-      header: 'Description',
+      header: t('pid_pfd.columns.description'),
       cell: ({ row }) => <span className="text-foreground">{row.original.description || '--'}</span>,
     },
     {
       accessorKey: 'tag_type',
-      header: 'Type',
+      header: t('pid_pfd.columns.type'),
       size: 80,
       cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.tag_type}</span>,
     },
     {
       accessorKey: 'area',
-      header: 'Zone',
+      header: t('pid_pfd.columns.zone'),
       size: 90,
       cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.area || '--'}</span>,
     },
     {
       accessorKey: 'equipment_tag',
-      header: 'Equipement',
+      header: t('pid_pfd.columns.equipment'),
       size: 120,
       cell: ({ row }) => <span className="text-muted-foreground text-xs font-mono">{row.original.equipment_tag || '--'}</span>,
     },
     {
       accessorKey: 'dcs_address',
-      header: 'Adresse DCS',
+      header: t('pid_pfd.columns.dcs_address'),
       size: 130,
       cell: ({ row }) => <span className="text-muted-foreground text-xs font-mono">{row.original.dcs_address || '--'}</span>,
     },

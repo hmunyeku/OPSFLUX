@@ -279,6 +279,7 @@ class MapErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
 }
 
 function DashboardTab() {
+  const { t } = useTranslation()
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { data: tripsToday, isLoading: loadingTrips } = useTripsToday()
   const { data: fleetKpis, isLoading: loadingKpis } = useFleetKpis()
@@ -290,13 +291,13 @@ function DashboardTab() {
   const tripColumns = useMemo<ColumnDef<AnyRow, unknown>[]>(() => [
     {
       accessorKey: 'code',
-      header: 'Reference',
+      header: t('travelwiz.columns.reference'),
       size: 110,
       cell: ({ row }) => <span className="font-medium font-mono text-xs text-foreground">{row.original.code}</span>,
     },
     {
       accessorKey: 'vector_name',
-      header: 'Vecteur',
+      header: t('travelwiz.columns.vector'),
       size: 130,
       cell: ({ row }) => {
         const vt = VECTOR_TYPE_MAP[row.original.vector_type]
@@ -311,7 +312,7 @@ function DashboardTab() {
     },
     {
       id: 'route',
-      header: 'Itineraire',
+      header: t('travelwiz.columns.route'),
       cell: ({ row }) => (
         <span className="flex items-center gap-1 text-xs text-muted-foreground">
           {row.original.origin || '?'}
@@ -322,19 +323,19 @@ function DashboardTab() {
     },
     {
       accessorKey: 'departure_at',
-      header: 'Depart',
+      header: t('travelwiz.columns.departure'),
       size: 120,
       cell: ({ row }) => <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">{formatDateTime(row.original.departure_at)}</span>,
     },
     {
       accessorKey: 'status',
-      header: 'Statut',
+      header: t('travelwiz.columns.status'),
       size: 110,
       cell: ({ row }) => <StatusBadge status={row.original.status} labels={voyageStatusLabels} badges={VOYAGE_STATUS_BADGES} />,
     },
     {
       accessorKey: 'pax_count',
-      header: 'PAX',
+      header: t('travelwiz.columns.pax_count'),
       size: 60,
       cell: ({ row }) => (
         <span className="inline-flex items-center gap-1 text-xs">
@@ -343,7 +344,7 @@ function DashboardTab() {
         </span>
       ),
     },
-  ], [voyageStatusLabels])
+  ], [voyageStatusLabels, t])
 
   // Fleet utilization bars
   const utilizationEntries = useMemo(() => {
@@ -425,6 +426,7 @@ void DashboardTab
 // ══════════════════════════════════════════════════════════════
 
 function VoyagesTab() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
@@ -466,13 +468,13 @@ function VoyagesTab() {
   const columns = useMemo<ColumnDef<AnyRow, unknown>[]>(() => [
     {
       accessorKey: 'code',
-      header: 'Reference',
+      header: t('travelwiz.columns.reference'),
       size: 110,
       cell: ({ row }) => <span className="font-medium font-mono text-xs text-foreground">{row.original.code}</span>,
     },
     {
       accessorKey: 'vector_name',
-      header: 'Vecteur',
+      header: t('travelwiz.columns.vector'),
       size: 140,
       cell: ({ row }) => {
         const vt = VECTOR_TYPE_MAP[row.original.vector_type]
@@ -487,7 +489,7 @@ function VoyagesTab() {
     },
     {
       id: 'route',
-      header: 'Itineraire',
+      header: t('travelwiz.columns.route'),
       cell: ({ row }) => (
         <span className="flex items-center gap-1 text-xs text-muted-foreground">
           {row.original.origin || row.original.departure_location || '?'}
@@ -498,19 +500,19 @@ function VoyagesTab() {
     },
     {
       accessorKey: 'departure_at',
-      header: 'Depart',
+      header: t('travelwiz.columns.departure'),
       size: 100,
       cell: ({ row }) => <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">{formatDateShort(row.original.departure_at || row.original.departure_date)}</span>,
     },
     {
       accessorKey: 'status',
-      header: 'Statut',
+      header: t('travelwiz.columns.status'),
       size: 110,
       cell: ({ row }) => <StatusBadge status={row.original.status} labels={voyageStatusLabels} badges={VOYAGE_STATUS_BADGES} />,
     },
     {
       accessorKey: 'pax_count',
-      header: 'PAX',
+      header: t('travelwiz.columns.pax_count'),
       size: 60,
       cell: ({ row }) => (
         <span className="inline-flex items-center gap-1 text-xs">
@@ -521,7 +523,7 @@ function VoyagesTab() {
     },
     {
       id: 'cargo_weight',
-      header: 'Cargo',
+      header: t('travelwiz.columns.cargo_count'),
       size: 80,
       cell: ({ row }) => {
         const w = row.original.cargo_weight_kg ?? row.original.total_cargo_kg
@@ -547,7 +549,7 @@ function VoyagesTab() {
         </button>
       ),
     }] : []),
-  ], [deleteVoyage, canDelete, voyageStatusLabels])
+  ], [deleteVoyage, canDelete, voyageStatusLabels, t])
 
   return (
     <>
@@ -790,6 +792,7 @@ function getAggregateReturnStatusLabel(status: string): string {
 // ══════════════════════════════════════════════════════════════
 
 function ManifestesTab() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
@@ -823,25 +826,25 @@ function ManifestesTab() {
   const columns = useMemo<ColumnDef<AnyRow, unknown>[]>(() => [
     {
       accessorKey: 'reference',
-      header: 'Reference',
+      header: t('travelwiz.columns.reference'),
       size: 120,
       cell: ({ row }) => <span className="font-medium font-mono text-xs text-foreground">{row.original.reference || row.original.manifest_type || 'MAN'}</span>,
     },
     {
       accessorKey: 'voyage_code',
-      header: 'Voyage',
+      header: t('travelwiz.columns.voyage'),
       size: 110,
       cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.original.voyage_code || '—'}</span>,
     },
     {
       accessorKey: 'status',
-      header: 'Statut',
+      header: t('travelwiz.columns.status'),
       size: 120,
       cell: ({ row }) => <StatusBadge status={row.original.status} labels={manifestStatusLabels} badges={MANIFEST_STATUS_BADGES} />,
     },
     {
       accessorKey: 'passenger_count',
-      header: 'PAX confirmes',
+      header: t('travelwiz.columns.pax_confirmed'),
       size: 100,
       cell: ({ row }) => (
         <span className="inline-flex items-center gap-1 text-xs">
@@ -852,7 +855,7 @@ function ManifestesTab() {
     },
     {
       id: 'total_weight',
-      header: 'Poids total',
+      header: t('travelwiz.columns.total_weight'),
       size: 100,
       cell: ({ row }) => {
         const w = row.original.total_weight_kg
@@ -884,7 +887,7 @@ function ManifestesTab() {
         )
       },
     },
-  ], [manifestStatusLabels, validateManifest])
+  ], [manifestStatusLabels, validateManifest, t])
 
   return (
     <>
@@ -938,6 +941,7 @@ function ManifestesTab() {
 // ══════════════════════════════════════════════════════════════
 
 export function CargoTab() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
@@ -978,18 +982,18 @@ export function CargoTab() {
   const columns = useMemo<ColumnDef<AnyRow, unknown>[]>(() => [
     {
       accessorKey: 'code',
-      header: 'Tracking#',
+      header: t('travelwiz.columns.tracking'),
       size: 110,
       cell: ({ row }) => <span className="font-medium font-mono text-xs text-foreground">{row.original.code}</span>,
     },
     {
       accessorKey: 'description',
-      header: 'Description',
+      header: t('travelwiz.columns.description'),
       cell: ({ row }) => <span className="text-foreground truncate max-w-[200px] block">{row.original.description || '—'}</span>,
     },
     {
       accessorKey: 'weight_kg',
-      header: 'Poids',
+      header: t('travelwiz.columns.weight'),
       size: 90,
       cell: ({ row }) => (
         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
@@ -1000,19 +1004,19 @@ export function CargoTab() {
     },
     {
       id: 'origin',
-      header: 'Origine',
+      header: t('travelwiz.columns.origin'),
       size: 100,
       cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.sender_name || '—'}</span>,
     },
     {
       id: 'destination',
-      header: 'Destination',
+      header: t('travelwiz.columns.destination'),
       size: 100,
       cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.receiver_name || '—'}</span>,
     },
     {
       accessorKey: 'status',
-      header: 'Statut',
+      header: t('travelwiz.columns.status'),
       size: 120,
       cell: ({ row }) => <StatusBadge status={row.original.status} labels={cargoStatusLabels} badges={CARGO_STATUS_BADGES} />,
     },
@@ -1057,7 +1061,7 @@ export function CargoTab() {
         )
       },
     },
-  ], [cargoStatusLabels, updateCargoStatus])
+  ], [cargoStatusLabels, updateCargoStatus, t])
 
   return (
     <>
@@ -1163,18 +1167,18 @@ function VecteursTab() {
   const columns = useMemo<ColumnDef<AnyRow, unknown>[]>(() => [
     {
       accessorKey: 'name',
-      header: 'Nom',
+      header: t('travelwiz.columns.name'),
       cell: ({ row }) => <span className="font-medium text-foreground">{row.original.name}</span>,
     },
     {
       accessorKey: 'registration',
-      header: 'Immatriculation',
+      header: t('travelwiz.columns.registration'),
       size: 120,
       cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.original.registration || '—'}</span>,
     },
     {
       accessorKey: 'type',
-      header: 'Type',
+      header: t('travelwiz.columns.type'),
       size: 130,
       cell: ({ row }) => {
         const vt = VECTOR_TYPE_MAP[row.original.type]
@@ -1189,7 +1193,7 @@ function VecteursTab() {
     },
     {
       accessorKey: 'pax_capacity',
-      header: 'Capacite PAX',
+      header: t('travelwiz.columns.pax_capacity'),
       size: 100,
       cell: ({ row }) => (
         <span className="inline-flex items-center gap-1 text-xs">
@@ -1200,7 +1204,7 @@ function VecteursTab() {
     },
     {
       id: 'home_base',
-      header: 'Base',
+      header: t('travelwiz.columns.base'),
       size: 110,
       cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.home_base_name || '—'}</span>,
     },
@@ -1284,6 +1288,7 @@ const PICKUP_STATUS_BADGES: Record<string, string> = {
 }
 
 function PickupTab() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
@@ -1309,37 +1314,37 @@ function PickupTab() {
   const columns = useMemo<ColumnDef<AnyRow, unknown>[]>(() => [
     {
       accessorKey: 'code',
-      header: 'Reference',
+      header: t('travelwiz.columns.reference'),
       size: 120,
       cell: ({ row }) => <span className="font-medium font-mono text-xs text-foreground">{row.original.code}</span>,
     },
     {
       accessorKey: 'date',
-      header: 'Date',
+      header: t('travelwiz.columns.date'),
       size: 100,
       cell: ({ row }) => <span className="text-xs text-muted-foreground tabular-nums">{formatDateShort(row.original.date)}</span>,
     },
     {
       accessorKey: 'vehicle_name',
-      header: 'Véhicule',
+      header: t('travelwiz.columns.vehicle'),
       size: 130,
       cell: ({ row }) => <span className="text-foreground truncate">{row.original.vehicle_name || '—'}</span>,
     },
     {
       accessorKey: 'driver_name',
-      header: 'Chauffeur',
+      header: t('travelwiz.columns.driver'),
       size: 120,
       cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.driver_name || '—'}</span>,
     },
     {
       accessorKey: 'stops_count',
-      header: 'Arrets',
+      header: t('travelwiz.columns.stops'),
       size: 60,
       cell: ({ row }) => <span className="text-xs text-muted-foreground tabular-nums">{row.original.stops_count}</span>,
     },
     {
       accessorKey: 'pax_collected',
-      header: 'PAX',
+      header: t('travelwiz.columns.pax_count'),
       size: 60,
       cell: ({ row }) => (
         <span className="inline-flex items-center gap-1 text-xs">
@@ -1350,11 +1355,11 @@ function PickupTab() {
     },
     {
       accessorKey: 'status',
-      header: 'Statut',
+      header: t('travelwiz.columns.status'),
       size: 110,
       cell: ({ row }) => <StatusBadge status={row.original.status} labels={pickupStatusLabels} badges={PICKUP_STATUS_BADGES} />,
     },
-  ], [pickupStatusLabels])
+  ], [pickupStatusLabels, t])
 
   return (
     <>
@@ -3350,20 +3355,20 @@ function VoyageDetailPanel({ id }: { id: string }) {
         onClose={() => setCargoReportExportOpen(false)}
         data={cargoReportExportRows}
         columns={[
-          { id: 'tracking_code', header: 'Tracking' },
-          { id: 'request_code', header: 'Demande' },
-          { id: 'designation', header: 'Colis' },
-          { id: 'cargo_status', header: 'Statut cargo' },
-          { id: 'workflow_status', header: 'Workflow dossier' },
-          { id: 'destination_name', header: 'Destination' },
-          { id: 'weight_kg', header: 'Poids (kg)' },
-          { id: 'total_sent_units', header: 'Qté expédiée' },
-          { id: 'total_returned_units', header: 'Qté retournée' },
-          { id: 'return_coverage_pct', header: 'Couverture retour (%)' },
-          { id: 'aggregate_return_status', header: 'État retour' },
-          { id: 'aggregate_disposition', header: 'Disposition base' },
-          { id: 'damage_notes', header: 'Avaries' },
-          { id: 'received_at', header: 'Réception' },
+          { id: 'tracking_code', header: t('travelwiz.columns.export_tracking') },
+          { id: 'request_code', header: t('travelwiz.columns.export_request') },
+          { id: 'designation', header: t('travelwiz.columns.export_parcel') },
+          { id: 'cargo_status', header: t('travelwiz.columns.export_cargo_status') },
+          { id: 'workflow_status', header: t('travelwiz.columns.export_workflow_status') },
+          { id: 'destination_name', header: t('travelwiz.columns.export_destination') },
+          { id: 'weight_kg', header: t('travelwiz.columns.export_weight_kg') },
+          { id: 'total_sent_units', header: t('travelwiz.columns.export_qty_sent') },
+          { id: 'total_returned_units', header: t('travelwiz.columns.export_qty_returned') },
+          { id: 'return_coverage_pct', header: t('travelwiz.columns.export_return_coverage') },
+          { id: 'aggregate_return_status', header: t('travelwiz.columns.export_return_status') },
+          { id: 'aggregate_disposition', header: t('travelwiz.columns.export_base_disposition') },
+          { id: 'damage_notes', header: t('travelwiz.columns.export_damages') },
+          { id: 'received_at', header: t('travelwiz.columns.export_reception') },
         ]}
         filenamePrefix={`travelwiz-cargo-report-${voyage.code.toLowerCase()}`}
       />

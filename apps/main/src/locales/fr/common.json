@@ -805,7 +805,12 @@
     "no_stats": "Aucune statistique disponible",
     "history": "Historique",
     "no_changes": "Aucune modification enregistrée",
-    "recent_changes": "Modifications récentes"
+    "recent_changes": "Modifications récentes",
+    "columns": {
+      "tag": "Tag",
+      "pipeline_id": "ID Pipeline",
+      "dn_in": "DN (in)"
+    }
   },
   "tiers": {
     "title": "Entreprises",
@@ -953,6 +958,51 @@
     "external_identity_no_contact": "Aucun contact d'origine lié",
     "external_identity_no_company": "Aucune entreprise liée",
     "external_contact_unavailable": "Contact d'origine non résolu",
+    "columns": {
+      "name": "Nom",
+      "email": "Email",
+      "intranet_id": "ID Intranet",
+      "auth": "Auth",
+      "mfa": "MFA",
+      "language": "Langue",
+      "status": "Statut",
+      "type": "Type",
+      "created_at": "Créé le",
+      "last_login": "Dernière connexion",
+      "passport_name": "Nom passeport",
+      "gender": "Genre",
+      "nationality": "Nationalité",
+      "birth_country": "Pays de naissance",
+      "birth_city": "Ville de naissance",
+      "birth_date": "Date de naissance",
+      "contractual_airport": "Aéroport contractuel",
+      "nearest_airport": "Aéroport proche",
+      "nearest_station": "Gare la plus proche",
+      "loyalty_program": "Programme fidélité",
+      "last_medical_check": "Visite médicale",
+      "last_international_medical_check": "Visite méd. internationale",
+      "last_subsidiary_medical_check": "Visite méd. filiale",
+      "height": "Taille (cm)",
+      "weight": "Poids (kg)",
+      "clothing_size": "Taille vêtement",
+      "shoe_size": "Pointure",
+      "retirement_date": "Date retraite",
+      "vantage_number": "N° Vantage",
+      "extension_number": "N° Poste",
+      "last_ip": "Dernière IP",
+      "failed_login_count": "Échecs connexion",
+      "password_changed": "Mot de passe modifié",
+      "account_expires": "Expiration compte",
+      "updated_at": "Modifié le"
+    },
+    "journal": {
+      "date": "Date",
+      "action": "Action",
+      "resource": "Ressource",
+      "id": "ID",
+      "details": "Détails",
+      "ip": "IP"
+    },
     "toast": {
       "deleted": "Utilisateur supprimé",
       "delete_blocked": "Suppression impossible",
@@ -1004,7 +1054,30 @@
       "expiration": "Expiration",
       "issuer": "Émetteur",
       "owner": "Propriétaire",
-      "reason": "Motif"
+      "reason": "Motif",
+      "start_date": "Début",
+      "end_date": "Fin",
+      "approved_by": "Approuvé par",
+      "created_at": "Créé le",
+      "title": "Intitulé",
+      "department": "Département",
+      "target": "Cible",
+      "value": "Valeur",
+      "description": "Description",
+      "employee": "Employé",
+      "from": "De",
+      "to": "Vers",
+      "date": "Date",
+      "type_code": "Code Type",
+      "type_name": "Nom Type",
+      "target_value": "Valeur Cible",
+      "priority": "Priorité",
+      "applicability": "Applicabilité",
+      "effective_from": "Depuis",
+      "effective_to": "Jusqu'à",
+      "person": "Personne",
+      "attachment": "PJ",
+      "verified_by": "Par"
     },
     "records": {
       "title": "Enregistrements",
@@ -1715,7 +1788,8 @@
     },
     "columns": {
       "pax_name": "Nom",
-      "imputation": "Imputation"
+      "imputation": "Imputation",
+      "pax": "PAX"
     },
     "status": {
       "generic": {
@@ -3028,20 +3102,48 @@
       "vehicle": "Véhicule"
     },
     "columns": {
+      "reference": "Référence",
       "registration": "Immatriculation",
       "name": "Nom",
       "type": "Type",
       "mode": "Mode",
       "pax_capacity": "Capacité PAX",
       "home_base": "Base d'attache",
+      "base": "Base",
       "voyage_code": "Code voyage",
+      "voyage": "Voyage",
       "status": "Statut",
       "departure": "Départ",
       "arrival": "Arrivée",
       "vector": "Vecteur",
+      "route": "Itinéraire",
       "stops": "Arrêts",
       "pax_count": "PAX",
-      "cargo_count": "Cargo"
+      "pax_confirmed": "PAX confirmés",
+      "cargo_count": "Cargo",
+      "total_weight": "Poids total",
+      "tracking": "Tracking#",
+      "description": "Description",
+      "weight": "Poids",
+      "origin": "Origine",
+      "destination": "Destination",
+      "date": "Date",
+      "vehicle": "Véhicule",
+      "driver": "Chauffeur",
+      "export_tracking": "Tracking",
+      "export_request": "Demande",
+      "export_parcel": "Colis",
+      "export_cargo_status": "Statut cargo",
+      "export_workflow_status": "Workflow dossier",
+      "export_destination": "Destination",
+      "export_weight_kg": "Poids (kg)",
+      "export_qty_sent": "Qté expédiée",
+      "export_qty_returned": "Qté retournée",
+      "export_return_coverage": "Couverture retour (%)",
+      "export_return_status": "État retour",
+      "export_base_disposition": "Disposition base",
+      "export_damages": "Avaries",
+      "export_reception": "Réception"
     },
     "toast": {
       "voyage_created": "Voyage créé avec succès",
@@ -3108,6 +3210,16 @@
   "papyrus": {
     "title": "Papyrus",
     "subtitle": "Rédaction, documentation et workflows éditoriaux",
+    "columns": {
+      "number": "Numéro",
+      "title": "Titre",
+      "type": "Type",
+      "status": "Statut",
+      "classification": "Classification",
+      "revision": "Révision",
+      "date": "Date",
+      "creator": "Créateur"
+    },
     "tabs": {
       "documents": "Documents",
       "templates": "Modèles",
@@ -3263,7 +3375,30 @@
     "line_number_required": "Le numéro de ligne est requis",
     "tag_name_required": "Le nom du tag est requis",
     "pid_created": "PID créé",
-    "error_creation_failed": "Échec de la création"
+    "error_creation_failed": "Échec de la création",
+    "columns": {
+      "number": "Numéro",
+      "title": "Titre",
+      "type": "Type",
+      "revision": "Révision",
+      "status": "Statut",
+      "format": "Format",
+      "equipment_count": "Équipements",
+      "date": "Date",
+      "tag": "Tag",
+      "description": "Description",
+      "service": "Service",
+      "fluid": "Fluide",
+      "pid_number": "PID#",
+      "line_number": "N° Ligne",
+      "diameter": "Diamètre",
+      "schedule": "Schedule",
+      "spec_class": "Classe spec",
+      "insulation": "Isolation",
+      "zone": "Zone",
+      "equipment": "Équipement",
+      "dcs_address": "Adresse DCS"
+    }
   },
   "messaging": {
     "title": "Messagerie",
@@ -3314,6 +3449,25 @@
       "announcement_deleted": "Annonce supprimée",
       "announcement_deactivated": "Annonce désactivée",
       "announcement_activated": "Annonce activée"
+    },
+    "columns": {
+      "ref": "Réf.",
+      "title": "Titre",
+      "type": "Type",
+      "priority": "Priorité",
+      "status": "Statut",
+      "reporter": "Rapporté par",
+      "assignee": "Assigné à",
+      "created_at": "Créé le"
+    },
+    "announcements": {
+      "columns": {
+        "title": "Titre",
+        "priority": "Priorité",
+        "location": "Emplacement",
+        "active": "Actif",
+        "created_at": "Créé le"
+      }
     }
   },
   "settings": {
@@ -3965,6 +4119,61 @@
       "export_csv": "Exporter CSV",
       "empty": "Aucune entrée dans le journal d'audit"
     },
+    "columns": {
+      "rbac_roles": {
+        "name": "Nom",
+        "code": "Code",
+        "module": "Module",
+        "description": "Description",
+        "permissions": "Permissions",
+        "groups": "Groupes",
+        "users": "Utilisateurs",
+        "created_at": "Créé le",
+        "updated_at": "Modifié le"
+      },
+      "rbac_groups": {
+        "name": "Nom",
+        "roles": "Rôles",
+        "members": "Membres",
+        "scope": "Scope",
+        "entity": "Entité",
+        "status": "Statut",
+        "created_at": "Créé le",
+        "updated_at": "Modifié le"
+      },
+      "sessions": {
+        "device": "Appareil",
+        "browser_os": "Navigateur / OS",
+        "ip_address": "Adresse IP",
+        "status": "Statut",
+        "connection": "Connexion",
+        "last_access": "Dernier accès"
+      },
+      "entities": {
+        "code": "Code",
+        "name": "Nom",
+        "country": "Pays",
+        "timezone": "Fuseau horaire",
+        "users": "Utilisateurs",
+        "status": "Statut",
+        "created_at": "Créé le"
+      },
+      "audit": {
+        "date": "Date",
+        "user": "Utilisateur",
+        "action": "Action",
+        "module": "Module",
+        "object": "Objet",
+        "details": "Details"
+      },
+      "tokens": {
+        "name": "Nom",
+        "status": "Statut",
+        "scopes": "Scopes",
+        "last_used": "Dernier usage",
+        "expiration": "Expiration"
+      }
+    },
     "system_health": {
       "title": "Santé système",
       "description": "Surveillez l'état des services, la consommation mémoire et les performances du système.",
@@ -4321,7 +4530,24 @@
     "add_user": "Ajouter un utilisateur",
     "remove_user": "Retirer",
     "no_entities": "Aucune entité",
-    "stats": "Statistiques"
+    "stats": "Statistiques",
+    "columns": {
+      "code": "Code",
+      "name": "Nom",
+      "trade_name": "Nom commercial",
+      "legal_form": "Forme juridique",
+      "country": "Pays",
+      "city": "Ville",
+      "currency": "Devise",
+      "timezone": "Fuseau horaire",
+      "users": "Utilisateurs",
+      "status": "Statut",
+      "created_at": "Créé le",
+      "user_name": "Nom",
+      "email": "Email",
+      "groups": "Groupes",
+      "user_status": "Statut"
+    }
   },
   "packlog": {
     "common": {

@@ -1168,7 +1168,7 @@ function AdsTab({ openDetail, requesterOnly = false, validatorOnly = false }: { 
     },
     {
       accessorKey: 'pax_count',
-      header: 'PAX',
+      header: t('paxlog.columns.pax'),
       cell: ({ row }) => (
         <span className="inline-flex items-center gap-1 text-xs"><Users size={11} className="text-muted-foreground" /> {row.original.pax_count}</span>
       ),
@@ -1639,7 +1639,7 @@ function ComplianceTab() {
   const expiringColumns = useMemo<ColumnDef<ExpiringCredential, unknown>[]>(() => [
     {
       id: 'pax',
-      header: 'PAX',
+      header: t('paxlog.columns.pax'),
       cell: ({ row }) => (
         <div className="min-w-0">
           <span className="font-medium text-foreground block">{row.original.pax_last_name} {row.original.pax_first_name}</span>
@@ -1800,7 +1800,7 @@ function SignalementsTab() {
   const incidentColumns = useMemo<ColumnDef<PaxIncident, unknown>[]>(() => [
     {
       id: 'pax',
-      header: 'PAX',
+      header: t('paxlog.columns.pax'),
       cell: ({ row }) => {
         const pax = row.original
         if (pax.pax_first_name || pax.pax_last_name) {
@@ -4728,7 +4728,7 @@ function AvmTab({ openDetail, requesterOnly = false, validatorOnly = false }: { 
     },
     {
       id: 'pax_count',
-      header: 'PAX',
+      header: t('paxlog.columns.pax'),
       cell: ({ row }) => <span className="text-xs text-foreground tabular-nums">{row.original.pax_count}</span>,
       size: 60,
     },

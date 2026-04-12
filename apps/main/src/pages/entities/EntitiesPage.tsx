@@ -159,167 +159,170 @@ const FISCAL_MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => ({
 
 // ── Column definitions ─────────────────────────────────────
 
-const entityColumns: ColumnDef<EntityRead, unknown>[] = [
-  {
-    accessorKey: 'code',
-    header: 'Code',
-    cell: ({ getValue }) => (
-      <span className="font-mono text-xs font-semibold text-foreground">
-        {getValue() as string}
-      </span>
-    ),
-    size: 120,
-    enableHiding: false,
-  },
-  {
-    accessorKey: 'name',
-    header: 'Nom',
-    cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        <EntityIcon logoUrl={row.original.logo_url} country={row.original.country} size={16} />
-        <span className="font-medium text-foreground truncate max-w-[280px]">
-          {row.original.name}
+function useEntityPageColumns() {
+  const { t } = useTranslation()
+  const entityColumns = useMemo<ColumnDef<EntityRead, unknown>[]>(() => [
+    {
+      accessorKey: 'code',
+      header: t('entities.columns.code'),
+      cell: ({ getValue }) => (
+        <span className="font-mono text-xs font-semibold text-foreground">
+          {getValue() as string}
         </span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: 'trade_name',
-    header: 'Nom commercial',
-    cell: ({ getValue }) => {
-      const v = getValue() as string | null
-      return v ? <span className="text-sm text-muted-foreground truncate block">{v}</span> : <span className="text-muted-foreground">—</span>
+      ),
+      size: 120,
+      enableHiding: false,
     },
-    size: 180,
-  },
-  {
-    accessorKey: 'legal_form',
-    header: 'Forme juridique',
-    cell: ({ getValue }) => {
-      const v = getValue() as string | null
-      if (!v) return <span className="text-muted-foreground">—</span>
-      const label = LEGAL_FORM_OPTIONS.find((o) => o.value === v)?.label ?? v
-      return <BadgeCell value={label} variant="info" />
-    },
-    size: 140,
-  },
-  {
-    accessorKey: 'country',
-    header: 'Pays',
-    cell: ({ getValue }) => {
-      const v = getValue() as string | null
-      if (!v) return <span className="text-muted-foreground">—</span>
-      const label = COUNTRY_OPTIONS.find((c) => c.value === v)?.label ?? v
-      return <CountryFlag code={v} label={label} className="text-sm text-muted-foreground" />
-    },
-    size: 140,
-  },
-  {
-    accessorKey: 'city',
-    header: 'Ville',
-    cell: ({ getValue }) => {
-      const v = getValue() as string | null
-      return v ? <span className="text-sm text-muted-foreground">{v}</span> : <span className="text-muted-foreground">—</span>
-    },
-    size: 120,
-  },
-  {
-    accessorKey: 'currency',
-    header: 'Devise',
-    cell: ({ getValue }) => (
-      <span className="text-xs text-muted-foreground font-mono">{getValue() as string}</span>
-    ),
-    size: 80,
-  },
-  {
-    accessorKey: 'timezone',
-    header: 'Fuseau horaire',
-    cell: ({ getValue }) => (
-      <span className="text-xs text-muted-foreground font-mono">
-        {getValue() as string}
-      </span>
-    ),
-    size: 180,
-  },
-  {
-    accessorKey: 'user_count',
-    header: 'Utilisateurs',
-    cell: ({ getValue }) => (
-      <span className="text-sm text-muted-foreground">
-        {getValue() as number}
-      </span>
-    ),
-    size: 110,
-  },
-  {
-    accessorKey: 'active',
-    header: 'Statut',
-    cell: ({ getValue }) => {
-      const active = getValue() as boolean
-      return <BadgeCell value={active ? 'Active' : 'Archivée'} variant={active ? 'success' : 'neutral'} />
-    },
-    size: 100,
-  },
-  {
-    accessorKey: 'created_at',
-    header: 'Créé le',
-    cell: ({ getValue }) => <DateCell value={getValue() as string} />,
-    size: 110,
-  },
-]
-
-// ── Entity Users columns (for DataTable inside detail panel) ──
-
-const entityUserColumns: ColumnDef<EntityUser, unknown>[] = [
-  {
-    accessorKey: 'first_name',
-    header: 'Nom',
-    cell: ({ row }) => {
-      const u = row.original
-      return (
+    {
+      accessorKey: 'name',
+      header: t('entities.columns.name'),
+      cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          {u.avatar_url ? (
-            <img src={u.avatar_url} alt="" className="h-6 w-6 rounded-full object-cover shrink-0" />
-          ) : (
-            <div className="h-6 w-6 flex items-center justify-center rounded-full bg-primary/10 text-primary text-[9px] font-semibold shrink-0">
-              {u.first_name[0]}{u.last_name[0]}
-            </div>
-          )}
-          <span className="text-sm font-medium text-foreground truncate">{u.first_name} {u.last_name}</span>
+          <EntityIcon logoUrl={row.original.logo_url} country={row.original.country} size={16} />
+          <span className="font-medium text-foreground truncate max-w-[280px]">
+            {row.original.name}
+          </span>
         </div>
-      )
+      ),
     },
-    enableHiding: false,
-  },
-  {
-    accessorKey: 'email',
-    header: 'Email',
-    cell: ({ getValue }) => <span className="text-xs text-muted-foreground truncate block">{getValue() as string}</span>,
-    size: 200,
-  },
-  {
-    accessorKey: 'group_names',
-    header: 'Groupes',
-    cell: ({ getValue }) => {
-      const groups = getValue() as string[]
-      return groups.length > 0 ? (
-        <div className="flex flex-wrap gap-1">
-          {groups.map((g) => <span key={g} className="gl-badge gl-badge-neutral text-[9px]">{g}</span>)}
-        </div>
-      ) : <span className="text-muted-foreground text-xs">—</span>
+    {
+      accessorKey: 'trade_name',
+      header: t('entities.columns.trade_name'),
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null
+        return v ? <span className="text-sm text-muted-foreground truncate block">{v}</span> : <span className="text-muted-foreground">—</span>
+      },
+      size: 180,
     },
-    size: 180,
-  },
-  {
-    accessorKey: 'active',
-    header: 'Statut',
-    cell: ({ getValue }) => {
-      const active = getValue() as boolean
-      return <BadgeCell value={active ? 'Actif' : 'Inactif'} variant={active ? 'success' : 'neutral'} />
+    {
+      accessorKey: 'legal_form',
+      header: t('entities.columns.legal_form'),
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null
+        if (!v) return <span className="text-muted-foreground">—</span>
+        const label = LEGAL_FORM_OPTIONS.find((o) => o.value === v)?.label ?? v
+        return <BadgeCell value={label} variant="info" />
+      },
+      size: 140,
     },
-    size: 90,
-  },
-]
+    {
+      accessorKey: 'country',
+      header: t('entities.columns.country'),
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null
+        if (!v) return <span className="text-muted-foreground">—</span>
+        const label = COUNTRY_OPTIONS.find((c) => c.value === v)?.label ?? v
+        return <CountryFlag code={v} label={label} className="text-sm text-muted-foreground" />
+      },
+      size: 140,
+    },
+    {
+      accessorKey: 'city',
+      header: t('entities.columns.city'),
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null
+        return v ? <span className="text-sm text-muted-foreground">{v}</span> : <span className="text-muted-foreground">—</span>
+      },
+      size: 120,
+    },
+    {
+      accessorKey: 'currency',
+      header: t('entities.columns.currency'),
+      cell: ({ getValue }) => (
+        <span className="text-xs text-muted-foreground font-mono">{getValue() as string}</span>
+      ),
+      size: 80,
+    },
+    {
+      accessorKey: 'timezone',
+      header: t('entities.columns.timezone'),
+      cell: ({ getValue }) => (
+        <span className="text-xs text-muted-foreground font-mono">
+          {getValue() as string}
+        </span>
+      ),
+      size: 180,
+    },
+    {
+      accessorKey: 'user_count',
+      header: t('entities.columns.users'),
+      cell: ({ getValue }) => (
+        <span className="text-sm text-muted-foreground">
+          {getValue() as number}
+        </span>
+      ),
+      size: 110,
+    },
+    {
+      accessorKey: 'active',
+      header: t('entities.columns.status'),
+      cell: ({ getValue }) => {
+        const active = getValue() as boolean
+        return <BadgeCell value={active ? 'Active' : 'Archivée'} variant={active ? 'success' : 'neutral'} />
+      },
+      size: 100,
+    },
+    {
+      accessorKey: 'created_at',
+      header: t('entities.columns.created_at'),
+      cell: ({ getValue }) => <DateCell value={getValue() as string} />,
+      size: 110,
+    },
+  ], [t])
+
+  const entityUserColumns = useMemo<ColumnDef<EntityUser, unknown>[]>(() => [
+    {
+      accessorKey: 'first_name',
+      header: t('entities.columns.user_name'),
+      cell: ({ row }) => {
+        const u = row.original
+        return (
+          <div className="flex items-center gap-2">
+            {u.avatar_url ? (
+              <img src={u.avatar_url} alt="" className="h-6 w-6 rounded-full object-cover shrink-0" />
+            ) : (
+              <div className="h-6 w-6 flex items-center justify-center rounded-full bg-primary/10 text-primary text-[9px] font-semibold shrink-0">
+                {u.first_name[0]}{u.last_name[0]}
+              </div>
+            )}
+            <span className="text-sm font-medium text-foreground truncate">{u.first_name} {u.last_name}</span>
+          </div>
+        )
+      },
+      enableHiding: false,
+    },
+    {
+      accessorKey: 'email',
+      header: t('entities.columns.email'),
+      cell: ({ getValue }) => <span className="text-xs text-muted-foreground truncate block">{getValue() as string}</span>,
+      size: 200,
+    },
+    {
+      accessorKey: 'group_names',
+      header: t('entities.columns.groups'),
+      cell: ({ getValue }) => {
+        const groups = getValue() as string[]
+        return groups.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {groups.map((g) => <span key={g} className="gl-badge gl-badge-neutral text-[9px]">{g}</span>)}
+          </div>
+        ) : <span className="text-muted-foreground text-xs">—</span>
+      },
+      size: 180,
+    },
+    {
+      accessorKey: 'active',
+      header: t('entities.columns.user_status'),
+      cell: ({ getValue }) => {
+        const active = getValue() as boolean
+        return <BadgeCell value={active ? 'Actif' : 'Inactif'} variant={active ? 'success' : 'neutral'} />
+      },
+      size: 90,
+    },
+  ], [t])
+
+  return { entityColumns, entityUserColumns }
+}
 
 
 // ── Sub-section label ────────────────────────────────────────
@@ -471,6 +474,7 @@ type DetailTab = 'fiche' | 'users'
 
 function EntityDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
+  const { entityUserColumns } = useEntityPageColumns()
   const { data: entity } = useEntity(id)
   const updateEntity = useUpdateEntity()
   const { data: entityUsers, isLoading: usersLoading } = useEntityUsers(id)
@@ -862,6 +866,7 @@ function EntityDetailPanel({ id }: { id: string }) {
 
 function EntitiesListView() {
   const { t } = useTranslation()
+  const { entityColumns } = useEntityPageColumns()
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')

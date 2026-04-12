@@ -105,11 +105,11 @@ const FlagCell = ({ value }: { value: string | null | undefined }) => {
 }
 
 // ── Column definitions ─────────────────────────────────────
-const userColumns: ColumnDef<UserRead, unknown>[] = [
+const getUserColumns = (t: (key: string) => string): ColumnDef<UserRead, unknown>[] => [
   // ── Always visible ──
   {
     accessorKey: 'name',
-    header: 'Nom',
+    header: t('users.columns.name'),
     accessorFn: (row) => `${row.first_name} ${row.last_name}`,
     cell: ({ row }) => (
       <AvatarCell
@@ -121,7 +121,7 @@ const userColumns: ColumnDef<UserRead, unknown>[] = [
   },
   {
     accessorKey: 'email',
-    header: 'Email',
+    header: t('users.columns.email'),
     cell: ({ getValue }) => (
       <span className="text-muted-foreground truncate max-w-[200px] block">
         {getValue() as string}
@@ -131,7 +131,7 @@ const userColumns: ColumnDef<UserRead, unknown>[] = [
   },
   {
     accessorKey: 'intranet_id',
-    header: 'ID Intranet',
+    header: t('users.columns.intranet_id'),
     cell: ({ getValue }) => {
       const v = getValue() as string | null
       return v ? <span className="font-mono text-[10px] text-muted-foreground">{v}</span> : <span className="text-muted-foreground/40">—</span>
@@ -140,7 +140,7 @@ const userColumns: ColumnDef<UserRead, unknown>[] = [
   },
   {
     accessorKey: 'auth_type',
-    header: 'Auth',
+    header: t('users.columns.auth'),
     cell: ({ getValue }) => {
       const v = getValue() as string
       return <span className="gl-badge gl-badge-neutral text-[10px]">{AUTH_TYPE_LABELS[v] ?? v}</span>
@@ -150,7 +150,7 @@ const userColumns: ColumnDef<UserRead, unknown>[] = [
   },
   {
     id: 'mfa',
-    header: 'MFA',
+    header: t('users.columns.mfa'),
     accessorFn: (row) => row.mfa_enabled,
     cell: ({ row }) => (
       row.original.mfa_enabled
@@ -161,7 +161,7 @@ const userColumns: ColumnDef<UserRead, unknown>[] = [
   },
   {
     accessorKey: 'language',
-    header: 'Langue',
+    header: t('users.columns.language'),
     cell: ({ getValue }) => (
       <span className="uppercase text-xs text-muted-foreground font-medium">
         {getValue() as string}
@@ -172,7 +172,7 @@ const userColumns: ColumnDef<UserRead, unknown>[] = [
   },
   {
     accessorKey: 'active',
-    header: 'Statut',
+    header: t('users.columns.status'),
     cell: ({ row }) => {
       const u = row.original
       if (u.locked_until && new Date(u.locked_until) > new Date()) {
@@ -187,7 +187,7 @@ const userColumns: ColumnDef<UserRead, unknown>[] = [
   },
   {
     accessorKey: 'user_type',
-    header: 'Type',
+    header: t('users.columns.type'),
     cell: ({ getValue }) => {
       const v = getValue() as string
       return v === 'external'
@@ -198,170 +198,170 @@ const userColumns: ColumnDef<UserRead, unknown>[] = [
   },
   {
     accessorKey: 'created_at',
-    header: 'Créé le',
+    header: t('users.columns.created_at'),
     cell: ({ getValue }) => <DateCell value={getValue() as string} />,
     size: 110,
   },
   {
     accessorKey: 'last_login_at',
-    header: 'Dernière connexion',
+    header: t('users.columns.last_login'),
     cell: ({ getValue }) => <DateCell value={getValue() as string | null} relative />,
     size: 140,
   },
   // ── HR Identity (hidden by default) ──
   {
     accessorKey: 'passport_name',
-    header: 'Nom passeport',
+    header: t('users.columns.passport_name'),
     cell: ({ getValue }) => <TextCell value={getValue() as string | null} />,
     size: 150,
   },
   {
     accessorKey: 'gender',
-    header: 'Genre',
+    header: t('users.columns.gender'),
     cell: ({ getValue }) => <TextCell value={getValue() as string | null} />,
     size: 70,
     meta: { filterType: 'select' as const, filterOptions: [{ value: 'M', label: 'Masculin' }, { value: 'F', label: 'Féminin' }, { value: 'X', label: 'Autre' }] },
   },
   {
     accessorKey: 'nationality',
-    header: 'Nationalité',
+    header: t('users.columns.nationality'),
     cell: ({ getValue }) => <FlagCell value={getValue() as string | null} />,
     size: 120,
   },
   {
     accessorKey: 'birth_country',
-    header: 'Pays de naissance',
+    header: t('users.columns.birth_country'),
     cell: ({ getValue }) => <FlagCell value={getValue() as string | null} />,
     size: 140,
   },
   {
     accessorKey: 'birth_city',
-    header: 'Ville de naissance',
+    header: t('users.columns.birth_city'),
     cell: ({ getValue }) => <TextCell value={getValue() as string | null} />,
     size: 140,
   },
   {
     accessorKey: 'birth_date',
-    header: 'Date de naissance',
+    header: t('users.columns.birth_date'),
     cell: ({ getValue }) => <DateCell value={getValue() as string | null} />,
     size: 130,
   },
   // ── Travel (hidden by default) ──
   {
     accessorKey: 'contractual_airport',
-    header: 'Aéroport contractuel',
+    header: t('users.columns.contractual_airport'),
     cell: ({ getValue }) => <TextCell value={getValue() as string | null} />,
     size: 150,
   },
   {
     accessorKey: 'nearest_airport',
-    header: 'Aéroport proche',
+    header: t('users.columns.nearest_airport'),
     cell: ({ getValue }) => <TextCell value={getValue() as string | null} />,
     size: 140,
   },
   {
     accessorKey: 'nearest_station',
-    header: 'Gare la plus proche',
+    header: t('users.columns.nearest_station'),
     cell: ({ getValue }) => <TextCell value={getValue() as string | null} />,
     size: 140,
   },
   {
     accessorKey: 'loyalty_program',
-    header: 'Programme fidélité',
+    header: t('users.columns.loyalty_program'),
     cell: ({ getValue }) => <TextCell value={getValue() as string | null} />,
     size: 140,
   },
   // ── Health / Medical (hidden by default) ──
   {
     accessorKey: 'last_medical_check',
-    header: 'Visite médicale',
+    header: t('users.columns.last_medical_check'),
     cell: ({ getValue }) => <DateCell value={getValue() as string | null} />,
     size: 130,
   },
   {
     accessorKey: 'last_international_medical_check',
-    header: 'Visite méd. internationale',
+    header: t('users.columns.last_international_medical_check'),
     cell: ({ getValue }) => <DateCell value={getValue() as string | null} />,
     size: 160,
   },
   {
     accessorKey: 'last_subsidiary_medical_check',
-    header: 'Visite méd. filiale',
+    header: t('users.columns.last_subsidiary_medical_check'),
     cell: ({ getValue }) => <DateCell value={getValue() as string | null} />,
     size: 140,
   },
   // ── Mensurations (hidden by default) ──
   {
     accessorKey: 'height',
-    header: 'Taille (cm)',
+    header: t('users.columns.height'),
     cell: ({ getValue }) => { const v = getValue() as number | null; return v ? <span className="text-xs tabular-nums">{v} cm</span> : <span className="text-muted-foreground/40">—</span> },
     size: 90,
   },
   {
     accessorKey: 'weight',
-    header: 'Poids (kg)',
+    header: t('users.columns.weight'),
     cell: ({ getValue }) => { const v = getValue() as number | null; return v ? <span className="text-xs tabular-nums">{v} kg</span> : <span className="text-muted-foreground/40">—</span> },
     size: 90,
   },
   {
     accessorKey: 'ppe_clothing_size',
-    header: 'Taille vêtement',
+    header: t('users.columns.clothing_size'),
     cell: ({ getValue }) => <TextCell value={getValue() as string | null} />,
     size: 120,
   },
   {
     accessorKey: 'ppe_shoe_size',
-    header: 'Pointure',
+    header: t('users.columns.shoe_size'),
     cell: ({ getValue }) => <TextCell value={getValue() as string | null} />,
     size: 90,
   },
   // ── Misc / HR (hidden by default) ──
   {
     accessorKey: 'retirement_date',
-    header: 'Date retraite',
+    header: t('users.columns.retirement_date'),
     cell: ({ getValue }) => <DateCell value={getValue() as string | null} />,
     size: 120,
   },
   {
     accessorKey: 'vantage_number',
-    header: 'N° Vantage',
+    header: t('users.columns.vantage_number'),
     cell: ({ getValue }) => <TextCell value={getValue() as string | null} />,
     size: 110,
   },
   {
     accessorKey: 'extension_number',
-    header: 'N° Poste',
+    header: t('users.columns.extension_number'),
     cell: ({ getValue }) => <TextCell value={getValue() as string | null} />,
     size: 100,
   },
   // ── Security (hidden by default) ──
   {
     accessorKey: 'last_login_ip',
-    header: 'Dernière IP',
+    header: t('users.columns.last_ip'),
     cell: ({ getValue }) => { const v = getValue() as string | null; return v ? <span className="font-mono text-[10px] text-muted-foreground">{v}</span> : <span className="text-muted-foreground/40">—</span> },
     size: 120,
   },
   {
     accessorKey: 'failed_login_count',
-    header: 'Échecs connexion',
+    header: t('users.columns.failed_login_count'),
     cell: ({ getValue }) => { const v = getValue() as number; return v > 0 ? <span className="text-xs text-amber-500 font-semibold tabular-nums">{v}</span> : <span className="text-muted-foreground/40">0</span> },
     size: 120,
   },
   {
     accessorKey: 'password_changed_at',
-    header: 'Mot de passe modifié',
+    header: t('users.columns.password_changed'),
     cell: ({ getValue }) => <DateCell value={getValue() as string | null} relative />,
     size: 150,
   },
   {
     accessorKey: 'account_expires_at',
-    header: 'Expiration compte',
+    header: t('users.columns.account_expires'),
     cell: ({ getValue }) => <DateCell value={getValue() as string | null} />,
     size: 130,
   },
   {
     accessorKey: 'updated_at',
-    header: 'Modifié le',
+    header: t('users.columns.updated_at'),
     cell: ({ getValue }) => <DateCell value={getValue() as string | null} relative />,
     size: 120,
   },
@@ -1836,10 +1836,10 @@ const ACTION_BADGE_VARIANT: Record<string, string> = {
   logout: 'gl-badge-neutral',
 }
 
-const journalColumns: ColumnDef<AuditEntry>[] = [
+const getJournalColumns = (t: (key: string) => string): ColumnDef<AuditEntry>[] => [
   {
     accessorKey: 'created_at',
-    header: 'Date',
+    header: t('users.journal.date'),
     cell: ({ getValue }) => {
       const v = getValue<string>()
       return <span className="text-xs tabular-nums text-muted-foreground">{new Date(v).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
@@ -1848,7 +1848,7 @@ const journalColumns: ColumnDef<AuditEntry>[] = [
   },
   {
     accessorKey: 'action',
-    header: 'Action',
+    header: t('users.journal.action'),
     cell: ({ getValue }) => {
       const action = getValue<string>()
       const key = action.toLowerCase().split('.')[0]
@@ -1859,13 +1859,13 @@ const journalColumns: ColumnDef<AuditEntry>[] = [
   },
   {
     accessorKey: 'resource_type',
-    header: 'Ressource',
+    header: t('users.journal.resource'),
     cell: ({ getValue }) => <span className="text-xs text-muted-foreground">{getValue<string>()}</span>,
     size: 110,
   },
   {
     accessorKey: 'resource_id',
-    header: 'ID',
+    header: t('users.journal.id'),
     cell: ({ getValue }) => {
       const v = getValue<string | null>()
       return v ? <span className="text-xs font-mono text-primary truncate max-w-[120px] inline-block">{v}</span> : <span className="text-muted-foreground/50">—</span>
@@ -1874,7 +1874,7 @@ const journalColumns: ColumnDef<AuditEntry>[] = [
   },
   {
     id: 'details_summary',
-    header: 'Détails',
+    header: t('users.journal.details'),
     cell: ({ row }) => {
       const d = row.original.details
       if (!d || Object.keys(d).length === 0) return <span className="text-muted-foreground/50">—</span>
@@ -1884,13 +1884,15 @@ const journalColumns: ColumnDef<AuditEntry>[] = [
   },
   {
     accessorKey: 'ip_address',
-    header: 'IP',
+    header: t('users.journal.ip'),
     cell: ({ getValue }) => <span className="text-xs font-mono text-muted-foreground">{getValue<string>() ?? '—'}</span>,
     size: 110,
   },
 ]
 
 function UserJournalTab({ userId }: { userId: string }) {
+  const { t } = useTranslation()
+  const journalColumns = useMemo(() => getJournalColumns(t), [t])
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [data, setData] = useState<{ items: AuditEntry[]; total: number } | null>(null)
@@ -2270,6 +2272,7 @@ type AccountsTab = 'overview' | 'users' | 'groups' | 'roles'
 
 export function UsersPage() {
   const { t } = useTranslation()
+  const userColumns = useMemo(() => getUserColumns(t), [t])
   const [activeTab, setActiveTab] = useState<AccountsTab>('overview')
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()

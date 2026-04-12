@@ -74,7 +74,7 @@ export function SessionsTab() {
   const columns: ColumnDef<SessionItem>[] = useMemo(() => [
     {
       accessorKey: 'device_type',
-      header: 'Appareil',
+      header: t('settings.columns.sessions.device'),
       size: 70,
       cell: ({ row }) => {
         const Icon = deviceIcons[row.original.device_type] || Monitor
@@ -92,7 +92,7 @@ export function SessionsTab() {
     },
     {
       accessorKey: 'browser',
-      header: 'Navigateur / OS',
+      header: t('settings.columns.sessions.browser_os'),
       size: 200,
       cell: ({ row }) => (
         <div>
@@ -104,13 +104,13 @@ export function SessionsTab() {
     },
     {
       accessorKey: 'ip_address',
-      header: 'Adresse IP',
+      header: t('settings.columns.sessions.ip_address'),
       size: 140,
       cell: ({ row }) => <span className="font-mono text-muted-foreground">{row.original.ip_address || '—'}</span>,
     },
     {
       id: 'status',
-      header: 'Statut',
+      header: t('settings.columns.sessions.status'),
       size: 110,
       cell: ({ row }) => row.original.is_current
         ? <span className="gl-badge gl-badge-success text-[9px]">Session actuelle</span>
@@ -118,13 +118,13 @@ export function SessionsTab() {
     },
     {
       accessorKey: 'created_at',
-      header: 'Connexion',
+      header: t('settings.columns.sessions.connection'),
       size: 150,
       cell: ({ row }) => <span className="tabular-nums text-muted-foreground">{fmtDate(row.original.created_at)}</span>,
     },
     {
       accessorKey: 'last_active_at',
-      header: 'Dernier accès',
+      header: t('settings.columns.sessions.last_access'),
       size: 150,
       cell: ({ row }) => <span className="tabular-nums text-muted-foreground">{fmtDate(row.original.last_active_at)}</span>,
     },

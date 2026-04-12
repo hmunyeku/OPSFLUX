@@ -1291,7 +1291,7 @@ function ConflitsTab() {
     },
     {
       accessorKey: 'conflict_type',
-      header: 'Type',
+      header: t('planner.columns.type'),
       size: 130,
       cell: ({ row }) => {
         const ct = row.original.conflict_type

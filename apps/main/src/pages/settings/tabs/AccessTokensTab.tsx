@@ -70,7 +70,7 @@ export function AccessTokensTab() {
   const columns = useMemo<ColumnDef<Token, unknown>[]>(() => [
     {
       accessorKey: 'name',
-      header: 'Nom',
+      header: t('settings.columns.tokens.name'),
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Key size={14} className="text-muted-foreground" />
@@ -81,7 +81,7 @@ export function AccessTokensTab() {
     },
     {
       id: 'status',
-      header: 'Statut',
+      header: t('settings.columns.tokens.status'),
       cell: ({ row }) => (
         <span className={`gl-badge ${getStatusClass(row.original)}`}>
           {getStatusLabel(row.original)}
@@ -91,7 +91,7 @@ export function AccessTokensTab() {
     },
     {
       id: 'scopes',
-      header: 'Scopes',
+      header: t('settings.columns.tokens.scopes'),
       cell: ({ row }) => (
         <div className="flex flex-wrap gap-1">
           {row.original.scopes.map((scope: string) => (
@@ -102,7 +102,7 @@ export function AccessTokensTab() {
     },
     {
       accessorKey: 'last_used_at',
-      header: 'Dernier usage',
+      header: t('settings.columns.tokens.last_used'),
       cell: ({ row }) => (
         <span className="text-muted-foreground">
           {row.original.last_used_at ? new Date(row.original.last_used_at).toLocaleDateString('fr-FR') : '—'}
@@ -111,7 +111,7 @@ export function AccessTokensTab() {
     },
     {
       accessorKey: 'expires_at',
-      header: 'Expiration',
+      header: t('settings.columns.tokens.expiration'),
       cell: ({ row }) => (
         <span className="text-muted-foreground">
           {row.original.expires_at ? new Date(row.original.expires_at).toLocaleDateString('fr-FR') : 'Jamais'}

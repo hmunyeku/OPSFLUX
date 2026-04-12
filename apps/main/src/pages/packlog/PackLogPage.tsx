@@ -204,7 +204,7 @@ function RequestsTab() {
           ))}
         </div>
       </div>
-      <PanelContent>
+      <PanelContent scroll={false}>
         <DataTable<CargoRequest>
           columns={columns}
           data={items}
@@ -275,7 +275,7 @@ function CargoTab() {
           ))}
         </div>
       </div>
-      <PanelContent>
+      <PanelContent scroll={false}>
         <DataTable<CargoItem>
           columns={columns}
           data={items}
@@ -368,7 +368,7 @@ function CatalogTab() {
           )}
         </div>
       </div>
-      <PanelContent>
+      <PanelContent scroll={false}>
         <DataTable<TravelArticle>
           columns={columns}
           data={items}
@@ -671,7 +671,7 @@ function TrackingTab() {
           </div>
         </div>
       </div>
-      <PanelContent>
+      <PanelContent scroll={false}>
         <DataTable<CargoItem>
           columns={columns}
           data={items}
@@ -707,7 +707,7 @@ function AlertsTab() {
   ], [])
 
   return (
-    <PanelContent>
+    <PanelContent scroll={false}>
       <DataTable<AlertRow>
         columns={columns}
         data={alerts}
@@ -802,7 +802,7 @@ export function PackLogPage() {
               rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-packlog" /> : null}
             />
 
-            <PanelContent>
+            <PanelContent scroll={false}>
               {activeTab === 'dashboard' && <ModuleDashboard module="packlog" toolbarPortalId="dash-toolbar-packlog" />}
               {activeTab === 'requests' && <RequestsTab />}
               {activeTab === 'cargo' && <CargoTab />}

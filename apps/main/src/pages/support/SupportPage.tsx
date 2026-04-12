@@ -917,7 +917,7 @@ export function SupportPage() {
         {activeTab === 'tickets' && (
           <>
             {isAdmin && <SupportStatsCards />}
-            <PanelContent>
+            <PanelContent scroll={false}>
               <DataTable<SupportTicket>
                 columns={visibleTicketCols}
                 data={data?.items ?? []}
@@ -944,7 +944,7 @@ export function SupportPage() {
         )}
 
         {activeTab === 'announcements' && (
-          <PanelContent>
+          <PanelContent scroll={false}>
             <AnnouncementsAdminTab />
           </PanelContent>
         )}

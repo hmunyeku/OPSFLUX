@@ -234,7 +234,7 @@ export function ImputationsPage() {
             <button type="button" onClick={() => setMainTab('default')} className={`gl-button-sm ${mainTab === 'default' ? 'gl-button-confirm' : 'gl-button-default'}`}>{t('imputations.tab_default')}</button>
             <button type="button" onClick={() => setMainTab('registry')} className={`gl-button-sm ${mainTab === 'registry' ? 'gl-button-confirm' : 'gl-button-default'}`}>{t('imputations.tab_registry')}</button>
           </PanelHeader>
-          <PanelContent>
+          <PanelContent scroll={false}>
             {mainTab === 'default' ? <DefaultTab /> : <RegistryTab />}
           </PanelContent>
         </div>
@@ -369,7 +369,7 @@ function RegistryTab() {
           </div>
         </div>
 
-        <PanelContent className="p-4">
+        <PanelContent scroll={false} className="p-4">
           {section === 'references' && (
             <DataTable
               columns={buildReferenceColumns(t)}

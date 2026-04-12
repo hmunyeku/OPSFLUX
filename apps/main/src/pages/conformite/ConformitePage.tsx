@@ -1402,7 +1402,7 @@ export function ConformitePage() {
           onTabChange={handleTabChange}
         />
 
-        <PanelContent>
+        <PanelContent scroll={false}>
           {renderTabContent()}
         </PanelContent>
       </div>}

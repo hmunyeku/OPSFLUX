@@ -1014,7 +1014,7 @@ function ActivitiesTab() {
         </div>
       </div>
 
-      <PanelContent>
+      <PanelContent scroll={false}>
         <DataTable<PlannerActivity>
           columns={columns}
           data={items}
@@ -1692,7 +1692,7 @@ function ConflitsTab() {
         </div>
       </div>
 
-      <PanelContent>
+      <PanelContent scroll={false}>
         <DataTable<PlannerConflict>
           columns={columns}
           data={items}

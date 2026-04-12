@@ -4865,7 +4865,7 @@ export function ProjetsPage() {
           rightSlot={viewTab === 'dashboard' ? <div id="dash-toolbar-projets" /> : null}
         />
 
-        <PanelContent>
+        <PanelContent scroll={false}>
           {viewTab === 'projets' && <ProjectsListView />}
           {viewTab === 'tableur' && <SpreadsheetView />}
           {viewTab === 'kanban' && <KanbanView />}

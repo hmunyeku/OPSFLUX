@@ -35,9 +35,9 @@ export function PanelHeader({ icon: Icon, title, subtitle, children }: PanelHead
   )
 }
 
-export function PanelContent({ children, className }: { children: React.ReactNode; className?: string }) {
+export function PanelContent({ children, className, scroll = true }: { children: React.ReactNode; className?: string; scroll?: boolean }) {
   return (
-    <div className={cn('flex-1 overflow-y-auto', className)}>
+    <div className={cn(scroll ? 'flex-1 overflow-y-auto' : 'flex-1 flex flex-col min-h-0 overflow-hidden', className)}>
       {children}
     </div>
   )

@@ -2045,7 +2045,7 @@ export function ReportEditorPage() {
             rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-papyrus" /> : null}
           />
 
-          <PanelContent>
+          <PanelContent scroll={false}>
             {renderTabContent()}
           </PanelContent>
         </div>

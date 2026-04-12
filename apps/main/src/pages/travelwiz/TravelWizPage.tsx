@@ -380,7 +380,7 @@ function DashboardTab() {
           Voyages du jour
         </h3>
       </div>
-      <PanelContent>
+      <PanelContent scroll={false}>
         <DataTable<AnyRow>
           columns={tripColumns}
           data={trips}
@@ -578,7 +578,7 @@ function VoyagesTab() {
         {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{total} voyages</span>}
       </div>
 
-      <PanelContent>
+      <PanelContent scroll={false}>
         <DataTable<AnyRow>
           columns={columns}
           data={items}
@@ -916,7 +916,7 @@ function ManifestesTab() {
         {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{total} manifestes</span>}
       </div>
 
-      <PanelContent>
+      <PanelContent scroll={false}>
         <DataTable<AnyRow>
           columns={columns}
           data={items}
@@ -1113,7 +1113,7 @@ export function CargoTab() {
         {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{total} colis</span>}
       </div>
 
-      <PanelContent>
+      <PanelContent scroll={false}>
         <DataTable<AnyRow>
           columns={columns}
           data={items}
@@ -1233,7 +1233,7 @@ function VecteursTab() {
         <StatCard label={t('travelwiz.vector_types.ship')} value={(stats.byType['boat'] ?? 0) + (stats.byType['ship'] ?? 0)} icon={Anchor} />
       </div>
 
-      <PanelContent>
+      <PanelContent scroll={false}>
         <DataTable<AnyRow>
           columns={columns}
           data={items}
@@ -1384,7 +1384,7 @@ function PickupTab() {
       <div className="flex flex-1 min-h-0">
         {/* List */}
         <div className={cn('flex-1 min-w-0 overflow-auto', selectedId && 'hidden sm:block sm:flex-1')}>
-          <PanelContent>
+          <PanelContent scroll={false}>
             <DataTable<AnyRow>
               columns={columns}
               data={items}

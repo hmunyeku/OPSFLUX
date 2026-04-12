@@ -1212,7 +1212,7 @@ function AdsTab({ openDetail, requesterOnly = false, validatorOnly = false }: { 
         {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{t('paxlog.ads.count', { count: data.total, scope: requesterOnly ? t('paxlog.ads.count_scope.requester') : validatorOnly ? t('paxlog.ads.count_scope.validator') : t('paxlog.ads.count_scope.default') })}</span>}
       </div>
 
-      <PanelContent>
+      <PanelContent scroll={false}>
         <DataTable<AdsSummary>
           columns={adsColumns}
           data={items}
@@ -1468,7 +1468,7 @@ function WaitlistTab({ openDetail }: { openDetail: (id: string) => void }) {
           {t('paxlog.waitlist.hint', { count: waitlistedCount })}
         </p>
       </div>
-      <PanelContent>
+      <PanelContent scroll={false}>
         <DataTable<AdsWaitlistItem>
           columns={waitlistColumns}
           data={items}
@@ -1578,7 +1578,7 @@ function ProfilesTab({ openDetail }: { openDetail: (id: string, meta?: Record<st
         {data && <span className="text-xs text-muted-foreground ml-auto">{t('paxlog.profiles_count', { count: data.total })}</span>}
       </div>
 
-      <PanelContent>
+      <PanelContent scroll={false}>
         <DataTable<PaxProfileSummary>
           columns={profileColumns}
           data={data?.items ?? []}
@@ -1880,7 +1880,7 @@ function SignalementsTab() {
         {data && <span className="text-xs text-muted-foreground ml-auto">{t('paxlog.signalements.count', { count: data.total })}</span>}
       </div>
 
-      <PanelContent>
+      <PanelContent scroll={false}>
         <DataTable<PaxIncident>
           columns={incidentColumns}
           data={filtered}
@@ -2047,7 +2047,7 @@ function RotationsTab() {
         {data && <span className="text-xs text-muted-foreground ml-auto">{t('paxlog.rotations_tab.count', { count: data.total })}</span>}
       </div>
 
-      <PanelContent>
+      <PanelContent scroll={false}>
         <DataTable<RotationCycle>
           columns={rotationColumns}
           data={filtered}
@@ -4773,7 +4773,7 @@ function AvmTab({ openDetail, requesterOnly = false, validatorOnly = false }: { 
         {data && <span className="text-xs text-muted-foreground ml-auto">{t('paxlog.avm.count', { count: data.total, scope: requesterOnly ? t('paxlog.avm.count_scope.requester') : validatorOnly ? t('paxlog.avm.count_scope.validator') : t('paxlog.avm.count_scope.default') })}</span>}
       </div>
 
-      <PanelContent>
+      <PanelContent scroll={false}>
         <DataTable<MissionNoticeSummary>
           columns={avmColumns}
           data={items}

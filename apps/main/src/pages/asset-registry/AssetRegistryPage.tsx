@@ -901,7 +901,7 @@ export function AssetRegistryPage() {
               />
             ))}
           </TabBar>
-          <PanelContent>
+          <PanelContent scroll={false}>
             {tabContent[activeTab]}
           </PanelContent>
         </div>

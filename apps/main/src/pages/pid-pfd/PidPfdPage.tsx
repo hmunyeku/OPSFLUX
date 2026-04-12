@@ -1337,7 +1337,7 @@ export function PidPfdPage() {
           {/* Tab bar */}
           <TabBar items={TABS} activeId={activeTab} onTabChange={handleTabChange} />
 
-          <PanelContent>
+          <PanelContent scroll={false}>
             {renderTabContent()}
           </PanelContent>
         </div>

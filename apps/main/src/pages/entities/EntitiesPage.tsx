@@ -1074,7 +1074,7 @@ export function EntitiesPage() {
             )}
           </PanelHeader>
 
-          <PanelContent>
+          <PanelContent scroll={false}>
             <EntitiesListView />
           </PanelContent>
         </div>

@@ -1698,7 +1698,7 @@ export function TiersPage() {
           rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-tiers" /> : null}
         />
 
-        <PanelContent>
+        <PanelContent scroll={false}>
           {activeTab === 'dashboard' ? (
             <div className="p-4"><ModuleDashboard module="tiers" toolbarPortalId="dash-toolbar-tiers" /></div>
           ) : activeTab === 'entreprises' ? (

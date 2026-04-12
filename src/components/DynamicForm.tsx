@@ -44,6 +44,9 @@ import {
   FieldSignature,
   FieldLocation,
   FieldRepeater,
+  FieldMultiSelect,
+  FieldTags,
+  FieldGroup,
 } from "./fields";
 import type { FieldDefinition, FormDefinition } from "../types/forms";
 import { colors } from "../utils/colors";
@@ -354,9 +357,25 @@ function renderFieldByType(
         />
       );
 
+    case "multi_select":
+      return (
+        <FieldMultiSelect
+          {...props}
+          onChange={(v) => onChange(fieldName, v)}
+        />
+      );
+
     case "tags":
       return (
-        <FieldText
+        <FieldTags
+          {...props}
+          onChange={(v) => onChange(fieldName, v)}
+        />
+      );
+
+    case "group":
+      return (
+        <FieldGroup
           {...props}
           onChange={(v) => onChange(fieldName, v)}
         />

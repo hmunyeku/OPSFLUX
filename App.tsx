@@ -22,6 +22,7 @@ import * as Haptics from "expo-haptics";
 import "./src/locales/i18n";
 
 import AppNavigator from "./src/navigation/AppNavigator";
+import ErrorBoundary from "./src/components/ErrorBoundary";
 import { startConnectivityMonitor, stopConnectivityMonitor } from "./src/services/offline";
 import { restoreAuth, persistAuth } from "./src/services/storage";
 import { registerForPushNotifications } from "./src/services/pushNotifications";
@@ -99,14 +100,16 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <PaperProvider theme={theme}>
-        <NavigationContainer>
-          <AppNavigator />
-        </NavigationContainer>
-      </PaperProvider>
-      <StatusBar style={isDark ? "light" : "light"} />
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <PaperProvider theme={theme}>
+          <NavigationContainer>
+            <AppNavigator />
+          </NavigationContainer>
+        </PaperProvider>
+        <StatusBar style="light" />
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
 

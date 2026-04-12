@@ -1,6 +1,7 @@
 export { default as FieldText } from "./FieldText";
 export { default as FieldNumber } from "./FieldNumber";
 export { default as FieldSelect } from "./FieldSelect";
+export { default as FieldMultiSelect } from "./FieldMultiSelect";
 export { default as FieldDate } from "./FieldDate";
 export { default as FieldToggle } from "./FieldToggle";
 export { default as FieldLookup } from "./FieldLookup";
@@ -9,3 +10,5 @@ export { default as FieldBarcode } from "./FieldBarcode";
 export { default as FieldSignature } from "./FieldSignature";
 export { default as FieldLocation } from "./FieldLocation";
 export { default as FieldRepeater } from "./FieldRepeater";
+export { default as FieldTags } from "./FieldTags";
+export { default as FieldGroup } from "./FieldGroup";

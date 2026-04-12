@@ -1767,9 +1767,12 @@ export function ReportEditorPage() {
       case 'documents':
         return (
           <div className="flex h-full">
-            {/* Arborescence tree sidebar */}
+            {/* Arborescence tree sidebar — hidden on mobile by default
+                because at 390px viewport a fixed 200px sidebar leaves
+                too little room for content. Users on mobile can still
+                toggle it via the show/hide button. */}
             {showTreeSidebar && (
-              <div className="w-[200px] shrink-0 border-r border-border flex flex-col bg-muted/20 overflow-hidden">
+              <div className="hidden sm:flex w-[200px] shrink-0 border-r border-border flex-col bg-muted/20 overflow-hidden">
                 {/* Sidebar header */}
                 <div className="flex items-center justify-between px-2 py-1.5 border-b border-border">
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Arborescence</span>

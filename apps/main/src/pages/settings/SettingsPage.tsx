@@ -374,7 +374,8 @@ export function SettingsPage() {
                   <button
                     onClick={() => { handleTabChange(section.id); setMobileMenuOpen(false) }}
                     className={cn(
-                      'flex w-full items-center gap-2.5 rounded-lg h-8 px-3 text-sm transition-colors',
+                      // Mobile: 40px touch target (h-10), label padding bumped
+                      'flex w-full items-center gap-2.5 rounded-lg h-10 px-3 text-sm transition-colors',
                       activeTab === section.id
                         ? 'bg-primary/[0.16] text-foreground font-medium'
                         : 'text-foreground hover:bg-accent',

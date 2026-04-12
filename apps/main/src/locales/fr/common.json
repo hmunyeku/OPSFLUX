@@ -2894,7 +2894,32 @@
     "status_arrived": "Arrivé",
     "status_closed": "Clôturé",
     "status_delayed": "Retardé",
-    "status_cancelled": "Annulé"
+    "status_cancelled": "Annulé",
+    "vector_types": {
+      "helicopter": "Hélicoptère",
+      "ship": "Navire",
+      "bus": "Bus",
+      "surfer": "Surfer",
+      "barge": "Barge",
+      "commercial_flight": "Vol commercial",
+      "vehicle": "Véhicule"
+    },
+    "columns": {
+      "registration": "Immatriculation",
+      "name": "Nom",
+      "type": "Type",
+      "mode": "Mode",
+      "pax_capacity": "Capacité PAX",
+      "home_base": "Base d'attache",
+      "voyage_code": "Code voyage",
+      "status": "Statut",
+      "departure": "Départ",
+      "arrival": "Arrivée",
+      "vector": "Vecteur",
+      "stops": "Arrêts",
+      "pax_count": "PAX",
+      "cargo_count": "Cargo"
+    }
   },
   "report_editor": {
     "title": "Papyrus",

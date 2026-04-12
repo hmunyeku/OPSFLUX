@@ -5,6 +5,7 @@
  * Dynamic Panel: create/detail forms per entity.
  */
 import { useState, useEffect, useCallback, useMemo, Component, type ReactNode, type ErrorInfo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Plane, Ship, Package, FileText, Plus, LayoutDashboard,
   Anchor, Truck, Users, ArrowRight, Calendar, Weight,
@@ -1132,6 +1133,7 @@ export function CargoTab() {
 // ══════════════════════════════════════════════════════════════
 
 function VecteursTab() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')
@@ -1220,10 +1222,10 @@ function VecteursTab() {
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
-        <StatCard label="Vecteurs" value={stats.count} icon={Ship} />
-        <StatCard label="Capacite totale" value={stats.totalCapacity} icon={Users} />
-        <StatCard label="Hélicoptères" value={stats.byType['helicopter'] ?? 0} icon={Plane} />
-        <StatCard label="Navires" value={(stats.byType['boat'] ?? 0) + (stats.byType['ship'] ?? 0)} icon={Anchor} />
+        <StatCard label={t('travelwiz.vectors')} value={stats.count} icon={Ship} />
+        <StatCard label={t('travelwiz.columns.pax_capacity')} value={stats.totalCapacity} icon={Users} />
+        <StatCard label={t('travelwiz.vector_types.helicopter')} value={stats.byType['helicopter'] ?? 0} icon={Plane} />
+        <StatCard label={t('travelwiz.vector_types.ship')} value={(stats.byType['boat'] ?? 0) + (stats.byType['ship'] ?? 0)} icon={Anchor} />
       </div>
 
       <PanelContent>
@@ -1860,6 +1862,7 @@ function deriveModeFromType(type: string): string {
 }
 
 function CreateVectorPanel() {
+  const { t } = useTranslation()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
   const createVector = useCreateVector()
   const { toast } = useToast()
@@ -1911,13 +1914,13 @@ function CreateVectorPanel() {
               </DynamicPanelField>
               <DynamicPanelField label="Type" required>
                 <select value={form.type} onChange={(e) => handleTypeChange(e.target.value)} className={panelInputClass}>
-                  <option value="helicopter">Hélicoptère</option>
-                  <option value="boat">Bateau</option>
-                  <option value="surfer">Surfer</option>
-                  <option value="bus">Bus</option>
+                  <option value="helicopter">{t('travelwiz.vector_types.helicopter')}</option>
+                  <option value="boat">{t('travelwiz.vector_types.ship')}</option>
+                  <option value="surfer">{t('travelwiz.vector_types.surfer')}</option>
+                  <option value="bus">{t('travelwiz.vector_types.bus')}</option>
                   <option value="4x4">4x4</option>
-                  <option value="commercial_flight">Vol commercial</option>
-                  <option value="barge">Barge</option>
+                  <option value="commercial_flight">{t('travelwiz.vector_types.commercial_flight')}</option>
+                  <option value="barge">{t('travelwiz.vector_types.barge')}</option>
                   <option value="tug">Remorqueur</option>
                 </select>
               </DynamicPanelField>

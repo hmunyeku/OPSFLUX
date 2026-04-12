@@ -6,11 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, check_verified_lock
+from app.api.deps import check_verified_lock, get_current_user
 from app.core.database import get_db
-from app.services.core.delete_service import delete_entity
 from app.models.common import MedicalCheck, User
 from app.schemas.common import MedicalCheckCreate, MedicalCheckRead, MedicalCheckUpdate
+from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/medical-checks", tags=["medical-checks"])
 

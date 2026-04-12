@@ -7,14 +7,13 @@ generation, export (PDF/DOCX), and distribution.
 
 import hashlib
 import logging
-import os
 import re
 from copy import deepcopy
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from sqlalchemy import func, select, and_, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.modules.nomenclature_service import (
@@ -118,14 +117,11 @@ async def list_documents(
     db: AsyncSession,
 ) -> dict[str, Any]:
     """List documents with filtering and pagination."""
-    from app.models.papyrus_document import Document, DocType
+    from app.models.papyrus_document import Document
 
-    query = (
-        select(Document)
-        .where(
-            Document.entity_id == entity_id,
-            Document.status != "archived",
-        )
+    query = select(Document).where(
+        Document.entity_id == entity_id,
+        Document.status != "archived",
     )
 
     if bu_id:
@@ -153,12 +149,7 @@ async def list_documents(
     total = (await db.execute(count_query)).scalar() or 0
 
     # Paginate
-    query = (
-        query
-        .order_by(Document.updated_at.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-    )
+    query = query.order_by(Document.updated_at.desc()).offset((page - 1) * page_size).limit(page_size)
 
     result = await db.execute(query)
     documents = result.scalars().all()
@@ -221,6 +212,7 @@ async def get_document(
     doc = result.scalar_one_or_none()
     if not doc:
         from fastapi import HTTPException
+
         raise HTTPException(404, f"Document {doc_id} not found")
     return doc
 
@@ -234,7 +226,7 @@ async def create_document(
     db: AsyncSession,
 ) -> Any:
     """Create a new document with auto-generated number."""
-    from app.models.papyrus_document import Document, DocType, Revision
+    from app.models.papyrus_document import DocType, Document, Revision
 
     # Load the doc type for nomenclature and defaults
     doc_type = await db.execute(
@@ -247,6 +239,7 @@ async def create_document(
     doc_type = doc_type.scalar_one_or_none()
     if not doc_type:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Doc type not found or inactive")
 
     doc_type_id = doc_type.id
@@ -351,6 +344,7 @@ async def update_document(
 
     if doc.status not in ("draft", "in_review"):
         from fastapi import HTTPException
+
         raise HTTPException(400, "Cannot edit document in current status")
 
     update_data = body.model_dump(exclude_unset=True)
@@ -377,25 +371,29 @@ async def save_draft(
     db: AsyncSession,
 ) -> dict:
     """Save draft content to the current revision. Does not create a new revision."""
-    from app.models.papyrus_document import Document, Revision
+    from app.models.papyrus_document import Revision
 
     doc = await get_document(doc_id, entity_id, db)
 
     if doc.status not in ("draft",):
         from fastapi import HTTPException
+
         raise HTTPException(400, "Can only save drafts for documents in 'draft' status")
 
     if not doc.current_revision_id:
         from fastapi import HTTPException
+
         raise HTTPException(400, "Document has no current revision")
 
     revision = await db.get(Revision, doc.current_revision_id)
     if not revision:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Current revision not found")
 
     if revision.is_locked:
         from fastapi import HTTPException
+
         raise HTTPException(400, "Current revision is locked (approved). Create a new revision.")
 
     previous_content = deepcopy(revision.content) if revision.content is not None else {}
@@ -425,7 +423,7 @@ async def save_draft(
         "status": "saved",
         "revision_id": str(revision.id),
         "word_count": revision.word_count,
-        "saved_at": datetime.now(timezone.utc).isoformat(),
+        "saved_at": datetime.now(UTC).isoformat(),
     }
 
 
@@ -442,17 +440,17 @@ async def create_new_revision(
     db: AsyncSession,
 ) -> Any:
     """Create a new revision by advancing the rev code (e.g., 0 → A → B)."""
-    from app.models.papyrus_document import Document, DocType, Revision
+    from app.models.papyrus_document import DocType, Revision
 
     doc = await get_document(doc_id, entity_id, db)
 
     # Must be in draft or approved status to create a new revision
     if doc.status not in ("draft", "approved", "published"):
         from fastapi import HTTPException
+
         raise HTTPException(
             400,
-            "Cannot create new revision in current status. "
-            "Document must be draft, approved, or published.",
+            "Cannot create new revision in current status. Document must be draft, approved, or published.",
         )
 
     # Get doc type for revision scheme
@@ -547,6 +545,7 @@ async def get_revision(
     revision = result.scalar_one_or_none()
     if not revision:
         from fastapi import HTTPException
+
         raise HTTPException(404, f"Revision {revision_id} not found")
     result_doc = await db.execute(
         select(__import__("app.models.papyrus_document", fromlist=["Document"]).Document).where(
@@ -645,7 +644,11 @@ async def get_rendered_papyrus_document(
     canonical = await get_papyrus_document(doc_id=doc_id, entity_id=entity_id, db=db, version=version)
     doc_type = await db.get(DocType, doc.doc_type_id) if getattr(doc, "doc_type_id", None) else None
     canonical.setdefault("meta", {})
-    canonical["meta"]["workflow_id"] = str(getattr(doc_type, "default_workflow_id", None)) if doc_type and getattr(doc_type, "default_workflow_id", None) else canonical["meta"].get("workflow_id")
+    canonical["meta"]["workflow_id"] = (
+        str(getattr(doc_type, "default_workflow_id", None))
+        if doc_type and getattr(doc_type, "default_workflow_id", None)
+        else canonical["meta"].get("workflow_id")
+    )
     canonical["meta"]["current_state"] = doc.status
     return await render_papyrus_document(db=db, entity_id=entity_id, document=canonical)
 
@@ -664,18 +667,15 @@ async def get_workflow_state(
 ) -> dict[str, Any]:
     """Return current workflow state, available transitions, and history for a document."""
     from app.services.core.fsm_service import fsm_service
-    from app.models.common import (
-        WorkflowInstance,
-        WorkflowDefinition,
-        WorkflowTransition,
-    )
 
     doc_id_str = str(doc_id)
     entity_id_str = str(entity_id)
 
     # 1. Find existing workflow instance
     instance = await fsm_service.get_instance(
-        db, entity_type=DOCUMENT_ENTITY_TYPE, entity_id=doc_id_str,
+        db,
+        entity_type=DOCUMENT_ENTITY_TYPE,
+        entity_id=doc_id_str,
     )
 
     if not instance:
@@ -764,8 +764,8 @@ async def execute_transition(
     db: AsyncSession,
 ) -> dict[str, Any]:
     """Execute a workflow transition with side effects and return updated state."""
-    from app.services.core.fsm_service import fsm_service, FSMError, FSMPermissionError
     from app.models.papyrus_document import Revision
+    from app.services.core.fsm_service import FSMError, FSMPermissionError, fsm_service
 
     doc = await get_document(doc_id, entity_id, db)
     doc_id_str = str(doc.id)
@@ -786,9 +786,11 @@ async def execute_transition(
         )
     except FSMPermissionError as e:
         from fastapi import HTTPException
+
         raise HTTPException(403, str(e))
     except FSMError as e:
         from fastapi import HTTPException
+
         raise HTTPException(400, str(e))
 
     # Update document status to match workflow
@@ -860,7 +862,10 @@ async def execute_transition(
 
     # Return updated workflow state
     return await get_workflow_state(
-        doc_id=doc_id, entity_id=entity_id, user_id=actor_id, db=db,
+        doc_id=doc_id,
+        entity_id=entity_id,
+        user_id=actor_id,
+        db=db,
     )
 
 
@@ -874,8 +879,9 @@ async def seed_default_document_workflow(
 
     Called on app startup or first document creation. Safe to call multiple times.
     """
-    from app.models.common import WorkflowDefinition
     from sqlalchemy import select
+
+    from app.models.common import WorkflowDefinition
 
     # Check if definition already exists
     existing = await db.execute(
@@ -994,7 +1000,7 @@ async def _try_workflow_transition(
 ) -> tuple[str | None, Any]:
     """Attempt FSM transition with graceful fallback."""
     try:
-        from app.services.core.fsm_service import fsm_service, FSMError, FSMPermissionError
+        from app.services.core.fsm_service import fsm_service
 
         instance = await fsm_service.transition(
             db,
@@ -1015,8 +1021,10 @@ async def _try_workflow_transition(
         # Permission or other FSM error
         if "permission" in err_str:
             from fastapi import HTTPException
+
             raise HTTPException(403, str(e))
         from fastapi import HTTPException
+
         raise HTTPException(400, str(e))
 
 
@@ -1033,11 +1041,13 @@ async def submit_document(
 
     if doc.status != "draft":
         from fastapi import HTTPException
+
         raise HTTPException(400, "Only draft documents can be submitted")
 
     # Lock current revision
     if doc.current_revision_id:
         from app.models.papyrus_document import Revision
+
         revision = await db.get(Revision, doc.current_revision_id)
         if revision:
             revision.is_locked = True
@@ -1068,18 +1078,21 @@ async def submit_document(
 
     # Emit event after commit (D-004)
     try:
-        from app.core.events import event_bus, OpsFluxEvent
-        await event_bus.publish(OpsFluxEvent(
-            event_type="document.submitted",
-            payload={
-                "document_id": str(doc.id),
-                "entity_id": str(entity_id),
-                "number": doc.number,
-                "title": doc.title,
-                "submitted_by": str(actor_id),
-                "created_by": str(doc.created_by),
-            },
-        ))
+        from app.core.events import OpsFluxEvent, event_bus
+
+        await event_bus.publish(
+            OpsFluxEvent(
+                event_type="document.submitted",
+                payload={
+                    "document_id": str(doc.id),
+                    "entity_id": str(entity_id),
+                    "number": doc.number,
+                    "title": doc.title,
+                    "submitted_by": str(actor_id),
+                    "created_by": str(doc.created_by),
+                },
+            )
+        )
     except Exception:
         logger.exception("Failed to emit document.submitted event")
 
@@ -1099,6 +1112,7 @@ async def approve_document(
 
     if doc.status != "in_review":
         from fastapi import HTTPException
+
         raise HTTPException(400, "Only documents in review can be approved")
 
     from_state = doc.status
@@ -1136,18 +1150,21 @@ async def approve_document(
     await db.commit()
 
     try:
-        from app.core.events import event_bus, OpsFluxEvent
-        await event_bus.publish(OpsFluxEvent(
-            event_type="document.approved",
-            payload={
-                "document_id": str(doc.id),
-                "entity_id": str(entity_id),
-                "number": doc.number,
-                "title": doc.title,
-                "approved_by": str(actor_id),
-                "created_by": str(doc.created_by),
-            },
-        ))
+        from app.core.events import OpsFluxEvent, event_bus
+
+        await event_bus.publish(
+            OpsFluxEvent(
+                event_type="document.approved",
+                payload={
+                    "document_id": str(doc.id),
+                    "entity_id": str(entity_id),
+                    "number": doc.number,
+                    "title": doc.title,
+                    "approved_by": str(actor_id),
+                    "created_by": str(doc.created_by),
+                },
+            )
+        )
     except Exception:
         logger.exception("Failed to emit document.approved event")
 
@@ -1167,6 +1184,7 @@ async def reject_document(
 
     if doc.status != "in_review":
         from fastapi import HTTPException
+
         raise HTTPException(400, "Only documents in review can be rejected")
 
     from_state = doc.status
@@ -1184,6 +1202,7 @@ async def reject_document(
     # Unlock current revision so author can edit
     if doc.current_revision_id:
         from app.models.papyrus_document import Revision
+
         revision = await db.get(Revision, doc.current_revision_id)
         if revision:
             revision.is_locked = False
@@ -1202,19 +1221,22 @@ async def reject_document(
     await db.commit()
 
     try:
-        from app.core.events import event_bus, OpsFluxEvent
-        await event_bus.publish(OpsFluxEvent(
-            event_type="document.rejected",
-            payload={
-                "document_id": str(doc.id),
-                "entity_id": str(entity_id),
-                "number": doc.number,
-                "title": doc.title,
-                "rejected_by": str(actor_id),
-                "reason": reason,
-                "created_by": str(doc.created_by),
-            },
-        ))
+        from app.core.events import OpsFluxEvent, event_bus
+
+        await event_bus.publish(
+            OpsFluxEvent(
+                event_type="document.rejected",
+                payload={
+                    "document_id": str(doc.id),
+                    "entity_id": str(entity_id),
+                    "number": doc.number,
+                    "title": doc.title,
+                    "rejected_by": str(actor_id),
+                    "reason": reason,
+                    "created_by": str(doc.created_by),
+                },
+            )
+        )
     except Exception:
         logger.exception("Failed to emit document.rejected event")
 
@@ -1234,6 +1256,7 @@ async def publish_document(
 
     if doc.status != "approved":
         from fastapi import HTTPException
+
         raise HTTPException(400, "Only approved documents can be published")
 
     # Only author or admin can publish (D-083)
@@ -1252,6 +1275,7 @@ async def publish_document(
 
     doc.status = fsm_state or "published"
     from app.models.papyrus_document import Revision
+
     revision = await db.get(Revision, doc.current_revision_id) if doc.current_revision_id else None
     await _record_papyrus_workflow_transition(
         db=db,
@@ -1266,18 +1290,21 @@ async def publish_document(
 
     # Emit event — distribution will be handled by event handler
     try:
-        from app.core.events import event_bus, OpsFluxEvent
-        await event_bus.publish(OpsFluxEvent(
-            event_type="document.published",
-            payload={
-                "document_id": str(doc.id),
-                "entity_id": str(entity_id),
-                "number": doc.number,
-                "title": doc.title,
-                "published_by": str(actor_id),
-                "distribution_list_ids": [str(dl) for dl in (distribution_list_ids or [])],
-            },
-        ))
+        from app.core.events import OpsFluxEvent, event_bus
+
+        await event_bus.publish(
+            OpsFluxEvent(
+                event_type="document.published",
+                payload={
+                    "document_id": str(doc.id),
+                    "entity_id": str(entity_id),
+                    "number": doc.number,
+                    "title": doc.title,
+                    "published_by": str(actor_id),
+                    "distribution_list_ids": [str(dl) for dl in (distribution_list_ids or [])],
+                },
+            )
+        )
     except Exception:
         logger.exception("Failed to emit document.published event")
 
@@ -1297,6 +1324,7 @@ async def obsolete_document(
 
     if doc.status != "published":
         from fastapi import HTTPException
+
         raise HTTPException(400, "Only published documents can be obsoleted")
 
     from_state = doc.status
@@ -1310,6 +1338,7 @@ async def obsolete_document(
 
     doc.status = fsm_state or "obsolete"
     from app.models.papyrus_document import Revision
+
     revision = await db.get(Revision, doc.current_revision_id) if doc.current_revision_id else None
     await _record_papyrus_workflow_transition(
         db=db,
@@ -1324,19 +1353,22 @@ async def obsolete_document(
 
     # Emit event after commit
     try:
-        from app.core.events import event_bus, OpsFluxEvent
-        await event_bus.publish(OpsFluxEvent(
-            event_type="document.obsoleted",
-            payload={
-                "document_id": str(doc.id),
-                "entity_id": str(entity_id),
-                "number": doc.number,
-                "title": doc.title,
-                "obsoleted_by": str(actor_id),
-                "created_by": str(doc.created_by),
-                "superseded_by": str(superseded_by) if superseded_by else None,
-            },
-        ))
+        from app.core.events import OpsFluxEvent, event_bus
+
+        await event_bus.publish(
+            OpsFluxEvent(
+                event_type="document.obsoleted",
+                payload={
+                    "document_id": str(doc.id),
+                    "entity_id": str(entity_id),
+                    "number": doc.number,
+                    "title": doc.title,
+                    "obsoleted_by": str(actor_id),
+                    "created_by": str(doc.created_by),
+                    "superseded_by": str(superseded_by) if superseded_by else None,
+                },
+            )
+        )
     except Exception:
         logger.exception("Failed to emit document.obsoleted event")
 
@@ -1358,8 +1390,9 @@ async def _create_signature(
     db: AsyncSession,
 ) -> None:
     """Create an electronic signature with content hash."""
-    from app.models.papyrus_document import DocumentSignature, Revision
     import json
+
+    from app.models.papyrus_document import DocumentSignature, Revision
 
     content_hash = ""
     if revision_id:
@@ -1395,8 +1428,9 @@ async def create_share_link(
     db: AsyncSession,
 ) -> Any:
     """Create a temporary share link for external access."""
-    from app.models.papyrus_document import ShareLink
     import secrets
+
+    from app.models.papyrus_document import ShareLink
 
     doc = await get_document(document_id, entity_id, db)
 
@@ -1405,7 +1439,7 @@ async def create_share_link(
         entity_id=entity_id,
         document_id=doc.id,
         token=token,
-        expires_at=datetime.now(timezone.utc) + timedelta(days=expires_days),
+        expires_at=datetime.now(UTC) + timedelta(days=expires_days),
         otp_required=otp_required,
         max_accesses=max_accesses,
         access_count=0,
@@ -1482,6 +1516,7 @@ async def create_doc_type(
 ) -> Any:
     """Create a new document type."""
     from app.models.papyrus_document import DocType
+
     code = await _resolve_doc_type_code(
         requested_code=getattr(body, "code", None),
         name=getattr(body, "name", None),
@@ -1525,6 +1560,7 @@ async def update_doc_type(
     doc_type = result.scalar_one_or_none()
     if not doc_type:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Doc type not found")
 
     update_data = body.model_dump(exclude_unset=True)
@@ -1604,6 +1640,7 @@ async def update_template(
     template = result.scalar_one_or_none()
     if not template:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Template not found")
 
     update_data = body.model_dump(exclude_unset=True)
@@ -1633,12 +1670,9 @@ async def list_distribution_lists(
     """List distribution lists for the entity."""
     from app.models.papyrus_document import DistributionList
 
-    query = (
-        select(DistributionList)
-        .where(
-            DistributionList.entity_id == entity_id,
-            DistributionList.is_active == True,  # noqa: E712
-        )
+    query = select(DistributionList).where(
+        DistributionList.entity_id == entity_id,
+        DistributionList.is_active == True,  # noqa: E712
     )
     if doc_type_id:
         query = query.where(
@@ -1742,7 +1776,7 @@ async def diff_revisions(
     db: AsyncSession,
 ) -> dict:
     """Compare two revisions and return the diff."""
-    from app.models.papyrus_document import Document, DocType
+    from app.models.papyrus_document import DocType, Document
     from app.services.modules.papyrus_versioning_service import ensure_papyrus_document, summarize_document_diff
 
     rev_a = await get_revision(rev_a_id, entity_id, db)
@@ -1796,6 +1830,7 @@ async def archive_document(
 
     if doc.status == "archived":
         from fastapi import HTTPException
+
         raise HTTPException(400, "Document is already archived")
 
     # FSM transition attempt
@@ -1810,6 +1845,7 @@ async def archive_document(
 
     doc.status = fsm_state or "archived"
     from app.models.papyrus_document import Revision
+
     revision = await db.get(Revision, doc.current_revision_id) if doc.current_revision_id else None
     await _record_papyrus_workflow_transition(
         db=db,
@@ -1838,15 +1874,16 @@ async def delete_document(
 
     if doc.status != "draft":
         from fastapi import HTTPException
+
         raise HTTPException(
             400,
-            "Only draft documents can be deleted. "
-            "Submitted documents must be archived instead.",
+            "Only draft documents can be deleted. Submitted documents must be archived instead.",
         )
 
     # Check the document was never submitted (no workflow transition history)
     try:
         from app.services.core.fsm_service import fsm_service
+
         history = await fsm_service.get_transition_history(
             db,
             entity_type=DOCUMENT_ENTITY_TYPE,
@@ -1854,10 +1891,10 @@ async def delete_document(
         )
         if history:
             from fastapi import HTTPException
+
             raise HTTPException(
                 400,
-                "This document has been submitted at least once and cannot be deleted. "
-                "Use archive instead.",
+                "This document has been submitted at least once and cannot be deleted. Use archive instead.",
             )
     except Exception:
         pass  # No FSM instance = never submitted = OK to delete
@@ -1904,11 +1941,7 @@ async def _get_tenant_slug(entity_id: UUID, db: AsyncSession) -> str:
 
     try:
         result = await db.execute(
-            text(
-                "SELECT t.slug FROM tenants t "
-                "JOIN entities e ON e.tenant_id = t.id "
-                "WHERE e.id = :eid"
-            ),
+            text("SELECT t.slug FROM tenants t JOIN entities e ON e.tenant_id = t.id WHERE e.id = :eid"),
             {"eid": entity_id},
         )
         row = result.first()
@@ -1940,6 +1973,7 @@ async def _get_tenant_slug(entity_id: UUID, db: AsyncSession) -> str:
 async def _get_project_code(project_id: UUID, db: AsyncSession) -> str | None:
     """Get project code."""
     from sqlalchemy import text
+
     result = await db.execute(
         text("SELECT code FROM projects WHERE id = :pid"),
         {"pid": project_id},
@@ -1951,6 +1985,7 @@ async def _get_project_code(project_id: UUID, db: AsyncSession) -> str | None:
 async def _get_bu_code(bu_id: UUID, db: AsyncSession) -> str | None:
     """Get BU code."""
     from sqlalchemy import text
+
     result = await db.execute(
         text("SELECT code FROM business_units WHERE id = :bid"),
         {"bid": bu_id},
@@ -1983,6 +2018,7 @@ async def list_template_fields(
     template = tpl_result.scalar_one_or_none()
     if not template:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Template not found")
 
     result = await db.execute(
@@ -2013,6 +2049,7 @@ async def create_template_field(
     template = tpl_result.scalar_one_or_none()
     if not template:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Template not found")
 
     field = TemplateField(
@@ -2055,6 +2092,7 @@ async def update_template_field(
     template = tpl_result.scalar_one_or_none()
     if not template:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Template not found")
 
     result = await db.execute(
@@ -2066,6 +2104,7 @@ async def update_template_field(
     field = result.scalar_one_or_none()
     if not field:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Template field not found")
 
     update_data = body.model_dump(exclude_unset=True)
@@ -2096,6 +2135,7 @@ async def delete_template_field(
     template = tpl_result.scalar_one_or_none()
     if not template:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Template not found")
 
     result = await db.execute(
@@ -2107,6 +2147,7 @@ async def delete_template_field(
     field = result.scalar_one_or_none()
     if not field:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Template field not found")
 
     await db.delete(field)
@@ -2131,18 +2172,17 @@ async def consume_share_link(
     Validates token, checks expiry and access limits,
     increments access_count, returns document metadata + revision content.
     """
-    from app.models.papyrus_document import ShareLink, Document, Revision
     from fastapi import HTTPException
 
-    result = await db.execute(
-        select(ShareLink).where(ShareLink.token == token)
-    )
+    from app.models.papyrus_document import Document, Revision, ShareLink
+
+    result = await db.execute(select(ShareLink).where(ShareLink.token == token))
     link = result.scalar_one_or_none()
     if not link:
         raise HTTPException(404, "Share link not found or invalid")
 
     # Check expiry
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if link.expires_at < now:
         raise HTTPException(410, "Share link has expired")
 
@@ -2158,9 +2198,7 @@ async def consume_share_link(
     link.access_count += 1
 
     # Load the document
-    doc_result = await db.execute(
-        select(Document).where(Document.id == link.document_id)
-    )
+    doc_result = await db.execute(select(Document).where(Document.id == link.document_id))
     doc = doc_result.scalar_one_or_none()
     if not doc:
         raise HTTPException(404, "Document not found")
@@ -2168,9 +2206,7 @@ async def consume_share_link(
     # Load current revision content
     revision_data = None
     if doc.current_revision_id:
-        rev_result = await db.execute(
-            select(Revision).where(Revision.id == doc.current_revision_id)
-        )
+        rev_result = await db.execute(select(Revision).where(Revision.id == doc.current_revision_id))
         revision = rev_result.scalar_one_or_none()
         if revision:
             revision_data = {
@@ -2217,6 +2253,7 @@ async def update_distribution_list(
     dl = result.scalar_one_or_none()
     if not dl:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Distribution list not found")
 
     update_data = body.model_dump(exclude_unset=True)
@@ -2245,6 +2282,7 @@ async def delete_distribution_list(
     dl = result.scalar_one_or_none()
     if not dl:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Distribution list not found")
 
     dl.is_active = False
@@ -2269,7 +2307,6 @@ async def list_document_signatures(
 
     Joins with users table to resolve signer_name.
     """
-    from app.models.papyrus_document import DocumentSignature, Document
     from sqlalchemy import text
 
     # Verify the document belongs to the entity
@@ -2330,11 +2367,14 @@ async def delete_doc_type(
     doc_type = result.scalar_one_or_none()
     if not doc_type:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Doc type not found")
 
     # Check for referencing documents
     doc_count = await db.execute(
-        select(func.count()).select_from(Document).where(
+        select(func.count())
+        .select_from(Document)
+        .where(
             Document.doc_type_id == UUID(str(type_id)),
             Document.entity_id == entity_id,
         )
@@ -2342,10 +2382,10 @@ async def delete_doc_type(
     count = doc_count.scalar() or 0
     if count > 0:
         from fastapi import HTTPException
+
         raise HTTPException(
             409,
-            f"Cannot delete doc type: {count} document(s) reference this type. "
-            "Reassign or archive them first.",
+            f"Cannot delete doc type: {count} document(s) reference this type. Reassign or archive them first.",
         )
 
     doc_type.is_active = False
@@ -2429,6 +2469,7 @@ async def import_mdr(
             import openpyxl
         except ImportError:
             from fastapi import HTTPException
+
             raise HTTPException(501, "XLSX import requires openpyxl — pip install openpyxl")
 
         wb = openpyxl.load_workbook(io.BytesIO(raw_bytes), read_only=True, data_only=True)
@@ -2450,10 +2491,16 @@ async def import_mdr(
         wb.close()
     else:
         from fastapi import HTTPException
+
         raise HTTPException(400, "Unsupported file format. Use .csv or .xlsx")
 
     if not rows:
-        return {"created_types": 0, "updated_types": 0, "created_documents": 0, "errors": ["File is empty or has no data rows"]}
+        return {
+            "created_types": 0,
+            "updated_types": 0,
+            "created_documents": 0,
+            "errors": ["File is empty or has no data rows"],
+        }
 
     # ── Resolve column mapping ──
     sample_keys = list(rows[0].keys())
@@ -2475,12 +2522,8 @@ async def import_mdr(
         }
 
     # ── Pre-load existing doc types for this entity ──
-    existing_result = await db.execute(
-        select(DocType).where(DocType.entity_id == entity_id)
-    )
-    existing_types: dict[str, DocType] = {
-        dt.code: dt for dt in existing_result.scalars().all()
-    }
+    existing_result = await db.execute(select(DocType).where(DocType.entity_id == entity_id))
+    existing_types: dict[str, DocType] = {dt.code: dt for dt in existing_result.scalars().all()}
 
     created_types = 0
     updated_types = 0
@@ -2568,7 +2611,10 @@ async def import_mdr(
 
     logger.info(
         "MDR import: %d types created, %d updated, %d docs — %d errors",
-        created_types, updated_types, created_documents, len(errors),
+        created_types,
+        updated_types,
+        created_documents,
+        len(errors),
     )
     return {
         "created_types": created_types,
@@ -2576,4 +2622,3 @@ async def import_mdr(
         "created_documents": created_documents,
         "errors": errors,
     }
-

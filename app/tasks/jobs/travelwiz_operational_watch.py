@@ -6,10 +6,11 @@ Checks:
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import func as sqla_func, select, text
+from sqlalchemy import func as sqla_func
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session_factory
@@ -49,7 +50,7 @@ async def _notification_sent_recently(
     link: str,
     within_minutes: int = _ALERT_DEDUP_MINUTES,
 ) -> bool:
-    since = datetime.now(timezone.utc) - timedelta(minutes=within_minutes)
+    since = datetime.now(UTC) - timedelta(minutes=within_minutes)
     result = await db.execute(
         text(
             "SELECT COUNT(*) "
@@ -89,15 +90,12 @@ async def _process_stale_vector_signals(db: AsyncSession) -> int:
         )
     )
     rows = result.all()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     alerts = 0
 
     for voyage_id, entity_id, code, latest_recorded_at in rows:
         stale_after_minutes = await get_signal_stale_minutes(db, entity_id=entity_id)
-        is_stale = (
-            latest_recorded_at is None
-            or latest_recorded_at <= now - timedelta(minutes=stale_after_minutes)
-        )
+        is_stale = latest_recorded_at is None or latest_recorded_at <= now - timedelta(minutes=stale_after_minutes)
         if not is_stale:
             continue
 

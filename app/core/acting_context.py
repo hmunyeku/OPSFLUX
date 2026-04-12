@@ -84,9 +84,7 @@ async def resolve_acting_context(
             raise HTTPException(status_code=403, detail="Delegation not available")
 
         delegator_permissions = await get_user_permissions(target_user_id, entity_id, db)
-        delegated_permissions = set(delegation.permissions or []).intersection(
-            delegator_permissions
-        )
+        delegated_permissions = set(delegation.permissions or []).intersection(delegator_permissions)
         return ResolvedActingContext(
             key=f"delegate:{target_user_id}",
             mode="delegate",

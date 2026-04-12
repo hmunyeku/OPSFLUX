@@ -17,7 +17,7 @@ is the single source of truth and is easy to extend.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -103,15 +103,13 @@ async def probe_read_capabilities(
 def build_capabilities(read_results: dict[str, bool]) -> dict[str, Any]:
     """Combine a live read probe result with the static write knowledge base."""
     return {
-        "probed_at": datetime.now(timezone.utc).isoformat(),
+        "probed_at": datetime.now(UTC).isoformat(),
         "reads": {key: read_results.get(key, False) for key, _ in _READ_PROBE_ENDPOINTS},
         "writes": {res: sorted(fields) for res, fields in _WRITABLE_FIELDS_BY_RESOURCE.items()},
     }
 
 
-async def save_capabilities(
-    db: AsyncSession, entity_id: UUID, capabilities: dict[str, Any]
-) -> None:
+async def save_capabilities(db: AsyncSession, entity_id: UUID, capabilities: dict[str, Any]) -> None:
     """Persist the capability matrix as integration.gouti.capabilities."""
     key = "integration.gouti.capabilities"
     result = await db.execute(
@@ -136,9 +134,7 @@ async def save_capabilities(
     await db.commit()
 
 
-async def load_capabilities(
-    db: AsyncSession, entity_id: UUID
-) -> dict[str, Any]:
+async def load_capabilities(db: AsyncSession, entity_id: UUID) -> dict[str, Any]:
     """Fetch the cached capability matrix, falling back to defaults."""
     result = await db.execute(
         select(Setting).where(

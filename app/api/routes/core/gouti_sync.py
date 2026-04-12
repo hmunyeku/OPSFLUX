@@ -1,12 +1,13 @@
 """Gouti sync routes — synchronize project data from external Gouti API into local Projets module."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select, func as sqla_func
+from sqlalchemy import func as sqla_func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
@@ -125,14 +126,13 @@ def _build_connector(settings: dict[str, str]) -> GoutiConnector:
     if not client_id:
         raise HTTPException(
             status_code=400,
-            detail="Gouti non configuré : client_id requis. "
-                   "Configurez-le dans Paramètres > Intégrations > Gouti.",
+            detail="Gouti non configuré : client_id requis. Configurez-le dans Paramètres > Intégrations > Gouti.",
         )
     if not client_secret and not token:
         raise HTTPException(
             status_code=400,
             detail="Gouti non configuré : client_secret ou token requis. "
-                   "Configurez les credentials dans Paramètres > Intégrations > Gouti.",
+            "Configurez les credentials dans Paramètres > Intégrations > Gouti.",
         )
     if not entity_code:
         raise HTTPException(
@@ -200,18 +200,18 @@ def _parse_gouti_date(value: str | None) -> datetime | None:
     # Tasks:    "2024-11-19 00:00:00" (YYYY-MM-DD HH:MM:SS, space separator)
     # Also handle ISO with T separator and timezone variants.
     for fmt in (
-        "%Y-%m-%d %H:%M:%S",      # Gouti tasks
-        "%Y-%m-%dT%H:%M:%S%z",    # ISO with timezone
-        "%Y-%m-%dT%H:%M:%SZ",     # ISO with Z
-        "%Y-%m-%dT%H:%M:%S",      # ISO without timezone
-        "%Y-%m-%d",                # Date only
-        "%d/%m/%Y",                # French
-        "%d/%m/%Y %H:%M:%S",      # French with time
+        "%Y-%m-%d %H:%M:%S",  # Gouti tasks
+        "%Y-%m-%dT%H:%M:%S%z",  # ISO with timezone
+        "%Y-%m-%dT%H:%M:%SZ",  # ISO with Z
+        "%Y-%m-%dT%H:%M:%S",  # ISO without timezone
+        "%Y-%m-%d",  # Date only
+        "%d/%m/%Y",  # French
+        "%d/%m/%Y %H:%M:%S",  # French with time
     ):
         try:
             dt = datetime.strptime(value, fmt)
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
+                dt = dt.replace(tzinfo=UTC)
             return dt
         except ValueError:
             continue
@@ -264,12 +264,7 @@ async def _upsert_project_from_gouti(
         or gouti_data.get("title")
         or f"Gouti Project {gouti_id}"
     )
-    code = (
-        gouti_data.get("Ref")
-        or gouti_data.get("ref_pr")
-        or gouti_data.get("code")
-        or f"GOU-{gouti_id}"
-    )
+    code = gouti_data.get("Ref") or gouti_data.get("ref_pr") or gouti_data.get("code") or f"GOU-{gouti_id}"
     # Compose a rich description: project description + context/situation
     # blocks that Gouti surfaces separately — and sanitise HTML.
     description_parts: list[str] = []
@@ -290,11 +285,7 @@ async def _upsert_project_from_gouti(
         if cleaned:
             description_parts.append(f"### {label}\n{cleaned}")
     description = "\n\n".join(p for p in description_parts if p).strip() or None
-    status = _map_gouti_status(
-        gouti_data.get("Status")
-        or gouti_data.get("status_pr")
-        or gouti_data.get("status")
-    )
+    status = _map_gouti_status(gouti_data.get("Status") or gouti_data.get("status_pr") or gouti_data.get("status"))
     # Gouti uses Criticality (1-5) for priority-ish, Trend for direction.
     # Map criticality: 1=critical, 2=high, 3=medium, 4-5=low.
     crit_raw = gouti_data.get("Criticality") or gouti_data.get("criticality") or ""
@@ -324,14 +315,10 @@ async def _upsert_project_from_gouti(
     progress = max(0, min(100, progress))
 
     start_date = _parse_gouti_date(
-        gouti_data.get("Start_date")
-        or gouti_data.get("start_date")
-        or gouti_data.get("startDate")
+        gouti_data.get("Start_date") or gouti_data.get("start_date") or gouti_data.get("startDate")
     )
     end_date = _parse_gouti_date(
-        gouti_data.get("Target_date")
-        or gouti_data.get("end_date")
-        or gouti_data.get("endDate")
+        gouti_data.get("Target_date") or gouti_data.get("end_date") or gouti_data.get("endDate")
     )
     budget_raw = gouti_data.get("budget")
     budget = None
@@ -345,10 +332,18 @@ async def _upsert_project_from_gouti(
     # Normalise to OpsFlux canonical: sunny/cloudy/rainy/stormy.
     weather_raw = str(gouti_data.get("Weather") or gouti_data.get("weather") or "sunny").lower().strip()
     weather_map = {
-        "sunny": "sunny", "sun": "sunny", "ensoleille": "sunny",
-        "cloudy": "cloudy", "cloud": "cloudy", "nuageux": "cloudy",
-        "rain": "rainy", "rainy": "rainy", "pluvieux": "rainy",
-        "storm": "stormy", "stormy": "stormy", "orageux": "stormy",
+        "sunny": "sunny",
+        "sun": "sunny",
+        "ensoleille": "sunny",
+        "cloudy": "cloudy",
+        "cloud": "cloudy",
+        "nuageux": "cloudy",
+        "rain": "rainy",
+        "rainy": "rainy",
+        "pluvieux": "rainy",
+        "storm": "stormy",
+        "stormy": "stormy",
+        "orageux": "stormy",
     }
     weather = weather_map.get(weather_raw, "sunny")
 
@@ -458,14 +453,17 @@ async def sync_all_projects(
         )
 
     # Record last sync timestamp
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
     await _save_setting(db, entity_id, f"{GOUTI_SETTINGS_PREFIX}.last_sync_at", now_iso)
     await _save_setting(db, entity_id, f"{GOUTI_SETTINGS_PREFIX}.last_sync_count", str(created + updated))
     await db.commit()
 
     logger.info(
         "Gouti sync completed — created=%d, updated=%d, errors=%d (user=%s)",
-        created, updated, len(errors), current_user.id,
+        created,
+        updated,
+        len(errors),
+        current_user.id,
     )
 
     return SyncResult(
@@ -489,7 +487,9 @@ async def get_sync_status(
 
     # Count local projects that originated from Gouti
     count_result = await db.execute(
-        select(sqla_func.count()).select_from(Project).where(
+        select(sqla_func.count())
+        .select_from(Project)
+        .where(
             Project.entity_id == entity_id,
             Project.external_ref.startswith("gouti:"),
             Project.archived == False,
@@ -502,13 +502,12 @@ async def get_sync_status(
     # (client_id + cached token) for token-based auth. Align with _test_gouti
     # which validates the same way — requiring both secret and token here would
     # incorrectly report "not configured" for token-auth setups.
-    has_credentials = bool(
-        gouti_settings.get("client_secret") or gouti_settings.get("token")
-    )
+    has_credentials = bool(gouti_settings.get("client_secret") or gouti_settings.get("token"))
     connector_configured = bool(gouti_settings.get("client_id")) and has_credentials
 
     # Load probed capabilities (fallback to static defaults if never tested)
     from app.services.connectors.gouti_capabilities import load_capabilities
+
     capabilities = await load_capabilities(db, entity_id)
 
     # Auto-sync settings
@@ -564,12 +563,14 @@ async def _save_selection(db: AsyncSession, entity_id: UUID, selection: dict) ->
     if existing:
         existing.value = selection
     else:
-        db.add(Setting(
-            key="integration.gouti.sync_selection",
-            value=selection,
-            scope="entity",
-            scope_id=str(entity_id),
-        ))
+        db.add(
+            Setting(
+                key="integration.gouti.sync_selection",
+                value=selection,
+                scope="entity",
+                scope_id=str(entity_id),
+            )
+        )
     await db.commit()
 
 
@@ -590,6 +591,7 @@ def _project_matches_filters(gp: dict, filters: dict) -> bool:
     # Year (start year OR target year)
     year = filters.get("year")
     if year:
+
         def _y(d):
             if not d:
                 return None
@@ -597,6 +599,7 @@ def _project_matches_filters(gp: dict, filters: dict) -> bool:
                 return int(str(d)[:4])
             except ValueError:
                 return None
+
         years = {_y(gp.get("Start_date")), _y(gp.get("Target_date"))}
         years.discard(None)
         if int(year) not in years:
@@ -648,7 +651,7 @@ def _project_matches_filters(gp: dict, filters: dict) -> bool:
             str((gp.get("Project_manager") or {}).get("name_us") or ""),
         ]
         # Category names
-        for cat in (gp.get("Enterprise_categories") or []):
+        for cat in gp.get("Enterprise_categories") or []:
             if isinstance(cat, dict):
                 parts.append(str(cat.get("name") or ""))
         # Task names (if Tasks is a dict with nested items)
@@ -761,16 +764,17 @@ async def get_catalog(
     filters = {
         "year": year if year is not None else default_filters.get("year"),
         "category_ids": (
-            [c.strip() for c in category_ids.split(",") if c.strip()] if category_ids
+            [c.strip() for c in category_ids.split(",") if c.strip()]
+            if category_ids
             else default_filters.get("category_ids") or []
         ),
         "status": (
-            [s.strip() for s in status.split(",") if s.strip()] if status
-            else default_filters.get("status") or []
+            [s.strip() for s in status.split(",") if s.strip()] if status else default_filters.get("status") or []
         ),
         "manager_id": manager_id or default_filters.get("manager_id"),
         "criticality": (
-            [int(c.strip()) for c in criticality.split(",") if c.strip().isdigit()] if criticality
+            [int(c.strip()) for c in criticality.split(",") if c.strip().isdigit()]
+            if criticality
             else default_filters.get("criticality") or []
         ),
         "search": search,
@@ -810,7 +814,9 @@ async def get_catalog(
         }
         if include_tasks:
             try:
-                raw_tasks_resp = await connector.get_project_reports(gouti_id)  # placeholder: will use tasks endpoint below
+                raw_tasks_resp = await connector.get_project_reports(
+                    gouti_id
+                )  # placeholder: will use tasks endpoint below
             except Exception:
                 raw_tasks_resp = []
             # TODO: wire to dedicated tasks endpoint
@@ -844,6 +850,7 @@ def _html_to_text(raw: str | None) -> str | None:
         return None
     import re
     from html import unescape
+
     s = str(raw)
     if not s.strip():
         return None
@@ -997,27 +1004,29 @@ async def get_catalog_project_tasks(
         ref = str(t.get("ref_ta") or t.get("_id") or "")
         if not ref:
             continue
-        items.append({
-            "gouti_id": ref,
-            "code": ref,
-            "name": _gouti_task_name(t),
-            "status_raw": t.get("status_ta"),
-            "status": _parse_gouti_status_task(t.get("status_ta")),
-            "progress": _as_int(t.get("progress_ta"), 0),
-            "start_date": t.get("initial_start_date_ta") or t.get("actual_start_date_ta") or None,
-            "end_date": t.get("initial_end_date_ta") or t.get("actual_end_date_ta") or None,
-            "actual_start_date": t.get("actual_start_date_ta") or None,
-            "actual_end_date": t.get("actual_end_date_ta") or None,
-            "workload": _as_float(t.get("workload_ta")),
-            "actual_workload": _as_float(t.get("actual_workload_ta")),
-            "duration_days": _as_int(t.get("duration_ta"), 0),
-            "description": t.get("description_ta") or None,
-            "is_milestone": str(t.get("milestone_ta") or "0").strip() == "1",
-            "is_macro": str(t.get("macro_ta") or "0").strip() == "1",
-            "level": t.get("_level", 1),
-            "order": t.get("_order", 0),
-            "parent_ref": t.get("_parent_ref"),
-        })
+        items.append(
+            {
+                "gouti_id": ref,
+                "code": ref,
+                "name": _gouti_task_name(t),
+                "status_raw": t.get("status_ta"),
+                "status": _parse_gouti_status_task(t.get("status_ta")),
+                "progress": _as_int(t.get("progress_ta"), 0),
+                "start_date": t.get("initial_start_date_ta") or t.get("actual_start_date_ta") or None,
+                "end_date": t.get("initial_end_date_ta") or t.get("actual_end_date_ta") or None,
+                "actual_start_date": t.get("actual_start_date_ta") or None,
+                "actual_end_date": t.get("actual_end_date_ta") or None,
+                "workload": _as_float(t.get("workload_ta")),
+                "actual_workload": _as_float(t.get("actual_workload_ta")),
+                "duration_days": _as_int(t.get("duration_ta"), 0),
+                "description": t.get("description_ta") or None,
+                "is_milestone": str(t.get("milestone_ta") or "0").strip() == "1",
+                "is_macro": str(t.get("macro_ta") or "0").strip() == "1",
+                "level": t.get("_level", 1),
+                "order": t.get("_order", 0),
+                "parent_ref": t.get("_parent_ref"),
+            }
+        )
     return {"gouti_project_id": gouti_project_id, "count": len(items), "items": items}
 
 
@@ -1072,12 +1081,14 @@ async def put_default_filters(
     if existing:
         existing.value = clean
     else:
-        db.add(Setting(
-            key="integration.gouti.default_filters",
-            value=clean,
-            scope="entity",
-            scope_id=str(entity_id),
-        ))
+        db.add(
+            Setting(
+                key="integration.gouti.default_filters",
+                value=clean,
+                scope="entity",
+                scope_id=str(entity_id),
+            )
+        )
     await db.commit()
     return clean
 
@@ -1177,10 +1188,14 @@ async def _import_project_tasks(
                 ancestors_to_add.add(current)
                 current = ref_to_parent.get(current)
         if ancestors_to_add:
-            logger.info("Gouti sync: auto-including %d ancestor tasks for %d selected", len(ancestors_to_add - wanted_ids), len(wanted_ids))
+            logger.info(
+                "Gouti sync: auto-including %d ancestor tasks for %d selected",
+                len(ancestors_to_add - wanted_ids),
+                len(wanted_ids),
+            )
             wanted_ids |= ancestors_to_add
 
-    from app.models.common import ProjectTask, ProjectMilestone
+    from app.models.common import ProjectMilestone, ProjectTask
 
     # Map Gouti ref → local ProjectTask.id so children can point to parents
     gouti_to_local_id: dict[str, UUID] = {}
@@ -1211,36 +1226,36 @@ async def _import_project_tasks(
         description = _html_to_text(gt.get("description_ta") or gt.get("description"))
         progress = max(0, min(100, _as_int(gt.get("progress_ta"), 0)))
         status = _parse_gouti_status_task(gt.get("status_ta"))
-        start_date = _parse_gouti_date(
-            gt.get("initial_start_date_ta") or gt.get("actual_start_date_ta")
-        )
-        end_date = _parse_gouti_date(
-            gt.get("initial_end_date_ta") or gt.get("actual_end_date_ta")
-        )
+        start_date = _parse_gouti_date(gt.get("initial_start_date_ta") or gt.get("actual_start_date_ta"))
+        end_date = _parse_gouti_date(gt.get("initial_end_date_ta") or gt.get("actual_end_date_ta"))
         code = tid
         order_val = gt.get("_order", 0)
 
         # ── Milestones: import as ProjectMilestone, not ProjectTask ──
         if is_milestone:
             try:
-                existing_ms = (await db.execute(
-                    select(ProjectMilestone).where(
-                        ProjectMilestone.project_id == local_project_id,
-                        ProjectMilestone.name == title,
+                existing_ms = (
+                    await db.execute(
+                        select(ProjectMilestone).where(
+                            ProjectMilestone.project_id == local_project_id,
+                            ProjectMilestone.name == title,
+                        )
                     )
-                )).scalar_one_or_none()
+                ).scalar_one_or_none()
                 if existing_ms:
                     existing_ms.description = description
                     existing_ms.due_date = end_date or start_date
                     existing_ms.status = "completed" if status == "done" else "pending"
                 else:
-                    db.add(ProjectMilestone(
-                        project_id=local_project_id,
-                        name=title,
-                        description=description,
-                        due_date=end_date or start_date,
-                        status="completed" if status == "done" else "pending",
-                    ))
+                    db.add(
+                        ProjectMilestone(
+                            project_id=local_project_id,
+                            name=title,
+                            description=description,
+                            due_date=end_date or start_date,
+                            status="completed" if status == "done" else "pending",
+                        )
+                    )
                 touched += 1
             except Exception as exc:
                 logger.warning("Milestone upsert failed for %s: %s", tid, exc)
@@ -1258,12 +1273,14 @@ async def _import_project_tasks(
         parent_ref = gt.get("_parent_ref")
         parent_id: UUID | None = gouti_to_local_id.get(parent_ref) if parent_ref else None
 
-        existing = (await db.execute(
-            select(ProjectTask).where(
-                ProjectTask.project_id == local_project_id,
-                ProjectTask.code == code,
+        existing = (
+            await db.execute(
+                select(ProjectTask).where(
+                    ProjectTask.project_id == local_project_id,
+                    ProjectTask.code == code,
+                )
             )
-        )).scalar_one_or_none()
+        ).scalar_one_or_none()
 
         if existing:
             existing.title = title
@@ -1329,13 +1346,9 @@ async def sync_selected(
 
     selection_projects = selection.get("projects") or {}
     selected_ids = {
-        str(gid) for gid, entry in selection_projects.items()
-        if isinstance(entry, dict) and entry.get("include", True)
+        str(gid) for gid, entry in selection_projects.items() if isinstance(entry, dict) and entry.get("include", True)
     }
-    to_import = [
-        gp for gp in all_projects
-        if str(gp.get("_id") or gp.get("Ref") or "") in selected_ids
-    ]
+    to_import = [gp for gp in all_projects if str(gp.get("_id") or gp.get("Ref") or "") in selected_ids]
 
     created = 0
     updated = 0
@@ -1357,7 +1370,13 @@ async def sync_selected(
             task_sel = entry.get("tasks") or {"mode": "all", "task_ids": []}
             try:
                 tasks_touched += await _import_project_tasks(
-                    db, entity_id, local_project.id, gid, connector, task_sel, current_user.id,
+                    db,
+                    entity_id,
+                    local_project.id,
+                    gid,
+                    connector,
+                    task_sel,
+                    current_user.id,
                 )
             except Exception as exc:
                 errors.append(f"Tâches {gid}: {str(exc)[:200]}")
@@ -1371,14 +1390,18 @@ async def sync_selected(
         await db.rollback()
         raise HTTPException(500, f"Erreur sauvegarde: {str(exc)[:300]}")
 
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
     await _save_setting(db, entity_id, f"{GOUTI_SETTINGS_PREFIX}.last_sync_at", now_iso)
     await _save_setting(db, entity_id, f"{GOUTI_SETTINGS_PREFIX}.last_sync_count", str(created + updated))
     await db.commit()
 
     logger.info(
         "Gouti sync-selected: projects created=%d updated=%d tasks=%d errors=%d (user=%s)",
-        created, updated, tasks_touched, len(errors), current_user.id,
+        created,
+        updated,
+        tasks_touched,
+        len(errors),
+        current_user.id,
     )
     return SyncResult(synced=created + updated, created=created, updated=updated, errors=errors)
 
@@ -1402,6 +1425,7 @@ async def debug_raw_tasks(
         headers["Entity-Code"] = gouti_settings["entity_code"]
 
     import httpx
+
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get(f"{base}/projects/{gouti_project_id}/tasks", headers=headers)
         body = resp.json()
@@ -1438,6 +1462,7 @@ async def debug_raw_projects(
     raw = await connector.get_raw_projects_response()
     # Also do a parsed extract to show the first item's full keys
     import httpx
+
     base = gouti_settings.get("base_url", "https://apiprd.gouti.net/v1/client").rstrip("/")
     token = gouti_settings.get("token", "")
     headers = {
@@ -1515,28 +1540,26 @@ async def sync_single_project(
             # Build a summary of reports and store as JSONB-compatible metadata
             report_summaries = []
             for r in reports:
-                report_summaries.append({
-                    "id": str(r.get("id", "")),
-                    "title": r.get("title") or r.get("name") or r.get("titre") or "",
-                    "date": r.get("date") or r.get("created_at") or "",
-                    "status": r.get("status") or r.get("statut") or "",
-                    "content_preview": (r.get("content") or r.get("contenu") or "")[:200],
-                })
+                report_summaries.append(
+                    {
+                        "id": str(r.get("id", "")),
+                        "title": r.get("title") or r.get("name") or r.get("titre") or "",
+                        "date": r.get("date") or r.get("created_at") or "",
+                        "status": r.get("status") or r.get("statut") or "",
+                        "content_preview": (r.get("content") or r.get("contenu") or "")[:200],
+                    }
+                )
             reports_synced = len(report_summaries)
 
             # Store report count in a descriptive note appended to description
-            report_note = (
-                f"\n\n--- Rapports Gouti ({len(report_summaries)}) ---\n"
-                + "\n".join(
-                    f"- [{rs['title']}] ({rs['date']}) — {rs['status']}"
-                    for rs in report_summaries
-                )
+            report_note = f"\n\n--- Rapports Gouti ({len(report_summaries)}) ---\n" + "\n".join(
+                f"- [{rs['title']}] ({rs['date']}) — {rs['status']}" for rs in report_summaries
             )
             # Only append if not already present (idempotent)
             base_desc = project.description or ""
             separator = "--- Rapports Gouti"
             if separator in base_desc:
-                base_desc = base_desc[:base_desc.index(separator)].rstrip()
+                base_desc = base_desc[: base_desc.index(separator)].rstrip()
             project.description = base_desc + report_note
 
     except Exception as exc:
@@ -1548,7 +1571,11 @@ async def sync_single_project(
     tasks_synced = 0
     try:
         tasks_synced = await _import_project_tasks(
-            db, entity_id, project.id, project_id, connector,
+            db,
+            entity_id,
+            project.id,
+            project_id,
+            connector,
             task_selection={"mode": "all", "task_ids": []},
             current_user_id=current_user.id,
         )
@@ -1568,13 +1595,17 @@ async def sync_single_project(
         )
 
     # Update last sync timestamp
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
     await _save_setting(db, entity_id, f"{GOUTI_SETTINGS_PREFIX}.last_sync_at", now_iso)
     await db.commit()
 
     logger.info(
         "Gouti single sync — project=%s action=%s reports=%d tasks=%d (user=%s)",
-        project_id, action, reports_synced, tasks_synced, current_user.id,
+        project_id,
+        action,
+        reports_synced,
+        tasks_synced,
+        current_user.id,
     )
 
     return SingleProjectSyncResult(

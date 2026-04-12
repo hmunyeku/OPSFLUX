@@ -10,7 +10,7 @@ Full CRUD is handled via the Asset Registry routes (/api/v1/asset-registry).
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, or_
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
@@ -59,10 +59,12 @@ async def get_asset_tree(
 ):
     """Get installations as a flat list (tree compat endpoint)."""
     result = await db.execute(
-        select(Installation).where(
+        select(Installation)
+        .where(
             Installation.entity_id == entity_id,
             Installation.archived == False,
-        ).order_by(Installation.code)
+        )
+        .order_by(Installation.code)
     )
     installations = result.scalars().all()
     return [

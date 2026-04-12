@@ -75,10 +75,12 @@ class FakeDB:
 async def test_sync_owner_project_snapshot_sets_single_project_for_ads():
     ads = SimpleNamespace(id=uuid4(), project_id=None)
     project_id = uuid4()
-    db = FakeDB([
-        ads,
-        FakeResult(all_rows=[(project_id,)]),
-    ])
+    db = FakeDB(
+        [
+            ads,
+            FakeResult(all_rows=[(project_id,)]),
+        ]
+    )
 
     await cost_imputations._sync_owner_project_snapshot(
         owner_type="ads",
@@ -92,10 +94,12 @@ async def test_sync_owner_project_snapshot_sets_single_project_for_ads():
 @pytest.mark.asyncio
 async def test_sync_owner_project_snapshot_clears_project_for_multi_project_ads():
     ads = SimpleNamespace(id=uuid4(), project_id=uuid4())
-    db = FakeDB([
-        ads,
-        FakeResult(all_rows=[(uuid4(),), (uuid4(),)]),
-    ])
+    db = FakeDB(
+        [
+            ads,
+            FakeResult(all_rows=[(uuid4(),), (uuid4(),)]),
+        ]
+    )
 
     await cost_imputations._sync_owner_project_snapshot(
         owner_type="ads",
@@ -115,11 +119,13 @@ async def test_create_cost_imputation_syncs_ads_project_snapshot(monkeypatch):
     cost_center = None
     author = SimpleNamespace(full_name="Aline Doe")
     ads = SimpleNamespace(id=owner_id, project_id=None)
-    db = FakeDB([
-        FakeResult(scalar=0),
-        ads,
-        FakeResult(all_rows=[(project_id,)]),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(scalar=0),
+            ads,
+            FakeResult(all_rows=[(project_id,)]),
+        ]
+    )
 
     async def fake_check_access(*_args, **_kwargs):
         return None
@@ -173,11 +179,13 @@ async def test_delete_cost_imputation_syncs_ads_project_snapshot(monkeypatch):
     project_id = uuid4()
     obj = SimpleNamespace(id=uuid4(), owner_type="ads", owner_id=owner_id)
     ads = SimpleNamespace(id=owner_id, project_id=uuid4())
-    db = FakeDB([
-        FakeResult(all_rows=[obj]),
-        ads,
-        FakeResult(all_rows=[(project_id,)]),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(all_rows=[obj]),
+            ads,
+            FakeResult(all_rows=[(project_id,)]),
+        ]
+    )
 
     async def fake_check_access(*_args, **_kwargs):
         return None

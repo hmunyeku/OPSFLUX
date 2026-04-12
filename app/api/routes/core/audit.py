@@ -33,7 +33,7 @@ async def list_audit_log(
 
     if action:
         # Support prefix match: "login" matches "user.login", "sso.login", etc.
-        if '.' in action:
+        if "." in action:
             query = query.where(AuditLog.action == action)
         else:
             query = query.where(AuditLog.action.ilike(f"%{action}%"))

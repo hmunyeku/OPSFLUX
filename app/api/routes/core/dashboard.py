@@ -12,7 +12,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import distinct, func, or_, select, text, update
+from sqlalchemy import distinct, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
@@ -58,7 +58,6 @@ from app.schemas.dashboard import (
     WidgetDataRequest,
     WidgetDataResponse,
 )
-from app.services.core.delete_service import delete_entity
 from app.services.core.module_lifecycle_service import (
     filter_widgets_for_entity,
     get_widget_id_from_payload,
@@ -67,21 +66,31 @@ from app.services.core.module_lifecycle_service import (
 )
 from app.services.modules.dashboard_service import (
     create_dashboard as svc_create_dashboard,
+)
+from app.services.modules.dashboard_service import (
     delete_dashboard as svc_delete_dashboard,
+)
+from app.services.modules.dashboard_service import (
     export_dashboard_json,
     generate_tv_link,
-    get_dashboard as svc_get_dashboard,
     get_dashboard_by_tv_token,
     get_home_page_for_user,
     get_widget_catalog,
     get_widget_data,
     import_dashboard_json,
-    list_dashboards as svc_list_dashboards,
     log_dashboard_access,
     revoke_tv_link,
     set_home_page,
-    update_dashboard as svc_update_dashboard,
     validate_and_execute_widget_sql,
+)
+from app.services.modules.dashboard_service import (
+    get_dashboard as svc_get_dashboard,
+)
+from app.services.modules.dashboard_service import (
+    list_dashboards as svc_list_dashboards,
+)
+from app.services.modules.dashboard_service import (
+    update_dashboard as svc_update_dashboard,
 )
 
 logger = logging.getLogger(__name__)
@@ -130,9 +139,8 @@ async def _sanitize_widget_payloads(
 #  Helper: get user role codes for the current entity
 # ═══════════════════════════════════════════════════════════════════════════
 
-async def _get_user_role_codes(
-    user_id: UUID, entity_id: UUID, db: AsyncSession
-) -> set[str]:
+
+async def _get_user_role_codes(user_id: UUID, entity_id: UUID, db: AsyncSession) -> set[str]:
     """Return the set of role codes the user holds in the given entity."""
     stmt = (
         select(distinct(UserGroupRole.role_code))
@@ -160,6 +168,7 @@ async def _get_tenant_id(entity_id: UUID, db: AsyncSession) -> UUID:
 # ═══════════════════════════════════════════════════════════════════════════
 #  FULL DASHBOARD CRUD
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @router.post(
     "/dashboards",
@@ -404,16 +413,20 @@ async def sse_widget_stream(
         Heartbeat events keep the connection alive between data pushes.
         """
         import json as _json
-        from app.services.modules.dashboard_service import get_widget_data
+
         from app.core.database import async_session_factory as _session_factory
+        from app.services.modules.dashboard_service import get_widget_data
 
         # Widget refresh intervals (seconds)
         _INTERVALS = {
-            'pax_count': 30, 'pax_on_site': 30,
-            'alerts': 60, 'alerts_urgent': 60,
-            'fleet_position': 15, 'fleet_map': 15,
-            'pickup_progress': 30,
-            'trips_today': 60,
+            "pax_count": 30,
+            "pax_on_site": 30,
+            "alerts": 60,
+            "alerts_urgent": 60,
+            "fleet_position": 15,
+            "fleet_map": 15,
+            "pickup_progress": 30,
+            "trips_today": 60,
         }
         interval = _INTERVALS.get(widget_type, 30)
 
@@ -430,17 +443,21 @@ async def sse_widget_stream(
                             user=current_user,
                             db=sse_db,
                         )
-                    payload = _json.dumps({
-                        "widget_id": result.widget_id,
-                        "widget_type": result.widget_type,
-                        "data": result.data,
-                        "row_count": result.row_count,
-                        "error": result.error,
-                    }, default=str, ensure_ascii=False)
+                    payload = _json.dumps(
+                        {
+                            "widget_id": result.widget_id,
+                            "widget_type": result.widget_type,
+                            "data": result.data,
+                            "row_count": result.row_count,
+                            "error": result.error,
+                        },
+                        default=str,
+                        ensure_ascii=False,
+                    )
                     yield f"event: widget_data\ndata: {payload}\n\n"
                 except Exception as exc:
                     logger.debug("SSE widget %s data error: %s", widget_type, exc)
-                    yield f"event: error\ndata: {{\"error\": \"{str(exc)[:200]}\"}}\n\n"
+                    yield f'event: error\ndata: {{"error": "{str(exc)[:200]}"}}\n\n'
 
                 await asyncio.sleep(interval)
         except asyncio.CancelledError:
@@ -578,6 +595,7 @@ async def delete_tv_link(
 #  TABS — combined view (mandatory + personal)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @router.get(
     "/dashboard/tabs",
     response_model=list[DashboardTabRead],
@@ -603,12 +621,9 @@ async def list_tabs(
 
     # Mandatory tabs: active, matching entity, and either no target_role (visible
     # to everyone) or target_role matching one of the user's roles.
-    mandatory_stmt = (
-        select(DashboardTab)
-        .where(
-            DashboardTab.entity_id == entity_id,
-            DashboardTab.is_active == True,
-        )
+    mandatory_stmt = select(DashboardTab).where(
+        DashboardTab.entity_id == entity_id,
+        DashboardTab.is_active == True,
     )
 
     # Module filter
@@ -704,13 +719,10 @@ async def list_module_tabs(
         return []
     user_roles = await _get_user_role_codes(current_user.id, entity_id, db)
 
-    stmt = (
-        select(DashboardTab)
-        .where(
-            DashboardTab.entity_id == entity_id,
-            DashboardTab.is_active == True,
-            DashboardTab.target_module == module_slug,
-        )
+    stmt = select(DashboardTab).where(
+        DashboardTab.entity_id == entity_id,
+        DashboardTab.is_active == True,
+        DashboardTab.target_module == module_slug,
     )
     if user_roles:
         stmt = stmt.where(
@@ -749,6 +761,7 @@ async def list_module_tabs(
 # ═══════════════════════════════════════════════════════════════════════════
 #  PERSONAL TABS — CRUD
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @router.post(
     "/dashboard/tabs",
@@ -912,6 +925,7 @@ async def delete_personal_tab(
 #  ADMIN — mandatory tabs management
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @router.get(
     "/dashboard/admin/tabs",
     response_model=list[AdminTabRead],
@@ -928,12 +942,9 @@ async def list_admin_tabs(
     Pass "global" to get tabs with target_module IS NULL.
     """
     module = _normalize_module_slug(module)
-    stmt = (
-        select(DashboardTab)
-        .where(
-            DashboardTab.entity_id == entity_id,
-            DashboardTab.is_active == True,
-        )
+    stmt = select(DashboardTab).where(
+        DashboardTab.entity_id == entity_id,
+        DashboardTab.is_active == True,
     )
     if module == "global":
         stmt = stmt.where(DashboardTab.target_module.is_(None))
@@ -1071,6 +1082,7 @@ async def delete_admin_tab(
 #  WIDGET DATA — stats, activity, pending items
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @router.get(
     "/dashboard/widgets/stats",
     response_model=DashboardStats,
@@ -1176,9 +1188,7 @@ async def get_widget_pending(
     result = await db.execute(
         select(WorkflowInstance)
         .where(
-            WorkflowInstance.current_state.notin_(
-                ["completed", "cancelled", "rejected"]
-            ),
+            WorkflowInstance.current_state.notin_(["completed", "cancelled", "rejected"]),
         )
         .order_by(WorkflowInstance.created_at.desc())
         .limit(20)
@@ -1202,6 +1212,7 @@ async def get_widget_pending(
 # ═══════════════════════════════════════════════════════════════════════════
 #  GRIDSTACK LAYOUT PERSISTENCE
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @router.patch(
     "/dashboards/{dashboard_id}/layout",
@@ -1277,6 +1288,7 @@ async def update_dashboard_layout(
 
 
 # ── Seed mandatory tabs ──────────────────────────────────────────────────
+
 
 @router.post(
     "/dashboard/seed-tabs",

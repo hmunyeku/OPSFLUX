@@ -43,10 +43,12 @@ class FakeDB:
 async def test_upsert_setting_allows_user_scope_without_settings_admin_permission():
     user_id = uuid4()
     entity_id = uuid4()
-    db = FakeDB([
-        FakeResult(scalar_one_or_none=None),
-        FakeResult(scalars_all=[]),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=None),
+            FakeResult(scalars_all=[]),
+        ]
+    )
 
     response = await settings_routes.upsert_setting(
         body=SettingWrite(key="datatable.page_size", value={"v": 50}),

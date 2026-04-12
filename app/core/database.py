@@ -65,9 +65,7 @@ async def init_db() -> None:
     """Initialize DB connection pool (called at startup)."""
     # Pool is created lazily by SQLAlchemy; this ensures connectivity
     async with engine.begin() as conn:
-        await conn.execute(
-            __import__("sqlalchemy").text("SELECT 1")
-        )
+        await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
 
 
 async def close_db() -> None:

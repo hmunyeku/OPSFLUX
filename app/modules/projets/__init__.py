@@ -13,7 +13,7 @@ MANIFEST = ModuleManifest(
         "project.create",
         "project.update",
         "project.delete",
-        "project.status_change",      # transition de statut (matrice par rôle)
+        "project.status_change",  # transition de statut (matrice par rôle)
         "project.export_sap",
         "project.import",
         "project.export",
@@ -24,7 +24,7 @@ MANIFEST = ModuleManifest(
         "project.task.update",
         "project.task.delete",
         "project.task.reorder",
-        "project.task.assign",        # assigner un membre à une tâche
+        "project.task.assign",  # assigner un membre à une tâche
         # ── Milestones ──
         "project.milestone.create",
         "project.milestone.update",
@@ -32,7 +32,7 @@ MANIFEST = ModuleManifest(
         # ── Planning revisions ──
         "project.revision.create",
         "project.revision.update",
-        "project.revision.apply",     # activer une révision (CHEF_PROJET only)
+        "project.revision.apply",  # activer une révision (CHEF_PROJET only)
         "project.revision.delete",
         # ── Task deliverables ──
         "project.deliverable.create",
@@ -44,11 +44,11 @@ MANIFEST = ModuleManifest(
         "project.action.delete",
         # ── Comments ──
         "project.comment.create",
-        "project.comment.delete",     # soft-delete (own comments or manager)
+        "project.comment.delete",  # soft-delete (own comments or manager)
         # ── WBS ──
         "project.wbs.manage",
         # ── Planner link ──
-        "project.planner.send",       # envoyer des tâches au Planner
+        "project.planner.send",  # envoyer des tâches au Planner
     ],
     roles=[
         {
@@ -56,16 +56,35 @@ MANIFEST = ModuleManifest(
             "name": "Chef de projet",
             "description": "Accès complet au projet : CRUD, transitions de statut, révisions, WBS, Planner",
             "permissions": [
-                "project.read", "project.create", "project.update", "project.delete",
-                "project.status_change", "project.export_sap",
-                "project.import", "project.export",
+                "project.read",
+                "project.create",
+                "project.update",
+                "project.delete",
+                "project.status_change",
+                "project.export_sap",
+                "project.import",
+                "project.export",
                 "project.member.manage",
-                "project.task.create", "project.task.update", "project.task.delete", "project.task.reorder", "project.task.assign",
-                "project.milestone.create", "project.milestone.update", "project.milestone.delete",
-                "project.revision.create", "project.revision.update", "project.revision.apply", "project.revision.delete",
-                "project.deliverable.create", "project.deliverable.update", "project.deliverable.delete",
-                "project.action.create", "project.action.update", "project.action.delete",
-                "project.comment.create", "project.comment.delete",
+                "project.task.create",
+                "project.task.update",
+                "project.task.delete",
+                "project.task.reorder",
+                "project.task.assign",
+                "project.milestone.create",
+                "project.milestone.update",
+                "project.milestone.delete",
+                "project.revision.create",
+                "project.revision.update",
+                "project.revision.apply",
+                "project.revision.delete",
+                "project.deliverable.create",
+                "project.deliverable.update",
+                "project.deliverable.delete",
+                "project.action.create",
+                "project.action.update",
+                "project.action.delete",
+                "project.comment.create",
+                "project.comment.delete",
                 "project.wbs.manage",
                 "project.planner.send",
             ],
@@ -76,9 +95,12 @@ MANIFEST = ModuleManifest(
             "description": "Gestion des tâches, livrables et actions dans les projets assignés",
             "permissions": [
                 "project.read",
-                "project.task.create", "project.task.update",
-                "project.deliverable.create", "project.deliverable.update",
-                "project.action.create", "project.action.update",
+                "project.task.create",
+                "project.task.update",
+                "project.deliverable.create",
+                "project.deliverable.update",
+                "project.action.create",
+                "project.action.update",
                 "project.comment.create",
             ],
         },
@@ -89,8 +111,8 @@ MANIFEST = ModuleManifest(
             "permissions": [
                 "project.read",
                 "project.status_change",
-                "project.deliverable.update",   # accepter/rejeter livrables
-                "project.revision.apply",       # activer une révision
+                "project.deliverable.update",  # accepter/rejeter livrables
+                "project.revision.apply",  # activer une révision
                 "project.comment.create",
             ],
         },
@@ -100,7 +122,7 @@ MANIFEST = ModuleManifest(
             "description": "Lecture seule sur le projet et ses tâches",
             "permissions": [
                 "project.read",
-                "project.comment.create",       # peut commenter mais rien modifier
+                "project.comment.create",  # peut commenter mais rien modifier
             ],
         },
     ],

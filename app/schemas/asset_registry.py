@@ -7,8 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ── GeoJSON helper ───────────────────────────────────────────
+
 
 def _wkb_to_geojson(v: Any) -> dict | None:
     """Convert a geoalchemy2 WKBElement to a GeoJSON dict, or pass through if already a dict/None."""
@@ -19,6 +19,7 @@ def _wkb_to_geojson(v: Any) -> dict | None:
     try:
         from geoalchemy2.shape import to_shape
         from shapely.geometry import mapping
+
         return mapping(to_shape(v))
     except Exception:
         return None
@@ -26,9 +27,11 @@ def _wkb_to_geojson(v: Any) -> dict | None:
 
 # ── Base mixins ───────────────────────────────────────────────
 
+
 class TimestampMixin(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
 
 class SoftDeleteMixin(BaseModel):
     deleted_at: datetime | None = None
@@ -37,6 +40,7 @@ class SoftDeleteMixin(BaseModel):
 # ════════════════════════════════════════════════════════════════
 # FIELD
 # ════════════════════════════════════════════════════════════════
+
 
 class OilFieldCreate(BaseModel):
     code: str = Field(min_length=1, max_length=30)
@@ -62,6 +66,7 @@ class OilFieldCreate(BaseModel):
     status: str = "OPERATIONAL"
     notes: str | None = None
 
+
 class OilFieldUpdate(BaseModel):
     code: str | None = None
     name: str | None = None
@@ -86,6 +91,7 @@ class OilFieldUpdate(BaseModel):
     status: str | None = None
     notes: str | None = None
 
+
 class OilFieldRead(OilFieldCreate, TimestampMixin, SoftDeleteMixin):
     id: UUID
     entity_id: UUID
@@ -103,6 +109,7 @@ class OilFieldRead(OilFieldCreate, TimestampMixin, SoftDeleteMixin):
 # FIELD LICENSE
 # ════════════════════════════════════════════════════════════════
 
+
 class FieldLicenseCreate(BaseModel):
     license_type: str = Field(min_length=1, max_length=50)
     license_number: str = Field(min_length=1, max_length=100)
@@ -112,6 +119,7 @@ class FieldLicenseCreate(BaseModel):
     working_interest_pct: Decimal | None = None
     status: str = "ACTIVE"
     notes: str | None = None
+
 
 class FieldLicenseUpdate(BaseModel):
     license_type: str | None = None
@@ -123,9 +131,11 @@ class FieldLicenseUpdate(BaseModel):
     status: str | None = None
     notes: str | None = None
 
+
 class FieldLicenseRead(FieldLicenseCreate, TimestampMixin):
     id: UUID
     field_id: UUID
+
     class Config:
         from_attributes = True
 
@@ -133,6 +143,7 @@ class FieldLicenseRead(FieldLicenseCreate, TimestampMixin):
 # ════════════════════════════════════════════════════════════════
 # SITE
 # ════════════════════════════════════════════════════════════════
+
 
 class OilSiteCreate(BaseModel):
     field_id: UUID
@@ -164,6 +175,7 @@ class OilSiteCreate(BaseModel):
     commissioning_date: date | None = None
     first_oil_date: date | None = None
     notes: str | None = None
+
 
 class OilSiteUpdate(BaseModel):
     field_id: UUID | None = None
@@ -200,6 +212,7 @@ class OilSiteUpdate(BaseModel):
     first_oil_date: date | None = None
     notes: str | None = None
 
+
 class OilSiteRead(OilSiteCreate, TimestampMixin, SoftDeleteMixin):
     id: UUID
     entity_id: UUID
@@ -216,6 +229,7 @@ class OilSiteRead(OilSiteCreate, TimestampMixin, SoftDeleteMixin):
 # ════════════════════════════════════════════════════════════════
 # INSTALLATION
 # ════════════════════════════════════════════════════════════════
+
 
 class InstallationCreate(BaseModel):
     site_id: UUID
@@ -246,6 +260,7 @@ class InstallationCreate(BaseModel):
     classification_society: str | None = None
     class_notation: str | None = None
     notes: str | None = None
+
 
 class InstallationUpdate(BaseModel):
     site_id: UUID | None = None
@@ -283,6 +298,7 @@ class InstallationUpdate(BaseModel):
     installation_manager: UUID | None = None
     notes: str | None = None
 
+
 class InstallationRead(InstallationCreate, TimestampMixin, SoftDeleteMixin):
     id: UUID
     entity_id: UUID
@@ -303,6 +319,7 @@ class InstallationRead(InstallationCreate, TimestampMixin, SoftDeleteMixin):
 # INSTALLATION DECK
 # ════════════════════════════════════════════════════════════════
 
+
 class InstallationDeckCreate(BaseModel):
     deck_name: str = Field(min_length=1, max_length=50)
     deck_code: str | None = None
@@ -314,6 +331,7 @@ class InstallationDeckCreate(BaseModel):
     max_deck_load_tm2: Decimal | None = None
     deck_function: str | None = None
     notes: str | None = None
+
 
 class InstallationDeckUpdate(BaseModel):
     deck_name: str | None = None
@@ -327,9 +345,11 @@ class InstallationDeckUpdate(BaseModel):
     deck_function: str | None = None
     notes: str | None = None
 
+
 class InstallationDeckRead(InstallationDeckCreate, TimestampMixin):
     id: UUID
     installation_id: UUID
+
     class Config:
         from_attributes = True
 
@@ -337,6 +357,7 @@ class InstallationDeckRead(InstallationDeckCreate, TimestampMixin):
 # ════════════════════════════════════════════════════════════════
 # EQUIPMENT (base)
 # ════════════════════════════════════════════════════════════════
+
 
 class EquipmentCreate(BaseModel):
     tag_number: str = Field(min_length=1, max_length=50)
@@ -376,6 +397,7 @@ class EquipmentCreate(BaseModel):
     manual_url: str | None = None
     cert_document_url: str | None = None
     notes: str | None = None
+
 
 class EquipmentUpdate(BaseModel):
     # Identification
@@ -425,6 +447,7 @@ class EquipmentUpdate(BaseModel):
     grid_reference: str | None = None
     notes: str | None = None
 
+
 class EquipmentRead(EquipmentCreate, TimestampMixin, SoftDeleteMixin):
     id: UUID
     entity_id: UUID
@@ -441,6 +464,7 @@ class EquipmentRead(EquipmentCreate, TimestampMixin, SoftDeleteMixin):
 # ════════════════════════════════════════════════════════════════
 # PIPELINE
 # ════════════════════════════════════════════════════════════════
+
 
 class PipelineCreate(BaseModel):
     pipeline_id: str = Field(min_length=1, max_length=50)
@@ -482,6 +506,7 @@ class PipelineCreate(BaseModel):
     permit_number: str | None = None
     regulator: str | None = None
     notes: str | None = None
+
 
 class PipelineUpdate(BaseModel):
     pipeline_id: str | None = None
@@ -535,6 +560,7 @@ class PipelineUpdate(BaseModel):
     regulator: str | None = None
     notes: str | None = None
 
+
 class PipelineRead(PipelineCreate, TimestampMixin, SoftDeleteMixin):
     id: UUID
     entity_id: UUID
@@ -549,6 +575,7 @@ class PipelineRead(PipelineCreate, TimestampMixin, SoftDeleteMixin):
 # ════════════════════════════════════════════════════════════════
 # CRANE — CONFIGURATIONS
 # ════════════════════════════════════════════════════════════════
+
 
 class CraneConfigurationCreate(BaseModel):
     config_code: str = Field(min_length=1, max_length=20)
@@ -574,6 +601,7 @@ class CraneConfigurationCreate(BaseModel):
     config_max_radius_m: Decimal | None = None
     notes: str | None = None
 
+
 class CraneConfigurationUpdate(BaseModel):
     config_code: str | None = None
     config_name: str | None = None
@@ -588,9 +616,11 @@ class CraneConfigurationUpdate(BaseModel):
     config_max_radius_m: Decimal | None = None
     notes: str | None = None
 
+
 class CraneConfigurationRead(CraneConfigurationCreate, TimestampMixin):
     id: UUID
     crane_id: UUID
+
     class Config:
         from_attributes = True
 
@@ -598,6 +628,7 @@ class CraneConfigurationRead(CraneConfigurationCreate, TimestampMixin):
 # ════════════════════════════════════════════════════════════════
 # CRANE — LOAD CHART POINTS
 # ════════════════════════════════════════════════════════════════
+
 
 class CraneLoadChartPointCreate(BaseModel):
     radius_m: Decimal
@@ -610,6 +641,7 @@ class CraneLoadChartPointCreate(BaseModel):
     row_order: int | None = None
     is_derated: bool = False
 
+
 class CraneLoadChartPointUpdate(BaseModel):
     radius_m: Decimal | None = None
     max_load_tonnes: Decimal | None = None
@@ -621,9 +653,11 @@ class CraneLoadChartPointUpdate(BaseModel):
     row_order: int | None = None
     is_derated: bool | None = None
 
+
 class CraneLoadChartPointRead(CraneLoadChartPointCreate, TimestampMixin):
     id: UUID
     config_id: UUID
+
     class Config:
         from_attributes = True
 
@@ -631,6 +665,7 @@ class CraneLoadChartPointRead(CraneLoadChartPointCreate, TimestampMixin):
 # ════════════════════════════════════════════════════════════════
 # CRANE — LIFT ZONES
 # ════════════════════════════════════════════════════════════════
+
 
 class CraneLiftZoneCreate(BaseModel):
     zone_name: str = Field(min_length=1, max_length=100)
@@ -643,6 +678,7 @@ class CraneLiftZoneCreate(BaseModel):
     max_radius_override_m: Decimal | None = None
     notes: str | None = None
 
+
 class CraneLiftZoneUpdate(BaseModel):
     zone_name: str | None = None
     angle_start_deg: Decimal | None = None
@@ -654,9 +690,11 @@ class CraneLiftZoneUpdate(BaseModel):
     max_radius_override_m: Decimal | None = None
     notes: str | None = None
 
+
 class CraneLiftZoneRead(CraneLiftZoneCreate, TimestampMixin):
     id: UUID
     config_id: UUID
+
     class Config:
         from_attributes = True
 
@@ -664,6 +702,7 @@ class CraneLiftZoneRead(CraneLiftZoneCreate, TimestampMixin):
 # ════════════════════════════════════════════════════════════════
 # CRANE — HOOK BLOCKS
 # ════════════════════════════════════════════════════════════════
+
 
 class CraneHookBlockCreate(BaseModel):
     block_reference: str | None = None
@@ -679,6 +718,7 @@ class CraneHookBlockCreate(BaseModel):
     is_main_hook: bool = True
     is_current_fit: bool = True
 
+
 class CraneHookBlockUpdate(BaseModel):
     block_reference: str | None = None
     block_tag: str | None = None
@@ -689,9 +729,11 @@ class CraneHookBlockUpdate(BaseModel):
     is_main_hook: bool | None = None
     is_current_fit: bool | None = None
 
+
 class CraneHookBlockRead(CraneHookBlockCreate, TimestampMixin):
     id: UUID
     crane_id: UUID
+
     class Config:
         from_attributes = True
 
@@ -700,6 +742,7 @@ class CraneHookBlockRead(CraneHookBlockCreate, TimestampMixin):
 # CRANE — REEVING GUIDE
 # ════════════════════════════════════════════════════════════════
 
+
 class CraneReevingGuideCreate(BaseModel):
     boom_config_ref: str | None = None
     load_min_tonnes: Decimal
@@ -707,15 +750,18 @@ class CraneReevingGuideCreate(BaseModel):
     reeving_parts: int
     config_id: UUID | None = None
 
+
 class CraneReevingGuideUpdate(BaseModel):
     boom_config_ref: str | None = None
     load_min_tonnes: Decimal | None = None
     load_max_tonnes: Decimal | None = None
     reeving_parts: int | None = None
 
+
 class CraneReevingGuideRead(CraneReevingGuideCreate, TimestampMixin):
     id: UUID
     crane_id: UUID
+
     class Config:
         from_attributes = True
 
@@ -723,6 +769,7 @@ class CraneReevingGuideRead(CraneReevingGuideCreate, TimestampMixin):
 # ════════════════════════════════════════════════════════════════
 # SEPARATOR — NOZZLES
 # ════════════════════════════════════════════════════════════════
+
 
 class SeparatorNozzleCreate(BaseModel):
     nozzle_mark: str = Field(min_length=1, max_length=10)
@@ -735,6 +782,7 @@ class SeparatorNozzleCreate(BaseModel):
     nozzle_material: str | None = None
     connected_to_tag: str | None = None
 
+
 class SeparatorNozzleUpdate(BaseModel):
     nozzle_mark: str | None = None
     nozzle_service: str | None = None
@@ -746,9 +794,11 @@ class SeparatorNozzleUpdate(BaseModel):
     nozzle_material: str | None = None
     connected_to_tag: str | None = None
 
+
 class SeparatorNozzleRead(SeparatorNozzleCreate, TimestampMixin):
     id: UUID
     separator_id: UUID
+
     class Config:
         from_attributes = True
 
@@ -756,6 +806,7 @@ class SeparatorNozzleRead(SeparatorNozzleCreate, TimestampMixin):
 # ════════════════════════════════════════════════════════════════
 # SEPARATOR — PROCESS CASES
 # ════════════════════════════════════════════════════════════════
+
 
 class SeparatorProcessCaseCreate(BaseModel):
     case_name: str = Field(min_length=1, max_length=50)
@@ -770,6 +821,7 @@ class SeparatorProcessCaseCreate(BaseModel):
     simulation_tool: str | None = None
     simulation_case_ref: str | None = None
 
+
 class SeparatorProcessCaseUpdate(BaseModel):
     case_name: str | None = None
     case_description: str | None = None
@@ -783,9 +835,11 @@ class SeparatorProcessCaseUpdate(BaseModel):
     simulation_tool: str | None = None
     simulation_case_ref: str | None = None
 
+
 class SeparatorProcessCaseRead(SeparatorProcessCaseCreate, TimestampMixin):
     id: UUID
     separator_id: UUID
+
     class Config:
         from_attributes = True
 
@@ -793,6 +847,7 @@ class SeparatorProcessCaseRead(SeparatorProcessCaseCreate, TimestampMixin):
 # ════════════════════════════════════════════════════════════════
 # PUMP — CURVE POINTS
 # ════════════════════════════════════════════════════════════════
+
 
 class PumpCurvePointCreate(BaseModel):
     flow_m3h: Decimal
@@ -803,6 +858,7 @@ class PumpCurvePointCreate(BaseModel):
     speed_rpm: Decimal | None = None
     source: str = "MANUFACTURER"
 
+
 class PumpCurvePointUpdate(BaseModel):
     flow_m3h: Decimal | None = None
     head_m: Decimal | None = None
@@ -812,9 +868,11 @@ class PumpCurvePointUpdate(BaseModel):
     speed_rpm: Decimal | None = None
     source: str | None = None
 
+
 class PumpCurvePointRead(PumpCurvePointCreate, TimestampMixin):
     id: UUID
     pump_id: UUID
+
     class Config:
         from_attributes = True
 
@@ -822,6 +880,7 @@ class PumpCurvePointRead(PumpCurvePointCreate, TimestampMixin):
 # ════════════════════════════════════════════════════════════════
 # PROCESS COLUMN — SECTIONS
 # ════════════════════════════════════════════════════════════════
+
 
 class ColumnSectionCreate(BaseModel):
     section_number: int
@@ -832,6 +891,7 @@ class ColumnSectionCreate(BaseModel):
     packing_height_m: Decimal | None = None
     notes: str | None = None
 
+
 class ColumnSectionUpdate(BaseModel):
     section_number: int | None = None
     section_name: str | None = None
@@ -841,9 +901,11 @@ class ColumnSectionUpdate(BaseModel):
     packing_height_m: Decimal | None = None
     notes: str | None = None
 
+
 class ColumnSectionRead(ColumnSectionCreate, TimestampMixin):
     id: UUID
     column_id: UUID
+
     class Config:
         from_attributes = True
 
@@ -851,6 +913,7 @@ class ColumnSectionRead(ColumnSectionCreate, TimestampMixin):
 # ════════════════════════════════════════════════════════════════
 # ASSET CHANGE LOG (audit trail)
 # ════════════════════════════════════════════════════════════════
+
 
 class AssetChangeLogRead(BaseModel):
     id: UUID
@@ -876,7 +939,9 @@ class AssetChangeLogRead(BaseModel):
 # ════════════════════════════════════════════════════════════════
 
 from typing import Generic, TypeVar
+
 T = TypeVar("T")
+
 
 class PaginatedResponse(BaseModel, Generic[T]):
     items: list[T]

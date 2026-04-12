@@ -14,21 +14,21 @@ from sqlalchemy import (
     Index,
     Integer,
     Numeric,
-    SmallInteger,
     String,
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
-
 # ─── Planner Activities ──────────────────────────────────────────────────────
+
 
 class PlannerActivity(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     """Activite planifiee — projet, workover, drilling, maintenance, etc."""
+
     __tablename__ = "planner_activities"
     __table_args__ = (
         Index("idx_planner_act_entity", "entity_id"),
@@ -37,8 +37,7 @@ class PlannerActivity(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
         Index("idx_planner_act_type", "type"),
         Index("idx_planner_act_project", "project_id"),
         CheckConstraint(
-            "type IN ('project','workover','drilling','integrity',"
-            "'maintenance','permanent_ops','inspection','event')",
+            "type IN ('project','workover','drilling','integrity','maintenance','permanent_ops','inspection','event')",
             name="ck_planner_act_type",
         ),
         CheckConstraint(
@@ -46,8 +45,7 @@ class PlannerActivity(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
             name="ck_planner_act_subtype",
         ),
         CheckConstraint(
-            "status IN ('draft','submitted','validated','rejected',"
-            "'cancelled','in_progress','completed')",
+            "status IN ('draft','submitted','validated','rejected','cancelled','in_progress','completed')",
             name="ck_planner_act_status",
         ),
         CheckConstraint(
@@ -56,21 +54,17 @@ class PlannerActivity(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
         ),
     )
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
-    asset_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
-    )
-    project_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("projects.id")
-    )
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    asset_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False)
+    project_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id"))
     source_task_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("project_tasks.id", ondelete="SET NULL"),
+        UUID(as_uuid=True),
+        ForeignKey("project_tasks.id", ondelete="SET NULL"),
         comment="The project task this activity was created from (Projets → Planner link)",
     )
     parent_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("planner_activities.id", ondelete="SET NULL"),
+        UUID(as_uuid=True),
+        ForeignKey("planner_activities.id", ondelete="SET NULL"),
         comment="Parent activity for hierarchy (POB sums up at each level)",
     )
     type: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -81,11 +75,14 @@ class PlannerActivity(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
     priority: Mapped[str] = mapped_column(String(10), nullable=False, default="medium")
     pax_quota: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     pax_quota_mode: Mapped[str] = mapped_column(
-        String(10), nullable=False, default="constant",
+        String(10),
+        nullable=False,
+        default="constant",
         comment="'constant' = single pax_quota for all days; 'variable' = per-day values in pax_quota_daily",
     )
     pax_quota_daily: Mapped[dict | None] = mapped_column(
-        JSONB, default=None,
+        JSONB,
+        default=None,
         comment="Per-day PAX quota: {'2026-04-10': 5, '2026-04-11': 8, ...}. Only used when pax_quota_mode='variable'.",
     )
     start_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -107,22 +104,14 @@ class PlannerActivity(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
     work_order_ref: Mapped[str | None] = mapped_column(String(50))
 
     # Workflow
-    submitted_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
-    )
+    submitted_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    validated_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
-    )
+    validated_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     validated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    rejected_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
-    )
+    rejected_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rejection_reason: Mapped[str | None] = mapped_column(Text)
-    created_by: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
+    created_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     # Per-activity override of the progress weighting method, with the
     # following resolution chain (see _resolve_activity_progress_method
     # in app/services/modules/planner_service.py):
@@ -154,8 +143,10 @@ class PlannerActivity(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
 
 # ─── Planner Conflicts ──────────────────────────────────────────────────────
 
+
 class PlannerConflict(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     """Conflit de capacite detecte sur un site a une date donnee."""
+
     __tablename__ = "planner_conflicts"
     __table_args__ = (
         Index("idx_planner_conf_entity", "entity_id"),
@@ -166,34 +157,27 @@ class PlannerConflict(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
             name="ck_planner_conf_status",
         ),
         CheckConstraint(
-            "resolution IS NULL OR resolution IN ("
-            "'approve_both','reschedule','reduce_pax','cancel','deferred')",
+            "resolution IS NULL OR resolution IN ('approve_both','reschedule','reduce_pax','cancel','deferred')",
             name="ck_planner_conf_resolution",
         ),
     )
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
-    asset_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
-    )
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    asset_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False)
     conflict_date: Mapped[date] = mapped_column(Date, nullable=False)
     conflict_type: Mapped[str] = mapped_column(
-        String(30), nullable=False, default="pax_overflow",
+        String(30),
+        nullable=False,
+        default="pax_overflow",
         server_default="pax_overflow",
     )
     overflow_amount: Mapped[int | None] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
     resolution: Mapped[str | None] = mapped_column(String(30))
     resolution_note: Mapped[str | None] = mapped_column(Text)
-    resolved_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
-    )
+    resolved_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships
@@ -205,8 +189,10 @@ class PlannerConflict(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
 
 # ─── Conflict <-> Activity Junction ─────────────────────────────────────────
 
+
 class PlannerConflictActivity(Base):
     """Association entre un conflit et les activites impliquees."""
+
     __tablename__ = "planner_conflict_activities"
 
     conflict_id: Mapped[PyUUID] = mapped_column(
@@ -223,8 +209,10 @@ class PlannerConflictActivity(Base):
 
 # ─── Activity Dependencies ──────────────────────────────────────────────────
 
+
 class PlannerActivityDependency(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Dependance entre deux activites (FS, SS, FF, SF)."""
+
     __tablename__ = "planner_activity_dependencies"
     __table_args__ = (
         Index("idx_planner_dep_pred", "predecessor_id"),
@@ -241,9 +229,7 @@ class PlannerActivityDependency(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     successor_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("planner_activities.id"), nullable=False
     )
-    dependency_type: Mapped[str] = mapped_column(
-        String(10), nullable=False, default="FS"
-    )
+    dependency_type: Mapped[str] = mapped_column(String(10), nullable=False, default="FS")
     lag_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # Relationships
@@ -294,6 +280,7 @@ class PlannerConflictAudit(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Scenarios (What-If simulation with persistence) ────────────────────────
 
+
 class PlannerScenario(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     """Persistent what-if scenario for capacity/conflict simulation.
 
@@ -324,20 +311,14 @@ class PlannerScenario(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
         ),
     )
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="draft"
     )  # draft | validated | promoted | archived
-    created_by: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
-    promoted_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
-    )
+    created_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    promoted_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     promoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # JSONB snapshot of the plan state at the time the scenario was created.
     # Used by diff computation to know "what changed compared to baseline".
@@ -392,9 +373,7 @@ class PlannerScenarioActivity(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # Activity fields — all nullable so modified-activity rows can leave
     # unchanged fields as NULL (meaning "keep the live value").
     title: Mapped[str | None] = mapped_column(String(255))
-    asset_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("ar_installations.id")
-    )
+    asset_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"))
     type: Mapped[str | None] = mapped_column(String(30))
     priority: Mapped[str | None] = mapped_column(String(20))
     pax_quota: Mapped[int | None] = mapped_column(Integer)

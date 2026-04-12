@@ -19,7 +19,7 @@ Event orchestration convention:
 """
 
 import logging
-from datetime import date, datetime, timezone, UTC
+from datetime import UTC, datetime
 from uuid import UUID
 
 from app.core.database import async_session_factory
@@ -36,14 +36,13 @@ logger = logging.getLogger(__name__)
 
 # ── Helper: resolve user email from user_id ──────────────────────────────
 
+
 async def _get_user_email_and_name(user_id: UUID, db) -> tuple[str | None, str]:
     """Get primary email and display name for a user."""
     from sqlalchemy import text
+
     result = await db.execute(
-        text(
-            "SELECT u.email, COALESCE(u.first_name || ' ' || u.last_name, u.email) "
-            "FROM users u WHERE u.id = :uid"
-        ),
+        text("SELECT u.email, COALESCE(u.first_name || ' ' || u.last_name, u.email) FROM users u WHERE u.id = :uid"),
         {"uid": user_id},
     )
     row = result.first()
@@ -54,6 +53,7 @@ async def _get_user_email_and_name(user_id: UUID, db) -> tuple[str | None, str]:
 # Handler: on_planner_activity_validated
 # When a planner activity is validated, notify related modules
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 async def on_planner_activity_validated(event: OpsFluxEvent) -> None:
     """When activity is validated — notify project manager via in-app + email."""
@@ -69,8 +69,8 @@ async def on_planner_activity_validated(event: OpsFluxEvent) -> None:
     try:
         # Notify the activity creator that it was validated
         if entity_id and created_by and str(created_by) != str(validated_by):
-            from app.core.notifications import send_in_app
             from app.core.email_templates import render_and_send_email
+            from app.core.notifications import send_in_app
 
             eid = UUID(str(entity_id))
             uid = UUID(str(created_by))
@@ -116,6 +116,7 @@ async def on_planner_activity_validated(event: OpsFluxEvent) -> None:
 # When activity cancelled — mark related AdS as requires_review
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def on_planner_activity_cancelled(event: OpsFluxEvent) -> None:
     """When activity is cancelled — mark linked AdS as requires_review."""
     payload = event.payload
@@ -126,7 +127,8 @@ async def on_planner_activity_cancelled(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from sqlalchemy import select, update
+        from sqlalchemy import select
+
         from app.models.paxlog import Ads
 
         async with async_session_factory() as db:
@@ -149,8 +151,8 @@ async def on_planner_activity_cancelled(event: OpsFluxEvent) -> None:
                 await db.commit()
 
                 # Notify each requester via in-app + email
-                from app.core.notifications import send_in_app
                 from app.core.email_templates import render_and_send_email
+                from app.core.notifications import send_in_app
 
                 eid = UUID(str(entity_id))
                 for ads in ads_list:
@@ -199,6 +201,7 @@ async def on_planner_activity_cancelled(event: OpsFluxEvent) -> None:
 # When capacity conflict detected — notify DO
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def on_planner_conflict_detected(event: OpsFluxEvent) -> None:
     """When capacity conflict detected — notify DO for arbitration."""
     payload = event.payload
@@ -213,8 +216,8 @@ async def on_planner_conflict_detected(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from app.core.notifications import send_in_app
         from app.core.email_templates import render_and_send_email
+        from app.core.notifications import send_in_app
         from app.event_handlers.core_handlers import _get_admin_user_ids
 
         eid = UUID(str(entity_id))
@@ -342,6 +345,7 @@ async def on_planner_conflict_resolved(event: OpsFluxEvent) -> None:
 # When AdS is approved — auto-add PAX to TravelWiz manifest
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def on_ads_approved(event: OpsFluxEvent) -> None:
     """When AdS approved — find compatible voyage and add PAX to manifest."""
     payload = event.payload
@@ -375,17 +379,19 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from sqlalchemy import select, and_
+        from sqlalchemy import select
+
         from app.models.paxlog import Ads, AdsPax
         from app.models.travelwiz import (
-            Voyage, VoyageStop, VoyageManifest, ManifestPassenger,
+            ManifestPassenger,
+            Voyage,
+            VoyageManifest,
+            VoyageStop,
         )
 
         async with async_session_factory() as db:
             # Load the AdS and its approved PAX
-            ads_result = await db.execute(
-                select(Ads).where(Ads.id == UUID(str(ads_id)))
-            )
+            ads_result = await db.execute(select(Ads).where(Ads.id == UUID(str(ads_id))))
             ads = ads_result.scalar_one_or_none()
             if not ads:
                 logger.warning("on_ads_approved: AdS %s not found", ads_id)
@@ -406,23 +412,19 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
             # Look for voyages going to the site_asset_id around the start_date
             start_date = ads.start_date
             from datetime import timedelta
+
             search_start = start_date - timedelta(days=1)
             search_end = start_date + timedelta(days=2)
 
-            voyage_query = (
-                select(Voyage)
-                .where(
-                    Voyage.entity_id == UUID(str(entity_id)),
-                    Voyage.status.in_(["planned", "confirmed"]),
-                    Voyage.scheduled_departure >= datetime.combine(search_start, datetime.min.time()),
-                    Voyage.scheduled_departure <= datetime.combine(search_end, datetime.max.time()),
-                    Voyage.active == True,
-                )
+            voyage_query = select(Voyage).where(
+                Voyage.entity_id == UUID(str(entity_id)),
+                Voyage.status.in_(["planned", "confirmed"]),
+                Voyage.scheduled_departure >= datetime.combine(search_start, datetime.min.time()),
+                Voyage.scheduled_departure <= datetime.combine(search_end, datetime.max.time()),
+                Voyage.active == True,
             )
             if outbound_departure_base_id:
-                voyage_query = voyage_query.where(
-                    Voyage.departure_base_id == UUID(str(outbound_departure_base_id))
-                )
+                voyage_query = voyage_query.where(Voyage.departure_base_id == UUID(str(outbound_departure_base_id)))
 
             voyages_result = await db.execute(voyage_query)
             voyages = voyages_result.scalars().all()
@@ -454,6 +456,7 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
                 # Send notification to LOG_BASE admins
                 from app.core.notifications import send_in_app
                 from app.event_handlers.core_handlers import _get_admin_user_ids
+
                 admin_ids = await _get_admin_user_ids(entity_id)
                 for admin_id in admin_ids:
                     await send_in_app(
@@ -467,7 +470,7 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
                             f"Veuillez créer un voyage."
                         ),
                         category="travelwiz",
-                        link=f"/travelwiz/voyages",
+                        link="/travelwiz/voyages",
                     )
                 await db.commit()
                 return
@@ -507,10 +510,12 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
                 pax_name = ""
                 if ads_pax_entry.user_id:
                     from app.models.common import User as UserModel
+
                     u = await db.get(UserModel, ads_pax_entry.user_id)
                     pax_name = f"{u.first_name} {u.last_name}" if u else ""
                 elif ads_pax_entry.contact_id:
                     from app.models.common import TierContact
+
                     tc = await db.get(TierContact, ads_pax_entry.contact_id)
                     pax_name = f"{tc.first_name} {tc.last_name}" if tc else ""
 
@@ -531,12 +536,14 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
             await db.commit()
             logger.info(
                 "on_ads_approved: added %d PAX from AdS %s to voyage %s manifest",
-                added_count, ads.reference, compatible_voyage.id,
+                added_count,
+                ads.reference,
+                compatible_voyage.id,
             )
 
             # Notify requester that transport is being arranged — in-app + email
-            from app.core.notifications import send_in_app
             from app.core.email_templates import render_and_send_email
+            from app.core.notifications import send_in_app
 
             eid = UUID(str(entity_id))
             await send_in_app(
@@ -544,10 +551,7 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
                 user_id=ads.requester_id,
                 entity_id=eid,
                 title="Transport en cours d'organisation",
-                body=(
-                    f"Les {added_count} PAX de l'AdS {ads.reference} ont été "
-                    f"ajoutés au manifeste du voyage prévu."
-                ),
+                body=(f"Les {added_count} PAX de l'AdS {ads.reference} ont été ajoutés au manifeste du voyage prévu."),
                 category="travelwiz",
                 link=f"/travelwiz/voyages/{compatible_voyage.id}",
             )
@@ -583,6 +587,7 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
 # When return manifest closed — auto-close linked AdS
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def _complete_ads_from_travelwiz_passengers(
     *,
     db,
@@ -592,13 +597,12 @@ async def _complete_ads_from_travelwiz_passengers(
     source: str,
 ) -> int:
     from sqlalchemy import select
+
     from app.models.paxlog import Ads, AdsEvent, AdsPax
 
     ads_ids_to_close: set[str] = set()
     for passenger in passengers:
-        ads_pax_result = await db.execute(
-            select(AdsPax.ads_id).where(AdsPax.id == passenger.ads_pax_id)
-        )
+        ads_pax_result = await db.execute(select(AdsPax.ads_id).where(AdsPax.id == passenger.ads_pax_id))
         ads_id = ads_pax_result.scalar_one_or_none()
         if ads_id:
             ads_ids_to_close.add(str(ads_id))
@@ -616,19 +620,21 @@ async def _complete_ads_from_travelwiz_passengers(
         if ads:
             old_status = ads.status
             ads.status = "completed"
-            db.add(AdsEvent(
-                entity_id=ads.entity_id,
-                ads_id=ads.id,
-                event_type="completed",
-                old_status=old_status,
-                new_status="completed",
-                actor_id=None,
-                metadata_json={
-                    "source": source,
-                    "manifest_id": manifest_id,
-                    "voyage_id": voyage_id,
-                },
-            ))
+            db.add(
+                AdsEvent(
+                    entity_id=ads.entity_id,
+                    ads_id=ads.id,
+                    event_type="completed",
+                    old_status=old_status,
+                    new_status="completed",
+                    actor_id=None,
+                    metadata_json={
+                        "source": source,
+                        "manifest_id": manifest_id,
+                        "voyage_id": voyage_id,
+                    },
+                )
+            )
             completed_ads_payloads.append(
                 {
                     "ads_id": str(ads.id),
@@ -657,20 +663,23 @@ async def _complete_ads_from_travelwiz_passengers(
                     "voyage_id": item["voyage_id"] or None,
                 },
             )
-            await event_bus.publish(OpsFluxEvent(
-                event_type="ads.completed",
-                payload={
-                    "ads_id": item["ads_id"],
-                    "entity_id": item["entity_id"],
-                    "reference": item["reference"],
-                    "requester_id": item["requester_id"],
-                    "source": source,
-                    "manifest_id": item["manifest_id"] or None,
-                    "voyage_id": item["voyage_id"] or None,
-                },
-            ))
+            await event_bus.publish(
+                OpsFluxEvent(
+                    event_type="ads.completed",
+                    payload={
+                        "ads_id": item["ads_id"],
+                        "entity_id": item["entity_id"],
+                        "reference": item["reference"],
+                        "requester_id": item["requester_id"],
+                        "source": source,
+                        "manifest_id": item["manifest_id"] or None,
+                        "voyage_id": item["voyage_id"] or None,
+                    },
+                )
+            )
 
     return closed_count
+
 
 async def on_travelwiz_manifest_closed(event: OpsFluxEvent) -> None:
     """When return manifest is closed — auto-close linked AdS to 'completed'."""
@@ -685,6 +694,7 @@ async def on_travelwiz_manifest_closed(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import select
+
         from app.models.travelwiz import ManifestPassenger
 
         async with async_session_factory() as db:
@@ -706,7 +716,8 @@ async def on_travelwiz_manifest_closed(event: OpsFluxEvent) -> None:
 
             logger.info(
                 "travelwiz.manifest.closed: auto-closed %d AdS from manifest %s",
-                closed_count, manifest_id,
+                closed_count,
+                manifest_id,
             )
     except Exception:
         logger.exception("Error in on_travelwiz_manifest_closed for manifest %s", manifest_id)
@@ -723,6 +734,7 @@ async def on_travelwiz_trip_closed(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import select
+
         from app.models.travelwiz import ManifestPassenger, VoyageManifest
 
         async with async_session_factory() as db:
@@ -755,7 +767,8 @@ async def on_travelwiz_trip_closed(event: OpsFluxEvent) -> None:
 
             logger.info(
                 "travelwiz.trip.closed: auto-closed %d AdS from voyage %s",
-                closed_count, voyage_id,
+                closed_count,
+                voyage_id,
             )
     except Exception:
         logger.exception("Error in on_travelwiz_trip_closed for voyage %s", voyage_id)
@@ -772,6 +785,7 @@ async def on_travelwiz_voyage_cancelled_packlog(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import text
+
         from app.core.notifications import send_in_app
 
         async with async_session_factory() as db:
@@ -806,9 +820,7 @@ async def on_travelwiz_voyage_cancelled_packlog(event: OpsFluxEvent) -> None:
                     user_id=UUID(str(notify_user_id)),
                     entity_id=UUID(str(entity_id)),
                     title="PackLog — Voyage annulé",
-                    body=(
-                        f"Le colis {tracking_code} a été retiré d'un voyage annulé et doit être replanifié."
-                    ),
+                    body=(f"Le colis {tracking_code} a été retiré d'un voyage annulé et doit être replanifié."),
                     category="packlog",
                     link=f"/packlog/cargo/{cargo_id}",
                 )
@@ -827,6 +839,7 @@ async def on_travelwiz_voyage_cancelled_packlog(event: OpsFluxEvent) -> None:
 # Handler: on_compliance_rule_changed
 # Notify affected users when a compliance rule is created or updated
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 async def _get_affected_user_ids(entity_id: str | UUID, target_type: str, target_value: str | None) -> list[UUID]:
     """Return user IDs affected by a compliance rule based on its target_type.
@@ -882,11 +895,14 @@ async def _get_affected_user_ids(entity_id: str | UUID, target_type: str, target
             else:
                 # Unsupported target_type — fall back to admins only
                 from app.event_handlers.core_handlers import _get_admin_user_ids
+
                 return await _get_admin_user_ids(entity_id)
 
             return [row.user_id for row in result.fetchall()]
     except Exception:
-        logger.exception("Failed to fetch affected user IDs for entity %s, target %s/%s", entity_id, target_type, target_value)
+        logger.exception(
+            "Failed to fetch affected user IDs for entity %s, target %s/%s", entity_id, target_type, target_value
+        )
         return []
 
 
@@ -907,8 +923,8 @@ async def on_compliance_rule_changed(event: OpsFluxEvent) -> None:
     action_label = "Nouvelle exigence" if is_new else "Exigence mise à jour"
 
     try:
-        from app.core.notifications import send_in_app_bulk
         from app.core.email_templates import render_and_send_email
+        from app.core.notifications import send_in_app_bulk
 
         user_ids = await _get_affected_user_ids(entity_id, target_type, target_value)
         if not user_ids:
@@ -950,14 +966,17 @@ async def on_compliance_rule_changed(event: OpsFluxEvent) -> None:
             await db.commit()
 
         # Broadcast cache invalidation via Redis pub/sub
-        import json
-        from app.core.redis_client import get_redis
         from app.core.notification_manager import notification_manager
 
-        await notification_manager.broadcast_to_entity(eid, {
-            "type": "cache_invalidate",
-            "data": {"keys": ["compliance-rules", "compliance-records", "pending-verifications", "compliance-kpis"]},
-        })
+        await notification_manager.broadcast_to_entity(
+            eid,
+            {
+                "type": "cache_invalidate",
+                "data": {
+                    "keys": ["compliance-rules", "compliance-records", "pending-verifications", "compliance-kpis"]
+                },
+            },
+        )
 
         logger.info("%s handled: rule=%s, notified %d users", event.event_type, rule_id, len(user_ids))
     except Exception:
@@ -968,6 +987,7 @@ async def on_compliance_rule_changed(event: OpsFluxEvent) -> None:
 # Handler: on_compliance_record_verified
 # Notify the record owner when their document is verified or rejected
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 async def on_compliance_record_verified(event: OpsFluxEvent) -> None:
     """Notify the record owner (in-app) when their document is verified or rejected."""
@@ -981,11 +1001,15 @@ async def on_compliance_record_verified(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from app.core.notifications import send_in_app
         from app.core.notification_manager import broadcast_entity_message
+        from app.core.notifications import send_in_app
         from app.models.common import (
-            UserPassport, UserVisa, SocialSecurity, UserVaccine,
-            MedicalCheck, DrivingLicense,
+            DrivingLicense,
+            MedicalCheck,
+            SocialSecurity,
+            UserPassport,
+            UserVaccine,
+            UserVisa,
         )
         from app.models.modules.conformite import ComplianceRecord
 
@@ -1048,7 +1072,10 @@ async def on_compliance_record_verified(event: OpsFluxEvent) -> None:
         # Broadcast cache invalidate so the user's UI refreshes
         await broadcast_entity_message(
             str(entity_id),
-            {"type": "cache_invalidate", "data": {"keys": ["pending-verifications", "verification-history", "compliance-kpis"]}},
+            {
+                "type": "cache_invalidate",
+                "data": {"keys": ["pending-verifications", "verification-history", "compliance-kpis"]},
+            },
         )
         logger.info("conformite.record.%s handled: %s", "rejected" if is_rejected else "verified", record_id)
     except Exception:
@@ -1060,6 +1087,7 @@ async def on_compliance_record_verified(event: OpsFluxEvent) -> None:
 # Notify entity admins when a compliance record expires
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def on_compliance_expired(event: OpsFluxEvent) -> None:
     """Notify relevant users when a compliance record expires."""
     payload = event.payload
@@ -1070,8 +1098,8 @@ async def on_compliance_expired(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from app.core.notifications import send_in_app
         from app.core.email_templates import render_and_send_email
+        from app.core.notifications import send_in_app
         from app.event_handlers.core_handlers import _get_admin_user_ids
 
         admin_ids = await _get_admin_user_ids(entity_id)
@@ -1119,6 +1147,7 @@ async def on_compliance_expired(event: OpsFluxEvent) -> None:
 # reflects operational reality without the manager intervening.
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def on_paxlog_ads_in_progress(event: OpsFluxEvent) -> None:
     """Auto-progress a Planner activity when its first linked AdS starts."""
     payload = event.payload
@@ -1128,30 +1157,30 @@ async def on_paxlog_ads_in_progress(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import select
+
         from app.models.paxlog import Ads
         from app.models.planner import PlannerActivity
 
         async with async_session_factory() as db:
-            ads_row = (await db.execute(
-                select(Ads).where(Ads.id == UUID(str(ads_id)))
-            )).scalar_one_or_none()
+            ads_row = (await db.execute(select(Ads).where(Ads.id == UUID(str(ads_id))))).scalar_one_or_none()
             if ads_row is None or ads_row.planner_activity_id is None:
                 return
 
-            activity = (await db.execute(
-                select(PlannerActivity).where(PlannerActivity.id == ads_row.planner_activity_id)
-            )).scalar_one_or_none()
+            activity = (
+                await db.execute(select(PlannerActivity).where(PlannerActivity.id == ads_row.planner_activity_id))
+            ).scalar_one_or_none()
             if activity is None:
                 return
 
             if activity.status in ("validated",):
                 activity.status = "in_progress"
                 if activity.actual_start is None:
-                    activity.actual_start = datetime.now(timezone.utc)
+                    activity.actual_start = datetime.now(UTC)
                 await db.commit()
                 logger.info(
                     "ads.in_progress cascade: planner activity %s validated → in_progress (ads=%s)",
-                    activity.id, ads_id,
+                    activity.id,
+                    ads_id,
                 )
     except Exception:
         logger.exception("Error in on_paxlog_ads_in_progress for ads=%s", ads_id)
@@ -1167,42 +1196,44 @@ async def on_paxlog_ads_completed(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import select
+
         from app.models.paxlog import Ads
         from app.models.planner import PlannerActivity
 
         async with async_session_factory() as db:
-            ads_row = (await db.execute(
-                select(Ads).where(Ads.id == UUID(str(ads_id)))
-            )).scalar_one_or_none()
+            ads_row = (await db.execute(select(Ads).where(Ads.id == UUID(str(ads_id))))).scalar_one_or_none()
             if ads_row is None or ads_row.planner_activity_id is None:
                 return
 
-            activity = (await db.execute(
-                select(PlannerActivity).where(PlannerActivity.id == ads_row.planner_activity_id)
-            )).scalar_one_or_none()
+            activity = (
+                await db.execute(select(PlannerActivity).where(PlannerActivity.id == ads_row.planner_activity_id))
+            ).scalar_one_or_none()
             if activity is None or activity.status in ("completed", "cancelled"):
                 return
 
             activity.status = "completed"
             if activity.actual_end is None:
-                activity.actual_end = datetime.now(timezone.utc)
+                activity.actual_end = datetime.now(UTC)
             await db.commit()
 
-            await event_bus.publish(OpsFluxEvent(
-                event_type="planner.activity.completed",
-                payload={
-                    "activity_id": str(activity.id),
-                    "entity_id": str(entity_id or ads_row.entity_id),
-                    "asset_id": str(activity.asset_id),
-                    "project_id": str(activity.project_id) if activity.project_id else None,
-                    "title": activity.title,
-                    "source": "ads.completed",
-                    "ads_id": str(ads_row.id),
-                },
-            ))
+            await event_bus.publish(
+                OpsFluxEvent(
+                    event_type="planner.activity.completed",
+                    payload={
+                        "activity_id": str(activity.id),
+                        "entity_id": str(entity_id or ads_row.entity_id),
+                        "asset_id": str(activity.asset_id),
+                        "project_id": str(activity.project_id) if activity.project_id else None,
+                        "title": activity.title,
+                        "source": "ads.completed",
+                        "ads_id": str(ads_row.id),
+                    },
+                )
+            )
             logger.info(
                 "ads.completed cascade: planner activity %s → completed (ads=%s)",
-                activity.id, ads_id,
+                activity.id,
+                ads_id,
             )
     except Exception:
         logger.exception("Error in on_paxlog_ads_completed for ads=%s", ads_id)
@@ -1216,6 +1247,7 @@ async def on_paxlog_ads_completed(event: OpsFluxEvent) -> None:
 #   activity_cancelled handler will then cascade further to AdS).
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def on_project_status_changed(event: OpsFluxEvent) -> None:
     """Notify project stakeholders and cascade project cancellation to Planner."""
     payload = event.payload
@@ -1227,8 +1259,8 @@ async def on_project_status_changed(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from app.core.notifications import send_in_app
         from app.core.email_templates import render_and_send_email
+        from app.core.notifications import send_in_app
         from app.event_handlers.core_handlers import _get_admin_user_ids
 
         admin_ids = await _get_admin_user_ids(entity_id)
@@ -1268,37 +1300,48 @@ async def on_project_status_changed(event: OpsFluxEvent) -> None:
         if new_status in ("cancelled", "archived"):
             try:
                 from sqlalchemy import select
+
                 from app.models.planner import PlannerActivity
+
                 TERMINAL = {"cancelled", "rejected", "completed"}
                 async with async_session_factory() as db:
-                    activities = (await db.execute(
-                        select(PlannerActivity).where(
-                            PlannerActivity.project_id == UUID(str(project_id)),
-                            ~PlannerActivity.status.in_(list(TERMINAL)),
+                    activities = (
+                        (
+                            await db.execute(
+                                select(PlannerActivity).where(
+                                    PlannerActivity.project_id == UUID(str(project_id)),
+                                    ~PlannerActivity.status.in_(list(TERMINAL)),
+                                )
+                            )
                         )
-                    )).scalars().all()
+                        .scalars()
+                        .all()
+                    )
                     cancelled_count = 0
                     for activity in activities:
                         activity.status = "cancelled"
-                        activity.cancelled_at = datetime.now(timezone.utc)
+                        activity.cancelled_at = datetime.now(UTC)
                         cancelled_count += 1
                         # Emit the cancellation event so downstream listeners
                         # (AdS, TravelWiz, notifications) trigger as if the
                         # user had cancelled the activity manually.
-                        await event_bus.publish(OpsFluxEvent(
-                            event_type="planner.activity.cancelled",
-                            payload={
-                                "activity_id": str(activity.id),
-                                "entity_id": str(entity_id),
-                                "reason": f"Projet {new_status}",
-                                "cascade_source": "project.status.changed",
-                            },
-                        ))
+                        await event_bus.publish(
+                            OpsFluxEvent(
+                                event_type="planner.activity.cancelled",
+                                payload={
+                                    "activity_id": str(activity.id),
+                                    "entity_id": str(entity_id),
+                                    "reason": f"Projet {new_status}",
+                                    "cascade_source": "project.status.changed",
+                                },
+                            )
+                        )
                     if cancelled_count:
                         await db.commit()
                         logger.info(
                             "project.status.changed cascade: cancelled %d Planner activities for project %s",
-                            cancelled_count, project_id,
+                            cancelled_count,
+                            project_id,
                         )
             except Exception:
                 logger.exception(
@@ -1313,6 +1356,7 @@ async def on_project_status_changed(event: OpsFluxEvent) -> None:
 # Handler: on_credential_expiring
 # Alert when a PAX credential is about to expire
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 async def on_credential_expiring(event: OpsFluxEvent) -> None:
     """Alert when a PAX credential is about to expire."""
@@ -1350,6 +1394,7 @@ async def on_credential_expiring(event: OpsFluxEvent) -> None:
 # Registration
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def on_workflow_transition(event: OpsFluxEvent) -> None:
     """Generic FSM transition handler — logs all workflow transitions for observability.
 
@@ -1368,7 +1413,12 @@ async def on_workflow_transition(event: OpsFluxEvent) -> None:
 
     logger.info(
         "FSM transition: %s/%s [%s] %s → %s (by %s)",
-        slug, entity_type, entity_id, from_state, to_state, actor_id,
+        slug,
+        entity_type,
+        entity_id,
+        from_state,
+        to_state,
+        actor_id,
     )
 
 
@@ -1403,10 +1453,12 @@ async def on_workflow_transition_semantic_bridge(event: OpsFluxEvent) -> None:
         for alias in aliases:
             if not isinstance(alias, str):
                 continue
-            await event_bus.publish(OpsFluxEvent(
-                event_type=alias.format(to_state=to_state),
-                payload=bridge_payload,
-            ))
+            await event_bus.publish(
+                OpsFluxEvent(
+                    event_type=alias.format(to_state=to_state),
+                    payload=bridge_payload,
+                )
+            )
 
 
 async def on_planner_activity_status_sync(event: OpsFluxEvent) -> None:
@@ -1430,13 +1482,14 @@ async def on_planner_activity_status_sync(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import select
-        from app.models.planner import PlannerActivity
+
         from app.models.common import ProjectTask
+        from app.models.planner import PlannerActivity
 
         async with async_session_factory() as db:
-            activity = (await db.execute(
-                select(PlannerActivity).where(PlannerActivity.id == UUID(str(activity_id)))
-            )).scalar_one_or_none()
+            activity = (
+                await db.execute(select(PlannerActivity).where(PlannerActivity.id == UUID(str(activity_id))))
+            ).scalar_one_or_none()
             if not activity or not activity.source_task_id:
                 return
 
@@ -1444,9 +1497,9 @@ async def on_planner_activity_status_sync(event: OpsFluxEvent) -> None:
             if not new_task_status:
                 return
 
-            task = (await db.execute(
-                select(ProjectTask).where(ProjectTask.id == activity.source_task_id)
-            )).scalar_one_or_none()
+            task = (
+                await db.execute(select(ProjectTask).where(ProjectTask.id == activity.source_task_id))
+            ).scalar_one_or_none()
             if not task or task.status == new_task_status:
                 return
 
@@ -1454,7 +1507,9 @@ async def on_planner_activity_status_sync(event: OpsFluxEvent) -> None:
             await db.commit()
             logger.info(
                 "Planner→Projets sync: task %s → %s (from activity %s)",
-                task.id, new_task_status, activity_id,
+                task.id,
+                new_task_status,
+                activity_id,
             )
     except Exception:
         logger.exception("Error in on_planner_activity_status_sync for %s", activity_id)
@@ -1471,20 +1526,21 @@ async def on_planner_activity_completed_suggest_task_closure(event: OpsFluxEvent
 
     try:
         from sqlalchemy import select
+
         from app.core.notifications import send_in_app
         from app.models.common import Project, ProjectTask
         from app.models.planner import PlannerActivity
 
         async with async_session_factory() as db:
-            activity = (await db.execute(
-                select(PlannerActivity).where(PlannerActivity.id == UUID(str(activity_id)))
-            )).scalar_one_or_none()
+            activity = (
+                await db.execute(select(PlannerActivity).where(PlannerActivity.id == UUID(str(activity_id))))
+            ).scalar_one_or_none()
             if not activity or not activity.source_task_id:
                 return
 
-            task = (await db.execute(
-                select(ProjectTask).where(ProjectTask.id == activity.source_task_id)
-            )).scalar_one_or_none()
+            task = (
+                await db.execute(select(ProjectTask).where(ProjectTask.id == activity.source_task_id))
+            ).scalar_one_or_none()
             if not task or task.status in {"done", "cancelled"}:
                 return
 
@@ -1513,7 +1569,8 @@ async def on_planner_activity_completed_suggest_task_closure(event: OpsFluxEvent
             await db.commit()
             logger.info(
                 "Planner completion suggestion sent for task %s (activity %s)",
-                task.id, activity_id,
+                task.id,
+                activity_id,
             )
     except Exception:
         logger.exception("Error in on_planner_activity_completed_suggest_task_closure for %s", activity_id)
@@ -1534,6 +1591,7 @@ async def on_project_task_planner_sync_required(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import select
+
         from app.api.deps import has_user_permission
         from app.core.notifications import send_in_app
         from app.models.common import User
@@ -1541,13 +1599,17 @@ async def on_project_task_planner_sync_required(event: OpsFluxEvent) -> None:
         eid = UUID(str(entity_id))
         async with async_session_factory() as db:
             users = (
-                await db.execute(
-                    select(User).where(
-                        User.default_entity_id == eid,
-                        User.active == True,
+                (
+                    await db.execute(
+                        select(User).where(
+                            User.default_entity_id == eid,
+                            User.active == True,
+                        )
                     )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
 
             recipient_ids: list[UUID] = []
             for user in users:
@@ -1564,9 +1626,9 @@ async def on_project_task_planner_sync_required(event: OpsFluxEvent) -> None:
                 "due_date": "date de fin",
                 "status": "statut",
             }
-            changed_label = ", ".join(
-                field_labels.get(str(field), str(field)) for field in changed_fields
-            ) or "donnees critiques"
+            changed_label = (
+                ", ".join(field_labels.get(str(field), str(field)) for field in changed_fields) or "donnees critiques"
+            )
             title = "Revision Planner suggeree"
             body = (
                 f"La tache projet '{task_title}' du projet {project_code or project_id} a change "

@@ -33,11 +33,13 @@ async def sync_permissions_and_roles() -> None:
             for perm_code in module.permissions:
                 # Derive a human-readable name from the code
                 name = perm_code.replace(".", " › ").replace("_", " ").title()
-                all_permissions.append({
-                    "code": perm_code,
-                    "name": name,
-                    "module": module.slug,
-                })
+                all_permissions.append(
+                    {
+                        "code": perm_code,
+                        "name": name,
+                        "module": module.slug,
+                    }
+                )
 
         # Add core RBAC permissions (not declared by any module)
         core_permissions = [
@@ -91,12 +93,14 @@ async def sync_permissions_and_roles() -> None:
         for module in modules:
             for role_def in module.roles:
                 code = role_def["code"]
-                all_roles.append({
-                    "code": code,
-                    "name": role_def.get("name", code),
-                    "description": role_def.get("description"),
-                    "module": module.slug,
-                })
+                all_roles.append(
+                    {
+                        "code": code,
+                        "name": role_def.get("name", code),
+                        "description": role_def.get("description"),
+                        "module": module.slug,
+                    }
+                )
                 if "permissions" in role_def:
                     role_permissions_map[code] = role_def["permissions"]
 
@@ -131,9 +135,7 @@ async def sync_permissions_and_roles() -> None:
 
         # SUPER_ADMIN gets wildcard, READER gets all .read permissions
         role_permissions_map["SUPER_ADMIN"] = ["*"]
-        role_permissions_map["READER"] = [
-            p["code"] for p in all_permissions if p["code"].endswith(".read")
-        ]
+        role_permissions_map["READER"] = [p["code"] for p in all_permissions if p["code"].endswith(".read")]
 
         # Upsert roles
         if all_roles:
@@ -153,10 +155,12 @@ async def sync_permissions_and_roles() -> None:
         all_role_perms: list[dict] = []
         for role_code, perm_codes in role_permissions_map.items():
             for perm_code in perm_codes:
-                all_role_perms.append({
-                    "role_code": role_code,
-                    "permission_code": perm_code,
-                })
+                all_role_perms.append(
+                    {
+                        "role_code": role_code,
+                        "permission_code": perm_code,
+                    }
+                )
 
         if all_role_perms:
             stmt = pg_insert(RolePermission).values(all_role_perms)

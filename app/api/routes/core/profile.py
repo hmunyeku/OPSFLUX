@@ -39,7 +39,16 @@ async def update_profile(
         )
 
     # ── Identity lock: block changes to identity fields when verified ──
-    IDENTITY_FIELDS = {"first_name", "last_name", "gender", "nationality", "birth_country", "birth_date", "birth_city", "passport_name"}
+    IDENTITY_FIELDS = {
+        "first_name",
+        "last_name",
+        "gender",
+        "nationality",
+        "birth_country",
+        "birth_date",
+        "birth_city",
+        "passport_name",
+    }
     if current_user.identity_verified:
         locked_fields = IDENTITY_FIELDS & set(update_data.keys())
         if locked_fields:
@@ -68,9 +77,7 @@ async def update_profile(
     await db.commit()
 
     # Re-fetch with eager-loaded relationships for response
-    result = await db.execute(
-        select(User).options(selectinload(User.job_position)).where(User.id == current_user.id)
-    )
+    result = await db.execute(select(User).options(selectinload(User.job_position)).where(User.id == current_user.id))
     return result.scalar_one()
 
 
@@ -125,7 +132,7 @@ async def upload_avatar(
     if file.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid image type. Allowed: png, jpg, webp",
+            detail="Invalid image type. Allowed: png, jpg, webp",
         )
 
     # Determine file extension from content type
@@ -149,7 +156,7 @@ async def upload_avatar(
         f.write(contents)
 
     # Update user avatar_url — use API base URL for cross-domain access
-    api_url = getattr(settings, 'API_URL', '') or ''
+    api_url = getattr(settings, "API_URL", "") or ""
     avatar_url = f"{api_url}/static/avatars/{filename}" if api_url else f"/static/avatars/{filename}"
     current_user.avatar_url = avatar_url
     await db.commit()

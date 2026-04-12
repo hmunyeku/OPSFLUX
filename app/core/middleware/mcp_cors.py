@@ -57,8 +57,6 @@ class McpCorsMiddleware(BaseHTTPMiddleware):
             del response.headers["X-Frame-Options"]
         if "Content-Security-Policy" in response.headers:
             csp = response.headers["Content-Security-Policy"]
-            response.headers["Content-Security-Policy"] = csp.replace(
-                "frame-ancestors 'none'", "frame-ancestors *"
-            )
+            response.headers["Content-Security-Policy"] = csp.replace("frame-ancestors 'none'", "frame-ancestors *")
 
         return response

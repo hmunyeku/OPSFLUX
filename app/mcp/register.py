@@ -10,21 +10,22 @@ logger = logging.getLogger(__name__)
 
 
 async def _ensure_native_backend(
-    slug: str, name: str, description: str,
+    slug: str,
+    name: str,
+    description: str,
 ) -> None:
     """Ensure a native backend row exists in mcp_gateway_backends.
 
     Idempotent — creates the row only if the slug doesn't exist yet.
     """
     from sqlalchemy import select, text
+
     from app.core.database import async_session_factory
     from app.models.mcp_gateway import McpGatewayBackend
 
     async with async_session_factory() as session:
         await session.execute(text("SET search_path TO public"))
-        result = await session.execute(
-            select(McpGatewayBackend).where(McpGatewayBackend.slug == slug)
-        )
+        result = await session.execute(select(McpGatewayBackend).where(McpGatewayBackend.slug == slug))
         if result.scalar_one_or_none() is not None:
             return
 
@@ -67,6 +68,7 @@ async def _ensure_mcp_token() -> None:
         return
 
     from sqlalchemy import select, text
+
     from app.core.database import async_session_factory
     from app.models.mcp_gateway import McpGatewayToken
 
@@ -74,9 +76,7 @@ async def _ensure_mcp_token() -> None:
 
     async with async_session_factory() as session:
         await session.execute(text("SET search_path TO public"))
-        result = await session.execute(
-            select(McpGatewayToken).where(McpGatewayToken.token_hash == token_hash)
-        )
+        result = await session.execute(select(McpGatewayToken).where(McpGatewayToken.token_hash == token_hash))
         if result.scalar_one_or_none() is not None:
             return  # already exists
 
@@ -101,9 +101,10 @@ async def register_mcp_plugins() -> None:
     register_core_tools(mcp_registry)
 
     # Register native MCP backend initializers (lazy — actual init on first request)
-    from app.mcp.mcp_native import register_native_initializer
     from app.mcp.gouti_tools import create_gouti_backend
+    from app.mcp.mcp_native import register_native_initializer
     from app.mcp.opsflux_tools import create_opsflux_backend
+
     register_native_initializer("gouti", create_gouti_backend)
     register_native_initializer("opsflux", create_opsflux_backend)
 

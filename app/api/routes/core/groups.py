@@ -19,7 +19,6 @@ from app.core.pagination import PaginationParams
 from app.core.rbac import invalidate_rbac_cache
 from app.models.asset_registry import Installation
 from app.models.common import (
-
     Entity,
     GroupPermissionOverride,
     Permission,
@@ -30,7 +29,6 @@ from app.models.common import (
     UserGroupRole,
 )
 from app.schemas.common import OpsFluxSchema, PaginatedResponse
-from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/rbac/groups", tags=["rbac-groups"])
 
@@ -73,6 +71,7 @@ class PermissionOverrideRead(OpsFluxSchema):
 
 class PermissionOverrideSet(BaseModel):
     """Replace all group permission overrides at once."""
+
     overrides: list[PermissionOverrideRead] = Field(default_factory=list)
 
 
@@ -131,9 +130,7 @@ async def _set_group_roles(group_id: UUID, role_codes: list[str], db: AsyncSessi
     """Replace all roles for a group. Returns list of (code, name) pairs."""
     # Validate all role codes exist
     if role_codes:
-        valid_result = await db.execute(
-            select(Role.code, Role.name).where(Role.code.in_(role_codes))
-        )
+        valid_result = await db.execute(select(Role.code, Role.name).where(Role.code.in_(role_codes)))
         valid_roles = {row[0]: row[1] for row in valid_result.all()}
         invalid = set(role_codes) - set(valid_roles.keys())
         if invalid:
@@ -142,9 +139,7 @@ async def _set_group_roles(group_id: UUID, role_codes: list[str], db: AsyncSessi
         valid_roles = {}
 
     # Replace: delete existing, insert new
-    await db.execute(
-        delete(UserGroupRole).where(UserGroupRole.group_id == group_id)
-    )
+    await db.execute(delete(UserGroupRole).where(UserGroupRole.group_id == group_id))
     for code in role_codes:
         db.add(UserGroupRole(group_id=group_id, role_code=code))
 
@@ -195,9 +190,7 @@ async def _build_group_detail(
     role_pairs = roles_map.get(group_id, [])
 
     # Count total members
-    member_count_result = await db.execute(
-        select(func.count()).where(UserGroupMember.group_id == group_id)
-    )
+    member_count_result = await db.execute(select(func.count()).where(UserGroupMember.group_id == group_id))
     member_count = member_count_result.scalar() or 0
 
     # Load paginated members with user info
@@ -287,11 +280,7 @@ async def list_groups(
         stmt = stmt.where(UserGroup.name.ilike(f"%{search}%"))
     if role_code:
         # Filter groups that have this role via junction table
-        stmt = stmt.where(
-            UserGroup.id.in_(
-                select(UserGroupRole.group_id).where(UserGroupRole.role_code == role_code)
-            )
-        )
+        stmt = stmt.where(UserGroup.id.in_(select(UserGroupRole.group_id).where(UserGroupRole.role_code == role_code)))
     if active is not None:
         stmt = stmt.where(UserGroup.active == active)
 
@@ -314,20 +303,22 @@ async def list_groups(
     for row in rows:
         gid = row.UserGroup.id
         role_pairs = roles_map.get(gid, [])
-        items.append(GroupRead(
-            id=gid,
-            entity_id=row.UserGroup.entity_id,
-            entity_name=row.entity_name,
-            name=row.UserGroup.name,
-            role_codes=[r[0] for r in role_pairs],
-            role_names=[r[1] for r in role_pairs],
-            asset_scope=row.UserGroup.asset_scope,
-            asset_scope_name=row.asset_scope_name,
-            active=row.UserGroup.active,
-            member_count=row.member_count or 0,
-            created_at=row.UserGroup.created_at.isoformat() if row.UserGroup.created_at else None,
-            updated_at=row.UserGroup.updated_at.isoformat() if row.UserGroup.updated_at else None,
-        ))
+        items.append(
+            GroupRead(
+                id=gid,
+                entity_id=row.UserGroup.entity_id,
+                entity_name=row.entity_name,
+                name=row.UserGroup.name,
+                role_codes=[r[0] for r in role_pairs],
+                role_names=[r[1] for r in role_pairs],
+                asset_scope=row.UserGroup.asset_scope,
+                asset_scope_name=row.asset_scope_name,
+                active=row.UserGroup.active,
+                member_count=row.member_count or 0,
+                created_at=row.UserGroup.created_at.isoformat() if row.UserGroup.created_at else None,
+                updated_at=row.UserGroup.updated_at.isoformat() if row.UserGroup.updated_at else None,
+            )
+        )
 
     pages = math.ceil(total / pagination.page_size) if total > 0 else 0
 
@@ -398,9 +389,7 @@ async def get_group(
     db: AsyncSession = Depends(get_db),
 ):
     """Get group detail with paginated members."""
-    return await _build_group_detail(
-        group_id, entity_id, db, members_page, members_page_size
-    )
+    return await _build_group_detail(group_id, entity_id, db, members_page, members_page_size)
 
 
 @router.patch("/{group_id}", response_model=GroupRead)
@@ -412,11 +401,7 @@ async def update_group(
     db: AsyncSession = Depends(get_db),
 ):
     """Update a group."""
-    result = await db.execute(
-        select(UserGroup).where(
-            UserGroup.id == group_id, UserGroup.entity_id == entity_id
-        )
-    )
+    result = await db.execute(select(UserGroup).where(UserGroup.id == group_id, UserGroup.entity_id == entity_id))
     group = result.scalar_one_or_none()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -453,9 +438,7 @@ async def update_group(
         asset_result = await db.execute(select(Installation.name).where(Installation.id == group.asset_scope))
         asset_name = asset_result.scalar_one_or_none()
 
-    member_count_result = await db.execute(
-        select(func.count()).where(UserGroupMember.group_id == group_id)
-    )
+    member_count_result = await db.execute(select(func.count()).where(UserGroupMember.group_id == group_id))
 
     return GroupRead(
         id=group.id,
@@ -480,11 +463,7 @@ async def delete_group(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a group and all its memberships/overrides."""
-    result = await db.execute(
-        select(UserGroup).where(
-            UserGroup.id == group_id, UserGroup.entity_id == entity_id
-        )
-    )
+    result = await db.execute(select(UserGroup).where(UserGroup.id == group_id, UserGroup.entity_id == entity_id))
     group = result.scalar_one_or_none()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -514,28 +493,20 @@ async def add_members(
     db: AsyncSession = Depends(get_db),
 ):
     """Add users to a group."""
-    result = await db.execute(
-        select(UserGroup).where(
-            UserGroup.id == group_id, UserGroup.entity_id == entity_id
-        )
-    )
+    result = await db.execute(select(UserGroup).where(UserGroup.id == group_id, UserGroup.entity_id == entity_id))
     group = result.scalar_one_or_none()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
 
     # Get existing members to avoid duplicates
-    existing = await db.execute(
-        select(UserGroupMember.user_id).where(UserGroupMember.group_id == group_id)
-    )
+    existing = await db.execute(select(UserGroupMember.user_id).where(UserGroupMember.group_id == group_id))
     existing_ids = {row[0] for row in existing.all()}
 
     added = 0
     for user_id in body.user_ids:
         if user_id in existing_ids:
             continue
-        user_result = await db.execute(
-            select(User.id).where(User.id == user_id, _user_access_predicate(entity_id))
-        )
+        user_result = await db.execute(select(User.id).where(User.id == user_id, _user_access_predicate(entity_id)))
         if not user_result.scalar_one_or_none():
             continue
         db.add(UserGroupMember(user_id=user_id, group_id=group_id))
@@ -560,11 +531,7 @@ async def remove_member(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove a user from a group."""
-    result = await db.execute(
-        select(UserGroup).where(
-            UserGroup.id == group_id, UserGroup.entity_id == entity_id
-        )
-    )
+    result = await db.execute(select(UserGroup).where(UserGroup.id == group_id, UserGroup.entity_id == entity_id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Group not found")
 
@@ -595,9 +562,7 @@ async def get_group_permission_overrides(
     db: AsyncSession = Depends(get_db),
 ):
     """Get all permission overrides for a group."""
-    grp = await db.execute(
-        select(UserGroup).where(UserGroup.id == group_id, UserGroup.entity_id == entity_id)
-    )
+    grp = await db.execute(select(UserGroup).where(UserGroup.id == group_id, UserGroup.entity_id == entity_id))
     if not grp.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Group not found")
 
@@ -607,8 +572,7 @@ async def get_group_permission_overrides(
         .order_by(GroupPermissionOverride.permission_code)
     )
     return [
-        PermissionOverrideRead(permission_code=o.permission_code, granted=o.granted)
-        for o in result.scalars().all()
+        PermissionOverrideRead(permission_code=o.permission_code, granted=o.granted) for o in result.scalars().all()
     ]
 
 
@@ -621,18 +585,14 @@ async def set_group_permission_overrides(
     db: AsyncSession = Depends(get_db),
 ):
     """Replace all permission overrides for a group."""
-    grp = await db.execute(
-        select(UserGroup).where(UserGroup.id == group_id, UserGroup.entity_id == entity_id)
-    )
+    grp = await db.execute(select(UserGroup).where(UserGroup.id == group_id, UserGroup.entity_id == entity_id))
     if not grp.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Group not found")
 
     # Validate permission codes
     if body.overrides:
         codes = [o.permission_code for o in body.overrides]
-        valid_result = await db.execute(
-            select(Permission.code).where(Permission.code.in_(codes))
-        )
+        valid_result = await db.execute(select(Permission.code).where(Permission.code.in_(codes)))
         valid_codes = {row[0] for row in valid_result.all()}
         invalid = set(codes) - valid_codes
         if invalid:
@@ -642,23 +602,20 @@ async def set_group_permission_overrides(
             )
 
     # Replace: delete all existing, insert new
-    await db.execute(
-        delete(GroupPermissionOverride).where(GroupPermissionOverride.group_id == group_id)
-    )
+    await db.execute(delete(GroupPermissionOverride).where(GroupPermissionOverride.group_id == group_id))
     for override in body.overrides:
-        db.add(GroupPermissionOverride(
-            group_id=group_id,
-            permission_code=override.permission_code,
-            granted=override.granted,
-        ))
+        db.add(
+            GroupPermissionOverride(
+                group_id=group_id,
+                permission_code=override.permission_code,
+                granted=override.granted,
+            )
+        )
 
     await db.commit()
     await invalidate_rbac_cache()
 
-    return [
-        PermissionOverrideRead(permission_code=o.permission_code, granted=o.granted)
-        for o in body.overrides
-    ]
+    return [PermissionOverrideRead(permission_code=o.permission_code, granted=o.granted) for o in body.overrides]
 
 
 @router.post("/{group_id}/copy-permissions", response_model=list[PermissionOverrideRead])
@@ -671,33 +628,28 @@ async def copy_group_permissions(
 ):
     """Copy permission overrides from another group."""
     for gid, label in [(group_id, "Target"), (source_group_id, "Source")]:
-        result = await db.execute(
-            select(UserGroup).where(UserGroup.id == gid, UserGroup.entity_id == entity_id)
-        )
+        result = await db.execute(select(UserGroup).where(UserGroup.id == gid, UserGroup.entity_id == entity_id))
         if not result.scalar_one_or_none():
             raise HTTPException(status_code=404, detail=f"{label} group not found")
 
     # Load source overrides
     source_result = await db.execute(
-        select(GroupPermissionOverride)
-        .where(GroupPermissionOverride.group_id == source_group_id)
+        select(GroupPermissionOverride).where(GroupPermissionOverride.group_id == source_group_id)
     )
     source_overrides = source_result.scalars().all()
 
     # Replace target overrides
-    await db.execute(
-        delete(GroupPermissionOverride).where(GroupPermissionOverride.group_id == group_id)
-    )
+    await db.execute(delete(GroupPermissionOverride).where(GroupPermissionOverride.group_id == group_id))
     new_overrides = []
     for o in source_overrides:
-        db.add(GroupPermissionOverride(
-            group_id=group_id,
-            permission_code=o.permission_code,
-            granted=o.granted,
-        ))
-        new_overrides.append(
-            PermissionOverrideRead(permission_code=o.permission_code, granted=o.granted)
+        db.add(
+            GroupPermissionOverride(
+                group_id=group_id,
+                permission_code=o.permission_code,
+                granted=o.granted,
+            )
         )
+        new_overrides.append(PermissionOverrideRead(permission_code=o.permission_code, granted=o.granted))
 
     await db.commit()
     await invalidate_rbac_cache()

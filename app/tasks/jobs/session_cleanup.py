@@ -29,24 +29,14 @@ async def cleanup_expired_sessions() -> None:
             # and sessions inactive for a long time should be cleaned up.
             # We clean: revoked=true OR last_active_at older than 30 days.
             result_sessions = await db.execute(
-                text(
-                    "DELETE FROM user_sessions "
-                    "WHERE revoked = true "
-                    "OR last_active_at < :cutoff "
-                    "RETURNING id"
-                ),
+                text("DELETE FROM user_sessions WHERE revoked = true OR last_active_at < :cutoff RETURNING id"),
                 {"cutoff": now - __import__("datetime").timedelta(days=30)},
             )
             deleted_sessions = len(result_sessions.fetchall())
 
             # 2. Delete expired or revoked refresh tokens
             result_tokens = await db.execute(
-                text(
-                    "DELETE FROM refresh_tokens "
-                    "WHERE revoked = true "
-                    "OR expires_at < :now "
-                    "RETURNING id"
-                ),
+                text("DELETE FROM refresh_tokens WHERE revoked = true OR expires_at < :now RETURNING id"),
                 {"now": now},
             )
             deleted_tokens = len(result_tokens.fetchall())
@@ -55,7 +45,8 @@ async def cleanup_expired_sessions() -> None:
 
             logger.info(
                 "session_cleanup: deleted %d expired sessions and %d expired refresh tokens",
-                deleted_sessions, deleted_tokens,
+                deleted_sessions,
+                deleted_tokens,
             )
 
     except Exception:

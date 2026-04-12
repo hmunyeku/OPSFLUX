@@ -22,6 +22,7 @@ router = APIRouter(prefix="/api/v1/tags", tags=["tags"])
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+
 def _build_tree(tags: list[Tag]) -> list[dict]:
     """Build a nested tree from a flat list of tags."""
     by_id: dict[str, dict] = {}
@@ -54,6 +55,7 @@ def _build_tree(tags: list[Tag]) -> list[dict]:
 
 # ── List ─────────────────────────────────────────────────────────────────────
 
+
 @router.get("", response_model=list[TagRead])
 async def list_tags(
     owner_type: str = Query(..., description="Object type: user, tier, asset, entity"),
@@ -68,9 +70,7 @@ async def list_tags(
             Tag.owner_type == owner_type,
             Tag.owner_id == owner_id,
         )
-        .where(
-            (Tag.visibility == "public") | (Tag.created_by == current_user.id)
-        )
+        .where((Tag.visibility == "public") | (Tag.created_by == current_user.id))
         .order_by(Tag.name)
     )
     return result.scalars().all()
@@ -90,9 +90,7 @@ async def list_tags_tree(
             Tag.owner_type == owner_type,
             Tag.owner_id == owner_id,
         )
-        .where(
-            (Tag.visibility == "public") | (Tag.created_by == current_user.id)
-        )
+        .where((Tag.visibility == "public") | (Tag.created_by == current_user.id))
         .order_by(Tag.name)
     )
     tags = result.scalars().all()
@@ -100,6 +98,7 @@ async def list_tags_tree(
 
 
 # ── Search / Autocomplete ────────────────────────────────────────────────────
+
 
 @router.get("/search", response_model=list[TagRead])
 async def search_tags(
@@ -113,9 +112,7 @@ async def search_tags(
     """Search tags by name (trigram similarity). Used for autocomplete."""
     query = (
         select(Tag)
-        .where(
-            or_(Tag.visibility == "public", Tag.created_by == current_user.id)
-        )
+        .where(or_(Tag.visibility == "public", Tag.created_by == current_user.id))
         .where(
             or_(
                 Tag.name.ilike(f"%{q}%"),
@@ -136,6 +133,7 @@ async def search_tags(
 
 
 # ── CRUD ─────────────────────────────────────────────────────────────────────
+
 
 @router.post("", response_model=TagRead, status_code=201)
 async def create_tag(
@@ -201,9 +199,7 @@ async def update_tag(
     if "parent_id" in update_data and update_data["parent_id"] is not None:
         if update_data["parent_id"] == tag_id:
             raise HTTPException(status_code=400, detail="A tag cannot be its own parent")
-        parent_result = await db.execute(
-            select(Tag).where(Tag.id == update_data["parent_id"])
-        )
+        parent_result = await db.execute(select(Tag).where(Tag.id == update_data["parent_id"]))
         parent = parent_result.scalar_one_or_none()
         if not parent:
             raise HTTPException(status_code=404, detail="Parent tag not found")

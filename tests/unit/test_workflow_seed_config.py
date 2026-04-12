@@ -1,7 +1,8 @@
+from types import SimpleNamespace
+from uuid import uuid4
+
 import pytest
 from fastapi import HTTPException
-from uuid import uuid4
-from types import SimpleNamespace
 
 from app.api.routes.core import workflow as workflow_routes
 from app.api.routes.core.workflow import _validate_definition_structure
@@ -50,11 +51,13 @@ def test_ads_workflow_seed_uses_declarative_conditions_for_entry_steps():
     transitions = ads_workflow["transitions"]
 
     submitted_to_initiator = next(
-        transition for transition in transitions
+        transition
+        for transition in transitions
         if transition["from"] == "submitted" and transition["to"] == "pending_initiator_review"
     )
     submitted_to_project = next(
-        transition for transition in transitions
+        transition
+        for transition in transitions
         if transition["from"] == "submitted" and transition["to"] == "pending_project_review"
     )
 

@@ -27,7 +27,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from jinja2 import BaseLoader, Environment, TemplateSyntaxError, Undefined
-from sqlalchemy import and_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -54,6 +54,7 @@ def _infer_notification_category_from_slug(slug: str) -> str | None:
         "paxlog_external_link_otp": None,
     }
     return aliases.get(raw)
+
 
 # Jinja2 env with sandboxed auto-escape (safe for HTML emails)
 _jinja_env = Environment(
@@ -164,7 +165,7 @@ DEFAULT_TEMPLATES: list[dict] = [
             "fr": {
                 "subject": "OpsFlux — Vous êtes invité(e) à rejoindre {{ entity.name }}",
                 "body_html": (
-                    '<!DOCTYPE html>'
+                    "<!DOCTYPE html>"
                     '<html lang="fr">'
                     "<head>"
                     '<meta charset="UTF-8">'
@@ -174,7 +175,7 @@ DEFAULT_TEMPLATES: list[dict] = [
                     '<body style="margin:0;padding:0;background-color:#f4f6f9;font-family:Arial,Helvetica,sans-serif;">'
                     '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f6f9;">'
                     "<tr>"
-                    "<td align=\"center\" style=\"padding:32px 16px;\">"
+                    '<td align="center" style="padding:32px 16px;">'
                     # ── Main container ──
                     '<table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.07);">'
                     # ── Header ──
@@ -191,7 +192,7 @@ DEFAULT_TEMPLATES: list[dict] = [
                     "</p>"
                     '<p style="margin:0 0 20px 0;font-size:16px;color:#1f2937;line-height:1.6;">'
                     "{{ inviter.first_name }} {{ inviter.last_name }} vous invite à rejoindre "
-                    "l'organisation <strong style=\"color:#2563EB;\">{{ entity.name }}</strong> sur OpsFlux."
+                    'l\'organisation <strong style="color:#2563EB;">{{ entity.name }}</strong> sur OpsFlux.'
                     "</p>"
                     '<p style="margin:0 0 24px 0;font-size:14px;color:#6b7280;line-height:1.6;">'
                     "OpsFlux est une plateforme ERP moderne pour la gestion des opérations, "
@@ -217,9 +218,9 @@ DEFAULT_TEMPLATES: list[dict] = [
                     "<tr>"
                     '<td align="center">'
                     '<a href="{{ invitation_url }}" target="_blank" style="display:inline-block;background-color:#2563EB;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:6px;mso-padding-alt:0;">'
-                    "<!--[if mso]><i style=\"mso-font-width:150%;mso-text-raise:24px;\">&#xA0;</i><![endif]-->"
+                    '<!--[if mso]><i style="mso-font-width:150%;mso-text-raise:24px;">&#xA0;</i><![endif]-->'
                     "Accepter l'invitation"
-                    "<!--[if mso]><i style=\"mso-font-width:150%;\">&#xA0;</i><![endif]-->"
+                    '<!--[if mso]><i style="mso-font-width:150%;">&#xA0;</i><![endif]-->'
                     "</a>"
                     "</td>"
                     "</tr>"
@@ -264,7 +265,7 @@ DEFAULT_TEMPLATES: list[dict] = [
             "en": {
                 "subject": "OpsFlux — You're invited to join {{ entity.name }}",
                 "body_html": (
-                    '<!DOCTYPE html>'
+                    "<!DOCTYPE html>"
                     '<html lang="en">'
                     "<head>"
                     '<meta charset="UTF-8">'
@@ -274,7 +275,7 @@ DEFAULT_TEMPLATES: list[dict] = [
                     '<body style="margin:0;padding:0;background-color:#f4f6f9;font-family:Arial,Helvetica,sans-serif;">'
                     '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f6f9;">'
                     "<tr>"
-                    "<td align=\"center\" style=\"padding:32px 16px;\">"
+                    '<td align="center" style="padding:32px 16px;">'
                     # ── Main container ──
                     '<table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.07);">'
                     # ── Header ──
@@ -291,7 +292,7 @@ DEFAULT_TEMPLATES: list[dict] = [
                     "</p>"
                     '<p style="margin:0 0 20px 0;font-size:16px;color:#1f2937;line-height:1.6;">'
                     "{{ inviter.first_name }} {{ inviter.last_name }} has invited you to join "
-                    "the organisation <strong style=\"color:#2563EB;\">{{ entity.name }}</strong> on OpsFlux."
+                    'the organisation <strong style="color:#2563EB;">{{ entity.name }}</strong> on OpsFlux.'
                     "</p>"
                     '<p style="margin:0 0 24px 0;font-size:14px;color:#6b7280;line-height:1.6;">'
                     "OpsFlux is a modern ERP platform for operations management, "
@@ -317,9 +318,9 @@ DEFAULT_TEMPLATES: list[dict] = [
                     "<tr>"
                     '<td align="center">'
                     '<a href="{{ invitation_url }}" target="_blank" style="display:inline-block;background-color:#2563EB;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:6px;mso-padding-alt:0;">'
-                    "<!--[if mso]><i style=\"mso-font-width:150%;mso-text-raise:24px;\">&#xA0;</i><![endif]-->"
+                    '<!--[if mso]><i style="mso-font-width:150%;mso-text-raise:24px;">&#xA0;</i><![endif]-->'
                     "Accept Invitation"
-                    "<!--[if mso]><i style=\"mso-font-width:150%;\">&#xA0;</i><![endif]-->"
+                    '<!--[if mso]><i style="mso-font-width:150%;">&#xA0;</i><![endif]-->'
                     "</a>"
                     "</td>"
                     "</tr>"
@@ -1486,7 +1487,7 @@ DEFAULT_TEMPLATES: list[dict] = [
             "fr": {
                 "subject": "OpsFlux — Votre document a été {{ action }}",
                 "body_html": (
-                    '<!DOCTYPE html>'
+                    "<!DOCTYPE html>"
                     '<html lang="fr">'
                     "<head>"
                     '<meta charset="UTF-8">'
@@ -1496,7 +1497,7 @@ DEFAULT_TEMPLATES: list[dict] = [
                     '<body style="margin:0;padding:0;background-color:#f4f6f9;font-family:Arial,Helvetica,sans-serif;">'
                     '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f6f9;">'
                     "<tr>"
-                    "<td align=\"center\" style=\"padding:32px 16px;\">"
+                    '<td align="center" style="padding:32px 16px;">'
                     # ── Main container ──
                     '<table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.07);">'
                     # ── Header ──
@@ -1579,7 +1580,7 @@ DEFAULT_TEMPLATES: list[dict] = [
             "en": {
                 "subject": "OpsFlux — Your document has been {{ action }}",
                 "body_html": (
-                    '<!DOCTYPE html>'
+                    "<!DOCTYPE html>"
                     '<html lang="en">'
                     "<head>"
                     '<meta charset="UTF-8">'
@@ -1589,7 +1590,7 @@ DEFAULT_TEMPLATES: list[dict] = [
                     '<body style="margin:0;padding:0;background-color:#f4f6f9;font-family:Arial,Helvetica,sans-serif;">'
                     '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f6f9;">'
                     "<tr>"
-                    "<td align=\"center\" style=\"padding:32px 16px;\">"
+                    '<td align="center" style="padding:32px 16px;">'
                     # ── Main container ──
                     '<table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.07);">'
                     # ── Header ──
@@ -1918,7 +1919,7 @@ DEFAULT_TEMPLATES: list[dict] = [
                 "subject": "{{ notification.title }}",
                 "body_html": (
                     "<p>{{ notification.body }}</p>"
-                    "{% if notification.link %}<p><a href=\"{{ notification.link }}\">Voir dans OpsFlux</a></p>{% endif %}"
+                    '{% if notification.link %}<p><a href="{{ notification.link }}">Voir dans OpsFlux</a></p>{% endif %}'
                     "<p>Cordialement,<br/>{{ entity.name | default('OpsFlux') }}</p>"
                 ),
             },
@@ -1926,7 +1927,7 @@ DEFAULT_TEMPLATES: list[dict] = [
                 "subject": "{{ notification.title }}",
                 "body_html": (
                     "<p>{{ notification.body }}</p>"
-                    "{% if notification.link %}<p><a href=\"{{ notification.link }}\">Open in OpsFlux</a></p>{% endif %}"
+                    '{% if notification.link %}<p><a href="{{ notification.link }}">Open in OpsFlux</a></p>{% endif %}'
                     "<p>Regards,<br/>{{ entity.name | default('OpsFlux') }}</p>"
                 ),
             },
@@ -1943,6 +1944,7 @@ def _get_default_template_def(slug: str) -> dict | None:
 
 
 # ── Rendering helpers ──────────────────────────────────────────────────────
+
 
 def _flatten_variables(variables: dict, prefix: str = "") -> dict[str, str]:
     """Flatten nested dicts for Jinja2: {"user": {"first_name": "A"}} → {"user.first_name": "A", "user": {"first_name": "A"}}."""
@@ -1980,6 +1982,7 @@ def render_template_string(template_str: str, variables: dict) -> str:
 
 
 # ── Core resolve & render function ─────────────────────────────────────────
+
 
 async def resolve_template_version(
     db: AsyncSession,
@@ -2048,7 +2051,10 @@ async def render_email(
 ) -> tuple[str, str] | None:
     """Resolve and render a template. Returns (subject, body_html) or None."""
     version = await resolve_template_version(
-        db, slug=slug, entity_id=entity_id, language=language,
+        db,
+        slug=slug,
+        entity_id=entity_id,
+        language=language,
     )
     ctx = variables or {}
     if version:
@@ -2088,7 +2094,11 @@ async def render_and_send_email(
     Returns True if sent, False if template not found/disabled.
     """
     result = await render_email(
-        db, slug=slug, entity_id=entity_id, language=language, variables=variables,
+        db,
+        slug=slug,
+        entity_id=entity_id,
+        language=language,
+        variables=variables,
     )
     if result is None:
         logger.info("Email template '%s' not found or disabled for entity %s", slug, entity_id)
@@ -2110,6 +2120,7 @@ async def render_and_send_email(
     inferred_category = category or _infer_notification_category_from_slug(slug)
 
     from app.core.notifications import send_email
+
     await send_email(
         to=to,
         subject=subject,
@@ -2132,8 +2143,7 @@ async def is_template_available(
 ) -> bool:
     """Check if a template is configured and enabled (for conditional UI)."""
     result = await db.execute(
-        select(EmailTemplate.id)
-        .where(
+        select(EmailTemplate.id).where(
             EmailTemplate.slug == slug,
             EmailTemplate.entity_id == entity_id,
             EmailTemplate.enabled == True,  # noqa: E712

@@ -8,15 +8,14 @@ Process library.  Export (SVG, PDF).  Line tracing.
 """
 
 import logging
-from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
 from app.api.deps import get_current_entity, get_current_user, require_module_enabled, require_permission
+from app.core.database import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +33,9 @@ router = APIRouter(prefix="/api/v1/pid", tags=["pid_pfd"], dependencies=[require
     summary="List PID documents",
 )
 async def list_pid_documents(
-    project_id: Optional[str] = None,
-    status: Optional[str] = None,
-    search: Optional[str] = None,
+    project_id: str | None = None,
+    status: str | None = None,
+    search: str | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     entity_id: UUID = Depends(get_current_entity),
@@ -98,10 +97,10 @@ async def create_pid_document(
     summary="Search equipment",
 )
 async def list_equipment_early(
-    search: Optional[str] = None,
-    equipment_type: Optional[str] = None,
-    pid_id: Optional[str] = None,
-    project_id: Optional[str] = None,
+    search: str | None = None,
+    equipment_type: str | None = None,
+    pid_id: str | None = None,
+    project_id: str | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     entity_id: UUID = Depends(get_current_entity),
@@ -112,8 +111,14 @@ async def list_equipment_early(
     from app.services.modules.pid_service import search_equipment as svc_list
 
     return await svc_list(
-        entity_id=entity_id, search=search, equipment_type=equipment_type,
-        pid_id=pid_id, project_id=project_id, page=page, page_size=page_size, db=db,
+        entity_id=entity_id,
+        search=search,
+        equipment_type=equipment_type,
+        pid_id=pid_id,
+        project_id=project_id,
+        page=page,
+        page_size=page_size,
+        db=db,
     )
 
 
@@ -158,7 +163,8 @@ async def get_equipment_early(
     summary="Update equipment",
 )
 async def update_equipment_early(
-    eq_id: str, body: dict,
+    eq_id: str,
+    body: dict,
     entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
@@ -212,9 +218,9 @@ async def equipment_appearances_early(
     summary="List process lines",
 )
 async def list_lines_early(
-    search: Optional[str] = None,
-    pid_document_id: Optional[str] = None,
-    project_id: Optional[str] = None,
+    search: str | None = None,
+    pid_document_id: str | None = None,
+    project_id: str | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     entity_id: UUID = Depends(get_current_entity),
@@ -224,8 +230,12 @@ async def list_lines_early(
     from app.services.modules.pid_service import list_process_lines as svc_list
 
     return await svc_list(
-        entity_id=entity_id, search=search,
-        project_id=project_id, page=page, page_size=page_size, db=db,
+        entity_id=entity_id,
+        search=search,
+        project_id=project_id,
+        page=page,
+        page_size=page_size,
+        db=db,
     )
 
 
@@ -270,7 +280,8 @@ async def trace_line_early(
     summary="Update process line",
 )
 async def update_line_early(
-    line_id: str, body: dict,
+    line_id: str,
+    body: dict,
     entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
@@ -308,10 +319,10 @@ async def delete_line_early(
     summary="List DCS tags",
 )
 async def list_tags_early(
-    search: Optional[str] = None,
-    tag_type: Optional[str] = None,
-    area: Optional[str] = None,
-    pid_document_id: Optional[str] = None,
+    search: str | None = None,
+    tag_type: str | None = None,
+    area: str | None = None,
+    pid_document_id: str | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     entity_id: UUID = Depends(get_current_entity),
@@ -321,8 +332,13 @@ async def list_tags_early(
     from app.services.modules.tag_service import list_tags as svc_list
 
     return await svc_list(
-        entity_id=entity_id, search=search, tag_type=tag_type,
-        area=area, page=page, page_size=page_size, db=db,
+        entity_id=entity_id,
+        search=search,
+        tag_type=tag_type,
+        area=area,
+        page=page,
+        page_size=page_size,
+        db=db,
     )
 
 
@@ -351,7 +367,8 @@ async def create_tag_early(
     summary="Update DCS tag",
 )
 async def update_tag_early(
-    tag_id: str, body: dict,
+    tag_id: str,
+    body: dict,
     entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
@@ -381,36 +398,55 @@ async def delete_tag_early(
 
 
 @router.post("/tags/suggest", dependencies=[require_permission("pid.tags.read")], summary="Suggest tag names")
-async def suggest_tags_early(body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
+async def suggest_tags_early(
+    body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)
+):
     from app.services.modules.tag_service import suggest_tag_names as svc
+
     return await svc(entity_id=entity_id, equipment_type=body.get("equipment_type"), area=body.get("area"), db=db)
 
 
 @router.post("/tags/validate", dependencies=[require_permission("pid.tags.read")], summary="Validate tag name")
-async def validate_tag_early(body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
+async def validate_tag_early(
+    body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)
+):
     from app.services.modules.tag_service import validate_tag_name as svc
+
     return await svc(entity_id=entity_id, tag_name=body.get("tag_name", ""), db=db)
 
 
 @router.post("/tags/import", dependencies=[require_permission("pid.tags.edit")], summary="Import DCS tags from CSV")
 async def import_tags_early(
-    project_id: str = Query(...), file: UploadFile = File(...),
-    entity_id: UUID = Depends(get_current_entity), current_user=Depends(get_current_user),
+    project_id: str = Query(...),
+    file: UploadFile = File(...),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.tag_service import import_tags_csv as svc
+
     return await svc(entity_id=entity_id, project_id=project_id, file=file, created_by=current_user.id, db=db)
 
 
-@router.post("/tags/bulk-rename/preview", dependencies=[require_permission("pid.tags.edit")], summary="Preview bulk rename")
-async def bulk_rename_preview_early(body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
+@router.post(
+    "/tags/bulk-rename/preview", dependencies=[require_permission("pid.tags.edit")], summary="Preview bulk rename"
+)
+async def bulk_rename_preview_early(
+    body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)
+):
     from app.services.modules.tag_service import bulk_rename_preview as svc
+
     return await svc(entity_id=entity_id, find=body.get("find", ""), replace=body.get("replace", ""), db=db)
 
 
-@router.post("/tags/bulk-rename/execute", dependencies=[require_permission("pid.tags.edit")], summary="Execute bulk rename")
-async def bulk_rename_execute_early(body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
+@router.post(
+    "/tags/bulk-rename/execute", dependencies=[require_permission("pid.tags.edit")], summary="Execute bulk rename"
+)
+async def bulk_rename_execute_early(
+    body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)
+):
     from app.services.modules.tag_service import bulk_rename_execute as svc
+
     return await svc(entity_id=entity_id, find=body.get("find", ""), replace=body.get("replace", ""), db=db)
 
 
@@ -420,21 +456,30 @@ async def bulk_rename_execute_early(body: dict, entity_id: UUID = Depends(get_cu
 @router.get("/naming-rules", dependencies=[require_permission("pid.tags.read")], summary="List naming rules")
 async def list_naming_rules_early(entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
     from app.services.modules.tag_service import list_naming_rules as svc
+
     return await svc(entity_id=entity_id, db=db)
 
 
 @router.post("/naming-rules", dependencies=[require_permission("pid.tags.edit")], summary="Create naming rule")
-async def create_naming_rule_early(body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
+async def create_naming_rule_early(
+    body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)
+):
     from app.schemas.pid_pfd import TagNamingRuleCreate
     from app.services.modules.tag_service import create_naming_rule as svc
+
     parsed = TagNamingRuleCreate(**body)
     return await svc(body=parsed, entity_id=entity_id, db=db)
 
 
-@router.patch("/naming-rules/{rule_id}", dependencies=[require_permission("pid.tags.edit")], summary="Update naming rule")
-async def update_naming_rule_early(rule_id: str, body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
+@router.patch(
+    "/naming-rules/{rule_id}", dependencies=[require_permission("pid.tags.edit")], summary="Update naming rule"
+)
+async def update_naming_rule_early(
+    rule_id: str, body: dict, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)
+):
     from app.schemas.pid_pfd import TagNamingRuleUpdate
     from app.services.modules.tag_service import update_naming_rule as svc
+
     parsed = TagNamingRuleUpdate(**body)
     return await svc(rule_id=rule_id, body=parsed, entity_id=entity_id, db=db)
 
@@ -444,27 +489,43 @@ async def update_naming_rule_early(rule_id: str, body: dict, entity_id: UUID = D
 
 @router.get("/library", dependencies=[require_permission("pid.library.read")], summary="List process library items")
 async def list_library_items_early(
-    category: Optional[str] = None, search: Optional[str] = None,
-    entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db),
+    category: str | None = None,
+    search: str | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.pid_service import list_library_items as svc_list
+
     return await svc_list(entity_id=entity_id, category=category, search=search, db=db)
+
 
 @router.post("/library", dependencies=[require_permission("pid.library.edit")], summary="Create a process library item")
 async def create_library_item_early(
-    body: dict, entity_id: UUID = Depends(get_current_entity),
-    current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db),
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     from app.schemas.pid_pfd import ProcessLibItemCreate
     from app.services.modules.pid_service import create_library_item as svc_create
+
     parsed = ProcessLibItemCreate(**body)
     return await svc_create(body=parsed, entity_id=entity_id, created_by=current_user.id, db=db)
 
-@router.get("/library/drawio.xml", dependencies=[require_permission("pid.library.read")], summary="Get draw.io XML library")
+
+@router.get(
+    "/library/drawio.xml", dependencies=[require_permission("pid.library.read")], summary="Get draw.io XML library"
+)
 async def get_drawio_library_early(entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db)):
     from app.services.modules.pid_service import get_library_drawio_xml as svc_export
+
     xml_content = await svc_export(entity_id=entity_id, db=db)
-    return Response(content=xml_content, media_type="application/xml", headers={"Content-Disposition": 'attachment; filename="pid_library.xml"'})
+    return Response(
+        content=xml_content,
+        media_type="application/xml",
+        headers={"Content-Disposition": 'attachment; filename="pid_library.xml"'},
+    )
+
 
 @router.patch(
     "/library/{item_id}",
@@ -665,6 +726,8 @@ async def sync_pid(
     connections in the database (XML → DB sync)."""
     from app.services.modules.pid_service import (
         get_pid_document as svc_get,
+    )
+    from app.services.modules.pid_service import (
         parse_and_sync_pid as svc_sync,
     )
 
@@ -815,12 +878,13 @@ async def validate_afc(
 )
 async def export_svg(
     pid_id: UUID,
-    revision_id: Optional[str] = None,
+    revision_id: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Export the PID document as an SVG file."""
-    from app.services.modules.pid_service import export_svg as svc_export, get_pid_document
+    from app.services.modules.pid_service import export_svg as svc_export
+    from app.services.modules.pid_service import get_pid_document
 
     svg_bytes = await svc_export(pid_id, entity_id, db)
     pid = await get_pid_document(pid_id, entity_id, db)
@@ -838,12 +902,13 @@ async def export_svg(
 )
 async def export_pdf(
     pid_id: UUID,
-    revision_id: Optional[str] = None,
+    revision_id: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Export the PID document as a PDF file."""
     import io
+
     from app.services.modules.pid_service import export_pdf as svc_export
 
     pdf_bytes, filename = await svc_export(pid_id, entity_id, db)
@@ -958,9 +1023,9 @@ async def sync_xml_to_db(
     """
     import xml.etree.ElementTree as ET
 
-    from sqlalchemy import select, update as sa_update
+    from sqlalchemy import select
 
-    from app.models.pid_pfd import Equipment, PIDConnection, PIDDocument, ProcessLine
+    from app.models.pid_pfd import Equipment, PIDConnection, ProcessLine
     from app.services.modules.pid_service import get_pid_document as svc_get
 
     pid = await svc_get(pid_id, entity_id, db)
@@ -1004,34 +1069,40 @@ async def sync_xml_to_db(
 
         if source and target:
             # This is a connection / edge (process line or flow arrow)
-            line_cells.append({
-                "cell_id": cell_id,
-                "source": source,
-                "target": target,
-                "style": style,
-                "value": value,
-            })
+            line_cells.append(
+                {
+                    "cell_id": cell_id,
+                    "source": source,
+                    "target": target,
+                    "style": style,
+                    "value": value,
+                }
+            )
         elif value and any(pat in style.lower() for pat in ("shape=",)):
             # This is a shaped cell with a label — treat as equipment
             # Extract equipment type from style
             eq_type = _extract_equipment_type_from_style(style)
-            equipment_cells.append({
-                "cell_id": cell_id,
-                "tag": _clean_html_value(value),
-                "equipment_type": eq_type,
-                "style": style,
-            })
+            equipment_cells.append(
+                {
+                    "cell_id": cell_id,
+                    "tag": _clean_html_value(value),
+                    "equipment_type": eq_type,
+                    "style": style,
+                }
+            )
         elif value and not source and not target and parent not in ("0", "1", ""):
             # Child cell with a label but no shape — could be a text label on equipment
             # Still register as potential equipment if it has meaningful content
             tag = _clean_html_value(value)
             if tag and len(tag) <= 100 and not tag.startswith("<"):
-                equipment_cells.append({
-                    "cell_id": cell_id,
-                    "tag": tag,
-                    "equipment_type": "other",
-                    "style": style,
-                })
+                equipment_cells.append(
+                    {
+                        "cell_id": cell_id,
+                        "tag": tag,
+                        "equipment_type": "other",
+                        "style": style,
+                    }
+                )
 
     # --- Upsert equipment ---
     equipment_synced = 0
@@ -1194,6 +1265,7 @@ def _clean_html_value(value: str) -> str:
     This function extracts the plain text content.
     """
     import re
+
     if not value:
         return ""
     # Remove HTML tags

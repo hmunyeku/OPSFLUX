@@ -18,29 +18,47 @@ Design mirrors ``gouti_tools.py``:
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func as sqla_func, or_, select
+from sqlalchemy import func as sqla_func
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session_factory
 from app.core.references import generate_reference
+from app.mcp.mcp_native import NativeBackend, NativeToolContext
+from app.models.asset_registry import Installation, OilField, OilSite, RegistryEquipment
 from app.models.common import (
-    Address, Attachment, ComplianceRecord, ComplianceRule, ComplianceType,
-    ContactEmail, CostCenter, CostImputation, Entity, ExternalReference,
-    ImputationReference, LegalIdentifier, Note, OpeningHour, Phone,
-    Project, ProjectMember, ProjectMilestone, ProjectTask, ProjectTemplate,
-    ProjectWBSNode,
-    Setting, SocialNetwork, Tag, Tier, TierBlock, TierContact,
-    TierContactTransfer, User,
+    Address,
+    ComplianceRecord,
+    ComplianceRule,
+    ComplianceType,
+    ContactEmail,
+    CostCenter,
+    CostImputation,
+    Entity,
+    ExternalReference,
+    ImputationReference,
+    LegalIdentifier,
+    Note,
+    Phone,
+    Project,
+    ProjectMilestone,
+    ProjectTask,
+    ProjectTemplate,
+    Setting,
+    Tag,
+    Tier,
+    TierBlock,
+    TierContact,
+    TierContactTransfer,
+    User,
 )
-from app.models.asset_registry import Installation, OilSite, OilField, RegistryEquipment
-from app.models.paxlog import PaxGroup, Ads, AdsPax
+from app.models.paxlog import Ads, AdsPax, PaxGroup
 from app.models.planner import PlannerActivity, PlannerConflict
 from app.models.travelwiz import TransportVector, Voyage
-from app.mcp.mcp_native import NativeBackend, NativeToolContext
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +80,9 @@ def _ok(data: Any) -> dict:
             while keep > 1:
                 candidate = json.dumps(
                     {**data, "items": items[:keep]},
-                    ensure_ascii=False, separators=(",", ":"), default=str,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    default=str,
                 )
                 if len(candidate) <= _MAX_RESPONSE_CHARS - 200:
                     break
@@ -72,18 +92,26 @@ def _ok(data: Any) -> dict:
                 "items": items[:keep],
                 "total_available": len(items),
                 "truncated": keep < len(items),
-                **({"truncation_note": (
-                    f"{keep}/{len(items)} éléments affichés. "
-                    "Utilisez search ou limit pour affiner."
-                )} if keep < len(items) else {}),
+                **(
+                    {
+                        "truncation_note": (
+                            f"{keep}/{len(items)} éléments affichés. Utilisez search ou limit pour affiner."
+                        )
+                    }
+                    if keep < len(items)
+                    else {}
+                ),
             }
             text = json.dumps(data, ensure_ascii=False, separators=(",", ":"), default=str)
         else:
-            text = json.dumps({
-                "truncated": True,
-                "preview": text[:_MAX_RESPONSE_CHARS - 300],
-                "truncation_note": "Réponse trop longue — aperçu seulement.",
-            }, ensure_ascii=False)
+            text = json.dumps(
+                {
+                    "truncated": True,
+                    "preview": text[: _MAX_RESPONSE_CHARS - 300],
+                    "truncation_note": "Réponse trop longue — aperçu seulement.",
+                },
+                ensure_ascii=False,
+            )
     return {"content": [{"type": "text", "text": text}]}
 
 
@@ -167,6 +195,7 @@ def _contact_to_dict(c: TierContact, *, compact: bool = False) -> dict:
 
 # ─── Entity scoping ──────────────────────────────────────────────────────────
 
+
 async def _resolve_entity_id(session: AsyncSession, entity_code: str | None) -> UUID:
     """Resolve the active entity UUID for the request.
 
@@ -175,9 +204,7 @@ async def _resolve_entity_id(session: AsyncSession, entity_code: str | None) -> 
     deployments we target today).
     """
     if entity_code:
-        result = await session.execute(
-            select(Entity).where(Entity.code == entity_code)
-        )
+        result = await session.execute(select(Entity).where(Entity.code == entity_code))
         entity = result.scalar_one_or_none()
         if entity is None:
             raise ValueError(f"Entity with code '{entity_code}' not found")
@@ -193,6 +220,7 @@ async def _resolve_entity_id(session: AsyncSession, entity_code: str | None) -> 
 
 
 # ─── Tier tools ──────────────────────────────────────────────────────────────
+
 
 async def _list_tiers(args: dict) -> dict:
     """List companies with optional search and filters."""
@@ -214,12 +242,14 @@ async def _list_tiers(args: dict) -> dict:
             query = query.where(Tier.type == tier_type)
         if search:
             pattern = f"%{search}%"
-            query = query.where(or_(
-                sqla_func.lower(Tier.name).ilike(pattern.lower()),
-                sqla_func.lower(Tier.code).ilike(pattern.lower()),
-                sqla_func.lower(Tier.alias).ilike(pattern.lower()),
-                sqla_func.lower(Tier.trade_name).ilike(pattern.lower()),
-            ))
+            query = query.where(
+                or_(
+                    sqla_func.lower(Tier.name).ilike(pattern.lower()),
+                    sqla_func.lower(Tier.code).ilike(pattern.lower()),
+                    sqla_func.lower(Tier.alias).ilike(pattern.lower()),
+                    sqla_func.lower(Tier.trade_name).ilike(pattern.lower()),
+                )
+            )
         query = query.order_by(Tier.code).limit(limit + 1)
 
         result = await session.execute(query)
@@ -251,13 +281,36 @@ async def _get_tier(args: dict) -> dict:
         return _ok(_tier_to_dict(tier))
 
 
-_TIER_WRITABLE_FIELDS = frozenset({
-    "name", "alias", "trade_name", "type", "email", "phone", "fax",
-    "website", "legal_form", "registration_number", "tax_id", "vat_number",
-    "capital", "currency", "industry", "payment_terms", "description",
-    "address_line1", "address_line2", "city", "state", "zip_code", "country",
-    "timezone", "language", "fiscal_year_start",
-})
+_TIER_WRITABLE_FIELDS = frozenset(
+    {
+        "name",
+        "alias",
+        "trade_name",
+        "type",
+        "email",
+        "phone",
+        "fax",
+        "website",
+        "legal_form",
+        "registration_number",
+        "tax_id",
+        "vat_number",
+        "capital",
+        "currency",
+        "industry",
+        "payment_terms",
+        "description",
+        "address_line1",
+        "address_line2",
+        "city",
+        "state",
+        "zip_code",
+        "country",
+        "timezone",
+        "language",
+        "fiscal_year_start",
+    }
+)
 
 
 async def _create_tier(args: dict) -> dict:
@@ -283,9 +336,7 @@ async def _create_tier(args: dict) -> dict:
         )
         existing = dup.first()
         if existing:
-            return _err(
-                f"Un tiers nommé «{name}» existe déjà (code: {existing.code})"
-            )
+            return _err(f"Un tiers nommé «{name}» existe déjà (code: {existing.code})")
 
         payload["code"] = await generate_reference("TIR", session, entity_id=entity_id)
         tier = Tier(entity_id=entity_id, **payload)
@@ -306,9 +357,7 @@ async def _update_tier(args: dict) -> dict:
         raise ValueError("Aucun champ modifiable fourni")
 
     async with async_session_factory() as session:
-        result = await session.execute(
-            select(Tier).where(Tier.id == UUID(str(tier_id)))
-        )
+        result = await session.execute(select(Tier).where(Tier.id == UUID(str(tier_id))))
         tier = result.scalar_one_or_none()
         if tier is None:
             return _err(f"Tier id={tier_id} introuvable")
@@ -327,9 +376,7 @@ async def _delete_tier(args: dict) -> dict:
         raise ValueError("id requis")
 
     async with async_session_factory() as session:
-        result = await session.execute(
-            select(Tier).where(Tier.id == UUID(str(tier_id)))
-        )
+        result = await session.execute(select(Tier).where(Tier.id == UUID(str(tier_id))))
         tier = result.scalar_one_or_none()
         if tier is None:
             return _err(f"Tier id={tier_id} introuvable")
@@ -340,6 +387,7 @@ async def _delete_tier(args: dict) -> dict:
 
 
 # ─── Contact tools ───────────────────────────────────────────────────────────
+
 
 async def _list_contacts(args: dict) -> dict:
     """List contacts, optionally filtered by tier_id and/or search."""
@@ -356,11 +404,13 @@ async def _list_contacts(args: dict) -> dict:
             query = query.where(TierContact.tier_id == UUID(str(tier_id)))
         if search:
             pattern = f"%{search.lower()}%"
-            query = query.where(or_(
-                sqla_func.lower(TierContact.first_name).ilike(pattern),
-                sqla_func.lower(TierContact.last_name).ilike(pattern),
-                sqla_func.lower(TierContact.email).ilike(pattern),
-            ))
+            query = query.where(
+                or_(
+                    sqla_func.lower(TierContact.first_name).ilike(pattern),
+                    sqla_func.lower(TierContact.last_name).ilike(pattern),
+                    sqla_func.lower(TierContact.email).ilike(pattern),
+                )
+            )
         query = query.order_by(TierContact.last_name, TierContact.first_name).limit(limit + 1)
         rows = (await session.execute(query)).scalars().all()
 
@@ -374,19 +424,25 @@ async def _get_contact(args: dict) -> dict:
     if not contact_id:
         raise ValueError("id requis")
     async with async_session_factory() as session:
-        result = await session.execute(
-            select(TierContact).where(TierContact.id == UUID(str(contact_id)))
-        )
+        result = await session.execute(select(TierContact).where(TierContact.id == UUID(str(contact_id))))
         contact = result.scalar_one_or_none()
         if contact is None:
             return _err(f"Contact id={contact_id} introuvable")
         return _ok(_contact_to_dict(contact))
 
 
-_CONTACT_WRITABLE_FIELDS = frozenset({
-    "civility", "first_name", "last_name", "email", "phone",
-    "position", "department", "is_primary",
-})
+_CONTACT_WRITABLE_FIELDS = frozenset(
+    {
+        "civility",
+        "first_name",
+        "last_name",
+        "email",
+        "phone",
+        "position",
+        "department",
+        "is_primary",
+    }
+)
 
 
 async def _create_contact(args: dict) -> dict:
@@ -424,9 +480,7 @@ async def _update_contact(args: dict) -> dict:
         raise ValueError("Aucun champ modifiable fourni")
 
     async with async_session_factory() as session:
-        result = await session.execute(
-            select(TierContact).where(TierContact.id == UUID(str(contact_id)))
-        )
+        result = await session.execute(select(TierContact).where(TierContact.id == UUID(str(contact_id))))
         contact = result.scalar_one_or_none()
         if contact is None:
             return _err(f"Contact id={contact_id} introuvable")
@@ -442,9 +496,7 @@ async def _archive_contact(args: dict) -> dict:
     if not contact_id:
         raise ValueError("id requis")
     async with async_session_factory() as session:
-        result = await session.execute(
-            select(TierContact).where(TierContact.id == UUID(str(contact_id)))
-        )
+        result = await session.execute(select(TierContact).where(TierContact.id == UUID(str(contact_id))))
         contact = result.scalar_one_or_none()
         if contact is None:
             return _err(f"Contact id={contact_id} introuvable")
@@ -460,9 +512,7 @@ _VALID_OWNER_TYPES = frozenset({"tier", "tier_contact"})
 
 def _validate_owner(owner_type: str, owner_id: str) -> tuple[str, UUID]:
     if owner_type not in _VALID_OWNER_TYPES:
-        raise ValueError(
-            f"owner_type doit être 'tier' ou 'tier_contact' (reçu: '{owner_type}')"
-        )
+        raise ValueError(f"owner_type doit être 'tier' ou 'tier_contact' (reçu: '{owner_type}')")
     try:
         return owner_type, UUID(str(owner_id))
     except (TypeError, ValueError) as exc:
@@ -478,6 +528,7 @@ async def _owner_exists(session: AsyncSession, owner_type: str, owner_id: UUID) 
 
 
 # ─── Phones ────────────────────────────────────────────────────────────────
+
 
 def _phone_to_dict(p: Phone) -> dict:
     return {
@@ -495,12 +546,20 @@ def _phone_to_dict(p: Phone) -> dict:
 async def _list_phones(args: dict) -> dict:
     owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
     async with async_session_factory() as session:
-        rows = (await session.execute(
-            select(Phone).where(
-                Phone.owner_type == owner_type,
-                Phone.owner_id == owner_id,
-            ).order_by(Phone.is_default.desc(), Phone.label)
-        )).scalars().all()
+        rows = (
+            (
+                await session.execute(
+                    select(Phone)
+                    .where(
+                        Phone.owner_type == owner_type,
+                        Phone.owner_id == owner_id,
+                    )
+                    .order_by(Phone.is_default.desc(), Phone.label)
+                )
+            )
+            .scalars()
+            .all()
+        )
     return _ok({"count": len(rows), "items": [_phone_to_dict(p) for p in rows]})
 
 
@@ -517,18 +576,26 @@ async def _add_phone(args: dict) -> dict:
             return _err(f"{owner_type} id={owner_id} introuvable")
         if is_default:
             # Unset any existing default on the same owner
-            existing = (await session.execute(
-                select(Phone).where(
-                    Phone.owner_type == owner_type,
-                    Phone.owner_id == owner_id,
-                    Phone.is_default == True,  # noqa: E712
+            existing = (
+                (
+                    await session.execute(
+                        select(Phone).where(
+                            Phone.owner_type == owner_type,
+                            Phone.owner_id == owner_id,
+                            Phone.is_default == True,  # noqa: E712
+                        )
+                    )
                 )
-            )).scalars().all()
+                .scalars()
+                .all()
+            )
             for p in existing:
                 p.is_default = False
         phone = Phone(
-            owner_type=owner_type, owner_id=owner_id,
-            label=label, number=number,
+            owner_type=owner_type,
+            owner_id=owner_id,
+            label=label,
+            number=number,
             country_code=country_code,
             is_default=is_default,
         )
@@ -543,9 +610,7 @@ async def _delete_phone(args: dict) -> dict:
     if not phone_id:
         raise ValueError("id requis")
     async with async_session_factory() as session:
-        phone = (await session.execute(
-            select(Phone).where(Phone.id == UUID(str(phone_id)))
-        )).scalar_one_or_none()
+        phone = (await session.execute(select(Phone).where(Phone.id == UUID(str(phone_id))))).scalar_one_or_none()
         if phone is None:
             return _err(f"Phone id={phone_id} introuvable")
         await session.delete(phone)
@@ -554,6 +619,7 @@ async def _delete_phone(args: dict) -> dict:
 
 
 # ─── Emails (contact_emails) ───────────────────────────────────────────────
+
 
 def _email_to_dict(e: ContactEmail) -> dict:
     return {
@@ -570,12 +636,20 @@ def _email_to_dict(e: ContactEmail) -> dict:
 async def _list_emails(args: dict) -> dict:
     owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
     async with async_session_factory() as session:
-        rows = (await session.execute(
-            select(ContactEmail).where(
-                ContactEmail.owner_type == owner_type,
-                ContactEmail.owner_id == owner_id,
-            ).order_by(ContactEmail.is_default.desc(), ContactEmail.label)
-        )).scalars().all()
+        rows = (
+            (
+                await session.execute(
+                    select(ContactEmail)
+                    .where(
+                        ContactEmail.owner_type == owner_type,
+                        ContactEmail.owner_id == owner_id,
+                    )
+                    .order_by(ContactEmail.is_default.desc(), ContactEmail.label)
+                )
+            )
+            .scalars()
+            .all()
+        )
     return _ok({"count": len(rows), "items": [_email_to_dict(e) for e in rows]})
 
 
@@ -590,18 +664,27 @@ async def _add_email(args: dict) -> dict:
         if not await _owner_exists(session, owner_type, owner_id):
             return _err(f"{owner_type} id={owner_id} introuvable")
         if is_default:
-            existing = (await session.execute(
-                select(ContactEmail).where(
-                    ContactEmail.owner_type == owner_type,
-                    ContactEmail.owner_id == owner_id,
-                    ContactEmail.is_default == True,  # noqa: E712
+            existing = (
+                (
+                    await session.execute(
+                        select(ContactEmail).where(
+                            ContactEmail.owner_type == owner_type,
+                            ContactEmail.owner_id == owner_id,
+                            ContactEmail.is_default == True,  # noqa: E712
+                        )
+                    )
                 )
-            )).scalars().all()
+                .scalars()
+                .all()
+            )
             for e in existing:
                 e.is_default = False
         obj = ContactEmail(
-            owner_type=owner_type, owner_id=owner_id,
-            label=label, email=email, is_default=is_default,
+            owner_type=owner_type,
+            owner_id=owner_id,
+            label=label,
+            email=email,
+            is_default=is_default,
         )
         session.add(obj)
         await session.commit()
@@ -614,9 +697,9 @@ async def _delete_email(args: dict) -> dict:
     if not email_id:
         raise ValueError("id requis")
     async with async_session_factory() as session:
-        obj = (await session.execute(
-            select(ContactEmail).where(ContactEmail.id == UUID(str(email_id)))
-        )).scalar_one_or_none()
+        obj = (
+            await session.execute(select(ContactEmail).where(ContactEmail.id == UUID(str(email_id))))
+        ).scalar_one_or_none()
         if obj is None:
             return _err(f"Email id={email_id} introuvable")
         await session.delete(obj)
@@ -625,6 +708,7 @@ async def _delete_email(args: dict) -> dict:
 
 
 # ─── Addresses ─────────────────────────────────────────────────────────────
+
 
 def _address_to_dict(a: Address) -> dict:
     return {
@@ -647,12 +731,20 @@ def _address_to_dict(a: Address) -> dict:
 async def _list_addresses(args: dict) -> dict:
     owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
     async with async_session_factory() as session:
-        rows = (await session.execute(
-            select(Address).where(
-                Address.owner_type == owner_type,
-                Address.owner_id == owner_id,
-            ).order_by(Address.is_default.desc(), Address.label)
-        )).scalars().all()
+        rows = (
+            (
+                await session.execute(
+                    select(Address)
+                    .where(
+                        Address.owner_type == owner_type,
+                        Address.owner_id == owner_id,
+                    )
+                    .order_by(Address.is_default.desc(), Address.label)
+                )
+            )
+            .scalars()
+            .all()
+        )
     return _ok({"count": len(rows), "items": [_address_to_dict(a) for a in rows]})
 
 
@@ -667,7 +759,8 @@ async def _add_address(args: dict) -> dict:
         if not await _owner_exists(session, owner_type, owner_id):
             return _err(f"{owner_type} id={owner_id} introuvable")
         addr = Address(
-            owner_type=owner_type, owner_id=owner_id,
+            owner_type=owner_type,
+            owner_id=owner_id,
             label=(args.get("label") or "main").strip(),
             address_line1=line1,
             address_line2=args.get("address_line2"),
@@ -690,9 +783,7 @@ async def _delete_address(args: dict) -> dict:
     if not addr_id:
         raise ValueError("id requis")
     async with async_session_factory() as session:
-        obj = (await session.execute(
-            select(Address).where(Address.id == UUID(str(addr_id)))
-        )).scalar_one_or_none()
+        obj = (await session.execute(select(Address).where(Address.id == UUID(str(addr_id))))).scalar_one_or_none()
         if obj is None:
             return _err(f"Address id={addr_id} introuvable")
         await session.delete(obj)
@@ -701,6 +792,7 @@ async def _delete_address(args: dict) -> dict:
 
 
 # ─── Notes ─────────────────────────────────────────────────────────────────
+
 
 def _note_to_dict(n: Note) -> dict:
     return {
@@ -718,12 +810,20 @@ def _note_to_dict(n: Note) -> dict:
 async def _list_notes(args: dict) -> dict:
     owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
     async with async_session_factory() as session:
-        rows = (await session.execute(
-            select(Note).where(
-                Note.owner_type == owner_type,
-                Note.owner_id == owner_id,
-            ).order_by(Note.pinned.desc(), Note.created_at.desc())
-        )).scalars().all()
+        rows = (
+            (
+                await session.execute(
+                    select(Note)
+                    .where(
+                        Note.owner_type == owner_type,
+                        Note.owner_id == owner_id,
+                    )
+                    .order_by(Note.pinned.desc(), Note.created_at.desc())
+                )
+            )
+            .scalars()
+            .all()
+        )
     return _ok({"count": len(rows), "items": [_note_to_dict(n) for n in rows]})
 
 
@@ -736,13 +836,16 @@ async def _add_note(args: dict) -> dict:
         if not await _owner_exists(session, owner_type, owner_id):
             return _err(f"{owner_type} id={owner_id} introuvable")
         # Default author: the first admin user (system write via MCP has no session user).
-        admin = (await session.execute(
-            select(User.id).where(User.active == True).limit(1)  # noqa: E712
-        )).scalar_one_or_none()
+        admin = (
+            await session.execute(
+                select(User.id).where(User.active == True).limit(1)  # noqa: E712
+            )
+        ).scalar_one_or_none()
         if admin is None:
             return _err("Aucun utilisateur actif pour signer la note")
         note = Note(
-            owner_type=owner_type, owner_id=owner_id,
+            owner_type=owner_type,
+            owner_id=owner_id,
             content=content,
             visibility=args.get("visibility", "public"),
             pinned=bool(args.get("pinned", False)),
@@ -759,9 +862,7 @@ async def _delete_note(args: dict) -> dict:
     if not note_id:
         raise ValueError("id requis")
     async with async_session_factory() as session:
-        obj = (await session.execute(
-            select(Note).where(Note.id == UUID(str(note_id)))
-        )).scalar_one_or_none()
+        obj = (await session.execute(select(Note).where(Note.id == UUID(str(note_id))))).scalar_one_or_none()
         if obj is None:
             return _err(f"Note id={note_id} introuvable")
         await session.delete(obj)
@@ -770,6 +871,7 @@ async def _delete_note(args: dict) -> dict:
 
 
 # ─── Tags ──────────────────────────────────────────────────────────────────
+
 
 def _tag_to_dict(t: Tag) -> dict:
     return {
@@ -785,12 +887,20 @@ def _tag_to_dict(t: Tag) -> dict:
 async def _list_tags(args: dict) -> dict:
     owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
     async with async_session_factory() as session:
-        rows = (await session.execute(
-            select(Tag).where(
-                Tag.owner_type == owner_type,
-                Tag.owner_id == owner_id,
-            ).order_by(Tag.name)
-        )).scalars().all()
+        rows = (
+            (
+                await session.execute(
+                    select(Tag)
+                    .where(
+                        Tag.owner_type == owner_type,
+                        Tag.owner_id == owner_id,
+                    )
+                    .order_by(Tag.name)
+                )
+            )
+            .scalars()
+            .all()
+        )
     return _ok({"count": len(rows), "items": [_tag_to_dict(t) for t in rows]})
 
 
@@ -802,13 +912,16 @@ async def _add_tag(args: dict) -> dict:
     async with async_session_factory() as session:
         if not await _owner_exists(session, owner_type, owner_id):
             return _err(f"{owner_type} id={owner_id} introuvable")
-        admin = (await session.execute(
-            select(User.id).where(User.active == True).limit(1)  # noqa: E712
-        )).scalar_one_or_none()
+        admin = (
+            await session.execute(
+                select(User.id).where(User.active == True).limit(1)  # noqa: E712
+            )
+        ).scalar_one_or_none()
         if admin is None:
             return _err("Aucun utilisateur actif")
         tag = Tag(
-            owner_type=owner_type, owner_id=owner_id,
+            owner_type=owner_type,
+            owner_id=owner_id,
             name=name,
             color=args.get("color", "#6b7280"),
             visibility=args.get("visibility", "public"),
@@ -825,9 +938,7 @@ async def _delete_tag(args: dict) -> dict:
     if not tag_id:
         raise ValueError("id requis")
     async with async_session_factory() as session:
-        obj = (await session.execute(
-            select(Tag).where(Tag.id == UUID(str(tag_id)))
-        )).scalar_one_or_none()
+        obj = (await session.execute(select(Tag).where(Tag.id == UUID(str(tag_id))))).scalar_one_or_none()
         if obj is None:
             return _err(f"Tag id={tag_id} introuvable")
         await session.delete(obj)
@@ -836,6 +947,7 @@ async def _delete_tag(args: dict) -> dict:
 
 
 # ─── Legal Identifiers ─────────────────────────────────────────────────────
+
 
 def _legal_id_to_dict(li: LegalIdentifier) -> dict:
     return {
@@ -853,12 +965,20 @@ def _legal_id_to_dict(li: LegalIdentifier) -> dict:
 async def _list_legal_identifiers(args: dict) -> dict:
     owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
     async with async_session_factory() as session:
-        rows = (await session.execute(
-            select(LegalIdentifier).where(
-                LegalIdentifier.owner_type == owner_type,
-                LegalIdentifier.owner_id == owner_id,
-            ).order_by(LegalIdentifier.type)
-        )).scalars().all()
+        rows = (
+            (
+                await session.execute(
+                    select(LegalIdentifier)
+                    .where(
+                        LegalIdentifier.owner_type == owner_type,
+                        LegalIdentifier.owner_id == owner_id,
+                    )
+                    .order_by(LegalIdentifier.type)
+                )
+            )
+            .scalars()
+            .all()
+        )
     return _ok({"count": len(rows), "items": [_legal_id_to_dict(li) for li in rows]})
 
 
@@ -872,8 +992,10 @@ async def _add_legal_identifier(args: dict) -> dict:
         if not await _owner_exists(session, owner_type, owner_id):
             return _err(f"{owner_type} id={owner_id} introuvable")
         li = LegalIdentifier(
-            owner_type=owner_type, owner_id=owner_id,
-            type=type_, value=value,
+            owner_type=owner_type,
+            owner_id=owner_id,
+            type=type_,
+            value=value,
             country=args.get("country"),
             issued_at=args.get("issued_at"),
             expires_at=args.get("expires_at"),
@@ -889,9 +1011,9 @@ async def _delete_legal_identifier(args: dict) -> dict:
     if not li_id:
         raise ValueError("id requis")
     async with async_session_factory() as session:
-        obj = (await session.execute(
-            select(LegalIdentifier).where(LegalIdentifier.id == UUID(str(li_id)))
-        )).scalar_one_or_none()
+        obj = (
+            await session.execute(select(LegalIdentifier).where(LegalIdentifier.id == UUID(str(li_id))))
+        ).scalar_one_or_none()
         if obj is None:
             return _err(f"LegalIdentifier id={li_id} introuvable")
         await session.delete(obj)
@@ -900,6 +1022,7 @@ async def _delete_legal_identifier(args: dict) -> dict:
 
 
 # ─── External references ───────────────────────────────────────────────────
+
 
 def _ext_ref_to_dict(r: ExternalReference) -> dict:
     return {
@@ -914,12 +1037,20 @@ def _ext_ref_to_dict(r: ExternalReference) -> dict:
 async def _list_external_refs(args: dict) -> dict:
     owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
     async with async_session_factory() as session:
-        rows = (await session.execute(
-            select(ExternalReference).where(
-                ExternalReference.owner_type == owner_type,
-                ExternalReference.owner_id == owner_id,
-            ).order_by(ExternalReference.system)
-        )).scalars().all()
+        rows = (
+            (
+                await session.execute(
+                    select(ExternalReference)
+                    .where(
+                        ExternalReference.owner_type == owner_type,
+                        ExternalReference.owner_id == owner_id,
+                    )
+                    .order_by(ExternalReference.system)
+                )
+            )
+            .scalars()
+            .all()
+        )
     return _ok({"count": len(rows), "items": [_ext_ref_to_dict(r) for r in rows]})
 
 
@@ -933,8 +1064,10 @@ async def _add_external_ref(args: dict) -> dict:
         if not await _owner_exists(session, owner_type, owner_id):
             return _err(f"{owner_type} id={owner_id} introuvable")
         ref = ExternalReference(
-            owner_type=owner_type, owner_id=owner_id,
-            system=system, code=code,
+            owner_type=owner_type,
+            owner_id=owner_id,
+            system=system,
+            code=code,
         )
         session.add(ref)
         await session.commit()
@@ -943,6 +1076,7 @@ async def _add_external_ref(args: dict) -> dict:
 
 
 # ─── Tier blocks ───────────────────────────────────────────────────────────
+
 
 async def _block_tier(args: dict) -> dict:
     tier_id = args.get("id")
@@ -954,14 +1088,14 @@ async def _block_tier(args: dict) -> dict:
     block_type = args.get("block_type", "all")
 
     async with async_session_factory() as session:
-        tier = (await session.execute(
-            select(Tier).where(Tier.id == UUID(str(tier_id)))
-        )).scalar_one_or_none()
+        tier = (await session.execute(select(Tier).where(Tier.id == UUID(str(tier_id))))).scalar_one_or_none()
         if tier is None:
             return _err(f"Tier id={tier_id} introuvable")
-        admin = (await session.execute(
-            select(User.id).where(User.active == True).limit(1)  # noqa: E712
-        )).scalar_one_or_none()
+        admin = (
+            await session.execute(
+                select(User.id).where(User.active == True).limit(1)  # noqa: E712
+            )
+        ).scalar_one_or_none()
         if admin is None:
             return _err("Aucun utilisateur actif")
         block = TierBlock(
@@ -987,14 +1121,14 @@ async def _unblock_tier(args: dict) -> dict:
         raise ValueError("reason requis")
 
     async with async_session_factory() as session:
-        tier = (await session.execute(
-            select(Tier).where(Tier.id == UUID(str(tier_id)))
-        )).scalar_one_or_none()
+        tier = (await session.execute(select(Tier).where(Tier.id == UUID(str(tier_id))))).scalar_one_or_none()
         if tier is None:
             return _err(f"Tier id={tier_id} introuvable")
-        admin = (await session.execute(
-            select(User.id).where(User.active == True).limit(1)  # noqa: E712
-        )).scalar_one_or_none()
+        admin = (
+            await session.execute(
+                select(User.id).where(User.active == True).limit(1)  # noqa: E712
+            )
+        ).scalar_one_or_none()
         block = TierBlock(
             entity_id=tier.entity_id,
             tier_id=tier.id,
@@ -1014,11 +1148,17 @@ async def _list_tier_blocks(args: dict) -> dict:
     if not tier_id:
         raise ValueError("tier_id requis")
     async with async_session_factory() as session:
-        rows = (await session.execute(
-            select(TierBlock).where(
-                TierBlock.tier_id == UUID(str(tier_id))
-            ).order_by(TierBlock.created_at.desc())
-        )).scalars().all()
+        rows = (
+            (
+                await session.execute(
+                    select(TierBlock)
+                    .where(TierBlock.tier_id == UUID(str(tier_id)))
+                    .order_by(TierBlock.created_at.desc())
+                )
+            )
+            .scalars()
+            .all()
+        )
     items = [
         {
             "id": str(b.id),
@@ -1033,6 +1173,7 @@ async def _list_tier_blocks(args: dict) -> dict:
 
 
 # ─── Compliance ────────────────────────────────────────────────────────────
+
 
 async def _check_compliance(args: dict) -> dict:
     """Run the canonical compliance verdict for a tier or contact."""
@@ -1074,15 +1215,18 @@ def _compliance_record_to_dict(r: ComplianceRecord, type_name: str | None = None
 async def _list_compliance_records(args: dict) -> dict:
     owner_type, owner_id = _validate_owner(args.get("owner_type", ""), args.get("owner_id", ""))
     async with async_session_factory() as session:
-        rows = (await session.execute(
-            select(ComplianceRecord, ComplianceType.name)
-            .join(ComplianceType, ComplianceType.id == ComplianceRecord.compliance_type_id)
-            .where(
-                ComplianceRecord.owner_type == owner_type,
-                ComplianceRecord.owner_id == owner_id,
-                ComplianceRecord.active == True,  # noqa: E712
-            ).order_by(ComplianceRecord.expires_at.desc().nulls_last())
-        )).all()
+        rows = (
+            await session.execute(
+                select(ComplianceRecord, ComplianceType.name)
+                .join(ComplianceType, ComplianceType.id == ComplianceRecord.compliance_type_id)
+                .where(
+                    ComplianceRecord.owner_type == owner_type,
+                    ComplianceRecord.owner_id == owner_id,
+                    ComplianceRecord.active == True,  # noqa: E712
+                )
+                .order_by(ComplianceRecord.expires_at.desc().nulls_last())
+            )
+        ).all()
     items = [_compliance_record_to_dict(rec, type_name) for rec, type_name in rows]
     return _ok({"count": len(items), "items": items})
 
@@ -1098,7 +1242,7 @@ async def _add_compliance_record(args: dict) -> dict:
             return None
         try:
             if len(s) == 10:  # YYYY-MM-DD
-                return datetime.fromisoformat(s).replace(tzinfo=timezone.utc)
+                return datetime.fromisoformat(s).replace(tzinfo=UTC)
             return datetime.fromisoformat(s.replace("Z", "+00:00"))
         except ValueError as exc:
             raise ValueError(f"Date invalide '{s}': {exc}")
@@ -1118,9 +1262,11 @@ async def _add_compliance_record(args: dict) -> dict:
         if not await _owner_exists(session, owner_type, owner_id):
             return _err(f"{owner_type} id={owner_id} introuvable")
 
-        admin = (await session.execute(
-            select(User.id).where(User.active == True).limit(1)  # noqa: E712
-        )).scalar_one_or_none()
+        admin = (
+            await session.execute(
+                select(User.id).where(User.active == True).limit(1)  # noqa: E712
+            )
+        ).scalar_one_or_none()
         if admin is None:
             return _err("Aucun utilisateur actif")
 
@@ -1146,6 +1292,7 @@ async def _add_compliance_record(args: dict) -> dict:
 
 # ─── Contact transfer ─────────────────────────────────────────────────────
 
+
 async def _transfer_contact(args: dict) -> dict:
     """Move a contact from one tier to another and log the transfer."""
     contact_id = args.get("contact_id")
@@ -1159,23 +1306,19 @@ async def _transfer_contact(args: dict) -> dict:
     transfer_date_str = args.get("transfer_date")
     try:
         transfer_date = (
-            datetime.fromisoformat(transfer_date_str.replace("Z", "+00:00"))
-            if transfer_date_str
-            else datetime.now(timezone.utc)
+            datetime.fromisoformat(transfer_date_str.replace("Z", "+00:00")) if transfer_date_str else datetime.now(UTC)
         )
     except ValueError as exc:
         raise ValueError(f"transfer_date invalide: {exc}")
 
     async with async_session_factory() as session:
-        contact = (await session.execute(
-            select(TierContact).where(TierContact.id == UUID(str(contact_id)))
-        )).scalar_one_or_none()
+        contact = (
+            await session.execute(select(TierContact).where(TierContact.id == UUID(str(contact_id))))
+        ).scalar_one_or_none()
         if contact is None:
             return _err(f"Contact id={contact_id} introuvable")
 
-        to_tier = (await session.execute(
-            select(Tier).where(Tier.id == UUID(str(to_tier_id)))
-        )).scalar_one_or_none()
+        to_tier = (await session.execute(select(Tier).where(Tier.id == UUID(str(to_tier_id))))).scalar_one_or_none()
         if to_tier is None:
             return _err(f"Tier cible id={to_tier_id} introuvable")
 
@@ -1183,9 +1326,11 @@ async def _transfer_contact(args: dict) -> dict:
         if from_tier_id == to_tier.id:
             return _err("Le contact est déjà rattaché à cette entreprise")
 
-        admin = (await session.execute(
-            select(User.id).where(User.active == True).limit(1)  # noqa: E712
-        )).scalar_one_or_none()
+        admin = (
+            await session.execute(
+                select(User.id).where(User.active == True).limit(1)  # noqa: E712
+            )
+        ).scalar_one_or_none()
         if admin is None:
             return _err("Aucun utilisateur actif pour signer le transfert")
 
@@ -1202,21 +1347,21 @@ async def _transfer_contact(args: dict) -> dict:
         await session.commit()
         await session.refresh(transfer)
 
-        from_tier = (await session.execute(
-            select(Tier).where(Tier.id == from_tier_id)
-        )).scalar_one_or_none()
+        from_tier = (await session.execute(select(Tier).where(Tier.id == from_tier_id))).scalar_one_or_none()
 
-        return _ok({
-            "id": str(transfer.id),
-            "contact_id": str(contact.id),
-            "contact_name": f"{contact.first_name} {contact.last_name}",
-            "from_tier_id": str(from_tier_id),
-            "from_tier_name": from_tier.name if from_tier else None,
-            "to_tier_id": str(to_tier.id),
-            "to_tier_name": to_tier.name,
-            "transfer_date": transfer.transfer_date.isoformat(),
-            "reason": transfer.reason,
-        })
+        return _ok(
+            {
+                "id": str(transfer.id),
+                "contact_id": str(contact.id),
+                "contact_name": f"{contact.first_name} {contact.last_name}",
+                "from_tier_id": str(from_tier_id),
+                "from_tier_name": from_tier.name if from_tier else None,
+                "to_tier_id": str(to_tier.id),
+                "to_tier_name": to_tier.name,
+                "transfer_date": transfer.transfer_date.isoformat(),
+                "reason": transfer.reason,
+            }
+        )
 
 
 async def _list_contact_transfers(args: dict) -> dict:
@@ -1228,19 +1373,21 @@ async def _list_contact_transfers(args: dict) -> dict:
     async with async_session_factory() as session:
         from_tier = Tier.__table__.alias("from_tier")
         to_tier = Tier.__table__.alias("to_tier")
-        rows = (await session.execute(
-            select(
-                TierContactTransfer,
-                from_tier.c.name.label("from_name"),
-                from_tier.c.code.label("from_code"),
-                to_tier.c.name.label("to_name"),
-                to_tier.c.code.label("to_code"),
+        rows = (
+            await session.execute(
+                select(
+                    TierContactTransfer,
+                    from_tier.c.name.label("from_name"),
+                    from_tier.c.code.label("from_code"),
+                    to_tier.c.name.label("to_name"),
+                    to_tier.c.code.label("to_code"),
+                )
+                .join(from_tier, TierContactTransfer.from_tier_id == from_tier.c.id)
+                .join(to_tier, TierContactTransfer.to_tier_id == to_tier.c.id)
+                .where(TierContactTransfer.contact_id == UUID(str(contact_id)))
+                .order_by(TierContactTransfer.transfer_date.desc())
             )
-            .join(from_tier, TierContactTransfer.from_tier_id == from_tier.c.id)
-            .join(to_tier, TierContactTransfer.to_tier_id == to_tier.c.id)
-            .where(TierContactTransfer.contact_id == UUID(str(contact_id)))
-            .order_by(TierContactTransfer.transfer_date.desc())
-        )).all()
+        ).all()
 
     items = [
         {
@@ -1263,12 +1410,20 @@ async def _list_compliance_types(args: dict) -> dict:
     """List available compliance types for the current entity."""
     async with async_session_factory() as session:
         entity_id = await _resolve_entity_id(session, args.get("entity_code"))
-        rows = (await session.execute(
-            select(ComplianceType).where(
-                ComplianceType.entity_id == entity_id,
-                ComplianceType.active == True,  # noqa: E712
-            ).order_by(ComplianceType.category, ComplianceType.name)
-        )).scalars().all()
+        rows = (
+            (
+                await session.execute(
+                    select(ComplianceType)
+                    .where(
+                        ComplianceType.entity_id == entity_id,
+                        ComplianceType.active == True,  # noqa: E712
+                    )
+                    .order_by(ComplianceType.category, ComplianceType.name)
+                )
+            )
+            .scalars()
+            .all()
+        )
     items = [
         {
             "id": str(ct.id),
@@ -1358,10 +1513,12 @@ async def _list_sites(args: dict) -> dict:
             )
         query = query.order_by(OilSite.code).limit(limit)
         rows = (await session.execute(query)).scalars().all()
-    return _ok({
-        "count": len(rows),
-        "items": [_site_to_dict(s) for s in rows],
-    })
+    return _ok(
+        {
+            "count": len(rows),
+            "items": [_site_to_dict(s) for s in rows],
+        }
+    )
 
 
 async def _list_assets(args: dict) -> dict:
@@ -1394,10 +1551,12 @@ async def _list_assets(args: dict) -> dict:
             )
         query = query.order_by(Installation.code).limit(limit)
         rows = (await session.execute(query)).scalars().all()
-    return _ok({
-        "count": len(rows),
-        "items": [_installation_to_dict(r, compact=True) for r in rows],
-    })
+    return _ok(
+        {
+            "count": len(rows),
+            "items": [_installation_to_dict(r, compact=True) for r in rows],
+        }
+    )
 
 
 async def _get_asset(args: dict) -> dict:
@@ -1434,13 +1593,27 @@ async def _list_fields(args: dict) -> dict:
         query = select(OilField).where(OilField.entity_id == entity_id, OilField.deleted_at.is_(None))
         if search:
             needle = f"%{search.lower()}%"
-            query = query.where(or_(sqla_func.lower(OilField.code).like(needle), sqla_func.lower(OilField.name).like(needle)))
+            query = query.where(
+                or_(sqla_func.lower(OilField.code).like(needle), sqla_func.lower(OilField.name).like(needle))
+            )
         query = query.order_by(OilField.code).limit(limit)
         rows = (await session.execute(query)).scalars().all()
-    return _ok({"count": len(rows), "items": [
-        {"id": str(f.id), "code": f.code, "name": f.name, "country": f.country, "operator": f.operator, "status": f.status}
-        for f in rows
-    ]})
+    return _ok(
+        {
+            "count": len(rows),
+            "items": [
+                {
+                    "id": str(f.id),
+                    "code": f.code,
+                    "name": f.name,
+                    "country": f.country,
+                    "operator": f.operator,
+                    "status": f.status,
+                }
+                for f in rows
+            ],
+        }
+    )
 
 
 async def _get_field(args: dict) -> dict:
@@ -1458,11 +1631,20 @@ async def _get_field(args: dict) -> dict:
         f = (await session.execute(query)).scalar_one_or_none()
         if not f:
             return _err("Champ petrolier introuvable")
-    return _ok({"id": str(f.id), "code": f.code, "name": f.name, "country": f.country,
-                "operator": f.operator, "basin": f.basin, "status": f.status,
-                "discovery_date": f.discovery_date.isoformat() if f.discovery_date else None,
-                "working_interest_pct": float(f.working_interest_pct) if f.working_interest_pct else None,
-                "notes": (f.notes or "")[:500]})
+    return _ok(
+        {
+            "id": str(f.id),
+            "code": f.code,
+            "name": f.name,
+            "country": f.country,
+            "operator": f.operator,
+            "basin": f.basin,
+            "status": f.status,
+            "discovery_date": f.discovery_date.isoformat() if f.discovery_date else None,
+            "working_interest_pct": float(f.working_interest_pct) if f.working_interest_pct else None,
+            "notes": (f.notes or "")[:500],
+        }
+    )
 
 
 async def _list_equipment(args: dict) -> dict:
@@ -1474,7 +1656,9 @@ async def _list_equipment(args: dict) -> dict:
     limit = min(max(int(args.get("limit", 30) or 30), 1), 200)
     async with async_session_factory() as session:
         entity_id = await _resolve_entity_id(session, args.get("entity_code"))
-        query = select(RegistryEquipment).where(RegistryEquipment.entity_id == entity_id, RegistryEquipment.deleted_at.is_(None))
+        query = select(RegistryEquipment).where(
+            RegistryEquipment.entity_id == entity_id, RegistryEquipment.deleted_at.is_(None)
+        )
         if inst_id:
             try:
                 query = query.where(RegistryEquipment.installation_id == UUID(str(inst_id)))
@@ -1486,14 +1670,31 @@ async def _list_equipment(args: dict) -> dict:
             query = query.where(RegistryEquipment.status == status_filter)
         if search:
             needle = f"%{search.lower()}%"
-            query = query.where(or_(sqla_func.lower(RegistryEquipment.tag_number).like(needle), sqla_func.lower(RegistryEquipment.name).like(needle)))
+            query = query.where(
+                or_(
+                    sqla_func.lower(RegistryEquipment.tag_number).like(needle),
+                    sqla_func.lower(RegistryEquipment.name).like(needle),
+                )
+            )
         query = query.order_by(RegistryEquipment.tag_number).limit(limit)
         rows = (await session.execute(query)).scalars().all()
-    return _ok({"count": len(rows), "items": [
-        {"id": str(e.id), "tag_number": e.tag_number, "name": e.name, "equipment_class": e.equipment_class,
-         "status": e.status, "manufacturer": e.manufacturer, "installation_id": str(e.installation_id) if e.installation_id else None}
-        for e in rows
-    ]})
+    return _ok(
+        {
+            "count": len(rows),
+            "items": [
+                {
+                    "id": str(e.id),
+                    "tag_number": e.tag_number,
+                    "name": e.name,
+                    "equipment_class": e.equipment_class,
+                    "status": e.status,
+                    "manufacturer": e.manufacturer,
+                    "installation_id": str(e.installation_id) if e.installation_id else None,
+                }
+                for e in rows
+            ],
+        }
+    )
 
 
 async def _get_equipment(args: dict) -> dict:
@@ -1503,7 +1704,9 @@ async def _get_equipment(args: dict) -> dict:
         raise ValueError("id ou tag_number requis")
     async with async_session_factory() as session:
         entity_id = await _resolve_entity_id(session, args.get("entity_code"))
-        query = select(RegistryEquipment).where(RegistryEquipment.entity_id == entity_id, RegistryEquipment.deleted_at.is_(None))
+        query = select(RegistryEquipment).where(
+            RegistryEquipment.entity_id == entity_id, RegistryEquipment.deleted_at.is_(None)
+        )
         try:
             query = query.where(RegistryEquipment.id == UUID(str(eid)))
         except (TypeError, ValueError):
@@ -1511,29 +1714,63 @@ async def _get_equipment(args: dict) -> dict:
         e = (await session.execute(query)).scalar_one_or_none()
         if not e:
             return _err("Equipement introuvable")
-    return _ok({"id": str(e.id), "tag_number": e.tag_number, "name": e.name, "equipment_class": e.equipment_class,
-                "status": e.status, "manufacturer": e.manufacturer, "model": e.model, "serial_number": e.serial_number,
-                "installation_id": str(e.installation_id) if e.installation_id else None,
-                "commissioning_date": e.commissioning_date.isoformat() if e.commissioning_date else None,
-                "design_pressure_bar": float(e.design_pressure_bar) if e.design_pressure_bar else None,
-                "design_temperature_c": float(e.design_temperature_c) if e.design_temperature_c else None,
-                "weight_kg": float(e.weight_kg) if e.weight_kg else None,
-                "notes": (e.notes or "")[:500]})
+    return _ok(
+        {
+            "id": str(e.id),
+            "tag_number": e.tag_number,
+            "name": e.name,
+            "equipment_class": e.equipment_class,
+            "status": e.status,
+            "manufacturer": e.manufacturer,
+            "model": e.model,
+            "serial_number": e.serial_number,
+            "installation_id": str(e.installation_id) if e.installation_id else None,
+            "commissioning_date": e.commissioning_date.isoformat() if e.commissioning_date else None,
+            "design_pressure_bar": float(e.design_pressure_bar) if e.design_pressure_bar else None,
+            "design_temperature_c": float(e.design_temperature_c) if e.design_temperature_c else None,
+            "weight_kg": float(e.weight_kg) if e.weight_kg else None,
+            "notes": (e.notes or "")[:500],
+        }
+    )
 
 
 async def _get_asset_hierarchy(args: dict) -> dict:
     """Get the full Field > Site > Installation hierarchy tree."""
     async with async_session_factory() as session:
         entity_id = await _resolve_entity_id(session, args.get("entity_code"))
-        fields = (await session.execute(
-            select(OilField).where(OilField.entity_id == entity_id, OilField.deleted_at.is_(None)).order_by(OilField.code)
-        )).scalars().all()
-        sites = (await session.execute(
-            select(OilSite).where(OilSite.entity_id == entity_id, OilSite.deleted_at.is_(None)).order_by(OilSite.code)
-        )).scalars().all()
-        installations = (await session.execute(
-            select(Installation).where(Installation.entity_id == entity_id, Installation.deleted_at.is_(None)).order_by(Installation.code)
-        )).scalars().all()
+        fields = (
+            (
+                await session.execute(
+                    select(OilField)
+                    .where(OilField.entity_id == entity_id, OilField.deleted_at.is_(None))
+                    .order_by(OilField.code)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        sites = (
+            (
+                await session.execute(
+                    select(OilSite)
+                    .where(OilSite.entity_id == entity_id, OilSite.deleted_at.is_(None))
+                    .order_by(OilSite.code)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        installations = (
+            (
+                await session.execute(
+                    select(Installation)
+                    .where(Installation.entity_id == entity_id, Installation.deleted_at.is_(None))
+                    .order_by(Installation.code)
+                )
+            )
+            .scalars()
+            .all()
+        )
     site_map: dict[str, list] = {}
     for s in sites:
         fid = str(s.field_id) if s.field_id else "__none__"
@@ -1545,14 +1782,34 @@ async def _get_asset_hierarchy(args: dict) -> dict:
     tree = []
     for f in fields:
         field_sites = site_map.get(str(f.id), [])
-        tree.append({
-            "type": "field", "id": str(f.id), "code": f.code, "name": f.name,
-            "sites": [{
-                "type": "site", "id": str(s.id), "code": s.code, "name": s.name,
-                "installations": [{"type": "installation", "id": str(i.id), "code": i.code, "name": i.name,
-                                   "status": i.status, "type_detail": i.installation_type} for i in inst_map.get(str(s.id), [])]
-            } for s in field_sites]
-        })
+        tree.append(
+            {
+                "type": "field",
+                "id": str(f.id),
+                "code": f.code,
+                "name": f.name,
+                "sites": [
+                    {
+                        "type": "site",
+                        "id": str(s.id),
+                        "code": s.code,
+                        "name": s.name,
+                        "installations": [
+                            {
+                                "type": "installation",
+                                "id": str(i.id),
+                                "code": i.code,
+                                "name": i.name,
+                                "status": i.status,
+                                "type_detail": i.installation_type,
+                            }
+                            for i in inst_map.get(str(s.id), [])
+                        ],
+                    }
+                    for s in field_sites
+                ],
+            }
+        )
     return _ok({"fields": len(fields), "sites": len(sites), "installations": len(installations), "tree": tree})
 
 
@@ -1576,17 +1833,30 @@ async def _list_ads(args: dict) -> dict:
             query = query.where(Ads.type == ads_type)
         if search:
             needle = f"%{search.lower()}%"
-            query = query.where(or_(sqla_func.lower(Ads.reference).like(needle), sqla_func.lower(Ads.visit_purpose).like(needle)))
+            query = query.where(
+                or_(sqla_func.lower(Ads.reference).like(needle), sqla_func.lower(Ads.visit_purpose).like(needle))
+            )
         query = query.order_by(Ads.created_at.desc()).limit(limit)
         rows = (await session.execute(query)).scalars().all()
-    return _ok({"count": len(rows), "items": [
-        {"id": str(a.id), "reference": a.reference, "type": a.type, "status": a.status,
-         "visit_purpose": (a.visit_purpose or "")[:100], "visit_category": a.visit_category,
-         "start_date": a.start_date.isoformat() if a.start_date else None,
-         "end_date": a.end_date.isoformat() if a.end_date else None,
-         "created_at": a.created_at.isoformat() if a.created_at else None}
-        for a in rows
-    ]})
+    return _ok(
+        {
+            "count": len(rows),
+            "items": [
+                {
+                    "id": str(a.id),
+                    "reference": a.reference,
+                    "type": a.type,
+                    "status": a.status,
+                    "visit_purpose": (a.visit_purpose or "")[:100],
+                    "visit_category": a.visit_category,
+                    "start_date": a.start_date.isoformat() if a.start_date else None,
+                    "end_date": a.end_date.isoformat() if a.end_date else None,
+                    "created_at": a.created_at.isoformat() if a.created_at else None,
+                }
+                for a in rows
+            ],
+        }
+    )
 
 
 async def _get_ads(args: dict) -> dict:
@@ -1605,20 +1875,28 @@ async def _get_ads(args: dict) -> dict:
         if not a:
             return _err("ADS introuvable")
         # Count PAX
-        pax_count = (await session.execute(
-            select(sqla_func.count(AdsPax.id)).where(AdsPax.ads_id == a.id)
-        )).scalar() or 0
-    return _ok({"id": str(a.id), "reference": a.reference, "type": a.type, "status": a.status,
-                "visit_purpose": a.visit_purpose, "visit_category": a.visit_category,
-                "start_date": a.start_date.isoformat() if a.start_date else None,
-                "end_date": a.end_date.isoformat() if a.end_date else None,
-                "outbound_transport_mode": a.outbound_transport_mode,
-                "return_transport_mode": a.return_transport_mode,
-                "cross_company_flag": a.cross_company_flag,
-                "submitted_at": a.submitted_at.isoformat() if a.submitted_at else None,
-                "approved_at": a.approved_at.isoformat() if a.approved_at else None,
-                "pax_count": pax_count,
-                "created_at": a.created_at.isoformat() if a.created_at else None})
+        pax_count = (
+            await session.execute(select(sqla_func.count(AdsPax.id)).where(AdsPax.ads_id == a.id))
+        ).scalar() or 0
+    return _ok(
+        {
+            "id": str(a.id),
+            "reference": a.reference,
+            "type": a.type,
+            "status": a.status,
+            "visit_purpose": a.visit_purpose,
+            "visit_category": a.visit_category,
+            "start_date": a.start_date.isoformat() if a.start_date else None,
+            "end_date": a.end_date.isoformat() if a.end_date else None,
+            "outbound_transport_mode": a.outbound_transport_mode,
+            "return_transport_mode": a.return_transport_mode,
+            "cross_company_flag": a.cross_company_flag,
+            "submitted_at": a.submitted_at.isoformat() if a.submitted_at else None,
+            "approved_at": a.approved_at.isoformat() if a.approved_at else None,
+            "pax_count": pax_count,
+            "created_at": a.created_at.isoformat() if a.created_at else None,
+        }
+    )
 
 
 async def _list_pax_groups(args: dict) -> dict:
@@ -1632,10 +1910,15 @@ async def _list_pax_groups(args: dict) -> dict:
             query = query.where(sqla_func.lower(PaxGroup.name).like(f"%{search.lower()}%"))
         query = query.order_by(PaxGroup.name).limit(limit)
         rows = (await session.execute(query)).scalars().all()
-    return _ok({"count": len(rows), "items": [
-        {"id": str(g.id), "name": g.name, "company_id": str(g.company_id) if g.company_id else None}
-        for g in rows
-    ]})
+    return _ok(
+        {
+            "count": len(rows),
+            "items": [
+                {"id": str(g.id), "name": g.name, "company_id": str(g.company_id) if g.company_id else None}
+                for g in rows
+            ],
+        }
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1653,7 +1936,9 @@ async def _list_planner_activities(args: dict) -> dict:
     limit = min(max(int(args.get("limit", 30) or 30), 1), 200)
     async with async_session_factory() as session:
         entity_id = await _resolve_entity_id(session, args.get("entity_code"))
-        query = select(PlannerActivity).where(PlannerActivity.entity_id == entity_id, PlannerActivity.deleted_at.is_(None))
+        query = select(PlannerActivity).where(
+            PlannerActivity.entity_id == entity_id, PlannerActivity.deleted_at.is_(None)
+        )
         if status_filter:
             query = query.where(PlannerActivity.status == status_filter)
         if act_type:
@@ -1670,14 +1955,25 @@ async def _list_planner_activities(args: dict) -> dict:
             query = query.where(sqla_func.lower(PlannerActivity.title).like(needle))
         query = query.order_by(PlannerActivity.start_date.desc()).limit(limit)
         rows = (await session.execute(query)).scalars().all()
-    return _ok({"count": len(rows), "items": [
-        {"id": str(a.id), "title": a.title, "type": a.type, "status": a.status,
-         "priority": a.priority, "pax_quota": a.pax_quota,
-         "asset_id": str(a.asset_id) if a.asset_id else None,
-         "start_date": a.start_date.isoformat() if a.start_date else None,
-         "end_date": a.end_date.isoformat() if a.end_date else None}
-        for a in rows
-    ]})
+    return _ok(
+        {
+            "count": len(rows),
+            "items": [
+                {
+                    "id": str(a.id),
+                    "title": a.title,
+                    "type": a.type,
+                    "status": a.status,
+                    "priority": a.priority,
+                    "pax_quota": a.pax_quota,
+                    "asset_id": str(a.asset_id) if a.asset_id else None,
+                    "start_date": a.start_date.isoformat() if a.start_date else None,
+                    "end_date": a.end_date.isoformat() if a.end_date else None,
+                }
+                for a in rows
+            ],
+        }
+    )
 
 
 async def _get_planner_activity(args: dict) -> dict:
@@ -1688,24 +1984,36 @@ async def _get_planner_activity(args: dict) -> dict:
     async with async_session_factory() as session:
         entity_id = await _resolve_entity_id(session, args.get("entity_code"))
         query = select(PlannerActivity).where(
-            PlannerActivity.entity_id == entity_id, PlannerActivity.deleted_at.is_(None),
-            PlannerActivity.id == UUID(str(aid)))
+            PlannerActivity.entity_id == entity_id,
+            PlannerActivity.deleted_at.is_(None),
+            PlannerActivity.id == UUID(str(aid)),
+        )
         a = (await session.execute(query)).scalar_one_or_none()
         if not a:
             return _err("Activite introuvable")
-    return _ok({"id": str(a.id), "title": a.title, "type": a.type, "subtype": a.subtype,
-                "status": a.status, "priority": a.priority, "pax_quota": a.pax_quota,
-                "description": (a.description or "")[:500],
-                "asset_id": str(a.asset_id) if a.asset_id else None,
-                "project_id": str(a.project_id) if a.project_id else None,
-                "start_date": a.start_date.isoformat() if a.start_date else None,
-                "end_date": a.end_date.isoformat() if a.end_date else None,
-                "actual_start": a.actual_start.isoformat() if a.actual_start else None,
-                "actual_end": a.actual_end.isoformat() if a.actual_end else None,
-                "well_reference": a.well_reference, "rig_name": a.rig_name,
-                "submitted_at": a.submitted_at.isoformat() if a.submitted_at else None,
-                "validated_at": a.validated_at.isoformat() if a.validated_at else None,
-                "created_at": a.created_at.isoformat() if a.created_at else None})
+    return _ok(
+        {
+            "id": str(a.id),
+            "title": a.title,
+            "type": a.type,
+            "subtype": a.subtype,
+            "status": a.status,
+            "priority": a.priority,
+            "pax_quota": a.pax_quota,
+            "description": (a.description or "")[:500],
+            "asset_id": str(a.asset_id) if a.asset_id else None,
+            "project_id": str(a.project_id) if a.project_id else None,
+            "start_date": a.start_date.isoformat() if a.start_date else None,
+            "end_date": a.end_date.isoformat() if a.end_date else None,
+            "actual_start": a.actual_start.isoformat() if a.actual_start else None,
+            "actual_end": a.actual_end.isoformat() if a.actual_end else None,
+            "well_reference": a.well_reference,
+            "rig_name": a.rig_name,
+            "submitted_at": a.submitted_at.isoformat() if a.submitted_at else None,
+            "validated_at": a.validated_at.isoformat() if a.validated_at else None,
+            "created_at": a.created_at.isoformat() if a.created_at else None,
+        }
+    )
 
 
 async def _list_planner_conflicts(args: dict) -> dict:
@@ -1713,19 +2021,33 @@ async def _list_planner_conflicts(args: dict) -> dict:
     limit = min(max(int(args.get("limit", 20) or 20), 1), 100)
     async with async_session_factory() as session:
         entity_id = await _resolve_entity_id(session, args.get("entity_code"))
-        query = select(PlannerConflict).where(
-            PlannerConflict.entity_id == entity_id,
-            PlannerConflict.resolved == False,  # noqa: E712
-        ).order_by(PlannerConflict.detected_at.desc()).limit(limit)
+        query = (
+            select(PlannerConflict)
+            .where(
+                PlannerConflict.entity_id == entity_id,
+                PlannerConflict.resolved == False,  # noqa: E712
+            )
+            .order_by(PlannerConflict.detected_at.desc())
+            .limit(limit)
+        )
         rows = (await session.execute(query)).scalars().all()
-    return _ok({"count": len(rows), "items": [
-        {"id": str(c.id), "conflict_type": c.conflict_type, "severity": c.severity,
-         "asset_id": str(c.asset_id) if c.asset_id else None,
-         "conflict_date": c.conflict_date.isoformat() if c.conflict_date else None,
-         "message": (c.message or "")[:200],
-         "detected_at": c.detected_at.isoformat() if c.detected_at else None}
-        for c in rows
-    ]})
+    return _ok(
+        {
+            "count": len(rows),
+            "items": [
+                {
+                    "id": str(c.id),
+                    "conflict_type": c.conflict_type,
+                    "severity": c.severity,
+                    "asset_id": str(c.asset_id) if c.asset_id else None,
+                    "conflict_date": c.conflict_date.isoformat() if c.conflict_date else None,
+                    "message": (c.message or "")[:200],
+                    "detected_at": c.detected_at.isoformat() if c.detected_at else None,
+                }
+                for c in rows
+            ],
+        }
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1741,25 +2063,40 @@ async def _list_vectors(args: dict) -> dict:
     limit = min(max(int(args.get("limit", 20) or 20), 1), 200)
     async with async_session_factory() as session:
         entity_id = await _resolve_entity_id(session, args.get("entity_code"))
-        query = select(TransportVector).where(TransportVector.entity_id == entity_id, TransportVector.deleted_at.is_(None))
+        query = select(TransportVector).where(
+            TransportVector.entity_id == entity_id, TransportVector.deleted_at.is_(None)
+        )
         if mode_filter:
             query = query.where(TransportVector.mode == mode_filter)
         if type_filter:
             query = query.where(TransportVector.type == type_filter)
         if search:
             needle = f"%{search.lower()}%"
-            query = query.where(or_(
-                sqla_func.lower(TransportVector.registration).like(needle),
-                sqla_func.lower(TransportVector.name).like(needle),
-            ))
+            query = query.where(
+                or_(
+                    sqla_func.lower(TransportVector.registration).like(needle),
+                    sqla_func.lower(TransportVector.name).like(needle),
+                )
+            )
         query = query.order_by(TransportVector.registration).limit(limit)
         rows = (await session.execute(query)).scalars().all()
-    return _ok({"count": len(rows), "items": [
-        {"id": str(v.id), "registration": v.registration, "name": v.name,
-         "type": v.type, "mode": v.mode, "pax_capacity": v.pax_capacity,
-         "active": v.active}
-        for v in rows
-    ]})
+    return _ok(
+        {
+            "count": len(rows),
+            "items": [
+                {
+                    "id": str(v.id),
+                    "registration": v.registration,
+                    "name": v.name,
+                    "type": v.type,
+                    "mode": v.mode,
+                    "pax_capacity": v.pax_capacity,
+                    "active": v.active,
+                }
+                for v in rows
+            ],
+        }
+    )
 
 
 async def _get_vector(args: dict) -> dict:
@@ -1769,7 +2106,9 @@ async def _get_vector(args: dict) -> dict:
         raise ValueError("id ou registration requis")
     async with async_session_factory() as session:
         entity_id = await _resolve_entity_id(session, args.get("entity_code"))
-        query = select(TransportVector).where(TransportVector.entity_id == entity_id, TransportVector.deleted_at.is_(None))
+        query = select(TransportVector).where(
+            TransportVector.entity_id == entity_id, TransportVector.deleted_at.is_(None)
+        )
         try:
             query = query.where(TransportVector.id == UUID(str(vid)))
         except (TypeError, ValueError):
@@ -1777,13 +2116,22 @@ async def _get_vector(args: dict) -> dict:
         v = (await session.execute(query)).scalar_one_or_none()
         if not v:
             return _err("Vecteur introuvable")
-    return _ok({"id": str(v.id), "registration": v.registration, "name": v.name,
-                "type": v.type, "mode": v.mode, "pax_capacity": v.pax_capacity,
-                "weight_capacity_kg": float(v.weight_capacity_kg) if v.weight_capacity_kg else None,
-                "volume_capacity_m3": float(v.volume_capacity_m3) if v.volume_capacity_m3 else None,
-                "home_base_id": str(v.home_base_id) if v.home_base_id else None,
-                "requires_weighing": v.requires_weighing, "mmsi_number": v.mmsi_number,
-                "active": v.active})
+    return _ok(
+        {
+            "id": str(v.id),
+            "registration": v.registration,
+            "name": v.name,
+            "type": v.type,
+            "mode": v.mode,
+            "pax_capacity": v.pax_capacity,
+            "weight_capacity_kg": float(v.weight_capacity_kg) if v.weight_capacity_kg else None,
+            "volume_capacity_m3": float(v.volume_capacity_m3) if v.volume_capacity_m3 else None,
+            "home_base_id": str(v.home_base_id) if v.home_base_id else None,
+            "requires_weighing": v.requires_weighing,
+            "mmsi_number": v.mmsi_number,
+            "active": v.active,
+        }
+    )
 
 
 async def _list_voyages(args: dict) -> dict:
@@ -1806,15 +2154,24 @@ async def _list_voyages(args: dict) -> dict:
             query = query.where(sqla_func.lower(Voyage.code).like(f"%{search.lower()}%"))
         query = query.order_by(Voyage.scheduled_departure.desc()).limit(limit)
         rows = (await session.execute(query)).scalars().all()
-    return _ok({"count": len(rows), "items": [
-        {"id": str(v.id), "code": v.code, "status": v.status,
-         "vector_id": str(v.vector_id) if v.vector_id else None,
-         "scheduled_departure": v.scheduled_departure.isoformat() if v.scheduled_departure else None,
-         "scheduled_arrival": v.scheduled_arrival.isoformat() if v.scheduled_arrival else None,
-         "actual_departure": v.actual_departure.isoformat() if v.actual_departure else None,
-         "actual_arrival": v.actual_arrival.isoformat() if v.actual_arrival else None}
-        for v in rows
-    ]})
+    return _ok(
+        {
+            "count": len(rows),
+            "items": [
+                {
+                    "id": str(v.id),
+                    "code": v.code,
+                    "status": v.status,
+                    "vector_id": str(v.vector_id) if v.vector_id else None,
+                    "scheduled_departure": v.scheduled_departure.isoformat() if v.scheduled_departure else None,
+                    "scheduled_arrival": v.scheduled_arrival.isoformat() if v.scheduled_arrival else None,
+                    "actual_departure": v.actual_departure.isoformat() if v.actual_departure else None,
+                    "actual_arrival": v.actual_arrival.isoformat() if v.actual_arrival else None,
+                }
+                for v in rows
+            ],
+        }
+    )
 
 
 async def _get_voyage(args: dict) -> dict:
@@ -1832,15 +2189,21 @@ async def _get_voyage(args: dict) -> dict:
         v = (await session.execute(query)).scalar_one_or_none()
         if not v:
             return _err("Voyage introuvable")
-    return _ok({"id": str(v.id), "code": v.code, "status": v.status,
-                "vector_id": str(v.vector_id) if v.vector_id else None,
-                "departure_base_id": str(v.departure_base_id) if v.departure_base_id else None,
-                "scheduled_departure": v.scheduled_departure.isoformat() if v.scheduled_departure else None,
-                "scheduled_arrival": v.scheduled_arrival.isoformat() if v.scheduled_arrival else None,
-                "actual_departure": v.actual_departure.isoformat() if v.actual_departure else None,
-                "actual_arrival": v.actual_arrival.isoformat() if v.actual_arrival else None,
-                "delay_reason": v.delay_reason,
-                "created_at": v.created_at.isoformat() if v.created_at else None})
+    return _ok(
+        {
+            "id": str(v.id),
+            "code": v.code,
+            "status": v.status,
+            "vector_id": str(v.vector_id) if v.vector_id else None,
+            "departure_base_id": str(v.departure_base_id) if v.departure_base_id else None,
+            "scheduled_departure": v.scheduled_departure.isoformat() if v.scheduled_departure else None,
+            "scheduled_arrival": v.scheduled_arrival.isoformat() if v.scheduled_arrival else None,
+            "actual_departure": v.actual_departure.isoformat() if v.actual_departure else None,
+            "actual_arrival": v.actual_arrival.isoformat() if v.actual_arrival else None,
+            "delay_reason": v.delay_reason,
+            "created_at": v.created_at.isoformat() if v.created_at else None,
+        }
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1889,12 +2252,14 @@ async def _create_compliance_type(args: dict) -> dict:
 
     async with async_session_factory() as session:
         entity_id = await _resolve_entity_id(session, args.get("entity_code"))
-        dupe = (await session.execute(
-            select(ComplianceType).where(
-                ComplianceType.entity_id == entity_id,
-                ComplianceType.code == code,
+        dupe = (
+            await session.execute(
+                select(ComplianceType).where(
+                    ComplianceType.entity_id == entity_id,
+                    ComplianceType.code == code,
+                )
             )
-        )).scalar_one_or_none()
+        ).scalar_one_or_none()
         if dupe:
             return _err(f"Un type de conformité avec le code '{code}' existe déjà")
 
@@ -1940,10 +2305,12 @@ async def _list_compliance_rules(args: dict) -> dict:
             query = query.where(ComplianceRule.target_value == target_value)
         query = query.order_by(ComplianceRule.created_at.desc()).limit(limit)
         rows = (await session.execute(query)).scalars().all()
-    return _ok({
-        "count": len(rows),
-        "items": [_compliance_rule_to_dict(r) for r in rows],
-    })
+    return _ok(
+        {
+            "count": len(rows),
+            "items": [_compliance_rule_to_dict(r) for r in rows],
+        }
+    )
 
 
 async def _create_compliance_rule(args: dict) -> dict:
@@ -1967,9 +2334,11 @@ async def _create_compliance_rule(args: dict) -> dict:
         if ct is None:
             return _err(f"Type de conformité introuvable: {ct_ref}")
 
-        admin = (await session.execute(
-            select(User.id).where(User.active == True).limit(1)  # noqa: E712
-        )).scalar_one_or_none()
+        admin = (
+            await session.execute(
+                select(User.id).where(User.active == True).limit(1)  # noqa: E712
+            )
+        ).scalar_one_or_none()
 
         def _parse_date(s: str | None):
             if not s:
@@ -2096,11 +2465,17 @@ async def _list_imputations(args: dict) -> dict:
     except ValueError:
         return _err(f"owner_id invalide: {owner_id_str}")
     async with async_session_factory() as session:
-        rows = (await session.execute(
-            select(CostImputation)
-            .where(CostImputation.owner_type == owner_type, CostImputation.owner_id == owner_id)
-            .order_by(CostImputation.created_at)
-        )).scalars().all()
+        rows = (
+            (
+                await session.execute(
+                    select(CostImputation)
+                    .where(CostImputation.owner_type == owner_type, CostImputation.owner_id == owner_id)
+                    .order_by(CostImputation.created_at)
+                )
+            )
+            .scalars()
+            .all()
+        )
     return _ok({"count": len(rows), "items": [_cost_imputation_to_dict(c) for c in rows]})
 
 
@@ -2129,17 +2504,22 @@ async def _add_imputation(args: dict) -> dict:
 
     async with async_session_factory() as session:
         # Ensure sum ≤ 100
-        existing_pct = (await session.execute(
-            select(sqla_func.coalesce(sqla_func.sum(CostImputation.percentage), 0))
-            .where(CostImputation.owner_type == owner_type, CostImputation.owner_id == owner_id)
-        )).scalar_one()
+        existing_pct = (
+            await session.execute(
+                select(sqla_func.coalesce(sqla_func.sum(CostImputation.percentage), 0)).where(
+                    CostImputation.owner_type == owner_type, CostImputation.owner_id == owner_id
+                )
+            )
+        ).scalar_one()
         total = float(existing_pct or 0) + pct
         if total > 100.001:
             return _err(f"Somme des imputations dépasserait 100% ({total:.2f}%)")
 
-        admin = (await session.execute(
-            select(User.id).where(User.active == True).limit(1)  # noqa: E712
-        )).scalar_one_or_none()
+        admin = (
+            await session.execute(
+                select(User.id).where(User.active == True).limit(1)  # noqa: E712
+            )
+        ).scalar_one_or_none()
         if admin is None:
             return _err("Aucun utilisateur actif")
 
@@ -2165,9 +2545,9 @@ async def _delete_imputation(args: dict) -> dict:
     if not imp_id:
         raise ValueError("id requis")
     async with async_session_factory() as session:
-        imp = (await session.execute(
-            select(CostImputation).where(CostImputation.id == UUID(str(imp_id)))
-        )).scalar_one_or_none()
+        imp = (
+            await session.execute(select(CostImputation).where(CostImputation.id == UUID(str(imp_id))))
+        ).scalar_one_or_none()
         if imp is None:
             return _err(f"Imputation introuvable: {imp_id}")
         await session.delete(imp)
@@ -2362,14 +2742,31 @@ async def _delete_setting(args: dict) -> dict:
 
 def _project_to_dict(p: Project, *, compact: bool = False) -> dict:
     if compact:
-        return {"id": str(p.id), "code": p.code, "name": p.name, "status": p.status,
-                "priority": p.priority, "progress": p.progress, "project_type": p.project_type}
-    return {"id": str(p.id), "code": p.code, "name": p.name, "description": (p.description or "")[:500],
-            "status": p.status, "priority": p.priority, "progress": p.progress,
-            "project_type": p.project_type, "weather": p.weather,
-            "start_date": p.start_date.isoformat() if p.start_date else None,
-            "end_date": p.end_date.isoformat() if p.end_date else None,
-            "budget": p.budget, "external_ref": p.external_ref, "active": p.active}
+        return {
+            "id": str(p.id),
+            "code": p.code,
+            "name": p.name,
+            "status": p.status,
+            "priority": p.priority,
+            "progress": p.progress,
+            "project_type": p.project_type,
+        }
+    return {
+        "id": str(p.id),
+        "code": p.code,
+        "name": p.name,
+        "description": (p.description or "")[:500],
+        "status": p.status,
+        "priority": p.priority,
+        "progress": p.progress,
+        "project_type": p.project_type,
+        "weather": p.weather,
+        "start_date": p.start_date.isoformat() if p.start_date else None,
+        "end_date": p.end_date.isoformat() if p.end_date else None,
+        "budget": p.budget,
+        "external_ref": p.external_ref,
+        "active": p.active,
+    }
 
 
 async def _list_projects(args: dict) -> dict:
@@ -2382,7 +2779,9 @@ async def _list_projects(args: dict) -> dict:
         query = select(Project).where(Project.entity_id == entity_id, Project.archived == False)  # noqa: E712
         if search:
             needle = f"%{search.lower()}%"
-            query = query.where(or_(sqla_func.lower(Project.name).like(needle), sqla_func.lower(Project.code).like(needle)))
+            query = query.where(
+                or_(sqla_func.lower(Project.name).like(needle), sqla_func.lower(Project.code).like(needle))
+            )
         if status_filter:
             query = query.where(Project.status == status_filter)
         if ptype:
@@ -2416,9 +2815,12 @@ async def _create_project(args: dict) -> dict:
     async with async_session_factory() as session:
         entity_id = await _resolve_entity_id(session, args.get("entity_code"))
         from app.core.references import generate_reference
+
         code = await generate_reference("PRJ", session, entity_id=entity_id)
         p = Project(
-            entity_id=entity_id, code=code, name=name,
+            entity_id=entity_id,
+            code=code,
+            name=name,
             description=args.get("description"),
             project_type=args.get("project_type") or "project",
             status=args.get("status") or "draft",
@@ -2426,7 +2828,9 @@ async def _create_project(args: dict) -> dict:
             weather=args.get("weather") or "sunny",
             budget=float(args["budget"]) if args.get("budget") else None,
         )
-        session.add(p); await session.commit(); await session.refresh(p)
+        session.add(p)
+        await session.commit()
+        await session.refresh(p)
     return _ok(_project_to_dict(p))
 
 
@@ -2434,7 +2838,17 @@ async def _update_project(args: dict) -> dict:
     pid = args.get("id")
     if not pid:
         raise ValueError("id requis")
-    WRITABLE = {"name", "description", "status", "priority", "weather", "project_type", "budget", "start_date", "end_date"}
+    WRITABLE = {
+        "name",
+        "description",
+        "status",
+        "priority",
+        "weather",
+        "project_type",
+        "budget",
+        "start_date",
+        "end_date",
+    }
     async with async_session_factory() as session:
         p = (await session.execute(select(Project).where(Project.id == UUID(str(pid))))).scalar_one_or_none()
         if not p:
@@ -2443,11 +2857,13 @@ async def _update_project(args: dict) -> dict:
             if k in WRITABLE and v is not None:
                 if k in ("start_date", "end_date") and isinstance(v, str):
                     from app.api.routes.core.gouti_sync import _parse_gouti_date
+
                     v = _parse_gouti_date(v)
                 if k == "budget":
                     v = float(v)
                 setattr(p, k, v)
-        await session.commit(); await session.refresh(p)
+        await session.commit()
+        await session.refresh(p)
     return _ok(_project_to_dict(p))
 
 
@@ -2463,11 +2879,21 @@ async def _list_project_tasks(args: dict) -> dict:
             query = query.where(ProjectTask.status == status_filter)
         query = query.order_by(ProjectTask.order, ProjectTask.created_at).limit(limit)
         rows = (await session.execute(query)).scalars().all()
-    items = [{"id": str(t.id), "title": t.title, "status": t.status, "priority": t.priority, "progress": t.progress,
-              "parent_id": str(t.parent_id) if t.parent_id else None,
-              "start_date": t.start_date.isoformat() if t.start_date else None,
-              "due_date": t.due_date.isoformat() if t.due_date else None,
-              "estimated_hours": t.estimated_hours, "order": t.order} for t in rows]
+    items = [
+        {
+            "id": str(t.id),
+            "title": t.title,
+            "status": t.status,
+            "priority": t.priority,
+            "progress": t.progress,
+            "parent_id": str(t.parent_id) if t.parent_id else None,
+            "start_date": t.start_date.isoformat() if t.start_date else None,
+            "due_date": t.due_date.isoformat() if t.due_date else None,
+            "estimated_hours": t.estimated_hours,
+            "order": t.order,
+        }
+        for t in rows
+    ]
     return _ok({"count": len(items), "items": items})
 
 
@@ -2478,13 +2904,17 @@ async def _create_project_task(args: dict) -> dict:
         raise ValueError("project_id et title requis")
     async with async_session_factory() as session:
         task = ProjectTask(
-            project_id=UUID(str(pid)), title=title,
-            description=args.get("description"), status=args.get("status") or "todo",
+            project_id=UUID(str(pid)),
+            title=title,
+            description=args.get("description"),
+            status=args.get("status") or "todo",
             priority=args.get("priority") or "medium",
             parent_id=UUID(str(args["parent_id"])) if args.get("parent_id") else None,
             estimated_hours=float(args["estimated_hours"]) if args.get("estimated_hours") else None,
         )
-        session.add(task); await session.commit(); await session.refresh(task)
+        session.add(task)
+        await session.commit()
+        await session.refresh(task)
     return _ok({"id": str(task.id), "title": task.title, "status": task.status})
 
 
@@ -2493,15 +2923,31 @@ async def _list_project_milestones(args: dict) -> dict:
     if not pid:
         raise ValueError("project_id requis")
     async with async_session_factory() as session:
-        rows = (await session.execute(
-            select(ProjectMilestone).where(ProjectMilestone.project_id == UUID(str(pid)), ProjectMilestone.active == True)
-            .order_by(ProjectMilestone.due_date)
-        )).scalars().all()
-    return _ok({"count": len(rows), "items": [
-        {"id": str(m.id), "name": m.name, "status": m.status,
-         "due_date": m.due_date.isoformat() if m.due_date else None}
-        for m in rows
-    ]})
+        rows = (
+            (
+                await session.execute(
+                    select(ProjectMilestone)
+                    .where(ProjectMilestone.project_id == UUID(str(pid)), ProjectMilestone.active == True)
+                    .order_by(ProjectMilestone.due_date)
+                )
+            )
+            .scalars()
+            .all()
+        )
+    return _ok(
+        {
+            "count": len(rows),
+            "items": [
+                {
+                    "id": str(m.id),
+                    "name": m.name,
+                    "status": m.status,
+                    "due_date": m.due_date.isoformat() if m.due_date else None,
+                }
+                for m in rows
+            ],
+        }
+    )
 
 
 async def _get_project_cpm(args: dict) -> dict:
@@ -2509,6 +2955,7 @@ async def _get_project_cpm(args: dict) -> dict:
     if not pid:
         raise ValueError("project_id requis")
     from app.services.cpm_service import compute_cpm
+
     async with async_session_factory() as session:
         result = await compute_cpm(session, UUID(str(pid)))
     return _ok(result)
@@ -2519,27 +2966,59 @@ async def _get_project_activity_feed(args: dict) -> dict:
     if not pid:
         raise ValueError("project_id requis")
     limit = min(max(int(args.get("limit", 30) or 30), 1), 100)
-    from app.models.common import ProjectStatusHistory, ProjectComment, TaskChangeLog
+    from app.models.common import ProjectStatusHistory, TaskChangeLog
+
     async with async_session_factory() as session:
         feed: list[dict] = []
         # Status history
-        for r in (await session.execute(
-            select(ProjectStatusHistory).where(ProjectStatusHistory.project_id == UUID(str(pid)))
-            .order_by(ProjectStatusHistory.changed_at.desc()).limit(limit)
-        )).scalars().all():
-            feed.append({"type": "status_change", "date": r.changed_at.isoformat(),
-                         "detail": f"{r.from_status or '—'} → {r.to_status}", "reason": r.reason})
+        for r in (
+            (
+                await session.execute(
+                    select(ProjectStatusHistory)
+                    .where(ProjectStatusHistory.project_id == UUID(str(pid)))
+                    .order_by(ProjectStatusHistory.changed_at.desc())
+                    .limit(limit)
+                )
+            )
+            .scalars()
+            .all()
+        ):
+            feed.append(
+                {
+                    "type": "status_change",
+                    "date": r.changed_at.isoformat(),
+                    "detail": f"{r.from_status or '—'} → {r.to_status}",
+                    "reason": r.reason,
+                }
+            )
         # Task changes
-        task_ids = (await session.execute(
-            select(ProjectTask.id).where(ProjectTask.project_id == UUID(str(pid)))
-        )).scalars().all()
+        task_ids = (
+            (await session.execute(select(ProjectTask.id).where(ProjectTask.project_id == UUID(str(pid)))))
+            .scalars()
+            .all()
+        )
         if task_ids:
-            for cl in (await session.execute(
-                select(TaskChangeLog).where(TaskChangeLog.task_id.in_(task_ids))
-                .order_by(TaskChangeLog.created_at.desc()).limit(limit)
-            )).scalars().all():
-                feed.append({"type": "task_change", "date": cl.created_at.isoformat(),
-                             "field": cl.field_name, "old": cl.old_value, "new": cl.new_value})
+            for cl in (
+                (
+                    await session.execute(
+                        select(TaskChangeLog)
+                        .where(TaskChangeLog.task_id.in_(task_ids))
+                        .order_by(TaskChangeLog.created_at.desc())
+                        .limit(limit)
+                    )
+                )
+                .scalars()
+                .all()
+            ):
+                feed.append(
+                    {
+                        "type": "task_change",
+                        "date": cl.created_at.isoformat(),
+                        "field": cl.field_name,
+                        "old": cl.old_value,
+                        "new": cl.new_value,
+                    }
+                )
         feed.sort(key=lambda x: x["date"], reverse=True)
     return _ok({"count": len(feed[:limit]), "items": feed[:limit]})
 
@@ -2547,18 +3026,36 @@ async def _get_project_activity_feed(args: dict) -> dict:
 async def _list_project_templates(args: dict) -> dict:
     async with async_session_factory() as session:
         entity_id = await _resolve_entity_id(session, args.get("entity_code"))
-        rows = (await session.execute(
-            select(ProjectTemplate).where(ProjectTemplate.entity_id == entity_id, ProjectTemplate.active == True)
-            .order_by(ProjectTemplate.usage_count.desc())
-        )).scalars().all()
-    return _ok({"count": len(rows), "items": [
-        {"id": str(t.id), "name": t.name, "category": t.category,
-         "description": t.description, "usage_count": t.usage_count}
-        for t in rows
-    ]})
+        rows = (
+            (
+                await session.execute(
+                    select(ProjectTemplate)
+                    .where(ProjectTemplate.entity_id == entity_id, ProjectTemplate.active == True)
+                    .order_by(ProjectTemplate.usage_count.desc())
+                )
+            )
+            .scalars()
+            .all()
+        )
+    return _ok(
+        {
+            "count": len(rows),
+            "items": [
+                {
+                    "id": str(t.id),
+                    "name": t.name,
+                    "category": t.category,
+                    "description": t.description,
+                    "usage_count": t.usage_count,
+                }
+                for t in rows
+            ],
+        }
+    )
 
 
 # ─── Tool registry ───────────────────────────────────────────────────────────
+
 
 def _s(props: dict | None = None, required: list | None = None) -> dict:
     schema: dict[str, Any] = {"type": "object", "properties": props or {}}
@@ -2569,781 +3066,1082 @@ def _s(props: dict | None = None, required: list | None = None) -> dict:
 
 OPSFLUX_TOOLS: list[tuple[str, str, dict, Any]] = [
     # ── Tiers ────────────────────────────────────────────────────────────
-    ("list_tiers",
-     "Liste les entreprises/tiers OpsFlux. Filtres optionnels: search (nom/code/alias), "
-     "type (client/supplier/subcontractor/partner/service_provider), include_archived. "
-     "limit=20 par défaut (max 200).",
-     _s({
-         "search": {"type": "string", "description": "Filtre texte (nom, code, alias)"},
-         "type": {"type": "string", "description": "Filtre par type"},
-         "limit": {"type": "integer", "description": "Nombre max (défaut 20, max 200)"},
-         "include_archived": {"type": "boolean", "description": "Inclure les tiers archivés"},
-         "entity_code": {"type": "string", "description": "Code entité (optionnel, prend la première sinon)"},
-     }), _list_tiers),
-
-    ("get_tier",
-     "Récupère les détails d'un tiers par id ou code.",
-     _s({
-         "id": {"type": "string", "description": "UUID du tier"},
-         "code": {"type": "string", "description": "Code du tier (ex: TIR-2026-0001)"},
-         "entity_code": {"type": "string"},
-     }), _get_tier),
-
-    ("create_tier",
-     "Crée une nouvelle entreprise. Le code est auto-généré (pattern TIR). "
-     "Champs modifiables: name (requis), alias, trade_name, type, email, phone, fax, "
-     "website, legal_form, tax_id, vat_number, capital, currency, industry, "
-     "payment_terms, description, address_line1, address_line2, city, state, "
-     "zip_code, country, timezone, language.",
-     _s({
-         "name": {"type": "string", "description": "Nom de l'entreprise (requis)"},
-         "alias": {"type": "string"},
-         "trade_name": {"type": "string"},
-         "type": {"type": "string", "description": "client/supplier/subcontractor/partner/service_provider/other"},
-         "email": {"type": "string"},
-         "phone": {"type": "string"},
-         "website": {"type": "string"},
-         "legal_form": {"type": "string"},
-         "tax_id": {"type": "string"},
-         "capital": {"type": "number"},
-         "currency": {"type": "string"},
-         "industry": {"type": "string"},
-         "payment_terms": {"type": "string"},
-         "description": {"type": "string"},
-         "address_line1": {"type": "string"},
-         "city": {"type": "string"},
-         "zip_code": {"type": "string"},
-         "country": {"type": "string", "description": "Code ISO 2 lettres"},
-         "timezone": {"type": "string"},
-         "language": {"type": "string"},
-         "entity_code": {"type": "string"},
-     }, ["name"]), _create_tier),
-
-    ("update_tier",
-     "Met à jour les champs d'une entreprise existante.",
-     _s({
-         "id": {"type": "string", "description": "UUID du tier (requis)"},
-         "name": {"type": "string"},
-         "alias": {"type": "string"},
-         "type": {"type": "string"},
-         "email": {"type": "string"},
-         "phone": {"type": "string"},
-         "website": {"type": "string"},
-         "description": {"type": "string"},
-         "country": {"type": "string"},
-         "address_line1": {"type": "string"},
-         "city": {"type": "string"},
-         "zip_code": {"type": "string"},
-     }, ["id"]), _update_tier),
-
-    ("archive_tier",
-     "Archive (soft-delete) une entreprise.",
-     _s({"id": {"type": "string"}}, ["id"]),
-     _delete_tier),
-
+    (
+        "list_tiers",
+        "Liste les entreprises/tiers OpsFlux. Filtres optionnels: search (nom/code/alias), "
+        "type (client/supplier/subcontractor/partner/service_provider), include_archived. "
+        "limit=20 par défaut (max 200).",
+        _s(
+            {
+                "search": {"type": "string", "description": "Filtre texte (nom, code, alias)"},
+                "type": {"type": "string", "description": "Filtre par type"},
+                "limit": {"type": "integer", "description": "Nombre max (défaut 20, max 200)"},
+                "include_archived": {"type": "boolean", "description": "Inclure les tiers archivés"},
+                "entity_code": {"type": "string", "description": "Code entité (optionnel, prend la première sinon)"},
+            }
+        ),
+        _list_tiers,
+    ),
+    (
+        "get_tier",
+        "Récupère les détails d'un tiers par id ou code.",
+        _s(
+            {
+                "id": {"type": "string", "description": "UUID du tier"},
+                "code": {"type": "string", "description": "Code du tier (ex: TIR-2026-0001)"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _get_tier,
+    ),
+    (
+        "create_tier",
+        "Crée une nouvelle entreprise. Le code est auto-généré (pattern TIR). "
+        "Champs modifiables: name (requis), alias, trade_name, type, email, phone, fax, "
+        "website, legal_form, tax_id, vat_number, capital, currency, industry, "
+        "payment_terms, description, address_line1, address_line2, city, state, "
+        "zip_code, country, timezone, language.",
+        _s(
+            {
+                "name": {"type": "string", "description": "Nom de l'entreprise (requis)"},
+                "alias": {"type": "string"},
+                "trade_name": {"type": "string"},
+                "type": {
+                    "type": "string",
+                    "description": "client/supplier/subcontractor/partner/service_provider/other",
+                },
+                "email": {"type": "string"},
+                "phone": {"type": "string"},
+                "website": {"type": "string"},
+                "legal_form": {"type": "string"},
+                "tax_id": {"type": "string"},
+                "capital": {"type": "number"},
+                "currency": {"type": "string"},
+                "industry": {"type": "string"},
+                "payment_terms": {"type": "string"},
+                "description": {"type": "string"},
+                "address_line1": {"type": "string"},
+                "city": {"type": "string"},
+                "zip_code": {"type": "string"},
+                "country": {"type": "string", "description": "Code ISO 2 lettres"},
+                "timezone": {"type": "string"},
+                "language": {"type": "string"},
+                "entity_code": {"type": "string"},
+            },
+            ["name"],
+        ),
+        _create_tier,
+    ),
+    (
+        "update_tier",
+        "Met à jour les champs d'une entreprise existante.",
+        _s(
+            {
+                "id": {"type": "string", "description": "UUID du tier (requis)"},
+                "name": {"type": "string"},
+                "alias": {"type": "string"},
+                "type": {"type": "string"},
+                "email": {"type": "string"},
+                "phone": {"type": "string"},
+                "website": {"type": "string"},
+                "description": {"type": "string"},
+                "country": {"type": "string"},
+                "address_line1": {"type": "string"},
+                "city": {"type": "string"},
+                "zip_code": {"type": "string"},
+            },
+            ["id"],
+        ),
+        _update_tier,
+    ),
+    ("archive_tier", "Archive (soft-delete) une entreprise.", _s({"id": {"type": "string"}}, ["id"]), _delete_tier),
     # ── Contacts ─────────────────────────────────────────────────────────
-    ("list_contacts",
-     "Liste les contacts/employés. Filtres: tier_id, search (prénom, nom, email).",
-     _s({
-         "tier_id": {"type": "string", "description": "Filtrer par entreprise"},
-         "search": {"type": "string"},
-         "limit": {"type": "integer", "description": "Défaut 20, max 200"},
-     }), _list_contacts),
-
-    ("get_contact",
-     "Récupère les détails d'un contact par id.",
-     _s({"id": {"type": "string"}}, ["id"]),
-     _get_contact),
-
-    ("create_contact",
-     "Crée un nouveau contact/employé pour une entreprise. "
-     "Champs: tier_id (requis), first_name, last_name (requis), civility, "
-     "email, phone, position, department, is_primary.",
-     _s({
-         "tier_id": {"type": "string", "description": "UUID du tier parent (requis)"},
-         "first_name": {"type": "string"},
-         "last_name": {"type": "string"},
-         "civility": {"type": "string", "description": "mr/mrs/miss/dr/prof"},
-         "email": {"type": "string"},
-         "phone": {"type": "string"},
-         "position": {"type": "string"},
-         "department": {"type": "string"},
-         "is_primary": {"type": "boolean"},
-     }, ["tier_id", "first_name", "last_name"]),
-     _create_contact),
-
-    ("update_contact",
-     "Met à jour un contact existant.",
-     _s({
-         "id": {"type": "string"},
-         "civility": {"type": "string"},
-         "first_name": {"type": "string"},
-         "last_name": {"type": "string"},
-         "email": {"type": "string"},
-         "phone": {"type": "string"},
-         "position": {"type": "string"},
-         "department": {"type": "string"},
-         "is_primary": {"type": "boolean"},
-     }, ["id"]),
-     _update_contact),
-
-    ("archive_contact",
-     "Désactive (soft-delete) un contact.",
-     _s({"id": {"type": "string"}}, ["id"]),
-     _archive_contact),
-
+    (
+        "list_contacts",
+        "Liste les contacts/employés. Filtres: tier_id, search (prénom, nom, email).",
+        _s(
+            {
+                "tier_id": {"type": "string", "description": "Filtrer par entreprise"},
+                "search": {"type": "string"},
+                "limit": {"type": "integer", "description": "Défaut 20, max 200"},
+            }
+        ),
+        _list_contacts,
+    ),
+    ("get_contact", "Récupère les détails d'un contact par id.", _s({"id": {"type": "string"}}, ["id"]), _get_contact),
+    (
+        "create_contact",
+        "Crée un nouveau contact/employé pour une entreprise. "
+        "Champs: tier_id (requis), first_name, last_name (requis), civility, "
+        "email, phone, position, department, is_primary.",
+        _s(
+            {
+                "tier_id": {"type": "string", "description": "UUID du tier parent (requis)"},
+                "first_name": {"type": "string"},
+                "last_name": {"type": "string"},
+                "civility": {"type": "string", "description": "mr/mrs/miss/dr/prof"},
+                "email": {"type": "string"},
+                "phone": {"type": "string"},
+                "position": {"type": "string"},
+                "department": {"type": "string"},
+                "is_primary": {"type": "boolean"},
+            },
+            ["tier_id", "first_name", "last_name"],
+        ),
+        _create_contact,
+    ),
+    (
+        "update_contact",
+        "Met à jour un contact existant.",
+        _s(
+            {
+                "id": {"type": "string"},
+                "civility": {"type": "string"},
+                "first_name": {"type": "string"},
+                "last_name": {"type": "string"},
+                "email": {"type": "string"},
+                "phone": {"type": "string"},
+                "position": {"type": "string"},
+                "department": {"type": "string"},
+                "is_primary": {"type": "boolean"},
+            },
+            ["id"],
+        ),
+        _update_contact,
+    ),
+    (
+        "archive_contact",
+        "Désactive (soft-delete) un contact.",
+        _s({"id": {"type": "string"}}, ["id"]),
+        _archive_contact,
+    ),
     # ── Phones (polymorphic — tier ou tier_contact) ──────────────────────
-    ("list_phones",
-     "Liste les téléphones d'un tier ou d'un contact.",
-     _s({
-         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
-         "owner_id": {"type": "string"},
-     }, ["owner_type", "owner_id"]), _list_phones),
-
-    ("add_phone",
-     "Ajoute un téléphone (labels: mobile, office, fax, home). "
-     "is_default=true retire le flag des autres téléphones du même owner.",
-     _s({
-         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
-         "owner_id": {"type": "string"},
-         "number": {"type": "string"},
-         "label": {"type": "string"},
-         "country_code": {"type": "string"},
-         "is_default": {"type": "boolean"},
-     }, ["owner_type", "owner_id", "number"]), _add_phone),
-
-    ("delete_phone",
-     "Supprime un téléphone par son id.",
-     _s({"id": {"type": "string"}}, ["id"]), _delete_phone),
-
+    (
+        "list_phones",
+        "Liste les téléphones d'un tier ou d'un contact.",
+        _s(
+            {
+                "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+                "owner_id": {"type": "string"},
+            },
+            ["owner_type", "owner_id"],
+        ),
+        _list_phones,
+    ),
+    (
+        "add_phone",
+        "Ajoute un téléphone (labels: mobile, office, fax, home). "
+        "is_default=true retire le flag des autres téléphones du même owner.",
+        _s(
+            {
+                "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+                "owner_id": {"type": "string"},
+                "number": {"type": "string"},
+                "label": {"type": "string"},
+                "country_code": {"type": "string"},
+                "is_default": {"type": "boolean"},
+            },
+            ["owner_type", "owner_id", "number"],
+        ),
+        _add_phone,
+    ),
+    ("delete_phone", "Supprime un téléphone par son id.", _s({"id": {"type": "string"}}, ["id"]), _delete_phone),
     # ── Emails (polymorphic) ─────────────────────────────────────────────
-    ("list_emails",
-     "Liste les emails d'un tier ou d'un contact.",
-     _s({
-         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
-         "owner_id": {"type": "string"},
-     }, ["owner_type", "owner_id"]), _list_emails),
-
-    ("add_email",
-     "Ajoute une adresse email (labels: work, personal, billing, support).",
-     _s({
-         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
-         "owner_id": {"type": "string"},
-         "email": {"type": "string"},
-         "label": {"type": "string"},
-         "is_default": {"type": "boolean"},
-     }, ["owner_type", "owner_id", "email"]), _add_email),
-
-    ("delete_email",
-     "Supprime un email par son id.",
-     _s({"id": {"type": "string"}}, ["id"]), _delete_email),
-
+    (
+        "list_emails",
+        "Liste les emails d'un tier ou d'un contact.",
+        _s(
+            {
+                "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+                "owner_id": {"type": "string"},
+            },
+            ["owner_type", "owner_id"],
+        ),
+        _list_emails,
+    ),
+    (
+        "add_email",
+        "Ajoute une adresse email (labels: work, personal, billing, support).",
+        _s(
+            {
+                "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+                "owner_id": {"type": "string"},
+                "email": {"type": "string"},
+                "label": {"type": "string"},
+                "is_default": {"type": "boolean"},
+            },
+            ["owner_type", "owner_id", "email"],
+        ),
+        _add_email,
+    ),
+    ("delete_email", "Supprime un email par son id.", _s({"id": {"type": "string"}}, ["id"]), _delete_email),
     # ── Addresses (polymorphic) ──────────────────────────────────────────
-    ("list_addresses",
-     "Liste les adresses d'un tier ou d'un contact.",
-     _s({
-         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
-         "owner_id": {"type": "string"},
-     }, ["owner_type", "owner_id"]), _list_addresses),
-
-    ("add_address",
-     "Ajoute une adresse. Champs requis: address_line1, city, country.",
-     _s({
-         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
-         "owner_id": {"type": "string"},
-         "label": {"type": "string", "description": "main/billing/shipping/…"},
-         "address_line1": {"type": "string"},
-         "address_line2": {"type": "string"},
-         "city": {"type": "string"},
-         "state_province": {"type": "string"},
-         "postal_code": {"type": "string"},
-         "country": {"type": "string"},
-         "latitude": {"type": "number"},
-         "longitude": {"type": "number"},
-         "is_default": {"type": "boolean"},
-     }, ["owner_type", "owner_id", "address_line1", "city", "country"]),
-     _add_address),
-
-    ("delete_address",
-     "Supprime une adresse par son id.",
-     _s({"id": {"type": "string"}}, ["id"]), _delete_address),
-
+    (
+        "list_addresses",
+        "Liste les adresses d'un tier ou d'un contact.",
+        _s(
+            {
+                "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+                "owner_id": {"type": "string"},
+            },
+            ["owner_type", "owner_id"],
+        ),
+        _list_addresses,
+    ),
+    (
+        "add_address",
+        "Ajoute une adresse. Champs requis: address_line1, city, country.",
+        _s(
+            {
+                "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+                "owner_id": {"type": "string"},
+                "label": {"type": "string", "description": "main/billing/shipping/…"},
+                "address_line1": {"type": "string"},
+                "address_line2": {"type": "string"},
+                "city": {"type": "string"},
+                "state_province": {"type": "string"},
+                "postal_code": {"type": "string"},
+                "country": {"type": "string"},
+                "latitude": {"type": "number"},
+                "longitude": {"type": "number"},
+                "is_default": {"type": "boolean"},
+            },
+            ["owner_type", "owner_id", "address_line1", "city", "country"],
+        ),
+        _add_address,
+    ),
+    ("delete_address", "Supprime une adresse par son id.", _s({"id": {"type": "string"}}, ["id"]), _delete_address),
     # ── Notes (polymorphic) ──────────────────────────────────────────────
-    ("list_notes",
-     "Liste les notes attachées à un tier ou un contact. Ordonnées par pinned puis date descendante.",
-     _s({
-         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
-         "owner_id": {"type": "string"},
-     }, ["owner_type", "owner_id"]), _list_notes),
-
-    ("add_note",
-     "Ajoute une note à un tier ou contact. visibility = public (défaut) ou private.",
-     _s({
-         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
-         "owner_id": {"type": "string"},
-         "content": {"type": "string"},
-         "visibility": {"type": "string", "enum": ["public", "private"]},
-         "pinned": {"type": "boolean"},
-     }, ["owner_type", "owner_id", "content"]), _add_note),
-
-    ("delete_note",
-     "Supprime une note par son id.",
-     _s({"id": {"type": "string"}}, ["id"]), _delete_note),
-
+    (
+        "list_notes",
+        "Liste les notes attachées à un tier ou un contact. Ordonnées par pinned puis date descendante.",
+        _s(
+            {
+                "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+                "owner_id": {"type": "string"},
+            },
+            ["owner_type", "owner_id"],
+        ),
+        _list_notes,
+    ),
+    (
+        "add_note",
+        "Ajoute une note à un tier ou contact. visibility = public (défaut) ou private.",
+        _s(
+            {
+                "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+                "owner_id": {"type": "string"},
+                "content": {"type": "string"},
+                "visibility": {"type": "string", "enum": ["public", "private"]},
+                "pinned": {"type": "boolean"},
+            },
+            ["owner_type", "owner_id", "content"],
+        ),
+        _add_note,
+    ),
+    ("delete_note", "Supprime une note par son id.", _s({"id": {"type": "string"}}, ["id"]), _delete_note),
     # ── Tags (polymorphic) ───────────────────────────────────────────────
-    ("list_tags",
-     "Liste les tags d'un tier ou d'un contact.",
-     _s({
-         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
-         "owner_id": {"type": "string"},
-     }, ["owner_type", "owner_id"]), _list_tags),
-
-    ("add_tag",
-     "Ajoute un tag. color = code hex (défaut #6b7280).",
-     _s({
-         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
-         "owner_id": {"type": "string"},
-         "name": {"type": "string"},
-         "color": {"type": "string"},
-         "visibility": {"type": "string", "enum": ["public", "private"]},
-     }, ["owner_type", "owner_id", "name"]), _add_tag),
-
-    ("delete_tag",
-     "Supprime un tag par son id.",
-     _s({"id": {"type": "string"}}, ["id"]), _delete_tag),
-
+    (
+        "list_tags",
+        "Liste les tags d'un tier ou d'un contact.",
+        _s(
+            {
+                "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+                "owner_id": {"type": "string"},
+            },
+            ["owner_type", "owner_id"],
+        ),
+        _list_tags,
+    ),
+    (
+        "add_tag",
+        "Ajoute un tag. color = code hex (défaut #6b7280).",
+        _s(
+            {
+                "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+                "owner_id": {"type": "string"},
+                "name": {"type": "string"},
+                "color": {"type": "string"},
+                "visibility": {"type": "string", "enum": ["public", "private"]},
+            },
+            ["owner_type", "owner_id", "name"],
+        ),
+        _add_tag,
+    ),
+    ("delete_tag", "Supprime un tag par son id.", _s({"id": {"type": "string"}}, ["id"]), _delete_tag),
     # ── Legal identifiers ────────────────────────────────────────────────
-    ("list_legal_identifiers",
-     "Liste les identifiants légaux (SIRET, RCCM, NIU, TVA, NIF, …) d'un tier ou contact.",
-     _s({
-         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
-         "owner_id": {"type": "string"},
-     }, ["owner_type", "owner_id"]), _list_legal_identifiers),
-
-    ("add_legal_identifier",
-     "Ajoute un identifiant légal. type = code du dictionnaire legal_identifier_type "
-     "(siret, rccm, niu, tva, nif, ninea, …). issued_at et expires_at au format ISO (YYYY-MM-DD).",
-     _s({
-         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
-         "owner_id": {"type": "string"},
-         "type": {"type": "string"},
-         "value": {"type": "string"},
-         "country": {"type": "string"},
-         "issued_at": {"type": "string"},
-         "expires_at": {"type": "string"},
-     }, ["owner_type", "owner_id", "type", "value"]),
-     _add_legal_identifier),
-
-    ("delete_legal_identifier",
-     "Supprime un identifiant légal par son id.",
-     _s({"id": {"type": "string"}}, ["id"]), _delete_legal_identifier),
-
+    (
+        "list_legal_identifiers",
+        "Liste les identifiants légaux (SIRET, RCCM, NIU, TVA, NIF, …) d'un tier ou contact.",
+        _s(
+            {
+                "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+                "owner_id": {"type": "string"},
+            },
+            ["owner_type", "owner_id"],
+        ),
+        _list_legal_identifiers,
+    ),
+    (
+        "add_legal_identifier",
+        "Ajoute un identifiant légal. type = code du dictionnaire legal_identifier_type "
+        "(siret, rccm, niu, tva, nif, ninea, …). issued_at et expires_at au format ISO (YYYY-MM-DD).",
+        _s(
+            {
+                "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+                "owner_id": {"type": "string"},
+                "type": {"type": "string"},
+                "value": {"type": "string"},
+                "country": {"type": "string"},
+                "issued_at": {"type": "string"},
+                "expires_at": {"type": "string"},
+            },
+            ["owner_type", "owner_id", "type", "value"],
+        ),
+        _add_legal_identifier,
+    ),
+    (
+        "delete_legal_identifier",
+        "Supprime un identifiant légal par son id.",
+        _s({"id": {"type": "string"}}, ["id"]),
+        _delete_legal_identifier,
+    ),
     # ── External references (SAP, Gouti, Intranet, …) ───────────────────
-    ("list_external_refs",
-     "Liste les références externes (SAP, Gouti, Intranet, Legacy…) d'un tier ou contact.",
-     _s({
-         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
-         "owner_id": {"type": "string"},
-     }, ["owner_type", "owner_id"]), _list_external_refs),
-
-    ("add_external_ref",
-     "Ajoute une référence externe (mapping d'ID vers un système externe).",
-     _s({
-         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
-         "owner_id": {"type": "string"},
-         "system": {"type": "string", "description": "SAP/Gouti/Intranet/Legacy/Other"},
-         "code": {"type": "string", "description": "Identifiant dans le système externe"},
-     }, ["owner_type", "owner_id", "system", "code"]),
-     _add_external_ref),
-
+    (
+        "list_external_refs",
+        "Liste les références externes (SAP, Gouti, Intranet, Legacy…) d'un tier ou contact.",
+        _s(
+            {
+                "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+                "owner_id": {"type": "string"},
+            },
+            ["owner_type", "owner_id"],
+        ),
+        _list_external_refs,
+    ),
+    (
+        "add_external_ref",
+        "Ajoute une référence externe (mapping d'ID vers un système externe).",
+        _s(
+            {
+                "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+                "owner_id": {"type": "string"},
+                "system": {"type": "string", "description": "SAP/Gouti/Intranet/Legacy/Other"},
+                "code": {"type": "string", "description": "Identifiant dans le système externe"},
+            },
+            ["owner_type", "owner_id", "system", "code"],
+        ),
+        _add_external_ref,
+    ),
     # ── Tier blocks (block / unblock) ────────────────────────────────────
-    ("block_tier",
-     "Bloque une entreprise (achats, paiements ou complet). Motif obligatoire.",
-     _s({
-         "id": {"type": "string"},
-         "reason": {"type": "string"},
-         "block_type": {"type": "string", "enum": ["all", "purchasing", "payment"],
-                         "description": "Défaut: all"},
-     }, ["id", "reason"]), _block_tier),
-
-    ("unblock_tier",
-     "Débloque une entreprise précédemment bloquée. Motif obligatoire.",
-     _s({
-         "id": {"type": "string"},
-         "reason": {"type": "string"},
-     }, ["id", "reason"]), _unblock_tier),
-
-    ("list_tier_blocks",
-     "Historique des blocages/déblocages d'une entreprise.",
-     _s({"tier_id": {"type": "string"}}, ["tier_id"]),
-     _list_tier_blocks),
-
+    (
+        "block_tier",
+        "Bloque une entreprise (achats, paiements ou complet). Motif obligatoire.",
+        _s(
+            {
+                "id": {"type": "string"},
+                "reason": {"type": "string"},
+                "block_type": {
+                    "type": "string",
+                    "enum": ["all", "purchasing", "payment"],
+                    "description": "Défaut: all",
+                },
+            },
+            ["id", "reason"],
+        ),
+        _block_tier,
+    ),
+    (
+        "unblock_tier",
+        "Débloque une entreprise précédemment bloquée. Motif obligatoire.",
+        _s(
+            {
+                "id": {"type": "string"},
+                "reason": {"type": "string"},
+            },
+            ["id", "reason"],
+        ),
+        _unblock_tier,
+    ),
+    (
+        "list_tier_blocks",
+        "Historique des blocages/déblocages d'une entreprise.",
+        _s({"tier_id": {"type": "string"}}, ["tier_id"]),
+        _list_tier_blocks,
+    ),
     # ── Compliance / conformité ──────────────────────────────────────────
-    ("check_compliance",
-     "Calcule le verdict de conformité canonique pour un tier ou un contact "
-     "(tous les types applicables, validité, expirations, documents manquants). "
-     "Retourne is_compliant + détails par type.",
-     _s({
-         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
-         "owner_id": {"type": "string"},
-         "entity_code": {"type": "string"},
-     }, ["owner_type", "owner_id"]),
-     _check_compliance),
-
-    ("list_compliance_records",
-     "Liste les enregistrements de conformité (certificats, habilitations, …) "
-     "d'un tier ou contact — avec dates d'émission/expiration et statut.",
-     _s({
-         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
-         "owner_id": {"type": "string"},
-     }, ["owner_type", "owner_id"]),
-     _list_compliance_records),
-
-    ("add_compliance_record",
-     "Ajoute un enregistrement de conformité. compliance_type_code est le code "
-     "d'un type de conformité configuré (ex: 'MED_APTITUDE', 'H2S_BASIC'). "
-     "Alternative: compliance_type_id (UUID direct).",
-     _s({
-         "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
-         "owner_id": {"type": "string"},
-         "compliance_type_code": {"type": "string"},
-         "compliance_type_id": {"type": "string"},
-         "status": {"type": "string", "enum": ["valid", "expired", "pending", "rejected"]},
-         "issued_at": {"type": "string", "description": "Date d'émission ISO YYYY-MM-DD"},
-         "expires_at": {"type": "string", "description": "Date d'expiration ISO YYYY-MM-DD"},
-         "issuer": {"type": "string", "description": "Organisme émetteur"},
-         "reference_number": {"type": "string"},
-         "notes": {"type": "string"},
-         "entity_code": {"type": "string"},
-     }, ["owner_type", "owner_id"]),
-     _add_compliance_record),
-
-    ("list_compliance_types",
-     "Liste tous les types de conformité disponibles (formations, certifications, "
-     "habilitations, audits, médical, EPI) configurés pour l'entité.",
-     _s({"entity_code": {"type": "string"}}),
-     _list_compliance_types),
-
+    (
+        "check_compliance",
+        "Calcule le verdict de conformité canonique pour un tier ou un contact "
+        "(tous les types applicables, validité, expirations, documents manquants). "
+        "Retourne is_compliant + détails par type.",
+        _s(
+            {
+                "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+                "owner_id": {"type": "string"},
+                "entity_code": {"type": "string"},
+            },
+            ["owner_type", "owner_id"],
+        ),
+        _check_compliance,
+    ),
+    (
+        "list_compliance_records",
+        "Liste les enregistrements de conformité (certificats, habilitations, …) "
+        "d'un tier ou contact — avec dates d'émission/expiration et statut.",
+        _s(
+            {
+                "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+                "owner_id": {"type": "string"},
+            },
+            ["owner_type", "owner_id"],
+        ),
+        _list_compliance_records,
+    ),
+    (
+        "add_compliance_record",
+        "Ajoute un enregistrement de conformité. compliance_type_code est le code "
+        "d'un type de conformité configuré (ex: 'MED_APTITUDE', 'H2S_BASIC'). "
+        "Alternative: compliance_type_id (UUID direct).",
+        _s(
+            {
+                "owner_type": {"type": "string", "enum": ["tier", "tier_contact"]},
+                "owner_id": {"type": "string"},
+                "compliance_type_code": {"type": "string"},
+                "compliance_type_id": {"type": "string"},
+                "status": {"type": "string", "enum": ["valid", "expired", "pending", "rejected"]},
+                "issued_at": {"type": "string", "description": "Date d'émission ISO YYYY-MM-DD"},
+                "expires_at": {"type": "string", "description": "Date d'expiration ISO YYYY-MM-DD"},
+                "issuer": {"type": "string", "description": "Organisme émetteur"},
+                "reference_number": {"type": "string"},
+                "notes": {"type": "string"},
+                "entity_code": {"type": "string"},
+            },
+            ["owner_type", "owner_id"],
+        ),
+        _add_compliance_record,
+    ),
+    (
+        "list_compliance_types",
+        "Liste tous les types de conformité disponibles (formations, certifications, "
+        "habilitations, audits, médical, EPI) configurés pour l'entité.",
+        _s({"entity_code": {"type": "string"}}),
+        _list_compliance_types,
+    ),
     # ── Contact transfer (move employee between companies) ──────────────
-    ("transfer_contact",
-     "Transfère un employé d'une entreprise à une autre, avec historisation "
-     "(date, motif, utilisateur). Le contact.tier_id est mis à jour et un "
-     "TierContactTransfer est créé.",
-     _s({
-         "contact_id": {"type": "string", "description": "UUID du contact à transférer"},
-         "to_tier_id": {"type": "string", "description": "UUID de la nouvelle entreprise"},
-         "reason": {"type": "string", "description": "Motif du transfert (obligatoire pour l'historique)"},
-         "transfer_date": {"type": "string", "description": "Date du transfert ISO (défaut: maintenant)"},
-     }, ["contact_id", "to_tier_id", "reason"]),
-     _transfer_contact),
-
-    ("list_contact_transfers",
-     "Historique des transferts d'un contact (mouvements entre entreprises).",
-     _s({"contact_id": {"type": "string"}}, ["contact_id"]),
-     _list_contact_transfers),
-
+    (
+        "transfer_contact",
+        "Transfère un employé d'une entreprise à une autre, avec historisation "
+        "(date, motif, utilisateur). Le contact.tier_id est mis à jour et un "
+        "TierContactTransfer est créé.",
+        _s(
+            {
+                "contact_id": {"type": "string", "description": "UUID du contact à transférer"},
+                "to_tier_id": {"type": "string", "description": "UUID de la nouvelle entreprise"},
+                "reason": {"type": "string", "description": "Motif du transfert (obligatoire pour l'historique)"},
+                "transfer_date": {"type": "string", "description": "Date du transfert ISO (défaut: maintenant)"},
+            },
+            ["contact_id", "to_tier_id", "reason"],
+        ),
+        _transfer_contact,
+    ),
+    (
+        "list_contact_transfers",
+        "Historique des transferts d'un contact (mouvements entre entreprises).",
+        _s({"contact_id": {"type": "string"}}, ["contact_id"]),
+        _list_contact_transfers,
+    ),
     # ── Assets (sites + installations) ───────────────────────────────────
-    ("list_sites",
-     "Liste les sites pétroliers (ar_sites) de l'entité. Filtres: search, limit. "
-     "Un site regroupe plusieurs installations physiques.",
-     _s({
-         "search": {"type": "string"},
-         "limit": {"type": "integer"},
-         "entity_code": {"type": "string"},
-     }), _list_sites),
-
-    ("list_assets",
-     "Liste les installations (ar_installations) = plateformes, terminaux, puits, "
-     "FPSO… Filtres: site_id, status (OPERATIONAL/…), search, limit.",
-     _s({
-         "site_id": {"type": "string"},
-         "status": {"type": "string"},
-         "search": {"type": "string"},
-         "limit": {"type": "integer"},
-         "entity_code": {"type": "string"},
-     }), _list_assets),
-
-    ("get_asset",
-     "Récupère une installation (asset) par id ou par code.",
-     _s({
-         "id": {"type": "string"},
-         "code": {"type": "string"},
-         "entity_code": {"type": "string"},
-     }), _get_asset),
-
-    ("list_fields",
-     "Liste les champs pétroliers (ar_oil_fields). Filtres: search, limit.",
-     _s({
-         "search": {"type": "string"},
-         "limit": {"type": "integer"},
-         "entity_code": {"type": "string"},
-     }), _list_fields),
-
-    ("get_field",
-     "Récupère un champ pétrolier par id ou code.",
-     _s({
-         "id": {"type": "string"},
-         "code": {"type": "string"},
-         "entity_code": {"type": "string"},
-     }), _get_field),
-
-    ("list_equipment",
-     "Liste les équipements (ar_equipment). Filtres: installation_id, equipment_class, status, search, limit.",
-     _s({
-         "installation_id": {"type": "string", "description": "UUID de l'installation"},
-         "equipment_class": {"type": "string", "description": "Classe d'équipement (CRANE, SEPARATOR, PUMP, etc.)"},
-         "status": {"type": "string", "description": "OPERATIONAL, STANDBY, DECOMMISSIONED, etc."},
-         "search": {"type": "string"},
-         "limit": {"type": "integer"},
-         "entity_code": {"type": "string"},
-     }), _list_equipment),
-
-    ("get_equipment",
-     "Récupère un équipement par id ou tag_number.",
-     _s({
-         "id": {"type": "string"},
-         "tag_number": {"type": "string"},
-         "entity_code": {"type": "string"},
-     }), _get_equipment),
-
-    ("get_asset_hierarchy",
-     "Retourne l'arborescence complète Field > Site > Installation de l'entité.",
-     _s({
-         "entity_code": {"type": "string"},
-     }), _get_asset_hierarchy),
-
+    (
+        "list_sites",
+        "Liste les sites pétroliers (ar_sites) de l'entité. Filtres: search, limit. "
+        "Un site regroupe plusieurs installations physiques.",
+        _s(
+            {
+                "search": {"type": "string"},
+                "limit": {"type": "integer"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _list_sites,
+    ),
+    (
+        "list_assets",
+        "Liste les installations (ar_installations) = plateformes, terminaux, puits, "
+        "FPSO… Filtres: site_id, status (OPERATIONAL/…), search, limit.",
+        _s(
+            {
+                "site_id": {"type": "string"},
+                "status": {"type": "string"},
+                "search": {"type": "string"},
+                "limit": {"type": "integer"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _list_assets,
+    ),
+    (
+        "get_asset",
+        "Récupère une installation (asset) par id ou par code.",
+        _s(
+            {
+                "id": {"type": "string"},
+                "code": {"type": "string"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _get_asset,
+    ),
+    (
+        "list_fields",
+        "Liste les champs pétroliers (ar_oil_fields). Filtres: search, limit.",
+        _s(
+            {
+                "search": {"type": "string"},
+                "limit": {"type": "integer"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _list_fields,
+    ),
+    (
+        "get_field",
+        "Récupère un champ pétrolier par id ou code.",
+        _s(
+            {
+                "id": {"type": "string"},
+                "code": {"type": "string"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _get_field,
+    ),
+    (
+        "list_equipment",
+        "Liste les équipements (ar_equipment). Filtres: installation_id, equipment_class, status, search, limit.",
+        _s(
+            {
+                "installation_id": {"type": "string", "description": "UUID de l'installation"},
+                "equipment_class": {
+                    "type": "string",
+                    "description": "Classe d'équipement (CRANE, SEPARATOR, PUMP, etc.)",
+                },
+                "status": {"type": "string", "description": "OPERATIONAL, STANDBY, DECOMMISSIONED, etc."},
+                "search": {"type": "string"},
+                "limit": {"type": "integer"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _list_equipment,
+    ),
+    (
+        "get_equipment",
+        "Récupère un équipement par id ou tag_number.",
+        _s(
+            {
+                "id": {"type": "string"},
+                "tag_number": {"type": "string"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _get_equipment,
+    ),
+    (
+        "get_asset_hierarchy",
+        "Retourne l'arborescence complète Field > Site > Installation de l'entité.",
+        _s(
+            {
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _get_asset_hierarchy,
+    ),
     # ── PaxLog (ADS, groupes PAX) ───────────────────────────────────────
-    ("list_ads",
-     "Liste les ADS (Autorisations De Sortie). Filtres: status (draft/submitted/approved/rejected/closed), type, search, limit.",
-     _s({
-         "status": {"type": "string", "description": "draft, submitted, approved, rejected, closed, cancelled"},
-         "type": {"type": "string", "description": "Type d'ADS"},
-         "search": {"type": "string"},
-         "limit": {"type": "integer"},
-         "entity_code": {"type": "string"},
-     }), _list_ads),
-
-    ("get_ads",
-     "Récupère une ADS par id ou référence (ex: ADS-2026-0001). Inclut le nombre de PAX.",
-     _s({
-         "id": {"type": "string"},
-         "reference": {"type": "string"},
-         "entity_code": {"type": "string"},
-     }), _get_ads),
-
-    ("list_pax_groups",
-     "Liste les groupes PAX de l'entité. Filtre: search, limit.",
-     _s({
-         "search": {"type": "string"},
-         "limit": {"type": "integer"},
-         "entity_code": {"type": "string"},
-     }), _list_pax_groups),
-
+    (
+        "list_ads",
+        "Liste les ADS (Autorisations De Sortie). Filtres: status (draft/submitted/approved/rejected/closed), type, search, limit.",
+        _s(
+            {
+                "status": {"type": "string", "description": "draft, submitted, approved, rejected, closed, cancelled"},
+                "type": {"type": "string", "description": "Type d'ADS"},
+                "search": {"type": "string"},
+                "limit": {"type": "integer"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _list_ads,
+    ),
+    (
+        "get_ads",
+        "Récupère une ADS par id ou référence (ex: ADS-2026-0001). Inclut le nombre de PAX.",
+        _s(
+            {
+                "id": {"type": "string"},
+                "reference": {"type": "string"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _get_ads,
+    ),
+    (
+        "list_pax_groups",
+        "Liste les groupes PAX de l'entité. Filtre: search, limit.",
+        _s(
+            {
+                "search": {"type": "string"},
+                "limit": {"type": "integer"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _list_pax_groups,
+    ),
     # ── Planner (activités, conflits) ───────────────────────────────────
-    ("list_planner_activities",
-     "Liste les activités planifiées. Filtres: status (draft/submitted/validated/in_progress/completed/cancelled), "
-     "type (project/workover/drilling/maintenance/inspection/event), asset_id, priority, search, limit.",
-     _s({
-         "status": {"type": "string"},
-         "type": {"type": "string"},
-         "asset_id": {"type": "string"},
-         "priority": {"type": "string"},
-         "search": {"type": "string"},
-         "limit": {"type": "integer"},
-         "entity_code": {"type": "string"},
-     }), _list_planner_activities),
-
-    ("get_planner_activity",
-     "Récupère une activité planifiée par id. Détails complets: dates, PAX quota, well, rig, etc.",
-     _s({
-         "id": {"type": "string", "description": "UUID de l'activité"},
-         "entity_code": {"type": "string"},
-     }, ["id"]), _get_planner_activity),
-
-    ("list_planner_conflicts",
-     "Liste les conflits de planification non résolus (surcharge capacité, chevauchements).",
-     _s({
-         "limit": {"type": "integer"},
-         "entity_code": {"type": "string"},
-     }), _list_planner_conflicts),
-
+    (
+        "list_planner_activities",
+        "Liste les activités planifiées. Filtres: status (draft/submitted/validated/in_progress/completed/cancelled), "
+        "type (project/workover/drilling/maintenance/inspection/event), asset_id, priority, search, limit.",
+        _s(
+            {
+                "status": {"type": "string"},
+                "type": {"type": "string"},
+                "asset_id": {"type": "string"},
+                "priority": {"type": "string"},
+                "search": {"type": "string"},
+                "limit": {"type": "integer"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _list_planner_activities,
+    ),
+    (
+        "get_planner_activity",
+        "Récupère une activité planifiée par id. Détails complets: dates, PAX quota, well, rig, etc.",
+        _s(
+            {
+                "id": {"type": "string", "description": "UUID de l'activité"},
+                "entity_code": {"type": "string"},
+            },
+            ["id"],
+        ),
+        _get_planner_activity,
+    ),
+    (
+        "list_planner_conflicts",
+        "Liste les conflits de planification non résolus (surcharge capacité, chevauchements).",
+        _s(
+            {
+                "limit": {"type": "integer"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _list_planner_conflicts,
+    ),
     # ── TravelWiz (vecteurs, voyages) ───────────────────────────────────
-    ("list_vectors",
-     "Liste les vecteurs de transport (hélicoptères, bateaux, véhicules). Filtres: mode (air/sea/land), type, search, limit.",
-     _s({
-         "mode": {"type": "string", "description": "air, sea, land"},
-         "type": {"type": "string"},
-         "search": {"type": "string"},
-         "limit": {"type": "integer"},
-         "entity_code": {"type": "string"},
-     }), _list_vectors),
-
-    ("get_vector",
-     "Récupère un vecteur de transport par id ou immatriculation.",
-     _s({
-         "id": {"type": "string"},
-         "registration": {"type": "string"},
-         "entity_code": {"type": "string"},
-     }), _get_vector),
-
-    ("list_voyages",
-     "Liste les voyages TravelWiz. Filtres: status, vector_id, search, limit.",
-     _s({
-         "status": {"type": "string"},
-         "vector_id": {"type": "string"},
-         "search": {"type": "string"},
-         "limit": {"type": "integer"},
-         "entity_code": {"type": "string"},
-     }), _list_voyages),
-
-    ("get_voyage",
-     "Récupère un voyage par id ou code.",
-     _s({
-         "id": {"type": "string"},
-         "code": {"type": "string"},
-         "entity_code": {"type": "string"},
-     }), _get_voyage),
-
+    (
+        "list_vectors",
+        "Liste les vecteurs de transport (hélicoptères, bateaux, véhicules). Filtres: mode (air/sea/land), type, search, limit.",
+        _s(
+            {
+                "mode": {"type": "string", "description": "air, sea, land"},
+                "type": {"type": "string"},
+                "search": {"type": "string"},
+                "limit": {"type": "integer"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _list_vectors,
+    ),
+    (
+        "get_vector",
+        "Récupère un vecteur de transport par id ou immatriculation.",
+        _s(
+            {
+                "id": {"type": "string"},
+                "registration": {"type": "string"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _get_vector,
+    ),
+    (
+        "list_voyages",
+        "Liste les voyages TravelWiz. Filtres: status, vector_id, search, limit.",
+        _s(
+            {
+                "status": {"type": "string"},
+                "vector_id": {"type": "string"},
+                "search": {"type": "string"},
+                "limit": {"type": "integer"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _list_voyages,
+    ),
+    (
+        "get_voyage",
+        "Récupère un voyage par id ou code.",
+        _s(
+            {
+                "id": {"type": "string"},
+                "code": {"type": "string"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _get_voyage,
+    ),
     # ── Compliance rules (V2) ────────────────────────────────────────────
-    ("create_compliance_type",
-     "Crée un type de conformité (ex: H2S_BASIC, MED_APTITUDE). "
-     "category doit être: formation, certification, habilitation, audit, medical, epi. "
-     "validity_days null = permanent.",
-     _s({
-         "code": {"type": "string"},
-         "name": {"type": "string"},
-         "category": {"type": "string"},
-         "description": {"type": "string"},
-         "validity_days": {"type": "integer"},
-         "is_mandatory": {"type": "boolean"},
-         "compliance_source": {"type": "string", "description": "opsflux | external | both"},
-         "external_provider": {"type": "string"},
-         "entity_code": {"type": "string"},
-     }, ["code", "name", "category"]), _create_compliance_type),
-
-    ("list_compliance_rules",
-     "Liste les règles de conformité (qui doit avoir quel type). "
-     "Filtres: compliance_type_id, target_type (tier_type|asset|department|job_position|all), target_value.",
-     _s({
-         "compliance_type_id": {"type": "string"},
-         "target_type": {"type": "string"},
-         "target_value": {"type": "string"},
-         "only_active": {"type": "boolean"},
-         "limit": {"type": "integer"},
-         "entity_code": {"type": "string"},
-     }), _list_compliance_rules),
-
-    ("create_compliance_rule",
-     "Crée une règle de conformité: tel ComplianceType est obligatoire pour telle cible. "
-     "Accepte compliance_type_id (UUID) ou compliance_type_code. "
-     "target_type: tier_type|asset|department|job_position|all. "
-     "target_value: ex 'client', asset_id, 'Operations'.",
-     _s({
-         "compliance_type_id": {"type": "string"},
-         "compliance_type_code": {"type": "string"},
-         "target_type": {"type": "string"},
-         "target_value": {"type": "string"},
-         "description": {"type": "string"},
-         "effective_from": {"type": "string", "description": "YYYY-MM-DD"},
-         "effective_to": {"type": "string", "description": "YYYY-MM-DD"},
-         "change_reason": {"type": "string"},
-         "entity_code": {"type": "string"},
-     }, ["target_type"]), _create_compliance_rule),
-
+    (
+        "create_compliance_type",
+        "Crée un type de conformité (ex: H2S_BASIC, MED_APTITUDE). "
+        "category doit être: formation, certification, habilitation, audit, medical, epi. "
+        "validity_days null = permanent.",
+        _s(
+            {
+                "code": {"type": "string"},
+                "name": {"type": "string"},
+                "category": {"type": "string"},
+                "description": {"type": "string"},
+                "validity_days": {"type": "integer"},
+                "is_mandatory": {"type": "boolean"},
+                "compliance_source": {"type": "string", "description": "opsflux | external | both"},
+                "external_provider": {"type": "string"},
+                "entity_code": {"type": "string"},
+            },
+            ["code", "name", "category"],
+        ),
+        _create_compliance_type,
+    ),
+    (
+        "list_compliance_rules",
+        "Liste les règles de conformité (qui doit avoir quel type). "
+        "Filtres: compliance_type_id, target_type (tier_type|asset|department|job_position|all), target_value.",
+        _s(
+            {
+                "compliance_type_id": {"type": "string"},
+                "target_type": {"type": "string"},
+                "target_value": {"type": "string"},
+                "only_active": {"type": "boolean"},
+                "limit": {"type": "integer"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _list_compliance_rules,
+    ),
+    (
+        "create_compliance_rule",
+        "Crée une règle de conformité: tel ComplianceType est obligatoire pour telle cible. "
+        "Accepte compliance_type_id (UUID) ou compliance_type_code. "
+        "target_type: tier_type|asset|department|job_position|all. "
+        "target_value: ex 'client', asset_id, 'Operations'.",
+        _s(
+            {
+                "compliance_type_id": {"type": "string"},
+                "compliance_type_code": {"type": "string"},
+                "target_type": {"type": "string"},
+                "target_value": {"type": "string"},
+                "description": {"type": "string"},
+                "effective_from": {"type": "string", "description": "YYYY-MM-DD"},
+                "effective_to": {"type": "string", "description": "YYYY-MM-DD"},
+                "change_reason": {"type": "string"},
+                "entity_code": {"type": "string"},
+            },
+            ["target_type"],
+        ),
+        _create_compliance_rule,
+    ),
     # ── Cost imputations ─────────────────────────────────────────────────
-    ("list_cost_centers",
-     "Liste les centres de coûts de l'entité.",
-     _s({
-         "only_active": {"type": "boolean"},
-         "limit": {"type": "integer"},
-         "entity_code": {"type": "string"},
-     }), _list_cost_centers),
-
-    ("list_imputation_references",
-     "Liste les références d'imputation (codes OPEX/CAPEX configurés). "
-     "Filtres: search, imputation_type (OPEX/CAPEX), only_active.",
-     _s({
-         "search": {"type": "string"},
-         "imputation_type": {"type": "string"},
-         "only_active": {"type": "boolean"},
-         "limit": {"type": "integer"},
-         "entity_code": {"type": "string"},
-     }), _list_imputation_references),
-
-    ("list_imputations",
-     "Liste les imputations de coût d'un owner (ads/voyage/mission/purchase_order/…).",
-     _s({
-         "owner_type": {"type": "string"},
-         "owner_id": {"type": "string"},
-     }, ["owner_type", "owner_id"]), _list_imputations),
-
-    ("add_imputation",
-     "Ajoute une imputation (split de coût) à un owner. "
-     "La somme des pourcentages par owner doit rester ≤ 100. "
-     "owner_type: ads, voyage, mission, purchase_order, … "
-     "Au moins une cible (imputation_reference_id, project_id, cost_center_id) est recommandée.",
-     _s({
-         "owner_type": {"type": "string"},
-         "owner_id": {"type": "string"},
-         "percentage": {"type": "number", "description": "(0, 100]"},
-         "imputation_reference_id": {"type": "string"},
-         "project_id": {"type": "string"},
-         "cost_center_id": {"type": "string"},
-         "cross_imputation": {"type": "boolean"},
-         "notes": {"type": "string"},
-     }, ["owner_type", "owner_id", "percentage"]), _add_imputation),
-
-    ("delete_imputation",
-     "Supprime une imputation par son id.",
-     _s({"id": {"type": "string"}}, ["id"]), _delete_imputation),
-
+    (
+        "list_cost_centers",
+        "Liste les centres de coûts de l'entité.",
+        _s(
+            {
+                "only_active": {"type": "boolean"},
+                "limit": {"type": "integer"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _list_cost_centers,
+    ),
+    (
+        "list_imputation_references",
+        "Liste les références d'imputation (codes OPEX/CAPEX configurés). "
+        "Filtres: search, imputation_type (OPEX/CAPEX), only_active.",
+        _s(
+            {
+                "search": {"type": "string"},
+                "imputation_type": {"type": "string"},
+                "only_active": {"type": "boolean"},
+                "limit": {"type": "integer"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _list_imputation_references,
+    ),
+    (
+        "list_imputations",
+        "Liste les imputations de coût d'un owner (ads/voyage/mission/purchase_order/…).",
+        _s(
+            {
+                "owner_type": {"type": "string"},
+                "owner_id": {"type": "string"},
+            },
+            ["owner_type", "owner_id"],
+        ),
+        _list_imputations,
+    ),
+    (
+        "add_imputation",
+        "Ajoute une imputation (split de coût) à un owner. "
+        "La somme des pourcentages par owner doit rester ≤ 100. "
+        "owner_type: ads, voyage, mission, purchase_order, … "
+        "Au moins une cible (imputation_reference_id, project_id, cost_center_id) est recommandée.",
+        _s(
+            {
+                "owner_type": {"type": "string"},
+                "owner_id": {"type": "string"},
+                "percentage": {"type": "number", "description": "(0, 100]"},
+                "imputation_reference_id": {"type": "string"},
+                "project_id": {"type": "string"},
+                "cost_center_id": {"type": "string"},
+                "cross_imputation": {"type": "boolean"},
+                "notes": {"type": "string"},
+            },
+            ["owner_type", "owner_id", "percentage"],
+        ),
+        _add_imputation,
+    ),
+    (
+        "delete_imputation",
+        "Supprime une imputation par son id.",
+        _s({"id": {"type": "string"}}, ["id"]),
+        _delete_imputation,
+    ),
     # ── Users (read-only) ────────────────────────────────────────────────
-    ("list_users",
-     "Liste les comptes utilisateurs. Lecture seule via MCP — la création de "
-     "compte doit se faire dans OpsFlux directement. Filtres: search, only_active.",
-     _s({
-         "search": {"type": "string"},
-         "only_active": {"type": "boolean"},
-         "limit": {"type": "integer"},
-     }), _list_users),
-
-    ("get_user",
-     "Récupère un utilisateur par id ou par email.",
-     _s({
-         "id": {"type": "string"},
-         "email": {"type": "string"},
-     }), _get_user),
-
+    (
+        "list_users",
+        "Liste les comptes utilisateurs. Lecture seule via MCP — la création de "
+        "compte doit se faire dans OpsFlux directement. Filtres: search, only_active.",
+        _s(
+            {
+                "search": {"type": "string"},
+                "only_active": {"type": "boolean"},
+                "limit": {"type": "integer"},
+            }
+        ),
+        _list_users,
+    ),
+    (
+        "get_user",
+        "Récupère un utilisateur par id ou par email.",
+        _s(
+            {
+                "id": {"type": "string"},
+                "email": {"type": "string"},
+            }
+        ),
+        _get_user,
+    ),
     # ── Settings / configuration ─────────────────────────────────────────
-    ("list_settings",
-     "Liste les paramètres de configuration. Filtres: scope (tenant/entity/user), "
-     "key_prefix (ex: 'integration.gouti.' pour ne voir que la config Gouti).",
-     _s({
-         "scope": {"type": "string"},
-         "key_prefix": {"type": "string"},
-         "limit": {"type": "integer"},
-     }), _list_settings),
-
-    ("get_setting",
-     "Récupère un paramètre de config par key (+ scope et scope_id optionnels).",
-     _s({
-         "key": {"type": "string"},
-         "scope": {"type": "string", "description": "tenant|entity|user (défaut tenant)"},
-         "scope_id": {"type": "string"},
-     }, ["key"]), _get_setting),
-
-    ("set_setting",
-     "Crée ou met à jour un paramètre de config. value peut être un objet JSON "
-     "ou une chaîne — si chaîne, sera wrappée dans {\"value\": ...}. "
-     "scope: tenant (défaut) | entity | user. scope_id identifie l'entité/user "
-     "ciblé pour les scopes non-tenant.",
-     _s({
-         "key": {"type": "string"},
-         "value": {},
-         "scope": {"type": "string"},
-         "scope_id": {"type": "string"},
-     }, ["key", "value"]), _set_setting),
-
-    ("delete_setting",
-     "Supprime un paramètre de config par key(+scope+scope_id).",
-     _s({
-         "key": {"type": "string"},
-         "scope": {"type": "string"},
-         "scope_id": {"type": "string"},
-     }, ["key"]), _delete_setting),
-
+    (
+        "list_settings",
+        "Liste les paramètres de configuration. Filtres: scope (tenant/entity/user), "
+        "key_prefix (ex: 'integration.gouti.' pour ne voir que la config Gouti).",
+        _s(
+            {
+                "scope": {"type": "string"},
+                "key_prefix": {"type": "string"},
+                "limit": {"type": "integer"},
+            }
+        ),
+        _list_settings,
+    ),
+    (
+        "get_setting",
+        "Récupère un paramètre de config par key (+ scope et scope_id optionnels).",
+        _s(
+            {
+                "key": {"type": "string"},
+                "scope": {"type": "string", "description": "tenant|entity|user (défaut tenant)"},
+                "scope_id": {"type": "string"},
+            },
+            ["key"],
+        ),
+        _get_setting,
+    ),
+    (
+        "set_setting",
+        "Crée ou met à jour un paramètre de config. value peut être un objet JSON "
+        'ou une chaîne — si chaîne, sera wrappée dans {"value": ...}. '
+        "scope: tenant (défaut) | entity | user. scope_id identifie l'entité/user "
+        "ciblé pour les scopes non-tenant.",
+        _s(
+            {
+                "key": {"type": "string"},
+                "value": {},
+                "scope": {"type": "string"},
+                "scope_id": {"type": "string"},
+            },
+            ["key", "value"],
+        ),
+        _set_setting,
+    ),
+    (
+        "delete_setting",
+        "Supprime un paramètre de config par key(+scope+scope_id).",
+        _s(
+            {
+                "key": {"type": "string"},
+                "scope": {"type": "string"},
+                "scope_id": {"type": "string"},
+            },
+            ["key"],
+        ),
+        _delete_setting,
+    ),
     # ── Projets (gestion de projets) ────────────────────────────────────
-    ("list_projects",
-     "Liste les projets OpsFlux. Filtres: search, status, project_type, limit (défaut 20, max 200).",
-     _s({
-         "search": {"type": "string", "description": "Filtre texte (nom ou code)"},
-         "status": {"type": "string", "description": "Filtre par statut (draft, active, on_hold, completed, cancelled)"},
-         "project_type": {"type": "string", "description": "Filtre par type (project, gouti)"},
-         "limit": {"type": "integer", "description": "Nombre max de résultats"},
-         "entity_code": {"type": "string", "description": "Code entité (optionnel)"},
-     }), _list_projects),
-
-    ("get_project",
-     "Récupère les détails d'un projet par id (UUID) ou code (ex: PRJ-2026-0001).",
-     _s({
-         "id": {"type": "string", "description": "UUID du projet"},
-         "code": {"type": "string", "description": "Code du projet"},
-         "entity_code": {"type": "string"},
-     }), _get_project),
-
-    ("create_project",
-     "Crée un nouveau projet. Seul 'name' est obligatoire.",
-     _s({
-         "name": {"type": "string", "description": "Nom du projet"},
-         "description": {"type": "string"},
-         "project_type": {"type": "string", "description": "project (défaut) ou gouti"},
-         "status": {"type": "string", "description": "draft (défaut), active, on_hold, completed, cancelled"},
-         "priority": {"type": "string", "description": "low, medium (défaut), high, critical"},
-         "weather": {"type": "string", "description": "sunny (défaut), cloudy, rainy, stormy"},
-         "budget": {"type": "number"},
-         "entity_code": {"type": "string"},
-     }, ["name"]), _create_project),
-
-    ("update_project",
-     "Met à jour un projet existant. Champs modifiables: name, description, status, priority, weather, project_type, budget, start_date, end_date.",
-     _s({
-         "id": {"type": "string", "description": "UUID du projet (obligatoire)"},
-         "name": {"type": "string"},
-         "description": {"type": "string"},
-         "status": {"type": "string"},
-         "priority": {"type": "string"},
-         "weather": {"type": "string"},
-         "project_type": {"type": "string"},
-         "budget": {"type": "number"},
-         "start_date": {"type": "string", "description": "Date ISO (YYYY-MM-DD)"},
-         "end_date": {"type": "string", "description": "Date ISO (YYYY-MM-DD)"},
-     }, ["id"]), _update_project),
-
-    ("list_project_tasks",
-     "Liste les tâches d'un projet. Filtres: status, limit (défaut 50, max 500).",
-     _s({
-         "project_id": {"type": "string", "description": "UUID du projet (obligatoire)"},
-         "status": {"type": "string", "description": "Filtre par statut (todo, in_progress, done, cancelled)"},
-         "limit": {"type": "integer"},
-     }, ["project_id"]), _list_project_tasks),
-
-    ("create_project_task",
-     "Crée une tâche dans un projet. project_id et title obligatoires.",
-     _s({
-         "project_id": {"type": "string", "description": "UUID du projet"},
-         "title": {"type": "string", "description": "Titre de la tâche"},
-         "description": {"type": "string"},
-         "status": {"type": "string", "description": "todo (défaut), in_progress, done, cancelled"},
-         "priority": {"type": "string", "description": "low, medium (défaut), high, critical"},
-         "parent_id": {"type": "string", "description": "UUID de la tâche parente (sous-tâche)"},
-         "estimated_hours": {"type": "number"},
-     }, ["project_id", "title"]), _create_project_task),
-
-    ("list_project_milestones",
-     "Liste les jalons d'un projet, triés par date.",
-     _s({
-         "project_id": {"type": "string", "description": "UUID du projet (obligatoire)"},
-     }, ["project_id"]), _list_project_milestones),
-
-    ("get_project_cpm",
-     "Calcule le chemin critique (CPM) d'un projet: durées, marges, tâches critiques.",
-     _s({
-         "project_id": {"type": "string", "description": "UUID du projet (obligatoire)"},
-     }, ["project_id"]), _get_project_cpm),
-
-    ("get_project_activity_feed",
-     "Flux d'activité unifié d'un projet: changements de statut, modifications de tâches. limit=30 par défaut.",
-     _s({
-         "project_id": {"type": "string", "description": "UUID du projet (obligatoire)"},
-         "limit": {"type": "integer", "description": "Nombre max d'événements (défaut 30, max 100)"},
-     }, ["project_id"]), _get_project_activity_feed),
-
-    ("list_project_templates",
-     "Liste les templates de projet disponibles, triés par popularité.",
-     _s({
-         "entity_code": {"type": "string", "description": "Code entité (optionnel)"},
-     }), _list_project_templates),
+    (
+        "list_projects",
+        "Liste les projets OpsFlux. Filtres: search, status, project_type, limit (défaut 20, max 200).",
+        _s(
+            {
+                "search": {"type": "string", "description": "Filtre texte (nom ou code)"},
+                "status": {
+                    "type": "string",
+                    "description": "Filtre par statut (draft, active, on_hold, completed, cancelled)",
+                },
+                "project_type": {"type": "string", "description": "Filtre par type (project, gouti)"},
+                "limit": {"type": "integer", "description": "Nombre max de résultats"},
+                "entity_code": {"type": "string", "description": "Code entité (optionnel)"},
+            }
+        ),
+        _list_projects,
+    ),
+    (
+        "get_project",
+        "Récupère les détails d'un projet par id (UUID) ou code (ex: PRJ-2026-0001).",
+        _s(
+            {
+                "id": {"type": "string", "description": "UUID du projet"},
+                "code": {"type": "string", "description": "Code du projet"},
+                "entity_code": {"type": "string"},
+            }
+        ),
+        _get_project,
+    ),
+    (
+        "create_project",
+        "Crée un nouveau projet. Seul 'name' est obligatoire.",
+        _s(
+            {
+                "name": {"type": "string", "description": "Nom du projet"},
+                "description": {"type": "string"},
+                "project_type": {"type": "string", "description": "project (défaut) ou gouti"},
+                "status": {"type": "string", "description": "draft (défaut), active, on_hold, completed, cancelled"},
+                "priority": {"type": "string", "description": "low, medium (défaut), high, critical"},
+                "weather": {"type": "string", "description": "sunny (défaut), cloudy, rainy, stormy"},
+                "budget": {"type": "number"},
+                "entity_code": {"type": "string"},
+            },
+            ["name"],
+        ),
+        _create_project,
+    ),
+    (
+        "update_project",
+        "Met à jour un projet existant. Champs modifiables: name, description, status, priority, weather, project_type, budget, start_date, end_date.",
+        _s(
+            {
+                "id": {"type": "string", "description": "UUID du projet (obligatoire)"},
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "status": {"type": "string"},
+                "priority": {"type": "string"},
+                "weather": {"type": "string"},
+                "project_type": {"type": "string"},
+                "budget": {"type": "number"},
+                "start_date": {"type": "string", "description": "Date ISO (YYYY-MM-DD)"},
+                "end_date": {"type": "string", "description": "Date ISO (YYYY-MM-DD)"},
+            },
+            ["id"],
+        ),
+        _update_project,
+    ),
+    (
+        "list_project_tasks",
+        "Liste les tâches d'un projet. Filtres: status, limit (défaut 50, max 500).",
+        _s(
+            {
+                "project_id": {"type": "string", "description": "UUID du projet (obligatoire)"},
+                "status": {"type": "string", "description": "Filtre par statut (todo, in_progress, done, cancelled)"},
+                "limit": {"type": "integer"},
+            },
+            ["project_id"],
+        ),
+        _list_project_tasks,
+    ),
+    (
+        "create_project_task",
+        "Crée une tâche dans un projet. project_id et title obligatoires.",
+        _s(
+            {
+                "project_id": {"type": "string", "description": "UUID du projet"},
+                "title": {"type": "string", "description": "Titre de la tâche"},
+                "description": {"type": "string"},
+                "status": {"type": "string", "description": "todo (défaut), in_progress, done, cancelled"},
+                "priority": {"type": "string", "description": "low, medium (défaut), high, critical"},
+                "parent_id": {"type": "string", "description": "UUID de la tâche parente (sous-tâche)"},
+                "estimated_hours": {"type": "number"},
+            },
+            ["project_id", "title"],
+        ),
+        _create_project_task,
+    ),
+    (
+        "list_project_milestones",
+        "Liste les jalons d'un projet, triés par date.",
+        _s(
+            {
+                "project_id": {"type": "string", "description": "UUID du projet (obligatoire)"},
+            },
+            ["project_id"],
+        ),
+        _list_project_milestones,
+    ),
+    (
+        "get_project_cpm",
+        "Calcule le chemin critique (CPM) d'un projet: durées, marges, tâches critiques.",
+        _s(
+            {
+                "project_id": {"type": "string", "description": "UUID du projet (obligatoire)"},
+            },
+            ["project_id"],
+        ),
+        _get_project_cpm,
+    ),
+    (
+        "get_project_activity_feed",
+        "Flux d'activité unifié d'un projet: changements de statut, modifications de tâches. limit=30 par défaut.",
+        _s(
+            {
+                "project_id": {"type": "string", "description": "UUID du projet (obligatoire)"},
+                "limit": {"type": "integer", "description": "Nombre max d'événements (défaut 30, max 100)"},
+            },
+            ["project_id"],
+        ),
+        _get_project_activity_feed,
+    ),
+    (
+        "list_project_templates",
+        "Liste les templates de projet disponibles, triés par popularité.",
+        _s(
+            {
+                "entity_code": {"type": "string", "description": "Code entité (optionnel)"},
+            }
+        ),
+        _list_project_templates,
+    ),
 ]
+
 
 def _resolve_tool_permissions(name: str) -> list[str]:
     """Return the minimum permission set required for an OpsFlux native tool.
@@ -3351,9 +4149,21 @@ def _resolve_tool_permissions(name: str) -> list[str]:
     This is intentionally conservative for user-scoped MCP tokens. Unknown tools
     stay hidden until they are mapped explicitly.
     """
-    if name in {"list_tiers", "get_tier", "list_contacts", "get_contact", "list_phones", "list_emails",
-                "list_addresses", "list_notes", "list_tags", "list_legal_identifiers",
-                "list_external_refs", "list_tier_blocks", "list_contact_transfers"}:
+    if name in {
+        "list_tiers",
+        "get_tier",
+        "list_contacts",
+        "get_contact",
+        "list_phones",
+        "list_emails",
+        "list_addresses",
+        "list_notes",
+        "list_tags",
+        "list_legal_identifiers",
+        "list_external_refs",
+        "list_tier_blocks",
+        "list_contact_transfers",
+    }:
         return ["tier.read"]
     if name in {"create_tier"}:
         return ["tier.create"]
@@ -3363,9 +4173,21 @@ def _resolve_tool_permissions(name: str) -> list[str]:
         return ["tier.delete"]
     if name in {"create_contact", "update_contact", "archive_contact", "transfer_contact"}:
         return ["tier.contact.manage"]
-    if name in {"add_phone", "delete_phone", "add_email", "delete_email", "add_address", "delete_address",
-                "add_note", "delete_note", "add_tag", "delete_tag", "add_legal_identifier",
-                "delete_legal_identifier", "add_external_ref"}:
+    if name in {
+        "add_phone",
+        "delete_phone",
+        "add_email",
+        "delete_email",
+        "add_address",
+        "delete_address",
+        "add_note",
+        "delete_note",
+        "add_tag",
+        "delete_tag",
+        "add_legal_identifier",
+        "delete_legal_identifier",
+        "add_external_ref",
+    }:
         return ["tier.update"]
 
     if name in {"check_compliance"}:
@@ -3383,8 +4205,16 @@ def _resolve_tool_permissions(name: str) -> list[str]:
     if name in {"create_compliance_rule"}:
         return ["conformite.rule.create"]
 
-    if name in {"list_sites", "list_assets", "get_asset", "list_fields", "get_field",
-                "list_equipment", "get_equipment", "get_asset_hierarchy"}:
+    if name in {
+        "list_sites",
+        "list_assets",
+        "get_asset",
+        "list_fields",
+        "get_field",
+        "list_equipment",
+        "get_equipment",
+        "get_asset_hierarchy",
+    }:
         return ["asset.read"]
 
     if name in {"list_ads", "get_ads", "list_pax_groups"}:
@@ -3411,8 +4241,15 @@ def _resolve_tool_permissions(name: str) -> list[str]:
     if name in {"list_settings", "get_setting", "set_setting", "delete_setting"}:
         return ["core.settings.manage"]
 
-    if name in {"list_projects", "get_project", "list_project_tasks", "list_project_milestones",
-                "get_project_cpm", "get_project_activity_feed", "list_project_templates"}:
+    if name in {
+        "list_projects",
+        "get_project",
+        "list_project_tasks",
+        "list_project_milestones",
+        "get_project_cpm",
+        "get_project_activity_feed",
+        "list_project_templates",
+    }:
         return ["project.read"]
     if name in {"create_project"}:
         return ["project.create"]
@@ -3446,6 +4283,7 @@ OPSFLUX_HANDLERS: dict[str, Any] = {n: h for n, _, _, h in OPSFLUX_TOOLS}
 
 
 # ─── Factory ─────────────────────────────────────────────────────────────────
+
 
 async def create_opsflux_backend(config: dict) -> NativeBackend:
     """Create the OpsFlux native MCP backend.

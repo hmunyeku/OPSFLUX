@@ -4,9 +4,7 @@ Uses ip-api.com free tier (non-commercial, 45 req/min).
 Results are cached in-memory for 1 hour.
 """
 
-import asyncio
-from functools import lru_cache
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
@@ -22,15 +20,17 @@ async def get_ip_location(ip: str) -> dict | None:
     # Check cache
     if ip in _cache:
         data, ts = _cache[ip]
-        if (datetime.now(timezone.utc) - ts).total_seconds() < _CACHE_TTL:
+        if (datetime.now(UTC) - ts).total_seconds() < _CACHE_TTL:
             return data
 
     try:
         async with httpx.AsyncClient(timeout=5) as client:
-            resp = await client.get(f"http://ip-api.com/json/{ip}?fields=status,message,country,regionName,city,lat,lon,isp,org")
+            resp = await client.get(
+                f"http://ip-api.com/json/{ip}?fields=status,message,country,regionName,city,lat,lon,isp,org"
+            )
             if resp.status_code == 200:
                 data = resp.json()
-                _cache[ip] = (data, datetime.now(timezone.utc))
+                _cache[ip] = (data, datetime.now(UTC))
                 return data
     except Exception:
         pass

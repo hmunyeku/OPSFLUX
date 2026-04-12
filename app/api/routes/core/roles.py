@@ -17,10 +17,10 @@ from app.core.rbac import (
     invalidate_permission_mode_cache,
     invalidate_rbac_cache,
 )
-from app.services.core.module_lifecycle_service import is_module_enabled, normalize_module_slug
 from app.models.asset_registry import Installation
 from app.models.common import Permission, Role, RolePermission, Setting, UserGroup, UserGroupMember, UserGroupRole
 from app.schemas.common import OpsFluxSchema
+from app.services.core.module_lifecycle_service import is_module_enabled, normalize_module_slug
 
 router = APIRouter(prefix="/api/v1/rbac", tags=["rbac"])
 
@@ -131,9 +131,7 @@ async def list_roles(
     if module:
         stmt = stmt.where(Role.module == module)
     if search:
-        stmt = stmt.where(
-            Role.name.ilike(f"%{search}%") | Role.code.ilike(f"%{search}%")
-        )
+        stmt = stmt.where(Role.name.ilike(f"%{search}%") | Role.code.ilike(f"%{search}%"))
     stmt = stmt.order_by(Role.code)
 
     result = await db.execute(stmt)
@@ -205,9 +203,7 @@ async def get_role(
         .where(RolePermission.role_code == role_code)
         .order_by(Permission.code)
     )
-    permissions = [
-        PermissionRead.model_validate(p) for p in perm_result.scalars().all()
-    ]
+    permissions = [PermissionRead.model_validate(p) for p in perm_result.scalars().all()]
 
     # Fetch groups that use this role, with asset scope name and member count
     member_count_subq = (
@@ -275,9 +271,7 @@ async def update_role(
     await db.commit()
 
     # Count permissions
-    count_result = await db.execute(
-        select(func.count()).where(RolePermission.role_code == role_code)
-    )
+    count_result = await db.execute(select(func.count()).where(RolePermission.role_code == role_code))
     return RoleRead(
         code=role.code,
         name=role.name,
@@ -301,9 +295,7 @@ async def set_role_permissions(
         raise HTTPException(status_code=404, detail="Role not found")
 
     # Validate all permission codes exist
-    perm_result = await db.execute(
-        select(Permission.code).where(Permission.code.in_(body.permission_codes))
-    )
+    perm_result = await db.execute(select(Permission.code).where(Permission.code.in_(body.permission_codes)))
     valid_codes = {row[0] for row in perm_result.all()}
     invalid = set(body.permission_codes) - valid_codes
     if invalid:
@@ -313,9 +305,7 @@ async def set_role_permissions(
         )
 
     # Replace: delete existing, insert new
-    await db.execute(
-        delete(RolePermission).where(RolePermission.role_code == role_code)
-    )
+    await db.execute(delete(RolePermission).where(RolePermission.role_code == role_code))
     for perm_code in body.permission_codes:
         db.add(RolePermission(role_code=role_code, permission_code=perm_code))
 
@@ -368,15 +358,17 @@ async def list_permissions(
 ):
     """List all available permissions."""
     normalized_module = normalize_module_slug(module)
-    if normalized_module and normalized_module != "core" and not await is_module_enabled(db, entity_id, normalized_module):
+    if (
+        normalized_module
+        and normalized_module != "core"
+        and not await is_module_enabled(db, entity_id, normalized_module)
+    ):
         return []
     stmt = select(Permission).order_by(Permission.module, Permission.code)
     if normalized_module:
         stmt = stmt.where(Permission.module == normalized_module)
     if search:
-        stmt = stmt.where(
-            Permission.name.ilike(f"%{search}%") | Permission.code.ilike(f"%{search}%")
-        )
+        stmt = stmt.where(Permission.name.ilike(f"%{search}%") | Permission.code.ilike(f"%{search}%"))
 
     result = await db.execute(stmt)
     return [PermissionRead.model_validate(p) for p in result.scalars().all()]
@@ -394,9 +386,7 @@ async def list_permission_modules(
     db: AsyncSession = Depends(get_db),
 ):
     """List all permissions grouped by module."""
-    result = await db.execute(
-        select(Permission).order_by(Permission.module, Permission.code)
-    )
+    result = await db.execute(select(Permission).order_by(Permission.module, Permission.code))
     all_perms = result.scalars().all()
     grouped: dict[str, list[PermissionRead]] = {}
     for p in all_perms:
@@ -406,10 +396,7 @@ async def list_permission_modules(
         if mod not in grouped:
             grouped[mod] = []
         grouped[mod].append(PermissionRead.model_validate(p))
-    return [
-        ModulePermissionsRead(module=mod, permissions=perms)
-        for mod, perms in sorted(grouped.items())
-    ]
+    return [ModulePermissionsRead(module=mod, permissions=perms) for mod, perms in sorted(grouped.items())]
 
 
 # ── Permission mode (additive / restrictive) ─────────────────────────────
@@ -459,12 +446,14 @@ async def set_entity_permission_mode(
     if existing:
         existing.value = {"value": body.mode}
     else:
-        db.add(Setting(
-            key=key,
-            value={"value": body.mode},
-            scope="entity",
-            scope_id=str(entity_id),
-        ))
+        db.add(
+            Setting(
+                key=key,
+                value={"value": body.mode},
+                scope="entity",
+                scope_id=str(entity_id),
+            )
+        )
 
     await db.commit()
 

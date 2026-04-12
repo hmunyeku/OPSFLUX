@@ -3,8 +3,8 @@ from uuid import uuid4
 
 import pytest
 
-from app.core.email_templates import _infer_notification_category_from_slug
 from app.core import notifications as notifications_module
+from app.core.email_templates import _infer_notification_category_from_slug
 
 
 class _FakeResult:

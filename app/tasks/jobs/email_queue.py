@@ -65,7 +65,8 @@ async def process_email_queue() -> None:
                     if not user_row:
                         logger.warning(
                             "email_queue: user %s not found, skipping notification %s",
-                            user_id, notification_id,
+                            user_id,
+                            notification_id,
                         )
                         # Mark as read so we don't keep retrying
                         await _mark_email_sent(db, notification_id)
@@ -97,13 +98,12 @@ async def process_email_queue() -> None:
                     await _mark_email_sent(db, notification_id)
                     logger.info(
                         "email_queue: sent email to %s (notification=%s)",
-                        recipient_email, notification_id,
+                        recipient_email,
+                        notification_id,
                     )
 
                 except Exception:
-                    logger.exception(
-                        "email_queue: failed to send notification %s", notification_id
-                    )
+                    logger.exception("email_queue: failed to send notification %s", notification_id)
                     # Increment retry count — if we've exhausted retries, mark as sent
                     # to avoid infinite retry loops
                     retry_count = await _get_retry_count(db, notification_id)
@@ -125,10 +125,7 @@ async def process_email_queue() -> None:
 async def _mark_email_sent(db, notification_id) -> None:
     """Mark an email notification as sent."""
     await db.execute(
-        text(
-            "UPDATE notifications SET read = true, read_at = :now "
-            "WHERE id = :id"
-        ),
+        text("UPDATE notifications SET read = true, read_at = :now WHERE id = :id"),
         {"now": datetime.now(UTC), "id": str(notification_id)},
     )
 

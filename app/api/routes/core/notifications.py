@@ -70,7 +70,9 @@ async def unread_count(
 ):
     """Get unread notification count for the current user (lightweight endpoint for bell badge)."""
     result = await db.execute(
-        select(func.count()).select_from(Notification).where(
+        select(func.count())
+        .select_from(Notification)
+        .where(
             Notification.user_id == current_user.id,
             Notification.entity_id == entity_id,
             Notification.read == False,  # noqa: E712

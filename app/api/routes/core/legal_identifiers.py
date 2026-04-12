@@ -8,9 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
-from app.services.core.delete_service import delete_entity
 from app.models.common import LegalIdentifier, User
 from app.schemas.common import LegalIdentifierCreate, LegalIdentifierRead, LegalIdentifierUpdate
+from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/legal-identifiers", tags=["legal-identifiers"])
 

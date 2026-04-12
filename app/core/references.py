@@ -83,8 +83,7 @@ def _resolve_template(
             return str(now.day).zfill(2)
 
         # Context-based variables (entity, project, asset, type, user)
-        if token in ("entity_code", "entity_name", "asset_code",
-                      "project_code", "type", "user_initials"):
+        if token in ("entity_code", "entity_name", "asset_code", "project_code", "type", "user_initials"):
             return ctx.get(token, "")
 
         # Sequence padding — any run of # characters
@@ -113,9 +112,7 @@ async def _get_template_from_settings(
     query = select(Setting).where(Setting.key == key)
     if entity_id is not None:
         # Prefer entity-scoped setting, fall back to tenant-scoped
-        query = query.where(
-            (Setting.scope_id == str(entity_id)) | (Setting.scope == "tenant")
-        ).order_by(
+        query = query.where((Setting.scope_id == str(entity_id)) | (Setting.scope == "tenant")).order_by(
             # Entity-specific first
             Setting.scope.desc()
         )

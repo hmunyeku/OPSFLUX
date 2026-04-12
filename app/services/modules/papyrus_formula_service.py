@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import ast
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
-
 
 ResolveRefCallable = Callable[[str], Awaitable[Any]]
 

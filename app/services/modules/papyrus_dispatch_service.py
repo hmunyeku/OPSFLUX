@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -81,7 +81,7 @@ async def update_document_schedule(
     canonical["meta"]["document_type"] = "report"
     canonical["schedule"] = _normalize_schedule(body.model_dump())
     revision.content = canonical
-    doc.updated_at = datetime.now(timezone.utc)
+    doc.updated_at = datetime.now(UTC)
 
     await _record_papyrus_snapshot(
         db=db,
@@ -128,8 +128,8 @@ async def dispatch_document_now(
         doc=doc,
         revision=revision,
         trigger_type="manual",
-        trigger_key=f"manual:{datetime.now(timezone.utc).isoformat()}",
-        scheduled_for=datetime.now(timezone.utc),
+        trigger_key=f"manual:{datetime.now(UTC).isoformat()}",
+        scheduled_for=datetime.now(UTC),
         triggered_by=triggered_by,
         schedule_override=None,
     )
@@ -149,7 +149,7 @@ async def process_due_papyrus_dispatches(
         .where(Document.status.in_(("approved", "published")))
     )
     rows = result.all()
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
 
     for doc, revision, entity in rows:
         summary["checked"] += 1
@@ -180,14 +180,14 @@ async def process_due_papyrus_dispatches(
 
             dispatched_for_doc = 0
             for due_time in due_times:
-                trigger_key = f"scheduled:{due_time.astimezone(timezone.utc).replace(second=0, microsecond=0).isoformat()}"
+                trigger_key = f"scheduled:{due_time.astimezone(UTC).replace(second=0, microsecond=0).isoformat()}"
                 run = await _dispatch_document(
                     db=db,
                     doc=doc,
                     revision=revision,
                     trigger_type="scheduled",
                     trigger_key=trigger_key,
-                    scheduled_for=due_time.astimezone(timezone.utc),
+                    scheduled_for=due_time.astimezone(UTC),
                     triggered_by=None,
                     schedule_override=schedule,
                 )
@@ -308,7 +308,7 @@ async def _dispatch_document(
                 delivered += 1
 
         run.status = "success"
-        run.finished_at = datetime.now(timezone.utc)
+        run.finished_at = datetime.now(UTC)
         run.result_summary = {
             "delivered": delivered,
             "resolved_users": len(resolved["users"]),
@@ -319,7 +319,7 @@ async def _dispatch_document(
     except Exception as exc:
         run.status = "error"
         run.error_message = str(exc)
-        run.finished_at = datetime.now(timezone.utc)
+        run.finished_at = datetime.now(UTC)
         logger.exception("Papyrus dispatch execution failed for document %s", doc.id)
     return run
 
@@ -510,7 +510,7 @@ async def _build_dispatch_context(
     if doc.project_id:
         project = await resolve_ref(db=db, entity_id=doc.entity_id, ref=f"project://{doc.project_id}")
     return {
-        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "date": datetime.now(UTC).strftime("%Y-%m-%d"),
         "document": {
             "id": str(doc.id),
             "number": doc.number,

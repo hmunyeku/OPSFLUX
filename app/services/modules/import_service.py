@@ -10,7 +10,7 @@ import logging
 import re
 import unicodedata
 from abc import ABC, abstractmethod
-from datetime import datetime, date, UTC
+from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID
 
@@ -19,7 +19,7 @@ try:
 except ImportError:
     dateutil_parser = None  # type: ignore[assignment]
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.references import generate_reference
@@ -32,19 +32,18 @@ from app.models.asset_registry import (
 )
 from app.models.common import (
     BusinessUnit,
-
     ComplianceRecord,
     ComplianceType,
     CostCenter,
-    ImputationOtpTemplate,
     ImputationAssignment,
+    ImputationOtpTemplate,
     ImputationReference,
     Project,
     Tier,
     TierContact,
+    User,
     UserGroup,
 )
-from app.models.common import User
 from app.schemas.import_assistant import (
     RowValidationError,
     TargetFieldDef,
@@ -220,32 +219,21 @@ class TargetObjectHandler(ABC):
     label: str
 
     @abstractmethod
-    def get_fields(self) -> list[TargetFieldDef]:
-        ...
+    def get_fields(self) -> list[TargetFieldDef]: ...
 
     @abstractmethod
     async def validate_row(
         self, row: dict[str, Any], entity_id: UUID, db: AsyncSession
-    ) -> list[RowValidationError]:
-        ...
+    ) -> list[RowValidationError]: ...
 
     @abstractmethod
-    async def find_duplicate(
-        self, row: dict[str, Any], entity_id: UUID, db: AsyncSession
-    ) -> UUID | None:
-        ...
+    async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None: ...
 
     @abstractmethod
-    async def create_record(
-        self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession
-    ) -> UUID:
-        ...
+    async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID: ...
 
     @abstractmethod
-    async def update_record(
-        self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession
-    ) -> None:
-        ...
+    async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None: ...
 
 
 # ── Concrete handlers ─────────────────────────────────────────────────────
@@ -277,7 +265,7 @@ class AssetHandler(TargetObjectHandler):
             TargetFieldDef(key="jacket_dimensions", label="Dim. Jacket (m)", type="string", example="12 x 14"),
             TargetFieldDef(key="jacket_weight", label="Poids Jacket (T)", type="float", example="254"),
             TargetFieldDef(key="nb_piles", label="Nb pieux", type="integer", example="4"),
-            TargetFieldDef(key="pile_diameter", label="Diam. pieux", type="string", example="30\" x 1"),
+            TargetFieldDef(key="pile_diameter", label="Diam. pieux", type="string", example='30" x 1'),
             TargetFieldDef(key="deck_dimensions", label="Dim. Deck (m)", type="string", example="20 x 26"),
             TargetFieldDef(key="deck_level", label="Niv. Deck", type="integer", example="4"),
             TargetFieldDef(key="top_deck_load", label="Charge Top Deck (T/m²)", type="float", example="1"),
@@ -292,7 +280,9 @@ class AssetHandler(TargetObjectHandler):
             TargetFieldDef(key="last_inspection", label="Dernière inspection", type="date"),
             TargetFieldDef(key="next_inspection", label="Prochaine inspection", type="date"),
             # Pipeline
-            TargetFieldDef(key="connected_asset_code", label="Code asset connecté", type="lookup", lookup_target="asset.code"),
+            TargetFieldDef(
+                key="connected_asset_code", label="Code asset connecté", type="lookup", lookup_target="asset.code"
+            ),
             TargetFieldDef(key="pipeline_type", label="Type pipeline", type="string", example="gas"),
             TargetFieldDef(key="pipeline_diameter", label="Diamètre pipeline", type="string"),
             TargetFieldDef(key="pipeline_length", label="Longueur pipeline (km)", type="float"),
@@ -318,17 +308,28 @@ class AssetHandler(TargetObjectHandler):
             errors.append(RowValidationError(row_index=idx, field="name", message="Nom requis"))
         if row.get("parent_code"):
             parent = await db.execute(
-                select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(row["parent_code"]).strip())
+                select(Installation.id).where(
+                    Installation.entity_id == entity_id, Installation.code == str(row["parent_code"]).strip()
+                )
             )
             if not parent.scalar_one_or_none():
-                errors.append(RowValidationError(row_index=idx, field="parent_code", message=f"Parent inconnu: {row['parent_code']}", severity="warning"))
+                errors.append(
+                    RowValidationError(
+                        row_index=idx,
+                        field="parent_code",
+                        message=f"Parent inconnu: {row['parent_code']}",
+                        severity="warning",
+                    )
+                )
         return errors
 
     async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
         code = row.get("code")
         if not code:
             return None
-        result = await db.execute(select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(code).strip()))
+        result = await db.execute(
+            select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(code).strip())
+        )
         return result.scalar_one_or_none()
 
     def _resolve_asset_lookup(self, row: dict[str, Any], key: str, entity_id: UUID, db) -> UUID | None:
@@ -342,11 +343,19 @@ class AssetHandler(TargetObjectHandler):
             code = await generate_reference("AST", db, entity_id=entity_id)
         parent_id = None
         if row.get("parent_code"):
-            res = await db.execute(select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(row["parent_code"]).strip()))
+            res = await db.execute(
+                select(Installation.id).where(
+                    Installation.entity_id == entity_id, Installation.code == str(row["parent_code"]).strip()
+                )
+            )
             parent_id = res.scalar_one_or_none()
         connected_id = None
         if row.get("connected_asset_code"):
-            res = await db.execute(select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(row["connected_asset_code"]).strip()))
+            res = await db.execute(
+                select(Installation.id).where(
+                    Installation.entity_id == entity_id, Installation.code == str(row["connected_asset_code"]).strip()
+                )
+            )
             connected_id = res.scalar_one_or_none()
         obj = Installation(
             entity_id=entity_id,
@@ -402,16 +411,44 @@ class AssetHandler(TargetObjectHandler):
         result = await db.execute(select(Installation).where(Installation.id == record_id))
         obj = result.scalar_one()
         # String fields
-        for key in ["name", "type", "description", "status", "orientation", "jacket_dimensions",
-                     "pile_diameter", "deck_dimensions", "equipment_subtype", "manufacturer",
-                     "model_ref", "pipeline_type", "pipeline_diameter", "deck_name"]:
+        for key in [
+            "name",
+            "type",
+            "description",
+            "status",
+            "orientation",
+            "jacket_dimensions",
+            "pile_diameter",
+            "deck_dimensions",
+            "equipment_subtype",
+            "manufacturer",
+            "model_ref",
+            "pipeline_type",
+            "pipeline_diameter",
+            "deck_name",
+        ]:
             if row.get(key) is not None:
                 setattr(obj, key, _safe_str(row[key]))
         # Float fields
-        for key in ["latitude", "longitude", "water_depth", "altitude", "jacket_weight",
-                     "top_deck_load", "capacity", "max_range", "pipeline_length",
-                     "elevation_msl", "position_x", "position_y", "position_z",
-                     "length_m", "width_m", "height_m", "weight_t"]:
+        for key in [
+            "latitude",
+            "longitude",
+            "water_depth",
+            "altitude",
+            "jacket_weight",
+            "top_deck_load",
+            "capacity",
+            "max_range",
+            "pipeline_length",
+            "elevation_msl",
+            "position_x",
+            "position_y",
+            "position_z",
+            "length_m",
+            "width_m",
+            "height_m",
+            "weight_t",
+        ]:
             if row.get(key) is not None:
                 setattr(obj, key, _safe_float(row[key]))
         # Integer fields
@@ -436,7 +473,9 @@ class TierHandler(TargetObjectHandler):
 
     def get_fields(self) -> list[TargetFieldDef]:
         return [
-            TargetFieldDef(key="name", label="Nom / Raison sociale", type="string", required=True, example="TotalEnergies"),
+            TargetFieldDef(
+                key="name", label="Nom / Raison sociale", type="string", required=True, example="TotalEnergies"
+            ),
             TargetFieldDef(key="code", label="Code", type="string", example="TRS-2026-0001"),
             TargetFieldDef(key="type", label="Type", type="string", example="supplier"),
             TargetFieldDef(key="alias", label="Nom commercial", type="string"),
@@ -465,7 +504,9 @@ class TierHandler(TargetObjectHandler):
         # 1. Check by code (exact match)
         code = row.get("code")
         if code:
-            result = await db.execute(select(Tier.id).where(Tier.entity_id == entity_id, Tier.code == str(code).strip()))
+            result = await db.execute(
+                select(Tier.id).where(Tier.entity_id == entity_id, Tier.code == str(code).strip())
+            )
             found = result.scalar_one_or_none()
             if found:
                 return found
@@ -474,6 +515,7 @@ class TierHandler(TargetObjectHandler):
         ext_code = row.get("external_code")
         if ext_code:
             from app.models.common import ExternalReference
+
             result = await db.execute(
                 select(Tier.id)
                 .join(ExternalReference, ExternalReference.owner_id == Tier.id)
@@ -535,6 +577,7 @@ class TierHandler(TargetObjectHandler):
         ext_system = str(row.get("external_system", "SAP")).strip()
         if ext_code:
             from app.models.common import ExternalReference
+
             ref = ExternalReference(
                 owner_type="tier",
                 owner_id=obj.id,
@@ -550,7 +593,18 @@ class TierHandler(TargetObjectHandler):
     async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:
         result = await db.execute(select(Tier).where(Tier.id == record_id))
         obj = result.scalar_one()
-        for field in ("name", "type", "alias", "website", "phone", "email", "legal_form", "industry", "payment_terms", "description"):
+        for field in (
+            "name",
+            "type",
+            "alias",
+            "website",
+            "phone",
+            "email",
+            "legal_form",
+            "industry",
+            "payment_terms",
+            "description",
+        ):
             val = row.get(field)
             if val is not None:
                 setattr(obj, field, str(val).strip() or None)
@@ -570,7 +624,9 @@ class ContactHandler(TargetObjectHandler):
         return [
             TargetFieldDef(key="first_name", label="Prénom", type="string", required=True, example="Jean"),
             TargetFieldDef(key="last_name", label="Nom", type="string", required=True, example="Dupont"),
-            TargetFieldDef(key="tier_code", label="Code tiers", type="lookup", required=True, lookup_target="tier.code"),
+            TargetFieldDef(
+                key="tier_code", label="Code tiers", type="lookup", required=True, lookup_target="tier.code"
+            ),
             TargetFieldDef(key="civility", label="Civilité", type="string", example="Mr"),
             TargetFieldDef(key="email", label="Email", type="string"),
             TargetFieldDef(key="phone", label="Téléphone", type="string"),
@@ -590,9 +646,13 @@ class ContactHandler(TargetObjectHandler):
         if not tier_code:
             errors.append(RowValidationError(row_index=idx, field="tier_code", message="Code tiers requis"))
         else:
-            res = await db.execute(select(Tier.id).where(Tier.entity_id == entity_id, Tier.code == str(tier_code).strip()))
+            res = await db.execute(
+                select(Tier.id).where(Tier.entity_id == entity_id, Tier.code == str(tier_code).strip())
+            )
             if not res.scalar_one_or_none():
-                errors.append(RowValidationError(row_index=idx, field="tier_code", message=f"Tiers inconnu: {tier_code}"))
+                errors.append(
+                    RowValidationError(row_index=idx, field="tier_code", message=f"Tiers inconnu: {tier_code}")
+                )
         return errors
 
     async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
@@ -654,6 +714,7 @@ class PaxProfileHandler(TargetObjectHandler):
     PAX-specific fields (birth_date, nationality, badge_number) are stored directly
     on User / TierContact after the Phase 2b migration.
     """
+
     key = "pax_profile"
     label = "Profils PAX"
 
@@ -677,11 +738,22 @@ class PaxProfileHandler(TargetObjectHandler):
             errors.append(RowValidationError(row_index=idx, field="last_name", message="Nom requis"))
         pax_type = str(row.get("type", "")).strip().lower()
         if pax_type not in ("internal", "external"):
-            errors.append(RowValidationError(row_index=idx, field="type", message="Type doit être 'internal' ou 'external'"))
+            errors.append(
+                RowValidationError(row_index=idx, field="type", message="Type doit être 'internal' ou 'external'")
+            )
         if row.get("company_code"):
-            res = await db.execute(select(Tier.id).where(Tier.entity_id == entity_id, Tier.code == str(row["company_code"]).strip()))
+            res = await db.execute(
+                select(Tier.id).where(Tier.entity_id == entity_id, Tier.code == str(row["company_code"]).strip())
+            )
             if not res.scalar_one_or_none():
-                errors.append(RowValidationError(row_index=idx, field="company_code", message=f"Société inconnue: {row['company_code']}", severity="warning"))
+                errors.append(
+                    RowValidationError(
+                        row_index=idx,
+                        field="company_code",
+                        message=f"Société inconnue: {row['company_code']}",
+                        severity="warning",
+                    )
+                )
         return errors
 
     async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
@@ -717,7 +789,9 @@ class PaxProfileHandler(TargetObjectHandler):
 
         company_id = None
         if row.get("company_code"):
-            res = await db.execute(select(Tier.id).where(Tier.entity_id == entity_id, Tier.code == str(row["company_code"]).strip()))
+            res = await db.execute(
+                select(Tier.id).where(Tier.entity_id == entity_id, Tier.code == str(row["company_code"]).strip())
+            )
             company_id = res.scalar_one_or_none()
 
         if pax_type == "internal":
@@ -789,14 +863,20 @@ class ProjectHandler(TargetObjectHandler):
             errors.append(RowValidationError(row_index=idx, field="name", message="Nom requis"))
         status_val = str(row.get("status", "")).strip().lower()
         if status_val and status_val not in ("draft", "planned", "active", "on_hold", "completed", "cancelled"):
-            errors.append(RowValidationError(row_index=idx, field="status", message=f"Statut invalide: {status_val}", severity="warning"))
+            errors.append(
+                RowValidationError(
+                    row_index=idx, field="status", message=f"Statut invalide: {status_val}", severity="warning"
+                )
+            )
         return errors
 
     async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
         code = row.get("code")
         if not code:
             return None
-        result = await db.execute(select(Project.id).where(Project.entity_id == entity_id, Project.code == str(code).strip()))
+        result = await db.execute(
+            select(Project.id).where(Project.entity_id == entity_id, Project.code == str(code).strip())
+        )
         return result.scalar_one_or_none()
 
     async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
@@ -842,9 +922,19 @@ class ComplianceRecordHandler(TargetObjectHandler):
 
     def get_fields(self) -> list[TargetFieldDef]:
         return [
-            TargetFieldDef(key="compliance_type_code", label="Code type conformité", type="lookup", required=True, lookup_target="compliance_type.code"),
-            TargetFieldDef(key="owner_type", label="Type porteur", type="string", required=True, example="tier_contact"),
-            TargetFieldDef(key="owner_code", label="Code porteur", type="string", required=True, example="TRS-2026-0001"),
+            TargetFieldDef(
+                key="compliance_type_code",
+                label="Code type conformité",
+                type="lookup",
+                required=True,
+                lookup_target="compliance_type.code",
+            ),
+            TargetFieldDef(
+                key="owner_type", label="Type porteur", type="string", required=True, example="tier_contact"
+            ),
+            TargetFieldDef(
+                key="owner_code", label="Code porteur", type="string", required=True, example="TRS-2026-0001"
+            ),
             TargetFieldDef(key="status", label="Statut", type="string", example="valid"),
             TargetFieldDef(key="issued_at", label="Date émission", type="datetime"),
             TargetFieldDef(key="expires_at", label="Date expiration", type="datetime"),
@@ -858,11 +948,21 @@ class ComplianceRecordHandler(TargetObjectHandler):
         idx = row.get("__row_index", 0)
         ct_code = row.get("compliance_type_code")
         if not ct_code:
-            errors.append(RowValidationError(row_index=idx, field="compliance_type_code", message="Code type conformité requis"))
+            errors.append(
+                RowValidationError(row_index=idx, field="compliance_type_code", message="Code type conformité requis")
+            )
         else:
-            res = await db.execute(select(ComplianceType.id).where(ComplianceType.entity_id == entity_id, ComplianceType.code == str(ct_code).strip()))
+            res = await db.execute(
+                select(ComplianceType.id).where(
+                    ComplianceType.entity_id == entity_id, ComplianceType.code == str(ct_code).strip()
+                )
+            )
             if not res.scalar_one_or_none():
-                errors.append(RowValidationError(row_index=idx, field="compliance_type_code", message=f"Type conformité inconnu: {ct_code}"))
+                errors.append(
+                    RowValidationError(
+                        row_index=idx, field="compliance_type_code", message=f"Type conformité inconnu: {ct_code}"
+                    )
+                )
         if not row.get("owner_type"):
             errors.append(RowValidationError(row_index=idx, field="owner_type", message="Type porteur requis"))
         if not row.get("owner_code"):
@@ -875,7 +975,9 @@ class ComplianceRecordHandler(TargetObjectHandler):
 
     async def create_record(self, row: dict[str, Any], entity_id: UUID, user_id: UUID, db: AsyncSession) -> UUID:
         ct_code = str(row.get("compliance_type_code", "")).strip()
-        res = await db.execute(select(ComplianceType.id).where(ComplianceType.entity_id == entity_id, ComplianceType.code == ct_code))
+        res = await db.execute(
+            select(ComplianceType.id).where(ComplianceType.entity_id == entity_id, ComplianceType.code == ct_code)
+        )
         ct_id = res.scalar_one()
 
         # Resolve owner_id from owner_code based on owner_type
@@ -887,7 +989,9 @@ class ComplianceRecordHandler(TargetObjectHandler):
             r = await db.execute(select(Tier.id).where(Tier.entity_id == entity_id, Tier.code == owner_code))
             owner_id = r.scalar_one()
         elif owner_type == "asset":
-            r = await db.execute(select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == owner_code))
+            r = await db.execute(
+                select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == owner_code)
+            )
             owner_id = r.scalar_one()
 
         if not owner_id:
@@ -928,6 +1032,7 @@ class ComplianceRecordHandler(TargetObjectHandler):
 
 class ARFieldHandler(TargetObjectHandler):
     """Import handler for OilField (ar_fields)."""
+
     key = "ar_field"
     label = "Champs pétroliers"
 
@@ -1014,6 +1119,7 @@ class ARFieldHandler(TargetObjectHandler):
 
 class ARSiteHandler(TargetObjectHandler):
     """Import handler for OilSite (ar_sites)."""
+
     key = "ar_site"
     label = "Sites"
 
@@ -1021,10 +1127,14 @@ class ARSiteHandler(TargetObjectHandler):
         return [
             TargetFieldDef(key="code", label="Code", type="string", required=True, example="SIT-001"),
             TargetFieldDef(key="name", label="Nom", type="string", required=True, example="EBOME Complex"),
-            TargetFieldDef(key="site_type", label="Type de site", type="string", required=True, example="OFFSHORE_PLATFORM_COMPLEX"),
+            TargetFieldDef(
+                key="site_type", label="Type de site", type="string", required=True, example="OFFSHORE_PLATFORM_COMPLEX"
+            ),
             TargetFieldDef(key="environment", label="Environnement", type="string", required=True, example="OFFSHORE"),
             TargetFieldDef(key="country", label="Pays (ISO)", type="string", required=True, example="CM"),
-            TargetFieldDef(key="field_code", label="Code champ", type="lookup", required=True, lookup_target="ar_field.code"),
+            TargetFieldDef(
+                key="field_code", label="Code champ", type="lookup", required=True, lookup_target="ar_field.code"
+            ),
             TargetFieldDef(key="latitude", label="Latitude", type="float", example="4.051"),
             TargetFieldDef(key="longitude", label="Longitude", type="float", example="9.768"),
             TargetFieldDef(key="manned", label="Habité", type="boolean", example="oui"),
@@ -1055,7 +1165,9 @@ class ARSiteHandler(TargetObjectHandler):
                 select(OilField.id).where(OilField.entity_id == entity_id, OilField.code == str(field_code).strip())
             )
             if not res.scalar_one_or_none():
-                errors.append(RowValidationError(row_index=idx, field="field_code", message=f"Champ inconnu: {field_code}"))
+                errors.append(
+                    RowValidationError(row_index=idx, field="field_code", message=f"Champ inconnu: {field_code}")
+                )
         return errors
 
     async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
@@ -1073,9 +1185,7 @@ class ARSiteHandler(TargetObjectHandler):
             code = await generate_reference("SIT", db, entity_id=entity_id)
         # Resolve field_id from field_code
         field_code = str(row.get("field_code", "")).strip()
-        res = await db.execute(
-            select(OilField.id).where(OilField.entity_id == entity_id, OilField.code == field_code)
-        )
+        res = await db.execute(select(OilField.id).where(OilField.entity_id == entity_id, OilField.code == field_code))
         field_id = res.scalar_one()
         obj = OilSite(
             entity_id=entity_id,
@@ -1118,6 +1228,7 @@ class ARSiteHandler(TargetObjectHandler):
 
 class ARInstallationHandler(TargetObjectHandler):
     """Import handler for Installation (ar_installations)."""
+
     key = "ar_installation"
     label = "Installations"
 
@@ -1125,10 +1236,14 @@ class ARInstallationHandler(TargetObjectHandler):
         return [
             TargetFieldDef(key="code", label="Code", type="string", required=True, example="INS-001"),
             TargetFieldDef(key="name", label="Nom", type="string", required=True, example="EBOME Marine"),
-            TargetFieldDef(key="installation_type", label="Type", type="string", required=True, example="FIXED_JACKET_PLATFORM"),
+            TargetFieldDef(
+                key="installation_type", label="Type", type="string", required=True, example="FIXED_JACKET_PLATFORM"
+            ),
             TargetFieldDef(key="environment", label="Environnement", type="string", required=True, example="OFFSHORE"),
             TargetFieldDef(key="status", label="Statut", type="string", example="OPERATIONAL"),
-            TargetFieldDef(key="site_code", label="Code site", type="lookup", required=True, lookup_target="ar_site.code"),
+            TargetFieldDef(
+                key="site_code", label="Code site", type="lookup", required=True, lookup_target="ar_site.code"
+            ),
             TargetFieldDef(key="is_manned", label="Habité", type="boolean", example="oui"),
             TargetFieldDef(key="water_depth_m", label="Profondeur eau (m)", type="float", example="15.4"),
             TargetFieldDef(key="max_pob", label="Capacité POB", type="integer", example="120"),
@@ -1157,7 +1272,9 @@ class ARInstallationHandler(TargetObjectHandler):
                 select(OilSite.id).where(OilSite.entity_id == entity_id, OilSite.code == str(site_code).strip())
             )
             if not res.scalar_one_or_none():
-                errors.append(RowValidationError(row_index=idx, field="site_code", message=f"Site inconnu: {site_code}"))
+                errors.append(
+                    RowValidationError(row_index=idx, field="site_code", message=f"Site inconnu: {site_code}")
+                )
         return errors
 
     async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
@@ -1175,9 +1292,7 @@ class ARInstallationHandler(TargetObjectHandler):
             code = await generate_reference("INS", db, entity_id=entity_id)
         # Resolve site_id from site_code
         site_code = str(row.get("site_code", "")).strip()
-        res = await db.execute(
-            select(OilSite.id).where(OilSite.entity_id == entity_id, OilSite.code == site_code)
-        )
+        res = await db.execute(select(OilSite.id).where(OilSite.entity_id == entity_id, OilSite.code == site_code))
         site_id = res.scalar_one()
         obj = Installation(
             entity_id=entity_id,
@@ -1220,6 +1335,7 @@ class ARInstallationHandler(TargetObjectHandler):
 
 class AREquipmentHandler(TargetObjectHandler):
     """Import handler for RegistryEquipment (ar_equipment)."""
+
     key = "ar_equipment"
     label = "Équipements"
 
@@ -1227,13 +1343,17 @@ class AREquipmentHandler(TargetObjectHandler):
         return [
             TargetFieldDef(key="tag_number", label="Tag number", type="string", required=True, example="P-101A"),
             TargetFieldDef(key="name", label="Nom", type="string", required=True, example="Pompe export pétrole"),
-            TargetFieldDef(key="equipment_class", label="Classe équipement", type="string", required=True, example="PUMP"),
+            TargetFieldDef(
+                key="equipment_class", label="Classe équipement", type="string", required=True, example="PUMP"
+            ),
             TargetFieldDef(key="status", label="Statut", type="string", example="OPERATIONAL"),
             TargetFieldDef(key="criticality", label="Criticité (A/B/C)", type="string", example="A"),
             TargetFieldDef(key="manufacturer", label="Fabricant", type="string", example="Sulzer"),
             TargetFieldDef(key="model", label="Modèle", type="string", example="MSD 40/8"),
             TargetFieldDef(key="serial_number", label="N° série", type="string", example="SN-2024-001"),
-            TargetFieldDef(key="installation_code", label="Code installation", type="lookup", lookup_target="ar_installation.code"),
+            TargetFieldDef(
+                key="installation_code", label="Code installation", type="lookup", lookup_target="ar_installation.code"
+            ),
             TargetFieldDef(key="year_manufactured", label="Année fabrication", type="integer", example="2020"),
             TargetFieldDef(key="year_installed", label="Année installation", type="integer", example="2021"),
             TargetFieldDef(key="notes", label="Notes", type="string"),
@@ -1247,14 +1367,25 @@ class AREquipmentHandler(TargetObjectHandler):
         if not row.get("name"):
             errors.append(RowValidationError(row_index=idx, field="name", message="Nom requis"))
         if not row.get("equipment_class"):
-            errors.append(RowValidationError(row_index=idx, field="equipment_class", message="Classe équipement requise"))
+            errors.append(
+                RowValidationError(row_index=idx, field="equipment_class", message="Classe équipement requise")
+            )
         inst_code = row.get("installation_code")
         if inst_code:
             res = await db.execute(
-                select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(inst_code).strip())
+                select(Installation.id).where(
+                    Installation.entity_id == entity_id, Installation.code == str(inst_code).strip()
+                )
             )
             if not res.scalar_one_or_none():
-                errors.append(RowValidationError(row_index=idx, field="installation_code", message=f"Installation inconnue: {inst_code}", severity="warning"))
+                errors.append(
+                    RowValidationError(
+                        row_index=idx,
+                        field="installation_code",
+                        message=f"Installation inconnue: {inst_code}",
+                        severity="warning",
+                    )
+                )
         return errors
 
     async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
@@ -1275,7 +1406,9 @@ class AREquipmentHandler(TargetObjectHandler):
         inst_code = row.get("installation_code")
         if inst_code:
             res = await db.execute(
-                select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(inst_code).strip())
+                select(Installation.id).where(
+                    Installation.entity_id == entity_id, Installation.code == str(inst_code).strip()
+                )
             )
             installation_id = res.scalar_one_or_none()
         obj = RegistryEquipment(
@@ -1301,7 +1434,16 @@ class AREquipmentHandler(TargetObjectHandler):
     async def update_record(self, record_id: UUID, row: dict[str, Any], user_id: UUID, db: AsyncSession) -> None:
         result = await db.execute(select(RegistryEquipment).where(RegistryEquipment.id == record_id))
         obj = result.scalar_one()
-        for key in ("name", "equipment_class", "status", "criticality", "manufacturer", "model", "serial_number", "notes"):
+        for key in (
+            "name",
+            "equipment_class",
+            "status",
+            "criticality",
+            "manufacturer",
+            "model",
+            "serial_number",
+            "notes",
+        ):
             if row.get(key) is not None:
                 setattr(obj, key, _safe_str(row[key]))
         for key in ("year_manufactured", "year_installed"):
@@ -1311,30 +1453,51 @@ class AREquipmentHandler(TargetObjectHandler):
         inst_code = row.get("installation_code")
         if inst_code is not None:
             res = await db.execute(
-                select(Installation.id).where(Installation.entity_id == obj.entity_id, Installation.code == str(inst_code).strip())
+                select(Installation.id).where(
+                    Installation.entity_id == obj.entity_id, Installation.code == str(inst_code).strip()
+                )
             )
             obj.installation_id = res.scalar_one_or_none()
 
 
 class ARPipelineHandler(TargetObjectHandler):
     """Import handler for RegistryPipeline (ar_pipelines)."""
+
     key = "ar_pipeline"
     label = "Pipelines"
 
     def get_fields(self) -> list[TargetFieldDef]:
         return [
             TargetFieldDef(key="pipeline_id", label="ID pipeline", type="string", required=True, example="PL-001"),
-            TargetFieldDef(key="name", label="Nom", type="string", required=True, example="Export Oil 12\""),
+            TargetFieldDef(key="name", label="Nom", type="string", required=True, example='Export Oil 12"'),
             TargetFieldDef(key="service", label="Service", type="string", required=True, example="EXPORT_OIL"),
             TargetFieldDef(key="status", label="Statut", type="string", example="OPERATIONAL"),
-            TargetFieldDef(key="from_installation_code", label="Code installation départ", type="lookup", required=True, lookup_target="ar_installation.code"),
-            TargetFieldDef(key="to_installation_code", label="Code installation arrivée", type="lookup", required=True, lookup_target="ar_installation.code"),
-            TargetFieldDef(key="nominal_diameter_in", label="Diamètre nominal (in)", type="float", required=True, example="12"),
+            TargetFieldDef(
+                key="from_installation_code",
+                label="Code installation départ",
+                type="lookup",
+                required=True,
+                lookup_target="ar_installation.code",
+            ),
+            TargetFieldDef(
+                key="to_installation_code",
+                label="Code installation arrivée",
+                type="lookup",
+                required=True,
+                lookup_target="ar_installation.code",
+            ),
+            TargetFieldDef(
+                key="nominal_diameter_in", label="Diamètre nominal (in)", type="float", required=True, example="12"
+            ),
             TargetFieldDef(key="wall_thickness_mm", label="Épaisseur paroi (mm)", type="float", example="12.7"),
             TargetFieldDef(key="material_grade", label="Grade matériau", type="string", example="API 5L X65"),
             TargetFieldDef(key="total_length_km", label="Longueur totale (km)", type="float", example="24.5"),
-            TargetFieldDef(key="design_pressure_barg", label="Pression design (barg)", type="float", required=True, example="100"),
-            TargetFieldDef(key="design_temperature_c", label="Température design (°C)", type="float", required=True, example="80"),
+            TargetFieldDef(
+                key="design_pressure_barg", label="Pression design (barg)", type="float", required=True, example="100"
+            ),
+            TargetFieldDef(
+                key="design_temperature_c", label="Température design (°C)", type="float", required=True, example="80"
+            ),
             TargetFieldDef(key="installation_year", label="Année installation", type="integer", example="1995"),
             TargetFieldDef(key="notes", label="Notes", type="string"),
         ]
@@ -1349,31 +1512,57 @@ class ARPipelineHandler(TargetObjectHandler):
         if not row.get("service"):
             errors.append(RowValidationError(row_index=idx, field="service", message="Service requis"))
         if row.get("nominal_diameter_in") is None:
-            errors.append(RowValidationError(row_index=idx, field="nominal_diameter_in", message="Diamètre nominal requis"))
+            errors.append(
+                RowValidationError(row_index=idx, field="nominal_diameter_in", message="Diamètre nominal requis")
+            )
         if row.get("design_pressure_barg") is None:
-            errors.append(RowValidationError(row_index=idx, field="design_pressure_barg", message="Pression design requise"))
+            errors.append(
+                RowValidationError(row_index=idx, field="design_pressure_barg", message="Pression design requise")
+            )
         if row.get("design_temperature_c") is None:
-            errors.append(RowValidationError(row_index=idx, field="design_temperature_c", message="Température design requise"))
+            errors.append(
+                RowValidationError(row_index=idx, field="design_temperature_c", message="Température design requise")
+            )
         # Validate from_installation
         from_code = row.get("from_installation_code")
         if not from_code:
-            errors.append(RowValidationError(row_index=idx, field="from_installation_code", message="Code installation départ requis"))
+            errors.append(
+                RowValidationError(
+                    row_index=idx, field="from_installation_code", message="Code installation départ requis"
+                )
+            )
         else:
             res = await db.execute(
-                select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(from_code).strip())
+                select(Installation.id).where(
+                    Installation.entity_id == entity_id, Installation.code == str(from_code).strip()
+                )
             )
             if not res.scalar_one_or_none():
-                errors.append(RowValidationError(row_index=idx, field="from_installation_code", message=f"Installation inconnue: {from_code}"))
+                errors.append(
+                    RowValidationError(
+                        row_index=idx, field="from_installation_code", message=f"Installation inconnue: {from_code}"
+                    )
+                )
         # Validate to_installation
         to_code = row.get("to_installation_code")
         if not to_code:
-            errors.append(RowValidationError(row_index=idx, field="to_installation_code", message="Code installation arrivée requis"))
+            errors.append(
+                RowValidationError(
+                    row_index=idx, field="to_installation_code", message="Code installation arrivée requis"
+                )
+            )
         else:
             res = await db.execute(
-                select(Installation.id).where(Installation.entity_id == entity_id, Installation.code == str(to_code).strip())
+                select(Installation.id).where(
+                    Installation.entity_id == entity_id, Installation.code == str(to_code).strip()
+                )
             )
             if not res.scalar_one_or_none():
-                errors.append(RowValidationError(row_index=idx, field="to_installation_code", message=f"Installation inconnue: {to_code}"))
+                errors.append(
+                    RowValidationError(
+                        row_index=idx, field="to_installation_code", message=f"Installation inconnue: {to_code}"
+                    )
+                )
         return errors
 
     async def find_duplicate(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> UUID | None:
@@ -1443,7 +1632,9 @@ class ARPipelineHandler(TargetObjectHandler):
         from_code = row.get("from_installation_code")
         if from_code is not None:
             res = await db.execute(
-                select(Installation.id).where(Installation.entity_id == obj.entity_id, Installation.code == str(from_code).strip())
+                select(Installation.id).where(
+                    Installation.entity_id == obj.entity_id, Installation.code == str(from_code).strip()
+                )
             )
             found = res.scalar_one_or_none()
             if found:
@@ -1451,7 +1642,9 @@ class ARPipelineHandler(TargetObjectHandler):
         to_code = row.get("to_installation_code")
         if to_code is not None:
             res = await db.execute(
-                select(Installation.id).where(Installation.entity_id == obj.entity_id, Installation.code == str(to_code).strip())
+                select(Installation.id).where(
+                    Installation.entity_id == obj.entity_id, Installation.code == str(to_code).strip()
+                )
             )
             found = res.scalar_one_or_none()
             if found:
@@ -1467,11 +1660,25 @@ class ImputationReferenceHandler(TargetObjectHandler):
             TargetFieldDef(key="code", label="Code", type="string", required=True, example="IMP-OPEX-GEN"),
             TargetFieldDef(key="name", label="Nom", type="string", required=True, example="OPEX général"),
             TargetFieldDef(key="description", label="Description", type="string"),
-            TargetFieldDef(key="imputation_type", label="Type d'imputation", type="string", required=True, example="OPEX"),
+            TargetFieldDef(
+                key="imputation_type", label="Type d'imputation", type="string", required=True, example="OPEX"
+            ),
             TargetFieldDef(key="otp_policy", label="Politique OTP", type="string", example="forbidden"),
-            TargetFieldDef(key="otp_template_code", label="Code modèle OTP", type="lookup", lookup_target="imputation_otp_template.code"),
-            TargetFieldDef(key="default_project_code", label="Code projet par défaut", type="lookup", lookup_target="project.code"),
-            TargetFieldDef(key="default_cost_center_code", label="Code centre de coût par défaut", type="lookup", lookup_target="cost_center.code"),
+            TargetFieldDef(
+                key="otp_template_code",
+                label="Code modèle OTP",
+                type="lookup",
+                lookup_target="imputation_otp_template.code",
+            ),
+            TargetFieldDef(
+                key="default_project_code", label="Code projet par défaut", type="lookup", lookup_target="project.code"
+            ),
+            TargetFieldDef(
+                key="default_cost_center_code",
+                label="Code centre de coût par défaut",
+                type="lookup",
+                lookup_target="cost_center.code",
+            ),
             TargetFieldDef(key="valid_from", label="Début validité", type="date", example="2026-01-01"),
             TargetFieldDef(key="valid_to", label="Fin validité", type="date", example="2026-12-31"),
             TargetFieldDef(key="active", label="Actif", type="boolean", example="oui"),
@@ -1530,29 +1737,63 @@ class ImputationReferenceHandler(TargetObjectHandler):
         if not name:
             errors.append(RowValidationError(row_index=idx, field="name", message="Nom requis"))
         if imputation_type not in {"OPEX", "SOPEX", "CAPEX", "OTHER"}:
-            errors.append(RowValidationError(row_index=idx, field="imputation_type", message="Type d'imputation invalide"))
+            errors.append(
+                RowValidationError(row_index=idx, field="imputation_type", message="Type d'imputation invalide")
+            )
         if otp_policy not in {"forbidden", "optional", "required"}:
             errors.append(RowValidationError(row_index=idx, field="otp_policy", message="Politique OTP invalide"))
         if valid_from and valid_to and valid_to < valid_from:
-            errors.append(RowValidationError(row_index=idx, field="valid_to", message="La fin de validité doit être postérieure au début"))
+            errors.append(
+                RowValidationError(
+                    row_index=idx, field="valid_to", message="La fin de validité doit être postérieure au début"
+                )
+            )
 
         project_code = _safe_str(row.get("default_project_code"))
         if project_code and not await self._resolve_project_id(project_code, entity_id, db):
-            errors.append(RowValidationError(row_index=idx, field="default_project_code", message=f"Projet inconnu ou inactif: {project_code}"))
+            errors.append(
+                RowValidationError(
+                    row_index=idx, field="default_project_code", message=f"Projet inconnu ou inactif: {project_code}"
+                )
+            )
 
         cost_center_code = _safe_str(row.get("default_cost_center_code"))
         if cost_center_code and not await self._resolve_cost_center_id(cost_center_code, entity_id, db):
-            errors.append(RowValidationError(row_index=idx, field="default_cost_center_code", message=f"Centre de coût inconnu ou inactif: {cost_center_code}"))
+            errors.append(
+                RowValidationError(
+                    row_index=idx,
+                    field="default_cost_center_code",
+                    message=f"Centre de coût inconnu ou inactif: {cost_center_code}",
+                )
+            )
 
         otp_template_code = _safe_str(row.get("otp_template_code"))
         if otp_template_code and not await self._resolve_otp_template_id(otp_template_code, entity_id, db):
-            errors.append(RowValidationError(row_index=idx, field="otp_template_code", message=f"Modèle OTP inconnu ou inactif: {otp_template_code}"))
+            errors.append(
+                RowValidationError(
+                    row_index=idx,
+                    field="otp_template_code",
+                    message=f"Modèle OTP inconnu ou inactif: {otp_template_code}",
+                )
+            )
 
         if imputation_type != "CAPEX":
             if otp_policy != "forbidden":
-                errors.append(RowValidationError(row_index=idx, field="otp_policy", message="Seules les imputations CAPEX peuvent définir une politique OTP"))
+                errors.append(
+                    RowValidationError(
+                        row_index=idx,
+                        field="otp_policy",
+                        message="Seules les imputations CAPEX peuvent définir une politique OTP",
+                    )
+                )
             if otp_template_code:
-                errors.append(RowValidationError(row_index=idx, field="otp_template_code", message="Seules les imputations CAPEX peuvent référencer un modèle OTP"))
+                errors.append(
+                    RowValidationError(
+                        row_index=idx,
+                        field="otp_template_code",
+                        message="Seules les imputations CAPEX peuvent référencer un modèle OTP",
+                    )
+                )
 
         return errors
 
@@ -1577,7 +1818,9 @@ class ImputationReferenceHandler(TargetObjectHandler):
             otp_policy=(_safe_str(row.get("otp_policy")) or "forbidden").lower(),
             otp_template_id=await self._resolve_otp_template_id(row.get("otp_template_code"), entity_id, db),
             default_project_id=await self._resolve_project_id(row.get("default_project_code"), entity_id, db),
-            default_cost_center_id=await self._resolve_cost_center_id(row.get("default_cost_center_code"), entity_id, db),
+            default_cost_center_id=await self._resolve_cost_center_id(
+                row.get("default_cost_center_code"), entity_id, db
+            ),
             valid_from=_safe_date(row.get("valid_from")),
             valid_to=_safe_date(row.get("valid_to")),
             active=_safe_bool(row.get("active")) if row.get("active") is not None else True,
@@ -1606,7 +1849,9 @@ class ImputationReferenceHandler(TargetObjectHandler):
         if row.get("default_project_code") is not None:
             obj.default_project_id = await self._resolve_project_id(row.get("default_project_code"), obj.entity_id, db)
         if row.get("default_cost_center_code") is not None:
-            obj.default_cost_center_id = await self._resolve_cost_center_id(row.get("default_cost_center_code"), obj.entity_id, db)
+            obj.default_cost_center_id = await self._resolve_cost_center_id(
+                row.get("default_cost_center_code"), obj.entity_id, db
+            )
         if row.get("valid_from") is not None:
             obj.valid_from = _safe_date(row.get("valid_from"))
         if row.get("valid_to") is not None:
@@ -1650,7 +1895,9 @@ class ImputationOtpTemplateHandler(TargetObjectHandler):
         if not name:
             errors.append(RowValidationError(row_index=idx, field="name", message="Nom requis"))
         if not rubrics:
-            errors.append(RowValidationError(row_index=idx, field="rubrics", message="Au moins une rubrique OTP est requise"))
+            errors.append(
+                RowValidationError(row_index=idx, field="rubrics", message="Au moins une rubrique OTP est requise")
+            )
 
         return errors
 
@@ -1703,11 +1950,21 @@ class ImputationAssignmentHandler(TargetObjectHandler):
 
     def get_fields(self) -> list[TargetFieldDef]:
         return [
-            TargetFieldDef(key="imputation_reference_code", label="Code référence d'imputation", type="lookup", required=True, lookup_target="imputation_reference.code"),
-            TargetFieldDef(key="target_type", label="Type de cible", type="string", required=True, example="business_unit"),
+            TargetFieldDef(
+                key="imputation_reference_code",
+                label="Code référence d'imputation",
+                type="lookup",
+                required=True,
+                lookup_target="imputation_reference.code",
+            ),
+            TargetFieldDef(
+                key="target_type", label="Type de cible", type="string", required=True, example="business_unit"
+            ),
             TargetFieldDef(key="user_email", label="Email utilisateur", type="lookup", lookup_target="user.email"),
             TargetFieldDef(key="group_name", label="Nom du groupe", type="lookup", lookup_target="group.name"),
-            TargetFieldDef(key="business_unit_code", label="Code business unit", type="lookup", lookup_target="business_unit.code"),
+            TargetFieldDef(
+                key="business_unit_code", label="Code business unit", type="lookup", lookup_target="business_unit.code"
+            ),
             TargetFieldDef(key="project_code", label="Code projet", type="lookup", lookup_target="project.code"),
             TargetFieldDef(key="priority", label="Priorité", type="integer", example="100"),
             TargetFieldDef(key="valid_from", label="Début validité", type="date", example="2026-01-01"),
@@ -1728,7 +1985,9 @@ class ImputationAssignmentHandler(TargetObjectHandler):
             )
         )
 
-    async def _resolve_target(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> tuple[str | None, UUID | None]:
+    async def _resolve_target(
+        self, row: dict[str, Any], entity_id: UUID, db: AsyncSession
+    ) -> tuple[str | None, UUID | None]:
         target_type = (_safe_str(row.get("target_type")) or "").lower()
         if target_type == "user":
             email = _safe_str(row.get("user_email"))
@@ -1793,11 +2052,20 @@ class ImputationAssignmentHandler(TargetObjectHandler):
             errors.append(RowValidationError(row_index=idx, field="target_type", message="Type de cible invalide"))
             return errors
         if not _safe_str(row.get(expected_field)):
-            errors.append(RowValidationError(row_index=idx, field=expected_field, message="Identifiant de cible requis"))
+            errors.append(
+                RowValidationError(row_index=idx, field=expected_field, message="Identifiant de cible requis")
+            )
         other_fields = {"user_email", "group_name", "business_unit_code", "project_code"} - {expected_field}
         for field in other_fields:
             if _safe_str(row.get(field)):
-                errors.append(RowValidationError(row_index=idx, field=field, message="Champ incompatible avec le type de cible sélectionné", severity="warning"))
+                errors.append(
+                    RowValidationError(
+                        row_index=idx,
+                        field=field,
+                        message="Champ incompatible avec le type de cible sélectionné",
+                        severity="warning",
+                    )
+                )
         return errors
 
     async def validate_row(self, row: dict[str, Any], entity_id: UUID, db: AsyncSession) -> list[RowValidationError]:
@@ -1809,14 +2077,28 @@ class ImputationAssignmentHandler(TargetObjectHandler):
         valid_to = _safe_date(row.get("valid_to"))
 
         if not reference_code:
-            errors.append(RowValidationError(row_index=idx, field="imputation_reference_code", message="Référence d'imputation requise"))
+            errors.append(
+                RowValidationError(
+                    row_index=idx, field="imputation_reference_code", message="Référence d'imputation requise"
+                )
+            )
         elif not await self._resolve_reference_id(reference_code, entity_id, db):
-            errors.append(RowValidationError(row_index=idx, field="imputation_reference_code", message=f"Référence d'imputation inconnue ou inactive: {reference_code}"))
+            errors.append(
+                RowValidationError(
+                    row_index=idx,
+                    field="imputation_reference_code",
+                    message=f"Référence d'imputation inconnue ou inactive: {reference_code}",
+                )
+            )
 
         errors.extend(self._validate_target_columns(row, target_type, idx))
 
         resolved_target_type, resolved_target_id = await self._resolve_target(row, entity_id, db)
-        if resolved_target_type and resolved_target_id is None and target_type in {"user", "user_group", "business_unit", "project"}:
+        if (
+            resolved_target_type
+            and resolved_target_id is None
+            and target_type in {"user", "user_group", "business_unit", "project"}
+        ):
             target_field = {
                 "user": "user_email",
                 "user_group": "group_name",
@@ -1825,10 +2107,18 @@ class ImputationAssignmentHandler(TargetObjectHandler):
             }[target_type]
             provided = _safe_str(row.get(target_field))
             if provided:
-                errors.append(RowValidationError(row_index=idx, field=target_field, message=f"Cible inconnue ou inactive: {provided}"))
+                errors.append(
+                    RowValidationError(
+                        row_index=idx, field=target_field, message=f"Cible inconnue ou inactive: {provided}"
+                    )
+                )
 
         if valid_from and valid_to and valid_to < valid_from:
-            errors.append(RowValidationError(row_index=idx, field="valid_to", message="La fin de validité doit être postérieure au début"))
+            errors.append(
+                RowValidationError(
+                    row_index=idx, field="valid_to", message="La fin de validité doit être postérieure au début"
+                )
+            )
 
         return errors
 
@@ -1876,7 +2166,13 @@ class ImputationAssignmentHandler(TargetObjectHandler):
             obj.imputation_reference_id = reference_id
         if row.get("target_type") is not None and target_type is not None:
             obj.target_type = target_type
-        if any(row.get(field) is not None for field in ("user_email", "group_name", "business_unit_code", "project_code")) and target_id is not None:
+        if (
+            any(
+                row.get(field) is not None
+                for field in ("user_email", "group_name", "business_unit_code", "project_code")
+            )
+            and target_id is not None
+        ):
             obj.target_id = target_id
         if row.get("priority") is not None:
             obj.priority = _safe_int(row.get("priority")) or obj.priority
@@ -1896,8 +2192,10 @@ class ImputationAssignmentHandler(TargetObjectHandler):
 
 HANDLERS: dict[str, TargetObjectHandler] = {}
 
+
 def _register_handler(handler: TargetObjectHandler) -> None:
     HANDLERS[handler.key] = handler
+
 
 _register_handler(AssetHandler())
 _register_handler(TierHandler())
@@ -1921,149 +2219,427 @@ _register_handler(ARPipelineHandler())
 
 COUNTRY_MAP: dict[str, str] = {
     # ISO alpha-2 pass-through (lowercased)
-    "fr": "FR", "cm": "CM", "ga": "GA", "cg": "CG", "cd": "CD",
-    "us": "US", "gb": "GB", "de": "DE", "es": "ES", "it": "IT",
-    "be": "BE", "ch": "CH", "ca": "CA", "nl": "NL", "pt": "PT",
-    "br": "BR", "cn": "CN", "jp": "JP", "in": "IN", "za": "ZA",
-    "no": "NO", "se": "SE", "dk": "DK", "fi": "FI", "at": "AT",
-    "ie": "IE", "gr": "GR", "tr": "TR", "ru": "RU", "pl": "PL",
-    "ro": "RO", "hu": "HU", "cz": "CZ", "ma": "MA", "dz": "DZ",
-    "tn": "TN", "eg": "EG", "ke": "KE", "tz": "TZ", "gh": "GH",
-    "ml": "ML", "ne": "NE", "bf": "BF", "bj": "BJ", "tg": "TG",
-    "mg": "MG", "mu": "MU", "ly": "LY", "sd": "SD", "sn": "SN",
-    "ci": "CI", "gq": "GQ", "ng": "NG", "ao": "AO", "td": "TD",
+    "fr": "FR",
+    "cm": "CM",
+    "ga": "GA",
+    "cg": "CG",
+    "cd": "CD",
+    "us": "US",
+    "gb": "GB",
+    "de": "DE",
+    "es": "ES",
+    "it": "IT",
+    "be": "BE",
+    "ch": "CH",
+    "ca": "CA",
+    "nl": "NL",
+    "pt": "PT",
+    "br": "BR",
+    "cn": "CN",
+    "jp": "JP",
+    "in": "IN",
+    "za": "ZA",
+    "no": "NO",
+    "se": "SE",
+    "dk": "DK",
+    "fi": "FI",
+    "at": "AT",
+    "ie": "IE",
+    "gr": "GR",
+    "tr": "TR",
+    "ru": "RU",
+    "pl": "PL",
+    "ro": "RO",
+    "hu": "HU",
+    "cz": "CZ",
+    "ma": "MA",
+    "dz": "DZ",
+    "tn": "TN",
+    "eg": "EG",
+    "ke": "KE",
+    "tz": "TZ",
+    "gh": "GH",
+    "ml": "ML",
+    "ne": "NE",
+    "bf": "BF",
+    "bj": "BJ",
+    "tg": "TG",
+    "mg": "MG",
+    "mu": "MU",
+    "ly": "LY",
+    "sd": "SD",
+    "sn": "SN",
+    "ci": "CI",
+    "gq": "GQ",
+    "ng": "NG",
+    "ao": "AO",
+    "td": "TD",
     "cf": "CF",
     # ISO alpha-3
-    "fra": "FR", "cmr": "CM", "gab": "GA", "cog": "CG", "cod": "CD",
-    "usa": "US", "gbr": "GB", "deu": "DE", "esp": "ES", "ita": "IT",
-    "bel": "BE", "che": "CH", "can": "CA", "nld": "NL", "prt": "PT",
-    "bra": "BR", "chn": "CN", "jpn": "JP", "ind": "IN", "zaf": "ZA",
-    "nor": "NO", "swe": "SE", "dnk": "DK", "fin": "FI", "aut": "AT",
-    "irl": "IE", "grc": "GR", "tur": "TR", "rus": "RU", "pol": "PL",
-    "rou": "RO", "hun": "HU", "cze": "CZ", "mar": "MA", "dza": "DZ",
-    "tun": "TN", "egy": "EG", "ken": "KE", "tza": "TZ", "gha": "GH",
-    "mli": "ML", "ner": "NE", "bfa": "BF", "ben": "BJ", "tgo": "TG",
-    "mdg": "MG", "mus": "MU", "lby": "LY", "sdn": "SD", "sen": "SN",
-    "civ": "CI", "gnq": "GQ", "nga": "NG", "ago": "AO", "tcd": "TD",
+    "fra": "FR",
+    "cmr": "CM",
+    "gab": "GA",
+    "cog": "CG",
+    "cod": "CD",
+    "usa": "US",
+    "gbr": "GB",
+    "deu": "DE",
+    "esp": "ES",
+    "ita": "IT",
+    "bel": "BE",
+    "che": "CH",
+    "can": "CA",
+    "nld": "NL",
+    "prt": "PT",
+    "bra": "BR",
+    "chn": "CN",
+    "jpn": "JP",
+    "ind": "IN",
+    "zaf": "ZA",
+    "nor": "NO",
+    "swe": "SE",
+    "dnk": "DK",
+    "fin": "FI",
+    "aut": "AT",
+    "irl": "IE",
+    "grc": "GR",
+    "tur": "TR",
+    "rus": "RU",
+    "pol": "PL",
+    "rou": "RO",
+    "hun": "HU",
+    "cze": "CZ",
+    "mar": "MA",
+    "dza": "DZ",
+    "tun": "TN",
+    "egy": "EG",
+    "ken": "KE",
+    "tza": "TZ",
+    "gha": "GH",
+    "mli": "ML",
+    "ner": "NE",
+    "bfa": "BF",
+    "ben": "BJ",
+    "tgo": "TG",
+    "mdg": "MG",
+    "mus": "MU",
+    "lby": "LY",
+    "sdn": "SD",
+    "sen": "SN",
+    "civ": "CI",
+    "gnq": "GQ",
+    "nga": "NG",
+    "ago": "AO",
+    "tcd": "TD",
     "caf": "CF",
     # French names
-    "france": "FR", "cameroun": "CM", "gabon": "GA", "congo": "CG",
-    "république démocratique du congo": "CD", "rdc": "CD",
-    "états-unis": "US", "etats-unis": "US",
-    "allemagne": "DE", "espagne": "ES", "italie": "IT",
-    "royaume-uni": "GB", "belgique": "BE", "suisse": "CH", "canada": "CA",
-    "pays-bas": "NL", "portugal": "PT",
-    "brésil": "BR", "chine": "CN", "japon": "JP", "inde": "IN",
+    "france": "FR",
+    "cameroun": "CM",
+    "gabon": "GA",
+    "congo": "CG",
+    "république démocratique du congo": "CD",
+    "rdc": "CD",
+    "états-unis": "US",
+    "etats-unis": "US",
+    "allemagne": "DE",
+    "espagne": "ES",
+    "italie": "IT",
+    "royaume-uni": "GB",
+    "belgique": "BE",
+    "suisse": "CH",
+    "canada": "CA",
+    "pays-bas": "NL",
+    "portugal": "PT",
+    "brésil": "BR",
+    "chine": "CN",
+    "japon": "JP",
+    "inde": "IN",
     "afrique du sud": "ZA",
-    "norvège": "NO", "suède": "SE", "danemark": "DK", "finlande": "FI",
-    "autriche": "AT", "irlande": "IE", "grèce": "GR", "turquie": "TR",
-    "russie": "RU", "pologne": "PL", "roumanie": "RO", "hongrie": "HU",
-    "république tchèque": "CZ", "republique tcheque": "CZ",
-    "maroc": "MA", "algérie": "DZ", "algerie": "DZ",
-    "tunisie": "TN", "égypte": "EG", "egypte": "EG",
+    "norvège": "NO",
+    "suède": "SE",
+    "danemark": "DK",
+    "finlande": "FI",
+    "autriche": "AT",
+    "irlande": "IE",
+    "grèce": "GR",
+    "turquie": "TR",
+    "russie": "RU",
+    "pologne": "PL",
+    "roumanie": "RO",
+    "hongrie": "HU",
+    "république tchèque": "CZ",
+    "republique tcheque": "CZ",
+    "maroc": "MA",
+    "algérie": "DZ",
+    "algerie": "DZ",
+    "tunisie": "TN",
+    "égypte": "EG",
+    "egypte": "EG",
     "tanzanie": "TZ",
-    "sénégal": "SN", "senegal": "SN",
-    "côte d'ivoire": "CI", "cote d'ivoire": "CI", "cote divoire": "CI",
-    "guinée équatoriale": "GQ", "guinee equatoriale": "GQ",
+    "sénégal": "SN",
+    "senegal": "SN",
+    "côte d'ivoire": "CI",
+    "cote d'ivoire": "CI",
+    "cote divoire": "CI",
+    "guinée équatoriale": "GQ",
+    "guinee equatoriale": "GQ",
     "nigéria": "NG",
-    "tchad": "TD", "centrafrique": "CF",
-    "bénin": "BJ", "benin": "BJ",
-    "maurice": "MU", "madagascar": "MG",
-    "libye": "LY", "soudan": "SD",
-    "burkina faso": "BF", "mali": "ML", "niger": "NE", "togo": "TG",
+    "tchad": "TD",
+    "centrafrique": "CF",
+    "bénin": "BJ",
+    "benin": "BJ",
+    "maurice": "MU",
+    "madagascar": "MG",
+    "libye": "LY",
+    "soudan": "SD",
+    "burkina faso": "BF",
+    "mali": "ML",
+    "niger": "NE",
+    "togo": "TG",
     "ghana": "GH",
     # English names
     "cameroon": "CM",
-    "united states": "US", "united states of america": "US",
-    "germany": "DE", "spain": "ES", "italy": "IT",
-    "united kingdom": "GB", "belgium": "BE", "switzerland": "CH",
+    "united states": "US",
+    "united states of america": "US",
+    "germany": "DE",
+    "spain": "ES",
+    "italy": "IT",
+    "united kingdom": "GB",
+    "belgium": "BE",
+    "switzerland": "CH",
     "netherlands": "NL",
-    "brazil": "BR", "china": "CN", "japan": "JP", "india": "IN",
+    "brazil": "BR",
+    "china": "CN",
+    "japan": "JP",
+    "india": "IN",
     "south africa": "ZA",
-    "norway": "NO", "sweden": "SE", "denmark": "DK", "finland": "FI",
-    "austria": "AT", "ireland": "IE", "greece": "GR", "turkey": "TR",
-    "russia": "RU", "poland": "PL", "romania": "RO", "hungary": "HU",
-    "czech republic": "CZ", "czechia": "CZ",
-    "morocco": "MA", "algeria": "DZ", "tunisia": "TN", "egypt": "EG",
-    "kenya": "KE", "tanzania": "TZ",
+    "norway": "NO",
+    "sweden": "SE",
+    "denmark": "DK",
+    "finland": "FI",
+    "austria": "AT",
+    "ireland": "IE",
+    "greece": "GR",
+    "turkey": "TR",
+    "russia": "RU",
+    "poland": "PL",
+    "romania": "RO",
+    "hungary": "HU",
+    "czech republic": "CZ",
+    "czechia": "CZ",
+    "morocco": "MA",
+    "algeria": "DZ",
+    "tunisia": "TN",
+    "egypt": "EG",
+    "kenya": "KE",
+    "tanzania": "TZ",
     "ivory coast": "CI",
     "equatorial guinea": "GQ",
-    "nigeria": "NG", "angola": "AO", "chad": "TD",
+    "nigeria": "NG",
+    "angola": "AO",
+    "chad": "TD",
     "central african republic": "CF",
-    "libya": "LY", "sudan": "SD",
+    "libya": "LY",
+    "sudan": "SD",
     "mauritius": "MU",
     # Additional countries
-    "mexico": "MX", "mexique": "MX", "mex": "MX",
-    "colombia": "CO", "colombie": "CO", "col": "CO",
-    "argentina": "AR", "argentine": "AR", "arg": "AR",
-    "chile": "CL", "chili": "CL", "chl": "CL",
-    "peru": "PE", "pérou": "PE", "perou": "PE", "per": "PE",
-    "venezuela": "VE", "ven": "VE",
-    "ecuador": "EC", "équateur": "EC", "equateur": "EC", "ecu": "EC",
-    "australia": "AU", "australie": "AU", "aus": "AU",
-    "new zealand": "NZ", "nouvelle-zélande": "NZ", "nzl": "NZ",
-    "saudi arabia": "SA", "arabie saoudite": "SA", "sau": "SA",
-    "united arab emirates": "AE", "émirats arabes unis": "AE", "are": "AE",
-    "qatar": "QA", "qat": "QA",
-    "singapore": "SG", "singapour": "SG", "sgp": "SG",
-    "south korea": "KR", "corée du sud": "KR", "kor": "KR",
-    "thailand": "TH", "thaïlande": "TH", "tha": "TH",
-    "indonesia": "ID", "indonésie": "ID", "idn": "ID",
-    "malaysia": "MY", "malaisie": "MY", "mys": "MY",
-    "philippines": "PH", "phl": "PH",
-    "vietnam": "VN", "viêt nam": "VN", "vnm": "VN",
-    "pakistan": "PK", "pak": "PK",
-    "bangladesh": "BD", "bgd": "BD",
-    "sri lanka": "LK", "lka": "LK",
-    "cuba": "CU", "cub": "CU",
-    "haiti": "HT", "haïti": "HT", "hti": "HT",
-    "jamaica": "JM", "jamaïque": "JM", "jam": "JM",
-    "trinidad and tobago": "TT", "trinité-et-tobago": "TT", "tto": "TT",
-    "mozambique": "MZ", "moz": "MZ",
-    "zambia": "ZM", "zambie": "ZM", "zmb": "ZM",
-    "zimbabwe": "ZW", "zwe": "ZW",
-    "uganda": "UG", "ouganda": "UG", "uga": "UG",
-    "rwanda": "RW", "rwa": "RW",
-    "ethiopia": "ET", "éthiopie": "ET", "eth": "ET",
-    "somalia": "SO", "somalie": "SO", "som": "SO",
-    "eritrea": "ER", "érythrée": "ER", "eri": "ER",
-    "djibouti": "DJ", "dji": "DJ",
-    "mauritania": "MR", "mauritanie": "MR", "mrt": "MR",
-    "gambia": "GM", "gambie": "GM", "gmb": "GM",
-    "guinea": "GN", "guinée": "GN", "gin": "GN",
-    "guinea-bissau": "GW", "guinée-bissau": "GW", "gnb": "GW",
-    "sierra leone": "SL", "sle": "SL",
-    "liberia": "LR", "libéria": "LR", "lbr": "LR",
-    "cape verde": "CV", "cap-vert": "CV", "cpv": "CV",
-    "são tomé and príncipe": "ST", "sao tomé-et-príncipe": "ST", "stp": "ST",
-    "comoros": "KM", "comores": "KM", "com": "KM",
-    "seychelles": "SC", "syc": "SC",
+    "mexico": "MX",
+    "mexique": "MX",
+    "mex": "MX",
+    "colombia": "CO",
+    "colombie": "CO",
+    "col": "CO",
+    "argentina": "AR",
+    "argentine": "AR",
+    "arg": "AR",
+    "chile": "CL",
+    "chili": "CL",
+    "chl": "CL",
+    "peru": "PE",
+    "pérou": "PE",
+    "perou": "PE",
+    "per": "PE",
+    "venezuela": "VE",
+    "ven": "VE",
+    "ecuador": "EC",
+    "équateur": "EC",
+    "equateur": "EC",
+    "ecu": "EC",
+    "australia": "AU",
+    "australie": "AU",
+    "aus": "AU",
+    "new zealand": "NZ",
+    "nouvelle-zélande": "NZ",
+    "nzl": "NZ",
+    "saudi arabia": "SA",
+    "arabie saoudite": "SA",
+    "sau": "SA",
+    "united arab emirates": "AE",
+    "émirats arabes unis": "AE",
+    "are": "AE",
+    "qatar": "QA",
+    "qat": "QA",
+    "singapore": "SG",
+    "singapour": "SG",
+    "sgp": "SG",
+    "south korea": "KR",
+    "corée du sud": "KR",
+    "kor": "KR",
+    "thailand": "TH",
+    "thaïlande": "TH",
+    "tha": "TH",
+    "indonesia": "ID",
+    "indonésie": "ID",
+    "idn": "ID",
+    "malaysia": "MY",
+    "malaisie": "MY",
+    "mys": "MY",
+    "philippines": "PH",
+    "phl": "PH",
+    "vietnam": "VN",
+    "viêt nam": "VN",
+    "vnm": "VN",
+    "pakistan": "PK",
+    "pak": "PK",
+    "bangladesh": "BD",
+    "bgd": "BD",
+    "sri lanka": "LK",
+    "lka": "LK",
+    "cuba": "CU",
+    "cub": "CU",
+    "haiti": "HT",
+    "haïti": "HT",
+    "hti": "HT",
+    "jamaica": "JM",
+    "jamaïque": "JM",
+    "jam": "JM",
+    "trinidad and tobago": "TT",
+    "trinité-et-tobago": "TT",
+    "tto": "TT",
+    "mozambique": "MZ",
+    "moz": "MZ",
+    "zambia": "ZM",
+    "zambie": "ZM",
+    "zmb": "ZM",
+    "zimbabwe": "ZW",
+    "zwe": "ZW",
+    "uganda": "UG",
+    "ouganda": "UG",
+    "uga": "UG",
+    "rwanda": "RW",
+    "rwa": "RW",
+    "ethiopia": "ET",
+    "éthiopie": "ET",
+    "eth": "ET",
+    "somalia": "SO",
+    "somalie": "SO",
+    "som": "SO",
+    "eritrea": "ER",
+    "érythrée": "ER",
+    "eri": "ER",
+    "djibouti": "DJ",
+    "dji": "DJ",
+    "mauritania": "MR",
+    "mauritanie": "MR",
+    "mrt": "MR",
+    "gambia": "GM",
+    "gambie": "GM",
+    "gmb": "GM",
+    "guinea": "GN",
+    "guinée": "GN",
+    "gin": "GN",
+    "guinea-bissau": "GW",
+    "guinée-bissau": "GW",
+    "gnb": "GW",
+    "sierra leone": "SL",
+    "sle": "SL",
+    "liberia": "LR",
+    "libéria": "LR",
+    "lbr": "LR",
+    "cape verde": "CV",
+    "cap-vert": "CV",
+    "cpv": "CV",
+    "são tomé and príncipe": "ST",
+    "sao tomé-et-príncipe": "ST",
+    "stp": "ST",
+    "comoros": "KM",
+    "comores": "KM",
+    "com": "KM",
+    "seychelles": "SC",
+    "syc": "SC",
 }
 
 # -- Incoterm normalisation map (lowercased keys → standard code) ------
 
 INCOTERM_MAP: dict[str, str] = {
-    "exw": "EXW", "ex works": "EXW", "départ usine": "EXW", "depart usine": "EXW",
-    "fca": "FCA", "free carrier": "FCA", "franco transporteur": "FCA",
-    "fob": "FOB", "free on board": "FOB", "franco à bord": "FOB", "franco a bord": "FOB",
-    "cif": "CIF", "cost insurance freight": "CIF", "coût assurance fret": "CIF",
-    "cfr": "CFR", "cost and freight": "CFR", "coût et fret": "CFR", "cout et fret": "CFR",
-    "cpt": "CPT", "carriage paid to": "CPT", "port payé jusqu'à": "CPT", "port paye jusqu'a": "CPT",
-    "cip": "CIP", "carriage insurance paid": "CIP", "port payé assurance comprise": "CIP",
-    "dap": "DAP", "delivered at place": "DAP", "rendu au lieu": "DAP",
-    "dpu": "DPU", "delivered at place unloaded": "DPU", "rendu au lieu déchargé": "DPU",
-    "ddp": "DDP", "delivered duty paid": "DDP", "rendu droits acquittés": "DDP", "rendu droits acquittes": "DDP",
-    "fas": "FAS", "free alongside ship": "FAS", "franco le long du navire": "FAS",
+    "exw": "EXW",
+    "ex works": "EXW",
+    "départ usine": "EXW",
+    "depart usine": "EXW",
+    "fca": "FCA",
+    "free carrier": "FCA",
+    "franco transporteur": "FCA",
+    "fob": "FOB",
+    "free on board": "FOB",
+    "franco à bord": "FOB",
+    "franco a bord": "FOB",
+    "cif": "CIF",
+    "cost insurance freight": "CIF",
+    "coût assurance fret": "CIF",
+    "cfr": "CFR",
+    "cost and freight": "CFR",
+    "coût et fret": "CFR",
+    "cout et fret": "CFR",
+    "cpt": "CPT",
+    "carriage paid to": "CPT",
+    "port payé jusqu'à": "CPT",
+    "port paye jusqu'a": "CPT",
+    "cip": "CIP",
+    "carriage insurance paid": "CIP",
+    "port payé assurance comprise": "CIP",
+    "dap": "DAP",
+    "delivered at place": "DAP",
+    "rendu au lieu": "DAP",
+    "dpu": "DPU",
+    "delivered at place unloaded": "DPU",
+    "rendu au lieu déchargé": "DPU",
+    "ddp": "DDP",
+    "delivered duty paid": "DDP",
+    "rendu droits acquittés": "DDP",
+    "rendu droits acquittes": "DDP",
+    "fas": "FAS",
+    "free alongside ship": "FAS",
+    "franco le long du navire": "FAS",
 }
 
 # -- French month names for date parsing ------
 
 _FRENCH_MONTHS: dict[str, int] = {
-    "janvier": 1, "février": 2, "fevrier": 2, "mars": 3, "avril": 4,
-    "mai": 5, "juin": 6, "juillet": 7, "août": 8, "aout": 8,
-    "septembre": 9, "octobre": 10, "novembre": 11, "décembre": 12, "decembre": 12,
-    "janv": 1, "févr": 2, "fevr": 2, "avr": 4, "juil": 7,
-    "sept": 9, "oct": 10, "nov": 11, "déc": 12, "dec": 12,
+    "janvier": 1,
+    "février": 2,
+    "fevrier": 2,
+    "mars": 3,
+    "avril": 4,
+    "mai": 5,
+    "juin": 6,
+    "juillet": 7,
+    "août": 8,
+    "aout": 8,
+    "septembre": 9,
+    "octobre": 10,
+    "novembre": 11,
+    "décembre": 12,
+    "decembre": 12,
+    "janv": 1,
+    "févr": 2,
+    "fevr": 2,
+    "avr": 4,
+    "juil": 7,
+    "sept": 9,
+    "oct": 10,
+    "nov": 11,
+    "déc": 12,
+    "dec": 12,
 }
 
 
@@ -2279,11 +2855,19 @@ TRANSFORM_REGISTRY: dict[str, Any] = {
     "concat": None,  # special handling — combines multiple columns
     "prefix": lambda value, params: f"{params.get('prefix', '')}{value}" if value else value,
     "suffix": lambda value, params: f"{value}{params.get('suffix', '')}" if value else value,
-    "replace": lambda value, params: value.replace(params.get("find", ""), params.get("replace", "")) if isinstance(value, str) else value,
-    "flag_to_boolean": lambda value, params: value in (params.get("true_values", ["X", "x", "1", "true", "True", "OUI", "oui", "Yes", "yes"])),
+    "replace": lambda value, params: (
+        value.replace(params.get("find", ""), params.get("replace", "")) if isinstance(value, str) else value
+    ),
+    "flag_to_boolean": lambda value, params: (
+        value in (params.get("true_values", ["X", "x", "1", "true", "True", "OUI", "oui", "Yes", "yes"]))
+    ),
     "deduplicate_key": None,  # special handling — marks the dedup column
     "geocode": None,  # special handling — async geocoding
-    "split": lambda value, params: value.split(params.get("separator", ","))[params.get("index", 0)].strip() if isinstance(value, str) and params.get("separator", ",") in value else value,
+    "split": lambda value, params: (
+        value.split(params.get("separator", ","))[params.get("index", 0)].strip()
+        if isinstance(value, str) and params.get("separator", ",") in value
+        else value
+    ),
     # -- Advanced transforms --
     "normalize_country": _normalize_country,
     "normalize_phone": _normalize_phone,
@@ -2291,9 +2875,11 @@ TRANSFORM_REGISTRY: dict[str, Any] = {
     "normalize_date": _normalize_date,
     "normalize_datetime": _normalize_datetime,
     "trim_all": lambda value, params: " ".join(str(value).split()) if value else value,
-    "left": lambda value, params: str(value)[:params.get("count", 0)] if value else value,
-    "right": lambda value, params: str(value)[-params.get("count", 0):] if value and params.get("count", 0) else value,
-    "mid": lambda value, params: str(value)[params.get("start", 0):params.get("start", 0) + params.get("length", 0)] if value else value,
+    "left": lambda value, params: str(value)[: params.get("count", 0)] if value else value,
+    "right": lambda value, params: str(value)[-params.get("count", 0) :] if value and params.get("count", 0) else value,
+    "mid": lambda value, params: (
+        str(value)[params.get("start", 0) : params.get("start", 0) + params.get("length", 0)] if value else value
+    ),
     "between": _between,
 }
 
@@ -2352,10 +2938,7 @@ def apply_transforms(rows: list[dict], transforms: list[dict], column_mapping: d
 
 def get_target_objects() -> list[TargetObjectInfo]:
     """Return all importable target objects with their field definitions."""
-    return [
-        TargetObjectInfo(key=h.key, label=h.label, fields=h.get_fields())
-        for h in HANDLERS.values()
-    ]
+    return [TargetObjectInfo(key=h.key, label=h.label, fields=h.get_fields()) for h in HANDLERS.values()]
 
 
 def auto_detect_mapping(
@@ -2564,7 +3147,11 @@ async def execute_import(
     await db.commit()
     logger.info(
         "Import %s: %d created, %d updated, %d skipped, %d errors",
-        target_object, created, updated, skipped, len(errors),
+        target_object,
+        created,
+        updated,
+        skipped,
+        len(errors),
     )
 
     return {

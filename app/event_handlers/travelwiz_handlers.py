@@ -24,11 +24,9 @@ logger = logging.getLogger(__name__)
 async def _get_user_email_and_name(user_id: UUID, db) -> tuple[str | None, str]:
     """Get primary email and display name for a user."""
     from sqlalchemy import text
+
     result = await db.execute(
-        text(
-            "SELECT u.email, COALESCE(u.first_name || ' ' || u.last_name, u.email) "
-            "FROM users u WHERE u.id = :uid"
-        ),
+        text("SELECT u.email, COALESCE(u.first_name || ' ' || u.last_name, u.email) FROM users u WHERE u.id = :uid"),
         {"uid": user_id},
     )
     row = result.first()
@@ -38,6 +36,7 @@ async def _get_user_email_and_name(user_id: UUID, db) -> tuple[str | None, str]:
 async def _get_contact_email_and_name(contact_id: UUID, db) -> tuple[str | None, str]:
     """Get email and display name for a TierContact (external PAX)."""
     from sqlalchemy import text
+
     result = await db.execute(
         text(
             "SELECT tc.email, COALESCE(tc.first_name || ' ' || tc.last_name, tc.email) "
@@ -87,10 +86,11 @@ async def on_voyage_confirmed(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from sqlalchemy import select, text
-        from app.core.notifications import send_in_app
+        from sqlalchemy import select
+
         from app.core.email_templates import render_and_send_email
-        from app.models.travelwiz import VoyageManifest, ManifestPassenger
+        from app.core.notifications import send_in_app
+        from app.models.travelwiz import ManifestPassenger, VoyageManifest
 
         eid = UUID(str(entity_id))
         vid = UUID(str(voyage_id))
@@ -167,15 +167,14 @@ async def on_voyage_confirmed(event: OpsFluxEvent) -> None:
                                 },
                             )
                     except Exception:
-                        logger.exception(
-                            "Failed to notify PAX %s for voyage %s", pax_key, voyage_id
-                        )
+                        logger.exception("Failed to notify PAX %s for voyage %s", pax_key, voyage_id)
 
             await db.commit()
 
         logger.info(
             "travelwiz.voyage.confirmed handled: %s — %d PAX notified",
-            code, len(notified_pax),
+            code,
+            len(notified_pax),
         )
     except Exception:
         logger.exception("Error in on_voyage_confirmed for voyage %s", voyage_id)
@@ -205,8 +204,9 @@ async def on_manifest_validated(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import select
-        from app.core.notifications import send_in_app
+
         from app.core.email_templates import render_and_send_email
+        from app.core.notifications import send_in_app
         from app.models.travelwiz import ManifestPassenger
 
         eid = UUID(str(entity_id))
@@ -222,10 +222,7 @@ async def on_manifest_validated(event: OpsFluxEvent) -> None:
                         user_id=captain_uid,
                         entity_id=eid,
                         title="Manifeste validé",
-                        body=(
-                            f"Le manifeste du voyage {code} a été validé. "
-                            f"{passenger_count} passagers confirmés."
-                        ),
+                        body=(f"Le manifeste du voyage {code} a été validé. {passenger_count} passagers confirmés."),
                         category="travelwiz",
                         link=f"/travelwiz/voyages/{voyage_id}/manifests/{manifest_id}",
                     )
@@ -252,7 +249,8 @@ async def on_manifest_validated(event: OpsFluxEvent) -> None:
                 except Exception:
                     logger.exception(
                         "Failed to notify captain %s for manifest %s",
-                        captain_user_id, manifest_id,
+                        captain_user_id,
+                        manifest_id,
                     )
 
             # 2. Notify all passengers on this manifest
@@ -290,10 +288,7 @@ async def on_manifest_validated(event: OpsFluxEvent) -> None:
                             user_id=uid,
                             entity_id=eid,
                             title="Manifeste validé — Embarquement confirmé",
-                            body=(
-                                f"Le manifeste du voyage {code} a été validé. "
-                                f"Votre embarquement est confirmé."
-                            ),
+                            body=(f"Le manifeste du voyage {code} a été validé. Votre embarquement est confirmé."),
                             category="travelwiz",
                             link=f"/travelwiz/voyages/{voyage_id}",
                         )
@@ -318,15 +313,14 @@ async def on_manifest_validated(event: OpsFluxEvent) -> None:
                             },
                         )
                 except Exception:
-                    logger.exception(
-                        "Failed to notify PAX %s for manifest %s", pax_key, manifest_id
-                    )
+                    logger.exception("Failed to notify PAX %s for manifest %s", pax_key, manifest_id)
 
             await db.commit()
 
         logger.info(
             "travelwiz.manifest.validated handled: %s — captain + %d PAX notified",
-            code, len(notified_pax),
+            code,
+            len(notified_pax),
         )
     except Exception:
         logger.exception("Error in on_manifest_validated for manifest %s", manifest_id)
@@ -360,7 +354,9 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from sqlalchemy import func as sqla_func, select
+        from sqlalchemy import func as sqla_func
+        from sqlalchemy import select
+
         from app.core.notifications import send_in_app
         from app.event_handlers.core_handlers import _get_admin_user_ids
         from app.models.travelwiz import Voyage, VoyageStop
@@ -385,7 +381,9 @@ async def on_ads_approved(event: OpsFluxEvent) -> None:
             if not voyage:
                 logger.info(
                     "ads.approved → no matching voyage found for AdS %s (site=%s, date=%s)",
-                    ads_id, site_asset_id, start_date,
+                    ads_id,
+                    site_asset_id,
+                    start_date,
                 )
                 admin_ids = await _get_admin_user_ids(entity_id)
                 for admin_id in admin_ids:
@@ -436,8 +434,9 @@ async def on_voyage_delayed(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import select
-        from app.core.notifications import send_in_app
+
         from app.core.email_templates import render_and_send_email
+        from app.core.notifications import send_in_app
         from app.event_handlers.core_handlers import _get_admin_user_ids
         from app.models.travelwiz import ManifestPassenger, VoyageManifest
 
@@ -461,7 +460,9 @@ async def on_voyage_delayed(event: OpsFluxEvent) -> None:
                 )
 
             pax_result = await db.execute(
-                select(ManifestPassenger).join(VoyageManifest, ManifestPassenger.manifest_id == VoyageManifest.id).where(
+                select(ManifestPassenger)
+                .join(VoyageManifest, ManifestPassenger.manifest_id == VoyageManifest.id)
+                .where(
                     VoyageManifest.voyage_id == vid,
                     VoyageManifest.manifest_type == "pax",
                     VoyageManifest.active == True,  # noqa: E712
@@ -525,8 +526,9 @@ async def on_voyage_cancelled(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import select
-        from app.core.notifications import send_in_app
+
         from app.core.email_templates import render_and_send_email
+        from app.core.notifications import send_in_app
         from app.event_handlers.core_handlers import _get_admin_user_ids
         from app.models.travelwiz import ManifestPassenger, VoyageManifest
 
@@ -539,8 +541,7 @@ async def on_voyage_cancelled(event: OpsFluxEvent) -> None:
                 recipients = await _get_admin_user_ids(entity_id)
 
             operator_body = (
-                f"Le voyage {code or voyage_id} est annulé. "
-                f"{reason or 'Une replanification est requise.'}"
+                f"Le voyage {code or voyage_id} est annulé. {reason or 'Une replanification est requise.'}"
             ).strip()
             if replan_hint:
                 operator_body = f"{operator_body} {replan_hint}".strip()
@@ -557,9 +558,9 @@ async def on_voyage_cancelled(event: OpsFluxEvent) -> None:
                 )
 
             pax_result = await db.execute(
-                select(ManifestPassenger).join(
-                    VoyageManifest, ManifestPassenger.manifest_id == VoyageManifest.id
-                ).where(
+                select(ManifestPassenger)
+                .join(VoyageManifest, ManifestPassenger.manifest_id == VoyageManifest.id)
+                .where(
                     VoyageManifest.voyage_id == vid,
                     VoyageManifest.manifest_type == "pax",
                     VoyageManifest.active == True,  # noqa: E712
@@ -672,6 +673,7 @@ async def on_planner_activity_modified_tw(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import text
+
         from app.core.notifications import send_in_app
         from app.event_handlers.core_handlers import _get_admin_user_ids
 
@@ -741,10 +743,11 @@ async def on_ads_stay_change_requested(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import select
+
         from app.core.notifications import send_in_app
         from app.event_handlers.core_handlers import _get_admin_user_ids
-        from app.models.travelwiz import ManifestPassenger, VoyageManifest
         from app.models.paxlog import AdsPax
+        from app.models.travelwiz import ManifestPassenger, VoyageManifest
 
         eid = UUID(str(entity_id))
         aid = UUID(str(ads_id))
@@ -766,7 +769,9 @@ async def on_ads_stay_change_requested(event: OpsFluxEvent) -> None:
                 logger.info("ads.stay_change_requested → no linked TravelWiz manifest for AdS %s", ads_id)
                 return
 
-            change_keys = ", ".join(sorted(changes.keys())) if isinstance(changes, dict) and changes else "dates/purpose"
+            change_keys = (
+                ", ".join(sorted(changes.keys())) if isinstance(changes, dict) and changes else "dates/purpose"
+            )
             admin_ids = await _get_admin_user_ids(entity_id)
             for admin_id in admin_ids:
                 await send_in_app(
@@ -808,6 +813,7 @@ async def on_avm_modified(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import select
+
         from app.core.notifications import send_in_app
         from app.event_handlers.core_handlers import _get_admin_user_ids
         from app.models.paxlog import MissionProgram
@@ -817,8 +823,7 @@ async def on_avm_modified(event: OpsFluxEvent) -> None:
 
         async with async_session_factory() as db:
             program_result = await db.execute(
-                select(MissionProgram.generated_ads_id)
-                .where(
+                select(MissionProgram.generated_ads_id).where(
                     MissionProgram.mission_notice_id == aid,
                     MissionProgram.generated_ads_id.is_not(None),
                 )

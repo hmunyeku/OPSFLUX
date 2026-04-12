@@ -7,11 +7,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
-from app.api.deps import get_current_user, check_polymorphic_owner_access
+from app.api.deps import check_polymorphic_owner_access, get_current_user
 from app.core.database import get_db
-from app.services.core.delete_service import delete_entity
 from app.models.common import SocialNetwork, User
 from app.schemas.common import SocialNetworkCreate, SocialNetworkRead, SocialNetworkUpdate
+from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/social-networks", tags=["social-networks"])
 

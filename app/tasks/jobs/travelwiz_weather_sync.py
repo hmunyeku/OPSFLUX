@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
@@ -49,7 +49,7 @@ async def process_travelwiz_weather_sync() -> dict[str, int]:
         fetched = 0
         skipped_recent = 0
         failed = 0
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for entity_id, asset_id in pairs:
             interval_minutes = await get_weather_sync_interval_minutes(db, entity_id=entity_id)

@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
-from uuid import UUID
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
@@ -22,7 +21,7 @@ SETTING_KEY = "paxlog.ads_auto_close_grace_days"
 
 async def process_overdue_ads_closure() -> dict[str, int]:
     """Alert overdue in-progress AdS, then auto-close them after a configurable grace delay."""
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     alerts_sent = 0
     auto_closed = 0
 
@@ -90,19 +89,21 @@ async def process_overdue_ads_closure() -> dict[str, int]:
             if alert_result.scalar_one_or_none() is not None:
                 continue
 
-            db.add(AdsEvent(
-                entity_id=ads.entity_id,
-                ads_id=ads.id,
-                event_type="overdue_return_alert",
-                old_status=ads.status,
-                new_status=ads.status,
-                actor_id=None,
-                metadata_json={
-                    "source": "paxlog.nightly_autoclose",
-                    "grace_days": grace_days,
-                    "scheduled_auto_close_date": cutoff.isoformat(),
-                },
-            ))
+            db.add(
+                AdsEvent(
+                    entity_id=ads.entity_id,
+                    ads_id=ads.id,
+                    event_type="overdue_return_alert",
+                    old_status=ads.status,
+                    new_status=ads.status,
+                    actor_id=None,
+                    metadata_json={
+                        "source": "paxlog.nightly_autoclose",
+                        "grace_days": grace_days,
+                        "scheduled_auto_close_date": cutoff.isoformat(),
+                    },
+                )
+            )
             try:
                 await send_in_app(
                     db,

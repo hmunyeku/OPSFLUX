@@ -8,7 +8,7 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -150,21 +150,11 @@ async def _validate_imputation_references(
 
 def _serialize_imputation(row: CostImputation) -> CostImputationRead:
     data = CostImputationRead.model_validate(row).model_dump()
-    data["imputation_reference_code"] = (
-        row.imputation_reference.code if row.imputation_reference else None
-    )
-    data["imputation_reference_name"] = (
-        row.imputation_reference.name if row.imputation_reference else None
-    )
-    data["imputation_type"] = (
-        row.imputation_reference.imputation_type if row.imputation_reference else None
-    )
-    data["otp_policy"] = (
-        row.imputation_reference.otp_policy if row.imputation_reference else None
-    )
-    data["project_name"] = (
-        f"{row.project.code} — {row.project.name}" if row.project else None
-    )
+    data["imputation_reference_code"] = row.imputation_reference.code if row.imputation_reference else None
+    data["imputation_reference_name"] = row.imputation_reference.name if row.imputation_reference else None
+    data["imputation_type"] = row.imputation_reference.imputation_type if row.imputation_reference else None
+    data["otp_policy"] = row.imputation_reference.otp_policy if row.imputation_reference else None
+    data["project_name"] = f"{row.project.code} — {row.project.name}" if row.project else None
     data["cost_center_name"] = row.cost_center.name if row.cost_center else None
     data["author_name"] = row.author.full_name if row.author else None
     return CostImputationRead(**data)
@@ -186,20 +176,14 @@ def _validate_owner_type_imputation_rules(
     if isinstance(allowed_types, set) and reference.imputation_type not in allowed_types:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"L'objet {owner_type} ne peut pas utiliser une imputation "
-                f"de type {reference.imputation_type}."
-            ),
+            detail=(f"L'objet {owner_type} ne peut pas utiliser une imputation de type {reference.imputation_type}."),
         )
 
     allow_otp = bool(rules.get("allow_otp", True))
     if not allow_otp and reference.otp_policy != "forbidden":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"L'objet {owner_type} ne peut pas utiliser une imputation "
-                "qui exige ou autorise un OTP."
-            ),
+            detail=(f"L'objet {owner_type} ne peut pas utiliser une imputation qui exige ou autorise un OTP."),
         )
 
 
@@ -373,7 +357,7 @@ async def update_cost_imputation(
         if others_total + update_data["percentage"] > 100.0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Total des imputations dépasserait 100%.",
+                detail="Total des imputations dépasserait 100%.",
             )
 
     for key, val in update_data.items():
@@ -404,9 +388,7 @@ async def delete_cost_imputation(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove a cost imputation line (physical delete)."""
-    result = await db.execute(
-        select(CostImputation).where(CostImputation.id == imputation_id)
-    )
+    result = await db.execute(select(CostImputation).where(CostImputation.id == imputation_id))
     obj = result.scalars().first()
     if not obj:
         raise HTTPException(status_code=404, detail="Imputation not found")

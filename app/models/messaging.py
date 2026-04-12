@@ -19,11 +19,12 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
-
 # ─── System Announcements ────────────────────────────────────────────────────
+
 
 class Announcement(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     """System announcements / broadcast messages from admin to users."""
+
     __tablename__ = "announcements"
     __table_args__ = (
         Index("idx_announcements_entity", "entity_id"),
@@ -43,15 +44,11 @@ class Announcement(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         ),
     )
 
-    entity_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True
-    )
+    entity_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=True)
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     body_html: Mapped[str | None] = mapped_column(Text, nullable=True)
-    priority: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="info"
-    )
+    priority: Mapped[str] = mapped_column(String(20), nullable=False, default="info")
 
     # Targeting
     target_type: Mapped[str] = mapped_column(
@@ -67,31 +64,17 @@ class Announcement(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     )  # dashboard, login, banner, modal, logout, all
 
     # Scheduling
-    published_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    expires_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Delivery options
-    send_email: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
-    )
-    email_sent_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    send_email: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Metadata
-    sender_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
-    active: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True
-    )
-    pinned: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
-    )
+    sender_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # Read tracking metadata (JSONB: list of user_ids who dismissed it)
     dismissed_by: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
@@ -99,38 +82,46 @@ class Announcement(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
 
 # ─── Announcement Read Receipts (per-user tracking) ─────────────────────────
 
+
 class AnnouncementReceipt(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Track which users have seen/dismissed an announcement."""
+
     __tablename__ = "announcement_receipts"
     __table_args__ = (
         Index("idx_receipts_announcement", "announcement_id"),
         Index("idx_receipts_user", "user_id"),
         Index(
             "uq_announcement_receipt",
-            "announcement_id", "user_id",
+            "announcement_id",
+            "user_id",
             unique=True,
         ),
     )
 
     announcement_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("announcements.id", ondelete="CASCADE"),
+        UUID(as_uuid=True),
+        ForeignKey("announcements.id", ondelete="CASCADE"),
         nullable=False,
     )
     user_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False,
+        UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=False,
     )
     read_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False,
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
     )
-    dismissed: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
-    )
+    dismissed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 # ─── Login Events Journal (security audit) ──────────────────────────────────
 
+
 class LoginEvent(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Track every login attempt for security analysis."""
+
     __tablename__ = "login_events"
     __table_args__ = (
         Index("idx_login_events_user", "user_id"),
@@ -150,9 +141,7 @@ class LoginEvent(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # Parsed UA
     browser: Mapped[str | None] = mapped_column(String(100), nullable=True)
     os: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    device_type: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="desktop"
-    )
+    device_type: Mapped[str] = mapped_column(String(20), nullable=False, default="desktop")
 
     # Geolocation (from IP)
     country: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -167,33 +156,25 @@ class LoginEvent(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # geo_blocked, mfa_required
 
     # Security flags
-    suspicious: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
-    )
+    suspicious: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     suspicious_reasons: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # e.g. {"new_country": true, "new_device": true, "rapid_attempts": true}
 
-    blocked: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
-    )
-    blocked_reason: Mapped[str | None] = mapped_column(
-        String(200), nullable=True
-    )
+    blocked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    blocked_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     # MFA
-    mfa_used: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
-    )
+    mfa_used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 # ─── Security Rules (admin-configurable) ─────────────────────────────────────
 
+
 class SecurityRule(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     """Admin-configurable login security rules."""
+
     __tablename__ = "security_rules"
     __table_args__ = (
         Index("idx_security_rules_entity", "entity_id"),
@@ -217,12 +198,6 @@ class SecurityRule(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     #   max_attempts: {"max": 5, "window_minutes": 15, "lockout_minutes": 30}
     #   device_trust: {"require_known_device": true, "max_devices": 5}
     #   mfa_enforce: {"roles": ["SUPER_ADMIN", "DO"]}
-    enabled: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True
-    )
-    priority: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
-    )  # Higher = evaluated first
-    created_by: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)  # Higher = evaluated first
+    created_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)

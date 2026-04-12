@@ -1,7 +1,8 @@
 """SQLAlchemy 2.0 base model with common mixins."""
 
 from datetime import datetime
-from uuid import UUID as PyUUID, uuid4
+from uuid import UUID as PyUUID
+from uuid import uuid4
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -10,11 +11,13 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 class Base(DeclarativeBase):
     """Base class for all ORM models."""
+
     pass
 
 
 class TimestampMixin:
     """Mixin adding created_at and updated_at columns."""
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -30,6 +33,7 @@ class TimestampMixin:
 
 class SoftDeleteMixin:
     """Mixin adding archived boolean + deleted_at timestamp (never physical DELETE)."""
+
     archived: Mapped[bool] = mapped_column(
         Boolean,
         default=False,
@@ -45,12 +49,9 @@ class SoftDeleteMixin:
 
 class AuditUserMixin:
     """Adds created_by / updated_by FK columns pointing to users.id."""
-    created_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
-    )
-    updated_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
-    )
+
+    created_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
 
 class VerifiableMixin:
@@ -62,17 +63,25 @@ class VerifiableMixin:
     - Once verified, record is locked (user cannot edit until expiry)
     - Only users with conformite.verify permission can modify verified records
     """
+
     verification_status: Mapped[str] = mapped_column(
-        String(20), default="pending", server_default="pending", nullable=False,
+        String(20),
+        default="pending",
+        server_default="pending",
+        nullable=False,
     )  # pending | verified | rejected
     verified_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True,
+        UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=True,
     )
     verified_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True,
+        DateTime(timezone=True),
+        nullable=True,
     )
     rejection_reason: Mapped[str | None] = mapped_column(
-        String(500), nullable=True,
+        String(500),
+        nullable=True,
     )
 
     @property
@@ -83,6 +92,7 @@ class VerifiableMixin:
 
 class UUIDPrimaryKeyMixin:
     """Mixin adding UUID primary key."""
+
     id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,

@@ -6,7 +6,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 DocumentType = Literal["free", "template", "report", "form"]
 
 

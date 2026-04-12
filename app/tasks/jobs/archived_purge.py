@@ -25,9 +25,7 @@ async def purge_archived_records() -> None:
             await db.execute(text("SET search_path TO public"))
 
             # Find all delete policies with mode=soft_purge
-            result = await db.execute(
-                select(Setting).where(Setting.key.startswith("delete_policy."))
-            )
+            result = await db.execute(select(Setting).where(Setting.key.startswith("delete_policy.")))
             policies = result.scalars().all()
 
             total_purged = 0

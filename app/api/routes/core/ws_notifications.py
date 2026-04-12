@@ -59,9 +59,7 @@ async def _authenticate_ws(token: str) -> tuple[UUID, UUID | None]:
     return user_id, entity_id
 
 
-async def _send_queued_notifications(
-    websocket: WebSocket, user_id: UUID, entity_id: UUID | None
-) -> None:
+async def _send_queued_notifications(websocket: WebSocket, user_id: UUID, entity_id: UUID | None) -> None:
     """Load unread notifications from DB and push them to the client."""
     async with async_session_factory() as db:
         query = (
@@ -103,16 +101,12 @@ async def _send_queued_notifications(
         logger.debug("Failed to send queued notifications", exc_info=True)
 
 
-async def _handle_mark_read(
-    websocket: WebSocket, user_id: UUID, notification_id_str: str
-) -> None:
+async def _handle_mark_read(websocket: WebSocket, user_id: UUID, notification_id_str: str) -> None:
     """Mark a single notification as read (via WebSocket command)."""
     try:
         notification_id = UUID(notification_id_str)
     except (ValueError, TypeError):
-        await websocket.send_json(
-            {"type": "error", "data": {"detail": "Invalid notification id"}}
-        )
+        await websocket.send_json({"type": "error", "data": {"detail": "Invalid notification id"}})
         return
 
     async with async_session_factory() as db:
@@ -125,9 +119,7 @@ async def _handle_mark_read(
         notif = result.scalar_one_or_none()
 
         if not notif:
-            await websocket.send_json(
-                {"type": "error", "data": {"detail": "Notification not found"}}
-            )
+            await websocket.send_json({"type": "error", "data": {"detail": "Notification not found"}})
             return
 
         if not notif.read:
@@ -138,9 +130,7 @@ async def _handle_mark_read(
             )
             await db.commit()
 
-    await websocket.send_json(
-        {"type": "read_confirmed", "data": {"id": str(notification_id)}}
-    )
+    await websocket.send_json({"type": "read_confirmed", "data": {"id": str(notification_id)}})
 
 
 async def _keepalive_loop(websocket: WebSocket) -> None:
@@ -173,9 +163,7 @@ async def ws_notifications(
     except (ValueError, Exception) as exc:
         # Cannot use send_json before accept, so accept then close
         await websocket.accept()
-        await websocket.send_json(
-            {"type": "error", "data": {"detail": str(exc)}}
-        )
+        await websocket.send_json({"type": "error", "data": {"detail": str(exc)}})
         await websocket.close(code=4001, reason="Authentication failed")
         return
 
@@ -205,14 +193,10 @@ async def ws_notifications(
                 if nid:
                     await _handle_mark_read(websocket, user_id, nid)
                 else:
-                    await websocket.send_json(
-                        {"type": "error", "data": {"detail": "Missing notification id"}}
-                    )
+                    await websocket.send_json({"type": "error", "data": {"detail": "Missing notification id"}})
 
             else:
-                await websocket.send_json(
-                    {"type": "error", "data": {"detail": f"Unknown message type: {msg_type}"}}
-                )
+                await websocket.send_json({"type": "error", "data": {"detail": f"Unknown message type: {msg_type}"}})
 
     except WebSocketDisconnect:
         logger.info("WS client disconnected: user=%s", user_id)

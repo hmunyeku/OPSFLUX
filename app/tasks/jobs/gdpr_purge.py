@@ -13,8 +13,7 @@ Purge targets:
 """
 
 import logging
-import os
-from datetime import datetime, UTC, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import text

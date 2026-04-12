@@ -42,8 +42,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
-
 # ─── Cargo Requests ─────────────────────────────────────────────────────────
+
 
 class CargoRequest(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     __tablename__ = "cargo_requests"
@@ -53,26 +53,18 @@ class CargoRequest(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         Index("idx_cargo_request_status", "status"),
     )
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
     request_code: Mapped[str] = mapped_column(String(50), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="draft")
-    project_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("projects.id")
-    )
+    project_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id"))
     imputation_reference_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("imputation_references.id", ondelete="SET NULL")
     )
-    sender_tier_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tiers.id")
-    )
+    sender_tier_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("tiers.id"))
     receiver_name: Mapped[str | None] = mapped_column(String(200))
-    destination_asset_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("ar_installations.id")
-    )
+    destination_asset_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"))
     requester_user_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
@@ -80,13 +72,12 @@ class CargoRequest(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         UUID(as_uuid=True), ForeignKey("tier_contacts.id", ondelete="SET NULL")
     )
     requester_name: Mapped[str | None] = mapped_column(String(200))
-    requested_by: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
+    requested_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
 
 # ─── Cargo Items ────────────────────────────────────────────────────────────
+
 
 class CargoItem(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     __tablename__ = "cargo_items"
@@ -103,9 +94,7 @@ class CargoItem(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         Index("idx_cargo_created_at", "created_at"),
     )
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
     request_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("cargo_requests.id", ondelete="SET NULL")
     )
@@ -123,16 +112,10 @@ class CargoItem(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     surface_m2: Mapped[float | None] = mapped_column(Float)
     package_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     stackable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    sender_tier_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tiers.id")
-    )
+    sender_tier_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("tiers.id"))
     receiver_name: Mapped[str | None] = mapped_column(String(200))
-    destination_asset_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("ar_installations.id")
-    )
-    project_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("projects.id")
-    )
+    destination_asset_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"))
+    project_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id"))
     imputation_reference_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("imputation_references.id", ondelete="SET NULL")
     )
@@ -159,22 +142,16 @@ class CargoItem(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     status: Mapped[str] = mapped_column(
         String(30), nullable=False, default="registered"
     )  # registered, ready, loaded, in_transit, delivered_intermediate, delivered_final, damaged, missing
-    manifest_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("voyage_manifests.id")
-    )
+    manifest_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("voyage_manifests.id"))
     planned_zone_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("transport_vector_zones.id", ondelete="SET NULL")
     )
     sap_article_code: Mapped[str | None] = mapped_column(String(50))
     hazmat_validated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    received_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
-    )
+    received_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     damage_notes: Mapped[str | None] = mapped_column(Text)
-    registered_by: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
+    registered_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Forward ref to TravelWiz so we don't import the class directly
@@ -188,6 +165,7 @@ class CargoItem(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
 
 # ─── Cargo Attachment Evidence ──────────────────────────────────────────────
 
+
 class CargoAttachmentEvidence(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "cargo_attachment_evidences"
     __table_args__ = (
@@ -196,9 +174,7 @@ class CargoAttachmentEvidence(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("idx_cargo_attachment_evidence_type", "evidence_type"),
     )
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
     cargo_item_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("cargo_items.id", ondelete="CASCADE"), nullable=False
     )
@@ -206,12 +182,11 @@ class CargoAttachmentEvidence(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("attachments.id", ondelete="CASCADE"), nullable=False
     )
     evidence_type: Mapped[str] = mapped_column(String(40), nullable=False)
-    created_by: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
+    created_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
 
 # ─── Article Catalog (SAP matching) ─────────────────────────────────────────
+
 
 class ArticleCatalog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """SAP article master for cargo matching.
@@ -222,6 +197,7 @@ class ArticleCatalog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     `packlog.article_catalog_global` (default: False → per-entity with NULL
     fallback so shared seed data remains visible to every entity).
     """
+
     __tablename__ = "article_catalog"
     __table_args__ = (
         Index("idx_article_sap", "sap_code"),
@@ -230,7 +206,8 @@ class ArticleCatalog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     entity_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id", ondelete="SET NULL"),
+        UUID(as_uuid=True),
+        ForeignKey("entities.id", ondelete="SET NULL"),
     )
     sap_code: Mapped[str | None] = mapped_column(String(50), unique=True)
     internal_code: Mapped[str | None] = mapped_column(String(50))
@@ -246,9 +223,7 @@ class ArticleCatalog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     source: Mapped[str] = mapped_column(String(20), default="manual", nullable=False)
     last_imported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -256,19 +231,17 @@ class ArticleCatalog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Package Element (Sub-items in cargo) ───────────────────────────────────
 
+
 class PackageElement(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Sub-item within a composite cargo package."""
+
     __tablename__ = "package_elements"
-    __table_args__ = (
-        Index("idx_package_elements_parent", "package_id"),
-    )
+    __table_args__ = (Index("idx_package_elements_parent", "package_id"),)
 
     package_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("cargo_items.id", ondelete="CASCADE"), nullable=False
     )
-    article_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("article_catalog.id")
-    )
+    article_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("article_catalog.id"))
     sap_code: Mapped[str | None] = mapped_column(String(50))
     sap_code_status: Mapped[str] = mapped_column(String(20), default="unknown", nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
@@ -283,6 +256,7 @@ class PackageElement(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Deck Layout (Cargo placement) ──────────────────────────────────────────
 
+
 class DeckLayout(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Cargo deck placement plan for a trip+surface.
 
@@ -290,42 +264,32 @@ class DeckLayout(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     (voyages, transport_vector_zones) — both schema-level FKs only, no
     Python imports.
     """
-    __tablename__ = "deck_layouts"
-    __table_args__ = (
-        Index("idx_deck_layouts_trip", "trip_id", "deck_surface_id", unique=True),
-    )
 
-    trip_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("voyages.id"), nullable=False
-    )
+    __tablename__ = "deck_layouts"
+    __table_args__ = (Index("idx_deck_layouts_trip", "trip_id", "deck_surface_id", unique=True),)
+
+    trip_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("voyages.id"), nullable=False)
     deck_surface_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("transport_vector_zones.id"), nullable=False
     )
     status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False)
     algo_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    validated_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
-    )
+    validated_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     validated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     layout_rules: Mapped[dict | None] = mapped_column(JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class DeckLayoutItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Individual cargo item placement on a deck."""
+
     __tablename__ = "deck_layout_items"
-    __table_args__ = (
-        Index("idx_deck_layout_items_layout", "deck_layout_id"),
-    )
+    __table_args__ = (Index("idx_deck_layout_items_layout", "deck_layout_id"),)
 
     deck_layout_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("deck_layouts.id", ondelete="CASCADE"), nullable=False
     )
-    cargo_item_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("cargo_items.id"), nullable=False
-    )
+    cargo_item_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cargo_items.id"), nullable=False)
     x_m: Mapped[Decimal] = mapped_column(Numeric(8, 3), nullable=False)
     y_m: Mapped[Decimal] = mapped_column(Numeric(8, 3), nullable=False)
     rotation_deg: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)

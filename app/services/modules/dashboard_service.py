@@ -4,17 +4,15 @@ Modules register their predefined widgets at startup via `register_widget()`.
 The widget catalog is role-filtered and exposed via the API.
 """
 
-import hashlib
-import json
 import logging
 import re
 import secrets
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from sqlalchemy import delete, func, or_, select, text
+from sqlalchemy import delete, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.dashboard import (
@@ -483,6 +481,7 @@ PREDEFINED_WIDGETS: dict[str, dict[str, Any]] = {
 #  Widget Catalog — filtered by user roles
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def get_widget_catalog(user_roles: list[str]) -> list[dict[str, Any]]:
     """Return catalog entries the user can access based on their roles."""
     _init_predefined_widgets()
@@ -506,21 +505,36 @@ def get_widget_catalog(user_roles: list[str]) -> list[dict[str, Any]]:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 FORBIDDEN_KEYWORDS: set[str] = {
-    "INSERT", "UPDATE", "DELETE", "DROP", "CREATE", "ALTER", "TRUNCATE",
-    "EXEC", "EXECUTE", "GRANT", "REVOKE", "COPY",
-    "PG_", "INFORMATION_SCHEMA", "PG_CATALOG",
-    "SET", "SHOW", "VACUUM", "ANALYZE",
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "DROP",
+    "CREATE",
+    "ALTER",
+    "TRUNCATE",
+    "EXEC",
+    "EXECUTE",
+    "GRANT",
+    "REVOKE",
+    "COPY",
+    "PG_",
+    "INFORMATION_SCHEMA",
+    "PG_CATALOG",
+    "SET",
+    "SHOW",
+    "VACUUM",
+    "ANALYZE",
 }
 
 FORBIDDEN_PATTERNS: list[re.Pattern] = [
-    re.compile(r";\s*\w", re.IGNORECASE),          # Multiple statements
-    re.compile(r"--", re.IGNORECASE),                # SQL comments
-    re.compile(r"/\*", re.IGNORECASE),               # Block comments
-    re.compile(r"\\copy", re.IGNORECASE),            # psql copy
-    re.compile(r"pg_read_file", re.IGNORECASE),      # File system access
-    re.compile(r"pg_ls_dir", re.IGNORECASE),         # Directory listing
+    re.compile(r";\s*\w", re.IGNORECASE),  # Multiple statements
+    re.compile(r"--", re.IGNORECASE),  # SQL comments
+    re.compile(r"/\*", re.IGNORECASE),  # Block comments
+    re.compile(r"\\copy", re.IGNORECASE),  # psql copy
+    re.compile(r"pg_read_file", re.IGNORECASE),  # File system access
+    re.compile(r"pg_ls_dir", re.IGNORECASE),  # Directory listing
     re.compile(r"lo_import|lo_export", re.IGNORECASE),  # Large object ops
-    re.compile(r"dblink", re.IGNORECASE),            # External DB access
+    re.compile(r"dblink", re.IGNORECASE),  # External DB access
 ]
 
 
@@ -584,9 +598,7 @@ async def validate_and_execute_widget_sql(
     try:
         async with async_session_factory() as session:
             # Set statement timeout
-            await session.execute(
-                text(f"SET LOCAL statement_timeout = '{timeout_seconds * 1000}'")
-            )
+            await session.execute(text(f"SET LOCAL statement_timeout = '{timeout_seconds * 1000}'"))
 
             # Execute with params (add tenant_id to params for convenience)
             all_params = {**params, "tenant_id": str(tenant_id), "user_id": str(user.id)}
@@ -624,6 +636,7 @@ async def validate_and_execute_widget_sql(
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Dashboard CRUD
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 async def create_dashboard(
     data: Any,
@@ -679,6 +692,7 @@ async def get_dashboard(
     dashboard = result.scalar_one_or_none()
     if not dashboard:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Dashboard not found")
     return dashboard
 
@@ -695,6 +709,7 @@ async def update_dashboard(
     update_data = data.model_dump(exclude_unset=True)
     if not update_data:
         from fastapi import HTTPException
+
         raise HTTPException(400, "No fields to update")
 
     for field, value in update_data.items():
@@ -711,16 +726,12 @@ async def delete_dashboard(
     db: AsyncSession,
 ) -> None:
     """Delete a dashboard and its permissions."""
-    from app.models.dashboard import Dashboard, DashboardPermission
+    from app.models.dashboard import DashboardPermission
 
     dashboard = await get_dashboard(dashboard_id, tenant_id, db)
 
     # Delete permissions first
-    await db.execute(
-        delete(DashboardPermission).where(
-            DashboardPermission.dashboard_id == dashboard_id
-        )
-    )
+    await db.execute(delete(DashboardPermission).where(DashboardPermission.dashboard_id == dashboard_id))
 
     await db.delete(dashboard)
     await db.commit()
@@ -763,6 +774,7 @@ async def list_dashboards(
 #  Home Page Resolution: user > role > BU > global
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 async def get_home_page_for_user(
     user_id: UUID,
     roles: list[str],
@@ -775,7 +787,7 @@ async def get_home_page_for_user(
     Resolution order: user-specific > role > BU > global.
     Returns the Dashboard object or None.
     """
-    from app.models.dashboard import Dashboard, HomePageSetting
+    from app.models.dashboard import HomePageSetting
 
     # 1. User-specific
     result = await db.execute(
@@ -792,11 +804,13 @@ async def get_home_page_for_user(
     # 2. Role-based (first matching role wins)
     if roles:
         result = await db.execute(
-            select(HomePageSetting).where(
+            select(HomePageSetting)
+            .where(
                 HomePageSetting.tenant_id == tenant_id,
                 HomePageSetting.scope_type == "role",
                 HomePageSetting.scope_value.in_(roles),
-            ).limit(1)
+            )
+            .limit(1)
         )
         setting = result.scalar_one_or_none()
         if setting:
@@ -868,6 +882,7 @@ async def set_home_page(
 async def _load_dashboard(dashboard_id: UUID, db: AsyncSession) -> Any | None:
     """Load a dashboard by ID (no tenant check — internal use)."""
     from app.models.dashboard import Dashboard
+
     return await db.get(Dashboard, dashboard_id)
 
 
@@ -899,7 +914,7 @@ async def get_widget_data(
             widget_id=widget_id,
             widget_type=widget_config.get("type", "unknown"),
             error=f"No data provider registered for widget '{widget_id}'",
-            generated_at=datetime.now(timezone.utc),
+            generated_at=datetime.now(UTC),
         )
 
     try:
@@ -916,7 +931,7 @@ async def get_widget_data(
             widget_type=widget_config.get("type", "unknown"),
             data=data,
             row_count=row_count,
-            generated_at=datetime.now(timezone.utc),
+            generated_at=datetime.now(UTC),
         )
     except Exception as e:
         logger.exception("Widget data provider failed for %s", widget_id)
@@ -924,13 +939,14 @@ async def get_widget_data(
             widget_id=widget_id,
             widget_type=widget_config.get("type", "unknown"),
             error=str(e),
-            generated_at=datetime.now(timezone.utc),
+            generated_at=datetime.now(UTC),
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Import / Export
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 async def export_dashboard_json(
     dashboard_id: UUID,
@@ -1018,7 +1034,9 @@ async def import_dashboard_json(
 
     logger.info(
         "Imported dashboard '%s' (%s) by user %s",
-        dashboard.name, dashboard.id, owner_id,
+        dashboard.name,
+        dashboard.id,
+        owner_id,
     )
     return dashboard
 
@@ -1026,6 +1044,7 @@ async def import_dashboard_json(
 # ═══════════════════════════════════════════════════════════════════════════════
 #  TV Mode — token-based anonymous access
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 async def generate_tv_link(
     dashboard_id: UUID,
@@ -1041,7 +1060,7 @@ async def generate_tv_link(
 
     # Generate secure token
     token = secrets.token_urlsafe(48)
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=expires_hours)
+    expires_at = datetime.now(UTC) + timedelta(hours=expires_hours)
 
     dashboard.tv_token = token
     dashboard.tv_token_expires_at = expires_at
@@ -1083,7 +1102,7 @@ async def get_dashboard_by_tv_token(
         return None
 
     # Check expiry
-    if dashboard.tv_token_expires_at and dashboard.tv_token_expires_at < datetime.now(timezone.utc):
+    if dashboard.tv_token_expires_at and dashboard.tv_token_expires_at < datetime.now(UTC):
         return None
 
     return dashboard
@@ -1107,6 +1126,7 @@ async def revoke_tv_link(
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Access Logging
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 async def log_dashboard_access(
     dashboard_id: UUID,

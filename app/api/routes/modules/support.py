@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import and_, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -44,11 +44,10 @@ router = APIRouter(prefix="/api/v1/support", tags=["support"], dependencies=[req
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+
 async def _next_reference(db: AsyncSession, entity_id: UUID) -> str:
     """Generate next ticket reference: SUP-0001, SUP-0002, etc."""
-    result = await db.execute(
-        select(func.count()).where(SupportTicket.entity_id == entity_id)
-    )
+    result = await db.execute(select(func.count()).where(SupportTicket.entity_id == entity_id))
     count = result.scalar() or 0
     return f"SUP-{count + 1:04d}"
 
@@ -66,9 +65,7 @@ async def _users_map(db: AsyncSession, user_ids: set[UUID]) -> dict[UUID, str]:
     """Fetch user display names by IDs."""
     if not user_ids:
         return {}
-    result = await db.execute(
-        select(User.id, User.first_name, User.last_name).where(User.id.in_(user_ids))
-    )
+    result = await db.execute(select(User.id, User.first_name, User.last_name).where(User.id.in_(user_ids)))
     return {r.id: f"{r.first_name} {r.last_name}".strip() for r in result.all()}
 
 
@@ -88,18 +85,31 @@ async def _can_access_ticket(
 
 
 async def _log_status_change(
-    db: AsyncSession, ticket_id: UUID, old_status: str | None, new_status: str,
-    changed_by: UUID, note: str | None = None,
+    db: AsyncSession,
+    ticket_id: UUID,
+    old_status: str | None,
+    new_status: str,
+    changed_by: UUID,
+    note: str | None = None,
 ):
-    db.add(TicketStatusHistory(
-        ticket_id=ticket_id, old_status=old_status, new_status=new_status,
-        changed_by=changed_by, note=note,
-    ))
+    db.add(
+        TicketStatusHistory(
+            ticket_id=ticket_id,
+            old_status=old_status,
+            new_status=new_status,
+            changed_by=changed_by,
+            note=note,
+        )
+    )
 
 
 async def _notify_ticket_event(
-    db: AsyncSession, event: str, ticket: SupportTicket,
-    entity_id: UUID, actor_id: UUID, extra: dict | None = None,
+    db: AsyncSession,
+    event: str,
+    ticket: SupportTicket,
+    entity_id: UUID,
+    actor_id: UUID,
+    extra: dict | None = None,
 ):
     """Send in-app notification for ticket events."""
     try:
@@ -109,29 +119,33 @@ async def _notify_ticket_event(
 
         if event == "created":
             # Notify all support admins
-            admins = await db.execute(
-                select(User.id).join(User.group_members).where(User.active == True)
-            )
+            admins = await db.execute(select(User.id).join(User.group_members).where(User.active == True))
             # Simple approach: notify all active users with support.ticket.manage permission
             # For now, just log — full event bus integration in Phase 2
             logger.info("Ticket %s created by user %s", ticket.reference, actor_id)
 
         elif event == "resolved":
             await send_in_app(
-                db, user_id=ticket.reporter_id, entity_id=entity_id,
+                db,
+                user_id=ticket.reporter_id,
+                entity_id=entity_id,
                 title=f"Ticket {ticket.reference} résolu",
                 body=ticket.resolution_notes or "Votre ticket a été résolu.",
-                category="success", link=link,
+                category="success",
+                link=link,
                 event_type="ticket.resolved",
             )
 
         elif event == "assigned":
             if ticket.assignee_id:
                 await send_in_app(
-                    db, user_id=ticket.assignee_id, entity_id=entity_id,
+                    db,
+                    user_id=ticket.assignee_id,
+                    entity_id=entity_id,
                     title=f"Ticket {ticket.reference} assigné",
                     body=f"Le ticket « {ticket.title} » vous a été assigné.",
-                    category="info", link=link,
+                    category="info",
+                    link=link,
                     event_type="ticket.assigned",
                 )
 
@@ -143,24 +157,31 @@ async def _notify_ticket_event(
             recipients.discard(actor_id)
             if recipients:
                 await send_in_app_bulk(
-                    db, user_ids=list(recipients), entity_id=entity_id,
+                    db,
+                    user_ids=list(recipients),
+                    entity_id=entity_id,
                     title=f"Nouveau commentaire sur {ticket.reference}",
                     body=f"Un commentaire a été ajouté au ticket « {ticket.title} ».",
-                    category="info", link=link,
+                    category="info",
+                    link=link,
                     event_type="ticket.commented",
                 )
                 # Send email notification to reporter when admin comments
                 from app.core.email_templates import render_and_send_email
+
                 for uid in recipients:
                     user = await db.get(User, uid)
                     if user and user.email:
                         await render_and_send_email(
-                            db, slug="ticket_comment", entity_id=entity_id,
-                            language=user.language or "fr", to=user.email,
+                            db,
+                            slug="ticket_comment",
+                            entity_id=entity_id,
+                            language=user.language or "fr",
+                            to=user.email,
                             variables={
                                 "reference": ticket.reference,
                                 "title": ticket.title,
-                                "link": f"https://app.opsflux.io/support",
+                                "link": "https://app.opsflux.io/support",
                             },
                         )
     except Exception:
@@ -211,7 +232,9 @@ async def list_tickets(
     if search:
         like = f"%{search}%"
         query = query.where(
-            SupportTicket.title.ilike(like) | SupportTicket.reference.ilike(like) | SupportTicket.description.ilike(like)
+            SupportTicket.title.ilike(like)
+            | SupportTicket.reference.ilike(like)
+            | SupportTicket.description.ilike(like)
         )
 
     # Count
@@ -272,10 +295,15 @@ async def create_ticket(
     await db.flush()  # flush to get ticket.id before adding status history
 
     # Initial status history
-    db.add(TicketStatusHistory(
-        ticket_id=ticket.id, old_status=None, new_status="open",
-        changed_by=acting_user_id, note="Ticket créé",
-    ))
+    db.add(
+        TicketStatusHistory(
+            ticket_id=ticket.id,
+            old_status=None,
+            new_status="open",
+            changed_by=acting_user_id,
+            note="Ticket créé",
+        )
+    )
 
     await db.commit()
     await db.refresh(ticket, ["comments"])
@@ -387,7 +415,8 @@ async def delete_ticket(
     """Soft-delete (archive) a ticket."""
     result = await db.execute(
         select(SupportTicket).where(
-            SupportTicket.id == ticket_id, SupportTicket.entity_id == entity_id,
+            SupportTicket.id == ticket_id,
+            SupportTicket.entity_id == entity_id,
             SupportTicket.archived == False,
         )
     )
@@ -464,9 +493,7 @@ async def resolve_ticket(
 
     # Re-fetch with comments eagerly loaded to avoid MissingGreenlet
     refreshed = await db.execute(
-        select(SupportTicket)
-        .options(selectinload(SupportTicket.comments))
-        .where(SupportTicket.id == ticket_id)
+        select(SupportTicket).options(selectinload(SupportTicket.comments)).where(SupportTicket.id == ticket_id)
     )
     ticket = refreshed.scalar_one()
 
@@ -479,13 +506,21 @@ async def resolve_ticket(
     # Send email notification to reporter
     try:
         from app.core.email_templates import render_and_send_email
+
         reporter = await db.get(User, ticket.reporter_id)
         if reporter:
             await render_and_send_email(
-                db, slug="ticket_resolved", entity_id=entity_id,
-                language=reporter.language or "fr", to=reporter.email,
+                db,
+                slug="ticket_resolved",
+                entity_id=entity_id,
+                language=reporter.language or "fr",
+                to=reporter.email,
                 variables={
-                    "ticket": {"reference": ticket.reference, "title": ticket.title, "resolution_notes": ticket.resolution_notes or ""},
+                    "ticket": {
+                        "reference": ticket.reference,
+                        "title": ticket.title,
+                        "resolution_notes": ticket.resolution_notes or "",
+                    },
                     "user": {"first_name": reporter.first_name},
                 },
             )
@@ -580,7 +615,8 @@ async def list_comments(
     # Verify ticket access
     ticket = await db.execute(
         select(SupportTicket).where(
-            SupportTicket.id == ticket_id, SupportTicket.entity_id == entity_id,
+            SupportTicket.id == ticket_id,
+            SupportTicket.entity_id == entity_id,
         )
     )
     t = ticket.scalar_one_or_none()
@@ -611,9 +647,13 @@ async def list_comments(
 
     return [
         CommentRead(
-            id=c.id, ticket_id=c.ticket_id, author_id=c.author_id,
-            body=c.body, is_internal=c.is_internal,
-            created_at=c.created_at, updated_at=c.updated_at,
+            id=c.id,
+            ticket_id=c.ticket_id,
+            author_id=c.author_id,
+            body=c.body,
+            is_internal=c.is_internal,
+            created_at=c.created_at,
+            updated_at=c.updated_at,
             author_name=umap.get(c.author_id),
         )
         for c in comments
@@ -634,7 +674,8 @@ async def add_comment(
     acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
     ticket = await db.execute(
         select(SupportTicket).where(
-            SupportTicket.id == ticket_id, SupportTicket.entity_id == entity_id,
+            SupportTicket.id == ticket_id,
+            SupportTicket.entity_id == entity_id,
         )
     )
     t = ticket.scalar_one_or_none()
@@ -670,10 +711,14 @@ async def add_comment(
     await _notify_ticket_event(db, "commented", t, entity_id, acting_user_id)
 
     return CommentRead(
-        id=comment.id, ticket_id=comment.ticket_id, author_id=comment.author_id,
-        body=comment.body, is_internal=comment.is_internal,
+        id=comment.id,
+        ticket_id=comment.ticket_id,
+        author_id=comment.author_id,
+        body=comment.body,
+        is_internal=comment.is_internal,
         attachment_ids=comment.attachment_ids,
-        created_at=comment.created_at, updated_at=comment.updated_at,
+        created_at=comment.created_at,
+        updated_at=comment.updated_at,
         author_name=umap.get(acting_user_id),
     )
 
@@ -704,9 +749,13 @@ async def get_status_history(
 
     return [
         StatusHistoryRead(
-            id=e.id, ticket_id=e.ticket_id, old_status=e.old_status,
-            new_status=e.new_status, changed_by=e.changed_by,
-            note=e.note, created_at=e.created_at,
+            id=e.id,
+            ticket_id=e.ticket_id,
+            old_status=e.old_status,
+            new_status=e.new_status,
+            changed_by=e.changed_by,
+            note=e.note,
+            created_at=e.created_at,
             changed_by_name=umap.get(e.changed_by),
         )
         for e in entries
@@ -727,7 +776,8 @@ async def get_ticket_stats(
 ):
     """Get ticket statistics for the entity."""
     base = select(SupportTicket).where(
-        SupportTicket.entity_id == entity_id, SupportTicket.archived == False,
+        SupportTicket.entity_id == entity_id,
+        SupportTicket.archived == False,
     )
 
     # Total
@@ -736,12 +786,15 @@ async def get_ticket_stats(
     # By status
     status_counts = {}
     for st in ("open", "in_progress", "waiting_info", "resolved", "closed", "rejected"):
-        c = (await db.execute(
-            select(func.count()).where(
-                SupportTicket.entity_id == entity_id, SupportTicket.archived == False,
-                SupportTicket.status == st,
+        c = (
+            await db.execute(
+                select(func.count()).where(
+                    SupportTicket.entity_id == entity_id,
+                    SupportTicket.archived == False,
+                    SupportTicket.status == st,
+                )
             )
-        )).scalar() or 0
+        ).scalar() or 0
         status_counts[st] = c
 
     # By type
@@ -762,8 +815,7 @@ async def get_ticket_stats(
 
     # Avg resolution time
     avg_result = await db.execute(
-        select(func.avg(func.extract("epoch", SupportTicket.resolved_at - SupportTicket.created_at) / 3600))
-        .where(
+        select(func.avg(func.extract("epoch", SupportTicket.resolved_at - SupportTicket.created_at) / 3600)).where(
             SupportTicket.entity_id == entity_id,
             SupportTicket.resolved_at.isnot(None),
         )
@@ -772,13 +824,16 @@ async def get_ticket_stats(
 
     # Resolved this week
     from datetime import timedelta
+
     week_ago = datetime.now(UTC) - timedelta(days=7)
-    resolved_week = (await db.execute(
-        select(func.count()).where(
-            SupportTicket.entity_id == entity_id,
-            SupportTicket.resolved_at >= week_ago,
+    resolved_week = (
+        await db.execute(
+            select(func.count()).where(
+                SupportTicket.entity_id == entity_id,
+                SupportTicket.resolved_at >= week_ago,
+            )
         )
-    )).scalar() or 0
+    ).scalar() or 0
 
     return TicketStats(
         total=total,
@@ -808,9 +863,7 @@ async def list_ticket_todos(
 ):
     """List all todo items for a ticket."""
     result = await db.execute(
-        select(TicketTodo)
-        .where(TicketTodo.ticket_id == ticket_id)
-        .order_by(TicketTodo.order, TicketTodo.created_at)
+        select(TicketTodo).where(TicketTodo.ticket_id == ticket_id).order_by(TicketTodo.order, TicketTodo.created_at)
     )
     return [TodoRead.model_validate(t) for t in result.scalars().all()]
 

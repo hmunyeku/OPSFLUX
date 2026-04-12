@@ -142,17 +142,19 @@ async def compute_cpm(db: AsyncSession, project_id: UUID) -> dict:
         is_critical = slack == 0 and not has_cycles
         if is_critical:
             critical_ids.append(tid)
-        task_infos.append({
-            "id": tid,
-            "title": t.title,
-            "early_start": early_start[tid],
-            "early_finish": early_finish[tid],
-            "late_start": late_start[tid],
-            "late_finish": late_finish[tid],
-            "slack": slack,
-            "is_critical": is_critical,
-            "duration_days": durations[tid],
-        })
+        task_infos.append(
+            {
+                "id": tid,
+                "title": t.title,
+                "early_start": early_start[tid],
+                "early_finish": early_finish[tid],
+                "late_start": late_start[tid],
+                "late_finish": late_finish[tid],
+                "slack": slack,
+                "is_critical": is_critical,
+                "duration_days": durations[tid],
+            }
+        )
 
     return {
         "project_duration_days": project_duration,

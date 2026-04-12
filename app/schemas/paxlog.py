@@ -11,13 +11,14 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.common import OpsFluxSchema
 
-
 # ══════════════════════════════════════════════════════════════════════════════
 # PAX PROFILES (virtual view over User / TierContact)
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class PaxProfileRead(OpsFluxSchema):
     """Unified read DTO for a PAX — backed by either User or TierContact."""
+
     id: UUID
     pax_source: str  # "user" | "contact"
     entity_id: UUID
@@ -42,6 +43,7 @@ class PaxProfileRead(OpsFluxSchema):
 
 class PaxProfileSummary(OpsFluxSchema):
     """Lightweight PAX summary for lists and pickers."""
+
     id: UUID
     pax_source: str  # "user" | "contact"
     entity_id: UUID | None = None
@@ -57,6 +59,7 @@ class PaxProfileSummary(OpsFluxSchema):
 
 class PaxProfileUpdate(BaseModel):
     """Update PAX-specific fields on a User or TierContact."""
+
     birth_date: date | None = None
     nationality: str | None = None
     badge_number: str | None = None
@@ -85,6 +88,7 @@ class PaxSitePresenceRead(OpsFluxSchema):
 # CREDENTIAL TYPES
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class CredentialTypeCreate(BaseModel):
     code: str = Field(min_length=1, max_length=50)
     name: str = Field(min_length=1, max_length=200)
@@ -111,6 +115,7 @@ class CredentialTypeRead(OpsFluxSchema):
 # ══════════════════════════════════════════════════════════════════════════════
 # PAX CREDENTIALS
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class PaxCredentialCreate(BaseModel):
     credential_type_id: UUID
@@ -145,6 +150,7 @@ class PaxCredentialRead(OpsFluxSchema):
 # ══════════════════════════════════════════════════════════════════════════════
 # COMPLIANCE MATRIX
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class ComplianceMatrixCreate(BaseModel):
     asset_id: UUID
@@ -201,8 +207,10 @@ class ComplianceCheckResult(BaseModel):
 # AVIS DE SÉJOUR (AdS)
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class AdsPaxEntry(BaseModel):
     """Identifies a PAX by user_id or contact_id (exactly one)."""
+
     user_id: UUID | None = None
     contact_id: UUID | None = None
 
@@ -212,9 +220,7 @@ class AdsCreate(BaseModel):
     requester_id: UUID | None = None
     site_entry_asset_id: UUID
     visit_purpose: str = Field(min_length=1)
-    visit_category: str = Field(
-        pattern=r"^(project_work|maintenance|inspection|visit|permanent_ops|other)$"
-    )
+    visit_category: str = Field(pattern=r"^(project_work|maintenance|inspection|visit|permanent_ops|other)$")
     start_date: date
     end_date: date
     pax_entries: list[AdsPaxEntry] = []
@@ -239,8 +245,7 @@ class AdsCreate(BaseModel):
         # le pax sur plusieurs jours.
         if self.is_round_trip_no_overnight and self.end_date != self.start_date:
             raise ValueError(
-                "Pour une ADS aller-retour sans nuitée, la date de fin "
-                "doit être identique à la date de début."
+                "Pour une ADS aller-retour sans nuitée, la date de fin doit être identique à la date de début."
             )
         if self.end_date < self.start_date:
             raise ValueError("end_date doit être >= start_date")
@@ -706,6 +711,7 @@ class AdsImputationSuggestionRead(BaseModel):
 # PAX INCIDENTS
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class PaxIncidentCreate(BaseModel):
     user_id: UUID | None = None
     contact_id: UUID | None = None
@@ -798,6 +804,7 @@ class RotationCycleRead(OpsFluxSchema):
 # ══════════════════════════════════════════════════════════════════════════════
 # AVIS DE MISSION (AVM)
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class MissionProgramCreate(BaseModel):
     activity_description: str = Field(min_length=1)

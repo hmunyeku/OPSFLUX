@@ -26,7 +26,6 @@ import base64
 import io
 import logging
 import re
-from datetime import UTC, datetime
 from html.parser import HTMLParser
 from uuid import UUID
 
@@ -48,6 +47,7 @@ _jinja_env = Environment(
 
 
 # ── QR code helper ───────────────────────────────────────────────────────
+
 
 def generate_qr_base64(data: str, box_size: int = 6, border: int = 2) -> str:
     """Generate a QR code PNG encoded as a base64 data URI.
@@ -131,18 +131,56 @@ class _TemplateHtmlValidator(HTMLParser):
         self._stack: list[str] = []
 
     def handle_starttag(self, tag: str, attrs) -> None:
-        if tag not in {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}:
+        if tag not in {
+            "area",
+            "base",
+            "br",
+            "col",
+            "embed",
+            "hr",
+            "img",
+            "input",
+            "link",
+            "meta",
+            "param",
+            "source",
+            "track",
+            "wbr",
+        }:
             self._stack.append(tag)
 
     def handle_endtag(self, tag: str) -> None:
-        if tag in {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}:
+        if tag in {
+            "area",
+            "base",
+            "br",
+            "col",
+            "embed",
+            "hr",
+            "img",
+            "input",
+            "link",
+            "meta",
+            "param",
+            "source",
+            "track",
+            "wbr",
+        }:
             return
         if not self._stack:
-            self.issues.append({"level": "error", "area": "html", "message": f"Balise de fermeture inattendue </{tag}>."})
+            self.issues.append(
+                {"level": "error", "area": "html", "message": f"Balise de fermeture inattendue </{tag}>."}
+            )
             return
         expected = self._stack.pop()
         if expected != tag:
-            self.issues.append({"level": "error", "area": "html", "message": f"Balises mal imbriquees: attendu </{expected}> mais trouve </{tag}>."})
+            self.issues.append(
+                {
+                    "level": "error",
+                    "area": "html",
+                    "message": f"Balises mal imbriquees: attendu </{expected}> mais trouve </{tag}>.",
+                }
+            )
 
     def close(self) -> None:
         super().close()
@@ -175,7 +213,13 @@ def validate_pdf_template_source(
             ast = _jinja_env.parse(source)
             referenced.update(meta.find_undeclared_variables(ast))
         except TemplateSyntaxError as exc:
-            issues.append({"level": "error", "area": area, "message": f"Syntaxe template invalide: {exc.message} (ligne {exc.lineno})."})
+            issues.append(
+                {
+                    "level": "error",
+                    "area": area,
+                    "message": f"Syntaxe template invalide: {exc.message} (ligne {exc.lineno}).",
+                }
+            )
             continue
         except Exception as exc:
             issues.append({"level": "error", "area": area, "message": f"Template invalide: {exc}."})
@@ -192,19 +236,26 @@ def validate_pdf_template_source(
         style_blocks = re.findall(r"<style[^>]*>(.*?)</style>", source, flags=re.IGNORECASE | re.DOTALL)
         for css in style_blocks:
             if css.count("{") != css.count("}"):
-                issues.append({"level": "error", "area": "css", "message": f"Accolades CSS non equilibrees dans {area}."})
+                issues.append(
+                    {"level": "error", "area": "css", "message": f"Accolades CSS non equilibrees dans {area}."}
+                )
             if css.count("(") != css.count(")"):
-                issues.append({"level": "warning", "area": "css", "message": f"Parentheses CSS non equilibrees dans {area}."})
+                issues.append(
+                    {"level": "warning", "area": "css", "message": f"Parentheses CSS non equilibrees dans {area}."}
+                )
 
     helper_names = set(TEMPLATE_GLOBAL_HELPERS.keys())
     unknown = sorted(
-        var_name for var_name in referenced
+        var_name
+        for var_name in referenced
         if var_name not in helper_names
         and var_name not in declared
         and not any(declared_name.startswith(f"{var_name}.") for declared_name in declared)
     )
     for var_name in unknown:
-        issues.append({"level": "warning", "area": "variables", "message": f"Variable non declaree dans le schema: {var_name}."})
+        issues.append(
+            {"level": "warning", "area": "variables", "message": f"Variable non declaree dans le schema: {var_name}."}
+        )
 
     return {
         "valid": not any(issue["level"] == "error" for issue in issues),
@@ -215,10 +266,7 @@ def validate_pdf_template_source(
 
 
 def _build_invalid_template_html(*, title: str, issues: list[dict[str, str]]) -> str:
-    items = "".join(
-        f"<li><strong>{issue['area']}</strong> - {issue['message']}</li>"
-        for issue in issues
-    )
+    items = "".join(f"<li><strong>{issue['area']}</strong> - {issue['message']}</li>" for issue in issues)
     return f"""<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -237,7 +285,7 @@ def _build_invalid_template_html(*, title: str, issues: list[dict[str, str]]) ->
     <h1>{title}</h1>
     <p>Le modele PDF publie contient des erreurs bloquantes. Le document d'origine n'a pas ete execute comme template libre.</p>
     <p>Diagnostics:</p>
-    <ul>{items or '<li>Aucun detail disponible.</li>'}</ul>
+    <ul>{items or "<li>Aucun detail disponible.</li>"}</ul>
   </div>
 </body>
 </html>"""
@@ -390,8 +438,8 @@ def _build_pdf_document_html(
   </style>
 </head>
 <body>
-  {f'<div class="pdf-header">{header_html}</div>' if has_header else ''}
-  {f'<div class="pdf-footer">{footer_html}</div>' if has_footer else ''}
+  {f'<div class="pdf-header">{header_html}</div>' if has_header else ""}
+  {f'<div class="pdf-footer">{footer_html}</div>' if has_footer else ""}
   <main class="pdf-shell">
     <div class="pdf-body">{body_html}</div>
   </main>
@@ -407,7 +455,7 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
         "slug": "ads.ticket",
         "name": "ADS Ticket / Boarding Pass",
         "description": "Travel ticket for AdS (Avis de séjour). "
-                       "Used as boarding pass for helicopter, boat, or vehicle transport.",
+        "Used as boarding pass for helicopter, boat, or vehicle transport.",
         "object_type": "ads",
         "page_size": "A5",
         "orientation": "landscape",
@@ -450,8 +498,7 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
     {
         "slug": "ads.manifest",
         "name": "ADS Passenger Manifest",
-        "description": "Full manifest of passengers for an ADS voyage. "
-                       "Designed for A4 portrait printing.",
+        "description": "Full manifest of passengers for an ADS voyage. Designed for A4 portrait printing.",
         "object_type": "ads",
         "page_size": "A4",
         "orientation": "portrait",
@@ -2567,16 +2614,12 @@ _PLANNER_GANTT_EXPORT_BODY_FR = """\
 
 # English template — keep in sync with the FR one above. Only the header
 # labels and the empty-state copy differ.
-_PLANNER_GANTT_EXPORT_BODY_EN = _PLANNER_GANTT_EXPORT_BODY_FR.replace(
-    'lang="fr"', 'lang="en"'
-).replace(
-    '<dt>Période</dt>', '<dt>Range</dt>'
-).replace(
-    '<dt>Échelle</dt>', '<dt>Scale</dt>'
-).replace(
-    '<dt>Par</dt>', '<dt>By</dt>'
-).replace(
-    'Aucune donnée Gantt à exporter.', 'No Gantt data to export.'
+_PLANNER_GANTT_EXPORT_BODY_EN = (
+    _PLANNER_GANTT_EXPORT_BODY_FR.replace('lang="fr"', 'lang="en"')
+    .replace("<dt>Période</dt>", "<dt>Range</dt>")
+    .replace("<dt>Échelle</dt>", "<dt>Scale</dt>")
+    .replace("<dt>Par</dt>", "<dt>By</dt>")
+    .replace("Aucune donnée Gantt à exporter.", "No Gantt data to export.")
 )
 
 DEFAULT_PDF_TEMPLATES[9]["default_versions"]["fr"]["body_html"] = _PLANNER_GANTT_EXPORT_BODY_FR
@@ -2584,6 +2627,7 @@ DEFAULT_PDF_TEMPLATES[9]["default_versions"]["en"]["body_html"] = _PLANNER_GANTT
 
 
 # ── Rendering helpers ────────────────────────────────────────────────────
+
 
 def render_template_string(template_str: str, variables: dict) -> str:
     """Render a Jinja2 template string with the given variables."""
@@ -2609,6 +2653,7 @@ PAGE_SIZES = {
 
 
 # ── Core resolve & render functions ──────────────────────────────────────
+
 
 async def resolve_pdf_template_version(
     db: AsyncSession,
@@ -2681,23 +2726,28 @@ async def render_pdf(
     Uses WeasyPrint to convert rendered HTML to PDF.
     """
     html = await render_pdf_preview(
-        db, slug=slug, entity_id=entity_id, language=language, variables=variables,
+        db,
+        slug=slug,
+        entity_id=entity_id,
+        language=language,
+        variables=variables,
     )
     if html is None:
         return None
 
     # Get template for page settings
     version = await resolve_pdf_template_version(
-        db, slug=slug, entity_id=entity_id, language=language,
+        db,
+        slug=slug,
+        entity_id=entity_id,
+        language=language,
     )
     if not version:
         return None
 
     template = None
     # Re-fetch template for page settings
-    result = await db.execute(
-        select(PdfTemplate).where(PdfTemplate.id == version.template_id)
-    )
+    result = await db.execute(select(PdfTemplate).where(PdfTemplate.id == version.template_id))
     template = result.scalar_one_or_none()
 
     return _html_to_pdf(html, template)
@@ -2708,7 +2758,7 @@ def _html_to_pdf(html: str, template: "PdfTemplate | None" = None) -> bytes:
     _VALID_SIZES = {"A3", "A4", "A5", "A6", "Letter", "Legal"}
     _VALID_ORIENT = {"portrait", "landscape"}
     try:
-        from weasyprint import HTML, CSS
+        from weasyprint import CSS, HTML
 
         # Build @page CSS from template settings with validation
         page_css = "@page {"
@@ -2730,9 +2780,7 @@ def _html_to_pdf(html: str, template: "PdfTemplate | None" = None) -> bytes:
         pdf_bytes = html_doc.write_pdf(stylesheets=[css])
         return pdf_bytes
     except ImportError:
-        logger.error(
-            "weasyprint is not installed. Install with: pip install weasyprint"
-        )
+        logger.error("weasyprint is not installed. Install with: pip install weasyprint")
         raise RuntimeError("weasyprint is required for PDF generation but is not installed")
 
 
@@ -2758,7 +2806,10 @@ async def render_pdf_preview(
     template_candidates = template_result.scalars().all()
 
     version = await resolve_pdf_template_version(
-        db, slug=slug, entity_id=entity_id, language=language,
+        db,
+        slug=slug,
+        entity_id=entity_id,
+        language=language,
     )
     if not version:
         logger.info("PDF template '%s' not found or disabled for entity %s", slug, entity_id)
@@ -2908,8 +2959,7 @@ async def is_pdf_template_available(
 ) -> bool:
     """Check if a PDF template is configured and has a published version."""
     result = await db.execute(
-        select(PdfTemplate.id)
-        .where(
+        select(PdfTemplate.id).where(
             PdfTemplate.slug == slug,
             PdfTemplate.entity_id == entity_id,
             PdfTemplate.enabled == True,  # noqa: E712

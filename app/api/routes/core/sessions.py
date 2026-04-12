@@ -1,19 +1,19 @@
 """Session routes — list, revoke, revoke-all user sessions."""
 
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user
 from app.core.audit import record_audit
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import decode_token
-from app.core.config import settings
 from app.models.common import User, UserSession
 from app.schemas.common import SessionRead
 

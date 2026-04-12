@@ -108,9 +108,7 @@ async def list_numbering_patterns(
     Returns every ``reference_template:*`` setting. Prefixes without a
     custom template are not listed (they use the global default).
     """
-    result = await db.execute(
-        select(Setting).where(Setting.key.like("reference_template:%"))
-    )
+    result = await db.execute(select(Setting).where(Setting.key.like("reference_template:%")))
     settings = result.scalars().all()
 
     patterns = []
@@ -278,9 +276,7 @@ async def delete_external_reference(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete an external reference by ID."""
-    result = await db.execute(
-        select(ExternalReference).where(ExternalReference.id == id)
-    )
+    result = await db.execute(select(ExternalReference).where(ExternalReference.id == id))
     ext_ref = result.scalar_one_or_none()
     if not ext_ref:
         raise HTTPException(status_code=404, detail="External reference not found")

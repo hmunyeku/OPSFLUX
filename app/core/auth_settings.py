@@ -26,25 +26,25 @@ CACHE_TTL = 60  # seconds
 
 # Mapping: short key → (env attr name, type, default)
 _DEFAULTS: dict[str, tuple[str, type, Any]] = {
-    "password_min_length":       ("AUTH_PASSWORD_MIN_LENGTH", int, 12),
-    "password_require_special":  ("AUTH_PASSWORD_REQUIRE_SPECIAL", bool, True),
-    "password_require_uppercase":("AUTH_PASSWORD_REQUIRE_UPPERCASE", bool, True),
-    "password_require_digit":    ("AUTH_PASSWORD_REQUIRE_DIGIT", bool, True),
-    "max_failed_attempts":       ("AUTH_MAX_FAILED_ATTEMPTS", int, 5),
-    "lockout_duration_min":      ("AUTH_LOCKOUT_DURATION_MIN", int, 15),
-    "rate_limit_per_ip":         ("AUTH_LOGIN_RATE_LIMIT_PER_IP", int, 10),
-    "rate_limit_per_email":      ("AUTH_LOGIN_RATE_LIMIT_PER_EMAIL", int, 5),
-    "captcha_enabled":           ("AUTH_CAPTCHA_ENABLED", bool, False),
-    "captcha_provider":          ("AUTH_CAPTCHA_PROVIDER", str, "turnstile"),
-    "captcha_site_key":          ("AUTH_CAPTCHA_SITE_KEY", str, ""),
-    "captcha_secret_key":        ("AUTH_CAPTCHA_SECRET_KEY", str, ""),
-    "suspicious_login_notify":   ("AUTH_SUSPICIOUS_LOGIN_NOTIFY", bool, True),
+    "password_min_length": ("AUTH_PASSWORD_MIN_LENGTH", int, 12),
+    "password_require_special": ("AUTH_PASSWORD_REQUIRE_SPECIAL", bool, True),
+    "password_require_uppercase": ("AUTH_PASSWORD_REQUIRE_UPPERCASE", bool, True),
+    "password_require_digit": ("AUTH_PASSWORD_REQUIRE_DIGIT", bool, True),
+    "max_failed_attempts": ("AUTH_MAX_FAILED_ATTEMPTS", int, 5),
+    "lockout_duration_min": ("AUTH_LOCKOUT_DURATION_MIN", int, 15),
+    "rate_limit_per_ip": ("AUTH_LOGIN_RATE_LIMIT_PER_IP", int, 10),
+    "rate_limit_per_email": ("AUTH_LOGIN_RATE_LIMIT_PER_EMAIL", int, 5),
+    "captcha_enabled": ("AUTH_CAPTCHA_ENABLED", bool, False),
+    "captcha_provider": ("AUTH_CAPTCHA_PROVIDER", str, "turnstile"),
+    "captcha_site_key": ("AUTH_CAPTCHA_SITE_KEY", str, ""),
+    "captcha_secret_key": ("AUTH_CAPTCHA_SECRET_KEY", str, ""),
+    "suspicious_login_notify": ("AUTH_SUSPICIOUS_LOGIN_NOTIFY", bool, True),
     # Compliance: require verified email/phone to be declared compliant
     "require_account_verification": ("CONFORMITE_REQUIRE_ACCOUNT_VERIFICATION", bool, True),
     # Messaging: default channel per message type (auto | whatsapp | sms | email)
-    "messaging_channel_otp":          ("MESSAGING_CHANNEL_OTP", str, "auto"),
+    "messaging_channel_otp": ("MESSAGING_CHANNEL_OTP", str, "auto"),
     "messaging_channel_notification": ("MESSAGING_CHANNEL_NOTIFICATION", str, "auto"),
-    "messaging_channel_alert":        ("MESSAGING_CHANNEL_ALERT", str, "auto"),
+    "messaging_channel_alert": ("MESSAGING_CHANNEL_ALERT", str, "auto"),
 }
 
 # Keys that are allowed to be set via admin API

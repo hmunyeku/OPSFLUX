@@ -25,11 +25,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
-
 # ─── Document Types ─────────────────────────────────────────────────────────
+
 
 class DocType(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     """Type de document — définit nomenclature, discipline, workflow par défaut."""
+
     __tablename__ = "doc_types"
     __table_args__ = (
         UniqueConstraint("entity_id", "code", name="uq_doc_type_entity_code"),
@@ -39,9 +40,7 @@ class DocType(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         ),
     )
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
     code: Mapped[str] = mapped_column(String(50), nullable=False)
     name: Mapped[dict] = mapped_column(JSONB, nullable=False)
     nomenclature_pattern: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -50,28 +49,18 @@ class DocType(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         UUID(as_uuid=True), ForeignKey("templates.id", use_alter=True)
     )
     default_workflow_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True))
-    default_language: Mapped[str] = mapped_column(
-        String(10), nullable=False, default="fr"
-    )
-    revision_scheme: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="alpha"
-    )
+    default_language: Mapped[str] = mapped_column(String(10), nullable=False, default="fr")
+    revision_scheme: Mapped[str] = mapped_column(String(20), nullable=False, default="alpha")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
-    )
+    created_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
 
     # Relationships
-    documents: Mapped[list["Document"]] = relationship(
-        back_populates="doc_type", cascade="all, delete-orphan"
-    )
+    documents: Mapped[list["Document"]] = relationship(back_populates="doc_type", cascade="all, delete-orphan")
     templates: Mapped[list["Template"]] = relationship(
         foreign_keys="Template.doc_type_id",
         back_populates="doc_type",
     )
-    sequences: Mapped[list["DocumentSequence"]] = relationship(
-        back_populates="doc_type", cascade="all, delete-orphan"
-    )
+    sequences: Mapped[list["DocumentSequence"]] = relationship(back_populates="doc_type", cascade="all, delete-orphan")
     distribution_lists: Mapped[list["DistributionList"]] = relationship(
         back_populates="doc_type_filter_rel",
     )
@@ -79,8 +68,10 @@ class DocType(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
 
 # ─── Documents ──────────────────────────────────────────────────────────────
 
+
 class Document(UUIDPrimaryKeyMixin, SoftDeleteMixin, Base):
     """Document — entite centrale du module Papyrus."""
+
     __tablename__ = "documents"
     __table_args__ = (
         UniqueConstraint("entity_id", "number", name="uq_document_entity_number"),
@@ -97,19 +88,11 @@ class Document(UUIDPrimaryKeyMixin, SoftDeleteMixin, Base):
         ),
     )
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
     bu_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True))
-    doc_type_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("doc_types.id"), nullable=False
-    )
-    project_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("projects.id")
-    )
-    arborescence_node_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("arborescence_nodes.id")
-    )
+    doc_type_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("doc_types.id"), nullable=False)
+    project_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id"))
+    arborescence_node_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("arborescence_nodes.id"))
 
     number: Mapped[str] = mapped_column(String(100), nullable=False)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -127,16 +110,10 @@ class Document(UUIDPrimaryKeyMixin, SoftDeleteMixin, Base):
         nullable=True,
     )
 
-    classification: Mapped[str] = mapped_column(
-        String(4), nullable=False, default="INT"
-    )
+    classification: Mapped[str] = mapped_column(String(4), nullable=False, default="INT")
 
-    created_by: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -152,32 +129,26 @@ class Document(UUIDPrimaryKeyMixin, SoftDeleteMixin, Base):
         foreign_keys=[current_revision_id],
         post_update=True,
     )
-    arborescence_node: Mapped["ArborescenceNode | None"] = relationship(
-        back_populates="documents"
-    )
+    arborescence_node: Mapped["ArborescenceNode | None"] = relationship(back_populates="documents")
     signatures: Mapped[list["DocumentSignature"]] = relationship(
         back_populates="document", cascade="all, delete-orphan"
     )
     access_grants: Mapped[list["DocumentAccessGrant"]] = relationship(
         back_populates="document", cascade="all, delete-orphan"
     )
-    share_links: Mapped[list["ShareLink"]] = relationship(
-        back_populates="document", cascade="all, delete-orphan"
-    )
+    share_links: Mapped[list["ShareLink"]] = relationship(back_populates="document", cascade="all, delete-orphan")
 
 
 # ─── Revisions ──────────────────────────────────────────────────────────────
 
+
 class Revision(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Révision de document — immutable une fois verrouillée (is_locked)."""
-    __tablename__ = "revisions"
-    __table_args__ = (
-        Index("idx_revisions_document_created", "document_id", "created_at"),
-    )
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), nullable=False
-    )
+    __tablename__ = "revisions"
+    __table_args__ = (Index("idx_revisions_document_created", "document_id", "created_at"),)
+
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     document_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("documents.id", ondelete="CASCADE"),
@@ -186,25 +157,17 @@ class Revision(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     rev_code: Mapped[str] = mapped_column(String(20), nullable=False)
 
     # Content — BlockNote JSON (ProseMirror)
-    content: Mapped[dict] = mapped_column(
-        JSONB, nullable=False, server_default="{}"
-    )
+    content: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
     # Structured form field data — indexable by AI, exploitable by connectors
-    form_data: Mapped[dict] = mapped_column(
-        JSONB, nullable=False, server_default="{}"
-    )
+    form_data: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
     # Yjs state for real-time collaboration (compressed binary)
     yjs_state: Mapped[bytes | None] = mapped_column(LargeBinary)
 
     word_count: Mapped[int | None] = mapped_column(Integer)
     is_locked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    created_by: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
     document: Mapped["Document"] = relationship(
@@ -218,47 +181,43 @@ class Revision(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Templates ──────────────────────────────────────────────────────────────
 
+
 class Template(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     """Template de document — structure, styles, champs."""
+
     __tablename__ = "templates"
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
-    doc_type_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("doc_types.id")
-    )
+    doc_type_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("doc_types.id"))
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     structure: Mapped[dict] = mapped_column(JSONB, nullable=False)
     styles: Mapped[dict] = mapped_column(JSONB, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_by: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
     doc_type: Mapped["DocType | None"] = relationship(
         foreign_keys=[doc_type_id],
         back_populates="templates",
     )
-    fields: Mapped[list["TemplateField"]] = relationship(
-        back_populates="template", cascade="all, delete-orphan"
-    )
+    fields: Mapped[list["TemplateField"]] = relationship(back_populates="template", cascade="all, delete-orphan")
 
 
 # ─── Template Fields ────────────────────────────────────────────────────────
 
+
 class TemplateField(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Définition d'un champ dans un template — type, label, validation."""
+
     __tablename__ = "template_fields"
     __table_args__ = (
         UniqueConstraint(
-            "template_id", "section_id", "field_key",
+            "template_id",
+            "section_id",
+            "field_key",
             name="uq_template_field_section_key",
         ),
         CheckConstraint(
@@ -279,13 +238,9 @@ class TemplateField(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     label: Mapped[dict] = mapped_column(JSONB, nullable=False)
     is_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_locked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    options: Mapped[dict] = mapped_column(
-        JSONB, nullable=False, server_default="{}"
-    )
+    options: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    validation_rules: Mapped[dict] = mapped_column(
-        JSONB, nullable=False, server_default="{}"
-    )
+    validation_rules: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
 
     # Relationships
     template: Mapped["Template"] = relationship(back_populates="fields")
@@ -293,22 +248,21 @@ class TemplateField(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Document Sequences ─────────────────────────────────────────────────────
 
+
 class DocumentSequence(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Séquence auto-incrémentée pour la nomenclature des documents."""
+
     __tablename__ = "document_sequences"
     __table_args__ = (
         UniqueConstraint(
-            "doc_type_id", "project_id",
+            "doc_type_id",
+            "project_id",
             name="uq_doc_sequence_type_project",
         ),
     )
 
-    doc_type_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("doc_types.id"), nullable=False
-    )
-    project_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False
-    )
+    doc_type_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("doc_types.id"), nullable=False)
+    project_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
     current_value: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # Relationships
@@ -317,30 +271,26 @@ class DocumentSequence(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Arborescence Nodes ─────────────────────────────────────────────────────
 
+
 class ArborescenceNode(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     """Noeud d'arborescence projet — structure arborescente des documents."""
+
     __tablename__ = "arborescence_nodes"
     __table_args__ = (
         Index("idx_arborescence_project", "project_id"),
         Index("idx_arborescence_parent", "parent_id"),
     )
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), nullable=False
-    )
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     project_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
     )
-    parent_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("arborescence_nodes.id")
-    )
+    parent_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("arborescence_nodes.id"))
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     node_level: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     nomenclature_override: Mapped[dict | None] = mapped_column(JSONB)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
     parent: Mapped["ArborescenceNode | None"] = relationship(
@@ -357,27 +307,19 @@ class ArborescenceNode(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Bas
 
 # ─── Distribution Lists ─────────────────────────────────────────────────────
 
+
 class DistributionList(UUIDPrimaryKeyMixin, SoftDeleteMixin, Base):
     """Liste de distribution — envoi automatique à la publication."""
+
     __tablename__ = "distribution_lists"
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    doc_type_filter: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("doc_types.id")
-    )
-    recipients: Mapped[list] = mapped_column(
-        JSONB, nullable=False, server_default="[]"
-    )
+    doc_type_filter: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("doc_types.id"))
+    recipients: Mapped[list] = mapped_column(JSONB, nullable=False, server_default="[]")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -390,27 +332,19 @@ class DistributionList(UUIDPrimaryKeyMixin, SoftDeleteMixin, Base):
 
 # ─── Document Signatures ────────────────────────────────────────────────────
 
+
 class DocumentSignature(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Signature électronique horodatée sur un document validé."""
-    __tablename__ = "document_signatures"
-    __table_args__ = (
-        Index("idx_doc_signatures_document", "document_id"),
-    )
 
-    document_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False
-    )
-    revision_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("revisions.id"), nullable=False
-    )
-    signer_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
+    __tablename__ = "document_signatures"
+    __table_args__ = (Index("idx_doc_signatures_document", "document_id"),)
+
+    document_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False)
+    revision_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("revisions.id"), nullable=False)
+    signer_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     signer_role: Mapped[str] = mapped_column(String(100), nullable=False)
     content_hash: Mapped[str] = mapped_column(String(128), nullable=False)
-    signed_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    signed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
     document: Mapped["Document"] = relationship(back_populates="signatures")
@@ -419,28 +353,23 @@ class DocumentSignature(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Document Access Grants ─────────────────────────────────────────────────
 
+
 class DocumentAccessGrant(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Autorisation d'accès nominative pour documents REST/CONF."""
+
     __tablename__ = "document_access_grants"
     __table_args__ = (
         UniqueConstraint(
-            "document_id", "user_id",
+            "document_id",
+            "user_id",
             name="uq_doc_access_grant_document_user",
         ),
     )
 
-    document_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False
-    )
-    user_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
-    granted_by: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
-    granted_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    document_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False)
+    user_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    granted_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
     document: Mapped["Document"] = relationship(back_populates="access_grants")
@@ -448,34 +377,26 @@ class DocumentAccessGrant(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Share Links ────────────────────────────────────────────────────────────
 
+
 class ShareLink(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Lien de partage temporaire — accès lecture seule sans compte OpsFlux."""
+
     __tablename__ = "share_links"
     __table_args__ = (
         UniqueConstraint("token", name="uq_share_link_token"),
         Index("idx_share_links_token", "token"),
     )
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
-    document_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False
-    )
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    document_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("documents.id"), nullable=False)
     token: Mapped[str] = mapped_column(String(255), nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     otp_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     password_hash: Mapped[str | None] = mapped_column(String(200))
     access_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     max_accesses: Mapped[int | None] = mapped_column(Integer)
-    created_by: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
     document: Mapped["Document"] = relationship(back_populates="share_links")

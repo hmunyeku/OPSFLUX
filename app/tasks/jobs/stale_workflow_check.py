@@ -59,9 +59,7 @@ async def check_stale_workflows() -> None:
                 logger.debug("stale_workflow_check: no stale workflows found")
                 return
 
-            logger.info(
-                "stale_workflow_check: found %d stale workflow instances", len(rows)
-            )
+            logger.info("stale_workflow_check: found %d stale workflow instances", len(rows))
 
             from app.core.notifications import send_in_app
 
@@ -104,9 +102,7 @@ async def check_stale_workflows() -> None:
                 # If no entity_id in metadata, try to look it up from the
                 # referenced entity
                 if not entity_id:
-                    entity_id = await _resolve_entity_id(
-                        db, entity_type, entity_id_ref
-                    )
+                    entity_id = await _resolve_entity_id(db, entity_type, entity_id_ref)
 
                 if not entity_id:
                     logger.debug(
@@ -138,7 +134,8 @@ async def check_stale_workflows() -> None:
                     except Exception:
                         logger.exception(
                             "stale_workflow_check: failed to notify user %s for instance %s",
-                            uid_str, instance_id,
+                            uid_str,
+                            instance_id,
                         )
 
             await db.commit()
@@ -187,6 +184,7 @@ async def _resolve_entity_id(db, entity_type: str, entity_id_ref: str) -> str | 
     except Exception:
         logger.debug(
             "stale_workflow_check: failed to resolve entity_id from %s.%s",
-            table, entity_id_ref,
+            table,
+            entity_id_ref,
         )
         return None

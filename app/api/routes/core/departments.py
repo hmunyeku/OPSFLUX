@@ -9,14 +9,18 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
-from app.services.core.delete_service import delete_entity
 from app.core.pagination import PaginationParams, paginate
 from app.models.common import BusinessUnit, CostCenter, User
 from app.schemas.common import (
+    BusinessUnitCreate,
+    BusinessUnitRead,
+    BusinessUnitUpdate,
+    CostCenterCreate,
+    CostCenterRead,
+    CostCenterUpdate,
     PaginatedResponse,
-    BusinessUnitCreate, BusinessUnitRead, BusinessUnitUpdate,
-    CostCenterCreate, CostCenterRead, CostCenterUpdate,
 )
+from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1", tags=["organization"])
 
@@ -26,12 +30,13 @@ Department = BusinessUnit  # backward compat
 def _enrich_bu(bu: BusinessUnit) -> dict:
     """Enrich a BusinessUnit with manager_name for API response."""
     data = {c.key: getattr(bu, c.key) for c in bu.__table__.columns}
-    manager = getattr(bu, 'manager', None)
-    data['manager_name'] = f"{manager.first_name} {manager.last_name}" if manager else None
+    manager = getattr(bu, "manager", None)
+    data["manager_name"] = f"{manager.first_name} {manager.last_name}" if manager else None
     return data
 
 
 # ── Business Units (aliased as /departments for backward compat) ──
+
 
 @router.get("/business-units", response_model=PaginatedResponse[BusinessUnitRead])
 @router.get("/departments", response_model=PaginatedResponse[BusinessUnitRead], include_in_schema=False)
@@ -84,7 +89,9 @@ async def update_business_unit(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(BusinessUnit).options(selectinload(BusinessUnit.manager)).where(BusinessUnit.id == bu_id, BusinessUnit.entity_id == entity_id)
+        select(BusinessUnit)
+        .options(selectinload(BusinessUnit.manager))
+        .where(BusinessUnit.id == bu_id, BusinessUnit.entity_id == entity_id)
     )
     bu = result.scalar_one_or_none()
     if not bu:
@@ -105,9 +112,7 @@ async def delete_business_unit(
     _: None = require_permission("department.delete"),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(BusinessUnit).where(BusinessUnit.id == bu_id, BusinessUnit.entity_id == entity_id)
-    )
+    result = await db.execute(select(BusinessUnit).where(BusinessUnit.id == bu_id, BusinessUnit.entity_id == entity_id))
     bu = result.scalar_one_or_none()
     if not bu:
         raise HTTPException(status_code=404, detail="Business unit not found")
@@ -116,6 +121,7 @@ async def delete_business_unit(
 
 
 # ── Cost Centers ──
+
 
 @router.get("/cost-centers", response_model=PaginatedResponse[CostCenterRead])
 @router.get("/departments/cost-centers", response_model=PaginatedResponse[CostCenterRead], include_in_schema=False)
@@ -166,9 +172,7 @@ async def update_cost_center(
     _: None = require_permission("cost_center.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(CostCenter).where(CostCenter.id == cc_id, CostCenter.entity_id == entity_id)
-    )
+    result = await db.execute(select(CostCenter).where(CostCenter.id == cc_id, CostCenter.entity_id == entity_id))
     cc = result.scalar_one_or_none()
     if not cc:
         raise HTTPException(status_code=404, detail="Cost center not found")
@@ -188,9 +192,7 @@ async def delete_cost_center(
     _: None = require_permission("cost_center.delete"),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(CostCenter).where(CostCenter.id == cc_id, CostCenter.entity_id == entity_id)
-    )
+    result = await db.execute(select(CostCenter).where(CostCenter.id == cc_id, CostCenter.entity_id == entity_id))
     cc = result.scalar_one_or_none()
     if not cc:
         raise HTTPException(status_code=404, detail="Cost center not found")

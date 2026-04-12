@@ -5,33 +5,10 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_module_enabled, require_permission
-from app.core.database import get_db
-from app.models.common import User
-from app.schemas.common import PaginatedResponse
-from app.core.pagination import PaginationParams
-from app.schemas.packlog import (
-    BackCargoReturnRequest,
-    CargoAttachmentEvidenceRead,
-    CargoAttachmentEvidenceUpdate,
-    CargoCreate,
-    CargoRead,
-    CargoRequestCreate,
-    CargoRequestRead,
-    CargoRequestUpdate,
-    CargoTrackingRead,
-    CargoUpdate,
-    CargoStatusUpdate,
-    CargoWorkflowStatusUpdate,
-    CargoReceiptConfirm,
-    CargoLoadingOptionRead,
-    PackageElementDispositionUpdate,
-    PackageElementReturnUpdate,
-    VoyageCargoTrackingRead,
-)
 from app.api.routes.modules.packlog_shared import (
     add_package_element_impl,
     apply_cargo_request_loading_option_impl,
@@ -59,6 +36,29 @@ from app.api.routes.modules.packlog_shared import (
     update_cargo_workflow_status_impl,
     update_package_element_disposition_impl,
     update_package_element_return_impl,
+)
+from app.core.database import get_db
+from app.core.pagination import PaginationParams
+from app.models.common import User
+from app.schemas.common import PaginatedResponse
+from app.schemas.packlog import (
+    BackCargoReturnRequest,
+    CargoAttachmentEvidenceRead,
+    CargoAttachmentEvidenceUpdate,
+    CargoCreate,
+    CargoLoadingOptionRead,
+    CargoRead,
+    CargoReceiptConfirm,
+    CargoRequestCreate,
+    CargoRequestRead,
+    CargoRequestUpdate,
+    CargoStatusUpdate,
+    CargoTrackingRead,
+    CargoUpdate,
+    CargoWorkflowStatusUpdate,
+    PackageElementDispositionUpdate,
+    PackageElementReturnUpdate,
+    VoyageCargoTrackingRead,
 )
 from app.services.modules.packlog_service import (
     create_packlog_article_catalog_entry,

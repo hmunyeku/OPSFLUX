@@ -3,6 +3,7 @@ User sync providers — fetch users from external identity systems.
 
 Each provider normalizes results to a common format for the Import Wizard.
 """
+
 import logging
 from abc import ABC, abstractmethod
 from typing import Any
@@ -14,11 +15,20 @@ logger = logging.getLogger(__name__)
 
 # ── Common output format ──────────────────────────────────────
 
+
 class NormalizedUser:
     """Standard user record returned by all providers."""
+
     __slots__ = (
-        "external_ref", "email", "first_name", "last_name",
-        "department", "position", "phone", "groups", "active",
+        "external_ref",
+        "email",
+        "first_name",
+        "last_name",
+        "department",
+        "position",
+        "phone",
+        "groups",
+        "active",
     )
 
     def __init__(
@@ -59,6 +69,7 @@ class NormalizedUser:
 
 # ── Abstract provider ─────────────────────────────────────────
 
+
 class UserSyncProvider(ABC):
     """Base class for all user sync providers."""
 
@@ -82,6 +93,7 @@ class UserSyncProvider(ABC):
 
 
 # ── LDAP / Active Directory ───────────────────────────────────
+
 
 class LDAPUserSync(UserSyncProvider):
     provider_id = "ldap"
@@ -117,6 +129,7 @@ class LDAPUserSync(UserSyncProvider):
     async def test_connection(self) -> tuple[str, str]:
         try:
             import ldap3
+
             server = ldap3.Server(self.server_url, get_info=ldap3.ALL)
             conn = ldap3.Connection(server, self.bind_dn, self.bind_password, auto_bind=True)
             conn.unbind()
@@ -142,9 +155,16 @@ class LDAPUserSync(UserSyncProvider):
                 self.base_dn,
                 self.user_search_filter,
                 attributes=[
-                    "distinguishedName", "mail", "givenName", "sn",
-                    "sAMAccountName", "department", "title",
-                    "telephoneNumber", "memberOf", "userAccountControl",
+                    "distinguishedName",
+                    "mail",
+                    "givenName",
+                    "sn",
+                    "sAMAccountName",
+                    "department",
+                    "title",
+                    "telephoneNumber",
+                    "memberOf",
+                    "userAccountControl",
                 ],
             )
 
@@ -165,17 +185,19 @@ class LDAPUserSync(UserSyncProvider):
                     if dn.startswith("CN="):
                         groups.append(dn.split(",")[0][3:])
 
-                users.append(NormalizedUser(
-                    external_ref=f"ldap:{(attrs.get('distinguishedName') or [''])[0]}",
-                    email=email,
-                    first_name=(attrs.get("givenName") or [""])[0],
-                    last_name=(attrs.get("sn") or [""])[0],
-                    department=(attrs.get("department") or [None])[0],
-                    position=(attrs.get("title") or [None])[0],
-                    phone=(attrs.get("telephoneNumber") or [None])[0],
-                    groups=groups,
-                    active=active,
-                ))
+                users.append(
+                    NormalizedUser(
+                        external_ref=f"ldap:{(attrs.get('distinguishedName') or [''])[0]}",
+                        email=email,
+                        first_name=(attrs.get("givenName") or [""])[0],
+                        last_name=(attrs.get("sn") or [""])[0],
+                        department=(attrs.get("department") or [None])[0],
+                        position=(attrs.get("title") or [None])[0],
+                        phone=(attrs.get("telephoneNumber") or [None])[0],
+                        groups=groups,
+                        active=active,
+                    )
+                )
 
             conn.unbind()
         except Exception:
@@ -185,6 +207,7 @@ class LDAPUserSync(UserSyncProvider):
 
 
 # ── Azure AD / Entra ID ───────────────────────────────────────
+
 
 class AzureADUserSync(UserSyncProvider):
     provider_id = "azure_ad"
@@ -206,12 +229,15 @@ class AzureADUserSync(UserSyncProvider):
     async def _get_token(self) -> str:
         url = f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
         async with httpx.AsyncClient() as client:
-            resp = await client.post(url, data={
-                "grant_type": "client_credentials",
-                "client_id": self.client_id,
-                "client_secret": self.client_secret,
-                "scope": "https://graph.microsoft.com/.default",
-            })
+            resp = await client.post(
+                url,
+                data={
+                    "grant_type": "client_credentials",
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "scope": "https://graph.microsoft.com/.default",
+                },
+            )
             resp.raise_for_status()
             return resp.json()["access_token"]
 
@@ -250,16 +276,18 @@ class AzureADUserSync(UserSyncProvider):
                         if not email:
                             continue
                         phones = u.get("businessPhones") or []
-                        users.append(NormalizedUser(
-                            external_ref=f"azure:{u['id']}",
-                            email=email,
-                            first_name=u.get("givenName") or "",
-                            last_name=u.get("surname") or "",
-                            department=u.get("department"),
-                            position=u.get("jobTitle"),
-                            phone=phones[0] if phones else None,
-                            active=u.get("accountEnabled", True),
-                        ))
+                        users.append(
+                            NormalizedUser(
+                                external_ref=f"azure:{u['id']}",
+                                email=email,
+                                first_name=u.get("givenName") or "",
+                                last_name=u.get("surname") or "",
+                                department=u.get("department"),
+                                position=u.get("jobTitle"),
+                                phone=phones[0] if phones else None,
+                                active=u.get("accountEnabled", True),
+                            )
+                        )
 
                     url = data.get("@odata.nextLink")
 
@@ -270,6 +298,7 @@ class AzureADUserSync(UserSyncProvider):
 
 
 # ── GouTi RH ─────────────────────────────────────────────────
+
 
 class GouTiUserSync(UserSyncProvider):
     provider_id = "gouti"
@@ -293,19 +322,25 @@ class GouTiUserSync(UserSyncProvider):
     async def _get_token(self) -> str:
         async with httpx.AsyncClient() as client:
             # Step 1: get auth code
-            resp1 = await client.post(f"{self.base_url}/code", json={
-                "client_id": self.client_id,
-                "callback_url": "https://opsflux.io/callback",
-            })
+            resp1 = await client.post(
+                f"{self.base_url}/code",
+                json={
+                    "client_id": self.client_id,
+                    "callback_url": "https://opsflux.io/callback",
+                },
+            )
             resp1.raise_for_status()
             code = resp1.json().get("authorization_code", resp1.json().get("code", ""))
 
             # Step 2: exchange for token
-            resp2 = await client.post(f"{self.base_url}/token", json={
-                "code": code,
-                "client_id": self.client_id,
-                "secret_client": self.client_secret,
-            })
+            resp2 = await client.post(
+                f"{self.base_url}/token",
+                json={
+                    "code": code,
+                    "client_id": self.client_id,
+                    "secret_client": self.client_secret,
+                },
+            )
             resp2.raise_for_status()
             return resp2.json()["access_token"]
 
@@ -339,16 +374,18 @@ class GouTiUserSync(UserSyncProvider):
                     if not email:
                         continue
                     pid = p.get("id") or p.get("personnel_id") or p.get("matricule") or ""
-                    users.append(NormalizedUser(
-                        external_ref=f"gouti:{pid}",
-                        email=email,
-                        first_name=p.get("prenom") or p.get("first_name") or "",
-                        last_name=p.get("nom") or p.get("last_name") or "",
-                        department=p.get("service") or p.get("department"),
-                        position=p.get("fonction") or p.get("poste") or p.get("position"),
-                        phone=p.get("telephone") or p.get("phone"),
-                        active=p.get("actif", p.get("active", True)),
-                    ))
+                    users.append(
+                        NormalizedUser(
+                            external_ref=f"gouti:{pid}",
+                            email=email,
+                            first_name=p.get("prenom") or p.get("first_name") or "",
+                            last_name=p.get("nom") or p.get("last_name") or "",
+                            department=p.get("service") or p.get("department"),
+                            position=p.get("fonction") or p.get("poste") or p.get("position"),
+                            phone=p.get("telephone") or p.get("phone"),
+                            active=p.get("actif", p.get("active", True)),
+                        )
+                    )
 
         except Exception:
             logger.exception("GouTi user fetch failed")
@@ -357,6 +394,7 @@ class GouTiUserSync(UserSyncProvider):
 
 
 # ── Okta ──────────────────────────────────────────────────────
+
 
 class OktaUserSync(UserSyncProvider):
     provider_id = "okta"
@@ -401,16 +439,18 @@ class OktaUserSync(UserSyncProvider):
                         email = profile.get("email") or profile.get("login") or ""
                         if not email:
                             continue
-                        users.append(NormalizedUser(
-                            external_ref=f"okta:{u['id']}",
-                            email=email,
-                            first_name=profile.get("firstName") or "",
-                            last_name=profile.get("lastName") or "",
-                            department=profile.get("department"),
-                            position=profile.get("title"),
-                            phone=profile.get("primaryPhone"),
-                            active=u.get("status") == "ACTIVE",
-                        ))
+                        users.append(
+                            NormalizedUser(
+                                external_ref=f"okta:{u['id']}",
+                                email=email,
+                                first_name=profile.get("firstName") or "",
+                                last_name=profile.get("lastName") or "",
+                                department=profile.get("department"),
+                                position=profile.get("title"),
+                                phone=profile.get("primaryPhone"),
+                                active=u.get("status") == "ACTIVE",
+                            )
+                        )
 
                     # Okta pagination via Link header
                     url = None
@@ -426,6 +466,7 @@ class OktaUserSync(UserSyncProvider):
 
 
 # ── Keycloak ──────────────────────────────────────────────────
+
 
 class KeycloakUserSync(UserSyncProvider):
     provider_id = "keycloak"
@@ -449,11 +490,14 @@ class KeycloakUserSync(UserSyncProvider):
     async def _get_token(self) -> str:
         url = f"{self.base_url}/realms/{self.realm}/protocol/openid-connect/token"
         async with httpx.AsyncClient() as client:
-            resp = await client.post(url, data={
-                "grant_type": "client_credentials",
-                "client_id": self.client_id,
-                "client_secret": self.client_secret,
-            })
+            resp = await client.post(
+                url,
+                data={
+                    "grant_type": "client_credentials",
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                },
+            )
             resp.raise_for_status()
             return resp.json()["access_token"]
 
@@ -494,13 +538,15 @@ class KeycloakUserSync(UserSyncProvider):
                         email = u.get("email") or ""
                         if not email:
                             continue
-                        users.append(NormalizedUser(
-                            external_ref=f"keycloak:{u['id']}",
-                            email=email,
-                            first_name=u.get("firstName") or "",
-                            last_name=u.get("lastName") or "",
-                            active=u.get("enabled", True),
-                        ))
+                        users.append(
+                            NormalizedUser(
+                                external_ref=f"keycloak:{u['id']}",
+                                email=email,
+                                first_name=u.get("firstName") or "",
+                                last_name=u.get("lastName") or "",
+                                active=u.get("enabled", True),
+                            )
+                        )
 
                     first += batch
 

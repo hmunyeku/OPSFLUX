@@ -12,24 +12,25 @@ import base64
 import hashlib
 import logging
 import secrets
-from dataclasses import dataclass, field as dc_field
+from dataclasses import dataclass
+from dataclasses import field as dc_field
 from datetime import UTC, datetime, timedelta
 from time import time as _now
 from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
-from app.core.database import get_db, async_session_factory
+from app.core.database import async_session_factory, get_db
 from app.core.rbac import get_user_permissions
+from app.mcp.mcp_native import NativeToolContext
 from app.models.common import User
 from app.models.mcp_gateway import McpGatewayBackend, McpGatewayToken
-from app.mcp.mcp_native import NativeToolContext
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +42,18 @@ _PERSONAL_PERMISSION_SCOPE = "__user_permissions__"
 
 _http_client: httpx.AsyncClient | None = None
 
-HOP_BY_HOP = frozenset({
-    "transfer-encoding", "connection", "keep-alive",
-    "te", "trailers", "upgrade",
-    "proxy-authorization", "proxy-authenticate",
-})
+HOP_BY_HOP = frozenset(
+    {
+        "transfer-encoding",
+        "connection",
+        "keep-alive",
+        "te",
+        "trailers",
+        "upgrade",
+        "proxy-authorization",
+        "proxy-authenticate",
+    }
+)
 
 
 def _get_http_client() -> httpx.AsyncClient:
@@ -69,6 +77,7 @@ async def close_http_client():
 # Token helpers
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 def _hash_token(raw: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
@@ -82,6 +91,7 @@ def _get_request_tenant_schema(request: Request) -> str | None:
     if not isinstance(schema, str) or not schema or not schema.isidentifier():
         return None
     return schema
+
 
 async def _verify_mcp_token(
     auth_header: str | None,
@@ -116,9 +126,7 @@ async def _verify_mcp_token(
 
         # Update last_used_at (fire-and-forget)
         await session.execute(
-            update(McpGatewayToken)
-            .where(McpGatewayToken.id == token.id)
-            .values(last_used_at=datetime.now(UTC))
+            update(McpGatewayToken).where(McpGatewayToken.id == token.id).values(last_used_at=datetime.now(UTC))
         )
         await session.commit()
 
@@ -212,6 +220,7 @@ async def _build_authenticated_user_context(
 # Schemas
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class BackendCreate(BaseModel):
     slug: str = Field(max_length=50, pattern=r"^[a-z0-9_-]+$")
     name: str = Field(max_length=200)
@@ -248,10 +257,15 @@ class BackendOut(BaseModel):
     @classmethod
     def from_model(cls, b: "McpGatewayBackend") -> "BackendOut":
         return cls(
-            id=b.id, slug=b.slug, name=b.name, upstream_url=b.upstream_url,
-            description=b.description, active=b.active,
+            id=b.id,
+            slug=b.slug,
+            name=b.name,
+            upstream_url=b.upstream_url,
+            description=b.description,
+            active=b.active,
             has_config=bool(b.config),
-            created_at=b.created_at, updated_at=b.updated_at,
+            created_at=b.created_at,
+            updated_at=b.updated_at,
         )
 
 
@@ -313,6 +327,7 @@ user_router = APIRouter(
 
 # ── Backends CRUD ─────────────────────────────────────────────────────────────
 
+
 @admin_router.get("/backends", response_model=list[BackendOut])
 async def list_backends(
     _: None = require_permission("admin.system"),
@@ -320,9 +335,7 @@ async def list_backends(
 ):
     async with async_session_factory() as pub_session:
         await pub_session.execute(text("SET search_path TO public"))
-        result = await pub_session.execute(
-            select(McpGatewayBackend).order_by(McpGatewayBackend.slug)
-        )
+        result = await pub_session.execute(select(McpGatewayBackend).order_by(McpGatewayBackend.slug))
         return [BackendOut.from_model(b) for b in result.scalars().all()]
 
 
@@ -357,9 +370,7 @@ async def update_backend(
 ):
     async with async_session_factory() as pub_session:
         await pub_session.execute(text("SET search_path TO public"))
-        result = await pub_session.execute(
-            select(McpGatewayBackend).where(McpGatewayBackend.id == backend_id)
-        )
+        result = await pub_session.execute(select(McpGatewayBackend).where(McpGatewayBackend.id == backend_id))
         backend = result.scalar_one_or_none()
         if not backend:
             raise HTTPException(404, "Backend not found")
@@ -378,6 +389,7 @@ async def update_backend(
     # Invalidate cached native backend if config changed
     if config_changed:
         from app.mcp.mcp_native import invalidate_backend
+
         invalidate_backend(backend.slug)
 
     return BackendOut.from_model(backend)
@@ -391,9 +403,7 @@ async def delete_backend(
 ):
     async with async_session_factory() as pub_session:
         await pub_session.execute(text("SET search_path TO public"))
-        result = await pub_session.execute(
-            select(McpGatewayBackend).where(McpGatewayBackend.id == backend_id)
-        )
+        result = await pub_session.execute(select(McpGatewayBackend).where(McpGatewayBackend.id == backend_id))
         backend = result.scalar_one_or_none()
         if not backend:
             raise HTTPException(404, "Backend not found")
@@ -403,10 +413,12 @@ async def delete_backend(
 
     # Clean up cached native backend
     from app.mcp.mcp_native import invalidate_backend
+
     invalidate_backend(slug)
 
 
 # ── Backend tools ─────────────────────────────────────────────────────────────
+
 
 @admin_router.get("/backends/{backend_slug}/tools")
 async def list_backend_tools(
@@ -431,6 +443,7 @@ async def list_backend_tools(
     # Native backend — read tools from in-process registry
     if backend.upstream_url.startswith("internal://"):
         from app.mcp.mcp_native import get_or_create_backend
+
         try:
             native = await get_or_create_backend(backend.slug, backend.config or {})
         except Exception as exc:
@@ -457,6 +470,7 @@ async def list_backend_tools(
 
 # ── Tokens CRUD ───────────────────────────────────────────────────────────────
 
+
 @admin_router.get("/tokens", response_model=list[TokenOut])
 async def list_tokens(
     _: None = require_permission("admin.system"),
@@ -464,9 +478,7 @@ async def list_tokens(
 ):
     async with async_session_factory() as pub_session:
         await pub_session.execute(text("SET search_path TO public"))
-        result = await pub_session.execute(
-            select(McpGatewayToken).order_by(McpGatewayToken.created_at.desc())
-        )
+        result = await pub_session.execute(select(McpGatewayToken).order_by(McpGatewayToken.created_at.desc()))
         tokens = result.scalars().all()
         return [_token_out_from_model(t) for t in tokens]
 
@@ -514,9 +526,7 @@ async def revoke_token(
 ):
     async with async_session_factory() as pub_session:
         await pub_session.execute(text("SET search_path TO public"))
-        result = await pub_session.execute(
-            select(McpGatewayToken).where(McpGatewayToken.id == token_id)
-        )
+        result = await pub_session.execute(select(McpGatewayToken).where(McpGatewayToken.id == token_id))
         token = result.scalar_one_or_none()
         if not token:
             raise HTTPException(404, "Token not found")
@@ -533,9 +543,7 @@ async def delete_token(
 ):
     async with async_session_factory() as pub_session:
         await pub_session.execute(text("SET search_path TO public"))
-        result = await pub_session.execute(
-            select(McpGatewayToken).where(McpGatewayToken.id == token_id)
-        )
+        result = await pub_session.execute(select(McpGatewayToken).where(McpGatewayToken.id == token_id))
         token = result.scalar_one_or_none()
         if not token:
             raise HTTPException(404, "Token not found")
@@ -753,6 +761,7 @@ proxy_router = APIRouter(prefix="/mcp-gw", tags=["mcp-gateway-proxy"])
 #
 # Auth codes are stored in-memory with 120s TTL.
 
+
 @dataclass
 class _AuthCode:
     bearer_token: str
@@ -761,6 +770,7 @@ class _AuthCode:
     redirect_uri: str
     client_id: str
     created_at: float = dc_field(default_factory=_now)
+
 
 _auth_codes: dict[str, _AuthCode] = {}
 _AUTH_CODE_TTL = 120  # seconds
@@ -823,12 +833,14 @@ async def oauth_protected_resource(request: Request):
     It tells the client which authorization server to use.
     """
     base = _get_base_url(request)
-    return JSONResponse({
-        "resource": f"{base}/mcp-gw/gouti",
-        "authorization_servers": [base],
-        "scopes_supported": ["mcp"],
-        "bearer_methods_supported": ["header"],
-    })
+    return JSONResponse(
+        {
+            "resource": f"{base}/mcp-gw/gouti",
+            "authorization_servers": [base],
+            "scopes_supported": ["mcp"],
+            "bearer_methods_supported": ["header"],
+        }
+    )
 
 
 @proxy_router.get("/.well-known/oauth-authorization-server")
@@ -851,16 +863,19 @@ async def oauth_register(request: Request):
     except Exception:
         body = {}
     client_id = body.get("client_id", body.get("client_name", "mcp-client"))
-    return JSONResponse({
-        "client_id": client_id,
-        "client_secret": "",
-        "client_id_issued_at": int(_now()),
-        "redirect_uris": body.get("redirect_uris", []),
-        "grant_types": body.get("grant_types", ["authorization_code"]),
-        "response_types": body.get("response_types", ["code"]),
-        "token_endpoint_auth_method": "none",
-        "scope": body.get("scope", "mcp"),
-    }, status_code=201)
+    return JSONResponse(
+        {
+            "client_id": client_id,
+            "client_secret": "",
+            "client_id_issued_at": int(_now()),
+            "redirect_uris": body.get("redirect_uris", []),
+            "grant_types": body.get("grant_types", ["authorization_code"]),
+            "response_types": body.get("response_types", ["code"]),
+            "token_endpoint_auth_method": "none",
+            "scope": body.get("scope", "mcp"),
+        },
+        status_code=201,
+    )
 
 
 from string import Template as _T
@@ -1015,7 +1030,7 @@ async def oauth_authorize_submit(request: Request):
         return HTMLResponse(html, status_code=400)
 
     if not redirect_uri:
-        return HTMLResponse('<p>Erreur: redirect_uri manquant</p>', status_code=400)
+        return HTMLResponse("<p>Erreur: redirect_uri manquant</p>", status_code=400)
 
     # Generate auth code
     _cleanup_codes()
@@ -1071,11 +1086,13 @@ async def oauth_token(request: Request):
                 status_code=400,
             )
 
-        return JSONResponse({
-            "access_token": auth.bearer_token,
-            "token_type": "bearer",
-            "scope": "mcp",
-        })
+        return JSONResponse(
+            {
+                "access_token": auth.bearer_token,
+                "token_type": "bearer",
+                "scope": "mcp",
+            }
+        )
 
     # ── Client Credentials (fallback) ──
     if grant_type == "client_credentials":
@@ -1091,11 +1108,13 @@ async def oauth_token(request: Request):
                 {"error": "invalid_client", "error_description": "Invalid token"},
                 status_code=401,
             )
-        return JSONResponse({
-            "access_token": client_secret,
-            "token_type": "bearer",
-            "scope": "mcp",
-        })
+        return JSONResponse(
+            {
+                "access_token": client_secret,
+                "token_type": "bearer",
+                "scope": "mcp",
+            }
+        )
 
     return JSONResponse(
         {"error": "unsupported_grant_type"},
@@ -1159,6 +1178,7 @@ async def _proxy_backend_call(backend_slug: str, request: Request, path: str = "
     # 4. Native backend — serve MCP protocol directly (no proxy)
     if backend.upstream_url.startswith("internal://"):
         from app.mcp.mcp_native import get_or_create_backend, handle_mcp_request
+
         try:
             native = await get_or_create_backend(backend.slug, backend.config or {})
         except Exception as exc:
@@ -1212,9 +1232,9 @@ async def _proxy_backend_call(backend_slug: str, request: Request, path: str = "
 
     # 5. Stream response back (handles SSE and JSON)
     response_headers = {
-        k: v for k, v in upstream_resp.headers.items()
-        if k.lower() not in HOP_BY_HOP
-        and k.lower() not in ("content-length", "content-encoding")
+        k: v
+        for k, v in upstream_resp.headers.items()
+        if k.lower() not in HOP_BY_HOP and k.lower() not in ("content-length", "content-encoding")
     }
 
     async def stream_body():
@@ -1232,6 +1252,7 @@ async def _proxy_backend_call(backend_slug: str, request: Request, path: str = "
 
 
 # ── Legacy proxy route mounts on proxy_router (prefix="/mcp-gw") ─────────────
+
 
 @proxy_router.api_route(
     "/{backend_slug}",

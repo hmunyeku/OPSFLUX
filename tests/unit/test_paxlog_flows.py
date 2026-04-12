@@ -2,30 +2,29 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from fastapi.routing import APIRoute
 from fastapi import HTTPException
+from fastapi.routing import APIRoute
 
-from app.api.routes.modules import paxlog
-from app.api.routes.modules import conformite
-from app.api.routes.modules import planner
-from app.core.event_contracts import PROJECT_STATUS_CHANGED_EVENT, WORKFLOW_TRANSITION_EVENT
+from app.api.routes.modules import conformite, paxlog, planner
+from app.core.event_contracts import WORKFLOW_TRANSITION_EVENT
 from app.core.events import OpsFluxEvent
-from app.event_handlers import module_handlers
-from app.event_handlers import paxlog_handlers
-from app.event_handlers import travelwiz_handlers
-from app.tasks.jobs import paxlog_ads_autoclose
-from app.tasks.jobs import paxlog_requires_review_followup
+from app.event_handlers import module_handlers, paxlog_handlers, travelwiz_handlers
 from app.models.common import CostImputation
 from app.models.paxlog import AdsEvent, MissionAllowanceRequest, MissionVisaFollowup
+from app.schemas.paxlog import (
+    AdsManualDepartureRequest,
+    AdsStayChangeRequest,
+    MissionNoticeModifyRequest,
+    MissionPreparationTaskUpdate,
+)
 from app.schemas.planner import ActivityUpdate
-from app.schemas.paxlog import AdsManualDepartureRequest, AdsStayChangeRequest, MissionNoticeModifyRequest, MissionPreparationTaskUpdate
-from app.services.modules import paxlog_service
-from app.services.modules import compliance_service
+from app.services.modules import compliance_service, paxlog_service
+from app.tasks.jobs import paxlog_ads_autoclose, paxlog_requires_review_followup
 
 
 class FakeResult:
@@ -166,7 +165,7 @@ class FakeEventBusRegistry:
 
 
 def _build_ads(**overrides):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     data = {
         "id": uuid4(),
         "entity_id": uuid4(),
@@ -214,7 +213,7 @@ def _ads_read_payload(ads, entity_id):
 
 
 def _build_avm(**overrides):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     data = {
         "id": uuid4(),
         "entity_id": uuid4(),
@@ -513,12 +512,14 @@ async def test_update_ads_with_project_id_triggers_default_imputation_sync(monke
         return False
 
     async def fake_ensure_default_imputation(_db, *, ads, entity_id, author_id):
-        ensure_calls.append({
-            "ads_id": ads.id,
-            "entity_id": entity_id,
-            "author_id": author_id,
-            "project_id": ads.project_id,
-        })
+        ensure_calls.append(
+            {
+                "ads_id": ads.id,
+                "entity_id": entity_id,
+                "author_id": author_id,
+                "project_id": ads.project_id,
+            }
+        )
 
     monkeypatch.setattr(paxlog, "has_user_permission", fake_has_user_permission)
     monkeypatch.setattr(paxlog, "_ensure_ads_default_imputation", fake_ensure_default_imputation)
@@ -665,8 +666,8 @@ async def test_create_then_submit_ads_starts_workflow_with_initiator_review(monk
 
     async def fake_build_ads_read_data(_db, *, ads, entity_id):
         ads.rejection_reason = getattr(ads, "rejection_reason", None)
-        ads.created_at = getattr(ads, "created_at", None) or datetime.now(timezone.utc)
-        ads.updated_at = getattr(ads, "updated_at", None) or datetime.now(timezone.utc)
+        ads.created_at = getattr(ads, "created_at", None) or datetime.now(UTC)
+        ads.updated_at = getattr(ads, "updated_at", None) or datetime.now(UTC)
         created_ads_ref["ads"] = ads
         return _ads_read_payload(ads, entity_id)
 
@@ -1010,8 +1011,8 @@ async def test_list_ads_waitlist_returns_prioritized_rows(monkeypatch):
                         "auto_computed",
                         date(2026, 4, 10),
                         date(2026, 4, 12),
-                        datetime(2026, 4, 1, tzinfo=timezone.utc),
-                        datetime(2026, 4, 2, tzinfo=timezone.utc),
+                        datetime(2026, 4, 1, tzinfo=UTC),
+                        datetime(2026, 4, 2, tzinfo=UTC),
                     ),
                 ]
             ),
@@ -1076,7 +1077,7 @@ async def test_list_ads_validation_queue_returns_capacity_and_review_context(mon
                         1,
                         activity_id,
                         "Inspection ligne 12",
-                        datetime(2026, 4, 1, tzinfo=timezone.utc),
+                        datetime(2026, 4, 1, tzinfo=UTC),
                     ),
                 ]
             ),
@@ -1186,7 +1187,9 @@ async def test_update_ads_waitlist_priority_applies_manual_override(monkeypatch)
 async def test_approve_ads_from_initiator_review_runs_next_step(monkeypatch):
     requester_id = uuid4()
     creator_id = uuid4()
-    ads = _build_ads(status="pending_initiator_review", requester_id=requester_id, created_by=creator_id, project_id=uuid4())
+    ads = _build_ads(
+        status="pending_initiator_review", requester_id=requester_id, created_by=creator_id, project_id=uuid4()
+    )
     db = FakeDB([FakeResult(scalar_one_or_none=ads)])
     transition_calls = []
     emitted_events = []
@@ -1484,10 +1487,12 @@ async def test_approve_ads_from_pending_compliance_requires_hse_and_moves_to_pen
     reviewer_id = uuid4()
     ads = _build_ads(status="pending_compliance")
     compliant_entry = SimpleNamespace(id=uuid4(), ads_id=ads.id, status="compliant")
-    db = FakeDB([
-        FakeResult(scalar_one_or_none=ads),
-        FakeScalarResult([]),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=ads),
+            FakeScalarResult([]),
+        ]
+    )
     transition_calls = []
     emitted_events = []
     audits = []
@@ -1712,26 +1717,28 @@ async def test_list_ads_pax_exposes_contact_channels(monkeypatch):
     db = FakeDBWithGet(
         [
             FakeResult(scalar_one_or_none=ads),
-            FakeResult(all_rows=[
-                SimpleNamespace(
-                    id=uuid4(),
-                    ads_id=ads.id,
-                    user_id=user_id,
-                    contact_id=None,
-                    status="pending",
-                    compliance_summary=None,
-                    priority_score=0,
-                ),
-                SimpleNamespace(
-                    id=uuid4(),
-                    ads_id=ads.id,
-                    user_id=None,
-                    contact_id=contact_id,
-                    status="pending",
-                    compliance_summary=None,
-                    priority_score=0,
-                ),
-            ]),
+            FakeResult(
+                all_rows=[
+                    SimpleNamespace(
+                        id=uuid4(),
+                        ads_id=ads.id,
+                        user_id=user_id,
+                        contact_id=None,
+                        status="pending",
+                        compliance_summary=None,
+                        priority_score=0,
+                    ),
+                    SimpleNamespace(
+                        id=uuid4(),
+                        ads_id=ads.id,
+                        user_id=None,
+                        contact_id=contact_id,
+                        status="pending",
+                        compliance_summary=None,
+                        priority_score=0,
+                    ),
+                ]
+            ),
         ],
         get_map={
             (paxlog.User, user_id): SimpleNamespace(
@@ -1783,9 +1790,11 @@ async def test_list_ads_pax_exposes_contact_channels(monkeypatch):
 @pytest.mark.asyncio
 async def test_get_compliance_verification_sequence_reads_entity_setting():
     entity_id = uuid4()
-    db = FakeDB([
-        FakeResult(scalar_one_or_none={"v": ["job_profile", "site_requirements", "self_declaration"]}),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none={"v": ["job_profile", "site_requirements", "self_declaration"]}),
+        ]
+    )
 
     sequence = await paxlog_service.get_compliance_verification_sequence(db, entity_id=entity_id)
 
@@ -1845,7 +1854,11 @@ async def test_run_ads_submission_checks_reuses_full_compliance_contract(monkeyp
     assert has_issues is True
     assert target_status == "pending_compliance"
     assert pax_entry.status == "blocked"
-    assert pax_entry.compliance_summary["verification_sequence"] == ["job_profile", "site_requirements", "self_declaration"]
+    assert pax_entry.compliance_summary["verification_sequence"] == [
+        "job_profile",
+        "site_requirements",
+        "self_declaration",
+    ]
     assert "Alice Reviewer" in pax_entry.compliance_summary["issues_summary"]
     assert ads.rejection_reason == pax_entry.compliance_summary["issues_summary"]
 
@@ -2095,14 +2108,8 @@ async def test_approve_ads_emits_transport_requested_flag(
     assert emitted_events and emitted_events[0]["to_state"] == "approved"
     assert audits and audits[0]["action"] == "paxlog.ads.approve"
     assert published_events and published_events[0].event_type == "ads.approved"
-    assert (
-        published_events[0].payload["outbound_transport_requested"]
-        is expected_outbound_requested
-    )
-    assert (
-        published_events[0].payload["return_transport_requested"]
-        is expected_return_requested
-    )
+    assert published_events[0].payload["outbound_transport_requested"] is expected_outbound_requested
+    assert published_events[0].payload["return_transport_requested"] is expected_return_requested
     assert published_events[0].payload["transport_requested"] is expected_transport_requested
     assert published_events[0].payload["outbound_transport_mode"] == outbound_transport_mode
     assert published_events[0].payload["return_transport_mode"] == return_transport_mode
@@ -2627,10 +2634,12 @@ async def test_cancel_avm_propagates_to_linked_ads(monkeypatch):
     db = FakeDB(
         [
             FakeResult(scalar_one_or_none=avm),
-            FakeResult(all_rows=[
-                (linked_draft_id, "ADS-100", "draft", draft_requester_id),
-                (linked_approved_id, "ADS-200", "approved", approved_requester_id),
-            ]),
+            FakeResult(
+                all_rows=[
+                    (linked_draft_id, "ADS-100", "draft", draft_requester_id),
+                    (linked_approved_id, "ADS-200", "approved", approved_requester_id),
+                ]
+            ),
             FakeResult(),
             FakeResult(),
             FakeResult(),
@@ -2648,7 +2657,9 @@ async def test_cancel_avm_propagates_to_linked_ads(monkeypatch):
         notifications.append(kwargs)
 
     async def fake_build_avm_read(_db, updated_avm):
-        return SimpleNamespace(id=updated_avm.id, status=updated_avm.status, cancellation_reason=updated_avm.cancellation_reason)
+        return SimpleNamespace(
+            id=updated_avm.id, status=updated_avm.status, cancellation_reason=updated_avm.cancellation_reason
+        )
 
     class FakeEventBus:
         async def publish(self, event):
@@ -3404,7 +3415,7 @@ async def test_create_incident_delegates_group_scope_to_signalement_service(monk
             resolved_at=None,
             resolved_by=None,
             resolution_notes=None,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             reference=None,
             category=None,
             decision=None,
@@ -3587,6 +3598,7 @@ async def test_apply_signalement_ads_effects_site_ban_filters_to_target_site_onl
     assert event.metadata_json["asset_id"] == str(asset_id)
     assert event.metadata_json["severity"] == "site_ban"
 
+
 @pytest.mark.asyncio
 async def test_resubmit_ads_clears_rejection_and_rechecks_submission(monkeypatch):
     ads = _build_ads(status="requires_review", rejection_reason="Pièces manquantes")
@@ -3676,9 +3688,13 @@ async def test_resubmit_ads_from_requires_review_does_not_reenter_initiator_or_p
 
     assert response.status == "pending_compliance"
     assert transition_calls and transition_calls[0]["to_state"] == "pending_compliance"
-    assert all(call["to_state"] not in {"pending_initiator_review", "pending_project_review"} for call in transition_calls)
+    assert all(
+        call["to_state"] not in {"pending_initiator_review", "pending_project_review"} for call in transition_calls
+    )
     assert emitted_events and emitted_events[0]["to_state"] == "pending_compliance"
-    assert all(event["to_state"] not in {"pending_initiator_review", "pending_project_review"} for event in emitted_events)
+    assert all(
+        event["to_state"] not in {"pending_initiator_review", "pending_project_review"} for event in emitted_events
+    )
 
 
 @pytest.mark.asyncio
@@ -3722,12 +3738,14 @@ async def test_create_submit_and_approve_stay_program():
 
     created = await paxlog.create_stay_program(
         ads_id=ads.id,
-        movements=[{
-            "effective_date": "2026-04-11",
-            "from_location": "Base",
-            "to_location": "Munja",
-            "transport_mode": "helicopter",
-        }],
+        movements=[
+            {
+                "effective_date": "2026-04-11",
+                "from_location": "Base",
+                "to_location": "Munja",
+                "transport_mode": "helicopter",
+            }
+        ],
         user_id=pax_user_id,
         entity_id=ads.entity_id,
         current_user=SimpleNamespace(id=uuid4()),
@@ -3848,7 +3866,9 @@ async def test_resolve_ads_imputation_suggestion_supports_group_assignment():
     ads = _build_ads(entity_id=entity_id, requester_id=requester_id, project_id=None)
     requester = SimpleNamespace(id=requester_id, business_unit_id=None)
     project = SimpleNamespace(id=project_id, entity_id=entity_id, code="PRJ-001", name="Project Work")
-    cost_center = SimpleNamespace(id=cost_center_id, entity_id=entity_id, code="CC-001", name="Offshore Ops", active=True)
+    cost_center = SimpleNamespace(
+        id=cost_center_id, entity_id=entity_id, code="CC-001", name="Offshore Ops", active=True
+    )
     reference = SimpleNamespace(
         id=uuid4(),
         code="REF-GRP",
@@ -3980,9 +4000,11 @@ async def test_ensure_ads_default_imputation_skips_capex_and_otp_required(monkey
 async def test_sync_ads_project_from_imputations_sets_single_project(monkeypatch):
     ads = _build_ads(project_id=None)
     project_id = uuid4()
-    db = FakeDB([
-        FakeResult(all_rows=[(project_id,)]),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(all_rows=[(project_id,)]),
+        ]
+    )
 
     await paxlog._sync_ads_project_from_imputations(db, ads=ads)
 
@@ -3992,9 +4014,11 @@ async def test_sync_ads_project_from_imputations_sets_single_project(monkeypatch
 @pytest.mark.asyncio
 async def test_sync_ads_project_from_imputations_clears_primary_on_multiple_projects(monkeypatch):
     ads = _build_ads(project_id=uuid4())
-    db = FakeDB([
-        FakeResult(all_rows=[(uuid4(),), (uuid4(),)]),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(all_rows=[(uuid4(),), (uuid4(),)]),
+        ]
+    )
 
     await paxlog._sync_ads_project_from_imputations(db, ads=ads)
 
@@ -4004,9 +4028,11 @@ async def test_sync_ads_project_from_imputations_clears_primary_on_multiple_proj
 @pytest.mark.asyncio
 async def test_sync_ads_project_from_imputations_clears_primary_when_no_project_remains(monkeypatch):
     ads = _build_ads(project_id=uuid4())
-    db = FakeDB([
-        FakeResult(all_rows=[]),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(all_rows=[]),
+        ]
+    )
 
     await paxlog._sync_ads_project_from_imputations(db, ads=ads)
 
@@ -4018,12 +4044,14 @@ async def test_build_ads_read_data_uses_single_imputation_project_as_primary(mon
     ads = _build_ads(project_id=None)
     requester_name = "Aline Doe"
     project_id = uuid4()
-    db = FakeDB([
-        FakeResult(all_rows=[(ads.requester_id, "Aline", "Doe")]),
-        FakeResult(first=None),
-        FakeResult(all_rows=[(project_id, uuid4(), "PRJ-001", "Projet Alpha", "Maya", "Manager")]),
-        FakeResult(first=("SITE-01", "Munja")),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(all_rows=[(ads.requester_id, "Aline", "Doe")]),
+            FakeResult(first=None),
+            FakeResult(all_rows=[(project_id, uuid4(), "PRJ-001", "Projet Alpha", "Maya", "Manager")]),
+            FakeResult(first=("SITE-01", "Munja")),
+        ]
+    )
 
     async def fake_allowed_companies(_db, *, ads_id):
         assert ads_id == ads.id
@@ -4052,15 +4080,19 @@ async def test_build_ads_read_data_exposes_multiple_imputation_projects_without_
     ads = _build_ads(project_id=uuid4())
     first_project_id = uuid4()
     second_project_id = uuid4()
-    db = FakeDB([
-        FakeResult(all_rows=[(ads.requester_id, "Aline", "Doe")]),
-        FakeResult(first=None),
-        FakeResult(all_rows=[
-            (first_project_id, uuid4(), "PRJ-001", "Projet Alpha", "Maya", "Manager"),
-            (second_project_id, uuid4(), "PRJ-002", "Projet Beta", "Noah", "Lead"),
-        ]),
-        FakeResult(first=("SITE-01", "Munja")),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(all_rows=[(ads.requester_id, "Aline", "Doe")]),
+            FakeResult(first=None),
+            FakeResult(
+                all_rows=[
+                    (first_project_id, uuid4(), "PRJ-001", "Projet Alpha", "Maya", "Manager"),
+                    (second_project_id, uuid4(), "PRJ-002", "Projet Beta", "Noah", "Lead"),
+                ]
+            ),
+            FakeResult(first=("SITE-01", "Munja")),
+        ]
+    )
 
     async def fake_allowed_companies(_db, *, ads_id):
         assert ads_id == ads.id
@@ -4093,10 +4125,12 @@ async def test_build_ads_read_data_exposes_multiple_imputation_projects_without_
 async def test_add_imputation_sets_ads_project_id_for_first_full_project_line(monkeypatch):
     ads = _build_ads(status="draft", project_id=None)
     project_id = uuid4()
-    db = FakeDB([
-        FakeResult(scalar_one_or_none=ads),
-        FakeResult(all_rows=[(project_id,)]),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=ads),
+            FakeResult(all_rows=[(project_id,)]),
+        ]
+    )
 
     async def fake_can_manage_ads(_ads, *, current_user, entity_id, db):
         return True
@@ -4132,10 +4166,12 @@ async def test_add_imputation_sets_ads_project_id_for_first_full_project_line(mo
 @pytest.mark.asyncio
 async def test_add_imputation_clears_primary_project_when_multiple_projects_exist(monkeypatch):
     ads = _build_ads(status="draft", project_id=uuid4())
-    db = FakeDB([
-        FakeResult(scalar_one_or_none=ads),
-        FakeResult(all_rows=[(uuid4(),), (uuid4(),)]),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=ads),
+            FakeResult(all_rows=[(uuid4(),), (uuid4(),)]),
+        ]
+    )
 
     async def fake_can_manage_ads(_ads, *, current_user, entity_id, db):
         return True
@@ -4166,10 +4202,12 @@ async def test_add_imputation_clears_primary_project_when_multiple_projects_exis
 async def test_delete_imputation_recomputes_primary_project(monkeypatch):
     ads = _build_ads(status="draft", project_id=uuid4())
     remaining_project_id = uuid4()
-    db = FakeDB([
-        FakeResult(scalar_one_or_none=ads),
-        FakeResult(all_rows=[(remaining_project_id,)]),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=ads),
+            FakeResult(all_rows=[(remaining_project_id,)]),
+        ]
+    )
 
     async def fake_can_manage_ads(_ads, *, current_user, entity_id, db):
         return True
@@ -4388,10 +4426,12 @@ async def test_check_profile_duplicates_detects_phonetic_match():
         birth_date=None,
         badge_number="X-01",
     )
-    db = FakeDB([
-        FakeResult(all_rows=[user_row]),
-        FakeResult(all_rows=[]),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(all_rows=[user_row]),
+            FakeResult(all_rows=[]),
+        ]
+    )
 
     response = await paxlog.check_profile_duplicates(
         first_name="Mussa",
@@ -4424,9 +4464,9 @@ async def test_get_profile_site_presence_history_returns_ads_and_boarding_contex
         "Inspection",
         "mission",
         "boarded",
-        datetime(2026, 4, 10, 8, 0, tzinfo=timezone.utc),
-        datetime(2026, 4, 8, 9, 0, tzinfo=timezone.utc),
-        datetime(2026, 4, 12, 18, 0, tzinfo=timezone.utc),
+        datetime(2026, 4, 10, 8, 0, tzinfo=UTC),
+        datetime(2026, 4, 8, 9, 0, tzinfo=UTC),
+        datetime(2026, 4, 12, 18, 0, tzinfo=UTC),
     )
     db = FakeDB([FakeResult(all_rows=[row])])
 
@@ -4459,28 +4499,36 @@ async def test_check_pax_compliance_exposes_layers_and_status_summary():
     user_id = uuid4()
     site_requirement_id = uuid4()
     job_requirement_id = uuid4()
-    db = FakeDB([
-        FakeResult(scalar_one_or_none=None),
-        FakeResult(all_rows=[(asset_id,)]),
-        FakeResult(all_rows=[
-            SimpleNamespace(
-                credential_type_id=site_requirement_id,
-                scope="all_visitors",
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=None),
+            FakeResult(all_rows=[(asset_id,)]),
+            FakeResult(
+                all_rows=[
+                    SimpleNamespace(
+                        credential_type_id=site_requirement_id,
+                        scope="all_visitors",
+                    ),
+                ]
             ),
-        ]),
-        FakeResult(all_rows=[(job_requirement_id, True)]),
-        FakeResult(all_rows=[
-            SimpleNamespace(
-                credential_type_id=job_requirement_id,
-                status="pending_validation",
-                expiry_date=date(2026, 4, 20),
+            FakeResult(all_rows=[(job_requirement_id, True)]),
+            FakeResult(
+                all_rows=[
+                    SimpleNamespace(
+                        credential_type_id=job_requirement_id,
+                        status="pending_validation",
+                        expiry_date=date(2026, 4, 20),
+                    ),
+                ]
             ),
-        ]),
-        FakeResult(all_rows=[
-            SimpleNamespace(id=site_requirement_id, code="H2S", name="H2S Awareness"),
-            SimpleNamespace(id=job_requirement_id, code="ELEC", name="Habilitation electrique"),
-        ]),
-    ])
+            FakeResult(
+                all_rows=[
+                    SimpleNamespace(id=site_requirement_id, code="H2S", name="H2S Awareness"),
+                    SimpleNamespace(id=job_requirement_id, code="ELEC", name="Habilitation electrique"),
+                ]
+            ),
+        ]
+    )
 
     response = await paxlog_service.check_pax_compliance(
         db,
@@ -4618,12 +4666,34 @@ async def test_get_expiring_credentials_exposes_alert_buckets_and_entity_scope()
             FakeResult(
                 all_rows=[
                     (uuid4(), uuid4(), uuid4(), today, "valid", "Aline", "Mukeba", "B-01", "MED", "Medical"),
-                    (uuid4(), uuid4(), uuid4(), today + timedelta(days=7), "valid", "Boris", "Maki", "B-02", "SAFE", "Safety"),
+                    (
+                        uuid4(),
+                        uuid4(),
+                        uuid4(),
+                        today + timedelta(days=7),
+                        "valid",
+                        "Boris",
+                        "Maki",
+                        "B-02",
+                        "SAFE",
+                        "Safety",
+                    ),
                 ]
             ),
             FakeResult(
                 all_rows=[
-                    (uuid4(), uuid4(), uuid4(), today + timedelta(days=30), "valid", "Chris", "Mvula", "C-01", "H2S", "H2S"),
+                    (
+                        uuid4(),
+                        uuid4(),
+                        uuid4(),
+                        today + timedelta(days=30),
+                        "valid",
+                        "Chris",
+                        "Mvula",
+                        "C-01",
+                        "H2S",
+                        "H2S",
+                    ),
                 ]
             ),
         ]
@@ -4651,7 +4721,7 @@ async def test_access_external_link_hides_preconfigured_data_without_session(mon
         preconfigured_data={"company_name": "Vendor X"},
         max_uses=3,
         use_count=1,
-        expires_at=datetime(2026, 4, 30, tzinfo=timezone.utc),
+        expires_at=datetime(2026, 4, 30, tzinfo=UTC),
         access_log=[],
     )
 
@@ -4684,7 +4754,7 @@ async def test_access_external_link_exposes_preconfigured_data_with_valid_sessio
         preconfigured_data={"company_name": "Vendor X"},
         max_uses=None,
         use_count=0,
-        expires_at=datetime(2026, 4, 30, tzinfo=timezone.utc),
+        expires_at=datetime(2026, 4, 30, tzinfo=UTC),
         access_log=[],
     )
 
@@ -4715,7 +4785,7 @@ async def test_access_external_link_exposes_preconfigured_data_with_valid_sessio
 
 @pytest.mark.asyncio
 async def test_access_external_link_rate_limits_public_consultation(monkeypatch):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     link = SimpleNamespace(
         ads_id=uuid4(),
         otp_required=True,
@@ -4723,7 +4793,7 @@ async def test_access_external_link_rate_limits_public_consultation(monkeypatch)
         preconfigured_data={"company_name": "Vendor X"},
         max_uses=None,
         use_count=0,
-        expires_at=datetime(2026, 4, 30, tzinfo=timezone.utc),
+        expires_at=datetime(2026, 4, 30, tzinfo=UTC),
         access_log=[
             {"action": "public_access", "timestamp": (now - timedelta(minutes=1)).isoformat()}
             for _ in range(paxlog.EXTERNAL_PUBLIC_ACCESS_MAX_PER_WINDOW)
@@ -4759,7 +4829,7 @@ async def test_send_external_link_otp_sets_code_and_masks_destination(monkeypatc
         otp_expires_at=None,
         otp_attempt_count=2,
         session_token_hash="old-session",
-        session_expires_at=datetime(2026, 4, 1, tzinfo=timezone.utc),
+        session_expires_at=datetime(2026, 4, 1, tzinfo=UTC),
         access_log=[],
     )
     sent_messages = []
@@ -4769,13 +4839,15 @@ async def test_send_external_link_otp_sets_code_and_masks_destination(monkeypatc
         return link
 
     async def fake_render_and_send_email(db, slug, entity_id, language, to, variables):
-        template_calls.append({
-            "slug": slug,
-            "entity_id": entity_id,
-            "language": language,
-            "to": to,
-            "variables": variables,
-        })
+        template_calls.append(
+            {
+                "slug": slug,
+                "entity_id": entity_id,
+                "language": language,
+                "to": to,
+                "variables": variables,
+            }
+        )
         return True
 
     async def fake_send_email(*, to, subject, body_html):
@@ -4811,7 +4883,7 @@ async def test_verify_external_link_otp_rejects_invalid_code_and_tracks_attempt(
     link = SimpleNamespace(
         otp_required=True,
         otp_code_hash=paxlog._hash_secret("123456"),
-        otp_expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        otp_expires_at=datetime.now(UTC) + timedelta(minutes=10),
         otp_attempt_count=0,
         session_token_hash=None,
         session_expires_at=None,
@@ -4839,11 +4911,11 @@ async def test_verify_external_link_otp_rejects_invalid_code_and_tracks_attempt(
 
 @pytest.mark.asyncio
 async def test_verify_external_link_otp_rate_limits_recent_failures(monkeypatch):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     link = SimpleNamespace(
         otp_required=True,
         otp_code_hash=paxlog._hash_secret("123456"),
-        otp_expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        otp_expires_at=datetime.now(UTC) + timedelta(minutes=10),
         otp_attempt_count=0,
         session_token_hash=None,
         session_expires_at=None,
@@ -4878,7 +4950,7 @@ async def test_verify_external_link_otp_opens_session_and_consumes_use(monkeypat
     link = SimpleNamespace(
         otp_required=True,
         otp_code_hash=paxlog._hash_secret("123456"),
-        otp_expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        otp_expires_at=datetime.now(UTC) + timedelta(minutes=10),
         otp_attempt_count=1,
         session_token_hash=None,
         session_expires_at=None,
@@ -4913,7 +4985,7 @@ async def test_verify_external_link_otp_opens_session_and_consumes_use(monkeypat
 
 @pytest.mark.asyncio
 async def test_send_external_link_otp_rate_limits_recent_requests(monkeypatch):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     link = SimpleNamespace(
         otp_required=True,
         otp_sent_to="contractor@example.com",
@@ -4951,7 +5023,7 @@ async def test_require_external_session_rejects_browser_context_change(monkeypat
         otp_required=True,
         token="token-ctx",
         session_token_hash=paxlog._hash_secret(session_token),
-        session_expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        session_expires_at=datetime.now(UTC) + timedelta(minutes=30),
         access_log=[],
     )
     paxlog._append_external_access_log(link, action="session_opened", request=original_request, otp_validated=True)
@@ -4985,7 +5057,7 @@ async def test_require_external_session_logs_invalid_token_attempt(monkeypatch):
         otp_required=True,
         token="token-ctx",
         session_token_hash=paxlog._hash_secret(valid_session_token),
-        session_expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        session_expires_at=datetime.now(UTC) + timedelta(minutes=30),
         access_log=[],
     )
     db = FakeDB([])
@@ -5288,10 +5360,12 @@ async def test_get_external_ads_dossier_exposes_multiple_projects_without_fake_p
     db = FakeDB(
         [
             FakeResult(scalar_one_or_none="Onshore Alpha"),
-            FakeResult(all_rows=[
-                (project_a, "PRJ-001", "Projet Alpha"),
-                (project_b, "PRJ-002", "Projet Beta"),
-            ]),
+            FakeResult(
+                all_rows=[
+                    (project_a, "PRJ-001", "Projet Alpha"),
+                    (project_b, "PRJ-002", "Projet Beta"),
+                ]
+            ),
             FakeResult(all_rows=[]),
             FakeResult(all_rows=[]),
             FakeResult(all_rows=[]),
@@ -5335,12 +5409,21 @@ async def test_resolve_external_allowed_companies_prefers_ads_scope_over_fallbac
     ads = _build_ads(status="draft")
     allowed_company_ids = [uuid4(), uuid4()]
     allowed_company_names = ["Vendor A", "Vendor B"]
-    db = FakeDB([
-        FakeResult(all_rows=list(zip(allowed_company_ids, allowed_company_names))),
-    ])
-    link = SimpleNamespace(preconfigured_data={"allowed_company_ids": [str(company_id) for company_id in allowed_company_ids]})
+    db = FakeDB(
+        [
+            FakeResult(all_rows=list(zip(allowed_company_ids, allowed_company_names))),
+        ]
+    )
+    link = SimpleNamespace(
+        preconfigured_data={"allowed_company_ids": [str(company_id) for company_id in allowed_company_ids]}
+    )
 
-    resolved_ids, resolved_names, primary_company_id, primary_company_name = await paxlog._resolve_external_allowed_companies(
+    (
+        resolved_ids,
+        resolved_names,
+        primary_company_id,
+        primary_company_name,
+    ) = await paxlog._resolve_external_allowed_companies(
         db,
         ads=ads,
         link=link,
@@ -5406,7 +5489,7 @@ async def test_get_external_ads_dossier_includes_user_backed_promoted_contact(mo
         postal_code="1001",
         country="CD",
         is_default=True,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     db = FakeDB(
         [
@@ -5517,12 +5600,14 @@ async def test_download_external_ads_pdf_reuses_canonical_ads_ticket(monkeypatch
 async def test_build_ads_pdf_response_passes_entity_context_to_template(monkeypatch):
     entity_id = uuid4()
     ads = _build_ads(entity_id=entity_id)
-    db = FakeDB([
-        FakeResult(all_rows=[]),
-        FakeResult(first=("Aline", "Mukeba", "aline@example.com")),
-        FakeResult(first=("Onshore A",)),
-        FakeResult(first=("OpsFlux Public", "OPS")),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(all_rows=[]),
+            FakeResult(first=("Aline", "Mukeba", "aline@example.com")),
+            FakeResult(first=("Onshore A",)),
+            FakeResult(first=("OpsFlux Public", "OPS")),
+        ]
+    )
     captured = {}
 
     async def fake_render_pdf(_db, *, slug, entity_id, language, variables):
@@ -6030,23 +6115,29 @@ async def test_list_ads_external_links_returns_security_summary(monkeypatch):
         created_by=uuid4(),
         otp_required=True,
         otp_sent_to="contractor@example.com",
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=4),
+        expires_at=datetime.now(UTC) + timedelta(hours=4),
         max_uses=5,
         use_count=2,
         revoked=False,
-        created_at=datetime.now(timezone.utc) - timedelta(hours=1),
-        session_expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
-        last_validated_at=datetime.now(timezone.utc) - timedelta(minutes=5),
+        created_at=datetime.now(UTC) - timedelta(hours=1),
+        session_expires_at=datetime.now(UTC) + timedelta(minutes=30),
+        last_validated_at=datetime.now(UTC) - timedelta(minutes=5),
         access_log=[
-            {"action": "otp_validated", "timestamp": datetime.now(timezone.utc).isoformat(), "otp_validated": True},
-            {"action": "session_invalid", "timestamp": datetime.now(timezone.utc).isoformat(), "otp_validated": False},
-            {"action": "public_access_rate_limited", "timestamp": datetime.now(timezone.utc).isoformat(), "otp_validated": False},
+            {"action": "otp_validated", "timestamp": datetime.now(UTC).isoformat(), "otp_validated": True},
+            {"action": "session_invalid", "timestamp": datetime.now(UTC).isoformat(), "otp_validated": False},
+            {
+                "action": "public_access_rate_limited",
+                "timestamp": datetime.now(UTC).isoformat(),
+                "otp_validated": False,
+            },
         ],
     )
-    db = FakeDB([
-        FakeResult(scalar_one_or_none=ads),
-        FakeResult(all_rows=[link]),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=ads),
+            FakeResult(all_rows=[link]),
+        ]
+    )
 
     async def fake_assert_ads_read_access(*args, **kwargs):
         return None
@@ -6285,9 +6376,11 @@ async def test_ads_workflow_transition_notifies_assigned_user(monkeypatch):
     entity_scope_id = uuid4()
     ads_id = uuid4()
     assigned_user_id = uuid4()
-    db = FakeDB([
-        FakeResult(first=("aline@example.com", "Aline Mukeba")),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(first=("aline@example.com", "Aline Mukeba")),
+        ]
+    )
     notifications = []
     emails = []
 
@@ -6295,13 +6388,15 @@ async def test_ads_workflow_transition_notifies_assigned_user(monkeypatch):
         notifications.append(kwargs)
 
     async def fake_render_and_send_email(db, slug, entity_id, language, to, variables):
-        emails.append({
-            "slug": slug,
-            "entity_id": entity_id,
-            "language": language,
-            "to": to,
-            "variables": variables,
-        })
+        emails.append(
+            {
+                "slug": slug,
+                "entity_id": entity_id,
+                "language": language,
+                "to": to,
+                "variables": variables,
+            }
+        )
         return True
 
     monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
@@ -6335,10 +6430,12 @@ async def test_ads_workflow_transition_notifies_role_assignee(monkeypatch):
     entity_scope_id = uuid4()
     ads_id = uuid4()
     role_user_id = uuid4()
-    db = FakeDB([
-        FakeResult(all_rows=[(role_user_id,)]),
-        FakeResult(first=("cds@example.com", "Chef De Site")),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(all_rows=[(role_user_id,)]),
+            FakeResult(first=("cds@example.com", "Chef De Site")),
+        ]
+    )
     notifications = []
     emails = []
 
@@ -6346,13 +6443,15 @@ async def test_ads_workflow_transition_notifies_role_assignee(monkeypatch):
         notifications.append(kwargs)
 
     async def fake_render_and_send_email(db, slug, entity_id, language, to, variables):
-        emails.append({
-            "slug": slug,
-            "entity_id": entity_id,
-            "language": language,
-            "to": to,
-            "variables": variables,
-        })
+        emails.append(
+            {
+                "slug": slug,
+                "entity_id": entity_id,
+                "language": language,
+                "to": to,
+                "variables": variables,
+            }
+        )
         return True
 
     monkeypatch.setattr("app.core.notifications.send_in_app", fake_send_in_app)
@@ -6406,10 +6505,12 @@ async def test_ads_completed_cascade_completes_linked_planner_activity(monkeypat
         status="in_progress",
         actual_end=None,
     )
-    db = FakeDB([
-        FakeResult(scalar_one_or_none=ads),
-        FakeResult(scalar_one_or_none=activity),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=ads),
+            FakeResult(scalar_one_or_none=activity),
+        ]
+    )
     published = []
 
     class FakeEventBus:
@@ -6444,12 +6545,21 @@ async def test_planner_activity_completed_suggests_project_task_closure(monkeypa
     manager_id = uuid4()
     project_id = uuid4()
     activity = SimpleNamespace(id=activity_id, source_task_id=task_id, status="completed")
-    task = SimpleNamespace(id=task_id, project_id=project_id, assignee_id=None, title="Mobilisation site", status="in_progress", completed_at=None)
+    task = SimpleNamespace(
+        id=task_id,
+        project_id=project_id,
+        assignee_id=None,
+        title="Mobilisation site",
+        status="in_progress",
+        completed_at=None,
+    )
     project = SimpleNamespace(id=project_id, manager_id=manager_id)
-    db = FakeDB([
-        FakeResult(scalar_one_or_none=activity),
-        FakeResult(scalar_one_or_none=task),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(scalar_one_or_none=activity),
+            FakeResult(scalar_one_or_none=task),
+        ]
+    )
     notifications = []
 
     async def fake_send_in_app(*args, **kwargs):
@@ -6645,8 +6755,8 @@ async def test_update_activity_counts_impacted_ads_without_updating_them(monkeyp
         type="maintenance",
         status="validated",
         pax_quota=12,
-        start_date=datetime(2026, 4, 10, tzinfo=timezone.utc),
-        end_date=datetime(2026, 4, 12, tzinfo=timezone.utc),
+        start_date=datetime(2026, 4, 10, tzinfo=UTC),
+        end_date=datetime(2026, 4, 12, tzinfo=UTC),
     )
     db = FakeDB([FakeResult(scalar=2)])
     published_events = []
@@ -6667,14 +6777,14 @@ async def test_update_activity_counts_impacted_ads_without_updating_them(monkeyp
 
     response = await planner.update_activity(
         activity.id,
-        ActivityUpdate(start_date=datetime(2026, 4, 11, tzinfo=timezone.utc)),
+        ActivityUpdate(start_date=datetime(2026, 4, 11, tzinfo=UTC)),
         entity_id=entity_id,
         current_user=SimpleNamespace(id=uuid4()),
         _=None,
         db=db,
     )
 
-    assert response.start_date == datetime(2026, 4, 11, tzinfo=timezone.utc)
+    assert response.start_date == datetime(2026, 4, 11, tzinfo=UTC)
     sql_text = str(db.executed[0][0])
     assert "SELECT COUNT(*)" in sql_text
     assert "UPDATE ads SET status = 'requires_review'" not in sql_text
@@ -6984,7 +7094,7 @@ async def test_overdue_ads_job_sends_single_alert_before_autoclose(monkeypatch):
     class FakeDateTime(datetime):
         @classmethod
         def now(cls, tz=None):
-            return datetime(2026, 4, 2, 1, 30, tzinfo=timezone.utc)
+            return datetime(2026, 4, 2, 1, 30, tzinfo=UTC)
 
     async def fake_send_in_app(*args, **kwargs):
         notifications.append(kwargs)
@@ -7020,7 +7130,7 @@ async def test_overdue_ads_job_autocloses_after_grace(monkeypatch):
     class FakeDateTime(datetime):
         @classmethod
         def now(cls, tz=None):
-            return datetime(2026, 4, 4, 1, 30, tzinfo=timezone.utc)
+            return datetime(2026, 4, 4, 1, 30, tzinfo=UTC)
 
     async def fake_send_in_app(*args, **kwargs):
         notifications.append(kwargs)
@@ -7058,19 +7168,21 @@ async def test_requires_review_followup_sends_single_reminder(monkeypatch):
         entity_id=entity_id,
         requester_id=requester_id,
         status="requires_review",
-        updated_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 3, 1, tzinfo=UTC),
     )
     notifications = []
 
     class FakeDateTime(datetime):
         @classmethod
         def now(cls, tz=None):
-            return datetime(2026, 3, 20, tzinfo=timezone.utc)
+            return datetime(2026, 3, 20, tzinfo=UTC)
 
-    db = FakeDB([
-        FakeScalarResult([ads]),
-        FakeResult(scalar_one_or_none=None),
-    ])
+    db = FakeDB(
+        [
+            FakeScalarResult([ads]),
+            FakeResult(scalar_one_or_none=None),
+        ]
+    )
 
     async def fake_send_in_app(*args, **kwargs):
         notifications.append(kwargs)
@@ -7097,19 +7209,21 @@ async def test_requires_review_followup_skips_when_reminder_already_sent(monkeyp
         entity_id=entity_id,
         requester_id=requester_id,
         status="requires_review",
-        updated_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 3, 1, tzinfo=UTC),
     )
     notifications = []
 
     class FakeDateTime(datetime):
         @classmethod
         def now(cls, tz=None):
-            return datetime(2026, 3, 20, tzinfo=timezone.utc)
+            return datetime(2026, 3, 20, tzinfo=UTC)
 
-    db = FakeDB([
-        FakeScalarResult([ads]),
-        FakeResult(scalar_one_or_none=uuid4()),
-    ])
+    db = FakeDB(
+        [
+            FakeScalarResult([ads]),
+            FakeResult(scalar_one_or_none=uuid4()),
+        ]
+    )
 
     async def fake_send_in_app(*args, **kwargs):
         notifications.append(kwargs)
@@ -7134,7 +7248,11 @@ async def test_process_rotation_cycles_uses_rotation_columns_and_creates_ads_for
     created_by = uuid4()
     db = FakeDB(
         [
-            FakeResult(all_rows=[(cycle_id, user_id, None, site_asset_id, 14, 14, date(2026, 4, 12), 7, project_id, None, created_by)]),
+            FakeResult(
+                all_rows=[
+                    (cycle_id, user_id, None, site_asset_id, 14, 14, date(2026, 4, 12), 7, project_id, None, created_by)
+                ]
+            ),
             FakeResult(scalar=uuid4()),
             FakeResult(),
             FakeResult(),
@@ -7172,7 +7290,23 @@ async def test_process_rotation_cycles_uses_cycle_creator_as_sponsor_for_externa
     new_ads_id = uuid4()
     db = FakeDB(
         [
-            FakeResult(all_rows=[(cycle_id, None, contact_id, site_asset_id, 14, 14, date(2026, 4, 12), 7, None, None, sponsor_user_id)]),
+            FakeResult(
+                all_rows=[
+                    (
+                        cycle_id,
+                        None,
+                        contact_id,
+                        site_asset_id,
+                        14,
+                        14,
+                        date(2026, 4, 12),
+                        7,
+                        None,
+                        None,
+                        sponsor_user_id,
+                    )
+                ]
+            ),
             FakeResult(scalar=new_ads_id),
             FakeResult(),
             FakeResult(),
@@ -7257,8 +7391,8 @@ async def test_list_rotation_cycles_returns_paginated_enriched_rows_and_status_a
             None,
             None,
             "Cycle test",
-            datetime(2026, 4, 1, tzinfo=timezone.utc),
-            datetime(2026, 4, 2, tzinfo=timezone.utc),
+            datetime(2026, 4, 1, tzinfo=UTC),
+            datetime(2026, 4, 2, tzinfo=UTC),
             None,
             "Aline",
             "Mukeba",
@@ -7266,10 +7400,12 @@ async def test_list_rotation_cycles_returns_paginated_enriched_rows_and_status_a
             None,
         )
     ]
-    db = FakeDB([
-        FakeResult(scalar=1),
-        FakeResult(all_rows=rows),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(scalar=1),
+            FakeResult(all_rows=rows),
+        ]
+    )
 
     async def fake_check_pax_compliance(*_args, **_kwargs):
         return {

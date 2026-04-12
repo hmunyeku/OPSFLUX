@@ -19,7 +19,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
-
 # ─── Support Tickets ──────────────────────────────────────────────────────────
 
 TICKET_TYPES = ("bug", "improvement", "question", "other")
@@ -29,6 +28,7 @@ TICKET_STATUSES = ("open", "in_progress", "waiting_info", "resolved", "closed", 
 
 class SupportTicket(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     """Support ticket — bug report, feature request, or question from a user."""
+
     __tablename__ = "support_tickets"
     __table_args__ = (
         CheckConstraint(f"ticket_type IN {TICKET_TYPES}", name="ck_ticket_type"),
@@ -59,19 +59,29 @@ class SupportTicket(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     tags: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
     # Relationships
-    comments = relationship("TicketComment", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketComment.created_at")
-    status_history = relationship("TicketStatusHistory", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketStatusHistory.created_at.desc()")
-    todos = relationship("TicketTodo", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketTodo.order")
+    comments = relationship(
+        "TicketComment", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketComment.created_at"
+    )
+    status_history = relationship(
+        "TicketStatusHistory",
+        back_populates="ticket",
+        cascade="all, delete-orphan",
+        order_by="TicketStatusHistory.created_at.desc()",
+    )
+    todos = relationship(
+        "TicketTodo", back_populates="ticket", cascade="all, delete-orphan", order_by="TicketTodo.order"
+    )
 
 
 class TicketComment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Comment/reply on a support ticket."""
-    __tablename__ = "ticket_comments"
-    __table_args__ = (
-        Index("idx_ticket_comments_ticket", "ticket_id"),
-    )
 
-    ticket_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("support_tickets.id", ondelete="CASCADE"), nullable=False)
+    __tablename__ = "ticket_comments"
+    __table_args__ = (Index("idx_ticket_comments_ticket", "ticket_id"),)
+
+    ticket_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("support_tickets.id", ondelete="CASCADE"), nullable=False
+    )
     author_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     is_internal: Mapped[bool] = mapped_column(Boolean, server_default="false")
@@ -83,12 +93,13 @@ class TicketComment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 class TicketStatusHistory(UUIDPrimaryKeyMixin, Base):
     """Audit trail for ticket status changes."""
-    __tablename__ = "ticket_status_history"
-    __table_args__ = (
-        Index("idx_status_history_ticket", "ticket_id"),
-    )
 
-    ticket_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("support_tickets.id", ondelete="CASCADE"), nullable=False)
+    __tablename__ = "ticket_status_history"
+    __table_args__ = (Index("idx_status_history_ticket", "ticket_id"),)
+
+    ticket_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("support_tickets.id", ondelete="CASCADE"), nullable=False
+    )
     old_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     new_status: Mapped[str] = mapped_column(String(20), nullable=False)
     changed_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
@@ -101,12 +112,13 @@ class TicketStatusHistory(UUIDPrimaryKeyMixin, Base):
 
 class TicketTodo(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Todo/checklist item attached to a support ticket (improvement tracking)."""
-    __tablename__ = "ticket_todos"
-    __table_args__ = (
-        Index("idx_ticket_todos_ticket", "ticket_id"),
-    )
 
-    ticket_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("support_tickets.id", ondelete="CASCADE"), nullable=False)
+    __tablename__ = "ticket_todos"
+    __table_args__ = (Index("idx_ticket_todos_ticket", "ticket_id"),)
+
+    ticket_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("support_tickets.id", ondelete="CASCADE"), nullable=False
+    )
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     completed: Mapped[bool] = mapped_column(Boolean, server_default="false")
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

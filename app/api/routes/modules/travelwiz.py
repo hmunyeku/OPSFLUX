@@ -9,28 +9,53 @@ Integrates with:
 import csv
 import io
 import logging
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
-from sqlalchemy import select, func as sqla_func, text
+from sqlalchemy import func as sqla_func
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import (
+    get_current_entity,
+    get_current_user,
+    has_user_permission,
+    require_module_enabled,
+    require_permission,
+)
 from app.api.routes.modules import packlog_shared as packlog_shared_module
-from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_module_enabled, require_permission
-from app.core.acting_context import get_effective_actor_user_id
+from app.api.routes.modules.packlog_shared import (
+    add_package_element_impl,
+    apply_cargo_request_loading_option_impl,
+    create_cargo_impl,
+    create_cargo_request_impl,
+    download_cargo_request_lt_pdf_impl,
+    get_cargo_history_impl,
+    get_cargo_impl,
+    get_cargo_request_impl,
+    get_cargo_request_loading_options_impl,
+    initiate_return_impl,
+    list_cargo_attachment_evidence_impl,
+    list_cargo_impl,
+    list_cargo_requests_impl,
+    list_package_elements_impl,
+    receive_cargo_impl,
+    set_cargo_attachment_evidence_type_impl,
+    update_cargo_impl,
+    update_cargo_request_impl,
+    update_cargo_status_impl,
+    update_cargo_workflow_status_impl,
+    update_package_element_disposition_impl,
+    update_package_element_return_impl,
+)
 from app.core.audit import record_audit
 from app.core.database import get_db
-from app.services.core.delete_service import delete_entity
 from app.core.pagination import PaginationParams, paginate
 from app.models.asset_registry import Installation
-from app.models.common import Attachment, AuditLog, ImputationReference, Tier, TierContact, User
-from app.services.core.fsm_service import fsm_service, FSMError
+from app.models.common import AuditLog, ImputationReference, TierContact, User
 from app.models.packlog import (
-    CargoAttachmentEvidence,
     CargoItem,
     CargoRequest,
     PackageElement,
@@ -39,12 +64,11 @@ from app.models.travelwiz import (
     CaptainLog,
     ManifestPassenger,
     PickupRound,
-    PickupStopAssignment,
     PickupStop,
+    PickupStopAssignment,
     TransportRotation,
     TransportVector,
     TransportVectorZone,
-    VectorPosition,
     Voyage,
     VoyageManifest,
     VoyageStop,
@@ -100,52 +124,30 @@ from app.schemas.travelwiz import (
     VoyageStopUpdate,
     VoyageUpdate,
 )
+from app.services.core.delete_service import delete_entity
+from app.services.core.fsm_service import FSMError, fsm_service
+from app.services.modules.packlog_service import (
+    PACKLOG_PUBLIC_STATUS_LABELS,
+    PACKLOG_WORKFLOW_ENTITY_TYPE,
+    PACKLOG_WORKFLOW_SLUG,
+    build_packlog_cargo_read_data,
+    build_packlog_loading_options,
+    build_packlog_operations_report,
+    build_packlog_request_read_data,
+    get_packlog_cargo_or_404,
+    get_packlog_package_element_or_404,
+    get_packlog_request_or_404,
+    try_packlog_workflow_transition,
+)
+from app.services.modules.packlog_service import (
+    update_cargo_status as apply_cargo_status_transition,
+)
 from app.services.modules.travelwiz_service import (
     assess_manifest_weight,
     assess_voyage_delay,
     get_weight_alert_ratio,
-    rebalance_manifest_passenger_standby,
     reassign_voyage_passengers,
-)
-from app.services.modules.packlog_service import (
-    PACKLOG_WORKFLOW_ENTITY_TYPE,
-    PACKLOG_WORKFLOW_SLUG,
-    PACKLOG_PUBLIC_STATUS_LABELS,
-    update_cargo_status as apply_cargo_status_transition,
-    build_packlog_operations_report,
-    build_packlog_cargo_read_data,
-    build_packlog_loading_options,
-    build_packlog_request_read_data,
-    estimate_packlog_surface_m2,
-    get_packlog_cargo_or_404,
-    get_packlog_package_element_or_404,
-    get_packlog_request_or_404,
-    summarize_packlog_return_states,
-    try_packlog_workflow_transition,
-)
-from app.api.routes.modules.packlog_shared import (
-    add_package_element_impl,
-    apply_cargo_request_loading_option_impl,
-    create_cargo_impl,
-    create_cargo_request_impl,
-    download_cargo_request_lt_pdf_impl,
-    get_cargo_history_impl,
-    get_cargo_impl,
-    get_cargo_request_impl,
-    get_cargo_request_loading_options_impl,
-    initiate_return_impl,
-    list_cargo_attachment_evidence_impl,
-    list_cargo_impl,
-    list_cargo_requests_impl,
-    list_package_elements_impl,
-    receive_cargo_impl,
-    set_cargo_attachment_evidence_type_impl,
-    update_cargo_impl,
-    update_cargo_request_impl,
-    update_cargo_status_impl,
-    update_cargo_workflow_status_impl,
-    update_package_element_disposition_impl,
-    update_package_element_return_impl,
+    rebalance_manifest_passenger_standby,
 )
 
 router = APIRouter(prefix="/api/v1/travelwiz", tags=["travelwiz"], dependencies=[require_module_enabled("travelwiz")])
@@ -268,7 +270,7 @@ def _serialize_package_element(element: PackageElement) -> dict:
         "created_at": (
             element.created_at.isoformat()
             if getattr(element, "created_at", None) is not None
-            else datetime.now(timezone.utc).isoformat()
+            else datetime.now(UTC).isoformat()
         ),
     }
 
@@ -423,7 +425,7 @@ async def _validate_cargo_dossier_refs(
 def _format_pdf_datetime(value: datetime | None) -> str:
     if value is None:
         return "--"
-    return value.astimezone(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
+    return value.astimezone(UTC).strftime("%d/%m/%Y %H:%M UTC")
 
 
 async def _get_entity_pdf_context(db: AsyncSession, entity_id: UUID) -> dict:
@@ -449,12 +451,16 @@ async def _build_voyage_pdf_base_context(
     vector = await db.get(TransportVector, voyage.vector_id) if voyage.vector_id else None
     departure_base = await db.get(Installation, voyage.departure_base_id) if voyage.departure_base_id else None
     stops = (
-        await db.execute(
-            select(VoyageStop)
-            .where(VoyageStop.voyage_id == voyage.id, VoyageStop.active == True)  # noqa: E712
-            .order_by(VoyageStop.stop_order.asc())
+        (
+            await db.execute(
+                select(VoyageStop)
+                .where(VoyageStop.voyage_id == voyage.id, VoyageStop.active == True)  # noqa: E712
+                .order_by(VoyageStop.stop_order.asc())
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     arrival_location = departure_base.name if departure_base else "--"
     if stops:
         final_stop = await db.get(Installation, stops[-1].asset_id)
@@ -467,7 +473,7 @@ async def _build_voyage_pdf_base_context(
         "departure_date": _format_pdf_datetime(voyage.scheduled_departure),
         "departure_location": departure_base.name if departure_base else "--",
         "arrival_location": arrival_location,
-        "generated_at": _format_pdf_datetime(datetime.now(timezone.utc)),
+        "generated_at": _format_pdf_datetime(datetime.now(UTC)),
     }
 
 
@@ -479,18 +485,22 @@ async def _build_voyage_pax_manifest_variables(
 ) -> dict:
     variables = await _build_voyage_pdf_base_context(db, voyage=voyage, entity_id=entity_id)
     passengers = (
-        await db.execute(
-            select(ManifestPassenger)
-            .join(VoyageManifest, ManifestPassenger.manifest_id == VoyageManifest.id)
-            .where(
-                VoyageManifest.voyage_id == voyage.id,
-                VoyageManifest.manifest_type == "pax",
-                VoyageManifest.active == True,  # noqa: E712
-                ManifestPassenger.active == True,  # noqa: E712
+        (
+            await db.execute(
+                select(ManifestPassenger)
+                .join(VoyageManifest, ManifestPassenger.manifest_id == VoyageManifest.id)
+                .where(
+                    VoyageManifest.voyage_id == voyage.id,
+                    VoyageManifest.manifest_type == "pax",
+                    VoyageManifest.active == True,  # noqa: E712
+                    ManifestPassenger.active == True,  # noqa: E712
+                )
+                .order_by(ManifestPassenger.name.asc())
             )
-            .order_by(ManifestPassenger.name.asc())
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     vector = await db.get(TransportVector, voyage.vector_id) if voyage.vector_id else None
     variables.update(
         {
@@ -691,9 +701,7 @@ async def list_vectors(
         query = query.where(TransportVector.active == True)
     if search:
         like = f"%{search}%"
-        query = query.where(
-            TransportVector.name.ilike(like) | TransportVector.registration.ilike(like)
-        )
+        query = query.where(TransportVector.name.ilike(like) | TransportVector.registration.ilike(like))
     query = query.order_by(TransportVector.name)
 
     def _transform(row):
@@ -736,12 +744,12 @@ async def get_vector(
     d = {c.key: getattr(vector, c.key) for c in vector.__table__.columns}
     # Counts
     zc = await db.execute(
-        select(sqla_func.count()).select_from(TransportVectorZone)
+        select(sqla_func.count())
+        .select_from(TransportVectorZone)
         .where(TransportVectorZone.vector_id == vector_id, TransportVectorZone.active == True)
     )
     vc = await db.execute(
-        select(sqla_func.count()).select_from(Voyage)
-        .where(Voyage.vector_id == vector_id, Voyage.active == True)
+        select(sqla_func.count()).select_from(Voyage).where(Voyage.vector_id == vector_id, Voyage.active == True)
     )
     d["zone_count"] = zc.scalar() or 0
     d["voyage_count"] = vc.scalar() or 0
@@ -834,9 +842,7 @@ async def update_vector_zone(
 ):
     await _get_vector_or_404(db, vector_id, entity_id)
     result = await db.execute(
-        select(TransportVectorZone).where(
-            TransportVectorZone.id == zone_id, TransportVectorZone.vector_id == vector_id
-        )
+        select(TransportVectorZone).where(TransportVectorZone.id == zone_id, TransportVectorZone.vector_id == vector_id)
     )
     zone = result.scalars().first()
     if not zone:
@@ -859,9 +865,7 @@ async def delete_vector_zone(
 ):
     await _get_vector_or_404(db, vector_id, entity_id)
     result = await db.execute(
-        select(TransportVectorZone).where(
-            TransportVectorZone.id == zone_id, TransportVectorZone.vector_id == vector_id
-        )
+        select(TransportVectorZone).where(TransportVectorZone.id == zone_id, TransportVectorZone.vector_id == vector_id)
     )
     zone = result.scalars().first()
     if not zone:
@@ -937,9 +941,7 @@ async def update_rotation(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(TransportRotation).where(
-            TransportRotation.id == rotation_id, TransportRotation.entity_id == entity_id
-        )
+        select(TransportRotation).where(TransportRotation.id == rotation_id, TransportRotation.entity_id == entity_id)
     )
     rotation = result.scalars().first()
     if not rotation:
@@ -1028,9 +1030,7 @@ async def list_voyages(
         query = query.where(Voyage.created_by == current_user.id)
     elif scope != "all":
         # Auto-detect: users without read_all only see their own voyages
-        can_read_all = await has_user_permission(
-            current_user, entity_id, "travelwiz.voyage.read_all", db
-        )
+        can_read_all = await has_user_permission(current_user, entity_id, "travelwiz.voyage.read_all", db)
         if not can_read_all:
             query = query.where(Voyage.created_by == current_user.id)
 
@@ -1112,20 +1112,23 @@ async def get_voyage(
         d["departure_base_name"] = None
     # Counts
     sc = await db.execute(
-        select(sqla_func.count()).select_from(VoyageStop)
+        select(sqla_func.count())
+        .select_from(VoyageStop)
         .where(VoyageStop.voyage_id == voyage_id, VoyageStop.active == True)
     )
     d["stop_count"] = sc.scalar() or 0
     # PAX count via manifests
     pc = await db.execute(
-        select(sqla_func.count()).select_from(ManifestPassenger)
+        select(sqla_func.count())
+        .select_from(ManifestPassenger)
         .join(VoyageManifest, ManifestPassenger.manifest_id == VoyageManifest.id)
         .where(VoyageManifest.voyage_id == voyage_id, VoyageManifest.active == True, ManifestPassenger.active == True)
     )
     d["pax_count"] = pc.scalar() or 0
     # Cargo count via manifests
     cc = await db.execute(
-        select(sqla_func.count()).select_from(CargoItem)
+        select(sqla_func.count())
+        .select_from(CargoItem)
         .join(VoyageManifest, CargoItem.manifest_id == VoyageManifest.id)
         .where(VoyageManifest.voyage_id == voyage_id, VoyageManifest.active == True, CargoItem.active == True)
     )
@@ -1182,9 +1185,7 @@ async def update_voyage_status(
     }
     allowed = VALID_TRANSITIONS.get(voyage.status, set())
     if body.status not in allowed:
-        raise HTTPException(
-            400, f"Cannot transition from '{voyage.status}' to '{body.status}'"
-        )
+        raise HTTPException(400, f"Cannot transition from '{voyage.status}' to '{body.status}'")
 
     # FSM transition (if workflow definition exists)
     try:
@@ -1212,9 +1213,9 @@ async def update_voyage_status(
         voyage.actual_arrival = body.actual_arrival
     # Auto-set timestamps for departure/arrival
     if body.status == "departed" and not voyage.actual_departure:
-        voyage.actual_departure = datetime.now(timezone.utc)
+        voyage.actual_departure = datetime.now(UTC)
     if body.status == "arrived" and not voyage.actual_arrival:
-        voyage.actual_arrival = datetime.now(timezone.utc)
+        voyage.actual_arrival = datetime.now(UTC)
 
     await db.commit()
     await db.refresh(voyage)
@@ -1232,49 +1233,59 @@ async def update_voyage_status(
     # Emit event when voyage is confirmed → triggers TravelWiz PAX notifications
     if body.status == "confirmed":
         from app.core.events import OpsFluxEvent, event_bus
-        await event_bus.publish(OpsFluxEvent(
-            event_type="travelwiz.voyage.confirmed",
-            payload={
-                "voyage_id": str(voyage_id),
-                "entity_id": str(entity_id),
-                "code": voyage.code if hasattr(voyage, "code") else str(voyage_id),
-                "departure_base": str(voyage.departure_base_id) if voyage.departure_base_id else "",
-                "destination": str(voyage.destination_asset_id) if hasattr(voyage, "destination_asset_id") and voyage.destination_asset_id else "",
-                "scheduled_departure": str(voyage.scheduled_departure) if voyage.scheduled_departure else "",
-                "transport_mode": voyage.transport_mode if hasattr(voyage, "transport_mode") else "",
-            },
-        ))
+
+        await event_bus.publish(
+            OpsFluxEvent(
+                event_type="travelwiz.voyage.confirmed",
+                payload={
+                    "voyage_id": str(voyage_id),
+                    "entity_id": str(entity_id),
+                    "code": voyage.code if hasattr(voyage, "code") else str(voyage_id),
+                    "departure_base": str(voyage.departure_base_id) if voyage.departure_base_id else "",
+                    "destination": str(voyage.destination_asset_id)
+                    if hasattr(voyage, "destination_asset_id") and voyage.destination_asset_id
+                    else "",
+                    "scheduled_departure": str(voyage.scheduled_departure) if voyage.scheduled_departure else "",
+                    "transport_mode": voyage.transport_mode if hasattr(voyage, "transport_mode") else "",
+                },
+            )
+        )
 
     if body.status == "delayed":
         from app.core.events import OpsFluxEvent, event_bus
+
         delay_analysis = await assess_voyage_delay(db, voyage_id=voyage_id, entity_id=entity_id)
-        await event_bus.publish(OpsFluxEvent(
-            event_type="travelwiz.voyage.delayed",
-            payload={
-                "voyage_id": str(voyage_id),
-                "entity_id": str(entity_id),
-                "code": voyage.code,
-                "delay_reason": voyage.delay_reason,
-                "delay_hours": delay_analysis["delay_hours"],
-                "threshold_hours": delay_analysis["threshold_hours"],
-                "reassign_available": delay_analysis["reassign_available"],
-                "alternatives": delay_analysis["alternatives"],
-            },
-        ))
+        await event_bus.publish(
+            OpsFluxEvent(
+                event_type="travelwiz.voyage.delayed",
+                payload={
+                    "voyage_id": str(voyage_id),
+                    "entity_id": str(entity_id),
+                    "code": voyage.code,
+                    "delay_reason": voyage.delay_reason,
+                    "delay_hours": delay_analysis["delay_hours"],
+                    "threshold_hours": delay_analysis["threshold_hours"],
+                    "reassign_available": delay_analysis["reassign_available"],
+                    "alternatives": delay_analysis["alternatives"],
+                },
+            )
+        )
 
     if body.status == "cancelled":
         from app.core.events import OpsFluxEvent, event_bus
 
-        await event_bus.publish(OpsFluxEvent(
-            event_type="travelwiz.voyage.cancelled",
-            payload={
-                "voyage_id": str(voyage_id),
-                "entity_id": str(entity_id),
-                "code": voyage.code,
-                "from_status": from_state,
-                "delay_reason": voyage.delay_reason,
-            },
-        ))
+        await event_bus.publish(
+            OpsFluxEvent(
+                event_type="travelwiz.voyage.cancelled",
+                payload={
+                    "voyage_id": str(voyage_id),
+                    "entity_id": str(entity_id),
+                    "code": voyage.code,
+                    "from_status": from_state,
+                    "delay_reason": voyage.delay_reason,
+                },
+            )
+        )
 
     # Emit event when voyage is closed → triggers PaxLog AdS auto-close
     if body.status == "closed":
@@ -1291,15 +1302,17 @@ async def update_voyage_status(
             # Auto-close the manifest if not already closed
             if manifest.status != "closed":
                 manifest.status = "closed"
-            await event_bus.publish(OpsFluxEvent(
-                event_type="travelwiz.manifest.closed",
-                payload={
-                    "manifest_id": str(manifest.id),
-                    "voyage_id": str(voyage_id),
-                    "entity_id": str(entity_id),
-                    "is_return": True,  # Assume closing = return completed
-                },
-            ))
+            await event_bus.publish(
+                OpsFluxEvent(
+                    event_type="travelwiz.manifest.closed",
+                    payload={
+                        "manifest_id": str(manifest.id),
+                        "voyage_id": str(voyage_id),
+                        "entity_id": str(entity_id),
+                        "is_return": True,  # Assume closing = return completed
+                    },
+                )
+            )
         await db.commit()
         await db.refresh(voyage)
 
@@ -1347,7 +1360,9 @@ async def download_voyage_pax_manifest_pdf(
         variables=variables,
     )
     if not pdf_bytes:
-        raise HTTPException(404, "Template PDF 'voyage.manifest' introuvable. Initialisez-le dans Parametres > Modeles PDF.")
+        raise HTTPException(
+            404, "Template PDF 'voyage.manifest' introuvable. Initialisez-le dans Parametres > Modeles PDF."
+        )
     filename = f"{voyage.code}_manifest_pax.pdf"
     return Response(
         content=pdf_bytes,
@@ -1376,7 +1391,9 @@ async def download_voyage_cargo_manifest_pdf(
         variables=variables,
     )
     if not pdf_bytes:
-        raise HTTPException(404, "Template PDF 'voyage.cargo_manifest' introuvable. Initialisez-le dans Parametres > Modeles PDF.")
+        raise HTTPException(
+            404, "Template PDF 'voyage.cargo_manifest' introuvable. Initialisez-le dans Parametres > Modeles PDF."
+        )
     filename = f"{voyage.code}_manifest_cargo.pdf"
     return Response(
         content=pdf_bytes,
@@ -1439,9 +1456,7 @@ async def update_voyage_stop(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
-    result = await db.execute(
-        select(VoyageStop).where(VoyageStop.id == stop_id, VoyageStop.voyage_id == voyage_id)
-    )
+    result = await db.execute(select(VoyageStop).where(VoyageStop.id == stop_id, VoyageStop.voyage_id == voyage_id))
     stop = result.scalars().first()
     if not stop:
         raise HTTPException(404, "Stop not found")
@@ -1464,9 +1479,7 @@ async def delete_voyage_stop(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
-    result = await db.execute(
-        select(VoyageStop).where(VoyageStop.id == stop_id, VoyageStop.voyage_id == voyage_id)
-    )
+    result = await db.execute(select(VoyageStop).where(VoyageStop.id == stop_id, VoyageStop.voyage_id == voyage_id))
     stop = result.scalars().first()
     if not stop:
         raise HTTPException(404, "Stop not found")
@@ -1484,7 +1497,7 @@ async def delete_voyage_stop(
 async def list_all_manifests(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
-    status: Optional[str] = None,
+    status: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -1492,6 +1505,7 @@ async def list_all_manifests(
     """List all manifests across all voyages (paginated)."""
     # Use raw SQL to avoid ORM subquery issues
     from sqlalchemy import text as sql_text
+
     count_sql = sql_text("""
         SELECT COUNT(*) FROM voyage_manifests vm
         JOIN voyages v ON vm.voyage_id = v.id
@@ -1510,13 +1524,15 @@ async def list_all_manifests(
     rows = await db.execute(data_sql, {"eid": str(entity_id), "off": (page - 1) * page_size, "lim": page_size})
     items = []
     for row in rows:
-        items.append({
-            "id": str(row[0]),
-            "voyage_id": str(row[1]),
-            "manifest_type": row[2],
-            "status": row[3],
-            "created_at": row[4].isoformat() if row[4] else None,
-        })
+        items.append(
+            {
+                "id": str(row[0]),
+                "voyage_id": str(row[1]),
+                "manifest_type": row[2],
+                "status": row[3],
+                "created_at": row[4].isoformat() if row[4] else None,
+            }
+        )
     return {
         "items": items,
         "total": total,
@@ -1545,13 +1561,15 @@ async def list_manifests(
         d = {c.key: getattr(m, c.key) for c in m.__table__.columns}
         # Passenger count
         pc = await db.execute(
-            select(sqla_func.count()).select_from(ManifestPassenger)
+            select(sqla_func.count())
+            .select_from(ManifestPassenger)
             .where(ManifestPassenger.manifest_id == m.id, ManifestPassenger.active == True)
         )
         d["passenger_count"] = pc.scalar() or 0
         # Cargo count
         cc = await db.execute(
-            select(sqla_func.count()).select_from(CargoItem)
+            select(sqla_func.count())
+            .select_from(CargoItem)
             .where(CargoItem.manifest_id == m.id, CargoItem.active == True)
         )
         d["cargo_count"] = cc.scalar() or 0
@@ -1619,9 +1637,7 @@ async def validate_manifest(
     """
     await _get_voyage_or_404(db, voyage_id, entity_id)
     result = await db.execute(
-        select(VoyageManifest).where(
-            VoyageManifest.id == manifest_id, VoyageManifest.voyage_id == voyage_id
-        )
+        select(VoyageManifest).where(VoyageManifest.id == manifest_id, VoyageManifest.voyage_id == voyage_id)
     )
     manifest = result.scalars().first()
     if not manifest:
@@ -1662,14 +1678,17 @@ async def validate_manifest(
 
     manifest.status = "validated"
     manifest.validated_by = current_user.id
-    manifest.validated_at = datetime.now(timezone.utc)
+    manifest.validated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(manifest)
 
     # Count passengers for the event payload
     from sqlalchemy import func as sqla_func_local
+
     pax_count_result = await db.execute(
-        select(sqla_func_local.count()).select_from(ManifestPassenger).where(
+        select(sqla_func_local.count())
+        .select_from(ManifestPassenger)
+        .where(
             ManifestPassenger.manifest_id == manifest_id,
             ManifestPassenger.active == True,  # noqa: E712
         )
@@ -1680,21 +1699,33 @@ async def validate_manifest(
     voyage_obj = await db.get(Voyage, voyage_id)
 
     # Emit module-level event AFTER commit → triggers TravelWiz notification handlers
-    from app.core.events import OpsFluxEvent, event_bus as _event_bus
-    await _event_bus.publish(OpsFluxEvent(
-        event_type="travelwiz.manifest.validated",
-        payload={
-            "manifest_id": str(manifest_id),
-            "voyage_id": str(voyage_id),
-            "entity_id": str(entity_id),
-            "code": voyage_obj.code if voyage_obj and hasattr(voyage_obj, "code") else str(voyage_id),
-            "departure_base": str(voyage_obj.departure_base_id) if voyage_obj and voyage_obj.departure_base_id else "",
-            "destination": str(voyage_obj.destination_asset_id) if voyage_obj and hasattr(voyage_obj, "destination_asset_id") and voyage_obj.destination_asset_id else "",
-            "scheduled_departure": str(voyage_obj.scheduled_departure) if voyage_obj and voyage_obj.scheduled_departure else "",
-            "passenger_count": pax_count,
-            "captain_user_id": str(voyage_obj.captain_id) if voyage_obj and hasattr(voyage_obj, "captain_id") and voyage_obj.captain_id else None,
-        },
-    ))
+    from app.core.events import OpsFluxEvent
+    from app.core.events import event_bus as _event_bus
+
+    await _event_bus.publish(
+        OpsFluxEvent(
+            event_type="travelwiz.manifest.validated",
+            payload={
+                "manifest_id": str(manifest_id),
+                "voyage_id": str(voyage_id),
+                "entity_id": str(entity_id),
+                "code": voyage_obj.code if voyage_obj and hasattr(voyage_obj, "code") else str(voyage_id),
+                "departure_base": str(voyage_obj.departure_base_id)
+                if voyage_obj and voyage_obj.departure_base_id
+                else "",
+                "destination": str(voyage_obj.destination_asset_id)
+                if voyage_obj and hasattr(voyage_obj, "destination_asset_id") and voyage_obj.destination_asset_id
+                else "",
+                "scheduled_departure": str(voyage_obj.scheduled_departure)
+                if voyage_obj and voyage_obj.scheduled_departure
+                else "",
+                "passenger_count": pax_count,
+                "captain_user_id": str(voyage_obj.captain_id)
+                if voyage_obj and hasattr(voyage_obj, "captain_id") and voyage_obj.captain_id
+                else None,
+            },
+        )
+    )
 
     d = {c.key: getattr(manifest, c.key) for c in manifest.__table__.columns}
     d["passenger_count"] = pax_count
@@ -1735,9 +1766,7 @@ async def add_passenger(
     voyage = await _get_voyage_or_404(db, voyage_id, entity_id)
     # Verify manifest exists and is draft
     result = await db.execute(
-        select(VoyageManifest).where(
-            VoyageManifest.id == manifest_id, VoyageManifest.voyage_id == voyage_id
-        )
+        select(VoyageManifest).where(VoyageManifest.id == manifest_id, VoyageManifest.voyage_id == voyage_id)
     )
     manifest = result.scalars().first()
     if not manifest:
@@ -1782,7 +1811,7 @@ async def update_passenger(
         setattr(pax, field, value)
     # Auto-set boarded_at
     if body.boarding_status == "boarded" and not pax.boarded_at:
-        pax.boarded_at = datetime.now(timezone.utc)
+        pax.boarded_at = datetime.now(UTC)
     await db.flush()
     await rebalance_manifest_passenger_standby(
         db,
@@ -2188,7 +2217,8 @@ async def check_voyage_capacity(
 
     # Count active PAX on all manifests for this voyage
     pax_result = await db.execute(
-        select(sqla_func.count()).select_from(ManifestPassenger)
+        select(sqla_func.count())
+        .select_from(ManifestPassenger)
         .join(VoyageManifest, ManifestPassenger.manifest_id == VoyageManifest.id)
         .where(
             VoyageManifest.voyage_id == voyage_id,
@@ -2225,19 +2255,11 @@ async def check_voyage_capacity(
 
     current_weight = pax_weight + cargo_weight
     remaining_pax = vector.pax_capacity - current_pax
-    remaining_weight = (
-        (vector.weight_capacity_kg - current_weight) if vector.weight_capacity_kg else None
-    )
+    remaining_weight = (vector.weight_capacity_kg - current_weight) if vector.weight_capacity_kg else None
     weight_alert_ratio = await get_weight_alert_ratio(db, entity_id=entity_id)
-    weight_alert_threshold = (
-        vector.weight_capacity_kg * weight_alert_ratio if vector.weight_capacity_kg else None
-    )
-    weight_alert_reached = bool(
-        weight_alert_threshold is not None and current_weight >= weight_alert_threshold
-    )
-    weight_blocked = bool(
-        vector.weight_capacity_kg is not None and current_weight >= vector.weight_capacity_kg
-    )
+    weight_alert_threshold = vector.weight_capacity_kg * weight_alert_ratio if vector.weight_capacity_kg else None
+    weight_alert_reached = bool(weight_alert_threshold is not None and current_weight >= weight_alert_threshold)
+    weight_blocked = bool(vector.weight_capacity_kg is not None and current_weight >= vector.weight_capacity_kg)
     is_over = current_pax > vector.pax_capacity or (
         vector.weight_capacity_kg is not None and current_weight > vector.weight_capacity_kg
     )
@@ -2331,6 +2353,7 @@ async def list_voyage_events(
     """List all journal de bord events for a voyage, ordered chronologically."""
     await _get_voyage_or_404(db, voyage_id, entity_id)
     from sqlalchemy import text
+
     try:
         result = await db.execute(
             text(
@@ -2441,7 +2464,7 @@ async def close_trip(
     # Update status
     voyage.status = "closed"
     if not voyage.actual_arrival:
-        voyage.actual_arrival = datetime.now(timezone.utc)
+        voyage.actual_arrival = datetime.now(UTC)
 
     # Close all manifests
     manifest_result = await db.execute(
@@ -2458,17 +2481,21 @@ async def close_trip(
     await db.refresh(voyage)
 
     # Emit close event
-    from app.core.events import OpsFluxEvent, event_bus as _eb
-    await _eb.publish(OpsFluxEvent(
-        event_type="travelwiz.trip.closed",
-        payload={
-            "voyage_id": str(voyage_id),
-            "entity_id": str(entity_id),
-            "code": voyage.code,
-            "closed_by": str(current_user.id),
-            "kpis": kpis,
-        },
-    ))
+    from app.core.events import OpsFluxEvent
+    from app.core.events import event_bus as _eb
+
+    await _eb.publish(
+        OpsFluxEvent(
+            event_type="travelwiz.trip.closed",
+            payload={
+                "voyage_id": str(voyage_id),
+                "entity_id": str(entity_id),
+                "code": voyage.code,
+                "closed_by": str(current_user.id),
+                "kpis": kpis,
+            },
+        )
+    )
 
     return {"detail": "Trip closed", "kpis": kpis}
 
@@ -2690,9 +2717,10 @@ async def captain_auth(
 ):
     """Authenticate with 6-digit captain code. Returns trip details if valid."""
     from app.services.modules.travelwiz_service import authenticate_captain_code as _auth
-
     from app.services.modules.travelwiz_service import (
         create_captain_session_token as _create_session,
+    )
+    from app.services.modules.travelwiz_service import (
         get_captain_session_minutes as _get_session_minutes,
     )
 
@@ -2705,7 +2733,7 @@ async def captain_auth(
     if not entity_id or not voyage_id or not trip_code_access_id:
         raise HTTPException(500, "Captain access is missing required session context")
     session_minutes = await _get_session_minutes(db, entity_id=entity_id)
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=session_minutes)
+    expires_at = datetime.now(UTC) + timedelta(minutes=session_minutes)
     result["session_token"] = _create_session(
         trip_code_access_id=trip_code_access_id,
         voyage_id=voyage_id,
@@ -2723,9 +2751,7 @@ async def captain_manifest(
 ):
     """Read-only manifest view for captain portal."""
     await _require_captain_session(voyage_id, db, x_captain_session)
-    voyage_result = await db.execute(
-        select(Voyage).where(Voyage.id == voyage_id)
-    )
+    voyage_result = await db.execute(select(Voyage).where(Voyage.id == voyage_id))
     voyage = voyage_result.scalar_one_or_none()
     if not voyage:
         raise HTTPException(404, "Voyage not found")
@@ -2806,9 +2832,7 @@ async def captain_event(
     from app.services.modules.travelwiz_service import record_voyage_event as _record_event
 
     captain_session = await _require_captain_session(voyage_id, db, x_captain_session)
-    voyage_result = await db.execute(
-        select(Voyage).where(Voyage.id == voyage_id)
-    )
+    voyage_result = await db.execute(select(Voyage).where(Voyage.id == voyage_id))
     voyage = voyage_result.scalar_one_or_none()
     if not voyage:
         raise HTTPException(404, "Voyage not found")
@@ -2845,6 +2869,8 @@ async def driver_auth(
     from app.services.modules.travelwiz_service import authenticate_driver_code as _auth
     from app.services.modules.travelwiz_service import (
         create_driver_session_token as _create_session,
+    )
+    from app.services.modules.travelwiz_service import (
         get_driver_session_minutes as _get_session_minutes,
     )
 
@@ -2857,7 +2883,7 @@ async def driver_auth(
     if not entity_id or not voyage_id or not trip_code_access_id:
         raise HTTPException(500, "Driver access is missing required session context")
     session_minutes = await _get_session_minutes(db, entity_id=entity_id)
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=session_minutes)
+    expires_at = datetime.now(UTC) + timedelta(minutes=session_minutes)
     result["session_token"] = _create_session(
         trip_code_access_id=trip_code_access_id,
         voyage_id=voyage_id,
@@ -3050,6 +3076,7 @@ async def list_articles(
 ):
     """List article catalog entries with optional filtering."""
     from sqlalchemy import text
+
     conditions = ["entity_id = :eid"]
     params: dict = {"eid": str(entity_id)}
 
@@ -3111,6 +3138,7 @@ async def create_article(
 ):
     """Create a new article catalog entry."""
     from sqlalchemy import text
+
     try:
         normalized = _normalize_article_description(description)
         result = await db.execute(
@@ -3131,7 +3159,7 @@ async def create_article(
                 "haz": is_hazmat,
                 "hclass": hazmat_class,
                 "source": "manual",
-                "imported_at": datetime.now(timezone.utc),
+                "imported_at": datetime.now(UTC),
             },
         )
         row = result.first()
@@ -3173,17 +3201,13 @@ async def import_articles_csv(
     imported = 0
     updated = 0
     errors: list[str] = []
-    imported_at = datetime.now(timezone.utc)
+    imported_at = datetime.now(UTC)
 
     for line_number, row in enumerate(reader, start=2):
         try:
             payload = _normalize_article_csv_row(row, line_number)
             existing = await db.execute(
-                text(
-                    "SELECT id FROM article_catalog "
-                    "WHERE entity_id = :eid AND sap_code = :sap "
-                    "LIMIT 1"
-                ),
+                text("SELECT id FROM article_catalog WHERE entity_id = :eid AND sap_code = :sap LIMIT 1"),
                 {"eid": str(entity_id), "sap": payload["sap_code"]},
             )
             article_id = existing.scalar_one_or_none()
@@ -3260,7 +3284,7 @@ async def trips_today(
     db: AsyncSession = Depends(get_db),
 ):
     """Get voyages departing or arriving today. Used by dashboard widget."""
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
     today_end = today_start.replace(hour=23, minute=59, second=59)
 
     result = await db.execute(
@@ -3282,11 +3306,8 @@ async def trips_today(
             Voyage.entity_id == entity_id,
             Voyage.active == True,  # noqa: E712
             Voyage.status.in_(["planned", "confirmed", "boarding", "departed", "arrived"]),
-            (
-                (Voyage.scheduled_departure >= today_start) & (Voyage.scheduled_departure <= today_end)
-            ) | (
-                (Voyage.scheduled_arrival >= today_start) & (Voyage.scheduled_arrival <= today_end)
-            ),
+            ((Voyage.scheduled_departure >= today_start) & (Voyage.scheduled_departure <= today_end))
+            | ((Voyage.scheduled_arrival >= today_start) & (Voyage.scheduled_arrival <= today_end)),
         )
         .order_by(Voyage.scheduled_departure)
     )
@@ -3333,17 +3354,19 @@ async def cargo_pending(
     items = []
     for row in result.all():
         cargo = row[0]
-        items.append({
-            "id": cargo.id,
-            "tracking_code": cargo.tracking_code,
-            "description": cargo.description,
-            "cargo_type": cargo.cargo_type,
-            "weight_kg": cargo.weight_kg,
-            "status": cargo.status,
-            "destination_name": row[1],
-            "hazmat_validated": cargo.hazmat_validated,
-            "created_at": cargo.created_at,
-        })
+        items.append(
+            {
+                "id": cargo.id,
+                "tracking_code": cargo.tracking_code,
+                "description": cargo.description,
+                "cargo_type": cargo.cargo_type,
+                "weight_kg": cargo.weight_kg,
+                "status": cargo.status,
+                "destination_name": row[1],
+                "hazmat_validated": cargo.hazmat_validated,
+                "created_at": cargo.created_at,
+            }
+        )
     return items
 
 
@@ -3356,7 +3379,9 @@ async def fleet_kpis(
     """Get fleet-level KPIs. Used by dashboard widget."""
     # Active vectors
     vec_count = await db.execute(
-        select(sqla_func.count()).select_from(TransportVector).where(
+        select(sqla_func.count())
+        .select_from(TransportVector)
+        .where(
             TransportVector.entity_id == entity_id,
             TransportVector.active == True,  # noqa: E712
         )
@@ -3364,10 +3389,12 @@ async def fleet_kpis(
     active_vectors = vec_count.scalar() or 0
 
     # Voyages today
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
     today_end = today_start.replace(hour=23, minute=59, second=59)
     voyages_today = await db.execute(
-        select(sqla_func.count()).select_from(Voyage).where(
+        select(sqla_func.count())
+        .select_from(Voyage)
+        .where(
             Voyage.entity_id == entity_id,
             Voyage.active == True,  # noqa: E712
             Voyage.scheduled_departure >= today_start,
@@ -3377,7 +3404,9 @@ async def fleet_kpis(
 
     # Active voyages (not closed/cancelled)
     active_voyages = await db.execute(
-        select(sqla_func.count()).select_from(Voyage).where(
+        select(sqla_func.count())
+        .select_from(Voyage)
+        .where(
             Voyage.entity_id == entity_id,
             Voyage.active == True,  # noqa: E712
             Voyage.status.in_(["planned", "confirmed", "boarding", "departed", "arrived"]),
@@ -3386,7 +3415,9 @@ async def fleet_kpis(
 
     # Pending cargo
     pending_cargo = await db.execute(
-        select(sqla_func.count()).select_from(CargoItem).where(
+        select(sqla_func.count())
+        .select_from(CargoItem)
+        .where(
             CargoItem.entity_id == entity_id,
             CargoItem.active == True,  # noqa: E712
             CargoItem.status.in_(["registered", "ready_for_loading"]),
@@ -3395,7 +3426,9 @@ async def fleet_kpis(
 
     # In-transit cargo
     transit_cargo = await db.execute(
-        select(sqla_func.count()).select_from(CargoItem).where(
+        select(sqla_func.count())
+        .select_from(CargoItem)
+        .where(
             CargoItem.entity_id == entity_id,
             CargoItem.active == True,  # noqa: E712
             CargoItem.status == "in_transit",
@@ -3535,19 +3568,21 @@ async def get_pickup_round_details(
     enriched_stops = []
     for s in stops:
         asset = await db.get(Installation, s.asset_id)
-        enriched_stops.append({
-            "id": s.id,
-            "asset_id": s.asset_id,
-            "asset_name": asset.name if asset else None,
-            "pickup_order": s.pickup_order,
-            "scheduled_time": s.scheduled_time,
-            "actual_time": s.actual_time,
-            "pax_expected": s.pax_expected,
-            "pax_picked_up": s.pax_picked_up,
-            "status": s.status,
-            "notes": s.notes,
-            "assigned_passengers": assignments_by_stop.get(s.id, []),
-        })
+        enriched_stops.append(
+            {
+                "id": s.id,
+                "asset_id": s.asset_id,
+                "asset_name": asset.name if asset else None,
+                "pickup_order": s.pickup_order,
+                "scheduled_time": s.scheduled_time,
+                "actual_time": s.actual_time,
+                "pax_expected": s.pax_expected,
+                "pax_picked_up": s.pax_picked_up,
+                "status": s.status,
+                "notes": s.notes,
+                "assigned_passengers": assignments_by_stop.get(s.id, []),
+            }
+        )
 
     return {
         "id": pickup_round.id,
@@ -3698,11 +3733,12 @@ async def get_fleet_positions_endpoint(
     db: AsyncSession = Depends(get_db),
 ):
     """Get latest positions of all vehicles (for fleet map widget)."""
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     from app.services.modules.travelwiz_service import get_fleet_positions as _fleet
 
     positions = await _fleet(db, entity_id=entity_id)
-    return {"positions": positions, "updated_at": datetime.now(timezone.utc).isoformat()}
+    return {"positions": positions, "updated_at": datetime.now(UTC).isoformat()}
 
 
 @router.get("/tracking/{vehicle_id}/track")
@@ -3732,6 +3768,7 @@ async def tracking_sse(
     """
     import asyncio
     import json
+
     from app.core.events import event_bus as _eb
 
     async def event_generator():
@@ -3748,7 +3785,7 @@ async def tracking_sse(
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=30.0)
                     yield f"data: {json.dumps(event.payload)}\n\n"
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Send heartbeat to keep connection alive
                     yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
         except asyncio.CancelledError:

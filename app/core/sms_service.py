@@ -22,7 +22,6 @@ Usage:
 import hashlib
 import logging
 import time
-from datetime import datetime, timezone
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,11 +41,7 @@ async def _is_event_channel_enabled(
         return True
 
     result = await db.execute(
-        text(
-            "SELECT value FROM settings "
-            "WHERE key = :key AND scope = 'user' AND scope_id = :scope_id "
-            "LIMIT 1"
-        ),
+        text("SELECT value FROM settings WHERE key = :key AND scope = 'user' AND scope_id = :scope_id LIMIT 1"),
         {"key": _USER_PREFS_KEY, "scope_id": str(user_id)},
     )
     raw = result.scalar_one_or_none()
@@ -81,22 +76,38 @@ async def _get_messaging_settings(db: AsyncSession) -> list[tuple[str, dict[str,
     providers: list[tuple[str, dict[str, str]]] = []
 
     # Check WhatsApp first (preferred — free OTP templates via Meta Cloud API)
-    wa_keys = {k.replace("integration.whatsapp.", ""): v for k, v in all_settings.items() if k.startswith("integration.whatsapp.")}
+    wa_keys = {
+        k.replace("integration.whatsapp.", ""): v
+        for k, v in all_settings.items()
+        if k.startswith("integration.whatsapp.")
+    }
     if wa_keys.get("phone_number_id") and wa_keys.get("access_token"):
         providers.append(("whatsapp", wa_keys))
 
     # Check OVH (preferred for FR SMS)
-    ovh_keys = {k.replace("integration.sms_ovh.", ""): v for k, v in all_settings.items() if k.startswith("integration.sms_ovh.")}
+    ovh_keys = {
+        k.replace("integration.sms_ovh.", ""): v
+        for k, v in all_settings.items()
+        if k.startswith("integration.sms_ovh.")
+    }
     if ovh_keys.get("application_key") and ovh_keys.get("consumer_key"):
         providers.append(("ovh", ovh_keys))
 
     # Check Twilio
-    twilio_keys = {k.replace("integration.sms_twilio.", ""): v for k, v in all_settings.items() if k.startswith("integration.sms_twilio.")}
+    twilio_keys = {
+        k.replace("integration.sms_twilio.", ""): v
+        for k, v in all_settings.items()
+        if k.startswith("integration.sms_twilio.")
+    }
     if twilio_keys.get("account_sid") and twilio_keys.get("auth_token"):
         providers.append(("twilio", twilio_keys))
 
     # Check Vonage
-    vonage_keys = {k.replace("integration.sms_vonage.", ""): v for k, v in all_settings.items() if k.startswith("integration.sms_vonage.")}
+    vonage_keys = {
+        k.replace("integration.sms_vonage.", ""): v
+        for k, v in all_settings.items()
+        if k.startswith("integration.sms_vonage.")
+    }
     if vonage_keys.get("api_key") and vonage_keys.get("api_secret"):
         providers.append(("vonage", vonage_keys))
 
@@ -120,9 +131,10 @@ async def _get_admin_channel_default(db: AsyncSession, message_type: str = "otp"
     Setting key: auth.messaging_channel_{message_type} (otp, notification, alert).
     Returns: 'auto' | 'whatsapp' | 'sms' | 'email'. Default: 'auto'.
     """
-    from app.models.common import Setting
     result = await db.execute(
-        text(f"SELECT value FROM settings WHERE key = 'auth.messaging_channel_{message_type}' AND scope = 'tenant' LIMIT 1")
+        text(
+            f"SELECT value FROM settings WHERE key = 'auth.messaging_channel_{message_type}' AND scope = 'tenant' LIMIT 1"
+        )
     )
     row = result.scalar()
     if row and isinstance(row, dict):
@@ -250,9 +262,7 @@ async def send_to_user(
     }.get(effective, ["email"])
 
     user_result = await db.execute(
-        text(
-            "SELECT language, default_entity_id FROM users WHERE id = :uid LIMIT 1"
-        ),
+        text("SELECT language, default_entity_id FROM users WHERE id = :uid LIMIT 1"),
         {"uid": user_id},
     )
     user_row = user_result.first()
@@ -352,6 +362,7 @@ async def _send_ovh(cfg: dict[str, str], to: str, body: str) -> bool:
     }
 
     import json
+
     body_str = json.dumps(payload)
 
     # OVH signature: "$1$" + SHA1(app_secret + "+" + consumer_key + "+" + method + "+" + url + "+" + body + "+" + timestamp)
@@ -419,13 +430,16 @@ async def _send_vonage(cfg: dict[str, str], to: str, body: str) -> bool:
     url = "https://rest.nexmo.com/sms/json"
 
     async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.post(url, json={
-            "api_key": api_key,
-            "api_secret": api_secret,
-            "to": normalized.replace("+", ""),
-            "from": sender,
-            "text": body,
-        })
+        resp = await client.post(
+            url,
+            json={
+                "api_key": api_key,
+                "api_secret": api_secret,
+                "to": normalized.replace("+", ""),
+                "from": sender,
+                "text": body,
+            },
+        )
         if resp.status_code == 200:
             data = resp.json()
             messages = data.get("messages", [])

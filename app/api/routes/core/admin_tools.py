@@ -2,6 +2,7 @@
 
 All endpoints require admin-level permissions.
 """
+
 import os
 import re
 import time
@@ -11,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_entity, get_current_user, get_db, require_permission
+from app.api.deps import get_current_user, get_db, require_permission
 from app.core.config import settings
 from app.models.common import Attachment, User
 
@@ -19,6 +20,7 @@ router = APIRouter(prefix="/api/v1/admin", tags=["admin-tools"])
 
 
 # ── Adminer ──────────────────────────────────────────────────────────────────
+
 
 @router.get("/adminer-config")
 async def get_adminer_config(
@@ -47,7 +49,8 @@ async def adminer_proxy(
     """
     import httpx
     from starlette.responses import Response
-    from app.core.security import decode_token, JWTError
+
+    from app.core.security import JWTError, decode_token
 
     # Auth: check header first, then query param (for iframe)
     token = None
@@ -74,6 +77,7 @@ async def adminer_proxy(
         raise HTTPException(status_code=401, detail="User not found or inactive")
 
     from app.api.deps import has_user_permission
+
     entity_id = user.default_entity_id
     if not entity_id or not await has_user_permission(user, entity_id, "admin.system", db):
         raise HTTPException(status_code=403, detail="Admin access required")
@@ -92,10 +96,7 @@ async def adminer_proxy(
             method=request.method,
             url=target,
             content=body,
-            headers={
-                k: v for k, v in request.headers.items()
-                if k.lower() not in ("host", "authorization", "cookie")
-            },
+            headers={k: v for k, v in request.headers.items() if k.lower() not in ("host", "authorization", "cookie")},
         )
 
     # Forward response, adjusting content for proxy path
@@ -111,7 +112,8 @@ async def adminer_proxy(
         content=content,
         status_code=resp.status_code,
         headers={
-            k: v for k, v in resp.headers.items()
+            k: v
+            for k, v in resp.headers.items()
             if k.lower() not in ("transfer-encoding", "content-encoding", "content-length")
         },
     )
@@ -221,10 +223,12 @@ async def execute_sql(
         # Convert rows to JSON-safe lists
         rows = []
         for row in raw_rows:
-            rows.append([
-                str(cell) if cell is not None and not isinstance(cell, (int, float, bool, str)) else cell
-                for cell in row
-            ])
+            rows.append(
+                [
+                    str(cell) if cell is not None and not isinstance(cell, (int, float, bool, str)) else cell
+                    for cell in row
+                ]
+            )
 
         return {
             "columns": columns,
@@ -235,7 +239,7 @@ async def execute_sql(
             "truncated": truncated,
         }
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         elapsed_ms = round((time.perf_counter() - start) * 1000, 2)
         return {
             "columns": [],
@@ -259,6 +263,7 @@ async def execute_sql(
 
 # ── File Manager ─────────────────────────────────────────────────────────────
 
+
 @router.get("/files/stats")
 async def get_storage_stats(
     current_user: User = Depends(get_current_user),
@@ -281,12 +286,11 @@ async def get_storage_stats(
             Attachment.owner_type,
             func.count(Attachment.id).label("count"),
             func.coalesce(func.sum(Attachment.size_bytes), 0).label("bytes"),
-        ).group_by(Attachment.owner_type).order_by(func.sum(Attachment.size_bytes).desc())
+        )
+        .group_by(Attachment.owner_type)
+        .order_by(func.sum(Attachment.size_bytes).desc())
     )
-    by_type = [
-        {"owner_type": r.owner_type, "count": r.count, "bytes": int(r.bytes)}
-        for r in by_type_result.all()
-    ]
+    by_type = [{"owner_type": r.owner_type, "count": r.count, "bytes": int(r.bytes)} for r in by_type_result.all()]
 
     # By content_type (top 10)
     by_content_result = await db.execute(
@@ -294,17 +298,17 @@ async def get_storage_stats(
             Attachment.content_type,
             func.count(Attachment.id).label("count"),
             func.coalesce(func.sum(Attachment.size_bytes), 0).label("bytes"),
-        ).group_by(Attachment.content_type).order_by(func.count(Attachment.id).desc()).limit(10)
+        )
+        .group_by(Attachment.content_type)
+        .order_by(func.count(Attachment.id).desc())
+        .limit(10)
     )
     by_content = [
-        {"content_type": r.content_type, "count": r.count, "bytes": int(r.bytes)}
-        for r in by_content_result.all()
+        {"content_type": r.content_type, "count": r.count, "bytes": int(r.bytes)} for r in by_content_result.all()
     ]
 
     # Recent uploads (last 20)
-    recent_result = await db.execute(
-        select(Attachment).order_by(Attachment.created_at.desc()).limit(20)
-    )
+    recent_result = await db.execute(select(Attachment).order_by(Attachment.created_at.desc()).limit(20))
     recent = [
         {
             "id": str(a.id),
@@ -320,7 +324,7 @@ async def get_storage_stats(
     ]
 
     # Storage backend info
-    storage_backend = getattr(settings, 'STORAGE_BACKEND', 'local')
+    storage_backend = getattr(settings, "STORAGE_BACKEND", "local")
 
     return {
         "total_files": row.total_files,
@@ -331,9 +335,9 @@ async def get_storage_stats(
         "storage_backend": storage_backend,
         "storage_config": {
             "backend": storage_backend,
-            "s3_bucket": getattr(settings, 'S3_BUCKET', '') if storage_backend != 'local' else None,
-            "s3_endpoint": getattr(settings, 'S3_ENDPOINT', '') if storage_backend != 'local' else None,
-            "max_file_size_mb": getattr(settings, 'STORAGE_MAX_FILE_SIZE_MB', 50),
+            "s3_bucket": getattr(settings, "S3_BUCKET", "") if storage_backend != "local" else None,
+            "s3_endpoint": getattr(settings, "S3_ENDPOINT", "") if storage_backend != "local" else None,
+            "max_file_size_mb": getattr(settings, "STORAGE_MAX_FILE_SIZE_MB", 50),
         },
     }
 
@@ -391,13 +395,18 @@ async def browse_files(
 # ── Filesystem API (for jfvilas/react-file-manager) ──────────────────────────
 
 import mimetypes
-from datetime import datetime, timezone
-from fastapi import UploadFile, File as FastAPIFile
-from fastapi.responses import FileResponse
+from datetime import UTC, datetime
 from pathlib import Path
 
+from fastapi import File as FastAPIFile
+from fastapi import UploadFile
+from fastapi.responses import FileResponse
+
 # Use the same static directory as main.py mounts
-STATIC_ROOT = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))).resolve() / "static"
+STATIC_ROOT = (
+    Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))).resolve()
+    / "static"
+)
 
 
 def _safe_resolve(relative_path: str) -> Path | None:
@@ -420,13 +429,15 @@ async def fs_list_all(
             try:
                 item_path = "/" + str(entry.relative_to(STATIC_ROOT)).replace("\\", "/")
                 stat = entry.stat()
-                items.append({
-                    "name": entry.name,
-                    "isDirectory": entry.is_dir(),
-                    "path": item_path,
-                    "updatedAt": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
-                    "size": stat.st_size if entry.is_file() else 0,
-                })
+                items.append(
+                    {
+                        "name": entry.name,
+                        "isDirectory": entry.is_dir(),
+                        "path": item_path,
+                        "updatedAt": datetime.fromtimestamp(stat.st_mtime, tz=UTC).isoformat(),
+                        "size": stat.st_size if entry.is_file() else 0,
+                    }
+                )
             except (PermissionError, OSError):
                 continue
     except PermissionError:
@@ -451,13 +462,15 @@ async def fs_list(
         for entry in sorted(target.iterdir(), key=lambda e: (not e.is_dir(), e.name.lower())):
             item_path = "/" + str(entry.relative_to(STATIC_ROOT)).replace("\\", "/")
             stat = entry.stat()
-            items.append({
-                "name": entry.name,
-                "isDirectory": entry.is_dir(),
-                "path": item_path,
-                "updatedAt": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
-                "size": stat.st_size if entry.is_file() else 0,
-            })
+            items.append(
+                {
+                    "name": entry.name,
+                    "isDirectory": entry.is_dir(),
+                    "path": item_path,
+                    "updatedAt": datetime.fromtimestamp(stat.st_mtime, tz=UTC).isoformat(),
+                    "size": stat.st_size if entry.is_file() else 0,
+                }
+            )
     except PermissionError:
         pass
 
@@ -508,6 +521,7 @@ async def fs_delete(
 ):
     """Delete a file or empty directory."""
     import shutil
+
     rel_path = path.lstrip("/")
     target = _safe_resolve(rel_path)
     if not target or not target.exists():

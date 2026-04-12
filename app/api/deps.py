@@ -8,19 +8,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.database import get_db
-from app.services.core.module_lifecycle_service import is_module_enabled
 from app.core.acting_context import resolve_acting_context
-from app.core.redis_client import get_redis
+from app.core.database import get_db
 from app.core.security import JWTError, decode_token
 from app.models.common import (
-    Permission,
-    RolePermission,
     User,
-    UserGroup,
-    UserGroupMember,
-    UserGroupRole,
 )
+from app.services.core.module_lifecycle_service import is_module_enabled
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -153,9 +147,7 @@ def require_any_permission(*permission_codes: str):
         context = await resolve_acting_context(request, current_user, entity_id, db)
         permissions = context.permissions
 
-        if "*" not in permissions and not any(
-            code in permissions for code in permission_codes
-        ):
+        if "*" not in permissions and not any(code in permissions for code in permission_codes):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Permission denied: one of {', '.join(permission_codes)}",
@@ -188,11 +180,7 @@ def require_module_enabled(module_slug: str):
 
         # Public external Pax routes must still be module-gated, but they do not
         # carry a bearer token. Resolve the entity through the external link token.
-        if (
-            entity_id is None
-            and module_slug == "paxlog"
-            and "/api/v1/pax/external/" in request.url.path
-        ):
+        if entity_id is None and module_slug == "paxlog" and "/api/v1/pax/external/" in request.url.path:
             from app.models.paxlog import Ads, ExternalAccessLink
 
             token = request.path_params.get("token")
@@ -215,30 +203,20 @@ def require_module_enabled(module_slug: str):
         # its entity_id. The caller learns nothing about other tenants
         # because the tracking_code is unique per cargo and the entity is
         # used only for module-gating, not for content filtering.
-        if (
-            entity_id is None
-            and module_slug == "packlog"
-            and "/api/v1/packlog/public/" in request.url.path
-        ):
+        if entity_id is None and module_slug == "packlog" and "/api/v1/packlog/public/" in request.url.path:
             from app.models.packlog import CargoItem
             from app.models.travelwiz import Voyage
 
             tracking_code = request.path_params.get("tracking_code")
             if tracking_code:
                 result = await db.execute(
-                    select(CargoItem.entity_id)
-                    .where(CargoItem.tracking_code == tracking_code)
-                    .limit(1)
+                    select(CargoItem.entity_id).where(CargoItem.tracking_code == tracking_code).limit(1)
                 )
                 entity_id = result.scalar_one_or_none()
             else:
                 voyage_code = request.path_params.get("voyage_code")
                 if voyage_code:
-                    result = await db.execute(
-                        select(Voyage.entity_id)
-                        .where(Voyage.code == voyage_code)
-                        .limit(1)
-                    )
+                    result = await db.execute(select(Voyage.entity_id).where(Voyage.code == voyage_code).limit(1))
                     entity_id = result.scalar_one_or_none()
 
         if entity_id is None:
@@ -363,9 +341,7 @@ async def check_polymorphic_owner_access(
     if owner_type == "ads":
         from app.models.paxlog import Ads
 
-        result = await db.execute(
-            select(Ads).where(Ads.id == owner_id, Ads.entity_id == entity_id)
-        )
+        result = await db.execute(select(Ads).where(Ads.id == owner_id, Ads.entity_id == entity_id))
         ads = result.scalar_one_or_none()
         if ads is None:
             raise HTTPException(
@@ -376,9 +352,7 @@ async def check_polymorphic_owner_access(
         acting_user_id: UUID | None = None
         if request and entity_id:
             try:
-                acting_context = await resolve_acting_context(
-                    request, current_user, entity_id, db
-                )
+                acting_context = await resolve_acting_context(request, current_user, entity_id, db)
                 acting_user_id = acting_context.target_user_id
             except HTTPException:
                 acting_user_id = None
@@ -469,7 +443,7 @@ async def check_verified_lock(
     Raises 403 if the record is locked (verification_status == 'verified')
     and the current user doesn't have the required permission.
     """
-    if not hasattr(record, 'verification_status'):
+    if not hasattr(record, "verification_status"):
         return  # model doesn't use VerifiableMixin
     if record.verification_status != "verified":
         return  # not locked, allow edit

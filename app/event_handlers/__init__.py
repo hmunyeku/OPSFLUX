@@ -20,7 +20,4 @@ def register_all_handlers(event_bus: EventBus) -> None:
     register_report_pid_handlers(event_bus)
     register_paxlog_handlers(event_bus)
     register_travelwiz_handlers(event_bus)
-    logger.info(
-        "EventHandlers: all handlers registered "
-        "(core + modules + report/pid + paxlog + travelwiz)"
-    )
+    logger.info("EventHandlers: all handlers registered (core + modules + report/pid + paxlog + travelwiz)")

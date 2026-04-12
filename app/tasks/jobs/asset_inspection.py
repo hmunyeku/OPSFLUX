@@ -3,34 +3,37 @@
 Checks for assets with upcoming next_inspection dates and sends
 notifications to entity admins.
 """
+
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
 
 async def check_asset_inspections() -> None:
     """Check for assets with inspections due within 30 days and send reminders."""
-    from app.core.database import async_session_factory
-    from app.models.asset_registry import Installation
-    from app.core.notifications import send_in_app
-    from app.event_handlers.core_handlers import _get_admin_user_ids
     from sqlalchemy import select
 
-    now = datetime.now(timezone.utc)
+    from app.core.database import async_session_factory
+    from app.core.notifications import send_in_app
+    from app.event_handlers.core_handlers import _get_admin_user_ids
+    from app.models.asset_registry import Installation
+
+    now = datetime.now(UTC)
     threshold = now + timedelta(days=30)
 
     try:
         async with async_session_factory() as db:
             # Find assets with next_inspection in the next 30 days
             result = await db.execute(
-                select(Installation).where(
+                select(Installation)
+                .where(
                     Installation.next_inspection.isnot(None),
                     Installation.next_inspection <= threshold.date(),
                     Installation.next_inspection >= now.date(),
-                    
                     Installation.archived == False,
-                ).order_by(Installation.next_inspection)
+                )
+                .order_by(Installation.next_inspection)
             )
             assets = result.scalars().all()
 
@@ -48,6 +51,7 @@ async def check_asset_inspections() -> None:
 
             # Send notifications per entity
             from uuid import UUID
+
             for entity_id_str, entity_assets in by_entity.items():
                 admin_ids = await _get_admin_user_ids(entity_id_str)
                 count = len(entity_assets)
@@ -66,7 +70,9 @@ async def check_asset_inspections() -> None:
                     )
 
             await db.commit()
-            logger.info("asset_inspection: %d assets with upcoming inspections across %d entities", len(assets), len(by_entity))
+            logger.info(
+                "asset_inspection: %d assets with upcoming inspections across %d entities", len(assets), len(by_entity)
+            )
 
     except Exception:
         logger.exception("Error in check_asset_inspections")

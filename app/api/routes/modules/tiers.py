@@ -1,35 +1,48 @@
 """Tiers (companies) module routes — companies + contacts + identifiers + blocks + refs + SAP import."""
 
-import io
 import logging
 from datetime import date as date_type
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlalchemy import select, func as sqla_func
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func as sqla_func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_entity, get_current_user, require_module_enabled, require_permission
 from app.core.config import settings as app_settings
 from app.core.database import get_db
+from app.core.email_templates import render_and_send_email
+from app.core.pagination import PaginationParams, paginate
 from app.core.references import generate_reference
 from app.core.security import create_password_reset_token
-from app.core.email_templates import render_and_send_email
-from app.services.core.delete_service import delete_entity
-from app.core.pagination import PaginationParams, paginate
 from app.models.common import (
-    Address, Entity, ExternalReference, Tag, Tier, TierBlock, TierContact, User, UserTierLink,
+    Entity,
+    ExternalReference,
+    Tier,
+    TierBlock,
+    TierContact,
+    User,
+    UserTierLink,
 )
 from app.schemas.common import (
+    ExternalReferenceCreate,
+    ExternalReferenceRead,
     PaginatedResponse,
-    TierCreate, TierRead, TierUpdate,
-    TierContactCreate, TierContactRead, TierContactUpdate, TierContactWithTier,
-    TierBlockCreate, TierBlockRead,
-    ExternalReferenceCreate, ExternalReferenceRead,
+    TierBlockCreate,
+    TierBlockRead,
+    TierContactCreate,
     TierContactPromoteUserRequest,
+    TierContactRead,
+    TierContactUpdate,
+    TierContactWithTier,
+    TierCreate,
+    TierRead,
+    TierUpdate,
     UserRead,
 )
+from app.services.core.delete_service import delete_entity
 
 logger = logging.getLogger(__name__)
 
@@ -85,8 +98,8 @@ async def list_tiers(
 
 
 def _tier_with_count(row) -> dict:
-    tier = row[0] if hasattr(row, '__getitem__') else row.Tier
-    count = row[1] if hasattr(row, '__getitem__') else row.contact_count
+    tier = row[0] if hasattr(row, "__getitem__") else row.Tier
+    count = row[1] if hasattr(row, "__getitem__") else row.contact_count
     d = {c.key: getattr(tier, c.key) for c in tier.__table__.columns}
     d["contact_count"] = count
     return d
@@ -130,7 +143,6 @@ async def create_tier(
     return tier
 
 
-
 # ── Tier CRUD (by ID) ────────────────────────────────────────────────────────
 
 
@@ -144,7 +156,8 @@ async def get_tier(
 ):
     tier = await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     count_result = await db.execute(
-        select(sqla_func.count()).select_from(TierContact)
+        select(sqla_func.count())
+        .select_from(TierContact)
         .where(TierContact.tier_id == tier_id, TierContact.active == True)
     )
     d = {c.key: getattr(tier, c.key) for c in tier.__table__.columns}
@@ -154,7 +167,8 @@ async def get_tier(
 
 @router.patch("/{tier_id}", response_model=TierRead)
 async def update_tier(
-    tier_id: UUID, body: TierUpdate,
+    tier_id: UUID,
+    body: TierUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("tier.update"),
@@ -258,9 +272,9 @@ async def get_global_contact(
 
 
 def _contact_with_tier(row) -> dict:
-    contact = row[0] if hasattr(row, '__getitem__') else row.TierContact
-    tier_name = row[1] if hasattr(row, '__getitem__') else row.tier_name
-    tier_code = row[2] if hasattr(row, '__getitem__') else row.tier_code
+    contact = row[0] if hasattr(row, "__getitem__") else row.TierContact
+    tier_name = row[1] if hasattr(row, "__getitem__") else row.tier_name
+    tier_code = row[2] if hasattr(row, "__getitem__") else row.tier_code
     d = {c.key: getattr(contact, c.key) for c in contact.__table__.columns}
     d["tier_name"] = tier_name
     d["tier_code"] = tier_code
@@ -272,7 +286,8 @@ def _contact_with_tier(row) -> dict:
 
 @router.get("/{tier_id}/contacts", response_model=list[TierContactRead])
 async def list_tier_contacts(
-    tier_id: UUID, entity_id: UUID = Depends(get_current_entity),
+    tier_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("tier.read"),
     db: AsyncSession = Depends(get_db),
@@ -289,14 +304,16 @@ async def list_tier_contacts(
 
 @router.get("/{tier_id}/contacts/count")
 async def count_tier_contacts(
-    tier_id: UUID, entity_id: UUID = Depends(get_current_entity),
+    tier_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("tier.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_tier_or_404(db, tier_id, entity_id, current_user=current_user)
     result = await db.execute(
-        select(sqla_func.count()).select_from(TierContact)
+        select(sqla_func.count())
+        .select_from(TierContact)
         .where(TierContact.tier_id == tier_id, TierContact.active == True)
     )
     return {"count": result.scalar() or 0}
@@ -304,7 +321,8 @@ async def count_tier_contacts(
 
 @router.get("/{tier_id}/contacts/{contact_id}", response_model=TierContactRead)
 async def get_tier_contact(
-    tier_id: UUID, contact_id: UUID,
+    tier_id: UUID,
+    contact_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("tier.read"),
@@ -316,7 +334,8 @@ async def get_tier_contact(
 
 @router.post("/{tier_id}/contacts", response_model=TierContactRead, status_code=201)
 async def create_tier_contact(
-    tier_id: UUID, body: TierContactCreate,
+    tier_id: UUID,
+    body: TierContactCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("tier.contact.manage"),
@@ -371,7 +390,9 @@ async def create_tier_contact(
 
 @router.patch("/{tier_id}/contacts/{contact_id}", response_model=TierContactRead)
 async def update_tier_contact(
-    tier_id: UUID, contact_id: UUID, body: TierContactUpdate,
+    tier_id: UUID,
+    contact_id: UUID,
+    body: TierContactUpdate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("tier.contact.manage"),
@@ -391,7 +412,8 @@ async def update_tier_contact(
 
 @router.delete("/{tier_id}/contacts/{contact_id}")
 async def delete_tier_contact(
-    tier_id: UUID, contact_id: UUID,
+    tier_id: UUID,
+    contact_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("tier.contact.manage"),
@@ -424,9 +446,7 @@ async def promote_tier_contact_to_user(
     if contact.promoted_user is not None:
         raise HTTPException(status_code=409, detail="Contact is already linked to a user")
 
-    existing_email = await db.execute(
-        select(User).where(sqla_func.lower(User.email) == contact.email.strip().lower())
-    )
+    existing_email = await db.execute(select(User).where(sqla_func.lower(User.email) == contact.email.strip().lower()))
     if existing_email.scalar_one_or_none():
         raise HTTPException(
             status_code=409,
@@ -665,6 +685,7 @@ async def delete_external_ref(
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+
 async def _get_tier_or_404(
     db: AsyncSession,
     tier_id: UUID,
@@ -674,9 +695,7 @@ async def _get_tier_or_404(
 ) -> Tier:
     if current_user is not None:
         await _assert_external_user_has_tier_access(db, current_user, entity_id, tier_id)
-    result = await db.execute(
-        select(Tier).where(Tier.id == tier_id, Tier.entity_id == entity_id)
-    )
+    result = await db.execute(select(Tier).where(Tier.id == tier_id, Tier.entity_id == entity_id))
     tier = result.scalar_one_or_none()
     if not tier:
         raise HTTPException(status_code=404, detail="Tier not found")
@@ -846,8 +865,6 @@ async def _notify_tier_status_change(
 
 
 async def _unset_primary_contacts(db: AsyncSession, tier_id: UUID) -> None:
-    result = await db.execute(
-        select(TierContact).where(TierContact.tier_id == tier_id, TierContact.is_primary == True)
-    )
+    result = await db.execute(select(TierContact).where(TierContact.tier_id == tier_id, TierContact.is_primary == True))
     for c in result.scalars().all():
         c.is_primary = False

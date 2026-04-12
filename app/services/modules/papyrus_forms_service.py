@@ -1,6 +1,6 @@
 """Papyrus forms and external submission services."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.papyrus import PapyrusExternalLink, PapyrusExternalSubmission, PapyrusForm
-
 
 EPICOLLECT_TO_PAPYRUS_FIELD_TYPES: dict[str, str] = {
     "text": "input_text",
@@ -49,9 +48,7 @@ async def list_forms(
     db: AsyncSession,
 ) -> list[PapyrusForm]:
     result = await db.execute(
-        select(PapyrusForm)
-        .where(PapyrusForm.entity_id == entity_id)
-        .order_by(PapyrusForm.created_at.desc())
+        select(PapyrusForm).where(PapyrusForm.entity_id == entity_id).order_by(PapyrusForm.created_at.desc())
     )
     return list(result.scalars().all())
 
@@ -71,6 +68,7 @@ async def get_form(
     form = result.scalar_one_or_none()
     if not form:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Papyrus form not found")
     return form
 
@@ -231,7 +229,7 @@ async def create_external_link(
     db: AsyncSession,
 ) -> dict[str, Any]:
     form = await get_form(form_id=form_id, entity_id=entity_id, db=db)
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=int(body.expires_in_hours))
+    expires_at = datetime.now(UTC) + timedelta(hours=int(body.expires_in_hours))
     token_id = uuid4().hex
     link = PapyrusExternalLink(
         entity_id=entity_id,
@@ -300,6 +298,7 @@ async def revoke_external_link(
     link = result.scalar_one_or_none()
     if not link:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Papyrus external link not found")
     link.is_revoked = True
     await db.commit()
@@ -316,6 +315,7 @@ async def consume_external_form(
     payload = _decode_external_token(token)
     if payload.get("fid") != str(form_id):
         from fastapi import HTTPException
+
         raise HTTPException(403, "Token does not match this form")
 
     result = await db.execute(
@@ -327,19 +327,23 @@ async def consume_external_form(
     link = result.scalar_one_or_none()
     if not link or link.is_revoked:
         from fastapi import HTTPException
+
         raise HTTPException(410, "External link is invalid or revoked")
 
     if link.allowed_ips and request_ip and request_ip not in link.allowed_ips:
         from fastapi import HTTPException
+
         raise HTTPException(403, "IP address is not allowed for this link")
 
     if link.max_submissions is not None and link.submission_count >= link.max_submissions:
         from fastapi import HTTPException
+
         raise HTTPException(410, "Submission quota reached")
 
     form = await db.get(PapyrusForm, form_id)
     if not form or not form.is_active:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Papyrus form not found or inactive")
 
     return {
@@ -383,6 +387,7 @@ def _decode_external_token(token: str) -> dict[str, Any]:
         return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
     except JWTError as exc:
         from fastapi import HTTPException
+
         raise HTTPException(403, "Invalid or expired Papyrus external token") from exc
 
 
@@ -406,10 +411,7 @@ def _convert_epicollect_project_to_papyrus_schema(project: dict[str, Any]) -> di
                 "required": bool(field.get("required", False)),
             }
             if "options" in field and isinstance(field["options"], list):
-                mapped["options"] = [
-                    {"label": str(option), "value": str(option)}
-                    for option in field["options"]
-                ]
+                mapped["options"] = [{"label": str(option), "value": str(option)} for option in field["options"]]
             if field.get("branch") is not None:
                 mapped["condition"] = field.get("branch")
             fields.append(mapped)
@@ -433,10 +435,7 @@ def _convert_papyrus_field_to_epicollect(field: dict[str, Any]) -> dict[str, Any
     options = field.get("options")
     if isinstance(options, list):
         exported["options"] = [
-            option.get("value", option.get("label"))
-            if isinstance(option, dict)
-            else option
-            for option in options
+            option.get("value", option.get("label")) if isinstance(option, dict) else option for option in options
         ]
     if field.get("condition") is not None:
         exported["branch"] = field.get("condition")

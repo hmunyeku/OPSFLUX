@@ -43,6 +43,7 @@ async def store_file(
 
     if _is_s3():
         from app.core.s3_client import upload_file
+
         # Store in S3 with structured path: {owner_type}/{owner_id}/{filename}
         folder = f"attachments/{owner_type}/{owner_id}"
         object_key = await upload_file(content, unique_name, content_type, folder)
@@ -75,6 +76,7 @@ async def get_download_url(storage_path: str) -> str | None:
     if not _is_s3():
         return None
     from app.core.s3_client import get_presigned_url
+
     return await get_presigned_url(storage_path, expires_in=3600)
 
 
@@ -82,6 +84,7 @@ async def delete_stored_file(storage_path: str) -> None:
     """Delete a file from storage (local or S3)."""
     if _is_s3():
         from app.core.s3_client import delete_file
+
         await delete_file(storage_path)
     else:
         full_path = os.path.join(STATIC_DIR, storage_path)

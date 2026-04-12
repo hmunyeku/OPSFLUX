@@ -9,17 +9,19 @@ Integrates with:
 
 import logging
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from jose import JWTError, jwt
-from sqlalchemy import and_, func as sqla_func, select, text
+from sqlalchemy import and_, select, text
+from sqlalchemy import func as sqla_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.events import OpsFluxEvent, event_bus
-from app.models.common import Setting
 from app.models.asset_registry import Installation
+from app.models.common import Setting
+
 # CargoItem (PackLog) is read here for cross-module concerns: KPI counts
 # of cargo on a voyage, manifest weight checks. The boundary is honoured
 # (we import from packlog, not travelwiz) and we treat CargoItem as
@@ -29,11 +31,10 @@ from app.models.travelwiz import (
     CaptainLog,
     ManifestPassenger,
     PickupRound,
-    PickupStopAssignment,
     PickupStop,
-    TripCodeAccess,
+    PickupStopAssignment,
     TransportVector,
-    TransportVectorZone,
+    TripCodeAccess,
     VectorPosition,
     Voyage,
     VoyageManifest,
@@ -84,6 +85,7 @@ EVENT_TO_STATUS = {
     "ARRIVED_DESTINATION": "arrived",
     "BOARDING_START": "boarding",
 }
+
 
 async def _get_entity_numeric_setting(
     db: AsyncSession,
@@ -282,10 +284,7 @@ def _haversine_distance_meters(
     d_phi = math.radians(lat2 - lat1)
     d_lambda = math.radians(lon2 - lon1)
 
-    a = (
-        math.sin(d_phi / 2) ** 2
-        + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
-    )
+    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
     return 2 * radius_m * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
@@ -459,7 +458,9 @@ async def generate_pax_manifest_from_ads(
 
     # Total count
     total_result = await db.execute(
-        select(sqla_func.count()).select_from(ManifestPassenger).where(
+        select(sqla_func.count())
+        .select_from(ManifestPassenger)
+        .where(
             ManifestPassenger.manifest_id == manifest.id,
             ManifestPassenger.active == True,  # noqa: E712
         )
@@ -468,7 +469,11 @@ async def generate_pax_manifest_from_ads(
 
     logger.info(
         "Manifest %s for voyage %s: added %d PAX, skipped %d, total %d",
-        manifest.id, trip_id, added_count, skipped_count, total_pax,
+        manifest.id,
+        trip_id,
+        added_count,
+        skipped_count,
+        total_pax,
     )
 
     return {
@@ -507,9 +512,7 @@ async def rebalance_manifest_passenger_standby(
     if not voyage:
         raise ValueError(f"Voyage {voyage_id} not found")
 
-    vector_result = await db.execute(
-        select(TransportVector).where(TransportVector.id == voyage.vector_id)
-    )
+    vector_result = await db.execute(select(TransportVector).where(TransportVector.id == voyage.vector_id))
     vector = vector_result.scalar_one_or_none()
     if not vector:
         raise ValueError(f"Vector {voyage.vector_id} not found")
@@ -531,17 +534,9 @@ async def rebalance_manifest_passenger_standby(
     standby_count = 0
 
     for passenger in passengers:
-        passenger_weight = float(
-            passenger.actual_weight_kg
-            or passenger.declared_weight_kg
-            or 0.0
-        )
+        passenger_weight = float(passenger.actual_weight_kg or passenger.declared_weight_kg or 0.0)
         can_fit_pax = remaining_slots > 0
-        can_fit_weight = (
-            max_weight is None
-            or passenger_weight <= 0
-            or assigned_weight + passenger_weight <= max_weight
-        )
+        can_fit_weight = max_weight is None or passenger_weight <= 0 or assigned_weight + passenger_weight <= max_weight
         should_standby = not (can_fit_pax and can_fit_weight)
         passenger.standby = should_standby
         if should_standby:
@@ -600,10 +595,7 @@ async def record_voyage_event(
     """
     # Validate event code
     if event_code not in VOYAGE_EVENT_PREREQUISITES:
-        raise ValueError(
-            f"Unknown event code '{event_code}'. "
-            f"Valid codes: {list(VOYAGE_EVENT_PREREQUISITES.keys())}"
-        )
+        raise ValueError(f"Unknown event code '{event_code}'. Valid codes: {list(VOYAGE_EVENT_PREREQUISITES.keys())}")
 
     # Load voyage
     voyage_result = await db.execute(
@@ -620,23 +612,17 @@ async def record_voyage_event(
     prerequisites = VOYAGE_EVENT_PREREQUISITES[event_code]
     if prerequisites:
         existing_events = await db.execute(
-            text(
-                "SELECT event_code FROM voyage_events "
-                "WHERE voyage_id = :vid "
-                "GROUP BY event_code"
-            ),
+            text("SELECT event_code FROM voyage_events WHERE voyage_id = :vid GROUP BY event_code"),
             {"vid": str(trip_id)},
         )
         existing_codes = {row[0] for row in existing_events.all()}
 
         missing = prerequisites - existing_codes
         if missing:
-            raise ValueError(
-                f"Cannot record {event_code}: prerequisite events missing: {missing}"
-            )
+            raise ValueError(f"Cannot record {event_code}: prerequisite events missing: {missing}")
 
     # Insert voyage event via raw SQL (table may not be in models yet)
-    event_time = recorded_at or datetime.now(timezone.utc)
+    event_time = recorded_at or datetime.now(UTC)
     import json as _json
 
     await db.execute(
@@ -672,7 +658,10 @@ async def record_voyage_event(
 
         logger.info(
             "Voyage %s status: %s -> %s (event %s)",
-            voyage.code, old_status, new_status, event_code,
+            voyage.code,
+            old_status,
+            new_status,
+            event_code,
         )
 
     await db.flush()
@@ -767,7 +756,9 @@ async def compute_trip_kpis(db: AsyncSession, trip_id: UUID, entity_id: UUID) ->
     cargo_result = await db.execute(
         select(
             sqla_func.count().label("total"),
-            sqla_func.count().filter(CargoItem.status.in_(["loaded", "in_transit", "delivered_intermediate", "delivered_final"])).label("loaded"),
+            sqla_func.count()
+            .filter(CargoItem.status.in_(["loaded", "in_transit", "delivered_intermediate", "delivered_final"]))
+            .label("loaded"),
         )
         .select_from(CargoItem)
         .join(VoyageManifest, CargoItem.manifest_id == VoyageManifest.id)
@@ -784,8 +775,7 @@ async def compute_trip_kpis(db: AsyncSession, trip_id: UUID, entity_id: UUID) ->
 
     # Fuel consumption from captain logs
     fuel_result = await db.execute(
-        select(sqla_func.coalesce(sqla_func.sum(CaptainLog.fuel_consumption_liters), 0))
-        .where(
+        select(sqla_func.coalesce(sqla_func.sum(CaptainLog.fuel_consumption_liters), 0)).where(
             CaptainLog.voyage_id == trip_id,
             CaptainLog.active == True,  # noqa: E712
         )
@@ -851,9 +841,16 @@ async def authenticate_captain_code(db: AsyncSession, access_code: str) -> dict:
         }
     """
     if not access_code or len(access_code) != 6 or not access_code.isdigit():
-        return {"valid": False, "voyage_id": None, "code": None,
-                "vector_name": None, "departure_base": None,
-                "scheduled_departure": None, "captain_name": None, "entity_id": None}
+        return {
+            "valid": False,
+            "voyage_id": None,
+            "code": None,
+            "vector_name": None,
+            "departure_base": None,
+            "scheduled_departure": None,
+            "captain_name": None,
+            "entity_id": None,
+        }
 
     result = await db.execute(
         select(TripCodeAccess, Voyage, TransportVector.name, Installation.name)
@@ -864,16 +861,23 @@ async def authenticate_captain_code(db: AsyncSession, access_code: str) -> dict:
             TripCodeAccess.access_code == access_code,
             TripCodeAccess.revoked == False,  # noqa: E712
             TripCodeAccess.expires_at.is_not(None),
-            TripCodeAccess.expires_at > datetime.now(timezone.utc),
+            TripCodeAccess.expires_at > datetime.now(UTC),
             Voyage.status.in_(["planned", "confirmed", "boarding", "departed"]),
         )
     )
     row = result.first()
 
     if row is None:
-        return {"valid": False, "voyage_id": None, "code": None,
-                "vector_name": None, "departure_base": None,
-                "scheduled_departure": None, "captain_name": None, "entity_id": None}
+        return {
+            "valid": False,
+            "voyage_id": None,
+            "code": None,
+            "vector_name": None,
+            "departure_base": None,
+            "scheduled_departure": None,
+            "captain_name": None,
+            "entity_id": None,
+        }
 
     code_access, voyage, vector_name, departure_base = row
 
@@ -920,7 +924,7 @@ async def authenticate_driver_code(db: AsyncSession, access_code: str) -> dict:
             TripCodeAccess.access_code == access_code,
             TripCodeAccess.revoked == False,  # noqa: E712
             TripCodeAccess.expires_at.is_not(None),
-            TripCodeAccess.expires_at > datetime.now(timezone.utc),
+            TripCodeAccess.expires_at > datetime.now(UTC),
             Voyage.status.in_(["planned", "confirmed", "boarding", "departed"]),
         )
     )
@@ -959,7 +963,7 @@ def create_captain_session_token(
     voyage_id: UUID,
     expires_at: datetime,
 ) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {
         "sub": str(trip_code_access_id),
         "voyage_id": str(voyage_id),
@@ -976,7 +980,7 @@ def create_driver_session_token(
     voyage_id: UUID,
     expires_at: datetime,
 ) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {
         "sub": str(trip_code_access_id),
         "voyage_id": str(voyage_id),
@@ -1021,7 +1025,7 @@ async def verify_captain_session_token(
             TripCodeAccess.trip_id == voyage_id,
             TripCodeAccess.revoked == False,  # noqa: E712
             TripCodeAccess.expires_at.is_not(None),
-            TripCodeAccess.expires_at > datetime.now(timezone.utc),
+            TripCodeAccess.expires_at > datetime.now(UTC),
             Voyage.active == True,  # noqa: E712
         )
     )
@@ -1079,7 +1083,7 @@ async def verify_driver_session_token(
             TripCodeAccess.trip_id == voyage_id,
             TripCodeAccess.revoked == False,  # noqa: E712
             TripCodeAccess.expires_at.is_not(None),
-            TripCodeAccess.expires_at > datetime.now(timezone.utc),
+            TripCodeAccess.expires_at > datetime.now(UTC),
             Voyage.active == True,  # noqa: E712
             PickupRound.status.in_(["planned", "in_progress"]),
         )
@@ -1124,7 +1128,7 @@ async def assess_voyage_delay(
         }
 
     threshold_hours = await get_delay_reassign_threshold_hours(db, entity_id=entity_id)
-    reference_time = voyage.actual_departure or datetime.now(timezone.utc)
+    reference_time = voyage.actual_departure or datetime.now(UTC)
     delay_delta = reference_time - voyage.scheduled_departure
     delay_hours = max(0.0, round(delay_delta.total_seconds() / 3600, 2))
 
@@ -1149,7 +1153,7 @@ async def assess_voyage_delay(
                 Voyage.status.in_(["planned", "confirmed"]),
                 VoyageStop.active == True,  # noqa: E712
                 VoyageStop.asset_id.in_(destination_asset_ids),
-                Voyage.scheduled_departure >= datetime.now(timezone.utc),
+                Voyage.scheduled_departure >= datetime.now(UTC),
             )
             .order_by(Voyage.scheduled_departure)
             .limit(5)
@@ -1163,7 +1167,9 @@ async def assess_voyage_delay(
                 {
                     "voyage_id": alt_voyage.id,
                     "code": alt_voyage.code,
-                    "scheduled_departure": alt_voyage.scheduled_departure.isoformat() if alt_voyage.scheduled_departure else None,
+                    "scheduled_departure": alt_voyage.scheduled_departure.isoformat()
+                    if alt_voyage.scheduled_departure
+                    else None,
                     "vector_name": vector_name,
                     "status": alt_voyage.status,
                 }
@@ -1208,18 +1214,20 @@ async def assess_manifest_weight(
     if not manifest:
         raise ValueError(f"Manifest {manifest_id} not found")
 
-    vector_result = await db.execute(
-        select(TransportVector).where(TransportVector.id == voyage.vector_id)
-    )
+    vector_result = await db.execute(select(TransportVector).where(TransportVector.id == voyage.vector_id))
     vector = vector_result.scalar_one_or_none()
     if not vector:
         raise ValueError(f"Vector {voyage.vector_id} not found")
 
     pax_weight_result = await db.execute(
-        select(sqla_func.coalesce(sqla_func.sum(
-            sqla_func.coalesce(ManifestPassenger.actual_weight_kg, ManifestPassenger.declared_weight_kg)
-        ), 0))
-        .where(
+        select(
+            sqla_func.coalesce(
+                sqla_func.sum(
+                    sqla_func.coalesce(ManifestPassenger.actual_weight_kg, ManifestPassenger.declared_weight_kg)
+                ),
+                0,
+            )
+        ).where(
             ManifestPassenger.manifest_id == manifest_id,
             ManifestPassenger.active == True,  # noqa: E712
             ManifestPassenger.boarding_status.notin_(["no_show", "offloaded"]),
@@ -1500,7 +1508,9 @@ async def create_pickup_round(
 
     logger.info(
         "Pickup round %s created for voyage %s with %d stops",
-        pickup_round.id, trip_id, len(created_stops),
+        pickup_round.id,
+        trip_id,
+        len(created_stops),
     )
 
     return {
@@ -1540,9 +1550,7 @@ async def update_pickup_progress(
     Returns updated stop data and emits ``travelwiz.pickup.progress`` event.
     """
     # Load the stop
-    stop_result = await db.execute(
-        select(PickupStop).where(PickupStop.id == stop_id)
-    )
+    stop_result = await db.execute(select(PickupStop).where(PickupStop.id == stop_id))
     stop = stop_result.scalar_one_or_none()
     if not stop:
         raise ValueError(f"Pickup stop {stop_id} not found")
@@ -1561,7 +1569,7 @@ async def update_pickup_progress(
     # Update stop
     pax_picked = event_data.get("pax_picked_up", 0)
     stop.pax_picked_up = pax_picked
-    stop.actual_time = datetime.now(timezone.utc)
+    stop.actual_time = datetime.now(UTC)
     stop.status = "completed"
     if event_data.get("notes"):
         stop.notes = event_data["notes"]
@@ -1569,12 +1577,11 @@ async def update_pickup_progress(
     # Update round status if not already in_progress
     if pickup_round.status == "planned":
         pickup_round.status = "in_progress"
-        pickup_round.actual_departure = datetime.now(timezone.utc)
+        pickup_round.actual_departure = datetime.now(UTC)
 
     # Update running total
     total_result = await db.execute(
-        select(sqla_func.coalesce(sqla_func.sum(PickupStop.pax_picked_up), 0))
-        .where(
+        select(sqla_func.coalesce(sqla_func.sum(PickupStop.pax_picked_up), 0)).where(
             PickupStop.pickup_round_id == pickup_round.id,
             PickupStop.active == True,  # noqa: E712
         )
@@ -1584,23 +1591,27 @@ async def update_pickup_progress(
     await db.flush()
 
     # Emit SSE event
-    await event_bus.publish(OpsFluxEvent(
-        event_type="travelwiz.pickup.progress",
-        payload={
-            "pickup_round_id": str(pickup_round.id),
-            "trip_id": str(trip_id),
-            "stop_id": str(stop_id),
-            "route_name": pickup_round.route_name,
-            "pax_picked_up": pax_picked,
-            "total_pax_picked": pickup_round.total_pax_picked,
-            "stop_status": stop.status,
-            "round_status": pickup_round.status,
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="travelwiz.pickup.progress",
+            payload={
+                "pickup_round_id": str(pickup_round.id),
+                "trip_id": str(trip_id),
+                "stop_id": str(stop_id),
+                "route_name": pickup_round.route_name,
+                "pax_picked_up": pax_picked,
+                "total_pax_picked": pickup_round.total_pax_picked,
+                "stop_status": stop.status,
+                "round_status": pickup_round.status,
+            },
+        )
+    )
 
     logger.info(
         "Pickup stop %s completed: %d PAX picked (total round: %d)",
-        stop_id, pax_picked, pickup_round.total_pax_picked,
+        stop_id,
+        pax_picked,
+        pickup_round.total_pax_picked,
     )
 
     return {
@@ -1623,9 +1634,7 @@ async def report_pickup_no_show(
     event_data: dict,
 ) -> dict:
     """Report a no-show at a pickup stop and alert operations."""
-    stop_result = await db.execute(
-        select(PickupStop).where(PickupStop.id == stop_id)
-    )
+    stop_result = await db.execute(select(PickupStop).where(PickupStop.id == stop_id))
     stop = stop_result.scalar_one_or_none()
     if not stop:
         raise ValueError(f"Pickup stop {stop_id} not found")
@@ -1653,15 +1662,14 @@ async def report_pickup_no_show(
         report_notes = f"{report_notes}. {extra_notes}"
     stop.notes = f"{previous_notes}\n{report_notes}".strip() if previous_notes else report_notes
     stop.status = "skipped"
-    stop.actual_time = datetime.now(timezone.utc)
+    stop.actual_time = datetime.now(UTC)
 
     if pickup_round.status == "planned":
         pickup_round.status = "in_progress"
-        pickup_round.actual_departure = datetime.now(timezone.utc)
+        pickup_round.actual_departure = datetime.now(UTC)
 
     total_result = await db.execute(
-        select(sqla_func.coalesce(sqla_func.sum(PickupStop.pax_picked_up), 0))
-        .where(
+        select(sqla_func.coalesce(sqla_func.sum(PickupStop.pax_picked_up), 0)).where(
             PickupStop.pickup_round_id == pickup_round.id,
             PickupStop.active == True,  # noqa: E712
         )
@@ -1670,22 +1678,25 @@ async def report_pickup_no_show(
 
     await db.flush()
 
-    await event_bus.publish(OpsFluxEvent(
-        event_type="travelwiz.pickup.no_show",
-        payload={
-            "entity_id": str(entity_id),
-            "trip_id": str(trip_id),
-            "pickup_round_id": str(pickup_round.id),
-            "stop_id": str(stop_id),
-            "route_name": pickup_round.route_name,
-            "missing_pax_count": missing_pax_count,
-            "notes": extra_notes or None,
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="travelwiz.pickup.no_show",
+            payload={
+                "entity_id": str(entity_id),
+                "trip_id": str(trip_id),
+                "pickup_round_id": str(pickup_round.id),
+                "stop_id": str(stop_id),
+                "route_name": pickup_round.route_name,
+                "missing_pax_count": missing_pax_count,
+                "notes": extra_notes or None,
+            },
+        )
+    )
 
     logger.info(
         "Pickup no-show reported on stop %s: %d missing passengers",
-        stop_id, missing_pax_count,
+        stop_id,
+        missing_pax_count,
     )
 
     return {
@@ -1745,7 +1756,7 @@ async def close_pickup_round(
 
     # Close the round
     pickup_round.status = "completed"
-    pickup_round.actual_arrival = datetime.now(timezone.utc)
+    pickup_round.actual_arrival = datetime.now(UTC)
     pickup_round.total_pax_picked = total_pax_picked
 
     await db.flush()
@@ -1766,8 +1777,11 @@ async def close_pickup_round(
 
     logger.info(
         "Pickup round %s closed: %d/%d PAX picked, %d/%d stops completed",
-        pickup_round.id, total_pax_picked, total_pax_expected,
-        completed_stops, total_stops,
+        pickup_round.id,
+        total_pax_picked,
+        total_pax_expected,
+        completed_stops,
+        total_stops,
     )
 
     return kpis
@@ -1799,9 +1813,7 @@ async def assess_pickup_stop_proximity(
         raise ValueError(f"Pickup stop {stop_id} not found for voyage {trip_id}")
     stop, pickup_round, voyage = row
 
-    asset_result = await db.execute(
-        select(Installation).where(Installation.id == stop.asset_id)
-    )
+    asset_result = await db.execute(select(Installation).where(Installation.id == stop.asset_id))
     asset = asset_result.scalar_one_or_none()
     if not asset:
         raise ValueError(f"Installation {stop.asset_id} not found")
@@ -1873,7 +1885,7 @@ async def record_position(
 
     ``source``: ais | gps | manual
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     position = VectorPosition(
         vector_id=vehicle_id,
@@ -1889,18 +1901,20 @@ async def record_position(
     await db.flush()
 
     # Emit SSE event for fleet map
-    await event_bus.publish(OpsFluxEvent(
-        event_type="travelwiz.position.updated",
-        payload={
-            "vector_id": str(vehicle_id),
-            "latitude": lat,
-            "longitude": lng,
-            "source": source,
-            "speed_knots": speed_knots,
-            "heading": heading,
-            "recorded_at": now.isoformat(),
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="travelwiz.position.updated",
+            payload={
+                "vector_id": str(vehicle_id),
+                "latitude": lat,
+                "longitude": lng,
+                "source": source,
+                "speed_knots": speed_knots,
+                "heading": heading,
+                "recorded_at": now.isoformat(),
+            },
+        )
+    )
 
     logger.debug("Position recorded for vehicle %s: (%s, %s)", vehicle_id, lat, lng)
 
@@ -2014,8 +2028,7 @@ async def process_ais_data(
     """
     # Build MMSI -> vector_id lookup
     vectors_result = await db.execute(
-        select(TransportVector.id, TransportVector.mmsi_number)
-        .where(
+        select(TransportVector.id, TransportVector.mmsi_number).where(
             TransportVector.entity_id == entity_id,
             TransportVector.active == True,  # noqa: E712
             TransportVector.mmsi_number.isnot(None),
@@ -2025,7 +2038,7 @@ async def process_ais_data(
 
     matched = 0
     unmatched_mmsi = set()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     for msg in ais_messages:
         mmsi = str(msg.get("mmsi", ""))
@@ -2052,18 +2065,22 @@ async def process_ais_data(
 
     # Emit bulk position update event
     if matched > 0:
-        await event_bus.publish(OpsFluxEvent(
-            event_type="travelwiz.position.updated",
-            payload={
-                "entity_id": str(entity_id),
-                "source": "ais_bulk",
-                "positions_count": matched,
-            },
-        ))
+        await event_bus.publish(
+            OpsFluxEvent(
+                event_type="travelwiz.position.updated",
+                payload={
+                    "entity_id": str(entity_id),
+                    "source": "ais_bulk",
+                    "positions_count": matched,
+                },
+            )
+        )
 
     logger.info(
         "AIS bulk import: %d messages, %d matched, %d unmatched MMSI",
-        len(ais_messages), matched, len(unmatched_mmsi),
+        len(ais_messages),
+        matched,
+        len(unmatched_mmsi),
     )
 
     return {
@@ -2177,7 +2194,7 @@ async def record_weather(
     weather = WeatherData(
         entity_id=entity_id,
         asset_id=data["asset_id"],
-        recorded_at=data.get("recorded_at", datetime.now(timezone.utc)),
+        recorded_at=data.get("recorded_at", datetime.now(UTC)),
         source=data.get("source", "manual"),
         wind_speed_knots=data.get("wind_speed_knots"),
         wind_direction_deg=data.get("wind_direction_deg"),
@@ -2194,21 +2211,25 @@ async def record_weather(
     await db.flush()
 
     # Emit SSE event
-    await event_bus.publish(OpsFluxEvent(
-        event_type="travelwiz.weather.updated",
-        payload={
-            "entity_id": str(entity_id),
-            "asset_id": str(data["asset_id"]),
-            "source": weather.source,
-            "weather_code": weather.weather_code,
-            "flight_conditions": weather.flight_conditions,
-            "recorded_at": weather.recorded_at.isoformat(),
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="travelwiz.weather.updated",
+            payload={
+                "entity_id": str(entity_id),
+                "asset_id": str(data["asset_id"]),
+                "source": weather.source,
+                "weather_code": weather.weather_code,
+                "flight_conditions": weather.flight_conditions,
+                "recorded_at": weather.recorded_at.isoformat(),
+            },
+        )
+    )
 
     logger.info(
         "Weather recorded for asset %s: %s / %s",
-        data["asset_id"], weather.weather_code, weather.flight_conditions,
+        data["asset_id"],
+        weather.weather_code,
+        weather.flight_conditions,
     )
 
     return {
@@ -2276,9 +2297,7 @@ async def get_weather_for_trip(
     departure base and destination stops.
     """
     # Load voyage
-    voyage_result = await db.execute(
-        select(Voyage).where(Voyage.id == trip_id)
-    )
+    voyage_result = await db.execute(select(Voyage).where(Voyage.id == trip_id))
     voyage = voyage_result.scalar_one_or_none()
     if not voyage:
         raise ValueError(f"Voyage {trip_id} not found")
@@ -2307,7 +2326,8 @@ async def get_weather_for_trip(
         row = origin_result.first()
         if row:
             origin_weather = {
-                "id": row[0], "asset_id": row[1],
+                "id": row[0],
+                "asset_id": row[1],
                 "recorded_at": row[2].isoformat() if row[2] else None,
                 "source": row[3],
                 "wind_speed_knots": float(row[4]) if row[4] else None,
@@ -2326,8 +2346,7 @@ async def get_weather_for_trip(
     # Get weather for destination stops
     destination_weather = []
     stops_result = await db.execute(
-        select(VoyageStop.asset_id)
-        .where(
+        select(VoyageStop.asset_id).where(
             VoyageStop.voyage_id == trip_id,
             VoyageStop.active == True,  # noqa: E712
         )
@@ -2354,20 +2373,23 @@ async def get_weather_for_trip(
             )
             row = dest_result.first()
             if row:
-                destination_weather.append({
-                    "id": row[0], "asset_id": row[1],
-                    "recorded_at": row[2].isoformat() if row[2] else None,
-                    "source": row[3],
-                    "wind_speed_knots": float(row[4]) if row[4] else None,
-                    "wind_direction_deg": row[5],
-                    "wave_height_m": float(row[6]) if row[6] else None,
-                    "visibility_nm": float(row[7]) if row[7] else None,
-                    "sea_state": row[8],
-                    "temperature_c": float(row[9]) if row[9] else None,
-                    "weather_code": row[10],
-                    "flight_conditions": row[11],
-                    "notes": row[12],
-                })
+                destination_weather.append(
+                    {
+                        "id": row[0],
+                        "asset_id": row[1],
+                        "recorded_at": row[2].isoformat() if row[2] else None,
+                        "source": row[3],
+                        "wind_speed_knots": float(row[4]) if row[4] else None,
+                        "wind_direction_deg": row[5],
+                        "wave_height_m": float(row[6]) if row[6] else None,
+                        "visibility_nm": float(row[7]) if row[7] else None,
+                        "sea_state": row[8],
+                        "temperature_c": float(row[9]) if row[9] else None,
+                        "weather_code": row[10],
+                        "flight_conditions": row[11],
+                        "notes": row[12],
+                    }
+                )
         except Exception:
             logger.debug("weather_data query for destination %s failed", dest_aid)
 

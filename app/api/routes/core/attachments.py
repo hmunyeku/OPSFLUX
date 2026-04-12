@@ -13,10 +13,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
-from app.api.deps import get_current_user, check_polymorphic_owner_access
+from app.api.deps import check_polymorphic_owner_access, get_current_user
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.storage_service import store_file, get_file_path, get_download_url, delete_stored_file
+from app.core.storage_service import delete_stored_file, get_download_url, get_file_path, store_file
 from app.models.common import Attachment, User
 from app.schemas.common import AttachmentRead
 from app.services.core.delete_service import delete_entity
@@ -62,9 +62,11 @@ async def upload_attachment(
     content = await file.read()
 
     # Validate file size
-    max_size = getattr(settings, 'STORAGE_MAX_FILE_SIZE_MB', 50) * 1024 * 1024
+    max_size = getattr(settings, "STORAGE_MAX_FILE_SIZE_MB", 50) * 1024 * 1024
     if len(content) > max_size:
-        raise HTTPException(status_code=413, detail=f"File too large. Maximum: {getattr(settings, 'STORAGE_MAX_FILE_SIZE_MB', 50)} MB")
+        raise HTTPException(
+            status_code=413, detail=f"File too large. Maximum: {getattr(settings, 'STORAGE_MAX_FILE_SIZE_MB', 50)} MB"
+        )
 
     # Store via abstracted storage service (local or S3)
     storage_path, unique_name = await store_file(
@@ -105,14 +107,14 @@ async def download_attachment(
     db: AsyncSession = Depends(get_db),
 ):
     """Download a file attachment."""
-    result = await db.execute(
-        select(Attachment).where(Attachment.id == attachment_id)
-    )
+    result = await db.execute(select(Attachment).where(Attachment.id == attachment_id))
     attachment = result.scalar_one_or_none()
     if not attachment:
         raise HTTPException(status_code=404, detail="Attachment not found")
 
-    await check_polymorphic_owner_access(attachment.owner_type, attachment.owner_id, current_user, db, request, write=False)
+    await check_polymorphic_owner_access(
+        attachment.owner_type, attachment.owner_id, current_user, db, request, write=False
+    )
 
     # S3: redirect to presigned URL
     presigned = await get_download_url(attachment.storage_path)
@@ -139,14 +141,14 @@ async def delete_attachment(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a file attachment."""
-    result = await db.execute(
-        select(Attachment).where(Attachment.id == attachment_id)
-    )
+    result = await db.execute(select(Attachment).where(Attachment.id == attachment_id))
     attachment = result.scalar_one_or_none()
     if not attachment:
         raise HTTPException(status_code=404, detail="Attachment not found")
 
-    await check_polymorphic_owner_access(attachment.owner_type, attachment.owner_id, current_user, db, request, write=True)
+    await check_polymorphic_owner_access(
+        attachment.owner_type, attachment.owner_id, current_user, db, request, write=True
+    )
 
     # Delete from storage (local or S3)
     await delete_stored_file(attachment.storage_path)

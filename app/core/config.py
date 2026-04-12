@@ -23,7 +23,9 @@ class Settings(BaseSettings):
     ALLOWED_HOSTS: str = "*"
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
     CORS_ALLOWED_METHODS: str = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-    CORS_ALLOWED_HEADERS: str = "Authorization,Content-Type,X-External-Session,X-Entity-ID,X-Tenant,X-Request-Id,Accept,Accept-Language"
+    CORS_ALLOWED_HEADERS: str = (
+        "Authorization,Content-Type,X-External-Session,X-Entity-ID,X-Tenant,X-Request-Id,Accept,Accept-Language"
+    )
     LOG_LEVEL: str = "INFO"
     DEV_SEED_ON_STARTUP: bool = False
 
@@ -159,14 +161,16 @@ class Settings(BaseSettings):
             related_hosts = {hostname}
             for prefix in ("app.", "ext.", "api.", "web."):
                 if hostname.startswith(prefix):
-                    suffix = hostname[len(prefix):]
-                    related_hosts.update({
-                        f"app.{suffix}",
-                        f"ext.{suffix}",
-                        f"api.{suffix}",
-                        f"web.{suffix}",
-                        suffix,
-                    })
+                    suffix = hostname[len(prefix) :]
+                    related_hosts.update(
+                        {
+                            f"app.{suffix}",
+                            f"ext.{suffix}",
+                            f"api.{suffix}",
+                            f"web.{suffix}",
+                            suffix,
+                        }
+                    )
                     break
 
             for host in sorted(related_hosts):
@@ -206,11 +210,7 @@ class Settings(BaseSettings):
 
         if hostname.startswith("ext."):
             target_host = hostname
-        elif hostname.startswith("app."):
-            target_host = f"ext.{hostname[4:]}"
-        elif hostname.startswith("web."):
-            target_host = f"ext.{hostname[4:]}"
-        elif hostname.startswith("api."):
+        elif hostname.startswith("app.") or hostname.startswith("web.") or hostname.startswith("api."):
             target_host = f"ext.{hostname[4:]}"
         else:
             target_host = hostname

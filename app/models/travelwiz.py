@@ -26,8 +26,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
-
 # ─── Transport Vectors ──────────────────────────────────────────────────────
+
 
 class TransportVector(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     __tablename__ = "transport_vectors"
@@ -36,41 +36,34 @@ class TransportVector(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
         Index("idx_vector_type", "type"),
     )
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
     registration: Mapped[str] = mapped_column(String(100), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    type: Mapped[str] = mapped_column(String(30), nullable=False)  # helicopter, ship, bus, surfer, barge, commercial_flight, vehicle
+    type: Mapped[str] = mapped_column(
+        String(30), nullable=False
+    )  # helicopter, ship, bus, surfer, barge, commercial_flight, vehicle
     mode: Mapped[str] = mapped_column(String(10), nullable=False)  # air, sea, road
     pax_capacity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     weight_capacity_kg: Mapped[float | None] = mapped_column(Float)
     volume_capacity_m3: Mapped[float | None] = mapped_column(Float)
-    home_base_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("ar_installations.id")
-    )
+    home_base_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"))
     requires_weighing: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     mmsi_number: Mapped[str | None] = mapped_column(String(20))  # AIS tracking (ships)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    zones: Mapped[list["TransportVectorZone"]] = relationship(
-        back_populates="vector", cascade="all, delete-orphan"
-    )
+    zones: Mapped[list["TransportVectorZone"]] = relationship(back_populates="vector", cascade="all, delete-orphan")
     voyages: Mapped[list["Voyage"]] = relationship(back_populates="vector")
     positions: Mapped[list["VectorPosition"]] = relationship(back_populates="vector")
 
 
 # ─── Transport Vector Zones (Deck zones) ────────────────────────────────────
 
+
 class TransportVectorZone(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "transport_vector_zones"
-    __table_args__ = (
-        Index("idx_zone_vector", "vector_id"),
-    )
+    __table_args__ = (Index("idx_zone_vector", "vector_id"),)
 
-    vector_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("transport_vectors.id"), nullable=False
-    )
+    vector_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("transport_vectors.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     zone_type: Mapped[str] = mapped_column(String(30), nullable=False)  # main_deck, rear_deck, hold, cabin
     max_weight_kg: Mapped[float | None] = mapped_column(Float)
@@ -84,6 +77,7 @@ class TransportVectorZone(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Transport Rotations ────────────────────────────────────────────────────
 
+
 class TransportRotation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "transport_rotations"
     __table_args__ = (
@@ -91,12 +85,8 @@ class TransportRotation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("idx_rotation_vector", "vector_id"),
     )
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
-    vector_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("transport_vectors.id"), nullable=False
-    )
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    vector_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("transport_vectors.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     departure_base_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
@@ -110,6 +100,7 @@ class TransportRotation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Voyages ────────────────────────────────────────────────────────────────
 
+
 class Voyage(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     __tablename__ = "voyages"
     __table_args__ = (
@@ -119,12 +110,8 @@ class Voyage(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         Index("idx_voyage_departure", "scheduled_departure"),
     )
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
-    vector_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("transport_vectors.id"), nullable=False
-    )
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    vector_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("transport_vectors.id"), nullable=False)
     code: Mapped[str] = mapped_column(String(50), nullable=False)  # VYG-2026-NNNNN
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="planned"
@@ -132,48 +119,31 @@ class Voyage(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     departure_base_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
     )
-    scheduled_departure: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    scheduled_departure: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     scheduled_arrival: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     actual_departure: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     actual_arrival: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     delay_reason: Mapped[str | None] = mapped_column(Text)
-    rotation_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("transport_rotations.id")
-    )
-    created_by: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
+    rotation_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("transport_rotations.id"))
+    created_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     vector: Mapped["TransportVector"] = relationship(back_populates="voyages")
     rotation: Mapped["TransportRotation | None"] = relationship(back_populates="voyages")
-    stops: Mapped[list["VoyageStop"]] = relationship(
-        back_populates="voyage", cascade="all, delete-orphan"
-    )
-    manifests: Mapped[list["VoyageManifest"]] = relationship(
-        back_populates="voyage", cascade="all, delete-orphan"
-    )
-    captain_logs: Mapped[list["CaptainLog"]] = relationship(
-        back_populates="voyage", cascade="all, delete-orphan"
-    )
+    stops: Mapped[list["VoyageStop"]] = relationship(back_populates="voyage", cascade="all, delete-orphan")
+    manifests: Mapped[list["VoyageManifest"]] = relationship(back_populates="voyage", cascade="all, delete-orphan")
+    captain_logs: Mapped[list["CaptainLog"]] = relationship(back_populates="voyage", cascade="all, delete-orphan")
 
 
 # ─── Voyage Stops (multi-stop support) ──────────────────────────────────────
 
+
 class VoyageStop(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "voyage_stops"
-    __table_args__ = (
-        Index("idx_stop_voyage", "voyage_id"),
-    )
+    __table_args__ = (Index("idx_stop_voyage", "voyage_id"),)
 
-    voyage_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("voyages.id"), nullable=False
-    )
-    asset_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
-    )
+    voyage_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("voyages.id"), nullable=False)
+    asset_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False)
     stop_order: Mapped[int] = mapped_column(Integer, nullable=False)
     scheduled_arrival: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     actual_arrival: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -184,24 +154,15 @@ class VoyageStop(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Voyage Manifests ───────────────────────────────────────────────────────
 
+
 class VoyageManifest(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "voyage_manifests"
-    __table_args__ = (
-        Index("idx_manifest_voyage", "voyage_id"),
-    )
+    __table_args__ = (Index("idx_manifest_voyage", "voyage_id"),)
 
-    voyage_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("voyages.id"), nullable=False
-    )
-    manifest_type: Mapped[str] = mapped_column(
-        String(10), nullable=False, default="pax"
-    )  # pax, cargo
-    status: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="draft"
-    )  # draft, validated, closed
-    validated_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
-    )
+    voyage_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("voyages.id"), nullable=False)
+    manifest_type: Mapped[str] = mapped_column(String(10), nullable=False, default="pax")  # pax, cargo
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")  # draft, validated, closed
+    validated_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     validated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
@@ -214,6 +175,7 @@ class VoyageManifest(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Manifest Passengers ────────────────────────────────────────────────────
 
+
 class ManifestPassenger(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "manifest_passengers"
     __table_args__ = (
@@ -222,20 +184,12 @@ class ManifestPassenger(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("idx_mpax_contact", "contact_id"),
     )
 
-    manifest_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("voyage_manifests.id"), nullable=False
-    )
-    user_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
-    )
-    contact_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tier_contacts.id")
-    )
+    manifest_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("voyage_manifests.id"), nullable=False)
+    user_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    contact_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("tier_contacts.id"))
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     company: Mapped[str | None] = mapped_column(String(200))
-    destination_stop_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("voyage_stops.id")
-    )
+    destination_stop_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("voyage_stops.id"))
     declared_weight_kg: Mapped[float | None] = mapped_column(Float)
     actual_weight_kg: Mapped[float | None] = mapped_column(Float)
     boarding_status: Mapped[str] = mapped_column(
@@ -244,9 +198,7 @@ class ManifestPassenger(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     boarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     priority_score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     standby: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    ads_pax_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("ads_pax.id")
-    )
+    ads_pax_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ads_pax.id"))
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     manifest: Mapped["VoyageManifest"] = relationship(back_populates="passengers")
@@ -264,15 +216,12 @@ class ManifestPassenger(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Captain Logs ───────────────────────────────────────────────────────────
 
+
 class CaptainLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "captain_logs"
-    __table_args__ = (
-        Index("idx_caplog_voyage", "voyage_id"),
-    )
+    __table_args__ = (Index("idx_caplog_voyage", "voyage_id"),)
 
-    voyage_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("voyages.id"), nullable=False
-    )
+    voyage_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("voyages.id"), nullable=False)
     event_type: Mapped[str] = mapped_column(
         String(30), nullable=False
     )  # departure, arrival, weather, technical, fuel, safety, incident
@@ -288,6 +237,7 @@ class CaptainLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Vector Positions (IoT tracking) ────────────────────────────────────────
 
+
 class VectorPosition(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "vector_positions"
     __table_args__ = (
@@ -295,9 +245,7 @@ class VectorPosition(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("idx_vecpos_recorded", "recorded_at"),
     )
 
-    vector_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("transport_vectors.id"), nullable=False
-    )
+    vector_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("transport_vectors.id"), nullable=False)
     latitude: Mapped[float] = mapped_column(Float, nullable=False)
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
     source: Mapped[str] = mapped_column(String(20), nullable=False)  # ais, gps, manual
@@ -311,6 +259,7 @@ class VectorPosition(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Pickup Rounds (Ramassage terrestre) ─────────────────────────────────────
 
+
 class PickupRound(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "pickup_rounds"
     __table_args__ = (
@@ -319,16 +268,10 @@ class PickupRound(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("idx_pickup_round_status", "status"),
     )
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
-    trip_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("voyages.id"), nullable=False
-    )
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    trip_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("voyages.id"), nullable=False)
     route_name: Mapped[str] = mapped_column(String(200), nullable=False)
-    scheduled_departure: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    scheduled_departure: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     actual_departure: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     actual_arrival: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     driver_name: Mapped[str | None] = mapped_column(String(200))
@@ -341,9 +284,7 @@ class PickupRound(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    stops: Mapped[list["PickupStop"]] = relationship(
-        back_populates="pickup_round", cascade="all, delete-orphan"
-    )
+    stops: Mapped[list["PickupStop"]] = relationship(back_populates="pickup_round", cascade="all, delete-orphan")
 
 
 class PickupStop(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -353,12 +294,8 @@ class PickupStop(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("idx_pickup_stop_order", "pickup_round_id", "pickup_order"),
     )
 
-    pickup_round_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("pickup_rounds.id"), nullable=False
-    )
-    asset_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
-    )
+    pickup_round_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("pickup_rounds.id"), nullable=False)
+    asset_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False)
     pickup_order: Mapped[int] = mapped_column(Integer, nullable=False)
     scheduled_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     actual_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -398,6 +335,7 @@ class PickupStopAssignment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Weather Data ────────────────────────────────────────────────────────────
 
+
 class WeatherData(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "weather_data"
     __table_args__ = (
@@ -406,15 +344,9 @@ class WeatherData(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("idx_weather_recorded", "recorded_at"),
     )
 
-    entity_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
-    )
-    asset_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
-    )
-    recorded_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
+    asset_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     source: Mapped[str] = mapped_column(
         String(30), nullable=False
     )  # manual | api_open_meteo | api_openweather | captain_report
@@ -426,12 +358,8 @@ class WeatherData(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         String(20)
     )  # calm | slight | moderate | rough | very_rough | high | phenomenal
     temperature_c: Mapped[float | None] = mapped_column(Numeric(5, 2))
-    weather_code: Mapped[str | None] = mapped_column(
-        String(50)
-    )  # clear | cloudy | rain | storm | fog | thunderstorm
-    flight_conditions: Mapped[str | None] = mapped_column(
-        String(10)
-    )  # vfr | mvfr | ifr | lifr
+    weather_code: Mapped[str | None] = mapped_column(String(50))  # clear | cloudy | rain | storm | fog | thunderstorm
+    flight_conditions: Mapped[str | None] = mapped_column(String(10))  # vfr | mvfr | ifr | lifr
     raw_data: Mapped[dict | None] = mapped_column(JSONB)
     notes: Mapped[str | None] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -439,8 +367,10 @@ class WeatherData(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Trip Code Access (Captain Portal) ──────────────────────────────────────
 
+
 class TripCodeAccess(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """6-digit code for captain portal authentication."""
+
     __tablename__ = "trip_code_access"
     __table_args__ = (
         Index(
@@ -450,17 +380,11 @@ class TripCodeAccess(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
     )
 
-    trip_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("voyages.id"), nullable=False
-    )
+    trip_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("voyages.id"), nullable=False)
     access_code: Mapped[str] = mapped_column(String(10), unique=True, nullable=False)
     qr_code_url: Mapped[str | None] = mapped_column(Text)
-    created_by: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     access_log: Mapped[list | None] = mapped_column(JSONB, default=list)
@@ -468,16 +392,16 @@ class TripCodeAccess(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Voyage Event Types (Configurable catalog) ─────────────────────────────
 
+
 class VoyageEventType(Base):
     """Configurable event type catalog for digital logbook."""
+
     __tablename__ = "voyage_event_types"
 
     code: Mapped[str] = mapped_column(String(50), primary_key=True)
     label_fr: Mapped[str] = mapped_column(String(200), nullable=False)
     category: Mapped[str] = mapped_column(String(30), nullable=False)
-    allowed_sources: Mapped[list | None] = mapped_column(
-        JSONB, default=lambda: ["captain_portal", "logistician"]
-    )
+    allowed_sources: Mapped[list | None] = mapped_column(JSONB, default=lambda: ["captain_portal", "logistician"])
     prerequisites: Mapped[list | None] = mapped_column(JSONB, default=list)
     expected_payload: Mapped[dict | None] = mapped_column(JSONB)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -486,35 +410,27 @@ class VoyageEventType(Base):
 
 # ─── Voyage Events (Digital Logbook) ───────────────────────────────────────
 
+
 class VoyageEvent(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Structured event in a voyage's digital logbook."""
+
     __tablename__ = "voyage_events"
     __table_args__ = (
         Index("idx_vevt_trip", "trip_id", "recorded_at"),
         Index("idx_vevt_category", "category", "recorded_at"),
     )
 
-    trip_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("voyages.id"), nullable=False
-    )
+    trip_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("voyages.id"), nullable=False)
     event_code: Mapped[str] = mapped_column(String(50), nullable=False)
     event_label: Mapped[str] = mapped_column(String(200), nullable=False)
     category: Mapped[str] = mapped_column(String(30), nullable=False)
-    recorded_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
-    received_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
     longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6))
-    asset_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("ar_installations.id")
-    )
+    asset_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"))
     location_label: Mapped[str | None] = mapped_column(String(200))
-    performed_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
-    )
+    performed_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     performed_by_name: Mapped[str] = mapped_column(String(200), nullable=False)
     source: Mapped[str] = mapped_column(String(20), nullable=False)
     trip_code_used: Mapped[str | None] = mapped_column(String(10))
@@ -525,16 +441,14 @@ class VoyageEvent(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Trip KPI (Computed at close) ──────────────────────────────────────────
 
+
 class TripKPI(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """KPIs computed when a trip is closed."""
-    __tablename__ = "trip_kpis"
-    __table_args__ = (
-        Index("idx_trip_kpis_trip", "trip_id", unique=True),
-    )
 
-    trip_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("voyages.id"), unique=True, nullable=False
-    )
+    __tablename__ = "trip_kpis"
+    __table_args__ = (Index("idx_trip_kpis_trip", "trip_id", unique=True),)
+
+    trip_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("voyages.id"), unique=True, nullable=False)
     total_duration_min: Mapped[int | None] = mapped_column(Integer)
     sailing_duration_min: Mapped[int | None] = mapped_column(Integer)
     standby_duration_min: Mapped[int | None] = mapped_column(Integer)
@@ -549,9 +463,7 @@ class TripKPI(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     departure_delay_min: Mapped[int | None] = mapped_column(Integer)
     stops_count: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)
     incidents_count: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)
-    computed_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 # ─── Article Catalog, Package Element, Deck Layouts ─────────────────────────
@@ -562,17 +474,17 @@ class TripKPI(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 # ─── Vehicle Certification (Synergie-like) ─────────────────────────────────
 
+
 class VehicleCertification(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Vessel/vehicle certification tracking (like Synergie)."""
+
     __tablename__ = "vehicle_certifications"
     __table_args__ = (
         Index("idx_vehicle_certs_vehicle", "vehicle_id"),
         Index("idx_vehicle_certs_expiry", "expiry_date"),
     )
 
-    vehicle_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("transport_vectors.id"), nullable=False
-    )
+    vehicle_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("transport_vectors.id"), nullable=False)
     cert_type: Mapped[str] = mapped_column(String(100), nullable=False)
     cert_name: Mapped[str] = mapped_column(String(300), nullable=False)
     issuing_authority: Mapped[str | None] = mapped_column(String(200))

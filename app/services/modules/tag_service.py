@@ -8,11 +8,11 @@ import csv
 import io
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.expression import cast
@@ -64,12 +64,7 @@ async def list_tags(
     count_query = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_query)).scalar() or 0
 
-    query = (
-        query
-        .order_by(DCSTag.tag_name)
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-    )
+    query = query.order_by(DCSTag.tag_name).offset((page - 1) * page_size).limit(page_size)
 
     result = await db.execute(query)
     tags = result.scalars().all()
@@ -137,6 +132,7 @@ async def update_tag(
     tag = result.scalar_one_or_none()
     if not tag:
         from fastapi import HTTPException
+
         raise HTTPException(404, f"DCS tag {tag_id} not found")
 
     update_data = body.model_dump(exclude_unset=True)
@@ -144,7 +140,7 @@ async def update_tag(
         if hasattr(tag, key):
             setattr(tag, key, value)
 
-    tag.updated_at = datetime.now(timezone.utc)
+    tag.updated_at = datetime.now(UTC)
     await db.commit()
     return tag
 
@@ -167,10 +163,11 @@ async def delete_tag(
     tag = result.scalar_one_or_none()
     if not tag:
         from fastapi import HTTPException
+
         raise HTTPException(404, f"DCS tag {tag_id} not found")
 
     tag.is_active = False
-    tag.updated_at = datetime.now(timezone.utc)
+    tag.updated_at = datetime.now(UTC)
     await db.commit()
 
 
@@ -240,6 +237,7 @@ async def update_naming_rule(
     rule = result.scalar_one_or_none()
     if not rule:
         from fastapi import HTTPException
+
         raise HTTPException(404, "Naming rule not found")
 
     update_data = body.model_dump(exclude_unset=True)
@@ -265,17 +263,19 @@ async def suggest_tag_name(
     db: AsyncSession,
 ) -> list[str]:
     """Generate tag name suggestions based on naming rules + optional AI."""
-    from app.models.pid_pfd import TagNamingRule, DCSTag, Equipment
+    from app.models.pid_pfd import TagNamingRule
 
     # 1. Find applicable rules
     rules_result = await db.execute(
-        select(TagNamingRule).where(
+        select(TagNamingRule)
+        .where(
             TagNamingRule.entity_id == entity_id,
             or_(
                 TagNamingRule.applies_to_types.contains([tag_type]),
                 TagNamingRule.applies_to_types == cast("[]", JSONB),
             ),
-        ).order_by(TagNamingRule.is_default.desc())
+        )
+        .order_by(TagNamingRule.is_default.desc())
     )
     rules = rules_result.scalars().all()
 
@@ -291,22 +291,28 @@ async def suggest_tag_name(
 
     # 3. Generate from pattern
     suggestions = []
-    generated = _apply_tag_rule(rule, {
-        "AREA": area,
-        "TYPE": tag_type,
-        "SEQ": str(next_seq).zfill(_get_seq_digits(rule.pattern)),
-    })
+    generated = _apply_tag_rule(
+        rule,
+        {
+            "AREA": area,
+            "TYPE": tag_type,
+            "SEQ": str(next_seq).zfill(_get_seq_digits(rule.pattern)),
+        },
+    )
     suggestions.append(generated)
 
     # 4. AI suggestions (if enabled)
     # Placeholder — would use core_ai_service.complete() in production
     # For now, generate alternative sequences
     alt_seq = next_seq + 1
-    alt_generated = _apply_tag_rule(rule, {
-        "AREA": area,
-        "TYPE": tag_type,
-        "SEQ": str(alt_seq).zfill(_get_seq_digits(rule.pattern)),
-    })
+    alt_generated = _apply_tag_rule(
+        rule,
+        {
+            "AREA": area,
+            "TYPE": tag_type,
+            "SEQ": str(alt_seq).zfill(_get_seq_digits(rule.pattern)),
+        },
+    )
     suggestions.append(alt_generated)
 
     return suggestions[:3]
@@ -326,7 +332,7 @@ async def validate_tag_name(
     db: AsyncSession,
 ) -> dict:
     """Validate a tag name for conformity and uniqueness."""
-    from app.models.pid_pfd import DCSTag, TagNamingRule
+    from app.models.pid_pfd import DCSTag
 
     errors: list[str] = []
     warnings: list[str] = []
@@ -390,9 +396,7 @@ async def import_tags_from_csv(
     """
     from app.models.pid_pfd import DCSTag
 
-    reader = csv.DictReader(
-        io.StringIO(file_content.decode("utf-8", errors="replace"))
-    )
+    reader = csv.DictReader(io.StringIO(file_content.decode("utf-8", errors="replace")))
     stats = {"created": 0, "updated": 0, "errors": [], "skipped": 0}
 
     for row_num, row in enumerate(reader, start=2):  # start=2 (header is row 1)
@@ -413,11 +417,13 @@ async def import_tags_from_csv(
         # Allow updates even if tag exists
         has_real_errors = [e for e in validation["errors"] if "already exists" not in e]
         if has_real_errors:
-            stats["errors"].append({
-                "row": row_num,
-                "tag": tag_name,
-                "error": has_real_errors[0],
-            })
+            stats["errors"].append(
+                {
+                    "row": row_num,
+                    "tag": tag_name,
+                    "error": has_real_errors[0],
+                }
+            )
             continue
 
         # Check if already exists
@@ -445,24 +451,29 @@ async def import_tags_from_csv(
                 if v is not None:
                     setattr(existing, k, v)
             existing.source = "csv"
-            existing.updated_at = datetime.now(timezone.utc)
+            existing.updated_at = datetime.now(UTC)
             stats["updated"] += 1
         else:
-            db.add(DCSTag(
-                entity_id=entity_id,
-                project_id=UUID(project_id),
-                tag_name=tag_name,
-                source="csv",
-                created_by=user_id,
-                **{k: v for k, v in tag_data.items() if v is not None},
-            ))
+            db.add(
+                DCSTag(
+                    entity_id=entity_id,
+                    project_id=UUID(project_id),
+                    tag_name=tag_name,
+                    source="csv",
+                    created_by=user_id,
+                    **{k: v for k, v in tag_data.items() if v is not None},
+                )
+            )
             stats["created"] += 1
 
     await db.commit()
 
     logger.info(
         "CSV import: %d created, %d updated, %d errors, %d skipped",
-        stats["created"], stats["updated"], len(stats["errors"]), stats["skipped"],
+        stats["created"],
+        stats["updated"],
+        len(stats["errors"]),
+        stats["skipped"],
     )
     return stats
 
@@ -507,11 +518,13 @@ async def preview_bulk_rename(
     for tag in tags:
         new_name = _apply_rename_pattern(tag.tag_name, rename_pattern)
         if new_name != tag.tag_name:
-            preview.append({
-                "tag_id": str(tag.id),
-                "old_name": tag.tag_name,
-                "new_name": new_name,
-            })
+            preview.append(
+                {
+                    "tag_id": str(tag.id),
+                    "old_name": tag.tag_name,
+                    "new_name": new_name,
+                }
+            )
 
     return preview
 
@@ -539,12 +552,15 @@ async def execute_bulk_rename(
         if tag:
             old_name = tag.tag_name
             tag.tag_name = entry["new_name"]
-            tag.updated_at = datetime.now(timezone.utc)
+            tag.updated_at = datetime.now(UTC)
             renamed += 1
 
             logger.info(
                 "Renamed tag %s → %s (project %s, by user %s)",
-                old_name, entry["new_name"], project_id, user_id,
+                old_name,
+                entry["new_name"],
+                project_id,
+                user_id,
             )
 
     await db.commit()
@@ -586,13 +602,15 @@ async def _get_applicable_rules(
     from app.models.pid_pfd import TagNamingRule
 
     result = await db.execute(
-        select(TagNamingRule).where(
+        select(TagNamingRule)
+        .where(
             TagNamingRule.entity_id == entity_id,
             or_(
                 TagNamingRule.applies_to_types.contains([tag_type]),
                 TagNamingRule.applies_to_types == cast("[]", JSONB),
             ),
-        ).order_by(TagNamingRule.is_default.desc())
+        )
+        .order_by(TagNamingRule.is_default.desc())
     )
     return result.scalars().all()
 

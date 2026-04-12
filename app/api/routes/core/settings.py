@@ -77,7 +77,10 @@ def _validate_paxlog_compliance_sequence_setting(value: dict[str, Any]) -> None:
     if len(set(normalized)) != len(normalized):
         raise HTTPException(status_code=400, detail="Duplicate paxlog.compliance_sequence values are not allowed")
     if set(normalized) != allowed:
-        raise HTTPException(status_code=400, detail="paxlog.compliance_sequence must contain site_requirements, job_profile, self_declaration exactly once")
+        raise HTTPException(
+            status_code=400,
+            detail="paxlog.compliance_sequence must contain site_requirements, job_profile, self_declaration exactly once",
+        )
 
 
 def _validate_travelwiz_numeric_setting(body: SettingWrite) -> None:

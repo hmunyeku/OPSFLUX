@@ -6,9 +6,9 @@ list. The data is kept for audit — only the active flag is flipped.
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import update
 
 from app.core.database import async_session_factory
 from app.models.common import PlanningRevision
@@ -20,7 +20,7 @@ SIMULATION_TTL_HOURS = 4
 
 async def expire_planning_simulations() -> None:
     """Deactivate simulation revisions older than SIMULATION_TTL_HOURS."""
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=SIMULATION_TTL_HOURS)
+    cutoff = datetime.now(UTC) - timedelta(hours=SIMULATION_TTL_HOURS)
 
     async with async_session_factory() as db:
         result = await db.execute(
@@ -38,5 +38,6 @@ async def expire_planning_simulations() -> None:
             await db.commit()
             logger.info(
                 "Planning simulation expiry: deactivated %d simulations older than %dh",
-                len(expired), SIMULATION_TTL_HOURS,
+                len(expired),
+                SIMULATION_TTL_HOURS,
             )

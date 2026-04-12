@@ -36,9 +36,7 @@ async def list_notes(
             Note.owner_type == owner_type,
             Note.owner_id == owner_id,
         )
-        .where(
-            (Note.visibility == "public") | (Note.created_by == current_user.id)
-        )
+        .where((Note.visibility == "public") | (Note.created_by == current_user.id))
         .order_by(Note.pinned.desc(), Note.created_at.desc())
     )
     notes = result.scalars().unique().all()
@@ -85,9 +83,7 @@ async def update_note(
     db: AsyncSession = Depends(get_db),
 ):
     """Update a note. Only the creator can update."""
-    result = await db.execute(
-        select(Note).options(joinedload(Note.author)).where(Note.id == note_id)
-    )
+    result = await db.execute(select(Note).options(joinedload(Note.author)).where(Note.id == note_id))
     note = result.scalar_one_or_none()
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")

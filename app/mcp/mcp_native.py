@@ -12,8 +12,9 @@ the McpGatewayBackend.config column on first request.
 
 import json
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Awaitable
+from typing import Any
 
 from fastapi.responses import JSONResponse
 
@@ -129,6 +130,7 @@ async def close_all_backends() -> None:
 # MCP Streamable HTTP protocol handler
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 async def handle_mcp_request(
     backend: NativeBackend,
     body: bytes,
@@ -150,11 +152,14 @@ async def handle_mcp_request(
 
     # ── initialize ──────────────────────────────────────────────────────
     if method == "initialize":
-        return _jsonrpc_ok(req_id, {
-            "protocolVersion": "2025-03-26",
-            "capabilities": {"tools": {}},
-            "serverInfo": {"name": backend.name, "version": backend.version},
-        })
+        return _jsonrpc_ok(
+            req_id,
+            {
+                "protocolVersion": "2025-03-26",
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": backend.name, "version": backend.version},
+            },
+        )
 
     # ── notifications (no id → no response body needed) ────────────────
     if req_id is None:
@@ -175,16 +180,22 @@ async def handle_mcp_request(
             return _jsonrpc_ok(req_id, result)
         except ValueError as exc:
             # Validation error → return as tool error (not protocol error)
-            return _jsonrpc_ok(req_id, {
-                "content": [{"type": "text", "text": str(exc)}],
-                "isError": True,
-            })
+            return _jsonrpc_ok(
+                req_id,
+                {
+                    "content": [{"type": "text", "text": str(exc)}],
+                    "isError": True,
+                },
+            )
         except Exception as exc:
             logger.exception("MCP native: error in tool '%s'", tool_name)
-            return _jsonrpc_ok(req_id, {
-                "content": [{"type": "text", "text": f"Erreur interne: {str(exc)[:500]}"}],
-                "isError": True,
-            })
+            return _jsonrpc_ok(
+                req_id,
+                {
+                    "content": [{"type": "text", "text": f"Erreur interne: {str(exc)[:500]}"}],
+                    "isError": True,
+                },
+            )
 
     # ── ping ───────────────────────────────────────────────────────────
     if method == "ping":

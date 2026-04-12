@@ -70,9 +70,7 @@ async def system_health(
         await db.execute(text("SELECT 1"))
         db_latency_ms = round((time.monotonic() - t0) * 1000, 2)
         # Connection pool stats
-        pool_result = await db.execute(
-            text("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()")
-        )
+        pool_result = await db.execute(text("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()"))
         db_connections = pool_result.scalar() or 0
     except Exception as e:
         logger.warning("Database health check failed: %s", e)
@@ -119,14 +117,16 @@ async def system_health(
         tc_r = await db.execute(text("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'"))
         db_table_count = tc_r.scalar()
         # Top 10 tables by size
-        tt_r = await db.execute(text("""
+        tt_r = await db.execute(
+            text("""
             SELECT relname AS name,
                    pg_size_pretty(pg_total_relation_size(relid)) AS size,
                    n_live_tup AS rows
             FROM pg_catalog.pg_stat_user_tables
             ORDER BY pg_total_relation_size(relid) DESC
             LIMIT 10
-        """))
+        """)
+        )
         db_top_tables = [{"name": r.name, "size": r.size, "rows": r.rows} for r in tt_r.all()]
     except Exception:
         pass
@@ -145,6 +145,7 @@ async def system_health(
     # ── Python / runtime info ─────────────────────────────────────
     import platform
     import sys
+
     python_version = sys.version.split()[0]
     os_info = f"{platform.system()} {platform.release()}"
 
@@ -218,16 +219,18 @@ async def list_delete_policies(
     registry = _ensure_registry()
     for entity_type, reg in registry.items():
         policy = await get_delete_policy(entity_type, db, entity_id)
-        policies.append({
-            "entity_type": entity_type,
-            "label": reg["label"],
-            "category": reg["category"],
-            "table": reg["table"],
-            "mode": policy.get("mode", reg["default_mode"]),
-            "retention_days": policy.get("retention_days", 0),
-            "default_mode": reg["default_mode"],
-            "archived_count": counts.get(entity_type, 0),
-        })
+        policies.append(
+            {
+                "entity_type": entity_type,
+                "label": reg["label"],
+                "category": reg["category"],
+                "table": reg["table"],
+                "mode": policy.get("mode", reg["default_mode"]),
+                "retention_days": policy.get("retention_days", 0),
+                "default_mode": reg["default_mode"],
+                "archived_count": counts.get(entity_type, 0),
+            }
+        )
 
     return policies
 
@@ -255,6 +258,7 @@ async def update_delete_policy(
     await upsert_delete_policy(entity_type, body.mode, body.retention_days, db, entity_id)
 
     from app.core.audit import record_audit
+
     await record_audit(
         db,
         action="update",
@@ -294,6 +298,7 @@ async def manual_purge(
     count = await purge_archived(entity_type, retention_days, db)
 
     from app.core.audit import record_audit
+
     await record_audit(
         db,
         action="purge",
@@ -333,13 +338,14 @@ async def list_scheduler_jobs(
     db: AsyncSession = Depends(get_db),
 ):
     """List all registered scheduled jobs with status and last execution info."""
-    from app.tasks.scheduler import scheduler
     from app.models.common import JobExecution
+    from app.tasks.scheduler import scheduler
 
     # Fetch last execution per job
     last_execs: dict[str, dict] = {}
     try:
         from sqlalchemy import func as sqla_func
+
         sub = (
             select(
                 JobExecution.job_id,
@@ -348,9 +354,8 @@ async def list_scheduler_jobs(
             .group_by(JobExecution.job_id)
             .subquery()
         )
-        last_q = (
-            select(JobExecution)
-            .join(sub, (JobExecution.job_id == sub.c.job_id) & (JobExecution.started_at == sub.c.last_run_at))
+        last_q = select(JobExecution).join(
+            sub, (JobExecution.job_id == sub.c.job_id) & (JobExecution.started_at == sub.c.last_run_at)
         )
         result = await db.execute(last_q)
         for ex in result.scalars().all():
@@ -368,18 +373,20 @@ async def list_scheduler_jobs(
         next_run = job.next_run_time
         paused = next_run is None and not job.pending
         last = last_execs.get(job.id, {})
-        jobs.append({
-            "id": job.id,
-            "name": job.name,
-            "trigger": str(job.trigger),
-            "next_run_at": next_run.isoformat() if next_run else None,
-            "pending": job.pending,
-            "paused": paused,
-            "last_run_at": last.get("last_run_at"),
-            "last_status": last.get("last_status"),
-            "last_duration_ms": last.get("last_duration_ms"),
-            "last_error": last.get("last_error"),
-        })
+        jobs.append(
+            {
+                "id": job.id,
+                "name": job.name,
+                "trigger": str(job.trigger),
+                "next_run_at": next_run.isoformat() if next_run else None,
+                "pending": job.pending,
+                "paused": paused,
+                "last_run_at": last.get("last_run_at"),
+                "last_status": last.get("last_status"),
+                "last_duration_ms": last.get("last_duration_ms"),
+                "last_error": last.get("last_error"),
+            }
+        )
     return {"jobs": jobs, "total": len(jobs)}
 
 
@@ -396,8 +403,9 @@ async def run_scheduler_job(
     current_user: User = Depends(get_current_user),
 ):
     """Manually trigger a scheduled job to run now."""
-    from app.tasks.scheduler import scheduler, log_manual_execution
-    from datetime import datetime, timezone
+    from datetime import datetime
+
+    from app.tasks.scheduler import log_manual_execution, scheduler
 
     job = scheduler.get_job(body.job_id)
     if not job:
@@ -405,17 +413,18 @@ async def run_scheduler_job(
 
     # Run the job function and log execution
     import asyncio
+
     func = job.func
-    started_at = datetime.now(timezone.utc)
+    started_at = datetime.now(UTC)
     try:
         if asyncio.iscoroutinefunction(func):
             await func()
         else:
             func()
-        finished_at = datetime.now(timezone.utc)
+        finished_at = datetime.now(UTC)
         await log_manual_execution(body.job_id, job.name, started_at, finished_at, "success")
     except Exception as e:
-        finished_at = datetime.now(timezone.utc)
+        finished_at = datetime.now(UTC)
         await log_manual_execution(body.job_id, job.name, started_at, finished_at, "error", e)
         raise HTTPException(500, f"Job failed: {e}")
 
@@ -444,6 +453,7 @@ async def list_scheduler_history(
 
     # Count total
     from sqlalchemy import func as sqla_func
+
     count_q = select(sqla_func.count()).select_from(q.subquery())
     total = await db.scalar(count_q) or 0
 
@@ -479,6 +489,7 @@ class PauseJobRequest(BaseModel):
 async def pause_scheduler_job(body: PauseJobRequest):
     """Pause a scheduled job (stops automatic execution)."""
     from app.tasks.scheduler import scheduler
+
     job = scheduler.get_job(body.job_id)
     if not job:
         raise HTTPException(404, f"Job '{body.job_id}' not found")
@@ -493,6 +504,7 @@ async def pause_scheduler_job(body: PauseJobRequest):
 async def resume_scheduler_job(body: PauseJobRequest):
     """Resume a paused scheduled job."""
     from app.tasks.scheduler import scheduler
+
     job = scheduler.get_job(body.job_id)
     if not job:
         raise HTTPException(404, f"Job '{body.job_id}' not found")
@@ -551,9 +563,7 @@ async def update_security_settings_admin(
             raise HTTPException(400, f"Unknown security setting: {key}")
         db_key = f"auth.{key}"
         # Upsert into Setting table
-        existing = await db.execute(
-            select(Setting).where(Setting.key == db_key, Setting.scope == "tenant")
-        )
+        existing = await db.execute(select(Setting).where(Setting.key == db_key, Setting.scope == "tenant"))
         row = existing.scalar_one_or_none()
         if row:
             row.value = {"v": value}
@@ -635,24 +645,26 @@ async def admin_list_users(
         if is_locked:
             lock_remaining = max(1, int((u.locked_until - now).total_seconds() / 60))
 
-        items.append({
-            "id": str(u.id),
-            "email": u.email,
-            "first_name": u.first_name,
-            "last_name": u.last_name,
-            "active": u.active,
-            "avatar_url": u.avatar_url,
-            "auth_type": u.auth_type or "email_password",
-            "mfa_enabled": u.mfa_enabled,
-            "failed_login_count": u.failed_login_count or 0,
-            "locked_until": u.locked_until.isoformat() if u.locked_until else None,
-            "is_locked": is_locked,
-            "lock_remaining_minutes": lock_remaining,
-            "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
-            "last_login_ip": u.last_login_ip,
-            "account_expires_at": u.account_expires_at.isoformat() if u.account_expires_at else None,
-            "created_at": u.created_at.isoformat(),
-        })
+        items.append(
+            {
+                "id": str(u.id),
+                "email": u.email,
+                "first_name": u.first_name,
+                "last_name": u.last_name,
+                "active": u.active,
+                "avatar_url": u.avatar_url,
+                "auth_type": u.auth_type or "email_password",
+                "mfa_enabled": u.mfa_enabled,
+                "failed_login_count": u.failed_login_count or 0,
+                "locked_until": u.locked_until.isoformat() if u.locked_until else None,
+                "is_locked": is_locked,
+                "lock_remaining_minutes": lock_remaining,
+                "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
+                "last_login_ip": u.last_login_ip,
+                "account_expires_at": u.account_expires_at.isoformat() if u.account_expires_at else None,
+                "created_at": u.created_at.isoformat(),
+            }
+        )
 
     return {"items": items, "total": total, "page": page, "page_size": page_size}
 
@@ -685,6 +697,7 @@ async def admin_unlock_user(
         pass  # non-critical
 
     from app.core.audit import record_audit
+
     await record_audit(
         db,
         action="admin_unlock",
@@ -716,6 +729,7 @@ async def admin_force_password_reset(
         raise HTTPException(404, "User not found")
 
     from app.core.security import create_password_reset_token
+
     token = create_password_reset_token(user_id=user.id, email=user.email)
     reset_url = f"{settings.APP_URL}/reset-password?token={token}"
 
@@ -742,6 +756,7 @@ async def admin_force_password_reset(
         raise HTTPException(503, "Central email template unavailable for password reset flow")
 
     from app.core.audit import record_audit
+
     await record_audit(
         db,
         action="admin_force_password_reset",
@@ -784,6 +799,7 @@ async def admin_deactivate_user(
     )
 
     from app.core.audit import record_audit
+
     await record_audit(
         db,
         action="admin_deactivate",
@@ -817,6 +833,7 @@ async def admin_reactivate_user(
     user.active = True
 
     from app.core.audit import record_audit
+
     await record_audit(
         db,
         action="admin_reactivate",

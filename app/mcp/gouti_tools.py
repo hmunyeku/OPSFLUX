@@ -74,12 +74,13 @@ def _week(val: str, name: str) -> str:
 # Gouti API Client
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 class GoutiApiClient:
     """Async Gouti API client with automatic token refresh on 401."""
 
-    def __init__(self, *, base_url: str, client_id: str,
-                 client_secret: str = "", entity_code: str = "",
-                 token: str | None = None):
+    def __init__(
+        self, *, base_url: str, client_id: str, client_secret: str = "", entity_code: str = "", token: str | None = None
+    ):
         self.base_url = base_url.rstrip("/")
         self.client_id = client_id
         self.client_secret = client_secret
@@ -126,9 +127,9 @@ class GoutiApiClient:
             h["Entity-Code"] = self.entity_code
         return h
 
-    async def call(self, path: str, method: str = "GET",
-                   body: dict | None = None,
-                   params: dict | None = None) -> dict[str, Any]:
+    async def call(
+        self, path: str, method: str = "GET", body: dict | None = None, params: dict | None = None
+    ) -> dict[str, Any]:
         """Call Gouti API with auto-refresh on 401."""
         url = f"{self.base_url}/{path.lstrip('/')}"
         kw: dict[str, Any] = {"headers": self._auth_headers()}
@@ -165,6 +166,7 @@ class GoutiApiClient:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Helpers
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _req(args: dict, key: str) -> str:
     val = str(args.get(key, "")).strip()
@@ -242,18 +244,61 @@ def _items(data: Any, key: str) -> list:
 # Fields to keep when summarising list items (keeps responses compact)
 _SUMMARY_FIELDS = {
     "_id",  # synthetic id injected by _items() when flattening dict-keyed dicts
-    "id", "Id", "ID", "name", "Name", "label", "Label", "title", "Title",
-    "status", "Status", "state", "code", "Code", "slug", "type", "Type",
+    "id",
+    "Id",
+    "ID",
+    "name",
+    "Name",
+    "label",
+    "Label",
+    "title",
+    "Title",
+    "status",
+    "Status",
+    "state",
+    "code",
+    "Code",
+    "slug",
+    "type",
+    "Type",
     # Gouti domain suffixes (_ta=task, _pr=project, _ac=action, _is=issue)
-    "name_ta", "name_pr", "name_ac", "name_is",
-    "ref", "Ref", "ref_ta", "ref_pr", "ref_ac", "ref_is",
-    "status_ta", "status_pr", "status_ac", "status_is",
-    "progress_ta", "progress_pr", "progress_ac", "progress_is",
-    "initial_start_date_ta", "initial_end_date_ta",
-    "actual_start_date_ta", "actual_end_date_ta",
-    "start_date", "end_date", "due_date", "priority", "Priority",
-    "assigned_to", "owner", "matricule", "email", "first_name", "last_name",
-    "description", "description_ta", "description_ac", "description_is",
+    "name_ta",
+    "name_pr",
+    "name_ac",
+    "name_is",
+    "ref",
+    "Ref",
+    "ref_ta",
+    "ref_pr",
+    "ref_ac",
+    "ref_is",
+    "status_ta",
+    "status_pr",
+    "status_ac",
+    "status_is",
+    "progress_ta",
+    "progress_pr",
+    "progress_ac",
+    "progress_is",
+    "initial_start_date_ta",
+    "initial_end_date_ta",
+    "actual_start_date_ta",
+    "actual_end_date_ta",
+    "start_date",
+    "end_date",
+    "due_date",
+    "priority",
+    "Priority",
+    "assigned_to",
+    "owner",
+    "matricule",
+    "email",
+    "first_name",
+    "last_name",
+    "description",
+    "description_ta",
+    "description_ac",
+    "description_is",
 }
 
 _MAX_LIST_ITEMS = 200
@@ -266,10 +311,7 @@ def _summarise_list(items: list, max_items: int = _MAX_LIST_ITEMS) -> dict:
     compact = []
     for item in truncated:
         if isinstance(item, dict):
-            row = {
-                k: v for k, v in item.items()
-                if k in _SUMMARY_FIELDS or "name" in k.lower() or k.lower() == "id"
-            }
+            row = {k: v for k, v in item.items() if k in _SUMMARY_FIELDS or "name" in k.lower() or k.lower() == "id"}
             compact.append(row if row else item)
         else:
             compact.append(item)
@@ -292,7 +334,8 @@ def _ok(data: Any) -> dict:
             while keep > 1:
                 candidate = json.dumps(
                     {**data, "items": items[:keep]},
-                    ensure_ascii=False, separators=(",", ":"),
+                    ensure_ascii=False,
+                    separators=(",", ":"),
                 )
                 if len(candidate) <= _MAX_RESPONSE_CHARS - 200:
                     break
@@ -302,19 +345,27 @@ def _ok(data: Any) -> dict:
                 "items": items[:keep],
                 "total_available": len(items),
                 "truncated": keep < len(items),
-                **({"truncation_note": (
-                    f"{keep}/{len(items)} éléments affichés. "
-                    "Utilisez search ou limit pour affiner."
-                )} if keep < len(items) else {}),
+                **(
+                    {
+                        "truncation_note": (
+                            f"{keep}/{len(items)} éléments affichés. Utilisez search ou limit pour affiner."
+                        )
+                    }
+                    if keep < len(items)
+                    else {}
+                ),
             }
             text = json.dumps(reduced, ensure_ascii=False, separators=(",", ":"))
         else:
-            preview = text[:_MAX_RESPONSE_CHARS - 300]
-            text = json.dumps({
-                "truncated": True,
-                "truncation_note": "Réponse trop longue — aperçu seulement.",
-                "preview": preview,
-            }, ensure_ascii=False)
+            preview = text[: _MAX_RESPONSE_CHARS - 300]
+            text = json.dumps(
+                {
+                    "truncated": True,
+                    "truncation_note": "Réponse trop longue — aperçu seulement.",
+                    "preview": preview,
+                },
+                ensure_ascii=False,
+            )
     return {"content": [{"type": "text", "text": text}]}
 
 
@@ -323,6 +374,7 @@ def _ok(data: Any) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ── Entity categories ────────────────────────────────────────────────────────
+
 
 async def _list_entity_categories(c: GoutiApiClient, a: dict) -> dict:
     return _ok(await c.call("e-categories"))
@@ -335,6 +387,7 @@ async def _get_entity_category(c: GoutiApiClient, a: dict) -> dict:
 
 # ── Activity labels ──────────────────────────────────────────────────────────
 
+
 async def _list_activity_labels(c: GoutiApiClient, a: dict) -> dict:
     return _ok(await c.call("activities-labels"))
 
@@ -345,6 +398,7 @@ async def _get_activity_label(c: GoutiApiClient, a: dict) -> dict:
 
 
 # ── Projects ─────────────────────────────────────────────────────────────────
+
 
 async def _list_projects(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call("projects")
@@ -373,6 +427,7 @@ async def _update_project(c: GoutiApiClient, a: dict) -> dict:
 
 # ── Tasks ────────────────────────────────────────────────────────────────────
 
+
 async def _list_project_tasks(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call(f"projects/{_pid(a)}/tasks")
     if resp["ok"]:
@@ -399,6 +454,7 @@ async def _refresh_tasks(c: GoutiApiClient, a: dict) -> dict:
 
 # ── Actions ──────────────────────────────────────────────────────────────────
 
+
 async def _list_project_actions(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call(f"projects/{_pid(a)}/actions")
     if resp["ok"]:
@@ -420,6 +476,7 @@ async def _update_action(c: GoutiApiClient, a: dict) -> dict:
 
 
 # ── Issues ───────────────────────────────────────────────────────────────────
+
 
 async def _list_project_issues(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call(f"projects/{_pid(a)}/issues")
@@ -443,6 +500,7 @@ async def _update_issue(c: GoutiApiClient, a: dict) -> dict:
 
 # ── Deliverables ─────────────────────────────────────────────────────────────
 
+
 async def _list_project_deliverables(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call(f"projects/{_pid(a)}/deliverables")
     if resp["ok"]:
@@ -456,6 +514,7 @@ async def _get_deliverable(c: GoutiApiClient, a: dict) -> dict:
 
 
 # ── Goals ────────────────────────────────────────────────────────────────────
+
 
 async def _list_project_goals(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call(f"projects/{_pid(a)}/goals")
@@ -471,6 +530,7 @@ async def _get_goal(c: GoutiApiClient, a: dict) -> dict:
 
 # ── Organization ─────────────────────────────────────────────────────────────
 
+
 async def _list_project_organization(c: GoutiApiClient, a: dict) -> dict:
     return _ok(await c.call(f"projects/{_pid(a)}/organization"))
 
@@ -482,6 +542,7 @@ async def _get_organization_unit(c: GoutiApiClient, a: dict) -> dict:
 
 # ── Reports ──────────────────────────────────────────────────────────────────
 
+
 async def _list_project_reports(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call(f"projects/{_pid(a)}/reports")
     if resp["ok"]:
@@ -490,6 +551,7 @@ async def _list_project_reports(c: GoutiApiClient, a: dict) -> dict:
 
 
 # ── Comments ─────────────────────────────────────────────────────────────────
+
 
 async def _get_comments(c: GoutiApiClient, a: dict) -> dict:
     atype = _req(a, "activity_type")
@@ -500,6 +562,7 @@ async def _get_comments(c: GoutiApiClient, a: dict) -> dict:
 
 
 # ── Users ────────────────────────────────────────────────────────────────────
+
 
 async def _list_users(c: GoutiApiClient, a: dict) -> dict:
     resp = await c.call("users")
@@ -540,6 +603,7 @@ async def _list_user_issues(c: GoutiApiClient, a: dict) -> dict:
 
 # ── Notifications ────────────────────────────────────────────────────────────
 
+
 async def _list_user_notifications(c: GoutiApiClient, a: dict) -> dict:
     return _ok(await c.call(f"users/{_uid(a)}/notifications"))
 
@@ -556,6 +620,7 @@ async def _delete_notification(c: GoutiApiClient, a: dict) -> dict:
 
 # ── Personal notes ───────────────────────────────────────────────────────────
 
+
 async def _get_user_notes(c: GoutiApiClient, a: dict) -> dict:
     return _ok(await c.call(f"users/{_uid(a)}/personnals-notes"))
 
@@ -567,6 +632,7 @@ async def _save_user_notes(c: GoutiApiClient, a: dict) -> dict:
 
 # ── Timesheets ───────────────────────────────────────────────────────────────
 
+
 async def _get_timesheet_control(c: GoutiApiClient, a: dict) -> dict:
     return _ok(await c.call(f"timesheets/users/{_uid(a)}/timesheet-controle"))
 
@@ -575,8 +641,7 @@ async def _get_timesheet(c: GoutiApiClient, a: dict) -> dict:
     yr = _year(_req(a, "year"), "year")
     wk = _week(_req(a, "week"), "week")
     ts_type = _seg(a.get("type", "1") or "1", "type")
-    return _ok(await c.call(
-        f"timesheets/users/{_uid(a)}/timesheet/year/{yr}/week/{wk}/type/{ts_type}"))
+    return _ok(await c.call(f"timesheets/users/{_uid(a)}/timesheet/year/{yr}/week/{wk}/type/{ts_type}"))
 
 
 async def _insert_timesheet(c: GoutiApiClient, a: dict) -> dict:
@@ -584,20 +649,21 @@ async def _insert_timesheet(c: GoutiApiClient, a: dict) -> dict:
     ref = _seg(_req(a, "ref"), "ref")
     ts_type = _seg(_req(a, "type"), "type")
     value = _seg(_req(a, "value"), "value")
-    return _ok(await c.call(
-        f"timesheets/users/{_uid(a)}/timesheet-insert/date/{dt}/ref/{ref}/type/{ts_type}/value/{value}",
-        "POST"))
+    return _ok(
+        await c.call(
+            f"timesheets/users/{_uid(a)}/timesheet-insert/date/{dt}/ref/{ref}/type/{ts_type}/value/{value}", "POST"
+        )
+    )
 
 
 async def _validate_timesheet(c: GoutiApiClient, a: dict) -> dict:
     dt = _date(_req(a, "date"), "date")
     st = _seg(_req(a, "status"), "status")
-    return _ok(await c.call(
-        f"timesheets/users/{_uid(a)}/timesheet-validation/date/{dt}/timesheetStatus/{st}",
-        "POST"))
+    return _ok(await c.call(f"timesheets/users/{_uid(a)}/timesheet-validation/date/{dt}/timesheetStatus/{st}", "POST"))
 
 
 # ── Generic (escape hatch) ──────────────────────────────────────────────────
+
 
 async def _api_get(c: GoutiApiClient, a: dict) -> dict:
     p = _path_validate(_req(a, "path"), "path")
@@ -624,34 +690,56 @@ async def _api_post(c: GoutiApiClient, a: dict) -> dict:
 
 _LIST_ROUTES: dict[str, tuple[str, str]] = {
     # type → (url_template, items_key)   — {pid} and {uid} are replaced at runtime
-    "projects":             ("projects", "projects"),
-    "archived_projects":    ("projects/archived", "projects"),
-    "tasks":                ("projects/{pid}/tasks", "tasks"),
-    "actions":              ("projects/{pid}/actions", "actions"),
-    "issues":               ("projects/{pid}/issues", "issues"),
-    "deliverables":         ("projects/{pid}/deliverables", "deliverables"),
-    "goals":                ("projects/{pid}/goals", "goals"),
-    "reports":              ("projects/{pid}/reports", "reports"),
-    "organization":         ("projects/{pid}/organization", "organization"),
-    "users":                ("users", "users"),
-    "user_tasks":           ("users/{uid}/tasks", "tasks"),
-    "user_actions":         ("users/{uid}/actions", "actions"),
-    "user_issues":          ("users/{uid}/issues", "issues"),
-    "entity_categories":    ("e-categories", "e-categories"),
-    "activity_labels":      ("activities-labels", "activities-labels"),
-    "notifications":        ("users/{uid}/notifications", "notifications"),
+    "projects": ("projects", "projects"),
+    "archived_projects": ("projects/archived", "projects"),
+    "tasks": ("projects/{pid}/tasks", "tasks"),
+    "actions": ("projects/{pid}/actions", "actions"),
+    "issues": ("projects/{pid}/issues", "issues"),
+    "deliverables": ("projects/{pid}/deliverables", "deliverables"),
+    "goals": ("projects/{pid}/goals", "goals"),
+    "reports": ("projects/{pid}/reports", "reports"),
+    "organization": ("projects/{pid}/organization", "organization"),
+    "users": ("users", "users"),
+    "user_tasks": ("users/{uid}/tasks", "tasks"),
+    "user_actions": ("users/{uid}/actions", "actions"),
+    "user_issues": ("users/{uid}/issues", "issues"),
+    "entity_categories": ("e-categories", "e-categories"),
+    "activity_labels": ("activities-labels", "activities-labels"),
+    "notifications": ("users/{uid}/notifications", "notifications"),
 }
 
 
 _SEARCH_KEYS = (
     # Generic
-    "Name", "name", "Ref", "ref", "Code", "code", "Title", "title",
-    "Description", "description", "Label", "label",
-    "first_name", "last_name", "email", "matricule",
+    "Name",
+    "name",
+    "Ref",
+    "ref",
+    "Code",
+    "code",
+    "Title",
+    "title",
+    "Description",
+    "description",
+    "Label",
+    "label",
+    "first_name",
+    "last_name",
+    "email",
+    "matricule",
     # Gouti domain-suffixed fields (_ta=task, _pr=project, _ac=action, _is=issue)
-    "name_ta", "name_pr", "name_ac", "name_is",
-    "ref_ta", "ref_pr", "ref_ac", "ref_is",
-    "description_ta", "description_pr", "description_ac", "description_is",
+    "name_ta",
+    "name_pr",
+    "name_ac",
+    "name_is",
+    "ref_ta",
+    "ref_pr",
+    "ref_ac",
+    "ref_is",
+    "description_ta",
+    "description_pr",
+    "description_ac",
+    "description_is",
 )
 
 
@@ -706,16 +794,16 @@ async def _handle_list(c: GoutiApiClient, a: dict) -> dict:
 # ── get: unified detail ──────────────────────────────────────────────────────
 
 _GET_ROUTES: dict[str, str] = {
-    "project":           "projects/{id}",
-    "task":              "projects/{pid}/tasks/{id}",
-    "action":            "projects/{pid}/actions/{id}",
-    "issue":             "projects/{pid}/issues/{id}",
-    "deliverable":       "projects/{pid}/deliverables/{id}",
-    "goal":              "projects/{pid}/goals/{id}",
+    "project": "projects/{id}",
+    "task": "projects/{pid}/tasks/{id}",
+    "action": "projects/{pid}/actions/{id}",
+    "issue": "projects/{pid}/issues/{id}",
+    "deliverable": "projects/{pid}/deliverables/{id}",
+    "goal": "projects/{pid}/goals/{id}",
     "organization_unit": "projects/{pid}/organization/{id}",
-    "user":              "users/{id}",
-    "entity_category":   "e-categories/{id}",
-    "activity_label":    "activities-labels/{id}",
+    "user": "users/{id}",
+    "entity_category": "e-categories/{id}",
+    "activity_label": "activities-labels/{id}",
 }
 
 
@@ -737,18 +825,18 @@ async def _handle_get(c: GoutiApiClient, a: dict) -> dict:
 # issues expose a POST /{entity}/{id} update endpoint. Projects cannot be
 # updated through the public API.
 _UPDATE_ROUTES: dict[str, str] = {
-    "task":    "projects/{pid}/tasks/{id}",
-    "action":  "projects/{pid}/actions/{id}",
-    "issue":   "projects/{pid}/issues/{id}",
+    "task": "projects/{pid}/tasks/{id}",
+    "action": "projects/{pid}/actions/{id}",
+    "issue": "projects/{pid}/issues/{id}",
 }
 
 # Writable fields per entity type — any other field is silently dropped by
 # Gouti (based on the official Postman collection payloads). Passing a field
 # not in this whitelist results in a warning in the response.
 _WRITABLE_FIELDS: dict[str, frozenset[str]] = {
-    "task":   frozenset({"name_ta",  "description_ta", "status_ta", "progress_ta", "workload"}),
-    "action": frozenset({"name_ac",  "description_ac", "status_ac", "progress_ac"}),
-    "issue":  frozenset({"name_is",  "description_is", "status_is", "progress_is"}),
+    "task": frozenset({"name_ta", "description_ta", "status_ta", "progress_ta", "workload"}),
+    "action": frozenset({"name_ac", "description_ac", "status_ac", "progress_ac"}),
+    "issue": frozenset({"name_is", "description_is", "status_is", "progress_is"}),
 }
 
 
@@ -817,9 +905,9 @@ def _normalise_date_fields(payload: dict) -> dict:
 # Fields that Gouti requires as "principal argument" on POST /{entity}/{id}.
 # Always included on update (pre-fetched from current record if not provided).
 _PRINCIPAL_FIELDS = {
-    "task":    ("name_ta",  lambda pid, tid: f"projects/{pid}/tasks/{tid}"),
-    "action":  ("name_ac",  lambda pid, tid: f"projects/{pid}/actions/{tid}"),
-    "issue":   ("name_is",  lambda pid, tid: f"projects/{pid}/issues/{tid}"),
+    "task": ("name_ta", lambda pid, tid: f"projects/{pid}/tasks/{tid}"),
+    "action": ("name_ac", lambda pid, tid: f"projects/{pid}/actions/{tid}"),
+    "issue": ("name_is", lambda pid, tid: f"projects/{pid}/issues/{tid}"),
 }
 
 
@@ -827,12 +915,14 @@ async def _handle_update(c: GoutiApiClient, a: dict) -> dict:
     entity_type = _req(a, "type")
     route = _UPDATE_ROUTES.get(entity_type)
     if not route:
-        return _ok({
-            "error": f"Type '{entity_type}' non updatable via l'API Gouti. "
-                     "Note: l'API Gouti ne supporte PAS la modification de projects, "
-                     "deliverables, goals, users, organization units, etc.",
-            "types_updatable": sorted(_UPDATE_ROUTES),
-        })
+        return _ok(
+            {
+                "error": f"Type '{entity_type}' non updatable via l'API Gouti. "
+                "Note: l'API Gouti ne supporte PAS la modification de projects, "
+                "deliverables, goals, users, organization units, etc.",
+                "types_updatable": sorted(_UPDATE_ROUTES),
+            }
+        )
 
     raw_payload = a.get("payload")
     if not isinstance(raw_payload, dict):
@@ -887,6 +977,7 @@ async def _handle_update(c: GoutiApiClient, a: dict) -> dict:
 
 # ── timesheet: unified timesheet ops ─────────────────────────────────────────
 
+
 async def _handle_timesheet(c: GoutiApiClient, a: dict) -> dict:
     action = _req(a, "action")
     uid = _uid(a)
@@ -898,29 +989,31 @@ async def _handle_timesheet(c: GoutiApiClient, a: dict) -> dict:
         yr = _year(_req(a, "year"), "year")
         wk = _week(_req(a, "week"), "week")
         ts_type = _seg(a.get("ts_type", "1") or "1", "ts_type")
-        return _ok(await c.call(
-            f"timesheets/users/{uid}/timesheet/year/{yr}/week/{wk}/type/{ts_type}"))
+        return _ok(await c.call(f"timesheets/users/{uid}/timesheet/year/{yr}/week/{wk}/type/{ts_type}"))
 
     if action == "insert":
         dt = _date(_req(a, "date"), "date")
         ref = _seg(_req(a, "ref"), "ref")
         ts_type = _seg(_req(a, "ts_type"), "ts_type")
         value = _seg(_req(a, "value"), "value")
-        return _ok(await c.call(
-            f"timesheets/users/{uid}/timesheet-insert/date/{dt}/ref/{ref}/type/{ts_type}/value/{value}",
-            "POST"))
+        return _ok(
+            await c.call(
+                f"timesheets/users/{uid}/timesheet-insert/date/{dt}/ref/{ref}/type/{ts_type}/value/{value}", "POST"
+            )
+        )
 
     if action == "validate":
         dt = _date(_req(a, "date"), "date")
         st = _seg(_req(a, "status"), "status")
-        return _ok(await c.call(
-            f"timesheets/users/{uid}/timesheet-validation/date/{dt}/timesheetStatus/{st}",
-            "POST"))
+        return _ok(await c.call(f"timesheets/users/{uid}/timesheet-validation/date/{dt}/timesheetStatus/{st}", "POST"))
 
-    return _ok({"error": f"Action inconnue: '{action}'", "actions_disponibles": ["control", "get", "insert", "validate"]})
+    return _ok(
+        {"error": f"Action inconnue: '{action}'", "actions_disponibles": ["control", "get", "insert", "validate"]}
+    )
 
 
 # ── notifications: unified ───────────────────────────────────────────────────
+
 
 async def _handle_notifications(c: GoutiApiClient, a: dict) -> dict:
     action = a.get("action", "list")
@@ -939,6 +1032,7 @@ async def _handle_notifications(c: GoutiApiClient, a: dict) -> dict:
 
 
 # ── user_notes: unified ──────────────────────────────────────────────────────
+
 
 async def _handle_user_notes(c: GoutiApiClient, a: dict) -> dict:
     action = a.get("action", "get")
@@ -1026,12 +1120,30 @@ def _project_with_counts(p: dict, today: str) -> dict:
     """Project summary + parsed status counts."""
     base = _project_summary(p, today)
     base["counts"] = {
-        "tasks": {"total": (p.get("Tasks") or {}).get("number", 0), "by_status": _parse_by_status((p.get("Tasks") or {}).get("byStatus"))},
-        "milestones": {"total": (p.get("Milestones") or {}).get("number", 0), "by_status": _parse_by_status((p.get("Milestones") or {}).get("byStatus"))},
-        "actions": {"total": (p.get("Actions") or {}).get("number", 0), "by_status": _parse_by_status((p.get("Actions") or {}).get("byStatus"))},
-        "issues": {"total": (p.get("Issues") or {}).get("number", 0), "by_status": _parse_by_status((p.get("Issues") or {}).get("byStatus"))},
-        "deliverables": {"total": (p.get("Deliverables") or {}).get("number", 0), "by_status": _parse_by_status((p.get("Deliverables") or {}).get("byStatus"))},
-        "risks": {"total": (p.get("Active_risks") or {}).get("number", 0), "by_severity": _parse_by_status((p.get("Active_risks") or {}).get("byStatus"))},
+        "tasks": {
+            "total": (p.get("Tasks") or {}).get("number", 0),
+            "by_status": _parse_by_status((p.get("Tasks") or {}).get("byStatus")),
+        },
+        "milestones": {
+            "total": (p.get("Milestones") or {}).get("number", 0),
+            "by_status": _parse_by_status((p.get("Milestones") or {}).get("byStatus")),
+        },
+        "actions": {
+            "total": (p.get("Actions") or {}).get("number", 0),
+            "by_status": _parse_by_status((p.get("Actions") or {}).get("byStatus")),
+        },
+        "issues": {
+            "total": (p.get("Issues") or {}).get("number", 0),
+            "by_status": _parse_by_status((p.get("Issues") or {}).get("byStatus")),
+        },
+        "deliverables": {
+            "total": (p.get("Deliverables") or {}).get("number", 0),
+            "by_status": _parse_by_status((p.get("Deliverables") or {}).get("byStatus")),
+        },
+        "risks": {
+            "total": (p.get("Active_risks") or {}).get("number", 0),
+            "by_severity": _parse_by_status((p.get("Active_risks") or {}).get("byStatus")),
+        },
     }
     return base
 
@@ -1102,22 +1214,24 @@ async def _handle_macro_tasks(c: "GoutiApiClient", a: dict) -> dict:
                 delay_days = (d2 - d1).days
             except (ValueError, TypeError):
                 pass
-        phases.append({
-            "id": t.get("ref_ta"),
-            "order": t.get("order_ta"),
-            "name": t.get("name_ta"),
-            "planned_start": t.get("initial_start_date_ta"),
-            "planned_end": initial_end,
-            "actual_start": t.get("actual_start_date_ta"),
-            "actual_end": actual_end,
-            "today": today,
-            "pct": _parse_pct(t.get("progress_ta")),
-            "status": t.get("status_ta"),
-            "is_milestone": bool(int(t.get("milestone_ta") or "0")),
-            "color": t.get("macro_color_ta"),
-            "duration_days": t.get("duration_ta"),
-            "delay_days": delay_days,
-        })
+        phases.append(
+            {
+                "id": t.get("ref_ta"),
+                "order": t.get("order_ta"),
+                "name": t.get("name_ta"),
+                "planned_start": t.get("initial_start_date_ta"),
+                "planned_end": initial_end,
+                "actual_start": t.get("actual_start_date_ta"),
+                "actual_end": actual_end,
+                "today": today,
+                "pct": _parse_pct(t.get("progress_ta")),
+                "status": t.get("status_ta"),
+                "is_milestone": bool(int(t.get("milestone_ta") or "0")),
+                "color": t.get("macro_color_ta"),
+                "duration_days": t.get("duration_ta"),
+                "delay_days": delay_days,
+            }
+        )
     phases.sort(key=lambda p: int(p.get("order") or 0))
 
     return _ok({"project_id": pid, "today": today, "phases": phases})
@@ -1126,6 +1240,7 @@ async def _handle_macro_tasks(c: "GoutiApiClient", a: dict) -> dict:
 async def _handle_tcm_snapshot(c: "GoutiApiClient", a: dict) -> dict:
     """Complete project snapshot for TCM/status reporting."""
     import time
+
     t0 = time.monotonic()
     pid = _req(a, "project_id")
     max_comments = int(a.get("max_comments_per_item", 5))
@@ -1167,14 +1282,24 @@ async def _handle_tcm_snapshot(c: "GoutiApiClient", a: dict) -> dict:
                 delay = (date.fromisoformat(str(ae)[:10]) - date.fromisoformat(str(ie)[:10])).days
             except Exception:
                 pass
-        macro_phases.append({
-            "id": t.get("ref_ta"), "order": t.get("order_ta"), "name": t.get("name_ta"),
-            "planned_start": t.get("initial_start_date_ta"), "planned_end": ie,
-            "actual_start": t.get("actual_start_date_ta"), "actual_end": ae,
-            "today": today, "pct": _parse_pct(t.get("progress_ta")), "status": t.get("status_ta"),
-            "is_milestone": bool(int(t.get("milestone_ta") or "0")),
-            "color": t.get("macro_color_ta"), "duration_days": t.get("duration_ta"), "delay_days": delay,
-        })
+        macro_phases.append(
+            {
+                "id": t.get("ref_ta"),
+                "order": t.get("order_ta"),
+                "name": t.get("name_ta"),
+                "planned_start": t.get("initial_start_date_ta"),
+                "planned_end": ie,
+                "actual_start": t.get("actual_start_date_ta"),
+                "actual_end": ae,
+                "today": today,
+                "pct": _parse_pct(t.get("progress_ta")),
+                "status": t.get("status_ta"),
+                "is_milestone": bool(int(t.get("milestone_ta") or "0")),
+                "color": t.get("macro_color_ta"),
+                "duration_days": t.get("duration_ta"),
+                "delay_days": delay,
+            }
+        )
     macro_phases.sort(key=lambda p: int(p.get("order") or 0))
 
     milestones = []
@@ -1188,39 +1313,97 @@ async def _handle_tcm_snapshot(c: "GoutiApiClient", a: dict) -> dict:
                 delay = (date.fromisoformat(str(ase)[:10]) - date.fromisoformat(str(ise)[:10])).days
             except Exception:
                 pass
-        milestones.append({
-            "id": t.get("ref_ta"), "order": t.get("order_ta"), "name": t.get("name_ta"),
-            "planned_date": ise, "actual_date": ase,
-            "today": today, "pct": _parse_pct(t.get("progress_ta")), "status": t.get("status_ta"), "delay_days": delay,
-        })
+        milestones.append(
+            {
+                "id": t.get("ref_ta"),
+                "order": t.get("order_ta"),
+                "name": t.get("name_ta"),
+                "planned_date": ise,
+                "actual_date": ase,
+                "today": today,
+                "pct": _parse_pct(t.get("progress_ta")),
+                "status": t.get("status_ta"),
+                "delay_days": delay,
+            }
+        )
     milestones.sort(key=lambda m: m.get("actual_date") or m.get("planned_date") or "")
 
-    open_issues = [{"id": i.get("ref_is"), "subject": i.get("subject_is"), "description": i.get("description_is"),
-                     "priority": i.get("priority_is"), "creation_date": i.get("creation_date_is"), "status": i.get("status_is")}
-                    for i in issues if str(i.get("status_is")) in ("0", "1")]
+    open_issues = [
+        {
+            "id": i.get("ref_is"),
+            "subject": i.get("subject_is"),
+            "description": i.get("description_is"),
+            "priority": i.get("priority_is"),
+            "creation_date": i.get("creation_date_is"),
+            "status": i.get("status_is"),
+        }
+        for i in issues
+        if str(i.get("status_is")) in ("0", "1")
+    ]
     open_issues.sort(key=lambda x: (x.get("priority") or "", x.get("creation_date") or ""), reverse=True)
 
-    closed_issues = [{"id": i.get("ref_is"), "subject": i.get("subject_is"), "creation_date": i.get("creation_date_is")}
-                      for i in issues if str(i.get("status_is")) == "7"] if include_closed else []
+    closed_issues = (
+        [
+            {"id": i.get("ref_is"), "subject": i.get("subject_is"), "creation_date": i.get("creation_date_is")}
+            for i in issues
+            if str(i.get("status_is")) == "7"
+        ]
+        if include_closed
+        else []
+    )
 
-    open_actions = [{"id": a_.get("ref_ac"), "name": a_.get("name_ac"), "description": a_.get("description_ac"),
-                      "domain": a_.get("domain_ac"), "target_date": a_.get("actual_target_date_ac"),
-                      "creation_date": a_.get("creation_date_ac"), "status": a_.get("status_ac"),
-                      "progress": _parse_pct(a_.get("progress_ac"))}
-                     for a_ in actions if str(a_.get("status_ac")) in ("0", "1")]
+    open_actions = [
+        {
+            "id": a_.get("ref_ac"),
+            "name": a_.get("name_ac"),
+            "description": a_.get("description_ac"),
+            "domain": a_.get("domain_ac"),
+            "target_date": a_.get("actual_target_date_ac"),
+            "creation_date": a_.get("creation_date_ac"),
+            "status": a_.get("status_ac"),
+            "progress": _parse_pct(a_.get("progress_ac")),
+        }
+        for a_ in actions
+        if str(a_.get("status_ac")) in ("0", "1")
+    ]
     open_actions.sort(key=lambda x: x.get("target_date") or "")
 
-    pending_deliverables = [{"id": d.get("ref_de"), "name": d.get("name_de"), "description": d.get("description_de"),
-                              "type": d.get("type_de"), "due_date": d.get("previsional_delivery_date_de"),
-                              "last_delivery": d.get("last_delivery_date_de"), "status": d.get("status_de")}
-                             for d in deliverables if str(d.get("status_de")) != "2"]
+    pending_deliverables = [
+        {
+            "id": d.get("ref_de"),
+            "name": d.get("name_de"),
+            "description": d.get("description_de"),
+            "type": d.get("type_de"),
+            "due_date": d.get("previsional_delivery_date_de"),
+            "last_delivery": d.get("last_delivery_date_de"),
+            "status": d.get("status_de"),
+        }
+        for d in deliverables
+        if str(d.get("status_de")) != "2"
+    ]
     pending_deliverables.sort(key=lambda x: x.get("due_date") or "")
 
-    goals_out = [{"id": g.get("ref_go"), "name": g.get("name_go"), "description": g.get("description_go"),
-                   "status": g.get("status_go"), "date": g.get("date_status_go")} for g in goals]
+    goals_out = [
+        {
+            "id": g.get("ref_go"),
+            "name": g.get("name_go"),
+            "description": g.get("description_go"),
+            "status": g.get("status_go"),
+            "date": g.get("date_status_go"),
+        }
+        for g in goals
+    ]
 
-    team = [{"id": o.get("id"), "name": f'{o.get("lastname", "")} {o.get("firstname", "")}'.strip(),
-              "initials": o.get("initials"), "role": o.get("role"), "ref_user": o.get("refUser")} for o in org]
+    team = [
+        {
+            "id": o.get("id"),
+            "name": f"{o.get('lastname', '')} {o.get('firstname', '')}".strip(),
+            "initials": o.get("initials"),
+            "role": o.get("role"),
+            "ref_user": o.get("refUser"),
+        }
+        for o in org
+    ]
 
     # Wave 3: comments (parallel)
     comment_calls = []
@@ -1244,9 +1427,16 @@ async def _handle_tcm_snapshot(c: "GoutiApiClient", a: dict) -> dict:
                 continue
             raw_comments = _extract_items(cr)
             raw_comments.sort(key=lambda x: x.get("date_co") or "", reverse=True)
-            formatted = [{"id": co.get("ref_co"), "text": co.get("comment_co"), "date": co.get("date_co"),
-                           "author": f'{co.get("firstname_us", "")} {co.get("lastname_us", "")}'.strip(),
-                           "initials": co.get("initials_us")} for co in raw_comments[:max_comments]]
+            formatted = [
+                {
+                    "id": co.get("ref_co"),
+                    "text": co.get("comment_co"),
+                    "date": co.get("date_co"),
+                    "author": f"{co.get('firstname_us', '')} {co.get('lastname_us', '')}".strip(),
+                    "initials": co.get("initials_us"),
+                }
+                for co in raw_comments[:max_comments]
+            ]
             if ctype == "issue":
                 open_issues[cidx]["comments"] = formatted
             elif ctype == "action":
@@ -1260,33 +1450,80 @@ async def _handle_tcm_snapshot(c: "GoutiApiClient", a: dict) -> dict:
     cats = proj.get("Enterprise_categories") or []
     custom_ind = proj.get("Custom_indicators") or []
     project_header = {
-        "id": proj.get("Ref"), "name": proj.get("Name"), "status": proj.get("Status"),
-        "start_date": proj.get("Start_date"), "target_date": proj.get("Target_date"), "today": today,
-        "general_situation": proj.get("General_situation"), "detailed_situation": proj.get("Detailed_situation"),
+        "id": proj.get("Ref"),
+        "name": proj.get("Name"),
+        "status": proj.get("Status"),
+        "start_date": proj.get("Start_date"),
+        "target_date": proj.get("Target_date"),
+        "today": today,
+        "general_situation": proj.get("General_situation"),
+        "detailed_situation": proj.get("Detailed_situation"),
         "description": proj.get("Description"),
-        "pct": _parse_pct(proj.get("Tasks_progress")), "delta_w1": proj.get("Delta_progress_w1"), "delta_w4": proj.get("Delta_progress_w4"),
-        "weather": proj.get("Weather"), "trend": proj.get("Trend"), "criticality": proj.get("Criticality"),
+        "pct": _parse_pct(proj.get("Tasks_progress")),
+        "delta_w1": proj.get("Delta_progress_w1"),
+        "delta_w4": proj.get("Delta_progress_w4"),
+        "weather": proj.get("Weather"),
+        "trend": proj.get("Trend"),
+        "criticality": proj.get("Criticality"),
         "last_update": proj.get("Last_update_date"),
         "pm": {"id": pm.get("ref_us"), "name": pm.get("name_us")},
-        "sponsor": {"name": sponsor.get("lastname"), "firstname": sponsor.get("firstname"), "org_id": sponsor.get("organization_id")},
+        "sponsor": {
+            "name": sponsor.get("lastname"),
+            "firstname": sponsor.get("firstname"),
+            "org_id": sponsor.get("organization_id"),
+        },
         "categories": [{"id": c_.get("id"), "name": c_.get("name")} for c_ in (cats if isinstance(cats, list) else [])],
-        "custom_indicators": [{"title": ci.get("title"), "value": ci.get("value"), "type": ci.get("type")} for ci in (custom_ind if isinstance(custom_ind, list) else [])],
-        "risk_summary": {"total": (proj.get("Active_risks") or {}).get("number", 0), "by_severity": _parse_by_status((proj.get("Active_risks") or {}).get("byStatus"))},
-        "task_summary": {"total": (proj.get("Tasks") or {}).get("number", 0), "by_status": _parse_by_status((proj.get("Tasks") or {}).get("byStatus"))},
-        "milestone_summary": {"total": (proj.get("Milestones") or {}).get("number", 0), "by_status": _parse_by_status((proj.get("Milestones") or {}).get("byStatus"))},
-        "action_summary": {"total": (proj.get("Actions") or {}).get("number", 0), "by_status": _parse_by_status((proj.get("Actions") or {}).get("byStatus"))},
-        "issue_summary": {"total": (proj.get("Issues") or {}).get("number", 0), "by_status": _parse_by_status((proj.get("Issues") or {}).get("byStatus"))},
-        "deliverable_summary": {"total": (proj.get("Deliverables") or {}).get("number", 0), "by_status": _parse_by_status((proj.get("Deliverables") or {}).get("byStatus"))},
+        "custom_indicators": [
+            {"title": ci.get("title"), "value": ci.get("value"), "type": ci.get("type")}
+            for ci in (custom_ind if isinstance(custom_ind, list) else [])
+        ],
+        "risk_summary": {
+            "total": (proj.get("Active_risks") or {}).get("number", 0),
+            "by_severity": _parse_by_status((proj.get("Active_risks") or {}).get("byStatus")),
+        },
+        "task_summary": {
+            "total": (proj.get("Tasks") or {}).get("number", 0),
+            "by_status": _parse_by_status((proj.get("Tasks") or {}).get("byStatus")),
+        },
+        "milestone_summary": {
+            "total": (proj.get("Milestones") or {}).get("number", 0),
+            "by_status": _parse_by_status((proj.get("Milestones") or {}).get("byStatus")),
+        },
+        "action_summary": {
+            "total": (proj.get("Actions") or {}).get("number", 0),
+            "by_status": _parse_by_status((proj.get("Actions") or {}).get("byStatus")),
+        },
+        "issue_summary": {
+            "total": (proj.get("Issues") or {}).get("number", 0),
+            "by_status": _parse_by_status((proj.get("Issues") or {}).get("byStatus")),
+        },
+        "deliverable_summary": {
+            "total": (proj.get("Deliverables") or {}).get("number", 0),
+            "by_status": _parse_by_status((proj.get("Deliverables") or {}).get("byStatus")),
+        },
     }
 
     duration_ms = int((time.monotonic() - t0) * 1000)
-    return _ok({
-        "project": project_header, "macro_phases": macro_phases, "milestones": milestones,
-        "open_issues": open_issues, "closed_issues": closed_issues, "open_actions": open_actions,
-        "pending_deliverables": pending_deliverables, "goals": goals_out, "team": team,
-        "_meta": {"generated_at": datetime.utcnow().isoformat() + "Z", "today": today,
-                  "project_id": pid, "gouti_calls": gouti_calls, "duration_ms": duration_ms},
-    })
+    return _ok(
+        {
+            "project": project_header,
+            "macro_phases": macro_phases,
+            "milestones": milestones,
+            "open_issues": open_issues,
+            "closed_issues": closed_issues,
+            "open_actions": open_actions,
+            "pending_deliverables": pending_deliverables,
+            "goals": goals_out,
+            "team": team,
+            "_meta": {
+                "generated_at": datetime.utcnow().isoformat() + "Z",
+                "today": today,
+                "project_id": pid,
+                "gouti_calls": gouti_calls,
+                "duration_ms": duration_ms,
+            },
+        }
+    )
 
 
 async def _handle_portfolio_health(c: "GoutiApiClient", a: dict) -> dict:
@@ -1339,6 +1576,7 @@ async def _handle_pm_portfolio(c: "GoutiApiClient", a: dict) -> dict:
 async def _handle_weekly_timesheets(c: "GoutiApiClient", a: dict) -> dict:
     """Aggregated timesheet data for a given ISO week."""
     import time
+
     t0 = time.monotonic()
     week_start = _req(a, "week_start")
     d = date.fromisoformat(week_start)
@@ -1354,7 +1592,9 @@ async def _handle_weekly_timesheets(c: "GoutiApiClient", a: dict) -> dict:
         gouti_calls += 1
         all_users_fetched = True
         users_list = _extract_items(users_data)
-        user_ids = [str(u.get("Ref") or u.get("ref_us") or u.get("id")) for u in users_list if u.get("Ref") or u.get("ref_us")]
+        user_ids = [
+            str(u.get("Ref") or u.get("ref_us") or u.get("id")) for u in users_list if u.get("Ref") or u.get("ref_us")
+        ]
 
     # Parallel timesheet fetch
     ts_calls = [c.call(f"timesheets/users/{uid}/timesheet/year/{year}/week/{week_num}/type/1") for uid in user_ids]
@@ -1380,35 +1620,59 @@ async def _handle_weekly_timesheets(c: "GoutiApiClient", a: dict) -> dict:
                 continue
             user_projects[pid] = user_projects.get(pid, 0) + hours
             if pid not in project_totals:
-                project_totals[pid] = {"project_id": pid, "project_name": pname, "total_hours": 0, "contributors": set()}
+                project_totals[pid] = {
+                    "project_id": pid,
+                    "project_name": pname,
+                    "total_hours": 0,
+                    "contributors": set(),
+                }
             project_totals[pid]["total_hours"] += hours
             project_totals[pid]["contributors"].add(uid)
 
         total = sum(user_projects.values())
         if total > 0:
-            by_user.append({
-                "user_id": uid, "user_name": user_name, "total_hours": round(total, 2),
-                "by_project": [{"project_id": k, "hours": round(v, 2)} for k, v in user_projects.items()],
-            })
+            by_user.append(
+                {
+                    "user_id": uid,
+                    "user_name": user_name,
+                    "total_hours": round(total, 2),
+                    "by_project": [{"project_id": k, "hours": round(v, 2)} for k, v in user_projects.items()],
+                }
+            )
 
-    by_project = [{"project_id": v["project_id"], "project_name": v["project_name"],
-                    "total_hours": round(v["total_hours"], 2), "contributors": len(v["contributors"])}
-                   for v in project_totals.values()]
+    by_project = [
+        {
+            "project_id": v["project_id"],
+            "project_name": v["project_name"],
+            "total_hours": round(v["total_hours"], 2),
+            "contributors": len(v["contributors"]),
+        }
+        for v in project_totals.values()
+    ]
     by_project.sort(key=lambda x: x["total_hours"], reverse=True)
 
-    return _ok({
-        "week": f"{year}-W{week_num:02d}", "period": {"start": week_start, "end": period_end},
-        "today": date.today().isoformat(),
-        "by_user": by_user, "by_project": by_project,
-        "team_total_hours": round(sum(u["total_hours"] for u in by_user), 2),
-        "coverage": {"users_with_data": len(by_user), "users_total": len(user_ids)},
-        "_meta": {"gouti_calls": gouti_calls, "duration_ms": int((time.monotonic() - t0) * 1000), "all_users_fetched": all_users_fetched},
-    })
+    return _ok(
+        {
+            "week": f"{year}-W{week_num:02d}",
+            "period": {"start": week_start, "end": period_end},
+            "today": date.today().isoformat(),
+            "by_user": by_user,
+            "by_project": by_project,
+            "team_total_hours": round(sum(u["total_hours"] for u in by_user), 2),
+            "coverage": {"users_with_data": len(by_user), "users_total": len(user_ids)},
+            "_meta": {
+                "gouti_calls": gouti_calls,
+                "duration_ms": int((time.monotonic() - t0) * 1000),
+                "all_users_fetched": all_users_fetched,
+            },
+        }
+    )
 
 
 async def _handle_user_dashboard(c: "GoutiApiClient", a: dict) -> dict:
     """Personal dashboard for one Gouti user."""
     import time
+
     t0 = time.monotonic()
     uid = _req(a, "user_id")
     today = date.today().isoformat()
@@ -1436,40 +1700,87 @@ async def _handle_user_dashboard(c: "GoutiApiClient", a: dict) -> dict:
     open_actions = [a_ for a_ in actions_raw if str(a_.get("status_ac")) in ("0", "1")]
     open_issues = [i for i in issues_raw if str(i.get("status_is")) in ("0", "1")]
 
-    tasks_overdue = sum(1 for t in open_tasks
-                        if t.get("actual_end_date_ta") and str(t.get("actual_end_date_ta"))[:10] < today and str(t.get("status_ta")) != "2")
+    tasks_overdue = sum(
+        1
+        for t in open_tasks
+        if t.get("actual_end_date_ta")
+        and str(t.get("actual_end_date_ta"))[:10] < today
+        and str(t.get("status_ta")) != "2"
+    )
 
-    user_info = {"id": user_data.get("ref_us") or uid,
-                  "name": f'{user_data.get("lastname", "")} {user_data.get("firstname", "")}'.strip(),
-                  "initials": user_data.get("initials")}
+    user_info = {
+        "id": user_data.get("ref_us") or uid,
+        "name": f"{user_data.get('lastname', '')} {user_data.get('firstname', '')}".strip(),
+        "initials": user_data.get("initials"),
+    }
 
-    return _ok({
-        "user": user_info, "today": today,
-        "open_tasks": [{"id": t.get("ref_ta"), "project_id": t.get("ref_pr_ta"), "project_name": t.get("name_pr"),
-                         "name": t.get("name_ta"), "due_date": t.get("actual_end_date_ta"),
-                         "pct": _parse_pct(t.get("progress_ta")), "status": t.get("status_ta"),
-                         "overdue": bool(t.get("actual_end_date_ta") and str(t.get("actual_end_date_ta"))[:10] < today)}
-                        for t in open_tasks],
-        "open_actions": [{"id": a_.get("ref_ac"), "project_id": a_.get("ref_pr_ac"), "project_name": a_.get("name_pr"),
-                           "name": a_.get("name_ac"), "due_date": a_.get("actual_target_date_ac"),
-                           "status": a_.get("status_ac"), "progress": _parse_pct(a_.get("progress_ac"))}
-                          for a_ in open_actions],
-        "open_issues": [{"id": i.get("ref_is"), "project_id": i.get("ref_pr_is"), "project_name": i.get("name_pr"),
-                          "subject": i.get("subject_is"), "priority": i.get("priority_is"), "status": i.get("status_is")}
-                         for i in open_issues],
-        "notifications": [{"id": n.get("ref_no") or n.get("id"), "message": n.get("message") or n.get("text"),
-                            "date": n.get("date") or n.get("created_at")} for n in notifs[:20]],
-        "personal_notes": [{"id": n.get("ref_no") or n.get("id"), "text": n.get("note_no") or n.get("text")} for n in notes[:20]],
-        "_summary": {"tasks_total": len(open_tasks), "tasks_overdue": tasks_overdue,
-                      "actions_total": len(open_actions), "issues_total": len(open_issues),
-                      "notifications_total": len(notifs)},
-        "_meta": {"gouti_calls": 6, "duration_ms": int((time.monotonic() - t0) * 1000)},
-    })
+    return _ok(
+        {
+            "user": user_info,
+            "today": today,
+            "open_tasks": [
+                {
+                    "id": t.get("ref_ta"),
+                    "project_id": t.get("ref_pr_ta"),
+                    "project_name": t.get("name_pr"),
+                    "name": t.get("name_ta"),
+                    "due_date": t.get("actual_end_date_ta"),
+                    "pct": _parse_pct(t.get("progress_ta")),
+                    "status": t.get("status_ta"),
+                    "overdue": bool(t.get("actual_end_date_ta") and str(t.get("actual_end_date_ta"))[:10] < today),
+                }
+                for t in open_tasks
+            ],
+            "open_actions": [
+                {
+                    "id": a_.get("ref_ac"),
+                    "project_id": a_.get("ref_pr_ac"),
+                    "project_name": a_.get("name_pr"),
+                    "name": a_.get("name_ac"),
+                    "due_date": a_.get("actual_target_date_ac"),
+                    "status": a_.get("status_ac"),
+                    "progress": _parse_pct(a_.get("progress_ac")),
+                }
+                for a_ in open_actions
+            ],
+            "open_issues": [
+                {
+                    "id": i.get("ref_is"),
+                    "project_id": i.get("ref_pr_is"),
+                    "project_name": i.get("name_pr"),
+                    "subject": i.get("subject_is"),
+                    "priority": i.get("priority_is"),
+                    "status": i.get("status_is"),
+                }
+                for i in open_issues
+            ],
+            "notifications": [
+                {
+                    "id": n.get("ref_no") or n.get("id"),
+                    "message": n.get("message") or n.get("text"),
+                    "date": n.get("date") or n.get("created_at"),
+                }
+                for n in notifs[:20]
+            ],
+            "personal_notes": [
+                {"id": n.get("ref_no") or n.get("id"), "text": n.get("note_no") or n.get("text")} for n in notes[:20]
+            ],
+            "_summary": {
+                "tasks_total": len(open_tasks),
+                "tasks_overdue": tasks_overdue,
+                "actions_total": len(open_actions),
+                "issues_total": len(open_issues),
+                "notifications_total": len(notifs),
+            },
+            "_meta": {"gouti_calls": 6, "duration_ms": int((time.monotonic() - t0) * 1000)},
+        }
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Tool definitions — 12 consolidated tools + 7 aggregation tools
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 def _s(props: dict | None = None, required: list | None = None) -> dict:
     schema: dict[str, Any] = {"type": "object", "properties": props or {}}
@@ -1479,182 +1790,265 @@ def _s(props: dict | None = None, required: list | None = None) -> dict:
 
 
 GOUTI_TOOLS: list[tuple[str, str, dict, Any]] = [
-    ("list",
-     "Liste des entités Gouti avec filtre optionnel. Types: projects, archived_projects, tasks, "
-     "actions, issues, deliverables, goals, reports, organization, users, user_tasks, user_actions, "
-     "user_issues, entity_categories, activity_labels, notifications. "
-     "Passer project_id pour les types liés à un projet, user_id pour ceux liés à un utilisateur. "
-     "search filtre les résultats (nom, code, ref, description…). "
-     "limit=20 par défaut, limit=0 pour tout récupérer.",
-     _s({
-         "type": {"type": "string", "description": "Type d'entité à lister"},
-         "project_id": {"type": "string", "description": "ID projet (si type lié à un projet)"},
-         "user_id": {"type": "string", "description": "ID utilisateur (si type lié à un user)"},
-         "search": {"type": "string", "description": "Filtre texte (insensible à la casse)"},
-         "limit": {"type": "integer", "description": "Max items (défaut 20, 0=tous)"},
-     }, ["type"]),
-     _handle_list),
-
-    ("get",
-     "Détail d'une entité Gouti. Types: project, task, action, issue, deliverable, goal, "
-     "organization_unit, user, entity_category, activity_label. "
-     "Passer project_id pour les types liés à un projet.",
-     _s({
-         "type": {"type": "string", "description": "Type d'entité"},
-         "id": {"type": "string", "description": "ID de l'entité"},
-         "project_id": {"type": "string", "description": "ID projet (si applicable)"},
-     }, ["type", "id"]),
-     _handle_get),
-
-    ("update",
-     "Met à jour une entité Gouti. Types supportés: task, action, issue. "
-     "L'API Gouti NE PERMET PAS la mise à jour de projects, deliverables, goals, "
-     "users ni organization units. "
-     "IMPORTANT — champs réellement modifiables (source: Postman collection officielle Gouti v1 EVO 07-2025): "
-     "• task: name_ta, description_ta, status_ta, progress_ta (int), workload (int). "
-     "• action: name_ac, description_ac, status_ac, progress_ac (int). "
-     "• issue: name_is, description_is, status_is, progress_is (int). "
-     "Les dates (initial_start_date_ta, initial_end_date_ta, actual_*_date_ta), "
-     "duration_ta et les autres champs NE SONT PAS modifiables via l'API Gouti — "
-     "ils seront ignorés et listés dans mcp_warning.dropped_fields de la réponse. "
-     "Le nom (name_ta/ac/is) est auto-rempli depuis le record courant si absent du payload. "
-     "progress_* et workload doivent être des entiers (conversion automatique faite par le MCP).",
-     _s({
-         "type": {"type": "string", "enum": ["task", "action", "issue"],
-                  "description": "Type d'entité (project non supporté)"},
-         "id": {"type": "string", "description": "ID de l'entité"},
-         "project_id": {"type": "string", "description": "ID projet (obligatoire)"},
-         "payload": {"type": "object",
-                     "description": "Champs à modifier (filtrés à la whitelist Gouti)"},
-     }, ["type", "id", "project_id", "payload"]),
-     _handle_update),
-
-    ("search_user",
-     "Recherche un utilisateur par matricule.",
-     _s({"matricule": {"type": "string"}}, ["matricule"]),
-     _get_user_by_matricule),
-
-    ("get_comments",
-     "Commentaires d'une activité (tâche, action ou issue) dans un projet.",
-     _s({
-         "project_id": {"type": "string"},
-         "activity_type": {"type": "string", "enum": ["tasks", "actions", "issues"]},
-         "activity_id": {"type": "string"},
-     }, ["project_id", "activity_type", "activity_id"]),
-     _get_comments),
-
-    ("refresh_tasks",
-     "Recalcule les tâches d'un projet.",
-     _s({"project_id": {"type": "string"}}, ["project_id"]),
-     _refresh_tasks),
-
-    ("timesheet",
-     "Gestion des feuilles de temps. Actions: control (état), get (semaine), insert (saisie), validate.",
-     _s({
-         "action": {"type": "string", "enum": ["control", "get", "insert", "validate"]},
-         "user_id": {"type": "string"},
-         "year": {"type": "string", "description": "Année 4 chiffres (get)"},
-         "week": {"type": "string", "description": "Numéro de semaine (get)"},
-         "ts_type": {"type": "string", "description": "Type timesheet, défaut 1 (get/insert)"},
-         "date": {"type": "string", "description": "dd-mm-yyyy (insert/validate)"},
-         "ref": {"type": "string", "description": "Réf activité (insert)"},
-         "value": {"type": "string", "description": "Heures (insert)"},
-         "status": {"type": "string", "description": "Statut validation (validate)"},
-     }, ["action", "user_id"]),
-     _handle_timesheet),
-
-    ("notifications",
-     "Gestion des notifications utilisateur. Actions: list, check (marquer lue), delete.",
-     _s({
-         "action": {"type": "string", "enum": ["list", "check", "delete"]},
-         "user_id": {"type": "string"},
-         "notification_id": {"type": "string", "description": "ID notification (check/delete)"},
-     }, ["user_id"]),
-     _handle_notifications),
-
-    ("user_notes",
-     "Notes personnelles d'un utilisateur. Actions: get, save.",
-     _s({
-         "action": {"type": "string", "enum": ["get", "save"]},
-         "user_id": {"type": "string"},
-         "note": {"type": "string", "description": "Contenu (save)"},
-     }, ["user_id"]),
-     _handle_user_notes),
-
-    ("api_get",
-     "GET générique vers l'API Gouti. Paramètres query via l'objet params (ex: params={search: 'BIPAGA', limit: 10}).",
-     _s({
-         "path": {"type": "string", "description": "Chemin relatif (ex: 'projects')"},
-         "params": {"type": "object", "description": "Query params (ex: {search: 'x', limit: 10})"},
-     }, ["path"]),
-     _api_get),
-
-    ("api_post",
-     "POST générique vers l'API Gouti.",
-     _s({
-         "path": {"type": "string"},
-         "payload": {"type": "object"},
-         "params": {"type": "object", "description": "Query params optionnels"},
-     }, ["path"]),
-     _api_post),
-
+    (
+        "list",
+        "Liste des entités Gouti avec filtre optionnel. Types: projects, archived_projects, tasks, "
+        "actions, issues, deliverables, goals, reports, organization, users, user_tasks, user_actions, "
+        "user_issues, entity_categories, activity_labels, notifications. "
+        "Passer project_id pour les types liés à un projet, user_id pour ceux liés à un utilisateur. "
+        "search filtre les résultats (nom, code, ref, description…). "
+        "limit=20 par défaut, limit=0 pour tout récupérer.",
+        _s(
+            {
+                "type": {"type": "string", "description": "Type d'entité à lister"},
+                "project_id": {"type": "string", "description": "ID projet (si type lié à un projet)"},
+                "user_id": {"type": "string", "description": "ID utilisateur (si type lié à un user)"},
+                "search": {"type": "string", "description": "Filtre texte (insensible à la casse)"},
+                "limit": {"type": "integer", "description": "Max items (défaut 20, 0=tous)"},
+            },
+            ["type"],
+        ),
+        _handle_list,
+    ),
+    (
+        "get",
+        "Détail d'une entité Gouti. Types: project, task, action, issue, deliverable, goal, "
+        "organization_unit, user, entity_category, activity_label. "
+        "Passer project_id pour les types liés à un projet.",
+        _s(
+            {
+                "type": {"type": "string", "description": "Type d'entité"},
+                "id": {"type": "string", "description": "ID de l'entité"},
+                "project_id": {"type": "string", "description": "ID projet (si applicable)"},
+            },
+            ["type", "id"],
+        ),
+        _handle_get,
+    ),
+    (
+        "update",
+        "Met à jour une entité Gouti. Types supportés: task, action, issue. "
+        "L'API Gouti NE PERMET PAS la mise à jour de projects, deliverables, goals, "
+        "users ni organization units. "
+        "IMPORTANT — champs réellement modifiables (source: Postman collection officielle Gouti v1 EVO 07-2025): "
+        "• task: name_ta, description_ta, status_ta, progress_ta (int), workload (int). "
+        "• action: name_ac, description_ac, status_ac, progress_ac (int). "
+        "• issue: name_is, description_is, status_is, progress_is (int). "
+        "Les dates (initial_start_date_ta, initial_end_date_ta, actual_*_date_ta), "
+        "duration_ta et les autres champs NE SONT PAS modifiables via l'API Gouti — "
+        "ils seront ignorés et listés dans mcp_warning.dropped_fields de la réponse. "
+        "Le nom (name_ta/ac/is) est auto-rempli depuis le record courant si absent du payload. "
+        "progress_* et workload doivent être des entiers (conversion automatique faite par le MCP).",
+        _s(
+            {
+                "type": {
+                    "type": "string",
+                    "enum": ["task", "action", "issue"],
+                    "description": "Type d'entité (project non supporté)",
+                },
+                "id": {"type": "string", "description": "ID de l'entité"},
+                "project_id": {"type": "string", "description": "ID projet (obligatoire)"},
+                "payload": {"type": "object", "description": "Champs à modifier (filtrés à la whitelist Gouti)"},
+            },
+            ["type", "id", "project_id", "payload"],
+        ),
+        _handle_update,
+    ),
+    (
+        "search_user",
+        "Recherche un utilisateur par matricule.",
+        _s({"matricule": {"type": "string"}}, ["matricule"]),
+        _get_user_by_matricule,
+    ),
+    (
+        "get_comments",
+        "Commentaires d'une activité (tâche, action ou issue) dans un projet.",
+        _s(
+            {
+                "project_id": {"type": "string"},
+                "activity_type": {"type": "string", "enum": ["tasks", "actions", "issues"]},
+                "activity_id": {"type": "string"},
+            },
+            ["project_id", "activity_type", "activity_id"],
+        ),
+        _get_comments,
+    ),
+    (
+        "refresh_tasks",
+        "Recalcule les tâches d'un projet.",
+        _s({"project_id": {"type": "string"}}, ["project_id"]),
+        _refresh_tasks,
+    ),
+    (
+        "timesheet",
+        "Gestion des feuilles de temps. Actions: control (état), get (semaine), insert (saisie), validate.",
+        _s(
+            {
+                "action": {"type": "string", "enum": ["control", "get", "insert", "validate"]},
+                "user_id": {"type": "string"},
+                "year": {"type": "string", "description": "Année 4 chiffres (get)"},
+                "week": {"type": "string", "description": "Numéro de semaine (get)"},
+                "ts_type": {"type": "string", "description": "Type timesheet, défaut 1 (get/insert)"},
+                "date": {"type": "string", "description": "dd-mm-yyyy (insert/validate)"},
+                "ref": {"type": "string", "description": "Réf activité (insert)"},
+                "value": {"type": "string", "description": "Heures (insert)"},
+                "status": {"type": "string", "description": "Statut validation (validate)"},
+            },
+            ["action", "user_id"],
+        ),
+        _handle_timesheet,
+    ),
+    (
+        "notifications",
+        "Gestion des notifications utilisateur. Actions: list, check (marquer lue), delete.",
+        _s(
+            {
+                "action": {"type": "string", "enum": ["list", "check", "delete"]},
+                "user_id": {"type": "string"},
+                "notification_id": {"type": "string", "description": "ID notification (check/delete)"},
+            },
+            ["user_id"],
+        ),
+        _handle_notifications,
+    ),
+    (
+        "user_notes",
+        "Notes personnelles d'un utilisateur. Actions: get, save.",
+        _s(
+            {
+                "action": {"type": "string", "enum": ["get", "save"]},
+                "user_id": {"type": "string"},
+                "note": {"type": "string", "description": "Contenu (save)"},
+            },
+            ["user_id"],
+        ),
+        _handle_user_notes,
+    ),
+    (
+        "api_get",
+        "GET générique vers l'API Gouti. Paramètres query via l'objet params (ex: params={search: 'BIPAGA', limit: 10}).",
+        _s(
+            {
+                "path": {"type": "string", "description": "Chemin relatif (ex: 'projects')"},
+                "params": {"type": "object", "description": "Query params (ex: {search: 'x', limit: 10})"},
+            },
+            ["path"],
+        ),
+        _api_get,
+    ),
+    (
+        "api_post",
+        "POST générique vers l'API Gouti.",
+        _s(
+            {
+                "path": {"type": "string"},
+                "payload": {"type": "object"},
+                "params": {"type": "object", "description": "Query params optionnels"},
+            },
+            ["path"],
+        ),
+        _api_post,
+    ),
     # ── Aggregation tools (parallelized multi-call) ─────────────────
-    ("get_gantt_summary",
-     "Portfolio Gantt data for all Gouti projects. Returns start date, current target end date, today (server-generated), progress %, velocity deltas, weather, trend, and raw enterprise categories. planned_end is always null at project level. No client-specific category interpretation.",
-     _s({
-         "status_filter": {"type": "array", "items": {"type": "string"}, "description": "Keep only projects with Status in this list"},
-         "exclude_status": {"type": "array", "items": {"type": "string"}, "description": "Exclude projects with Status in this list"},
-         "include_archived": {"type": "boolean", "default": False},
-         "sort_by": {"type": "string", "enum": ["start", "end", "pct", "name", "last_update"], "default": "start"},
-     }), _handle_gantt_summary),
-
-    ("get_macro_tasks",
-     "Level-1 macro phase tasks for one project. Returns all 4 dates per phase: planned_start/end (baseline) and actual_start/end (current), plus today and delay_days. Use for planned vs actual Gantt.",
-     _s({"project_id": {"type": "string"}}, ["project_id"]),
-     _handle_macro_tasks),
-
-    ("get_tcm_snapshot",
-     "Complete project snapshot for status reporting and TCM slides. Single MCP call returning project header, macro phases with planned vs actual, milestones with delay, open issues + comments, open actions + comments, pending deliverables, goals, team. All Gouti sub-calls parallelized across 3 waves.",
-     _s({
-         "project_id": {"type": "string"},
-         "max_comments_per_item": {"type": "integer", "default": 5},
-         "include_closed_issues": {"type": "boolean", "default": True},
-         "include_phase_comments": {"type": "boolean", "default": False},
-     }, ["project_id"]),
-     _handle_tcm_snapshot),
-
-    ("get_portfolio_health",
-     "Health snapshot for all Gouti projects. Returns weather, trend, progress velocity, and parsed status counts for tasks/milestones/issues/actions/deliverables/risks. Does NOT compute RAG. Client-agnostic.",
-     _s({
-         "status_filter": {"type": "array", "items": {"type": "string"}},
-         "exclude_status": {"type": "array", "items": {"type": "string"}},
-         "include_archived": {"type": "boolean", "default": False},
-         "sort_by": {"type": "string", "enum": ["last_update", "pct", "end", "name", "start"], "default": "last_update"},
-     }), _handle_portfolio_health),
-
-    ("get_pm_portfolio",
-     "All projects managed by a specific user (filtered by Project_manager.ref_us). Returns lean project data with dates and status counts. Useful for personal weekly reports.",
-     _s({
-         "user_id": {"type": "string", "description": "Gouti user ref_us"},
-         "status_filter": {"type": "array", "items": {"type": "string"}},
-         "exclude_status": {"type": "array", "items": {"type": "string"}},
-         "include_archived": {"type": "boolean", "default": False},
-     }, ["user_id"]),
-     _handle_pm_portfolio),
-
-    ("get_weekly_timesheets",
-     "Aggregated timesheet data for a given ISO week, grouped by user and by project. Pass user_ids explicitly for best performance. All user calls parallelized.",
-     _s({
-         "week_start": {"type": "string", "description": "ISO date of the Monday (YYYY-MM-DD)"},
-         "user_ids": {"type": "array", "items": {"type": "string"}, "description": "Gouti user IDs. If absent, fetches all users (slow)."},
-         "filter_project_id": {"type": "string", "description": "Filter output to this project only"},
-     }, ["week_start"]),
-     _handle_weekly_timesheets),
-
-    ("get_user_dashboard",
-     "Personal dashboard for one Gouti user. Returns open tasks sorted by deadline (with overdue flag), open actions, open issues, notifications, and personal notes. All 6 Gouti calls parallelized.",
-     _s({"user_id": {"type": "string", "description": "Gouti user ID (ref_us)"}}, ["user_id"]),
-     _handle_user_dashboard),
+    (
+        "get_gantt_summary",
+        "Portfolio Gantt data for all Gouti projects. Returns start date, current target end date, today (server-generated), progress %, velocity deltas, weather, trend, and raw enterprise categories. planned_end is always null at project level. No client-specific category interpretation.",
+        _s(
+            {
+                "status_filter": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Keep only projects with Status in this list",
+                },
+                "exclude_status": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Exclude projects with Status in this list",
+                },
+                "include_archived": {"type": "boolean", "default": False},
+                "sort_by": {
+                    "type": "string",
+                    "enum": ["start", "end", "pct", "name", "last_update"],
+                    "default": "start",
+                },
+            }
+        ),
+        _handle_gantt_summary,
+    ),
+    (
+        "get_macro_tasks",
+        "Level-1 macro phase tasks for one project. Returns all 4 dates per phase: planned_start/end (baseline) and actual_start/end (current), plus today and delay_days. Use for planned vs actual Gantt.",
+        _s({"project_id": {"type": "string"}}, ["project_id"]),
+        _handle_macro_tasks,
+    ),
+    (
+        "get_tcm_snapshot",
+        "Complete project snapshot for status reporting and TCM slides. Single MCP call returning project header, macro phases with planned vs actual, milestones with delay, open issues + comments, open actions + comments, pending deliverables, goals, team. All Gouti sub-calls parallelized across 3 waves.",
+        _s(
+            {
+                "project_id": {"type": "string"},
+                "max_comments_per_item": {"type": "integer", "default": 5},
+                "include_closed_issues": {"type": "boolean", "default": True},
+                "include_phase_comments": {"type": "boolean", "default": False},
+            },
+            ["project_id"],
+        ),
+        _handle_tcm_snapshot,
+    ),
+    (
+        "get_portfolio_health",
+        "Health snapshot for all Gouti projects. Returns weather, trend, progress velocity, and parsed status counts for tasks/milestones/issues/actions/deliverables/risks. Does NOT compute RAG. Client-agnostic.",
+        _s(
+            {
+                "status_filter": {"type": "array", "items": {"type": "string"}},
+                "exclude_status": {"type": "array", "items": {"type": "string"}},
+                "include_archived": {"type": "boolean", "default": False},
+                "sort_by": {
+                    "type": "string",
+                    "enum": ["last_update", "pct", "end", "name", "start"],
+                    "default": "last_update",
+                },
+            }
+        ),
+        _handle_portfolio_health,
+    ),
+    (
+        "get_pm_portfolio",
+        "All projects managed by a specific user (filtered by Project_manager.ref_us). Returns lean project data with dates and status counts. Useful for personal weekly reports.",
+        _s(
+            {
+                "user_id": {"type": "string", "description": "Gouti user ref_us"},
+                "status_filter": {"type": "array", "items": {"type": "string"}},
+                "exclude_status": {"type": "array", "items": {"type": "string"}},
+                "include_archived": {"type": "boolean", "default": False},
+            },
+            ["user_id"],
+        ),
+        _handle_pm_portfolio,
+    ),
+    (
+        "get_weekly_timesheets",
+        "Aggregated timesheet data for a given ISO week, grouped by user and by project. Pass user_ids explicitly for best performance. All user calls parallelized.",
+        _s(
+            {
+                "week_start": {"type": "string", "description": "ISO date of the Monday (YYYY-MM-DD)"},
+                "user_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Gouti user IDs. If absent, fetches all users (slow).",
+                },
+                "filter_project_id": {"type": "string", "description": "Filter output to this project only"},
+            },
+            ["week_start"],
+        ),
+        _handle_weekly_timesheets,
+    ),
+    (
+        "get_user_dashboard",
+        "Personal dashboard for one Gouti user. Returns open tasks sorted by deadline (with overdue flag), open actions, open issues, notifications, and personal notes. All 6 Gouti calls parallelized.",
+        _s({"user_id": {"type": "string", "description": "Gouti user ID (ref_us)"}}, ["user_id"]),
+        _handle_user_dashboard,
+    ),
 ]
 
 GOUTI_TOOLS_LIST = [{"name": n, "description": d, "inputSchema": s} for n, d, s, _ in GOUTI_TOOLS]
@@ -1668,9 +2062,13 @@ GOUTI_HANDLERS: dict[str, Any] = {n: h for n, _, _, h in GOUTI_TOOLS}
 _GOUTI_PREFIX = "integration.gouti"
 
 # Schemas to ignore when scanning for Gouti settings
-_SYSTEM_SCHEMAS = frozenset({
-    "information_schema", "pg_catalog", "pg_toast",
-})
+_SYSTEM_SCHEMAS = frozenset(
+    {
+        "information_schema",
+        "pg_catalog",
+        "pg_toast",
+    }
+)
 
 
 async def _find_gouti_settings() -> tuple[str, dict[str, str]]:
@@ -1680,18 +2078,15 @@ async def _find_gouti_settings() -> tuple[str, dict[str, str]]:
     with a valid client_id. Returns (schema_name, settings_dict).
     """
     from sqlalchemy import text
+
     from app.core.database import async_session_factory
 
     async with async_session_factory() as session:
         # List tenant schemas
-        result = await session.execute(text(
-            "SELECT schema_name FROM information_schema.schemata "
-            "WHERE schema_name NOT LIKE 'pg_%'"
-        ))
-        schemas = [
-            row[0] for row in result.fetchall()
-            if row[0] not in _SYSTEM_SCHEMAS
-        ]
+        result = await session.execute(
+            text("SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT LIKE 'pg_%'")
+        )
+        schemas = [row[0] for row in result.fetchall() if row[0] not in _SYSTEM_SCHEMAS]
         logger.debug("Gouti settings scan: checking %d schemas: %s", len(schemas), schemas)
 
     # Use a separate session per schema to avoid broken transaction state
@@ -1702,11 +2097,9 @@ async def _find_gouti_settings() -> tuple[str, dict[str, str]]:
         try:
             async with async_session_factory() as session:
                 await session.execute(text(f"SET search_path TO {schema}"))
-                result = await session.execute(text(
-                    "SELECT key, value FROM settings "
-                    "WHERE key LIKE 'integration.gouti.%' "
-                    "AND scope = 'entity'"
-                ))
+                result = await session.execute(
+                    text("SELECT key, value FROM settings WHERE key LIKE 'integration.gouti.%' AND scope = 'entity'")
+                )
                 rows = result.fetchall()
         except Exception as exc:
             logger.debug("Gouti settings scan: schema '%s' skipped (%s)", schema, exc)
@@ -1725,12 +2118,12 @@ async def _find_gouti_settings() -> tuple[str, dict[str, str]]:
         logger.debug("Gouti settings scan: schema '%s' has keys: %s", schema, list(settings.keys()))
 
         # Accept if we have client_id + (token OR client_secret)
-        if settings.get("client_id") and (
-            settings.get("token") or settings.get("client_secret")
-        ):
+        if settings.get("client_id") and (settings.get("token") or settings.get("client_secret")):
             logger.info(
                 "Gouti native: found settings in schema '%s' (%d keys, token=%s)",
-                schema, len(settings), bool(settings.get("token")),
+                schema,
+                len(settings),
+                bool(settings.get("token")),
             )
             return schema, settings
 
@@ -1744,6 +2137,7 @@ async def _find_gouti_settings() -> tuple[str, dict[str, str]]:
 # ═══════════════════════════════════════════════════════════════════════════════
 # Factory — creates a NativeBackend from integration settings
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 async def create_gouti_backend(config: dict) -> "NativeBackend":
     """Create a Gouti NativeBackend.
@@ -1760,8 +2154,7 @@ async def create_gouti_backend(config: dict) -> "NativeBackend":
         logger.info("Gouti native: using credentials from schema '%s'", schema)
     except RuntimeError:
         logger.error(
-            "Gouti native: aucun tenant avec Gouti configuré. "
-            "Configurez Gouti dans Paramètres > Intégrations > Gouti."
+            "Gouti native: aucun tenant avec Gouti configuré. Configurez Gouti dans Paramètres > Intégrations > Gouti."
         )
         raise
 
@@ -1780,9 +2173,7 @@ async def create_gouti_backend(config: dict) -> "NativeBackend":
     elif client._token:
         logger.info("Gouti native: using existing token for %s", client.base_url)
     else:
-        raise RuntimeError(
-            "Gouti: ni token ni client_secret configuré — impossible de s'authentifier."
-        )
+        raise RuntimeError("Gouti: ni token ni client_secret configuré — impossible de s'authentifier.")
 
     async def call_tool(name: str, arguments: dict) -> dict:
         handler = GOUTI_HANDLERS.get(name)

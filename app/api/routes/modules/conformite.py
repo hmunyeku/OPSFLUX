@@ -1,40 +1,71 @@
 """Conformite (compliance) module routes — types, rules, records."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, case, select, func as sqla_func, literal, any_, or_
+from sqlalchemy import and_, case, literal, or_, select
+from sqlalchemy import func as sqla_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import check_verified_lock, get_current_entity, get_current_user, require_module_enabled, require_permission
+from app.api.deps import (
+    check_verified_lock,
+    get_current_entity,
+    get_current_user,
+    require_module_enabled,
+    require_permission,
+)
 from app.core.database import get_db
-from app.core.references import generate_reference
-from app.services.core.delete_service import delete_entity, get_delete_policy
-from app.services.modules import compliance_service
 from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
+from app.core.references import generate_reference
 from app.models.common import (
-    ComplianceType, ComplianceRule, ComplianceRuleHistory, ComplianceRecord, ComplianceExemption,
-    Entity, JobPosition, TierContactTransfer, TierContact, Tier, Attachment,
-    User, UserEmail, Phone, Setting,
+    Attachment,
+    ComplianceExemption,
+    ComplianceRecord,
+    ComplianceRule,
+    ComplianceRuleHistory,
+    ComplianceType,
+    Entity,
+    JobPosition,
+    Tier,
+    TierContact,
+    TierContactTransfer,
+    User,
 )
 from app.schemas.common import (
-    PaginatedResponse,
-    ComplianceTypeCreate, ComplianceTypeRead, ComplianceTypeUpdate,
-    ComplianceRuleCreate, ComplianceRuleRead, ComplianceRuleUpdate, ComplianceRuleHistoryRead,
-    ComplianceRecordCreate, ComplianceRecordRead, ComplianceRecordUpdate,
     ComplianceCheckResult,
-    ComplianceExemptionCreate, ComplianceExemptionRead, ComplianceExemptionUpdate,
-    JobPositionCreate, JobPositionRead, JobPositionUpdate,
-    TierContactTransferCreate, TierContactTransferRead,
+    ComplianceExemptionCreate,
+    ComplianceExemptionRead,
+    ComplianceExemptionUpdate,
+    ComplianceRecordCreate,
+    ComplianceRecordRead,
+    ComplianceRecordUpdate,
+    ComplianceRuleCreate,
+    ComplianceRuleHistoryRead,
+    ComplianceRuleRead,
+    ComplianceRuleUpdate,
+    ComplianceTypeCreate,
+    ComplianceTypeRead,
+    ComplianceTypeUpdate,
+    JobPositionCreate,
+    JobPositionRead,
+    JobPositionUpdate,
+    PaginatedResponse,
+    TierContactTransferCreate,
+    TierContactTransferRead,
 )
+from app.services.core.delete_service import delete_entity, get_delete_policy
+from app.services.modules import compliance_service
+
 router = APIRouter(
     prefix="/api/v1/conformite",
     tags=["conformite"],
     dependencies=[require_module_enabled("conformite")],
 )
+
+
 def _snapshot_rule(rule: ComplianceRule) -> dict:
     """Create a JSON snapshot of a rule's current state for history."""
     return {
@@ -53,6 +84,7 @@ def _snapshot_rule(rule: ComplianceRule) -> dict:
         "condition_json": rule.condition_json,
     }
 
+
 async def _count_record_proof(
     db: AsyncSession,
     *,
@@ -70,7 +102,9 @@ async def _count_record_proof(
         attachment_count = int(
             (
                 await db.scalar(
-                    select(sqla_func.count()).select_from(Attachment).where(
+                    select(sqla_func.count())
+                    .select_from(Attachment)
+                    .where(
                         Attachment.owner_type == record_type,
                         Attachment.owner_id == record_id,
                         Attachment.archived == False,
@@ -168,7 +202,7 @@ async def get_compliance_dashboard_kpis(
     db: AsyncSession = Depends(get_db),
 ):
     """Return aggregated compliance KPIs for the entity dashboard."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     soon = now + timedelta(days=30)
 
     # ── Aggregate counts by status ──
@@ -196,16 +230,13 @@ async def get_compliance_dashboard_kpis(
     compliance_rate = round((valid_count / denom) * 100, 1) if denom > 0 else 0.0
 
     # ── Expiring soon (valid records with expires_at in next 30 days) ──
-    expiring_soon_q = (
-        select(sqla_func.count())
-        .where(
-            ComplianceRecord.entity_id == entity_id,
-            ComplianceRecord.active == True,
-            ComplianceRecord.status == "valid",
-            ComplianceRecord.expires_at != None,  # noqa: E711
-            ComplianceRecord.expires_at >= now,
-            ComplianceRecord.expires_at <= soon,
-        )
+    expiring_soon_q = select(sqla_func.count()).where(
+        ComplianceRecord.entity_id == entity_id,
+        ComplianceRecord.active == True,
+        ComplianceRecord.status == "valid",
+        ComplianceRecord.expires_at != None,  # noqa: E711
+        ComplianceRecord.expires_at >= now,
+        ComplianceRecord.expires_at <= soon,
     )
     expiring_soon_count = (await db.execute(expiring_soon_q)).scalar() or 0
 
@@ -238,10 +269,7 @@ async def get_compliance_dashboard_kpis(
         for r in cat_rows
     ]
 
-    by_status = [
-        {"status": s, "count": counts.get(s, 0)}
-        for s in ("valid", "expired", "pending", "rejected")
-    ]
+    by_status = [{"status": s, "count": counts.get(s, 0)} for s in ("valid", "expired", "pending", "rejected")]
 
     # ── Recent expirations (last 10 expired records) ──
     recent_q = (
@@ -320,7 +348,11 @@ async def get_compliance_dashboard_kpis(
 # ── Compliance Types (referentiel) ────────────────────────────────────────
 
 
-@router.get("/types", response_model=PaginatedResponse[ComplianceTypeRead], dependencies=[require_permission("conformite.type.read")])
+@router.get(
+    "/types",
+    response_model=PaginatedResponse[ComplianceTypeRead],
+    dependencies=[require_permission("conformite.type.read")],
+)
 async def list_compliance_types(
     category: str | None = None,
     search: str | None = None,
@@ -399,7 +431,9 @@ async def delete_compliance_type(
 # ── Compliance Rules ──────────────────────────────────────────────────────
 
 
-@router.get("/rules", response_model=list[ComplianceRuleRead], dependencies=[require_permission("conformite.rule.read")])
+@router.get(
+    "/rules", response_model=list[ComplianceRuleRead], dependencies=[require_permission("conformite.rule.read")]
+)
 async def list_compliance_rules(
     compliance_type_id: UUID | None = None,
     entity_id: UUID = Depends(get_current_entity),
@@ -428,23 +462,30 @@ async def create_compliance_rule(
     db.add(rule)
     await db.flush()
     # Log creation in history
-    db.add(ComplianceRuleHistory(
-        rule_id=rule.id, version=1, action="created",
-        snapshot=_snapshot_rule(rule),
-        changed_by=current_user.id,
-    ))
+    db.add(
+        ComplianceRuleHistory(
+            rule_id=rule.id,
+            version=1,
+            action="created",
+            snapshot=_snapshot_rule(rule),
+            changed_by=current_user.id,
+        )
+    )
     await db.commit()
     await db.refresh(rule)
 
     # Emit event for notification handlers (after commit)
-    await emit_event("conformite.rule.created", {
-        "rule_id": str(rule.id),
-        "entity_id": str(entity_id),
-        "target_type": rule.target_type,
-        "target_value": rule.target_value,
-        "description": rule.description or "",
-        "created_by": str(current_user.id),
-    })
+    await emit_event(
+        "conformite.rule.created",
+        {
+            "rule_id": str(rule.id),
+            "entity_id": str(entity_id),
+            "target_type": rule.target_type,
+            "target_value": rule.target_value,
+            "description": rule.description or "",
+            "created_by": str(current_user.id),
+        },
+    )
 
     return rule
 
@@ -465,12 +506,16 @@ async def update_compliance_rule(
     if not rule:
         raise HTTPException(404, "Rule not found")
     # Snapshot before update
-    db.add(ComplianceRuleHistory(
-        rule_id=rule.id, version=rule.version, action="updated",
-        snapshot=_snapshot_rule(rule),
-        change_reason=body.change_reason,
-        changed_by=current_user.id,
-    ))
+    db.add(
+        ComplianceRuleHistory(
+            rule_id=rule.id,
+            version=rule.version,
+            action="updated",
+            snapshot=_snapshot_rule(rule),
+            change_reason=body.change_reason,
+            changed_by=current_user.id,
+        )
+    )
     # Apply changes
     update_data = body.model_dump(exclude_unset=True, exclude={"change_reason"})
     for field, value in update_data.items():
@@ -482,14 +527,17 @@ async def update_compliance_rule(
     await db.refresh(rule)
 
     # Emit event for notification handlers (after commit)
-    await emit_event("conformite.rule.updated", {
-        "rule_id": str(rule.id),
-        "entity_id": str(entity_id),
-        "target_type": rule.target_type,
-        "target_value": rule.target_value,
-        "description": rule.description or "",
-        "updated_by": str(current_user.id),
-    })
+    await emit_event(
+        "conformite.rule.updated",
+        {
+            "rule_id": str(rule.id),
+            "entity_id": str(entity_id),
+            "target_type": rule.target_type,
+            "target_value": rule.target_value,
+            "description": rule.description or "",
+            "updated_by": str(current_user.id),
+        },
+    )
 
     return rule
 
@@ -525,29 +573,43 @@ async def delete_compliance_rule(
 
     if mode == "hard":
         # Policy says hard delete even for published rules
-        db.add(ComplianceRuleHistory(
-            rule_id=rule.id, version=rule.version, action="archived",
-            snapshot=_snapshot_rule(rule), changed_by=current_user.id,
-        ))
+        db.add(
+            ComplianceRuleHistory(
+                rule_id=rule.id,
+                version=rule.version,
+                action="archived",
+                snapshot=_snapshot_rule(rule),
+                changed_by=current_user.id,
+            )
+        )
         await db.flush()
         await delete_entity(rule, db, "compliance_rule", entity_id=rule.id, user_id=current_user.id)
         await db.commit()
         return {"detail": "Rule deleted (with history snapshot)"}
     else:
         # soft / soft_purge: archive with history snapshot
-        db.add(ComplianceRuleHistory(
-            rule_id=rule.id, version=rule.version, action="archived",
-            snapshot=_snapshot_rule(rule), changed_by=current_user.id,
-        ))
+        db.add(
+            ComplianceRuleHistory(
+                rule_id=rule.id,
+                version=rule.version,
+                action="archived",
+                snapshot=_snapshot_rule(rule),
+                changed_by=current_user.id,
+            )
+        )
         rule.active = False
-        rule.effective_to = datetime.now(timezone.utc).date()
+        rule.effective_to = datetime.now(UTC).date()
         rule.changed_by = current_user.id
         rule.change_reason = "Archived"
         await db.commit()
         return {"detail": "Rule archived"}
 
 
-@router.get("/rules/{rule_id}/history", response_model=list[ComplianceRuleHistoryRead], dependencies=[require_permission("conformite.rule.read")])
+@router.get(
+    "/rules/{rule_id}/history",
+    response_model=list[ComplianceRuleHistoryRead],
+    dependencies=[require_permission("conformite.rule.read")],
+)
 async def get_rule_history(
     rule_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
@@ -572,7 +634,11 @@ async def get_rule_history(
 # ── Compliance Records ────────────────────────────────────────────────────
 
 
-@router.get("/records", response_model=PaginatedResponse[ComplianceRecordRead], dependencies=[require_permission("conformite.record.read")])
+@router.get(
+    "/records",
+    response_model=PaginatedResponse[ComplianceRecordRead],
+    dependencies=[require_permission("conformite.record.read")],
+)
 async def list_compliance_records(
     owner_type: str | None = None,
     owner_id: UUID | None = None,
@@ -628,16 +694,13 @@ async def list_compliance_records(
     query = query.order_by(ComplianceRecord.created_at.desc())
 
     # Auto-expire records that are past their expiry date
-    now = datetime.now(timezone.utc)
-    expire_stmt = (
-        select(ComplianceRecord)
-        .where(
-            ComplianceRecord.entity_id == entity_id,
-            ComplianceRecord.active == True,  # noqa: E712
-            ComplianceRecord.status == "valid",
-            ComplianceRecord.expires_at != None,  # noqa: E711
-            ComplianceRecord.expires_at < now,
-        )
+    now = datetime.now(UTC)
+    expire_stmt = select(ComplianceRecord).where(
+        ComplianceRecord.entity_id == entity_id,
+        ComplianceRecord.active == True,  # noqa: E712
+        ComplianceRecord.status == "valid",
+        ComplianceRecord.expires_at != None,  # noqa: E711
+        ComplianceRecord.expires_at < now,
     )
     expired_result = await db.execute(expire_stmt)
     expired_ids: list[UUID] = []
@@ -653,15 +716,17 @@ async def list_compliance_records(
 
     def _transform(row):
         try:
-            rec = row[0] if hasattr(row, '__getitem__') else getattr(row, 'ComplianceRecord', row)
+            rec = row[0] if hasattr(row, "__getitem__") else getattr(row, "ComplianceRecord", row)
             d = {c.key: getattr(rec, c.key) for c in rec.__table__.columns}
-            d["type_name"] = row[1] if hasattr(row, '__getitem__') else getattr(row, 'type_name', None)
-            d["type_category"] = row[2] if hasattr(row, '__getitem__') else getattr(row, 'type_category', None)
-            d["attachment_count"] = int((row[3] if hasattr(row, '__getitem__') else getattr(row, 'attachment_count', 0)) or 0)
+            d["type_name"] = row[1] if hasattr(row, "__getitem__") else getattr(row, "type_name", None)
+            d["type_category"] = row[2] if hasattr(row, "__getitem__") else getattr(row, "type_category", None)
+            d["attachment_count"] = int(
+                (row[3] if hasattr(row, "__getitem__") else getattr(row, "attachment_count", 0)) or 0
+            )
             return d
         except (IndexError, AttributeError):
             # Fallback: return the record as-is if row format is unexpected
-            if hasattr(row, '__table__'):
+            if hasattr(row, "__table__"):
                 return {c.key: getattr(row, c.key) for c in row.__table__.columns}
             return row
 
@@ -690,41 +755,44 @@ async def create_compliance_record(
     if not ct:
         raise HTTPException(400, "Type de conformité introuvable")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     errors: list[str] = []
 
     # 1. Already expired at submission?
     if data.get("expires_at"):
         expires = data["expires_at"]
-        if hasattr(expires, 'tzinfo') and expires.tzinfo is None:
-            expires = expires.replace(tzinfo=timezone.utc)
+        if hasattr(expires, "tzinfo") and expires.tzinfo is None:
+            expires = expires.replace(tzinfo=UTC)
         if expires < now:
             errors.append("Le document est déjà expiré à la date de soumission.")
 
     # 2. Check validity_days from type (or rule override): issued_at + validity_days < now?
     issued_at = data.get("issued_at")
     if issued_at and ct.validity_days:
-        if hasattr(issued_at, 'tzinfo') and issued_at.tzinfo is None:
-            issued_at = issued_at.replace(tzinfo=timezone.utc)
+        if hasattr(issued_at, "tzinfo") and issued_at.tzinfo is None:
+            issued_at = issued_at.replace(tzinfo=UTC)
         # Find applicable rule for potential override
         rule_q = await db.execute(
-            select(ComplianceRule).where(
+            select(ComplianceRule)
+            .where(
                 ComplianceRule.compliance_type_id == ct.id,
                 ComplianceRule.entity_id == entity_id,
                 ComplianceRule.active == True,
-            ).limit(1)
+            )
+            .limit(1)
         )
         rule = rule_q.scalar_one_or_none()
-        effective_validity = (rule.override_validity_days if rule and rule.override_validity_days else ct.validity_days)
+        effective_validity = rule.override_validity_days if rule and rule.override_validity_days else ct.validity_days
         grace_days = (rule.grace_period_days if rule and rule.grace_period_days else 0) or 0
 
         from datetime import timedelta
+
         max_expiry = issued_at + timedelta(days=effective_validity + grace_days)
         if max_expiry < now:
             errors.append(
                 f"Le document a dépassé la validité maximale ({effective_validity}j"
                 + (f" + {grace_days}j de grâce" if grace_days else "")
-                + f") depuis la date d'émission."
+                + ") depuis la date d'émission."
             )
 
         # 3. Auto-compute expires_at if not provided
@@ -784,7 +852,7 @@ async def update_compliance_record(
     # Auto-fix status when expiry date is corrected
     if "expires_at" in updates and rec.status == "expired":
         new_expires = updates["expires_at"]
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if new_expires is None or new_expires > now:
             # Date corrected to future — restore to valid (if verified) or pending
             rec.status = "valid" if rec.verification_status == "verified" else "pending"
@@ -827,9 +895,6 @@ async def delete_compliance_record(
 # ── Expiring & Non-Compliant ─────────────────────────────────────────────
 
 
-from datetime import timedelta
-
-
 class ExpiringRecordRead(BaseModel):
     id: UUID
     compliance_type_id: UUID
@@ -842,7 +907,9 @@ class ExpiringRecordRead(BaseModel):
     days_remaining: int | None = None
 
 
-@router.get("/expiring", response_model=list[ExpiringRecordRead], dependencies=[require_permission("conformite.record.read")])
+@router.get(
+    "/expiring", response_model=list[ExpiringRecordRead], dependencies=[require_permission("conformite.record.read")]
+)
 async def list_expiring_records(
     days: int = 30,
     entity_id: UUID = Depends(get_current_entity),
@@ -850,19 +917,16 @@ async def list_expiring_records(
     db: AsyncSession = Depends(get_db),
 ):
     """List compliance records expiring within N days (default 30)."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now + timedelta(days=days)
 
     # First auto-expire overdue records
-    expire_stmt = (
-        select(ComplianceRecord)
-        .where(
-            ComplianceRecord.entity_id == entity_id,
-            ComplianceRecord.active == True,  # noqa: E712
-            ComplianceRecord.status == "valid",
-            ComplianceRecord.expires_at != None,  # noqa: E711
-            ComplianceRecord.expires_at < now,
-        )
+    expire_stmt = select(ComplianceRecord).where(
+        ComplianceRecord.entity_id == entity_id,
+        ComplianceRecord.active == True,  # noqa: E712
+        ComplianceRecord.status == "valid",
+        ComplianceRecord.expires_at != None,  # noqa: E711
+        ComplianceRecord.expires_at < now,
     )
     for rec in (await db.execute(expire_stmt)).scalars().all():
         rec.status = "expired"
@@ -889,52 +953,58 @@ async def list_expiring_records(
     for row in result.all():
         rec = row[0]
         remaining = (rec.expires_at - now).days if rec.expires_at and rec.expires_at > now else 0
-        items.append(ExpiringRecordRead(
-            id=rec.id,
-            compliance_type_id=rec.compliance_type_id,
-            type_name=row[1],
-            type_category=row[2],
-            owner_type=rec.owner_type,
-            owner_id=rec.owner_id,
-            status=rec.status,
-            expires_at=rec.expires_at,
-            days_remaining=remaining,
-        ))
+        items.append(
+            ExpiringRecordRead(
+                id=rec.id,
+                compliance_type_id=rec.compliance_type_id,
+                type_name=row[1],
+                type_category=row[2],
+                owner_type=rec.owner_type,
+                owner_id=rec.owner_id,
+                status=rec.status,
+                expires_at=rec.expires_at,
+                days_remaining=remaining,
+            )
+        )
 
     # Emit events for records expiring within 30 days
     for item in items:
         if item.days_remaining is not None and 0 < item.days_remaining <= 30:
-            await emit_event("pax.credential.expiring", {
-                "record_id": str(item.id),
-                "entity_id": str(entity_id),
-                "owner_type": item.owner_type,
-                "owner_id": str(item.owner_id),
-                "days_remaining": item.days_remaining,
-                "type_name": item.type_name,
-            })
+            await emit_event(
+                "pax.credential.expiring",
+                {
+                    "record_id": str(item.id),
+                    "entity_id": str(entity_id),
+                    "owner_type": item.owner_type,
+                    "owner_id": str(item.owner_id),
+                    "days_remaining": item.days_remaining,
+                    "type_name": item.type_name,
+                },
+            )
 
     return items
 
 
-@router.get("/non-compliant", response_model=list[ExpiringRecordRead], dependencies=[require_permission("conformite.record.read")])
+@router.get(
+    "/non-compliant",
+    response_model=list[ExpiringRecordRead],
+    dependencies=[require_permission("conformite.record.read")],
+)
 async def list_non_compliant_records(
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Return all compliance records that are expired (most overdue first)."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Auto-expire overdue records
-    expire_stmt = (
-        select(ComplianceRecord)
-        .where(
-            ComplianceRecord.entity_id == entity_id,
-            ComplianceRecord.active == True,  # noqa: E712
-            ComplianceRecord.status == "valid",
-            ComplianceRecord.expires_at != None,  # noqa: E711
-            ComplianceRecord.expires_at < now,
-        )
+    expire_stmt = select(ComplianceRecord).where(
+        ComplianceRecord.entity_id == entity_id,
+        ComplianceRecord.active == True,  # noqa: E712
+        ComplianceRecord.status == "valid",
+        ComplianceRecord.expires_at != None,  # noqa: E711
+        ComplianceRecord.expires_at < now,
     )
     for rec in (await db.execute(expire_stmt)).scalars().all():
         rec.status = "expired"
@@ -964,24 +1034,30 @@ async def list_non_compliant_records(
     for row in result.all():
         rec = row[0]
         remaining = (rec.expires_at - now).days if rec.expires_at and rec.expires_at > now else 0
-        items.append(ExpiringRecordRead(
-            id=rec.id,
-            compliance_type_id=rec.compliance_type_id,
-            type_name=row[1],
-            type_category=row[2],
-            owner_type=rec.owner_type,
-            owner_id=rec.owner_id,
-            status=rec.status,
-            expires_at=rec.expires_at,
-            days_remaining=remaining,
-        ))
+        items.append(
+            ExpiringRecordRead(
+                id=rec.id,
+                compliance_type_id=rec.compliance_type_id,
+                type_name=row[1],
+                type_category=row[2],
+                owner_type=rec.owner_type,
+                owner_id=rec.owner_id,
+                status=rec.status,
+                expires_at=rec.expires_at,
+                days_remaining=remaining,
+            )
+        )
     return items
 
 
 # ── Compliance Check ──────────────────────────────────────────────────────
 
 
-@router.get("/check/{owner_type}/{owner_id}", response_model=ComplianceCheckResult, dependencies=[require_permission("conformite.check")])
+@router.get(
+    "/check/{owner_type}/{owner_id}",
+    response_model=ComplianceCheckResult,
+    dependencies=[require_permission("conformite.check")],
+)
 async def check_compliance(
     owner_type: str,
     owner_id: UUID,
@@ -1024,7 +1100,11 @@ async def check_compliance(
 # ── Job Positions (fiches de poste) ─────────────────────────────────────
 
 
-@router.get("/job-positions", response_model=PaginatedResponse[JobPositionRead], dependencies=[require_permission("conformite.jobposition.read")])
+@router.get(
+    "/job-positions",
+    response_model=PaginatedResponse[JobPositionRead],
+    dependencies=[require_permission("conformite.jobposition.read")],
+)
 async def list_job_positions(
     department: str | None = None,
     search: str | None = None,
@@ -1070,9 +1150,7 @@ async def update_job_position(
     _: None = require_permission("conformite.jobposition.update"),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(JobPosition).where(JobPosition.id == jp_id, JobPosition.entity_id == entity_id)
-    )
+    result = await db.execute(select(JobPosition).where(JobPosition.id == jp_id, JobPosition.entity_id == entity_id))
     jp = result.scalars().first()
     if not jp:
         raise HTTPException(404, "Job position not found")
@@ -1091,9 +1169,7 @@ async def delete_job_position(
     _: None = require_permission("conformite.jobposition.delete"),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(JobPosition).where(JobPosition.id == jp_id, JobPosition.entity_id == entity_id)
-    )
+    result = await db.execute(select(JobPosition).where(JobPosition.id == jp_id, JobPosition.entity_id == entity_id))
     jp = result.scalars().first()
     if not jp:
         raise HTTPException(404, "Job position not found")
@@ -1105,7 +1181,11 @@ async def delete_job_position(
 # ── Employee Transfers ───────────────────────────────────────────────────
 
 
-@router.get("/transfers", response_model=PaginatedResponse[TierContactTransferRead], dependencies=[require_permission("conformite.transfer.read")])
+@router.get(
+    "/transfers",
+    response_model=PaginatedResponse[TierContactTransferRead],
+    dependencies=[require_permission("conformite.transfer.read")],
+)
 async def list_transfers(
     contact_id: UUID | None = None,
     from_tier_id: UUID | None = None,
@@ -1131,9 +1211,7 @@ async def list_transfers(
         .join(from_tier, TierContactTransfer.from_tier_id == from_tier.c.id)
         .join(to_tier, TierContactTransfer.to_tier_id == to_tier.c.id)
         # Filter by entity via the contact's tier
-        .where(TierContact.tier_id.in_(
-            select(Tier.id).where(Tier.entity_id == entity_id)
-        ))
+        .where(TierContact.tier_id.in_(select(Tier.id).where(Tier.entity_id == entity_id)))
     )
     if linked_tier_ids is not None:
         query = query.where(
@@ -1185,7 +1263,9 @@ async def create_transfer(
     if current_user.user_type == "external":
         linked_tier_ids = await _get_external_user_tier_ids(db, current_user, entity_id)
         if not linked_tier_ids or body.from_tier_id not in linked_tier_ids or body.to_tier_id not in linked_tier_ids:
-            raise HTTPException(status_code=403, detail="External users cannot transfer contacts outside their company scope")
+            raise HTTPException(
+                status_code=403, detail="External users cannot transfer contacts outside their company scope"
+            )
 
     # Create transfer log
     transfer = TierContactTransfer(
@@ -1249,7 +1329,11 @@ async def _enrich_exemption(db: AsyncSession, exemption) -> dict:
     return d
 
 
-@router.get("/exemptions", response_model=PaginatedResponse[ComplianceExemptionRead], dependencies=[require_permission("conformite.exemption.read")])
+@router.get(
+    "/exemptions",
+    response_model=PaginatedResponse[ComplianceExemptionRead],
+    dependencies=[require_permission("conformite.exemption.read")],
+)
 async def list_exemptions(
     status: str | None = None,
     compliance_type_id: UUID | None = None,
@@ -1264,22 +1348,20 @@ async def list_exemptions(
 
     # Auto-expire exemptions past their end date
     today = date_type.today()
-    expire_stmt = (
-        select(ComplianceExemption)
-        .where(
-            ComplianceExemption.entity_id == entity_id,
-            ComplianceExemption.active == True,  # noqa: E712
-            ComplianceExemption.status == "approved",
-            ComplianceExemption.end_date < today,
-        )
+    expire_stmt = select(ComplianceExemption).where(
+        ComplianceExemption.entity_id == entity_id,
+        ComplianceExemption.active == True,  # noqa: E712
+        ComplianceExemption.status == "approved",
+        ComplianceExemption.end_date < today,
     )
     for ex in (await db.execute(expire_stmt)).scalars().all():
         ex.status = "expired"
     await db.flush()
 
     query = (
-        select(ComplianceExemption)
-        .where(ComplianceExemption.entity_id == entity_id, ComplianceExemption.active == True)  # noqa: E712
+        select(ComplianceExemption).where(
+            ComplianceExemption.entity_id == entity_id, ComplianceExemption.active == True
+        )  # noqa: E712
     )
     if status:
         query = query.where(ComplianceExemption.status == status)
@@ -1395,12 +1477,15 @@ async def approve_exemption(
     await db.commit()
     await db.refresh(exemption)
 
-    await emit_event("conformite.exemption.approved", {
-        "exemption_id": str(exemption.id),
-        "entity_id": str(entity_id),
-        "record_id": str(exemption.compliance_record_id),
-        "approved_by": str(current_user.id),
-    })
+    await emit_event(
+        "conformite.exemption.approved",
+        {
+            "exemption_id": str(exemption.id),
+            "entity_id": str(entity_id),
+            "record_id": str(exemption.compliance_record_id),
+            "approved_by": str(current_user.id),
+        },
+    )
 
     return await _enrich_exemption(db, exemption)
 
@@ -1436,12 +1521,15 @@ async def reject_exemption(
     await db.commit()
     await db.refresh(exemption)
 
-    await emit_event("conformite.exemption.rejected", {
-        "exemption_id": str(exemption.id),
-        "entity_id": str(entity_id),
-        "record_id": str(exemption.compliance_record_id),
-        "rejected_by": str(current_user.id),
-    })
+    await emit_event(
+        "conformite.exemption.rejected",
+        {
+            "exemption_id": str(exemption.id),
+            "entity_id": str(entity_id),
+            "record_id": str(exemption.compliance_record_id),
+            "rejected_by": str(current_user.id),
+        },
+    )
 
     return await _enrich_exemption(db, exemption)
 
@@ -1501,8 +1589,14 @@ async def list_pending_verifications(
     user sub-models by users belonging to the entity via group membership.
     """
     from app.models.common import (
-        UserPassport, UserVisa, SocialSecurity, UserVaccine,
-        MedicalCheck, DrivingLicense, UserGroup, UserGroupMember,
+        DrivingLicense,
+        MedicalCheck,
+        SocialSecurity,
+        UserGroup,
+        UserGroupMember,
+        UserPassport,
+        UserVaccine,
+        UserVisa,
     )
 
     items: list[dict] = []
@@ -1517,49 +1611,56 @@ async def list_pending_verifications(
 
     # ComplianceRecords (entity-scoped directly)
     cr_result = await db.execute(
-        select(ComplianceRecord).where(
+        select(ComplianceRecord)
+        .where(
             ComplianceRecord.entity_id == entity_id,
             ComplianceRecord.active == True,
             ComplianceRecord.verification_status == "pending",
-        ).order_by(ComplianceRecord.created_at.desc())
+        )
+        .order_by(ComplianceRecord.created_at.desc())
     )
     for rec in cr_result.scalars().all():
         ct = await db.get(ComplianceType, rec.compliance_type_id)
         pj_required = True
         rule_q = await db.execute(
-            select(ComplianceRule).where(
+            select(ComplianceRule)
+            .where(
                 ComplianceRule.compliance_type_id == rec.compliance_type_id,
                 ComplianceRule.entity_id == entity_id,
                 ComplianceRule.active == True,
-            ).limit(1)
+            )
+            .limit(1)
         )
         rule = rule_q.scalar_one_or_none()
         if rule:
             pj_required = rule.attachment_required
-        items.append({
-            "id": str(rec.id),
-            "record_type": "compliance_record",
-            "owner_type": rec.owner_type,
-            "owner_id": str(rec.owner_id),
-            "owner_name": None,
-            "description": f"{ct.name if ct else rec.compliance_type_id} — {rec.issuer or 'N/A'}",
-            "submitted_at": rec.created_at.isoformat(),
-            "verification_status": rec.verification_status,
-            "issued_at": rec.issued_at.isoformat() if rec.issued_at else None,
-            "expires_at": rec.expires_at.isoformat() if rec.expires_at else None,
-            "issuer": rec.issuer or None,
-            "reference_number": rec.reference_number or None,
-            "category": ct.category if ct else None,
-            "type_name": ct.name if ct else None,
-            "attachment_count": await _count_record_proof(db, record_type="compliance_record", record=rec),
-            "attachment_required": pj_required,
-        })
+        items.append(
+            {
+                "id": str(rec.id),
+                "record_type": "compliance_record",
+                "owner_type": rec.owner_type,
+                "owner_id": str(rec.owner_id),
+                "owner_name": None,
+                "description": f"{ct.name if ct else rec.compliance_type_id} — {rec.issuer or 'N/A'}",
+                "submitted_at": rec.created_at.isoformat(),
+                "verification_status": rec.verification_status,
+                "issued_at": rec.issued_at.isoformat() if rec.issued_at else None,
+                "expires_at": rec.expires_at.isoformat() if rec.expires_at else None,
+                "issuer": rec.issuer or None,
+                "reference_number": rec.reference_number or None,
+                "category": ct.category if ct else None,
+                "type_name": ct.name if ct else None,
+                "attachment_count": await _count_record_proof(db, record_type="compliance_record", record=rec),
+                "attachment_required": pj_required,
+            }
+        )
 
     # User sub-models — scoped to users in current entity
     # Each entry: (Model, record_type, desc_fn, extra_fields_fn)
     sub_models = [
         (
-            UserPassport, "passport",
+            UserPassport,
+            "passport",
             lambda r: f"Passeport {r.number} — {r.country}",
             lambda r: {
                 "issued_at": r.issue_date.isoformat() if r.issue_date else None,
@@ -1569,7 +1670,8 @@ async def list_pending_verifications(
             },
         ),
         (
-            UserVisa, "visa",
+            UserVisa,
+            "visa",
             lambda r: f"Visa {r.visa_type} — {r.country}",
             lambda r: {
                 "issued_at": r.issue_date.isoformat() if r.issue_date else None,
@@ -1579,7 +1681,8 @@ async def list_pending_verifications(
             },
         ),
         (
-            SocialSecurity, "social_security",
+            SocialSecurity,
+            "social_security",
             lambda r: f"Sécu sociale {r.country} — {r.number}",
             lambda r: {
                 "issued_at": None,
@@ -1589,7 +1692,8 @@ async def list_pending_verifications(
             },
         ),
         (
-            UserVaccine, "vaccine",
+            UserVaccine,
+            "vaccine",
             lambda r: f"Vaccin {r.vaccine_type}",
             lambda r: {
                 "issued_at": r.date_administered.isoformat() if r.date_administered else None,
@@ -1599,7 +1703,8 @@ async def list_pending_verifications(
             },
         ),
         (
-            DrivingLicense, "driving_license",
+            DrivingLicense,
+            "driving_license",
             lambda r: f"Permis {r.license_type} — {r.country}",
             lambda r: {
                 "issued_at": None,
@@ -1612,10 +1717,12 @@ async def list_pending_verifications(
 
     for Model, rtype, desc_fn, extra_fn in sub_models:
         result = await db.execute(
-            select(Model).where(
+            select(Model)
+            .where(
                 Model.verification_status == "pending",
                 Model.user_id.in_(entity_user_ids),
-            ).order_by(Model.created_at.desc())
+            )
+            .order_by(Model.created_at.desc())
         )
         for rec in result.scalars().all():
             item = {
@@ -1637,30 +1744,34 @@ async def list_pending_verifications(
 
     # MedicalChecks (polymorphic) — scope owner to entity users
     mc_result = await db.execute(
-        select(MedicalCheck).where(
+        select(MedicalCheck)
+        .where(
             MedicalCheck.verification_status == "pending",
             MedicalCheck.owner_id.in_(entity_user_ids),
-        ).order_by(MedicalCheck.created_at.desc())
+        )
+        .order_by(MedicalCheck.created_at.desc())
     )
     for rec in mc_result.scalars().all():
-        items.append({
-            "id": str(rec.id),
-            "record_type": "medical_check",
-            "owner_type": rec.owner_type,
-            "owner_id": str(rec.owner_id),
-            "owner_name": None,
-            "description": f"Visite {rec.check_type} — {rec.provider or 'N/A'}",
-            "submitted_at": rec.created_at.isoformat(),
-            "verification_status": rec.verification_status,
-            "issued_at": rec.check_date.isoformat() if rec.check_date else None,
-            "expires_at": rec.expiry_date.isoformat() if rec.expiry_date else None,
-            "issuer": rec.provider or None,
-            "reference_number": None,
-            "category": None,
-            "type_name": None,
-            "attachment_count": await _count_record_proof(db, record_type="medical_check", record=rec),
-            "attachment_required": True,
-        })
+        items.append(
+            {
+                "id": str(rec.id),
+                "record_type": "medical_check",
+                "owner_type": rec.owner_type,
+                "owner_id": str(rec.owner_id),
+                "owner_name": None,
+                "description": f"Visite {rec.check_type} — {rec.provider or 'N/A'}",
+                "submitted_at": rec.created_at.isoformat(),
+                "verification_status": rec.verification_status,
+                "issued_at": rec.check_date.isoformat() if rec.check_date else None,
+                "expires_at": rec.expiry_date.isoformat() if rec.expiry_date else None,
+                "issuer": rec.provider or None,
+                "reference_number": None,
+                "category": None,
+                "type_name": None,
+                "attachment_count": await _count_record_proof(db, record_type="medical_check", record=rec),
+                "attachment_required": True,
+            }
+        )
 
     # Enrich owner names
     user_ids = set()
@@ -1669,9 +1780,7 @@ async def list_pending_verifications(
             user_ids.add(item["owner_id"])
     if user_ids:
         users_result = await db.execute(
-            select(User.id, User.first_name, User.last_name).where(
-                User.id.in_([UUID(uid) for uid in user_ids])
-            )
+            select(User.id, User.first_name, User.last_name).where(User.id.in_([UUID(uid) for uid in user_ids]))
         )
         user_names = {str(r[0]): f"{r[1]} {r[2]}" for r in users_result.all()}
         for item in items:
@@ -1699,8 +1808,14 @@ async def list_verification_history(
     Shows the last N actions with verifier name, date, and action taken.
     """
     from app.models.common import (
-        UserPassport, UserVisa, SocialSecurity, UserVaccine,
-        MedicalCheck, DrivingLicense, UserGroup, UserGroupMember,
+        DrivingLicense,
+        MedicalCheck,
+        SocialSecurity,
+        UserGroup,
+        UserGroupMember,
+        UserPassport,
+        UserVaccine,
+        UserVisa,
     )
 
     items: list[dict] = []
@@ -1733,22 +1848,24 @@ async def list_verification_history(
         cr_q = cr_q.where(ComplianceRecord.owner_id == owner_id)
     for rec in (await db.execute(cr_q)).scalars().all():
         ct = await db.get(ComplianceType, rec.compliance_type_id)
-        items.append({
-            "id": str(rec.id),
-            "record_type": "compliance_record",
-            "owner_type": rec.owner_type,
-            "owner_id": str(rec.owner_id),
-            "owner_name": None,
-            "description": f"{ct.name if ct else 'N/A'} — {rec.issuer or 'N/A'}",
-            "verification_status": rec.verification_status,
-            "verified_by": str(rec.verified_by) if rec.verified_by else None,
-            "verified_by_name": None,
-            "verified_at": rec.verified_at.isoformat() if rec.verified_at else None,
-            "verification_notes": getattr(rec, "verification_notes", None) or getattr(rec, "notes", None),
-            "issued_at": rec.issued_at.isoformat() if rec.issued_at else None,
-            "expires_at": rec.expires_at.isoformat() if rec.expires_at else None,
-            "reference_number": rec.reference_number,
-        })
+        items.append(
+            {
+                "id": str(rec.id),
+                "record_type": "compliance_record",
+                "owner_type": rec.owner_type,
+                "owner_id": str(rec.owner_id),
+                "owner_name": None,
+                "description": f"{ct.name if ct else 'N/A'} — {rec.issuer or 'N/A'}",
+                "verification_status": rec.verification_status,
+                "verified_by": str(rec.verified_by) if rec.verified_by else None,
+                "verified_by_name": None,
+                "verified_at": rec.verified_at.isoformat() if rec.verified_at else None,
+                "verification_notes": getattr(rec, "verification_notes", None) or getattr(rec, "notes", None),
+                "issued_at": rec.issued_at.isoformat() if rec.issued_at else None,
+                "expires_at": rec.expires_at.isoformat() if rec.expires_at else None,
+                "reference_number": rec.reference_number,
+            }
+        )
 
     # User sub-models
     sub_models = [
@@ -1775,22 +1892,24 @@ async def list_verification_history(
         if owner_id:
             q = q.where(Model.user_id == owner_id)
         for rec in (await db.execute(q)).scalars().all():
-            items.append({
-                "id": str(rec.id),
-                "record_type": rtype,
-                "owner_type": "user",
-                "owner_id": str(rec.user_id),
-                "owner_name": None,
-                "description": desc_fn(rec),
-                "verification_status": rec.verification_status,
-                "verified_by": str(rec.verified_by) if rec.verified_by else None,
-                "verified_by_name": None,
-                "verified_at": rec.verified_at.isoformat() if rec.verified_at else None,
-                "verification_notes": rec.verification_notes,
-                "issued_at": None,
-                "expires_at": None,
-                "reference_number": None,
-            })
+            items.append(
+                {
+                    "id": str(rec.id),
+                    "record_type": rtype,
+                    "owner_type": "user",
+                    "owner_id": str(rec.user_id),
+                    "owner_name": None,
+                    "description": desc_fn(rec),
+                    "verification_status": rec.verification_status,
+                    "verified_by": str(rec.verified_by) if rec.verified_by else None,
+                    "verified_by_name": None,
+                    "verified_at": rec.verified_at.isoformat() if rec.verified_at else None,
+                    "verification_notes": rec.verification_notes,
+                    "issued_at": None,
+                    "expires_at": None,
+                    "reference_number": None,
+                }
+            )
 
     # MedicalChecks
     if not record_type or record_type == "medical_check":
@@ -1807,33 +1926,32 @@ async def list_verification_history(
             mc_q = mc_q.where(MedicalCheck.owner_id == owner_id)
     else:
         mc_q = None
-    for rec in ((await db.execute(mc_q)).scalars().all() if mc_q is not None else []):
-        items.append({
-            "id": str(rec.id),
-            "record_type": "medical_check",
-            "owner_type": rec.owner_type,
-            "owner_id": str(rec.owner_id),
-            "owner_name": None,
-            "description": f"Visite {rec.check_type} — {rec.provider or 'N/A'}",
-            "verification_status": rec.verification_status,
-            "verified_by": str(rec.verified_by) if rec.verified_by else None,
-            "verified_by_name": None,
-            "verified_at": rec.verified_at.isoformat() if rec.verified_at else None,
-            "verification_notes": getattr(rec, "verification_notes", None) or getattr(rec, "notes", None),
-            "issued_at": rec.check_date.isoformat() if hasattr(rec, 'check_date') and rec.check_date else None,
-            "expires_at": rec.expiry_date.isoformat() if hasattr(rec, 'expiry_date') and rec.expiry_date else None,
-            "reference_number": None,
-        })
+    for rec in (await db.execute(mc_q)).scalars().all() if mc_q is not None else []:
+        items.append(
+            {
+                "id": str(rec.id),
+                "record_type": "medical_check",
+                "owner_type": rec.owner_type,
+                "owner_id": str(rec.owner_id),
+                "owner_name": None,
+                "description": f"Visite {rec.check_type} — {rec.provider or 'N/A'}",
+                "verification_status": rec.verification_status,
+                "verified_by": str(rec.verified_by) if rec.verified_by else None,
+                "verified_by_name": None,
+                "verified_at": rec.verified_at.isoformat() if rec.verified_at else None,
+                "verification_notes": getattr(rec, "verification_notes", None) or getattr(rec, "notes", None),
+                "issued_at": rec.check_date.isoformat() if hasattr(rec, "check_date") and rec.check_date else None,
+                "expires_at": rec.expiry_date.isoformat() if hasattr(rec, "expiry_date") and rec.expiry_date else None,
+                "reference_number": None,
+            }
+        )
 
     # Enrich owner names
     user_ids = {i["owner_id"] for i in items if i["owner_type"] == "user" and i["owner_id"]}
     verifier_ids = {i["verified_by"] for i in items if i["verified_by"]}
     all_ids = user_ids | verifier_ids
     if all_ids:
-        from sqlalchemy.dialects.postgresql import UUID as PgUUID
-        users_q = select(User.id, User.first_name, User.last_name).where(
-            User.id.in_([UUID(uid) for uid in all_ids])
-        )
+        users_q = select(User.id, User.first_name, User.last_name).where(User.id.in_([UUID(uid) for uid in all_ids]))
         user_map = {str(r.id): f"{r.first_name} {r.last_name}" for r in (await db.execute(users_q)).all()}
         for item in items:
             if item["owner_type"] == "user":
@@ -1863,8 +1981,12 @@ async def verify_record(
 ):
     """Verify or reject a pending record."""
     from app.models.common import (
-        UserPassport, UserVisa, SocialSecurity, UserVaccine,
-        MedicalCheck, DrivingLicense,
+        DrivingLicense,
+        MedicalCheck,
+        SocialSecurity,
+        UserPassport,
+        UserVaccine,
+        UserVisa,
     )
 
     MODEL_MAP = {
@@ -1895,11 +2017,13 @@ async def verify_record(
         pj_required = True  # default: PJ required
         if record_type == "compliance_record" and hasattr(record, "compliance_type_id"):
             rule_q = await db.execute(
-                select(ComplianceRule).where(
+                select(ComplianceRule)
+                .where(
                     ComplianceRule.compliance_type_id == record.compliance_type_id,
                     ComplianceRule.entity_id == entity_id,
                     ComplianceRule.active == True,
-                ).limit(1)
+                )
+                .limit(1)
             )
             rule = rule_q.scalar_one_or_none()
             if rule:
@@ -1909,11 +2033,10 @@ async def verify_record(
             proof_count = await _count_record_proof(db, record_type=record_type, record=record)
             if proof_count <= 0:
                 raise HTTPException(
-                    422,
-                    "Impossible de vérifier : aucune pièce jointe. La règle exige au moins un document attaché."
+                    422, "Impossible de vérifier : aucune pièce jointe. La règle exige au moins un document attaché."
                 )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     if body.action == "verify":
         record.verification_status = "verified"
@@ -1921,12 +2044,17 @@ async def verify_record(
         record.verified_at = now
         record.rejection_reason = None
         # For ComplianceRecord: promote status from pending to valid
-        if record_type == "compliance_record" and hasattr(record, 'status') and record.status == "pending":
+        if record_type == "compliance_record" and hasattr(record, "status") and record.status == "pending":
             record.status = "valid"
-        await emit_event("conformite.record.verified", {
-            "record_type": record_type, "record_id": str(record_id),
-            "verified_by": str(current_user.id), "entity_id": str(entity_id),
-        })
+        await emit_event(
+            "conformite.record.verified",
+            {
+                "record_type": record_type,
+                "record_id": str(record_id),
+                "verified_by": str(current_user.id),
+                "entity_id": str(entity_id),
+            },
+        )
     else:
         if not body.rejection_reason:
             raise HTTPException(400, "rejection_reason is required when rejecting")
@@ -1935,13 +2063,18 @@ async def verify_record(
         record.verified_at = now
         record.rejection_reason = body.rejection_reason
         # For ComplianceRecord: mark status as rejected too
-        if record_type == "compliance_record" and hasattr(record, 'status'):
+        if record_type == "compliance_record" and hasattr(record, "status"):
             record.status = "rejected"
-        await emit_event("conformite.record.rejected", {
-            "record_type": record_type, "record_id": str(record_id),
-            "rejected_by": str(current_user.id), "reason": body.rejection_reason,
-            "entity_id": str(entity_id),
-        })
+        await emit_event(
+            "conformite.record.rejected",
+            {
+                "record_type": record_type,
+                "record_id": str(record_id),
+                "rejected_by": str(current_user.id),
+                "reason": body.rejection_reason,
+                "entity_id": str(entity_id),
+            },
+        )
 
     await db.commit()
 
@@ -2012,6 +2145,7 @@ async def verify_record(
             )
     except Exception:
         import logging
+
         logging.getLogger(__name__).warning("Failed to send verification email", exc_info=True)
 
     return {

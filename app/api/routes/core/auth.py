@@ -31,10 +31,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_entity, get_current_user
 from app.core.acting_context import resolve_acting_context
 from app.core.audit import record_audit
-from app.core.config import settings
 from app.core.auth_settings import get_security_settings
-from app.core.login_security import check_login_rate_limit, verify_captcha
+from app.core.config import settings
 from app.core.database import get_db
+from app.core.login_security import check_login_rate_limit, verify_captcha
 from app.core.security import (
     JWTError,
     create_access_token,
@@ -46,7 +46,17 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.models.common import Entity, RefreshToken, Setting, User, UserGroup, UserGroupMember, UserGroupRole, UserSession, UserSSOProvider
+from app.models.common import (
+    Entity,
+    RefreshToken,
+    Setting,
+    User,
+    UserGroup,
+    UserGroupMember,
+    UserGroupRole,
+    UserSession,
+    UserSSOProvider,
+)
 from app.schemas.common import (
     ActingContextRead,
     ActingContextStatusRead,
@@ -77,11 +87,15 @@ def _validate_password_strength(password: str, *, config: dict | None = None) ->
 
     if len(password) < min_len:
         errors.append(f"Le mot de passe doit contenir au moins {min_len} caractères")
-    if cfg.get("password_require_uppercase", settings.AUTH_PASSWORD_REQUIRE_UPPERCASE) and not re.search(r"[A-Z]", password):
+    if cfg.get("password_require_uppercase", settings.AUTH_PASSWORD_REQUIRE_UPPERCASE) and not re.search(
+        r"[A-Z]", password
+    ):
         errors.append("Le mot de passe doit contenir au moins une majuscule")
     if cfg.get("password_require_digit", settings.AUTH_PASSWORD_REQUIRE_DIGIT) and not re.search(r"\d", password):
         errors.append("Le mot de passe doit contenir au moins un chiffre")
-    if cfg.get("password_require_special", settings.AUTH_PASSWORD_REQUIRE_SPECIAL) and not re.search(r"[^A-Za-z0-9]", password):
+    if cfg.get("password_require_special", settings.AUTH_PASSWORD_REQUIRE_SPECIAL) and not re.search(
+        r"[^A-Za-z0-9]", password
+    ):
         errors.append("Le mot de passe doit contenir au moins un caractère spécial")
 
     if errors:
@@ -168,11 +182,13 @@ async def _issue_tokens(
     refresh_token = create_refresh_token(user_id=user.id)
 
     token_hash = sha256(refresh_token.encode()).hexdigest()
-    db.add(RefreshToken(
-        user_id=user.id,
-        token_hash=token_hash,
-        expires_at=datetime.now(UTC) + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS),
-    ))
+    db.add(
+        RefreshToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=datetime.now(UTC) + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS),
+        )
+    )
 
     # Create session record for security tracking
     ip_address = request.client.host if request.client else None
@@ -190,9 +206,7 @@ async def _issue_tokens(
     )
     db.add(session)
 
-    await db.execute(
-        update(User).where(User.id == user.id).values(last_login_at=datetime.now(UTC))
-    )
+    await db.execute(update(User).where(User.id == user.id).values(last_login_at=datetime.now(UTC)))
     await db.commit()
 
     await record_audit(
@@ -215,6 +229,7 @@ async def _issue_tokens(
 
 
 # ── Login ────────────────────────────────────────────────────────────────────
+
 
 @router.post("/login", response_model=LoginResponse)
 async def login(body: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
@@ -330,7 +345,9 @@ async def login(body: LoginRequest, request: Request, db: AsyncSession = Depends
             "remaining_attempts": remaining_attempts,
         }
         if remaining_attempts <= 2:
-            detail["warning"] = f"Attention : {remaining_attempts} tentative(s) restante(s) avant verrouillage du compte."
+            detail["warning"] = (
+                f"Attention : {remaining_attempts} tentative(s) restante(s) avant verrouillage du compte."
+            )
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -367,6 +384,7 @@ async def login_config(db: AsyncSession = Depends(get_db)):
 
 
 # ── MFA verification (second login step) ─────────────────────────────────────
+
 
 @router.post("/mfa-verify", response_model=LoginResponse)
 async def mfa_verify_login(
@@ -491,11 +509,13 @@ async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
     new_refresh = create_refresh_token(user_id=user.id)
 
     new_hash = sha256(new_refresh.encode()).hexdigest()
-    db.add(RefreshToken(
-        user_id=user.id,
-        token_hash=new_hash,
-        expires_at=datetime.now(UTC) + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS),
-    ))
+    db.add(
+        RefreshToken(
+            user_id=user.id,
+            token_hash=new_hash,
+            expires_at=datetime.now(UTC) + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS),
+        )
+    )
 
     await db.commit()
 
@@ -550,8 +570,9 @@ async def get_my_available_acting_contexts(
     db: AsyncSession = Depends(get_db),
 ):
     from datetime import UTC, datetime
-    from app.models.common import UserDelegation
+
     from app.core.rbac import get_user_permissions
+    from app.models.common import UserDelegation
 
     own_permissions = await get_user_permissions(current_user.id, entity_id, db)
     contexts: list[ActingContextRead] = [
@@ -597,6 +618,7 @@ async def get_my_available_acting_contexts(
 
 # ── Entity management ────────────────────────────────────────────────────────
 
+
 @router.get("/me/entities", response_model=list[EntityBrief])
 async def get_my_entities(
     current_user: User = Depends(get_current_user),
@@ -622,14 +644,15 @@ async def get_my_entities(
     # If user has a default_entity_id but no groups yet (e.g., super admin), include it
     entity_ids = {e.id for e in entities}
     if current_user.default_entity_id and current_user.default_entity_id not in entity_ids:
-        default_result = await db.execute(
-            select(Entity).where(Entity.id == current_user.default_entity_id)
-        )
+        default_result = await db.execute(select(Entity).where(Entity.id == current_user.default_entity_id))
         default_entity = default_result.scalar_one_or_none()
         if default_entity:
             entities.insert(0, default_entity)
 
-    return [EntityBrief(id=e.id, code=e.code, name=e.name, country=e.country, timezone=e.timezone, logo_url=e.logo_url) for e in entities]
+    return [
+        EntityBrief(id=e.id, code=e.code, name=e.name, country=e.country, timezone=e.timezone, logo_url=e.logo_url)
+        for e in entities
+    ]
 
 
 class EntitySwitch(BaseModel):
@@ -666,6 +689,7 @@ async def switch_entity(
 
     # Invalidate RBAC cache for this user
     from app.core.rbac import invalidate_rbac_cache
+
     await invalidate_rbac_cache(current_user.id)
 
     return {"detail": "Entity switched", "entity_id": str(body.entity_id)}
@@ -950,10 +974,12 @@ async def list_sso_providers(
             # first entity (deterministic) rather than scanning all entities
             # which can leak providers from other tenants.
             first_entity = await db.execute(
-                select(Setting.scope_id).where(
+                select(Setting.scope_id)
+                .where(
                     Setting.key == provider_def["settings_prefix"] + ".client_id",
                     Setting.scope == "entity",
-                ).limit(1)
+                )
+                .limit(1)
             )
             first_eid = first_entity.scalar_one_or_none()
             if first_eid:
@@ -961,11 +987,13 @@ async def list_sso_providers(
             else:
                 cfg = {}
         if cfg.get("client_id"):
-            providers.append({
-                "id": provider_id,
-                "name": provider_def["name"],
-                "icon": provider_def.get("icon", provider_id),
-            })
+            providers.append(
+                {
+                    "id": provider_id,
+                    "name": provider_def["name"],
+                    "icon": provider_def.get("icon", provider_id),
+                }
+            )
     return providers
 
 
@@ -987,7 +1015,9 @@ async def sso_authorize(
 
     urls = _build_provider_urls(provider, cfg)
     if not urls:
-        raise HTTPException(status_code=400, detail=f"Cannot build URLs for provider '{provider}' — missing config fields")
+        raise HTTPException(
+            status_code=400, detail=f"Cannot build URLs for provider '{provider}' — missing config fields"
+        )
 
     # Build callback URL
     callback_url = f"{settings.API_URL}/api/v1/auth/sso/callback"
@@ -1000,6 +1030,7 @@ async def sso_authorize(
 
     # Build authorization URL
     import urllib.parse
+
     params = {
         "client_id": client_id,
         "redirect_uri": callback_url,
@@ -1140,6 +1171,7 @@ async def sso_callback(
             return RedirectResponse(f"{settings.APP_URL}/settings#securite?sso_link=error&reason=missing_user")
 
         from uuid import UUID as PyUUID
+
         user = await db.get(User, PyUUID(link_user_id))
         if not user:
             return RedirectResponse(f"{settings.APP_URL}/settings#securite?sso_link=error&reason=user_not_found")
@@ -1152,7 +1184,9 @@ async def sso_callback(
             )
         )
         if existing.scalar_one_or_none():
-            return RedirectResponse(f"{settings.APP_URL}/settings#securite?sso_link=already_linked&provider={provider_id}")
+            return RedirectResponse(
+                f"{settings.APP_URL}/settings#securite?sso_link=already_linked&provider={provider_id}"
+            )
 
         # Create the SSO link
         sso_link = UserSSOProvider(
@@ -1201,26 +1235,32 @@ async def sso_callback(
         )
     )
     if not existing_link.scalar_one_or_none():
-        db.add(UserSSOProvider(
-            user_id=user.id,
-            provider=provider_id,
-            sso_subject=str(sso_id),
-            email=email,
-            display_name=f"{first_name} {last_name}".strip() or email,
-        ))
+        db.add(
+            UserSSOProvider(
+                user_id=user.id,
+                provider=provider_id,
+                sso_subject=str(sso_id),
+                email=email,
+                display_name=f"{first_name} {last_name}".strip() or email,
+            )
+        )
 
     # ── Step 5: Issue OpsFlux tokens ──
     login_response = await _issue_tokens(user, request, db)
 
     import urllib.parse
-    params = urllib.parse.urlencode({
-        "sso_access_token": login_response.access_token,
-        "sso_refresh_token": login_response.refresh_token,
-    })
+
+    params = urllib.parse.urlencode(
+        {
+            "sso_access_token": login_response.access_token,
+            "sso_refresh_token": login_response.refresh_token,
+        }
+    )
     return RedirectResponse(f"{settings.APP_URL}/login?{params}")
 
 
 # ─── SSO Account Linking (from profile) ──────────────────────────────────────
+
 
 @router.get("/sso/link")
 async def sso_link_authorize(
@@ -1247,6 +1287,7 @@ async def sso_link_authorize(
     scopes = cfg.get("scopes", "") or provider_def.get("default_scopes", "openid email profile")
 
     import urllib.parse
+
     params = {
         "client_id": client_id,
         "redirect_uri": callback_url,
@@ -1266,9 +1307,7 @@ async def list_linked_providers(
     db: AsyncSession = Depends(get_db),
 ):
     """Return SSO providers linked to the current user."""
-    result = await db.execute(
-        select(UserSSOProvider).where(UserSSOProvider.user_id == current_user.id)
-    )
+    result = await db.execute(select(UserSSOProvider).where(UserSSOProvider.user_id == current_user.id))
     providers = result.scalars().all()
     return [
         {
@@ -1291,6 +1330,7 @@ async def unlink_sso_provider(
 ):
     """Unlink an SSO provider from the current user."""
     from uuid import UUID as PyUUID
+
     result = await db.execute(
         select(UserSSOProvider).where(
             UserSSOProvider.id == PyUUID(provider_id),

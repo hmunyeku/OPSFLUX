@@ -3,7 +3,7 @@
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -162,9 +162,7 @@ async def list_imputation_references(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(ImputationReference)
-        .where(ImputationReference.entity_id == entity_id)
-        .order_by(ImputationReference.code)
+        select(ImputationReference).where(ImputationReference.entity_id == entity_id).order_by(ImputationReference.code)
     )
     return [_serialize_imputation_reference(obj) for obj in result.scalars().all()]
 
@@ -250,7 +248,9 @@ async def update_imputation_reference(
     otp_policy = body.otp_policy or obj.otp_policy
     otp_template_id = body.otp_template_id if body.otp_template_id is not None else obj.otp_template_id
     default_project_id = body.default_project_id if body.default_project_id is not None else obj.default_project_id
-    default_cost_center_id = body.default_cost_center_id if body.default_cost_center_id is not None else obj.default_cost_center_id
+    default_cost_center_id = (
+        body.default_cost_center_id if body.default_cost_center_id is not None else obj.default_cost_center_id
+    )
     valid_from = body.valid_from if body.valid_from is not None else obj.valid_from
     valid_to = body.valid_to if body.valid_to is not None else obj.valid_to
 
@@ -440,7 +440,9 @@ async def update_imputation_assignment(
     next_valid_to = body.valid_to if body.valid_to is not None else obj.valid_to
     _validate_validity_window(next_valid_from, next_valid_to)
 
-    next_reference_id = body.imputation_reference_id if body.imputation_reference_id is not None else obj.imputation_reference_id
+    next_reference_id = (
+        body.imputation_reference_id if body.imputation_reference_id is not None else obj.imputation_reference_id
+    )
     next_target_type = body.target_type if body.target_type is not None else obj.target_type
     next_target_id = body.target_id if body.target_id is not None else obj.target_id
 

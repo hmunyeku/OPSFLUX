@@ -10,7 +10,7 @@ from app.api.deps import get_current_entity, get_current_user, has_user_permissi
 from app.core.database import get_db
 from app.models.asset_registry import Installation
 from app.models.common import Tier, User, UserGroup, UserGroupMember
-from app.schemas.common import SearchResult, SearchResponse
+from app.schemas.common import SearchResponse, SearchResult
 
 router = APIRouter(prefix="/api/v1", tags=["search"])
 
@@ -49,9 +49,8 @@ async def global_search(
     results: list[SearchResult] = []
     can_read_assets = await has_user_permission(current_user, entity_id, "asset.read", db)
     can_read_tiers = await has_user_permission(current_user, entity_id, "tier.read", db)
-    can_read_users = (
-        await has_user_permission(current_user, entity_id, "user.read", db)
-        or await has_user_permission(current_user, entity_id, "core.users.read", db)
+    can_read_users = await has_user_permission(current_user, entity_id, "user.read", db) or await has_user_permission(
+        current_user, entity_id, "core.users.read", db
     )
 
     # ── Assets ───────────────────────────────────────────────────────────

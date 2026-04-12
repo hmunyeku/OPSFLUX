@@ -14,14 +14,16 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
-STRUCTURE_LOCKED_WORKFLOW_SLUGS = frozenset({
-    "project",
-    "ads-workflow",
-    "planner-activity",
-    "voyage-workflow",
-    "packlog-cargo-workflow",
-    "avm-workflow",
-})
+STRUCTURE_LOCKED_WORKFLOW_SLUGS = frozenset(
+    {
+        "project",
+        "ads-workflow",
+        "planner-activity",
+        "voyage-workflow",
+        "packlog-cargo-workflow",
+        "avm-workflow",
+    }
+)
 
 
 def _humanize_state_name(value: str) -> str:
@@ -84,21 +86,23 @@ def _fsm_nodes(states: Any, transitions: Any) -> list[dict[str, Any]]:
     for index, state in enumerate(state_names):
         initial = index == 0
         terminal = outgoing.get(state, 0) == 0 and not initial
-        nodes.append({
-            "id": state,
-            "type": _infer_system_node_type(state, initial=initial, terminal=terminal),
-            "label": _humanize_state_name(state),
-            "config": {
-                "fsm_state": state,
-                "system_managed": True,
-                "incoming_count": incoming.get(state, 0),
-                "outgoing_count": outgoing.get(state, 0),
-            },
-            "position": {
-                "x": 220 * (index // rows),
-                "y": 120 * (index % rows),
-            },
-        })
+        nodes.append(
+            {
+                "id": state,
+                "type": _infer_system_node_type(state, initial=initial, terminal=terminal),
+                "label": _humanize_state_name(state),
+                "config": {
+                    "fsm_state": state,
+                    "system_managed": True,
+                    "incoming_count": incoming.get(state, 0),
+                    "outgoing_count": outgoing.get(state, 0),
+                },
+                "position": {
+                    "x": 220 * (index // rows),
+                    "y": 120 * (index % rows),
+                },
+            }
+        )
     return nodes
 
 
@@ -117,31 +121,37 @@ def _fsm_edges(transitions: Any) -> list[dict[str, Any]]:
         required_role = None
         if isinstance(required_roles, list) and required_roles:
             required_role = required_roles[0]
-        edges.append({
-            "id": str(transition.get("id") or f"edge-{index + 1}-{source}-{target}"),
-            "source": source,
-            "target": target,
-            "label": transition.get("label") or _humanize_state_name(target),
-            "condition": transition.get("condition"),
-            "condition_expression": transition.get("condition_expression"),
-            "required_role": transition.get("required_role") or required_role,
-            "required_roles": required_roles if isinstance(required_roles, list) else None,
-            "required_permission": transition.get("required_permission"),
-            "comment_required": bool(transition.get("comment_required")) if "comment_required" in transition else None,
-            "assignee": transition.get("assignee") if isinstance(transition.get("assignee"), dict) else None,
-            "sla_hours": transition.get("sla_hours"),
-            "trigger": transition.get("trigger") or "human",
-        })
+        edges.append(
+            {
+                "id": str(transition.get("id") or f"edge-{index + 1}-{source}-{target}"),
+                "source": source,
+                "target": target,
+                "label": transition.get("label") or _humanize_state_name(target),
+                "condition": transition.get("condition"),
+                "condition_expression": transition.get("condition_expression"),
+                "required_role": transition.get("required_role") or required_role,
+                "required_roles": required_roles if isinstance(required_roles, list) else None,
+                "required_permission": transition.get("required_permission"),
+                "comment_required": bool(transition.get("comment_required"))
+                if "comment_required" in transition
+                else None,
+                "assignee": transition.get("assignee") if isinstance(transition.get("assignee"), dict) else None,
+                "sla_hours": transition.get("sla_hours"),
+                "trigger": transition.get("trigger") or "human",
+            }
+        )
     return edges
 
 
 # ─── Base ────────────────────────────────────────────────────────────────────
+
 
 class OpsFluxSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
 # ─── Workflow Definition schemas ─────────────────────────────────────────────
+
 
 class WorkflowDefinitionCreate(BaseModel):
     """Create a workflow definition.
@@ -150,6 +160,7 @@ class WorkflowDefinitionCreate(BaseModel):
     FSM service sends `states`/`transitions`.
     At least one pair must be provided. `slug` is auto-generated from name if absent.
     """
+
     name: str = Field(..., min_length=1, max_length=200)
     slug: str | None = Field(None, max_length=100)
     description: str | None = None
@@ -214,7 +225,9 @@ class WorkflowDefinitionRead(OpsFluxSchema):
     @property
     def edges(self) -> list[dict[str, Any]]:
         """Return visual editor edges (stored in `transitions` when using editor format)."""
-        if isinstance(self.transitions, list) and all(isinstance(item, dict) and "source" in item and "target" in item for item in self.transitions):
+        if isinstance(self.transitions, list) and all(
+            isinstance(item, dict) and "source" in item and "target" in item for item in self.transitions
+        ):
             return self.transitions
         return _fsm_edges(self.transitions)
 
@@ -226,6 +239,7 @@ class WorkflowDefinitionRead(OpsFluxSchema):
 
 class WorkflowDefinitionSummary(OpsFluxSchema):
     """Lightweight read for list views — includes counts but not full node/edge data."""
+
     id: UUID
     entity_id: UUID
     slug: str
@@ -269,11 +283,14 @@ class WorkflowDefinitionSummary(OpsFluxSchema):
 
 # ─── Workflow Instance schemas ───────────────────────────────────────────────
 
+
 class WorkflowInstanceCreate(BaseModel):
     workflow_definition_id: UUID
     entity_type: str = Field(..., min_length=1, max_length=100)
     entity_id_ref: str = Field(
-        ..., min_length=1, max_length=36,
+        ...,
+        min_length=1,
+        max_length=36,
         description="UUID of the linked object (e.g. a purchase order, work order, etc.)",
     )
     metadata: dict[str, Any] | None = None
@@ -296,12 +313,14 @@ class WorkflowInstanceRead(OpsFluxSchema):
 
 class WorkflowInstanceDetail(WorkflowInstanceRead):
     """Instance detail including definition info."""
+
     definition_name: str | None = None
     definition_slug: str | None = None
     allowed_transitions: list[str] = []
 
 
 # ─── Workflow Transition schemas ─────────────────────────────────────────────
+
 
 class TransitionRequest(BaseModel):
     to_state: str = Field(..., min_length=1, max_length=50)
@@ -319,6 +338,7 @@ class WorkflowTransitionRead(OpsFluxSchema):
 
 
 # ─── Statistics ──────────────────────────────────────────────────────────────
+
 
 class WorkflowStateBucket(BaseModel):
     state: str

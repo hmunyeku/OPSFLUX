@@ -6,7 +6,7 @@ Thread-safe via PostgreSQL SELECT FOR UPDATE on sequence rows.
 
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -50,10 +50,9 @@ async def generate_document_number(
 
     Thread-safe via FOR UPDATE lock on DocumentSequence row.
     """
-    from app.models.papyrus_document import DocumentSequence
 
     free_parts = free_parts or {}
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Retrieve or create the sequence for this doc_type+project
     seq_value = await _get_next_sequence(
@@ -191,7 +190,15 @@ def validate_nomenclature_pattern(pattern: str) -> list[str]:
     """Validate a nomenclature pattern and return any errors."""
     errors: list[str] = []
     known_tokens = {
-        "TENANT", "PROJ", "DISC", "TYPE", "YEAR", "MONTH", "BU", "PHASE", "FREE",
+        "TENANT",
+        "PROJ",
+        "DISC",
+        "TYPE",
+        "YEAR",
+        "MONTH",
+        "BU",
+        "PHASE",
+        "FREE",
     }
 
     # Find all tokens
@@ -217,4 +224,3 @@ def validate_nomenclature_pattern(pattern: str) -> list[str]:
         errors.append("Pattern should contain a {SEQ:N} token for uniqueness")
 
     return errors
-

@@ -12,7 +12,15 @@ from app.schemas.common import OpsFluxSchema
 # ── Enums ──────────────────────────────────────────────────────────────────
 
 TargetObject = Literal[
-    "asset", "tier", "contact", "pax_profile", "project", "compliance_record", "imputation_reference", "imputation_otp_template", "imputation_assignment"
+    "asset",
+    "tier",
+    "contact",
+    "pax_profile",
+    "project",
+    "compliance_record",
+    "imputation_reference",
+    "imputation_otp_template",
+    "imputation_assignment",
 ]
 
 DuplicateStrategy = Literal["skip", "update", "fail"]
@@ -28,8 +36,10 @@ class UserSyncProvider(str, Enum):
 
 # ── Target object field descriptor ─────────────────────────────────────────
 
+
 class TargetFieldDef(BaseModel):
     """Describes one importable field on a target object."""
+
     key: str
     label: str
     type: str  # string, integer, float, date, datetime, boolean, lookup
@@ -40,12 +50,14 @@ class TargetFieldDef(BaseModel):
 
 class TargetObjectInfo(BaseModel):
     """Metadata about a target object for the mapping UI."""
+
     key: str
     label: str
     fields: list[TargetFieldDef]
 
 
 # ── Import Mapping CRUD ────────────────────────────────────────────────────
+
 
 class ImportMappingCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
@@ -85,6 +97,7 @@ class ImportMappingRead(OpsFluxSchema):
 
 # ── Auto-detect ────────────────────────────────────────────────────────────
 
+
 class AutoDetectRequest(BaseModel):
     target_object: TargetObject
     file_headers: list[str]
@@ -96,6 +109,7 @@ class AutoDetectResponse(BaseModel):
 
 
 # ── Validate / Preview ────────────────────────────────────────────────────
+
 
 class RowValidationError(BaseModel):
     row_index: int
@@ -122,6 +136,7 @@ class ImportPreviewResponse(BaseModel):
 
 
 # ── Execute import ─────────────────────────────────────────────────────────
+
 
 class ImportExecuteRequest(BaseModel):
     target_object: TargetObject

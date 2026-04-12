@@ -7,8 +7,8 @@ from uuid import uuid4
 import pytest
 
 from app.api.routes.modules import planner
-from app.services.modules import planner_service
 from app.schemas.planner import ForecastRequest
+from app.services.modules import planner_service
 
 
 @pytest.mark.asyncio
@@ -37,6 +37,7 @@ async def test_get_heatmap_wraps_days_payload(monkeypatch):
         "app.services.modules.planner_service.get_capacity_heatmap",
         fake_get_capacity_heatmap,
     )
+
     async def fake_get_capacity_heatmap_config(*_args, **_kwargs):
         return {
             "threshold_low": 40.0,

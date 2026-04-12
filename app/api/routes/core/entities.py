@@ -3,14 +3,13 @@
 import math
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_entity, get_current_user, require_permission
+from app.api.deps import get_current_user, require_permission
 from app.core.database import get_db
-from app.services.core.delete_service import delete_entity as delete_entity_service
 from app.core.pagination import PaginationParams
 from app.models.common import (
     Entity,
@@ -20,6 +19,7 @@ from app.models.common import (
     UserGroupRole,
 )
 from app.schemas.common import OpsFluxSchema, PaginatedResponse
+from app.services.core.delete_service import delete_entity as delete_entity_service
 
 router = APIRouter(prefix="/api/v1/entities", tags=["entities"])
 
@@ -72,6 +72,7 @@ class EntityRead(OpsFluxSchema):
 
 class EntityDetail(EntityRead):
     """Entity detail with children count and parent info."""
+
     parent_name: str | None = None
     children_count: int = 0
 
@@ -245,9 +246,7 @@ async def list_entities(
 
     # Apply filters
     if search:
-        stmt = stmt.where(
-            Entity.name.ilike(f"%{search}%") | Entity.code.ilike(f"%{search}%")
-        )
+        stmt = stmt.where(Entity.name.ilike(f"%{search}%") | Entity.code.ilike(f"%{search}%"))
     if active is not None:
         stmt = stmt.where(Entity.active == active)
 
@@ -261,10 +260,7 @@ async def list_entities(
     stmt = stmt.offset(pagination.offset).limit(pagination.page_size)
     result = await db.execute(stmt)
 
-    items = [
-        _entity_to_read(row.Entity, user_count=row.user_count or 0)
-        for row in result.all()
-    ]
+    items = [_entity_to_read(row.Entity, user_count=row.user_count or 0) for row in result.all()]
 
     pages = math.ceil(total / pagination.page_size) if total > 0 else 0
 
@@ -330,11 +326,7 @@ async def get_entity(
     )
 
     children_count_sq = (
-        select(func.count())
-        .select_from(Entity)
-        .where(Entity.parent_id == entity_id)
-        .correlate()
-        .scalar_subquery()
+        select(func.count()).select_from(Entity).where(Entity.parent_id == entity_id).correlate().scalar_subquery()
     )
 
     stmt = select(
@@ -351,9 +343,7 @@ async def get_entity(
     # Get parent name if parent_id is set
     parent_name = None
     if row.Entity.parent_id:
-        parent_result = await db.execute(
-            select(Entity.name).where(Entity.id == row.Entity.parent_id)
-        )
+        parent_result = await db.execute(select(Entity.name).where(Entity.id == row.Entity.parent_id))
         parent_name = parent_result.scalar_one_or_none()
 
     base = _entity_to_read(row.Entity, user_count=row.user_count or 0)
@@ -387,9 +377,7 @@ async def update_entity(
     update_data = body.model_dump(exclude_unset=True)
 
     if "code" in update_data and update_data["code"] is not None:
-        existing = await db.execute(
-            select(Entity).where(Entity.code == update_data["code"], Entity.id != entity_id)
-        )
+        existing = await db.execute(select(Entity).where(Entity.code == update_data["code"], Entity.id != entity_id))
         if existing.scalar_one_or_none():
             raise HTTPException(status_code=400, detail=f"Entity code '{update_data['code']}' already exists")
 
@@ -600,6 +588,8 @@ async def remove_user_from_entity(
         raise HTTPException(status_code=404, detail="User not found in this entity")
 
     for membership in memberships:
-        await delete_entity_service(membership, db, "user_group_member", entity_id=membership.id, user_id=current_user.id)
+        await delete_entity_service(
+            membership, db, "user_group_member", entity_id=membership.id, user_id=current_user.id
+        )
 
     await db.commit()

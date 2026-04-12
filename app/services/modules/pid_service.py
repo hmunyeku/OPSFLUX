@@ -6,14 +6,12 @@ process line tracing, and draw.io integration.
 
 import logging
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select, and_, or_
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql.expression import cast
 
 logger = logging.getLogger(__name__)
 
@@ -64,12 +62,7 @@ async def list_pid_documents(
     count_query = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_query)).scalar() or 0
 
-    query = (
-        query
-        .order_by(PIDDocument.updated_at.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-    )
+    query = query.order_by(PIDDocument.updated_at.desc()).offset((page - 1) * page_size).limit(page_size)
 
     result = await db.execute(query)
     documents = result.scalars().all()
@@ -100,6 +93,7 @@ async def get_pid_document(
     pid = result.scalar_one_or_none()
     if not pid:
         from fastapi import HTTPException
+
         raise HTTPException(404, f"PID document {pid_id} not found")
     return pid
 
@@ -169,6 +163,7 @@ async def delete_pid_document(
 
     if pid.status != "draft":
         from fastapi import HTTPException
+
         raise HTTPException(
             409,
             f"Cannot delete PID document in status '{pid.status}'. Only draft documents can be deleted.",
@@ -198,7 +193,9 @@ async def get_pid_workflow_state(
 
     # 1. Find existing workflow instance
     instance = await fsm_service.get_instance(
-        db, entity_type=PID_ENTITY_TYPE, entity_id=pid_id_str,
+        db,
+        entity_type=PID_ENTITY_TYPE,
+        entity_id=pid_id_str,
     )
 
     if not instance:
@@ -285,7 +282,7 @@ async def execute_pid_transition(
     db: AsyncSession,
 ) -> dict[str, Any]:
     """Execute a workflow transition on a PID with side effects."""
-    from app.services.core.fsm_service import fsm_service, FSMError, FSMPermissionError
+    from app.services.core.fsm_service import FSMError, FSMPermissionError, fsm_service
 
     pid = await get_pid_document(pid_id, entity_id, db)
     pid_id_str = str(pid.id)
@@ -304,9 +301,11 @@ async def execute_pid_transition(
         )
     except FSMPermissionError as e:
         from fastapi import HTTPException
+
         raise HTTPException(403, str(e))
     except FSMError as e:
         from fastapi import HTTPException
+
         raise HTTPException(400, str(e))
 
     # Update PID document status
@@ -317,11 +316,14 @@ async def execute_pid_transition(
         # Run AFC validation and create revision snapshot
         try:
             afc_result = await validate_for_afc(
-                pid_id=pid.id, entity_id=entity_id, db=db,
+                pid_id=pid.id,
+                entity_id=entity_id,
+                db=db,
             )
             if not afc_result.get("is_valid", True):
                 logger.warning(
-                    "PID %s transitioned to AFC with validation warnings", pid.number,
+                    "PID %s transitioned to AFC with validation warnings",
+                    pid.number,
                 )
         except Exception:
             logger.exception("AFC validation failed during transition for PID %s", pid.number)
@@ -365,7 +367,10 @@ async def execute_pid_transition(
         logger.exception("Failed to emit PID transition event")
 
     return await get_pid_workflow_state(
-        pid_id=pid_id, entity_id=entity_id, user_id=actor_id, db=db,
+        pid_id=pid_id,
+        entity_id=entity_id,
+        user_id=actor_id,
+        db=db,
     )
 
 
@@ -473,7 +478,7 @@ async def save_xml(
     """Save the draw.io XML content for a PID document."""
     pid = await get_pid_document(pid_id, entity_id, db)
     pid.xml_content = xml_content
-    pid.updated_at = datetime.now(timezone.utc)
+    pid.updated_at = datetime.now(UTC)
     await db.commit()
     logger.info("Saved XML for PID %s (%d bytes)", pid.number, len(xml_content))
 
@@ -493,13 +498,14 @@ async def create_pid_revision(
     db: AsyncSession,
 ) -> Any:
     """Create an immutable revision snapshot of the current PID XML."""
-    from app.models.pid_pfd import PIDDocument, PIDRevision
+    from app.models.pid_pfd import PIDRevision
     from app.services.modules.nomenclature_service import generate_next_revision_code
 
     pid = await get_pid_document(pid_id, entity_id, db)
 
     if not pid.xml_content:
         from fastapi import HTTPException
+
         raise HTTPException(400, "PID has no XML content to snapshot")
 
     # Generate next revision code
@@ -531,15 +537,13 @@ async def list_pid_revisions(
     db: AsyncSession,
 ) -> list[Any]:
     """List all revisions for a PID document."""
-    from app.models.pid_pfd import PIDRevision, PIDDocument
+    from app.models.pid_pfd import PIDRevision
 
     # Verify access
     pid = await get_pid_document(pid_id, entity_id, db)
 
     result = await db.execute(
-        select(PIDRevision)
-        .where(PIDRevision.pid_document_id == pid.id)
-        .order_by(PIDRevision.created_at.desc())
+        select(PIDRevision).where(PIDRevision.pid_document_id == pid.id).order_by(PIDRevision.created_at.desc())
     )
     return result.scalars().all()
 
@@ -558,6 +562,7 @@ async def diff_revisions(
 
     if not rev_a or not rev_b:
         from fastapi import HTTPException
+
         raise HTTPException(404, "One or both revisions not found")
 
     # Parse both XMLs and compare cell IDs
@@ -597,11 +602,12 @@ async def parse_and_sync_pid(
     Called after each save in draw.io. Detects equipment, process lines,
     and instruments from mxGraph cell styles and syncs to DB.
     """
-    from app.models.pid_pfd import PIDDocument, Equipment, ProcessLine, PIDConnection
+    from app.models.pid_pfd import PIDDocument
 
     pid = await db.get(PIDDocument, UUID(str(pid_id)))
     if not pid:
         from fastapi import HTTPException
+
         raise HTTPException(404, f"PID {pid_id} not found")
 
     try:
@@ -653,8 +659,11 @@ async def parse_and_sync_pid(
 
     logger.info(
         "PID sync complete for %s: %d equip, %d lines, %d connections, %d instruments",
-        pid.number, stats["equipment"], stats["lines"],
-        stats["connections"], stats["instruments"],
+        pid.number,
+        stats["equipment"],
+        stats["lines"],
+        stats["connections"],
+        stats["instruments"],
     )
     return stats
 
@@ -701,12 +710,7 @@ async def search_equipment(
     count_query = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_query)).scalar() or 0
 
-    query = (
-        query
-        .order_by(Equipment.tag)
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-    )
+    query = query.order_by(Equipment.tag).offset((page - 1) * page_size).limit(page_size)
 
     result = await db.execute(query)
     equipment = result.scalars().all()
@@ -737,6 +741,7 @@ async def get_equipment(
     eq = result.scalar_one_or_none()
     if not eq:
         from fastapi import HTTPException
+
         raise HTTPException(404, f"Equipment {eq_id} not found")
     return eq
 
@@ -761,7 +766,7 @@ async def update_equipment(
         if hasattr(eq, key):
             setattr(eq, key, value)
 
-    eq.updated_at = datetime.now(timezone.utc)
+    eq.updated_at = datetime.now(UTC)
     await db.commit()
     return eq
 
@@ -787,6 +792,7 @@ async def create_equipment(
     )
     if existing.scalar_one_or_none():
         from fastapi import HTTPException
+
         raise HTTPException(
             409,
             f"Equipment with tag '{body.tag}' already exists in this project",
@@ -831,7 +837,7 @@ async def delete_equipment(
     eq = await get_equipment(eq_id, entity_id, db)
 
     eq.is_active = False
-    eq.updated_at = datetime.now(timezone.utc)
+    eq.updated_at = datetime.now(UTC)
     await db.commit()
     logger.info("Soft-deleted equipment %s (%s)", eq.tag, eq.id)
 
@@ -843,7 +849,7 @@ async def get_equipment_appearances(
     db: AsyncSession,
 ) -> dict:
     """Trace an equipment across all PIDs where it appears."""
-    from app.models.pid_pfd import Equipment, PIDDocument, PIDConnection
+    from app.models.pid_pfd import Equipment, PIDDocument
 
     eq = await get_equipment(eq_id, entity_id, db)
 
@@ -862,14 +868,16 @@ async def get_equipment_appearances(
 
     appearances = []
     for eq_instance, pid in rows:
-        appearances.append({
-            "pid_id": str(pid.id),
-            "pid_number": pid.number,
-            "pid_title": pid.title,
-            "pid_status": pid.status,
-            "equipment_id": str(eq_instance.id),
-            "mxgraph_cell_id": eq_instance.mxgraph_cell_id,
-        })
+        appearances.append(
+            {
+                "pid_id": str(pid.id),
+                "pid_number": pid.number,
+                "pid_title": pid.title,
+                "pid_status": pid.status,
+                "equipment_id": str(eq_instance.id),
+                "mxgraph_cell_id": eq_instance.mxgraph_cell_id,
+            }
+        )
 
     return {
         "tag": eq.tag,
@@ -893,7 +901,7 @@ async def trace_process_line(
     db: AsyncSession,
 ) -> dict:
     """Trace a process line across all PIDs where it appears."""
-    from app.models.pid_pfd import ProcessLine, PIDConnection, PIDDocument, Equipment
+    from app.models.pid_pfd import Equipment, PIDConnection, PIDDocument, ProcessLine
 
     line = await db.execute(
         select(ProcessLine).where(
@@ -906,6 +914,7 @@ async def trace_process_line(
 
     if not line:
         from fastapi import HTTPException
+
         raise HTTPException(404, f"Process line '{line_number}' not found")
 
     # Find all connections involving this line
@@ -950,11 +959,13 @@ async def trace_process_line(
             if other_type == "equipment":
                 eq = await db.get(Equipment, other_id)
                 if eq:
-                    pid_appearances[pid_key]["connected_equipment"].append({
-                        "tag": eq.tag,
-                        "type": eq.equipment_type,
-                        "connection_point": conn.from_connection_point or conn.to_connection_point,
-                    })
+                    pid_appearances[pid_key]["connected_equipment"].append(
+                        {
+                            "tag": eq.tag,
+                            "type": eq.equipment_type,
+                            "connection_point": conn.from_connection_point or conn.to_connection_point,
+                        }
+                    )
                     equipment_connected.append(eq.tag)
 
     return {
@@ -1003,12 +1014,7 @@ async def list_process_lines(
     count_query = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_query)).scalar() or 0
 
-    query = (
-        query
-        .order_by(ProcessLine.line_number)
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-    )
+    query = query.order_by(ProcessLine.line_number).offset((page - 1) * page_size).limit(page_size)
 
     result = await db.execute(query)
     lines = result.scalars().all()
@@ -1039,6 +1045,7 @@ async def get_process_line(
     line = result.scalar_one_or_none()
     if not line:
         from fastapi import HTTPException
+
         raise HTTPException(404, f"Process line {line_id} not found")
     return line
 
@@ -1064,6 +1071,7 @@ async def create_process_line(
     )
     if existing.scalar_one_or_none():
         from fastapi import HTTPException
+
         raise HTTPException(
             409,
             f"Process line '{body.line_number}' already exists in this project",
@@ -1142,7 +1150,7 @@ async def validate_for_afc(
     db: AsyncSession,
 ) -> dict:
     """Validate a PID before transition to AFC status."""
-    from app.models.pid_pfd import PIDDocument, Equipment, DCSTag, ProcessLine, PIDConnection
+    from app.models.pid_pfd import DCSTag, Equipment, PIDConnection, PIDDocument, ProcessLine
 
     pid = await get_pid_document(pid_id, entity_id, db)
     errors: list[dict] = []
@@ -1159,25 +1167,31 @@ async def validate_for_afc(
 
     for eq in equipment_list:
         if not eq.tag:
-            errors.append({
-                "type": "equipment",
-                "id": str(eq.id),
-                "message": f"Equipment (cell {eq.mxgraph_cell_id}) has no tag assigned",
-            })
+            errors.append(
+                {
+                    "type": "equipment",
+                    "id": str(eq.id),
+                    "message": f"Equipment (cell {eq.mxgraph_cell_id}) has no tag assigned",
+                }
+            )
         if not eq.equipment_type or eq.equipment_type == "other":
-            warnings.append({
-                "type": "equipment",
-                "id": str(eq.id),
-                "tag": eq.tag,
-                "message": f"Equipment {eq.tag} has undefined type",
-            })
+            warnings.append(
+                {
+                    "type": "equipment",
+                    "id": str(eq.id),
+                    "tag": eq.tag,
+                    "message": f"Equipment {eq.tag} has undefined type",
+                }
+            )
         if eq.design_pressure_barg is None:
-            warnings.append({
-                "type": "equipment",
-                "id": str(eq.id),
-                "tag": eq.tag,
-                "message": f"Equipment {eq.tag} has no design pressure",
-            })
+            warnings.append(
+                {
+                    "type": "equipment",
+                    "id": str(eq.id),
+                    "tag": eq.tag,
+                    "message": f"Equipment {eq.tag} has no design pressure",
+                }
+            )
 
     # 2. Check instruments have valid DCS tags
     dcs_tags_result = await db.execute(
@@ -1190,11 +1204,13 @@ async def validate_for_afc(
 
     for tag in dcs_tags:
         if not tag.tag_name:
-            errors.append({
-                "type": "instrument",
-                "id": str(tag.id),
-                "message": "Instrument has no tag name",
-            })
+            errors.append(
+                {
+                    "type": "instrument",
+                    "id": str(tag.id),
+                    "message": "Instrument has no tag name",
+                }
+            )
 
     # 3. Check process lines have complete specs
     lines_result = await db.execute(
@@ -1207,19 +1223,23 @@ async def validate_for_afc(
 
     for line in lines:
         if not line.spec_class:
-            warnings.append({
-                "type": "process_line",
-                "id": str(line.id),
-                "line_number": line.line_number,
-                "message": f"Line {line.line_number} has no spec class",
-            })
+            warnings.append(
+                {
+                    "type": "process_line",
+                    "id": str(line.id),
+                    "line_number": line.line_number,
+                    "message": f"Line {line.line_number} has no spec class",
+                }
+            )
         if not line.nominal_diameter_inch and not line.nominal_diameter_mm:
-            warnings.append({
-                "type": "process_line",
-                "id": str(line.id),
-                "line_number": line.line_number,
-                "message": f"Line {line.line_number} has no nominal diameter",
-            })
+            warnings.append(
+                {
+                    "type": "process_line",
+                    "id": str(line.id),
+                    "line_number": line.line_number,
+                    "message": f"Line {line.line_number} has no nominal diameter",
+                }
+            )
 
     # 4. Check for orphan continuation flags
     connections_result = await db.execute(
@@ -1239,11 +1259,13 @@ async def validate_for_afc(
             )
         )
         if not ref_pid.scalar_one_or_none():
-            warnings.append({
-                "type": "connection",
-                "id": str(conn.id),
-                "message": f"Continuation reference '{conn.continuation_ref}' — target PID not found",
-            })
+            warnings.append(
+                {
+                    "type": "connection",
+                    "id": str(conn.id),
+                    "message": f"Continuation reference '{conn.continuation_ref}' — target PID not found",
+                }
+            )
 
     is_valid = len(errors) == 0
     return {
@@ -1335,6 +1357,7 @@ async def get_library_item(
     item = result.scalar_one_or_none()
     if not item:
         from fastapi import HTTPException
+
         raise HTTPException(404, f"Library item {item_id} not found")
     return item
 
@@ -1384,15 +1407,17 @@ async def get_library_drawio_xml(
     from app.models.pid_pfd import ProcessLibItem
 
     result = await db.execute(
-        select(ProcessLibItem).where(
+        select(ProcessLibItem)
+        .where(
             ProcessLibItem.entity_id == entity_id,
             ProcessLibItem.is_active == True,  # noqa: E712
-        ).order_by(ProcessLibItem.category, ProcessLibItem.name)
+        )
+        .order_by(ProcessLibItem.category, ProcessLibItem.name)
     )
     items = result.scalars().all()
 
     # Build draw.io library XML
-    xml_parts = ['<mxlibrary>[']
+    xml_parts = ["<mxlibrary>["]
     entries = []
     for item in items:
         # Each library entry is a JSON object
@@ -1423,6 +1448,7 @@ async def export_svg(
     pid = await get_pid_document(pid_id, entity_id, db)
     if not pid.xml_content:
         from fastapi import HTTPException
+
         raise HTTPException(400, "PID has no XML content")
 
     # Simplified: return the mxGraph XML wrapped in SVG
@@ -1444,6 +1470,7 @@ async def export_pdf(
     Returns (pdf_bytes, filename).
     """
     from fastapi import HTTPException
+
     from app.core.pdf_templates import render_pdf
     from app.models.common import Entity
 
@@ -1467,7 +1494,7 @@ async def export_pdf(
                 "status": pid.status,
                 "sheet_format": pid.sheet_format or "A1",
                 "svg_content": svg_content,
-                "generated_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M"),
+                "generated_at": datetime.now(UTC).strftime("%d/%m/%Y %H:%M"),
                 "entity": {"name": entity.name if entity else ""},
             },
         )
@@ -1494,7 +1521,7 @@ async def get_cell_data(
     db: AsyncSession,
 ) -> dict | None:
     """Get DB entity linked to a draw.io cell ID."""
-    from app.models.pid_pfd import Equipment, ProcessLine, DCSTag
+    from app.models.pid_pfd import DCSTag, Equipment, ProcessLine
 
     # Try equipment first
     eq_result = await db.execute(
@@ -1549,20 +1576,20 @@ async def acquire_lock(
     Lock expires after 5 minutes; heartbeat extends the TTL.
     Returns 409 if another user already holds the lock.
     """
-    from app.models.pid_pfd import PIDLock
-    from fastapi import HTTPException
     from datetime import timedelta
+
+    from fastapi import HTTPException
+
+    from app.models.pid_pfd import PIDLock
 
     # Verify PID exists and belongs to entity
     await get_pid_document(pid_id, entity_id, db)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires = now + timedelta(minutes=5)
 
     # Check existing lock
-    result = await db.execute(
-        select(PIDLock).where(PIDLock.pid_document_id == pid_id)
-    )
+    result = await db.execute(select(PIDLock).where(PIDLock.pid_document_id == pid_id))
     existing = result.scalar_one_or_none()
 
     if existing:
@@ -1611,14 +1638,13 @@ async def release_lock(
     Returns 403 if the lock is owned by someone else.
     Returns 404 if no lock exists.
     """
-    from app.models.pid_pfd import PIDLock
     from fastapi import HTTPException
+
+    from app.models.pid_pfd import PIDLock
 
     await get_pid_document(pid_id, entity_id, db)
 
-    result = await db.execute(
-        select(PIDLock).where(PIDLock.pid_document_id == pid_id)
-    )
+    result = await db.execute(select(PIDLock).where(PIDLock.pid_document_id == pid_id))
     lock = result.scalar_one_or_none()
 
     if not lock:
@@ -1645,15 +1671,15 @@ async def lock_heartbeat(
 
     Returns 404 if no lock found, 403 if owned by someone else.
     """
-    from app.models.pid_pfd import PIDLock
-    from fastapi import HTTPException
     from datetime import timedelta
+
+    from fastapi import HTTPException
+
+    from app.models.pid_pfd import PIDLock
 
     await get_pid_document(pid_id, entity_id, db)
 
-    result = await db.execute(
-        select(PIDLock).where(PIDLock.pid_document_id == pid_id)
-    )
+    result = await db.execute(select(PIDLock).where(PIDLock.pid_document_id == pid_id))
     lock = result.scalar_one_or_none()
 
     if not lock:
@@ -1662,7 +1688,7 @@ async def lock_heartbeat(
     if lock.locked_by != user_id:
         raise HTTPException(403, "Lock is owned by another user")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     lock.heartbeat_at = now
     lock.expires_at = now + timedelta(minutes=5)
 
@@ -1688,14 +1714,13 @@ async def force_release_lock(
     Logs who performed the force release.
     Returns 404 if no lock exists.
     """
-    from app.models.pid_pfd import PIDLock
     from fastapi import HTTPException
+
+    from app.models.pid_pfd import PIDLock
 
     await get_pid_document(pid_id, entity_id, db)
 
-    result = await db.execute(
-        select(PIDLock).where(PIDLock.pid_document_id == pid_id)
-    )
+    result = await db.execute(select(PIDLock).where(PIDLock.pid_document_id == pid_id))
     lock = result.scalar_one_or_none()
 
     if not lock:
@@ -1707,7 +1732,9 @@ async def force_release_lock(
 
     logger.warning(
         "Lock FORCE-RELEASED on PID %s by admin %s (was held by %s)",
-        pid_id, admin_user_id, original_owner,
+        pid_id,
+        admin_user_id,
+        original_owner,
     )
     return {
         "pid_id": str(pid_id),
@@ -1833,21 +1860,23 @@ async def _sync_equipment(
                 existing.design_temperature_c = float(props["design_temperature_c"])
             except ValueError:
                 pass
-        existing.updated_at = datetime.now(timezone.utc)
+        existing.updated_at = datetime.now(UTC)
         existing.removed_from_pid = False
     else:
-        db.add(Equipment(
-            entity_id=entity_id,
-            project_id=pid.project_id,
-            pid_document_id=pid.id,
-            tag=tag,
-            equipment_type=equipment_type,
-            description=props.get("description"),
-            service=props.get("service"),
-            design_pressure_barg=_safe_float(props.get("design_pressure_barg")),
-            design_temperature_c=_safe_float(props.get("design_temperature_c")),
-            mxgraph_cell_id=cell_id,
-        ))
+        db.add(
+            Equipment(
+                entity_id=entity_id,
+                project_id=pid.project_id,
+                pid_document_id=pid.id,
+                tag=tag,
+                equipment_type=equipment_type,
+                description=props.get("description"),
+                service=props.get("service"),
+                design_pressure_barg=_safe_float(props.get("design_pressure_barg")),
+                design_temperature_c=_safe_float(props.get("design_temperature_c")),
+                mxgraph_cell_id=cell_id,
+            )
+        )
 
 
 async def _sync_process_line(
@@ -1881,15 +1910,17 @@ async def _sync_process_line(
         if props.get("spec_class"):
             existing.spec_class = props["spec_class"]
     else:
-        db.add(ProcessLine(
-            entity_id=entity_id,
-            project_id=pid.project_id,
-            line_number=line_number,
-            fluid=props.get("fluid"),
-            spec_class=props.get("spec_class"),
-            spec_code=props.get("spec_code"),
-            mxgraph_cell_id=cell_id,
-        ))
+        db.add(
+            ProcessLine(
+                entity_id=entity_id,
+                project_id=pid.project_id,
+                line_number=line_number,
+                fluid=props.get("fluid"),
+                spec_class=props.get("spec_class"),
+                spec_code=props.get("spec_code"),
+                mxgraph_cell_id=cell_id,
+            )
+        )
 
 
 async def _sync_instrument(
@@ -1920,17 +1951,19 @@ async def _sync_instrument(
         existing.pid_document_id = pid.id
         if props.get("tag_type"):
             existing.tag_type = props["tag_type"]
-        existing.updated_at = datetime.now(timezone.utc)
+        existing.updated_at = datetime.now(UTC)
     else:
-        db.add(DCSTag(
-            entity_id=entity_id,
-            project_id=pid.project_id,
-            pid_document_id=pid.id,
-            tag_name=tag_name,
-            tag_type=props.get("tag_type", "other"),
-            area=props.get("area"),
-            source="manual",
-        ))
+        db.add(
+            DCSTag(
+                entity_id=entity_id,
+                project_id=pid.project_id,
+                pid_document_id=pid.id,
+                tag_name=tag_name,
+                tag_type=props.get("tag_type", "other"),
+                area=props.get("area"),
+                source="manual",
+            )
+        )
 
 
 async def _sync_connection(
@@ -1952,8 +1985,12 @@ async def _sync_connection(
     existing_result = await db.execute(
         select(PIDConnection).where(
             PIDConnection.pid_document_id == pid.id,
-            PIDConnection.from_entity_id == UUID(source) if _is_uuid(source) else PIDConnection.from_entity_type == "unknown",
-            PIDConnection.to_entity_id == UUID(target) if _is_uuid(target) else PIDConnection.to_entity_type == "unknown",
+            PIDConnection.from_entity_id == UUID(source)
+            if _is_uuid(source)
+            else PIDConnection.from_entity_type == "unknown",
+            PIDConnection.to_entity_id == UUID(target)
+            if _is_uuid(target)
+            else PIDConnection.to_entity_type == "unknown",
         )
     )
     # Simplified — full implementation would resolve cell_id to entity_id
@@ -2016,12 +2053,7 @@ def _is_uuid(value: str) -> bool:
 
 def _escape_xml_for_json(xml: str) -> str:
     """Escape XML for embedding in JSON string."""
-    return (
-        xml.replace("\\", "\\\\")
-        .replace('"', '\\"')
-        .replace("\n", "\\n")
-        .replace("\r", "")
-    )
+    return xml.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "")
 
 
 async def _generate_pid_number(
@@ -2045,6 +2077,7 @@ async def _generate_pid_number(
     project_code = ""
     if project_id:
         from sqlalchemy import text
+
         result = await db.execute(
             text("SELECT code FROM projects WHERE id = :pid"),
             {"pid": project_id},

@@ -50,6 +50,7 @@ class MFARegenerateResponse(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _generate_backup_codes(count: int = 10) -> tuple[list[str], list[str]]:
     """Generate plain-text backup codes and their SHA-256 hashes.
 
@@ -264,9 +265,7 @@ async def mfa_disable(
             detail="L'authentification à deux facteurs n'est pas activée.",
         )
 
-    if not current_user.hashed_password or not verify_password(
-        body.password, current_user.hashed_password
-    ):
+    if not current_user.hashed_password or not verify_password(body.password, current_user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Mot de passe incorrect.",
@@ -305,9 +304,7 @@ async def mfa_regenerate_codes(
             detail="L'authentification à deux facteurs n'est pas activée.",
         )
 
-    if not current_user.hashed_password or not verify_password(
-        body.password, current_user.hashed_password
-    ):
+    if not current_user.hashed_password or not verify_password(body.password, current_user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Mot de passe incorrect.",

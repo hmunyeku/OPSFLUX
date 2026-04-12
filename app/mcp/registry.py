@@ -8,8 +8,9 @@ a filterable listing of available tools.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -91,9 +92,7 @@ class MCPRegistry:
             if not tool.permissions:
                 # No permissions required — available to any authenticated user
                 result.append(tool)
-            elif "*" in perm_set:
-                result.append(tool)
-            elif all(p in perm_set for p in tool.permissions):
+            elif "*" in perm_set or all(p in perm_set for p in tool.permissions):
                 result.append(tool)
 
         return result
@@ -146,9 +145,7 @@ class MCPRegistry:
             if "*" not in user_permissions:
                 missing = [p for p in tool.permissions if p not in user_permissions]
                 if missing:
-                    raise PermissionError(
-                        f"Missing permissions for tool '{name}': {', '.join(missing)}"
-                    )
+                    raise PermissionError(f"Missing permissions for tool '{name}': {', '.join(missing)}")
 
         logger.info(
             "MCP: executing tool '%s' (user=%s, entity=%s)",

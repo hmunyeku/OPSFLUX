@@ -29,11 +29,9 @@ logger = logging.getLogger(__name__)
 async def _get_user_email_and_name(user_id: UUID, db) -> tuple[str | None, str]:
     """Get primary email and display name for a user."""
     from sqlalchemy import text
+
     result = await db.execute(
-        text(
-            "SELECT u.email, COALESCE(u.first_name || ' ' || u.last_name, u.email) "
-            "FROM users u WHERE u.id = :uid"
-        ),
+        text("SELECT u.email, COALESCE(u.first_name || ' ' || u.last_name, u.email) FROM users u WHERE u.id = :uid"),
         {"uid": user_id},
     )
     row = result.first()
@@ -89,8 +87,8 @@ async def on_ads_submitted(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from app.core.notifications import send_in_app
         from app.core.email_templates import render_and_send_email
+        from app.core.notifications import send_in_app
         from app.event_handlers.core_handlers import _get_admin_user_ids
 
         eid = UUID(str(entity_id))
@@ -171,8 +169,8 @@ async def on_ads_rejected(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from app.core.notifications import send_in_app
         from app.core.email_templates import render_and_send_email
+        from app.core.notifications import send_in_app
 
         eid = UUID(str(entity_id))
         uid = UUID(str(requester_id))
@@ -239,8 +237,8 @@ async def on_ads_compliance_failed(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from app.core.notifications import send_in_app
         from app.core.email_templates import render_and_send_email
+        from app.core.notifications import send_in_app
 
         eid = UUID(str(entity_id))
         uid = UUID(str(requester_id))
@@ -309,8 +307,8 @@ async def on_ads_cancelled(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from app.core.notifications import send_in_app
         from app.core.email_templates import render_and_send_email
+        from app.core.notifications import send_in_app
 
         eid = UUID(str(entity_id))
         uid = UUID(str(requester_id))
@@ -373,8 +371,8 @@ async def on_ads_workflow_validation_required(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from app.core.notifications import send_in_app
         from app.core.email_templates import render_and_send_email
+        from app.core.notifications import send_in_app
 
         eid = UUID(str(entity_scope_id))
         recipients: list[UUID] = []
@@ -442,6 +440,7 @@ async def on_planner_activity_modified(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import text
+
         from app.models.paxlog import AdsEvent
 
         async with async_session_factory() as db:
@@ -482,8 +481,7 @@ async def on_planner_activity_modified(event: OpsFluxEvent) -> None:
                     entity_id=UUID(str(entity_id)),
                     title="AdS en révision",
                     body=(
-                        f"L'AdS {ref} nécessite une révision suite à la "
-                        f"modification de l'activité Planner associée."
+                        f"L'AdS {ref} nécessite une révision suite à la modification de l'activité Planner associée."
                     ),
                     category="paxlog",
                     link=f"/paxlog/ads/{ads_id}",
@@ -510,6 +508,7 @@ async def on_planner_activity_cancelled(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import text
+
         from app.models.paxlog import AdsEvent
 
         async with async_session_factory() as db:
@@ -549,8 +548,7 @@ async def on_planner_activity_cancelled(event: OpsFluxEvent) -> None:
                     entity_id=UUID(str(entity_id)),
                     title="AdS — Activité Planner annulée",
                     body=(
-                        f"L'activité « {title} » associée à l'AdS {ref} "
-                        f"a été annulée. Veuillez vérifier cette demande."
+                        f"L'activité « {title} » associée à l'AdS {ref} a été annulée. Veuillez vérifier cette demande."
                     ),
                     category="paxlog",
                     link=f"/paxlog/ads/{ads_id}",
@@ -578,6 +576,7 @@ async def on_planner_activity_modified_avm(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import text
+
         from app.core.notifications import send_in_app
 
         async with async_session_factory() as db:
@@ -672,6 +671,7 @@ async def on_travelwiz_voyage_cancelled(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import text
+
         from app.models.paxlog import AdsEvent
 
         async with async_session_factory() as db:
@@ -790,7 +790,8 @@ async def on_project_status_changed(event: OpsFluxEvent) -> None:
             await db.commit()
             logger.info(
                 "project.status.changed → %d AdS warned (project %s)",
-                len(affected), project_code,
+                len(affected),
+                project_code,
             )
     except Exception:
         logger.exception("Error in on_project_status_changed for project %s", project_id)

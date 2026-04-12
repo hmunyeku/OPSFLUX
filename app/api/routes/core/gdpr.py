@@ -8,25 +8,24 @@ Implements:
 - Consent tracking
 """
 
-import logging
 import csv
 import io
 import json
+import logging
 import zipfile
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select, text, func
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_current_entity
-from app.core.database import get_db
+from app.api.deps import get_current_entity, get_current_user
 from app.core.audit import record_audit
 from app.core.config import settings
+from app.core.database import get_db
 from app.core.security import hash_password
 from app.models.common import User
 
@@ -36,6 +35,7 @@ router = APIRouter(prefix="/api/v1/gdpr", tags=["gdpr"])
 
 
 # ── Schemas ──────────────────────────────────────────────────
+
 
 class DataExportResponse(BaseModel):
     user: dict
@@ -72,7 +72,11 @@ USER_FK_TABLES = [
     ("notifications", "user_id", ["title", "body", "category", "read", "created_at"]),
     ("login_events", "user_id", ["ip_address", "user_agent", "success", "created_at"]),
     ("user_emails", "user_id", ["email", "is_primary", "is_notification", "verified", "created_at"]),
-    ("user_passports", "user_id", ["passport_type", "number", "country", "passport_name", "issue_date", "expiry_date", "document_url"]),
+    (
+        "user_passports",
+        "user_id",
+        ["passport_type", "number", "country", "passport_name", "issue_date", "expiry_date", "document_url"],
+    ),
     ("user_visas", "user_id", ["visa_type", "number", "country", "issue_date", "expiry_date", "document_url"]),
     ("user_vaccines", "user_id", ["vaccine_type", "date_administered", "expiry_date", "batch_number", "created_at"]),
     ("user_languages", "user_id", ["language_code", "proficiency_level", "created_at"]),
@@ -85,15 +89,42 @@ USER_FK_TABLES = [
 ]
 
 USER_PERSONAL_FIELDS = [
-    "id", "email", "first_name", "last_name", "gender", "birth_date",
-    "birth_city", "birth_country", "nationality", "passport_name",
-    "identity_verified", "identity_verified_at", "identity_verified_by",
-    "language", "avatar_url", "contractual_airport", "nearest_airport",
-    "nearest_station", "loyalty_program", "vantage_number", "extension_number",
-    "badge_number", "height", "weight", "last_medical_check",
-    "last_international_medical_check", "last_subsidiary_medical_check", "retirement_date",
-    "preferred_messaging_channel", "user_type", "tier_contact_id", "job_position_id",
-    "created_at", "updated_at", "last_login_at", "last_login_ip",
+    "id",
+    "email",
+    "first_name",
+    "last_name",
+    "gender",
+    "birth_date",
+    "birth_city",
+    "birth_country",
+    "nationality",
+    "passport_name",
+    "identity_verified",
+    "identity_verified_at",
+    "identity_verified_by",
+    "language",
+    "avatar_url",
+    "contractual_airport",
+    "nearest_airport",
+    "nearest_station",
+    "loyalty_program",
+    "vantage_number",
+    "extension_number",
+    "badge_number",
+    "height",
+    "weight",
+    "last_medical_check",
+    "last_international_medical_check",
+    "last_subsidiary_medical_check",
+    "retirement_date",
+    "preferred_messaging_channel",
+    "user_type",
+    "tier_contact_id",
+    "job_position_id",
+    "created_at",
+    "updated_at",
+    "last_login_at",
+    "last_login_ip",
 ]
 
 
@@ -342,7 +373,11 @@ def _iter_attachment_candidates(payload: object) -> list[str]:
         normalized_value = value.strip()
         if not normalized_value:
             return
-        if normalized_key.endswith("_path") or normalized_key.endswith("_url") or normalized_key in {"avatar_url", "file", "document"}:
+        if (
+            normalized_key.endswith("_path")
+            or normalized_key.endswith("_url")
+            or normalized_key in {"avatar_url", "file", "document"}
+        ):
             candidates.append(normalized_value)
 
     _walk(payload)
@@ -420,6 +455,7 @@ def _build_gdpr_export_zip(*, export: dict, filepath: Path) -> None:
 
 # ── Right to Access (Art. 15) + Right to Portability (Art. 20) ──
 
+
 @router.post("/request-export")
 async def request_data_export(
     current_user: User = Depends(get_current_user),
@@ -431,28 +467,34 @@ async def request_data_export(
     file, and sends a notification when ready for download.
     """
     await record_audit(
-        db, user_id=current_user.id,
+        db,
+        user_id=current_user.id,
         action="gdpr.data_export_requested",
-        resource_type="user", resource_id=str(current_user.id),
+        resource_type="user",
+        resource_id=str(current_user.id),
         details={},
     )
     await db.commit()
 
     # Queue the background export
     import asyncio
+
     asyncio.create_task(_async_export_user_data(str(current_user.id)))
 
-    return {"status": "queued", "message": "Export en cours de préparation. Vous recevrez une notification quand il sera prêt."}
+    return {
+        "status": "queued",
+        "message": "Export en cours de préparation. Vous recevrez une notification quand il sera prêt.",
+    }
 
 
 async def _async_export_user_data(user_id_str: str):
     """Background task: collect data, write file, notify via in-app + email."""
-    import json
-    from app.core.notifications import send_in_app
     from app.core.email_templates import render_and_send_email
+    from app.core.notifications import send_in_app
 
     try:
         from app.core.database import async_session_factory
+
         async with async_session_factory() as db:
             result = await db.execute(select(User).where(User.id == UUID(user_id_str)))
             user = result.scalar_one_or_none()
@@ -525,9 +567,9 @@ async def download_export(
     current_user: User = Depends(get_current_user),
 ):
     """Download a previously generated GDPR export file."""
-    import os
-    from fastapi.responses import FileResponse
     from pathlib import Path
+
+    from fastapi.responses import FileResponse
 
     # Security: only allow the user's own exports
     if not filename.startswith(_gdpr_export_prefix(current_user.id)):
@@ -601,6 +643,7 @@ async def delete_my_export(
 
 # ── Right to Erasure (Art. 17) — Account Anonymization ──────
 
+
 @router.post("/anonymize-my-account")
 async def anonymize_account(
     body: AnonymizeRequest,
@@ -625,9 +668,11 @@ async def anonymize_account(
 
     # Record audit BEFORE anonymizing
     await record_audit(
-        db, user_id=current_user.id,
+        db,
+        user_id=current_user.id,
         action="gdpr.account_anonymized",
-        resource_type="user", resource_id=str(current_user.id),
+        resource_type="user",
+        resource_id=str(current_user.id),
         details={"reason": body.reason, "original_email": current_user.email},
     )
 
@@ -661,9 +706,16 @@ async def anonymize_account(
     current_user.active = False
 
     # Delete related PII (phones, emergency contacts, passports, etc.)
-    for table in ["phones", "emergency_contacts", "user_passports", "user_visas",
-                  "user_vaccines", "user_health_conditions", "social_securities",
-                  "driving_licenses"]:
+    for table in [
+        "phones",
+        "emergency_contacts",
+        "user_passports",
+        "user_visas",
+        "user_vaccines",
+        "user_health_conditions",
+        "social_securities",
+        "driving_licenses",
+    ]:
         try:
             await db.execute(text(f"DELETE FROM {table} WHERE user_id = :uid"), {"uid": current_user.id})
         except Exception:
@@ -676,6 +728,7 @@ async def anonymize_account(
 
 # ── Consent Management ──────────────────────────────────────
 
+
 @router.post("/consent")
 async def record_consent(
     body: ConsentRecord,
@@ -685,9 +738,11 @@ async def record_consent(
 ):
     """Record a consent decision (RGPD Art. 7)."""
     await record_audit(
-        db, user_id=current_user.id,
+        db,
+        user_id=current_user.id,
         action=f"gdpr.consent.{'granted' if body.granted else 'withdrawn'}",
-        resource_type="consent", resource_id=body.consent_type,
+        resource_type="consent",
+        resource_id=body.consent_type,
         details={
             "consent_type": body.consent_type,
             "granted": body.granted,
@@ -726,6 +781,7 @@ async def get_consent_status(
 
 # ── Data Breach Notification (Art. 33/34) ────────────────────
 
+
 class BreachReport(BaseModel):
     title: str
     description: str
@@ -744,9 +800,11 @@ async def create_breach_report(
 ):
     """Record a data breach incident (RGPD Art. 33/34). Admin only."""
     await record_audit(
-        db, user_id=current_user.id,
+        db,
+        user_id=current_user.id,
         action="gdpr.breach_report",
-        resource_type="breach", resource_id=f"breach_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}",
+        resource_type="breach",
+        resource_id=f"breach_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}",
         details=body.model_dump(),
     )
     await db.commit()

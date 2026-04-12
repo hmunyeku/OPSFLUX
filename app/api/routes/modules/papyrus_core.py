@@ -9,7 +9,6 @@ Export (PDF, DOCX). Revision diff.
 import io
 import json
 import logging
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
@@ -27,8 +26,8 @@ try:
 except ImportError:
     python_docx = None
 
-from app.core.database import get_db
 from app.api.deps import get_current_entity, get_current_user, require_module_enabled, require_permission
+from app.core.database import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +83,7 @@ async def list_papyrus_forms(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_forms_service import list_forms
+
     return await list_forms(entity_id=entity_id, db=db)
 
 
@@ -134,6 +134,7 @@ async def get_papyrus_form(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_forms_service import get_form
+
     return await get_form(form_id=form_id, entity_id=entity_id, db=db)
 
 
@@ -148,6 +149,7 @@ async def export_epicollect_form(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_forms_service import export_epicollect_form as svc_export
+
     return await svc_export(form_id=form_id, entity_id=entity_id, db=db)
 
 
@@ -180,6 +182,7 @@ async def list_papyrus_submissions(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_forms_service import list_submissions
+
     return await list_submissions(form_id=form_id, entity_id=entity_id, db=db)
 
 
@@ -220,6 +223,7 @@ async def revoke_papyrus_external_link(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_forms_service import revoke_external_link
+
     return await revoke_external_link(form_id=form_id, token_id=token_id, entity_id=entity_id, db=db)
 
 
@@ -234,6 +238,7 @@ async def consume_papyrus_external_form(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_forms_service import consume_external_form
+
     request_ip = request.client.host if request and request.client else None
     return await consume_external_form(form_id=form_id, token=token, request_ip=request_ip, db=db)
 
@@ -268,12 +273,12 @@ async def submit_papyrus_external_form(
     summary="List documents",
 )
 async def list_documents(
-    project_id: Optional[str] = None,
-    doc_type_id: Optional[str] = None,
-    status: Optional[str] = None,
-    classification: Optional[str] = None,
-    arborescence_node_id: Optional[str] = None,
-    search: Optional[str] = None,
+    project_id: str | None = None,
+    doc_type_id: str | None = None,
+    status: str | None = None,
+    classification: str | None = None,
+    arborescence_node_id: str | None = None,
+    search: str | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     entity_id: UUID = Depends(get_current_entity),
@@ -281,6 +286,7 @@ async def list_documents(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import list_documents as svc_list
+
     return await svc_list(
         entity_id=entity_id,
         bu_id=getattr(current_user, "bu_id", None),
@@ -338,6 +344,7 @@ async def consume_share_link(
     Returns 401 if OTP is required.
     """
     from app.services.modules.papyrus_document_service import consume_share_link as svc_consume
+
     return await svc_consume(token=token, db=db)
 
 
@@ -351,22 +358,31 @@ async def get_document_counts(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import get_document_counts as svc_counts
+
     return await svc_counts(entity_id=entity_id, db=db)
 
 
 @router.get("/templates", dependencies=[require_permission("document.read")], summary="List templates")
 async def list_templates_early(
-    doc_type_id: Optional[str] = None, entity_id: UUID = Depends(get_current_entity), db: AsyncSession = Depends(get_db),
+    doc_type_id: str | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import list_templates as svc_list
+
     return await svc_list(entity_id=entity_id, doc_type_id=UUID(doc_type_id) if doc_type_id else None, db=db)
+
 
 @router.post("/templates", dependencies=[require_permission("template.create")], summary="Create a template")
 async def create_template_early(
-    body: dict, entity_id: UUID = Depends(get_current_entity), current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db),
+    body: dict,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     from app.schemas.papyrus_document import TemplateCreate
     from app.services.modules.papyrus_document_service import create_template as svc_create
+
     parsed = TemplateCreate(**body)
     return await svc_create(body=parsed, entity_id=entity_id, created_by=current_user.id, db=db)
 
@@ -381,6 +397,7 @@ async def list_doc_types(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import list_doc_types as svc_list
+
     return await svc_list(entity_id=entity_id, db=db)
 
 
@@ -395,10 +412,11 @@ async def create_doc_type(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from app.schemas.papyrus_document import DocTypeCreate
-    from app.services.modules.papyrus_document_service import create_doc_type as svc_create
     from fastapi import HTTPException
     from pydantic import ValidationError
+
+    from app.schemas.papyrus_document import DocTypeCreate
+    from app.services.modules.papyrus_document_service import create_doc_type as svc_create
 
     try:
         parsed = DocTypeCreate(**body)
@@ -436,6 +454,7 @@ async def delete_doc_type(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import delete_doc_type as svc_delete
+
     return await svc_delete(type_id=type_id, entity_id=entity_id, db=db)
 
 
@@ -446,7 +465,7 @@ async def delete_doc_type(
 )
 async def import_mdr(
     file: UploadFile = File(...),
-    project_id: Optional[str] = Query(None),
+    project_id: str | None = Query(None),
     entity_id: UUID = Depends(get_current_entity),
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -478,6 +497,7 @@ async def get_document(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import get_document as svc_get
+
     return await svc_get(doc_id, entity_id, db)
 
 
@@ -545,6 +565,7 @@ async def list_revisions(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import list_revisions as svc_list
+
     return await svc_list(doc_id=doc_id, entity_id=entity_id, db=db)
 
 
@@ -560,6 +581,7 @@ async def get_revision(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import get_revision as svc_get
+
     return await svc_get(revision_id, entity_id, db)
 
 
@@ -575,6 +597,7 @@ async def create_new_revision(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import create_new_revision as svc_create
+
     return await svc_create(
         doc_id=doc_id,
         entity_id=entity_id,
@@ -596,6 +619,7 @@ async def diff_revisions(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import diff_revisions as svc_diff
+
     return await svc_diff(
         doc_id=doc_id,
         rev_a_id=rev_a,
@@ -617,6 +641,7 @@ async def get_papyrus_document(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import get_papyrus_document as svc_get
+
     return await svc_get(doc_id=doc_id, entity_id=entity_id, db=db, version=version)
 
 
@@ -631,6 +656,7 @@ async def list_papyrus_versions(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import list_papyrus_versions as svc_list
+
     return await svc_list(doc_id=doc_id, entity_id=entity_id, db=db)
 
 
@@ -646,6 +672,7 @@ async def get_rendered_papyrus_document(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import get_rendered_papyrus_document as svc_get
+
     return await svc_get(doc_id=doc_id, entity_id=entity_id, db=db, version=version)
 
 
@@ -808,6 +835,7 @@ async def submit_document(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import submit_document as svc_submit
+
     return await svc_submit(
         doc_id=doc_id,
         comment=(body or {}).get("comment"),
@@ -830,6 +858,7 @@ async def approve_document(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import approve_document as svc_approve
+
     return await svc_approve(
         doc_id=doc_id,
         comment=(body or {}).get("comment"),
@@ -852,6 +881,7 @@ async def reject_document(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import reject_document as svc_reject
+
     reason = body.get("reason", "")
     if not reason:
         raise HTTPException(400, "Rejection reason is required")
@@ -877,11 +907,10 @@ async def publish_document(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import publish_document as svc_publish
+
     return await svc_publish(
         doc_id=doc_id,
-        distribution_list_ids=[
-            UUID(dl_id) for dl_id in (body or {}).get("distribution_list_ids", [])
-        ],
+        distribution_list_ids=[UUID(dl_id) for dl_id in (body or {}).get("distribution_list_ids", [])],
         entity_id=entity_id,
         actor_id=current_user.id,
         db=db,
@@ -901,6 +930,7 @@ async def obsolete_document(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import obsolete_document as svc_obsolete
+
     return await svc_obsolete(
         doc_id=doc_id,
         superseded_by=UUID((body or {})["superseded_by"]) if (body or {}).get("superseded_by") else None,
@@ -922,16 +952,16 @@ async def obsolete_document(
 )
 async def export_pdf(
     doc_id: UUID,
-    revision_id: Optional[str] = None,
+    revision_id: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     """Export document as PDF via the centralized PDF template engine."""
 
-    from app.services.modules.papyrus_document_service import get_document, get_revision
     from app.core.pdf_templates import render_pdf
     from app.models.common import Entity, User
     from app.models.papyrus_document import DocType
+    from app.services.modules.papyrus_document_service import get_document, get_revision
 
     doc = await get_document(doc_id, entity_id, db)
 
@@ -998,7 +1028,7 @@ async def export_pdf(
 )
 async def export_docx(
     doc_id: UUID,
-    revision_id: Optional[str] = None,
+    revision_id: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
@@ -1114,6 +1144,7 @@ async def list_template_fields(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import list_template_fields as svc_list
+
     return await svc_list(template_id=template_id, entity_id=entity_id, db=db)
 
 
@@ -1152,7 +1183,11 @@ async def update_template_field(
 
     parsed = TemplateFieldUpdate(**body)
     return await svc_update(
-        template_id=template_id, field_id=field_id, body=parsed, entity_id=entity_id, db=db,
+        template_id=template_id,
+        field_id=field_id,
+        body=parsed,
+        entity_id=entity_id,
+        db=db,
     )
 
 
@@ -1168,6 +1203,7 @@ async def delete_template_field(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import delete_template_field as svc_delete
+
     return await svc_delete(template_id=template_id, field_id=field_id, entity_id=entity_id, db=db)
 
 
@@ -1182,11 +1218,12 @@ async def delete_template_field(
     summary="List distribution lists",
 )
 async def list_distribution_lists(
-    doc_type_id: Optional[str] = None,
+    doc_type_id: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import list_distribution_lists as svc_list
+
     return await svc_list(
         entity_id=entity_id,
         doc_type_id=UUID(doc_type_id) if doc_type_id else None,
@@ -1241,6 +1278,7 @@ async def delete_distribution_list(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import delete_distribution_list as svc_delete
+
     return await svc_delete(list_id=list_id, entity_id=entity_id, db=db)
 
 
@@ -1260,6 +1298,7 @@ async def list_arborescence_nodes(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import list_arborescence_nodes as svc_list
+
     return await svc_list(project_id=UUID(project_id), entity_id=entity_id, db=db)
 
 
@@ -1298,6 +1337,7 @@ async def create_share_link(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import create_share_link as svc_create
+
     body = body or {}
     return await svc_create(
         document_id=doc_id,
@@ -1326,6 +1366,7 @@ async def list_document_signatures(
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.modules.papyrus_document_service import list_document_signatures as svc_list
+
     return await svc_list(doc_id=doc_id, entity_id=entity_id, db=db)
 
 
@@ -1347,6 +1388,7 @@ async def archive_document(
 ):
     """Archive a document. Admin-only. Document remains consultable via filter."""
     from app.services.modules.papyrus_document_service import archive_document as svc_archive
+
     return await svc_archive(
         doc_id=doc_id,
         entity_id=entity_id,
@@ -1368,6 +1410,7 @@ async def delete_document(
 ):
     """Soft-delete a document. Only allowed for drafts that have never been submitted."""
     from app.services.modules.papyrus_document_service import delete_document as svc_delete
+
     return await svc_delete(
         doc_id=doc_id,
         entity_id=entity_id,
@@ -1388,6 +1431,7 @@ async def delete_document(
 )
 async def validate_nomenclature_pattern(body: dict):
     from app.services.modules.nomenclature_service import validate_nomenclature_pattern as validate
+
     pattern = body.get("pattern", "")
     errors = validate(pattern)
     return {"pattern": pattern, "is_valid": len(errors) == 0, "errors": errors}
@@ -1459,7 +1503,9 @@ def _render_content_to_html(content: dict | list | None) -> str:
             resolved = block.get("resolved")
             if display_value is None and resolved is not None:
                 display_value = resolved
-            html_parts.append(f"<p><strong>{label}:</strong> {json.dumps(display_value, ensure_ascii=False, default=str) if isinstance(display_value, (dict, list)) else display_value}</p>")
+            html_parts.append(
+                f"<p><strong>{label}:</strong> {json.dumps(display_value, ensure_ascii=False, default=str) if isinstance(display_value, (dict, list)) else display_value}</p>"
+            )
             continue
         inline = block.get("content", [])
         text = _extract_text_from_inline(inline)
@@ -1469,9 +1515,7 @@ def _render_content_to_html(content: dict | list | None) -> str:
             level = props.get("level", 2)
             level = min(max(int(level), 1), 6)
             html_parts.append(f"<h{level}>{text}</h{level}>")
-        elif btype == "bulletListItem":
-            html_parts.append(f"<li>{text}</li>")
-        elif btype == "numberedListItem":
+        elif btype == "bulletListItem" or btype == "numberedListItem":
             html_parts.append(f"<li>{text}</li>")
         elif btype == "codeBlock":
             html_parts.append(f"<pre><code>{text}</code></pre>")
@@ -1597,4 +1641,3 @@ def _add_content_to_docx(word_doc, content: dict | list | None) -> None:
         children = block.get("children", [])
         if children:
             _add_content_to_docx(word_doc, children)
-

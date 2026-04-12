@@ -15,6 +15,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.mcp.registry import MCPRegistry, MCPToolDef
 from app.models.asset_registry import Installation
 from app.models.common import (
     # Installation removed — use Installation
@@ -23,7 +24,6 @@ from app.models.common import (
     User,
     WorkflowInstance,
 )
-from app.mcp.registry import MCPRegistry, MCPToolDef
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,6 @@ async def _search_assets(
     """Search assets by name, code, or type within the current entity."""
     query = select(Installation).where(
         Installation.entity_id == entity_id,
-        
         Installation.archived == False,
     )
 
@@ -223,11 +222,7 @@ async def _search_users(
 
     if search:
         like = f"%{search}%"
-        query = query.where(
-            User.first_name.ilike(like)
-            | User.last_name.ilike(like)
-            | User.email.ilike(like)
-        )
+        query = query.where(User.first_name.ilike(like) | User.last_name.ilike(like) | User.email.ilike(like))
 
     query = query.order_by(User.last_name, User.first_name).limit(limit)
     result = await db.execute(query)
@@ -318,9 +313,7 @@ async def _get_workflow_status(
             WorkflowInstance.entity_id_ref == entity_id_ref,
         )
     else:
-        return {
-            "error": "Provide 'id' or both 'entity_type' and 'entity_id_ref'."
-        }
+        return {"error": "Provide 'id' or both 'entity_type' and 'entity_id_ref'."}
 
     result = await db.execute(query)
     instance = result.scalar_one_or_none()
@@ -342,171 +335,186 @@ async def _get_workflow_status(
 
 # ── Registration ─────────────────────────────────────────────────────────────
 
+
 def register_core_tools(registry: MCPRegistry) -> None:
     """Register all core MCP tools with the registry."""
 
-    registry.register_tool(MCPToolDef(
-        name="search_assets",
-        description="Search assets by name, code, or type within the current entity.",
-        parameters={
-            "type": "object",
-            "properties": {
-                "search": {
-                    "type": "string",
-                    "description": "Search term (matches name or code, case-insensitive).",
-                },
-                "type": {
-                    "type": "string",
-                    "description": "Filter by asset type (e.g. 'platform', 'well', 'pipeline').",
-                },
-                "limit": {
-                    "type": "integer",
-                    "description": "Maximum results to return (default 25, max 100).",
-                    "default": 25,
+    registry.register_tool(
+        MCPToolDef(
+            name="search_assets",
+            description="Search assets by name, code, or type within the current entity.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "search": {
+                        "type": "string",
+                        "description": "Search term (matches name or code, case-insensitive).",
+                    },
+                    "type": {
+                        "type": "string",
+                        "description": "Filter by asset type (e.g. 'platform', 'well', 'pipeline').",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum results to return (default 25, max 100).",
+                        "default": 25,
+                    },
                 },
             },
-        },
-        handler=_search_assets,
-        module="core",
-        permissions=["asset.read"],
-    ))
+            handler=_search_assets,
+            module="core",
+            permissions=["asset.read"],
+        )
+    )
 
-    registry.register_tool(MCPToolDef(
-        name="get_asset",
-        description="Get detailed information about a specific asset by ID or code.",
-        parameters={
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string",
-                    "description": "Asset UUID.",
-                },
-                "code": {
-                    "type": "string",
-                    "description": "Asset code (e.g. 'AST-2026-0001').",
+    registry.register_tool(
+        MCPToolDef(
+            name="get_asset",
+            description="Get detailed information about a specific asset by ID or code.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Asset UUID.",
+                    },
+                    "code": {
+                        "type": "string",
+                        "description": "Asset code (e.g. 'AST-2026-0001').",
+                    },
                 },
             },
-        },
-        handler=_get_asset,
-        module="core",
-        permissions=["asset.read"],
-    ))
+            handler=_get_asset,
+            module="core",
+            permissions=["asset.read"],
+        )
+    )
 
-    registry.register_tool(MCPToolDef(
-        name="search_tiers",
-        description="Search companies/organizations (tiers) by name or code.",
-        parameters={
-            "type": "object",
-            "properties": {
-                "search": {
-                    "type": "string",
-                    "description": "Search term (matches name or code, case-insensitive).",
-                },
-                "type": {
-                    "type": "string",
-                    "description": "Filter by tier type.",
-                },
-                "limit": {
-                    "type": "integer",
-                    "description": "Maximum results to return (default 25, max 100).",
-                    "default": 25,
+    registry.register_tool(
+        MCPToolDef(
+            name="search_tiers",
+            description="Search companies/organizations (tiers) by name or code.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "search": {
+                        "type": "string",
+                        "description": "Search term (matches name or code, case-insensitive).",
+                    },
+                    "type": {
+                        "type": "string",
+                        "description": "Filter by tier type.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum results to return (default 25, max 100).",
+                        "default": 25,
+                    },
                 },
             },
-        },
-        handler=_search_tiers,
-        module="core",
-        permissions=["tier.read"],
-    ))
+            handler=_search_tiers,
+            module="core",
+            permissions=["tier.read"],
+        )
+    )
 
-    registry.register_tool(MCPToolDef(
-        name="get_tier",
-        description="Get detailed information about a specific company/tier by ID or code.",
-        parameters={
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string",
-                    "description": "Tier UUID.",
-                },
-                "code": {
-                    "type": "string",
-                    "description": "Tier code.",
+    registry.register_tool(
+        MCPToolDef(
+            name="get_tier",
+            description="Get detailed information about a specific company/tier by ID or code.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Tier UUID.",
+                    },
+                    "code": {
+                        "type": "string",
+                        "description": "Tier code.",
+                    },
                 },
             },
-        },
-        handler=_get_tier,
-        module="core",
-        permissions=["tier.read"],
-    ))
+            handler=_get_tier,
+            module="core",
+            permissions=["tier.read"],
+        )
+    )
 
-    registry.register_tool(MCPToolDef(
-        name="search_users",
-        description="Search users by name or email.",
-        parameters={
-            "type": "object",
-            "properties": {
-                "search": {
-                    "type": "string",
-                    "description": "Search term (matches first name, last name, or email).",
-                },
-                "limit": {
-                    "type": "integer",
-                    "description": "Maximum results to return (default 25, max 100).",
-                    "default": 25,
+    registry.register_tool(
+        MCPToolDef(
+            name="search_users",
+            description="Search users by name or email.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "search": {
+                        "type": "string",
+                        "description": "Search term (matches first name, last name, or email).",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum results to return (default 25, max 100).",
+                        "default": 25,
+                    },
                 },
             },
-        },
-        handler=_search_users,
-        module="core",
-        permissions=["user.read"],
-    ))
+            handler=_search_users,
+            module="core",
+            permissions=["user.read"],
+        )
+    )
 
-    registry.register_tool(MCPToolDef(
-        name="get_notifications",
-        description="Get recent notifications for the current user.",
-        parameters={
-            "type": "object",
-            "properties": {
-                "unread_only": {
-                    "type": "boolean",
-                    "description": "Only return unread notifications.",
-                    "default": False,
-                },
-                "limit": {
-                    "type": "integer",
-                    "description": "Maximum notifications to return (default 20, max 100).",
-                    "default": 20,
+    registry.register_tool(
+        MCPToolDef(
+            name="get_notifications",
+            description="Get recent notifications for the current user.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "unread_only": {
+                        "type": "boolean",
+                        "description": "Only return unread notifications.",
+                        "default": False,
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum notifications to return (default 20, max 100).",
+                        "default": 20,
+                    },
                 },
             },
-        },
-        handler=_get_notifications,
-        module="core",
-        permissions=[],  # Any authenticated user can see their own notifications
-    ))
+            handler=_get_notifications,
+            module="core",
+            permissions=[],  # Any authenticated user can see their own notifications
+        )
+    )
 
-    registry.register_tool(MCPToolDef(
-        name="get_workflow_status",
-        description="Get the current status of a workflow instance by ID or entity reference.",
-        parameters={
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string",
-                    "description": "Workflow instance UUID.",
-                },
-                "entity_type": {
-                    "type": "string",
-                    "description": "Entity type (e.g. 'purchase_request').",
-                },
-                "entity_id_ref": {
-                    "type": "string",
-                    "description": "Entity ID reference (UUID string of the owning object).",
+    registry.register_tool(
+        MCPToolDef(
+            name="get_workflow_status",
+            description="Get the current status of a workflow instance by ID or entity reference.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Workflow instance UUID.",
+                    },
+                    "entity_type": {
+                        "type": "string",
+                        "description": "Entity type (e.g. 'purchase_request').",
+                    },
+                    "entity_id_ref": {
+                        "type": "string",
+                        "description": "Entity ID reference (UUID string of the owning object).",
+                    },
                 },
             },
-        },
-        handler=_get_workflow_status,
-        module="core",
-        permissions=["workflow.instance.read"],
-    ))
+            handler=_get_workflow_status,
+            module="core",
+            permissions=["workflow.instance.read"],
+        )
+    )
 
     logger.info("MCP: %d core tools registered", registry.tool_count)

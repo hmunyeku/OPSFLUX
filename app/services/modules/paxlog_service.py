@@ -14,21 +14,18 @@ Implements:
 import logging
 import re
 import unicodedata
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select, text, update
+from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.events import OpsFluxEvent, event_bus
-from app.services.modules import compliance_service
-from app.services.core.fsm_service import fsm_service, FSMError
-from app.models.common import Address, Setting, TierContact, User
+from app.models.common import Address, TierContact, User
 from app.models.paxlog import (
     Ads,
     AdsEvent,
     AdsPax,
-    ComplianceMatrixEntry,
     CredentialType,
     MissionAllowanceRequest,
     MissionNotice,
@@ -39,6 +36,8 @@ from app.models.paxlog import (
     PaxCredential,
     PaxIncident,
 )
+from app.services.core.fsm_service import FSMError, fsm_service
+from app.services.modules import compliance_service
 
 logger = logging.getLogger(__name__)
 AVM_WORKFLOW_SLUG = "avm-workflow"
@@ -82,6 +81,7 @@ async def _try_avm_workflow_transition(
         if "not found" not in str(exc).lower():
             raise
 
+
 # ── Priority scoring weights ────────────────────────────────────────────────
 
 PRIORITY_WEIGHTS = {
@@ -117,10 +117,7 @@ DEFAULT_COMPLIANCE_SEQUENCE = compliance_service.DEFAULT_COMPLIANCE_SEQUENCE
 
 
 def build_external_compliance_blockers(compliance_summary: dict | None) -> list[dict[str, object | None]]:
-    compliance_results = [
-        item for item in ((compliance_summary or {}).get("results") or [])
-        if isinstance(item, dict)
-    ]
+    compliance_results = [item for item in ((compliance_summary or {}).get("results") or []) if isinstance(item, dict)]
     return [
         {
             "credential_type_code": item.get("credential_type_code"),
@@ -142,31 +139,35 @@ def build_external_required_actions(
 ) -> list[dict[str, object | None]]:
     required_actions: list[dict[str, object | None]] = []
     for field_name in missing_identity_fields:
-        required_actions.append({
-            "code": f"identity_missing:{field_name}",
-            "kind": "identity",
-            "field": field_name,
-            "credential_type_code": None,
-            "status": "missing",
-            "label": field_name,
-            "message": f"Compléter le champ {field_name}",
-        })
+        required_actions.append(
+            {
+                "code": f"identity_missing:{field_name}",
+                "kind": "identity",
+                "field": field_name,
+                "credential_type_code": None,
+                "status": "missing",
+                "label": field_name,
+                "message": f"Compléter le champ {field_name}",
+            }
+        )
     for blocker in compliance_blockers:
         blocker_status = str(blocker.get("status") or "")
         action_kind = "credential"
         if blocker_status == "pending_validation":
             action_kind = "followup"
-        required_actions.append({
-            "code": f"compliance:{blocker.get('credential_type_code') or blocker.get('credential_type_name') or 'unknown'}:{blocker_status}",
-            "kind": action_kind,
-            "field": blocker.get("credential_type_code"),
-            "credential_type_code": blocker.get("credential_type_code"),
-            "status": blocker_status,
-            "label": blocker.get("credential_type_name") or blocker.get("credential_type_code"),
-            "message": blocker.get("message"),
-            "layer_label": blocker.get("layer_label"),
-            "expiry_date": blocker.get("expiry_date"),
-        })
+        required_actions.append(
+            {
+                "code": f"compliance:{blocker.get('credential_type_code') or blocker.get('credential_type_name') or 'unknown'}:{blocker_status}",
+                "kind": action_kind,
+                "field": blocker.get("credential_type_code"),
+                "credential_type_code": blocker.get("credential_type_code"),
+                "status": blocker_status,
+                "label": blocker.get("credential_type_name") or blocker.get("credential_type_code"),
+                "message": blocker.get("message"),
+                "layer_label": blocker.get("layer_label"),
+                "expiry_date": blocker.get("expiry_date"),
+            }
+        )
     return required_actions
 
 
@@ -211,11 +212,7 @@ def phonetic_pax_name_key(name: str) -> str:
     if not normalized:
         return ""
     normalized = (
-        normalized.replace("ph", "f")
-        .replace("ck", "k")
-        .replace("qu", "k")
-        .replace("ou", "u")
-        .replace("x", "s")
+        normalized.replace("ph", "f").replace("ck", "k").replace("qu", "k").replace("ou", "u").replace("x", "s")
     )
     first = normalized[0]
     tail = re.sub(r"[aeiouyhw]", "", normalized[1:])
@@ -235,10 +232,9 @@ def compare_pax_names(
     candidate_last_norm = normalize_pax_name(candidate_last_name)
     if first_norm == candidate_first_norm and last_norm == candidate_last_norm:
         return "name_exact"
-    if (
-        phonetic_pax_name_key(first_name) == phonetic_pax_name_key(candidate_first_name)
-        and phonetic_pax_name_key(last_name) == phonetic_pax_name_key(candidate_last_name)
-    ):
+    if phonetic_pax_name_key(first_name) == phonetic_pax_name_key(candidate_first_name) and phonetic_pax_name_key(
+        last_name
+    ) == phonetic_pax_name_key(candidate_last_name):
         return "name_phonetic"
     return None
 
@@ -275,7 +271,11 @@ def score_external_contact_match(
         score += 25
         reasons.append("birth_date")
 
-    if badge_number and candidate.badge_number and badge_number.strip().lower() == candidate.badge_number.strip().lower():
+    if (
+        badge_number
+        and candidate.badge_number
+        and badge_number.strip().lower() == candidate.badge_number.strip().lower()
+    ):
         score += 35
         reasons.append("badge_number")
 
@@ -314,15 +314,19 @@ async def find_external_contact_matches(
     if not allowed_company_ids:
         return []
     candidates = (
-        await db.execute(
-            select(TierContact)
-            .where(
-                TierContact.tier_id.in_(allowed_company_ids),
-                TierContact.active == True,  # noqa: E712
+        (
+            await db.execute(
+                select(TierContact)
+                .where(
+                    TierContact.tier_id.in_(allowed_company_ids),
+                    TierContact.active == True,  # noqa: E712
+                )
+                .order_by(TierContact.last_name.asc(), TierContact.first_name.asc())
             )
-            .order_by(TierContact.last_name.asc(), TierContact.first_name.asc())
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     linked_contact_ids = set(
         (
             await db.execute(
@@ -331,7 +335,9 @@ async def find_external_contact_matches(
                     AdsPax.contact_id.is_not(None),
                 )
             )
-        ).scalars().all()
+        )
+        .scalars()
+        .all()
     )
 
     matches: list[dict[str, object | None]] = []
@@ -348,23 +354,27 @@ async def find_external_contact_matches(
         )
         if not is_external_contact_match_strong(score=score, reasons=reasons):
             continue
-        matches.append({
-            "contact_id": contact.id,
-            "first_name": contact.first_name,
-            "last_name": contact.last_name,
-            "birth_date": contact.birth_date,
-            "nationality": contact.nationality,
-            "badge_number": contact.badge_number,
-            "email": contact.email,
-            "phone": contact.phone,
-            "position": contact.position,
-            "job_position_id": contact.job_position_id,
-            "job_position_name": contact.job_position.name if getattr(contact, "job_position", None) else None,
-            "match_score": score,
-            "match_reasons": reasons,
-            "already_linked_to_ads": contact.id in linked_contact_ids,
-        })
-    matches.sort(key=lambda item: (-int(item["match_score"]), str(item["last_name"]).lower(), str(item["first_name"]).lower()))
+        matches.append(
+            {
+                "contact_id": contact.id,
+                "first_name": contact.first_name,
+                "last_name": contact.last_name,
+                "birth_date": contact.birth_date,
+                "nationality": contact.nationality,
+                "badge_number": contact.badge_number,
+                "email": contact.email,
+                "phone": contact.phone,
+                "position": contact.position,
+                "job_position_id": contact.job_position_id,
+                "job_position_name": contact.job_position.name if getattr(contact, "job_position", None) else None,
+                "match_score": score,
+                "match_reasons": reasons,
+                "already_linked_to_ads": contact.id in linked_contact_ids,
+            }
+        )
+    matches.sort(
+        key=lambda item: (-int(item["match_score"]), str(item["last_name"]).lower(), str(item["first_name"]).lower())
+    )
     return matches[:5]
 
 
@@ -415,43 +425,57 @@ async def build_external_dossier_pax_data(
             missing_identity_fields=missing_identity_fields,
             compliance_blockers=compliance_blockers,
         )
-        allowed_pax.append({
-            "entry_id": str(entry.id),
-            "contact_id": str(contact.id),
-            "user_id": str(user.id) if user else None,
-            "pax_source": "user" if getattr(entry, "user_id", None) else "contact",
-            "first_name": contact.first_name or (user.first_name if user else None),
-            "last_name": contact.last_name or (user.last_name if user else None),
-            "birth_date": (contact.birth_date or (user.birth_date if user else None)).isoformat() if (contact.birth_date or (user.birth_date if user else None)) else None,
-            "nationality": contact.nationality or (user.nationality if user else None),
-            "badge_number": contact.badge_number or (user.badge_number if user else None),
-            "photo_url": contact.photo_url,
-            "email": contact.email or (user.email if user else None),
-            "phone": contact.phone,
-            "contractual_airport": getattr(contact, "contractual_airport", None) or (getattr(user, "contractual_airport", None) if user else None),
-            "nearest_airport": getattr(contact, "nearest_airport", None) or (getattr(user, "nearest_airport", None) if user else None),
-            "nearest_station": getattr(contact, "nearest_station", None) or (getattr(user, "nearest_station", None) if user else None),
-            "job_position_id": str(getattr(contact, "job_position_id", None)) if getattr(contact, "job_position_id", None) else (str(getattr(user, "job_position_id", None)) if user and getattr(user, "job_position_id", None) else None),
-            "job_position_name": (contact.job_position.name if getattr(contact, "job_position", None) else None) or (user.job_position_name if user else None),
-            "position": contact.position or (user.job_position_name if user else None),
-            "status": entry.status,
-            "company_id": str(contact.tier_id),
-            "compliance_ok": bool(compliance_summary.get("compliant")),
-            "compliance_blocker_count": len(compliance_blockers),
-            "compliance_blockers": compliance_blockers[:5],
-            "missing_identity_fields": missing_identity_fields,
-            "required_actions": required_actions[:8],
-            "credentials": [],
-            "pickup_address_line1": None,
-            "pickup_address_line2": None,
-            "pickup_city": None,
-            "pickup_state_province": None,
-            "pickup_postal_code": None,
-            "pickup_country": None,
-            "linked_user_id": str(user.id) if user else None,
-            "linked_user_email": user.email if user else getattr(contact, "linked_user_email", None),
-            "linked_user_active": user.active if user else getattr(contact, "linked_user_active", None),
-        })
+        allowed_pax.append(
+            {
+                "entry_id": str(entry.id),
+                "contact_id": str(contact.id),
+                "user_id": str(user.id) if user else None,
+                "pax_source": "user" if getattr(entry, "user_id", None) else "contact",
+                "first_name": contact.first_name or (user.first_name if user else None),
+                "last_name": contact.last_name or (user.last_name if user else None),
+                "birth_date": (contact.birth_date or (user.birth_date if user else None)).isoformat()
+                if (contact.birth_date or (user.birth_date if user else None))
+                else None,
+                "nationality": contact.nationality or (user.nationality if user else None),
+                "badge_number": contact.badge_number or (user.badge_number if user else None),
+                "photo_url": contact.photo_url,
+                "email": contact.email or (user.email if user else None),
+                "phone": contact.phone,
+                "contractual_airport": getattr(contact, "contractual_airport", None)
+                or (getattr(user, "contractual_airport", None) if user else None),
+                "nearest_airport": getattr(contact, "nearest_airport", None)
+                or (getattr(user, "nearest_airport", None) if user else None),
+                "nearest_station": getattr(contact, "nearest_station", None)
+                or (getattr(user, "nearest_station", None) if user else None),
+                "job_position_id": str(getattr(contact, "job_position_id", None))
+                if getattr(contact, "job_position_id", None)
+                else (
+                    str(getattr(user, "job_position_id", None))
+                    if user and getattr(user, "job_position_id", None)
+                    else None
+                ),
+                "job_position_name": (contact.job_position.name if getattr(contact, "job_position", None) else None)
+                or (user.job_position_name if user else None),
+                "position": contact.position or (user.job_position_name if user else None),
+                "status": entry.status,
+                "company_id": str(contact.tier_id),
+                "compliance_ok": bool(compliance_summary.get("compliant")),
+                "compliance_blocker_count": len(compliance_blockers),
+                "compliance_blockers": compliance_blockers[:5],
+                "missing_identity_fields": missing_identity_fields,
+                "required_actions": required_actions[:8],
+                "credentials": [],
+                "pickup_address_line1": None,
+                "pickup_address_line2": None,
+                "pickup_city": None,
+                "pickup_state_province": None,
+                "pickup_postal_code": None,
+                "pickup_country": None,
+                "linked_user_id": str(user.id) if user else None,
+                "linked_user_email": user.email if user else getattr(contact, "linked_user_email", None),
+                "linked_user_active": user.active if user else getattr(contact, "linked_user_active", None),
+            }
+        )
 
     visible_contact_ids = [UUID(str(item["contact_id"])) for item in allowed_pax]
     visible_user_ids = [UUID(str(item["user_id"])) for item in allowed_pax if item.get("user_id")]
@@ -483,18 +507,25 @@ async def build_external_dossier_pax_data(
     pickup_addresses_by_owner: dict[tuple[str, UUID], Address] = {}
     if visible_contact_ids or visible_user_ids:
         address_rows = (
-            await db.execute(
-                select(Address)
-                .where(
-                    Address.label == "pickup",
-                    or_(
-                        and_(Address.owner_type == "tier_contact", Address.owner_id.in_(visible_contact_ids or [UUID(int=0)])),
-                        and_(Address.owner_type == "user", Address.owner_id.in_(visible_user_ids or [UUID(int=0)])),
-                    ),
+            (
+                await db.execute(
+                    select(Address)
+                    .where(
+                        Address.label == "pickup",
+                        or_(
+                            and_(
+                                Address.owner_type == "tier_contact",
+                                Address.owner_id.in_(visible_contact_ids or [UUID(int=0)]),
+                            ),
+                            and_(Address.owner_type == "user", Address.owner_id.in_(visible_user_ids or [UUID(int=0)])),
+                        ),
+                    )
+                    .order_by(Address.is_default.desc(), Address.created_at.desc())
                 )
-                .order_by(Address.is_default.desc(), Address.created_at.desc())
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         for address in address_rows:
             pickup_addresses_by_owner.setdefault((address.owner_type, address.owner_id), address)
 
@@ -502,9 +533,7 @@ async def build_external_dossier_pax_data(
         item["credentials"] = credentials_by_contact.get(UUID(str(item["contact_id"])), [])[:8]
         contact_address = pickup_addresses_by_owner.get(("tier_contact", UUID(str(item["contact_id"]))))
         user_address = (
-            pickup_addresses_by_owner.get(("user", UUID(str(item["user_id"]))))
-            if item.get("user_id")
-            else None
+            pickup_addresses_by_owner.get(("user", UUID(str(item["user_id"])))) if item.get("user_id") else None
         )
         item.update(_serialize_pickup_address(contact_address or user_address))
 
@@ -542,7 +571,7 @@ def verify_external_otp_code(
 ) -> tuple[bool, str | None]:
     if not expected_hash or not otp_expires_at:
         return False, "missing_otp"
-    normalized_expiry = otp_expires_at if otp_expires_at.tzinfo else otp_expires_at.replace(tzinfo=timezone.utc)
+    normalized_expiry = otp_expires_at if otp_expires_at.tzinfo else otp_expires_at.replace(tzinfo=UTC)
     if normalized_expiry < now:
         return False, "expired"
     if otp_attempt_count >= max_attempts:
@@ -559,10 +588,7 @@ def ads_requires_travelwiz_transport(
     """Return whether AdS approval should trigger TravelWiz manifest lookup."""
     outbound_mode = (outbound_transport_mode or "").strip().lower()
     return_mode = (return_transport_mode or "").strip().lower()
-    return (
-        outbound_mode not in NON_TRAVELWIZ_TRANSPORT_MODES
-        or return_mode not in NON_TRAVELWIZ_TRANSPORT_MODES
-    )
+    return outbound_mode not in NON_TRAVELWIZ_TRANSPORT_MODES or return_mode not in NON_TRAVELWIZ_TRANSPORT_MODES
 
 
 async def get_compliance_verification_sequence(
@@ -608,16 +634,18 @@ async def complete_ads_operationally(
         metadata.update(extra_metadata)
 
     ads.status = "completed"
-    db.add(AdsEvent(
-        entity_id=ads.entity_id,
-        ads_id=ads.id,
-        event_type="completed",
-        old_status=old_status,
-        new_status="completed",
-        actor_id=actor_id,
-        reason=reason,
-        metadata_json=metadata,
-    ))
+    db.add(
+        AdsEvent(
+            entity_id=ads.entity_id,
+            ads_id=ads.id,
+            event_type="completed",
+            old_status=old_status,
+            new_status="completed",
+            actor_id=actor_id,
+            reason=reason,
+            metadata_json=metadata,
+        )
+    )
 
     await db.commit()
     await db.refresh(ads)
@@ -632,18 +660,20 @@ async def complete_ads_operationally(
         extra_payload=metadata,
     )
 
-    await event_bus.publish(OpsFluxEvent(
-        event_type="ads.completed",
-        payload={
-            "ads_id": str(ads.id),
-            "entity_id": str(ads.entity_id),
-            "reference": ads.reference,
-            "requester_id": str(ads.requester_id),
-            "source": source,
-            "reason": reason,
-            **(extra_metadata or {}),
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="ads.completed",
+            payload={
+                "ads_id": str(ads.id),
+                "entity_id": str(ads.entity_id),
+                "reference": ads.reference,
+                "requester_id": str(ads.requester_id),
+                "source": source,
+                "reason": reason,
+                **(extra_metadata or {}),
+            },
+        )
+    )
 
     return ads
 
@@ -718,9 +748,7 @@ async def submit_ads(
         }
     """
     # Load AdS
-    result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = result.scalar_one_or_none()
     if not ads:
         raise ValueError(f"AdS {ads_id} not found")
@@ -728,9 +756,7 @@ async def submit_ads(
         raise ValueError(f"Cannot submit AdS with status '{ads.status}'")
 
     # Load PAX entries
-    pax_result = await db.execute(
-        select(AdsPax).where(AdsPax.ads_id == ads_id)
-    )
+    pax_result = await db.execute(select(AdsPax).where(AdsPax.ads_id == ads_id))
     pax_entries = pax_result.scalars().all()
     if not pax_entries:
         raise ValueError("AdS must contain at least one PAX")
@@ -751,7 +777,8 @@ async def submit_ads(
             if not planner_capacity_ok:
                 logger.warning(
                     "AdS %s: Planner capacity exceeded for activity %s",
-                    ads.reference, ads.planner_activity_id,
+                    ads.reference,
+                    ads.planner_activity_id,
                 )
         except (ImportError, AttributeError):
             logger.debug("Planner service not available for capacity check")
@@ -785,12 +812,14 @@ async def submit_ads(
         else:
             pax_entry.status = "compliant"
 
-        pax_results.append({
-            "user_id": str(pax_entry.user_id) if pax_entry.user_id else None,
-            "contact_id": str(pax_entry.contact_id) if pax_entry.contact_id else None,
-            "compliant": compliance["compliant"],
-            "results": compliance["results"],
-        })
+        pax_results.append(
+            {
+                "user_id": str(pax_entry.user_id) if pax_entry.user_id else None,
+                "contact_id": str(pax_entry.contact_id) if pax_entry.contact_id else None,
+                "compliant": compliance["compliant"],
+                "results": compliance["results"],
+            }
+        )
 
     # ── 3. Update AdS status ─────────────────────────────────────────────
     target_status = "pending_compliance" if has_compliance_issues else "submitted"
@@ -801,22 +830,24 @@ async def submit_ads(
     await db.refresh(ads)
 
     # ── 4. Emit event ────────────────────────────────────────────────────
-    await event_bus.publish(OpsFluxEvent(
-        event_type="paxlog.ads.submitted",
-        payload={
-            "ads_id": str(ads.id),
-            "entity_id": str(entity_id),
-            "reference": ads.reference,
-            "requester_id": str(ads.requester_id),
-            "submitter_id": str(user_id),
-            "site_asset_id": str(ads.site_entry_asset_id),
-            "start_date": str(ads.start_date),
-            "end_date": str(ads.end_date),
-            "pax_count": len(pax_entries),
-            "compliance_issues": has_compliance_issues,
-            "planner_capacity_ok": planner_capacity_ok,
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="paxlog.ads.submitted",
+            payload={
+                "ads_id": str(ads.id),
+                "entity_id": str(entity_id),
+                "reference": ads.reference,
+                "requester_id": str(ads.requester_id),
+                "submitter_id": str(user_id),
+                "site_asset_id": str(ads.site_entry_asset_id),
+                "start_date": str(ads.start_date),
+                "end_date": str(ads.end_date),
+                "pax_count": len(pax_entries),
+                "compliance_issues": has_compliance_issues,
+                "planner_capacity_ok": planner_capacity_ok,
+            },
+        )
+    )
 
     logger.info(
         "AdS %s submitted (compliance: %s, planner: %s)",
@@ -864,9 +895,7 @@ async def approve_ads(
         }
     """
     # Load AdS
-    result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = result.scalar_one_or_none()
     if not ads:
         raise ValueError(f"AdS {ads_id} not found")
@@ -874,17 +903,13 @@ async def approve_ads(
         raise ValueError(f"Cannot approve AdS with status '{ads.status}'")
 
     # Load PAX entries
-    pax_result = await db.execute(
-        select(AdsPax).where(AdsPax.ads_id == ads_id)
-    )
+    pax_result = await db.execute(select(AdsPax).where(AdsPax.ads_id == ads_id))
     pax_entries = pax_result.scalars().all()
 
     # Verify all PAX are compliant (or re-run compliance check)
     blocked_pax = [p for p in pax_entries if p.status == "blocked"]
     if blocked_pax:
-        raise ValueError(
-            f"Cannot approve: {len(blocked_pax)} PAX have compliance issues"
-        )
+        raise ValueError(f"Cannot approve: {len(blocked_pax)} PAX have compliance issues")
 
     # Mark all as approved
     approved_count = 0
@@ -898,10 +923,7 @@ async def approve_ads(
     if ads.planner_activity_id:
         try:
             await db.execute(
-                text(
-                    "UPDATE planner_activities SET pax_actual = COALESCE(pax_actual, 0) + :count "
-                    "WHERE id = :aid"
-                ),
+                text("UPDATE planner_activities SET pax_actual = COALESCE(pax_actual, 0) + :count WHERE id = :aid"),
                 {"count": approved_count, "aid": str(ads.planner_activity_id)},
             )
             planner_updated = True
@@ -916,34 +938,36 @@ async def approve_ads(
     await db.refresh(ads)
 
     # ── Emit event (consumed by TravelWiz for auto-manifest) ────────────
-    await event_bus.publish(OpsFluxEvent(
-        event_type="paxlog.ads.approved",
-        payload={
-            "ads_id": str(ads.id),
-            "entity_id": str(entity_id),
-            "reference": ads.reference,
-            "approver_id": str(user_id),
-            "site_asset_id": str(ads.site_entry_asset_id),
-            "start_date": str(ads.start_date),
-            "end_date": str(ads.end_date),
-            "outbound_transport_mode": ads.outbound_transport_mode,
-            "return_transport_mode": ads.return_transport_mode,
-            "outbound_transport_requested": ads_requires_travelwiz_transport(
-                ads.outbound_transport_mode
-            ),
-            "return_transport_requested": ads_requires_travelwiz_transport(
-                None,
-                ads.return_transport_mode,
-            ),
-            "transport_requested": ads_requires_travelwiz_transport(
-                ads.outbound_transport_mode,
-                ads.return_transport_mode,
-            ),
-            "outbound_departure_base_id": str(ads.outbound_departure_base_id) if ads.outbound_departure_base_id else None,
-            "approved_pax_count": approved_count,
-            "planner_activity_id": str(ads.planner_activity_id) if ads.planner_activity_id else None,
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="paxlog.ads.approved",
+            payload={
+                "ads_id": str(ads.id),
+                "entity_id": str(entity_id),
+                "reference": ads.reference,
+                "approver_id": str(user_id),
+                "site_asset_id": str(ads.site_entry_asset_id),
+                "start_date": str(ads.start_date),
+                "end_date": str(ads.end_date),
+                "outbound_transport_mode": ads.outbound_transport_mode,
+                "return_transport_mode": ads.return_transport_mode,
+                "outbound_transport_requested": ads_requires_travelwiz_transport(ads.outbound_transport_mode),
+                "return_transport_requested": ads_requires_travelwiz_transport(
+                    None,
+                    ads.return_transport_mode,
+                ),
+                "transport_requested": ads_requires_travelwiz_transport(
+                    ads.outbound_transport_mode,
+                    ads.return_transport_mode,
+                ),
+                "outbound_departure_base_id": str(ads.outbound_departure_base_id)
+                if ads.outbound_departure_base_id
+                else None,
+                "approved_pax_count": approved_count,
+                "planner_activity_id": str(ads.planner_activity_id) if ads.planner_activity_id else None,
+            },
+        )
+    )
 
     logger.info("AdS %s approved (%d PAX) by %s", ads.reference, approved_count, user_id)
 
@@ -1073,9 +1097,7 @@ async def process_rotation_cycles(db: AsyncSession, entity_id: UUID) -> int:
             next_off_start = end_date + timedelta(days=1)
             next_on = next_off_start + timedelta(days=days_off)
             await db.execute(
-                text(
-                    "UPDATE pax_rotation_cycles SET next_on_date = :next_on WHERE id = :cid"
-                ),
+                text("UPDATE pax_rotation_cycles SET next_on_date = :next_on WHERE id = :cid"),
                 {"next_on": next_on, "cid": str(cycle_id)},
             )
 
@@ -1083,7 +1105,11 @@ async def process_rotation_cycles(db: AsyncSession, entity_id: UUID) -> int:
             pax_label = f"user={cycle_user_id}" if cycle_user_id else f"contact={cycle_contact_id}"
             logger.info(
                 "Rotation cycle %s: created AdS %s for %s (%s -> %s)",
-                cycle_id, reference, pax_label, next_on_date, end_date,
+                cycle_id,
+                reference,
+                pax_label,
+                next_on_date,
+                end_date,
             )
 
         except Exception as e:
@@ -1114,9 +1140,7 @@ async def compute_pax_priority(db: AsyncSession, ads_pax_id: UUID) -> int:
     Returns the computed integer priority score.
     """
     # Load AdsPax with related Ads
-    result = await db.execute(
-        select(AdsPax).where(AdsPax.id == ads_pax_id)
-    )
+    result = await db.execute(select(AdsPax).where(AdsPax.id == ads_pax_id))
     ads_pax = result.scalar_one_or_none()
     if not ads_pax:
         return 0
@@ -1124,9 +1148,7 @@ async def compute_pax_priority(db: AsyncSession, ads_pax_id: UUID) -> int:
     score = 0
 
     # ── Activity priority (via linked planner activity) ──────────────────
-    ads_result = await db.execute(
-        select(Ads.planner_activity_id, Ads.entity_id).where(Ads.id == ads_pax.ads_id)
-    )
+    ads_result = await db.execute(select(Ads.planner_activity_id, Ads.entity_id).where(Ads.id == ads_pax.ads_id))
     ads_row = ads_result.first()
 
     if ads_row and ads_row[0]:
@@ -1282,22 +1304,24 @@ async def create_signalement(
     await db.refresh(incident)
 
     # ── Emit event ───────────────────────────────────────────────────────
-    await event_bus.publish(OpsFluxEvent(
-        event_type="paxlog.signalement.created",
-        payload={
-            "incident_id": str(incident.id),
-            "entity_id": str(entity_id),
-            "user_id": str(inc_user_id) if inc_user_id else None,
-            "contact_id": str(inc_contact_id) if inc_contact_id else None,
-            "company_id": str(inc_company_id) if inc_company_id else None,
-            "pax_group_id": str(inc_pax_group_id) if inc_pax_group_id else None,
-            "severity": severity,
-            "asset_id": str(inc_asset_id) if inc_asset_id else None,
-            "recorded_by": str(recorded_by),
-            "ads_rejected": impacted_ads["rejected"],
-            "ads_flagged_for_review": impacted_ads["requires_review"],
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="paxlog.signalement.created",
+            payload={
+                "incident_id": str(incident.id),
+                "entity_id": str(entity_id),
+                "user_id": str(inc_user_id) if inc_user_id else None,
+                "contact_id": str(inc_contact_id) if inc_contact_id else None,
+                "company_id": str(inc_company_id) if inc_company_id else None,
+                "pax_group_id": str(inc_pax_group_id) if inc_pax_group_id else None,
+                "severity": severity,
+                "asset_id": str(inc_asset_id) if inc_asset_id else None,
+                "recorded_by": str(recorded_by),
+                "ads_rejected": impacted_ads["rejected"],
+                "ads_flagged_for_review": impacted_ads["requires_review"],
+            },
+        )
+    )
 
     return {
         "id": incident.id,
@@ -1343,15 +1367,12 @@ async def _apply_signalement_ads_effects(
     elif incident.contact_id:
         query = query.where(AdsPax.contact_id == incident.contact_id)
     elif incident.company_id:
-        query = (
-            query
-            .join(TierContact, TierContact.id == AdsPax.contact_id)
-            .where(TierContact.tier_id == incident.company_id)
+        query = query.join(TierContact, TierContact.id == AdsPax.contact_id).where(
+            TierContact.tier_id == incident.company_id
         )
     elif incident_pax_group_id:
         query = (
-            query
-            .outerjoin(User, User.id == AdsPax.user_id)
+            query.outerjoin(User, User.id == AdsPax.user_id)
             .outerjoin(TierContact, TierContact.id == AdsPax.contact_id)
             .where(
                 and_(
@@ -1375,7 +1396,7 @@ async def _apply_signalement_ads_effects(
 
     rejected_count = 0
     review_count = 0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     reason = incident.description
     target_scope = {
         "incident_id": str(incident.id),
@@ -1394,30 +1415,34 @@ async def _apply_signalement_ads_effects(
             ads.rejected_at = now
             ads.rejection_reason = reason
             rejected_count += 1
-            db.add(AdsEvent(
-                entity_id=entity_id,
-                ads_id=ads.id,
-                event_type="signalement_rejected",
-                old_status=from_state,
-                new_status="rejected",
-                actor_id=incident.recorded_by,
-                reason=reason,
-                metadata_json=target_scope,
-            ))
+            db.add(
+                AdsEvent(
+                    entity_id=entity_id,
+                    ads_id=ads.id,
+                    event_type="signalement_rejected",
+                    old_status=from_state,
+                    new_status="rejected",
+                    actor_id=incident.recorded_by,
+                    reason=reason,
+                    metadata_json=target_scope,
+                )
+            )
         elif from_state in ADS_ACTIVE_SIGNALLEMENT_REVIEW_STATUSES:
             ads.status = "requires_review"
             ads.rejection_reason = reason
             review_count += 1
-            db.add(AdsEvent(
-                entity_id=entity_id,
-                ads_id=ads.id,
-                event_type="signalement_requires_review",
-                old_status=from_state,
-                new_status="requires_review",
-                actor_id=incident.recorded_by,
-                reason=reason,
-                metadata_json=target_scope,
-            ))
+            db.add(
+                AdsEvent(
+                    entity_id=entity_id,
+                    ads_id=ads.id,
+                    event_type="signalement_requires_review",
+                    old_status=from_state,
+                    new_status="requires_review",
+                    actor_id=incident.recorded_by,
+                    reason=reason,
+                    metadata_json=target_scope,
+                )
+            )
 
     return {"rejected": rejected_count, "requires_review": review_count}
 
@@ -1469,9 +1494,11 @@ async def submit_avm(
 
     # Load programs
     prog_result = await db.execute(
-        select(MissionProgram).where(
+        select(MissionProgram)
+        .where(
             MissionProgram.mission_notice_id == avm_id,
-        ).order_by(MissionProgram.order_index)
+        )
+        .order_by(MissionProgram.order_index)
     )
     programs = prog_result.scalars().all()
     if not programs:
@@ -1485,40 +1512,48 @@ async def submit_avm(
     tasks_to_create: list[MissionPreparationTask] = []
 
     if avm.requires_visa:
-        tasks_to_create.append(MissionPreparationTask(
-            mission_notice_id=avm.id,
-            title="Demande de visa",
-            task_type="visa",
-            status="pending",
-            auto_generated=True,
-        ))
+        tasks_to_create.append(
+            MissionPreparationTask(
+                mission_notice_id=avm.id,
+                title="Demande de visa",
+                task_type="visa",
+                status="pending",
+                auto_generated=True,
+            )
+        )
 
     if avm.requires_badge:
-        tasks_to_create.append(MissionPreparationTask(
-            mission_notice_id=avm.id,
-            title="Demande de badge site",
-            task_type="badge",
-            status="pending",
-            auto_generated=True,
-        ))
+        tasks_to_create.append(
+            MissionPreparationTask(
+                mission_notice_id=avm.id,
+                title="Demande de badge site",
+                task_type="badge",
+                status="pending",
+                auto_generated=True,
+            )
+        )
 
     if avm.requires_epi:
-        tasks_to_create.append(MissionPreparationTask(
-            mission_notice_id=avm.id,
-            title="Commande EPI",
-            task_type="epi_order",
-            status="pending",
-            auto_generated=True,
-        ))
+        tasks_to_create.append(
+            MissionPreparationTask(
+                mission_notice_id=avm.id,
+                title="Commande EPI",
+                task_type="epi_order",
+                status="pending",
+                auto_generated=True,
+            )
+        )
 
     if avm.eligible_displacement_allowance:
-        tasks_to_create.append(MissionPreparationTask(
-            mission_notice_id=avm.id,
-            title="Indemnites de deplacement",
-            task_type="allowance",
-            status="pending",
-            auto_generated=True,
-        ))
+        tasks_to_create.append(
+            MissionPreparationTask(
+                mission_notice_id=avm.id,
+                title="Indemnites de deplacement",
+                task_type="allowance",
+                status="pending",
+                auto_generated=True,
+            )
+        )
 
     global_attachments_config = getattr(avm, "global_attachments_config", None) or []
     per_pax_attachments_config = getattr(avm, "per_pax_attachments_config", None) or []
@@ -1533,28 +1568,32 @@ async def submit_avm(
             title = f"Collecte documentaire mission ({global_count} mission)"
         elif per_pax_count:
             title = f"Collecte documentaire mission ({per_pax_count} PAX)"
-        tasks_to_create.append(MissionPreparationTask(
-            mission_notice_id=avm.id,
-            title=title,
-            task_type="document_collection",
-            status="pending",
-            auto_generated=True,
-            notes=(
-                f"Mission docs: {', '.join(global_attachments_config)}\n"
-                f"PAX docs: {', '.join(per_pax_attachments_config)}"
-            ).strip(),
-        ))
+        tasks_to_create.append(
+            MissionPreparationTask(
+                mission_notice_id=avm.id,
+                title=title,
+                task_type="document_collection",
+                status="pending",
+                auto_generated=True,
+                notes=(
+                    f"Mission docs: {', '.join(global_attachments_config)}\n"
+                    f"PAX docs: {', '.join(per_pax_attachments_config)}"
+                ).strip(),
+            )
+        )
 
     # Create AdS creation tasks per program line with site_asset_id
     for prog in programs:
         if prog.site_asset_id:
-            tasks_to_create.append(MissionPreparationTask(
-                mission_notice_id=avm.id,
-                title=f"Creation AdS — {prog.activity_description[:80]}",
-                task_type="ads_creation",
-                status="pending",
-                auto_generated=True,
-            ))
+            tasks_to_create.append(
+                MissionPreparationTask(
+                    mission_notice_id=avm.id,
+                    title=f"Creation AdS — {prog.activity_description[:80]}",
+                    task_type="ads_creation",
+                    status="pending",
+                    auto_generated=True,
+                )
+            )
 
     for task in tasks_to_create:
         db.add(task)
@@ -1588,23 +1627,27 @@ async def submit_avm(
 
     if avm.requires_visa:
         for user_id, contact_id in unique_pax_entries:
-            db.add(MissionVisaFollowup(
-                mission_notice_id=avm.id,
-                preparation_task_id=visa_task.id if visa_task else None,
-                user_id=user_id,
-                contact_id=contact_id,
-                status="to_initiate",
-            ))
+            db.add(
+                MissionVisaFollowup(
+                    mission_notice_id=avm.id,
+                    preparation_task_id=visa_task.id if visa_task else None,
+                    user_id=user_id,
+                    contact_id=contact_id,
+                    status="to_initiate",
+                )
+            )
 
     if avm.eligible_displacement_allowance:
         for user_id, contact_id in unique_pax_entries:
-            db.add(MissionAllowanceRequest(
-                mission_notice_id=avm.id,
-                preparation_task_id=allowance_task.id if allowance_task else None,
-                user_id=user_id,
-                contact_id=contact_id,
-                status="draft",
-            ))
+            db.add(
+                MissionAllowanceRequest(
+                    mission_notice_id=avm.id,
+                    preparation_task_id=allowance_task.id if allowance_task else None,
+                    user_id=user_id,
+                    contact_id=contact_id,
+                    status="draft",
+                )
+            )
 
     prep_summary = _summarize_preparation_tasks(tasks_to_create)
 
@@ -1630,16 +1673,18 @@ async def submit_avm(
     )
 
     # ── Emit event ───────────────────────────────────────────────
-    await event_bus.publish(OpsFluxEvent(
-        event_type="paxlog.mission_notice.launched",
-        payload={
-            "avm_id": str(avm.id),
-            "entity_id": str(entity_id),
-            "reference": avm.reference,
-            "created_by": str(avm.created_by),
-            "submitted_by": str(user_id),
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="paxlog.mission_notice.launched",
+            payload={
+                "avm_id": str(avm.id),
+                "entity_id": str(entity_id),
+                "reference": avm.reference,
+                "created_by": str(avm.created_by),
+                "submitted_by": str(user_id),
+            },
+        )
+    )
 
     logger.info("AVM %s submitted (%s) by %s", avm.reference, avm.status, user_id)
 
@@ -1690,24 +1735,26 @@ async def approve_avm(
     blocking_tasks = blocking_tasks_result.all()
     if blocking_tasks:
         blocking_titles = ", ".join(task[0] for task in blocking_tasks)
-        raise ValueError(
-            f"Cannot approve AVM while preparation tasks remain open: {blocking_titles}"
-        )
+        raise ValueError(f"Cannot approve AVM while preparation tasks remain open: {blocking_titles}")
 
     # Load programs
     prog_result = await db.execute(
-        select(MissionProgram).where(
+        select(MissionProgram)
+        .where(
             MissionProgram.mission_notice_id == avm_id,
-        ).order_by(MissionProgram.order_index)
+        )
+        .order_by(MissionProgram.order_index)
     )
     programs = prog_result.scalars().all()
 
     prep_tasks_result = await db.execute(
-        select(MissionPreparationTask).where(
+        select(MissionPreparationTask)
+        .where(
             MissionPreparationTask.mission_notice_id == avm_id,
             MissionPreparationTask.task_type == "ads_creation",
             MissionPreparationTask.status == "pending",
-        ).order_by(MissionPreparationTask.created_at)
+        )
+        .order_by(MissionPreparationTask.created_at)
     )
     ads_creation_tasks = prep_tasks_result.scalars().all()
     ads_creation_task_index = 0
@@ -1752,7 +1799,7 @@ async def approve_avm(
                 prep_task = ads_creation_tasks[ads_creation_task_index]
                 prep_task.linked_ads_id = ads.id
                 prep_task.status = "completed"
-                prep_task.completed_at = datetime.now(timezone.utc)
+                prep_task.completed_at = datetime.now(UTC)
                 ads_creation_task_index += 1
             ads_created_count += 1
 
@@ -1776,16 +1823,18 @@ async def approve_avm(
     )
 
     # Emit event
-    await event_bus.publish(OpsFluxEvent(
-        event_type="paxlog.mission_notice.approved",
-        payload={
-            "avm_id": str(avm.id),
-            "entity_id": str(entity_id),
-            "reference": avm.reference,
-            "approved_by": str(user_id),
-            "ads_created": ads_created_count,
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="paxlog.mission_notice.approved",
+            payload={
+                "avm_id": str(avm.id),
+                "entity_id": str(entity_id),
+                "reference": avm.reference,
+                "approved_by": str(user_id),
+                "ads_created": ads_created_count,
+            },
+        )
+    )
 
     logger.info("AVM %s approved by %s — %d AdS created", avm.reference, user_id, ads_created_count)
 
@@ -1828,15 +1877,10 @@ async def complete_avm(
     )
     programs = programs_result.all()
 
-    missing_generated_ads = [
-        program[1]
-        for program in programs
-        if program[2] and not program[3]
-    ]
+    missing_generated_ads = [program[1] for program in programs if program[2] and not program[3]]
     if missing_generated_ads:
         raise ValueError(
-            "Cannot complete AVM while some program lines have no generated AdS: "
-            + ", ".join(missing_generated_ads)
+            "Cannot complete AVM while some program lines have no generated AdS: " + ", ".join(missing_generated_ads)
         )
 
     generated_ads_ids = [program[3] for program in programs if program[3]]
@@ -1855,16 +1899,9 @@ async def complete_avm(
             raise ValueError("Cannot complete AVM because some generated AdS are missing in the current entity")
 
         terminal_statuses = {"completed", "cancelled", "rejected"}
-        non_terminal_ads = [
-            f"{row[1]} ({row[2]})"
-            for row in linked_ads_rows
-            if row[2] not in terminal_statuses
-        ]
+        non_terminal_ads = [f"{row[1]} ({row[2]})" for row in linked_ads_rows if row[2] not in terminal_statuses]
         if non_terminal_ads:
-            raise ValueError(
-                "Cannot complete AVM while generated AdS are still active: "
-                + ", ".join(non_terminal_ads)
-            )
+            raise ValueError("Cannot complete AVM while generated AdS are still active: " + ", ".join(non_terminal_ads))
 
     previous_status = avm.status
     await _try_avm_workflow_transition(
@@ -1885,16 +1922,18 @@ async def complete_avm(
         workflow_slug=AVM_WORKFLOW_SLUG,
     )
 
-    await event_bus.publish(OpsFluxEvent(
-        event_type="paxlog.mission_notice.completed",
-        payload={
-            "avm_id": str(avm.id),
-            "entity_id": str(entity_id),
-            "reference": avm.reference,
-            "completed_by": str(user_id),
-            "generated_ads_count": len(generated_ads_ids),
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="paxlog.mission_notice.completed",
+            payload={
+                "avm_id": str(avm.id),
+                "entity_id": str(entity_id),
+                "reference": avm.reference,
+                "completed_by": str(user_id),
+                "generated_ads_count": len(generated_ads_ids),
+            },
+        )
+    )
 
     logger.info("AVM %s completed by %s", avm.reference, user_id)
 
@@ -1914,9 +1953,7 @@ async def get_avm_preparation_status(
 
     Returns percentage of completed tasks and task breakdown.
     """
-    result = await db.execute(
-        select(MissionPreparationTask).where(MissionPreparationTask.mission_notice_id == avm_id)
-    )
+    result = await db.execute(select(MissionPreparationTask).where(MissionPreparationTask.mission_notice_id == avm_id))
     tasks = list(result.scalars().all())
     return _summarize_preparation_tasks(tasks)
 
@@ -1935,8 +1972,7 @@ def _summarize_preparation_tasks(tasks: list[MissionPreparationTask]) -> dict:
 
     blocking_statuses = {"pending", "in_progress", "blocked"}
     open_preparation_tasks = [
-        task for task in tasks
-        if task.task_type != "ads_creation" and task.status in blocking_statuses
+        task for task in tasks if task.task_type != "ads_creation" and task.status in blocking_statuses
     ]
     ready_for_approval = len(open_preparation_tasks) == 0
 
@@ -1965,46 +2001,56 @@ def _derive_preparation_task_status(values: list[str], terminal_values: set[str]
 async def sync_mission_operational_followup_tasks(db: AsyncSession, mission_notice_id: UUID) -> None:
     visa_task = (
         await db.execute(
-            select(MissionPreparationTask).where(
+            select(MissionPreparationTask)
+            .where(
                 MissionPreparationTask.mission_notice_id == mission_notice_id,
                 MissionPreparationTask.task_type == "visa",
-            ).limit(1)
+            )
+            .limit(1)
         )
     ).scalar_one_or_none()
     if visa_task:
-        visa_values = list((
-            await db.execute(
-                select(MissionVisaFollowup.status).where(
-                    MissionVisaFollowup.mission_notice_id == mission_notice_id
+        visa_values = list(
+            (
+                await db.execute(
+                    select(MissionVisaFollowup.status).where(MissionVisaFollowup.mission_notice_id == mission_notice_id)
                 )
             )
-        ).scalars().all())
+            .scalars()
+            .all()
+        )
         visa_task.status = _derive_preparation_task_status(
             visa_values,
             terminal_values={"obtained"},
             in_progress_values={"submitted", "in_review"},
         )
-        visa_task.completed_at = datetime.now(timezone.utc) if visa_task.status == "completed" else None
+        visa_task.completed_at = datetime.now(UTC) if visa_task.status == "completed" else None
 
     allowance_task = (
         await db.execute(
-            select(MissionPreparationTask).where(
+            select(MissionPreparationTask)
+            .where(
                 MissionPreparationTask.mission_notice_id == mission_notice_id,
                 MissionPreparationTask.task_type == "allowance",
-            ).limit(1)
+            )
+            .limit(1)
         )
     ).scalar_one_or_none()
     if allowance_task:
-        allowance_values = list((
-            await db.execute(
-                select(MissionAllowanceRequest.status).where(
-                    MissionAllowanceRequest.mission_notice_id == mission_notice_id
+        allowance_values = list(
+            (
+                await db.execute(
+                    select(MissionAllowanceRequest.status).where(
+                        MissionAllowanceRequest.mission_notice_id == mission_notice_id
+                    )
                 )
             )
-        ).scalars().all())
+            .scalars()
+            .all()
+        )
         allowance_task.status = _derive_preparation_task_status(
             allowance_values,
             terminal_values={"paid"},
             in_progress_values={"submitted", "approved"},
         )
-        allowance_task.completed_at = datetime.now(timezone.utc) if allowance_task.status == "completed" else None
+        allowance_task.completed_at = datetime.now(UTC) if allowance_task.status == "completed" else None

@@ -28,9 +28,7 @@ async def _is_already_processed(event: OpsFluxEvent) -> bool:
 
         async with async_session_factory() as db:
             result = await db.execute(
-                text(
-                    "SELECT processed_at FROM event_store WHERE id = :id"
-                ),
+                text("SELECT processed_at FROM event_store WHERE id = :id"),
                 {"id": event.id},
             )
             row = result.first()
@@ -53,10 +51,7 @@ async def _mark_processed(event: OpsFluxEvent, handler_name: str) -> None:
 
         async with async_session_factory() as db:
             await db.execute(
-                text(
-                    "UPDATE event_store SET processed_at = :now, handler = :handler "
-                    "WHERE id = :id"
-                ),
+                text("UPDATE event_store SET processed_at = :now, handler = :handler WHERE id = :id"),
                 {
                     "now": datetime.now(UTC),
                     "handler": handler_name,
@@ -69,6 +64,7 @@ async def _mark_processed(event: OpsFluxEvent, handler_name: str) -> None:
 
 
 # ── Helper: get admin user IDs for an entity ────────────────────────────────
+
 
 async def _get_admin_user_ids(entity_id: str | UUID) -> list[UUID]:
     """Return user IDs that have an admin role in the given entity."""
@@ -97,6 +93,7 @@ async def _get_admin_user_ids(entity_id: str | UUID) -> list[UUID]:
 # ═══════════════════════════════════════════════════════════════════════════
 # Handler 1: on_user_created
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 async def on_user_created(event: OpsFluxEvent) -> None:
     """Handle user.created — welcome email, audit log, admin notification."""
@@ -243,7 +240,9 @@ async def on_workflow_transition(event: OpsFluxEvent) -> None:
                 await db.commit()
             logger.info(
                 "Audit log: workflow transition %s -> %s (instance=%s)",
-                from_state, to_state, instance_id,
+                from_state,
+                to_state,
+                instance_id,
             )
         except Exception:
             logger.exception("Failed to create audit log for workflow.transition")
@@ -289,8 +288,10 @@ async def on_workflow_transition(event: OpsFluxEvent) -> None:
                     if creator_id and str(creator_id) != str(actor_id):
                         try:
                             status_label = (
-                                "approuvee" if to_state.lower() == "approved"
-                                else "rejetee" if to_state.lower() == "rejected"
+                                "approuvee"
+                                if to_state.lower() == "approved"
+                                else "rejetee"
+                                if to_state.lower() == "rejected"
                                 else "terminee"
                             )
                             await send_in_app(
@@ -303,9 +304,7 @@ async def on_workflow_transition(event: OpsFluxEvent) -> None:
                                 link=f"/workflows/{instance_id}",
                             )
                         except Exception:
-                            logger.exception(
-                                "Failed to notify creator %s of terminal state", creator_id
-                            )
+                            logger.exception("Failed to notify creator %s of terminal state", creator_id)
 
                 await db.commit()
 
@@ -361,13 +360,16 @@ async def _execute_node_hooks(
                             )
                         except Exception:
                             logger.exception(
-                                "Node hook notification failed for user %s", uid,
+                                "Node hook notification failed for user %s",
+                                uid,
                             )
                     await db.commit()
 
             logger.info(
                 "Node hook [notification]: instance=%s, state=%s, recipients=%d",
-                instance_id, to_state, len(recipients),
+                instance_id,
+                to_state,
+                len(recipients),
             )
 
         elif to_node_type == "system_check":
@@ -386,7 +388,8 @@ async def _execute_node_hooks(
             )
             logger.info(
                 "Node hook [system_check]: emitted event for instance=%s, state=%s",
-                instance_id, to_state,
+                instance_id,
+                to_state,
             )
 
         elif to_node_type == "timer":
@@ -406,19 +409,22 @@ async def _execute_node_hooks(
             )
             logger.info(
                 "Node hook [timer]: emitted event for instance=%s, delay=%dmin",
-                instance_id, delay_minutes,
+                instance_id,
+                delay_minutes,
             )
 
     except Exception:
         logger.exception(
             "Node hook execution failed for type=%s, instance=%s",
-            to_node_type, instance_id,
+            to_node_type,
+            instance_id,
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Handler 3: on_asset_created
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 async def on_asset_created(event: OpsFluxEvent) -> None:
     """Handle asset.created — audit log, admin notification."""
@@ -493,6 +499,7 @@ async def on_asset_created(event: OpsFluxEvent) -> None:
 # Handler 4: on_tier_created
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def on_tier_created(event: OpsFluxEvent) -> None:
     """Handle tier.created — audit log."""
     if await _is_already_processed(event):
@@ -537,6 +544,7 @@ async def on_tier_created(event: OpsFluxEvent) -> None:
 # Handler 5: on_notification_created
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def on_notification_created(event: OpsFluxEvent) -> None:
     """Handle notification.created — publish to Redis for WebSocket delivery."""
     if await _is_already_processed(event):
@@ -560,35 +568,38 @@ async def on_notification_created(event: OpsFluxEvent) -> None:
 
         redis = get_redis()
         channel = f"notifications:{user_id}"
-        message = json.dumps({
-            "notification_id": str(notification_id) if notification_id else None,
-            "user_id": str(user_id),
-            "title": title,
-            "body": body,
-            "category": category,
-            "link": link,
-            "event_id": event.id,
-        })
+        message = json.dumps(
+            {
+                "notification_id": str(notification_id) if notification_id else None,
+                "user_id": str(user_id),
+                "title": title,
+                "body": body,
+                "category": category,
+                "link": link,
+                "event_id": event.id,
+            }
+        )
         await redis.publish(channel, message)
         logger.info(
             "Published notification to Redis channel %s (notification_id=%s)",
-            channel, notification_id,
+            channel,
+            notification_id,
         )
 
         await _mark_processed(event, "on_notification_created")
 
     except Exception:
-        logger.exception(
-            "Failed to publish notification to Redis for user %s", user_id
-        )
+        logger.exception("Failed to publish notification to Redis for user %s", user_id)
 
 
 # ── Helper ──────────────────────────────────────────────────────────────────
+
 
 def _get_frontend_url() -> str:
     """Get the frontend URL from settings."""
     try:
         from app.core.config import settings
+
         return settings.FRONTEND_URL
     except Exception:
         return "http://localhost:5173"
@@ -597,6 +608,7 @@ def _get_frontend_url() -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 # Registration
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def register_core_handlers(event_bus: EventBus) -> None:
     """Register all core event handlers on the EventBus."""

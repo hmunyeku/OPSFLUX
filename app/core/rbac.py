@@ -75,9 +75,7 @@ async def _get_permission_mode(entity_id: UUID, db: AsyncSession) -> PermissionM
     return mode
 
 
-async def _resolve_permissions(
-    user_id: UUID, entity_id: UUID, db: AsyncSession
-) -> dict[str, PermissionSource]:
+async def _resolve_permissions(user_id: UUID, entity_id: UUID, db: AsyncSession) -> dict[str, PermissionSource]:
     """Resolve effective permissions with source tracking.
 
     Restrictive mode (default):
@@ -123,9 +121,8 @@ async def _resolve_permissions(
     role_codes = [row[0] for row in role_result.all()]
 
     # Layer 3: User permission overrides
-    user_overrides_stmt = (
-        select(UserPermissionOverride.permission_code, UserPermissionOverride.granted)
-        .where(UserPermissionOverride.user_id == user_id)
+    user_overrides_stmt = select(UserPermissionOverride.permission_code, UserPermissionOverride.granted).where(
+        UserPermissionOverride.user_id == user_id
     )
     user_result = await db.execute(user_overrides_stmt)
     user_overrides = user_result.all()
@@ -195,9 +192,7 @@ def _merge_restrictive(
     return effective
 
 
-async def get_user_permissions(
-    user_id: UUID, entity_id: UUID, db: AsyncSession
-) -> set[str]:
+async def get_user_permissions(user_id: UUID, entity_id: UUID, db: AsyncSession) -> set[str]:
     """Get effective permission codes for a user in an entity, with Redis cache."""
     redis = get_redis()
     cache_key = f"rbac:{user_id}:{entity_id}"
@@ -230,16 +225,12 @@ async def get_user_permissions_with_sources(
     return await _resolve_permissions(user_id, entity_id, db)
 
 
-async def get_permission_mode(
-    entity_id: UUID, db: AsyncSession
-) -> PermissionMode:
+async def get_permission_mode(entity_id: UUID, db: AsyncSession) -> PermissionMode:
     """Public accessor for the entity's permission mode (for admin UI)."""
     return await _get_permission_mode(entity_id, db)
 
 
-async def check_permission(
-    user_id: UUID, entity_id: UUID, permission_code: str, db: AsyncSession
-) -> bool:
+async def check_permission(user_id: UUID, entity_id: UUID, permission_code: str, db: AsyncSession) -> bool:
     """Check if a user has a specific permission."""
     permissions = await get_user_permissions(user_id, entity_id, db)
     return permission_code in permissions or "*" in permissions

@@ -8,8 +8,8 @@ from pydantic import BaseModel, Field
 
 from app.schemas.common import OpsFluxSchema
 
-
 # ─── Widget Position ───────────────────────────────────────────────────────
+
 
 class WidgetPosition(BaseModel):
     x: int = Field(0, ge=0)
@@ -26,6 +26,7 @@ class WidgetConfig(BaseModel):
 
 
 # ─── Personal Tab schemas ─────────────────────────────────────────────────
+
 
 class PersonalTabCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
@@ -53,12 +54,14 @@ class PersonalTabRead(OpsFluxSchema):
 
 # ─── Admin (Mandatory) Tab schemas ────────────────────────────────────────
 
+
 class AdminTabCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     is_mandatory: bool = True
     target_role: str | None = Field(None, max_length=50)
     target_module: str | None = Field(
-        None, max_length=50,
+        None,
+        max_length=50,
         description="Module slug (planner, paxlog, travelwiz, projets…). NULL = global dashboard.",
     )
     tab_order: int = Field(0, ge=0)
@@ -91,6 +94,7 @@ class AdminTabRead(OpsFluxSchema):
 
 # ─── Unified Tab Read (for GET /tabs — combines mandatory + personal) ────
 
+
 class DashboardTabRead(OpsFluxSchema):
     id: UUID
     name: str
@@ -105,6 +109,7 @@ class DashboardTabRead(OpsFluxSchema):
 
 
 # ─── Widget Data schemas ──────────────────────────────────────────────────
+
 
 class DashboardStats(BaseModel):
     total_assets: int = 0
@@ -137,6 +142,7 @@ class PendingItem(BaseModel):
 # ═══════════════════════════════════════════════════════════════════════════
 #  Full Dashboard schemas (CRUD)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class DashboardCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
@@ -223,6 +229,7 @@ class DashboardRead(OpsFluxSchema):
 
 class DashboardSummaryRead(OpsFluxSchema):
     """Lightweight read for list views."""
+
     id: UUID
     name: str
     description: str | None
@@ -238,8 +245,10 @@ class DashboardSummaryRead(OpsFluxSchema):
 #  Widget Catalog
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class WidgetCatalogEntry(BaseModel):
     """A predefined widget that modules register for the catalog."""
+
     id: str
     type: str = Field(..., description="kpi, table, chart, map, custom")
     title: str
@@ -257,8 +266,10 @@ class WidgetCatalogEntry(BaseModel):
 #  Widget Data Request / Response
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class WidgetDataRequest(BaseModel):
     """Request data for a specific widget instance."""
+
     widget_id: str = Field(..., min_length=1, max_length=100)
     widget_type: str = Field(..., min_length=1, max_length=50)
     config: dict[str, Any] = Field(default_factory=dict)
@@ -267,6 +278,7 @@ class WidgetDataRequest(BaseModel):
 
 class WidgetDataResponse(BaseModel):
     """Response containing widget data."""
+
     widget_id: str
     widget_type: str
     data: Any = None
@@ -280,8 +292,10 @@ class WidgetDataResponse(BaseModel):
 #  SQL Widget
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class SQLWidgetRequest(BaseModel):
     """Execute a user-defined SQL query for a widget (read-only, validated)."""
+
     query: str = Field(..., min_length=1, max_length=5000)
     params: dict[str, Any] = Field(default_factory=dict)
     max_rows: int = Field(1000, ge=1, le=10000)
@@ -290,6 +304,7 @@ class SQLWidgetRequest(BaseModel):
 
 class SQLWidgetResponse(BaseModel):
     """Result of a SQL widget query."""
+
     columns: list[str] = Field(default_factory=list)
     rows: list[list[Any]] = Field(default_factory=list)
     row_count: int = 0
@@ -302,10 +317,13 @@ class SQLWidgetResponse(BaseModel):
 #  Home Page Settings
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class HomePageSettingCreate(BaseModel):
     """Set a dashboard as the home page for a given scope."""
+
     scope_type: str = Field(
-        ..., pattern=r"^(user|role|bu|global)$",
+        ...,
+        pattern=r"^(user|role|bu|global)$",
         description="Scope level: user, role, bu, or global",
     )
     scope_value: str | None = Field(
@@ -328,8 +346,10 @@ class HomePageSettingRead(OpsFluxSchema):
 #  Import / Export
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class DashboardExport(BaseModel):
     """Full dashboard export payload (JSON-serializable)."""
+
     version: str = "1.0"
     name: str
     description: str | None = None
@@ -348,9 +368,11 @@ class DashboardExport(BaseModel):
 
 class DashboardImport(BaseModel):
     """Payload for importing a dashboard from JSON."""
+
     dashboard: DashboardExport
     overwrite_id: UUID | None = Field(
-        None, description="If set, overwrite existing dashboard instead of creating new",
+        None,
+        description="If set, overwrite existing dashboard instead of creating new",
     )
 
 
@@ -358,14 +380,17 @@ class DashboardImport(BaseModel):
 #  TV Mode
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TVLinkCreate(BaseModel):
     """Generate a TV link for a dashboard."""
+
     expires_hours: int = Field(720, ge=1, le=8760, description="Token validity in hours (default 30 days)")
     refresh_seconds: int = Field(60, ge=10, le=3600)
 
 
 class TVLinkRead(BaseModel):
     """Response with generated TV link details."""
+
     dashboard_id: UUID
     token: str
     url: str

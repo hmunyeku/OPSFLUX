@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.module_registry import ModuleRegistry
 from app.models.common import Entity
-from app.models.dashboard import Dashboard, DashboardTab, UserDashboardTab
+from app.models.dashboard import DashboardTab, UserDashboardTab
 from app.services.core.settings_service import get_scoped_setting_row, upsert_scoped_setting
 
 MODULE_DISABLED_SETTING_KEY = "core.modules.disabled"
@@ -106,23 +106,21 @@ async def _cleanup_module_widgets(
     module_slug: str,
 ) -> None:
     """Remove widgets belonging to a disabled module from stored dashboards."""
-    tabs_result = await db.execute(
-        select(DashboardTab).where(DashboardTab.entity_id == entity_id)
-    )
+    tabs_result = await db.execute(select(DashboardTab).where(DashboardTab.entity_id == entity_id))
     for tab in tabs_result.scalars().all():
         filtered = [
-            widget for widget in (tab.widgets or [])
+            widget
+            for widget in (tab.widgets or [])
             if get_widget_source_module(get_widget_id_from_payload(widget) or "") != module_slug
         ]
         if filtered != (tab.widgets or []):
             tab.widgets = filtered
 
-    user_tabs_result = await db.execute(
-        select(UserDashboardTab).where(UserDashboardTab.entity_id == entity_id)
-    )
+    user_tabs_result = await db.execute(select(UserDashboardTab).where(UserDashboardTab.entity_id == entity_id))
     for tab in user_tabs_result.scalars().all():
         filtered = [
-            widget for widget in (tab.widgets or [])
+            widget
+            for widget in (tab.widgets or [])
             if get_widget_source_module(get_widget_id_from_payload(widget) or "") != module_slug
         ]
         if filtered != (tab.widgets or []):
@@ -135,7 +133,8 @@ async def _cleanup_module_widgets(
     for row in dashboards_result.mappings().all():
         widgets = row.get("widgets") if isinstance(row, dict) else row["widgets"]
         filtered = [
-            widget for widget in (widgets or [])
+            widget
+            for widget in (widgets or [])
             if get_widget_source_module(get_widget_id_from_payload(widget) or "") != module_slug
         ]
         if filtered != (widgets or []):
@@ -167,8 +166,7 @@ async def _ensure_dependents_allow_disable(
         raise HTTPException(
             status_code=400,
             detail=(
-                "Cannot disable module while dependents are still enabled: "
-                + ", ".join(sorted(active_dependents))
+                "Cannot disable module while dependents are still enabled: " + ", ".join(sorted(active_dependents))
             ),
         )
 
@@ -190,10 +188,7 @@ async def _ensure_dependencies_allow_enable(
     if missing_dependencies:
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Cannot enable module while dependencies are disabled: "
-                + ", ".join(sorted(missing_dependencies))
-            ),
+            detail=("Cannot enable module while dependencies are disabled: " + ", ".join(sorted(missing_dependencies))),
         )
 
 
@@ -208,9 +203,7 @@ async def _build_module_state(
     protected = slug in PROTECTED_MODULES
     depends_on = [normalize_module_slug(dep) or dep for dep in (manifest.depends_on or [])]
     missing_dependencies = [
-        dep_slug
-        for dep_slug in depends_on
-        if dep_slug not in PROTECTED_MODULES and dep_slug in disabled
+        dep_slug for dep_slug in depends_on if dep_slug not in PROTECTED_MODULES and dep_slug in disabled
     ]
     active_dependents: list[str] = []
     registry = ModuleRegistry()
@@ -218,9 +211,7 @@ async def _build_module_state(
         dependent_slug = normalize_module_slug(dependent_manifest.slug) or dependent_manifest.slug
         if dependent_slug == slug or dependent_slug in disabled:
             continue
-        dependent_deps = {
-            normalize_module_slug(dep) or dep for dep in (dependent_manifest.depends_on or [])
-        }
+        dependent_deps = {normalize_module_slug(dep) or dep for dep in (dependent_manifest.depends_on or [])}
         if slug in dependent_deps:
             active_dependents.append(dependent_slug)
 

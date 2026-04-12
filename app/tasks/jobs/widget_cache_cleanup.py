@@ -23,11 +23,7 @@ async def cleanup_expired_widget_cache() -> None:
             await db.execute(text("SET search_path TO public"))
 
             result = await db.execute(
-                text(
-                    "DELETE FROM widget_cache "
-                    "WHERE expires_at < :now "
-                    "RETURNING id"
-                ),
+                text("DELETE FROM widget_cache WHERE expires_at < :now RETURNING id"),
                 {"now": datetime.now(UTC)},
             )
             deleted = len(result.fetchall())

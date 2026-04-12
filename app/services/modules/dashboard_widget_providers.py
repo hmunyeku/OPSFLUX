@@ -14,7 +14,6 @@ All queries are scoped by entity_id and use raw SQL via text().
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
@@ -28,19 +27,27 @@ logger = logging.getLogger(__name__)
 #  KPI Providers
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 async def provider_pax_on_site(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Count PAX currently on site(s).  Queries ads_pax WHERE current_onboard=TRUE."""
-    result = await db.execute(text("""
+    result = await db.execute(
+        text("""
         SELECT COUNT(*) AS cnt
         FROM ads_pax ap
         JOIN ads a ON a.id = ap.ads_id
         WHERE a.entity_id = :entity_id
           AND ap.current_onboard = TRUE
           AND a.deleted_at IS NULL
-    """), {"entity_id": str(entity_id)})
+    """),
+        {"entity_id": str(entity_id)},
+    )
     row = result.mappings().first()
     count = row["cnt"] if row else 0
 
@@ -53,11 +60,16 @@ async def provider_pax_on_site(
 
 
 async def provider_ads_pending(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Count AdS pending validation.  Returns KPI-style payload."""
-    result = await db.execute(text("""
+    result = await db.execute(
+        text("""
         SELECT COUNT(*) AS cnt
         FROM ads
         WHERE entity_id = :entity_id
@@ -65,7 +77,9 @@ async def provider_ads_pending(
                          'pending_initiator_review', 'pending_project_review',
                          'pending_arbitration')
           AND archived = FALSE
-    """), {"entity_id": str(entity_id)})
+    """),
+        {"entity_id": str(entity_id)},
+    )
     row = result.mappings().first()
     count = row["cnt"] if row else 0
 
@@ -78,18 +92,25 @@ async def provider_ads_pending(
 
 
 async def provider_alerts_urgent(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Get unread high-priority notifications for the current user."""
-    result = await db.execute(text("""
+    result = await db.execute(
+        text("""
         SELECT COUNT(*) AS cnt
         FROM notifications
         WHERE entity_id = :entity_id
           AND user_id = :user_id
           AND read = FALSE
           AND category IN ('alert', 'urgent', 'critical', 'conflict', 'incident')
-    """), {"entity_id": str(entity_id), "user_id": str(user.id)})
+    """),
+        {"entity_id": str(entity_id), "user_id": str(user.id)},
+    )
     row = result.mappings().first()
     count = row["cnt"] if row else 0
 
@@ -102,11 +123,16 @@ async def provider_alerts_urgent(
 
 
 async def provider_pickup_progress(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Get active pickup rounds progress — completed / total."""
-    result = await db.execute(text("""
+    result = await db.execute(
+        text("""
         SELECT
             COUNT(*) FILTER (WHERE status = 'completed') AS completed,
             COUNT(*) AS total
@@ -114,7 +140,9 @@ async def provider_pickup_progress(
         WHERE entity_id = :entity_id
           AND active = TRUE
           AND scheduled_departure::date = CURRENT_DATE
-    """), {"entity_id": str(entity_id)})
+    """),
+        {"entity_id": str(entity_id)},
+    )
     row = result.mappings().first()
     completed = row["completed"] if row else 0
     total = row["total"] if row else 0
@@ -128,24 +156,32 @@ async def provider_pickup_progress(
 
 
 async def provider_kpi_fleet(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Get fleet KPIs — active vectors, on-time %, etc."""
-    result = await db.execute(text("""
+    result = await db.execute(
+        text("""
         SELECT
             COUNT(*) FILTER (WHERE active = TRUE) AS active_vectors,
             COUNT(*) AS total_vectors
         FROM transport_vectors
         WHERE entity_id = :entity_id
           AND archived = FALSE
-    """), {"entity_id": str(entity_id)})
+    """),
+        {"entity_id": str(entity_id)},
+    )
     row = result.mappings().first()
     active = row["active_vectors"] if row else 0
     total = row["total_vectors"] if row else 0
 
     # On-time percentage from recent voyages (last 30 days)
-    ot_result = await db.execute(text("""
+    ot_result = await db.execute(
+        text("""
         SELECT
             COUNT(*) AS total_voyages,
             COUNT(*) FILTER (
@@ -157,7 +193,9 @@ async def provider_kpi_fleet(
           AND status IN ('arrived', 'closed')
           AND scheduled_departure >= NOW() - INTERVAL '30 days'
           AND archived = FALSE
-    """), {"entity_id": str(entity_id)})
+    """),
+        {"entity_id": str(entity_id)},
+    )
     ot_row = ot_result.mappings().first()
     total_voyages = ot_row["total_voyages"] if ot_row else 0
     on_time = ot_row["on_time"] if ot_row else 0
@@ -172,15 +210,20 @@ async def provider_kpi_fleet(
 
 
 async def provider_weather_sites(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Get latest weather for operational sites.
 
     Weather data is typically stored externally or cached; here we return
     a placeholder structure that the frontend can fill via its own API calls.
     """
-    result = await db.execute(text("""
+    result = await db.execute(
+        text("""
         SELECT id, code, name, latitude, longitude
         FROM ar_installations
         WHERE entity_id = :entity_id
@@ -188,7 +231,9 @@ async def provider_weather_sites(
           AND archived = FALSE
         ORDER BY name
         LIMIT 20
-    """), {"entity_id": str(entity_id)})
+    """),
+        {"entity_id": str(entity_id)},
+    )
     rows = result.mappings().all()
 
     return {
@@ -213,12 +258,18 @@ async def provider_weather_sites(
 #  Table Providers
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 async def provider_trips_today(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Get trips departing or arriving today."""
-    result = await db.execute(text("""
+    result = await db.execute(
+        text("""
         SELECT
             v.id,
             v.code,
@@ -241,7 +292,9 @@ async def provider_trips_today(
           )
         ORDER BY v.scheduled_departure
         LIMIT 50
-    """), {"entity_id": str(entity_id)})
+    """),
+        {"entity_id": str(entity_id)},
+    )
     rows = result.mappings().all()
 
     return {
@@ -273,11 +326,16 @@ async def provider_trips_today(
 
 
 async def provider_cargo_pending(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Get cargo items in status 'registered' or 'ready_for_loading'."""
-    result = await db.execute(text("""
+    result = await db.execute(
+        text("""
         SELECT
             c.id,
             c.tracking_code,
@@ -294,7 +352,9 @@ async def provider_cargo_pending(
           AND c.archived = FALSE
         ORDER BY c.created_at DESC
         LIMIT 50
-    """), {"entity_id": str(entity_id)})
+    """),
+        {"entity_id": str(entity_id)},
+    )
     rows = result.mappings().all()
 
     return {
@@ -323,12 +383,17 @@ async def provider_cargo_pending(
 
 
 async def provider_compliance_expiry(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Get credentials expiring in next 30 days."""
     days_ahead = config.get("days_ahead", 30)
-    result = await db.execute(text("""
+    result = await db.execute(
+        text("""
         SELECT
             pc.id,
             COALESCE(
@@ -352,7 +417,9 @@ async def provider_compliance_expiry(
           AND pc.status IN ('valid', 'pending_validation')
         ORDER BY pc.expiry_date ASC
         LIMIT 100
-    """), {"entity_id": str(entity_id), "days_ahead": days_ahead})
+    """),
+        {"entity_id": str(entity_id), "days_ahead": days_ahead},
+    )
     rows = result.mappings().all()
 
     return {
@@ -381,11 +448,16 @@ async def provider_compliance_expiry(
 
 
 async def provider_signalements_actifs(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Get active (unresolved) incidents."""
-    result = await db.execute(text("""
+    result = await db.execute(
+        text("""
         SELECT
             pi.id,
             pi.severity,
@@ -412,7 +484,9 @@ async def provider_signalements_actifs(
             END,
             pi.incident_date DESC
         LIMIT 50
-    """), {"entity_id": str(entity_id)})
+    """),
+        {"entity_id": str(entity_id)},
+    )
     rows = result.mappings().all()
 
     return {
@@ -439,11 +513,16 @@ async def provider_signalements_actifs(
 
 
 async def provider_project_status(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Get active projects with status counts."""
-    result = await db.execute(text("""
+    result = await db.execute(
+        text("""
         SELECT
             p.id,
             p.code,
@@ -469,7 +548,9 @@ async def provider_project_status(
             END,
             p.name
         LIMIT 50
-    """), {"entity_id": str(entity_id)})
+    """),
+        {"entity_id": str(entity_id)},
+    )
     rows = result.mappings().all()
 
     return {
@@ -500,11 +581,16 @@ async def provider_project_status(
 
 
 async def provider_my_ads(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Get current user's AdS."""
-    result = await db.execute(text("""
+    result = await db.execute(
+        text("""
         SELECT
             a.id,
             a.reference,
@@ -523,7 +609,9 @@ async def provider_my_ads(
           AND a.status NOT IN ('cancelled', 'completed')
         ORDER BY a.start_date DESC
         LIMIT 50
-    """), {"entity_id": str(entity_id), "user_id": str(user.id)})
+    """),
+        {"entity_id": str(entity_id), "user_id": str(user.id)},
+    )
     rows = result.mappings().all()
 
     return {
@@ -556,9 +644,14 @@ async def provider_my_ads(
 #  Chart Providers
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 async def provider_capacity_heatmap(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Get daily PAX load per asset from the daily_pax_load materialized view.
 
@@ -566,7 +659,8 @@ async def provider_capacity_heatmap(
     view does not exist yet.
     """
     try:
-        result = await db.execute(text("""
+        result = await db.execute(
+            text("""
             SELECT
                 dpl.asset_id,
                 a.name  AS asset_name,
@@ -582,10 +676,13 @@ async def provider_capacity_heatmap(
             WHERE a.entity_id = :entity_id
               AND dpl.date BETWEEN CURRENT_DATE AND CURRENT_DATE + 30
             ORDER BY a.name, dpl.date
-        """), {"entity_id": str(entity_id)})
+        """),
+            {"entity_id": str(entity_id)},
+        )
     except Exception:
         # Materialized view may not exist — fallback to inline computation
-        result = await db.execute(text("""
+        result = await db.execute(
+            text("""
             SELECT
                 asset.id   AS asset_id,
                 asset.name AS asset_name,
@@ -613,7 +710,9 @@ async def provider_capacity_heatmap(
               AND a.start_date <= CURRENT_DATE + 30
             GROUP BY asset.id, asset.name, asset.pax_capacity, d::date
             ORDER BY asset.name, date
-        """), {"entity_id": str(entity_id)})
+        """),
+            {"entity_id": str(entity_id)},
+        )
 
     rows = result.mappings().all()
 
@@ -633,11 +732,16 @@ async def provider_capacity_heatmap(
 
 
 async def provider_planner_gantt_mini(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Get planner activities for mini-Gantt (next 30 days)."""
-    result = await db.execute(text("""
+    result = await db.execute(
+        text("""
         SELECT
             pa.id,
             pa.title,
@@ -665,7 +769,9 @@ async def provider_planner_gantt_mini(
           )
         ORDER BY pa.start_date NULLS LAST
         LIMIT 50
-    """), {"entity_id": str(entity_id)})
+    """),
+        {"entity_id": str(entity_id)},
+    )
     rows = result.mappings().all()
 
     return {
@@ -689,15 +795,21 @@ async def provider_planner_gantt_mini(
 #  Map Providers
 # ═══════════════════════════════════════════════════════════════════════════════
 
+
 async def provider_fleet_map(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Get latest positions of all active vectors for map widget.
 
     Uses DISTINCT ON to get only the most recent position per vector.
     """
-    result = await db.execute(text("""
+    result = await db.execute(
+        text("""
         SELECT DISTINCT ON (tv.id)
             tv.id AS vector_id,
             tv.name AS vector_name,
@@ -714,7 +826,9 @@ async def provider_fleet_map(
           AND tv.active = TRUE
           AND tv.archived = FALSE
         ORDER BY tv.id, vp.recorded_at DESC NULLS LAST
-    """), {"entity_id": str(entity_id)})
+    """),
+        {"entity_id": str(entity_id)},
+    )
     rows = result.mappings().all()
 
     return {
@@ -742,11 +856,16 @@ async def provider_fleet_map(
 
 
 async def provider_projets_kpis(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """All project KPIs in one call: active, completed, avg progress, budget, task stats."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             COUNT(*) FILTER (WHERE status = 'active') AS active,
             COUNT(*) FILTER (WHERE status = 'completed') AS completed,
@@ -754,9 +873,12 @@ async def provider_projets_kpis(
             COALESCE(AVG(progress), 0) AS avg_progress,
             COALESCE(SUM(budget), 0) AS total_budget
         FROM projects WHERE entity_id = :eid AND archived = FALSE
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     p = r.mappings().first() or {}
-    rt = await db.execute(text("""
+    rt = await db.execute(
+        text("""
         SELECT
             COUNT(*) FILTER (WHERE status = 'in_progress') AS in_progress,
             COUNT(*) FILTER (WHERE due_date < NOW() AND status NOT IN ('done','cancelled')) AS overdue,
@@ -764,30 +886,44 @@ async def provider_projets_kpis(
             COUNT(*) FILTER (WHERE status = 'done') AS done
         FROM project_tasks WHERE active = TRUE
           AND project_id IN (SELECT id FROM projects WHERE entity_id = :eid AND archived = FALSE)
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     t = rt.mappings().first() or {}
     return {
-        "value": p.get("active", 0), "label": "Projets actifs",
+        "value": p.get("active", 0),
+        "label": "Projets actifs",
         "details": {
-            "active": p.get("active", 0), "completed": p.get("completed", 0), "total": p.get("total", 0),
+            "active": p.get("active", 0),
+            "completed": p.get("completed", 0),
+            "total": p.get("total", 0),
             "avg_progress": round(float(p.get("avg_progress", 0)), 1),
             "total_budget": float(p.get("total_budget", 0)),
-            "tasks_in_progress": t.get("in_progress", 0), "tasks_overdue": t.get("overdue", 0),
-            "tasks_critical": t.get("critical", 0), "tasks_done": t.get("done", 0),
+            "tasks_in_progress": t.get("in_progress", 0),
+            "tasks_overdue": t.get("overdue", 0),
+            "tasks_critical": t.get("critical", 0),
+            "tasks_done": t.get("done", 0),
         },
     }
 
 
 async def provider_projets_weather(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Project health by weather category."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT weather, COUNT(*) AS cnt
         FROM projects WHERE entity_id = :eid AND archived = FALSE AND status = 'active'
         GROUP BY weather ORDER BY cnt DESC
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     rows = r.mappings().all()
     return {
         "data": [{"name": row["weather"] or "unknown", "value": row["cnt"]} for row in rows],
@@ -796,11 +932,16 @@ async def provider_projets_weather(
 
 
 async def provider_projets_deadlines(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Tasks with deadlines in the next 14 days."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT pt.title, pt.due_date, pt.status, pt.priority, p.code AS project_code
         FROM project_tasks pt
         JOIN projects p ON p.id = pt.project_id
@@ -808,7 +949,9 @@ async def provider_projets_deadlines(
           AND pt.due_date BETWEEN NOW() AND NOW() + INTERVAL '14 days'
           AND pt.status NOT IN ('done','cancelled')
         ORDER BY pt.due_date LIMIT 10
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     rows = r.mappings().all()
     return {
         "columns": [
@@ -823,23 +966,32 @@ async def provider_projets_deadlines(
 
 
 async def provider_projets_top_volume(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Top 5 projects by task count."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT p.code, p.name, p.progress, p.status,
                COUNT(pt.id) AS task_count
         FROM projects p
         LEFT JOIN project_tasks pt ON pt.project_id = p.id AND pt.active = TRUE
         WHERE p.entity_id = :eid AND p.archived = FALSE
         GROUP BY p.id ORDER BY task_count DESC LIMIT 5
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     rows = r.mappings().all()
     return {
         "columns": [
-            {"key": "code", "label": "Code"}, {"key": "name", "label": "Nom"},
-            {"key": "progress", "label": "%"}, {"key": "task_count", "label": "Taches"},
+            {"key": "code", "label": "Code"},
+            {"key": "name", "label": "Nom"},
+            {"key": "progress", "label": "%"},
+            {"key": "task_count", "label": "Taches"},
         ],
         "rows": [dict(row) for row in rows],
     }
@@ -851,67 +1003,100 @@ async def provider_projets_top_volume(
 
 
 async def provider_assets_overview(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Asset registry KPIs: fields, sites, installations, equipment, pipelines."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             (SELECT COUNT(*) FROM ar_fields WHERE entity_id = :eid AND deleted_at IS NULL) AS fields,
             (SELECT COUNT(*) FROM ar_sites WHERE entity_id = :eid AND deleted_at IS NULL) AS sites,
             (SELECT COUNT(*) FROM ar_installations WHERE entity_id = :eid AND deleted_at IS NULL) AS installations,
             (SELECT COUNT(*) FROM ar_equipment WHERE entity_id = :eid AND deleted_at IS NULL) AS equipment,
             (SELECT COUNT(*) FROM ar_pipelines WHERE entity_id = :eid AND deleted_at IS NULL) AS pipelines
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     row = r.mappings().first() or {}
     return {
-        "value": row.get("installations", 0), "label": "Installations",
+        "value": row.get("installations", 0),
+        "label": "Installations",
         "details": {k: row.get(k, 0) for k in ("fields", "sites", "installations", "equipment", "pipelines")},
     }
 
 
 async def provider_assets_equipment_by_class(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Equipment count grouped by class."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT equipment_class AS name, COUNT(*) AS value
         FROM ar_equipment WHERE entity_id = :eid AND deleted_at IS NULL
         GROUP BY equipment_class ORDER BY value DESC LIMIT 15
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()], "series": [{"name": "Equipements", "type": "pie"}]}
 
 
 async def provider_assets_by_status(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Equipment count grouped by status."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT status AS name, COUNT(*) AS value
         FROM ar_equipment WHERE entity_id = :eid AND deleted_at IS NULL
         GROUP BY status ORDER BY value DESC
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()], "series": [{"name": "Statut", "type": "bar"}]}
 
 
 async def provider_assets_sites_by_type(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Sites grouped by type."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT site_type AS name, COUNT(*) AS value
         FROM ar_sites WHERE entity_id = :eid AND deleted_at IS NULL
         GROUP BY site_type ORDER BY value DESC
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()], "series": [{"name": "Sites", "type": "pie"}]}
 
 
 async def provider_assets_map(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Geographic markers for fields, sites, installations."""
     markers = []
@@ -920,16 +1105,24 @@ async def provider_assets_map(
         ("ar_sites", "Site", "#06b6d4"),
         ("ar_installations", "Installation", "#f59e0b"),
     ]:
-        r = await db.execute(text(f"""
+        r = await db.execute(
+            text(f"""
             SELECT code, name, latitude, longitude
             FROM {tbl} WHERE entity_id = :eid AND deleted_at IS NULL
               AND latitude IS NOT NULL AND longitude IS NOT NULL
-        """), {"eid": str(entity_id)})
+        """),
+            {"eid": str(entity_id)},
+        )
         for row in r.mappings().all():
-            markers.append({
-                "lat": float(row["latitude"]), "lng": float(row["longitude"]),
-                "label": f'{row["code"]} — {row["name"]}', "type": label, "color": color,
-            })
+            markers.append(
+                {
+                    "lat": float(row["latitude"]),
+                    "lng": float(row["longitude"]),
+                    "label": f"{row['code']} — {row['name']}",
+                    "type": label,
+                    "color": color,
+                }
+            )
     return {"markers": markers}
 
 
@@ -939,11 +1132,16 @@ async def provider_assets_map(
 
 
 async def provider_paxlog_compliance_rate(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """PaxLog compliance rate and breakdown."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             COUNT(*) AS total,
             COUNT(*) FILTER (WHERE is_compliant = TRUE) AS compliant,
@@ -951,41 +1149,61 @@ async def provider_paxlog_compliance_rate(
             COUNT(*) FILTER (WHERE expires_at BETWEEN NOW() AND NOW() + INTERVAL '30 days') AS expiring_soon
         FROM compliance_records
         WHERE entity_id = :eid AND active = TRUE
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     row = r.mappings().first() or {}
     total = row.get("total", 0)
     compliant = row.get("compliant", 0)
     rate = round(compliant / total * 100, 1) if total > 0 else 0
     return {
-        "value": rate, "label": "Taux de conformité", "unit": "%",
-        "details": {"total": total, "compliant": compliant,
-                    "expired": row.get("expired", 0), "expiring_soon": row.get("expiring_soon", 0)},
+        "value": rate,
+        "label": "Taux de conformité",
+        "unit": "%",
+        "details": {
+            "total": total,
+            "compliant": compliant,
+            "expired": row.get("expired", 0),
+            "expiring_soon": row.get("expiring_soon", 0),
+        },
     }
 
 
 async def provider_paxlog_ads_by_status(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """ADS count grouped by status."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT status AS name, COUNT(*) AS value
         FROM ads WHERE entity_id = :eid AND archived = FALSE
         GROUP BY status ORDER BY value DESC
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()], "series": [{"name": "AdS", "type": "bar"}]}
 
 
 async def provider_paxlog_expiring_credentials(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Credentials expiring in the next 30 days."""
     days = int(config.get("days_ahead", 30))
     # PaxCredential links to a User (user_id) OR a TierContact (contact_id)
     # via an XOR constraint — there's no pax_group_id column. We LEFT JOIN
     # both and COALESCE the name.
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT pc.id,
                COALESCE(
                    u.first_name || ' ' || u.last_name,
@@ -1006,26 +1224,37 @@ async def provider_paxlog_expiring_credentials(
         ))
           AND pc.expiry_date BETWEEN CURRENT_DATE AND CURRENT_DATE + :days * INTERVAL '1 day'
         ORDER BY pc.expiry_date LIMIT 15
-    """), {"eid": str(entity_id), "days": days})
+    """),
+        {"eid": str(entity_id), "days": days},
+    )
     rows = r.mappings().all()
     return {
         "columns": [
-            {"key": "pax_name", "label": "PAX"}, {"key": "credential_type", "label": "Type"},
-            {"key": "expiry_date", "label": "Expiration"}, {"key": "days_remaining", "label": "J restants"},
+            {"key": "pax_name", "label": "PAX"},
+            {"key": "credential_type", "label": "Type"},
+            {"key": "expiry_date", "label": "Expiration"},
+            {"key": "days_remaining", "label": "J restants"},
         ],
         "rows": [dict(row) for row in rows],
     }
 
 
 async def provider_paxlog_incidents(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Active incident count."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT COUNT(*) AS cnt FROM pax_incidents
         WHERE entity_id = :eid AND status NOT IN ('closed','resolved')
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     row = r.mappings().first() or {}
     return {"value": row.get("cnt", 0), "label": "Incidents actifs", "unit": "incidents"}
 
@@ -1036,11 +1265,16 @@ async def provider_paxlog_incidents(
 
 
 async def provider_conformite_kpis(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Conformité KPIs: total, valid, expired, pending, rate."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             COUNT(*) AS total,
             COUNT(*) FILTER (WHERE is_compliant = TRUE AND (expires_at IS NULL OR expires_at > NOW())) AS valid,
@@ -1048,27 +1282,39 @@ async def provider_conformite_kpis(
             COUNT(*) FILTER (WHERE status = 'pending') AS pending,
             COUNT(*) FILTER (WHERE expires_at BETWEEN NOW() AND NOW() + INTERVAL '30 days') AS expiring_soon
         FROM compliance_records WHERE entity_id = :eid AND active = TRUE
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     row = r.mappings().first() or {}
     total = row.get("total", 0)
     valid = row.get("valid", 0)
     rate = round(valid / total * 100, 1) if total > 0 else 0
     return {
-        "value": rate, "label": "Taux de conformité", "unit": "%",
+        "value": rate,
+        "label": "Taux de conformité",
+        "unit": "%",
         "details": {
-            "total": total, "valid": valid, "expired": row.get("expired", 0),
-            "pending": row.get("pending", 0), "expiring_soon": row.get("expiring_soon", 0),
+            "total": total,
+            "valid": valid,
+            "expired": row.get("expired", 0),
+            "pending": row.get("pending", 0),
+            "expiring_soon": row.get("expiring_soon", 0),
             "rate": rate,
         },
     }
 
 
 async def provider_conformite_by_category(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Conformité records grouped by type category."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT ct.category AS name,
                COUNT(*) AS total,
                COUNT(*) FILTER (WHERE cr.is_compliant = TRUE AND (cr.expires_at IS NULL OR cr.expires_at > NOW())) AS valid,
@@ -1077,10 +1323,15 @@ async def provider_conformite_by_category(
         JOIN compliance_types ct ON ct.id = cr.compliance_type_id
         WHERE cr.entity_id = :eid AND cr.active = TRUE
         GROUP BY ct.category ORDER BY total DESC
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     rows = r.mappings().all()
     return {
-        "data": [{"name": row["name"] or "autre", "total": row["total"], "valid": row["valid"], "expired": row["expired"]} for row in rows],
+        "data": [
+            {"name": row["name"] or "autre", "total": row["total"], "valid": row["valid"], "expired": row["expired"]}
+            for row in rows
+        ],
         "series": [{"name": "Valide", "type": "bar"}, {"name": "Expire", "type": "bar"}],
     }
 
@@ -1091,11 +1342,16 @@ async def provider_conformite_by_category(
 
 
 async def provider_tiers_overview(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Tiers KPIs: total companies, by type, contacts count."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             COUNT(*) AS total,
             COUNT(*) FILTER (WHERE type = 'client') AS clients,
@@ -1103,49 +1359,74 @@ async def provider_tiers_overview(
             COUNT(*) FILTER (WHERE type = 'subcontractor') AS subcontractors,
             COUNT(*) FILTER (WHERE status = 'active') AS active
         FROM tiers WHERE entity_id = :eid AND archived = FALSE
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     row = r.mappings().first() or {}
-    rc = await db.execute(text("""
+    rc = await db.execute(
+        text("""
         SELECT COUNT(*) AS cnt FROM tier_contacts WHERE entity_id = :eid AND active = TRUE
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     contacts = (rc.mappings().first() or {}).get("cnt", 0)
     return {
-        "value": row.get("total", 0), "label": "Entreprises",
+        "value": row.get("total", 0),
+        "label": "Entreprises",
         "details": {
-            "total": row.get("total", 0), "clients": row.get("clients", 0),
-            "suppliers": row.get("suppliers", 0), "subcontractors": row.get("subcontractors", 0),
-            "active": row.get("active", 0), "contacts": contacts,
+            "total": row.get("total", 0),
+            "clients": row.get("clients", 0),
+            "suppliers": row.get("suppliers", 0),
+            "subcontractors": row.get("subcontractors", 0),
+            "active": row.get("active", 0),
+            "contacts": contacts,
         },
     }
 
 
 async def provider_tiers_by_type(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Tiers distribution by type."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT type AS name, COUNT(*) AS value
         FROM tiers WHERE entity_id = :eid AND archived = FALSE
         GROUP BY type ORDER BY value DESC
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()], "series": [{"name": "Entreprises", "type": "pie"}]}
 
 
 async def provider_tiers_recent(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Recently created/modified tiers."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT code, name, type, status, created_at
         FROM tiers WHERE entity_id = :eid AND archived = FALSE
         ORDER BY updated_at DESC NULLS LAST LIMIT 10
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {
         "columns": [
-            {"key": "code", "label": "Code"}, {"key": "name", "label": "Nom"},
-            {"key": "type", "label": "Type"}, {"key": "status", "label": "Statut"},
+            {"key": "code", "label": "Code"},
+            {"key": "name", "label": "Nom"},
+            {"key": "type", "label": "Type"},
+            {"key": "status", "label": "Statut"},
         ],
         "rows": [dict(row) for row in r.mappings().all()],
     }
@@ -1157,10 +1438,15 @@ async def provider_tiers_recent(
 
 
 async def provider_packlog_overview(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
-    requests = await db.execute(text("""
+    requests = await db.execute(
+        text("""
         SELECT
             COUNT(*) AS total_requests,
             COUNT(*) FILTER (WHERE status IN ('draft', 'submitted', 'approved', 'assigned', 'in_progress')) AS active_requests,
@@ -1168,17 +1454,22 @@ async def provider_packlog_overview(
             COALESCE(SUM(cargo_count), 0) AS cargo_count
         FROM cargo_requests
         WHERE entity_id = :eid AND active = TRUE
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     request_row = requests.mappings().first() or {}
 
-    cargo = await db.execute(text("""
+    cargo = await db.execute(
+        text("""
         SELECT
             COALESCE(SUM(weight_kg), 0) AS total_weight_kg,
             COUNT(*) FILTER (WHERE status IN ('loaded', 'in_transit')) AS in_motion,
             COUNT(*) FILTER (WHERE status IN ('damaged', 'missing')) AS incidents
         FROM cargo_items
         WHERE entity_id = :eid AND active = TRUE
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     cargo_row = cargo.mappings().first() or {}
 
     return {
@@ -1197,36 +1488,55 @@ async def provider_packlog_overview(
 
 
 async def provider_packlog_requests_by_status(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT status AS name, COUNT(*) AS value
         FROM cargo_requests
         WHERE entity_id = :eid AND active = TRUE
         GROUP BY status ORDER BY value DESC
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()]}
 
 
 async def provider_packlog_cargo_by_status(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT status AS name, COUNT(*) AS value
         FROM cargo_items
         WHERE entity_id = :eid AND active = TRUE
         GROUP BY status ORDER BY value DESC
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()]}
 
 
 async def provider_packlog_tracking(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             ci.tracking_code,
             ci.description,
@@ -1238,7 +1548,9 @@ async def provider_packlog_tracking(
         WHERE ci.entity_id = :eid AND ci.active = TRUE
         ORDER BY COALESCE(ci.received_at, ci.created_at) DESC
         LIMIT 12
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {
         "columns": [
             {"key": "tracking_code", "label": "Tracking"},
@@ -1252,10 +1564,15 @@ async def provider_packlog_tracking(
 
 
 async def provider_packlog_alerts(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT *
         FROM (
             SELECT
@@ -1287,7 +1604,9 @@ async def provider_packlog_alerts(
         ) alerts
         WHERE alert IS NOT NULL
         LIMIT 15
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {
         "columns": [
             {"key": "reference", "label": "Référence"},
@@ -1300,17 +1619,24 @@ async def provider_packlog_alerts(
 
 
 async def provider_packlog_catalog_overview(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             COUNT(*) AS total_articles,
             COUNT(*) FILTER (WHERE COALESCE(active, TRUE) = TRUE) AS active_articles,
             COUNT(*) FILTER (WHERE is_hazmat = TRUE) AS hazmat_articles
         FROM article_catalog
         WHERE entity_id = :eid
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     row = r.mappings().first() or {}
     return {
         "value": row.get("total_articles", 0),
@@ -1333,11 +1659,16 @@ async def provider_packlog_catalog_overview(
 
 
 async def provider_users_overview(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """KPI: user counts (active, inactive, online, MFA enabled)."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             COUNT(*) FILTER (WHERE active = TRUE) AS active_count,
             COUNT(*) FILTER (WHERE active = FALSE) AS inactive_count,
@@ -1345,7 +1676,8 @@ async def provider_users_overview(
             COUNT(*) FILTER (WHERE mfa_enabled = TRUE) AS mfa_count,
             COUNT(*) AS total_count
         FROM users
-    """))
+    """)
+    )
     row = r.mappings().first()
     return {
         "value": row["active_count"] if row else 0,
@@ -1363,18 +1695,25 @@ async def provider_users_overview(
 
 
 async def provider_users_by_role(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Chart: users grouped by role."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT r.name AS role_name, COUNT(DISTINCT ugm.user_id) AS user_count
         FROM user_group_roles ugr
         JOIN roles r ON r.code = ugr.role_code
         JOIN user_group_members ugm ON ugm.group_id = ugr.group_id
         JOIN user_groups ug ON ug.id = ugr.group_id AND ug.entity_id = :eid AND ug.active = TRUE
         GROUP BY r.name ORDER BY user_count DESC
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     rows = [dict(row) for row in r.mappings().all()]
     return {
         "data": rows,
@@ -1383,17 +1722,24 @@ async def provider_users_by_role(
 
 
 async def provider_users_by_group(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Chart: users per group."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT ug.name AS group_name, COUNT(ugm.user_id) AS member_count
         FROM user_groups ug
         LEFT JOIN user_group_members ugm ON ugm.group_id = ug.id
         WHERE ug.entity_id = :eid AND ug.active = TRUE
         GROUP BY ug.name ORDER BY member_count DESC
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     rows = [dict(row) for row in r.mappings().all()]
     return {
         "data": rows,
@@ -1402,11 +1748,16 @@ async def provider_users_by_group(
 
 
 async def provider_users_recent_activity(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Table: recently active users (last login)."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT u.first_name || ' ' || u.last_name AS name,
                u.email, u.last_login_at,
                CASE WHEN u.active THEN 'active' ELSE 'inactive' END AS status,
@@ -1414,7 +1765,8 @@ async def provider_users_recent_activity(
         FROM users u
         WHERE u.last_login_at IS NOT NULL
         ORDER BY u.last_login_at DESC LIMIT 15
-    """))
+    """)
+    )
     return {
         "columns": [
             {"key": "name", "label": "Nom"},
@@ -1428,17 +1780,23 @@ async def provider_users_recent_activity(
 
 
 async def provider_users_mfa_stats(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """KPI: MFA adoption rate."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             COUNT(*) FILTER (WHERE mfa_enabled = TRUE) AS mfa_enabled,
             COUNT(*) FILTER (WHERE mfa_enabled = FALSE) AS mfa_disabled,
             COUNT(*) AS total
         FROM users WHERE active = TRUE
-    """))
+    """)
+    )
     row = r.mappings().first()
     total = row["total"] if row else 1
     enabled = row["mfa_enabled"] if row else 0
@@ -1453,11 +1811,16 @@ async def provider_users_mfa_stats(
 
 
 async def provider_users_orphans(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Table: users without any group membership (orphans)."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT u.first_name || ' ' || u.last_name AS name,
                u.email, u.created_at,
                CASE WHEN u.active THEN 'active' ELSE 'inactive' END AS status
@@ -1465,7 +1828,8 @@ async def provider_users_orphans(
         LEFT JOIN user_group_members ugm ON ugm.user_id = u.id
         WHERE ugm.user_id IS NULL AND u.active = TRUE
         ORDER BY u.created_at DESC
-    """))
+    """)
+    )
     return {
         "columns": [
             {"key": "name", "label": "Nom"},
@@ -1476,24 +1840,32 @@ async def provider_users_orphans(
         "rows": [dict(row) for row in r.mappings().all()],
     }
 
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Support Module Providers
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
 async def provider_support_overview(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """KPI: support ticket counts."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             COUNT(*) FILTER (WHERE status IN ('open', 'in_progress')) AS open_count,
             COUNT(*) FILTER (WHERE status = 'resolved') AS resolved_count,
             COUNT(*) FILTER (WHERE priority IN ('high', 'critical') AND status NOT IN ('resolved', 'closed')) AS critical_count,
             COUNT(*) AS total_count
         FROM support_tickets WHERE entity_id = :eid
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     row = r.mappings().first()
     return {
         "value": row["open_count"] if row else 0,
@@ -1510,15 +1882,22 @@ async def provider_support_overview(
 
 
 async def provider_support_tickets_recent(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Table: recent support tickets."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT reference, title, status, priority, ticket_type, created_at
         FROM support_tickets WHERE entity_id = :eid
         ORDER BY created_at DESC LIMIT 15
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {
         "columns": [
             {"key": "reference", "label": "Ref"},
@@ -1533,15 +1912,22 @@ async def provider_support_tickets_recent(
 
 
 async def provider_support_by_status(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Chart: tickets by status."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT status AS name, COUNT(*) AS value
         FROM support_tickets WHERE entity_id = :eid
         GROUP BY status ORDER BY value DESC
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()]}
 
 
@@ -1551,39 +1937,58 @@ async def provider_support_by_status(
 
 
 async def provider_support_by_type(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Chart: tickets by type (bug, improvement, question)."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT ticket_type AS name, COUNT(*) AS value
         FROM support_tickets WHERE entity_id = :eid
         GROUP BY ticket_type ORDER BY value DESC
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()]}
 
 
 async def provider_support_by_priority(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Chart: open tickets by priority — shows urgency distribution."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT priority AS name, COUNT(*) AS value
         FROM support_tickets WHERE entity_id = :eid AND status NOT IN ('resolved', 'closed')
         GROUP BY priority ORDER BY CASE priority
             WHEN 'critical' THEN 1 WHEN 'high' THEN 2
             WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()]}
 
 
 async def provider_support_trend(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Chart: tickets opened vs resolved per week (last 8 weeks)."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             TO_CHAR(DATE_TRUNC('week', created_at), 'DD/MM') AS week,
             COUNT(*) FILTER (WHERE TRUE) AS opened,
@@ -1592,7 +1997,9 @@ async def provider_support_trend(
             AND created_at >= NOW() - INTERVAL '8 weeks'
         GROUP BY DATE_TRUNC('week', created_at)
         ORDER BY DATE_TRUNC('week', created_at)
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()]}
 
 
@@ -1602,11 +2009,16 @@ async def provider_support_trend(
 
 
 async def provider_conformite_urgency(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Chart: items expiring by urgency band (7j, 30j, 90j, >90j)."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             CASE
                 WHEN expires_at <= NOW() THEN 'Expiré'
@@ -1620,29 +2032,43 @@ async def provider_conformite_urgency(
         WHERE entity_id = :eid AND expires_at IS NOT NULL AND status != 'expired'
         GROUP BY 1
         ORDER BY MIN(expires_at)
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()]}
 
 
 async def provider_conformite_by_status(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Chart: compliance records by status (donut)."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT status AS name, COUNT(*) AS value
         FROM compliance_records WHERE entity_id = :eid
         GROUP BY status ORDER BY value DESC
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()]}
 
 
 async def provider_conformite_matrix(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Table: compliance matrix — type × status counts."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT ct.name AS type_name,
                COUNT(*) FILTER (WHERE cr.status = 'valid') AS valid,
                COUNT(*) FILTER (WHERE cr.status = 'pending') AS pending,
@@ -1653,7 +2079,9 @@ async def provider_conformite_matrix(
         JOIN compliance_types ct ON ct.id = cr.compliance_type_id
         WHERE cr.entity_id = :eid
         GROUP BY ct.name ORDER BY total DESC
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {
         "columns": [
             {"key": "type_name", "label": "Type"},
@@ -1668,11 +2096,16 @@ async def provider_conformite_matrix(
 
 
 async def provider_conformite_trend(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Chart: compliance score trend over last 6 months (area)."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             TO_CHAR(DATE_TRUNC('month', cr.updated_at), 'Mon YY') AS month,
             ROUND(
@@ -1683,7 +2116,9 @@ async def provider_conformite_trend(
         WHERE cr.entity_id = :eid AND cr.updated_at >= NOW() - INTERVAL '6 months'
         GROUP BY DATE_TRUNC('month', cr.updated_at)
         ORDER BY DATE_TRUNC('month', cr.updated_at)
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()]}
 
 
@@ -1693,11 +2128,16 @@ async def provider_conformite_trend(
 
 
 async def provider_planner_overview(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """KPI: planner activity summary."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             COUNT(*) AS total,
             COUNT(*) FILTER (WHERE status = 'draft') AS draft,
@@ -1708,7 +2148,9 @@ async def provider_planner_overview(
             COALESCE(SUM(pax_quota), 0) AS total_pax
         FROM planner_activities
         WHERE entity_id = :eid AND active = TRUE
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     row = r.mappings().first()
     return {
         "value": row["total"] if row else 0,
@@ -1725,45 +2167,66 @@ async def provider_planner_overview(
 
 
 async def provider_planner_by_type(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Chart: activities by type (project, workover, drilling, etc.)."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT type AS name, COUNT(*) AS value
         FROM planner_activities
         WHERE entity_id = :eid AND active = TRUE
         GROUP BY type ORDER BY value DESC
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()]}
 
 
 async def provider_planner_by_status(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Chart: activities by status (funnel-style)."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT status AS name, COUNT(*) AS value
         FROM planner_activities
         WHERE entity_id = :eid AND active = TRUE
         GROUP BY status ORDER BY CASE status
             WHEN 'draft' THEN 1 WHEN 'submitted' THEN 2 WHEN 'validated' THEN 3
             WHEN 'in_progress' THEN 4 WHEN 'completed' THEN 5 ELSE 6 END
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()]}
 
 
 async def provider_planner_conflicts_kpi(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """KPI: active conflicts count."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT COUNT(*) AS cnt
         FROM planner_conflicts
         WHERE entity_id = :eid AND resolution_status IN ('unresolved', 'deferred')
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     row = r.mappings().first()
     return {
         "value": row["cnt"] if row else 0,
@@ -1773,18 +2236,25 @@ async def provider_planner_conflicts_kpi(
 
 
 async def provider_planner_pax_by_site(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Chart: PAX quota by site (top 10)."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT i.name AS name, COALESCE(SUM(pa.pax_quota), 0) AS value
         FROM planner_activities pa
         JOIN ar_installations i ON i.id = pa.asset_id
         WHERE pa.entity_id = :eid AND pa.active = TRUE
             AND pa.status IN ('draft', 'submitted', 'validated', 'in_progress')
         GROUP BY i.name ORDER BY value DESC LIMIT 10
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()]}
 
 
@@ -1803,14 +2273,24 @@ async def provider_planner_pax_by_site(
 # windows (12 weeks × ~50 active activities) the query stays under 50 ms.
 
 PLANNER_ACTIVITY_TYPES: tuple[str, ...] = (
-    "project", "workover", "drilling", "integrity",
-    "maintenance", "permanent_ops", "inspection", "event",
+    "project",
+    "workover",
+    "drilling",
+    "integrity",
+    "maintenance",
+    "permanent_ops",
+    "inspection",
+    "event",
 )
 
 
 async def provider_planner_workload_chart(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Chart: stacked POB per activity type per time bucket (plan de charge).
 
@@ -1909,11 +2389,14 @@ async def provider_planner_workload_chart(
         GROUP BY bucket_start
         ORDER BY bucket_start
     """
-    r = await db.execute(text(sql), {
-        "eid": str(entity_id),
-        "bucket_unit": bucket_unit,
-        "label_fmt": label_fmt,
-    })
+    r = await db.execute(
+        text(sql),
+        {
+            "eid": str(entity_id),
+            "bucket_unit": bucket_unit,
+            "label_fmt": label_fmt,
+        },
+    )
     rows = [dict(row) for row in r.mappings().all()]
     # Drop bucket_start from the payload — it's only used for ordering
     for row in rows:
@@ -1927,11 +2410,16 @@ async def provider_planner_workload_chart(
 
 
 async def provider_papyrus_overview(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """KPI: Papyrus document summary with workflow and revision totals."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             COUNT(*) AS total_documents,
             COUNT(*) FILTER (WHERE status = 'draft') AS draft_count,
@@ -1940,14 +2428,19 @@ async def provider_papyrus_overview(
             COUNT(*) FILTER (WHERE status = 'archived') AS archived_count
         FROM documents
         WHERE entity_id = :eid AND deleted_at IS NULL
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     row = r.mappings().first()
 
-    rev = await db.execute(text("""
+    rev = await db.execute(
+        text("""
         SELECT COUNT(*) AS revision_count
         FROM revisions
         WHERE entity_id = :eid
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     rev_row = rev.mappings().first()
 
     return {
@@ -1966,11 +2459,16 @@ async def provider_papyrus_overview(
 
 
 async def provider_papyrus_by_status(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Chart: Papyrus documents by workflow status."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT status AS name, COUNT(*) AS value
         FROM documents
         WHERE entity_id = :eid AND deleted_at IS NULL
@@ -1984,16 +2482,23 @@ async def provider_papyrus_by_status(
             WHEN 'archived' THEN 6
             ELSE 7
         END
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()]}
 
 
 async def provider_papyrus_by_type(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Chart: Papyrus documents by document type."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             COALESCE(dt.code, 'Sans type') AS name,
             COUNT(*) AS value
@@ -2003,16 +2508,23 @@ async def provider_papyrus_by_type(
         GROUP BY COALESCE(dt.code, 'Sans type')
         ORDER BY value DESC, name
         LIMIT 12
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()]}
 
 
 async def provider_papyrus_recent_documents(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Table: most recently updated Papyrus documents."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             d.id,
             d.number,
@@ -2028,7 +2540,9 @@ async def provider_papyrus_recent_documents(
         WHERE d.entity_id = :eid AND d.deleted_at IS NULL
         ORDER BY COALESCE(d.updated_at, d.created_at) DESC
         LIMIT 15
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {
         "columns": [
             {"key": "number", "label": "Numero"},
@@ -2043,17 +2557,24 @@ async def provider_papyrus_recent_documents(
 
 
 async def provider_papyrus_forms_overview(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """KPI: Papyrus forms, pending external submissions, and failed dispatches."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             (SELECT COUNT(*) FROM papyrus_forms WHERE entity_id = :eid AND is_active = TRUE) AS active_forms,
             (SELECT COUNT(*) FROM papyrus_external_links WHERE entity_id = :eid AND is_revoked = FALSE) AS live_links,
             (SELECT COUNT(*) FROM papyrus_external_submissions WHERE entity_id = :eid AND status = 'pending') AS pending_submissions,
             (SELECT COUNT(*) FROM papyrus_dispatch_runs WHERE entity_id = :eid AND status = 'failed') AS failed_dispatches
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     row = r.mappings().first()
     return {
         "value": row["pending_submissions"] if row else 0,
@@ -2075,11 +2596,16 @@ async def provider_papyrus_forms_overview(
 
 
 async def provider_workflow_overview(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """KPI: workflow instance summary."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT
             COUNT(*) FILTER (WHERE current_state NOT IN ('completed', 'cancelled', 'rejected')) AS active,
             COUNT(*) FILTER (WHERE current_state = 'completed') AS completed,
@@ -2087,7 +2613,9 @@ async def provider_workflow_overview(
             COUNT(*) AS total
         FROM workflow_instances
         WHERE entity_id = :eid
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     row = r.mappings().first()
     return {
         "value": row["active"] if row else 0,
@@ -2103,26 +2631,38 @@ async def provider_workflow_overview(
 
 
 async def provider_workflow_by_definition(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Chart: workflow instances by definition name."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT wd.name AS name, COUNT(*) AS value
         FROM workflow_instances wi
         JOIN workflow_definitions wd ON wd.id = wi.definition_id
         WHERE wi.entity_id = :eid
         GROUP BY wd.name ORDER BY value DESC
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {"data": [dict(row) for row in r.mappings().all()]}
 
 
 async def provider_workflow_pending(
-    *, config: dict, tenant_id: UUID, entity_id: UUID | None,
-    user: Any, db: AsyncSession,
+    *,
+    config: dict,
+    tenant_id: UUID,
+    entity_id: UUID | None,
+    user: Any,
+    db: AsyncSession,
 ) -> dict:
     """Table: pending workflow instances awaiting action."""
-    r = await db.execute(text("""
+    r = await db.execute(
+        text("""
         SELECT wd.name AS definition, wi.current_state AS state,
                wi.created_at, wi.entity_type, wi.entity_id AS ref_id
         FROM workflow_instances wi
@@ -2130,7 +2670,9 @@ async def provider_workflow_pending(
         WHERE wi.entity_id = :eid
             AND wi.current_state NOT IN ('completed', 'cancelled', 'rejected')
         ORDER BY wi.created_at DESC LIMIT 15
-    """), {"eid": str(entity_id)})
+    """),
+        {"eid": str(entity_id)},
+    )
     return {
         "columns": [
             {"key": "definition", "label": "Workflow"},

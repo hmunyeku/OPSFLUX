@@ -4,7 +4,7 @@ import hashlib
 import json
 import logging
 import os
-from uuid import UUID, uuid4, uuid5
+from uuid import UUID, uuid5
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import hash_password
 from app.models.asset_registry import Installation
 from app.models.common import (
-
     Entity,
     User,
     UserGroup,
@@ -39,17 +38,42 @@ def _default_workflow_definitions() -> list[dict]:
                 {"from": "draft", "to": "planned", "label": "Planifier", "required_roles": ["CHEF_PROJET", "DPROJ"]},
                 {"from": "draft", "to": "cancelled", "label": "Annuler", "required_roles": ["CHEF_PROJET", "DPROJ"]},
                 {"from": "planned", "to": "active", "label": "Activer", "required_roles": ["CHEF_PROJET", "DPROJ"]},
-                {"from": "planned", "to": "draft", "label": "Revenir en brouillon", "required_roles": ["CHEF_PROJET", "DPROJ"]},
+                {
+                    "from": "planned",
+                    "to": "draft",
+                    "label": "Revenir en brouillon",
+                    "required_roles": ["CHEF_PROJET", "DPROJ"],
+                },
                 {"from": "planned", "to": "cancelled", "label": "Annuler", "required_roles": ["CHEF_PROJET", "DPROJ"]},
-                {"from": "active", "to": "on_hold", "label": "Mettre en pause", "required_roles": ["CHEF_PROJET", "DPROJ"]},
+                {
+                    "from": "active",
+                    "to": "on_hold",
+                    "label": "Mettre en pause",
+                    "required_roles": ["CHEF_PROJET", "DPROJ"],
+                },
                 {"from": "active", "to": "completed", "label": "Terminer", "required_roles": ["CHEF_PROJET", "DPROJ"]},
-                {"from": "active", "to": "draft", "label": "Revenir en brouillon", "required_roles": ["CHEF_PROJET", "DPROJ"]},
+                {
+                    "from": "active",
+                    "to": "draft",
+                    "label": "Revenir en brouillon",
+                    "required_roles": ["CHEF_PROJET", "DPROJ"],
+                },
                 {"from": "active", "to": "cancelled", "label": "Annuler", "required_roles": ["DPROJ", "DO"]},
                 {"from": "on_hold", "to": "active", "label": "Reprendre", "required_roles": ["CHEF_PROJET", "DPROJ"]},
-                {"from": "on_hold", "to": "draft", "label": "Revenir en brouillon", "required_roles": ["CHEF_PROJET", "DPROJ"]},
+                {
+                    "from": "on_hold",
+                    "to": "draft",
+                    "label": "Revenir en brouillon",
+                    "required_roles": ["CHEF_PROJET", "DPROJ"],
+                },
                 {"from": "on_hold", "to": "cancelled", "label": "Annuler", "required_roles": ["DPROJ", "DO"]},
                 {"from": "completed", "to": "active", "label": "Reouvrir", "required_roles": ["CHEF_PROJET", "DPROJ"]},
-                {"from": "completed", "to": "draft", "label": "Revenir en brouillon", "required_roles": ["CHEF_PROJET", "DPROJ"]},
+                {
+                    "from": "completed",
+                    "to": "draft",
+                    "label": "Revenir en brouillon",
+                    "required_roles": ["CHEF_PROJET", "DPROJ"],
+                },
                 {"from": "completed", "to": "cancelled", "label": "Annuler", "required_roles": ["DPROJ", "DO"]},
             ],
         },
@@ -59,11 +83,19 @@ def _default_workflow_definitions() -> list[dict]:
             "name": "Avis de Séjour",
             "entity_type": "ads",
             "states": [
-                "draft", "submitted",
-                "pending_initiator_review", "pending_project_review",
-                "pending_compliance", "pending_validation",
-                "pending_arbitration", "approved", "rejected", "cancelled",
-                "requires_review", "in_progress", "completed",
+                "draft",
+                "submitted",
+                "pending_initiator_review",
+                "pending_project_review",
+                "pending_compliance",
+                "pending_validation",
+                "pending_arbitration",
+                "approved",
+                "rejected",
+                "cancelled",
+                "requires_review",
+                "in_progress",
+                "completed",
             ],
             "transitions": [
                 {"from": "draft", "to": "submitted", "label": "Soumettre", "required_permission": "paxlog.ads.submit"},
@@ -121,20 +153,78 @@ def _default_workflow_definitions() -> list[dict]:
                     "required_permission": "paxlog.compliance.manage",
                     "assignee": {"resolver": "role", "role_code": "CDS"},
                 },
-                {"from": "pending_compliance", "to": "rejected", "label": "Rejeter", "comment_required": True, "required_permission": "paxlog.compliance.manage"},
-                {"from": "pending_validation", "to": "approved", "label": "Approuver", "required_permission": "paxlog.ads.approve"},
-                {"from": "pending_validation", "to": "rejected", "label": "Rejeter", "comment_required": True, "required_permission": "paxlog.ads.approve"},
-                {"from": "pending_validation", "to": "pending_arbitration", "label": "Escalader", "required_permission": "paxlog.ads.approve"},
-                {"from": "pending_arbitration", "to": "approved", "label": "Approuver (DO)", "required_permission": "paxlog.ads.approve"},
-                {"from": "pending_arbitration", "to": "rejected", "label": "Rejeter (DO)", "comment_required": True, "required_permission": "paxlog.ads.approve"},
-                {"from": "approved", "to": "in_progress", "label": "Démarrer", "required_permission": "paxlog.ads.approve"},
+                {
+                    "from": "pending_compliance",
+                    "to": "rejected",
+                    "label": "Rejeter",
+                    "comment_required": True,
+                    "required_permission": "paxlog.compliance.manage",
+                },
+                {
+                    "from": "pending_validation",
+                    "to": "approved",
+                    "label": "Approuver",
+                    "required_permission": "paxlog.ads.approve",
+                },
+                {
+                    "from": "pending_validation",
+                    "to": "rejected",
+                    "label": "Rejeter",
+                    "comment_required": True,
+                    "required_permission": "paxlog.ads.approve",
+                },
+                {
+                    "from": "pending_validation",
+                    "to": "pending_arbitration",
+                    "label": "Escalader",
+                    "required_permission": "paxlog.ads.approve",
+                },
+                {
+                    "from": "pending_arbitration",
+                    "to": "approved",
+                    "label": "Approuver (DO)",
+                    "required_permission": "paxlog.ads.approve",
+                },
+                {
+                    "from": "pending_arbitration",
+                    "to": "rejected",
+                    "label": "Rejeter (DO)",
+                    "comment_required": True,
+                    "required_permission": "paxlog.ads.approve",
+                },
+                {
+                    "from": "approved",
+                    "to": "in_progress",
+                    "label": "Démarrer",
+                    "required_permission": "paxlog.ads.approve",
+                },
                 {"from": "approved", "to": "requires_review", "label": "Demander révision"},
                 {"from": "approved", "to": "cancelled", "label": "Annuler", "required_permission": "paxlog.ads.cancel"},
-                {"from": "in_progress", "to": "completed", "label": "Terminer", "required_permission": "paxlog.ads.approve"},
+                {
+                    "from": "in_progress",
+                    "to": "completed",
+                    "label": "Terminer",
+                    "required_permission": "paxlog.ads.approve",
+                },
                 {"from": "in_progress", "to": "requires_review", "label": "Demander révision"},
-                {"from": "requires_review", "to": "pending_compliance", "label": "Re-soumettre", "required_permission": "paxlog.ads.submit"},
-                {"from": "requires_review", "to": "cancelled", "label": "Annuler", "required_permission": "paxlog.ads.cancel"},
-                {"from": "requires_review", "to": "submitted", "label": "Re-soumettre à l'étape nominale", "required_permission": "paxlog.ads.submit"},
+                {
+                    "from": "requires_review",
+                    "to": "pending_compliance",
+                    "label": "Re-soumettre",
+                    "required_permission": "paxlog.ads.submit",
+                },
+                {
+                    "from": "requires_review",
+                    "to": "cancelled",
+                    "label": "Annuler",
+                    "required_permission": "paxlog.ads.cancel",
+                },
+                {
+                    "from": "requires_review",
+                    "to": "submitted",
+                    "label": "Re-soumettre à l'étape nominale",
+                    "required_permission": "paxlog.ads.submit",
+                },
             ],
         },
         {
@@ -152,12 +242,23 @@ def _default_workflow_definitions() -> list[dict]:
                 {"from": "draft", "to": "submitted", "label": "Soumettre"},
                 {"from": "draft", "to": "cancelled", "label": "Annuler"},
                 {"from": "submitted", "to": "validated", "label": "Valider", "required_roles": ["CDS", "DPROD"]},
-                {"from": "submitted", "to": "rejected", "label": "Rejeter", "comment_required": True, "required_roles": ["CDS", "DPROD"]},
+                {
+                    "from": "submitted",
+                    "to": "rejected",
+                    "label": "Rejeter",
+                    "comment_required": True,
+                    "required_roles": ["CDS", "DPROD"],
+                },
                 {"from": "submitted", "to": "cancelled", "label": "Annuler"},
                 {"from": "validated", "to": "in_progress", "label": "Démarrer"},
                 {"from": "validated", "to": "cancelled", "label": "Annuler", "required_roles": ["CDS", "DPROD", "DO"]},
                 {"from": "in_progress", "to": "completed", "label": "Terminer"},
-                {"from": "in_progress", "to": "cancelled", "label": "Annuler", "required_roles": ["CDS", "DPROD", "DO"]},
+                {
+                    "from": "in_progress",
+                    "to": "cancelled",
+                    "label": "Annuler",
+                    "required_roles": ["CDS", "DPROD", "DO"],
+                },
                 {"from": "rejected", "to": "draft", "label": "Réviser"},
             ],
         },
@@ -243,22 +344,26 @@ def _default_workflow_definitions() -> list[dict]:
 async def _sync_default_workflow_definition(db: AsyncSession, *, entity_id: UUID, definition_data: dict) -> None:
     lookup_slugs = [definition_data["slug"], *definition_data.get("legacy_slugs", [])]
     result = await db.execute(
-        select(WorkflowDefinition).where(
+        select(WorkflowDefinition)
+        .where(
             WorkflowDefinition.entity_id == entity_id,
             WorkflowDefinition.slug.in_(lookup_slugs),
-        ).order_by(WorkflowDefinition.created_at)
+        )
+        .order_by(WorkflowDefinition.created_at)
     )
     definition = result.scalars().first()
     if not definition:
-        db.add(WorkflowDefinition(
-            entity_id=entity_id,
-            slug=definition_data["slug"],
-            name=definition_data["name"],
-            entity_type=definition_data["entity_type"],
-            states=definition_data["states"],
-            transitions=definition_data["transitions"],
-            status="published",
-        ))
+        db.add(
+            WorkflowDefinition(
+                entity_id=entity_id,
+                slug=definition_data["slug"],
+                name=definition_data["name"],
+                entity_type=definition_data["entity_type"],
+                states=definition_data["states"],
+                transitions=definition_data["transitions"],
+                status="published",
+            )
+        )
         logger.info("Seed: created workflow definition '%s'", definition_data["slug"])
         return
 
@@ -455,20 +560,55 @@ async def seed_dev_data(db: AsyncSession) -> None:
             db.add(UserGroupMember(user_id=user.id, group_id=group.id))
 
     # ── Sample assets ───────────────────────────────────────────
-    from app.models.asset_registry import OilField as Field, OilSite as Site
+    from app.models.asset_registry import OilField as Field
+    from app.models.asset_registry import OilSite as Site
 
     result = await db.execute(select(Installation).where(Installation.code == "EBOME"))
     if not result.scalar_one_or_none():
-        field = Field(entity_id=entity.id, code="PCM", name="Perenco Cameroon",
-                      country="CM", operator="Perenco", environment="OFFSHORE", status="OPERATIONAL")
+        field = Field(
+            entity_id=entity.id,
+            code="PCM",
+            name="Perenco Cameroon",
+            country="CM",
+            operator="Perenco",
+            environment="OFFSHORE",
+            status="OPERATIONAL",
+        )
         db.add(field)
         await db.flush()
-        site_ebome = Site(entity_id=entity.id, field_id=field.id, code="EBOME", name="Site Ebome",
-                          site_type="PRODUCTION", environment="OFFSHORE", country="CM", manned=True, status="OPERATIONAL")
-        site_munja = Site(entity_id=entity.id, field_id=field.id, code="MUNJA", name="Site Munja",
-                          site_type="PRODUCTION", environment="ONSHORE", country="CM", manned=True, status="OPERATIONAL")
-        site_wouri = Site(entity_id=entity.id, field_id=field.id, code="WOURI", name="Base Wouri",
-                          site_type="SHORE_BASE", environment="ONSHORE", country="CM", manned=True, status="OPERATIONAL")
+        site_ebome = Site(
+            entity_id=entity.id,
+            field_id=field.id,
+            code="EBOME",
+            name="Site Ebome",
+            site_type="PRODUCTION",
+            environment="OFFSHORE",
+            country="CM",
+            manned=True,
+            status="OPERATIONAL",
+        )
+        site_munja = Site(
+            entity_id=entity.id,
+            field_id=field.id,
+            code="MUNJA",
+            name="Site Munja",
+            site_type="PRODUCTION",
+            environment="ONSHORE",
+            country="CM",
+            manned=True,
+            status="OPERATIONAL",
+        )
+        site_wouri = Site(
+            entity_id=entity.id,
+            field_id=field.id,
+            code="WOURI",
+            name="Base Wouri",
+            site_type="SHORE_BASE",
+            environment="ONSHORE",
+            country="CM",
+            manned=True,
+            status="OPERATIONAL",
+        )
         db.add_all([site_ebome, site_munja, site_wouri])
         await db.flush()
         for site, code, name, itype, env, lat, lon in [
@@ -478,9 +618,20 @@ async def seed_dev_data(db: AsyncSession) -> None:
             (site_munja, "MUNJA", "Munja", "ONSHORE_PLANT", "ONSHORE", 2.82, 9.78),
             (site_wouri, "WOURI", "Base Logistique Wouri", "ONSHORE_PLANT", "ONSHORE", 4.05, 9.7),
         ]:
-            db.add(Installation(entity_id=entity.id, site_id=site.id, code=code, name=name,
-                                installation_type=itype, environment=env, status="OPERATIONAL",
-                                is_manned=True, latitude=lat, longitude=lon))
+            db.add(
+                Installation(
+                    entity_id=entity.id,
+                    site_id=site.id,
+                    code=code,
+                    name=name,
+                    installation_type=itype,
+                    environment=env,
+                    status="OPERATIONAL",
+                    is_manned=True,
+                    latitude=lat,
+                    longitude=lon,
+                )
+            )
         logger.info("Seed: created sample assets")
 
     await db.commit()
@@ -502,42 +653,79 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
 
     # Map widget IDs → render types (must match WidgetCard.tsx switch cases)
     _RENDER_TYPES: dict[str, str] = {
-        "alerts_urgent": "kpi", "pax_on_site": "kpi", "kpi_fleet": "kpi",
-        "pickup_progress": "kpi", "weather_sites": "kpi",
-        "ads_pending": "table", "compliance_expiry": "table", "signalements_actifs": "table",
-        "project_status": "table", "my_ads": "table", "trips_today": "table", "cargo_pending": "table",
-        "planner_gantt_mini": "chart", "capacity_heatmap": "chart",
+        "alerts_urgent": "kpi",
+        "pax_on_site": "kpi",
+        "kpi_fleet": "kpi",
+        "pickup_progress": "kpi",
+        "weather_sites": "kpi",
+        "ads_pending": "table",
+        "compliance_expiry": "table",
+        "signalements_actifs": "table",
+        "project_status": "table",
+        "my_ads": "table",
+        "trips_today": "table",
+        "cargo_pending": "table",
+        "planner_gantt_mini": "chart",
+        "capacity_heatmap": "chart",
         "fleet_map": "map",
         # Projets module
-        "projets_kpis": "kpi", "projets_weather": "chart",
-        "projets_deadlines": "table", "projets_top_volume": "table",
+        "projets_kpis": "kpi",
+        "projets_weather": "chart",
+        "projets_deadlines": "table",
+        "projets_top_volume": "table",
         # Asset Registry module
-        "assets_overview": "kpi", "assets_equipment_by_class": "chart",
-        "assets_by_status": "chart", "assets_sites_by_type": "chart", "assets_map": "map",
+        "assets_overview": "kpi",
+        "assets_equipment_by_class": "chart",
+        "assets_by_status": "chart",
+        "assets_sites_by_type": "chart",
+        "assets_map": "map",
         # PaxLog module
-        "paxlog_compliance_rate": "kpi", "paxlog_ads_by_status": "chart",
-        "paxlog_expiring_credentials": "table", "paxlog_incidents": "kpi",
+        "paxlog_compliance_rate": "kpi",
+        "paxlog_ads_by_status": "chart",
+        "paxlog_expiring_credentials": "table",
+        "paxlog_incidents": "kpi",
         # Conformité module
-        "conformite_kpis": "kpi", "conformite_by_category": "chart",
+        "conformite_kpis": "kpi",
+        "conformite_by_category": "chart",
         # Tiers module
-        "tiers_overview": "kpi", "tiers_by_type": "chart", "tiers_recent": "table",
+        "tiers_overview": "kpi",
+        "tiers_by_type": "chart",
+        "tiers_recent": "table",
         # Users module
-        "users_overview": "kpi", "users_by_role": "chart", "users_by_group": "chart",
-        "users_recent_activity": "table", "users_mfa_stats": "kpi", "users_orphans": "table",
+        "users_overview": "kpi",
+        "users_by_role": "chart",
+        "users_by_group": "chart",
+        "users_recent_activity": "table",
+        "users_mfa_stats": "kpi",
+        "users_orphans": "table",
         # Support module
-        "support_overview": "kpi", "support_tickets_recent": "table", "support_by_status": "chart",
-        "support_by_type": "chart", "support_by_priority": "chart", "support_trend": "chart",
+        "support_overview": "kpi",
+        "support_tickets_recent": "table",
+        "support_by_status": "chart",
+        "support_by_type": "chart",
+        "support_by_priority": "chart",
+        "support_trend": "chart",
         # Conformité (advanced)
-        "conformite_urgency": "chart", "conformite_by_status": "chart",
-        "conformite_matrix": "table", "conformite_trend": "chart",
+        "conformite_urgency": "chart",
+        "conformite_by_status": "chart",
+        "conformite_matrix": "table",
+        "conformite_trend": "chart",
         # Planner (advanced)
-        "planner_overview": "kpi", "planner_by_type": "chart", "planner_by_status": "chart",
-        "planner_conflicts_kpi": "kpi", "planner_pax_by_site": "chart",
+        "planner_overview": "kpi",
+        "planner_by_type": "chart",
+        "planner_by_status": "chart",
+        "planner_conflicts_kpi": "kpi",
+        "planner_pax_by_site": "chart",
         # Papyrus
-        "papyrus_overview": "kpi", "papyrus_by_status": "chart", "papyrus_by_type": "chart",
-        "papyrus_recent_documents": "table", "papyrus_forms_overview": "kpi",
+        "papyrus_overview": "kpi",
+        "papyrus_by_status": "chart",
+        "papyrus_by_type": "chart",
+        "papyrus_recent_documents": "table",
+        "papyrus_forms_overview": "kpi",
         # Workflow
-        "workflow_overview": "kpi", "workflow_by_definition": "chart", "workflow_pending": "table",
+        "workflow_overview": "kpi",
+        "workflow_by_definition": "chart",
+        "workflow_pending": "table",
     }
 
     def _make_widget(widget_type: str, title: str, config: dict, position: dict) -> dict:
@@ -562,33 +750,33 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": None,
             "tab_order": -1,
             "widgets": [
-                _make_widget("alerts_urgent", "Alertes critiques",
-                             {"source": "core"},
-                             {"x": 0, "y": 0, "w": 3, "h": 2}),
-                _make_widget("pax_on_site", "PAX sur site",
-                             {"source": "paxlog"},
-                             {"x": 3, "y": 0, "w": 3, "h": 2}),
-                _make_widget("kpi_fleet", "Flotte active",
-                             {"source": "travelwiz"},
-                             {"x": 6, "y": 0, "w": 3, "h": 2}),
-                _make_widget("pickup_progress", "Ramassage",
-                             {"source": "travelwiz"},
-                             {"x": 9, "y": 0, "w": 3, "h": 2}),
-                _make_widget("ads_pending", "AdS en attente",
-                             {"source": "paxlog", "status": "pending_validation"},
-                             {"x": 0, "y": 2, "w": 4, "h": 4}),
-                _make_widget("project_status", "Projets actifs",
-                             {"source": "projets"},
-                             {"x": 4, "y": 2, "w": 4, "h": 4}),
-                _make_widget("signalements_actifs", "Signalements",
-                             {"source": "paxlog"},
-                             {"x": 8, "y": 2, "w": 4, "h": 4}),
-                _make_widget("compliance_expiry", "Certifications expirant",
-                             {"source": "paxlog", "days_ahead": 30},
-                             {"x": 0, "y": 6, "w": 6, "h": 3}),
-                _make_widget("trips_today", "Voyages du jour",
-                             {"source": "travelwiz"},
-                             {"x": 6, "y": 6, "w": 6, "h": 3}),
+                _make_widget(
+                    "alerts_urgent", "Alertes critiques", {"source": "core"}, {"x": 0, "y": 0, "w": 3, "h": 2}
+                ),
+                _make_widget("pax_on_site", "PAX sur site", {"source": "paxlog"}, {"x": 3, "y": 0, "w": 3, "h": 2}),
+                _make_widget("kpi_fleet", "Flotte active", {"source": "travelwiz"}, {"x": 6, "y": 0, "w": 3, "h": 2}),
+                _make_widget("pickup_progress", "Ramassage", {"source": "travelwiz"}, {"x": 9, "y": 0, "w": 3, "h": 2}),
+                _make_widget(
+                    "ads_pending",
+                    "AdS en attente",
+                    {"source": "paxlog", "status": "pending_validation"},
+                    {"x": 0, "y": 2, "w": 4, "h": 4},
+                ),
+                _make_widget(
+                    "project_status", "Projets actifs", {"source": "projets"}, {"x": 4, "y": 2, "w": 4, "h": 4}
+                ),
+                _make_widget(
+                    "signalements_actifs", "Signalements", {"source": "paxlog"}, {"x": 8, "y": 2, "w": 4, "h": 4}
+                ),
+                _make_widget(
+                    "compliance_expiry",
+                    "Certifications expirant",
+                    {"source": "paxlog", "days_ahead": 30},
+                    {"x": 0, "y": 6, "w": 6, "h": 3},
+                ),
+                _make_widget(
+                    "trips_today", "Voyages du jour", {"source": "travelwiz"}, {"x": 6, "y": 6, "w": 6, "h": 3}
+                ),
             ],
         },
         # CDS — Chef de Site
@@ -598,18 +786,22 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": None,
             "tab_order": 0,
             "widgets": [
-                _make_widget("pax_on_site", "PAX sur site",
-                             {"source": "paxlog"},
-                             {"x": 0, "y": 0, "w": 3, "h": 2}),
-                _make_widget("ads_pending", "AdS en attente",
-                             {"source": "paxlog", "status": "pending_validation"},
-                             {"x": 3, "y": 0, "w": 3, "h": 2}),
-                _make_widget("planner_gantt_mini", "Gantt compact",
-                             {"source": "planner", "chart_type": "gantt"},
-                             {"x": 6, "y": 0, "w": 6, "h": 4}),
-                _make_widget("alerts_urgent", "Alertes critiques",
-                             {"source": "core"},
-                             {"x": 0, "y": 2, "w": 6, "h": 4}),
+                _make_widget("pax_on_site", "PAX sur site", {"source": "paxlog"}, {"x": 0, "y": 0, "w": 3, "h": 2}),
+                _make_widget(
+                    "ads_pending",
+                    "AdS en attente",
+                    {"source": "paxlog", "status": "pending_validation"},
+                    {"x": 3, "y": 0, "w": 3, "h": 2},
+                ),
+                _make_widget(
+                    "planner_gantt_mini",
+                    "Gantt compact",
+                    {"source": "planner", "chart_type": "gantt"},
+                    {"x": 6, "y": 0, "w": 6, "h": 4},
+                ),
+                _make_widget(
+                    "alerts_urgent", "Alertes critiques", {"source": "core"}, {"x": 0, "y": 2, "w": 6, "h": 4}
+                ),
             ],
         },
         # LOG_BASE — Logistique Base
@@ -619,18 +811,18 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": None,
             "tab_order": 0,
             "widgets": [
-                _make_widget("fleet_map", "Carte flotte temps réel",
-                             {"source": "travelwiz"},
-                             {"x": 0, "y": 0, "w": 6, "h": 4}),
-                _make_widget("trips_today", "Voyages du jour",
-                             {"source": "travelwiz"},
-                             {"x": 6, "y": 0, "w": 6, "h": 4}),
-                _make_widget("cargo_pending", "Cargo en attente",
-                             {"source": "travelwiz"},
-                             {"x": 0, "y": 4, "w": 6, "h": 3}),
-                _make_widget("pickup_progress", "Ramassage en cours",
-                             {"source": "travelwiz"},
-                             {"x": 6, "y": 4, "w": 6, "h": 3}),
+                _make_widget(
+                    "fleet_map", "Carte flotte temps réel", {"source": "travelwiz"}, {"x": 0, "y": 0, "w": 6, "h": 4}
+                ),
+                _make_widget(
+                    "trips_today", "Voyages du jour", {"source": "travelwiz"}, {"x": 6, "y": 0, "w": 6, "h": 4}
+                ),
+                _make_widget(
+                    "cargo_pending", "Cargo en attente", {"source": "travelwiz"}, {"x": 0, "y": 4, "w": 6, "h": 3}
+                ),
+                _make_widget(
+                    "pickup_progress", "Ramassage en cours", {"source": "travelwiz"}, {"x": 6, "y": 4, "w": 6, "h": 3}
+                ),
             ],
         },
         # DO — Directeur Opérations
@@ -640,18 +832,19 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": None,
             "tab_order": 0,
             "widgets": [
-                _make_widget("capacity_heatmap", "Charge PAX par site",
-                             {"source": "planner", "chart_type": "heatmap"},
-                             {"x": 0, "y": 0, "w": 6, "h": 4}),
-                _make_widget("alerts_urgent", "Alertes critiques",
-                             {"source": "core"},
-                             {"x": 6, "y": 0, "w": 6, "h": 3}),
-                _make_widget("fleet_map", "Carte flotte",
-                             {"source": "travelwiz"},
-                             {"x": 0, "y": 4, "w": 6, "h": 4}),
-                _make_widget("signalements_actifs", "Signalements actifs",
-                             {"source": "paxlog"},
-                             {"x": 6, "y": 3, "w": 6, "h": 4}),
+                _make_widget(
+                    "capacity_heatmap",
+                    "Charge PAX par site",
+                    {"source": "planner", "chart_type": "heatmap"},
+                    {"x": 0, "y": 0, "w": 6, "h": 4},
+                ),
+                _make_widget(
+                    "alerts_urgent", "Alertes critiques", {"source": "core"}, {"x": 6, "y": 0, "w": 6, "h": 3}
+                ),
+                _make_widget("fleet_map", "Carte flotte", {"source": "travelwiz"}, {"x": 0, "y": 4, "w": 6, "h": 4}),
+                _make_widget(
+                    "signalements_actifs", "Signalements actifs", {"source": "paxlog"}, {"x": 6, "y": 3, "w": 6, "h": 4}
+                ),
             ],
         },
         # DEMANDEUR
@@ -661,12 +854,10 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": None,
             "tab_order": 0,
             "widgets": [
-                _make_widget("my_ads", "Mes AdS en cours",
-                             {"source": "paxlog", "scope": "my"},
-                             {"x": 0, "y": 0, "w": 8, "h": 4}),
-                _make_widget("alerts_urgent", "Alertes",
-                             {"source": "core"},
-                             {"x": 8, "y": 0, "w": 4, "h": 2}),
+                _make_widget(
+                    "my_ads", "Mes AdS en cours", {"source": "paxlog", "scope": "my"}, {"x": 0, "y": 0, "w": 8, "h": 4}
+                ),
+                _make_widget("alerts_urgent", "Alertes", {"source": "core"}, {"x": 8, "y": 0, "w": 4, "h": 2}),
             ],
         },
         # CHEF_PROJET
@@ -676,15 +867,13 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": None,
             "tab_order": 0,
             "widgets": [
-                _make_widget("project_status", "Projets actifs",
-                             {"source": "projets"},
-                             {"x": 0, "y": 0, "w": 6, "h": 4}),
-                _make_widget("planner_gantt_mini", "Gantt compact",
-                             {"source": "planner"},
-                             {"x": 6, "y": 0, "w": 6, "h": 4}),
-                _make_widget("alerts_urgent", "Alertes",
-                             {"source": "core"},
-                             {"x": 0, "y": 4, "w": 12, "h": 3}),
+                _make_widget(
+                    "project_status", "Projets actifs", {"source": "projets"}, {"x": 0, "y": 0, "w": 6, "h": 4}
+                ),
+                _make_widget(
+                    "planner_gantt_mini", "Gantt compact", {"source": "planner"}, {"x": 6, "y": 0, "w": 6, "h": 4}
+                ),
+                _make_widget("alerts_urgent", "Alertes", {"source": "core"}, {"x": 0, "y": 4, "w": 12, "h": 3}),
             ],
         },
         # CHSE (Compliance HSE) — mapped to HSE_ADMIN role
@@ -694,15 +883,16 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": None,
             "tab_order": 0,
             "widgets": [
-                _make_widget("compliance_expiry", "Certifications expirant 30j",
-                             {"source": "paxlog", "days_ahead": 30},
-                             {"x": 0, "y": 0, "w": 6, "h": 4}),
-                _make_widget("signalements_actifs", "Signalements actifs",
-                             {"source": "paxlog"},
-                             {"x": 6, "y": 0, "w": 6, "h": 4}),
-                _make_widget("alerts_urgent", "Alertes",
-                             {"source": "core"},
-                             {"x": 0, "y": 4, "w": 12, "h": 3}),
+                _make_widget(
+                    "compliance_expiry",
+                    "Certifications expirant 30j",
+                    {"source": "paxlog", "days_ahead": 30},
+                    {"x": 0, "y": 0, "w": 6, "h": 4},
+                ),
+                _make_widget(
+                    "signalements_actifs", "Signalements actifs", {"source": "paxlog"}, {"x": 6, "y": 0, "w": 6, "h": 4}
+                ),
+                _make_widget("alerts_urgent", "Alertes", {"source": "core"}, {"x": 0, "y": 4, "w": 12, "h": 3}),
             ],
         },
         # ── Module-specific dashboard tabs ────────────────────────────
@@ -714,27 +904,48 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": "planner",
             "tab_order": 0,
             "widgets": [
-                _make_widget("planner_overview", "Activites",
-                             {"source": "planner", "icon_color": "blue"},
-                             {"x": 0, "y": 0, "w": 3, "h": 2}),
-                _make_widget("planner_conflicts_kpi", "Conflits",
-                             {"source": "planner", "icon_color": "red"},
-                             {"x": 3, "y": 0, "w": 3, "h": 2}),
-                _make_widget("planner_by_type", "Par type",
-                             {"source": "planner", "chart_type": "pie", "x_field": "name", "y_fields": ["value"]},
-                             {"x": 6, "y": 0, "w": 3, "h": 4}),
-                _make_widget("planner_by_status", "Par statut",
-                             {"source": "planner", "chart_type": "bar", "x_field": "name", "y_fields": ["value"]},
-                             {"x": 9, "y": 0, "w": 3, "h": 4}),
-                _make_widget("planner_pax_by_site", "PAX par site",
-                             {"source": "planner", "chart_type": "bar", "x_field": "name", "y_fields": ["value"]},
-                             {"x": 0, "y": 2, "w": 6, "h": 4}),
-                _make_widget("capacity_heatmap", "Charge PAX journaliere",
-                             {"source": "planner", "chart_type": "heatmap"},
-                             {"x": 6, "y": 4, "w": 6, "h": 4}),
-                _make_widget("planner_gantt_mini", "Gantt compact",
-                             {"source": "planner", "chart_type": "gantt"},
-                             {"x": 0, "y": 6, "w": 12, "h": 5}),
+                _make_widget(
+                    "planner_overview",
+                    "Activites",
+                    {"source": "planner", "icon_color": "blue"},
+                    {"x": 0, "y": 0, "w": 3, "h": 2},
+                ),
+                _make_widget(
+                    "planner_conflicts_kpi",
+                    "Conflits",
+                    {"source": "planner", "icon_color": "red"},
+                    {"x": 3, "y": 0, "w": 3, "h": 2},
+                ),
+                _make_widget(
+                    "planner_by_type",
+                    "Par type",
+                    {"source": "planner", "chart_type": "pie", "x_field": "name", "y_fields": ["value"]},
+                    {"x": 6, "y": 0, "w": 3, "h": 4},
+                ),
+                _make_widget(
+                    "planner_by_status",
+                    "Par statut",
+                    {"source": "planner", "chart_type": "bar", "x_field": "name", "y_fields": ["value"]},
+                    {"x": 9, "y": 0, "w": 3, "h": 4},
+                ),
+                _make_widget(
+                    "planner_pax_by_site",
+                    "PAX par site",
+                    {"source": "planner", "chart_type": "bar", "x_field": "name", "y_fields": ["value"]},
+                    {"x": 0, "y": 2, "w": 6, "h": 4},
+                ),
+                _make_widget(
+                    "capacity_heatmap",
+                    "Charge PAX journaliere",
+                    {"source": "planner", "chart_type": "heatmap"},
+                    {"x": 6, "y": 4, "w": 6, "h": 4},
+                ),
+                _make_widget(
+                    "planner_gantt_mini",
+                    "Gantt compact",
+                    {"source": "planner", "chart_type": "gantt"},
+                    {"x": 0, "y": 6, "w": 12, "h": 5},
+                ),
             ],
         },
         # PaxLog module dashboard
@@ -744,24 +955,26 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": "paxlog",
             "tab_order": 0,
             "widgets": [
-                _make_widget("pax_on_site", "PAX sur site",
-                             {"source": "paxlog"},
-                             {"x": 0, "y": 0, "w": 3, "h": 2}),
-                _make_widget("paxlog_compliance_rate", "Taux de conformite",
-                             {"source": "paxlog"},
-                             {"x": 3, "y": 0, "w": 3, "h": 2}),
-                _make_widget("paxlog_incidents", "Incidents actifs",
-                             {"source": "paxlog"},
-                             {"x": 6, "y": 0, "w": 3, "h": 2}),
-                _make_widget("ads_pending", "AdS en attente",
-                             {"source": "paxlog"},
-                             {"x": 9, "y": 0, "w": 3, "h": 2}),
-                _make_widget("paxlog_ads_by_status", "AdS par statut",
-                             {"source": "paxlog"},
-                             {"x": 0, "y": 2, "w": 6, "h": 4}),
-                _make_widget("paxlog_expiring_credentials", "Certifications expirant",
-                             {"source": "paxlog", "days_ahead": 30},
-                             {"x": 6, "y": 2, "w": 6, "h": 4}),
+                _make_widget("pax_on_site", "PAX sur site", {"source": "paxlog"}, {"x": 0, "y": 0, "w": 3, "h": 2}),
+                _make_widget(
+                    "paxlog_compliance_rate",
+                    "Taux de conformite",
+                    {"source": "paxlog"},
+                    {"x": 3, "y": 0, "w": 3, "h": 2},
+                ),
+                _make_widget(
+                    "paxlog_incidents", "Incidents actifs", {"source": "paxlog"}, {"x": 6, "y": 0, "w": 3, "h": 2}
+                ),
+                _make_widget("ads_pending", "AdS en attente", {"source": "paxlog"}, {"x": 9, "y": 0, "w": 3, "h": 2}),
+                _make_widget(
+                    "paxlog_ads_by_status", "AdS par statut", {"source": "paxlog"}, {"x": 0, "y": 2, "w": 6, "h": 4}
+                ),
+                _make_widget(
+                    "paxlog_expiring_credentials",
+                    "Certifications expirant",
+                    {"source": "paxlog", "days_ahead": 30},
+                    {"x": 6, "y": 2, "w": 6, "h": 4},
+                ),
             ],
         },
         # TravelWiz module dashboard
@@ -771,27 +984,17 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": "travelwiz",
             "tab_order": 0,
             "widgets": [
-                _make_widget("kpi_fleet", "Flotte active",
-                             {"source": "travelwiz"},
-                             {"x": 0, "y": 0, "w": 3, "h": 2}),
-                _make_widget("pickup_progress", "Ramassage",
-                             {"source": "travelwiz"},
-                             {"x": 3, "y": 0, "w": 3, "h": 2}),
-                _make_widget("weather_sites", "Meteo sites",
-                             {"source": "travelwiz"},
-                             {"x": 6, "y": 0, "w": 3, "h": 2}),
-                _make_widget("alerts_urgent", "Alertes",
-                             {"source": "core"},
-                             {"x": 9, "y": 0, "w": 3, "h": 2}),
-                _make_widget("trips_today", "Voyages du jour",
-                             {"source": "travelwiz"},
-                             {"x": 0, "y": 2, "w": 6, "h": 4}),
-                _make_widget("cargo_pending", "Cargo en attente",
-                             {"source": "travelwiz"},
-                             {"x": 6, "y": 2, "w": 6, "h": 4}),
-                _make_widget("fleet_map", "Carte flotte",
-                             {"source": "travelwiz"},
-                             {"x": 0, "y": 6, "w": 12, "h": 5}),
+                _make_widget("kpi_fleet", "Flotte active", {"source": "travelwiz"}, {"x": 0, "y": 0, "w": 3, "h": 2}),
+                _make_widget("pickup_progress", "Ramassage", {"source": "travelwiz"}, {"x": 3, "y": 0, "w": 3, "h": 2}),
+                _make_widget("weather_sites", "Meteo sites", {"source": "travelwiz"}, {"x": 6, "y": 0, "w": 3, "h": 2}),
+                _make_widget("alerts_urgent", "Alertes", {"source": "core"}, {"x": 9, "y": 0, "w": 3, "h": 2}),
+                _make_widget(
+                    "trips_today", "Voyages du jour", {"source": "travelwiz"}, {"x": 0, "y": 2, "w": 6, "h": 4}
+                ),
+                _make_widget(
+                    "cargo_pending", "Cargo en attente", {"source": "travelwiz"}, {"x": 6, "y": 2, "w": 6, "h": 4}
+                ),
+                _make_widget("fleet_map", "Carte flotte", {"source": "travelwiz"}, {"x": 0, "y": 6, "w": 12, "h": 5}),
             ],
         },
         # PackLog module dashboard
@@ -801,24 +1004,28 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": "packlog",
             "tab_order": 0,
             "widgets": [
-                _make_widget("packlog_overview", "Vue d'ensemble",
-                             {"source": "packlog"},
-                             {"x": 0, "y": 0, "w": 3, "h": 2}),
-                _make_widget("packlog_catalog_overview", "Catalogue SAP",
-                             {"source": "packlog"},
-                             {"x": 3, "y": 0, "w": 3, "h": 2}),
-                _make_widget("packlog_requests_by_status", "Demandes par statut",
-                             {"source": "packlog", "chart_type": "pie", "x_field": "name", "y_fields": ["value"]},
-                             {"x": 6, "y": 0, "w": 3, "h": 4}),
-                _make_widget("packlog_cargo_by_status", "Colis par statut",
-                             {"source": "packlog", "chart_type": "bar", "x_field": "name", "y_fields": ["value"]},
-                             {"x": 9, "y": 0, "w": 3, "h": 4}),
-                _make_widget("packlog_tracking", "Tracking récent",
-                             {"source": "packlog"},
-                             {"x": 0, "y": 2, "w": 7, "h": 5}),
-                _make_widget("packlog_alerts", "Alertes",
-                             {"source": "packlog"},
-                             {"x": 7, "y": 4, "w": 5, "h": 4}),
+                _make_widget(
+                    "packlog_overview", "Vue d'ensemble", {"source": "packlog"}, {"x": 0, "y": 0, "w": 3, "h": 2}
+                ),
+                _make_widget(
+                    "packlog_catalog_overview", "Catalogue SAP", {"source": "packlog"}, {"x": 3, "y": 0, "w": 3, "h": 2}
+                ),
+                _make_widget(
+                    "packlog_requests_by_status",
+                    "Demandes par statut",
+                    {"source": "packlog", "chart_type": "pie", "x_field": "name", "y_fields": ["value"]},
+                    {"x": 6, "y": 0, "w": 3, "h": 4},
+                ),
+                _make_widget(
+                    "packlog_cargo_by_status",
+                    "Colis par statut",
+                    {"source": "packlog", "chart_type": "bar", "x_field": "name", "y_fields": ["value"]},
+                    {"x": 9, "y": 0, "w": 3, "h": 4},
+                ),
+                _make_widget(
+                    "packlog_tracking", "Tracking récent", {"source": "packlog"}, {"x": 0, "y": 2, "w": 7, "h": 5}
+                ),
+                _make_widget("packlog_alerts", "Alertes", {"source": "packlog"}, {"x": 7, "y": 4, "w": 5, "h": 4}),
             ],
         },
         # Projets module dashboard
@@ -828,21 +1035,25 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": "projets",
             "tab_order": 0,
             "widgets": [
-                _make_widget("projets_kpis", "KPIs Projets",
-                             {"source": "projets"},
-                             {"x": 0, "y": 0, "w": 3, "h": 2}),
-                _make_widget("project_status", "Projets actifs",
-                             {"source": "projets"},
-                             {"x": 3, "y": 0, "w": 5, "h": 4}),
-                _make_widget("projets_weather", "Sante projets",
-                             {"source": "projets", "chart_type": "bar"},
-                             {"x": 8, "y": 0, "w": 4, "h": 4}),
-                _make_widget("projets_deadlines", "Echeances 14 jours",
-                             {"source": "projets"},
-                             {"x": 0, "y": 4, "w": 6, "h": 4}),
-                _make_widget("projets_top_volume", "Top projets par volume",
-                             {"source": "projets"},
-                             {"x": 6, "y": 4, "w": 6, "h": 4}),
+                _make_widget("projets_kpis", "KPIs Projets", {"source": "projets"}, {"x": 0, "y": 0, "w": 3, "h": 2}),
+                _make_widget(
+                    "project_status", "Projets actifs", {"source": "projets"}, {"x": 3, "y": 0, "w": 5, "h": 4}
+                ),
+                _make_widget(
+                    "projets_weather",
+                    "Sante projets",
+                    {"source": "projets", "chart_type": "bar"},
+                    {"x": 8, "y": 0, "w": 4, "h": 4},
+                ),
+                _make_widget(
+                    "projets_deadlines", "Echeances 14 jours", {"source": "projets"}, {"x": 0, "y": 4, "w": 6, "h": 4}
+                ),
+                _make_widget(
+                    "projets_top_volume",
+                    "Top projets par volume",
+                    {"source": "projets"},
+                    {"x": 6, "y": 4, "w": 6, "h": 4},
+                ),
             ],
         },
         # Asset Registry module dashboard
@@ -852,21 +1063,30 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": "asset_registry",
             "tab_order": 0,
             "widgets": [
-                _make_widget("assets_overview", "Vue d'ensemble",
-                             {"source": "asset_registry"},
-                             {"x": 0, "y": 0, "w": 3, "h": 2}),
-                _make_widget("assets_equipment_by_class", "Equipements par classe",
-                             {"source": "asset_registry", "chart_type": "pie"},
-                             {"x": 3, "y": 0, "w": 5, "h": 4}),
-                _make_widget("assets_by_status", "Equipements par statut",
-                             {"source": "asset_registry", "chart_type": "bar"},
-                             {"x": 8, "y": 0, "w": 4, "h": 4}),
-                _make_widget("assets_sites_by_type", "Sites par type",
-                             {"source": "asset_registry", "chart_type": "pie"},
-                             {"x": 0, "y": 4, "w": 4, "h": 4}),
-                _make_widget("assets_map", "Carte des assets",
-                             {"source": "asset_registry"},
-                             {"x": 4, "y": 4, "w": 8, "h": 5}),
+                _make_widget(
+                    "assets_overview", "Vue d'ensemble", {"source": "asset_registry"}, {"x": 0, "y": 0, "w": 3, "h": 2}
+                ),
+                _make_widget(
+                    "assets_equipment_by_class",
+                    "Equipements par classe",
+                    {"source": "asset_registry", "chart_type": "pie"},
+                    {"x": 3, "y": 0, "w": 5, "h": 4},
+                ),
+                _make_widget(
+                    "assets_by_status",
+                    "Equipements par statut",
+                    {"source": "asset_registry", "chart_type": "bar"},
+                    {"x": 8, "y": 0, "w": 4, "h": 4},
+                ),
+                _make_widget(
+                    "assets_sites_by_type",
+                    "Sites par type",
+                    {"source": "asset_registry", "chart_type": "pie"},
+                    {"x": 0, "y": 4, "w": 4, "h": 4},
+                ),
+                _make_widget(
+                    "assets_map", "Carte des assets", {"source": "asset_registry"}, {"x": 4, "y": 4, "w": 8, "h": 5}
+                ),
             ],
         },
         # Conformité module dashboard — BI professional layout
@@ -876,27 +1096,48 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": "conformite",
             "tab_order": 0,
             "widgets": [
-                _make_widget("conformite_kpis", "Score conformite",
-                             {"source": "conformite", "icon_color": "green"},
-                             {"x": 0, "y": 0, "w": 3, "h": 2}),
-                _make_widget("paxlog_compliance_rate", "Taux PAX",
-                             {"source": "paxlog", "icon_color": "cyan"},
-                             {"x": 3, "y": 0, "w": 3, "h": 2}),
-                _make_widget("conformite_by_status", "Par statut",
-                             {"source": "conformite", "chart_type": "pie", "x_field": "name", "y_fields": ["value"]},
-                             {"x": 6, "y": 0, "w": 3, "h": 4}),
-                _make_widget("conformite_urgency", "Expirations par urgence",
-                             {"source": "conformite", "chart_type": "bar", "x_field": "name", "y_fields": ["value"]},
-                             {"x": 9, "y": 0, "w": 3, "h": 4}),
-                _make_widget("conformite_trend", "Tendance score",
-                             {"source": "conformite", "chart_type": "area", "x_field": "month", "y_fields": ["score"]},
-                             {"x": 0, "y": 2, "w": 6, "h": 4}),
-                _make_widget("conformite_matrix", "Matrice type x statut",
-                             {"source": "conformite"},
-                             {"x": 0, "y": 6, "w": 6, "h": 4}),
-                _make_widget("compliance_expiry", "Certifications expirant 30j",
-                             {"source": "paxlog", "days_ahead": 30},
-                             {"x": 6, "y": 4, "w": 6, "h": 5}),
+                _make_widget(
+                    "conformite_kpis",
+                    "Score conformite",
+                    {"source": "conformite", "icon_color": "green"},
+                    {"x": 0, "y": 0, "w": 3, "h": 2},
+                ),
+                _make_widget(
+                    "paxlog_compliance_rate",
+                    "Taux PAX",
+                    {"source": "paxlog", "icon_color": "cyan"},
+                    {"x": 3, "y": 0, "w": 3, "h": 2},
+                ),
+                _make_widget(
+                    "conformite_by_status",
+                    "Par statut",
+                    {"source": "conformite", "chart_type": "pie", "x_field": "name", "y_fields": ["value"]},
+                    {"x": 6, "y": 0, "w": 3, "h": 4},
+                ),
+                _make_widget(
+                    "conformite_urgency",
+                    "Expirations par urgence",
+                    {"source": "conformite", "chart_type": "bar", "x_field": "name", "y_fields": ["value"]},
+                    {"x": 9, "y": 0, "w": 3, "h": 4},
+                ),
+                _make_widget(
+                    "conformite_trend",
+                    "Tendance score",
+                    {"source": "conformite", "chart_type": "area", "x_field": "month", "y_fields": ["score"]},
+                    {"x": 0, "y": 2, "w": 6, "h": 4},
+                ),
+                _make_widget(
+                    "conformite_matrix",
+                    "Matrice type x statut",
+                    {"source": "conformite"},
+                    {"x": 0, "y": 6, "w": 6, "h": 4},
+                ),
+                _make_widget(
+                    "compliance_expiry",
+                    "Certifications expirant 30j",
+                    {"source": "paxlog", "days_ahead": 30},
+                    {"x": 6, "y": 4, "w": 6, "h": 5},
+                ),
             ],
         },
         # Tiers module dashboard
@@ -906,18 +1147,15 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": "tiers",
             "tab_order": 0,
             "widgets": [
-                _make_widget("tiers_overview", "Vue d'ensemble",
-                             {"source": "tiers"},
-                             {"x": 0, "y": 0, "w": 4, "h": 2}),
-                _make_widget("tiers_by_type", "Entreprises par type",
-                             {"source": "tiers", "chart_type": "pie"},
-                             {"x": 4, "y": 0, "w": 4, "h": 4}),
-                _make_widget("tiers_recent", "Tiers recents",
-                             {"source": "tiers"},
-                             {"x": 8, "y": 0, "w": 4, "h": 4}),
-                _make_widget("alerts_urgent", "Alertes",
-                             {"source": "core"},
-                             {"x": 0, "y": 2, "w": 4, "h": 2}),
+                _make_widget("tiers_overview", "Vue d'ensemble", {"source": "tiers"}, {"x": 0, "y": 0, "w": 4, "h": 2}),
+                _make_widget(
+                    "tiers_by_type",
+                    "Entreprises par type",
+                    {"source": "tiers", "chart_type": "pie"},
+                    {"x": 4, "y": 0, "w": 4, "h": 4},
+                ),
+                _make_widget("tiers_recent", "Tiers recents", {"source": "tiers"}, {"x": 8, "y": 0, "w": 4, "h": 4}),
+                _make_widget("alerts_urgent", "Alertes", {"source": "core"}, {"x": 0, "y": 2, "w": 4, "h": 2}),
             ],
         },
         # Users module dashboard — intelligent widgets
@@ -927,24 +1165,27 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": "users",
             "tab_order": 0,
             "widgets": [
-                _make_widget("users_overview", "Utilisateurs",
-                             {"source": "users"},
-                             {"x": 0, "y": 0, "w": 3, "h": 3}),
-                _make_widget("users_mfa_stats", "Securite MFA",
-                             {"source": "users"},
-                             {"x": 3, "y": 0, "w": 3, "h": 3}),
-                _make_widget("users_by_role", "Par role",
-                             {"source": "users", "chart_type": "pie", "x_field": "role_name", "y_fields": ["user_count"]},
-                             {"x": 6, "y": 0, "w": 3, "h": 4}),
-                _make_widget("users_by_group", "Par groupe",
-                             {"source": "users", "chart_type": "bar", "x_field": "group_name", "y_fields": ["member_count"]},
-                             {"x": 9, "y": 0, "w": 3, "h": 4}),
-                _make_widget("users_recent_activity", "Connexions recentes",
-                             {"source": "users"},
-                             {"x": 0, "y": 3, "w": 6, "h": 4}),
-                _make_widget("users_orphans", "Sans groupe",
-                             {"source": "users"},
-                             {"x": 6, "y": 4, "w": 6, "h": 3}),
+                _make_widget("users_overview", "Utilisateurs", {"source": "users"}, {"x": 0, "y": 0, "w": 3, "h": 3}),
+                _make_widget("users_mfa_stats", "Securite MFA", {"source": "users"}, {"x": 3, "y": 0, "w": 3, "h": 3}),
+                _make_widget(
+                    "users_by_role",
+                    "Par role",
+                    {"source": "users", "chart_type": "pie", "x_field": "role_name", "y_fields": ["user_count"]},
+                    {"x": 6, "y": 0, "w": 3, "h": 4},
+                ),
+                _make_widget(
+                    "users_by_group",
+                    "Par groupe",
+                    {"source": "users", "chart_type": "bar", "x_field": "group_name", "y_fields": ["member_count"]},
+                    {"x": 9, "y": 0, "w": 3, "h": 4},
+                ),
+                _make_widget(
+                    "users_recent_activity",
+                    "Connexions recentes",
+                    {"source": "users"},
+                    {"x": 0, "y": 3, "w": 6, "h": 4},
+                ),
+                _make_widget("users_orphans", "Sans groupe", {"source": "users"}, {"x": 6, "y": 4, "w": 6, "h": 3}),
             ],
         },
         # Support module dashboard — BI professional layout
@@ -954,27 +1195,48 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": "support",
             "tab_order": 0,
             "widgets": [
-                _make_widget("support_overview", "Tickets",
-                             {"source": "support", "icon_color": "orange"},
-                             {"x": 0, "y": 0, "w": 3, "h": 2}),
-                _make_widget("alerts_urgent", "Alertes",
-                             {"source": "core", "icon_color": "red"},
-                             {"x": 3, "y": 0, "w": 3, "h": 2}),
-                _make_widget("support_by_status", "Par statut",
-                             {"source": "support", "chart_type": "pie", "x_field": "name", "y_fields": ["value"]},
-                             {"x": 6, "y": 0, "w": 3, "h": 4}),
-                _make_widget("support_by_priority", "Par priorite",
-                             {"source": "support", "chart_type": "bar", "x_field": "name", "y_fields": ["value"]},
-                             {"x": 9, "y": 0, "w": 3, "h": 4}),
-                _make_widget("support_trend", "Tendance ouverture/resolution",
-                             {"source": "support", "chart_type": "area", "x_field": "week", "y_fields": ["opened", "resolved"]},
-                             {"x": 0, "y": 2, "w": 6, "h": 4}),
-                _make_widget("support_by_type", "Par type",
-                             {"source": "support", "chart_type": "pie", "x_field": "name", "y_fields": ["value"]},
-                             {"x": 6, "y": 4, "w": 3, "h": 3}),
-                _make_widget("support_tickets_recent", "Derniers tickets",
-                             {"source": "support"},
-                             {"x": 0, "y": 6, "w": 9, "h": 4}),
+                _make_widget(
+                    "support_overview",
+                    "Tickets",
+                    {"source": "support", "icon_color": "orange"},
+                    {"x": 0, "y": 0, "w": 3, "h": 2},
+                ),
+                _make_widget(
+                    "alerts_urgent",
+                    "Alertes",
+                    {"source": "core", "icon_color": "red"},
+                    {"x": 3, "y": 0, "w": 3, "h": 2},
+                ),
+                _make_widget(
+                    "support_by_status",
+                    "Par statut",
+                    {"source": "support", "chart_type": "pie", "x_field": "name", "y_fields": ["value"]},
+                    {"x": 6, "y": 0, "w": 3, "h": 4},
+                ),
+                _make_widget(
+                    "support_by_priority",
+                    "Par priorite",
+                    {"source": "support", "chart_type": "bar", "x_field": "name", "y_fields": ["value"]},
+                    {"x": 9, "y": 0, "w": 3, "h": 4},
+                ),
+                _make_widget(
+                    "support_trend",
+                    "Tendance ouverture/resolution",
+                    {"source": "support", "chart_type": "area", "x_field": "week", "y_fields": ["opened", "resolved"]},
+                    {"x": 0, "y": 2, "w": 6, "h": 4},
+                ),
+                _make_widget(
+                    "support_by_type",
+                    "Par type",
+                    {"source": "support", "chart_type": "pie", "x_field": "name", "y_fields": ["value"]},
+                    {"x": 6, "y": 4, "w": 3, "h": 3},
+                ),
+                _make_widget(
+                    "support_tickets_recent",
+                    "Derniers tickets",
+                    {"source": "support"},
+                    {"x": 0, "y": 6, "w": 9, "h": 4},
+                ),
             ],
         },
         # Papyrus module dashboard
@@ -984,21 +1246,36 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": "papyrus",
             "tab_order": 0,
             "widgets": [
-                _make_widget("papyrus_overview", "Documents",
-                             {"source": "papyrus", "icon_color": "amber"},
-                             {"x": 0, "y": 0, "w": 3, "h": 2}),
-                _make_widget("papyrus_forms_overview", "Collecte externe",
-                             {"source": "papyrus", "icon_color": "emerald"},
-                             {"x": 3, "y": 0, "w": 3, "h": 2}),
-                _make_widget("papyrus_by_status", "Par statut",
-                             {"source": "papyrus", "chart_type": "pie", "x_field": "name", "y_fields": ["value"]},
-                             {"x": 6, "y": 0, "w": 3, "h": 4}),
-                _make_widget("papyrus_by_type", "Par type",
-                             {"source": "papyrus", "chart_type": "bar", "x_field": "name", "y_fields": ["value"]},
-                             {"x": 9, "y": 0, "w": 3, "h": 4}),
-                _make_widget("papyrus_recent_documents", "Documents recents",
-                             {"source": "papyrus"},
-                             {"x": 0, "y": 2, "w": 12, "h": 5}),
+                _make_widget(
+                    "papyrus_overview",
+                    "Documents",
+                    {"source": "papyrus", "icon_color": "amber"},
+                    {"x": 0, "y": 0, "w": 3, "h": 2},
+                ),
+                _make_widget(
+                    "papyrus_forms_overview",
+                    "Collecte externe",
+                    {"source": "papyrus", "icon_color": "emerald"},
+                    {"x": 3, "y": 0, "w": 3, "h": 2},
+                ),
+                _make_widget(
+                    "papyrus_by_status",
+                    "Par statut",
+                    {"source": "papyrus", "chart_type": "pie", "x_field": "name", "y_fields": ["value"]},
+                    {"x": 6, "y": 0, "w": 3, "h": 4},
+                ),
+                _make_widget(
+                    "papyrus_by_type",
+                    "Par type",
+                    {"source": "papyrus", "chart_type": "bar", "x_field": "name", "y_fields": ["value"]},
+                    {"x": 9, "y": 0, "w": 3, "h": 4},
+                ),
+                _make_widget(
+                    "papyrus_recent_documents",
+                    "Documents recents",
+                    {"source": "papyrus"},
+                    {"x": 0, "y": 2, "w": 12, "h": 5},
+                ),
             ],
         },
         # Workflow module dashboard — BI professional layout
@@ -1008,18 +1285,27 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": "workflow",
             "tab_order": 0,
             "widgets": [
-                _make_widget("workflow_overview", "Workflows",
-                             {"source": "workflow", "icon_color": "violet"},
-                             {"x": 0, "y": 0, "w": 3, "h": 2}),
-                _make_widget("alerts_urgent", "Alertes",
-                             {"source": "core", "icon_color": "red"},
-                             {"x": 3, "y": 0, "w": 3, "h": 2}),
-                _make_widget("workflow_by_definition", "Par workflow",
-                             {"source": "workflow", "chart_type": "pie", "x_field": "name", "y_fields": ["value"]},
-                             {"x": 6, "y": 0, "w": 6, "h": 4}),
-                _make_widget("workflow_pending", "En attente d'action",
-                             {"source": "workflow"},
-                             {"x": 0, "y": 2, "w": 6, "h": 5}),
+                _make_widget(
+                    "workflow_overview",
+                    "Workflows",
+                    {"source": "workflow", "icon_color": "violet"},
+                    {"x": 0, "y": 0, "w": 3, "h": 2},
+                ),
+                _make_widget(
+                    "alerts_urgent",
+                    "Alertes",
+                    {"source": "core", "icon_color": "red"},
+                    {"x": 3, "y": 0, "w": 3, "h": 2},
+                ),
+                _make_widget(
+                    "workflow_by_definition",
+                    "Par workflow",
+                    {"source": "workflow", "chart_type": "pie", "x_field": "name", "y_fields": ["value"]},
+                    {"x": 6, "y": 0, "w": 6, "h": 4},
+                ),
+                _make_widget(
+                    "workflow_pending", "En attente d'action", {"source": "workflow"}, {"x": 0, "y": 2, "w": 6, "h": 5}
+                ),
             ],
         },
     ]
@@ -1036,17 +1322,22 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
     inserted = 0
     for tab_def in ROLE_TABS:
         tab_id = _make_tab_id(
-            tab_def["name"], tab_def.get("target_role"), tab_def.get("target_module"),
+            tab_def["name"],
+            tab_def.get("target_role"),
+            tab_def.get("target_module"),
         )
-        result = await db.execute(insert_sql, {
-            "id": tab_id,
-            "entity_id": entity_id_str,
-            "name": tab_def["name"],
-            "target_role": tab_def.get("target_role"),
-            "target_module": tab_def.get("target_module"),
-            "tab_order": tab_def["tab_order"],
-            "widgets": json.dumps(tab_def["widgets"]),
-        })
+        result = await db.execute(
+            insert_sql,
+            {
+                "id": tab_id,
+                "entity_id": entity_id_str,
+                "name": tab_def["name"],
+                "target_role": tab_def.get("target_role"),
+                "target_module": tab_def.get("target_module"),
+                "tab_order": tab_def["tab_order"],
+                "widgets": json.dumps(tab_def["widgets"]),
+            },
+        )
         inserted += result.rowcount
 
     if inserted:
@@ -1085,15 +1376,17 @@ async def seed_email_templates(db: AsyncSession, entity_id, admin_id) -> None:
         await db.flush()
 
         for lang, content in tpl_def.get("default_versions", {}).items():
-            db.add(EmailTemplateVersion(
-                template_id=template.id,
-                version=1,
-                language=lang,
-                subject=content["subject"],
-                body_html=content["body_html"],
-                is_active=True,
-                created_by=admin_id,
-            ))
+            db.add(
+                EmailTemplateVersion(
+                    template_id=template.id,
+                    version=1,
+                    language=lang,
+                    subject=content["subject"],
+                    body_html=content["body_html"],
+                    is_active=True,
+                    created_by=admin_id,
+                )
+            )
         created += 1
 
     if created:
@@ -1155,20 +1448,20 @@ async def seed_pdf_templates(db: AsyncSession, entity_id, admin_id) -> None:
                 new_header = content.get("header_html")
                 new_footer = content.get("footer_html")
                 if v is None:
-                    db.add(PdfTemplateVersion(
-                        template_id=existing.id,
-                        version_number=1,
-                        language=lang,
-                        body_html=new_body,
-                        header_html=new_header,
-                        footer_html=new_footer,
-                        is_published=True,
-                        created_by=admin_id,
-                    ))
+                    db.add(
+                        PdfTemplateVersion(
+                            template_id=existing.id,
+                            version_number=1,
+                            language=lang,
+                            body_html=new_body,
+                            header_html=new_header,
+                            footer_html=new_footer,
+                            is_published=True,
+                            created_by=admin_id,
+                        )
+                    )
                     changed = True
-                elif (v.body_html != new_body
-                      or v.header_html != new_header
-                      or v.footer_html != new_footer):
+                elif v.body_html != new_body or v.header_html != new_header or v.footer_html != new_footer:
                     v.body_html = new_body
                     v.header_html = new_header
                     v.footer_html = new_footer
@@ -1197,16 +1490,18 @@ async def seed_pdf_templates(db: AsyncSession, entity_id, admin_id) -> None:
         await db.flush()
 
         for lang, content in tpl_def.get("default_versions", {}).items():
-            db.add(PdfTemplateVersion(
-                template_id=template.id,
-                version_number=1,
-                language=lang,
-                body_html=content.get("body_html", ""),
-                header_html=content.get("header_html", ""),
-                footer_html=content.get("footer_html", ""),
-                is_published=True,
-                created_by=admin_id,
-            ))
+            db.add(
+                PdfTemplateVersion(
+                    template_id=template.id,
+                    version_number=1,
+                    language=lang,
+                    body_html=content.get("body_html", ""),
+                    header_html=content.get("header_html", ""),
+                    footer_html=content.get("footer_html", ""),
+                    is_published=True,
+                    created_by=admin_id,
+                )
+            )
         created += 1
 
     if created or upgraded:
@@ -1252,18 +1547,18 @@ async def seed_reference_numbering(db: AsyncSession, entity_id) -> None:
     created = 0
     for prefix, template in numbering_defaults:
         setting_key = f"reference_template:{prefix}"
-        result = await db.execute(
-            select(Setting).where(Setting.key == setting_key)
-        )
+        result = await db.execute(select(Setting).where(Setting.key == setting_key))
         if result.scalar_one_or_none():
             continue
 
-        db.add(Setting(
-            key=setting_key,
-            value={"template": template},
-            scope="entity",
-            scope_id=entity_id_str,
-        ))
+        db.add(
+            Setting(
+                key=setting_key,
+                value={"template": template},
+                scope="entity",
+                scope_id=entity_id_str,
+            )
+        )
         created += 1
 
     if created:
@@ -1983,13 +2278,15 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         if existing.scalar_one_or_none():
             continue
 
-        db.add(DictionaryEntry(
-            category=category,
-            code=code,
-            label=label,
-            sort_order=sort_order,
-            active=True,
-        ))
+        db.add(
+            DictionaryEntry(
+                category=category,
+                code=code,
+                label=label,
+                sort_order=sort_order,
+                active=True,
+            )
+        )
         created += 1
 
     for category, code, label, sort_order, translations in translated_entries:
@@ -2012,14 +2309,16 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
                 updated += 1
             continue
 
-        db.add(DictionaryEntry(
-            category=category,
-            code=code,
-            label=label,
-            sort_order=sort_order,
-            active=True,
-            translations=translations,
-        ))
+        db.add(
+            DictionaryEntry(
+                category=category,
+                code=code,
+                label=label,
+                sort_order=sort_order,
+                active=True,
+                translations=translations,
+            )
+        )
         created += 1
 
     # Nationality entries with country + nationality metadata columns
@@ -2040,14 +2339,16 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
                 updated += 1
             continue
 
-        db.add(DictionaryEntry(
-            category="nationality",
-            code=iso_code,
-            label=nationality,
-            sort_order=sort_order,
-            active=True,
-            metadata_json=expected_meta,
-        ))
+        db.add(
+            DictionaryEntry(
+                category="nationality",
+                code=iso_code,
+                label=nationality,
+                sort_order=sort_order,
+                active=True,
+                metadata_json=expected_meta,
+            )
+        )
         created += 1
 
     # ── Legal identifier types (with country + required metadata) ──
@@ -2086,14 +2387,16 @@ async def seed_dictionary_entries(db: AsyncSession) -> None:
         )
         if existing.scalar_one_or_none():
             continue
-        db.add(DictionaryEntry(
-            category=category,
-            code=code,
-            label=label,
-            sort_order=sort_order,
-            active=True,
-            metadata_json=meta,
-        ))
+        db.add(
+            DictionaryEntry(
+                category=category,
+                code=code,
+                label=label,
+                sort_order=sort_order,
+                active=True,
+                metadata_json=meta,
+            )
+        )
         created += 1
 
     if created:
@@ -2109,7 +2412,7 @@ async def seed_compliance_matrix(db: AsyncSession, entity_id) -> None:
 
     Idempotent: checks by code before inserting.
     """
-    from app.models.common import JobPosition, ComplianceType, ComplianceRule
+    from app.models.common import ComplianceRule, ComplianceType, JobPosition
 
     # ── 1. Job Positions (32 postes) ──────────────────────────────────────
     positions = [
@@ -2195,8 +2498,12 @@ async def seed_compliance_matrix(db: AsyncSession, entity_id) -> None:
         ct = result.scalar_one_or_none()
         if not ct:
             ct = ComplianceType(
-                entity_id=entity_id, category=cat, code=code, name=name,
-                validity_days=validity, is_mandatory=mandatory,
+                entity_id=entity_id,
+                category=cat,
+                code=code,
+                name=name,
+                validity_days=validity,
+                is_mandatory=mandatory,
             )
             db.add(ct)
             await db.flush()
@@ -2207,37 +2514,168 @@ async def seed_compliance_matrix(db: AsyncSession, entity_id) -> None:
     # X = required, special values like N0/2E/2M for ATEX levels are treated as required
     matrix: dict[str, list[str]] = {
         "ASST_POMP": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "ESPACE_CONF"],
-        "BOSCO": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "BST", "GRUTIER", "ESPACE_CONF", "PROTECT_RESP"],
+        "BOSCO": [
+            "INDUCTION",
+            "VISITE_MED",
+            "SURVIE_MER",
+            "ATEX",
+            "HABILEC_H0B0",
+            "BST",
+            "GRUTIER",
+            "ESPACE_CONF",
+            "PROTECT_RESP",
+        ],
         "CARISTE": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "CACES"],
         "CATERING": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0"],
         "CQM": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "BST"],
         "CORDISTE": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "IRATA"],
         "DRILLER_WO": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "WELL_CTRL", "ELINGAGE"],
-        "ECHAFAUDEUR": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "MONTEUR_ECHAF", "ESPACE_CONF", "ELINGAGE"],
+        "ECHAFAUDEUR": [
+            "INDUCTION",
+            "VISITE_MED",
+            "SURVIE_MER",
+            "ATEX",
+            "HABILEC_H0B0",
+            "MONTEUR_ECHAF",
+            "ESPACE_CONF",
+            "ELINGAGE",
+        ],
         "ELEC_HVAC": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_SUP", "ESPACE_CONF"],
         "GRUTIER": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "GRUTIER", "ELINGAGE"],
-        "HSE": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "VERIF_ECHAF", "ESPACE_CONF", "PROTECT_RESP", "HLO", "ELINGAGE", "RTSH"],
-        "HTM_CARGO": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "BST", "MONTEUR_ECHAF", "ESPACE_CONF", "PROTECT_RESP", "ELINGAGE"],
-        "HTM_PONT": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "BST", "MONTEUR_ECHAF", "ESPACE_CONF", "PROTECT_RESP", "ELINGAGE"],
-        "INSTRUM": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_SUP", "ESPACE_CONF", "PROTECT_RESP", "ELINGAGE"],
+        "HSE": [
+            "INDUCTION",
+            "VISITE_MED",
+            "SURVIE_MER",
+            "ATEX",
+            "HABILEC_H0B0",
+            "VERIF_ECHAF",
+            "ESPACE_CONF",
+            "PROTECT_RESP",
+            "HLO",
+            "ELINGAGE",
+            "RTSH",
+        ],
+        "HTM_CARGO": [
+            "INDUCTION",
+            "VISITE_MED",
+            "SURVIE_MER",
+            "ATEX",
+            "HABILEC_H0B0",
+            "BST",
+            "MONTEUR_ECHAF",
+            "ESPACE_CONF",
+            "PROTECT_RESP",
+            "ELINGAGE",
+        ],
+        "HTM_PONT": [
+            "INDUCTION",
+            "VISITE_MED",
+            "SURVIE_MER",
+            "ATEX",
+            "HABILEC_H0B0",
+            "BST",
+            "MONTEUR_ECHAF",
+            "ESPACE_CONF",
+            "PROTECT_RESP",
+            "ELINGAGE",
+        ],
+        "INSTRUM": [
+            "INDUCTION",
+            "VISITE_MED",
+            "SURVIE_MER",
+            "ATEX",
+            "HABILEC_SUP",
+            "ESPACE_CONF",
+            "PROTECT_RESP",
+            "ELINGAGE",
+        ],
         "MARIN": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0"],
         "MECA": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "GRUTIER", "ESPACE_CONF", "ELINGAGE"],
-        "MECA_MACH": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "BST", "ESPACE_CONF", "PROTECT_RESP", "ELINGAGE"],
+        "MECA_MACH": [
+            "INDUCTION",
+            "VISITE_MED",
+            "SURVIE_MER",
+            "ATEX",
+            "HABILEC_H0B0",
+            "BST",
+            "ESPACE_CONF",
+            "PROTECT_RESP",
+            "ELINGAGE",
+        ],
         "OMAA": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "HLO", "ELINGAGE"],
-        "OP_MACHINE": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "ESPACE_CONF", "PROTECT_RESP", "ELINGAGE"],
-        "OP_PROD": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "GRUTIER", "ESPACE_CONF", "PROTECT_RESP", "ELINGAGE", "RTSH"],
+        "OP_MACHINE": [
+            "INDUCTION",
+            "VISITE_MED",
+            "SURVIE_MER",
+            "ATEX",
+            "HABILEC_H0B0",
+            "ESPACE_CONF",
+            "PROTECT_RESP",
+            "ELINGAGE",
+        ],
+        "OP_PROD": [
+            "INDUCTION",
+            "VISITE_MED",
+            "SURVIE_MER",
+            "ATEX",
+            "HABILEC_H0B0",
+            "GRUTIER",
+            "ESPACE_CONF",
+            "PROTECT_RESP",
+            "ELINGAGE",
+            "RTSH",
+        ],
         "PLONGEUR": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "APT_HYPERBARE", "MED_HYPERBARE"],
-        "POMP_HTM": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "ESPACE_CONF", "PROTECT_RESP", "ELINGAGE"],
+        "POMP_HTM": [
+            "INDUCTION",
+            "VISITE_MED",
+            "SURVIE_MER",
+            "ATEX",
+            "HABILEC_H0B0",
+            "ESPACE_CONF",
+            "PROTECT_RESP",
+            "ELINGAGE",
+        ],
         "POMPISTE": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "BST", "ESPACE_CONF", "ELINGAGE"],
         "ROVISTE": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "ROVISTE"],
         "SONDEUR_WO": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "ELINGAGE"],
-        "SOUDEUR": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "PROTECT_RESP", "ELINGAGE", "SOUDEUR_HOM"],
-        "SUP_CARGO": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "BST", "ESPACE_CONF", "PROTECT_RESP"],
+        "SOUDEUR": [
+            "INDUCTION",
+            "VISITE_MED",
+            "SURVIE_MER",
+            "ATEX",
+            "HABILEC_H0B0",
+            "PROTECT_RESP",
+            "ELINGAGE",
+            "SOUDEUR_HOM",
+        ],
+        "SUP_CARGO": [
+            "INDUCTION",
+            "VISITE_MED",
+            "SURVIE_MER",
+            "ATEX",
+            "HABILEC_H0B0",
+            "BST",
+            "ESPACE_CONF",
+            "PROTECT_RESP",
+        ],
         "SUP_PROJET": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "ELINGAGE", "RTSH"],
         "SUP_WO": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "WELL_CTRL"],
         "TOOLPUSH": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "WELL_CTRL", "ELINGAGE"],
         "VEILLEUR": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0"],
-        "ZODIACMAN": ["INDUCTION", "VISITE_MED", "SURVIE_MER", "ATEX", "HABILEC_H0B0", "BST", "MONTEUR_ECHAF", "ESPACE_CONF", "PROTECT_RESP", "ELINGAGE", "PIROGUE_MOT"],
+        "ZODIACMAN": [
+            "INDUCTION",
+            "VISITE_MED",
+            "SURVIE_MER",
+            "ATEX",
+            "HABILEC_H0B0",
+            "BST",
+            "MONTEUR_ECHAF",
+            "ESPACE_CONF",
+            "PROTECT_RESP",
+            "ELINGAGE",
+            "PIROGUE_MOT",
+        ],
     }
 
     rules_created = 0
@@ -2259,17 +2697,21 @@ async def seed_compliance_matrix(db: AsyncSession, entity_id) -> None:
                 )
             )
             if not result.scalars().first():
-                db.add(ComplianceRule(
-                    entity_id=entity_id,
-                    compliance_type_id=ct.id,
-                    target_type="job_position",
-                    target_value=str(jp.id),
-                    description=f"{ct.name} requis pour {jp.name}",
-                ))
+                db.add(
+                    ComplianceRule(
+                        entity_id=entity_id,
+                        compliance_type_id=ct.id,
+                        target_type="job_position",
+                        target_value=str(jp.id),
+                        description=f"{ct.name} requis pour {jp.name}",
+                    )
+                )
                 rules_created += 1
 
     await db.flush()
     logger.info(
         "Seed: compliance matrix — %d positions, %d types, %d rules created",
-        len(jp_map), len(ct_map), rules_created,
+        len(jp_map),
+        len(ct_map),
+        rules_created,
     )

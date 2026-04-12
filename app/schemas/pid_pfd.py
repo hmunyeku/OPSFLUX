@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field
 
 from app.schemas.common import OpsFluxSchema
 
-
 # ══════════════════════════════════════════════════════════════════════════════
 # PID DOCUMENTS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -43,6 +42,7 @@ class PIDDocumentUpdate(BaseModel):
 
 class PIDXMLUpdate(BaseModel):
     """Used by the save endpoint to persist draw.io XML content."""
+
     xml_content: str = Field(..., min_length=1)
 
 
@@ -72,6 +72,7 @@ class PIDDocumentRead(OpsFluxSchema):
 
 class PIDDocumentDetailRead(PIDDocumentRead):
     """Extended read with XML content — only for detail/editor view."""
+
     xml_content: str | None = None
 
 
@@ -102,6 +103,7 @@ class PIDRevisionRead(OpsFluxSchema):
 
 class PIDRevisionDetailRead(PIDRevisionRead):
     """Extended read with full XML snapshot — only for detail/diff view."""
+
     xml_content: str
 
 
@@ -146,6 +148,7 @@ class EquipmentCreate(BaseModel):
 
 class EquipmentUpdate(BaseModel):
     """All optional — tag rename is handled by a separate bulk-rename endpoint."""
+
     project_id: UUID | None = None
     pid_document_id: UUID | None = None
     asset_id: UUID | None = None
@@ -548,6 +551,7 @@ class ProcessLibItemRead(OpsFluxSchema):
 
 class TagSuggestRequest(BaseModel):
     """Request body for the tag suggestion endpoint."""
+
     tag_type: str = Field(..., min_length=1, max_length=50)
     area: str = Field(..., min_length=1, max_length=50)
     equipment_id: UUID | None = None
@@ -560,6 +564,7 @@ class TagSuggestResponse(BaseModel):
 
 class TagValidateRequest(BaseModel):
     """Request body for the tag validation endpoint."""
+
     tag_name: str = Field(..., min_length=1, max_length=100)
     tag_type: str = Field(..., min_length=1, max_length=50)
     project_id: str = Field(..., min_length=1)
@@ -579,6 +584,7 @@ class TagValidateResponse(BaseModel):
 
 class BulkRenameRequest(BaseModel):
     """Request for bulk tag/equipment rename — supports wildcard pattern."""
+
     filter_area: str | None = Field(default=None, max_length=50)
     filter_type: str | None = Field(default=None, max_length=50)
     filter_pattern: str | None = Field(
@@ -630,6 +636,7 @@ class AFCValidationWarning(BaseModel):
 
 class AFCValidationResult(BaseModel):
     """Result of Approved-for-Construction validation on a PID document."""
+
     is_valid: bool
     errors: list[AFCValidationError] = Field(default_factory=list)
     warnings: list[AFCValidationWarning] = Field(default_factory=list)
@@ -648,6 +655,7 @@ class LineTracePIDInfo(BaseModel):
 
 class LineTraceResponse(BaseModel):
     """Trace result showing everywhere a process line appears and what it connects."""
+
     line_number: str
     line_details: dict[str, Any]
     pid_count: int
@@ -664,6 +672,7 @@ class EquipmentAppearanceInfo(BaseModel):
 
 class EquipmentAppearancesResponse(BaseModel):
     """Shows all PID sheets where a given equipment tag appears."""
+
     tag: str
     appearances: list[EquipmentAppearanceInfo]
 
@@ -675,6 +684,7 @@ class EquipmentAppearancesResponse(BaseModel):
 
 class PIDCellDataRead(BaseModel):
     """Data returned when clicking a cell in the draw.io editor."""
+
     entity_type: str
     entity: dict[str, Any] | None = None
     tag: str | None = None

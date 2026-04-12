@@ -19,7 +19,7 @@ check_compliance uses this to decide whether to check local DB, external API, or
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -27,9 +27,11 @@ logger = logging.getLogger(__name__)
 
 # ── Data classes for connector results ──────────────────────────────
 
+
 @dataclass
 class ExternalComplianceRecord:
     """A compliance record from an external system."""
+
     external_id: str
     user_external_id: str  # ID in the external system (rhid, email, etc.)
     type_external_id: str  # Certificate/training ID in external system
@@ -45,12 +47,14 @@ class ExternalComplianceRecord:
 @dataclass
 class ExternalUserMatch:
     """Result of matching an OpsFlux user to an external system user."""
+
     external_user_id: str
     matched_by: str  # "email" | "rhid" | "intranet_id"
     external_name: str = ""
 
 
 # ── Abstract base connector ─────────────────────────────────────────
+
 
 class ComplianceConnector(ABC):
     """Abstract base class for external compliance data sources."""
@@ -107,10 +111,12 @@ _CONNECTORS: dict[str, type[ComplianceConnector]] = {}
 
 def register_compliance_connector(provider_id: str):
     """Decorator to register a compliance connector class."""
+
     def decorator(cls: type[ComplianceConnector]):
         cls.provider_id = provider_id
         _CONNECTORS[provider_id] = cls
         return cls
+
     return decorator
 
 

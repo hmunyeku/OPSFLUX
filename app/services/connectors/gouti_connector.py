@@ -5,9 +5,11 @@ API: https://apiprd.gouti.net/v1/client
 Auth: OAuth2 code → token flow, or cached long-lived token.
 Data: Projects, Reports, Status updates
 """
-import httpx
-from typing import Any
+
 from datetime import datetime
+from typing import Any
+
+import httpx
 
 
 def _extract_items(data: Any, key: str) -> list[dict[str, Any]]:
@@ -74,8 +76,7 @@ class GoutiConnector:
             return self._token
         if not self.client_secret:
             raise ValueError(
-                "Gouti auth failed: no cached token and no client_secret "
-                "to perform the OAuth code exchange."
+                "Gouti auth failed: no cached token and no client_secret to perform the OAuth code exchange."
             )
         async with httpx.AsyncClient(timeout=30) as client:
             # Step 1: Request authorization code
@@ -184,8 +185,10 @@ class GoutiConnector:
                 "top_level_keys": list(body.keys()) if isinstance(body, dict) else None,
                 "sample_body_preview": (
                     {k: (list(v.keys())[:3] if isinstance(v, dict) else v) for k, v in list(body.items())[:3]}
-                    if isinstance(body, dict) else
-                    body[:3] if isinstance(body, list) else str(body)[:300]
+                    if isinstance(body, dict)
+                    else body[:3]
+                    if isinstance(body, list)
+                    else str(body)[:300]
                 ),
             }
 

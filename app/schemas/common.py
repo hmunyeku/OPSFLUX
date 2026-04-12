@@ -11,6 +11,7 @@ T = TypeVar("T")
 
 # ─── Base schemas ────────────────────────────────────────────────────────────
 
+
 class OpsFluxSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -29,6 +30,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
 
 # ─── Auth schemas ────────────────────────────────────────────────────────────
 
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
@@ -44,18 +46,21 @@ class TokenResponse(BaseModel):
 
 class MFARequiredResponse(BaseModel):
     """Returned when the user has MFA enabled — frontend must prompt for TOTP code."""
+
     mfa_required: bool = True
     mfa_token: str
 
 
 class MFALoginRequest(BaseModel):
     """Second step of login: verify MFA code to get real tokens."""
+
     mfa_token: str
     code: str
 
 
 class LoginResponse(BaseModel):
     """Union-style response: either full tokens or MFA challenge."""
+
     access_token: str | None = None
     refresh_token: str | None = None
     token_type: str = "bearer"
@@ -69,6 +74,7 @@ class RefreshRequest(BaseModel):
 
 
 # ─── User schemas ────────────────────────────────────────────────────────────
+
 
 class UserRead(OpsFluxSchema):
     id: UUID
@@ -137,6 +143,7 @@ class UserRead(OpsFluxSchema):
 
 class UserAdminRead(UserRead):
     """Extended user view for admin user management — adds computed lock status."""
+
     is_locked: bool = False
     lock_remaining_minutes: int | None = None
 
@@ -202,6 +209,7 @@ class UserUpdate(BaseModel):
 
 # ─── Entity schemas ──────────────────────────────────────────────────────────
 
+
 class EntityRead(OpsFluxSchema):
     id: UUID
     code: str
@@ -220,6 +228,7 @@ class EntityCreate(BaseModel):
 
 # ─── Department schemas ─────────────────────────────────────────────────────
 
+
 class BusinessUnitRead(OpsFluxSchema):
     id: UUID
     entity_id: UUID
@@ -231,12 +240,14 @@ class BusinessUnitRead(OpsFluxSchema):
     active: bool
     created_at: datetime | None = None
 
+
 class BusinessUnitCreate(BaseModel):
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=200)
     description: str | None = None
     manager_id: UUID | None = None
     active: bool = True
+
 
 class BusinessUnitUpdate(BaseModel):
     code: str | None = None
@@ -245,10 +256,12 @@ class BusinessUnitUpdate(BaseModel):
     manager_id: UUID | None = None
     active: bool | None = None
 
+
 # Backward compatibility aliases
 DepartmentRead = BusinessUnitRead
 DepartmentCreate = BusinessUnitCreate
 DepartmentUpdate = BusinessUnitUpdate
+
 
 class CostCenterRead(OpsFluxSchema):
     id: UUID
@@ -259,11 +272,13 @@ class CostCenterRead(OpsFluxSchema):
     active: bool
     created_at: datetime | None = None
 
+
 class CostCenterCreate(BaseModel):
     code: str = Field(..., max_length=50)
     name: str = Field(..., max_length=200)
     department_id: UUID | None = None
     active: bool = True
+
 
 class CostCenterUpdate(BaseModel):
     code: str | None = None
@@ -381,6 +396,7 @@ class ImputationAssignmentUpdate(BaseModel):
 
 
 # ─── Tier schemas ────────────────────────────────────────────────────────────
+
 
 class TierRead(OpsFluxSchema):
     id: UUID
@@ -508,6 +524,7 @@ class TierUpdate(BaseModel):
 
 # ─── TierContact schemas ────────────────────────────────────────────────────
 
+
 class TierContactRead(OpsFluxSchema):
     id: UUID
     tier_id: UUID
@@ -530,6 +547,7 @@ class TierContactRead(OpsFluxSchema):
 
 class TierContactWithTier(TierContactRead):
     """Contact enriched with parent tier info — for global contacts listing."""
+
     tier_name: str
     tier_code: str
 
@@ -567,6 +585,7 @@ class TierContactPromoteUserRequest(BaseModel):
 
 # ─── LegalIdentifier schemas (polymorphic) ─────────────────────────────────
 
+
 class LegalIdentifierRead(OpsFluxSchema):
     id: UUID
     owner_type: str
@@ -603,6 +622,7 @@ TierIdentifierUpdate = LegalIdentifierUpdate
 
 # ─── TierBlock schemas ────────────────────────────────────────────────────
 
+
 class TierBlockCreate(BaseModel):
     reason: str = Field(..., min_length=1)
     block_type: str = Field(default="purchasing", pattern="^(purchasing|payment|all)$")
@@ -627,6 +647,7 @@ class TierBlockRead(OpsFluxSchema):
 
 # ─── ExternalReference schemas ────────────────────────────────────────────
 
+
 class ExternalReferenceCreate(BaseModel):
     system: str = Field(..., min_length=1, max_length=50)
     code: str = Field(..., min_length=1, max_length=200)
@@ -650,6 +671,7 @@ class ExternalReferenceRead(OpsFluxSchema):
 
 # ─── Notification schemas ────────────────────────────────────────────────────
 
+
 class NotificationRead(OpsFluxSchema):
     id: UUID
     title: str
@@ -662,6 +684,7 @@ class NotificationRead(OpsFluxSchema):
 
 
 # ─── Settings schemas ────────────────────────────────────────────────────────
+
 
 class SettingRead(OpsFluxSchema):
     key: str
@@ -676,6 +699,7 @@ class SettingWrite(BaseModel):
 
 
 # ─── Personal Access Tokens ─────────────────────────────────────────────────
+
 
 class TokenCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
@@ -696,6 +720,7 @@ class TokenRead(OpsFluxSchema):
 
 class TokenCreatedResponse(OpsFluxSchema):
     """Returned only at creation time — includes the full token value."""
+
     id: UUID
     name: str
     token: str
@@ -705,6 +730,7 @@ class TokenCreatedResponse(OpsFluxSchema):
 
 
 # ─── Sessions ───────────────────────────────────────────────────────────────
+
 
 class SessionRead(OpsFluxSchema):
     id: UUID
@@ -718,6 +744,7 @@ class SessionRead(OpsFluxSchema):
 
 
 # ─── Delegation / Acting Context ───────────────────────────────────────────
+
 
 class UserBriefRead(OpsFluxSchema):
     id: UUID
@@ -779,6 +806,7 @@ class ActingContextStatusRead(OpsFluxSchema):
 
 # ─── User Emails ────────────────────────────────────────────────────────────
 
+
 class UserEmailCreate(BaseModel):
     email: EmailStr
 
@@ -794,6 +822,7 @@ class UserEmailRead(OpsFluxSchema):
 
 
 # ─── OAuth Applications ─────────────────────────────────────────────────────
+
 
 class OAuthAppCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
@@ -815,6 +844,7 @@ class OAuthAppRead(OpsFluxSchema):
 
 class OAuthAppCreatedResponse(OpsFluxSchema):
     """Returned only at creation time — includes secret."""
+
     id: UUID
     name: str
     client_id: str
@@ -832,6 +862,7 @@ class OAuthAuthorizationRead(OpsFluxSchema):
 
 
 # ─── Addresses (polymorphic) ────────────────────────────────────────────────
+
 
 class AddressCreate(BaseModel):
     owner_type: str = Field(..., min_length=1, max_length=50)
@@ -880,6 +911,7 @@ class AddressRead(OpsFluxSchema):
 
 # ─── Tags (polymorphic) ───────────────────────────────────────────────────
 
+
 class TagCreate(BaseModel):
     owner_type: str = Field(..., min_length=1, max_length=50)
     owner_id: UUID
@@ -910,6 +942,7 @@ class TagRead(OpsFluxSchema):
 
 class TagTreeRead(OpsFluxSchema):
     """Tag with nested children for tree display."""
+
     id: UUID
     owner_type: str
     owner_id: UUID
@@ -923,6 +956,7 @@ class TagTreeRead(OpsFluxSchema):
 
 
 # ─── Phones (polymorphic) ────────────────────────────────────────────────
+
 
 class PhoneCreate(BaseModel):
     owner_type: str = Field(..., min_length=1, max_length=50)
@@ -955,6 +989,7 @@ class PhoneRead(OpsFluxSchema):
 
 # ─── Contact Emails (polymorphic) ────────────────────────────────────────
 
+
 class ContactEmailCreate(BaseModel):
     owner_type: str = Field(..., min_length=1, max_length=50)
     owner_id: UUID
@@ -982,6 +1017,7 @@ class ContactEmailRead(OpsFluxSchema):
 
 
 # ─── Notes (polymorphic) ─────────────────────────────────────────────────
+
 
 class NoteCreate(BaseModel):
     owner_type: str = Field(..., min_length=1, max_length=50)
@@ -1012,6 +1048,7 @@ class NoteRead(OpsFluxSchema):
 
 # ─── Attachments (polymorphic) ───────────────────────────────────────────
 
+
 class AttachmentRead(OpsFluxSchema):
     id: UUID
     owner_type: str
@@ -1027,6 +1064,7 @@ class AttachmentRead(OpsFluxSchema):
 
 
 # ─── Cost Imputations (polymorphic) ──────────────────────────────────────────
+
 
 class CostImputationCreate(BaseModel):
     owner_type: str = Field(..., min_length=1, max_length=50)
@@ -1076,6 +1114,7 @@ class CostImputationRead(OpsFluxSchema):
 
 # ─── Social Networks (polymorphic) ───────────────────────────────────────────
 
+
 class SocialNetworkCreate(BaseModel):
     owner_type: str = Field(..., min_length=1, max_length=50)
     owner_id: UUID
@@ -1104,6 +1143,7 @@ class SocialNetworkUpdate(BaseModel):
 
 
 # ─── Opening Hours (polymorphic) ───────────────────────────────────────────
+
 
 class OpeningHourCreate(BaseModel):
     owner_type: str = Field(..., min_length=1, max_length=50)
@@ -1137,6 +1177,7 @@ class OpeningHourUpdate(BaseModel):
 
 # ─── Notification Preferences ───────────────────────────────────────────────
 
+
 class NotificationPreferenceRead(OpsFluxSchema):
     global_level: str
     notification_email_id: UUID | None
@@ -1152,6 +1193,7 @@ class NotificationPreferenceUpdate(BaseModel):
 
 
 # ─── Profile ────────────────────────────────────────────────────────────────
+
 
 class ProfileUpdate(BaseModel):
     first_name: str | None = Field(None, min_length=1, max_length=100)
@@ -1196,6 +1238,7 @@ class ChangePasswordRequest(BaseModel):
 
 # ─── Audit Log ──────────────────────────────────────────────────────────────
 
+
 class AuditLogRead(OpsFluxSchema):
     id: UUID
     user_id: UUID | None
@@ -1208,6 +1251,7 @@ class AuditLogRead(OpsFluxSchema):
 
 
 # ─── MFA ───────────────────────────────────────────────────────────────
+
 
 class MFASetupResponse(BaseModel):
     secret: str
@@ -1233,6 +1277,7 @@ class MFAStatusRead(OpsFluxSchema):
 
 # ─── Search ────────────────────────────────────────────────────────────
 
+
 class SearchResult(BaseModel):
     type: str
     id: str
@@ -1246,6 +1291,7 @@ class SearchResponse(BaseModel):
 
 
 # ─── Email Templates ──────────────────────────────────────────────────────
+
 
 class EmailTemplateCreate(BaseModel):
     slug: str = Field(..., min_length=1, max_length=100, pattern=r"^[a-z][a-z0-9_]*$")
@@ -1324,6 +1370,7 @@ class EmailTemplateRead(OpsFluxSchema):
 
 class EmailTemplateSummaryRead(OpsFluxSchema):
     """Lightweight read for list views (no versions/links)."""
+
     id: UUID
     entity_id: UUID
     slug: str
@@ -1339,6 +1386,7 @@ class EmailTemplateSummaryRead(OpsFluxSchema):
 
 class EmailTemplateCheckResponse(BaseModel):
     """Response for template availability check."""
+
     available: bool
     enabled: bool = False
     template_id: UUID | None = None
@@ -1347,6 +1395,7 @@ class EmailTemplateCheckResponse(BaseModel):
 
 class EmailPreviewRequest(BaseModel):
     """Request to preview a rendered template."""
+
     version_id: UUID
     variables: dict[str, Any] = Field(default_factory=dict)
 
@@ -1371,7 +1420,7 @@ class ComplianceTypeRead(OpsFluxSchema):
 
 
 class ComplianceTypeCreate(BaseModel):
-    category: str = Field(..., pattern=r'^(formation|certification|habilitation|audit|medical|epi)$')
+    category: str = Field(..., pattern=r"^(formation|certification|habilitation|audit|medical|epi)$")
     code: str = Field(..., min_length=1, max_length=50)
     name: str = Field(..., min_length=1, max_length=200)
     description: str | None = None
@@ -1421,7 +1470,7 @@ class ComplianceRuleRead(OpsFluxSchema):
 
 class ComplianceRuleCreate(BaseModel):
     compliance_type_id: UUID
-    target_type: str = Field(..., pattern=r'^(tier_type|asset|department|job_position|packlog_cargo|all)$')
+    target_type: str = Field(..., pattern=r"^(tier_type|asset|department|job_position|packlog_cargo|all)$")
     target_value: str | None = None
     description: str | None = None
     # V2 optional fields
@@ -1437,7 +1486,7 @@ class ComplianceRuleCreate(BaseModel):
 
 
 class ComplianceRuleUpdate(BaseModel):
-    target_type: str | None = Field(None, pattern=r'^(tier_type|asset|department|job_position|packlog_cargo|all)$')
+    target_type: str | None = Field(None, pattern=r"^(tier_type|asset|department|job_position|packlog_cargo|all)$")
     target_value: str | None = None
     description: str | None = None
     active: bool | None = None
@@ -1493,7 +1542,7 @@ class ComplianceRecordRead(OpsFluxSchema):
 
 class ComplianceRecordCreate(BaseModel):
     compliance_type_id: UUID
-    owner_type: str = Field(..., pattern=r'^(tier_contact|tier|asset|user)$')
+    owner_type: str = Field(..., pattern=r"^(tier_contact|tier|asset|user)$")
     owner_id: UUID
     # status is NOT user-settable — always starts as "pending", promoted by verification
     issued_at: datetime | None = None
@@ -1521,6 +1570,7 @@ class ComplianceCheckResult(BaseModel):
     3. Contextual rules checked only when include_contextual=true
     4. is_compliant = account_verified AND no missing AND no expired
     """
+
     owner_type: str
     owner_id: UUID
     account_verified: bool = True
@@ -1773,6 +1823,7 @@ class ProjectTaskRead(OpsFluxSchema):
 
 class ProjectTaskEnriched(ProjectTaskRead):
     """Task with project info — for cross-project spreadsheet view."""
+
     project_code: str | None = None
     project_name: str | None = None
 
@@ -1790,7 +1841,9 @@ class ProjectTaskCreate(BaseModel):
     due_date: datetime | None = None
     estimated_hours: float | None = None
     pob_quota: int = Field(default=0, ge=0)
-    weight: float | None = Field(default=None, ge=0, description="Poids manuel pour le calcul d'avancement (utilisé en mode 'manual')")
+    weight: float | None = Field(
+        default=None, ge=0, description="Poids manuel pour le calcul d'avancement (utilisé en mode 'manual')"
+    )
 
 
 class ProjectTaskUpdate(BaseModel):
@@ -2164,6 +2217,7 @@ class PdfTemplateRead(OpsFluxSchema):
 
 class PdfTemplateSummaryRead(OpsFluxSchema):
     """Lightweight read for list views (no versions)."""
+
     id: UUID
     entity_id: UUID | None = None
     slug: str
@@ -2181,6 +2235,7 @@ class PdfTemplateSummaryRead(OpsFluxSchema):
 
 class PdfPreviewRequest(BaseModel):
     """Request to preview a rendered PDF template."""
+
     version_id: UUID | None = None
     body_html: str | None = None
     header_html: str | None = None
@@ -2211,6 +2266,7 @@ class PdfTemplateValidationRead(OpsFluxSchema):
 
 # ─── User Sub-Model Schemas ───────────────────────────────────────────────────
 
+
 # UserPassport
 class UserPassportCreate(BaseModel):
     user_id: UUID | None = None  # injected from URL path
@@ -2222,6 +2278,7 @@ class UserPassportCreate(BaseModel):
     expiry_date: date | None = None
     document_url: str | None = None
 
+
 class UserPassportUpdate(BaseModel):
     passport_type: str | None = None
     number: str | None = None
@@ -2230,6 +2287,7 @@ class UserPassportUpdate(BaseModel):
     issue_date: date | None = None
     expiry_date: date | None = None
     document_url: str | None = None
+
 
 class UserPassportRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -2250,6 +2308,7 @@ class UserPassportRead(BaseModel):
     verified_at: datetime | None = None
     rejection_reason: str | None = None
 
+
 # UserVisa
 class UserVisaCreate(BaseModel):
     user_id: UUID | None = None  # injected from URL path
@@ -2260,6 +2319,7 @@ class UserVisaCreate(BaseModel):
     expiry_date: date | None = None
     document_url: str | None = None
 
+
 class UserVisaUpdate(BaseModel):
     visa_type: str | None = None
     number: str | None = None
@@ -2267,6 +2327,7 @@ class UserVisaUpdate(BaseModel):
     issue_date: date | None = None
     expiry_date: date | None = None
     document_url: str | None = None
+
 
 class UserVisaRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -2286,6 +2347,7 @@ class UserVisaRead(BaseModel):
     verified_at: datetime | None = None
     rejection_reason: str | None = None
 
+
 # EmergencyContact
 class EmergencyContactCreate(BaseModel):
     user_id: UUID | None = None  # injected from URL path
@@ -2294,11 +2356,13 @@ class EmergencyContactCreate(BaseModel):
     phone_number: str | None = None
     email: str | None = None
 
+
 class EmergencyContactUpdate(BaseModel):
     relationship_type: str | None = None
     name: str | None = None
     phone_number: str | None = None
     email: str | None = None
+
 
 class EmergencyContactRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -2311,15 +2375,18 @@ class EmergencyContactRead(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+
 # SocialSecurity
 class SocialSecurityCreate(BaseModel):
     user_id: UUID | None = None  # injected from URL path
     country: str
     number: str
 
+
 class SocialSecurityUpdate(BaseModel):
     country: str | None = None
     number: str | None = None
+
 
 class SocialSecurityRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -2334,6 +2401,7 @@ class SocialSecurityRead(BaseModel):
     verified_at: datetime | None = None
     rejection_reason: str | None = None
 
+
 # UserVaccine
 class UserVaccineCreate(BaseModel):
     user_id: UUID | None = None  # injected from URL path
@@ -2342,11 +2410,13 @@ class UserVaccineCreate(BaseModel):
     expiry_date: date | None = None
     batch_number: str | None = None
 
+
 class UserVaccineUpdate(BaseModel):
     vaccine_type: str | None = None
     date_administered: date | None = None
     expiry_date: date | None = None
     batch_number: str | None = None
+
 
 class UserVaccineRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -2363,15 +2433,18 @@ class UserVaccineRead(BaseModel):
     verified_at: datetime | None = None
     rejection_reason: str | None = None
 
+
 # UserLanguage
 class UserLanguageCreate(BaseModel):
     user_id: UUID | None = None  # injected from URL path
     language_code: str
     proficiency_level: str | None = None
 
+
 class UserLanguageUpdate(BaseModel):
     language_code: str | None = None
     proficiency_level: str | None = None
+
 
 class UserLanguageRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -2382,6 +2455,7 @@ class UserLanguageRead(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+
 # DrivingLicense
 class DrivingLicenseCreate(BaseModel):
     user_id: UUID | None = None  # injected from URL path
@@ -2390,11 +2464,13 @@ class DrivingLicenseCreate(BaseModel):
     expiry_date: date | None = None
     document_url: str | None = None
 
+
 class DrivingLicenseUpdate(BaseModel):
     license_type: str | None = None
     country: str | None = None
     expiry_date: date | None = None
     document_url: str | None = None
+
 
 class DrivingLicenseRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -2414,6 +2490,7 @@ class DrivingLicenseRead(BaseModel):
 
 # ─── MedicalCheck (polymorphic) ──────────────────────────────────────────
 
+
 class MedicalCheckCreate(BaseModel):
     check_type: str
     check_date: date
@@ -2422,6 +2499,7 @@ class MedicalCheckCreate(BaseModel):
     notes: str | None = None
     document_url: str | None = None
 
+
 class MedicalCheckUpdate(BaseModel):
     check_type: str | None = None
     check_date: date | None = None
@@ -2429,6 +2507,7 @@ class MedicalCheckUpdate(BaseModel):
     provider: str | None = None
     notes: str | None = None
     document_url: str | None = None
+
 
 class MedicalCheckRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -2451,11 +2530,13 @@ class MedicalCheckRead(BaseModel):
 
 # ─── UserSSOProvider ─────────────────────────────────────────────────────
 
+
 class UserSSOProviderCreate(BaseModel):
     provider: str
     sso_subject: str
     email: str | None = None
     display_name: str | None = None
+
 
 class UserSSOProviderRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -2473,6 +2554,7 @@ class UserSSOProviderRead(BaseModel):
 
 # ─── DictionaryEntry ─────────────────────────────────────────────────────
 
+
 class DictionaryEntryCreate(BaseModel):
     category: str
     code: str
@@ -2482,6 +2564,7 @@ class DictionaryEntryCreate(BaseModel):
     metadata_json: dict | None = None
     translations: dict | None = None
 
+
 class DictionaryEntryUpdate(BaseModel):
     code: str | None = None
     label: str | None = None
@@ -2489,6 +2572,7 @@ class DictionaryEntryUpdate(BaseModel):
     active: bool | None = None
     metadata_json: dict | None = None
     translations: dict | None = None
+
 
 class DictionaryEntryRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -2506,8 +2590,10 @@ class DictionaryEntryRead(BaseModel):
 
 # ─── User Health Conditions ──────────────────────────────────────────────────
 
+
 class UserHealthConditionCreate(BaseModel):
     condition_code: str
+
 
 class UserHealthConditionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)

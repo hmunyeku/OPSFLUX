@@ -1,19 +1,29 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
 from fastapi import HTTPException, Request
 from fastapi.responses import Response
-from sqlalchemy import func as sqla_func, select
+from sqlalchemy import func as sqla_func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.acting_context import get_effective_actor_user_id
 from app.core.audit import record_audit
 from app.core.pagination import PaginationParams, paginate
 from app.models.asset_registry import Installation
-from app.models.common import Attachment, AuditLog, ImputationReference, Tier, TierContact, User, UserGroup, UserGroupMember
+from app.models.common import (
+    Attachment,
+    AuditLog,
+    ImputationReference,
+    Tier,
+    TierContact,
+    User,
+    UserGroup,
+    UserGroupMember,
+)
 from app.models.packlog import (
     CargoAttachmentEvidence,
     CargoItem,
@@ -38,8 +48,6 @@ from app.schemas.packlog import (
     CargoWorkflowStatusUpdate,
     PackageElementDispositionUpdate,
     PackageElementReturnUpdate,
-    CargoTrackingRead,
-    VoyageCargoTrackingRead,
 )
 from app.services.core.fsm_service import fsm_service
 from app.services.modules import compliance_service
@@ -61,8 +69,8 @@ from app.services.modules.packlog_service import (
     match_packlog_sap_code,
     normalize_packlog_status,
     packlog_request_to_payload,
-    update_packlog_cargo_status,
     try_packlog_workflow_transition,
+    update_packlog_cargo_status,
 )
 
 
@@ -88,7 +96,7 @@ def _serialize_package_element(element: PackageElement) -> dict:
         "created_at": (
             element.created_at.isoformat()
             if getattr(element, "created_at", None) is not None
-            else datetime.now(timezone.utc).isoformat()
+            else datetime.now(UTC).isoformat()
         ),
     }
 
@@ -202,7 +210,11 @@ async def _validate_cargo_request_refs(
             raise HTTPException(400, "Entreprise expeditrice introuvable ou inactive")
     if requester_user_id:
         requester = await db.get(User, requester_user_id)
-        if not requester or not requester.active or not await _user_has_access_to_entity(db, user_id=requester_user_id, entity_id=entity_id):
+        if (
+            not requester
+            or not requester.active
+            or not await _user_has_access_to_entity(db, user_id=requester_user_id, entity_id=entity_id)
+        ):
             raise HTTPException(400, "Demandeur introuvable ou hors entite")
     if sender_contact_tier_contact_id:
         sender_contact = await db.get(TierContact, sender_contact_tier_contact_id)
@@ -280,7 +292,7 @@ async def create_cargo_request_impl(
         imputation_reference_id=body.imputation_reference_id,
     )
     request_code = await _generate_cargo_request_code(db, entity_id)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cargo_request = CargoRequest(
         entity_id=entity_id,
         request_code=request_code,
@@ -334,7 +346,7 @@ async def download_cargo_request_lt_pdf_impl(
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename=\"{filename}\"'},
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
 
 
@@ -347,14 +359,22 @@ async def update_cargo_request_impl(
     db: AsyncSession,
 ):
     cargo_request = await get_packlog_request_or_404(db, request_id, entity_id)
-    next_sender_tier_id = body.sender_tier_id if "sender_tier_id" in body.model_fields_set else cargo_request.sender_tier_id
+    next_sender_tier_id = (
+        body.sender_tier_id if "sender_tier_id" in body.model_fields_set else cargo_request.sender_tier_id
+    )
     await _validate_cargo_request_refs(
         db,
         entity_id=entity_id,
         sender_tier_id=next_sender_tier_id,
-        sender_contact_tier_contact_id=body.sender_contact_tier_contact_id if "sender_contact_tier_contact_id" in body.model_fields_set else cargo_request.sender_contact_tier_contact_id,
-        requester_user_id=body.requester_user_id if "requester_user_id" in body.model_fields_set else cargo_request.requester_user_id,
-        imputation_reference_id=body.imputation_reference_id if "imputation_reference_id" in body.model_fields_set else cargo_request.imputation_reference_id,
+        sender_contact_tier_contact_id=body.sender_contact_tier_contact_id
+        if "sender_contact_tier_contact_id" in body.model_fields_set
+        else cargo_request.sender_contact_tier_contact_id,
+        requester_user_id=body.requester_user_id
+        if "requester_user_id" in body.model_fields_set
+        else cargo_request.requester_user_id,
+        imputation_reference_id=body.imputation_reference_id
+        if "imputation_reference_id" in body.model_fields_set
+        else cargo_request.imputation_reference_id,
     )
     target_status = body.status or cargo_request.status
     request_payload = packlog_request_to_payload(cargo_request)
@@ -615,7 +635,9 @@ async def create_cargo_impl(
     ):
         payload_data[cargo_field] = getattr(cargo_request, request_field, None)
     if payload_data.get("manifest_id"):
-        manifest_result = await db.execute(select(VoyageManifest).where(VoyageManifest.id == payload_data["manifest_id"]))
+        manifest_result = await db.execute(
+            select(VoyageManifest).where(VoyageManifest.id == payload_data["manifest_id"])
+        )
         manifest = manifest_result.scalars().first()
         if manifest:
             voyage_result = await db.execute(select(Voyage).where(Voyage.id == manifest.voyage_id))
@@ -969,7 +991,9 @@ async def receive_cargo_impl(
             "to_status": cargo.status,
             "received_at": cargo.received_at.isoformat() if cargo.received_at else None,
             "received_quantity": receipt.received_quantity,
-            "declared_quantity": receipt.declared_quantity if receipt.declared_quantity is not None else float(cargo.package_count or 0),
+            "declared_quantity": receipt.declared_quantity
+            if receipt.declared_quantity is not None
+            else float(cargo.package_count or 0),
             "recipient_available": receipt.recipient_available,
             "signature_collected": receipt.signature_collected,
             "damage_notes": receipt.damage_notes,
@@ -1145,7 +1169,12 @@ async def update_package_element_disposition_impl(
     element.return_status = body.return_status
     if body.return_notes is not None:
         element.return_notes = body.return_notes
-    mapped_cargo_status = {"returned": "returned", "reintegrated": "reintegrated", "scrapped": "scrapped", "yard_storage": "returned"}
+    mapped_cargo_status = {
+        "returned": "returned",
+        "reintegrated": "reintegrated",
+        "scrapped": "scrapped",
+        "yard_storage": "returned",
+    }
     target_status = mapped_cargo_status.get(body.return_status)
     if target_status and cargo.status != target_status:
         try:
@@ -1168,7 +1197,11 @@ async def update_package_element_disposition_impl(
         resource_id=str(cargo.id),
         user_id=current_user.id,
         entity_id=entity_id,
-        details={"element_id": str(element.id), "return_status": element.return_status, "return_notes": element.return_notes},
+        details={
+            "element_id": str(element.id),
+            "return_status": element.return_status,
+            "return_notes": element.return_notes,
+        },
     )
     await db.commit()
     return _serialize_package_element(element)

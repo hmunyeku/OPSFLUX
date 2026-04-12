@@ -11,7 +11,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
-from app.api.deps import get_current_user, check_polymorphic_owner_access
+from app.api.deps import check_polymorphic_owner_access, get_current_user
 from app.core.database import get_db
 from app.models.common import Address, User
 from app.schemas.common import AddressCreate, AddressRead, AddressUpdate
@@ -87,9 +87,7 @@ async def update_address(
     db: AsyncSession = Depends(get_db),
 ):
     """Update an existing address."""
-    result = await db.execute(
-        select(Address).where(Address.id == address_id)
-    )
+    result = await db.execute(select(Address).where(Address.id == address_id))
     address = result.scalar_one_or_none()
     if not address:
         raise HTTPException(status_code=404, detail="Address not found")
@@ -131,9 +129,7 @@ async def delete_address(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete an address."""
-    result = await db.execute(
-        select(Address).where(Address.id == address_id)
-    )
+    result = await db.execute(select(Address).where(Address.id == address_id))
     address = result.scalar_one_or_none()
     if not address:
         raise HTTPException(status_code=404, detail="Address not found")

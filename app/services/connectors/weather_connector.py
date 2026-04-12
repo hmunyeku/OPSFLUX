@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -81,12 +81,10 @@ class WeatherConnector(ABC):
             self.timeout_seconds = 15.0
 
     @abstractmethod
-    async def test_connection(self) -> tuple[str, str]:
-        ...
+    async def test_connection(self) -> tuple[str, str]: ...
 
     @abstractmethod
-    async def fetch_current_weather(self, *, latitude: float, longitude: float) -> WeatherObservation:
-        ...
+    async def fetch_current_weather(self, *, latitude: float, longitude: float) -> WeatherObservation: ...
 
 
 _CONNECTORS: dict[str, type[WeatherConnector]] = {}
@@ -184,12 +182,10 @@ class OpenMeteoConnector(WeatherConnector):
         weather_code = self._weather_code_label(int(weather_code_raw)) if weather_code_raw is not None else None
         visibility_nm = _nm_from_meters(current.get("visibility"))
         wind_speed_knots = (
-            round(float(current["wind_speed_10m"]), 2)
-            if current.get("wind_speed_10m") is not None
-            else None
+            round(float(current["wind_speed_10m"]), 2) if current.get("wind_speed_10m") is not None else None
         )
         recorded_at_raw = current.get("time")
-        recorded_at = datetime.now(timezone.utc)
+        recorded_at = datetime.now(UTC)
         if isinstance(recorded_at_raw, str):
             try:
                 recorded_at = datetime.fromisoformat(recorded_at_raw.replace("Z", "+00:00"))
@@ -199,7 +195,9 @@ class OpenMeteoConnector(WeatherConnector):
             recorded_at=recorded_at,
             source="api_open_meteo",
             wind_speed_knots=wind_speed_knots,
-            wind_direction_deg=int(current["wind_direction_10m"]) if current.get("wind_direction_10m") is not None else None,
+            wind_direction_deg=int(current["wind_direction_10m"])
+            if current.get("wind_direction_10m") is not None
+            else None,
             visibility_nm=visibility_nm,
             temperature_c=float(current["temperature_2m"]) if current.get("temperature_2m") is not None else None,
             weather_code=weather_code,
@@ -256,13 +254,15 @@ class OpenWeatherConnector(WeatherConnector):
         weather_item = weather_list[0] if weather_list else {}
         visibility_nm = _nm_from_meters(payload.get("visibility"))
         wind_speed_knots = _knots_from_ms(wind.get("speed"))
-        recorded_at = datetime.now(timezone.utc)
+        recorded_at = datetime.now(UTC)
         if payload.get("dt") is not None:
             try:
-                recorded_at = datetime.fromtimestamp(int(payload["dt"]), tz=timezone.utc)
+                recorded_at = datetime.fromtimestamp(int(payload["dt"]), tz=UTC)
             except (TypeError, ValueError, OSError):
                 pass
-        weather_code = str(weather_item.get("main") or weather_item.get("description") or "unknown").lower().replace(" ", "_")
+        weather_code = (
+            str(weather_item.get("main") or weather_item.get("description") or "unknown").lower().replace(" ", "_")
+        )
         return WeatherObservation(
             recorded_at=recorded_at,
             source="api_openweather",

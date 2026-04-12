@@ -4,6 +4,7 @@ Query by owner_type + owner_id. Supports multiple phones per record
 with labels (mobile, office, fax, home) and is_default flag.
 """
 
+from datetime import UTC
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -11,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
-from app.api.deps import get_current_user, check_polymorphic_owner_access
+from app.api.deps import check_polymorphic_owner_access, get_current_user
 from app.core.database import get_db
 from app.models.common import Phone, User
 from app.schemas.common import PhoneCreate, PhoneRead, PhoneUpdate
@@ -140,7 +141,7 @@ async def send_phone_verification(
 ):
     """Generate a 6-digit OTP and send it via WhatsApp (preferred) or SMS."""
     import secrets
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta
 
     result = await db.execute(select(Phone).where(Phone.id == phone_id))
     phone = result.scalar_one_or_none()
@@ -153,7 +154,7 @@ async def send_phone_verification(
     # Generate 6-digit OTP
     code = f"{secrets.randbelow(1000000):06d}"
     phone.verification_code = code
-    phone.verification_expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    phone.verification_expires_at = datetime.now(UTC) + timedelta(minutes=10)
     await db.commit()
 
     # Build full phone number
@@ -183,7 +184,7 @@ async def verify_phone(
     db: AsyncSession = Depends(get_db),
 ):
     """Verify a phone number with the 6-digit OTP code."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     code = body.get("code", "")
     if not code:
@@ -202,11 +203,11 @@ async def verify_phone(
         raise HTTPException(status_code=400, detail="Invalid verification code")
 
     # Check expiry (10 minutes)
-    if phone.verification_expires_at and phone.verification_expires_at < datetime.now(timezone.utc):
+    if phone.verification_expires_at and phone.verification_expires_at < datetime.now(UTC):
         raise HTTPException(status_code=400, detail="Verification code expired")
 
     phone.verified = True
-    phone.verified_at = datetime.now(timezone.utc)
+    phone.verified_at = datetime.now(UTC)
     phone.verification_code = None
     phone.verification_expires_at = None
     await db.commit()

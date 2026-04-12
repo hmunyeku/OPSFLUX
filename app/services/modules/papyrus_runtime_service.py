@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -165,9 +165,7 @@ async def resolve_ref(
     if ref.startswith("project://"):
         project_path = ref.removeprefix("project://")
         project_id, _, field = project_path.partition("/")
-        project = await db.scalar(
-            select(Project).where(Project.id == UUID(project_id), Project.entity_id == entity_id)
-        )
+        project = await db.scalar(select(Project).where(Project.id == UUID(project_id), Project.entity_id == entity_id))
         if project is None:
             return None
         payload = {
@@ -229,18 +227,16 @@ async def resolve_ref(
             project_uuid = UUID(project_id)
             project_data = await resolve_ref(db=db, entity_id=entity_id, ref=f"project://{project_id}")
             actions = await _resolve_project_actions(db=db, project_id=project_uuid)
-            today = datetime.now(timezone.utc)
-            open_actions = [
-                task for task in actions if task.get("status") not in {"done", "cancelled"}
-            ]
+            today = datetime.now(UTC)
+            open_actions = [task for task in actions if task.get("status") not in {"done", "cancelled"}]
             overdue_actions = [
                 task
                 for task in open_actions
-                if task.get("due_date") and _parse_iso_datetime(task["due_date"]) and _parse_iso_datetime(task["due_date"]) < today
+                if task.get("due_date")
+                and _parse_iso_datetime(task["due_date"])
+                and _parse_iso_datetime(task["due_date"]) < today
             ]
-            completed_actions = [
-                task for task in actions if task.get("status") in {"done", "cancelled"}
-            ]
+            completed_actions = [task for task in actions if task.get("status") in {"done", "cancelled"}]
             if not isinstance(project_data, dict):
                 project_data = {}
             metric_map = {
@@ -320,6 +316,7 @@ async def get_renderable_papyrus_for_document(
         updated_at=updated_at,
     )
     return await render_papyrus_document(db=db, entity_id=entity_id, document=canonical)
+
 
 async def _resolve_project_actions(*, db: AsyncSession, project_id: UUID) -> list[dict[str, Any]]:
     result = await db.execute(

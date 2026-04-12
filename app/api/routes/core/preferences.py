@@ -1,8 +1,6 @@
 """Notification preference routes — get and upsert preferences."""
 
-from uuid import UUID
-
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,11 +26,7 @@ async def get_notification_preferences(
     db: AsyncSession = Depends(get_db),
 ):
     """Get notification preferences for the current user. Returns defaults if none exist."""
-    result = await db.execute(
-        select(NotificationPreference).where(
-            NotificationPreference.user_id == current_user.id
-        )
-    )
+    result = await db.execute(select(NotificationPreference).where(NotificationPreference.user_id == current_user.id))
     pref = result.scalar_one_or_none()
 
     if pref:
@@ -49,11 +43,7 @@ async def update_notification_preferences(
     db: AsyncSession = Depends(get_db),
 ):
     """Upsert notification preferences for the current user."""
-    result = await db.execute(
-        select(NotificationPreference).where(
-            NotificationPreference.user_id == current_user.id
-        )
-    )
+    result = await db.execute(select(NotificationPreference).where(NotificationPreference.user_id == current_user.id))
     pref = result.scalar_one_or_none()
 
     update_data = body.model_dump(exclude_unset=True)

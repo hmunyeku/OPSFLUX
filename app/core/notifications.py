@@ -4,8 +4,7 @@ import logging
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -192,9 +191,7 @@ async def send_in_app(
         await notification_manager.send_to_user(user_id, notification_data)
     except Exception:
         # Real-time push is best-effort — the notification is already persisted
-        logger.warning(
-            "Failed to push real-time notification to user %s", user_id, exc_info=True
-        )
+        logger.warning("Failed to push real-time notification to user %s", user_id, exc_info=True)
 
 
 async def send_in_app_bulk(
@@ -244,9 +241,7 @@ async def _get_smtp_config() -> dict[str, str]:
     # Override with DB settings if present
     try:
         async with async_session_factory() as db:
-            result = await db.execute(
-                text("SELECT key, value FROM settings WHERE key LIKE 'integration.smtp.%'")
-            )
+            result = await db.execute(text("SELECT key, value FROM settings WHERE key LIKE 'integration.smtp.%'"))
             for row in result.all():
                 field = row[0].replace("integration.smtp.", "")
                 val = row[1].get("v", "") if isinstance(row[1], dict) else str(row[1])
@@ -263,11 +258,16 @@ _SMTP_DOCKER_FALLBACKS = ["mailu-smtp", "mailu-front", "front", "smtp", "mail"]
 
 
 async def _smtp_send_via(
-    host: str, port: int, encryption: str, username: str, password: str,
+    host: str,
+    port: int,
+    encryption: str,
+    username: str,
+    password: str,
     message,
 ) -> None:
     """Connect to a single SMTP host and send the message."""
     import ssl as _ssl
+
     import aiosmtplib
 
     if port == 465 and encryption != "none":
@@ -285,8 +285,11 @@ async def _smtp_send_via(
 
     logger.info("SMTP connecting to %s:%s (tls=%s, starttls=%s)", host, port, use_tls, start_tls)
     smtp = aiosmtplib.SMTP(
-        hostname=host, port=port, timeout=30,
-        use_tls=use_tls, tls_context=tls_context if use_tls else None,
+        hostname=host,
+        port=port,
+        timeout=30,
+        use_tls=use_tls,
+        tls_context=tls_context if use_tls else None,
     )
     await smtp.connect()
     if start_tls:
@@ -341,8 +344,8 @@ async def send_email(
                 )
                 return
 
-        from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
 
         cfg = await _get_smtp_config()
 

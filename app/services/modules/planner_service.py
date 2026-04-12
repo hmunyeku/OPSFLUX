@@ -12,20 +12,18 @@ This service implements the spec rules:
 """
 
 import logging
-from datetime import date, datetime, timedelta, timezone
-from decimal import Decimal
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import and_, func as sqla_func, select, text, update
+from sqlalchemy import func as sqla_func
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.asset_registry import Installation
-from app.models.common import Project, User
+from app.models.common import Project
 from app.models.paxlog import Ads, AdsPax
 from app.models.planner import (
     PlannerActivity,
-    PlannerConflict,
-    PlannerConflictActivity,
 )
 
 logger = logging.getLogger(__name__)
@@ -138,7 +136,9 @@ async def generate_work_order_ref(db: AsyncSession, entity_id: UUID) -> str:
 
 
 async def get_current_capacity(
-    db: AsyncSession, asset_id: UUID, at_date: date | None = None,
+    db: AsyncSession,
+    asset_id: UUID,
+    at_date: date | None = None,
 ) -> dict | None:
     """Get the most recent capacity record for an asset as of a given date.
 
@@ -204,7 +204,9 @@ async def get_current_capacity(
 
 
 async def get_effective_capacity(
-    db: AsyncSession, asset_id: UUID, at_date: date | None = None,
+    db: AsyncSession,
+    asset_id: UUID,
+    at_date: date | None = None,
 ) -> int:
     """Get effective capacity considering hierarchy inheritance.
 
@@ -224,6 +226,7 @@ async def get_effective_capacity(
     effective = own_max
     if asset.site_id:
         from app.models.asset_registry import OilSite
+
         site = await db.get(OilSite, asset.site_id)
         if site:
             site_cap = await get_current_capacity(db, site.id, target)
@@ -403,10 +406,7 @@ async def get_impact_preview(
 
     # Count linked AdS (via planner_activity_id)
     ads_count_result = await db.execute(
-        text(
-            "SELECT COUNT(*) FROM ads "
-            "WHERE planner_activity_id = :aid AND status IN ('approved', 'in_progress')"
-        ),
+        text("SELECT COUNT(*) FROM ads WHERE planner_activity_id = :aid AND status IN ('approved', 'in_progress')"),
         {"aid": str(activity_id)},
     )
     ads_affected = ads_count_result.scalar() or 0
@@ -433,8 +433,11 @@ async def get_impact_preview(
         check_pax = new_pax_quota if new_pax_quota is not None else activity.pax_quota
 
         avail = await check_availability(
-            db, entity_id, activity.asset_id,
-            check_start, check_end,
+            db,
+            entity_id,
+            activity.asset_id,
+            check_start,
+            check_end,
             exclude_activity_id=activity_id,
         )
         for day in avail["days"]:
@@ -493,16 +496,13 @@ async def get_gantt_data(
         "dependencies": [...]
     }
     """
-    query = (
-        select(PlannerActivity)
-        .where(
-            PlannerActivity.entity_id == entity_id,
-            PlannerActivity.active == True,  # noqa: E712
-            PlannerActivity.start_date.isnot(None),
-            PlannerActivity.end_date.isnot(None),
-            PlannerActivity.start_date <= datetime.combine(end_date, datetime.max.time(), tzinfo=timezone.utc),
-            PlannerActivity.end_date >= datetime.combine(start_date, datetime.min.time(), tzinfo=timezone.utc),
-        )
+    query = select(PlannerActivity).where(
+        PlannerActivity.entity_id == entity_id,
+        PlannerActivity.active == True,  # noqa: E712
+        PlannerActivity.start_date.isnot(None),
+        PlannerActivity.end_date.isnot(None),
+        PlannerActivity.start_date <= datetime.combine(end_date, datetime.max.time(), tzinfo=UTC),
+        PlannerActivity.end_date >= datetime.combine(start_date, datetime.min.time(), tzinfo=UTC),
     )
 
     if not show_permanent_ops:
@@ -514,9 +514,7 @@ async def get_gantt_data(
     if statuses:
         query = query.where(PlannerActivity.status.in_(statuses))
     else:
-        query = query.where(
-            PlannerActivity.status.in_(["draft", "submitted", "validated", "in_progress"])
-        )
+        query = query.where(PlannerActivity.status.in_(["draft", "submitted", "validated", "in_progress"]))
 
     result = await db.execute(query.order_by(PlannerActivity.start_date))
     activities = result.scalars().all()
@@ -524,14 +522,13 @@ async def get_gantt_data(
     # Batch-fetch linked project task progress for activities that reference
     # a source_task_id. This lets the Gantt bar show the task progress bar
     # without N+1 queries.
-    from app.models.common import ProjectTask, Project
+    from app.models.common import ProjectTask
+
     linked_task_ids = {act.source_task_id for act in activities if getattr(act, "source_task_id", None)}
     task_progress_by_id: dict[UUID, int] = {}
     if linked_task_ids:
         task_rows = await db.execute(
-            select(ProjectTask.id, ProjectTask.progress).where(
-                ProjectTask.id.in_(linked_task_ids)
-            )
+            select(ProjectTask.id, ProjectTask.progress).where(ProjectTask.id.in_(linked_task_ids))
         )
         for row in task_rows.all():
             task_progress_by_id[row[0]] = int(row[1] or 0)
@@ -567,9 +564,7 @@ async def get_gantt_data(
     distinct_project_ids = {a.project_id for a in all_acts if a.project_id}
     if distinct_project_ids:
         proj_rows = await db.execute(
-            select(Project.id, Project.progress_weight_method).where(
-                Project.id.in_(distinct_project_ids)
-            )
+            select(Project.id, Project.progress_weight_method).where(Project.id.in_(distinct_project_ids))
         )
         for row in proj_rows.all():
             project_method_by_id[row[0]] = row[1]
@@ -578,6 +573,7 @@ async def get_gantt_data(
     planner_default_method = "equal"
     try:
         from sqlalchemy import text as _text
+
         setting_row = await db.execute(
             _text(
                 """
@@ -653,7 +649,7 @@ async def get_gantt_data(
             start_ts = act.start_date.timestamp()
             end_ts = act.end_date.timestamp()
             if end_ts > start_ts:
-                now_ts = datetime.now(timezone.utc).timestamp()
+                now_ts = datetime.now(UTC).timestamp()
                 if now_ts <= start_ts:
                     return 0
                 if now_ts >= end_ts:
@@ -676,10 +672,7 @@ async def get_gantt_data(
             value = _leaf_progress(act)
         else:
             method = _resolve_method_for_activity(act)
-            child_items = [
-                (float(_compute_activity_progress(c)), _activity_raw_weight(c, method))
-                for c in children
-            ]
+            child_items = [(float(_compute_activity_progress(c)), _activity_raw_weight(c, method)) for c in children]
             value = int(round(max(0.0, min(100.0, _weighted_avg(child_items)))))
         progress_cache[act.id] = value
         in_progress_set.discard(act.id)
@@ -702,32 +695,35 @@ async def get_gantt_data(
                 },
                 "activities": [],
             }
-        asset_map[aid]["activities"].append({
-            "id": str(act.id),
-            "title": act.title,
-            "type": act.type,
-            "subtype": act.subtype,
-            "status": act.status,
-            "priority": act.priority,
-            "pax_quota": act.pax_quota,
-            "pax_quota_mode": getattr(act, "pax_quota_mode", "constant") or "constant",
-            "pax_quota_daily": getattr(act, "pax_quota_daily", None),
-            "start_date": act.start_date.isoformat() if act.start_date else None,
-            "end_date": act.end_date.isoformat() if act.end_date else None,
-            "project_id": str(act.project_id) if act.project_id else None,
-            "source_task_id": str(act.source_task_id) if getattr(act, "source_task_id", None) else None,
-            "progress": _compute_activity_progress(act),
-            "created_by": str(act.created_by),
-            "well_reference": act.well_reference,
-            "rig_name": act.rig_name,
-            "work_order_ref": act.work_order_ref,
-        })
+        asset_map[aid]["activities"].append(
+            {
+                "id": str(act.id),
+                "title": act.title,
+                "type": act.type,
+                "subtype": act.subtype,
+                "status": act.status,
+                "priority": act.priority,
+                "pax_quota": act.pax_quota,
+                "pax_quota_mode": getattr(act, "pax_quota_mode", "constant") or "constant",
+                "pax_quota_daily": getattr(act, "pax_quota_daily", None),
+                "start_date": act.start_date.isoformat() if act.start_date else None,
+                "end_date": act.end_date.isoformat() if act.end_date else None,
+                "project_id": str(act.project_id) if act.project_id else None,
+                "source_task_id": str(act.source_task_id) if getattr(act, "source_task_id", None) else None,
+                "progress": _compute_activity_progress(act),
+                "created_by": str(act.created_by),
+                "well_reference": act.well_reference,
+                "rig_name": act.rig_name,
+                "work_order_ref": act.work_order_ref,
+            }
+        )
 
     # ── Dependencies between visible activities ──
     activity_ids = [act.id for act in activities]
     dependencies_payload: list[dict] = []
     if activity_ids:
         from app.models.planner import PlannerActivityDependency
+
         deps_result = await db.execute(
             select(PlannerActivityDependency).where(
                 PlannerActivityDependency.predecessor_id.in_(activity_ids),
@@ -735,13 +731,15 @@ async def get_gantt_data(
             )
         )
         for dep in deps_result.scalars().all():
-            dependencies_payload.append({
-                "id": str(dep.id),
-                "predecessor_id": str(dep.predecessor_id),
-                "successor_id": str(dep.successor_id),
-                "dependency_type": dep.dependency_type,
-                "lag_days": dep.lag_days,
-            })
+            dependencies_payload.append(
+                {
+                    "id": str(dep.id),
+                    "predecessor_id": str(dep.predecessor_id),
+                    "successor_id": str(dep.successor_id),
+                    "dependency_type": dep.dependency_type,
+                    "lag_days": dep.lag_days,
+                }
+            )
 
     return {
         "assets": list(asset_map.values()),
@@ -806,6 +804,7 @@ async def get_capacity_heatmap(
     # Pre-fetch fallback capacity from the asset registry hierarchy for assets
     # without any asset_capacities row. We need site/field pob_capacity too.
     from app.models.asset_registry import OilField, OilSite
+
     site_ids = {a.site_id for a in assets if a.site_id}
     field_ids: set[UUID] = set()
     sites_by_id: dict[UUID, OilSite] = {}
@@ -866,8 +865,8 @@ async def get_capacity_heatmap(
             PlannerActivity.status.in_(_CAPACITY_STATUSES_ALL),
             PlannerActivity.start_date.isnot(None),
             PlannerActivity.end_date.isnot(None),
-            PlannerActivity.start_date <= datetime.combine(end_date, datetime.max.time(), tzinfo=timezone.utc),
-            PlannerActivity.end_date >= datetime.combine(start_date, datetime.min.time(), tzinfo=timezone.utc),
+            PlannerActivity.start_date <= datetime.combine(end_date, datetime.max.time(), tzinfo=UTC),
+            PlannerActivity.end_date >= datetime.combine(start_date, datetime.min.time(), tzinfo=UTC),
         )
     )
     # forecast_by_asset_day[asset_id][YYYY-MM-DD] = sum_pax
@@ -954,16 +953,18 @@ async def get_capacity_heatmap(
             total_used = permanent_ops_quota + used_by_activities
             residual = max_pax_total - total_used
             saturation = (total_used / max_pax_total * 100) if max_pax_total > 0 else 0.0
-            heatmap.append({
-                "asset_id": str(aid),
-                "asset_name": asset.name,
-                "date": day_key,
-                "saturation_pct": round(saturation, 2),
-                "forecast_pax": total_used,
-                "real_pob": real_pob,
-                "remaining_capacity": residual,
-                "capacity_limit": max_pax_total,
-            })
+            heatmap.append(
+                {
+                    "asset_id": str(aid),
+                    "asset_name": asset.name,
+                    "date": day_key,
+                    "saturation_pct": round(saturation, 2),
+                    "forecast_pax": total_used,
+                    "real_pob": real_pob,
+                    "remaining_capacity": residual,
+                    "capacity_limit": max_pax_total,
+                }
+            )
             cur_d += timedelta(days=1)
 
     return heatmap
@@ -1057,11 +1058,13 @@ async def simulate_scenario(
 
             if overflow > 0:
                 conflict_days += 1
-                projected_conflicts.append({
-                    "asset_id": str(asset_id),
-                    "date": current.isoformat(),
-                    "overflow": overflow,
-                })
+                projected_conflicts.append(
+                    {
+                        "asset_id": str(asset_id),
+                        "date": current.isoformat(),
+                        "overflow": overflow,
+                    }
+                )
                 if overflow > worst_overflow:
                     worst_overflow = overflow
                     worst_date = current
@@ -1129,8 +1132,13 @@ async def forecast_capacity(
     current = lookback_start
     while current < today:
         load = await compute_daily_load(
-            db, entity_id, asset_id, current, include_submitted=False,
-            activity_type=activity_type, project_id=project_id,
+            db,
+            entity_id,
+            asset_id,
+            current,
+            include_submitted=False,
+            activity_type=activity_type,
+            project_id=project_id,
         )
         historical[current.weekday()].append(load["total_used"])
         current += timedelta(days=1)
@@ -1153,8 +1161,13 @@ async def forecast_capacity(
         projected = weekday_avg.get(current.weekday(), 0.0)
         # Scheduled load from already-planned activities
         scheduled_load = await compute_daily_load(
-            db, entity_id, asset_id, current, include_submitted=True,
-            activity_type=activity_type, project_id=project_id,
+            db,
+            entity_id,
+            asset_id,
+            current,
+            include_submitted=True,
+            activity_type=activity_type,
+            project_id=project_id,
         )
         scheduled = scheduled_load["total_used"]
         real_pob = await count_real_pob_for_asset_day(db, entity_id, asset_id, current)
@@ -1168,16 +1181,18 @@ async def forecast_capacity(
             peak_load = combined
             peak_date = current
 
-        forecast.append({
-            "date": current.isoformat(),
-            "projected_load": round(projected, 1),
-            "scheduled_load": scheduled,
-            "combined_load": round(combined, 1),
-            "real_pob": real_pob,
-            "max_capacity": max_cap,
-            "at_risk": at_risk,
-            "saturation_pct": round(combined / max_cap * 100, 2) if max_cap > 0 else 0,
-        })
+        forecast.append(
+            {
+                "date": current.isoformat(),
+                "projected_load": round(projected, 1),
+                "scheduled_load": scheduled,
+                "combined_load": round(combined, 1),
+                "real_pob": real_pob,
+                "max_capacity": max_cap,
+                "at_risk": at_risk,
+                "saturation_pct": round(combined / max_cap * 100, 2) if max_cap > 0 else 0,
+            }
+        )
         current += timedelta(days=1)
 
     days_counted = len(forecast) or 1
@@ -1240,7 +1255,9 @@ async def generate_recurring_activities(db: AsyncSession, entity_id: UUID) -> in
                 continue
 
             # Determine next occurrence date
-            last = last_gen.date() if last_gen else (template.start_date.date() if template.start_date else date.today())
+            last = (
+                last_gen.date() if last_gen else (template.start_date.date() if template.start_date else date.today())
+            )
             next_date = _compute_next_occurrence(last, freq, interval_val, dow, dom)
 
             if end_dt and next_date > end_dt:
@@ -1281,10 +1298,7 @@ async def generate_recurring_activities(db: AsyncSession, entity_id: UUID) -> in
 
             # Update last_generated_at
             await db.execute(
-                text(
-                    "UPDATE activity_recurrence_rules SET last_generated_at = NOW() "
-                    "WHERE id = :rid"
-                ),
+                text("UPDATE activity_recurrence_rules SET last_generated_at = NOW() WHERE id = :rid"),
                 {"rid": str(rule_id)},
             )
             generated += 1
@@ -1297,8 +1311,11 @@ async def generate_recurring_activities(db: AsyncSession, entity_id: UUID) -> in
 
 
 def _compute_next_occurrence(
-    after: date, frequency: str, interval: int,
-    day_of_week: int | None, day_of_month: int | None,
+    after: date,
+    frequency: str,
+    interval: int,
+    day_of_week: int | None,
+    day_of_month: int | None,
 ) -> date:
     """Compute the next occurrence date after the given date."""
     if frequency == "daily":

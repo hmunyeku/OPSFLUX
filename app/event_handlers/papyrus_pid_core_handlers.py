@@ -26,11 +26,9 @@ logger = logging.getLogger(__name__)
 async def _get_user_email_and_name(user_id: UUID, db) -> tuple[str | None, str]:
     """Get primary email and display name for a user."""
     from sqlalchemy import text
+
     result = await db.execute(
-        text(
-            "SELECT u.email, COALESCE(u.first_name || ' ' || u.last_name, u.email) "
-            "FROM users u WHERE u.id = :uid"
-        ),
+        text("SELECT u.email, COALESCE(u.first_name || ' ' || u.last_name, u.email) FROM users u WHERE u.id = :uid"),
         {"uid": user_id},
     )
     row = result.first()
@@ -56,8 +54,8 @@ async def on_document_submitted(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from app.core.notifications import send_in_app
         from app.core.email_templates import render_and_send_email
+        from app.core.notifications import send_in_app
         from app.event_handlers.core_handlers import _get_admin_user_ids
 
         admin_ids = await _get_admin_user_ids(entity_id)
@@ -125,8 +123,8 @@ async def on_document_approved(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from app.core.notifications import send_in_app
         from app.core.email_templates import render_and_send_email
+        from app.core.notifications import send_in_app
 
         eid = UUID(str(entity_id))
 
@@ -189,8 +187,8 @@ async def on_document_rejected(event: OpsFluxEvent) -> None:
         return
 
     try:
-        from app.core.notifications import send_in_app
         from app.core.email_templates import render_and_send_email
+        from app.core.notifications import send_in_app
 
         eid = UUID(str(entity_id))
         uid = UUID(str(created_by))
@@ -256,9 +254,10 @@ async def on_document_published(event: OpsFluxEvent) -> None:
 
     try:
         from sqlalchemy import select
-        from app.models.papyrus_document import DistributionList
-        from app.core.notifications import send_in_app
+
         from app.core.email_templates import render_and_send_email
+        from app.core.notifications import send_in_app
+        from app.models.papyrus_document import DistributionList
 
         eid = UUID(str(entity_id))
 
@@ -326,7 +325,10 @@ async def on_document_published(event: OpsFluxEvent) -> None:
 
         logger.info(
             "document.published handled: %s — %d in-app, %d emails, %d dist lists",
-            number, len(notified_user_ids), len(emailed), len(distribution_list_ids),
+            number,
+            len(notified_user_ids),
+            len(emailed),
+            len(distribution_list_ids),
         )
     except Exception:
         logger.exception("Error in on_document_published for %s", document_id)
@@ -346,7 +348,8 @@ async def on_pid_equipment_synced(event: OpsFluxEvent) -> None:
 
     logger.info(
         "pid.equipment.synced: PID %s (%s) — %d equipment, %d lines, %d connections",
-        pid_number, pid_id,
+        pid_number,
+        pid_id,
         stats.get("equipment", 0),
         stats.get("lines", 0),
         stats.get("connections", 0),
@@ -397,7 +400,9 @@ async def on_pid_afc_validated(event: OpsFluxEvent) -> None:
 
         logger.info(
             "pid.afc.validated: PID %s — FAIL (%d errors, %d warnings)",
-            pid_number, error_count, warning_count,
+            pid_number,
+            error_count,
+            warning_count,
         )
     except Exception:
         logger.exception("Error in on_pid_afc_validated for PID %s", pid_id)
@@ -419,4 +424,3 @@ def register_report_pid_handlers(event_bus: EventBus) -> None:
     event_bus.subscribe("pid.equipment.synced", on_pid_equipment_synced)
     event_bus.subscribe("pid.afc.validated", on_pid_afc_validated)
     logger.info("Papyrus + PID/PFD event handlers registered")
-

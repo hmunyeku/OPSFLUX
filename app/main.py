@@ -10,107 +10,108 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.api.routes.core.addresses import router as addresses_router
+from app.api.routes.core.admin import router as admin_router
+from app.api.routes.core.admin_tools import router as admin_tools_router
+from app.api.routes.core.ai_chat import router as ai_chat_router
+from app.api.routes.core.attachments import router as attachments_router
+from app.api.routes.core.audit import router as audit_router
+
+# Route imports
+from app.api.routes.core.auth import router as auth_router
+from app.api.routes.core.contact_emails import router as contact_emails_router
+from app.api.routes.core.cost_imputations import router as cost_imputations_router
+from app.api.routes.core.dashboard import router as dashboard_router
+from app.api.routes.core.departments import router as departments_router
+from app.api.routes.core.dictionary import router as dictionary_router
+from app.api.routes.core.email_templates import router as email_templates_router
+from app.api.routes.core.emails import router as emails_router
+from app.api.routes.core.entities import router as entities_router
+from app.api.routes.core.gdpr import router as gdpr_router
+from app.api.routes.core.gouti_sync import router as gouti_sync_router
+from app.api.routes.core.groups import router as groups_router
+from app.api.routes.core.import_assistant import router as import_assistant_router
+from app.api.routes.core.imputations import router as imputations_router
+from app.api.routes.core.integrations import router as integrations_router
+from app.api.routes.core.legal_identifiers import router as legal_identifiers_router
+from app.api.routes.core.mcp import router as mcp_router
+from app.api.routes.core.mcp_gateway import close_http_client
+from app.api.routes.core.mcp_gateway import router as mcp_gateway_router
+from app.api.routes.core.medical_checks import router as medical_checks_router
+from app.api.routes.core.mfa import router as mfa_router
+from app.api.routes.core.modules import router as modules_router
+from app.api.routes.core.notes import router as notes_router
+from app.api.routes.core.notifications import router as notifications_router
+from app.api.routes.core.oauth_apps import router as oauth_router
+from app.api.routes.core.opening_hours import router as opening_hours_router
+from app.api.routes.core.pdf_templates import router as pdf_templates_router
+from app.api.routes.core.phones import router as phones_router
+from app.api.routes.core.preferences import router as preferences_router
+from app.api.routes.core.preview import router as preview_router
+from app.api.routes.core.profile import router as profile_router
+from app.api.routes.core.references import router as references_router
+from app.api.routes.core.roles import router as roles_router
+from app.api.routes.core.search import router as search_router
+from app.api.routes.core.sessions import router as sessions_router
+from app.api.routes.core.settings import router as settings_router
+from app.api.routes.core.social_networks import router as social_networks_router
+from app.api.routes.core.tags import router as tags_router
+from app.api.routes.core.tokens import router as tokens_router
+from app.api.routes.core.user_driving_licenses import router as user_driving_licenses_router
+from app.api.routes.core.user_emergency_contacts import router as user_emergency_contacts_router
+from app.api.routes.core.user_health_conditions import router as user_health_conditions_router
+from app.api.routes.core.user_languages import router as user_languages_router
+from app.api.routes.core.user_passports import router as user_passports_router
+from app.api.routes.core.user_social_securities import router as user_social_securities_router
+from app.api.routes.core.user_sso import router as user_sso_router
+from app.api.routes.core.user_sync import router as user_sync_router
+from app.api.routes.core.user_vaccines import router as user_vaccines_router
+from app.api.routes.core.user_visas import router as user_visas_router
+from app.api.routes.core.users import router as users_router
+from app.api.routes.core.workflow import router as workflow_router
+from app.api.routes.core.ws_notifications import router as ws_notifications_router
+from app.api.routes.modules.asset_registry import router as asset_registry_router
+from app.api.routes.modules.assets import router as assets_router
+from app.api.routes.modules.conformite import router as conformite_router
+from app.api.routes.modules.messaging import router as messaging_router
+from app.api.routes.modules.packlog import router as packlog_router
+from app.api.routes.modules.papyrus import router as papyrus_router
+from app.api.routes.modules.paxlog import router as paxlog_router
+from app.api.routes.modules.pid_pfd import router as pid_pfd_router
+from app.api.routes.modules.planner import router as planner_router
+from app.api.routes.modules.projets import router as projets_router
+from app.api.routes.modules.support import router as support_router
+from app.api.routes.modules.tiers import router as tiers_router
+from app.api.routes.modules.travelwiz import router as travelwiz_router
 from app.core.config import settings
-from app.core.database import init_db, close_db
-from app.core.redis_client import init_redis, close_redis
-from app.core.middleware.tenant import TenantSchemaMiddleware
+from app.core.database import close_db, init_db
 from app.core.middleware.entity_scope import EntityScopeMiddleware
-from app.core.middleware.security_headers import SecurityHeadersMiddleware
-from app.core.middleware.rate_limit import RateLimitMiddleware
 from app.core.middleware.mcp_cors import McpCorsMiddleware
+from app.core.middleware.rate_limit import RateLimitMiddleware
+from app.core.middleware.security_headers import SecurityHeadersMiddleware
+from app.core.middleware.tenant import TenantSchemaMiddleware
 from app.core.module_registry import ModuleRegistry
+from app.core.redis_client import close_redis, init_redis
 from app.event_handlers import register_all_handlers
-from app.tasks.scheduler import start_scheduler, stop_scheduler
+from app.mcp.mcp_native import close_all_backends as close_native_backends
 from app.mcp.register import register_mcp_plugins
 
 # Module manifests
 from app.modules.asset_registry import MANIFEST as ASSET_MANIFEST
-from app.modules.tiers import MANIFEST as TIERS_MANIFEST
-from app.modules.dashboard import MANIFEST as DASHBOARD_MANIFEST
-from app.modules.workflow import MANIFEST as WORKFLOW_MANIFEST
-from app.modules.paxlog import MANIFEST as PAXLOG_MANIFEST
 from app.modules.conformite import MANIFEST as CONFORMITE_MANIFEST
-from app.modules.projets import MANIFEST as PROJETS_MANIFEST
-from app.modules.planner import MANIFEST as PLANNER_MANIFEST
-from app.modules.travelwiz import MANIFEST as TRAVELWIZ_MANIFEST
+from app.modules.dashboard import MANIFEST as DASHBOARD_MANIFEST
+from app.modules.messaging import MANIFEST as MESSAGING_MANIFEST
 from app.modules.packlog import MANIFEST as PACKLOG_MANIFEST
 from app.modules.papyrus import MANIFEST as PAPYRUS_MANIFEST
+from app.modules.paxlog import MANIFEST as PAXLOG_MANIFEST
 from app.modules.pid_pfd import MANIFEST as PID_PFD_MANIFEST
-from app.modules.messaging import MANIFEST as MESSAGING_MANIFEST
+from app.modules.planner import MANIFEST as PLANNER_MANIFEST
+from app.modules.projets import MANIFEST as PROJETS_MANIFEST
 from app.modules.support import MANIFEST as SUPPORT_MANIFEST
-
-# Route imports
-from app.api.routes.core.auth import router as auth_router
-from app.api.routes.core.users import router as users_router
-from app.api.routes.core.notifications import router as notifications_router
-from app.api.routes.core.settings import router as settings_router
-from app.api.routes.modules.assets import router as assets_router
-from app.api.routes.modules.tiers import router as tiers_router
-from app.api.routes.modules.conformite import router as conformite_router
-from app.api.routes.modules.projets import router as projets_router
-from app.api.routes.core.profile import router as profile_router
-from app.api.routes.core.sessions import router as sessions_router
-from app.api.routes.core.tokens import router as tokens_router
-from app.api.routes.core.emails import router as emails_router
-from app.api.routes.core.oauth_apps import router as oauth_router
-from app.api.routes.core.addresses import router as addresses_router
-from app.api.routes.core.audit import router as audit_router
-from app.api.routes.core.preferences import router as preferences_router
-from app.api.routes.core.mfa import router as mfa_router
-from app.api.routes.core.search import router as search_router
-from app.api.routes.core.tags import router as tags_router
-from app.api.routes.core.notes import router as notes_router
-from app.api.routes.core.attachments import router as attachments_router
-from app.api.routes.core.cost_imputations import router as cost_imputations_router
-from app.api.routes.core.imputations import router as imputations_router
-from app.api.routes.core.admin_tools import router as admin_tools_router
-from app.api.routes.core.email_templates import router as email_templates_router
-from app.api.routes.core.pdf_templates import router as pdf_templates_router
-from app.api.routes.core.phones import router as phones_router
-from app.api.routes.core.contact_emails import router as contact_emails_router
-from app.api.routes.core.user_passports import router as user_passports_router
-from app.api.routes.core.user_visas import router as user_visas_router
-from app.api.routes.core.user_emergency_contacts import router as user_emergency_contacts_router
-from app.api.routes.core.user_social_securities import router as user_social_securities_router
-from app.api.routes.core.user_vaccines import router as user_vaccines_router
-from app.api.routes.core.user_languages import router as user_languages_router
-from app.api.routes.core.user_driving_licenses import router as user_driving_licenses_router
-from app.api.routes.core.user_sso import router as user_sso_router
-from app.api.routes.core.user_health_conditions import router as user_health_conditions_router
-from app.api.routes.core.medical_checks import router as medical_checks_router
-from app.api.routes.core.legal_identifiers import router as legal_identifiers_router
-from app.api.routes.core.integrations import router as integrations_router
-from app.api.routes.core.gouti_sync import router as gouti_sync_router
-from app.api.routes.core.references import router as references_router
-from app.api.routes.core.social_networks import router as social_networks_router
-from app.api.routes.core.opening_hours import router as opening_hours_router
-from app.api.routes.core.mcp import router as mcp_router
-from app.api.routes.core.mcp_gateway import router as mcp_gateway_router, close_http_client
-from app.mcp.mcp_native import close_all_backends as close_native_backends
-from app.api.routes.core.ws_notifications import router as ws_notifications_router
-from app.api.routes.core.workflow import router as workflow_router
-from app.api.routes.core.dashboard import router as dashboard_router
-from app.api.routes.core.roles import router as roles_router
-from app.api.routes.core.groups import router as groups_router
-from app.api.routes.modules.paxlog import router as paxlog_router
-from app.api.routes.modules.planner import router as planner_router
-from app.api.routes.modules.travelwiz import router as travelwiz_router
-from app.api.routes.modules.packlog import router as packlog_router
-from app.api.routes.modules.papyrus import router as papyrus_router
-from app.api.routes.modules.pid_pfd import router as pid_pfd_router
-from app.api.routes.modules.asset_registry import router as asset_registry_router
-from app.api.routes.modules.messaging import router as messaging_router
-from app.api.routes.modules.support import router as support_router
-from app.api.routes.core.entities import router as entities_router
-from app.api.routes.core.admin import router as admin_router
-from app.api.routes.core.import_assistant import router as import_assistant_router
-from app.api.routes.core.user_sync import router as user_sync_router
-from app.api.routes.core.departments import router as departments_router
-from app.api.routes.core.preview import router as preview_router
-from app.api.routes.core.dictionary import router as dictionary_router
-from app.api.routes.core.ai_chat import router as ai_chat_router
-from app.api.routes.core.gdpr import router as gdpr_router
-from app.api.routes.core.modules import router as modules_router
+from app.modules.tiers import MANIFEST as TIERS_MANIFEST
+from app.modules.travelwiz import MANIFEST as TRAVELWIZ_MANIFEST
+from app.modules.workflow import MANIFEST as WORKFLOW_MANIFEST
+from app.tasks.scheduler import start_scheduler, stop_scheduler
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
@@ -138,19 +139,37 @@ async def lifespan(app: FastAPI):
 
     # Register modules (idempotent)
     registry = ModuleRegistry()
-    for manifest in [ASSET_MANIFEST, TIERS_MANIFEST, DASHBOARD_MANIFEST, WORKFLOW_MANIFEST, PAXLOG_MANIFEST, CONFORMITE_MANIFEST, PROJETS_MANIFEST, PLANNER_MANIFEST, TRAVELWIZ_MANIFEST, PACKLOG_MANIFEST, PAPYRUS_MANIFEST, PID_PFD_MANIFEST, MESSAGING_MANIFEST, SUPPORT_MANIFEST]:
+    for manifest in [
+        ASSET_MANIFEST,
+        TIERS_MANIFEST,
+        DASHBOARD_MANIFEST,
+        WORKFLOW_MANIFEST,
+        PAXLOG_MANIFEST,
+        CONFORMITE_MANIFEST,
+        PROJETS_MANIFEST,
+        PLANNER_MANIFEST,
+        TRAVELWIZ_MANIFEST,
+        PACKLOG_MANIFEST,
+        PAPYRUS_MANIFEST,
+        PID_PFD_MANIFEST,
+        MESSAGING_MANIFEST,
+        SUPPORT_MANIFEST,
+    ]:
         await registry.register(manifest)
 
     # Sync module permissions & roles to DB (idempotent upsert — D-021)
     from app.services.core.permission_sync import sync_permissions_and_roles
+
     await sync_permissions_and_roles()
 
     # Event handlers
     from app.core.events import event_bus
+
     register_all_handlers(event_bus)
 
     # Widget data providers (dashboard)
     from app.services.modules.dashboard_widget_providers import register_all_widget_providers
+
     register_all_widget_providers()
 
     # MCP plugins
@@ -160,6 +179,7 @@ async def lifespan(app: FastAPI):
     try:
         from app.core.database import async_session_factory
         from app.services.core.seed_service import seed_production_essentials
+
         async with async_session_factory() as session:
             await seed_production_essentials(session)
     except Exception:
@@ -168,6 +188,7 @@ async def lifespan(app: FastAPI):
     # Dev-only test data (sample users, sample assets) — only when explicitly enabled
     if settings.is_dev and settings.DEV_SEED_ON_STARTUP:
         from app.services.core.seed_service import seed_dev_data
+
         logger.warning("DEV_SEED_ON_STARTUP enabled — seeding development test data")
         async with async_session_factory() as session:
             await seed_dev_data(session)
@@ -201,6 +222,7 @@ app = FastAPI(
 
 # ─── Middlewares (order matters: last added = first executed) ──────────────
 from app.core.middleware.sensitive_data_audit import SensitiveDataAuditMiddleware
+
 app.add_middleware(SensitiveDataAuditMiddleware)
 app.add_middleware(RateLimitMiddleware, max_requests=200, window_seconds=60)
 app.add_middleware(SecurityHeadersMiddleware)
@@ -231,10 +253,10 @@ if settings.ALLOWED_HOSTS != "*":
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):  # type: ignore[no-untyped-def]
     import logging as _logging
+
     from starlette.responses import JSONResponse as _JSONResponse
-    _logging.getLogger("app.main").exception(
-        "Unhandled exception on %s %s", request.method, request.url.path
-    )
+
+    _logging.getLogger("app.main").exception("Unhandled exception on %s %s", request.method, request.url.path)
     origin = request.headers.get("origin", "")
     allowed_origins = set(settings.allowed_origins_list)
     cors_origin = origin if origin in allowed_origins or origin.startswith("https://") else "*"
@@ -335,10 +357,11 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.get("/api/health")
 async def health_check():
     """Public health check — tests DB and Redis, returns 503 if any critical service is down."""
-    from app.core.database import async_session_factory
-    from app.core.redis_client import get_redis
     from sqlalchemy import text
     from starlette.responses import JSONResponse
+
+    from app.core.database import async_session_factory
+    from app.core.redis_client import get_redis
 
     db_ok = True
     redis_ok = True

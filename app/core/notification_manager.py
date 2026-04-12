@@ -70,9 +70,7 @@ class NotificationConnectionManager:
 
         # Start a Redis listener if this is the first connection for the user
         if user_id not in self._listener_tasks or self._listener_tasks[user_id].done():
-            self._listener_tasks[user_id] = asyncio.create_task(
-                self._redis_listener(user_id)
-            )
+            self._listener_tasks[user_id] = asyncio.create_task(self._redis_listener(user_id))
 
         # Subscribe to entity-level broadcasts if entity_id provided
         if entity_id:
@@ -82,9 +80,7 @@ class NotificationConnectionManager:
             self._entity_connections[entity_id].add(websocket)
 
             if entity_id not in self._entity_listener_tasks or self._entity_listener_tasks[entity_id].done():
-                self._entity_listener_tasks[entity_id] = asyncio.create_task(
-                    self._redis_entity_listener(entity_id)
-                )
+                self._entity_listener_tasks[entity_id] = asyncio.create_task(self._redis_entity_listener(entity_id))
 
     async def disconnect(self, user_id: UUID, websocket: WebSocket) -> None:
         """Remove a WebSocket connection. Cleans up Redis listener when last

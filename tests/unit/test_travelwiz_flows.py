@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from io import BytesIO
 from types import SimpleNamespace
@@ -10,16 +10,13 @@ import pytest
 from fastapi import HTTPException
 from starlette.datastructures import UploadFile
 
+from app.api.routes.core import settings as settings_routes
 from app.api.routes.modules import packlog_shared as packlog_shared_routes
 from app.api.routes.modules import travelwiz as travelwiz_routes
-from app.api.routes.core import settings as settings_routes
 from app.core.events import OpsFluxEvent
 from app.event_handlers import travelwiz_handlers
-from app.services.modules import packlog_service
-from app.services.modules import travelwiz_service
-from app.tasks.jobs import travelwiz_operational_watch
-from app.tasks.jobs import travelwiz_pickup_reminders
-from app.tasks.jobs import travelwiz_weather_sync
+from app.services.modules import packlog_service, travelwiz_service
+from app.tasks.jobs import travelwiz_operational_watch, travelwiz_pickup_reminders, travelwiz_weather_sync
 
 
 class FakeResult:
@@ -152,14 +149,14 @@ async def test_assess_voyage_delay_exposes_reassignment_options():
         id=voyage_id,
         entity_id=entity_id,
         status="delayed",
-        scheduled_departure=datetime.now(timezone.utc) - timedelta(hours=5),
+        scheduled_departure=datetime.now(UTC) - timedelta(hours=5),
         actual_departure=None,
         delay_reason="Meteo",
     )
     alternative = SimpleNamespace(
         id=uuid4(),
         code="VYG-ALT",
-        scheduled_departure=datetime.now(timezone.utc) + timedelta(hours=2),
+        scheduled_departure=datetime.now(UTC) + timedelta(hours=2),
         status="confirmed",
     )
     db = FakeDB(
@@ -186,7 +183,7 @@ async def test_assess_voyage_delay_exposes_reassignment_options():
 @pytest.mark.asyncio
 async def test_on_ads_approved_uses_current_voyage_models(monkeypatch):
     entity_id = uuid4()
-    voyage = SimpleNamespace(id=uuid4(), scheduled_departure=datetime.now(timezone.utc))
+    voyage = SimpleNamespace(id=uuid4(), scheduled_departure=datetime.now(UTC))
     db = FakeDB([FakeResult(scalar_one_or_none=voyage)])
     generated = []
 
@@ -375,7 +372,7 @@ async def test_update_voyage_status_cancelled_emits_event(monkeypatch):
 async def test_list_package_elements_uses_current_package_element_model(monkeypatch):
     cargo_id = uuid4()
     entity_id = uuid4()
-    created_at = datetime.now(timezone.utc)
+    created_at = datetime.now(UTC)
     element = SimpleNamespace(
         id=uuid4(),
         package_id=cargo_id,
@@ -460,7 +457,7 @@ async def test_get_cargo_history_returns_audit_entries(monkeypatch):
     cargo_id = uuid4()
     entity_id = uuid4()
     actor_id = uuid4()
-    created_at = datetime.now(timezone.utc)
+    created_at = datetime.now(UTC)
     audit_entry = SimpleNamespace(
         id=uuid4(),
         action="travelwiz.cargo.status",
@@ -497,8 +494,8 @@ async def test_get_cargo_history_returns_audit_entries(monkeypatch):
 @pytest.mark.asyncio
 async def test_get_public_cargo_tracking_returns_limited_tracking_timeline():
     cargo_id = uuid4()
-    created_at = datetime.now(timezone.utc) - timedelta(hours=4)
-    received_at = datetime.now(timezone.utc)
+    created_at = datetime.now(UTC) - timedelta(hours=4)
+    received_at = datetime.now(UTC)
     cargo = SimpleNamespace(
         id=cargo_id,
         tracking_code="CGO-TRACK-001",
@@ -574,8 +571,8 @@ async def test_get_public_voyage_cargo_tracking_returns_associated_shipments():
         id=voyage_id,
         code="VYG-204",
         status="confirmed",
-        scheduled_departure=datetime.now(timezone.utc) + timedelta(hours=2),
-        scheduled_arrival=datetime.now(timezone.utc) + timedelta(hours=7),
+        scheduled_departure=datetime.now(UTC) + timedelta(hours=2),
+        scheduled_arrival=datetime.now(UTC) + timedelta(hours=7),
         active=True,
     )
     cargo = SimpleNamespace(
@@ -587,9 +584,9 @@ async def test_get_public_voyage_cargo_tracking_returns_associated_shipments():
         weight_kg=125.0,
         manifest_id=uuid4(),
         receiver_name="Base logistique",
-        created_at=datetime.now(timezone.utc) - timedelta(hours=4),
+        created_at=datetime.now(UTC) - timedelta(hours=4),
     )
-    last_event_at = datetime.now(timezone.utc) - timedelta(minutes=15)
+    last_event_at = datetime.now(UTC) - timedelta(minutes=15)
     db = FakeDB(
         [
             FakeResult(scalar_one_or_none=voyage),
@@ -645,14 +642,16 @@ async def test_get_voyage_cargo_operations_report_aggregates_returns(monkeypatch
         package_count=4,
         damage_notes=None,
         received_at=None,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     element_a = SimpleNamespace(quantity_sent=Decimal("2"), quantity_returned=Decimal("2"), return_status="returned")
     element_b = SimpleNamespace(quantity_sent=Decimal("2"), quantity_returned=Decimal("1"), return_status="partial")
-    db = FakeDB([
-        FakeResult(all_rows=[cargo]),
-        FakeResult(all_rows=[element_a, element_b]),
-    ])
+    db = FakeDB(
+        [
+            FakeResult(all_rows=[cargo]),
+            FakeResult(all_rows=[element_a, element_b]),
+        ]
+    )
 
     async def fake_get_voyage_or_404(_db, _voyage_id, _entity_id):
         return SimpleNamespace(id=_voyage_id, entity_id=_entity_id)
@@ -827,7 +826,7 @@ async def test_receive_cargo_records_structured_reception_details(monkeypatch):
         status="in_transit",
         destination_asset_id=None,
         package_count=3,
-        received_at=datetime.now(timezone.utc),
+        received_at=datetime.now(UTC),
         damage_notes=None,
         __table__=SimpleNamespace(columns=[]),
     )
@@ -839,7 +838,7 @@ async def test_receive_cargo_records_structured_reception_details(monkeypatch):
 
     async def fake_apply_status(_db, cargo_item_id, new_status, entity_id, user_id, location_asset_id=None):
         cargo.status = new_status
-        cargo.received_at = datetime.now(timezone.utc)
+        cargo.received_at = datetime.now(UTC)
 
     async def fake_record_audit(_db, **kwargs):
         audits.append(kwargs)
@@ -896,7 +895,7 @@ async def test_update_package_element_return_tracks_partial_quantity(monkeypatch
         unit_weight_kg=None,
         description="Valve kit",
         sap_code=None,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     db = FakeDB([])
     audits = []
@@ -958,7 +957,7 @@ async def test_update_package_element_return_blocks_quantity_over_sent(monkeypat
         unit_weight_kg=None,
         description="Valve kit",
         sap_code=None,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     db = FakeDB([])
 
@@ -1007,7 +1006,7 @@ async def test_update_package_element_disposition_requires_return_first(monkeypa
         unit_weight_kg=None,
         description="Valve kit",
         sap_code=None,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     db = FakeDB([])
 
@@ -1057,7 +1056,7 @@ async def test_update_package_element_disposition_updates_cargo_dispatch(monkeyp
         unit_weight_kg=None,
         description="Valve kit",
         sap_code=None,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     db = FakeDB([])
     audits = []
@@ -1146,7 +1145,7 @@ async def test_update_cargo_workflow_status_records_audit(monkeypatch):
             "pickup_contact_name": "Jean Agent",
             "pickup_contact_user_id": None,
             "pickup_contact_tier_contact_id": None,
-            "available_from": datetime.now(timezone.utc).isoformat(),
+            "available_from": datetime.now(UTC).isoformat(),
             "imputation_reference_id": str(uuid4()),
             "photo_evidence_count": 2,
             "document_attachment_count": 1,
@@ -1272,7 +1271,7 @@ async def test_packlog_workflow_status_blocks_on_compliance_rules(monkeypatch):
             "pickup_contact_name": "Bastien",
             "pickup_contact_user_id": None,
             "pickup_contact_tier_contact_id": None,
-            "available_from": datetime.now(timezone.utc),
+            "available_from": datetime.now(UTC),
             "imputation_reference_id": uuid4(),
             "cargo_type": "hazmat",
             "hazmat_validated": True,
@@ -1665,7 +1664,7 @@ async def test_get_cargo_request_loading_options_returns_viable_voyage(monkeypat
         id=voyage_id,
         code="VYG-2026-00031",
         status="planned",
-        scheduled_departure=datetime.now(timezone.utc) + timedelta(days=1),
+        scheduled_departure=datetime.now(UTC) + timedelta(days=1),
         vector_id=vector_id,
     )
     zone = SimpleNamespace(
@@ -1723,8 +1722,22 @@ async def test_apply_cargo_request_loading_option_assigns_request_children(monke
         request_code="CGR-2026-00021",
     )
     voyage = SimpleNamespace(id=voyage_id, code="VYG-2026-00041")
-    cargo_a = SimpleNamespace(id=uuid4(), tracking_code="CGO-1", manifest_id=None, planned_zone_id=None, workflow_status="approved", active=True)
-    cargo_b = SimpleNamespace(id=uuid4(), tracking_code="CGO-2", manifest_id=None, planned_zone_id=None, workflow_status="assigned", active=True)
+    cargo_a = SimpleNamespace(
+        id=uuid4(),
+        tracking_code="CGO-1",
+        manifest_id=None,
+        planned_zone_id=None,
+        workflow_status="approved",
+        active=True,
+    )
+    cargo_b = SimpleNamespace(
+        id=uuid4(),
+        tracking_code="CGO-2",
+        manifest_id=None,
+        planned_zone_id=None,
+        workflow_status="assigned",
+        active=True,
+    )
     db = FakeDB([FakeResult(all_rows=[cargo_a, cargo_b])])
     audits = []
     transition_events = []
@@ -1736,20 +1749,24 @@ async def test_apply_cargo_request_loading_option_assigns_request_children(monke
         return voyage
 
     async def fake_loading_options(_db, *, cargo_request, entity_id):
-        return [{
-            "voyage_id": voyage_id,
-            "voyage_code": "VYG-2026-00041",
-            "manifest_id": manifest_id,
-            "compatible_zones": [{
-                "zone_id": str(zone_id),
-                "zone_name": "Pont principal",
-                "zone_type": "main_deck",
-                "surface_m2": 6.0,
-                "max_weight_kg": 400.0,
-            }],
-            "can_load": True,
-            "blocking_reasons": [],
-        }]
+        return [
+            {
+                "voyage_id": voyage_id,
+                "voyage_code": "VYG-2026-00041",
+                "manifest_id": manifest_id,
+                "compatible_zones": [
+                    {
+                        "zone_id": str(zone_id),
+                        "zone_name": "Pont principal",
+                        "zone_type": "main_deck",
+                        "surface_m2": 6.0,
+                        "max_weight_kg": 400.0,
+                    }
+                ],
+                "can_load": True,
+                "blocking_reasons": [],
+            }
+        ]
 
     async def fake_db_get(model, _id):
         return SimpleNamespace(id=manifest_id)
@@ -1803,17 +1820,17 @@ async def test_verify_captain_session_token_accepts_matching_access():
     token = travelwiz_service.create_captain_session_token(
         trip_code_access_id=trip_code_access_id,
         voyage_id=voyage_id,
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        expires_at=datetime.now(UTC) + timedelta(minutes=30),
     )
     db = FakeDB(
         [
-                FakeResult(
-                    first=(
-                        SimpleNamespace(id=trip_code_access_id, created_by=uuid4()),
-                        SimpleNamespace(id=voyage_id, active=True),
-                    )
+            FakeResult(
+                first=(
+                    SimpleNamespace(id=trip_code_access_id, created_by=uuid4()),
+                    SimpleNamespace(id=voyage_id, active=True),
                 )
-            ]
+            )
+        ]
     )
 
     result = await travelwiz_service.verify_captain_session_token(
@@ -1831,7 +1848,7 @@ async def test_verify_captain_session_token_rejects_wrong_voyage():
     token = travelwiz_service.create_captain_session_token(
         trip_code_access_id=uuid4(),
         voyage_id=uuid4(),
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        expires_at=datetime.now(UTC) + timedelta(minutes=30),
     )
 
     with pytest.raises(ValueError):
@@ -1850,14 +1867,16 @@ async def test_authenticate_driver_code_requires_active_pickup_round():
         id=uuid4(),
         route_name="Circuit Nord",
         driver_name="Jean",
-        scheduled_departure=datetime.now(timezone.utc),
+        scheduled_departure=datetime.now(UTC),
     )
     db = FakeDB(
         [
             FakeResult(
                 first=(
                     SimpleNamespace(id=uuid4()),
-                    SimpleNamespace(id=voyage_id, code="VYG-001", entity_id=entity_id, scheduled_departure=datetime.now(timezone.utc)),
+                    SimpleNamespace(
+                        id=voyage_id, code="VYG-001", entity_id=entity_id, scheduled_departure=datetime.now(UTC)
+                    ),
                     pickup_round,
                 )
             )
@@ -1879,7 +1898,7 @@ async def test_verify_driver_session_token_accepts_matching_round():
     token = travelwiz_service.create_driver_session_token(
         trip_code_access_id=trip_code_access_id,
         voyage_id=voyage_id,
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        expires_at=datetime.now(UTC) + timedelta(minutes=30),
     )
     db = FakeDB(
         [
@@ -1930,7 +1949,7 @@ async def test_create_pickup_round_persists_assigned_manifest_passengers():
         data={
             "trip_id": trip_id,
             "route_name": "Circuit Nord",
-            "scheduled_departure": datetime.now(timezone.utc),
+            "scheduled_departure": datetime.now(UTC),
             "stops": [
                 {
                     "asset_id": uuid4(),
@@ -1955,11 +1974,16 @@ async def test_assess_pickup_stop_proximity_uses_latest_vector_position():
     stop = SimpleNamespace(id=stop_id, asset_id=uuid4())
     pickup_round = SimpleNamespace(id=uuid4(), trip_id=trip_id, entity_id=entity_id)
     voyage = SimpleNamespace(id=trip_id, vector_id=vector_id, active=True)
-    asset = SimpleNamespace(latitude=Decimal("4.00000000"), longitude=Decimal("15.00000000"), centroid_latitude=None, centroid_longitude=None)
+    asset = SimpleNamespace(
+        latitude=Decimal("4.00000000"),
+        longitude=Decimal("15.00000000"),
+        centroid_latitude=None,
+        centroid_longitude=None,
+    )
     position = SimpleNamespace(
         latitude=4.0005,
         longitude=15.0000,
-        recorded_at=datetime.now(timezone.utc),
+        recorded_at=datetime.now(UTC),
         source="gps",
     )
     db = FakeDB(
@@ -1992,9 +2016,27 @@ async def test_rebalance_manifest_passenger_standby_marks_over_capacity_passenge
     voyage = SimpleNamespace(id=voyage_id, entity_id=entity_id, vector_id=vector_id)
     vector = SimpleNamespace(id=vector_id, pax_capacity=2, weight_capacity_kg=None)
     passengers = [
-        SimpleNamespace(priority_score=90, created_at=datetime(2026, 1, 1, tzinfo=timezone.utc), actual_weight_kg=None, declared_weight_kg=None, standby=False),
-        SimpleNamespace(priority_score=80, created_at=datetime(2026, 1, 2, tzinfo=timezone.utc), actual_weight_kg=None, declared_weight_kg=None, standby=False),
-        SimpleNamespace(priority_score=10, created_at=datetime(2026, 1, 3, tzinfo=timezone.utc), actual_weight_kg=None, declared_weight_kg=None, standby=False),
+        SimpleNamespace(
+            priority_score=90,
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            actual_weight_kg=None,
+            declared_weight_kg=None,
+            standby=False,
+        ),
+        SimpleNamespace(
+            priority_score=80,
+            created_at=datetime(2026, 1, 2, tzinfo=UTC),
+            actual_weight_kg=None,
+            declared_weight_kg=None,
+            standby=False,
+        ),
+        SimpleNamespace(
+            priority_score=10,
+            created_at=datetime(2026, 1, 3, tzinfo=UTC),
+            actual_weight_kg=None,
+            declared_weight_kg=None,
+            standby=False,
+        ),
     ]
     db = FakeDB(
         [
@@ -2025,17 +2067,36 @@ async def test_reassign_voyage_passengers_moves_pending_passengers_and_cancels_s
     target_voyage_id = uuid4()
     source_manifest_id = uuid4()
     target_manifest_id = uuid4()
-    source_voyage = SimpleNamespace(id=source_voyage_id, entity_id=entity_id, status="delayed", scheduled_departure=datetime.now(timezone.utc) - timedelta(hours=5), actual_departure=None, delay_reason="Meteo", vector_id=uuid4())
-    target_voyage = SimpleNamespace(id=target_voyage_id, entity_id=entity_id, status="confirmed", scheduled_departure=datetime.now(timezone.utc) + timedelta(hours=2), code="VYG-TARGET", active=True)
-    source_manifest = SimpleNamespace(id=source_manifest_id, voyage_id=source_voyage_id, manifest_type="pax", active=True)
-    target_manifest = SimpleNamespace(id=target_manifest_id, voyage_id=target_voyage_id, manifest_type="pax", status="draft", active=True)
+    source_voyage = SimpleNamespace(
+        id=source_voyage_id,
+        entity_id=entity_id,
+        status="delayed",
+        scheduled_departure=datetime.now(UTC) - timedelta(hours=5),
+        actual_departure=None,
+        delay_reason="Meteo",
+        vector_id=uuid4(),
+    )
+    target_voyage = SimpleNamespace(
+        id=target_voyage_id,
+        entity_id=entity_id,
+        status="confirmed",
+        scheduled_departure=datetime.now(UTC) + timedelta(hours=2),
+        code="VYG-TARGET",
+        active=True,
+    )
+    source_manifest = SimpleNamespace(
+        id=source_manifest_id, voyage_id=source_voyage_id, manifest_type="pax", active=True
+    )
+    target_manifest = SimpleNamespace(
+        id=target_manifest_id, voyage_id=target_voyage_id, manifest_type="pax", status="draft", active=True
+    )
     passenger = SimpleNamespace(
         ads_pax_id=uuid4(),
         manifest_id=source_manifest_id,
         standby=False,
         boarding_status="pending",
         priority_score=80,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         actual_weight_kg=None,
         declared_weight_kg=None,
     )
@@ -2049,16 +2110,16 @@ async def test_reassign_voyage_passengers_moves_pending_passengers_and_cancels_s
     monkeypatch.setattr(travelwiz_service, "rebalance_manifest_passenger_standby", fake_rebalance)
     db = FakeDB(
         [
-            FakeResult(scalar_one_or_none=source_voyage),          # assess source voyage
-            FakeResult(scalar_one_or_none={"v": 4}),               # delay threshold
-            FakeResult(all_rows=[(uuid4(),)]),                     # source stop ids
-            FakeResult(all_rows=[(target_voyage, "DOLPHIN")]),     # alternatives
-            FakeResult(scalar_one_or_none=source_voyage),          # source voyage load
-            FakeResult(scalar_one_or_none=target_voyage),          # target voyage load
-            FakeResult(scalar_one_or_none=source_manifest),        # source manifest
-            FakeResult(scalar_one_or_none=target_manifest),        # target manifest
-            FakeResult(all_rows=[]),                               # target existing ads pax ids
-            FakeResult(all_rows=[passenger]),                      # source passengers
+            FakeResult(scalar_one_or_none=source_voyage),  # assess source voyage
+            FakeResult(scalar_one_or_none={"v": 4}),  # delay threshold
+            FakeResult(all_rows=[(uuid4(),)]),  # source stop ids
+            FakeResult(all_rows=[(target_voyage, "DOLPHIN")]),  # alternatives
+            FakeResult(scalar_one_or_none=source_voyage),  # source voyage load
+            FakeResult(scalar_one_or_none=target_voyage),  # target voyage load
+            FakeResult(scalar_one_or_none=source_manifest),  # source manifest
+            FakeResult(scalar_one_or_none=target_manifest),  # target manifest
+            FakeResult(all_rows=[]),  # target existing ads pax ids
+            FakeResult(all_rows=[passenger]),  # source passengers
         ]
     )
 
@@ -2265,7 +2326,7 @@ async def test_travelwiz_operational_watch_notifies_on_stale_signal(monkeypatch)
     admin_id = uuid4()
     db = FakeDB(
         [
-            FakeResult(all_rows=[(voyage_id, entity_id, "VYG-001", datetime.now(timezone.utc) - timedelta(minutes=45))]),
+            FakeResult(all_rows=[(voyage_id, entity_id, "VYG-001", datetime.now(UTC) - timedelta(minutes=45))]),
             FakeResult(scalar_one_or_none={"v": 15}),
             FakeResult(scalar=0),
             FakeResult(all_rows=[]),
@@ -2295,7 +2356,7 @@ async def test_travelwiz_operational_watch_notifies_on_weather_alert(monkeypatch
     admin_id = uuid4()
     db = FakeDB(
         [
-            FakeResult(all_rows=[(entity_id, asset_id, "Base A", 25.0, "vfr", "storm", datetime.now(timezone.utc))]),
+            FakeResult(all_rows=[(entity_id, asset_id, "Base A", 25.0, "vfr", "storm", datetime.now(UTC))]),
             FakeResult(scalar_one_or_none={"v": 6}),
             FakeResult(scalar=0),
         ]
@@ -2324,7 +2385,7 @@ async def test_travelwiz_pickup_reminders_send_once(monkeypatch):
     assignment = SimpleNamespace(reminder_sent_at=None)
     stop = SimpleNamespace(
         asset_id=uuid4(),
-        scheduled_time=datetime.now(timezone.utc) + timedelta(minutes=4),
+        scheduled_time=datetime.now(UTC) + timedelta(minutes=4),
         status="pending",
     )
     pickup_round = SimpleNamespace(route_name="Circuit Nord", entity_id=entity_id)
@@ -2379,7 +2440,7 @@ async def test_fetch_and_record_weather_for_asset_uses_configured_provider(monke
             assert latitude == 4.788
             assert longitude == 11.867
             return SimpleNamespace(
-                recorded_at=datetime.now(timezone.utc),
+                recorded_at=datetime.now(UTC),
                 source="api_open_meteo",
                 wind_speed_knots=22.5,
                 wind_direction_deg=180,
@@ -2397,7 +2458,10 @@ async def test_fetch_and_record_weather_for_asset_uses_configured_provider(monke
         recorded_payloads.append((entity_id, data))
         return {"asset_id": data["asset_id"], "source": data["source"]}
 
-    monkeypatch.setattr("app.services.connectors.weather_connector.create_weather_connector", lambda provider_id, settings: FakeConnector())
+    monkeypatch.setattr(
+        "app.services.connectors.weather_connector.create_weather_connector",
+        lambda provider_id, settings: FakeConnector(),
+    )
     monkeypatch.setattr(travelwiz_service, "record_weather", fake_record_weather)
 
     result = await travelwiz_service.fetch_and_record_weather_for_asset(
@@ -2430,8 +2494,12 @@ async def test_travelwiz_weather_sync_fetches_missing_observations(monkeypatch):
         return 30
 
     monkeypatch.setattr(travelwiz_weather_sync, "async_session_factory", lambda: FakeAsyncSessionContext(db))
-    monkeypatch.setattr(travelwiz_weather_sync, "fetch_and_record_weather_for_asset", fake_fetch_and_record_weather_for_asset)
-    monkeypatch.setattr(travelwiz_weather_sync, "get_weather_sync_interval_minutes", fake_get_weather_sync_interval_minutes)
+    monkeypatch.setattr(
+        travelwiz_weather_sync, "fetch_and_record_weather_for_asset", fake_fetch_and_record_weather_for_asset
+    )
+    monkeypatch.setattr(
+        travelwiz_weather_sync, "get_weather_sync_interval_minutes", fake_get_weather_sync_interval_minutes
+    )
 
     result = await travelwiz_weather_sync.process_travelwiz_weather_sync()
 

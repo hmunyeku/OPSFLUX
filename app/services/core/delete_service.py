@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 # ─── Auto-discovery helpers ───────────────────────────────────────────────────
 
+
 def _camel_to_snake(name: str) -> str:
     """Convert CamelCase to snake_case. E.g. 'PaxProfile' → 'pax_profile'."""
     s1 = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", name)
@@ -43,19 +44,23 @@ def _humanize(snake: str) -> str:
 
 
 # Tables to exclude from the registry (system/internal tables)
-_EXCLUDE_TABLES = frozenset({
-    "alembic_version",
-})
+_EXCLUDE_TABLES = frozenset(
+    {
+        "alembic_version",
+    }
+)
 
 # Models that should never be managed by the delete service
-_EXCLUDE_MODELS = frozenset({
-    "Setting",         # configuration — never deleted via this service
-    "AuditLog",        # immutable audit trail
-    "RefreshToken",    # handled by auth service (TTL-based)
-    "Permission",      # RBAC definition — seeded, not user-deletable
-    "Role",            # RBAC definition
-    "RolePermission",  # RBAC junction
-})
+_EXCLUDE_MODELS = frozenset(
+    {
+        "Setting",  # configuration — never deleted via this service
+        "AuditLog",  # immutable audit trail
+        "RefreshToken",  # handled by auth service (TTL-based)
+        "Permission",  # RBAC definition — seeded, not user-deletable
+        "Role",  # RBAC definition
+        "RolePermission",  # RBAC junction
+    }
+)
 
 # Optional manual label overrides (entity_type → label)
 _LABEL_OVERRIDES: dict[str, str] = {
@@ -150,10 +155,12 @@ def _build_registry() -> dict[str, dict[str, Any]]:
             "default_mode": default_mode,
         }
 
-    logger.debug("Delete registry: auto-discovered %d entity types (%d main, %d child)",
-                 len(registry),
-                 sum(1 for v in registry.values() if v["category"] == "main"),
-                 sum(1 for v in registry.values() if v["category"] == "child"))
+    logger.debug(
+        "Delete registry: auto-discovered %d entity types (%d main, %d child)",
+        len(registry),
+        sum(1 for v in registry.values() if v["category"] == "main"),
+        sum(1 for v in registry.values() if v["category"] == "child"),
+    )
 
     return registry
 
@@ -242,6 +249,7 @@ async def delete_entity(
             entity.archived = True
         if hasattr(entity, "deleted_at"):
             from datetime import UTC, datetime
+
             entity.deleted_at = datetime.now(UTC)
         if hasattr(entity, "active"):
             entity.active = False
@@ -373,11 +381,13 @@ async def upsert_delete_policy(
     if setting:
         setting.value = value
     else:
-        db.add(Setting(
-            key=setting_key,
-            value=value,
-            scope=scope,
-            scope_id=scope_id,
-        ))
+        db.add(
+            Setting(
+                key=setting_key,
+                value=value,
+                scope=scope,
+                scope_id=scope_id,
+            )
+        )
 
     await db.commit()

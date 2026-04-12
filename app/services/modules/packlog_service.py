@@ -6,15 +6,15 @@ import json
 import logging
 import re
 import unicodedata
+from datetime import UTC, datetime
 from difflib import SequenceMatcher
 from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy import func as sqla_func
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timezone
-
-from sqlalchemy import func as sqla_func, select, text
 
 from app.core.config import settings
 from app.core.rbac import get_user_permissions
@@ -162,7 +162,9 @@ async def list_packlog_article_catalog(
         params["eid"] = str(entity_id)
 
     if search:
-        conditions.append("(description_fr ILIKE :search OR description_en ILIKE :search OR sap_code ILIKE :search OR internal_code ILIKE :search)")
+        conditions.append(
+            "(description_fr ILIKE :search OR description_en ILIKE :search OR sap_code ILIKE :search OR internal_code ILIKE :search)"
+        )
         params["search"] = f"%{search}%"
     if sap_code:
         conditions.append("sap_code = :sap")
@@ -281,7 +283,7 @@ async def create_packlog_article_catalog_entry(
             "haz": is_hazmat,
             "hclass": hazmat_class,
             "source": "manual",
-            "imported_at": datetime.now(timezone.utc),
+            "imported_at": datetime.now(UTC),
         },
     )
     row = result.first()
@@ -319,7 +321,7 @@ async def import_packlog_article_catalog_csv(
     imported = 0
     updated = 0
     errors: list[str] = []
-    imported_at = datetime.now(timezone.utc)
+    imported_at = datetime.now(UTC)
 
     is_global = await _is_article_catalog_global(db, entity_id)
     persisted_eid = None if is_global else str(entity_id)
@@ -424,9 +426,7 @@ async def match_packlog_sap_code(db: AsyncSession, *, description: str, entity_i
     rows: list[dict[str, Any]] = []
 
     is_global = await _is_article_catalog_global(db, entity_id)
-    scope_clause = (
-        "" if is_global else "  AND (entity_id = :eid OR entity_id IS NULL) "
-    )
+    scope_clause = "" if is_global else "  AND (entity_id = :eid OR entity_id IS NULL) "
     common_params: dict[str, object] = {} if is_global else {"eid": str(entity_id)}
 
     try:
@@ -479,22 +479,23 @@ async def match_packlog_sap_code(db: AsyncSession, *, description: str, entity_i
         )
         rows = [dict(row._mapping) for row in result]
 
-    scored = [
-        _score_packlog_sap_candidate(query, query_tokens, query_code, row)
-        for row in rows
-    ]
+    scored = [_score_packlog_sap_candidate(query, query_tokens, query_code, row) for row in rows]
     scored.sort(key=lambda item: item[0], reverse=True)
     candidates = [payload for _score, payload in scored[:5]]
-    best_score, best = scored[0] if scored else (
-        0.0,
-        {
-            "article_id": None,
-            "sap_code": None,
-            "description": description.strip(),
-            "confidence": 0.0,
-            "matched": False,
-            "candidates": [],
-        },
+    best_score, best = (
+        scored[0]
+        if scored
+        else (
+            0.0,
+            {
+                "article_id": None,
+                "sap_code": None,
+                "description": description.strip(),
+                "confidence": 0.0,
+                "matched": False,
+                "candidates": [],
+            },
+        )
     )
     matched = best_score >= 0.42 and bool(best.get("article_id"))
 
@@ -520,9 +521,30 @@ def _normalize_packlog_sap_code(value: str | None) -> str:
 
 def _tokenize_packlog_sap_text(value: str) -> set[str]:
     stopwords = {
-        "de", "des", "du", "la", "le", "les", "et", "ou", "pour", "avec",
-        "the", "and", "for", "with", "sur", "sous", "piece", "pieces",
-        "article", "colis", "cargo", "pkg", "pack", "kit",
+        "de",
+        "des",
+        "du",
+        "la",
+        "le",
+        "les",
+        "et",
+        "ou",
+        "pour",
+        "avec",
+        "the",
+        "and",
+        "for",
+        "with",
+        "sur",
+        "sous",
+        "piece",
+        "pieces",
+        "article",
+        "colis",
+        "cargo",
+        "pkg",
+        "pack",
+        "kit",
     }
     return {token for token in normalize_packlog_article_description(value).split() if token and token not in stopwords}
 
@@ -582,7 +604,9 @@ def _jaccard_packlog_score(left: set[str], right: set[str]) -> float:
     return len(left & right) / len(union)
 
 
-def _score_packlog_sap_candidate(query: str, query_tokens: set[str], query_code: str, row: dict[str, Any]) -> tuple[float, dict[str, Any]]:
+def _score_packlog_sap_candidate(
+    query: str, query_tokens: set[str], query_code: str, row: dict[str, Any]
+) -> tuple[float, dict[str, Any]]:
     article_id = str(row.get("id"))
     sap_code = str(row.get("sap_code") or "")
     description_fr = str(row.get("description_fr") or row.get("description") or "")
@@ -793,7 +817,9 @@ def summarize_packlog_return_states(elements: list[Any]) -> dict[str, Any]:
     aggregate_disposition = "not_dispatched"
     if finalized:
         distinct = {getattr(element, "return_status", None) for element in finalized}
-        aggregate_disposition = next(iter(distinct)) if len(distinct) == 1 and len(finalized) == len(elements) else "mixed"
+        aggregate_disposition = (
+            next(iter(distinct)) if len(distinct) == 1 and len(finalized) == len(elements) else "mixed"
+        )
 
     return {
         "total_sent_units": round(total_sent_units, 3),
@@ -892,16 +918,13 @@ async def update_cargo_status(
     all_allowed = forward_allowed | return_allowed
 
     if new_status not in all_allowed:
-        raise ValueError(
-            f"Cannot transition cargo from '{old_status}' to '{new_status}'. "
-            f"Allowed: {all_allowed}"
-        )
+        raise ValueError(f"Cannot transition cargo from '{old_status}' to '{new_status}'. Allowed: {all_allowed}")
 
     cargo.status = new_status
 
     if new_status in ("delivered_final", "returned"):
         cargo.received_by = user_id
-        cargo.received_at = datetime.now(timezone.utc)
+        cargo.received_at = datetime.now(UTC)
 
     try:
         await db.execute(
@@ -923,9 +946,7 @@ async def update_cargo_status(
 
     await db.flush()
 
-    logger.info(
-        "Cargo %s: %s -> %s (by %s)", cargo.tracking_code, old_status, new_status, user_id
-    )
+    logger.info("Cargo %s: %s -> %s (by %s)", cargo.tracking_code, old_status, new_status, user_id)
 
     return {
         "cargo_item_id": cargo.id,
@@ -1015,9 +1036,7 @@ async def initiate_back_cargo(
     """
     valid_return_types = {"waste", "contractor_return", "stock_reintegration", "scrap", "yard_storage"}
     if return_type not in valid_return_types:
-        raise ValueError(
-            f"Invalid return_type '{return_type}'. Valid: {valid_return_types}"
-        )
+        raise ValueError(f"Invalid return_type '{return_type}'. Valid: {valid_return_types}")
     return_metadata = return_metadata or {}
 
     _validate_back_cargo_prerequisites(
@@ -1074,7 +1093,9 @@ async def initiate_back_cargo(
 
     logger.info(
         "Back cargo initiated: %s (%s -> return_declared, type=%s)",
-        cargo.tracking_code, old_status, return_type,
+        cargo.tracking_code,
+        old_status,
+        return_type,
     )
 
     return {
@@ -1128,9 +1149,7 @@ async def suggest_deck_layout(
     TransportVectorZone (TravelWiz) and VoyageManifest (TravelWiz) via
     cross-module FKs — both still imported at the top of this file.
     """
-    zone_result = await db.execute(
-        select(TransportVectorZone).where(TransportVectorZone.id == deck_surface_id)
-    )
+    zone_result = await db.execute(select(TransportVectorZone).where(TransportVectorZone.id == deck_surface_id))
     zone = zone_result.scalar_one_or_none()
     if not zone:
         raise ValueError(f"Deck surface {deck_surface_id} not found")
@@ -1184,15 +1203,19 @@ async def suggest_deck_layout(
                     f"(deck full at {y_cursor:.1f}m / {deck_length:.1f}m)"
                 )
 
-            placements.append({
-                "cargo_item_id": item.id,
-                "tracking_code": item.tracking_code,
-                "suggested_x": round(x_cursor, 2),
-                "suggested_y": round(y_cursor, 2),
-                "stack_level": 0,
-                "zone": "main",
-                "reason": f"Grouped by destination ({dest_key[:8]}...)" if dest_key != "unknown" else "Standard placement",
-            })
+            placements.append(
+                {
+                    "cargo_item_id": item.id,
+                    "tracking_code": item.tracking_code,
+                    "suggested_x": round(x_cursor, 2),
+                    "suggested_y": round(y_cursor, 2),
+                    "stack_level": 0,
+                    "zone": "main",
+                    "reason": f"Grouped by destination ({dest_key[:8]}...)"
+                    if dest_key != "unknown"
+                    else "Standard placement",
+                }
+            )
 
             total_weight += item.weight_kg
             x_cursor += item_w + 0.3
@@ -1202,31 +1225,29 @@ async def suggest_deck_layout(
     hazmat_x = 0.5
 
     for item in hazmat_items:
-        placements.append({
-            "cargo_item_id": item.id,
-            "tracking_code": item.tracking_code,
-            "suggested_x": round(hazmat_x, 2),
-            "suggested_y": round(hazmat_y, 2),
-            "stack_level": 0,
-            "zone": "hazmat_isolated",
-            "reason": "Hazmat cargo isolated per safety regulations",
-        })
+        placements.append(
+            {
+                "cargo_item_id": item.id,
+                "tracking_code": item.tracking_code,
+                "suggested_x": round(hazmat_x, 2),
+                "suggested_y": round(hazmat_y, 2),
+                "stack_level": 0,
+                "zone": "hazmat_isolated",
+                "reason": "Hazmat cargo isolated per safety regulations",
+            }
+        )
         total_weight += item.weight_kg
         hazmat_x += 2.0
 
         if item.description and "explos" in item.description.lower():
-            warnings.append(
-                f"EXPLOSIVE cargo {item.tracking_code} -- requires dedicated isolation zone"
-            )
+            warnings.append(f"EXPLOSIVE cargo {item.tracking_code} -- requires dedicated isolation zone")
 
     max_weight = zone.max_weight_kg
     utilization_pct = 0.0
     if max_weight and max_weight > 0:
         utilization_pct = round((total_weight / max_weight) * 100, 1)
         if total_weight > max_weight:
-            warnings.append(
-                f"OVERWEIGHT: {total_weight:.0f} kg exceeds deck limit of {max_weight:.0f} kg"
-            )
+            warnings.append(f"OVERWEIGHT: {total_weight:.0f} kg exceeds deck limit of {max_weight:.0f} kg")
 
     return {
         "deck_surface_id": deck_surface_id,
@@ -1396,8 +1417,12 @@ async def build_packlog_cargo_read_data(
     data["planned_zone_name"] = planned_zone_name
     data["photo_evidence_count"] = max(int(getattr(cargo, "photo_evidence_count", 0) or 0), image_count)
     data["document_attachment_count"] = max(int(getattr(cargo, "document_attachment_count", 0) or 0), document_count)
-    data["weight_ticket_provided"] = bool(getattr(cargo, "weight_ticket_provided", False) or evidence_counts.get("weight_ticket", 0) > 0)
-    data["lifting_points_certified"] = bool(getattr(cargo, "lifting_points_certified", False) or evidence_counts.get("lifting_certificate", 0) > 0)
+    data["weight_ticket_provided"] = bool(
+        getattr(cargo, "weight_ticket_provided", False) or evidence_counts.get("weight_ticket", 0) > 0
+    )
+    data["lifting_points_certified"] = bool(
+        getattr(cargo, "lifting_points_certified", False) or evidence_counts.get("lifting_certificate", 0) > 0
+    )
     data["_evidence_counts"] = evidence_counts
     return data
 
@@ -1421,9 +1446,11 @@ async def build_packlog_request_read_data(
     if cargo_request.sender_contact_tier_contact_id:
         sender_contact = await db.get(TierContact, cargo_request.sender_contact_tier_contact_id)
         if sender_contact:
-            sender_contact_name = " ".join(
-                part for part in [sender_contact.first_name, sender_contact.last_name] if part
-            ).strip() or sender_contact.email or sender_contact.phone
+            sender_contact_name = (
+                " ".join(part for part in [sender_contact.first_name, sender_contact.last_name] if part).strip()
+                or sender_contact.email
+                or sender_contact.phone
+            )
     if cargo_request.destination_asset_id:
         installation = await db.get(Installation, cargo_request.destination_asset_id)
         destination_name = installation.name if installation else None
@@ -1435,9 +1462,10 @@ async def build_packlog_request_read_data(
     if cargo_request.requester_user_id:
         requester = await db.get(User, cargo_request.requester_user_id)
         if requester:
-            requester_display_name = " ".join(
-                part for part in [requester.first_name, requester.last_name] if part
-            ).strip() or requester.email
+            requester_display_name = (
+                " ".join(part for part in [requester.first_name, requester.last_name] if part).strip()
+                or requester.email
+            )
     if not requester_display_name:
         requester_display_name = cargo_request.requester_name
     request_cargo_result = await db.execute(
@@ -1470,7 +1498,7 @@ async def build_packlog_request_read_data(
 def _format_packlog_pdf_datetime(value: datetime | None) -> str:
     if value is None:
         return "--"
-    return value.astimezone(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
+    return value.astimezone(UTC).strftime("%d/%m/%Y %H:%M UTC")
 
 
 async def _get_packlog_entity_pdf_context(db: AsyncSession, entity_id: UUID) -> dict[str, Any]:
@@ -1522,9 +1550,7 @@ async def build_packlog_operations_report(
             cargo_request = await db.get(CargoRequest, cargo.request_id)
             request_code = cargo_request.request_code if cargo_request else None
 
-        element_result = await db.execute(
-            select(PackageElement).where(PackageElement.package_id == cargo.id)
-        )
+        element_result = await db.execute(select(PackageElement).where(PackageElement.package_id == cargo.id))
         package_elements = element_result.scalars().all()
         return_summary = summarize_packlog_return_states(package_elements)
 
@@ -1534,7 +1560,10 @@ async def build_packlog_operations_report(
             damaged_count += 1
         if cargo.status == "missing":
             missing_count += 1
-        if cargo.status in {"return_declared", "return_in_transit", "returned", "reintegrated", "scrapped"} or return_summary["total_returned_units"] > 0:
+        if (
+            cargo.status in {"return_declared", "return_in_transit", "returned", "reintegrated", "scrapped"}
+            or return_summary["total_returned_units"] > 0
+        ):
             return_started_count += 1
 
         report_items.append(
@@ -1576,15 +1605,19 @@ async def build_packlog_lt_variables(
     entity = await _get_packlog_entity_pdf_context(db, entity_id)
     request_payload = await build_packlog_request_read_data(db, cargo_request)
     cargo_rows = (
-        await db.execute(
-            select(CargoItem)
-            .where(
-                CargoItem.request_id == cargo_request.id,
-                CargoItem.active == True,  # noqa: E712
+        (
+            await db.execute(
+                select(CargoItem)
+                .where(
+                    CargoItem.request_id == cargo_request.id,
+                    CargoItem.active == True,  # noqa: E712
+                )
+                .order_by(CargoItem.created_at.asc())
             )
-            .order_by(CargoItem.created_at.asc())
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     cargo_items: list[dict[str, Any]] = []
     total_weight = 0.0
     total_packages = 0
@@ -1639,7 +1672,8 @@ async def build_packlog_lt_variables(
                 request_payload.get("imputation_reference_name"),
             ]
             if part
-        ) or None,
+        )
+        or None,
         "request_qr_data": request_url,
         "request_qr_url": request_url,
         "request_ready": bool(request_payload.get("is_ready_for_submission")),
@@ -1649,7 +1683,7 @@ async def build_packlog_lt_variables(
         "total_weight_kg": round(total_weight, 2),
         "total_packages": total_packages,
         "status_breakdown": status_breakdown,
-        "generated_at": _format_packlog_pdf_datetime(datetime.now(timezone.utc)),
+        "generated_at": _format_packlog_pdf_datetime(datetime.now(UTC)),
     }
 
 
@@ -1668,7 +1702,9 @@ async def build_packlog_loading_options(
     request_cargo = cargo_result.scalars().all()
     total_request_weight = float(sum(float(cargo.weight_kg or 0) for cargo in request_cargo))
     total_request_surface = round(sum(estimate_packlog_surface_m2(cargo) for cargo in request_cargo), 3)
-    all_items_stackable = all(bool(getattr(cargo, "stackable", False)) for cargo in request_cargo) if request_cargo else False
+    all_items_stackable = (
+        all(bool(getattr(cargo, "stackable", False)) for cargo in request_cargo) if request_cargo else False
+    )
 
     manifest_weight_sq = (
         select(
@@ -1737,27 +1773,45 @@ async def build_packlog_loading_options(
     zones_by_vector: dict[UUID, list[TransportVectorZone]] = {}
     if vector_ids:
         zone_result = await db.execute(
-            select(TransportVectorZone).where(
+            select(TransportVectorZone)
+            .where(
                 TransportVectorZone.vector_id.in_(vector_ids),
                 TransportVectorZone.active == True,  # noqa: E712
-            ).order_by(TransportVectorZone.name.asc())
+            )
+            .order_by(TransportVectorZone.name.asc())
         )
         for zone in zone_result.scalars().all():
             zones_by_vector.setdefault(zone.vector_id, []).append(zone)
 
     destination_asset_id = cargo_request.destination_asset_id
     options: list[dict[str, Any]] = []
-    for voyage, vector_name, weight_capacity_kg, departure_base_name, manifest_id, manifest_status, assigned_weight_kg in voyage_rows:
+    for (
+        voyage,
+        vector_name,
+        weight_capacity_kg,
+        departure_base_name,
+        manifest_id,
+        manifest_status,
+        assigned_weight_kg,
+    ) in voyage_rows:
         stop_assets = stop_assets_by_voyage.get(voyage.id, set())
         destination_match = bool(destination_asset_id and destination_asset_id in stop_assets)
-        remaining_weight = None if weight_capacity_kg is None else max(float(weight_capacity_kg or 0) - float(assigned_weight_kg or 0), 0.0)
+        remaining_weight = (
+            None
+            if weight_capacity_kg is None
+            else max(float(weight_capacity_kg or 0) - float(assigned_weight_kg or 0), 0.0)
+        )
         compatible_zones: list[dict[str, Any]] = []
         for zone in zones_by_vector.get(voyage.vector_id, []):
             zone_surface = None
             if zone.width_m is not None and zone.length_m is not None:
                 zone_surface = round(float(zone.width_m) * float(zone.length_m), 3)
             zone_weight_limit = float(zone.max_weight_kg) if zone.max_weight_kg is not None else None
-            surface_ok = zone_surface is None or total_request_surface <= zone_surface or (all_items_stackable and total_request_surface <= zone_surface * 1.25)
+            surface_ok = (
+                zone_surface is None
+                or total_request_surface <= zone_surface
+                or (all_items_stackable and total_request_surface <= zone_surface * 1.25)
+            )
             weight_ok = zone_weight_limit is None or total_request_weight <= zone_weight_limit
             if surface_ok and weight_ok:
                 compatible_zones.append(

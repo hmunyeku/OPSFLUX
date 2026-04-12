@@ -7,10 +7,11 @@ PaxLog only consume verdicts and apply business consequences.
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from uuid import UUID
 
-from sqlalchemy import any_, func as sqla_func, literal, select, text
+from sqlalchemy import any_, literal, select, text
+from sqlalchemy import func as sqla_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.common import (
@@ -244,11 +245,13 @@ async def check_pax_asset_compliance(
 
     applicable_reqs: list[ComplianceMatrixEntry] = []
     for req in requirements:
-        if req.scope == "all_visitors":
-            applicable_reqs.append(req)
-        elif req.scope == "contractors_only" and pax_type == "external":
-            applicable_reqs.append(req)
-        elif req.scope == "permanent_staff_only" and pax_type == "internal":
+        if (
+            req.scope == "all_visitors"
+            or req.scope == "contractors_only"
+            and pax_type == "external"
+            or req.scope == "permanent_staff_only"
+            and pax_type == "internal"
+        ):
             applicable_reqs.append(req)
 
     pax_fk_col = "user_id" if user_id else "contact_id"
@@ -428,7 +431,7 @@ async def check_owner_compliance(
             ],
         }
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     account_verified = True
     if owner_type == "user":
@@ -442,19 +445,21 @@ async def check_owner_compliance(
         require_verification = True
         if require_acct_verif is not None:
             require_verification = bool(
-                require_acct_verif.get("v", True)
-                if isinstance(require_acct_verif, dict)
-                else require_acct_verif
+                require_acct_verif.get("v", True) if isinstance(require_acct_verif, dict) else require_acct_verif
             )
         if require_verification:
             email_verified = await db.execute(
-                select(sqla_func.count()).select_from(UserEmail).where(
+                select(sqla_func.count())
+                .select_from(UserEmail)
+                .where(
                     UserEmail.user_id == owner_id,
                     UserEmail.verified == True,  # noqa: E712
                 )
             )
             phone_verified = await db.execute(
-                select(sqla_func.count()).select_from(Phone).where(
+                select(sqla_func.count())
+                .select_from(Phone)
+                .where(
                     Phone.owner_type == "user",
                     Phone.owner_id == owner_id,
                     Phone.verified == True,  # noqa: E712
@@ -581,7 +586,9 @@ async def check_owner_compliance(
                     type_mapping = {}
                     for type_id, type_obj in types_for_provider:
                         if type_obj.external_mapping:
-                            ext_id = type_obj.external_mapping.get("certificate_id") or type_obj.external_mapping.get("training_id")
+                            ext_id = type_obj.external_mapping.get("certificate_id") or type_obj.external_mapping.get(
+                                "training_id"
+                            )
                             if ext_id:
                                 type_mapping[str(type_id)] = str(ext_id)
 
@@ -623,8 +630,7 @@ async def check_owner_compliance(
             for record in matching
         )
         has_unverified = any(
-            getattr(record, "verification_status", "verified") != "verified"
-            and record.status == "valid"
+            getattr(record, "verification_status", "verified") != "verified" and record.status == "valid"
             for record in matching
         )
 
@@ -680,7 +686,10 @@ async def check_owner_compliance(
         "total_expired": expired_count,
         "total_missing": len(missing_type_ids),
         "total_unverified": unverified_count,
-        "is_compliant": account_verified and len(missing_type_ids) == 0 and expired_count == 0 and unverified_count == 0,
+        "is_compliant": account_verified
+        and len(missing_type_ids) == 0
+        and expired_count == 0
+        and unverified_count == 0,
         "details": details,
     }
 
@@ -718,7 +727,7 @@ async def evaluate_packlog_cargo_compliance(
         )
         .order_by(ComplianceRule.created_at.asc())
     )
-    now_date = datetime.now(timezone.utc).date()
+    now_date = datetime.now(UTC).date()
     blockers: list[dict] = []
     evaluated_rules = 0
 
@@ -739,16 +748,13 @@ async def evaluate_packlog_cargo_compliance(
 
         evaluated_rules += 1
         missing_fields = [
-            field for field in (config.get("required_fields") or [])
-            if cargo_context.get(field) in (None, "", [], {})
+            field for field in (config.get("required_fields") or []) if cargo_context.get(field) in (None, "", [], {})
         ]
-        missing_flags = [
-            field for field in (config.get("required_flags") or [])
-            if not bool(cargo_context.get(field))
-        ]
+        missing_flags = [field for field in (config.get("required_flags") or []) if not bool(cargo_context.get(field))]
         evidence_counts = cargo_context.get("_evidence_counts") or {}
         missing_evidence = [
-            evidence_type for evidence_type in (config.get("required_evidence_types") or [])
+            evidence_type
+            for evidence_type in (config.get("required_evidence_types") or [])
             if int(evidence_counts.get(evidence_type, 0) or 0) <= 0
         ]
         min_failures = []

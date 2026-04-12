@@ -3,9 +3,19 @@
 from datetime import datetime
 from uuid import UUID as PyUUID
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import INET
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -63,9 +73,7 @@ class PapyrusForm(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Papyrus native forms used by documents and external collection."""
 
     __tablename__ = "papyrus_forms"
-    __table_args__ = (
-        Index("idx_papyrus_forms_entity_created", "entity_id", "created_at"),
-    )
+    __table_args__ = (Index("idx_papyrus_forms_entity_created", "entity_id", "created_at"),)
 
     entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     document_id: Mapped[PyUUID | None] = mapped_column(

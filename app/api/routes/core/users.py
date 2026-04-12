@@ -8,7 +8,7 @@ from uuid import UUID
 logger = logging.getLogger(__name__)
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +33,6 @@ from app.models.common import (
     UserPermissionOverride,
     UserTierLink,
 )
-from app.services.core.settings_service import get_scoped_setting_row, upsert_scoped_setting
 from app.schemas.common import (
     OpsFluxSchema,
     PaginatedResponse,
@@ -45,6 +44,7 @@ from app.schemas.common import (
     UserRead,
     UserUpdate,
 )
+from app.services.core.settings_service import get_scoped_setting_row, upsert_scoped_setting
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
@@ -113,9 +113,7 @@ async def _assert_user_access_in_entity(
     entity_id: UUID,
     db: AsyncSession,
 ) -> None:
-    result = await db.execute(
-        select(User.id).where(User.id == user_id, _user_access_predicate(entity_id))
-    )
+    result = await db.execute(select(User.id).where(User.id == user_id, _user_access_predicate(entity_id)))
     if result.scalar_one_or_none() is None:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -227,11 +225,7 @@ async def list_users(
     db: AsyncSession = Depends(get_db),
 ):
     """List users with pagination and optional search/filters."""
-    query = (
-        select(User)
-        .options(selectinload(User.job_position))
-        .where(_user_access_predicate(entity_id))
-    )
+    query = select(User).options(selectinload(User.job_position)).where(_user_access_predicate(entity_id))
     if active is not None:
         query = query.where(User.active == active)
     if user_type is not None:
@@ -240,9 +234,7 @@ async def list_users(
         query = query.where(User.mfa_enabled == mfa_enabled)
     if search:
         like = f"%{search}%"
-        query = query.where(
-            User.first_name.ilike(like) | User.last_name.ilike(like) | User.email.ilike(like)
-        )
+        query = query.where(User.first_name.ilike(like) | User.last_name.ilike(like) | User.email.ilike(like))
     query = query.order_by(User.last_name)
     return await paginate(db, query, pagination)
 
@@ -293,15 +285,16 @@ async def create_user(
 
     # Send invitation email (non-blocking — don't fail creation if email fails)
     try:
-        from app.core.security import create_password_reset_token
-        from app.core.email_templates import render_and_send_email
         from app.core.config import settings as app_settings
+        from app.core.email_templates import render_and_send_email
+        from app.core.security import create_password_reset_token
 
         reset_token = create_password_reset_token(user_id=user.id, email=user.email)
         invitation_url = f"{app_settings.FRONTEND_URL}/reset-password?token={reset_token}"
 
         # Fetch entity name for template
         from app.models.common import Entity
+
         entity = await db.get(Entity, entity_id)
         entity_name = entity.name if entity else "OpsFlux"
 
@@ -368,7 +361,9 @@ async def get_my_roles(
         .distinct()
         .order_by(Role.code)
     )
-    return [MyRoleRead(code=r.code, name=r.name, description=r.description, module=r.module) for r in result.scalars().all()]
+    return [
+        MyRoleRead(code=r.code, name=r.name, description=r.description, module=r.module) for r in result.scalars().all()
+    ]
 
 
 @router.get("/me/groups", response_model=list[MyGroupRead])
@@ -401,8 +396,7 @@ async def get_my_groups(
     roles_map: dict[UUID, list[str]] = {}
     if group_ids:
         roles_result = await db.execute(
-            select(UserGroupRole.group_id, UserGroupRole.role_code)
-            .where(UserGroupRole.group_id.in_(group_ids))
+            select(UserGroupRole.group_id, UserGroupRole.role_code).where(UserGroupRole.group_id.in_(group_ids))
         )
         for gr in roles_result.all():
             roles_map.setdefault(gr[0], []).append(gr[1])
@@ -441,28 +435,34 @@ async def get_users_stats(
     db: AsyncSession = Depends(get_db),
 ):
     """Get user statistics for dashboard overview."""
-    from app.models.common import UserSession
+    from datetime import timedelta
+
     from sqlalchemy import func as sqlfunc
-    from datetime import datetime, timezone, timedelta
+
+    from app.models.common import UserSession
 
     total = (await db.execute(select(sqlfunc.count(User.id)))).scalar() or 0
     active = (await db.execute(select(sqlfunc.count(User.id)).where(User.active == True))).scalar() or 0  # noqa: E712
     mfa_count = (await db.execute(select(sqlfunc.count(User.id)).where(User.mfa_enabled == True))).scalar() or 0  # noqa: E712
-    locked_count = (await db.execute(
-        select(sqlfunc.count(User.id)).where(
-            User.locked_until.isnot(None),
-            User.locked_until > datetime.now(timezone.utc),
+    locked_count = (
+        await db.execute(
+            select(sqlfunc.count(User.id)).where(
+                User.locked_until.isnot(None),
+                User.locked_until > datetime.now(UTC),
+            )
         )
-    )).scalar() or 0
+    ).scalar() or 0
 
     # Online: sessions active in last 15 minutes
-    threshold = datetime.now(timezone.utc) - timedelta(minutes=15)
-    online = (await db.execute(
-        select(sqlfunc.count(sqlfunc.distinct(UserSession.user_id))).where(
-            UserSession.revoked == False,  # noqa: E712
-            UserSession.last_active_at > threshold,
+    threshold = datetime.now(UTC) - timedelta(minutes=15)
+    online = (
+        await db.execute(
+            select(sqlfunc.count(sqlfunc.distinct(UserSession.user_id))).where(
+                UserSession.revoked == False,  # noqa: E712
+                UserSession.last_active_at > threshold,
+            )
         )
-    )).scalar() or 0
+    ).scalar() or 0
 
     return {
         "total": total,
@@ -481,28 +481,29 @@ async def get_recent_activity(
     db: AsyncSession = Depends(get_db),
 ):
     """Get recently created/modified users, groups, and roles for dashboard widgets."""
-    from app.models.common import UserGroup, Role as RoleModel
-    from sqlalchemy import func as sqlfunc
     from datetime import timedelta
 
+    from app.models.common import Role as RoleModel
+    from app.models.common import UserGroup
+
     # Recent users (ordered by updated_at desc)
-    users_result = await db.execute(
-        select(User).order_by(User.updated_at.desc()).limit(limit)
-    )
+    users_result = await db.execute(select(User).order_by(User.updated_at.desc()).limit(limit))
     users = []
     for u in users_result.scalars().all():
         # If updated_at is within 2 seconds of created_at, consider it "created"
         is_created = (u.updated_at - u.created_at) < timedelta(seconds=2)
-        users.append({
-            "id": str(u.id),
-            "first_name": u.first_name,
-            "last_name": u.last_name,
-            "email": u.email,
-            "avatar_url": u.avatar_url,
-            "created_at": u.created_at.isoformat(),
-            "updated_at": u.updated_at.isoformat(),
-            "action": "created" if is_created else "modified",
-        })
+        users.append(
+            {
+                "id": str(u.id),
+                "first_name": u.first_name,
+                "last_name": u.last_name,
+                "email": u.email,
+                "avatar_url": u.avatar_url,
+                "created_at": u.created_at.isoformat(),
+                "updated_at": u.updated_at.isoformat(),
+                "action": "created" if is_created else "modified",
+            }
+        )
 
     # Recent groups (ordered by updated_at desc)
     member_count_sq = (
@@ -524,6 +525,7 @@ async def get_recent_activity(
 
     # Batch-load roles for these groups
     from app.models.common import UserGroupRole as UGR
+
     g_ids = [row.UserGroup.id for row in group_rows]
     g_roles_map: dict = {}
     if g_ids:
@@ -540,32 +542,34 @@ async def get_recent_activity(
         g = row.UserGroup
         is_created = (g.updated_at - g.created_at) < timedelta(seconds=2)
         role_pairs = g_roles_map.get(g.id, [])
-        groups.append({
-            "id": str(g.id),
-            "name": g.name,
-            "role_codes": [r["code"] for r in role_pairs],
-            "role_names": [r["name"] for r in role_pairs],
-            "member_count": row.member_count or 0,
-            "created_at": g.created_at.isoformat(),
-            "updated_at": g.updated_at.isoformat(),
-            "action": "created" if is_created else "modified",
-        })
+        groups.append(
+            {
+                "id": str(g.id),
+                "name": g.name,
+                "role_codes": [r["code"] for r in role_pairs],
+                "role_names": [r["name"] for r in role_pairs],
+                "member_count": row.member_count or 0,
+                "created_at": g.created_at.isoformat(),
+                "updated_at": g.updated_at.isoformat(),
+                "action": "created" if is_created else "modified",
+            }
+        )
 
     # Recent roles (ordered by updated_at desc)
-    roles_result = await db.execute(
-        select(RoleModel).order_by(RoleModel.updated_at.desc()).limit(limit)
-    )
+    roles_result = await db.execute(select(RoleModel).order_by(RoleModel.updated_at.desc()).limit(limit))
     roles = []
     for r in roles_result.scalars().all():
         is_created = (r.updated_at - r.created_at) < timedelta(seconds=2)
-        roles.append({
-            "code": r.code,
-            "name": r.name,
-            "module": r.module,
-            "created_at": r.created_at.isoformat(),
-            "updated_at": r.updated_at.isoformat(),
-            "action": "created" if is_created else "modified",
-        })
+        roles.append(
+            {
+                "code": r.code,
+                "name": r.name,
+                "module": r.module,
+                "created_at": r.created_at.isoformat(),
+                "updated_at": r.updated_at.isoformat(),
+                "action": "created" if is_created else "modified",
+            }
+        )
 
     return {"users": users, "groups": groups, "roles": roles}
 
@@ -597,9 +601,7 @@ async def update_user(
     db: AsyncSession = Depends(get_db),
 ):
     """Update user details."""
-    result = await db.execute(
-        select(User).options(selectinload(User.job_position)).where(User.id == user_id)
-    )
+    result = await db.execute(select(User).options(selectinload(User.job_position)).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -607,7 +609,16 @@ async def update_user(
     update_data = body.model_dump(exclude_unset=True)
 
     # Identity lock: if identity is verified, changing identity fields requires conformite.verify
-    IDENTITY_FIELDS = {"first_name", "last_name", "gender", "nationality", "birth_country", "birth_date", "birth_city", "passport_name"}
+    IDENTITY_FIELDS = {
+        "first_name",
+        "last_name",
+        "gender",
+        "nationality",
+        "birth_country",
+        "birth_date",
+        "birth_city",
+        "passport_name",
+    }
     if user.identity_verified and (IDENTITY_FIELDS & set(update_data.keys())):
         # Allow only if caller also has conformite.verify — resets identity_verified
         # (Admin with user.update can still change non-identity fields)
@@ -637,17 +648,14 @@ async def verify_user_identity(
     db: AsyncSession = Depends(get_db),
 ):
     """Mark a user's identity as verified (locks identity fields)."""
-    from datetime import datetime, timezone
-    result = await db.execute(
-        select(User).options(selectinload(User.job_position)).where(User.id == user_id)
-    )
+    result = await db.execute(select(User).options(selectinload(User.job_position)).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     user.identity_verified = True
     user.identity_verified_by = current_user.id
-    user.identity_verified_at = datetime.now(timezone.utc)
+    user.identity_verified_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(user)
     return user
@@ -660,9 +668,7 @@ async def unverify_user_identity(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove identity verification (unlocks identity fields)."""
-    result = await db.execute(
-        select(User).options(selectinload(User.job_position)).where(User.id == user_id)
-    )
+    result = await db.execute(select(User).options(selectinload(User.job_position)).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -851,6 +857,7 @@ class UserPermOverrideRead(OpsFluxSchema):
 
 class UserPermOverrideSet(BaseModel):
     """Replace all permission overrides for a user."""
+
     overrides: list[UserPermOverrideRead] = Field(default_factory=list)
 
 
@@ -872,10 +879,7 @@ async def get_user_permission_overrides(
         .where(UserPermissionOverride.user_id == user_id)
         .order_by(UserPermissionOverride.permission_code)
     )
-    return [
-        UserPermOverrideRead(permission_code=o.permission_code, granted=o.granted)
-        for o in result.scalars().all()
-    ]
+    return [UserPermOverrideRead(permission_code=o.permission_code, granted=o.granted) for o in result.scalars().all()]
 
 
 @router.put(
@@ -895,9 +899,7 @@ async def set_user_permission_overrides(
     # Validate permission codes
     if body.overrides:
         codes = [o.permission_code for o in body.overrides]
-        valid_result = await db.execute(
-            select(Permission.code).where(Permission.code.in_(codes))
-        )
+        valid_result = await db.execute(select(Permission.code).where(Permission.code.in_(codes)))
         valid_codes = {row[0] for row in valid_result.all()}
         invalid = set(codes) - valid_codes
         if invalid:
@@ -907,23 +909,20 @@ async def set_user_permission_overrides(
             )
 
     # Replace: delete all existing, insert new
-    await db.execute(
-        delete(UserPermissionOverride).where(UserPermissionOverride.user_id == user_id)
-    )
+    await db.execute(delete(UserPermissionOverride).where(UserPermissionOverride.user_id == user_id))
     for override in body.overrides:
-        db.add(UserPermissionOverride(
-            user_id=user_id,
-            permission_code=override.permission_code,
-            granted=override.granted,
-        ))
+        db.add(
+            UserPermissionOverride(
+                user_id=user_id,
+                permission_code=override.permission_code,
+                granted=override.granted,
+            )
+        )
 
     await db.commit()
     await invalidate_rbac_cache(user_id)
 
-    return [
-        UserPermOverrideRead(permission_code=o.permission_code, granted=o.granted)
-        for o in body.overrides
-    ]
+    return [UserPermOverrideRead(permission_code=o.permission_code, granted=o.granted) for o in body.overrides]
 
 
 @router.get(
@@ -941,10 +940,7 @@ async def get_user_effective_permissions(
     await _assert_user_access_in_entity(user_id=user_id, entity_id=entity_id, db=db)
 
     perms = await get_user_permissions_with_sources(user_id, entity_id, db)
-    return [
-        {"permission_code": code, "source": source}
-        for code, source in sorted(perms.items())
-    ]
+    return [{"permission_code": code, "source": source} for code, source in sorted(perms.items())]
 
 
 @router.get("/me/delegation-candidates", response_model=list[UserBriefRead])
@@ -970,9 +966,7 @@ async def list_delegation_candidates(
     )
     if search:
         like = f"%{search}%"
-        query = query.where(
-            User.first_name.ilike(like) | User.last_name.ilike(like) | User.email.ilike(like)
-        )
+        query = query.where(User.first_name.ilike(like) | User.last_name.ilike(like) | User.email.ilike(like))
 
     result = await db.execute(query)
     return [
@@ -1010,9 +1004,7 @@ async def list_simulation_candidates(
     )
     if search:
         like = f"%{search}%"
-        query = query.where(
-            User.first_name.ilike(like) | User.last_name.ilike(like) | User.email.ilike(like)
-        )
+        query = query.where(User.first_name.ilike(like) | User.last_name.ilike(like) | User.email.ilike(like))
 
     result = await db.execute(query)
     return [
@@ -1182,6 +1174,7 @@ async def get_user_ip_location(
 ):
     """Get geolocation for a user's last login IP."""
     from app.core.ip_geolocation import get_ip_location
+
     await _assert_user_access_in_entity(user_id=user_id, entity_id=entity_id, db=db)
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -1399,6 +1392,7 @@ async def delete_user(
 
     # Also check Project.created_by
     from app.models.common import Project
+
     dependency_checks.append((Project, "created_by", "projets créés"))
 
     blockers: list[str] = []
@@ -1406,9 +1400,7 @@ async def delete_user(
         col = getattr(model, col_name, None)
         if col is None:
             continue
-        count_result = await db.execute(
-            select(func.count()).where(col == user_id)
-        )
+        count_result = await db.execute(select(func.count()).where(col == user_id))
         count = count_result.scalar() or 0
         if count > 0:
             blockers.append(f"{count} {label}")
@@ -1426,9 +1418,11 @@ async def delete_user(
     # Clean up all FK references before deleting the user
     await db.execute(delete(UserGroupMember).where(UserGroupMember.user_id == user_id))
     from app.models.common import UserPermissionOverride
+
     await db.execute(delete(UserPermissionOverride).where(UserPermissionOverride.user_id == user_id))
     # Notifications, sessions, entity memberships
     from sqlalchemy import text as sql_text
+
     for table in ["notifications", "sessions", "user_entity_memberships"]:
         try:
             await db.execute(sql_text(f"DELETE FROM {table} WHERE user_id = :uid"), {"uid": str(user_id)})
@@ -1449,6 +1443,7 @@ async def delete_user(
         )
 
     from app.core.rbac import invalidate_rbac_cache
+
     await invalidate_rbac_cache(user_id)
 
 
@@ -1490,7 +1485,8 @@ async def admin_upload_avatar(
         f.write(contents)
 
     from app.core.config import settings
-    api_url = getattr(settings, 'API_URL', '') or ''
+
+    api_url = getattr(settings, "API_URL", "") or ""
     avatar_url = f"{api_url}/static/avatars/{filename}" if api_url else f"/static/avatars/{filename}"
     user.avatar_url = avatar_url
     await db.commit()
@@ -1543,7 +1539,8 @@ async def admin_set_avatar_from_url(
         f.write(resp.content)
 
     from app.core.config import settings
-    api_url = getattr(settings, 'API_URL', '') or ''
+
+    api_url = getattr(settings, "API_URL", "") or ""
     avatar_url = f"{api_url}/static/avatars/{filename}" if api_url else f"/static/avatars/{filename}"
     user.avatar_url = avatar_url
     await db.commit()

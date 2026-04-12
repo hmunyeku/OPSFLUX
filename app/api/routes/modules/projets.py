@@ -1,48 +1,80 @@
 """Projets (project management) module routes — projects, tasks, members, milestones,
 planning revisions, deliverables, actions, change logs."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import delete as sql_delete, select, func as sqla_func, text
+from sqlalchemy import delete as sql_delete
+from sqlalchemy import func as sqla_func
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, require_module_enabled, require_permission
 from app.core.audit import record_audit
 from app.core.database import get_db
 from app.core.event_contracts import PROJECT_STATUS_CHANGED_EVENT
-from app.core.references import generate_reference
-from app.services.core.delete_service import delete_entity
 from app.core.events import emit_event
 from app.core.pagination import PaginationParams, paginate
-from app.services.core.fsm_service import fsm_service, FSMError
+from app.core.references import generate_reference
 from app.models.common import (
     AuditLog,
-    Project, ProjectMember, ProjectTask, ProjectMilestone,
-    PlanningRevision, TaskDeliverable, TaskAction, TaskChangeLog,
-    ProjectTaskDependency, ProjectWBSNode, CostCenter,
-    ProjectTaskAssignee, ProjectComment, ProjectStatusHistory,
-    User, Tier,
+    CostCenter,
+    PlanningRevision,
+    Project,
+    ProjectComment,
+    ProjectMember,
+    ProjectMilestone,
+    ProjectStatusHistory,
+    ProjectTask,
+    ProjectTaskAssignee,
+    ProjectTaskDependency,
+    ProjectWBSNode,
+    TaskAction,
+    TaskChangeLog,
+    TaskDeliverable,
+    Tier,
+    User,
 )
 from app.schemas.common import (
-    PaginatedResponse,
-    ProjectCreate, ProjectRead, ProjectUpdate,
-    ProjectMemberCreate, ProjectMemberRead,
-    ProjectTaskCreate, ProjectTaskRead, ProjectTaskUpdate, ProjectTaskEnriched,
-    ProjectMilestoneCreate, ProjectMilestoneRead, ProjectMilestoneUpdate,
-    PlanningRevisionCreate, PlanningRevisionRead, PlanningRevisionUpdate,
-    TaskDeliverableCreate, TaskDeliverableRead, TaskDeliverableUpdate,
-    TaskActionCreate, TaskActionRead, TaskActionUpdate,
-    TaskChangeLogRead,
-    TaskDependencyCreate, TaskDependencyRead,
-    ProjectWBSNodeCreate, ProjectWBSNodeRead, ProjectWBSNodeUpdate,
     CPMResult,
-    TaskAssigneeCreate, TaskAssigneeRead,
-    ProjectCommentCreate, ProjectCommentRead, ProjectCommentUpdate,
+    PaginatedResponse,
+    PlanningRevisionCreate,
+    PlanningRevisionRead,
+    PlanningRevisionUpdate,
+    ProjectCommentCreate,
+    ProjectCommentRead,
+    ProjectCreate,
+    ProjectMemberCreate,
+    ProjectMemberRead,
+    ProjectMilestoneCreate,
+    ProjectMilestoneRead,
+    ProjectMilestoneUpdate,
+    ProjectRead,
     ProjectStatusHistoryRead,
+    ProjectTaskCreate,
+    ProjectTaskEnriched,
+    ProjectTaskRead,
+    ProjectTaskUpdate,
+    ProjectUpdate,
+    ProjectWBSNodeCreate,
+    ProjectWBSNodeRead,
+    ProjectWBSNodeUpdate,
+    TaskActionCreate,
+    TaskActionRead,
+    TaskActionUpdate,
+    TaskAssigneeCreate,
+    TaskAssigneeRead,
+    TaskChangeLogRead,
+    TaskDeliverableCreate,
+    TaskDeliverableRead,
+    TaskDeliverableUpdate,
+    TaskDependencyCreate,
+    TaskDependencyRead,
 )
+from app.services.core.delete_service import delete_entity
+from app.services.core.fsm_service import FSMError, fsm_service
 from app.services.cpm_service import compute_cpm
 
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"], dependencies=[require_module_enabled("projets")])
@@ -197,10 +229,7 @@ async def _update_project_progress(db: AsyncSession, project_id: UUID) -> None:
         if not children:
             value = float(task.progress or 0)
         else:
-            child_items = [
-                (compute(c.id), _task_raw_weight(c, method))
-                for c in children
-            ]
+            child_items = [(compute(c.id), _task_raw_weight(c, method)) for c in children]
             value = _weighted_average(child_items)
         computed[task_id] = value
         in_progress.discard(task_id)
@@ -243,22 +272,21 @@ async def _rollup_parent_dates(db: AsyncSession, task: ProjectTask) -> None:
     current = task
     while current.parent_id:
         # Get all siblings (children of the same parent)
-        siblings = (await db.execute(
-            select(ProjectTask.start_date, ProjectTask.due_date)
-            .where(
-                ProjectTask.parent_id == current.parent_id,
-                ProjectTask.active == True,  # noqa: E712
+        siblings = (
+            await db.execute(
+                select(ProjectTask.start_date, ProjectTask.due_date).where(
+                    ProjectTask.parent_id == current.parent_id,
+                    ProjectTask.active == True,  # noqa: E712
+                )
             )
-        )).all()
+        ).all()
 
         starts = [r[0] for r in siblings if r[0] is not None]
         ends = [r[1] for r in siblings if r[1] is not None]
         if not starts and not ends:
             break
 
-        parent = (await db.execute(
-            select(ProjectTask).where(ProjectTask.id == current.parent_id)
-        )).scalar_one_or_none()
+        parent = (await db.execute(select(ProjectTask).where(ProjectTask.id == current.parent_id))).scalar_one_or_none()
         if not parent:
             break
 
@@ -280,7 +308,9 @@ async def _rollup_parent_dates(db: AsyncSession, task: ProjectTask) -> None:
 
 
 async def _check_project_member_role(
-    db: AsyncSession, project_id: UUID, user_id: UUID,
+    db: AsyncSession,
+    project_id: UUID,
+    user_id: UUID,
     required_roles: list[str] | None = None,
 ) -> bool:
     """Check if the user is a member of the project with an acceptable role.
@@ -352,14 +382,18 @@ async def _sync_linked_planner_activities_for_project_task(
     from app.models.planner import PlannerActivity
 
     linked_activities = (
-        await db.execute(
-            select(PlannerActivity).where(
-                PlannerActivity.project_id == project.id,
-                PlannerActivity.source_task_id == task.id,
-                PlannerActivity.active == True,
+        (
+            await db.execute(
+                select(PlannerActivity).where(
+                    PlannerActivity.project_id == project.id,
+                    PlannerActivity.source_task_id == task.id,
+                    PlannerActivity.active == True,
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     if not linked_activities:
         return
 
@@ -490,9 +524,7 @@ async def list_projects(
     if source == "gouti":
         query = query.where(Project.external_ref.startswith("gouti:"))
     elif source == "opsflux":
-        query = query.where(
-            (Project.external_ref.is_(None)) | (~Project.external_ref.startswith("gouti:"))
-        )
+        query = query.where((Project.external_ref.is_(None)) | (~Project.external_ref.startswith("gouti:")))
     if search:
         like = f"%{search}%"
         query = query.where(Project.name.ilike(like) | Project.code.ilike(like))
@@ -592,6 +624,7 @@ async def list_all_tasks(
 
 # ── Templates (MUST be before /{project_id} to avoid UUID parse error) ──
 
+
 @router.get("/templates")
 async def list_templates_early(
     category: str | None = Query(None),
@@ -601,6 +634,7 @@ async def list_templates_early(
 ):
     """List project templates — declared early to avoid /{project_id} match."""
     from app.models.common import ProjectTemplate
+
     query = select(ProjectTemplate).where(ProjectTemplate.entity_id == entity_id, ProjectTemplate.active == True)  # noqa: E712
     if category:
         query = query.where(ProjectTemplate.category == category)
@@ -620,8 +654,16 @@ async def get_project(
     project = await _get_project_or_404(db, project_id, entity_id)
     d = {c.key: getattr(project, c.key) for c in project.__table__.columns}
     # Counts
-    tc = await db.execute(select(sqla_func.count()).select_from(ProjectTask).where(ProjectTask.project_id == project_id, ProjectTask.active == True))
-    mc = await db.execute(select(sqla_func.count()).select_from(ProjectMember).where(ProjectMember.project_id == project_id, ProjectMember.active == True))
+    tc = await db.execute(
+        select(sqla_func.count())
+        .select_from(ProjectTask)
+        .where(ProjectTask.project_id == project_id, ProjectTask.active == True)
+    )
+    mc = await db.execute(
+        select(sqla_func.count())
+        .select_from(ProjectMember)
+        .where(ProjectMember.project_id == project_id, ProjectMember.active == True)
+    )
     d["task_count"] = tc.scalar() or 0
     d["member_count"] = mc.scalar() or 0
     # Manager name
@@ -643,7 +685,9 @@ async def get_project(
     else:
         d["parent_name"] = None
     # Children count
-    cc = await db.execute(select(sqla_func.count()).select_from(Project).where(Project.parent_id == project_id, Project.archived == False))
+    cc = await db.execute(
+        select(sqla_func.count()).select_from(Project).where(Project.parent_id == project_id, Project.archived == False)
+    )
     d["children_count"] = cc.scalar() or 0
     return d
 
@@ -681,12 +725,12 @@ async def update_project(
         #   any → cancelled        : manager (CHEF_PROJET only)
         #   any → draft            : manager (rollback, CHEF_PROJET only)
         TRANSITION_ROLES: dict[tuple[str, str], list[str]] = {
-            ("draft", "planned"):     ["manager", "reviewer"],
-            ("planned", "active"):    ["manager"],
-            ("active", "on_hold"):    ["manager", "reviewer"],
-            ("on_hold", "active"):    ["manager", "reviewer"],
-            ("active", "completed"):  ["manager"],
-            ("completed", "active"):  ["manager"],  # reopen
+            ("draft", "planned"): ["manager", "reviewer"],
+            ("planned", "active"): ["manager"],
+            ("active", "on_hold"): ["manager", "reviewer"],
+            ("on_hold", "active"): ["manager", "reviewer"],
+            ("active", "completed"): ["manager"],
+            ("completed", "active"): ["manager"],  # reopen
         }
         # Cancellation from any state: manager only
         cancel_roles = ["manager"]
@@ -745,13 +789,23 @@ async def update_project(
     # metadata (tags via TagManager, notes, attachments, tier_id,
     # asset_id, manager_id, parent_id, weather) remains writable.
     if project.external_ref and project.external_ref.startswith("gouti:"):
-        from app.services.connectors.gouti_capabilities import load_capabilities, is_field_writable
+        from app.services.connectors.gouti_capabilities import is_field_writable, load_capabilities
+
         capabilities = await load_capabilities(db, entity_id)
         # Map ProjectUpdate fields to the "project" resource in the matrix.
         # Fields Gouti owns on a project (synced at each sync) — never writable:
-        GOUTI_OWNED = {"name", "code", "description", "status", "priority",
-                       "progress", "start_date", "end_date", "actual_end_date",
-                       "budget"}
+        GOUTI_OWNED = {
+            "name",
+            "code",
+            "description",
+            "status",
+            "priority",
+            "progress",
+            "start_date",
+            "end_date",
+            "actual_end_date",
+            "budget",
+        }
         blocked = []
         for field in list(update_data.keys()):
             if field in GOUTI_OWNED and not is_field_writable(capabilities, "project", field):
@@ -794,13 +848,15 @@ async def update_project(
     # Emit event if status changed
     if "status" in update_data and old_status != project.status:
         # Audit trail: log the status transition
-        db.add(ProjectStatusHistory(
-            project_id=project.id,
-            from_status=old_status,
-            to_status=project.status,
-            changed_by=current_user.id,
-            reason=update_data.get("status_change_reason"),
-        ))
+        db.add(
+            ProjectStatusHistory(
+                project_id=project.id,
+                from_status=old_status,
+                to_status=project.status,
+                changed_by=current_user.id,
+                reason=update_data.get("status_change_reason"),
+            )
+        )
         await db.commit()
         await fsm_service.emit_transition_event(
             entity_type=PROJECT_ENTITY_TYPE,
@@ -810,12 +866,15 @@ async def update_project(
             actor_id=current_user.id,
             workflow_slug=PROJECT_WORKFLOW_SLUG,
         )
-        await emit_event(PROJECT_STATUS_CHANGED_EVENT, {
-            "project_id": str(project.id),
-            "entity_id": str(entity_id),
-            "old_status": old_status,
-            "new_status": project.status,
-        })
+        await emit_event(
+            PROJECT_STATUS_CHANGED_EVENT,
+            {
+                "project_id": str(project.id),
+                "entity_id": str(entity_id),
+                "old_status": old_status,
+                "new_status": project.status,
+            },
+        )
 
     d = {c.key: getattr(project, c.key) for c in project.__table__.columns}
     d["manager_name"] = None
@@ -924,9 +983,7 @@ async def list_project_tasks(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
-    query = select(ProjectTask).where(
-        ProjectTask.project_id == project_id, ProjectTask.active == True
-    )
+    query = select(ProjectTask).where(ProjectTask.project_id == project_id, ProjectTask.active == True)
     if status:
         query = query.where(ProjectTask.status == status)
     if assignee_id:
@@ -957,8 +1014,7 @@ async def create_project_task(
     await _get_project_or_404(db, project_id, entity_id)
     # Auto-assign order
     max_order = await db.execute(
-        select(sqla_func.coalesce(sqla_func.max(ProjectTask.order), 0))
-        .where(ProjectTask.project_id == project_id)
+        select(sqla_func.coalesce(sqla_func.max(ProjectTask.order), 0)).where(ProjectTask.project_id == project_id)
     )
     task = ProjectTask(project_id=project_id, order=(max_order.scalar() or 0) + 1, **body.model_dump())
     db.add(task)
@@ -990,25 +1046,45 @@ async def update_project_task(
         raise HTTPException(404, "Task not found")
 
     # Track changes for historisation
-    TRACKED_FIELDS = {"status", "priority", "start_date", "due_date", "assignee_id", "title", "description", "progress", "estimated_hours", "actual_hours", "pob_quota"}
+    TRACKED_FIELDS = {
+        "status",
+        "priority",
+        "start_date",
+        "due_date",
+        "assignee_id",
+        "title",
+        "description",
+        "progress",
+        "estimated_hours",
+        "actual_hours",
+        "pob_quota",
+    }
     CHANGE_TYPES = {
-        "start_date": "date_change", "due_date": "date_change", "status": "status_change",
-        "priority": "priority_change", "assignee_id": "assignment_change",
-        "title": "scope_change", "description": "scope_change",
-        "progress": "progress_change", "estimated_hours": "scope_change", "actual_hours": "scope_change",
+        "start_date": "date_change",
+        "due_date": "date_change",
+        "status": "status_change",
+        "priority": "priority_change",
+        "assignee_id": "assignment_change",
+        "title": "scope_change",
+        "description": "scope_change",
+        "progress": "progress_change",
+        "estimated_hours": "scope_change",
+        "actual_hours": "scope_change",
         "pob_quota": "pob_change",
     }
     for field, value in body.model_dump(exclude_unset=True).items():
         old_value = getattr(task, field)
         if field in TRACKED_FIELDS and str(old_value) != str(value):
-            db.add(TaskChangeLog(
-                task_id=task_id,
-                change_type=CHANGE_TYPES.get(field, "other"),
-                field_name=field,
-                old_value=str(old_value) if old_value is not None else None,
-                new_value=str(value) if value is not None else None,
-                changed_by=current_user.id,
-            ))
+            db.add(
+                TaskChangeLog(
+                    task_id=task_id,
+                    change_type=CHANGE_TYPES.get(field, "other"),
+                    field_name=field,
+                    old_value=str(old_value) if old_value is not None else None,
+                    new_value=str(value) if value is not None else None,
+                    changed_by=current_user.id,
+                )
+            )
         setattr(task, field, value)
 
     await db.commit()
@@ -1169,8 +1245,6 @@ async def delete_project_milestone(
     return {"detail": "Milestone deleted"}
 
 
-
-
 # ── Sub-projects (children of a macro-project) ─────────────────────────
 
 
@@ -1185,9 +1259,7 @@ async def list_sub_projects(
     """List sub-projects of a macro-project."""
     await _get_project_or_404(db, project_id, entity_id)
     result = await db.execute(
-        select(Project)
-        .where(Project.parent_id == project_id, Project.archived == False)
-        .order_by(Project.code)
+        select(Project).where(Project.parent_id == project_id, Project.archived == False).order_by(Project.code)
     )
     children = result.scalars().all()
     enriched = []
@@ -1203,7 +1275,11 @@ async def list_sub_projects(
             mgr = await db.get(User, proj.manager_id)
             d["manager_name"] = f"{mgr.first_name} {mgr.last_name}" if mgr else None
         # Count tasks
-        tc = await db.execute(select(sqla_func.count()).select_from(ProjectTask).where(ProjectTask.project_id == proj.id, ProjectTask.active == True))
+        tc = await db.execute(
+            select(sqla_func.count())
+            .select_from(ProjectTask)
+            .where(ProjectTask.project_id == proj.id, ProjectTask.active == True)
+        )
         d["task_count"] = tc.scalar() or 0
         enriched.append(d)
     return enriched
@@ -1250,8 +1326,9 @@ async def create_revision(
 
     # Next revision number
     max_rev = await db.execute(
-        select(sqla_func.coalesce(sqla_func.max(PlanningRevision.revision_number), 0))
-        .where(PlanningRevision.project_id == project_id)
+        select(sqla_func.coalesce(sqla_func.max(PlanningRevision.revision_number), 0)).where(
+            PlanningRevision.project_id == project_id
+        )
     )
     next_num = (max_rev.scalar() or 0) + 1
 
@@ -1263,7 +1340,10 @@ async def create_revision(
         select(ProjectMilestone).where(ProjectMilestone.project_id == project_id, ProjectMilestone.active == True)
     )
     snapshot = {
-        "project": {c.key: str(getattr(project, c.key)) if getattr(project, c.key) is not None else None for c in project.__table__.columns},
+        "project": {
+            c.key: str(getattr(project, c.key)) if getattr(project, c.key) is not None else None
+            for c in project.__table__.columns
+        },
         "tasks": [
             {c.key: str(getattr(t, c.key)) if getattr(t, c.key) is not None else None for c in t.__table__.columns}
             for t in tasks_result.scalars().all()
@@ -1312,8 +1392,11 @@ async def update_revision(
     # If setting as active, deactivate others
     if body.is_active is True:
         others = await db.execute(
-            select(PlanningRevision)
-            .where(PlanningRevision.project_id == project_id, PlanningRevision.is_active == True, PlanningRevision.id != revision_id)
+            select(PlanningRevision).where(
+                PlanningRevision.project_id == project_id,
+                PlanningRevision.is_active == True,
+                PlanningRevision.id != revision_id,
+            )
         )
         for other in others.scalars().all():
             other.is_active = False
@@ -1352,8 +1435,11 @@ async def apply_revision(
     rev.is_active = True
     # Deactivate others
     others = await db.execute(
-        select(PlanningRevision)
-        .where(PlanningRevision.project_id == project_id, PlanningRevision.is_active == True, PlanningRevision.id != revision_id)
+        select(PlanningRevision).where(
+            PlanningRevision.project_id == project_id,
+            PlanningRevision.is_active == True,
+            PlanningRevision.id != revision_id,
+        )
     )
     for other in others.scalars().all():
         other.is_active = False
@@ -1500,8 +1586,7 @@ async def create_action(
 ):
     await _get_project_or_404(db, project_id, entity_id)
     max_order = await db.execute(
-        select(sqla_func.coalesce(sqla_func.max(TaskAction.order), 0))
-        .where(TaskAction.task_id == task_id)
+        select(sqla_func.coalesce(sqla_func.max(TaskAction.order), 0)).where(TaskAction.task_id == task_id)
     )
     action = TaskAction(
         task_id=task_id,
@@ -1510,7 +1595,7 @@ async def create_action(
         order=(max_order.scalar() or 0) + 1,
     )
     if body.completed:
-        action.completed_at = datetime.now(timezone.utc)
+        action.completed_at = datetime.now(UTC)
         action.completed_by = current_user.id
     db.add(action)
     await db.commit()
@@ -1530,16 +1615,14 @@ async def update_action(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
-    result = await db.execute(
-        select(TaskAction).where(TaskAction.id == action_id, TaskAction.task_id == task_id)
-    )
+    result = await db.execute(select(TaskAction).where(TaskAction.id == action_id, TaskAction.task_id == task_id))
     action = result.scalars().first()
     if not action:
         raise HTTPException(404, "Action not found")
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(action, field, value)
     if body.completed is True and not action.completed_at:
-        action.completed_at = datetime.now(timezone.utc)
+        action.completed_at = datetime.now(UTC)
         action.completed_by = current_user.id
     elif body.completed is False:
         action.completed_at = None
@@ -1560,9 +1643,7 @@ async def delete_action(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
-    result = await db.execute(
-        select(TaskAction).where(TaskAction.id == action_id, TaskAction.task_id == task_id)
-    )
+    result = await db.execute(select(TaskAction).where(TaskAction.id == action_id, TaskAction.task_id == task_id))
     action = result.scalars().first()
     if not action:
         raise HTTPException(404, "Action not found")
@@ -1585,9 +1666,7 @@ async def list_task_changelog(
 ):
     await _get_project_or_404(db, project_id, entity_id)
     result = await db.execute(
-        select(TaskChangeLog)
-        .where(TaskChangeLog.task_id == task_id)
-        .order_by(TaskChangeLog.created_at.desc())
+        select(TaskChangeLog).where(TaskChangeLog.task_id == task_id).order_by(TaskChangeLog.created_at.desc())
     )
     logs = result.scalars().all()
     enriched = []
@@ -1661,8 +1740,9 @@ async def create_task_dependency(
             continue
         visited.add(current)
         downstream = await db.execute(
-            select(ProjectTaskDependency.to_task_id)
-            .where(ProjectTaskDependency.from_task_id == current, ProjectTaskDependency.active == True)
+            select(ProjectTaskDependency.to_task_id).where(
+                ProjectTaskDependency.from_task_id == current, ProjectTaskDependency.active == True
+            )
         )
         queue.extend([r[0] for r in downstream.all()])
 
@@ -1693,9 +1773,7 @@ async def delete_task_dependency(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove a task dependency."""
-    result = await db.execute(
-        select(ProjectTaskDependency).where(ProjectTaskDependency.id == dep_id)
-    )
+    result = await db.execute(select(ProjectTaskDependency).where(ProjectTaskDependency.id == dep_id))
     dep = result.scalar_one_or_none()
     if not dep:
         raise HTTPException(status_code=404, detail="Dependency not found")
@@ -1706,8 +1784,9 @@ async def delete_task_dependency(
 # ── Project WBS (Work Breakdown Structure) ────────────────────────────────
 
 
-def _wbs_node_to_dict(node: ProjectWBSNode, cost_center_name: str | None = None,
-                      children_count: int = 0, task_count: int = 0) -> dict:
+def _wbs_node_to_dict(
+    node: ProjectWBSNode, cost_center_name: str | None = None, children_count: int = 0, task_count: int = 0
+) -> dict:
     d = {c.key: getattr(node, c.key) for c in node.__table__.columns}
     d["cost_center_name"] = cost_center_name
     d["children_count"] = children_count
@@ -1725,15 +1804,17 @@ async def list_wbs_nodes(
 ):
     """Return the full WBS tree of a project as a flat ordered list."""
     await _get_project_or_404(db, project_id, entity_id)
-    rows = (await db.execute(
-        select(
-            ProjectWBSNode,
-            CostCenter.name.label("cc_name"),
+    rows = (
+        await db.execute(
+            select(
+                ProjectWBSNode,
+                CostCenter.name.label("cc_name"),
+            )
+            .outerjoin(CostCenter, ProjectWBSNode.cost_center_id == CostCenter.id)
+            .where(ProjectWBSNode.project_id == project_id, ProjectWBSNode.active == True)  # noqa: E712
+            .order_by(ProjectWBSNode.order, ProjectWBSNode.code)
         )
-        .outerjoin(CostCenter, ProjectWBSNode.cost_center_id == CostCenter.id)
-        .where(ProjectWBSNode.project_id == project_id, ProjectWBSNode.active == True)  # noqa: E712
-        .order_by(ProjectWBSNode.order, ProjectWBSNode.code)
-    )).all()
+    ).all()
 
     # Compute children/task counts in batch
     nodes = [r[0] for r in rows]
@@ -1741,17 +1822,21 @@ async def list_wbs_nodes(
     child_counts: dict[UUID, int] = {}
     task_counts: dict[UUID, int] = {}
     if node_ids:
-        cc_rows = (await db.execute(
-            select(ProjectWBSNode.parent_id, sqla_func.count(ProjectWBSNode.id))
-            .where(ProjectWBSNode.parent_id.in_(node_ids), ProjectWBSNode.active == True)  # noqa: E712
-            .group_by(ProjectWBSNode.parent_id)
-        )).all()
+        cc_rows = (
+            await db.execute(
+                select(ProjectWBSNode.parent_id, sqla_func.count(ProjectWBSNode.id))
+                .where(ProjectWBSNode.parent_id.in_(node_ids), ProjectWBSNode.active == True)  # noqa: E712
+                .group_by(ProjectWBSNode.parent_id)
+            )
+        ).all()
         child_counts = {r[0]: r[1] for r in cc_rows}
-        tc_rows = (await db.execute(
-            select(ProjectTask.wbs_node_id, sqla_func.count(ProjectTask.id))
-            .where(ProjectTask.wbs_node_id.in_(node_ids), ProjectTask.active == True)  # noqa: E712
-            .group_by(ProjectTask.wbs_node_id)
-        )).all()
+        tc_rows = (
+            await db.execute(
+                select(ProjectTask.wbs_node_id, sqla_func.count(ProjectTask.id))
+                .where(ProjectTask.wbs_node_id.in_(node_ids), ProjectTask.active == True)  # noqa: E712
+                .group_by(ProjectTask.wbs_node_id)
+            )
+        ).all()
         task_counts = {r[0]: r[1] for r in tc_rows}
 
     return [
@@ -1776,12 +1861,14 @@ async def create_wbs_node(
     await _get_project_or_404(db, project_id, entity_id)
     # Validate parent if given
     if body.parent_id:
-        parent = (await db.execute(
-            select(ProjectWBSNode).where(
-                ProjectWBSNode.id == body.parent_id,
-                ProjectWBSNode.project_id == project_id,
+        parent = (
+            await db.execute(
+                select(ProjectWBSNode).where(
+                    ProjectWBSNode.id == body.parent_id,
+                    ProjectWBSNode.project_id == project_id,
+                )
             )
-        )).scalar_one_or_none()
+        ).scalar_one_or_none()
         if parent is None:
             raise HTTPException(400, "parent_id must belong to the same project")
     node = ProjectWBSNode(project_id=project_id, **body.model_dump())
@@ -1802,9 +1889,7 @@ async def update_wbs_node(
 ):
     await _get_project_or_404(db, project_id, entity_id)
     result = await db.execute(
-        select(ProjectWBSNode).where(
-            ProjectWBSNode.id == node_id, ProjectWBSNode.project_id == project_id
-        )
+        select(ProjectWBSNode).where(ProjectWBSNode.id == node_id, ProjectWBSNode.project_id == project_id)
     )
     node = result.scalar_one_or_none()
     if not node:
@@ -1831,9 +1916,7 @@ async def delete_wbs_node(
 ):
     await _get_project_or_404(db, project_id, entity_id)
     result = await db.execute(
-        select(ProjectWBSNode).where(
-            ProjectWBSNode.id == node_id, ProjectWBSNode.project_id == project_id
-        )
+        select(ProjectWBSNode).where(ProjectWBSNode.id == node_id, ProjectWBSNode.project_id == project_id)
     )
     node = result.scalar_one_or_none()
     if not node:
@@ -1863,35 +1946,54 @@ async def get_project_cpm(
 
 @router.get("/{project_id}/tasks/{task_id}/assignees", response_model=list[TaskAssigneeRead])
 async def list_task_assignees(
-    project_id: UUID, task_id: UUID,
+    project_id: UUID,
+    task_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("project.read"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
-    rows = (await db.execute(
-        select(ProjectTaskAssignee, User.first_name, User.last_name)
-        .outerjoin(User, ProjectTaskAssignee.user_id == User.id)
-        .where(ProjectTaskAssignee.task_id == task_id)
-        .order_by(ProjectTaskAssignee.created_at)
-    )).all()
-    return [{**{c.key: getattr(r[0], c.key) for c in r[0].__table__.columns}, "user_name": f"{r[1]} {r[2]}" if r[1] else None} for r in rows]
+    rows = (
+        await db.execute(
+            select(ProjectTaskAssignee, User.first_name, User.last_name)
+            .outerjoin(User, ProjectTaskAssignee.user_id == User.id)
+            .where(ProjectTaskAssignee.task_id == task_id)
+            .order_by(ProjectTaskAssignee.created_at)
+        )
+    ).all()
+    return [
+        {
+            **{c.key: getattr(r[0], c.key) for c in r[0].__table__.columns},
+            "user_name": f"{r[1]} {r[2]}" if r[1] else None,
+        }
+        for r in rows
+    ]
 
 
 @router.post("/{project_id}/tasks/{task_id}/assignees", response_model=TaskAssigneeRead, status_code=201)
 async def add_task_assignee(
-    project_id: UUID, task_id: UUID, body: TaskAssigneeCreate,
+    project_id: UUID,
+    task_id: UUID,
+    body: TaskAssigneeCreate,
     entity_id: UUID = Depends(get_current_entity),
     _: None = require_permission("project.task.assign"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
-    existing = (await db.execute(select(ProjectTaskAssignee).where(ProjectTaskAssignee.task_id == task_id, ProjectTaskAssignee.user_id == body.user_id))).scalar_one_or_none()
+    existing = (
+        await db.execute(
+            select(ProjectTaskAssignee).where(
+                ProjectTaskAssignee.task_id == task_id, ProjectTaskAssignee.user_id == body.user_id
+            )
+        )
+    ).scalar_one_or_none()
     if existing:
         raise HTTPException(409, "User already assigned")
     a = ProjectTaskAssignee(task_id=task_id, user_id=body.user_id, role=body.role)
-    db.add(a); await db.commit(); await db.refresh(a)
+    db.add(a)
+    await db.commit()
+    await db.refresh(a)
     u = await db.get(User, body.user_id)
 
     # §4 CDC: notify the assigned user
@@ -1899,13 +2001,17 @@ async def add_task_assignee(
         task = (await db.execute(select(ProjectTask).where(ProjectTask.id == task_id))).scalar_one_or_none()
         project = await _get_project_or_404(db, project_id, entity_id)
         if task and u:
-            from app.core.notifications import send_in_app
             from app.core.email_templates import render_and_send_email
+            from app.core.notifications import send_in_app
+
             await send_in_app(
-                db, user_id=body.user_id, entity_id=entity_id,
+                db,
+                user_id=body.user_id,
+                entity_id=entity_id,
                 title=f"Nouvelle assignation : {task.title}",
                 body=f"Vous avez été assigné(e) à la tâche « {task.title} » du projet {project.code} — {project.name}.",
-                category="projets", link="/projets",
+                category="projets",
+                link="/projets",
                 event_type="project.task.assigned",
             )
             if u.email:
@@ -1936,34 +2042,54 @@ async def add_task_assignee(
 
 @router.delete("/{project_id}/tasks/{task_id}/assignees/{assignee_id}", status_code=204)
 async def remove_task_assignee(
-    project_id: UUID, task_id: UUID, assignee_id: UUID,
+    project_id: UUID,
+    task_id: UUID,
+    assignee_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     _: None = require_permission("project.task.assign"),
     db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
-    a = (await db.execute(select(ProjectTaskAssignee).where(ProjectTaskAssignee.id == assignee_id))).scalar_one_or_none()
-    if not a: raise HTTPException(404, "Assignee not found")
-    await db.delete(a); await db.commit()
+    a = (
+        await db.execute(select(ProjectTaskAssignee).where(ProjectTaskAssignee.id == assignee_id))
+    ).scalar_one_or_none()
+    if not a:
+        raise HTTPException(404, "Assignee not found")
+    await db.delete(a)
+    await db.commit()
 
 
 # ── Comments (threaded, on tasks or projects) ──────────────────────────
 
 
 async def _fetch_comments(db, owner_type: str, owner_id: UUID):
-    rows = (await db.execute(
-        select(ProjectComment, User.first_name, User.last_name)
-        .outerjoin(User, ProjectComment.author_id == User.id)
-        .where(ProjectComment.owner_type == owner_type, ProjectComment.owner_id == owner_id, ProjectComment.active == True)
-        .order_by(ProjectComment.created_at)
-    )).all()
-    return [{**{c.key: getattr(r[0], c.key) for c in r[0].__table__.columns}, "author_name": f"{r[1]} {r[2]}" if r[1] else None} for r in rows]
+    rows = (
+        await db.execute(
+            select(ProjectComment, User.first_name, User.last_name)
+            .outerjoin(User, ProjectComment.author_id == User.id)
+            .where(
+                ProjectComment.owner_type == owner_type,
+                ProjectComment.owner_id == owner_id,
+                ProjectComment.active == True,
+            )
+            .order_by(ProjectComment.created_at)
+        )
+    ).all()
+    return [
+        {
+            **{c.key: getattr(r[0], c.key) for c in r[0].__table__.columns},
+            "author_name": f"{r[1]} {r[2]}" if r[1] else None,
+        }
+        for r in rows
+    ]
 
 
 @router.get("/{project_id}/comments", response_model=list[ProjectCommentRead])
 async def list_project_comments(
-    project_id: UUID, entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.read"), db: AsyncSession = Depends(get_db),
+    project_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
     return await _fetch_comments(db, "project", project_id)
@@ -1971,8 +2097,11 @@ async def list_project_comments(
 
 @router.get("/{project_id}/tasks/{task_id}/comments", response_model=list[ProjectCommentRead])
 async def list_task_comments(
-    project_id: UUID, task_id: UUID, entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.read"), db: AsyncSession = Depends(get_db),
+    project_id: UUID,
+    task_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
     return await _fetch_comments(db, "project_task", task_id)
@@ -1980,14 +2109,26 @@ async def list_task_comments(
 
 @router.post("/{project_id}/tasks/{task_id}/comments", response_model=ProjectCommentRead, status_code=201)
 async def create_task_comment(
-    project_id: UUID, task_id: UUID, body: ProjectCommentCreate,
+    project_id: UUID,
+    task_id: UUID,
+    body: ProjectCommentCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("project.comment.create"), db: AsyncSession = Depends(get_db),
+    _: None = require_permission("project.comment.create"),
+    db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
-    comment = ProjectComment(owner_type="project_task", owner_id=task_id, author_id=current_user.id, body=body.body, mentions=[str(m) for m in body.mentions] if body.mentions else None, parent_id=body.parent_id)
-    db.add(comment); await db.commit(); await db.refresh(comment)
+    comment = ProjectComment(
+        owner_type="project_task",
+        owner_id=task_id,
+        author_id=current_user.id,
+        body=body.body,
+        mentions=[str(m) for m in body.mentions] if body.mentions else None,
+        parent_id=body.parent_id,
+    )
+    db.add(comment)
+    await db.commit()
+    await db.refresh(comment)
     d = {c.key: getattr(comment, c.key) for c in comment.__table__.columns}
     d["author_name"] = f"{current_user.first_name} {current_user.last_name}"
     return d
@@ -1995,14 +2136,25 @@ async def create_task_comment(
 
 @router.post("/{project_id}/comments", response_model=ProjectCommentRead, status_code=201)
 async def create_project_comment(
-    project_id: UUID, body: ProjectCommentCreate,
+    project_id: UUID,
+    body: ProjectCommentCreate,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("project.comment.create"), db: AsyncSession = Depends(get_db),
+    _: None = require_permission("project.comment.create"),
+    db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
-    comment = ProjectComment(owner_type="project", owner_id=project_id, author_id=current_user.id, body=body.body, mentions=[str(m) for m in body.mentions] if body.mentions else None, parent_id=body.parent_id)
-    db.add(comment); await db.commit(); await db.refresh(comment)
+    comment = ProjectComment(
+        owner_type="project",
+        owner_id=project_id,
+        author_id=current_user.id,
+        body=body.body,
+        mentions=[str(m) for m in body.mentions] if body.mentions else None,
+        parent_id=body.parent_id,
+    )
+    db.add(comment)
+    await db.commit()
+    await db.refresh(comment)
     d = {c.key: getattr(comment, c.key) for c in comment.__table__.columns}
     d["author_name"] = f"{current_user.first_name} {current_user.last_name}"
     return d
@@ -2010,15 +2162,19 @@ async def create_project_comment(
 
 @router.delete("/{project_id}/comments/{comment_id}", status_code=204)
 async def delete_comment(
-    project_id: UUID, comment_id: UUID,
+    project_id: UUID,
+    comment_id: UUID,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
-    _: None = require_permission("project.comment.delete"), db: AsyncSession = Depends(get_db),
+    _: None = require_permission("project.comment.delete"),
+    db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
     comment = (await db.execute(select(ProjectComment).where(ProjectComment.id == comment_id))).scalar_one_or_none()
-    if not comment: raise HTTPException(404, "Comment not found")
-    comment.active = False; await db.commit()
+    if not comment:
+        raise HTTPException(404, "Comment not found")
+    comment.active = False
+    await db.commit()
 
 
 # ── Project Status History ─────────────────────────────────────────────
@@ -2026,18 +2182,33 @@ async def delete_comment(
 
 @router.get("/{project_id}/status-history", response_model=list[ProjectStatusHistoryRead])
 async def list_status_history(
-    project_id: UUID, entity_id: UUID = Depends(get_current_entity),
-    _: None = require_permission("project.read"), db: AsyncSession = Depends(get_db),
+    project_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
 ):
     await _get_project_or_404(db, project_id, entity_id)
-    rows = (await db.execute(
-        select(ProjectStatusHistory, User.first_name, User.last_name)
-        .outerjoin(User, ProjectStatusHistory.changed_by == User.id)
-        .where(ProjectStatusHistory.project_id == project_id)
-        .order_by(ProjectStatusHistory.changed_at.desc())
-    )).all()
-    return [{"id": r[0].id, "project_id": r[0].project_id, "from_status": r[0].from_status, "to_status": r[0].to_status, "changed_by": r[0].changed_by, "reason": r[0].reason, "changed_at": r[0].changed_at, "changed_by_name": f"{r[1]} {r[2]}" if r[1] else None} for r in rows]
-
+    rows = (
+        await db.execute(
+            select(ProjectStatusHistory, User.first_name, User.last_name)
+            .outerjoin(User, ProjectStatusHistory.changed_by == User.id)
+            .where(ProjectStatusHistory.project_id == project_id)
+            .order_by(ProjectStatusHistory.changed_at.desc())
+        )
+    ).all()
+    return [
+        {
+            "id": r[0].id,
+            "project_id": r[0].project_id,
+            "from_status": r[0].from_status,
+            "to_status": r[0].to_status,
+            "changed_by": r[0].changed_by,
+            "reason": r[0].reason,
+            "changed_at": r[0].changed_at,
+            "changed_by_name": f"{r[1]} {r[2]}" if r[1] else None,
+        }
+        for r in rows
+    ]
 
 
 # ── Projets → Planner link ─────────────────────────────────────────────
@@ -2072,18 +2243,19 @@ async def list_planner_links(
     """List which tasks of this project already have Planner activities."""
     await _get_project_or_404(db, project_id, entity_id)
     from app.models.planner import PlannerActivity
-    rows = (await db.execute(
-        select(PlannerActivity.source_task_id, PlannerActivity.id, PlannerActivity.status, PlannerActivity.title)
-        .where(
-            PlannerActivity.project_id == project_id,
-            PlannerActivity.source_task_id.isnot(None),
-            PlannerActivity.active == True,
+
+    rows = (
+        await db.execute(
+            select(
+                PlannerActivity.source_task_id, PlannerActivity.id, PlannerActivity.status, PlannerActivity.title
+            ).where(
+                PlannerActivity.project_id == project_id,
+                PlannerActivity.source_task_id.isnot(None),
+                PlannerActivity.active == True,
+            )
         )
-    )).all()
-    return [
-        {"task_id": str(r[0]), "activity_id": str(r[1]), "status": r[2], "title": r[3]}
-        for r in rows
-    ]
+    ).all()
+    return [{"task_id": str(r[0]), "activity_id": str(r[1]), "status": r[2], "title": r[3]} for r in rows]
 
 
 @router.delete("/{project_id}/tasks/{task_id}/planner-link", status_code=204)
@@ -2107,13 +2279,19 @@ async def unlink_task_from_planner(
     await _get_project_or_404(db, project_id, entity_id)
     from app.models.planner import PlannerActivity
 
-    linked_activities = (await db.execute(
-        select(PlannerActivity).where(
-            PlannerActivity.project_id == project_id,
-            PlannerActivity.source_task_id == task_id,
-            PlannerActivity.active == True,
+    linked_activities = (
+        (
+            await db.execute(
+                select(PlannerActivity).where(
+                    PlannerActivity.project_id == project_id,
+                    PlannerActivity.source_task_id == task_id,
+                    PlannerActivity.active == True,
+                )
+            )
         )
-    )).scalars().all()
+        .scalars()
+        .all()
+    )
     if not linked_activities:
         return None
 
@@ -2162,15 +2340,21 @@ async def list_breakdown_pending_tasks(
     # Only the latest unresolved marker per task_id counts. "Unresolved"
     # means details.resolved is not True. We query all breakdown events
     # for the project, then filter in Python (simpler than JSON-aware SQL).
-    rows = (await db.execute(
-        select(AuditLog)
-        .where(
-            AuditLog.entity_id == entity_id,
-            AuditLog.action == "project.task.breakdown_pending",
-            AuditLog.resource_type == "project_task",
+    rows = (
+        (
+            await db.execute(
+                select(AuditLog)
+                .where(
+                    AuditLog.entity_id == entity_id,
+                    AuditLog.action == "project.task.breakdown_pending",
+                    AuditLog.resource_type == "project_task",
+                )
+                .order_by(AuditLog.created_at.desc())
+            )
         )
-        .order_by(AuditLog.created_at.desc())
-    )).scalars().all()
+        .scalars()
+        .all()
+    )
 
     latest_per_task: dict[str, AuditLog] = {}
     for row in rows:
@@ -2187,10 +2371,18 @@ async def list_breakdown_pending_tasks(
             "task_id": tid,
             "audit_id": str(audit.id),
             "parent_task_id": (audit.details or {}).get("parent_task_id") if isinstance(audit.details, dict) else None,
-            "parent_task_title": (audit.details or {}).get("parent_task_title") if isinstance(audit.details, dict) else None,
-            "proposed_start_date": (audit.details or {}).get("proposed_start_date") if isinstance(audit.details, dict) else None,
-            "proposed_end_date": (audit.details or {}).get("proposed_end_date") if isinstance(audit.details, dict) else None,
-            "proposed_status": (audit.details or {}).get("proposed_status") if isinstance(audit.details, dict) else None,
+            "parent_task_title": (audit.details or {}).get("parent_task_title")
+            if isinstance(audit.details, dict)
+            else None,
+            "proposed_start_date": (audit.details or {}).get("proposed_start_date")
+            if isinstance(audit.details, dict)
+            else None,
+            "proposed_end_date": (audit.details or {}).get("proposed_end_date")
+            if isinstance(audit.details, dict)
+            else None,
+            "proposed_status": (audit.details or {}).get("proposed_status")
+            if isinstance(audit.details, dict)
+            else None,
             "created_at": audit.created_at.isoformat() if audit.created_at else None,
             "resolved": bool(((audit.details or {}) if isinstance(audit.details, dict) else {}).get("resolved", False)),
         }
@@ -2218,17 +2410,19 @@ async def resolve_breakdown_pending(
     await _get_project_or_404(db, project_id, entity_id)
 
     # Find the latest unresolved breakdown marker for this task
-    latest = (await db.execute(
-        select(AuditLog)
-        .where(
-            AuditLog.entity_id == entity_id,
-            AuditLog.action == "project.task.breakdown_pending",
-            AuditLog.resource_type == "project_task",
-            AuditLog.resource_id == str(task_id),
+    latest = (
+        await db.execute(
+            select(AuditLog)
+            .where(
+                AuditLog.entity_id == entity_id,
+                AuditLog.action == "project.task.breakdown_pending",
+                AuditLog.resource_type == "project_task",
+                AuditLog.resource_id == str(task_id),
+            )
+            .order_by(AuditLog.created_at.desc())
+            .limit(1)
         )
-        .order_by(AuditLog.created_at.desc())
-        .limit(1)
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
 
     base_details = latest.details if latest and isinstance(latest.details, dict) else {}
 
@@ -2289,14 +2483,19 @@ async def send_tasks_to_planner(
     from app.models.planner import PlannerActivity
 
     # Get already-linked task IDs
-    existing = (await db.execute(
-        select(PlannerActivity.source_task_id)
-        .where(
-            PlannerActivity.project_id == project_id,
-            PlannerActivity.source_task_id.isnot(None),
-            PlannerActivity.active == True,
+    existing = (
+        (
+            await db.execute(
+                select(PlannerActivity.source_task_id).where(
+                    PlannerActivity.project_id == project_id,
+                    PlannerActivity.source_task_id.isnot(None),
+                    PlannerActivity.active == True,
+                )
+            )
         )
-    )).scalars().all()
+        .scalars()
+        .all()
+    )
     linked = set(str(x) for x in existing)
 
     created = 0
@@ -2308,15 +2507,21 @@ async def send_tasks_to_planner(
         if tid in linked:
             skipped += 1
             continue
-        task = (await db.execute(
-            select(ProjectTask).where(ProjectTask.id == item.task_id, ProjectTask.project_id == project_id, ProjectTask.active == True)
-        )).scalar_one_or_none()
+        task = (
+            await db.execute(
+                select(ProjectTask).where(
+                    ProjectTask.id == item.task_id, ProjectTask.project_id == project_id, ProjectTask.active == True
+                )
+            )
+        ).scalar_one_or_none()
         if not task:
             errors.append(f"Tâche {tid} introuvable")
             continue
         # Inherit pob_quota from the task by default. The frontend can
         # override per item via item.pax_quota (spec 1.5 / 2.4).
-        effective_pax_quota = item.pax_quota if item.pax_quota is not None else max(0, int(getattr(task, "pob_quota", 0) or 0))
+        effective_pax_quota = (
+            item.pax_quota if item.pax_quota is not None else max(0, int(getattr(task, "pob_quota", 0) or 0))
+        )
         if effective_pax_quota <= 0:
             effective_pax_quota = 1
         activity = PlannerActivity(
@@ -2347,7 +2552,6 @@ async def send_tasks_to_planner(
     return SendToPlannerResult(created=created, skipped=skipped, errors=errors)
 
 
-
 # ── Project Templates ──────────────────────────────────────────────────
 
 
@@ -2356,7 +2560,10 @@ async def send_tasks_to_planner(
 
 @router.post("/templates", status_code=201)
 async def save_as_template(
-    project_id: UUID, name: str, description: str | None = None, category: str | None = None,
+    project_id: UUID,
+    name: str,
+    description: str | None = None,
+    category: str | None = None,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("project.create"),
@@ -2364,25 +2571,79 @@ async def save_as_template(
 ):
     """Snapshot a project into a reusable template."""
     from app.models.common import ProjectTemplate, ProjectWBSNode
+
     project = await _get_project_or_404(db, project_id, entity_id)
-    tasks = (await db.execute(select(ProjectTask).where(ProjectTask.project_id == project_id, ProjectTask.active == True))).scalars().all()
-    milestones = (await db.execute(select(ProjectMilestone).where(ProjectMilestone.project_id == project_id, ProjectMilestone.active == True))).scalars().all()
-    wbs = (await db.execute(select(ProjectWBSNode).where(ProjectWBSNode.project_id == project_id, ProjectWBSNode.active == True))).scalars().all()
+    tasks = (
+        (await db.execute(select(ProjectTask).where(ProjectTask.project_id == project_id, ProjectTask.active == True)))
+        .scalars()
+        .all()
+    )
+    milestones = (
+        (
+            await db.execute(
+                select(ProjectMilestone).where(
+                    ProjectMilestone.project_id == project_id, ProjectMilestone.active == True
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    wbs = (
+        (
+            await db.execute(
+                select(ProjectWBSNode).where(ProjectWBSNode.project_id == project_id, ProjectWBSNode.active == True)
+            )
+        )
+        .scalars()
+        .all()
+    )
     task_id_to_idx = {t.id: i for i, t in enumerate(tasks)}
     snapshot = {
-        "project": {"name": project.name, "project_type": project.project_type, "priority": project.priority, "weather": project.weather, "description": project.description},
-        "tasks": [{"title": t.title, "description": t.description, "status": "todo", "priority": t.priority, "estimated_hours": t.estimated_hours, "order": t.order, "parent_idx": task_id_to_idx.get(t.parent_id)} for t in tasks],
+        "project": {
+            "name": project.name,
+            "project_type": project.project_type,
+            "priority": project.priority,
+            "weather": project.weather,
+            "description": project.description,
+        },
+        "tasks": [
+            {
+                "title": t.title,
+                "description": t.description,
+                "status": "todo",
+                "priority": t.priority,
+                "estimated_hours": t.estimated_hours,
+                "order": t.order,
+                "parent_idx": task_id_to_idx.get(t.parent_id),
+            }
+            for t in tasks
+        ],
         "milestones": [{"name": m.name, "description": m.description} for m in milestones],
-        "wbs_nodes": [{"code": w.code, "name": w.name, "description": w.description, "budget": w.budget, "order": w.order} for w in wbs],
+        "wbs_nodes": [
+            {"code": w.code, "name": w.name, "description": w.description, "budget": w.budget, "order": w.order}
+            for w in wbs
+        ],
     }
-    tpl = ProjectTemplate(entity_id=entity_id, name=name, description=description, category=category, snapshot=snapshot, source_project_id=project_id, created_by=current_user.id)
-    db.add(tpl); await db.commit(); await db.refresh(tpl)
+    tpl = ProjectTemplate(
+        entity_id=entity_id,
+        name=name,
+        description=description,
+        category=category,
+        snapshot=snapshot,
+        source_project_id=project_id,
+        created_by=current_user.id,
+    )
+    db.add(tpl)
+    await db.commit()
+    await db.refresh(tpl)
     return {c.key: getattr(tpl, c.key) for c in tpl.__table__.columns}
 
 
 @router.post("/from-template", status_code=201)
 async def create_from_template(
-    template_id: UUID, name: str,
+    template_id: UUID,
+    name: str,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("project.create"),
@@ -2390,54 +2651,181 @@ async def create_from_template(
 ):
     """Clone a project from a template."""
     from app.models.common import ProjectTemplate, ProjectWBSNode
-    tpl = (await db.execute(select(ProjectTemplate).where(ProjectTemplate.id == template_id, ProjectTemplate.entity_id == entity_id))).scalar_one_or_none()
-    if not tpl: raise HTTPException(404, "Template not found")
+
+    tpl = (
+        await db.execute(
+            select(ProjectTemplate).where(ProjectTemplate.id == template_id, ProjectTemplate.entity_id == entity_id)
+        )
+    ).scalar_one_or_none()
+    if not tpl:
+        raise HTTPException(404, "Template not found")
     snap = tpl.snapshot
     code = await generate_reference("PRJ", db, entity_id=entity_id)
-    project = Project(entity_id=entity_id, code=code, name=name, project_type=snap.get("project", {}).get("project_type", "project"), priority=snap.get("project", {}).get("priority", "medium"), weather=snap.get("project", {}).get("weather", "sunny"), description=snap.get("project", {}).get("description"), status="draft")
-    db.add(project); await db.flush()
+    project = Project(
+        entity_id=entity_id,
+        code=code,
+        name=name,
+        project_type=snap.get("project", {}).get("project_type", "project"),
+        priority=snap.get("project", {}).get("priority", "medium"),
+        weather=snap.get("project", {}).get("weather", "sunny"),
+        description=snap.get("project", {}).get("description"),
+        status="draft",
+    )
+    db.add(project)
+    await db.flush()
     task_map: dict[int, UUID] = {}
     for i, td in enumerate(snap.get("tasks", [])):
         parent_id = task_map.get(td.get("parent_idx")) if td.get("parent_idx") is not None else None
-        task = ProjectTask(project_id=project.id, parent_id=parent_id, title=td["title"], description=td.get("description"), status="todo", priority=td.get("priority", "medium"), estimated_hours=td.get("estimated_hours"), order=td.get("order", 0))
-        db.add(task); await db.flush(); task_map[i] = task.id
+        task = ProjectTask(
+            project_id=project.id,
+            parent_id=parent_id,
+            title=td["title"],
+            description=td.get("description"),
+            status="todo",
+            priority=td.get("priority", "medium"),
+            estimated_hours=td.get("estimated_hours"),
+            order=td.get("order", 0),
+        )
+        db.add(task)
+        await db.flush()
+        task_map[i] = task.id
     for md in snap.get("milestones", []):
         db.add(ProjectMilestone(project_id=project.id, name=md["name"], description=md.get("description")))
     for wd in snap.get("wbs_nodes", []):
-        db.add(ProjectWBSNode(project_id=project.id, code=wd["code"], name=wd["name"], description=wd.get("description"), budget=wd.get("budget"), order=wd.get("order", 0)))
-    tpl.usage_count += 1; await db.commit(); await db.refresh(project)
+        db.add(
+            ProjectWBSNode(
+                project_id=project.id,
+                code=wd["code"],
+                name=wd["name"],
+                description=wd.get("description"),
+                budget=wd.get("budget"),
+                order=wd.get("order", 0),
+            )
+        )
+    tpl.usage_count += 1
+    await db.commit()
+    await db.refresh(project)
     d = {c.key: getattr(project, c.key) for c in project.__table__.columns}
-    d["manager_name"] = None; d["tier_name"] = None; d["parent_name"] = None; d["department_name"] = None
-    d["task_count"] = len(snap.get("tasks", [])); d["member_count"] = 0; d["children_count"] = 0
+    d["manager_name"] = None
+    d["tier_name"] = None
+    d["parent_name"] = None
+    d["department_name"] = None
+    d["task_count"] = len(snap.get("tasks", []))
+    d["member_count"] = 0
+    d["children_count"] = 0
     return d
 
 
 @router.delete("/templates/{template_id}", status_code=204)
-async def delete_template(template_id: UUID, entity_id: UUID = Depends(get_current_entity), _: None = require_permission("project.delete"), db: AsyncSession = Depends(get_db)):
+async def delete_template(
+    template_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.delete"),
+    db: AsyncSession = Depends(get_db),
+):
     from app.models.common import ProjectTemplate
-    tpl = (await db.execute(select(ProjectTemplate).where(ProjectTemplate.id == template_id, ProjectTemplate.entity_id == entity_id))).scalar_one_or_none()
-    if not tpl: raise HTTPException(404, "Template not found")
-    tpl.active = False; await db.commit()
+
+    tpl = (
+        await db.execute(
+            select(ProjectTemplate).where(ProjectTemplate.id == template_id, ProjectTemplate.entity_id == entity_id)
+        )
+    ).scalar_one_or_none()
+    if not tpl:
+        raise HTTPException(404, "Template not found")
+    tpl.active = False
+    await db.commit()
 
 
 # ── Custom Fields ──────────────────────────────────────────────────────
 
 
 @router.get("/{project_id}/custom-fields")
-async def list_custom_fields(project_id: UUID, entity_id: UUID = Depends(get_current_entity), _: None = require_permission("project.read"), db: AsyncSession = Depends(get_db)):
+async def list_custom_fields(
+    project_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
     from app.models.common import CustomFieldDef, CustomFieldValue
-    defs = (await db.execute(select(CustomFieldDef).where(CustomFieldDef.entity_id == entity_id, CustomFieldDef.target_type == "project", CustomFieldDef.active == True).order_by(CustomFieldDef.order))).scalars().all()
-    values = (await db.execute(select(CustomFieldValue).where(CustomFieldValue.owner_type == "project", CustomFieldValue.owner_id == project_id))).scalars().all()
+
+    defs = (
+        (
+            await db.execute(
+                select(CustomFieldDef)
+                .where(
+                    CustomFieldDef.entity_id == entity_id,
+                    CustomFieldDef.target_type == "project",
+                    CustomFieldDef.active == True,
+                )
+                .order_by(CustomFieldDef.order)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    values = (
+        (
+            await db.execute(
+                select(CustomFieldValue).where(
+                    CustomFieldValue.owner_type == "project", CustomFieldValue.owner_id == project_id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
     val_map = {str(v.field_def_id): v for v in values}
-    return [{"id": str(d.id), "slug": d.slug, "label": d.label, "field_type": d.field_type, "options": d.options, "required": d.required, "default_value": d.default_value, "order": d.order, "value_text": val_map[str(d.id)].value_text if str(d.id) in val_map else d.default_value, "value_json": val_map[str(d.id)].value_json if str(d.id) in val_map else None} for d in defs]
+    return [
+        {
+            "id": str(d.id),
+            "slug": d.slug,
+            "label": d.label,
+            "field_type": d.field_type,
+            "options": d.options,
+            "required": d.required,
+            "default_value": d.default_value,
+            "order": d.order,
+            "value_text": val_map[str(d.id)].value_text if str(d.id) in val_map else d.default_value,
+            "value_json": val_map[str(d.id)].value_json if str(d.id) in val_map else None,
+        }
+        for d in defs
+    ]
 
 
 @router.put("/{project_id}/custom-fields/{field_def_id}")
-async def set_custom_field_value(project_id: UUID, field_def_id: UUID, value_text: str | None = None, value_json: dict | None = None, entity_id: UUID = Depends(get_current_entity), _: None = require_permission("project.update"), db: AsyncSession = Depends(get_db)):
+async def set_custom_field_value(
+    project_id: UUID,
+    field_def_id: UUID,
+    value_text: str | None = None,
+    value_json: dict | None = None,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.update"),
+    db: AsyncSession = Depends(get_db),
+):
     from app.models.common import CustomFieldValue
-    existing = (await db.execute(select(CustomFieldValue).where(CustomFieldValue.field_def_id == field_def_id, CustomFieldValue.owner_type == "project", CustomFieldValue.owner_id == project_id))).scalar_one_or_none()
-    if existing: existing.value_text = value_text; existing.value_json = value_json
-    else: db.add(CustomFieldValue(field_def_id=field_def_id, owner_type="project", owner_id=project_id, value_text=value_text, value_json=value_json))
+
+    existing = (
+        await db.execute(
+            select(CustomFieldValue).where(
+                CustomFieldValue.field_def_id == field_def_id,
+                CustomFieldValue.owner_type == "project",
+                CustomFieldValue.owner_id == project_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        existing.value_text = value_text
+        existing.value_json = value_json
+    else:
+        db.add(
+            CustomFieldValue(
+                field_def_id=field_def_id,
+                owner_type="project",
+                owner_id=project_id,
+                value_text=value_text,
+                value_json=value_json,
+            )
+        )
     await db.commit()
     return {"ok": True}
 
@@ -2446,28 +2834,99 @@ async def set_custom_field_value(project_id: UUID, field_def_id: UUID, value_tex
 
 
 @router.get("/{project_id}/pdf")
-async def export_project_pdf(project_id: UUID, entity_id: UUID = Depends(get_current_entity), current_user: User = Depends(get_current_user), _: None = require_permission("project.export"), db: AsyncSession = Depends(get_db)):
+async def export_project_pdf(
+    project_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("project.export"),
+    db: AsyncSession = Depends(get_db),
+):
     """Generate a PDF report for the project."""
     from fastapi.responses import Response
+
     from app.core.pdf_templates import render_pdf
     from app.models.common import ProjectWBSNode
+
     project = await _get_project_or_404(db, project_id, entity_id)
-    tasks = (await db.execute(select(ProjectTask).where(ProjectTask.project_id == project_id, ProjectTask.active == True).order_by(ProjectTask.order))).scalars().all()
-    milestones = (await db.execute(select(ProjectMilestone).where(ProjectMilestone.project_id == project_id, ProjectMilestone.active == True))).scalars().all()
-    wbs = (await db.execute(select(ProjectWBSNode).where(ProjectWBSNode.project_id == project_id, ProjectWBSNode.active == True).order_by(ProjectWBSNode.code))).scalars().all()
+    tasks = (
+        (
+            await db.execute(
+                select(ProjectTask)
+                .where(ProjectTask.project_id == project_id, ProjectTask.active == True)
+                .order_by(ProjectTask.order)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    milestones = (
+        (
+            await db.execute(
+                select(ProjectMilestone).where(
+                    ProjectMilestone.project_id == project_id, ProjectMilestone.active == True
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    wbs = (
+        (
+            await db.execute(
+                select(ProjectWBSNode)
+                .where(ProjectWBSNode.project_id == project_id, ProjectWBSNode.active == True)
+                .order_by(ProjectWBSNode.code)
+            )
+        )
+        .scalars()
+        .all()
+    )
     manager = await db.get(User, project.manager_id) if project.manager_id else None
     variables = {
-        "project": {"code": project.code, "name": project.name, "status": project.status, "priority": project.priority, "progress": project.progress, "project_type": project.project_type, "weather": project.weather, "start_date": project.start_date.strftime("%d/%m/%Y") if project.start_date else "--", "end_date": project.end_date.strftime("%d/%m/%Y") if project.end_date else "--", "budget": f"{project.budget:,.0f} {project.currency or 'XAF'}" if project.budget else "--", "description": project.description or "", "manager_name": f"{manager.first_name} {manager.last_name}" if manager else "--"},
-        "tasks": [{"title": t.title, "status": t.status, "priority": t.priority, "progress": t.progress, "start": t.start_date.strftime("%d/%m/%Y") if t.start_date else "--", "end": t.due_date.strftime("%d/%m/%Y") if t.due_date else "--"} for t in tasks],
-        "milestones": [{"name": m.name, "due_date": m.due_date.strftime("%d/%m/%Y") if m.due_date else "--", "status": m.status} for m in milestones],
-        "wbs_nodes": [{"code": w.code, "name": w.name, "budget": f"{w.budget:,.0f}" if w.budget else "--"} for w in wbs],
-        "task_count": len(tasks), "milestone_count": len(milestones),
-        "generated_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M"),
+        "project": {
+            "code": project.code,
+            "name": project.name,
+            "status": project.status,
+            "priority": project.priority,
+            "progress": project.progress,
+            "project_type": project.project_type,
+            "weather": project.weather,
+            "start_date": project.start_date.strftime("%d/%m/%Y") if project.start_date else "--",
+            "end_date": project.end_date.strftime("%d/%m/%Y") if project.end_date else "--",
+            "budget": f"{project.budget:,.0f} {project.currency or 'XAF'}" if project.budget else "--",
+            "description": project.description or "",
+            "manager_name": f"{manager.first_name} {manager.last_name}" if manager else "--",
+        },
+        "tasks": [
+            {
+                "title": t.title,
+                "status": t.status,
+                "priority": t.priority,
+                "progress": t.progress,
+                "start": t.start_date.strftime("%d/%m/%Y") if t.start_date else "--",
+                "end": t.due_date.strftime("%d/%m/%Y") if t.due_date else "--",
+            }
+            for t in tasks
+        ],
+        "milestones": [
+            {"name": m.name, "due_date": m.due_date.strftime("%d/%m/%Y") if m.due_date else "--", "status": m.status}
+            for m in milestones
+        ],
+        "wbs_nodes": [
+            {"code": w.code, "name": w.name, "budget": f"{w.budget:,.0f}" if w.budget else "--"} for w in wbs
+        ],
+        "task_count": len(tasks),
+        "milestone_count": len(milestones),
+        "generated_at": datetime.now(UTC).strftime("%d/%m/%Y %H:%M"),
     }
     pdf_bytes = await render_pdf(db, slug="project.report", entity_id=entity_id, variables=variables, language="fr")
     if not pdf_bytes:
         raise HTTPException(404, "Template PDF 'project.report' introuvable. Creez-le dans Parametres > Modeles PDF.")
-    return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename={project.code}_report.pdf'})
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={project.code}_report.pdf"},
+    )
 
 
 # ── Gantt PDF export (A3 landscape) ──────────────────────────────────────
@@ -2520,6 +2979,7 @@ class ProjectGanttPdfRow(BaseModel):
 class ProjectGanttPdfExportRequest(BaseModel):
     """Server-side rendered Projets Gantt PDF payload — same shape as the
     planner export request. Uses the shared `planner.gantt_export` template."""
+
     title: str | None = None
     subtitle: str | None = None
     date_range: str | None = None
@@ -2545,11 +3005,12 @@ async def export_projects_gantt_pdf(
     crisp vector output via WeasyPrint.
     """
     from fastapi.responses import Response
+
     from app.core.pdf_templates import render_pdf
     from app.models.common import Entity
 
     entity = await db.get(Entity, entity_id)
-    generated_at = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
+    generated_at = datetime.now(UTC).strftime("%d/%m/%Y %H:%M")
     generated_by = getattr(current_user, "full_name", None) or current_user.email
 
     column_groups: list[dict] = []
@@ -2591,7 +3052,7 @@ async def export_projects_gantt_pdf(
             "PDF template 'planner.gantt_export' not found. Run the seed_pdf_templates job.",
         )
 
-    filename = f"projets-gantt-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')}.pdf"
+    filename = f"projets-gantt-{datetime.now(UTC).strftime('%Y%m%d-%H%M')}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -2603,22 +3064,85 @@ async def export_projects_gantt_pdf(
 
 
 @router.get("/{project_id}/activity-feed")
-async def get_activity_feed(project_id: UUID, limit: int = 50, entity_id: UUID = Depends(get_current_entity), _: None = require_permission("project.read"), db: AsyncSession = Depends(get_db)):
+async def get_activity_feed(
+    project_id: UUID,
+    limit: int = 50,
+    entity_id: UUID = Depends(get_current_entity),
+    _: None = require_permission("project.read"),
+    db: AsyncSession = Depends(get_db),
+):
     """Unified activity timeline — merges status changes, task modifications, comments."""
     await _get_project_or_404(db, project_id, entity_id)
     feed: list[dict] = []
-    from app.models.common import ProjectStatusHistory, ProjectComment
+    from app.models.common import ProjectComment, ProjectStatusHistory
+
     # Status history
-    for r, fn, ln in (await db.execute(select(ProjectStatusHistory, User.first_name, User.last_name).outerjoin(User, ProjectStatusHistory.changed_by == User.id).where(ProjectStatusHistory.project_id == project_id).order_by(ProjectStatusHistory.changed_at.desc()).limit(limit))).all():
-        feed.append({"type": "status_change", "date": r.changed_at.isoformat(), "user": f"{fn} {ln}" if fn else None, "detail": f"{r.from_status or chr(8212)} -> {r.to_status}", "reason": r.reason})
+    for r, fn, ln in (
+        await db.execute(
+            select(ProjectStatusHistory, User.first_name, User.last_name)
+            .outerjoin(User, ProjectStatusHistory.changed_by == User.id)
+            .where(ProjectStatusHistory.project_id == project_id)
+            .order_by(ProjectStatusHistory.changed_at.desc())
+            .limit(limit)
+        )
+    ).all():
+        feed.append(
+            {
+                "type": "status_change",
+                "date": r.changed_at.isoformat(),
+                "user": f"{fn} {ln}" if fn else None,
+                "detail": f"{r.from_status or chr(8212)} -> {r.to_status}",
+                "reason": r.reason,
+            }
+        )
     # Task changelog
     task_ids = (await db.execute(select(ProjectTask.id).where(ProjectTask.project_id == project_id))).scalars().all()
     if task_ids:
-        for cl, fn, ln, title in (await db.execute(select(TaskChangeLog, User.first_name, User.last_name, ProjectTask.title).outerjoin(User, TaskChangeLog.changed_by == User.id).outerjoin(ProjectTask, TaskChangeLog.task_id == ProjectTask.id).where(TaskChangeLog.task_id.in_(task_ids)).order_by(TaskChangeLog.created_at.desc()).limit(limit))).all():
-            feed.append({"type": "task_change", "date": cl.created_at.isoformat(), "user": f"{fn} {ln}" if fn else None, "task_title": title, "field": cl.field_name, "old": cl.old_value, "new": cl.new_value, "change_type": cl.change_type})
+        for cl, fn, ln, title in (
+            await db.execute(
+                select(TaskChangeLog, User.first_name, User.last_name, ProjectTask.title)
+                .outerjoin(User, TaskChangeLog.changed_by == User.id)
+                .outerjoin(ProjectTask, TaskChangeLog.task_id == ProjectTask.id)
+                .where(TaskChangeLog.task_id.in_(task_ids))
+                .order_by(TaskChangeLog.created_at.desc())
+                .limit(limit)
+            )
+        ).all():
+            feed.append(
+                {
+                    "type": "task_change",
+                    "date": cl.created_at.isoformat(),
+                    "user": f"{fn} {ln}" if fn else None,
+                    "task_title": title,
+                    "field": cl.field_name,
+                    "old": cl.old_value,
+                    "new": cl.new_value,
+                    "change_type": cl.change_type,
+                }
+            )
     # Comments
     owner_ids = [project_id] + list(task_ids)
-    for cm, fn, ln in (await db.execute(select(ProjectComment, User.first_name, User.last_name).outerjoin(User, ProjectComment.author_id == User.id).where(ProjectComment.owner_type.in_(["project", "project_task"]), ProjectComment.owner_id.in_(owner_ids), ProjectComment.active == True).order_by(ProjectComment.created_at.desc()).limit(limit))).all():
-        feed.append({"type": "comment", "date": cm.created_at.isoformat(), "user": f"{fn} {ln}" if fn else None, "body": cm.body[:200], "owner_type": cm.owner_type})
+    for cm, fn, ln in (
+        await db.execute(
+            select(ProjectComment, User.first_name, User.last_name)
+            .outerjoin(User, ProjectComment.author_id == User.id)
+            .where(
+                ProjectComment.owner_type.in_(["project", "project_task"]),
+                ProjectComment.owner_id.in_(owner_ids),
+                ProjectComment.active == True,
+            )
+            .order_by(ProjectComment.created_at.desc())
+            .limit(limit)
+        )
+    ).all():
+        feed.append(
+            {
+                "type": "comment",
+                "date": cm.created_at.isoformat(),
+                "user": f"{fn} {ln}" if fn else None,
+                "body": cm.body[:200],
+                "owner_type": cm.owner_type,
+            }
+        )
     feed.sort(key=lambda x: x["date"], reverse=True)
     return feed[:limit]

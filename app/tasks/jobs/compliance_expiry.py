@@ -9,9 +9,9 @@ Emits events for each transition, triggering notifications.
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, update, and_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session_factory
@@ -26,7 +26,7 @@ async def check_compliance_expiry() -> None:
 
     try:
         async with async_session_factory() as db:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
             # ── Pass 1: Auto-expire overdue records ──
             expired_count = await _expire_overdue_records(db, now)
@@ -41,7 +41,9 @@ async def check_compliance_expiry() -> None:
 
             logger.info(
                 "compliance_expiry: done — %d expired, %d reminders, %d grace warnings",
-                expired_count, reminder_count, grace_count,
+                expired_count,
+                reminder_count,
+                grace_count,
             )
 
     except Exception:
@@ -64,14 +66,17 @@ async def _expire_overdue_records(db: AsyncSession, now: datetime) -> int:
 
     for rec in records:
         rec.status = "expired"
-        await emit_event("conformite.record.expired", {
-            "record_id": str(rec.id),
-            "compliance_type_id": str(rec.compliance_type_id),
-            "owner_type": rec.owner_type,
-            "owner_id": str(rec.owner_id) if rec.owner_id else None,
-            "entity_id": str(rec.entity_id),
-            "expired_at": str(rec.expires_at),
-        })
+        await emit_event(
+            "conformite.record.expired",
+            {
+                "record_id": str(rec.id),
+                "compliance_type_id": str(rec.compliance_type_id),
+                "owner_type": rec.owner_type,
+                "owner_id": str(rec.owner_id) if rec.owner_id else None,
+                "entity_id": str(rec.entity_id),
+                "expired_at": str(rec.expires_at),
+            },
+        )
 
     await db.flush()
     return len(records)
@@ -79,7 +84,7 @@ async def _expire_overdue_records(db: AsyncSession, now: datetime) -> int:
 
 async def _send_renewal_reminders(db: AsyncSession, now: datetime) -> int:
     """Send reminders for records expiring within renewal_reminder_days."""
-    from app.models.common import ComplianceRecord, ComplianceRule, ComplianceType
+    from app.models.common import ComplianceRecord, ComplianceRule
 
     # Get rules with renewal_reminder_days set
     rules_result = await db.execute(
@@ -114,16 +119,19 @@ async def _send_renewal_reminders(db: AsyncSession, now: datetime) -> int:
 
         for rec in expiring_records:
             days_until = (rec.expires_at - now).days
-            await emit_event("conformite.record.expiring_soon", {
-                "record_id": str(rec.id),
-                "compliance_type_id": str(rec.compliance_type_id),
-                "owner_type": rec.owner_type,
-                "owner_id": str(rec.owner_id) if rec.owner_id else None,
-                "entity_id": str(rec.entity_id),
-                "expires_at": str(rec.expires_at),
-                "days_remaining": days_until,
-                "rule_id": str(rule.id),
-            })
+            await emit_event(
+                "conformite.record.expiring_soon",
+                {
+                    "record_id": str(rec.id),
+                    "compliance_type_id": str(rec.compliance_type_id),
+                    "owner_type": rec.owner_type,
+                    "owner_id": str(rec.owner_id) if rec.owner_id else None,
+                    "entity_id": str(rec.entity_id),
+                    "expires_at": str(rec.expires_at),
+                    "days_remaining": days_until,
+                    "rule_id": str(rule.id),
+                },
+            )
             reminder_count += 1
 
     return reminder_count
@@ -164,15 +172,18 @@ async def _check_grace_periods(db: AsyncSession, now: datetime) -> int:
         past_grace_records = records_result.scalars().all()
 
         for rec in past_grace_records:
-            await emit_event("conformite.record.past_grace", {
-                "record_id": str(rec.id),
-                "compliance_type_id": str(rec.compliance_type_id),
-                "owner_type": rec.owner_type,
-                "owner_id": str(rec.owner_id) if rec.owner_id else None,
-                "entity_id": str(rec.entity_id),
-                "expired_at": str(rec.expires_at),
-                "grace_days": rule.grace_period_days,
-            })
+            await emit_event(
+                "conformite.record.past_grace",
+                {
+                    "record_id": str(rec.id),
+                    "compliance_type_id": str(rec.compliance_type_id),
+                    "owner_type": rec.owner_type,
+                    "owner_id": str(rec.owner_id) if rec.owner_id else None,
+                    "entity_id": str(rec.entity_id),
+                    "expired_at": str(rec.expires_at),
+                    "grace_days": rule.grace_period_days,
+                },
+            )
             grace_count += 1
 
     return grace_count

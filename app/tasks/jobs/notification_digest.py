@@ -9,9 +9,9 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 
-from app.core.email_templates import render_and_send_email
 from app.core.config import settings
 from app.core.database import async_session_factory
+from app.core.email_templates import render_and_send_email
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +50,7 @@ async def send_notification_digest() -> None:
                 logger.debug("notification_digest: no users qualify for digest")
                 return
 
-            logger.info(
-                "notification_digest: sending digest to %d users", len(rows)
-            )
+            logger.info("notification_digest: sending digest to %d users", len(rows))
 
             for row in rows:
                 user_id = row.user_id
@@ -101,13 +99,12 @@ async def send_notification_digest() -> None:
                         raise RuntimeError("Template email notification_digest indisponible")
                     logger.info(
                         "notification_digest: sent digest to %s (%d unread)",
-                        email, unread_count,
+                        email,
+                        unread_count,
                     )
 
                 except Exception:
-                    logger.exception(
-                        "notification_digest: failed to send digest to %s", email
-                    )
+                    logger.exception("notification_digest: failed to send digest to %s", email)
 
     except Exception:
         logger.exception("notification_digest: unhandled error during digest run")
@@ -137,7 +134,7 @@ def _build_digest_notifications_html(
             f"</td>"
             f"<td style='padding: 8px 12px; border-bottom: 1px solid #f0f0f0;'>"
             f"<strong>{title}</strong>"
-            f"{'<br/><span style=\"color: #666; font-size: 13px;\">' + body + '</span>' if body else ''}"
+            f"{'<br/><span style="color: #666; font-size: 13px;">' + body + '</span>' if body else ''}"
             f"</td>"
             f"</tr>"
         )

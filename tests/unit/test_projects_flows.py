@@ -1,18 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 from starlette.requests import Request
 
-from app.api.routes.modules import projets
-from app.api.routes.modules import planner
-from app.models.common import AuditLog, ProjectTask
-from app.models.planner import PlannerActivity
+from app.api.routes.modules import planner, projets
 from app.core.event_contracts import PROJECT_STATUS_CHANGED_EVENT
-from app.models.common import ProjectStatusHistory
+from app.models.common import AuditLog, ProjectStatusHistory, ProjectTask
+from app.models.planner import PlannerActivity
 from app.schemas.common import ProjectTaskUpdate, ProjectUpdate
 
 
@@ -436,7 +434,7 @@ async def test_request_revision_decision_records_audit_and_emits_event(monkeypat
     signal_id = uuid4()
     request_id = uuid4()
     target_user_id = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     signal = SimpleNamespace(
         id=signal_id,
         entity_id=entity_id,
@@ -517,7 +515,9 @@ async def test_request_revision_decision_records_audit_and_emits_event(monkeypat
         body=planner.RevisionDecisionRequestCreate(note="Décaler de 2 jours", proposed_pax_quota=8),
         request=request,
         entity_id=entity_id,
-        current_user=SimpleNamespace(id=actor_id, first_name="Arbitre", last_name="Planner", email="arbiter@example.com"),
+        current_user=SimpleNamespace(
+            id=actor_id, first_name="Arbitre", last_name="Planner", email="arbiter@example.com"
+        ),
         _=None,
         db=db,
     )
@@ -541,7 +541,7 @@ async def test_respond_revision_decision_request_records_response_and_event(monk
     request_row = SimpleNamespace(
         id=request_id,
         entity_id=entity_id,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         action="planner.revision.requested",
         resource_type="planner_revision_signal",
         resource_id=str(signal_id),
@@ -558,7 +558,7 @@ async def test_respond_revision_decision_request_records_response_and_event(monk
         details={
             "response": "accepted",
             "response_note": "Accordé",
-            "responded_at": datetime.now(timezone.utc).isoformat(),
+            "responded_at": datetime.now(UTC).isoformat(),
         },
     )
 
@@ -621,7 +621,7 @@ async def test_force_revision_decision_request_requires_overdue_and_emits_event(
     request_row = SimpleNamespace(
         id=request_id,
         entity_id=entity_id,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         action="planner.revision.requested",
         resource_type="planner_revision_signal",
         resource_id=str(signal_id),
@@ -631,14 +631,14 @@ async def test_force_revision_decision_request_requires_overdue_and_emits_event(
             "requester_user_name": "Arbitre Planner",
             "target_user_id": str(target_user_id),
             "target_user_name": "Chef Projet",
-            "due_at": (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(),
+            "due_at": (datetime.now(UTC) - timedelta(hours=2)).isoformat(),
         },
     )
     forced_row = SimpleNamespace(
         action="planner.revision.forced",
         details={
             "reason": "Délai dépassé",
-            "forced_at": datetime.now(timezone.utc).isoformat(),
+            "forced_at": datetime.now(UTC).isoformat(),
         },
     )
 

@@ -1,8 +1,9 @@
 """Integration connector test routes."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -14,7 +15,6 @@ from app.core.database import get_db
 from app.core.email_templates import render_and_send_email
 from app.models.common import Setting, User
 from app.services.core.settings_service import upsert_scoped_setting
-from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ async def _save_test_result(
     message: str,
 ) -> None:
     """Store the test result in settings for frontend display."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     for key, value in [
         (f"integration.{connector_id}.last_test_status", status),
@@ -76,11 +76,17 @@ async def _save_test_result(
 
 # ── Connector-specific test functions ────────────────────────
 
+
 async def _smtp_connect(
-    host: str, port: int, encryption: str, username: str, password: str,
+    host: str,
+    port: int,
+    encryption: str,
+    username: str,
+    password: str,
 ) -> tuple[str, str]:
     """Try connecting to a single SMTP host. Returns (status, message)."""
     import ssl as _ssl
+
     import aiosmtplib
 
     # Auto-detect SSL mode from port when encryption is ambiguous
@@ -98,8 +104,11 @@ async def _smtp_connect(
     tls_context.verify_mode = _ssl.CERT_NONE
 
     smtp = aiosmtplib.SMTP(
-        hostname=host, port=port, timeout=15,
-        use_tls=use_tls, tls_context=tls_context if use_tls else None,
+        hostname=host,
+        port=port,
+        timeout=15,
+        use_tls=use_tls,
+        tls_context=tls_context if use_tls else None,
     )
     await smtp.connect()
     if start_tls:
@@ -138,16 +147,14 @@ async def _test_smtp(cfg: dict[str, str]) -> tuple[str, str]:
             continue
         try:
             status, msg = await _smtp_connect(fallback, port, encryption, username, password)
-            return status, (
-                f"{msg} (via Docker interne '{fallback}' — "
-                f"'{host}' inaccessible depuis le conteneur)"
-            )
+            return status, (f"{msg} (via Docker interne '{fallback}' — '{host}' inaccessible depuis le conteneur)")
         except Exception:
             continue
 
     # 3. All failed — return diagnostic info
     error_msg = f"Échec connexion SMTP ({host}:{port}): {primary_error}"
     import socket
+
     try:
         resolved = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
         ips = list({r[4][0] for r in resolved})
@@ -156,7 +163,6 @@ async def _test_smtp(cfg: dict[str, str]) -> tuple[str, str]:
         error_msg += f" — DNS échouée: {dns_err}"
 
     return "error", error_msg
-
 
 
 async def _test_s3(cfg: dict[str, str]) -> tuple[str, str]:
@@ -206,6 +212,7 @@ async def _test_webhook(cfg: dict[str, str]) -> tuple[str, str]:
 
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.head(url)
             if resp.status_code < 500:
@@ -253,6 +260,7 @@ async def _test_sms_twilio(cfg: dict[str, str]) -> tuple[str, str]:
 
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(
                 f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}.json",
@@ -277,6 +285,7 @@ async def _test_sms_vonage(cfg: dict[str, str]) -> tuple[str, str]:
 
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(
                 f"https://rest.nexmo.com/account/get-balance?api_key={api_key}&api_secret={api_secret}",
@@ -314,12 +323,15 @@ async def _test_sms_ovh(cfg: dict[str, str]) -> tuple[str, str]:
         signature = "$1$" + hashlib.sha1(to_sign.encode("utf-8")).hexdigest()
 
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(url, headers={
-                "X-Ovh-Application": app_key,
-                "X-Ovh-Consumer": consumer_key,
-                "X-Ovh-Timestamp": timestamp,
-                "X-Ovh-Signature": signature,
-            })
+            resp = await client.get(
+                url,
+                headers={
+                    "X-Ovh-Application": app_key,
+                    "X-Ovh-Consumer": consumer_key,
+                    "X-Ovh-Timestamp": timestamp,
+                    "X-Ovh-Signature": signature,
+                },
+            )
             if resp.status_code == 200:
                 data = resp.json()
                 credits_left = data.get("creditsLeft", "?")
@@ -342,6 +354,7 @@ async def _test_whatsapp(cfg: dict[str, str]) -> tuple[str, str]:
 
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(
                 f"https://graph.facebook.com/{api_version}/{phone_number_id}",
@@ -373,6 +386,7 @@ async def _test_ai(cfg: dict[str, str]) -> tuple[str, str]:
 
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=15) as client:
             if provider == "anthropic":
                 resp = await client.get(
@@ -452,8 +466,11 @@ async def _test_gouti(
             return
         try:
             from app.services.connectors.gouti_capabilities import (
-                probe_read_capabilities, build_capabilities, save_capabilities,
+                build_capabilities,
+                probe_read_capabilities,
+                save_capabilities,
             )
+
             probe_headers = {
                 "Authorization": f"Bearer {active_token}",
                 "Client-Id": client_id,
@@ -470,6 +487,7 @@ async def _test_gouti(
 
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=15) as client:
             # Strategy 1: Direct token — just call a lightweight endpoint
             if token:
@@ -536,9 +554,11 @@ async def _test_gouti(
 
 # ── Connector test dispatcher ────────────────────────────────
 
+
 async def _test_riseup(cfg: dict[str, str]) -> tuple[str, str]:
     """Test Rise Up LMS API connection."""
     from app.services.connectors.riseup_connector import RiseUpConnector
+
     connector = RiseUpConnector(cfg)
     return await connector.test_connection()
 
@@ -590,7 +610,7 @@ async def test_connector(
             connector_id=connector_id,
             status="error",
             message=f"Connecteur inconnu: {connector_id}",
-            tested_at=datetime.now(timezone.utc).isoformat(),
+            tested_at=datetime.now(UTC).isoformat(),
         )
 
     prefix, tester = CONNECTOR_TESTERS[connector_id]
@@ -609,15 +629,16 @@ async def test_connector(
         connector_id=connector_id,
         status=status,
         message=message,
-        tested_at=datetime.now(timezone.utc).isoformat(),
+        tested_at=datetime.now(UTC).isoformat(),
     )
 
 
 # ── Real send test — actually sends a message ────────────────
 
+
 class SendTestRequest(BaseModel):
     connector_id: str  # smtp | sms_twilio | sms_vonage | sms_ovh | whatsapp
-    recipient: str     # email address, or phone number (with country code)
+    recipient: str  # email address, or phone number (with country code)
 
 
 class SendTestResult(BaseModel):
@@ -642,11 +663,13 @@ async def test_send_real(
     """
     connector_id = body.connector_id
     recipient = body.recipient.strip()
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
     sender_name = f"{current_user.first_name} {current_user.last_name}".strip() or current_user.email or "Admin"
 
     if not recipient:
-        return SendTestResult(connector_id=connector_id, status="error", message="Destinataire requis", channel="", sent_at=now_iso)
+        return SendTestResult(
+            connector_id=connector_id, status="error", message="Destinataire requis", channel="", sent_at=now_iso
+        )
 
     try:
         if connector_id == "smtp":
@@ -663,10 +686,22 @@ async def test_send_real(
         elif connector_id == "whatsapp":
             return await _send_test_whatsapp(db, entity_id, recipient, sender_name, now_iso)
         else:
-            return SendTestResult(connector_id=connector_id, status="error", message=f"Envoi de test non supporté pour: {connector_id}", channel="", sent_at=now_iso)
+            return SendTestResult(
+                connector_id=connector_id,
+                status="error",
+                message=f"Envoi de test non supporté pour: {connector_id}",
+                channel="",
+                sent_at=now_iso,
+            )
     except Exception as e:
         logger.exception(f"Test send failed for {connector_id}")
-        return SendTestResult(connector_id=connector_id, status="error", message=f"Erreur: {str(e)[:300]}", channel=connector_id, sent_at=now_iso)
+        return SendTestResult(
+            connector_id=connector_id,
+            status="error",
+            message=f"Erreur: {str(e)[:300]}",
+            channel=connector_id,
+            sent_at=now_iso,
+        )
 
 
 async def _send_test_email(
@@ -694,9 +729,17 @@ async def _send_test_email(
         )
         if not sent:
             raise RuntimeError("Template email de test SMTP indisponible")
-        return SendTestResult(connector_id="smtp", status="ok", message=f"Email envoyé à {recipient}", channel="email", sent_at=now_iso)
+        return SendTestResult(
+            connector_id="smtp", status="ok", message=f"Email envoyé à {recipient}", channel="email", sent_at=now_iso
+        )
     except Exception as e:
-        return SendTestResult(connector_id="smtp", status="error", message=f"Échec envoi email: {str(e)[:300]}", channel="email", sent_at=now_iso)
+        return SendTestResult(
+            connector_id="smtp",
+            status="error",
+            message=f"Échec envoi email: {str(e)[:300]}",
+            channel="email",
+            sent_at=now_iso,
+        )
 
 
 async def _send_test_sms(
@@ -708,7 +751,7 @@ async def _send_test_sms(
     now_iso: str,
 ) -> SendTestResult:
     """Send a real test SMS via the specified provider."""
-    from app.core.sms_service import _send_twilio, _send_vonage, _send_ovh
+    from app.core.sms_service import _send_ovh, _send_twilio, _send_vonage
 
     cfg = await _get_connector_settings(db, entity_id, f"integration.{connector_id}")
     message = f"OpsFlux — Test SMS par {sender_name}. Si vous recevez ce message, la configuration fonctionne. ({now_iso[:16]})"
@@ -721,13 +764,37 @@ async def _send_test_sms(
         elif connector_id == "sms_ovh":
             ok = await _send_ovh(cfg, recipient, message)
         else:
-            return SendTestResult(connector_id=connector_id, status="error", message="Provider SMS inconnu", channel="sms", sent_at=now_iso)
+            return SendTestResult(
+                connector_id=connector_id,
+                status="error",
+                message="Provider SMS inconnu",
+                channel="sms",
+                sent_at=now_iso,
+            )
 
         if ok:
-            return SendTestResult(connector_id=connector_id, status="ok", message=f"SMS envoyé à {recipient}", channel="sms", sent_at=now_iso)
-        return SendTestResult(connector_id=connector_id, status="error", message=f"Échec envoi SMS à {recipient} — vérifiez les logs", channel="sms", sent_at=now_iso)
+            return SendTestResult(
+                connector_id=connector_id,
+                status="ok",
+                message=f"SMS envoyé à {recipient}",
+                channel="sms",
+                sent_at=now_iso,
+            )
+        return SendTestResult(
+            connector_id=connector_id,
+            status="error",
+            message=f"Échec envoi SMS à {recipient} — vérifiez les logs",
+            channel="sms",
+            sent_at=now_iso,
+        )
     except Exception as e:
-        return SendTestResult(connector_id=connector_id, status="error", message=f"Erreur SMS: {str(e)[:300]}", channel="sms", sent_at=now_iso)
+        return SendTestResult(
+            connector_id=connector_id,
+            status="error",
+            message=f"Erreur SMS: {str(e)[:300]}",
+            channel="sms",
+            sent_at=now_iso,
+        )
 
 
 async def _send_test_whatsapp(
@@ -744,7 +811,13 @@ async def _send_test_whatsapp(
     api_version = cfg.get("api_version", "v21.0")
 
     if not phone_number_id or not access_token:
-        return SendTestResult(connector_id="whatsapp", status="error", message="WhatsApp non configuré", channel="whatsapp", sent_at=now_iso)
+        return SendTestResult(
+            connector_id="whatsapp",
+            status="error",
+            message="WhatsApp non configuré",
+            channel="whatsapp",
+            sent_at=now_iso,
+        )
 
     # Normalize phone number
     to_number = recipient.lstrip("+").replace(" ", "").replace("-", "")
@@ -752,6 +825,7 @@ async def _send_test_whatsapp(
 
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.post(
                 f"https://graph.facebook.com/{api_version}/{phone_number_id}/messages",
@@ -764,7 +838,25 @@ async def _send_test_whatsapp(
                 },
             )
             if resp.status_code in (200, 201):
-                return SendTestResult(connector_id="whatsapp", status="ok", message=f"WhatsApp envoyé à {recipient}", channel="whatsapp", sent_at=now_iso)
-            return SendTestResult(connector_id="whatsapp", status="error", message=f"WhatsApp: HTTP {resp.status_code} — {resp.text[:200]}", channel="whatsapp", sent_at=now_iso)
+                return SendTestResult(
+                    connector_id="whatsapp",
+                    status="ok",
+                    message=f"WhatsApp envoyé à {recipient}",
+                    channel="whatsapp",
+                    sent_at=now_iso,
+                )
+            return SendTestResult(
+                connector_id="whatsapp",
+                status="error",
+                message=f"WhatsApp: HTTP {resp.status_code} — {resp.text[:200]}",
+                channel="whatsapp",
+                sent_at=now_iso,
+            )
     except Exception as e:
-        return SendTestResult(connector_id="whatsapp", status="error", message=f"Erreur WhatsApp: {str(e)[:300]}", channel="whatsapp", sent_at=now_iso)
+        return SendTestResult(
+            connector_id="whatsapp",
+            status="error",
+            message=f"Erreur WhatsApp: {str(e)[:300]}",
+            channel="whatsapp",
+            sent_at=now_iso,
+        )

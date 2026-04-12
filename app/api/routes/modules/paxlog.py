@@ -7,11 +7,10 @@ Integrates with:
 - Workflow Engine: FSM service manages AdS status transitions (D-014)
 """
 
-import logging
 import hashlib
-import re
+import logging
 import secrets
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -25,8 +24,8 @@ from app.api.deps import (
     get_current_entity,
     get_current_user,
     has_user_permission,
-    require_module_enabled,
     require_any_permission,
+    require_module_enabled,
     require_permission,
 )
 from app.core.acting_context import get_effective_actor_user_id
@@ -35,6 +34,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.pagination import PaginationParams, paginate
 from app.core.references import generate_reference
+from app.models.asset_registry import Installation
 from app.models.common import (
     Address,
     AuditLog,
@@ -66,7 +66,6 @@ from app.models.paxlog import (
     MissionPreparationTask,
     MissionProgram,
     MissionProgramPax,
-    MissionStakeholder,
     PaxCredential,
     PaxGroup,
     PaxIncident,
@@ -74,6 +73,7 @@ from app.models.paxlog import (
 )
 from app.models.planner import PlannerActivity
 from app.models.travelwiz import ManifestPassenger, Voyage, VoyageManifest
+from app.schemas.common import JobPositionRead, PaginatedResponse
 from app.schemas.paxlog import (
     AdsBoardingContextRead,
     AdsBoardingManifestRead,
@@ -81,23 +81,25 @@ from app.schemas.paxlog import (
     AdsBoardingPassengerUpdate,
     AdsBoardingUnassignedPaxRead,
     AdsCreate,
-    AdsExternalLinkSecurityRead,
-    ExternalAdsDossierRead,
-    AdsImputationSuggestionRead,
     AdsEventRead,
+    AdsExternalLinkSecurityRead,
+    AdsImputationSuggestionRead,
     AdsManualDepartureRequest,
+    AdsPaxDecision,
     AdsPaxEntry,
     AdsRead,
     AdsStayChangeRequest,
     AdsSummary,
+    AdsUpdate,
     AdsValidationQueueItemRead,
     AdsWaitlistPriorityUpdate,
-    AdsUpdate,
     ComplianceCheckResult,
     ComplianceMatrixCreate,
     ComplianceMatrixRead,
     CredentialTypeCreate,
     CredentialTypeRead,
+    ExternalAccessEventRead,
+    ExternalAdsDossierRead,
     MissionNoticeCreate,
     MissionNoticeModifyRequest,
     MissionNoticeRead,
@@ -106,7 +108,6 @@ from app.schemas.paxlog import (
     MissionPreparationTaskRead,
     MissionPreparationTaskUpdate,
     MissionProgramRead,
-    ExternalAccessEventRead,
     PaxCredentialCreate,
     PaxCredentialRead,
     PaxCredentialValidate,
@@ -115,16 +116,12 @@ from app.schemas.paxlog import (
     PaxIncidentRead,
     PaxIncidentResolve,
     PaxProfileRead,
-    AdsPaxDecision,
     PaxProfileSummary,
-    PaxSitePresenceRead,
     PaxProfileUpdate,
+    PaxSitePresenceRead,
     RotationCycleRead,
 )
-from app.models.asset_registry import Installation
-from app.schemas.common import JobPositionRead
-from app.schemas.common import PaginatedResponse
-from app.services.core.fsm_service import fsm_service, FSMError, FSMPermissionError
+from app.services.core.fsm_service import FSMError, FSMPermissionError, fsm_service
 from app.services.modules import paxlog_service
 
 router = APIRouter(prefix="/api/v1/pax", tags=["paxlog"], dependencies=[require_module_enabled("paxlog")])
@@ -155,7 +152,7 @@ def _build_ads_boarding_token(ads: Ads) -> str:
     expiry = datetime.combine(
         ads.end_date + timedelta(days=14),
         datetime.min.time(),
-        tzinfo=timezone.utc,
+        tzinfo=UTC,
     )
     payload = {
         "purpose": "ads_boarding_qr",
@@ -225,9 +222,8 @@ def _classify_ads_stay_change(
             change_kinds.append("early_return")
 
     window_fields = {"start_date", "end_date"}
-    if (
-        any(field in changed_fields for field in window_fields)
-        and not any(kind in change_kinds for kind in {"extension", "early_return"})
+    if any(field in changed_fields for field in window_fields) and not any(
+        kind in change_kinds for kind in {"extension", "early_return"}
     ):
         change_kinds.append("window_change")
 
@@ -663,6 +659,7 @@ async def _sync_ads_project_from_imputations(
 async def _get_paxlog_setting(db: AsyncSession, entity_id: UUID, key: str, default: Any = None) -> Any:
     """Read a PaxLog module setting from the settings table."""
     from app.models.common import Setting
+
     result = await db.execute(
         select(Setting.value).where(
             Setting.key == key,
@@ -774,9 +771,7 @@ async def _run_ads_submission_checks(
     """Run compliance checks and determine the next submission status for an AdS."""
     from app.services.modules.paxlog_service import build_compliance_issues_summary, check_pax_compliance
 
-    pax_entries_result = await db.execute(
-        select(AdsPax).where(AdsPax.ads_id == ads.id)
-    )
+    pax_entries_result = await db.execute(select(AdsPax).where(AdsPax.ads_id == ads.id))
     pax_entries = pax_entries_result.scalars().all()
     if len(pax_entries) == 0:
         raise HTTPException(
@@ -898,8 +893,7 @@ async def _apply_ads_planner_waitlist_if_needed(
     reserved_pax_count = int(reserved_result.scalar() or 0)
 
     candidate_entries = [
-        entry for entry in pax_entries
-        if entry.status not in {"blocked", "waitlisted", "rejected", "no_show"}
+        entry for entry in pax_entries if entry.status not in {"blocked", "waitlisted", "rejected", "no_show"}
     ]
     requested_pax_count = len(candidate_entries)
     remaining_capacity = int(activity_quota) - reserved_pax_count
@@ -970,7 +964,7 @@ async def _count_reserved_site_pax_for_day(
             SELECT COUNT(*)
             FROM ads_pax ap
             JOIN ads a ON a.id = ap.ads_id
-            WHERE {' AND '.join(filters)}
+            WHERE {" AND ".join(filters)}
             """
         ).bindparams(bindparam("ads_statuses", expanding=True)),
         params,
@@ -999,8 +993,7 @@ async def _apply_ads_site_waitlist_if_needed(
     from app.services.modules.planner_service import get_effective_capacity
 
     candidate_entries = [
-        entry for entry in pax_entries
-        if entry.status not in {"blocked", "waitlisted", "rejected", "no_show"}
+        entry for entry in pax_entries if entry.status not in {"blocked", "waitlisted", "rejected", "no_show"}
     ]
     requested_pax_count = len(candidate_entries)
     if requested_pax_count == 0:
@@ -1031,7 +1024,9 @@ async def _apply_ads_site_waitlist_if_needed(
         remaining_capacity = capacity_limit - reserved_pax_count
         reserved_pax_peak = max(reserved_pax_peak, reserved_pax_count)
         min_capacity_limit = capacity_limit if min_capacity_limit is None else min(min_capacity_limit, capacity_limit)
-        min_remaining_capacity = remaining_capacity if min_remaining_capacity is None else min(min_remaining_capacity, remaining_capacity)
+        min_remaining_capacity = (
+            remaining_capacity if min_remaining_capacity is None else min(min_remaining_capacity, remaining_capacity)
+        )
         current_day += timedelta(days=1)
 
     # Check admin setting for behavior when capacity is not configured
@@ -1042,7 +1037,7 @@ async def _apply_ads_site_waitlist_if_needed(
         if null_capacity_behavior == "blocking":
             raise HTTPException(
                 status_code=400,
-                detail="La capacité du site n'est pas configurée. Veuillez configurer la capacité POB dans le registre des assets avant de soumettre cette AdS."
+                detail="La capacité du site n'est pas configurée. Veuillez configurer la capacité POB dans le registre des assets avant de soumettre cette AdS.",
             )
         # "unlimited" = no limit, skip waitlist
         return {
@@ -1161,7 +1156,9 @@ async def _get_ads_waitlist_capacity_summary(
         remaining_capacity = capacity_limit - reserved_pax_count
         reserved_pax_peak = max(reserved_pax_peak, reserved_pax_count)
         min_capacity_limit = capacity_limit if min_capacity_limit is None else min(min_capacity_limit, capacity_limit)
-        min_remaining_capacity = remaining_capacity if min_remaining_capacity is None else min(min_remaining_capacity, remaining_capacity)
+        min_remaining_capacity = (
+            remaining_capacity if min_remaining_capacity is None else min(min_remaining_capacity, remaining_capacity)
+        )
         current_day += timedelta(days=1)
 
     return {
@@ -1513,23 +1510,23 @@ async def _promote_waitlisted_ads_pax_if_capacity_available(
         else:
             ads_pax_id, ads_id, ads_reference, requester_id = row
         await db.execute(
-            update(AdsPax)
-            .where(AdsPax.id == ads_pax_id)
-            .values(status="compliant", booking_request_sent=False)
+            update(AdsPax).where(AdsPax.id == ads_pax_id).values(status="compliant", booking_request_sent=False)
         )
-        db.add(AdsEvent(
-            entity_id=entity_id,
-            ads_id=ads_id,
-            ads_pax_id=ads_pax_id,
-            event_type="pax_waitlist_promoted",
-            old_status="waitlisted",
-            new_status="compliant",
-            actor_id=actor_id,
-            metadata_json={
-                "planner_activity_id": str(planner_activity_id) if planner_activity_id else None,
-                "site_entry_asset_id": str(ads.site_entry_asset_id) if ads.site_entry_asset_id else None,
-            },
-        ))
+        db.add(
+            AdsEvent(
+                entity_id=entity_id,
+                ads_id=ads_id,
+                ads_pax_id=ads_pax_id,
+                event_type="pax_waitlist_promoted",
+                old_status="waitlisted",
+                new_status="compliant",
+                actor_id=actor_id,
+                metadata_json={
+                    "planner_activity_id": str(planner_activity_id) if planner_activity_id else None,
+                    "site_entry_asset_id": str(ads.site_entry_asset_id) if ads.site_entry_asset_id else None,
+                },
+            )
+        )
         promoted_ads_ids.add(ads_id)
         promoted_entries.append(
             {
@@ -1546,18 +1543,20 @@ async def _promote_waitlisted_ads_pax_if_capacity_available(
             .where(Ads.id == ads_id, Ads.entity_id == entity_id, Ads.status == "pending_arbitration")
             .values(status="pending_validation", rejection_reason=None)
         )
-        db.add(AdsEvent(
-            entity_id=entity_id,
-            ads_id=ads_id,
-            event_type="waitlist_released",
-            old_status="pending_arbitration",
-            new_status="pending_validation",
-            actor_id=actor_id,
-            metadata_json={
-                "planner_activity_id": str(planner_activity_id) if planner_activity_id else None,
-                "site_entry_asset_id": str(ads.site_entry_asset_id) if ads.site_entry_asset_id else None,
-            },
-        ))
+        db.add(
+            AdsEvent(
+                entity_id=entity_id,
+                ads_id=ads_id,
+                event_type="waitlist_released",
+                old_status="pending_arbitration",
+                new_status="pending_validation",
+                actor_id=actor_id,
+                metadata_json={
+                    "planner_activity_id": str(planner_activity_id) if planner_activity_id else None,
+                    "site_entry_asset_id": str(ads.site_entry_asset_id) if ads.site_entry_asset_id else None,
+                },
+            )
+        )
 
     if promoted_entries:
         # Spec §3.10: auto-notification waitlist promotion, configurable
@@ -1618,11 +1617,10 @@ async def _promote_waitlisted_ads_pax_if_capacity_available(
                             db,
                             user_id=item["requester_id"],
                             entity_id=entity_id,
-                            title="Place libérée sur activité Planner" if planner_activity_id else "Place libérée sur site",
-                            body=(
-                                f"{release_message} "
-                                f"L'AdS {item['reference']} revient dans le flux de validation."
-                            ),
+                            title="Place libérée sur activité Planner"
+                            if planner_activity_id
+                            else "Place libérée sur site",
+                            body=(f"{release_message} L'AdS {item['reference']} revient dans le flux de validation."),
                             category="paxlog",
                             link=f"/paxlog/ads/{ads_id}",
                             event_type="paxlog.waitlist_promoted",
@@ -1630,14 +1628,14 @@ async def _promote_waitlisted_ads_pax_if_capacity_available(
                     except Exception:
                         logger.warning(
                             "Failed to notify requester %s of waitlist promotion for ADS %s",
-                            item.get("requester_id"), ads_id, exc_info=True,
+                            item.get("requester_id"),
+                            ads_id,
+                            exc_info=True,
                         )
 
                 # ── Notify the promoted passenger themselves (if user) ──
                 if ads_pax_id:
-                    pax_row = await db.execute(
-                        select(AdsPax.user_id).where(AdsPax.id == ads_pax_id)
-                    )
+                    pax_row = await db.execute(select(AdsPax.user_id).where(AdsPax.id == ads_pax_id))
                     pax_user_id = pax_row.scalar_one_or_none()
                     if pax_user_id and pax_user_id != item.get("requester_id"):
                         try:
@@ -1657,7 +1655,9 @@ async def _promote_waitlisted_ads_pax_if_capacity_available(
                         except Exception:
                             logger.warning(
                                 "Failed to notify promoted pax %s on AdS %s",
-                                pax_user_id, ads_id, exc_info=True,
+                                pax_user_id,
+                                ads_id,
+                                exc_info=True,
                             )
 
     return promoted_entries
@@ -1689,7 +1689,9 @@ async def _resolve_ads_auto_transition(
         context={
             "created_by": str(ads.created_by) if ads.created_by else None,
             "requester_id": str(ads.requester_id) if ads.requester_id else None,
-            "project_reviewer_id": str(project_reviewer.manager_id) if project_reviewer and getattr(project_reviewer, "manager_id", None) else None,
+            "project_reviewer_id": str(project_reviewer.manager_id)
+            if project_reviewer and getattr(project_reviewer, "manager_id", None)
+            else None,
         },
     )
     return transition.to_state if transition else None
@@ -1783,7 +1785,7 @@ def _count_recent_external_actions(
     action: str,
     window_minutes: int,
 ) -> int:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     count = 0
     for item in link.access_log or []:
         if item.get("action") != action:
@@ -1796,7 +1798,7 @@ def _count_recent_external_actions(
         except ValueError:
             continue
         if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
+            ts = ts.replace(tzinfo=UTC)
         if ts >= now - timedelta(minutes=window_minutes):
             count += 1
     return count
@@ -1813,7 +1815,7 @@ def _append_external_access_log(
     context = _get_external_request_context(request)
     log = list(link.access_log or [])
     entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "action": action,
         "ip": context["ip"],
         "user_agent": context["user_agent"],
@@ -1859,8 +1861,8 @@ def _build_external_link_security_read(link: ExternalAccessLink) -> AdsExternalL
             )
     expires_at = link.expires_at
     if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-    active = (not link.revoked) and expires_at >= datetime.now(timezone.utc)
+        expires_at = expires_at.replace(tzinfo=UTC)
+    active = (not link.revoked) and expires_at >= datetime.now(UTC)
     remaining_uses = max(link.max_uses - link.use_count, 0) if link.max_uses else None
     return AdsExternalLinkSecurityRead(
         id=link.id,
@@ -1896,8 +1898,8 @@ async def _get_external_link_or_404(db: AsyncSession, token: str) -> ExternalAcc
 
     expires_at = link.expires_at
     if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-    if expires_at < datetime.now(timezone.utc):
+        expires_at = expires_at.replace(tzinfo=UTC)
+    if expires_at < datetime.now(UTC):
         raise HTTPException(status_code=410, detail="Ce lien a expiré")
     if link.max_uses and link.use_count >= link.max_uses:
         raise HTTPException(status_code=410, detail="Ce lien a atteint le nombre maximum d'utilisations")
@@ -1931,8 +1933,8 @@ async def _require_external_session(
         raise HTTPException(status_code=401, detail="Session externe expirée")
     session_expires_at = link.session_expires_at
     if session_expires_at.tzinfo is None:
-        session_expires_at = session_expires_at.replace(tzinfo=timezone.utc)
-    if session_expires_at < datetime.now(timezone.utc):
+        session_expires_at = session_expires_at.replace(tzinfo=UTC)
+    if session_expires_at < datetime.now(UTC):
         link.session_token_hash = None
         link.session_expires_at = None
         if request:
@@ -2019,8 +2021,7 @@ async def _replace_ads_allowed_companies(
     if unique_company_ids:
         valid_rows = (
             await db.execute(
-                select(Tier.id, Tier.name)
-                .where(
+                select(Tier.id, Tier.name).where(
                     Tier.entity_id == entity_id,
                     Tier.id.in_(unique_company_ids),
                     Tier.archived == False,  # noqa: E712
@@ -2030,7 +2031,9 @@ async def _replace_ads_allowed_companies(
         valid_ids = {row[0] for row in valid_rows}
         missing = [company_id for company_id in unique_company_ids if company_id not in valid_ids]
         if missing:
-            raise HTTPException(status_code=400, detail="Une ou plusieurs entreprises autorisées sont invalides pour cette entité.")
+            raise HTTPException(
+                status_code=400, detail="Une ou plusieurs entreprises autorisées sont invalides pour cette entité."
+            )
     await db.execute(text("DELETE FROM ads_allowed_companies WHERE ads_id = :ads_id"), {"ads_id": str(ads_id)})
     for company_id in unique_company_ids:
         db.add(AdsAllowedCompany(ads_id=ads_id, company_id=company_id))
@@ -2085,11 +2088,7 @@ async def _resolve_external_allowed_companies(
         except (AssertionError, AttributeError):
             primary_company_name = None
     if not allowed_company_names and allowed_company_ids:
-        rows = (
-            await db.execute(
-                select(Tier.id, Tier.name).where(Tier.id.in_(allowed_company_ids))
-            )
-        ).all()
+        rows = (await db.execute(select(Tier.id, Tier.name).where(Tier.id.in_(allowed_company_ids)))).all()
         name_map = {row[0]: row[1] for row in rows}
         allowed_company_names = [name_map[company_id] for company_id in allowed_company_ids if company_id in name_map]
     return allowed_company_ids, allowed_company_names, primary_company_id, primary_company_name
@@ -2104,7 +2103,12 @@ async def _require_external_scope(
 ) -> tuple[ExternalAccessLink, Ads, UUID, list[UUID], list[str], UUID | None, str | None]:
     link = await _require_external_session(db, token=token, session_token=session_token, request=request)
     ads, entity_id, fallback_company_id = await _get_external_ads_and_context(db, link=link)
-    allowed_company_ids, allowed_company_names, primary_company_id, primary_company_name = await _resolve_external_allowed_companies(
+    (
+        allowed_company_ids,
+        allowed_company_names,
+        primary_company_id,
+        primary_company_name,
+    ) = await _resolve_external_allowed_companies(
         db,
         ads=ads,
         link=link,
@@ -2309,8 +2313,7 @@ async def list_profiles(
     # ── 1. Internal PAX (Users belonging to this entity) ──
     if type_filter in (None, "internal") and current_user.user_type != "external":
         user_q = (
-            select(User)
-            .where(User.default_entity_id == entity_id, User.active == True)  # noqa: E712
+            select(User).where(User.default_entity_id == entity_id, User.active == True)  # noqa: E712
         )
         if like:
             user_q = user_q.where(
@@ -2402,6 +2405,7 @@ async def list_pax_groups(
 
 class _ExternalPaxCreate(BaseModel):
     """Body to create an external PAX (TierContact)."""
+
     first_name: str
     last_name: str
     company_id: UUID
@@ -2436,14 +2440,12 @@ async def create_profile(
         dup_query = dup_query.where(TierContact.tier_id.in_(linked_tier_ids))
     dup_result = await db.execute(dup_query)
     duplicates = [
-        d for d in dup_result.all()
-        if _compare_pax_names(body.first_name, body.last_name, d.first_name, d.last_name)
+        d for d in dup_result.all() if _compare_pax_names(body.first_name, body.last_name, d.first_name, d.last_name)
     ]
 
     if duplicates:
         dup_info = [
-            {"id": str(d.id), "name": f"{d.first_name} {d.last_name}", "badge": d.badge_number}
-            for d in duplicates
+            {"id": str(d.id), "name": f"{d.first_name} {d.last_name}", "badge": d.badge_number} for d in duplicates
         ]
         raise HTTPException(
             status_code=409,
@@ -2507,8 +2509,9 @@ async def check_profile_duplicates(
 
     # ── Users with matching names ──
     user_q = (
-        select(User.id, User.first_name, User.last_name, User.birth_date, User.badge_number)
-        .where(User.default_entity_id == entity_id, User.active == True)  # noqa: E712
+        select(User.id, User.first_name, User.last_name, User.birth_date, User.badge_number).where(
+            User.default_entity_id == entity_id, User.active == True
+        )  # noqa: E712
     )
     if current_user.user_type == "external":
         user_q = user_q.where(User.id == current_user.id)
@@ -2516,20 +2519,27 @@ async def check_profile_duplicates(
     for r in user_rows:
         match_type = _compare_pax_names(first_name, last_name, r.first_name, r.last_name)
         if match_type:
-            matches.append({
-                "id": str(r.id),
-                "first_name": r.first_name,
-                "last_name": r.last_name,
-                "birth_date": str(r.birth_date) if r.birth_date else None,
-                "badge_number": r.badge_number,
-                "pax_source": "user",
-                "match_type": match_type,
-            })
+            matches.append(
+                {
+                    "id": str(r.id),
+                    "first_name": r.first_name,
+                    "last_name": r.last_name,
+                    "birth_date": str(r.birth_date) if r.birth_date else None,
+                    "badge_number": r.badge_number,
+                    "pax_source": "user",
+                    "match_type": match_type,
+                }
+            )
 
     # ── TierContacts with matching names ──
     contact_q = (
-        select(TierContact.id, TierContact.first_name, TierContact.last_name,
-               TierContact.birth_date, TierContact.badge_number)
+        select(
+            TierContact.id,
+            TierContact.first_name,
+            TierContact.last_name,
+            TierContact.birth_date,
+            TierContact.badge_number,
+        )
         .join(Tier, Tier.id == TierContact.tier_id)
         .where(Tier.entity_id == entity_id, TierContact.active == True)  # noqa: E712
     )
@@ -2540,38 +2550,48 @@ async def check_profile_duplicates(
     for r in contact_rows:
         match_type = _compare_pax_names(first_name, last_name, r.first_name, r.last_name)
         if match_type:
-            matches.append({
-                "id": str(r.id),
-                "first_name": r.first_name,
-                "last_name": r.last_name,
-                "birth_date": str(r.birth_date) if r.birth_date else None,
-                "badge_number": r.badge_number,
-                "pax_source": "contact",
-                "match_type": match_type,
-            })
+            matches.append(
+                {
+                    "id": str(r.id),
+                    "first_name": r.first_name,
+                    "last_name": r.last_name,
+                    "birth_date": str(r.birth_date) if r.birth_date else None,
+                    "badge_number": r.badge_number,
+                    "pax_source": "contact",
+                    "match_type": match_type,
+                }
+            )
 
     # ── Badge number match (if provided and no name match found) ──
     if badge_number and not matches:
-        badge_user_q = (
-            select(User.id, User.first_name, User.last_name, User.birth_date, User.badge_number)
-            .where(
-                User.default_entity_id == entity_id,
-                User.badge_number == badge_number,
-                User.active == True,  # noqa: E712
-            )
+        badge_user_q = select(User.id, User.first_name, User.last_name, User.birth_date, User.badge_number).where(
+            User.default_entity_id == entity_id,
+            User.badge_number == badge_number,
+            User.active == True,  # noqa: E712
         )
         if current_user.user_type == "external":
             badge_user_q = badge_user_q.where(User.id == current_user.id)
         for r in (await db.execute(badge_user_q)).all():
-            matches.append({
-                "id": str(r.id), "first_name": r.first_name, "last_name": r.last_name,
-                "birth_date": str(r.birth_date) if r.birth_date else None,
-                "badge_number": r.badge_number, "pax_source": "user", "match_type": "badge_number",
-            })
+            matches.append(
+                {
+                    "id": str(r.id),
+                    "first_name": r.first_name,
+                    "last_name": r.last_name,
+                    "birth_date": str(r.birth_date) if r.birth_date else None,
+                    "badge_number": r.badge_number,
+                    "pax_source": "user",
+                    "match_type": "badge_number",
+                }
+            )
 
         badge_contact_q = (
-            select(TierContact.id, TierContact.first_name, TierContact.last_name,
-                   TierContact.birth_date, TierContact.badge_number)
+            select(
+                TierContact.id,
+                TierContact.first_name,
+                TierContact.last_name,
+                TierContact.birth_date,
+                TierContact.badge_number,
+            )
             .join(Tier, Tier.id == TierContact.tier_id)
             .where(
                 Tier.entity_id == entity_id,
@@ -2582,11 +2602,17 @@ async def check_profile_duplicates(
         if linked_tier_ids is not None:
             badge_contact_q = badge_contact_q.where(TierContact.tier_id.in_(linked_tier_ids))
         for r in (await db.execute(badge_contact_q)).all():
-            matches.append({
-                "id": str(r.id), "first_name": r.first_name, "last_name": r.last_name,
-                "birth_date": str(r.birth_date) if r.birth_date else None,
-                "badge_number": r.badge_number, "pax_source": "contact", "match_type": "badge_number",
-            })
+            matches.append(
+                {
+                    "id": str(r.id),
+                    "first_name": r.first_name,
+                    "last_name": r.last_name,
+                    "birth_date": str(r.birth_date) if r.birth_date else None,
+                    "badge_number": r.badge_number,
+                    "pax_source": "contact",
+                    "match_type": "badge_number",
+                }
+            )
 
     return {"has_duplicates": len(matches) > 0, "matches": matches}
 
@@ -2759,9 +2785,7 @@ async def create_credential_type(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a credential type."""
-    existing = await db.execute(
-        select(CredentialType).where(CredentialType.code == body.code)
-    )
+    existing = await db.execute(select(CredentialType).where(CredentialType.code == body.code))
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -2809,9 +2833,7 @@ async def list_credentials(
 ):
     """List credentials for a PAX (user or contact)."""
     result = await db.execute(
-        select(PaxCredential)
-        .where(_cred_pax_filter(profile_id, pax_source))
-        .order_by(PaxCredential.created_at.desc())
+        select(PaxCredential).where(_cred_pax_filter(profile_id, pax_source)).order_by(PaxCredential.created_at.desc())
     )
     return result.scalars().all()
 
@@ -2899,9 +2921,7 @@ async def list_compliance_matrix(
     db: AsyncSession = Depends(get_db),
 ):
     """List compliance matrix entries for an entity."""
-    query = select(ComplianceMatrixEntry).where(
-        ComplianceMatrixEntry.entity_id == entity_id
-    )
+    query = select(ComplianceMatrixEntry).where(ComplianceMatrixEntry.entity_id == entity_id)
     if asset_id:
         query = query.where(ComplianceMatrixEntry.asset_id == asset_id)
     query = query.order_by(ComplianceMatrixEntry.effective_date.desc())
@@ -2997,9 +3017,7 @@ async def check_compliance(
     missing = [item["credential_type_name"] for item in results if item.get("status") == "missing"]
     expired = [item["credential_type_name"] for item in results if item.get("status") == "expired"]
     pending = [
-        item["credential_type_name"]
-        for item in results
-        if item.get("status") in {"pending", "pending_validation"}
+        item["credential_type_name"] for item in results if item.get("status") in {"pending", "pending_validation"}
     ]
 
     return ComplianceCheckResult(
@@ -3042,26 +3060,19 @@ async def list_ads(
       - omitted   → auto-detected: if user has read_all → all, else → my
     """
     acting_user_id = await get_effective_actor_user_id(request, current_user, entity_id, db)
-    query = (
-        select(Ads)
-        .where(Ads.entity_id == entity_id, Ads.archived == False)
-    )
+    query = select(Ads).where(Ads.entity_id == entity_id, Ads.archived == False)
 
     # ── User-scoped data visibility ──
     if scope == "my":
         query = query.where(or_(Ads.requester_id == acting_user_id, Ads.created_by == acting_user_id))
     elif scope == "all":
         # Explicit "all" requires read_all permission
-        can_read_all = await has_user_permission(
-            current_user, entity_id, "paxlog.ads.read_all", db
-        )
+        can_read_all = await has_user_permission(current_user, entity_id, "paxlog.ads.read_all", db)
         if not can_read_all:
             query = query.where(or_(Ads.requester_id == acting_user_id, Ads.created_by == acting_user_id))
     else:
         # Auto-detect: default to own data unless user has read_all
-        can_read_all = await has_user_permission(
-            current_user, entity_id, "paxlog.ads.read_all", db
-        )
+        can_read_all = await has_user_permission(current_user, entity_id, "paxlog.ads.read_all", db)
         if not can_read_all:
             query = query.where(or_(Ads.requester_id == acting_user_id, Ads.created_by == acting_user_id))
 
@@ -3453,22 +3464,24 @@ async def update_ads_waitlist_priority(
     entry.priority_score = body.priority_score
     entry.priority_source = "manual_override"
 
-    db.add(AdsEvent(
-        entity_id=entity_id,
-        ads_id=ads.id,
-        ads_pax_id=entry.id,
-        event_type="pax_waitlist_priority_updated",
-        old_status=entry.status,
-        new_status=entry.status,
-        actor_id=current_user.id,
-        reason=body.reason,
-        metadata_json={
-            "old_priority_score": old_priority_score,
-            "new_priority_score": body.priority_score,
-            "old_priority_source": old_priority_source,
-            "new_priority_source": "manual_override",
-        },
-    ))
+    db.add(
+        AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            ads_pax_id=entry.id,
+            event_type="pax_waitlist_priority_updated",
+            old_status=entry.status,
+            new_status=entry.status,
+            actor_id=current_user.id,
+            reason=body.reason,
+            metadata_json={
+                "old_priority_score": old_priority_score,
+                "new_priority_score": body.priority_score,
+                "old_priority_source": old_priority_source,
+                "new_priority_source": "manual_override",
+            },
+        )
+    )
 
     await record_audit(
         db,
@@ -3596,9 +3609,7 @@ async def get_ads(
     db: AsyncSession = Depends(get_db),
 ):
     """Get an AdS by ID."""
-    result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
@@ -3617,9 +3628,7 @@ async def update_ads(
     db: AsyncSession = Depends(get_db),
 ):
     """Update an AdS while it is still editable by the requester."""
-    result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
@@ -3674,15 +3683,17 @@ async def update_ads(
             }
 
     if changed_fields:
-        db.add(AdsEvent(
-            entity_id=entity_id,
-            ads_id=ads.id,
-            event_type="updated",
-            old_status=ads.status,
-            new_status=ads.status,
-            actor_id=current_user.id,
-            metadata_json={"changes": changed_fields},
-        ))
+        db.add(
+            AdsEvent(
+                entity_id=entity_id,
+                ads_id=ads.id,
+                event_type="updated",
+                old_status=ads.status,
+                new_status=ads.status,
+                actor_id=current_user.id,
+                metadata_json={"changes": changed_fields},
+            )
+        )
 
     if "project_id" in update_data and ads.project_id:
         await _ensure_ads_default_imputation(
@@ -3711,9 +3722,7 @@ async def request_ads_stay_change(
     The change is applied on the dossier and the AdS is sent back to
     `requires_review` with a full change snapshot for validators.
     """
-    result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
@@ -3782,20 +3791,22 @@ async def request_ads_stay_change(
     ads.status = "requires_review"
     ads.rejection_reason = body.reason
 
-    db.add(AdsEvent(
-        entity_id=entity_id,
-        ads_id=ads.id,
-        event_type="stay_change_requested",
-        old_status=from_state,
-        new_status="requires_review",
-        actor_id=current_user.id,
-        reason=body.reason,
-        metadata_json={
-            "changes": changed_fields,
-            "change_kinds": change_kinds,
-            "primary_change_kind": primary_change_kind,
-        },
-    ))
+    db.add(
+        AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type="stay_change_requested",
+            old_status=from_state,
+            new_status="requires_review",
+            actor_id=current_user.id,
+            reason=body.reason,
+            metadata_json={
+                "changes": changed_fields,
+                "change_kinds": change_kinds,
+                "primary_change_kind": primary_change_kind,
+            },
+        )
+    )
 
     await db.commit()
     await db.refresh(ads)
@@ -3834,21 +3845,25 @@ async def request_ads_stay_change(
     )
     await db.commit()
 
-    from app.core.events import OpsFluxEvent, event_bus as _event_bus
-    await _event_bus.publish(OpsFluxEvent(
-        event_type="ads.stay_change_requested",
-        payload={
-            "ads_id": str(ads.id),
-            "entity_id": str(entity_id),
-            "reference": ads.reference,
-            "requester_id": str(ads.requester_id),
-            "actor_id": str(current_user.id),
-            "reason": body.reason,
-            "changes": changed_fields,
-            "change_kinds": change_kinds,
-            "primary_change_kind": primary_change_kind,
-        },
-    ))
+    from app.core.events import OpsFluxEvent
+    from app.core.events import event_bus as _event_bus
+
+    await _event_bus.publish(
+        OpsFluxEvent(
+            event_type="ads.stay_change_requested",
+            payload={
+                "ads_id": str(ads.id),
+                "entity_id": str(entity_id),
+                "reference": ads.reference,
+                "requester_id": str(ads.requester_id),
+                "actor_id": str(current_user.id),
+                "reason": body.reason,
+                "changes": changed_fields,
+                "change_kinds": change_kinds,
+                "primary_change_kind": primary_change_kind,
+            },
+        )
+    )
 
     logger.info("AdS %s stay change requested by %s", ads.reference, current_user.id)
     return ads
@@ -3869,9 +3884,7 @@ async def submit_ads(
     - If any PAX has missing/expired mandatory credentials → pending_compliance
     - If all PAX are compliant → pending_validation (ready for CDS review)
     """
-    result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
@@ -3915,18 +3928,20 @@ async def submit_ads(
         workflow_instance = transition_result[1] if isinstance(transition_result, tuple) else None
         ads.status = next_review_state
         ads.submitted_at = func.now()
-        db.add(AdsEvent(
-            entity_id=entity_id,
-            ads_id=ads.id,
-            event_type="submitted_for_initiator_review",
-            old_status=from_state,
-            new_status=next_review_state,
-            actor_id=current_user.id,
-            metadata_json={
-                "requester_id": str(ads.requester_id),
-                "created_by": str(ads.created_by),
-            },
-        ))
+        db.add(
+            AdsEvent(
+                entity_id=entity_id,
+                ads_id=ads.id,
+                event_type="submitted_for_initiator_review",
+                old_status=from_state,
+                new_status=next_review_state,
+                actor_id=current_user.id,
+                metadata_json={
+                    "requester_id": str(ads.requester_id),
+                    "created_by": str(ads.created_by),
+                },
+            )
+        )
         await db.commit()
         await db.refresh(ads)
         await fsm_service.emit_transition_event(
@@ -3941,8 +3956,12 @@ async def submit_ads(
                 "requester_id": str(ads.requester_id),
                 "created_by": str(ads.created_by),
                 "entity_scope_id": str(entity_id),
-                "assigned_to": workflow_instance.metadata_.get("assigned_to") if workflow_instance and workflow_instance.metadata_ else None,
-                "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code") if workflow_instance and workflow_instance.metadata_ else None,
+                "assigned_to": workflow_instance.metadata_.get("assigned_to")
+                if workflow_instance and workflow_instance.metadata_
+                else None,
+                "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code")
+                if workflow_instance and workflow_instance.metadata_
+                else None,
             },
         )
         await record_audit(
@@ -3963,9 +3982,7 @@ async def submit_ads(
         return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
     pending_reviewer_ids = {
-        target["project_manager_id"]
-        for target in pending_project_review_targets
-        if target.get("project_manager_id")
+        target["project_manager_id"] for target in pending_project_review_targets if target.get("project_manager_id")
     }
     if next_review_state == "pending_project_review" and pending_reviewer_ids - {current_user.id}:
         from_state = ads.status
@@ -3980,20 +3997,28 @@ async def submit_ads(
         workflow_instance = transition_result[1] if isinstance(transition_result, tuple) else None
         ads.status = next_review_state
         ads.submitted_at = func.now()
-        db.add(AdsEvent(
-            entity_id=entity_id,
-            ads_id=ads.id,
-            event_type="submitted_for_project_review",
-            old_status=from_state,
-            new_status=next_review_state,
-            actor_id=current_user.id,
-            metadata_json={
-                "project_id": str(project_reviewer.id) if project_reviewer else None,
-                "project_manager_id": str(project_reviewer.manager_id) if project_reviewer and project_reviewer.manager_id else None,
-                "pending_project_ids": [str(target["project_id"]) for target in pending_project_review_targets],
-                "pending_project_manager_ids": [str(target["project_manager_id"]) for target in pending_project_review_targets if target.get("project_manager_id")],
-            },
-        ))
+        db.add(
+            AdsEvent(
+                entity_id=entity_id,
+                ads_id=ads.id,
+                event_type="submitted_for_project_review",
+                old_status=from_state,
+                new_status=next_review_state,
+                actor_id=current_user.id,
+                metadata_json={
+                    "project_id": str(project_reviewer.id) if project_reviewer else None,
+                    "project_manager_id": str(project_reviewer.manager_id)
+                    if project_reviewer and project_reviewer.manager_id
+                    else None,
+                    "pending_project_ids": [str(target["project_id"]) for target in pending_project_review_targets],
+                    "pending_project_manager_ids": [
+                        str(target["project_manager_id"])
+                        for target in pending_project_review_targets
+                        if target.get("project_manager_id")
+                    ],
+                },
+            )
+        )
         await db.commit()
         await db.refresh(ads)
         await fsm_service.emit_transition_event(
@@ -4006,12 +4031,22 @@ async def submit_ads(
             extra_payload={
                 "reference": ads.reference,
                 "project_id": str(project_reviewer.id) if project_reviewer else None,
-                "next_approver_id": str(project_reviewer.manager_id) if project_reviewer and project_reviewer.manager_id else None,
+                "next_approver_id": str(project_reviewer.manager_id)
+                if project_reviewer and project_reviewer.manager_id
+                else None,
                 "pending_project_ids": [str(target["project_id"]) for target in pending_project_review_targets],
-                "pending_project_manager_ids": [str(target["project_manager_id"]) for target in pending_project_review_targets if target.get("project_manager_id")],
+                "pending_project_manager_ids": [
+                    str(target["project_manager_id"])
+                    for target in pending_project_review_targets
+                    if target.get("project_manager_id")
+                ],
                 "entity_scope_id": str(entity_id),
-                "assigned_to": workflow_instance.metadata_.get("assigned_to") if workflow_instance and workflow_instance.metadata_ else None,
-                "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code") if workflow_instance and workflow_instance.metadata_ else None,
+                "assigned_to": workflow_instance.metadata_.get("assigned_to")
+                if workflow_instance and workflow_instance.metadata_
+                else None,
+                "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code")
+                if workflow_instance and workflow_instance.metadata_
+                else None,
             },
         )
         await record_audit(
@@ -4025,7 +4060,9 @@ async def submit_ads(
                 "reference": ads.reference,
                 "project_review_required": True,
                 "project_id": str(project_reviewer.id) if project_reviewer else None,
-                "project_manager_id": str(project_reviewer.manager_id) if project_reviewer and project_reviewer.manager_id else None,
+                "project_manager_id": str(project_reviewer.manager_id)
+                if project_reviewer and project_reviewer.manager_id
+                else None,
                 "pending_project_count": len(pending_project_review_targets),
             },
         )
@@ -4081,21 +4118,23 @@ async def submit_ads(
     ads.status = target_status
     ads.submitted_at = func.now()
 
-    db.add(AdsEvent(
-        entity_id=entity_id,
-        ads_id=ads.id,
-        event_type="submitted",
-        old_status=from_state,
-        new_status=target_status,
-        actor_id=current_user.id,
-        metadata_json={
-            "waitlist_applied": waitlist_meta["waitlist_applied"],
-            "waitlisted_pax_count": waitlist_meta["waitlisted_count"],
-            "activity_quota": waitlist_meta["activity_quota"],
-            "reserved_pax_count": waitlist_meta["reserved_pax_count"],
-            "remaining_capacity": waitlist_meta["remaining_capacity"],
-        },
-    ))
+    db.add(
+        AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type="submitted",
+            old_status=from_state,
+            new_status=target_status,
+            actor_id=current_user.id,
+            metadata_json={
+                "waitlist_applied": waitlist_meta["waitlist_applied"],
+                "waitlisted_pax_count": waitlist_meta["waitlisted_count"],
+                "activity_quota": waitlist_meta["activity_quota"],
+                "reserved_pax_count": waitlist_meta["reserved_pax_count"],
+                "remaining_capacity": waitlist_meta["remaining_capacity"],
+            },
+        )
+    )
 
     await db.commit()
     await db.refresh(ads)
@@ -4114,8 +4153,12 @@ async def submit_ads(
             "waitlist_applied": waitlist_meta["waitlist_applied"],
             "waitlisted_pax_count": waitlist_meta["waitlisted_count"],
             "entity_scope_id": str(entity_id),
-            "assigned_to": workflow_instance.metadata_.get("assigned_to") if workflow_instance and workflow_instance.metadata_ else None,
-            "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code") if workflow_instance and workflow_instance.metadata_ else None,
+            "assigned_to": workflow_instance.metadata_.get("assigned_to")
+            if workflow_instance and workflow_instance.metadata_
+            else None,
+            "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code")
+            if workflow_instance and workflow_instance.metadata_
+            else None,
         },
     )
 
@@ -4137,23 +4180,26 @@ async def submit_ads(
     await db.commit()
 
     # Emit module-level events AFTER commit → triggers PaxLog notification handlers
-    from app.core.events import OpsFluxEvent, event_bus as _event_bus
+    from app.core.events import OpsFluxEvent
+    from app.core.events import event_bus as _event_bus
 
-    await _event_bus.publish(OpsFluxEvent(
-        event_type="ads.submitted",
-        payload={
-            "ads_id": str(ads.id),
-            "entity_id": str(entity_id),
-            "reference": ads.reference,
-            "requester_id": str(ads.requester_id),
-            "site_name": str(ads.site_entry_asset_id),
-            "start_date": str(ads.start_date),
-            "end_date": str(ads.end_date),
-            "pax_count": len(pax_entries),
-            "waitlist_applied": waitlist_meta["waitlist_applied"],
-            "waitlisted_pax_count": waitlist_meta["waitlisted_count"],
-        },
-    ))
+    await _event_bus.publish(
+        OpsFluxEvent(
+            event_type="ads.submitted",
+            payload={
+                "ads_id": str(ads.id),
+                "entity_id": str(entity_id),
+                "reference": ads.reference,
+                "requester_id": str(ads.requester_id),
+                "site_name": str(ads.site_entry_asset_id),
+                "start_date": str(ads.start_date),
+                "end_date": str(ads.end_date),
+                "pax_count": len(pax_entries),
+                "waitlist_applied": waitlist_meta["waitlist_applied"],
+                "waitlisted_pax_count": waitlist_meta["waitlisted_count"],
+            },
+        )
+    )
 
     if waitlist_meta["waitlist_applied"] and ads.requester_id:
         from app.core.notifications import send_in_app
@@ -4170,42 +4216,44 @@ async def submit_ads(
             category="paxlog",
             link=f"/paxlog/ads/{ads.id}",
         )
-        await _event_bus.publish(OpsFluxEvent(
-            event_type="ads.waitlisted",
-            payload={
-                "ads_id": str(ads.id),
-                "entity_id": str(entity_id),
-                "reference": ads.reference,
-                "requester_id": str(ads.requester_id),
-                "planner_activity_id": str(ads.planner_activity_id) if ads.planner_activity_id else None,
-                "waitlisted_pax_count": waitlist_meta["waitlisted_count"],
-                "activity_quota": waitlist_meta["activity_quota"],
-                "remaining_capacity": waitlist_meta["remaining_capacity"],
-            },
-        ))
+        await _event_bus.publish(
+            OpsFluxEvent(
+                event_type="ads.waitlisted",
+                payload={
+                    "ads_id": str(ads.id),
+                    "entity_id": str(entity_id),
+                    "reference": ads.reference,
+                    "requester_id": str(ads.requester_id),
+                    "planner_activity_id": str(ads.planner_activity_id) if ads.planner_activity_id else None,
+                    "waitlisted_pax_count": waitlist_meta["waitlisted_count"],
+                    "activity_quota": waitlist_meta["activity_quota"],
+                    "remaining_capacity": waitlist_meta["remaining_capacity"],
+                },
+            )
+        )
 
     if has_compliance_issues:
         # Count blocked PAX
-        blocked_count = sum(
-            1 for p in pax_entries
-            if p.status == "blocked"
+        blocked_count = sum(1 for p in pax_entries if p.status == "blocked")
+        await _event_bus.publish(
+            OpsFluxEvent(
+                event_type="ads.compliance_failed",
+                payload={
+                    "ads_id": str(ads.id),
+                    "entity_id": str(entity_id),
+                    "reference": ads.reference,
+                    "requester_id": str(ads.requester_id),
+                    "blocked_pax_count": blocked_count,
+                    "total_pax_count": len(pax_entries),
+                    "issues_summary": ads.rejection_reason or "",
+                },
+            )
         )
-        await _event_bus.publish(OpsFluxEvent(
-            event_type="ads.compliance_failed",
-            payload={
-                "ads_id": str(ads.id),
-                "entity_id": str(entity_id),
-                "reference": ads.reference,
-                "requester_id": str(ads.requester_id),
-                "blocked_pax_count": blocked_count,
-                "total_pax_count": len(pax_entries),
-                "issues_summary": ads.rejection_reason or "",
-            },
-        ))
 
     logger.info(
         "AdS %s submitted by %s (compliance: %s)",
-        ads.reference, current_user.id,
+        ads.reference,
+        current_user.id,
         "issues" if has_compliance_issues else "ok",
     )
     return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
@@ -4224,11 +4272,8 @@ async def approve_ads(
 
     Emits ads.approved event which triggers TravelWiz auto-manifest.
     """
-    from app.services.modules.paxlog_service import ads_requires_travelwiz_transport
 
-    result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
@@ -4282,18 +4327,20 @@ async def approve_ads(
         )
         workflow_instance = transition_result[1] if isinstance(transition_result, tuple) else None
         ads.status = target_status
-        db.add(AdsEvent(
-            entity_id=entity_id,
-            ads_id=ads.id,
-            event_type="initiator_review_approved",
-            old_status=from_state,
-            new_status=target_status,
-            actor_id=current_user.id,
-            metadata_json={
-                "requester_id": str(ads.requester_id),
-                "created_by": str(ads.created_by),
-            },
-        ))
+        db.add(
+            AdsEvent(
+                entity_id=entity_id,
+                ads_id=ads.id,
+                event_type="initiator_review_approved",
+                old_status=from_state,
+                new_status=target_status,
+                actor_id=current_user.id,
+                metadata_json={
+                    "requester_id": str(ads.requester_id),
+                    "created_by": str(ads.created_by),
+                },
+            )
+        )
         await db.commit()
         await db.refresh(ads)
         await fsm_service.emit_transition_event(
@@ -4307,8 +4354,12 @@ async def approve_ads(
                 "reference": ads.reference,
                 "requester_id": str(ads.requester_id),
                 "entity_scope_id": str(entity_id),
-                "assigned_to": workflow_instance.metadata_.get("assigned_to") if workflow_instance and workflow_instance.metadata_ else None,
-                "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code") if workflow_instance and workflow_instance.metadata_ else None,
+                "assigned_to": workflow_instance.metadata_.get("assigned_to")
+                if workflow_instance and workflow_instance.metadata_
+                else None,
+                "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code")
+                if workflow_instance and workflow_instance.metadata_
+                else None,
             },
         )
         await record_audit(
@@ -4343,11 +4394,11 @@ async def approve_ads(
             approved_targets = pending_targets
         else:
             approved_targets = [
-                target for target in pending_targets
-                if target.get("project_manager_id") == current_user.id
+                target for target in pending_targets if target.get("project_manager_id") == current_user.id
             ]
         remaining_targets = [
-            target for target in pending_targets
+            target
+            for target in pending_targets
             if target["project_id"] not in {item["project_id"] for item in approved_targets}
         ]
 
@@ -4356,19 +4407,21 @@ async def approve_ads(
             entity_id=entity_id,
             project_reviewer=project_reviewer,
         )
-        db.add(AdsEvent(
-            entity_id=entity_id,
-            ads_id=ads.id,
-            event_type="project_review_approved",
-            old_status=ads.status,
-            new_status=ads.status if remaining_targets else "pending_compliance",
-            actor_id=current_user.id,
-            metadata_json={
-                "project_id": str(project_reviewer.id) if project_reviewer else None,
-                "project_ids": [str(item["project_id"]) for item in approved_targets],
-                "remaining_project_ids": [str(item["project_id"]) for item in remaining_targets],
-            },
-        ))
+        db.add(
+            AdsEvent(
+                entity_id=entity_id,
+                ads_id=ads.id,
+                event_type="project_review_approved",
+                old_status=ads.status,
+                new_status=ads.status if remaining_targets else "pending_compliance",
+                actor_id=current_user.id,
+                metadata_json={
+                    "project_id": str(project_reviewer.id) if project_reviewer else None,
+                    "project_ids": [str(item["project_id"]) for item in approved_targets],
+                    "remaining_project_ids": [str(item["project_id"]) for item in remaining_targets],
+                },
+            )
+        )
         if remaining_targets:
             await db.commit()
             await db.refresh(ads)
@@ -4390,13 +4443,16 @@ async def approve_ads(
             await db.commit()
             return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
-        target_status = await _resolve_ads_auto_transition(
-            db,
-            entity_id=entity_id,
-            from_state=ads.status,
-            ads=ads,
-            project_reviewer=project_reviewer,
-        ) or "pending_compliance"
+        target_status = (
+            await _resolve_ads_auto_transition(
+                db,
+                entity_id=entity_id,
+                from_state=ads.status,
+                ads=ads,
+                project_reviewer=project_reviewer,
+            )
+            or "pending_compliance"
+        )
         pax_entries, has_compliance_issues, target_status = await _run_ads_submission_checks(
             db,
             ads=ads,
@@ -4426,8 +4482,12 @@ async def approve_ads(
                 "reference": ads.reference,
                 "project_id": str(project_reviewer.id),
                 "entity_scope_id": str(entity_id),
-                "assigned_to": workflow_instance.metadata_.get("assigned_to") if workflow_instance and workflow_instance.metadata_ else None,
-                "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code") if workflow_instance and workflow_instance.metadata_ else None,
+                "assigned_to": workflow_instance.metadata_.get("assigned_to")
+                if workflow_instance and workflow_instance.metadata_
+                else None,
+                "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code")
+                if workflow_instance and workflow_instance.metadata_
+                else None,
             },
         )
         await record_audit(
@@ -4455,13 +4515,17 @@ async def approve_ads(
         )
 
         blocked_entries = (
-            await db.execute(
-                select(AdsPax).where(
-                    AdsPax.ads_id == ads_id,
-                    AdsPax.status == "blocked",
+            (
+                await db.execute(
+                    select(AdsPax).where(
+                        AdsPax.ads_id == ads_id,
+                        AdsPax.status == "blocked",
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         if blocked_entries:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -4484,14 +4548,16 @@ async def approve_ads(
         workflow_instance = transition_result[1] if isinstance(transition_result, tuple) else None
 
         ads.status = "pending_validation"
-        db.add(AdsEvent(
-            entity_id=entity_id,
-            ads_id=ads.id,
-            event_type="compliance_approved",
-            old_status=from_state,
-            new_status="pending_validation",
-            actor_id=current_user.id,
-        ))
+        db.add(
+            AdsEvent(
+                entity_id=entity_id,
+                ads_id=ads.id,
+                event_type="compliance_approved",
+                old_status=from_state,
+                new_status="pending_validation",
+                actor_id=current_user.id,
+            )
+        )
 
         await db.commit()
         await db.refresh(ads)
@@ -4506,8 +4572,12 @@ async def approve_ads(
             extra_payload={
                 "reference": ads.reference,
                 "entity_scope_id": str(entity_id),
-                "assigned_to": workflow_instance.metadata_.get("assigned_to") if workflow_instance and workflow_instance.metadata_ else None,
-                "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code") if workflow_instance and workflow_instance.metadata_ else None,
+                "assigned_to": workflow_instance.metadata_.get("assigned_to")
+                if workflow_instance and workflow_instance.metadata_
+                else None,
+                "assigned_role_code": workflow_instance.metadata_.get("assigned_role_code")
+                if workflow_instance and workflow_instance.metadata_
+                else None,
             },
         )
         await record_audit(
@@ -4558,14 +4628,16 @@ async def approve_ads(
     ads.status = "approved"
     ads.approved_at = func.now()
 
-    db.add(AdsEvent(
-        entity_id=entity_id,
-        ads_id=ads.id,
-        event_type="approved",
-        old_status=from_state,
-        new_status="approved",
-        actor_id=current_user.id,
-    ))
+    db.add(
+        AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type="approved",
+            old_status=from_state,
+            new_status="approved",
+            actor_id=current_user.id,
+        )
+    )
 
     await db.commit()
     await db.refresh(ads)
@@ -4594,22 +4666,27 @@ async def approve_ads(
 
     # Emit module-level event AFTER commit → triggers TravelWiz auto-manifest
     from app.core.events import OpsFluxEvent, event_bus
-    await event_bus.publish(OpsFluxEvent(
-        event_type="ads.approved",
-        payload={
-            "ads_id": str(ads.id),
-            "entity_id": str(entity_id),
-            "site_asset_id": str(ads.site_entry_asset_id),
-            "start_date": str(ads.start_date),
-            "end_date": str(ads.end_date),
-            "outbound_transport_mode": ads.outbound_transport_mode,
-            "return_transport_mode": ads.return_transport_mode,
-            **_build_ads_transport_flags(ads),
-            "outbound_departure_base_id": str(ads.outbound_departure_base_id) if ads.outbound_departure_base_id else None,
-            "requester_id": str(ads.requester_id),
-            "reference": ads.reference,
-        },
-    ))
+
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="ads.approved",
+            payload={
+                "ads_id": str(ads.id),
+                "entity_id": str(entity_id),
+                "site_asset_id": str(ads.site_entry_asset_id),
+                "start_date": str(ads.start_date),
+                "end_date": str(ads.end_date),
+                "outbound_transport_mode": ads.outbound_transport_mode,
+                "return_transport_mode": ads.return_transport_mode,
+                **_build_ads_transport_flags(ads),
+                "outbound_departure_base_id": str(ads.outbound_departure_base_id)
+                if ads.outbound_departure_base_id
+                else None,
+                "requester_id": str(ads.requester_id),
+                "reference": ads.reference,
+            },
+        )
+    )
 
     logger.info("AdS %s approved by %s", ads.reference, current_user.id)
     return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
@@ -4626,9 +4703,7 @@ async def reject_ads(
     db: AsyncSession = Depends(get_db),
 ):
     """Reject an AdS."""
-    result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
@@ -4669,9 +4744,7 @@ async def reject_ads(
         )
 
     # Mark all PAX as rejected
-    pax_result = await db.execute(
-        select(AdsPax).where(AdsPax.ads_id == ads_id)
-    )
+    pax_result = await db.execute(select(AdsPax).where(AdsPax.ads_id == ads_id))
     release_slot = False
     for entry in pax_result.scalars().all():
         if entry.status not in {"blocked", "waitlisted", "rejected", "no_show"}:
@@ -4695,15 +4768,17 @@ async def reject_ads(
     ads.rejected_at = func.now() if target_state == "rejected" else None
     ads.rejection_reason = reason
 
-    db.add(AdsEvent(
-        entity_id=entity_id,
-        ads_id=ads.id,
-        event_type="initiator_review_rejected" if target_state == "cancelled" else "rejected",
-        old_status=from_state,
-        new_status=target_state,
-        actor_id=current_user.id,
-        reason=reason,
-    ))
+    db.add(
+        AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type="initiator_review_rejected" if target_state == "cancelled" else "rejected",
+            old_status=from_state,
+            new_status=target_state,
+            actor_id=current_user.id,
+            reason=reason,
+        )
+    )
 
     if release_slot:
         await _promote_waitlisted_ads_pax_if_capacity_available(
@@ -4728,17 +4803,21 @@ async def reject_ads(
     )
 
     # Emit module-level event AFTER commit → triggers PaxLog notification handlers
-    from app.core.events import OpsFluxEvent, event_bus as _event_bus
-    await _event_bus.publish(OpsFluxEvent(
-        event_type="ads.cancelled" if target_state == "cancelled" else "ads.rejected",
-        payload={
-            "ads_id": str(ads.id),
-            "entity_id": str(entity_id),
-            "reference": ads.reference,
-            "requester_id": str(ads.requester_id),
-            "rejection_reason": reason or "",
-        },
-    ))
+    from app.core.events import OpsFluxEvent
+    from app.core.events import event_bus as _event_bus
+
+    await _event_bus.publish(
+        OpsFluxEvent(
+            event_type="ads.cancelled" if target_state == "cancelled" else "ads.rejected",
+            payload={
+                "ads_id": str(ads.id),
+                "entity_id": str(entity_id),
+                "reference": ads.reference,
+                "requester_id": str(ads.requester_id),
+                "rejection_reason": reason or "",
+            },
+        )
+    )
 
     logger.info("AdS %s %s by %s", ads.reference, target_state, current_user.id)
     return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
@@ -4754,9 +4833,7 @@ async def request_ads_review(
     db: AsyncSession = Depends(get_db),
 ):
     """Send an AdS back for correction without terminal rejection."""
-    result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
@@ -4782,15 +4859,17 @@ async def request_ads_review(
     # Reuse the existing feedback field until a dedicated review_comment field is modelled.
     ads.rejection_reason = reason
 
-    db.add(AdsEvent(
-        entity_id=entity_id,
-        ads_id=ads.id,
-        event_type="requires_review",
-        old_status=from_state,
-        new_status="requires_review",
-        actor_id=current_user.id,
-        reason=reason,
-    ))
+    db.add(
+        AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type="requires_review",
+            old_status=from_state,
+            new_status="requires_review",
+            actor_id=current_user.id,
+            reason=reason,
+        )
+    )
 
     await db.commit()
     await db.refresh(ads)
@@ -4805,17 +4884,21 @@ async def request_ads_review(
         extra_payload={"review_reason": reason},
     )
 
-    from app.core.events import OpsFluxEvent, event_bus as _event_bus
-    await _event_bus.publish(OpsFluxEvent(
-        event_type="ads.requires_review",
-        payload={
-            "ads_id": str(ads.id),
-            "entity_id": str(entity_id),
-            "reference": ads.reference,
-            "requester_id": str(ads.requester_id),
-            "review_reason": reason,
-        },
-    ))
+    from app.core.events import OpsFluxEvent
+    from app.core.events import event_bus as _event_bus
+
+    await _event_bus.publish(
+        OpsFluxEvent(
+            event_type="ads.requires_review",
+            payload={
+                "ads_id": str(ads.id),
+                "entity_id": str(entity_id),
+                "reference": ads.reference,
+                "requester_id": str(ads.requester_id),
+                "review_reason": reason,
+            },
+        )
+    )
 
     logger.info("AdS %s sent back for review by %s", ads.reference, current_user.id)
     return ads
@@ -4831,9 +4914,7 @@ async def cancel_ads(
     db: AsyncSession = Depends(get_db),
 ):
     """Cancel an AdS."""
-    result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
@@ -4851,8 +4932,7 @@ async def cancel_ads(
 
     pax_result = await db.execute(select(AdsPax).where(AdsPax.ads_id == ads_id))
     release_slot = any(
-        entry.status not in {"blocked", "waitlisted", "rejected", "no_show"}
-        for entry in pax_result.scalars().all()
+        entry.status not in {"blocked", "waitlisted", "rejected", "no_show"} for entry in pax_result.scalars().all()
     )
 
     from_state = ads.status
@@ -4866,14 +4946,16 @@ async def cancel_ads(
 
     ads.status = "cancelled"
 
-    db.add(AdsEvent(
-        entity_id=entity_id,
-        ads_id=ads.id,
-        event_type="cancelled",
-        old_status=from_state,
-        new_status="cancelled",
-        actor_id=current_user.id,
-    ))
+    db.add(
+        AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type="cancelled",
+            old_status=from_state,
+            new_status="cancelled",
+            actor_id=current_user.id,
+        )
+    )
 
     if release_slot:
         await _promote_waitlisted_ads_pax_if_capacity_available(
@@ -4897,19 +4979,23 @@ async def cancel_ads(
     )
 
     # Emit module-level event AFTER commit → triggers PaxLog notification handlers
-    from app.core.events import OpsFluxEvent, event_bus as _event_bus
-    await _event_bus.publish(OpsFluxEvent(
-        event_type="ads.cancelled",
-        payload={
-            "ads_id": str(ads.id),
-            "entity_id": str(entity_id),
-            "reference": ads.reference,
-            "requester_id": str(ads.requester_id),
-            "site_name": str(ads.site_entry_asset_id),
-            "start_date": str(ads.start_date),
-            "end_date": str(ads.end_date),
-        },
-    ))
+    from app.core.events import OpsFluxEvent
+    from app.core.events import event_bus as _event_bus
+
+    await _event_bus.publish(
+        OpsFluxEvent(
+            event_type="ads.cancelled",
+            payload={
+                "ads_id": str(ads.id),
+                "entity_id": str(entity_id),
+                "reference": ads.reference,
+                "requester_id": str(ads.requester_id),
+                "site_name": str(ads.site_entry_asset_id),
+                "start_date": str(ads.start_date),
+                "end_date": str(ads.end_date),
+            },
+        )
+    )
 
     return ads
 
@@ -4974,14 +5060,16 @@ async def start_ads_progress(
         entity_id_scope=entity_id,
     )
     ads.status = "in_progress"
-    db.add(AdsEvent(
-        entity_id=entity_id,
-        ads_id=ads.id,
-        event_type="in_progress",
-        old_status=from_state,
-        new_status="in_progress",
-        actor_id=current_user.id,
-    ))
+    db.add(
+        AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type="in_progress",
+            old_status=from_state,
+            new_status="in_progress",
+            actor_id=current_user.id,
+        )
+    )
     await db.commit()
     await db.refresh(ads)
     await fsm_service.emit_transition_event(
@@ -5002,16 +5090,20 @@ async def start_ads_progress(
         details={"reference": ads.reference},
     )
     await db.commit()
-    from app.core.events import OpsFluxEvent, event_bus as _event_bus
-    await _event_bus.publish(OpsFluxEvent(
-        event_type="ads.in_progress",
-        payload={
-            "ads_id": str(ads.id),
-            "entity_id": str(entity_id),
-            "reference": ads.reference,
-            "requester_id": str(ads.requester_id),
-        },
-    ))
+    from app.core.events import OpsFluxEvent
+    from app.core.events import event_bus as _event_bus
+
+    await _event_bus.publish(
+        OpsFluxEvent(
+            event_type="ads.in_progress",
+            payload={
+                "ads_id": str(ads.id),
+                "entity_id": str(entity_id),
+                "reference": ads.reference,
+                "requester_id": str(ads.requester_id),
+            },
+        )
+    )
     return AdsRead(**(await _build_ads_read_data(db, ads=ads, entity_id=entity_id)))
 
 
@@ -5057,19 +5149,19 @@ async def list_ads_events(
     _: None = require_any_permission(*ADS_READ_ENTRY_PERMISSIONS),
     db: AsyncSession = Depends(get_db),
 ):
-    ads_result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    ads_result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
     await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
 
     result = await db.execute(
-        select(AdsEvent).where(
+        select(AdsEvent)
+        .where(
             AdsEvent.ads_id == ads_id,
             AdsEvent.entity_id == entity_id,
-        ).order_by(AdsEvent.recorded_at.desc())
+        )
+        .order_by(AdsEvent.recorded_at.desc())
     )
     return result.scalars().all()
 
@@ -5085,9 +5177,7 @@ async def resubmit_ads(
     db: AsyncSession = Depends(get_db),
 ):
     """Resubmit an AdS after requires_review — motif obligatoire."""
-    result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
@@ -5107,15 +5197,17 @@ async def resubmit_ads(
     ads.submitted_at = func.now()
 
     # Log event
-    db.add(AdsEvent(
-        entity_id=entity_id,
-        ads_id=ads.id,
-        event_type="resubmitted",
-        old_status=old_status,
-        new_status=target_status,
-        actor_id=current_user.id,
-        reason=reason,
-    ))
+    db.add(
+        AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type="resubmitted",
+            old_status=old_status,
+            new_status=target_status,
+            actor_id=current_user.id,
+            reason=reason,
+        )
+    )
 
     await _try_ads_workflow_transition(
         db,
@@ -5173,17 +5265,13 @@ async def list_ads_pax(
     from app.core.sms_service import resolve_user_contact
 
     # Verify AdS
-    ads_result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    ads_result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
     await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
 
-    pax_result = await db.execute(
-        select(AdsPax).where(AdsPax.ads_id == ads_id)
-    )
+    pax_result = await db.execute(select(AdsPax).where(AdsPax.ads_id == ads_id))
     entries = pax_result.scalars().all()
 
     status_rank = {
@@ -5205,53 +5293,55 @@ async def list_ads_pax(
             if u and getattr(u, "tier_contact_id", None):
                 linked_contact = await db.get(TierContact, u.tier_contact_id)
                 if linked_contact:
-                    linked_company_name = await db.scalar(
-                        select(Tier.name).where(Tier.id == linked_contact.tier_id)
-                    )
+                    linked_company_name = await db.scalar(select(Tier.name).where(Tier.id == linked_contact.tier_id))
             pax_email = None
             pax_phone = None
             if u:
                 pax_email = await resolve_user_contact(db, str(u.id), "email") or u.email
                 pax_phone = await resolve_user_contact(db, str(u.id), "sms")
-            items.append({
-                "id": str(ads_pax.id),
-                "ads_id": str(ads_pax.ads_id),
-                "user_id": str(ads_pax.user_id),
-                "contact_id": None,
-                "pax_source": "user",
-                "status": ads_pax.status,
-                "compliance_summary": ads_pax.compliance_summary,
-                "priority_score": ads_pax.priority_score,
-                "priority_source": getattr(ads_pax, "priority_source", None),
-                "pax_first_name": u.first_name if u else "?",
-                "pax_last_name": u.last_name if u else "?",
-                "pax_company_id": str(linked_contact.tier_id) if linked_contact else None,
-                "pax_company_name": linked_company_name,
-                "pax_badge": u.badge_number if u else None,
-                "pax_type": "external" if linked_contact else (u.pax_type if u else "internal"),
-                "pax_email": pax_email,
-                "pax_phone": pax_phone,
-            })
+            items.append(
+                {
+                    "id": str(ads_pax.id),
+                    "ads_id": str(ads_pax.ads_id),
+                    "user_id": str(ads_pax.user_id),
+                    "contact_id": None,
+                    "pax_source": "user",
+                    "status": ads_pax.status,
+                    "compliance_summary": ads_pax.compliance_summary,
+                    "priority_score": ads_pax.priority_score,
+                    "priority_source": getattr(ads_pax, "priority_source", None),
+                    "pax_first_name": u.first_name if u else "?",
+                    "pax_last_name": u.last_name if u else "?",
+                    "pax_company_id": str(linked_contact.tier_id) if linked_contact else None,
+                    "pax_company_name": linked_company_name,
+                    "pax_badge": u.badge_number if u else None,
+                    "pax_type": "external" if linked_contact else (u.pax_type if u else "internal"),
+                    "pax_email": pax_email,
+                    "pax_phone": pax_phone,
+                }
+            )
         elif ads_pax.contact_id:
             c = await db.get(TierContact, ads_pax.contact_id)
-            items.append({
-                "id": str(ads_pax.id),
-                "ads_id": str(ads_pax.ads_id),
-                "user_id": None,
-                "contact_id": str(ads_pax.contact_id),
-                "pax_source": "contact",
-                "status": ads_pax.status,
-                "compliance_summary": ads_pax.compliance_summary,
-                "priority_score": ads_pax.priority_score,
-                "priority_source": getattr(ads_pax, "priority_source", None),
-                "pax_first_name": c.first_name if c else "?",
-                "pax_last_name": c.last_name if c else "?",
-                "pax_company_id": str(c.tier_id) if c else None,
-                "pax_badge": c.badge_number if c else None,
-                "pax_type": "external",
-                "pax_email": c.email if c else None,
-                "pax_phone": c.phone if c else None,
-            })
+            items.append(
+                {
+                    "id": str(ads_pax.id),
+                    "ads_id": str(ads_pax.ads_id),
+                    "user_id": None,
+                    "contact_id": str(ads_pax.contact_id),
+                    "pax_source": "contact",
+                    "status": ads_pax.status,
+                    "compliance_summary": ads_pax.compliance_summary,
+                    "priority_score": ads_pax.priority_score,
+                    "priority_source": getattr(ads_pax, "priority_source", None),
+                    "pax_first_name": c.first_name if c else "?",
+                    "pax_last_name": c.last_name if c else "?",
+                    "pax_company_id": str(c.tier_id) if c else None,
+                    "pax_badge": c.badge_number if c else None,
+                    "pax_type": "external",
+                    "pax_email": c.email if c else None,
+                    "pax_phone": c.phone if c else None,
+                }
+            )
 
     # Waitlisted PAX are surfaced first, then ordered by priority.
     items.sort(
@@ -5276,11 +5366,8 @@ async def decide_ads_pax(
     db: AsyncSession = Depends(get_db),
 ):
     """Approve or reject a single PAX inside an AdS."""
-    from app.services.modules.paxlog_service import ads_requires_travelwiz_transport
 
-    ads_result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    ads_result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
@@ -5290,9 +5377,7 @@ async def decide_ads_pax(
             detail=f"Impossible de traiter un PAX avec le statut AdS '{ads.status}'.",
         )
 
-    pax_result = await db.execute(
-        select(AdsPax).where(AdsPax.id == entry_id, AdsPax.ads_id == ads_id)
-    )
+    pax_result = await db.execute(select(AdsPax).where(AdsPax.id == entry_id, AdsPax.ads_id == ads_id))
     entry = pax_result.scalar_one_or_none()
     if not entry:
         raise HTTPException(status_code=404, detail="PAX entry not found in this AdS")
@@ -5323,22 +5408,24 @@ async def decide_ads_pax(
 
         await compute_pax_priority(db, entry.id)
 
-    db.add(AdsEvent(
-        entity_id=entity_id,
-        ads_id=ads.id,
-        ads_pax_id=entry.id,
-        event_type=(
-            "pax_approved"
-            if body.action == "approve"
-            else "pax_waitlisted"
-            if body.action == "waitlist"
-            else "pax_rejected"
-        ),
-        old_status=old_status,
-        new_status=new_status,
-        actor_id=current_user.id,
-        reason=body.reason,
-    ))
+    db.add(
+        AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            ads_pax_id=entry.id,
+            event_type=(
+                "pax_approved"
+                if body.action == "approve"
+                else "pax_waitlisted"
+                if body.action == "waitlist"
+                else "pax_rejected"
+            ),
+            old_status=old_status,
+            new_status=new_status,
+            actor_id=current_user.id,
+            reason=body.reason,
+        )
+    )
 
     await _finalize_ads_after_pax_decision(
         db=db,
@@ -5356,46 +5443,54 @@ async def decide_ads_pax(
     await db.commit()
     await db.refresh(ads)
     if previous_ads_status != ads.status:
-        from app.core.events import OpsFluxEvent, event_bus as _event_bus
+        from app.core.events import OpsFluxEvent
+        from app.core.events import event_bus as _event_bus
 
         if ads.status == "approved":
             approved_result = await db.execute(
                 select(AdsPax).where(AdsPax.ads_id == ads.id, AdsPax.status == "approved")
             )
             approved_count = len(approved_result.scalars().all())
-            await _event_bus.publish(OpsFluxEvent(
-                event_type="ads.approved",
-                payload={
-                    "ads_id": str(ads.id),
-                    "entity_id": str(entity_id),
-                    "site_asset_id": str(ads.site_entry_asset_id),
-                    "start_date": str(ads.start_date),
-                    "end_date": str(ads.end_date),
-                    "outbound_transport_mode": ads.outbound_transport_mode,
-                    "return_transport_mode": ads.return_transport_mode,
-                    **_build_ads_transport_flags(ads),
-                    "outbound_departure_base_id": str(ads.outbound_departure_base_id) if ads.outbound_departure_base_id else None,
-                    "requester_id": str(ads.requester_id),
-                    "reference": ads.reference,
-                    "approved_pax_count": approved_count,
-                },
-            ))
+            await _event_bus.publish(
+                OpsFluxEvent(
+                    event_type="ads.approved",
+                    payload={
+                        "ads_id": str(ads.id),
+                        "entity_id": str(entity_id),
+                        "site_asset_id": str(ads.site_entry_asset_id),
+                        "start_date": str(ads.start_date),
+                        "end_date": str(ads.end_date),
+                        "outbound_transport_mode": ads.outbound_transport_mode,
+                        "return_transport_mode": ads.return_transport_mode,
+                        **_build_ads_transport_flags(ads),
+                        "outbound_departure_base_id": str(ads.outbound_departure_base_id)
+                        if ads.outbound_departure_base_id
+                        else None,
+                        "requester_id": str(ads.requester_id),
+                        "reference": ads.reference,
+                        "approved_pax_count": approved_count,
+                    },
+                )
+            )
         elif ads.status == "rejected":
-            await _event_bus.publish(OpsFluxEvent(
-                event_type="ads.rejected",
-                payload={
-                    "ads_id": str(ads.id),
-                    "entity_id": str(entity_id),
-                    "reference": ads.reference,
-                    "requester_id": str(ads.requester_id),
-                    "rejection_reason": ads.rejection_reason or "",
-                },
-            ))
+            await _event_bus.publish(
+                OpsFluxEvent(
+                    event_type="ads.rejected",
+                    payload={
+                        "ads_id": str(ads.id),
+                        "entity_id": str(entity_id),
+                        "reference": ads.reference,
+                        "requester_id": str(ads.requester_id),
+                        "rejection_reason": ads.rejection_reason or "",
+                    },
+                )
+            )
     return ads
 
 
 class AddPaxBody(BaseModel):
     """Body to add a PAX to an AdS. Provide exactly one of user_id or contact_id."""
+
     user_id: UUID | None = None
     contact_id: UUID | None = None
 
@@ -5430,17 +5525,19 @@ async def search_pax_candidates(
         )
     user_result = await db.execute(user_q.limit(15))
     for u in user_result.scalars().all():
-        candidates.append({
-            "id": str(u.id),
-            "source": "user",
-            "user_id": str(u.id),
-            "first_name": u.first_name,
-            "last_name": u.last_name,
-            "type": u.pax_type,
-            "badge": u.badge_number,
-            "company_id": None,
-            "email": u.email,
-        })
+        candidates.append(
+            {
+                "id": str(u.id),
+                "source": "user",
+                "user_id": str(u.id),
+                "first_name": u.first_name,
+                "last_name": u.last_name,
+                "type": u.pax_type,
+                "badge": u.badge_number,
+                "company_id": None,
+                "email": u.email,
+            }
+        )
 
     # 2. Tier contacts (external PAX)
     contact_q = (
@@ -5462,17 +5559,19 @@ async def search_pax_candidates(
         )
     contact_result = await db.execute(contact_q.limit(15))
     for c in contact_result.scalars().all():
-        candidates.append({
-            "id": str(c.id),
-            "source": "contact",
-            "contact_id": str(c.id),
-            "first_name": c.first_name,
-            "last_name": c.last_name,
-            "type": "external",
-            "badge": c.badge_number,
-            "company_id": str(c.tier_id) if c.tier_id else None,
-            "position": c.position,
-        })
+        candidates.append(
+            {
+                "id": str(c.id),
+                "source": "contact",
+                "contact_id": str(c.id),
+                "first_name": c.first_name,
+                "last_name": c.last_name,
+                "type": "external",
+                "badge": c.badge_number,
+                "company_id": str(c.tier_id) if c.tier_id else None,
+                "position": c.position,
+            }
+        )
 
     return candidates[:30]
 
@@ -5489,9 +5588,7 @@ async def add_pax_to_ads(
 ):
     """Add a PAX to an AdS. Provide exactly one of user_id or contact_id."""
     # Verify AdS
-    ads_result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    ads_result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
@@ -5518,9 +5615,7 @@ async def add_pax_to_ads(
             raise HTTPException(status_code=404, detail="User not found")
         pax_name = f"{u.first_name} {u.last_name}"
         # Check not already in this AdS
-        existing = await db.execute(
-            select(AdsPax.id).where(AdsPax.ads_id == ads_id, AdsPax.user_id == body.user_id)
-        )
+        existing = await db.execute(select(AdsPax.id).where(AdsPax.ads_id == ads_id, AdsPax.user_id == body.user_id))
     else:
         c = await db.get(TierContact, body.contact_id)
         if not c:
@@ -5562,9 +5657,7 @@ async def remove_pax_from_ads(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove a PAX entry from an AdS by AdsPax id."""
-    ads_result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    ads_result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
@@ -5655,9 +5748,7 @@ async def _get_ads_pdf_accessible(
     current_user: User,
     request: Request | None = None,
 ) -> Ads:
-    result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS introuvable")
@@ -5674,6 +5765,7 @@ async def _build_ads_pdf_response(
 ):
     """Render the shared `ads.ticket` PDF response for internal and external flows."""
     from fastapi.responses import Response
+
     from app.core.pdf_templates import render_pdf
 
     variables = await _build_ads_pdf_template_variables(
@@ -5710,34 +5802,36 @@ async def _build_ads_pdf_template_variables(
     from sqlalchemy import text as sql_text
 
     # Load PAX entries with profile details (User + TierContact)
-    pax_result = await db.execute(
-        select(AdsPax).where(AdsPax.ads_id == ads.id)
-    )
+    pax_result = await db.execute(select(AdsPax).where(AdsPax.ads_id == ads.id))
     pax_rows = pax_result.scalars().all()
     passengers = []
     for ads_pax in pax_rows:
         if ads_pax.user_id:
             u = await db.get(User, ads_pax.user_id)
-            passengers.append({
-                "first_name": u.first_name if u else "?",
-                "last_name": u.last_name if u else "?",
-                "badge_number": (u.badge_number if u else None) or "—",
-                "company": "",
-                "type": u.pax_type if u else "internal",
-                "status": ads_pax.status or "pending",
-                "compliant": (ads_pax.compliance_summary or {}).get("compliant", False),
-            })
+            passengers.append(
+                {
+                    "first_name": u.first_name if u else "?",
+                    "last_name": u.last_name if u else "?",
+                    "badge_number": (u.badge_number if u else None) or "—",
+                    "company": "",
+                    "type": u.pax_type if u else "internal",
+                    "status": ads_pax.status or "pending",
+                    "compliant": (ads_pax.compliance_summary or {}).get("compliant", False),
+                }
+            )
         elif ads_pax.contact_id:
             c = await db.get(TierContact, ads_pax.contact_id)
-            passengers.append({
-                "first_name": c.first_name if c else "?",
-                "last_name": c.last_name if c else "?",
-                "badge_number": (c.badge_number if c else None) or "—",
-                "company": "",
-                "type": "external",
-                "status": ads_pax.status or "pending",
-                "compliant": (ads_pax.compliance_summary or {}).get("compliant", False),
-            })
+            passengers.append(
+                {
+                    "first_name": c.first_name if c else "?",
+                    "last_name": c.last_name if c else "?",
+                    "badge_number": (c.badge_number if c else None) or "—",
+                    "company": "",
+                    "type": "external",
+                    "status": ads_pax.status or "pending",
+                    "compliant": (ads_pax.compliance_summary or {}).get("compliant", False),
+                }
+            )
 
     # Load requester info
     req_row = await db.execute(
@@ -5926,12 +6020,14 @@ async def _build_ads_boarding_context(
             user_id=row[0].user_id,
             contact_id=row[0].contact_id,
             name=" ".join(
-                part for part in [
+                part
+                for part in [
                     row[1] if row[0].user_id else row[4],
                     row[2] if row[0].user_id else row[5],
                 ]
                 if part
-            ) or "PAX",
+            )
+            or "PAX",
             company=row[7] or None,
             badge_number=row[3] or row[6],
             pax_status=row[0].status,
@@ -5976,12 +6072,14 @@ async def _build_ads_boarding_context(
             user_id=row[0].user_id,
             contact_id=row[0].contact_id,
             name=" ".join(
-                part for part in [
+                part
+                for part in [
                     row[1] if row[0].user_id else row[4],
                     row[2] if row[0].user_id else row[5],
                 ]
                 if part
-            ) or "PAX",
+            )
+            or "PAX",
             company=row[7] or None,
             badge_number=row[3] or row[6],
             pax_status=row[0].status,
@@ -6109,16 +6207,14 @@ async def update_ads_boarding_scan_passenger(
 
     passenger: ManifestPassenger = row[0]
     passenger.boarding_status = body.boarding_status
-    passenger.boarded_at = datetime.now(timezone.utc) if body.boarding_status == "boarded" else None
+    passenger.boarded_at = datetime.now(UTC) if body.boarding_status == "boarded" else None
 
     # Spec section 4.2/4.3: the captain "Pax On Board" signal is the
     # ONLY trigger for the real POB statut on a passenger. Cascade the
     # boarding status to AdsPax.current_onboard so the Planner heatmap
     # immediately reflects the real_pob count for that asset/day.
     if passenger.ads_pax_id:
-        ads_pax_row = await db.execute(
-            select(AdsPax).where(AdsPax.id == passenger.ads_pax_id)
-        )
+        ads_pax_row = await db.execute(select(AdsPax).where(AdsPax.id == passenger.ads_pax_id))
         ads_pax_obj = ads_pax_row.scalar_one_or_none()
         if ads_pax_obj is not None:
             ads_pax_obj.current_onboard = body.boarding_status == "boarded"
@@ -6143,20 +6239,24 @@ async def update_ads_boarding_scan_passenger(
     # Emit a high-level event so any downstream consumer (Planner real_pob
     # cache invalidation, KPI dashboards, etc.) can react in real time.
     if passenger.ads_pax_id:
-        from app.core.events import OpsFluxEvent as _OpsFluxEvent, event_bus as _event_bus
-        await _event_bus.publish(_OpsFluxEvent(
-            event_type="paxlog.pax.boarding_updated",
-            payload={
-                "ads_id": str(ads.id),
-                "ads_pax_id": str(passenger.ads_pax_id),
-                "manifest_passenger_id": str(passenger.id),
-                "boarding_status": body.boarding_status,
-                "site_asset_id": str(ads.site_entry_asset_id),
-                "start_date": str(ads.start_date),
-                "end_date": str(ads.end_date),
-                "entity_id": str(entity_id),
-            },
-        ))
+        from app.core.events import OpsFluxEvent as _OpsFluxEvent
+        from app.core.events import event_bus as _event_bus
+
+        await _event_bus.publish(
+            _OpsFluxEvent(
+                event_type="paxlog.pax.boarding_updated",
+                payload={
+                    "ads_id": str(ads.id),
+                    "ads_pax_id": str(passenger.ads_pax_id),
+                    "manifest_passenger_id": str(passenger.id),
+                    "boarding_status": body.boarding_status,
+                    "site_asset_id": str(ads.site_entry_asset_id),
+                    "start_date": str(ads.start_date),
+                    "end_date": str(ads.end_date),
+                    "entity_id": str(entity_id),
+                },
+            )
+        )
     await db.refresh(passenger)
 
     return AdsBoardingPassengerRead(
@@ -6329,17 +6429,13 @@ async def list_imputations(
     from app.api.routes.core.cost_imputations import list_cost_imputations
 
     # Verify AdS
-    ads_result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    ads_result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
     await _assert_ads_read_access(ads, current_user=current_user, request=request, entity_id=entity_id, db=db)
 
-    return await list_cost_imputations(
-        owner_type="ads", owner_id=ads_id, current_user=current_user, db=db
-    )
+    return await list_cost_imputations(owner_type="ads", owner_id=ads_id, current_user=current_user, db=db)
 
 
 @router.get("/ads/{ads_id}/imputation-suggestion", response_model=AdsImputationSuggestionRead)
@@ -6352,9 +6448,7 @@ async def get_imputation_suggestion(
     db: AsyncSession = Depends(get_db),
 ):
     """Return the default imputation suggestion for an AdS."""
-    ads_result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    ads_result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
@@ -6381,9 +6475,7 @@ async def add_imputation(
     from app.schemas.common import CostImputationCreate
 
     # Verify AdS
-    ads_result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    ads_result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
@@ -6392,9 +6484,7 @@ async def add_imputation(
             ads, current_user=current_user, request=request, entity_id=entity_id, db=db
         )
     else:
-        can_manage_ads = await _can_manage_ads(
-            ads, current_user=current_user, entity_id=entity_id, db=db
-        )
+        can_manage_ads = await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db)
     if not can_manage_ads:
         raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier les imputations de cette AdS.")
 
@@ -6429,9 +6519,7 @@ async def delete_imputation(
     from app.api.routes.core.cost_imputations import delete_cost_imputation
 
     # Verify AdS belongs to entity
-    ads_result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    ads_result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
@@ -6440,15 +6528,11 @@ async def delete_imputation(
             ads, current_user=current_user, request=request, entity_id=entity_id, db=db
         )
     else:
-        can_manage_ads = await _can_manage_ads(
-            ads, current_user=current_user, entity_id=entity_id, db=db
-        )
+        can_manage_ads = await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db)
     if not can_manage_ads:
         raise HTTPException(status_code=403, detail="Vous ne pouvez pas modifier les imputations de cette AdS.")
 
-    await delete_cost_imputation(
-        imputation_id=imputation_id, current_user=current_user, db=db
-    )
+    await delete_cost_imputation(imputation_id=imputation_id, current_user=current_user, db=db)
     await _sync_ads_project_from_imputations(db, ads=ads)
     await db.commit()
     return None
@@ -6472,8 +6556,9 @@ async def list_rotation_cycles(
     db: AsyncSession = Depends(get_db),
 ):
     """List rotation cycles for the entity."""
-    from app.services.modules import paxlog_service
     from sqlalchemy import text as sa_text
+
+    from app.services.modules import paxlog_service
 
     conditions = ["entity_id = :eid"]
     params: dict = {"eid": str(entity_id)}
@@ -6737,10 +6822,7 @@ async def end_rotation_cycle(
     from sqlalchemy import text as sa_text
 
     result = await db.execute(
-        sa_text(
-            "UPDATE pax_rotation_cycles SET status = 'ended' "
-            "WHERE id = :cid AND entity_id = :eid RETURNING id"
-        ),
+        sa_text("UPDATE pax_rotation_cycles SET status = 'ended' WHERE id = :cid AND entity_id = :eid RETURNING id"),
         {"cid": str(cycle_id), "eid": str(entity_id)},
     )
     if not result.scalar():
@@ -6938,16 +7020,20 @@ async def _load_pickup_address(
     if not owner_id:
         return None
     rows = (
-        await db.execute(
-            select(Address)
-            .where(
-                Address.owner_type == owner_type,
-                Address.owner_id == owner_id,
-                Address.label == "pickup",
+        (
+            await db.execute(
+                select(Address)
+                .where(
+                    Address.owner_type == owner_type,
+                    Address.owner_id == owner_id,
+                    Address.label == "pickup",
+                )
+                .order_by(Address.is_default.desc(), Address.created_at.desc())
             )
-            .order_by(Address.is_default.desc(), Address.created_at.desc())
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return rows[0] if rows else None
 
 
@@ -6969,9 +7055,7 @@ async def _upsert_pickup_address(
         "country": _normalize_external_text(body.pickup_country),
     }
     existing = await _load_pickup_address(db, owner_type=owner_type, owner_id=owner_id)
-    has_meaningful_pickup = any(
-        value for key, value in address_fields.items() if key != "address_line2"
-    )
+    has_meaningful_pickup = any(value for key, value in address_fields.items() if key != "address_line2")
     if not has_meaningful_pickup:
         if existing:
             await db.delete(existing)
@@ -7061,7 +7145,7 @@ async def _send_external_link_otp(db: AsyncSession, *, link: ExternalAccessLink)
 
     code = f"{secrets.randbelow(1000000):06d}"
     link.otp_code_hash = _hash_secret(code)
-    link.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=EXTERNAL_OTP_TTL_MINUTES)
+    link.otp_expires_at = datetime.now(UTC) + timedelta(minutes=EXTERNAL_OTP_TTL_MINUTES)
     link.otp_attempt_count = 0
     link.session_token_hash = None
     link.session_expires_at = None
@@ -7107,11 +7191,14 @@ async def _resolve_external_link_recipients(
     *,
     ads_id: UUID,
 ) -> list[dict]:
-    from app.core.sms_service import _get_admin_channel_default, _get_user_preferred_channel, _resolve_channel, resolve_user_contact
+    from app.core.sms_service import (
+        _get_admin_channel_default,
+        _get_user_preferred_channel,
+        _resolve_channel,
+        resolve_user_contact,
+    )
 
-    rows = (
-        await db.execute(select(AdsPax).where(AdsPax.ads_id == ads_id))
-    ).scalars().all()
+    rows = (await db.execute(select(AdsPax).where(AdsPax.ads_id == ads_id))).scalars().all()
 
     admin_default = await _get_admin_channel_default(db, "otp")
     candidates: list[dict] = []
@@ -7131,16 +7218,18 @@ async def _resolve_external_link_recipients(
                 preferred_destination = phone or email
             else:
                 preferred_destination = phone or email
-            candidates.append({
-                "user_id": user.id,
-                "contact_id": None,
-                "pax_source": "user",
-                "label": f"{user.first_name} {user.last_name}",
-                "email": email,
-                "phone": phone,
-                "effective_channel": effective_channel,
-                "preferred_destination": preferred_destination,
-            })
+            candidates.append(
+                {
+                    "user_id": user.id,
+                    "contact_id": None,
+                    "pax_source": "user",
+                    "label": f"{user.first_name} {user.last_name}",
+                    "email": email,
+                    "phone": phone,
+                    "effective_channel": effective_channel,
+                    "preferred_destination": preferred_destination,
+                }
+            )
             continue
 
         if entry.contact_id:
@@ -7156,16 +7245,18 @@ async def _resolve_external_link_recipients(
                 preferred_destination = phone or email
             else:
                 preferred_destination = phone or email
-            candidates.append({
-                "user_id": None,
-                "contact_id": contact.id,
-                "pax_source": "contact",
-                "label": f"{contact.first_name} {contact.last_name}",
-                "email": email,
-                "phone": phone,
-                "effective_channel": effective_channel,
-                "preferred_destination": preferred_destination,
-            })
+            candidates.append(
+                {
+                    "user_id": None,
+                    "contact_id": contact.id,
+                    "pax_source": "contact",
+                    "label": f"{contact.first_name} {contact.last_name}",
+                    "email": email,
+                    "phone": phone,
+                    "effective_channel": effective_channel,
+                    "preferred_destination": preferred_destination,
+                }
+            )
 
     return [candidate for candidate in candidates if candidate["preferred_destination"]]
 
@@ -7195,13 +7286,19 @@ async def _resolve_external_link_destination(
                 selected = candidate
                 break
         if not selected:
-            raise HTTPException(status_code=400, detail="Le destinataire OTP sélectionné n'est pas valide pour cette AdS.")
+            raise HTTPException(
+                status_code=400, detail="Le destinataire OTP sélectionné n'est pas valide pour cette AdS."
+            )
     elif len(candidates) == 1:
         selected = candidates[0]
     elif len(candidates) > 1:
-        raise HTTPException(status_code=400, detail="Plusieurs destinataires OTP sont disponibles. Sélectionnez le PAX destinataire.")
+        raise HTTPException(
+            status_code=400, detail="Plusieurs destinataires OTP sont disponibles. Sélectionnez le PAX destinataire."
+        )
     else:
-        raise HTTPException(status_code=400, detail="Aucun destinataire OTP exploitable n'est disponible sur les PAX de cette AdS.")
+        raise HTTPException(
+            status_code=400, detail="Aucun destinataire OTP exploitable n'est disponible sur les PAX de cette AdS."
+        )
 
     return selected["preferred_destination"], {
         "source": "ads_pax",
@@ -7226,9 +7323,7 @@ async def create_external_link(
     import secrets
 
     # Verify AdS
-    ads_result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    ads_result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = ads_result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
@@ -7239,7 +7334,7 @@ async def create_external_link(
         raise HTTPException(
             status_code=400,
             detail="Impossible de creer un lien externe : aucune entreprise autorisee n'est configuree sur cette AdS. "
-                   "Ajoutez au moins une entreprise dans les parametres de l'AdS avant de generer un lien.",
+            "Ajoutez au moins une entreprise dans les parametres de l'AdS avant de generer un lien.",
         )
 
     if request is not None:
@@ -7247,9 +7342,7 @@ async def create_external_link(
             ads, current_user=current_user, request=request, entity_id=entity_id, db=db
         )
     else:
-        can_manage_ads = await _can_manage_ads(
-            ads, current_user=current_user, entity_id=entity_id, db=db
-        )
+        can_manage_ads = await _can_manage_ads(ads, current_user=current_user, entity_id=entity_id, db=db)
     if not can_manage_ads:
         raise HTTPException(status_code=403, detail="Vous ne pouvez pas créer de lien externe pour cette AdS.")
 
@@ -7259,7 +7352,7 @@ async def create_external_link(
         body=body,
     )
     token = secrets.token_urlsafe(48)
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=body.expires_hours)
+    expires_at = datetime.now(UTC) + timedelta(hours=body.expires_hours)
     link = ExternalAccessLink(
         ads_id=ads_id,
         token=token,
@@ -7307,7 +7400,9 @@ async def create_external_link(
         "max_uses": body.max_uses,
         "use_count": link.use_count,
         "active": not link.revoked,
-        "created_at": link.created_at.isoformat() if getattr(link, "created_at", None) else datetime.now(timezone.utc).isoformat(),
+        "created_at": link.created_at.isoformat()
+        if getattr(link, "created_at", None)
+        else datetime.now(UTC).isoformat(),
     }
 
 
@@ -7350,11 +7445,14 @@ async def access_external_link(
         except HTTPException:
             authenticated = False
     if not authenticated and link.otp_required:
-        if _count_recent_external_actions(
-            link,
-            action="public_access",
-            window_minutes=EXTERNAL_PUBLIC_ACCESS_WINDOW_MINUTES,
-        ) >= EXTERNAL_PUBLIC_ACCESS_MAX_PER_WINDOW:
+        if (
+            _count_recent_external_actions(
+                link,
+                action="public_access",
+                window_minutes=EXTERNAL_PUBLIC_ACCESS_WINDOW_MINUTES,
+            )
+            >= EXTERNAL_PUBLIC_ACCESS_MAX_PER_WINDOW
+        ):
             _append_external_access_log(
                 link,
                 action="public_access_rate_limited",
@@ -7393,11 +7491,14 @@ async def send_external_link_otp(
     link = await _get_external_link_or_404(db, token)
     if not link.otp_required:
         return {"otp_required": False, "message": "OTP non requis pour ce lien"}
-    if _count_recent_external_actions(
-        link,
-        action="otp_sent",
-        window_minutes=EXTERNAL_OTP_SEND_WINDOW_MINUTES,
-    ) >= EXTERNAL_OTP_SEND_MAX_PER_WINDOW:
+    if (
+        _count_recent_external_actions(
+            link,
+            action="otp_sent",
+            window_minutes=EXTERNAL_OTP_SEND_WINDOW_MINUTES,
+        )
+        >= EXTERNAL_OTP_SEND_MAX_PER_WINDOW
+    ):
         _append_external_access_log(
             link,
             action="otp_rate_limited",
@@ -7432,8 +7533,8 @@ async def verify_external_link_otp(
     if not link.otp_required:
         session_token = secrets.token_urlsafe(32)
         link.session_token_hash = _hash_secret(session_token)
-        link.session_expires_at = datetime.now(timezone.utc) + timedelta(minutes=EXTERNAL_SESSION_TTL_MINUTES)
-        link.last_validated_at = datetime.now(timezone.utc)
+        link.session_expires_at = datetime.now(UTC) + timedelta(minutes=EXTERNAL_SESSION_TTL_MINUTES)
+        link.last_validated_at = datetime.now(UTC)
         _append_external_access_log(link, action="session_opened", request=request, otp_validated=True)
         await db.commit()
         return paxlog_service.build_external_session_open_payload(
@@ -7441,11 +7542,14 @@ async def verify_external_link_otp(
             ttl_minutes=EXTERNAL_SESSION_TTL_MINUTES,
         )
 
-    if _count_recent_external_actions(
-        link,
-        action="otp_failed",
-        window_minutes=EXTERNAL_OTP_VERIFY_WINDOW_MINUTES,
-    ) >= EXTERNAL_OTP_VERIFY_MAX_PER_WINDOW:
+    if (
+        _count_recent_external_actions(
+            link,
+            action="otp_failed",
+            window_minutes=EXTERNAL_OTP_VERIFY_WINDOW_MINUTES,
+        )
+        >= EXTERNAL_OTP_VERIFY_MAX_PER_WINDOW
+    ):
         _append_external_access_log(
             link,
             action="otp_verify_rate_limited",
@@ -7465,7 +7569,7 @@ async def verify_external_link_otp(
         otp_expires_at=link.otp_expires_at,
         otp_attempt_count=link.otp_attempt_count,
         max_attempts=EXTERNAL_OTP_MAX_ATTEMPTS,
-        now=datetime.now(timezone.utc),
+        now=datetime.now(UTC),
     )
     if otp_error == "missing_otp":
         raise HTTPException(status_code=400, detail="Aucun OTP actif pour ce lien")
@@ -7492,8 +7596,8 @@ async def verify_external_link_otp(
     link.otp_expires_at = None
     link.otp_attempt_count = 0
     link.session_token_hash = _hash_secret(session_token)
-    link.session_expires_at = datetime.now(timezone.utc) + timedelta(minutes=EXTERNAL_SESSION_TTL_MINUTES)
-    link.last_validated_at = datetime.now(timezone.utc)
+    link.session_expires_at = datetime.now(UTC) + timedelta(minutes=EXTERNAL_SESSION_TTL_MINUTES)
+    link.last_validated_at = datetime.now(UTC)
     link.use_count += 1
     _append_external_access_log(link, action="otp_validated", request=request, otp_validated=True)
     await db.commit()
@@ -7512,7 +7616,12 @@ async def get_external_ads_dossier(
 ):
     link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
     ads, _entity_id, fallback_company_id = await _get_external_ads_and_context(db, link=link)
-    allowed_company_ids, allowed_company_names, primary_company_id, primary_company_name = await _resolve_external_allowed_companies(
+    (
+        allowed_company_ids,
+        allowed_company_names,
+        primary_company_id,
+        primary_company_name,
+    ) = await _resolve_external_allowed_companies(
         db,
         ads=ads,
         link=link,
@@ -7531,14 +7640,12 @@ async def get_external_ads_dossier(
     if departure_base_ids:
         departure_base_rows = (
             await db.execute(
-                select(Installation.id, Installation.code, Installation.name)
-                .where(Installation.id.in_(departure_base_ids))
+                select(Installation.id, Installation.code, Installation.name).where(
+                    Installation.id.in_(departure_base_ids)
+                )
             )
         ).all()
-        departure_base_names = {
-            row[0]: f"{row[1]} — {row[2]}" if row[1] else row[2]
-            for row in departure_base_rows
-        }
+        departure_base_names = {row[0]: f"{row[1]} — {row[2]}" if row[1] else row[2] for row in departure_base_rows}
     linked_project_rows = (
         await db.execute(
             select(Project.id, Project.code, Project.name)
@@ -7567,10 +7674,12 @@ async def get_external_ads_dossier(
         )
         project_row = project_result.first()
         if project_row:
-            linked_projects = [{
-                "project_id": str(project_row[0]),
-                "project_name": f"{project_row[1]} — {project_row[2]}" if project_row[1] else project_row[2],
-            }]
+            linked_projects = [
+                {
+                    "project_id": str(project_row[0]),
+                    "project_name": f"{project_row[1]} — {project_row[2]}" if project_row[1] else project_row[2],
+                }
+            ]
     primary_project = linked_projects[0] if len(linked_projects) == 1 else None
     allowed_pax, pax_summary = await paxlog_service.build_external_dossier_pax_data(
         db,
@@ -7600,12 +7709,20 @@ async def get_external_ads_dossier(
             "project_name": primary_project["project_name"] if primary_project else None,
             "linked_projects": linked_projects,
             "outbound_transport_mode": getattr(ads, "outbound_transport_mode", None),
-            "outbound_departure_base_id": str(getattr(ads, "outbound_departure_base_id", None)) if getattr(ads, "outbound_departure_base_id", None) else None,
-            "outbound_departure_base_name": departure_base_names.get(getattr(ads, "outbound_departure_base_id", None)) if getattr(ads, "outbound_departure_base_id", None) else None,
+            "outbound_departure_base_id": str(getattr(ads, "outbound_departure_base_id", None))
+            if getattr(ads, "outbound_departure_base_id", None)
+            else None,
+            "outbound_departure_base_name": departure_base_names.get(getattr(ads, "outbound_departure_base_id", None))
+            if getattr(ads, "outbound_departure_base_id", None)
+            else None,
             "outbound_notes": getattr(ads, "outbound_notes", None),
             "return_transport_mode": getattr(ads, "return_transport_mode", None),
-            "return_departure_base_id": str(getattr(ads, "return_departure_base_id", None)) if getattr(ads, "return_departure_base_id", None) else None,
-            "return_departure_base_name": departure_base_names.get(getattr(ads, "return_departure_base_id", None)) if getattr(ads, "return_departure_base_id", None) else None,
+            "return_departure_base_id": str(getattr(ads, "return_departure_base_id", None))
+            if getattr(ads, "return_departure_base_id", None)
+            else None,
+            "return_departure_base_name": departure_base_names.get(getattr(ads, "return_departure_base_id", None))
+            if getattr(ads, "return_departure_base_id", None)
+            else None,
             "return_notes": getattr(ads, "return_notes", None),
             "rejection_reason": ads.rejection_reason,
         },
@@ -7719,7 +7836,9 @@ async def update_external_transport_preferences(
         entity_id=entity_id,
         details={
             "link_id": str(link.id),
-            "outbound_departure_base_id": str(ads.outbound_departure_base_id) if ads.outbound_departure_base_id else None,
+            "outbound_departure_base_id": str(ads.outbound_departure_base_id)
+            if ads.outbound_departure_base_id
+            else None,
             "return_departure_base_id": str(ads.return_departure_base_id) if ads.return_departure_base_id else None,
         },
         ip_address=request.client.host if request.client else None,
@@ -7737,7 +7856,15 @@ async def find_external_ads_pax_matches(
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    link, ads, _entity_id, allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _require_external_scope(
+    (
+        link,
+        ads,
+        _entity_id,
+        allowed_company_ids,
+        _allowed_company_names,
+        _primary_company_id,
+        _primary_company_name,
+    ) = await _require_external_scope(
         db,
         token=token,
         request=request,
@@ -7776,7 +7903,15 @@ async def create_external_ads_pax(
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    link, ads, entity_id, allowed_company_ids, _allowed_company_names, primary_company_id, _primary_company_name = await _require_external_scope(
+    (
+        link,
+        ads,
+        entity_id,
+        allowed_company_ids,
+        _allowed_company_names,
+        primary_company_id,
+        _primary_company_name,
+    ) = await _require_external_scope(
         db,
         token=token,
         request=request,
@@ -7858,7 +7993,15 @@ async def attach_existing_external_ads_pax(
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    link, ads, entity_id, allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _require_external_scope(
+    (
+        link,
+        ads,
+        entity_id,
+        allowed_company_ids,
+        _allowed_company_names,
+        _primary_company_id,
+        _primary_company_name,
+    ) = await _require_external_scope(
         db,
         token=token,
         request=request,
@@ -7894,9 +8037,7 @@ async def attach_existing_external_ads_pax(
     ).scalar_one_or_none()
     if not existing_entry:
         db.add(AdsPax(ads_id=ads.id, contact_id=contact.id, status="pending_check"))
-    linked_user = (
-        await db.execute(select(User).where(User.tier_contact_id == contact.id))
-    ).scalar_one_or_none()
+    linked_user = (await db.execute(select(User).where(User.tier_contact_id == contact.id))).scalar_one_or_none()
 
     await _apply_external_pax_contact_updates(
         db,
@@ -7931,7 +8072,15 @@ async def update_external_ads_pax(
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    link, ads, entity_id, allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _require_external_scope(
+    (
+        link,
+        ads,
+        entity_id,
+        allowed_company_ids,
+        _allowed_company_names,
+        _primary_company_id,
+        _primary_company_name,
+    ) = await _require_external_scope(
         db,
         token=token,
         request=request,
@@ -7951,9 +8100,7 @@ async def update_external_ads_pax(
     _entry, contact = row
     if allowed_company_ids and contact.tier_id not in allowed_company_ids:
         raise HTTPException(status_code=403, detail="Ce PAX n'appartient pas à l'entreprise autorisée")
-    linked_user = (
-        await db.execute(select(User).where(User.tier_contact_id == contact.id))
-    ).scalar_one_or_none()
+    linked_user = (await db.execute(select(User).where(User.tier_contact_id == contact.id))).scalar_one_or_none()
 
     await _apply_external_pax_contact_updates(
         db,
@@ -7988,7 +8135,15 @@ async def create_external_ads_pax_credential(
     x_external_session: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    link, ads, entity_id, allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _require_external_scope(
+    (
+        link,
+        ads,
+        entity_id,
+        allowed_company_ids,
+        _allowed_company_names,
+        _primary_company_id,
+        _primary_company_name,
+    ) = await _require_external_scope(
         db,
         token=token,
         request=request,
@@ -8056,15 +8211,17 @@ async def _finalize_external_ads_submission(
     ads.status = target_status
     ads.submitted_at = func.now()
 
-    db.add(AdsEvent(
-        entity_id=entity_id,
-        ads_id=ads.id,
-        event_type=event_type,
-        old_status=old_status,
-        new_status=target_status,
-        actor_id=None,
-        reason=reason,
-    ))
+    db.add(
+        AdsEvent(
+            entity_id=entity_id,
+            ads_id=ads.id,
+            event_type=event_type,
+            old_status=old_status,
+            new_status=target_status,
+            actor_id=None,
+            reason=reason,
+        )
+    )
     _append_external_access_log(link, action=event_type, request=request, otp_validated=True)
     await db.commit()
     await db.refresh(ads)
@@ -8111,7 +8268,7 @@ def _build_external_submission_blockers(
         if str(item.get("status") or "") == "pending_check"
     ]
     if blocked_pax:
-        blockers.append(f"PAX bloqués en conformité: {', '.join(name for name in blocked_pax if name) }.")
+        blockers.append(f"PAX bloqués en conformité: {', '.join(name for name in blocked_pax if name)}.")
     elif int(summary.get("blocked") or 0) > 0:
         blockers.append("Au moins un PAX présente des blocages de conformité.")
     if pending_pax:
@@ -8136,7 +8293,12 @@ async def submit_external_ads(
     ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
     if ads.status != "draft":
         raise HTTPException(status_code=400, detail=f"Impossible de soumettre ce dossier avec le statut '{ads.status}'")
-    allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _resolve_external_allowed_companies(
+    (
+        allowed_company_ids,
+        _allowed_company_names,
+        _primary_company_id,
+        _primary_company_name,
+    ) = await _resolve_external_allowed_companies(
         db,
         ads=ads,
         link=link,
@@ -8149,7 +8311,10 @@ async def submit_external_ads(
     )
     blockers = _build_external_submission_blockers(ads=ads, pax_summary=pax_summary, allowed_pax=allowed_pax)
     if blockers:
-        raise HTTPException(status_code=400, detail={"message": "Le dossier externe n'est pas prêt pour soumission.", "blockers": blockers})
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "Le dossier externe n'est pas prêt pour soumission.", "blockers": blockers},
+        )
     return await _finalize_external_ads_submission(
         link=link,
         ads=ads,
@@ -8173,8 +8338,15 @@ async def resubmit_external_ads(
     link = await _require_external_session(db, token=token, session_token=x_external_session, request=request)
     ads, entity_id, _allowed_company_id = await _get_external_ads_and_context(db, link=link)
     if ads.status != "requires_review":
-        raise HTTPException(status_code=400, detail=f"Impossible de re-soumettre ce dossier avec le statut '{ads.status}'")
-    allowed_company_ids, _allowed_company_names, _primary_company_id, _primary_company_name = await _resolve_external_allowed_companies(
+        raise HTTPException(
+            status_code=400, detail=f"Impossible de re-soumettre ce dossier avec le statut '{ads.status}'"
+        )
+    (
+        allowed_company_ids,
+        _allowed_company_names,
+        _primary_company_id,
+        _primary_company_name,
+    ) = await _resolve_external_allowed_companies(
         db,
         ads=ads,
         link=link,
@@ -8187,7 +8359,10 @@ async def resubmit_external_ads(
     )
     blockers = _build_external_submission_blockers(ads=ads, pax_summary=pax_summary, allowed_pax=allowed_pax)
     if blockers:
-        raise HTTPException(status_code=400, detail={"message": "Le dossier externe n'est pas prêt pour re-soumission.", "blockers": blockers})
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "Le dossier externe n'est pas prêt pour re-soumission.", "blockers": blockers},
+        )
     return await _finalize_external_ads_submission(
         link=link,
         ads=ads,
@@ -8220,9 +8395,7 @@ async def _get_stay_program_ads_or_404(
     entity_id: UUID,
     db: AsyncSession,
 ) -> Ads:
-    result = await db.execute(
-        select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id)
-    )
+    result = await db.execute(select(Ads).where(Ads.id == ads_id, Ads.entity_id == entity_id))
     ads = result.scalar_one_or_none()
     if not ads:
         raise HTTPException(status_code=404, detail="AdS not found")
@@ -8414,12 +8587,14 @@ async def _get_ads_linked_project_details(
         )
         project_row = project_result.first()
         if project_row:
-            linked_projects = [{
-                "project_id": project_row[0],
-                "project_name": f"{project_row[2]} — {project_row[3]}" if project_row[2] else project_row[3],
-                "project_manager_id": project_row[1],
-                "project_manager_name": f"{project_row[4]} {project_row[5]}".strip() if project_row[4] else None,
-            }]
+            linked_projects = [
+                {
+                    "project_id": project_row[0],
+                    "project_name": f"{project_row[2]} — {project_row[3]}" if project_row[2] else project_row[3],
+                    "project_manager_id": project_row[1],
+                    "project_manager_name": f"{project_row[4]} {project_row[5]}".strip() if project_row[4] else None,
+                }
+            ]
     return linked_projects
 
 
@@ -8493,25 +8668,23 @@ async def _build_ads_read_data(
 ) -> dict:
     data = AdsRead.model_validate(ads).model_dump()
     allowed_company_ids, allowed_company_names = await _get_ads_allowed_company_scope(db, ads_id=ads.id)
-    data.update({
-        "allowed_company_ids": allowed_company_ids,
-        "allowed_company_names": allowed_company_names,
-    })
+    data.update(
+        {
+            "allowed_company_ids": allowed_company_ids,
+            "allowed_company_names": allowed_company_names,
+        }
+    )
 
     people_result = await db.execute(
-        select(User.id, User.first_name, User.last_name).where(
-            User.id.in_([ads.requester_id, ads.created_by])
-        )
+        select(User.id, User.first_name, User.last_name).where(User.id.in_([ads.requester_id, ads.created_by]))
     )
-    people = {
-        row[0]: f"{row[1]} {row[2]}".strip()
-        for row in people_result.all()
-        if row[1] or row[2]
-    }
-    data.update({
-        "requester_name": people.get(ads.requester_id),
-        "created_by_name": people.get(ads.created_by),
-    })
+    people = {row[0]: f"{row[1]} {row[2]}".strip() for row in people_result.all() if row[1] or row[2]}
+    data.update(
+        {
+            "requester_name": people.get(ads.requester_id),
+            "created_by_name": people.get(ads.created_by),
+        }
+    )
 
     avm_origin_result = await db.execute(
         select(
@@ -8527,13 +8700,15 @@ async def _build_ads_read_data(
     )
     avm_origin = avm_origin_result.first()
     if avm_origin:
-        data.update({
-            "origin_mission_program_id": avm_origin[0],
-            "origin_mission_program_activity": avm_origin[1],
-            "origin_mission_notice_id": avm_origin[2],
-            "origin_mission_notice_reference": avm_origin[3],
-            "origin_mission_notice_title": avm_origin[4],
-        })
+        data.update(
+            {
+                "origin_mission_program_id": avm_origin[0],
+                "origin_mission_program_activity": avm_origin[1],
+                "origin_mission_notice_id": avm_origin[2],
+                "origin_mission_notice_reference": avm_origin[3],
+                "origin_mission_notice_title": avm_origin[4],
+            }
+        )
 
     linked_projects = await _get_ads_linked_project_details(db, ads=ads, entity_id=entity_id)
 
@@ -8548,19 +8723,23 @@ async def _build_ads_read_data(
     ]
 
     if len(linked_projects) == 1:
-        data.update({
-            "project_id": linked_projects[0]["project_id"],
-            "project_name": linked_projects[0]["project_name"],
-            "project_manager_id": linked_projects[0]["project_manager_id"],
-            "project_manager_name": linked_projects[0]["project_manager_name"],
-        })
+        data.update(
+            {
+                "project_id": linked_projects[0]["project_id"],
+                "project_name": linked_projects[0]["project_name"],
+                "project_manager_id": linked_projects[0]["project_manager_id"],
+                "project_manager_name": linked_projects[0]["project_manager_name"],
+            }
+        )
     elif len(linked_projects) > 1:
-        data.update({
-            "project_id": None,
-            "project_name": None,
-            "project_manager_id": None,
-            "project_manager_name": None,
-        })
+        data.update(
+            {
+                "project_id": None,
+                "project_name": None,
+                "project_manager_id": None,
+                "project_manager_name": None,
+            }
+        )
 
     site_result = await db.execute(
         select(Installation.code, Installation.name).where(
@@ -8581,10 +8760,12 @@ async def _build_ads_read_data(
         )
         planner_row = planner_result.first()
         if planner_row:
-            data.update({
-                "planner_activity_title": planner_row[0],
-                "planner_activity_status": planner_row[1],
-            })
+            data.update(
+                {
+                    "planner_activity_title": planner_row[0],
+                    "planner_activity_status": planner_row[1],
+                }
+            )
 
     return data
 
@@ -8596,9 +8777,7 @@ async def _finalize_ads_after_pax_decision(
     entity_id: UUID,
     actor_id: UUID,
 ) -> Ads:
-    result = await db.execute(
-        select(AdsPax).where(AdsPax.ads_id == ads.id)
-    )
+    result = await db.execute(select(AdsPax).where(AdsPax.ads_id == ads.id))
     pax_entries = result.scalars().all()
     terminal_statuses = {"approved", "waitlisted", "rejected", "no_show"}
     if not pax_entries or any(entry.status not in terminal_statuses for entry in pax_entries):
@@ -8613,18 +8792,20 @@ async def _finalize_ads_after_pax_decision(
         ads.rejected_at = None
         ads.rejection_reason = None
         if from_state != "approved":
-            db.add(AdsEvent(
-                entity_id=entity_id,
-                ads_id=ads.id,
-                event_type="approved",
-                old_status=from_state,
-                new_status="approved",
-                actor_id=actor_id,
-                metadata_json={
-                    "approved_pax_count": len(approved_entries),
-                    "waitlisted_pax_count": len(waitlisted_entries),
-                },
-            ))
+            db.add(
+                AdsEvent(
+                    entity_id=entity_id,
+                    ads_id=ads.id,
+                    event_type="approved",
+                    old_status=from_state,
+                    new_status="approved",
+                    actor_id=actor_id,
+                    metadata_json={
+                        "approved_pax_count": len(approved_entries),
+                        "waitlisted_pax_count": len(waitlisted_entries),
+                    },
+                )
+            )
             await _try_ads_workflow_transition(
                 db,
                 entity_id_str=str(ads.id),
@@ -8637,16 +8818,18 @@ async def _finalize_ads_after_pax_decision(
         ads.rejected_at = None
         ads.rejection_reason = "Tous les PAX restants sont en liste d'attente."
         if from_state != "pending_arbitration":
-            db.add(AdsEvent(
-                entity_id=entity_id,
-                ads_id=ads.id,
-                event_type="pending_arbitration",
-                old_status=from_state,
-                new_status="pending_arbitration",
-                actor_id=actor_id,
-                metadata_json={"waitlisted_pax_count": len(waitlisted_entries)},
-                reason=ads.rejection_reason,
-            ))
+            db.add(
+                AdsEvent(
+                    entity_id=entity_id,
+                    ads_id=ads.id,
+                    event_type="pending_arbitration",
+                    old_status=from_state,
+                    new_status="pending_arbitration",
+                    actor_id=actor_id,
+                    metadata_json={"waitlisted_pax_count": len(waitlisted_entries)},
+                    reason=ads.rejection_reason,
+                )
+            )
             await _try_ads_workflow_transition(
                 db,
                 entity_id_str=str(ads.id),
@@ -8660,15 +8843,17 @@ async def _finalize_ads_after_pax_decision(
         ads.rejected_at = func.now()
         ads.rejection_reason = "Tous les PAX de l'AdS ont été rejetés."
         if from_state != "rejected":
-            db.add(AdsEvent(
-                entity_id=entity_id,
-                ads_id=ads.id,
-                event_type="rejected",
-                old_status=from_state,
-                new_status="rejected",
-                actor_id=actor_id,
-                reason=ads.rejection_reason,
-            ))
+            db.add(
+                AdsEvent(
+                    entity_id=entity_id,
+                    ads_id=ads.id,
+                    event_type="rejected",
+                    old_status=from_state,
+                    new_status="rejected",
+                    actor_id=actor_id,
+                    reason=ads.rejection_reason,
+                )
+            )
             await _try_ads_workflow_transition(
                 db,
                 entity_id_str=str(ads.id),
@@ -8746,9 +8931,7 @@ async def list_stay_programs(
 
     conditions = ["sp.entity_id = :eid"]
     params: dict = {"eid": str(entity_id)}
-    can_read_all = await has_user_permission(
-        current_user, entity_id, "paxlog.ads.read_all", db
-    )
+    can_read_all = await has_user_permission(current_user, entity_id, "paxlog.ads.read_all", db)
     if not can_read_all:
         conditions.append("ads.requester_id = :requester_id")
         params["requester_id"] = str(current_user.id)
@@ -8806,8 +8989,9 @@ async def create_stay_program(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a stay program (intra-field movement plan for a PAX in an AdS)."""
-    from sqlalchemy import text as sa_text
     import json
+
+    from sqlalchemy import text as sa_text
 
     if not user_id and not contact_id:
         raise HTTPException(status_code=400, detail="Provide user_id or contact_id")
@@ -8990,9 +9174,7 @@ async def create_profile_type(
 
     # Check uniqueness
     existing = await db.execute(
-        sa_text(
-            "SELECT id FROM pax_profile_types WHERE code = :code AND (entity_id = :eid OR entity_id IS NULL)"
-        ),
+        sa_text("SELECT id FROM pax_profile_types WHERE code = :code AND (entity_id = :eid OR entity_id IS NULL)"),
         {"code": code, "eid": str(entity_id)},
     )
     if existing.scalar():
@@ -9067,15 +9249,14 @@ async def assign_profile_type(
 ):
     """Assign a profile type to a PAX (user or contact)."""
     from sqlalchemy import text as sa_text
+
     from app.models.paxlog import PaxProfileType
 
     fk_col = "user_id" if pax_source == "user" else "contact_id"
 
     # Check if already assigned
     existing = await db.execute(
-        sa_text(
-            f"SELECT 1 FROM pax_profile_types WHERE {fk_col} = :pax_id AND profile_type_id = :pt_id"
-        ),
+        sa_text(f"SELECT 1 FROM pax_profile_types WHERE {fk_col} = :pax_id AND profile_type_id = :pt_id"),
         {"pax_id": str(pax_id), "pt_id": str(profile_type_id)},
     )
     if existing.scalar():
@@ -9092,7 +9273,12 @@ async def assign_profile_type(
     db.add(ppt)
     await db.commit()
 
-    return {"pax_id": str(pax_id), "pax_source": pax_source, "profile_type_id": str(profile_type_id), "status": "assigned"}
+    return {
+        "pax_id": str(pax_id),
+        "pax_source": pax_source,
+        "profile_type_id": str(profile_type_id),
+        "status": "assigned",
+    }
 
 
 @router.get("/habilitation-matrix")
@@ -9275,40 +9461,44 @@ async def get_expiring_credentials(
     items = []
     for r in user_creds.all():
         days_remaining = (r[3] - today).days
-        items.append({
-            "credential_id": str(r[0]),
-            "user_id": str(r[1]),
-            "contact_id": None,
-            "pax_source": "user",
-            "credential_type_id": str(r[2]),
-            "expiry_date": str(r[3]),
-            "status": r[4],
-            "pax_first_name": r[5],
-            "pax_last_name": r[6],
-            "pax_badge": r[7],
-            "credential_code": r[8],
-            "credential_name": r[9],
-            "days_remaining": days_remaining,
-            "alert_bucket": _expiring_alert_bucket(days_remaining),
-        })
+        items.append(
+            {
+                "credential_id": str(r[0]),
+                "user_id": str(r[1]),
+                "contact_id": None,
+                "pax_source": "user",
+                "credential_type_id": str(r[2]),
+                "expiry_date": str(r[3]),
+                "status": r[4],
+                "pax_first_name": r[5],
+                "pax_last_name": r[6],
+                "pax_badge": r[7],
+                "credential_code": r[8],
+                "credential_name": r[9],
+                "days_remaining": days_remaining,
+                "alert_bucket": _expiring_alert_bucket(days_remaining),
+            }
+        )
     for r in contact_creds.all():
         days_remaining = (r[3] - today).days
-        items.append({
-            "credential_id": str(r[0]),
-            "user_id": None,
-            "contact_id": str(r[1]),
-            "pax_source": "contact",
-            "credential_type_id": str(r[2]),
-            "expiry_date": str(r[3]),
-            "status": r[4],
-            "pax_first_name": r[5],
-            "pax_last_name": r[6],
-            "pax_badge": r[7],
-            "credential_code": r[8],
-            "credential_name": r[9],
-            "days_remaining": days_remaining,
-            "alert_bucket": _expiring_alert_bucket(days_remaining),
-        })
+        items.append(
+            {
+                "credential_id": str(r[0]),
+                "user_id": None,
+                "contact_id": str(r[1]),
+                "pax_source": "contact",
+                "credential_type_id": str(r[2]),
+                "expiry_date": str(r[3]),
+                "status": r[4],
+                "pax_first_name": r[5],
+                "pax_last_name": r[6],
+                "pax_badge": r[7],
+                "credential_code": r[8],
+                "credential_name": r[9],
+                "days_remaining": days_remaining,
+                "alert_bucket": _expiring_alert_bucket(days_remaining),
+            }
+        )
 
     items.sort(key=lambda x: x["expiry_date"])
     return items
@@ -9328,8 +9518,7 @@ async def get_compliance_stats(
 
     # Total active PAX count (Users in entity + TierContacts of entity's Tiers)
     user_count = await db.execute(
-        select(func.count(User.id))
-        .where(User.default_entity_id == entity_id, User.active == True)  # noqa: E712
+        select(func.count(User.id)).where(User.default_entity_id == entity_id, User.active == True)  # noqa: E712
     )
     contact_count = await db.execute(
         select(func.count(TierContact.id))
@@ -9340,8 +9529,7 @@ async def get_compliance_stats(
 
     # Expired credentials count
     expired_count = await db.execute(
-        select(func.count(PaxCredential.id))
-        .where(
+        select(func.count(PaxCredential.id)).where(
             PaxCredential.expiry_date < today,
             PaxCredential.status == "valid",
         )
@@ -9349,8 +9537,7 @@ async def get_compliance_stats(
 
     # Pending validation count
     pending_count = await db.execute(
-        select(func.count(PaxCredential.id))
-        .where(PaxCredential.status == "pending_validation")
+        select(func.count(PaxCredential.id)).where(PaxCredential.status == "pending_validation")
     )
 
     # Active incidents count
@@ -9498,9 +9685,7 @@ async def create_signalement(
     await db.commit()
 
     # Re-fetch for response model
-    incident_result = await db.execute(
-        select(PaxIncident).where(PaxIncident.id == result["id"])
-    )
+    incident_result = await db.execute(select(PaxIncident).where(PaxIncident.id == result["id"]))
     return incident_result.scalar_one()
 
 
@@ -9571,18 +9756,22 @@ async def resolve_signalement(
     await db.commit()
 
     # Emit event
-    from app.core.events import OpsFluxEvent, event_bus as _event_bus
-    await _event_bus.publish(OpsFluxEvent(
-        event_type="paxlog.signalement.resolved",
-        payload={
-            "incident_id": str(signalement_id),
-            "entity_id": str(entity_id),
-            "user_id": str(incident.user_id) if incident.user_id else None,
-            "contact_id": str(incident.contact_id) if incident.contact_id else None,
-            "severity": incident.severity,
-            "resolved_by": str(current_user.id),
-        },
-    ))
+    from app.core.events import OpsFluxEvent
+    from app.core.events import event_bus as _event_bus
+
+    await _event_bus.publish(
+        OpsFluxEvent(
+            event_type="paxlog.signalement.resolved",
+            payload={
+                "incident_id": str(signalement_id),
+                "entity_id": str(entity_id),
+                "user_id": str(incident.user_id) if incident.user_id else None,
+                "contact_id": str(incident.contact_id) if incident.contact_id else None,
+                "severity": incident.severity,
+                "resolved_by": str(current_user.id),
+            },
+        )
+    )
 
     return incident
 
@@ -9668,16 +9857,20 @@ async def lift_signalement(
     await db.commit()
     await db.refresh(incident)
 
-    from app.core.events import OpsFluxEvent, event_bus as _event_bus
-    await _event_bus.publish(OpsFluxEvent(
-        event_type="paxlog.signalement.lifted",
-        payload={
-            "incident_id": str(signalement_id),
-            "entity_id": str(entity_id),
-            "lifted_by": str(current_user.id),
-            "lift_reason": lift_reason,
-        },
-    ))
+    from app.core.events import OpsFluxEvent
+    from app.core.events import event_bus as _event_bus
+
+    await _event_bus.publish(
+        OpsFluxEvent(
+            event_type="paxlog.signalement.lifted",
+            payload={
+                "incident_id": str(signalement_id),
+                "entity_id": str(entity_id),
+                "lifted_by": str(current_user.id),
+                "lift_reason": lift_reason,
+            },
+        )
+    )
 
     return incident
 
@@ -9712,32 +9905,23 @@ async def list_avm(
     if scope == "my":
         query = query.where(MissionNotice.created_by == current_user.id)
     elif scope == "all":
-        can_read_all = await has_user_permission(
-            current_user, entity_id, "paxlog.avm.read_all", db
-        )
+        can_read_all = await has_user_permission(current_user, entity_id, "paxlog.avm.read_all", db)
         if not can_read_all:
             query = query.where(MissionNotice.created_by == current_user.id)
     else:
-        can_read_all = await has_user_permission(
-            current_user, entity_id, "paxlog.avm.read_all", db
-        )
+        can_read_all = await has_user_permission(current_user, entity_id, "paxlog.avm.read_all", db)
         if not can_read_all:
             query = query.where(MissionNotice.created_by == current_user.id)
     if search:
         like = f"%{search}%"
-        query = query.where(
-            MissionNotice.reference.ilike(like)
-            | MissionNotice.title.ilike(like)
-        )
+        query = query.where(MissionNotice.reference.ilike(like) | MissionNotice.title.ilike(like))
     if status_filter:
         query = query.where(MissionNotice.status == status_filter)
     if mission_type:
         query = query.where(MissionNotice.mission_type == mission_type)
     query = query.order_by(MissionNotice.created_at.desc())
 
-    count_query = select(func.count()).select_from(
-        query.with_only_columns(MissionNotice.id).subquery()
-    )
+    count_query = select(func.count()).select_from(query.with_only_columns(MissionNotice.id).subquery())
     total = (await db.execute(count_query)).scalar() or 0
     offset = (pagination.page - 1) * pagination.page_size
     rows = (await db.execute(query.offset(offset).limit(pagination.page_size))).all()
@@ -9746,16 +9930,16 @@ async def list_avm(
     for avm, creator_first, creator_last in rows:
         # Count PAX across all program lines
         pax_count_result = await db.execute(
-            select(func.count(func.distinct(MissionProgramPax.id))).select_from(
-                MissionProgramPax
-            ).join(
-                MissionProgram, MissionProgram.id == MissionProgramPax.mission_program_id
-            ).where(MissionProgram.mission_notice_id == avm.id)
+            select(func.count(func.distinct(MissionProgramPax.id)))
+            .select_from(MissionProgramPax)
+            .join(MissionProgram, MissionProgram.id == MissionProgramPax.mission_program_id)
+            .where(MissionProgram.mission_notice_id == avm.id)
         )
         pax_count = pax_count_result.scalar() or 0
 
         # Preparation progress
         from app.services.modules.paxlog_service import get_avm_preparation_status
+
         prep_status = await get_avm_preparation_status(db, avm.id)
 
         effective_status = avm.status
@@ -9872,24 +10056,27 @@ async def create_avm(
                 if conflict:
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
-                        detail=(
-                            f"PAX already assigned to mission {conflict[0]} "
-                            f"({conflict[1]} - {conflict[2]})"
-                        ),
+                        detail=(f"PAX already assigned to mission {conflict[0]} ({conflict[1]} - {conflict[2]})"),
                     )
 
-            db.add(MissionProgramPax(
-                mission_program_id=prog.id,
-                user_id=pax_entry.user_id,
-                contact_id=pax_entry.contact_id,
-            ))
+            db.add(
+                MissionProgramPax(
+                    mission_program_id=prog.id,
+                    user_id=pax_entry.user_id,
+                    contact_id=pax_entry.contact_id,
+                )
+            )
 
     await db.commit()
     await db.refresh(avm)
 
     await record_audit(
-        db, action="paxlog.avm.create", resource_type="mission_notice",
-        resource_id=str(avm.id), user_id=current_user.id, entity_id=entity_id,
+        db,
+        action="paxlog.avm.create",
+        resource_type="mission_notice",
+        resource_id=str(avm.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
     )
     await db.commit()
 
@@ -9929,6 +10116,7 @@ async def get_avm_pdf(
 ):
     """Render an AVM PDF via the centralized PDF template engine."""
     from fastapi.responses import Response
+
     from app.core.pdf_templates import render_pdf
 
     result = await db.execute(
@@ -9999,8 +10187,12 @@ async def update_avm(
     await db.refresh(avm)
 
     await record_audit(
-        db, action="paxlog.avm.update", resource_type="mission_notice",
-        resource_id=str(avm.id), user_id=current_user.id, entity_id=entity_id,
+        db,
+        action="paxlog.avm.update",
+        resource_type="mission_notice",
+        resource_id=str(avm.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
     )
     await db.commit()
 
@@ -10038,8 +10230,12 @@ async def submit_avm_route(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     await record_audit(
-        db, action="paxlog.avm.submit", resource_type="mission_notice",
-        resource_id=str(avm_id), user_id=current_user.id, entity_id=entity_id,
+        db,
+        action="paxlog.avm.submit",
+        resource_type="mission_notice",
+        resource_id=str(avm_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
     )
     await db.commit()
 
@@ -10063,8 +10259,12 @@ async def approve_avm_route(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     await record_audit(
-        db, action="paxlog.avm.approve", resource_type="mission_notice",
-        resource_id=str(avm_id), user_id=current_user.id, entity_id=entity_id,
+        db,
+        action="paxlog.avm.approve",
+        resource_type="mission_notice",
+        resource_id=str(avm_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
     )
     await db.commit()
 
@@ -10088,8 +10288,12 @@ async def complete_avm_route(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     await record_audit(
-        db, action="paxlog.avm.complete", resource_type="mission_notice",
-        resource_id=str(avm_id), user_id=current_user.id, entity_id=entity_id,
+        db,
+        action="paxlog.avm.complete",
+        resource_type="mission_notice",
+        resource_id=str(avm_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
     )
     await db.commit()
 
@@ -10157,36 +10361,32 @@ async def cancel_avm(
             }
             linked_ads_reviewed += 1
 
-        await db.execute(
-            Ads.__table__.update()
-            .where(Ads.id == linked_ads_id)
-            .values(**values)
+        await db.execute(Ads.__table__.update().where(Ads.id == linked_ads_id).values(**values))
+        db.add(
+            AdsEvent(
+                entity_id=entity_id,
+                ads_id=linked_ads_id,
+                event_type="avm_cancelled",
+                old_status=linked_ads_status,
+                new_status=target_status,
+                actor_id=current_user.id,
+                reason=reason,
+                metadata_json={
+                    "avm_id": str(avm.id),
+                    "avm_reference": avm.reference,
+                },
+            )
         )
-        db.add(AdsEvent(
-            entity_id=entity_id,
-            ads_id=linked_ads_id,
-            event_type="avm_cancelled",
-            old_status=linked_ads_status,
-            new_status=target_status,
-            actor_id=current_user.id,
-            reason=reason,
-            metadata_json={
-                "avm_id": str(avm.id),
-                "avm_reference": avm.reference,
-            },
-        ))
         linked_ads_refs.append(linked_ads_ref)
         if linked_ads_requester_id:
             from app.core.notifications import send_in_app
+
             await send_in_app(
                 db,
                 user_id=linked_ads_requester_id,
                 entity_id=entity_id,
                 title="AVM annulée — AdS impactée",
-                body=(
-                    f"L'AVM {avm.reference} a été annulée. "
-                    f"L'AdS {linked_ads_ref} passe en {target_status}."
-                ),
+                body=(f"L'AVM {avm.reference} a été annulée. L'AdS {linked_ads_ref} passe en {target_status}."),
                 category="paxlog",
                 link=f"/paxlog/ads/{linked_ads_id}",
             )
@@ -10204,11 +10404,14 @@ async def cancel_avm(
 
     # Cancel all pending preparation tasks
     from sqlalchemy import update as sql_update
+
     await db.execute(
-        sql_update(MissionPreparationTask).where(
+        sql_update(MissionPreparationTask)
+        .where(
             MissionPreparationTask.mission_notice_id == avm_id,
             MissionPreparationTask.status.in_(["pending", "in_progress"]),
-        ).values(status="cancelled")
+        )
+        .values(status="cancelled")
     )
 
     await db.commit()
@@ -10229,8 +10432,12 @@ async def cancel_avm(
     )
 
     await record_audit(
-        db, action="paxlog.avm.cancel", resource_type="mission_notice",
-        resource_id=str(avm.id), user_id=current_user.id, entity_id=entity_id,
+        db,
+        action="paxlog.avm.cancel",
+        resource_type="mission_notice",
+        resource_id=str(avm.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
         details={
             "reason": reason,
             "linked_ads_cancelled": linked_ads_cancelled,
@@ -10241,20 +10448,24 @@ async def cancel_avm(
     await db.commit()
 
     # Emit event
-    from app.core.events import OpsFluxEvent, event_bus as _event_bus
-    await _event_bus.publish(OpsFluxEvent(
-        event_type="paxlog.mission_notice.cancelled",
-        payload={
-            "avm_id": str(avm.id),
-            "entity_id": str(entity_id),
-            "reference": avm.reference,
-            "cancelled_by": str(current_user.id),
-            "reason": reason,
-            "linked_ads_cancelled": linked_ads_cancelled,
-            "linked_ads_reviewed": linked_ads_reviewed,
-            "linked_ads_references": linked_ads_refs,
-        },
-    ))
+    from app.core.events import OpsFluxEvent
+    from app.core.events import event_bus as _event_bus
+
+    await _event_bus.publish(
+        OpsFluxEvent(
+            event_type="paxlog.mission_notice.cancelled",
+            payload={
+                "avm_id": str(avm.id),
+                "entity_id": str(entity_id),
+                "reference": avm.reference,
+                "cancelled_by": str(current_user.id),
+                "reason": reason,
+                "linked_ads_cancelled": linked_ads_cancelled,
+                "linked_ads_reviewed": linked_ads_reviewed,
+                "linked_ads_references": linked_ads_refs,
+            },
+        )
+    )
 
     return await _build_avm_read(db, avm)
 
@@ -10329,13 +10540,15 @@ async def modify_active_avm(
         .where(
             MissionProgram.mission_notice_id == avm.id,
             Ads.entity_id == entity_id,
-            Ads.status.in_((
-                "submitted",
-                "pending_compliance",
-                "pending_validation",
-                "approved",
-                "in_progress",
-            )),
+            Ads.status.in_(
+                (
+                    "submitted",
+                    "pending_compliance",
+                    "pending_validation",
+                    "approved",
+                    "in_progress",
+                )
+            ),
         )
     )
     linked_ads_rows = linked_ads_result.all()
@@ -10345,24 +10558,27 @@ async def modify_active_avm(
             .where(Ads.id == linked_ads_id)
             .values(status="requires_review", updated_at=func.now())
         )
-        db.add(AdsEvent(
-            entity_id=entity_id,
-            ads_id=linked_ads_id,
-            event_type="avm_modified_requires_review",
-            old_status=linked_ads_status,
-            new_status="requires_review",
-            actor_id=current_user.id,
-            reason=body.reason,
-            metadata_json={
-                "avm_id": str(avm.id),
-                "avm_reference": avm.reference,
-                "changes": changes,
-            },
-        ))
+        db.add(
+            AdsEvent(
+                entity_id=entity_id,
+                ads_id=linked_ads_id,
+                event_type="avm_modified_requires_review",
+                old_status=linked_ads_status,
+                new_status="requires_review",
+                actor_id=current_user.id,
+                reason=body.reason,
+                metadata_json={
+                    "avm_id": str(avm.id),
+                    "avm_reference": avm.reference,
+                    "changes": changes,
+                },
+            )
+        )
         linked_ads_reviewed += 1
         linked_ads_refs.append(linked_ads_ref)
         if linked_ads_requester_id:
             from app.core.notifications import send_in_app
+
             await send_in_app(
                 db,
                 user_id=linked_ads_requester_id,
@@ -10381,8 +10597,12 @@ async def modify_active_avm(
     await db.refresh(avm)
 
     await record_audit(
-        db, action="paxlog.avm.modify_active", resource_type="mission_notice",
-        resource_id=str(avm.id), user_id=current_user.id, entity_id=entity_id,
+        db,
+        action="paxlog.avm.modify_active",
+        resource_type="mission_notice",
+        resource_id=str(avm.id),
+        user_id=current_user.id,
+        entity_id=entity_id,
         details={
             "reason": body.reason,
             "modified_fields": list(changes.keys()),
@@ -10393,33 +10613,36 @@ async def modify_active_avm(
     )
     await db.commit()
 
-    from app.core.events import OpsFluxEvent, event_bus as _event_bus
-    await _event_bus.publish(OpsFluxEvent(
-        event_type="paxlog.mission_notice.modified",
-        payload={
-            "avm_id": str(avm.id),
-            "entity_id": str(entity_id),
-            "reference": avm.reference,
-            "modified_by": str(current_user.id),
-            "modified_fields": list(changes.keys()),
-            "reason": body.reason,
-            "changes": changes,
-            "linked_ads_set_to_review": linked_ads_reviewed,
-            "linked_ads_references": linked_ads_refs,
-        },
-    ))
+    from app.core.events import OpsFluxEvent
+    from app.core.events import event_bus as _event_bus
+
+    await _event_bus.publish(
+        OpsFluxEvent(
+            event_type="paxlog.mission_notice.modified",
+            payload={
+                "avm_id": str(avm.id),
+                "entity_id": str(entity_id),
+                "reference": avm.reference,
+                "modified_by": str(current_user.id),
+                "modified_fields": list(changes.keys()),
+                "reason": body.reason,
+                "changes": changes,
+                "linked_ads_set_to_review": linked_ads_reviewed,
+                "linked_ads_references": linked_ads_refs,
+            },
+        )
+    )
 
     return await _build_avm_read(db, avm)
 
 
 # ── AVM helper ─────────────────────────────────────────────────
 
+
 async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNoticeRead:
     """Build enriched AVM read response with programs, tasks, and progress."""
     # Creator name
-    creator_result = await db.execute(
-        select(User.first_name, User.last_name).where(User.id == avm.created_by)
-    )
+    creator_result = await db.execute(select(User.first_name, User.last_name).where(User.id == avm.created_by))
     cr = creator_result.first()
     creator_name = f"{cr[0] or ''} {cr[1] or ''}".strip() if cr else None
 
@@ -10461,9 +10684,11 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
 
     # Programs with PAX IDs
     prog_result = await db.execute(
-        select(MissionProgram).where(
+        select(MissionProgram)
+        .where(
             MissionProgram.mission_notice_id == avm.id,
-        ).order_by(MissionProgram.order_index)
+        )
+        .order_by(MissionProgram.order_index)
     )
     programs = prog_result.scalars().all()
 
@@ -10474,10 +10699,7 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
                 MissionProgramPax.mission_program_id == prog.id,
             )
         )
-        pax_entries = [
-            AdsPaxEntry(user_id=row[0], contact_id=row[1])
-            for row in pax_result.all()
-        ]
+        pax_entries = [AdsPaxEntry(user_id=row[0], contact_id=row[1]) for row in pax_result.all()]
 
         # Get site name if available
         site_name = None
@@ -10485,6 +10707,7 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
         generated_ads_status = None
         if prog.site_asset_id:
             from sqlalchemy import text as sql_text
+
             name_result = await db.execute(
                 sql_text("SELECT name FROM ar_installations WHERE id = :aid"),
                 {"aid": str(prog.site_asset_id)},
@@ -10492,9 +10715,7 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
             name_row = name_result.first()
             site_name = name_row[0] if name_row else None
         if prog.generated_ads_id:
-            ads_result = await db.execute(
-                select(Ads.reference, Ads.status).where(Ads.id == prog.generated_ads_id)
-            )
+            ads_result = await db.execute(select(Ads.reference, Ads.status).where(Ads.id == prog.generated_ads_id))
             ads_row = ads_result.first()
             if ads_row:
                 generated_ads_reference = ads_row[0]
@@ -10509,9 +10730,11 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
 
     # Preparation tasks
     task_result = await db.execute(
-        select(MissionPreparationTask).where(
+        select(MissionPreparationTask)
+        .where(
             MissionPreparationTask.mission_notice_id == avm.id,
-        ).order_by(MissionPreparationTask.created_at)
+        )
+        .order_by(MissionPreparationTask.created_at)
     )
     tasks = task_result.scalars().all()
     assigned_user_ids = list({task.assigned_to_user_id for task in tasks if task.assigned_to_user_id})
@@ -10520,28 +10743,26 @@ async def _build_avm_read(db: AsyncSession, avm: MissionNotice) -> MissionNotice
         assigned_users_result = await db.execute(
             select(User.id, User.first_name, User.last_name).where(User.id.in_(assigned_user_ids))
         )
-        assigned_names = {
-            row[0]: f"{row[1] or ''} {row[2] or ''}".strip()
-            for row in assigned_users_result.all()
-        }
+        assigned_names = {row[0]: f"{row[1] or ''} {row[2] or ''}".strip() for row in assigned_users_result.all()}
 
     linked_ads_ids = list({task.linked_ads_id for task in tasks if task.linked_ads_id})
     linked_ads_refs: dict[UUID, str] = {}
     if linked_ads_ids:
-        linked_ads_result = await db.execute(
-            select(Ads.id, Ads.reference).where(Ads.id.in_(linked_ads_ids))
-        )
+        linked_ads_result = await db.execute(select(Ads.id, Ads.reference).where(Ads.id.in_(linked_ads_ids)))
         linked_ads_refs = {row[0]: row[1] for row in linked_ads_result.all()}
 
     task_reads = []
     for task in tasks:
         task_payload = MissionPreparationTaskRead.model_validate(task).model_dump()
-        task_payload["assigned_to_user_name"] = assigned_names.get(task.assigned_to_user_id) if task.assigned_to_user_id else None
+        task_payload["assigned_to_user_name"] = (
+            assigned_names.get(task.assigned_to_user_id) if task.assigned_to_user_id else None
+        )
         task_payload["linked_ads_reference"] = linked_ads_refs.get(task.linked_ads_id) if task.linked_ads_id else None
         task_reads.append(MissionPreparationTaskRead(**task_payload))
 
     # Preparation progress
     from app.services.modules.paxlog_service import get_avm_preparation_status
+
     prep_status = await get_avm_preparation_status(db, avm.id)
     effective_status = avm.status
     if avm.status in ("in_preparation", "ready"):
@@ -10605,7 +10826,9 @@ async def _build_avm_pdf_template_variables(
             {
                 "activity_description": program.activity_description,
                 "site_name": program.site_name,
-                "planned_start_date": program.planned_start_date.strftime("%d/%m/%Y") if program.planned_start_date else "--",
+                "planned_start_date": program.planned_start_date.strftime("%d/%m/%Y")
+                if program.planned_start_date
+                else "--",
                 "planned_end_date": program.planned_end_date.strftime("%d/%m/%Y") if program.planned_end_date else "--",
                 "generated_ads_reference": program.generated_ads_reference,
                 "pax_count": len(program.pax_entries or []),
@@ -10634,7 +10857,7 @@ async def _build_avm_pdf_template_variables(
             "name": entity.name if entity else "",
             "code": entity.code if entity else "",
         },
-        "generated_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M"),
+        "generated_at": datetime.now(UTC).strftime("%d/%m/%Y %H:%M"),
     }
 
 
@@ -10707,11 +10930,12 @@ async def update_avm_preparation_task(
         setattr(task, key, value)
 
     if "status" in update_data:
-        task.completed_at = datetime.now(timezone.utc) if task.status == "completed" else None
+        task.completed_at = datetime.now(UTC) if task.status == "completed" else None
 
     previous_avm_status = avm.status
     if avm.status in ("in_preparation", "ready"):
         from app.services.modules.paxlog_service import get_avm_preparation_status
+
         await db.flush()
         prep_status = await get_avm_preparation_status(db, avm.id)
         next_avm_status = "ready" if prep_status["ready_for_approval"] else "in_preparation"
@@ -10746,10 +10970,7 @@ async def update_avm_preparation_task(
         details={
             "task_id": str(task.id),
             "task_type": task.task_type,
-            "changes": {
-                key: _json_safe(value)
-                for key, value in update_data.items()
-            },
+            "changes": {key: _json_safe(value) for key, value in update_data.items()},
         },
     )
     await db.commit()
@@ -10765,9 +10986,7 @@ async def update_avm_preparation_task(
 
     linked_ads_reference = None
     if task.linked_ads_id:
-        linked_ads_result = await db.execute(
-            select(Ads.reference).where(Ads.id == task.linked_ads_id)
-        )
+        linked_ads_result = await db.execute(select(Ads.reference).where(Ads.id == task.linked_ads_id))
         linked_ads_reference = linked_ads_result.scalar_one_or_none()
 
     task_payload = MissionPreparationTaskRead.model_validate(task).model_dump()

@@ -9,26 +9,32 @@ New features should use these normalized tables; the old table is
 retained for backward compatibility during migration.
 """
 
+# ================================================================
+# SECTION 1 — ENUMS
+# ================================================================
+import enum
 from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID as PyUUID
 
 from geoalchemy2 import Geography
 from sqlalchemy import (
-    Boolean, CheckConstraint, Date, DateTime, Enum, Float, ForeignKey,
-    Index, Integer, Numeric, String, Text, UniqueConstraint, func,
+    Boolean,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
-
-
-# ================================================================
-# SECTION 1 — ENUMS
-# ================================================================
-
-import enum
 
 
 class OperationalStatus(str, enum.Enum):
@@ -219,8 +225,10 @@ class PipelineServiceType(str, enum.Enum):
 # SECTION 2 — HIERARCHY: Field → Site → Installation
 # ================================================================
 
+
 class OilField(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     """Oil/gas field — top-level geographic grouping."""
+
     __tablename__ = "ar_fields"
     __table_args__ = (
         UniqueConstraint("entity_id", "code", name="uq_ar_fields_entity_code"),
@@ -265,12 +273,13 @@ class OilField(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
 
 class FieldLicense(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Licence / permit associated with an oil field."""
-    __tablename__ = "ar_field_licenses"
-    __table_args__ = (
-        Index("idx_ar_field_licenses_field", "field_id"),
-    )
 
-    field_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_fields.id", ondelete="CASCADE"), nullable=False)
+    __tablename__ = "ar_field_licenses"
+    __table_args__ = (Index("idx_ar_field_licenses_field", "field_id"),)
+
+    field_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_fields.id", ondelete="CASCADE"), nullable=False
+    )
     license_type: Mapped[str] = mapped_column(String(50), nullable=False)
     license_number: Mapped[str] = mapped_column(String(100), nullable=False)
     authority: Mapped[str | None] = mapped_column(String(200))
@@ -287,6 +296,7 @@ class FieldLicense(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 class OilSite(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     """Site — geographic area within a field."""
+
     __tablename__ = "ar_sites"
     __table_args__ = (
         UniqueConstraint("entity_id", "code", name="uq_ar_sites_entity_code"),
@@ -339,6 +349,7 @@ class OilSite(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
 
 class Installation(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     """Physical installation — platform, terminal, well pad, etc."""
+
     __tablename__ = "ar_installations"
     __table_args__ = (
         UniqueConstraint("entity_id", "code", name="uq_ar_installations_entity_code"),
@@ -391,20 +402,30 @@ class Installation(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     # Relationships
     site: Mapped["OilSite"] = relationship(back_populates="installations")
     decks: Mapped[list["InstallationDeck"]] = relationship(back_populates="installation", cascade="all, delete-orphan")
-    offshore_details: Mapped["InstallationOffshoreDetails | None"] = relationship(back_populates="installation", uselist=False, cascade="all, delete-orphan")
-    onshore_details: Mapped["InstallationOnshoreDetails | None"] = relationship(back_populates="installation", uselist=False, cascade="all, delete-orphan")
-    equipment_list: Mapped[list["RegistryEquipment"]] = relationship(back_populates="installation", cascade="all, delete-orphan")
+    offshore_details: Mapped["InstallationOffshoreDetails | None"] = relationship(
+        back_populates="installation", uselist=False, cascade="all, delete-orphan"
+    )
+    onshore_details: Mapped["InstallationOnshoreDetails | None"] = relationship(
+        back_populates="installation", uselist=False, cascade="all, delete-orphan"
+    )
+    equipment_list: Mapped[list["RegistryEquipment"]] = relationship(
+        back_populates="installation", cascade="all, delete-orphan"
+    )
 
 
 # ================================================================
 # SECTION 2a — INSTALLATION DETAILS (1:1 extensions)
 # ================================================================
 
+
 class InstallationOffshoreDetails(Base):
     """Offshore-specific installation details (1:1)."""
+
     __tablename__ = "ar_installation_offshore_details"
 
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True
+    )
     structure_type: Mapped[str | None] = mapped_column(String(30))
     jacket_leg_count: Mapped[int | None] = mapped_column(Integer)
     topsides_weight_tonnes: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
@@ -437,9 +458,12 @@ class InstallationOffshoreDetails(Base):
 
 class InstallationOnshoreDetails(Base):
     """Onshore-specific installation details (1:1)."""
+
     __tablename__ = "ar_installation_onshore_details"
 
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True
+    )
     land_area_m2: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     fenced_area_m2: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     process_area_m2: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
@@ -479,13 +503,16 @@ class InstallationOnshoreDetails(Base):
 
 class InstallationDeck(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Deck level on an installation (platform)."""
+
     __tablename__ = "ar_installation_decks"
     __table_args__ = (
         UniqueConstraint("installation_id", "deck_code", name="uq_ar_installation_decks_code"),
         Index("idx_ar_installation_decks_inst", "installation_id"),
     )
 
-    installation_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), nullable=False)
+    installation_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), nullable=False
+    )
     deck_name: Mapped[str] = mapped_column(String(50), nullable=False)
     deck_code: Mapped[str | None] = mapped_column(String(10))
     deck_order: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -505,9 +532,11 @@ class InstallationDeck(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 # SECTION 3 — EQUIPMENT (Base commune)
 # ================================================================
 
+
 class RegistryEquipment(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     """Equipment — base table for all equipment types. Specialized specs
     are in child tables linked 1:1 via PK=FK (e.g. ar_cranes.id → ar_equipment.id)."""
+
     __tablename__ = "ar_equipment"
     __table_args__ = (
         UniqueConstraint("entity_id", "tag_number", name="uq_ar_equipment_entity_tag"),
@@ -571,15 +600,22 @@ class RegistryEquipment(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Ba
     # Relationships
     installation: Mapped["Installation | None"] = relationship(back_populates="equipment_list")
     deck: Mapped["InstallationDeck | None"] = relationship(foreign_keys=[deck_id])
-    documents: Mapped[list["EquipmentDocument"]] = relationship(back_populates="equipment", cascade="all, delete-orphan")
-    assignments: Mapped[list["EquipmentAssignment"]] = relationship(back_populates="equipment", cascade="all, delete-orphan")
+    documents: Mapped[list["EquipmentDocument"]] = relationship(
+        back_populates="equipment", cascade="all, delete-orphan"
+    )
+    assignments: Mapped[list["EquipmentAssignment"]] = relationship(
+        back_populates="equipment", cascade="all, delete-orphan"
+    )
 
 
 class EquipmentDocument(UUIDPrimaryKeyMixin, Base):
     """Document attached to an equipment item."""
+
     __tablename__ = "ar_equipment_documents"
 
-    equipment_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), nullable=False)
+    equipment_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), nullable=False
+    )
     document_type: Mapped[str | None] = mapped_column(String(30))
     document_title: Mapped[str | None] = mapped_column(String(200))
     document_number: Mapped[str | None] = mapped_column(String(100))
@@ -594,10 +630,13 @@ class EquipmentDocument(UUIDPrimaryKeyMixin, Base):
 
 class EquipmentAssignment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Assignment history for mobile equipment."""
+
     __tablename__ = "ar_equipment_assignments"
 
     equipment_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id"), nullable=False)
-    installation_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False)
+    installation_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
+    )
     assigned_from: Mapped[date] = mapped_column(Date, nullable=False)
     assigned_to: Mapped[date | None] = mapped_column(Date)
     assignment_reason: Mapped[str | None] = mapped_column(Text)
@@ -611,8 +650,10 @@ class EquipmentAssignment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 # SECTION 4 — PIPELINE
 # ================================================================
 
+
 class RegistryPipeline(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     """Pipeline connecting two installations."""
+
     __tablename__ = "ar_pipelines"
     __table_args__ = (
         UniqueConstraint("entity_id", "pipeline_id", name="uq_ar_pipelines_entity_pid"),
@@ -627,8 +668,12 @@ class RegistryPipeline(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Bas
     service: Mapped[str] = mapped_column(String(50), nullable=False)
     status: Mapped[str] = mapped_column(String(30), default="OPERATIONAL", nullable=False)
     # Connection A→B
-    from_installation_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False)
-    to_installation_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False)
+    from_installation_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
+    )
+    to_installation_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
+    )
     from_node_description: Mapped[str | None] = mapped_column(String(200))
     to_node_description: Mapped[str | None] = mapped_column(String(200))
     # Routing
@@ -682,13 +727,16 @@ class RegistryPipeline(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Bas
 
 class PipelineWaypoint(UUIDPrimaryKeyMixin, Base):
     """GPS waypoint along a pipeline route."""
+
     __tablename__ = "ar_pipeline_waypoints"
     __table_args__ = (
         UniqueConstraint("pipeline_id", "sequence_no", name="uq_ar_pipeline_waypoints_seq"),
         Index("idx_ar_pipeline_waypoints_pipe", "pipeline_id", "sequence_no"),
     )
 
-    pipeline_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_pipelines.id", ondelete="CASCADE"), nullable=False)
+    pipeline_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_pipelines.id", ondelete="CASCADE"), nullable=False
+    )
     sequence_no: Mapped[int] = mapped_column(Integer, nullable=False)
     latitude: Mapped[Decimal] = mapped_column(Numeric(12, 8), nullable=False)
     longitude: Mapped[Decimal] = mapped_column(Numeric(12, 8), nullable=False)
@@ -707,10 +755,15 @@ class PipelineWaypoint(UUIDPrimaryKeyMixin, Base):
 
 class InstallationConnection(UUIDPrimaryKeyMixin, Base):
     """Non-pipeline connection between installations (bridges, cables, etc.)."""
+
     __tablename__ = "ar_installation_connections"
 
-    from_installation_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False)
-    to_installation_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False)
+    from_installation_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
+    )
+    to_installation_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=False
+    )
     connection_type: Mapped[str | None] = mapped_column(String(30))
     tag_number: Mapped[str | None] = mapped_column(String(50))
     name: Mapped[str | None] = mapped_column(String(200))
@@ -727,11 +780,15 @@ class InstallationConnection(UUIDPrimaryKeyMixin, Base):
 
 # ── 5.1 CRANE ────────────────────────────────────────────────────
 
+
 class Crane(Base):
     """Crane specialized specs."""
+
     __tablename__ = "ar_cranes"
 
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     crane_type: Mapped[str] = mapped_column(String(50), nullable=False)
     boom_structure: Mapped[str | None] = mapped_column(String(30))
     mobility: Mapped[str | None] = mapped_column(String(30))
@@ -805,19 +862,24 @@ class Crane(Base):
     thorough_exam_interval_months: Mapped[int | None] = mapped_column(Integer, default=6)
 
     # Sub-tables
-    configurations: Mapped[list["CraneConfiguration"]] = relationship(back_populates="crane", cascade="all, delete-orphan")
+    configurations: Mapped[list["CraneConfiguration"]] = relationship(
+        back_populates="crane", cascade="all, delete-orphan"
+    )
     hook_blocks: Mapped[list["CraneHookBlock"]] = relationship(back_populates="crane", cascade="all, delete-orphan")
-    reeving_guide: Mapped[list["CraneReevingGuide"]] = relationship(back_populates="crane", cascade="all, delete-orphan")
+    reeving_guide: Mapped[list["CraneReevingGuide"]] = relationship(
+        back_populates="crane", cascade="all, delete-orphan"
+    )
 
 
 class CraneConfiguration(UUIDPrimaryKeyMixin, Base):
     """Crane configuration (boom + reeving + counterweight)."""
-    __tablename__ = "ar_crane_configurations"
-    __table_args__ = (
-        UniqueConstraint("crane_id", "config_code", name="uq_ar_crane_config_code"),
-    )
 
-    crane_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_cranes.id", ondelete="CASCADE"), nullable=False)
+    __tablename__ = "ar_crane_configurations"
+    __table_args__ = (UniqueConstraint("crane_id", "config_code", name="uq_ar_crane_config_code"),)
+
+    crane_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_cranes.id", ondelete="CASCADE"), nullable=False
+    )
     config_code: Mapped[str] = mapped_column(String(30), nullable=False)
     config_name: Mapped[str | None] = mapped_column(String(200))
     is_default_config: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -842,19 +904,24 @@ class CraneConfiguration(UUIDPrimaryKeyMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
 
     crane: Mapped["Crane"] = relationship(back_populates="configurations")
-    load_chart_points: Mapped[list["CraneLoadChartPoint"]] = relationship(back_populates="config", cascade="all, delete-orphan")
+    load_chart_points: Mapped[list["CraneLoadChartPoint"]] = relationship(
+        back_populates="config", cascade="all, delete-orphan"
+    )
     lift_zones: Mapped[list["CraneLiftZone"]] = relationship(back_populates="config", cascade="all, delete-orphan")
 
 
 class CraneLoadChartPoint(UUIDPrimaryKeyMixin, Base):
     """Load chart data point (manufacturer's load chart)."""
+
     __tablename__ = "ar_crane_load_chart_points"
     __table_args__ = (
         UniqueConstraint("config_id", "radius_m", "hook_type", name="uq_ar_crane_lcp"),
         Index("idx_ar_crane_lcp_config", "config_id", "radius_m"),
     )
 
-    config_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_crane_configurations.id", ondelete="CASCADE"), nullable=False)
+    config_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_crane_configurations.id", ondelete="CASCADE"), nullable=False
+    )
     radius_m: Mapped[Decimal] = mapped_column(Numeric(7, 3), nullable=False)
     max_load_tonnes: Mapped[Decimal] = mapped_column(Numeric(8, 3), nullable=False)
     hook_height_m: Mapped[Decimal | None] = mapped_column(Numeric(7, 2))
@@ -870,9 +937,12 @@ class CraneLoadChartPoint(UUIDPrimaryKeyMixin, Base):
 
 class CraneLiftZone(UUIDPrimaryKeyMixin, Base):
     """Angular derating zone for crane operations."""
+
     __tablename__ = "ar_crane_lift_zones"
 
-    config_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_crane_configurations.id", ondelete="CASCADE"), nullable=False)
+    config_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_crane_configurations.id", ondelete="CASCADE"), nullable=False
+    )
     zone_name: Mapped[str] = mapped_column(String(100), nullable=False)
     angle_start_deg: Mapped[Decimal] = mapped_column(Numeric(6, 2), nullable=False)
     angle_end_deg: Mapped[Decimal] = mapped_column(Numeric(6, 2), nullable=False)
@@ -888,9 +958,12 @@ class CraneLiftZone(UUIDPrimaryKeyMixin, Base):
 
 class CraneHookBlock(UUIDPrimaryKeyMixin, Base):
     """Hook block / sheave block catalog."""
+
     __tablename__ = "ar_crane_hook_blocks"
 
-    crane_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_cranes.id", ondelete="CASCADE"), nullable=False)
+    crane_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_cranes.id", ondelete="CASCADE"), nullable=False
+    )
     block_reference: Mapped[str | None] = mapped_column(String(100))
     block_tag: Mapped[str | None] = mapped_column(String(50))
     sheave_count: Mapped[int | None] = mapped_column(Integer)
@@ -909,12 +982,13 @@ class CraneHookBlock(UUIDPrimaryKeyMixin, Base):
 
 class CraneReevingGuide(UUIDPrimaryKeyMixin, Base):
     """Reeving selection guide (load range → number of parts)."""
-    __tablename__ = "ar_crane_reeving_guide"
-    __table_args__ = (
-        UniqueConstraint("crane_id", "reeving_parts", name="uq_ar_crane_reeving"),
-    )
 
-    crane_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_cranes.id", ondelete="CASCADE"), nullable=False)
+    __tablename__ = "ar_crane_reeving_guide"
+    __table_args__ = (UniqueConstraint("crane_id", "reeving_parts", name="uq_ar_crane_reeving"),)
+
+    crane_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_cranes.id", ondelete="CASCADE"), nullable=False
+    )
     boom_config_ref: Mapped[str | None] = mapped_column(String(100))
     load_min_tonnes: Mapped[Decimal] = mapped_column(Numeric(8, 3), nullable=False)
     load_max_tonnes: Mapped[Decimal] = mapped_column(Numeric(8, 3), nullable=False)
@@ -926,11 +1000,15 @@ class CraneReevingGuide(UUIDPrimaryKeyMixin, Base):
 
 # ── 5.2 SEPARATOR ────────────────────────────────────────────────
 
+
 class Separator(Base):
     """Separator specialized specs (2-phase, 3-phase, test separator, etc.)."""
+
     __tablename__ = "ar_separators"
 
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     separator_type: Mapped[str] = mapped_column(String(30), nullable=False)
     orientation: Mapped[str] = mapped_column(String(20), nullable=False)
     separation_stage: Mapped[int | None] = mapped_column(Integer)
@@ -993,17 +1071,20 @@ class Separator(Base):
     notes: Mapped[str | None] = mapped_column(Text)
 
     nozzles: Mapped[list["SeparatorNozzle"]] = relationship(back_populates="separator", cascade="all, delete-orphan")
-    process_cases: Mapped[list["SeparatorProcessCase"]] = relationship(back_populates="separator", cascade="all, delete-orphan")
+    process_cases: Mapped[list["SeparatorProcessCase"]] = relationship(
+        back_populates="separator", cascade="all, delete-orphan"
+    )
 
 
 class SeparatorNozzle(UUIDPrimaryKeyMixin, Base):
     """Separator nozzle schedule."""
-    __tablename__ = "ar_separator_nozzles"
-    __table_args__ = (
-        UniqueConstraint("separator_id", "nozzle_mark", name="uq_ar_sep_nozzle_mark"),
-    )
 
-    separator_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_separators.id", ondelete="CASCADE"), nullable=False)
+    __tablename__ = "ar_separator_nozzles"
+    __table_args__ = (UniqueConstraint("separator_id", "nozzle_mark", name="uq_ar_sep_nozzle_mark"),)
+
+    separator_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_separators.id", ondelete="CASCADE"), nullable=False
+    )
     nozzle_mark: Mapped[str] = mapped_column(String(10), nullable=False)
     nozzle_service: Mapped[str] = mapped_column(String(30), nullable=False)
     description: Mapped[str | None] = mapped_column(String(200))
@@ -1019,12 +1100,13 @@ class SeparatorNozzle(UUIDPrimaryKeyMixin, Base):
 
 class SeparatorProcessCase(UUIDPrimaryKeyMixin, Base):
     """Separator process case (design/normal/turndown/upset)."""
-    __tablename__ = "ar_separator_process_cases"
-    __table_args__ = (
-        UniqueConstraint("separator_id", "case_name", name="uq_ar_sep_case_name"),
-    )
 
-    separator_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_separators.id", ondelete="CASCADE"), nullable=False)
+    __tablename__ = "ar_separator_process_cases"
+    __table_args__ = (UniqueConstraint("separator_id", "case_name", name="uq_ar_sep_case_name"),)
+
+    separator_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_separators.id", ondelete="CASCADE"), nullable=False
+    )
     case_name: Mapped[str] = mapped_column(String(20), nullable=False)
     case_description: Mapped[str | None] = mapped_column(String(200))
     inlet_pressure_barg: Mapped[Decimal | None] = mapped_column(Numeric(9, 3))
@@ -1042,11 +1124,15 @@ class SeparatorProcessCase(UUIDPrimaryKeyMixin, Base):
 
 # ── 5.3 PUMP ─────────────────────────────────────────────────────
 
+
 class Pump(Base):
     """Pump specialized specs."""
+
     __tablename__ = "ar_pumps"
 
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     pump_type: Mapped[str] = mapped_column(String(30), nullable=False)
     api_type_designation: Mapped[str | None] = mapped_column(String(10))
     pump_service: Mapped[str | None] = mapped_column(String(100))
@@ -1094,12 +1180,13 @@ class Pump(Base):
 
 class PumpCurvePoint(UUIDPrimaryKeyMixin, Base):
     """Pump characteristic curve point (manufacturer data)."""
-    __tablename__ = "ar_pump_curve_points"
-    __table_args__ = (
-        UniqueConstraint("pump_id", "flow_m3h", "speed_rpm", name="uq_ar_pump_curve"),
-    )
 
-    pump_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_pumps.id", ondelete="CASCADE"), nullable=False)
+    __tablename__ = "ar_pump_curve_points"
+    __table_args__ = (UniqueConstraint("pump_id", "flow_m3h", "speed_rpm", name="uq_ar_pump_curve"),)
+
+    pump_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_pumps.id", ondelete="CASCADE"), nullable=False
+    )
     flow_m3h: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
     head_m: Mapped[Decimal | None] = mapped_column(Numeric(9, 2))
     efficiency_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
@@ -1113,11 +1200,15 @@ class PumpCurvePoint(UUIDPrimaryKeyMixin, Base):
 
 # ── 5.4 GAS COMPRESSOR ───────────────────────────────────────────
 
+
 class GasCompressor(Base):
     """Gas compressor specialized specs."""
+
     __tablename__ = "ar_gas_compressors"
 
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     compressor_type: Mapped[str] = mapped_column(String(20), nullable=False)
     service: Mapped[str] = mapped_column(String(30), nullable=False)
     number_of_stages: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
@@ -1153,11 +1244,15 @@ class GasCompressor(Base):
 
 # ── 5.5 GAS TURBINE ──────────────────────────────────────────────
 
+
 class GasTurbine(Base):
     """Gas turbine generator or mechanical drive."""
+
     __tablename__ = "ar_gas_turbines"
 
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     application: Mapped[str] = mapped_column(String(20), nullable=False)
     turbine_class: Mapped[str | None] = mapped_column(String(20))
     number_of_shafts: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
@@ -1189,11 +1284,15 @@ class GasTurbine(Base):
 
 # ── 5.6 DIESEL GENERATOR ─────────────────────────────────────────
 
+
 class DieselGenerator(Base):
     """Diesel generator specs."""
+
     __tablename__ = "ar_diesel_generators"
 
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     is_emergency_generator: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     generator_class: Mapped[str | None] = mapped_column(String(5))
     engine_manufacturer: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -1216,11 +1315,15 @@ class DieselGenerator(Base):
 
 # ── 5.7 STORAGE TANK ─────────────────────────────────────────────
 
+
 class StorageTank(Base):
     """Storage tank specs (API 650/620/2610)."""
+
     __tablename__ = "ar_storage_tanks"
 
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     tank_type: Mapped[str] = mapped_column(String(30), nullable=False)
     tank_service: Mapped[str | None] = mapped_column(String(100))
     api_standard: Mapped[str | None] = mapped_column(String(10))
@@ -1249,11 +1352,15 @@ class StorageTank(Base):
 
 # ── 5.8 HEAT EXCHANGER ───────────────────────────────────────────
 
+
 class HeatExchanger(Base):
     """Heat exchanger / cooler / condenser."""
+
     __tablename__ = "ar_heat_exchangers"
 
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     hx_type: Mapped[str] = mapped_column(String(20), nullable=False)
     service_description: Mapped[str | None] = mapped_column(String(200))
     tema_type: Mapped[str | None] = mapped_column(String(10))
@@ -1280,11 +1387,15 @@ class HeatExchanger(Base):
 
 # ── 5.9 PRESSURE VESSEL ──────────────────────────────────────────
 
+
 class PressureVessel(Base):
     """Generic pressure vessel (non-separator)."""
+
     __tablename__ = "ar_pressure_vessels"
 
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     vessel_type: Mapped[str] = mapped_column(String(30), nullable=False)
     service_description: Mapped[str | None] = mapped_column(String(200))
     orientation: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -1305,11 +1416,15 @@ class PressureVessel(Base):
 
 # ── 5.10 INSTRUMENT ──────────────────────────────────────────────
 
+
 class Instrument(Base):
     """Instrumentation (transmitters, control valves, detectors, etc.)."""
+
     __tablename__ = "ar_instruments"
 
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     instrument_type: Mapped[str] = mapped_column(String(10), nullable=False)
     loop_number: Mapped[str | None] = mapped_column(String(50))
     loop_description: Mapped[str | None] = mapped_column(String(200))
@@ -1345,10 +1460,14 @@ class Instrument(Base):
 
 # ── 5.11+ REMAINING SPECIALIZED TABLES (stubs — will be expanded) ──
 
+
 class PipingLine(Base):
     """Piping line within installation."""
+
     __tablename__ = "ar_piping_lines"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     line_number: Mapped[str] = mapped_column(String(150), nullable=False)
     line_class: Mapped[str | None] = mapped_column(String(20))
     service_description: Mapped[str | None] = mapped_column(String(200))
@@ -1363,8 +1482,11 @@ class PipingLine(Base):
 
 class Wellhead(Base):
     """Wellhead / Christmas tree."""
+
     __tablename__ = "ar_wellheads"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     well_tag: Mapped[str | None] = mapped_column(String(50))
     well_name: Mapped[str | None] = mapped_column(String(100))
     well_type: Mapped[str | None] = mapped_column(String(15))
@@ -1384,8 +1506,11 @@ class Wellhead(Base):
 
 class FlareSystem(Base):
     """Flare system specs."""
+
     __tablename__ = "ar_flare_systems"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     flare_type: Mapped[str] = mapped_column(String(30), nullable=False)
     service: Mapped[str | None] = mapped_column(String(30))
     design_standard: Mapped[str | None] = mapped_column(String(30))
@@ -1403,8 +1528,11 @@ class FlareSystem(Base):
 
 class ESDSystem(Base):
     """Emergency Shutdown System."""
+
     __tablename__ = "ar_esd_systems"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     system_name: Mapped[str | None] = mapped_column(String(100))
     system_type: Mapped[str | None] = mapped_column(String(20))
     sil_level: Mapped[str] = mapped_column(String(5), nullable=False)
@@ -1421,8 +1549,11 @@ class ESDSystem(Base):
 
 class FireWaterSystem(Base):
     """Fire water system."""
+
     __tablename__ = "ar_fire_water_systems"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     system_type: Mapped[str | None] = mapped_column(String(20))
     service_area: Mapped[str | None] = mapped_column(String(200))
     design_standard: Mapped[str | None] = mapped_column(String(30))
@@ -1438,8 +1569,11 @@ class FireWaterSystem(Base):
 
 class TransformerEquipment(Base):
     """Electrical transformer."""
+
     __tablename__ = "ar_transformers"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     transformer_type: Mapped[str | None] = mapped_column(String(25))
     cooling_type: Mapped[str | None] = mapped_column(String(15))
     primary_voltage_v: Mapped[Decimal] = mapped_column(Numeric(9, 2), nullable=False)
@@ -1454,8 +1588,11 @@ class TransformerEquipment(Base):
 
 class LiftingAccessory(Base):
     """Lifting accessory (slings, shackles, spreader beams, etc.)."""
+
     __tablename__ = "ar_lifting_accessories"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     accessory_type: Mapped[str] = mapped_column(String(25), nullable=False)
     is_part_of_set: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     set_reference: Mapped[str | None] = mapped_column(String(50))
@@ -1482,7 +1619,9 @@ class LiftingAccessory(Base):
 
 class ProcessColumn(Base):
     __tablename__ = "ar_process_columns"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     column_type: Mapped[str] = mapped_column(String(30), nullable=False)
     service_description: Mapped[str | None] = mapped_column(String(200))
     shell_id_bottom_mm: Mapped[Decimal] = mapped_column(Numeric(9, 2), nullable=False)
@@ -1497,7 +1636,9 @@ class ProcessColumn(Base):
 class ColumnSection(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "ar_column_sections"
     __table_args__ = (UniqueConstraint("column_id", "section_number", name="uq_ar_column_sections_num"),)
-    column_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_process_columns.id", ondelete="CASCADE"), nullable=False)
+    column_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_process_columns.id", ondelete="CASCADE"), nullable=False
+    )
     section_number: Mapped[int] = mapped_column(Integer, nullable=False)
     section_name: Mapped[str | None] = mapped_column(String(50))
     internals_type: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -1510,7 +1651,9 @@ class ColumnSection(UUIDPrimaryKeyMixin, Base):
 
 class PressureSafetyValve(Base):
     __tablename__ = "ar_pressure_safety_valves"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     psv_type: Mapped[str] = mapped_column(String(30), nullable=False)
     service_type: Mapped[str | None] = mapped_column(String(30))
     protected_equipment_tag: Mapped[str | None] = mapped_column(String(50))
@@ -1522,7 +1665,9 @@ class PressureSafetyValve(Base):
 
 class RuptureDisk(Base):
     __tablename__ = "ar_rupture_disks"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     disk_type: Mapped[str | None] = mapped_column(String(30))
     protected_equipment_tag: Mapped[str | None] = mapped_column(String(50))
     burst_pressure_barg: Mapped[Decimal] = mapped_column(Numeric(9, 3), nullable=False)
@@ -1533,7 +1678,9 @@ class RuptureDisk(Base):
 
 class FiredHeater(Base):
     __tablename__ = "ar_fired_heaters"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     heater_type: Mapped[str] = mapped_column(String(20), nullable=False)
     service_description: Mapped[str | None] = mapped_column(String(200))
     duty_kw: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
@@ -1543,7 +1690,9 @@ class FiredHeater(Base):
 
 class FanBlower(Base):
     __tablename__ = "ar_fans_blowers"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     fan_type: Mapped[str] = mapped_column(String(30), nullable=False)
     flow_rate_m3h: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
     motor_power_kw: Mapped[Decimal] = mapped_column(Numeric(7, 2), nullable=False)
@@ -1552,7 +1701,9 @@ class FanBlower(Base):
 
 class SteamTurbine(Base):
     __tablename__ = "ar_steam_turbines"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     turbine_type: Mapped[str] = mapped_column(String(30), nullable=False)
     inlet_steam_pressure_barg: Mapped[Decimal] = mapped_column(Numeric(8, 3), nullable=False)
     inlet_steam_temp_c: Mapped[Decimal] = mapped_column(Numeric(7, 2), nullable=False)
@@ -1562,7 +1713,9 @@ class SteamTurbine(Base):
 
 class Turboexpander(Base):
     __tablename__ = "ar_turboexpanders"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     service_description: Mapped[str | None] = mapped_column(String(200))
     inlet_pressure_barg: Mapped[Decimal] = mapped_column(Numeric(9, 3), nullable=False)
     inlet_temp_c: Mapped[Decimal] = mapped_column(Numeric(7, 2), nullable=False)
@@ -1573,7 +1726,9 @@ class Turboexpander(Base):
 
 class AirCompressorPackage(Base):
     __tablename__ = "ar_air_compressor_packages"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     compressor_type: Mapped[str] = mapped_column(String(30), nullable=False)
     service: Mapped[str | None] = mapped_column(String(20))
     is_oil_free: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -1584,7 +1739,9 @@ class AirCompressorPackage(Base):
 
 class NitrogenUnit(Base):
     __tablename__ = "ar_nitrogen_units"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     n2_type: Mapped[str] = mapped_column(String(20), nullable=False)
     n2_flow_nm3h: Mapped[Decimal] = mapped_column(Numeric(8, 3), nullable=False)
     n2_purity_pct: Mapped[Decimal] = mapped_column(Numeric(7, 5), nullable=False)
@@ -1593,7 +1750,9 @@ class NitrogenUnit(Base):
 
 class FiscalMeteringSkid(Base):
     __tablename__ = "ar_fiscal_metering_skids"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     metering_type: Mapped[str] = mapped_column(String(25), nullable=False)
     service: Mapped[str] = mapped_column(String(30), nullable=False)
     custody_transfer: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -1603,7 +1762,9 @@ class FiscalMeteringSkid(Base):
 
 class ChemicalInjectionSkid(Base):
     __tablename__ = "ar_chemical_injection_skids"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     chemical_type: Mapped[str] = mapped_column(String(30), nullable=False)
     chemical_name: Mapped[str | None] = mapped_column(String(100))
     storage_tank_volume_l: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
@@ -1614,7 +1775,9 @@ class ChemicalInjectionSkid(Base):
 
 class GasDehydrationUnit(Base):
     __tablename__ = "ar_gas_dehydration_units"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     dehydration_type: Mapped[str] = mapped_column(String(20), nullable=False)
     service: Mapped[str | None] = mapped_column(String(100))
     inlet_flow_mmscfd: Mapped[Decimal | None] = mapped_column(Numeric(10, 4))
@@ -1625,7 +1788,9 @@ class GasDehydrationUnit(Base):
 
 class ProducedWaterTreatmentUnit(Base):
     __tablename__ = "ar_produced_water_treatment_units"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     treatment_type: Mapped[str] = mapped_column(String(25), nullable=False)
     service: Mapped[str | None] = mapped_column(String(30))
     inlet_flow_m3h: Mapped[Decimal] = mapped_column(Numeric(10, 3), nullable=False)
@@ -1635,7 +1800,9 @@ class ProducedWaterTreatmentUnit(Base):
 
 class FireGasSystem(Base):
     __tablename__ = "ar_fire_gas_systems"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     system_name: Mapped[str | None] = mapped_column(String(100))
     system_standard: Mapped[str | None] = mapped_column(String(30))
     is_sil_rated: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -1647,7 +1814,9 @@ class FireGasSystem(Base):
 
 class HPUUnit(Base):
     __tablename__ = "ar_hpu_units"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     service: Mapped[str | None] = mapped_column(String(100))
     is_subsea_control: Mapped[bool] = mapped_column(Boolean, default=False)
     system_pressure_barg: Mapped[Decimal] = mapped_column(Numeric(8, 3), nullable=False)
@@ -1658,7 +1827,9 @@ class HPUUnit(Base):
 
 class HVACUnit(Base):
     __tablename__ = "ar_hvac_units"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     hvac_type: Mapped[str] = mapped_column(String(25), nullable=False)
     served_area: Mapped[str | None] = mapped_column(String(200))
     cooling_capacity_kw: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
@@ -1669,7 +1840,9 @@ class HVACUnit(Base):
 
 class UPSSystem(Base):
     __tablename__ = "ar_ups_systems"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     ups_type: Mapped[str] = mapped_column(String(30), nullable=False)
     critical_load_served: Mapped[str | None] = mapped_column(String(200))
     rated_power_kva: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False)
@@ -1680,7 +1853,9 @@ class UPSSystem(Base):
 
 class TelecomSystem(Base):
     __tablename__ = "ar_telecom_systems"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     telecom_type: Mapped[str] = mapped_column(String(20), nullable=False)
     is_safety_critical: Mapped[bool] = mapped_column(Boolean, default=False)
     system_description: Mapped[str | None] = mapped_column(String(200))
@@ -1689,7 +1864,9 @@ class TelecomSystem(Base):
 
 class Switchgear(Base):
     __tablename__ = "ar_switchgear"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     switchgear_type: Mapped[str | None] = mapped_column(String(15))
     voltage_class: Mapped[str | None] = mapped_column(String(10))
     rated_voltage_v: Mapped[Decimal] = mapped_column(Numeric(9, 2), nullable=False)
@@ -1699,7 +1876,9 @@ class Switchgear(Base):
 
 class MotorControlCenter(Base):
     __tablename__ = "ar_motor_control_centers"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     voltage_v: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False)
     frequency_hz: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=50)
     number_of_modules: Mapped[int | None] = mapped_column(Integer)
@@ -1708,7 +1887,9 @@ class MotorControlCenter(Base):
 
 class Manifold(Base):
     __tablename__ = "ar_manifolds"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     manifold_type: Mapped[str | None] = mapped_column(String(20))
     number_of_inlets: Mapped[int | None] = mapped_column(Integer)
     number_of_outlets: Mapped[int | None] = mapped_column(Integer)
@@ -1720,7 +1901,9 @@ class Manifold(Base):
 
 class PigStation(Base):
     __tablename__ = "ar_pig_stations"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     station_type: Mapped[str] = mapped_column(String(15), nullable=False)
     pipeline_tag: Mapped[str | None] = mapped_column(String(50))
     barrel_id_in: Mapped[Decimal] = mapped_column(Numeric(7, 2), nullable=False)
@@ -1730,7 +1913,9 @@ class PigStation(Base):
 
 class DownholeCompletion(Base):
     __tablename__ = "ar_downhole_completions"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     well_tag: Mapped[str] = mapped_column(String(50), nullable=False)
     well_name: Mapped[str | None] = mapped_column(String(100))
     completion_type: Mapped[str | None] = mapped_column(String(20))
@@ -1738,14 +1923,20 @@ class DownholeCompletion(Base):
     tubing_od_in: Mapped[Decimal | None] = mapped_column(Numeric(5, 3))
     tubing_string_depth_m: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     notes: Mapped[str | None] = mapped_column(Text)
-    gas_lift_mandrels: Mapped[list["GasLiftMandrel"]] = relationship(back_populates="completion", cascade="all, delete-orphan")
-    esp_assemblies: Mapped[list["ESPAssembly"]] = relationship(back_populates="completion", cascade="all, delete-orphan")
+    gas_lift_mandrels: Mapped[list["GasLiftMandrel"]] = relationship(
+        back_populates="completion", cascade="all, delete-orphan"
+    )
+    esp_assemblies: Mapped[list["ESPAssembly"]] = relationship(
+        back_populates="completion", cascade="all, delete-orphan"
+    )
 
 
 class GasLiftMandrel(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "ar_gas_lift_mandrels"
     __table_args__ = (UniqueConstraint("completion_id", "mandrel_number", name="uq_ar_gas_lift_mandrels_num"),)
-    completion_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_downhole_completions.id", ondelete="CASCADE"), nullable=False)
+    completion_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_downhole_completions.id", ondelete="CASCADE"), nullable=False
+    )
     mandrel_number: Mapped[int] = mapped_column(Integer, nullable=False)
     mandrel_depth_md_m: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     valve_type: Mapped[str | None] = mapped_column(String(10))
@@ -1755,7 +1946,9 @@ class GasLiftMandrel(UUIDPrimaryKeyMixin, Base):
 
 class ESPAssembly(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "ar_esp_assemblies"
-    completion_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_downhole_completions.id", ondelete="CASCADE"), nullable=False)
+    completion_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_downhole_completions.id", ondelete="CASCADE"), nullable=False
+    )
     pump_manufacturer: Mapped[str | None] = mapped_column(String(50))
     pump_model: Mapped[str | None] = mapped_column(String(50))
     pump_stages: Mapped[int | None] = mapped_column(Integer)
@@ -1767,7 +1960,9 @@ class ESPAssembly(UUIDPrimaryKeyMixin, Base):
 
 class SubseaChristmasTree(Base):
     __tablename__ = "ar_subsea_christmas_trees"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     well_tag: Mapped[str | None] = mapped_column(String(50))
     xt_type: Mapped[str | None] = mapped_column(String(20))
     xt_pressure_rating_psi: Mapped[Decimal | None] = mapped_column(Numeric(9, 2))
@@ -1777,7 +1972,9 @@ class SubseaChristmasTree(Base):
 
 class SubseaUmbilical(Base):
     __tablename__ = "ar_subsea_umbilicals"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     umbilical_type: Mapped[str | None] = mapped_column(String(20))
     function: Mapped[str | None] = mapped_column(String(20))
     installed_length_m: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
@@ -1787,7 +1984,9 @@ class SubseaUmbilical(Base):
 
 class SubseaPlemPlet(Base):
     __tablename__ = "ar_subsea_plem_plet"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     structure_type: Mapped[str | None] = mapped_column(String(5))
     water_depth_m: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
     design_pressure_barg: Mapped[Decimal | None] = mapped_column(Numeric(9, 3))
@@ -1796,7 +1995,9 @@ class SubseaPlemPlet(Base):
 
 class Riser(Base):
     __tablename__ = "ar_risers"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     riser_type: Mapped[str | None] = mapped_column(String(20))
     service: Mapped[str | None] = mapped_column(String(30))
     installed_length_m: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
@@ -1807,7 +2008,9 @@ class Riser(Base):
 
 class SubseaControlSystem(Base):
     __tablename__ = "ar_subsea_control_systems"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     system_type: Mapped[str | None] = mapped_column(String(15))
     manufacturer: Mapped[str | None] = mapped_column(String(50))
     number_of_wells_controlled: Mapped[int | None] = mapped_column(Integer)
@@ -1815,7 +2018,9 @@ class SubseaControlSystem(Base):
 
 class MarineLoadingArm(Base):
     __tablename__ = "ar_marine_loading_arms"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     mla_type: Mapped[str | None] = mapped_column(String(25))
     service: Mapped[str | None] = mapped_column(String(30))
     rated_flow_m3h: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
@@ -1826,7 +2031,9 @@ class MarineLoadingArm(Base):
 
 class MooringSystem(Base):
     __tablename__ = "ar_mooring_systems"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     system_type: Mapped[str | None] = mapped_column(String(20))
     water_depth_m: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
     number_of_lines: Mapped[int | None] = mapped_column(Integer)
@@ -1835,7 +2042,9 @@ class MooringSystem(Base):
 
 class SurvivalCraft(Base):
     __tablename__ = "ar_survival_craft"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     craft_type: Mapped[str] = mapped_column(String(30), nullable=False)
     purpose: Mapped[str | None] = mapped_column(String(15))
     person_capacity: Mapped[int | None] = mapped_column(Integer)
@@ -1844,7 +2053,9 @@ class SurvivalCraft(Base):
 
 class CathodicProtectionSystem(Base):
     __tablename__ = "ar_cathodic_protection_systems"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     cp_type: Mapped[str] = mapped_column(String(20), nullable=False)
     protected_structure_tag: Mapped[str | None] = mapped_column(String(50))
     design_life_years: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -1854,7 +2065,9 @@ class CathodicProtectionSystem(Base):
 
 class Building(Base):
     __tablename__ = "ar_buildings"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     building_type: Mapped[str] = mapped_column(String(25), nullable=False)
     floor_area_m2: Mapped[Decimal | None] = mapped_column(Numeric(9, 2))
     floor_count: Mapped[int] = mapped_column(Integer, default=1)
@@ -1864,7 +2077,9 @@ class Building(Base):
 
 class StructuralElement(Base):
     __tablename__ = "ar_structural_elements"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     structural_type: Mapped[str] = mapped_column(String(25), nullable=False)
     parent_structure_tag: Mapped[str | None] = mapped_column(String(50))
     material: Mapped[str | None] = mapped_column(String(30))
@@ -1874,7 +2089,9 @@ class StructuralElement(Base):
 
 class PotableWaterSystem(Base):
     __tablename__ = "ar_potable_water_systems"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     production_type: Mapped[str | None] = mapped_column(String(20))
     capacity_m3d: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
     storage_capacity_m3: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
@@ -1882,7 +2099,9 @@ class PotableWaterSystem(Base):
 
 class SewageTreatmentSystem(Base):
     __tablename__ = "ar_sewage_treatment_systems"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     system_type: Mapped[str | None] = mapped_column(String(25))
     capacity_m3d: Mapped[Decimal | None] = mapped_column(Numeric(7, 3))
     marpol_compliant: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -1890,7 +2109,9 @@ class SewageTreatmentSystem(Base):
 
 class CoolingWaterSystem(Base):
     __tablename__ = "ar_cooling_water_systems"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     system_type: Mapped[str | None] = mapped_column(String(20))
     cooling_medium: Mapped[str | None] = mapped_column(String(20))
     total_flow_m3h: Mapped[Decimal | None] = mapped_column(Numeric(10, 3))
@@ -1898,7 +2119,9 @@ class CoolingWaterSystem(Base):
 
 class DrainageSystem(Base):
     __tablename__ = "ar_drainage_systems"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     system_type: Mapped[str | None] = mapped_column(String(20))
     service_area: Mapped[str | None] = mapped_column(String(200))
     design_capacity_m3h: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
@@ -1907,7 +2130,9 @@ class DrainageSystem(Base):
 
 class ProcessFilter(Base):
     __tablename__ = "ar_process_filters"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_equipment.id", ondelete="CASCADE"), primary_key=True
+    )
     filter_type: Mapped[str] = mapped_column(String(25), nullable=False)
     service_description: Mapped[str | None] = mapped_column(String(200))
     design_pressure_barg: Mapped[Decimal] = mapped_column(Numeric(9, 3), nullable=False)
@@ -1918,7 +2143,9 @@ class ProcessFilter(Base):
 
 class SeparatorDesalterDetails(Base):
     __tablename__ = "ar_separator_desalter_details"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_separators.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_separators.id", ondelete="CASCADE"), primary_key=True
+    )
     electric_field_type: Mapped[str | None] = mapped_column(String(10))
     electrode_voltage_kv: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
     number_of_stages: Mapped[int] = mapped_column(Integer, default=1)
@@ -1927,9 +2154,12 @@ class SeparatorDesalterDetails(Base):
 
 # ── Installation subtypes ────────────────────────────────────
 
+
 class InstallationWellPad(Base):
     __tablename__ = "ar_installation_well_pad"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True
+    )
     total_well_slots: Mapped[int | None] = mapped_column(Integer)
     active_well_slots: Mapped[int | None] = mapped_column(Integer)
     well_spacing_m: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
@@ -1937,7 +2167,9 @@ class InstallationWellPad(Base):
 
 class InstallationTerminal(Base):
     __tablename__ = "ar_installation_terminal"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True
+    )
     throughput_capacity_bopd: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     number_of_trains: Mapped[int | None] = mapped_column(Integer)
     export_method: Mapped[str | None] = mapped_column(String(30))
@@ -1945,7 +2177,9 @@ class InstallationTerminal(Base):
 
 class InstallationTankFarm(Base):
     __tablename__ = "ar_installation_tank_farm"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True
+    )
     total_number_of_tanks: Mapped[int | None] = mapped_column(Integer)
     total_storage_capacity_m3: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     api_standard: Mapped[str | None] = mapped_column(String(10))
@@ -1953,7 +2187,9 @@ class InstallationTankFarm(Base):
 
 class InstallationJacketPlatform(Base):
     __tablename__ = "ar_installation_jacket_platform"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True
+    )
     platform_function: Mapped[str | None] = mapped_column(String(30))
     has_wellbay: Mapped[bool] = mapped_column(Boolean, default=False)
     wellbay_slot_count: Mapped[int | None] = mapped_column(Integer)
@@ -1962,7 +2198,9 @@ class InstallationJacketPlatform(Base):
 
 class InstallationBuoy(Base):
     __tablename__ = "ar_installation_buoy"
-    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True)
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_installations.id", ondelete="CASCADE"), primary_key=True
+    )
     buoy_type: Mapped[str | None] = mapped_column(String(20))
     design_tonnage_dwt: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     max_flow_rate_bph: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
@@ -1980,6 +2218,7 @@ class AssetChangeLog(UUIDPrimaryKeyMixin, Base):
     equipment, pipeline) along with who made the change, when, and what the
     old / new values were.
     """
+
     __tablename__ = "ar_change_log"
     __table_args__ = (
         Index("idx_ar_change_log_entity", "entity_type", "entity_id"),
@@ -1989,12 +2228,14 @@ class AssetChangeLog(UUIDPrimaryKeyMixin, Base):
     )
 
     tenant_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False)
-    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)       # ar_field, ar_site, ar_installation, ar_equipment, ar_pipeline
+    entity_type: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # ar_field, ar_site, ar_installation, ar_equipment, ar_pipeline
     entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    entity_code: Mapped[str] = mapped_column(String(100), nullable=False)       # human-readable code e.g. 'RDC-01'
-    field_name: Mapped[str] = mapped_column(String(100), nullable=False)        # column that changed
-    old_value: Mapped[str | None] = mapped_column(Text)                         # stringified previous value
-    new_value: Mapped[str | None] = mapped_column(Text)                         # stringified new value
-    change_type: Mapped[str] = mapped_column(String(20), nullable=False)        # create, update, archive
+    entity_code: Mapped[str] = mapped_column(String(100), nullable=False)  # human-readable code e.g. 'RDC-01'
+    field_name: Mapped[str] = mapped_column(String(100), nullable=False)  # column that changed
+    old_value: Mapped[str | None] = mapped_column(Text)  # stringified previous value
+    new_value: Mapped[str | None] = mapped_column(Text)  # stringified new value
+    change_type: Mapped[str] = mapped_column(String(20), nullable=False)  # create, update, archive
     changed_by: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

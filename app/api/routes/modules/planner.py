@@ -9,67 +9,73 @@ Integrates with:
 """
 
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func as sqla_func, and_, String
+from sqlalchemy import String, select, text
+from sqlalchemy import func as sqla_func
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
 
-from app.api.deps import get_current_entity, get_current_user, has_user_permission, require_module_enabled, require_permission
-from app.core.audit import record_audit
+from app.api.deps import (
+    get_current_entity,
+    get_current_user,
+    has_user_permission,
+    require_module_enabled,
+    require_permission,
+)
 from app.core.acting_context import get_effective_actor_user_id
+from app.core.audit import record_audit
 from app.core.database import get_db
-from app.services.core.delete_service import delete_entity
 from app.core.events import OpsFluxEvent, event_bus
 from app.core.pagination import PaginationParams, paginate
 from app.models.asset_registry import Installation
 from app.models.common import AuditLog, Project, ProjectTask, Setting, User
 from app.models.planner import (
     PlannerActivity,
+    PlannerActivityDependency,
     PlannerConflict,
     PlannerConflictActivity,
     PlannerConflictAudit,
-    PlannerActivityDependency,
     PlannerScenario,
     PlannerScenarioActivity,
 )
+from app.schemas.common import PaginatedResponse
 from app.schemas.planner import (
     ActivityCreate,
     ActivityRead,
     ActivityUpdate,
-    ConflictRead,
-    ConflictResolve,
     BulkConflictResolveRequest,
     BulkConflictResolveResult,
-    ConflictAuditRead,
-    CapacityRead,
     CapacityHeatmapResponse,
-    RevisionSignalRead,
-    RevisionSignalAcknowledgeRead,
-    RevisionSignalImpactRead,
+    CapacityRead,
+    ConflictAuditRead,
+    ConflictRead,
+    ConflictResolve,
+    DependencyCreate,
+    DependencyRead,
+    ForecastRequest,
+    ForecastResponse,
+    RevisionDecisionForce,
     RevisionDecisionRequestCreate,
     RevisionDecisionRequestRead,
     RevisionDecisionRespond,
-    RevisionDecisionForce,
-    DependencyCreate,
-    DependencyRead,
-    ScenarioRequest,
-    ForecastRequest,
-    ForecastResponse,
-    ScenarioCreate,
-    ScenarioUpdate,
-    ScenarioRead,
-    ScenarioDetailRead,
+    RevisionSignalAcknowledgeRead,
+    RevisionSignalImpactRead,
+    RevisionSignalRead,
     ScenarioActivityCreate,
-    ScenarioActivityUpdate,
     ScenarioActivityRead,
+    ScenarioActivityUpdate,
+    ScenarioCreate,
+    ScenarioDetailRead,
     ScenarioPromoteResult,
+    ScenarioRead,
+    ScenarioRequest,
+    ScenarioUpdate,
 )
-from app.schemas.common import PaginatedResponse
-from app.services.core.fsm_service import fsm_service, FSMError, FSMPermissionError
+from app.services.core.delete_service import delete_entity
+from app.services.core.fsm_service import FSMError, FSMPermissionError, fsm_service
 
 router = APIRouter(prefix="/api/v1/planner", tags=["planner"], dependencies=[require_module_enabled("planner")])
 logger = logging.getLogger(__name__)
@@ -91,17 +97,20 @@ _DEFAULT_HEATMAP_CONFIG = {
 
 
 async def _get_capacity_heatmap_config(db: AsyncSession, entity_id: UUID) -> dict[str, float | str]:
-    keys = tuple(f"planner.capacity_heatmap_{suffix}" for suffix in (
-        "threshold_low",
-        "threshold_medium",
-        "threshold_high",
-        "threshold_critical",
-        "color_low",
-        "color_medium",
-        "color_high",
-        "color_critical",
-        "color_overflow",
-    ))
+    keys = tuple(
+        f"planner.capacity_heatmap_{suffix}"
+        for suffix in (
+            "threshold_low",
+            "threshold_medium",
+            "threshold_high",
+            "threshold_critical",
+            "color_low",
+            "color_medium",
+            "color_high",
+            "color_critical",
+            "color_overflow",
+        )
+    )
     result = await db.execute(
         select(Setting).where(
             Setting.scope == "entity",
@@ -165,9 +174,7 @@ async def _try_workflow_transition(
 # ── Helpers ───────────────────────────────────────────────────────────────
 
 
-async def _get_activity_or_404(
-    db: AsyncSession, activity_id: UUID, entity_id: UUID
-) -> PlannerActivity:
+async def _get_activity_or_404(db: AsyncSession, activity_id: UUID, entity_id: UUID) -> PlannerActivity:
     result = await db.execute(
         select(PlannerActivity).where(
             PlannerActivity.id == activity_id,
@@ -211,9 +218,7 @@ async def _enrich_activity(db: AsyncSession, activity: PlannerActivity) -> dict:
     return d
 
 
-async def _compute_daily_capacity(
-    db: AsyncSession, asset: Installation, entity_id: UUID, target_date: date
-) -> dict:
+async def _compute_daily_capacity(db: AsyncSession, asset: Installation, entity_id: UUID, target_date: date) -> dict:
     """Compute capacity for a specific asset on a specific date."""
     from app.services.modules.planner_service import get_current_capacity
 
@@ -266,8 +271,8 @@ async def _detect_and_create_conflicts(
     if not activity.start_date or not activity.end_date:
         return []
 
-    start = activity.start_date.date() if hasattr(activity.start_date, 'date') else activity.start_date
-    end = activity.end_date.date() if hasattr(activity.end_date, 'date') else activity.end_date
+    start = activity.start_date.date() if hasattr(activity.start_date, "date") else activity.start_date
+    end = activity.end_date.date() if hasattr(activity.end_date, "date") else activity.end_date
 
     conflicts_created = []
     current = start
@@ -323,10 +328,12 @@ async def _detect_and_create_conflicts(
                     )
                 )
                 for row in overlap_result.all():
-                    db.add(PlannerConflictActivity(
-                        conflict_id=conflict.id,
-                        activity_id=row[0],
-                    ))
+                    db.add(
+                        PlannerConflictActivity(
+                            conflict_id=conflict.id,
+                            activity_id=row[0],
+                        )
+                    )
 
                 conflicts_created.append(conflict)
 
@@ -370,14 +377,18 @@ async def _detect_and_create_conflicts(
                     db.add(clash_conflict)
                     await db.flush()
 
-                    db.add(PlannerConflictActivity(
-                        conflict_id=clash_conflict.id,
-                        activity_id=activity.id,
-                    ))
-                    db.add(PlannerConflictActivity(
-                        conflict_id=clash_conflict.id,
-                        activity_id=other_act.id,
-                    ))
+                    db.add(
+                        PlannerConflictActivity(
+                            conflict_id=clash_conflict.id,
+                            activity_id=activity.id,
+                        )
+                    )
+                    db.add(
+                        PlannerConflictActivity(
+                            conflict_id=clash_conflict.id,
+                            activity_id=other_act.id,
+                        )
+                    )
                     conflicts_created.append(clash_conflict)
                     break  # One priority_clash conflict per date is enough
 
@@ -423,9 +434,7 @@ async def list_activities(
     if scope == "my":
         query = query.where(PlannerActivity.created_by == acting_user_id)
     elif scope != "all":
-        can_read_all = await has_user_permission(
-            current_user, entity_id, "planner.activity.read_all", db
-        )
+        can_read_all = await has_user_permission(current_user, entity_id, "planner.activity.read_all", db)
         if not can_read_all:
             query = query.where(PlannerActivity.created_by == acting_user_id)
 
@@ -520,9 +529,7 @@ async def update_activity(
     # ── Planner → PaxLog cascade: count linked AdS for handler-driven review ──
     ads_updated_count = 0
     if was_approved and changes:
-        date_or_quota_changed = any(
-            k in changes for k in ("start_date", "end_date", "pax_quota")
-        )
+        date_or_quota_changed = any(k in changes for k in ("start_date", "end_date", "pax_quota"))
         if date_or_quota_changed:
             result = await db.execute(
                 sa_text(
@@ -541,19 +548,21 @@ async def update_activity(
 
     # ── Emit activity.modified event for approved activities ──
     if was_approved and changes:
-        await event_bus.publish(OpsFluxEvent(
-            event_type="planner.activity.modified",
-            payload={
-                "activity_id": str(activity.id),
-                "entity_id": str(entity_id),
-                "asset_id": str(activity.asset_id),
-                "title": activity.title,
-                "type": activity.type,
-                "modified_by": str(current_user.id),
-                "changes": {k: {"old": str(old_values.get(k)), "new": str(v)} for k, v in changes.items()},
-                "ads_flagged_for_review": ads_updated_count,
-            },
-        ))
+        await event_bus.publish(
+            OpsFluxEvent(
+                event_type="planner.activity.modified",
+                payload={
+                    "activity_id": str(activity.id),
+                    "entity_id": str(entity_id),
+                    "asset_id": str(activity.asset_id),
+                    "title": activity.title,
+                    "type": activity.type,
+                    "modified_by": str(current_user.id),
+                    "changes": {k: {"old": str(old_values.get(k)), "new": str(v)} for k, v in changes.items()},
+                    "ads_flagged_for_review": ads_updated_count,
+                },
+            )
+        )
 
     return await _enrich_activity(db, activity)
 
@@ -600,11 +609,14 @@ async def submit_activity(
     #   FF (Finish-to-Finish)  predecessor.end_date + lag  <= activity.end_date
     # A predecessor must also not be in a terminal rejected/cancelled state.
     from datetime import timedelta
+
     deps_rows = await db.execute(
-        select(PlannerActivityDependency, PlannerActivity).join(
+        select(PlannerActivityDependency, PlannerActivity)
+        .join(
             PlannerActivity,
             PlannerActivity.id == PlannerActivityDependency.predecessor_id,
-        ).where(PlannerActivityDependency.successor_id == activity.id)
+        )
+        .where(PlannerActivityDependency.successor_id == activity.id)
     )
     violations: list[str] = []
     for dep, predecessor in deps_rows.all():
@@ -621,21 +633,16 @@ async def submit_activity(
         if dtype == "FS":
             if not predecessor.end_date:
                 violations.append(
-                    f"Prédécesseur « {predecessor.title} » n'a pas de date de fin — "
-                    f"dépendance FS impossible à valider."
+                    f"Prédécesseur « {predecessor.title} » n'a pas de date de fin — dépendance FS impossible à valider."
                 )
             elif predecessor.end_date + lag > activity.start_date:
                 violations.append(
                     f"FS: doit démarrer après {(predecessor.end_date + lag).date()} "
-                    f"(fin de « {predecessor.title} »"
-                    + (f" + {dep.lag_days}j" if dep.lag_days else "")
-                    + ")."
+                    f"(fin de « {predecessor.title} »" + (f" + {dep.lag_days}j" if dep.lag_days else "") + ")."
                 )
         elif dtype == "SS":
             if not predecessor.start_date:
-                violations.append(
-                    f"Prédécesseur « {predecessor.title} » n'a pas de date de début."
-                )
+                violations.append(f"Prédécesseur « {predecessor.title} » n'a pas de date de début.")
             elif predecessor.start_date + lag > activity.start_date:
                 violations.append(
                     f"SS: doit démarrer après {(predecessor.start_date + lag).date()} "
@@ -643,9 +650,7 @@ async def submit_activity(
                 )
         elif dtype == "FF":
             if not predecessor.end_date:
-                violations.append(
-                    f"Prédécesseur « {predecessor.title} » n'a pas de date de fin."
-                )
+                violations.append(f"Prédécesseur « {predecessor.title} » n'a pas de date de fin.")
             elif predecessor.end_date + lag > activity.end_date:
                 violations.append(
                     f"FF: doit se terminer après {(predecessor.end_date + lag).date()} "
@@ -673,7 +678,7 @@ async def submit_activity(
 
     activity.status = "submitted"
     activity.submitted_by = current_user.id
-    activity.submitted_at = datetime.now(timezone.utc)
+    activity.submitted_at = datetime.now(UTC)
 
     # Detect capacity conflicts
     conflicts = await _detect_and_create_conflicts(db, activity, entity_id)
@@ -696,37 +701,41 @@ async def submit_activity(
             "pax_quota": activity.pax_quota,
         },
     )
-    await event_bus.publish(OpsFluxEvent(
-        event_type="planner.activity.submitted",
-        payload={
-            "activity_id": str(activity.id),
-            "entity_id": str(entity_id),
-            "asset_id": str(activity.asset_id),
-            "title": activity.title,
-            "type": activity.type,
-            "pax_quota": activity.pax_quota,
-            "submitted_by": str(current_user.id),
-            "created_by": str(activity.created_by),
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="planner.activity.submitted",
+            payload={
+                "activity_id": str(activity.id),
+                "entity_id": str(entity_id),
+                "asset_id": str(activity.asset_id),
+                "title": activity.title,
+                "type": activity.type,
+                "pax_quota": activity.pax_quota,
+                "submitted_by": str(current_user.id),
+                "created_by": str(activity.created_by),
+            },
+        )
+    )
 
     # Emit conflict events (conflict.created for each new conflict)
     for conflict in conflicts:
         asset = await db.get(Installation, activity.asset_id)
-        await event_bus.publish(OpsFluxEvent(
-            event_type="planner.conflict.created",
-            payload={
-                "conflict_id": str(conflict.id),
-                "entity_id": str(entity_id),
-                "asset_id": str(activity.asset_id),
-                "asset_name": asset.name if asset else "",
-                "conflict_date": str(conflict.conflict_date),
-                "conflict_type": conflict.conflict_type,
-                "overflow_amount": conflict.overflow_amount,
-                "total_pax_requested": activity.pax_quota,
-                "max_capacity": asset.pob_capacity if asset and asset.pob_capacity is not None else 0,
-            },
-        ))
+        await event_bus.publish(
+            OpsFluxEvent(
+                event_type="planner.conflict.created",
+                payload={
+                    "conflict_id": str(conflict.id),
+                    "entity_id": str(entity_id),
+                    "asset_id": str(activity.asset_id),
+                    "asset_name": asset.name if asset else "",
+                    "conflict_date": str(conflict.conflict_date),
+                    "conflict_type": conflict.conflict_type,
+                    "overflow_amount": conflict.overflow_amount,
+                    "total_pax_requested": activity.pax_quota,
+                    "max_capacity": asset.pob_capacity if asset and asset.pob_capacity is not None else 0,
+                },
+            )
+        )
 
     return await _enrich_activity(db, activity)
 
@@ -754,7 +763,7 @@ async def validate_activity(
 
     activity.status = "validated"
     activity.validated_by = current_user.id
-    activity.validated_at = datetime.now(timezone.utc)
+    activity.validated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(activity)
 
@@ -771,22 +780,24 @@ async def validate_activity(
             "title": activity.title,
         },
     )
-    await event_bus.publish(OpsFluxEvent(
-        event_type="planner.activity.validated",
-        payload={
-            "activity_id": str(activity.id),
-            "entity_id": str(entity_id),
-            "asset_id": str(activity.asset_id),
-            "project_id": str(activity.project_id) if activity.project_id else None,
-            "title": activity.title,
-            "type": activity.type,
-            "pax_quota": activity.pax_quota,
-            "start_date": str(activity.start_date),
-            "end_date": str(activity.end_date),
-            "validated_by": str(current_user.id),
-            "created_by": str(activity.created_by),
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="planner.activity.validated",
+            payload={
+                "activity_id": str(activity.id),
+                "entity_id": str(entity_id),
+                "asset_id": str(activity.asset_id),
+                "project_id": str(activity.project_id) if activity.project_id else None,
+                "title": activity.title,
+                "type": activity.type,
+                "pax_quota": activity.pax_quota,
+                "start_date": str(activity.start_date),
+                "end_date": str(activity.end_date),
+                "validated_by": str(current_user.id),
+                "created_by": str(activity.created_by),
+            },
+        )
+    )
 
     return await _enrich_activity(db, activity)
 
@@ -816,7 +827,7 @@ async def reject_activity(
 
     activity.status = "rejected"
     activity.rejected_by = current_user.id
-    activity.rejected_at = datetime.now(timezone.utc)
+    activity.rejected_at = datetime.now(UTC)
     activity.rejection_reason = reason
     await db.commit()
     await db.refresh(activity)
@@ -831,17 +842,19 @@ async def reject_activity(
         workflow_slug=PLANNER_WORKFLOW_SLUG,
         extra_payload={"rejection_reason": reason},
     )
-    await event_bus.publish(OpsFluxEvent(
-        event_type="planner.activity.rejected",
-        payload={
-            "activity_id": str(activity.id),
-            "entity_id": str(entity_id),
-            "title": activity.title,
-            "rejected_by": str(current_user.id),
-            "rejection_reason": reason,
-            "created_by": str(activity.created_by),
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="planner.activity.rejected",
+            payload={
+                "activity_id": str(activity.id),
+                "entity_id": str(entity_id),
+                "title": activity.title,
+                "rejected_by": str(current_user.id),
+                "rejection_reason": reason,
+                "created_by": str(activity.created_by),
+            },
+        )
+    )
 
     return await _enrich_activity(db, activity)
 
@@ -881,7 +894,7 @@ async def bulk_validate_activities(
                 continue
             activity.status = "validated"
             activity.validated_by = current_user.id
-            activity.validated_at = datetime.now(timezone.utc)
+            activity.validated_at = datetime.now(UTC)
             success += 1
         except HTTPException:
             errors.append(f"Activity {aid} not found")
@@ -911,7 +924,7 @@ async def bulk_reject_activities(
                 continue
             activity.status = "rejected"
             activity.rejected_by = current_user.id
-            activity.rejected_at = datetime.now(timezone.utc)
+            activity.rejected_at = datetime.now(UTC)
             activity.rejection_reason = body.reason
             success += 1
         except HTTPException:
@@ -975,17 +988,19 @@ async def cancel_activity(
         workflow_slug=PLANNER_WORKFLOW_SLUG,
         extra_payload={"asset_id": str(activity.asset_id)},
     )
-    await event_bus.publish(OpsFluxEvent(
-        event_type="planner.activity.cancelled",
-        payload={
-            "activity_id": str(activity.id),
-            "entity_id": str(entity_id),
-            "asset_id": str(activity.asset_id),
-            "title": activity.title,
-            "cancelled_by": str(current_user.id),
-            "ads_flagged_for_review": ads_updated_count,
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="planner.activity.cancelled",
+            payload={
+                "activity_id": str(activity.id),
+                "entity_id": str(entity_id),
+                "asset_id": str(activity.asset_id),
+                "title": activity.title,
+                "cancelled_by": str(current_user.id),
+                "ads_flagged_for_review": ads_updated_count,
+            },
+        )
+    )
 
     return await _enrich_activity(db, activity)
 
@@ -1091,8 +1106,7 @@ async def list_conflicts(
         else:
             d["resolved_by_name"] = None
         junction_result = await db.execute(
-            select(PlannerConflictActivity.activity_id)
-            .where(PlannerConflictActivity.conflict_id == conflict.id)
+            select(PlannerConflictActivity.activity_id).where(PlannerConflictActivity.conflict_id == conflict.id)
         )
         activity_ids = [row[0] for row in junction_result.all()]
         d["activity_ids"] = activity_ids
@@ -1105,6 +1119,7 @@ async def list_conflicts(
         return d
 
     from sqlalchemy import func as sql_func
+
     count_query = select(sql_func.count()).select_from(query.subquery())
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
@@ -1158,20 +1173,22 @@ async def resolve_conflict(
     conflict.resolution = body.resolution
     conflict.resolution_note = body.resolution_note
     conflict.resolved_by = current_user.id
-    conflict.resolved_at = datetime.now(timezone.utc)
+    conflict.resolved_at = datetime.now(UTC)
 
     # Append an audit row (append-only history of who resolved what)
-    db.add(PlannerConflictAudit(
-        conflict_id=conflict.id,
-        actor_id=current_user.id,
-        action="resolve" if old_resolution is None else "re_resolve",
-        old_status=old_status,
-        new_status=conflict.status,
-        old_resolution=old_resolution,
-        new_resolution=body.resolution,
-        resolution_note=body.resolution_note,
-        context="single",
-    ))
+    db.add(
+        PlannerConflictAudit(
+            conflict_id=conflict.id,
+            actor_id=current_user.id,
+            action="resolve" if old_resolution is None else "re_resolve",
+            old_status=old_status,
+            new_status=conflict.status,
+            old_resolution=old_resolution,
+            new_resolution=body.resolution,
+            resolution_note=body.resolution_note,
+            context="single",
+        )
+    )
 
     await db.commit()
     await db.refresh(conflict)
@@ -1181,8 +1198,7 @@ async def resolve_conflict(
     d["asset_name"] = asset.name if asset else None
     d["resolved_by_name"] = f"{current_user.first_name} {current_user.last_name}"
     junction_result = await db.execute(
-        select(PlannerConflictActivity.activity_id)
-        .where(PlannerConflictActivity.conflict_id == conflict.id)
+        select(PlannerConflictActivity.activity_id).where(PlannerConflictActivity.conflict_id == conflict.id)
     )
     activity_ids = [row[0] for row in junction_result.all()]
     d["activity_ids"] = activity_ids
@@ -1194,21 +1210,23 @@ async def resolve_conflict(
     d["activity_titles"] = activity_titles
 
     # Emit conflict.resolved event AFTER commit
-    await event_bus.publish(OpsFluxEvent(
-        event_type="planner.conflict.resolved",
-        payload={
-            "conflict_id": str(conflict.id),
-            "entity_id": str(entity_id),
-            "asset_id": str(conflict.asset_id),
-            "asset_name": asset.name if asset else "",
-            "conflict_date": str(conflict.conflict_date),
-            "resolution": body.resolution,
-            "resolution_note": body.resolution_note,
-            "resolved_by": str(current_user.id),
-            "activity_ids": [str(aid) for aid in activity_ids],
-            "activity_titles": activity_titles,
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="planner.conflict.resolved",
+            payload={
+                "conflict_id": str(conflict.id),
+                "entity_id": str(entity_id),
+                "asset_id": str(conflict.asset_id),
+                "asset_name": asset.name if asset else "",
+                "conflict_date": str(conflict.conflict_date),
+                "resolution": body.resolution,
+                "resolution_note": body.resolution_note,
+                "resolved_by": str(current_user.id),
+                "activity_ids": [str(aid) for aid in activity_ids],
+                "activity_titles": activity_titles,
+            },
+        )
+    )
 
     return d
 
@@ -1258,19 +1276,21 @@ async def bulk_resolve_conflicts(
         conflict.resolution = item.resolution
         conflict.resolution_note = item.resolution_note
         conflict.resolved_by = current_user.id
-        conflict.resolved_at = datetime.now(timezone.utc)
+        conflict.resolved_at = datetime.now(UTC)
 
-        db.add(PlannerConflictAudit(
-            conflict_id=conflict.id,
-            actor_id=current_user.id,
-            action="resolve" if old_resolution is None else "re_resolve",
-            old_status=old_status,
-            new_status=conflict.status,
-            old_resolution=old_resolution,
-            new_resolution=item.resolution,
-            resolution_note=item.resolution_note,
-            context="bulk",
-        ))
+        db.add(
+            PlannerConflictAudit(
+                conflict_id=conflict.id,
+                actor_id=current_user.id,
+                action="resolve" if old_resolution is None else "re_resolve",
+                old_status=old_status,
+                new_status=conflict.status,
+                old_resolution=old_resolution,
+                new_resolution=item.resolution,
+                resolution_note=item.resolution_note,
+                context="bulk",
+            )
+        )
         resolved += 1
         resolved_ids.append(conflict.id)
 
@@ -1286,20 +1306,22 @@ async def bulk_resolve_conflicts(
         if conflict is None:
             continue
         asset = await db.get(Installation, conflict.asset_id)
-        await event_bus.publish(OpsFluxEvent(
-            event_type="planner.conflict.resolved",
-            payload={
-                "conflict_id": str(conflict.id),
-                "entity_id": str(entity_id),
-                "asset_id": str(conflict.asset_id),
-                "asset_name": asset.name if asset else "",
-                "conflict_date": str(conflict.conflict_date),
-                "resolution": conflict.resolution,
-                "resolution_note": conflict.resolution_note,
-                "resolved_by": str(current_user.id),
-                "context": "bulk",
-            },
-        ))
+        await event_bus.publish(
+            OpsFluxEvent(
+                event_type="planner.conflict.resolved",
+                payload={
+                    "conflict_id": str(conflict.id),
+                    "entity_id": str(entity_id),
+                    "asset_id": str(conflict.asset_id),
+                    "asset_name": asset.name if asset else "",
+                    "conflict_date": str(conflict.conflict_date),
+                    "resolution": conflict.resolution,
+                    "resolution_note": conflict.resolution_note,
+                    "resolved_by": str(current_user.id),
+                    "context": "bulk",
+                },
+            )
+        )
 
     return BulkConflictResolveResult(
         resolved=resolved,
@@ -1322,11 +1344,17 @@ async def list_conflict_audit(
     if not conflict or conflict.entity_id != entity_id:
         raise HTTPException(404, "Conflict not found")
 
-    rows = (await db.execute(
-        select(PlannerConflictAudit)
-        .where(PlannerConflictAudit.conflict_id == conflict_id)
-        .order_by(PlannerConflictAudit.created_at.desc())
-    )).scalars().all()
+    rows = (
+        (
+            await db.execute(
+                select(PlannerConflictAudit)
+                .where(PlannerConflictAudit.conflict_id == conflict_id)
+                .order_by(PlannerConflictAudit.created_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     # Resolve actor display name once
     actor_names: dict[UUID, str] = {}
@@ -1351,6 +1379,7 @@ async def list_conflict_audit(
             "context": row.context,
             "created_at": row.created_at,
         }
+
     return [_to_dict(r) for r in rows]
 
 
@@ -1668,7 +1697,7 @@ async def acknowledge_revision_signal(
                 "source_action": signal.action,
                 "source_resource_type": signal.resource_type,
                 "source_resource_id": signal.resource_id,
-                "reviewed_at": datetime.now(timezone.utc).isoformat(),
+                "reviewed_at": datetime.now(UTC).isoformat(),
             },
             ip_address=getattr(request.client, "host", None) if request.client else None,
             user_agent=request.headers.get("user-agent"),
@@ -1709,11 +1738,7 @@ async def get_revision_signal_impact_summary(
             continue
 
         ads_count_result = await db.execute(
-            text(
-                "SELECT COUNT(*) FROM ads "
-                "WHERE planner_activity_id = :aid "
-                "AND status IN ('approved', 'in_progress')"
-            ),
+            text("SELECT COUNT(*) FROM ads WHERE planner_activity_id = :aid AND status IN ('approved', 'in_progress')"),
             {"aid": str(activity_id)},
         )
         ads_affected = ads_count_result.scalar() or 0
@@ -1820,7 +1845,7 @@ async def list_revision_decision_requests(
         items.append(item)
 
     total = len(items)
-    items = items[pagination.offset: pagination.offset + pagination.page_size]
+    items = items[pagination.offset : pagination.offset + pagination.page_size]
     pages = (total + pagination.page_size - 1) // pagination.page_size if total > 0 else 0
     return {
         "items": items,
@@ -1853,7 +1878,7 @@ async def request_revision_decision(
     target_user_id, target_user_name = await _resolve_revision_signal_target(db, signal=signal, entity_id=entity_id)
     requester_name = f"{current_user.first_name} {current_user.last_name}".strip() or current_user.email
     due_at = body.due_at or (
-        datetime.now(timezone.utc) + timedelta(hours=await _get_planner_revision_response_delay_hours(db, entity_id))
+        datetime.now(UTC) + timedelta(hours=await _get_planner_revision_response_delay_hours(db, entity_id))
     )
     details = signal.details or {}
 
@@ -1901,24 +1926,26 @@ async def request_revision_decision(
     )
     request_row = latest_request.scalars().first()
 
-    await event_bus.publish(OpsFluxEvent(
-        event_type="planner.revision.requested",
-        payload={
-            "entity_id": str(entity_id),
-            "signal_id": str(signal_id),
-            "request_id": str(request_row.id) if request_row else "",
-            "target_user_id": str(target_user_id),
-            "target_user_name": target_user_name,
-            "requester_user_id": str(current_user.id),
-            "requester_user_name": requester_name,
-            "project_id": details.get("project_id"),
-            "project_code": details.get("project_code"),
-            "task_id": details.get("task_id"),
-            "task_title": details.get("task_title"),
-            "due_at": due_at.isoformat(),
-            "note": body.note,
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="planner.revision.requested",
+            payload={
+                "entity_id": str(entity_id),
+                "signal_id": str(signal_id),
+                "request_id": str(request_row.id) if request_row else "",
+                "target_user_id": str(target_user_id),
+                "target_user_name": target_user_name,
+                "requester_user_id": str(current_user.id),
+                "requester_user_name": requester_name,
+                "project_id": details.get("project_id"),
+                "project_code": details.get("project_code"),
+                "task_id": details.get("task_id"),
+                "task_title": details.get("task_title"),
+                "due_at": due_at.isoformat(),
+                "note": body.note,
+            },
+        )
+    )
     return _build_revision_request_read(request_row, None)
 
 
@@ -1953,13 +1980,15 @@ async def respond_revision_decision_request(
     if existing_resolution:
         raise HTTPException(400, "Revision decision request already resolved")
 
-    if body.response == "counter_proposed" and not any([
-        body.response_note,
-        body.counter_start_date,
-        body.counter_end_date,
-        body.counter_pax_quota is not None,
-        body.counter_status,
-    ]):
+    if body.response == "counter_proposed" and not any(
+        [
+            body.response_note,
+            body.counter_start_date,
+            body.counter_end_date,
+            body.counter_pax_quota is not None,
+            body.counter_status,
+        ]
+    ):
         raise HTTPException(400, "Counter proposal details are required")
 
     application_result = None
@@ -1985,7 +2014,7 @@ async def respond_revision_decision_request(
             "counter_end_date": body.counter_end_date.isoformat() if body.counter_end_date else None,
             "counter_pax_quota": body.counter_pax_quota,
             "counter_status": body.counter_status,
-            "responded_at": datetime.now(timezone.utc).isoformat(),
+            "responded_at": datetime.now(UTC).isoformat(),
             "application_result": application_result,
         },
         ip_address=getattr(request.client, "host", None) if request.client else None,
@@ -1993,21 +2022,23 @@ async def respond_revision_decision_request(
     )
     await db.commit()
 
-    await event_bus.publish(OpsFluxEvent(
-        event_type="planner.revision.responded",
-        payload={
-            "entity_id": str(entity_id),
-            "request_id": str(request_id),
-            "signal_id": request_details.get("signal_id") or request_row.resource_id,
-            "requester_user_id": request_details.get("requester_user_id"),
-            "requester_user_name": request_details.get("requester_user_name"),
-            "target_user_id": request_details.get("target_user_id"),
-            "target_user_name": request_details.get("target_user_name"),
-            "response": body.response,
-            "response_note": body.response_note,
-            "application_result": application_result,
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="planner.revision.responded",
+            payload={
+                "entity_id": str(entity_id),
+                "request_id": str(request_id),
+                "signal_id": request_details.get("signal_id") or request_row.resource_id,
+                "requester_user_id": request_details.get("requester_user_id"),
+                "requester_user_name": request_details.get("requester_user_name"),
+                "target_user_id": request_details.get("target_user_id"),
+                "target_user_name": request_details.get("target_user_name"),
+                "response": body.response,
+                "response_note": body.response_note,
+                "application_result": application_result,
+            },
+        )
+    )
 
     resolution_row = await _get_latest_revision_request_resolution(db, entity_id=entity_id, request_id=request_id)
     return _build_revision_request_read(request_row, resolution_row)
@@ -2043,7 +2074,7 @@ async def force_revision_decision_request(
     request_details = request_row.details or {}
     due_at_raw = request_details.get("due_at")
     due_at = datetime.fromisoformat(due_at_raw) if isinstance(due_at_raw, str) else None
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if due_at and due_at > now:
         raise HTTPException(400, "Revision decision request is not yet overdue")
 
@@ -2064,20 +2095,22 @@ async def force_revision_decision_request(
     )
     await db.commit()
 
-    await event_bus.publish(OpsFluxEvent(
-        event_type="planner.revision.forced",
-        payload={
-            "entity_id": str(entity_id),
-            "request_id": str(request_id),
-            "signal_id": request_details.get("signal_id") or request_row.resource_id,
-            "requester_user_id": request_details.get("requester_user_id"),
-            "requester_user_name": request_details.get("requester_user_name"),
-            "target_user_id": request_details.get("target_user_id"),
-            "target_user_name": request_details.get("target_user_name"),
-            "reason": body.reason,
-            "due_at": due_at_raw,
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="planner.revision.forced",
+            payload={
+                "entity_id": str(entity_id),
+                "request_id": str(request_id),
+                "signal_id": request_details.get("signal_id") or request_row.resource_id,
+                "requester_user_id": request_details.get("requester_user_id"),
+                "requester_user_name": request_details.get("requester_user_name"),
+                "target_user_id": request_details.get("target_user_id"),
+                "target_user_name": request_details.get("target_user_name"),
+                "reason": body.reason,
+                "due_at": due_at_raw,
+            },
+        )
+    )
 
     resolution_row = await _get_latest_revision_request_resolution(db, entity_id=entity_id, request_id=request_id)
     return _build_revision_request_read(request_row, resolution_row)
@@ -2130,8 +2163,8 @@ async def get_capacity(
     while current_date <= date_to:
         used_by_activities = 0
         for act in activities:
-            act_start = act.start_date.date() if hasattr(act.start_date, 'date') else act.start_date
-            act_end = act.end_date.date() if hasattr(act.end_date, 'date') else act.end_date
+            act_start = act.start_date.date() if hasattr(act.start_date, "date") else act.start_date
+            act_end = act.end_date.date() if hasattr(act.end_date, "date") else act.end_date
             if act_start <= current_date <= act_end:
                 used_by_activities += act.pax_quota
 
@@ -2139,15 +2172,17 @@ async def get_capacity(
         residual = total - used
         saturation = (used / total * 100) if total > 0 else 0.0
 
-        results.append({
-            "asset_id": asset_id,
-            "asset_name": asset.name,
-            "date": current_date,
-            "total_capacity": total,
-            "used_capacity": used,
-            "residual_capacity": residual,
-            "saturation_pct": round(saturation, 2),
-        })
+        results.append(
+            {
+                "asset_id": asset_id,
+                "asset_name": asset.name,
+                "date": current_date,
+                "total_capacity": total,
+                "used_capacity": used,
+                "residual_capacity": residual,
+                "saturation_pct": round(saturation, 2),
+            }
+        )
         current_date += timedelta(days=1)
 
     return results
@@ -2182,9 +2217,7 @@ async def list_dependencies(
     titles_by_id: dict[UUID, str] = {}
     if activity_ids:
         title_rows = await db.execute(
-            select(PlannerActivity.id, PlannerActivity.title).where(
-                PlannerActivity.id.in_(activity_ids)
-            )
+            select(PlannerActivity.id, PlannerActivity.title).where(PlannerActivity.id.in_(activity_ids))
         )
         for row in title_rows.all():
             titles_by_id[row[0]] = row[1]
@@ -2278,9 +2311,7 @@ async def get_availability(
     if not asset:
         raise HTTPException(404, "Installation not found")
 
-    result = await check_availability(
-        db, entity_id, asset_id, start, end, exclude_activity_id
-    )
+    result = await check_availability(db, entity_id, asset_id, start, end, exclude_activity_id)
     result["asset_name"] = asset.name
     return result
 
@@ -2308,7 +2339,9 @@ async def impact_preview(
 
     activity = await _get_activity_or_404(db, activity_id, entity_id)
     return await get_impact_preview(
-        db, activity_id, entity_id,
+        db,
+        activity_id,
+        entity_id,
         new_start=new_start,
         new_end=new_end,
         new_pax_quota=new_pax_quota,
@@ -2373,8 +2406,9 @@ async def create_asset_capacity(
 
     If reducing capacity below current approved load, a conflict is created.
     """
-    from sqlalchemy import text as sa_text
     import json
+
+    from sqlalchemy import text as sa_text
 
     asset = await db.get(Installation, asset_id)
     if not asset:
@@ -2407,19 +2441,21 @@ async def create_asset_capacity(
     await db.commit()
 
     # Emit capacity changed event
-    await event_bus.publish(OpsFluxEvent(
-        event_type="planner.capacity.changed",
-        payload={
-            "entity_id": str(entity_id),
-            "asset_id": str(asset_id),
-            "asset_name": asset.name,
-            "max_pax_total": max_pax_total,
-            "permanent_ops_quota": permanent_ops_quota,
-            "effective_date": str(eff_date),
-            "reason": reason,
-            "changed_by": str(current_user.id),
-        },
-    ))
+    await event_bus.publish(
+        OpsFluxEvent(
+            event_type="planner.capacity.changed",
+            payload={
+                "entity_id": str(entity_id),
+                "asset_id": str(asset_id),
+                "asset_name": asset.name,
+                "max_pax_total": max_pax_total,
+                "permanent_ops_quota": permanent_ops_quota,
+                "effective_date": str(eff_date),
+                "reason": reason,
+                "changed_by": str(current_user.id),
+            },
+        )
+    )
 
     return {
         "detail": "Capacity record created",
@@ -2455,8 +2491,7 @@ async def override_priority(
     if corrected != priority:
         raise HTTPException(
             400,
-            f"La priorité minimale pour ce type d'activité est '{corrected}'. "
-            f"Impossible de réduire en dessous.",
+            f"La priorité minimale pour ce type d'activité est '{corrected}'. Impossible de réduire en dessous.",
         )
 
     activity.priority = priority
@@ -2494,7 +2529,10 @@ async def get_gantt(
     status_list = statuses.split(",") if statuses else None
 
     return await get_gantt_data(
-        db, entity_id, start_date, end_date,
+        db,
+        entity_id,
+        start_date,
+        end_date,
         asset_ids=asset_ids,
         types=type_list,
         statuses=status_list,
@@ -2507,12 +2545,13 @@ async def get_gantt(
 
 class GanttPdfColumn(BaseModel):
     """A timeline column in the Gantt header (one per visible date cell)."""
-    key: str                           # e.g. "2026-04-10" or "w15"
-    label: str                         # e.g. "10 avr." or "S15"
-    group_label: str | None = None     # e.g. "avril 2026" — for the parent header row
+
+    key: str  # e.g. "2026-04-10" or "w15"
+    label: str  # e.g. "10 avr." or "S15"
+    group_label: str | None = None  # e.g. "avril 2026" — for the parent header row
     is_today: bool = False
     is_weekend: bool = False
-    is_dim: bool = False               # weekends / out-of-month → fade
+    is_dim: bool = False  # weekends / out-of-month → fade
 
 
 class GanttPdfHeatmapCell(BaseModel):
@@ -2522,11 +2561,11 @@ class GanttPdfHeatmapCell(BaseModel):
 
 
 class GanttPdfBar(BaseModel):
-    start_col: int                     # inclusive index into columns[]
-    end_col: int                       # inclusive index into columns[]
+    start_col: int  # inclusive index into columns[]
+    end_col: int  # inclusive index into columns[]
     color: str
     text_color: str = "#ffffff"
-    label: str | None = None           # e.g. activity title
+    label: str | None = None  # e.g. activity title
     is_draft: bool = False
     is_critical: bool = False
     progress: int | None = None
@@ -2537,10 +2576,10 @@ class GanttPdfRow(BaseModel):
     id: str
     label: str
     sublabel: str | None = None
-    level: int = 0                     # indent level (0 = field, 1 = site, ...)
-    is_heatmap: bool = False           # row uses heatmap cells (parent rows)
+    level: int = 0  # indent level (0 = field, 1 = site, ...)
+    is_heatmap: bool = False  # row uses heatmap cells (parent rows)
     heatmap_cells: list[GanttPdfHeatmapCell] = Field(default_factory=list)
-    bar: GanttPdfBar | None = None     # for activity rows
+    bar: GanttPdfBar | None = None  # for activity rows
 
 
 class GanttPdfExportRequest(BaseModel):
@@ -2552,6 +2591,7 @@ class GanttPdfExportRequest(BaseModel):
     no html2canvas screenshot, no image. Result is a vector PDF with
     crisp text and proper typography.
     """
+
     title: str | None = None
     subtitle: str | None = None
     date_range: str | None = None
@@ -2579,7 +2619,7 @@ async def export_gantt_pdf(
     from app.models.common import Entity
 
     entity = await db.get(Entity, entity_id)
-    generated_at = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M")
+    generated_at = datetime.now(UTC).strftime("%d/%m/%Y %H:%M")
     generated_by = getattr(current_user, "full_name", None) or current_user.email
 
     # Build column groups (e.g. month spans) from the column list so the
@@ -2624,7 +2664,7 @@ async def export_gantt_pdf(
             "PDF template 'planner.gantt_export' not found. Run the seed_pdf_templates job.",
         )
 
-    filename = f"planner-gantt-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')}.pdf"
+    filename = f"planner-gantt-{datetime.now(UTC).strftime('%Y%m%d-%H%M')}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -2679,17 +2719,14 @@ async def get_calendar(
     }
     """
     # Build activity query for the date range
-    query = (
-        select(PlannerActivity)
-        .where(
-            PlannerActivity.entity_id == entity_id,
-            PlannerActivity.active == True,  # noqa: E712
-            PlannerActivity.start_date.isnot(None),
-            PlannerActivity.end_date.isnot(None),
-            PlannerActivity.start_date <= datetime.combine(end, datetime.max.time()),
-            PlannerActivity.end_date >= datetime.combine(start, datetime.min.time()),
-            PlannerActivity.status.in_(["draft", "submitted", "validated", "in_progress"]),
-        )
+    query = select(PlannerActivity).where(
+        PlannerActivity.entity_id == entity_id,
+        PlannerActivity.active == True,  # noqa: E712
+        PlannerActivity.start_date.isnot(None),
+        PlannerActivity.end_date.isnot(None),
+        PlannerActivity.start_date <= datetime.combine(end, datetime.max.time()),
+        PlannerActivity.end_date >= datetime.combine(start, datetime.min.time()),
+        PlannerActivity.status.in_(["draft", "submitted", "validated", "in_progress"]),
     )
     if asset_id:
         query = query.where(PlannerActivity.asset_id == asset_id)
@@ -2784,17 +2821,13 @@ async def set_recurrence(
 
     # Check if recurrence already exists
     existing = await db.execute(
-        sa_text(
-            "SELECT id FROM activity_recurrence_rules WHERE activity_id = :aid AND active = TRUE"
-        ),
+        sa_text("SELECT id FROM activity_recurrence_rules WHERE activity_id = :aid AND active = TRUE"),
         {"aid": str(activity_id)},
     )
     if existing.first():
         # Deactivate existing
         await db.execute(
-            sa_text(
-                "UPDATE activity_recurrence_rules SET active = FALSE WHERE activity_id = :aid"
-            ),
+            sa_text("UPDATE activity_recurrence_rules SET active = FALSE WHERE activity_id = :aid"),
             {"aid": str(activity_id)},
         )
 
@@ -2836,9 +2869,7 @@ async def delete_recurrence(
 
     await _get_activity_or_404(db, activity_id, entity_id)
     await db.execute(
-        sa_text(
-            "UPDATE activity_recurrence_rules SET active = FALSE WHERE activity_id = :aid"
-        ),
+        sa_text("UPDATE activity_recurrence_rules SET active = FALSE WHERE activity_id = :aid"),
         {"aid": str(activity_id)},
     )
     await db.commit()
@@ -2865,7 +2896,11 @@ async def simulate(
 
     proposed = [pa.model_dump() for pa in body.proposed_activities]
     return await simulate_scenario(
-        db, entity_id, proposed, body.start_date, body.end_date,
+        db,
+        entity_id,
+        proposed,
+        body.start_date,
+        body.end_date,
     )
 
 
@@ -2889,7 +2924,10 @@ async def forecast(
     from app.services.modules.planner_service import forecast_capacity
 
     return await forecast_capacity(
-        db, entity_id, body.asset_id, body.horizon_days,
+        db,
+        entity_id,
+        body.asset_id,
+        body.horizon_days,
         activity_type=body.activity_type,
         project_id=body.project_id,
     )
@@ -2906,7 +2944,8 @@ async def _build_scenario_read(db: AsyncSession, scenario: PlannerScenario) -> d
     promoter = await db.get(User, scenario.promoted_by) if scenario.promoted_by else None
 
     act_count_result = await db.execute(
-        select(func.count()).select_from(PlannerScenarioActivity)
+        select(func.count())
+        .select_from(PlannerScenarioActivity)
         .where(PlannerScenarioActivity.scenario_id == scenario.id)
     )
     act_count = act_count_result.scalar() or 0
@@ -2914,8 +2953,11 @@ async def _build_scenario_read(db: AsyncSession, scenario: PlannerScenario) -> d
     sim = scenario.last_simulation_result or {}
 
     return {
-        **{c.key: getattr(scenario, c.key) for c in scenario.__table__.columns
-           if c.key not in ("baseline_snapshot", "last_simulation_result", "deleted_at")},
+        **{
+            c.key: getattr(scenario, c.key)
+            for c in scenario.__table__.columns
+            if c.key not in ("baseline_snapshot", "last_simulation_result", "deleted_at")
+        },
         "created_by_name": f"{creator.first_name} {creator.last_name}" if creator else None,
         "promoted_by_name": f"{promoter.first_name} {promoter.last_name}" if promoter else None,
         "activity_count": act_count,
@@ -2955,8 +2997,7 @@ async def list_scenarios(
 ):
     """List all scenarios for the entity with pagination."""
     query = (
-        select(PlannerScenario)
-        .where(PlannerScenario.entity_id == entity_id, PlannerScenario.active == True)  # noqa: E712
+        select(PlannerScenario).where(PlannerScenario.entity_id == entity_id, PlannerScenario.active == True)  # noqa: E712
     )
     if status:
         query = query.where(PlannerScenario.status == status)
@@ -3024,18 +3065,18 @@ async def create_scenario(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new scenario with optional seed activities."""
-    from datetime import timezone as tz
 
     # Capture baseline snapshot — lightweight summary of current plan state
     act_count_result = await db.execute(
-        select(func.count()).select_from(PlannerActivity)
+        select(func.count())
+        .select_from(PlannerActivity)
         .where(PlannerActivity.entity_id == entity_id, PlannerActivity.active == True)  # noqa: E712
     )
     total_activities = act_count_result.scalar() or 0
 
     baseline = {
         "total_activities": total_activities,
-        "captured_at": datetime.now(tz.utc).isoformat(),
+        "captured_at": datetime.now(UTC).isoformat(),
     }
 
     scenario = PlannerScenario(
@@ -3044,7 +3085,7 @@ async def create_scenario(
         description=body.description,
         created_by=current_user.id,
         baseline_snapshot=baseline,
-        baseline_snapshot_at=datetime.now(tz.utc),
+        baseline_snapshot_at=datetime.now(UTC),
     )
     db.add(scenario)
     await db.flush()
@@ -3231,8 +3272,7 @@ async def simulate_scenario_persistent(
         raise HTTPException(404, "Scenario not found")
 
     acts_result = await db.execute(
-        select(PlannerScenarioActivity)
-        .where(
+        select(PlannerScenarioActivity).where(
             PlannerScenarioActivity.scenario_id == scenario_id,
             PlannerScenarioActivity.is_removed == False,  # noqa: E712
         )
@@ -3243,17 +3283,18 @@ async def simulate_scenario_persistent(
         raise HTTPException(400, "Scenario has no proposed activities to simulate")
 
     # Build the payload for the existing simulate service
-    from datetime import timezone as tz
     today = date.today()
     proposed_activities = []
     for pa in proposed:
-        proposed_activities.append({
-            "asset_id": str(pa.asset_id) if pa.asset_id else None,
-            "pax_quota": pa.pax_quota or 0,
-            "start_date": (pa.start_date or today).isoformat(),
-            "end_date": (pa.end_date or today).isoformat(),
-            "title": pa.title,
-        })
+        proposed_activities.append(
+            {
+                "asset_id": str(pa.asset_id) if pa.asset_id else None,
+                "pax_quota": pa.pax_quota or 0,
+                "start_date": (pa.start_date or today).isoformat(),
+                "end_date": (pa.end_date or today).isoformat(),
+                "title": pa.title,
+            }
+        )
 
     # Use earliest/latest dates as simulation window
     start_dates = [pa.start_date for pa in proposed if pa.start_date]
@@ -3262,7 +3303,8 @@ async def simulate_scenario_persistent(
     sim_end = max(end_dates) if end_dates else today
 
     sim_result = await simulate_scenario(
-        db, entity_id,
+        db,
+        entity_id,
         proposed_activities=proposed_activities,
         start_date=sim_start,
         end_date=sim_end,
@@ -3270,7 +3312,7 @@ async def simulate_scenario_persistent(
 
     # Cache the result
     scenario.last_simulation_result = sim_result
-    scenario.last_simulated_at = datetime.now(tz.utc)
+    scenario.last_simulated_at = datetime.now(UTC)
     await db.commit()
 
     return sim_result
@@ -3288,7 +3330,6 @@ async def promote_scenario(
 
     Requires planner.activity.create permission (typically arbiter/DO level).
     """
-    from datetime import timezone as tz
 
     result = await db.execute(
         select(PlannerScenario).where(
@@ -3306,8 +3347,7 @@ async def promote_scenario(
         raise HTTPException(400, "Cannot promote an archived scenario")
 
     acts_result = await db.execute(
-        select(PlannerScenarioActivity)
-        .where(PlannerScenarioActivity.scenario_id == scenario_id)
+        select(PlannerScenarioActivity).where(PlannerScenarioActivity.scenario_id == scenario_id)
     )
     proposed = acts_result.scalars().all()
 
@@ -3333,18 +3373,25 @@ async def promote_scenario(
             if not source:
                 errors.append(f"Source activity {pa.source_activity_id} not found")
                 continue
-            if pa.title is not None: source.title = pa.title
-            if pa.asset_id is not None: source.asset_id = pa.asset_id
-            if pa.type is not None: source.type = pa.type
-            if pa.priority is not None: source.priority = pa.priority
-            if pa.pax_quota is not None: source.pax_quota = pa.pax_quota
-            if pa.start_date is not None: source.start_date = pa.start_date
-            if pa.end_date is not None: source.end_date = pa.end_date
+            if pa.title is not None:
+                source.title = pa.title
+            if pa.asset_id is not None:
+                source.asset_id = pa.asset_id
+            if pa.type is not None:
+                source.type = pa.type
+            if pa.priority is not None:
+                source.priority = pa.priority
+            if pa.pax_quota is not None:
+                source.pax_quota = pa.pax_quota
+            if pa.start_date is not None:
+                source.start_date = pa.start_date
+            if pa.end_date is not None:
+                source.end_date = pa.end_date
             promoted_count += 1
         else:
             # New activity: create a PlannerActivity from the proposal
             if not pa.title or not pa.asset_id or not pa.start_date or not pa.end_date:
-                errors.append(f"Proposed activity missing required fields (title/asset/dates)")
+                errors.append("Proposed activity missing required fields (title/asset/dates)")
                 skipped_count += 1
                 continue
             new_act = PlannerActivity(
@@ -3366,7 +3413,7 @@ async def promote_scenario(
     # Mark scenario as promoted
     scenario.status = "promoted"
     scenario.promoted_by = current_user.id
-    scenario.promoted_at = datetime.now(tz.utc)
+    scenario.promoted_at = datetime.now(UTC)
 
     await db.commit()
 

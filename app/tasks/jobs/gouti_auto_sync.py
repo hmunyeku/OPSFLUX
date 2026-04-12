@@ -13,13 +13,13 @@ needing dynamic jobs.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.database import async_session_factory
-from app.models.common import Entity, Project, Setting
+from app.models.common import Entity, Setting
 from app.services.connectors.gouti_connector import create_gouti_connector
 
 logger = logging.getLogger(__name__)
@@ -46,13 +46,15 @@ async def _persist_last_run(db, entity_id, iso_ts: str, count: int) -> None:
         ("integration.gouti.last_auto_sync_at", iso_ts),
         ("integration.gouti.last_auto_sync_count", str(count)),
     ]:
-        existing = (await db.execute(
-            select(Setting).where(
-                Setting.key == key,
-                Setting.scope == "entity",
-                Setting.scope_id == str(entity_id),
+        existing = (
+            await db.execute(
+                select(Setting).where(
+                    Setting.key == key,
+                    Setting.scope == "entity",
+                    Setting.scope_id == str(entity_id),
+                )
             )
-        )).scalar_one_or_none()
+        ).scalar_one_or_none()
         if existing:
             existing.value = {"v": value}
         else:
@@ -72,14 +74,20 @@ async def run_gouti_auto_sync() -> None:
 
     async with async_session_factory() as db:
         try:
-            entities = (await db.execute(
-                select(Entity).where(Entity.active == True)  # noqa: E712
-            )).scalars().all()
+            entities = (
+                (
+                    await db.execute(
+                        select(Entity).where(Entity.active == True)  # noqa: E712
+                    )
+                )
+                .scalars()
+                .all()
+            )
         except SQLAlchemyError:
             logger.exception("Gouti auto-sync: failed to list entities")
             return
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for entity in entities:
             try:
@@ -101,7 +109,7 @@ async def run_gouti_auto_sync() -> None:
                     try:
                         last_run_dt = datetime.fromisoformat(last_run_iso)
                         if last_run_dt.tzinfo is None:
-                            last_run_dt = last_run_dt.replace(tzinfo=timezone.utc)
+                            last_run_dt = last_run_dt.replace(tzinfo=UTC)
                         minutes_since = (now - last_run_dt).total_seconds() / 60
                         if minutes_since < interval_min:
                             continue
@@ -116,7 +124,8 @@ async def run_gouti_auto_sync() -> None:
                 except Exception as exc:
                     logger.warning(
                         "Gouti auto-sync: fetch failed for entity %s: %s",
-                        entity.id, exc,
+                        entity.id,
+                        exc,
                     )
                     continue
 
@@ -128,7 +137,9 @@ async def run_gouti_auto_sync() -> None:
                     except Exception as exc:
                         logger.warning(
                             "Gouti auto-sync: upsert failed for entity %s, project %s: %s",
-                            entity.id, gp.get("_id") or gp.get("id") or "?", exc,
+                            entity.id,
+                            gp.get("_id") or gp.get("id") or "?",
+                            exc,
                         )
 
                 try:
@@ -142,7 +153,8 @@ async def run_gouti_auto_sync() -> None:
 
                 logger.info(
                     "Gouti auto-sync: entity %s → %d projects synced",
-                    entity.id, synced_count,
+                    entity.id,
+                    synced_count,
                 )
             except Exception:
                 logger.exception("Gouti auto-sync: unexpected error for entity %s", entity.id)

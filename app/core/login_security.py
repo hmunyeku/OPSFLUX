@@ -2,7 +2,6 @@
 
 import hashlib
 import logging
-from datetime import datetime, UTC
 from typing import Any
 
 import httpx
@@ -14,6 +13,7 @@ from app.core.redis_client import get_redis
 logger = logging.getLogger(__name__)
 
 # ── Rate Limiting ──────────────────────────────────────────────
+
 
 async def check_login_rate_limit(
     request: Request,
@@ -72,6 +72,7 @@ async def check_login_rate_limit(
 
 
 # ── CAPTCHA Verification ──────────────────────────────────────
+
 
 async def verify_captcha(
     token: str | None,

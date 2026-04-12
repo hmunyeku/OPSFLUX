@@ -5,6 +5,7 @@ passport, or other GDPR-sensitive personal data.
 """
 
 import logging
+
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
@@ -13,10 +14,17 @@ logger = logging.getLogger(__name__)
 
 # Endpoints that serve sensitive personal data (GDPR Art. 9 — special categories)
 SENSITIVE_PATTERNS = [
-    "/api/v1/users/", "/passports", "/visas", "/vaccines",
-    "/health-conditions", "/medical", "/emergency-contacts",
-    "/social-securities", "/driving-licenses",
-    "/api/v1/gdpr/my-data", "/api/v1/gdpr/download-export",
+    "/api/v1/users/",
+    "/passports",
+    "/visas",
+    "/vaccines",
+    "/health-conditions",
+    "/medical",
+    "/emergency-contacts",
+    "/social-securities",
+    "/driving-licenses",
+    "/api/v1/gdpr/my-data",
+    "/api/v1/gdpr/download-export",
     "/api/v1/pax/credentials",
 ]
 
@@ -44,7 +52,11 @@ class SensitiveDataAuditMiddleware(BaseHTTPMiddleware):
             ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown")
             logger.info(
                 "SENSITIVE_DATA_ACCESS: user=%s ip=%s method=%s path=%s status=%d",
-                user_id or "anonymous", ip, method, path, response.status_code,
+                user_id or "anonymous",
+                ip,
+                method,
+                path,
+                response.status_code,
             )
 
         return response

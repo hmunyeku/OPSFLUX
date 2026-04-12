@@ -23,9 +23,7 @@ async def get_ai_config() -> dict[str, str]:
 
     try:
         async with async_session_factory() as db:
-            result = await db.execute(
-                text("SELECT key, value FROM settings WHERE key LIKE 'integration.ai.%'")
-            )
+            result = await db.execute(text("SELECT key, value FROM settings WHERE key LIKE 'integration.ai.%'"))
             for row in result.all():
                 field = row[0].replace("integration.ai.", "")
                 val = row[1].get("v", "") if isinstance(row[1], dict) else str(row[1])

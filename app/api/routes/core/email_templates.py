@@ -4,11 +4,10 @@ Admin-level endpoints for configuring email templates per entity.
 All templates are entity-scoped (X-Entity-ID header).
 """
 
-from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select, and_
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -22,6 +21,7 @@ from app.models.common import (
     User,
 )
 from app.schemas.common import (
+    EmailPreviewRequest,
     EmailTemplateCheckResponse,
     EmailTemplateCreate,
     EmailTemplateLinkCreate,
@@ -32,7 +32,6 @@ from app.schemas.common import (
     EmailTemplateVersionCreate,
     EmailTemplateVersionRead,
     EmailTemplateVersionUpdate,
-    EmailPreviewRequest,
 )
 from app.services.core.delete_service import delete_entity
 
@@ -44,6 +43,7 @@ router = APIRouter(
 
 
 # ── List all templates ─────────────────────────────────────────────────────
+
 
 @router.get("", response_model=list[EmailTemplateSummaryRead])
 async def list_templates(
@@ -83,6 +83,7 @@ async def list_templates(
 
 # ── Get single template (with versions + links) ───────────────────────────
 
+
 @router.get("/{template_id}", response_model=EmailTemplateRead)
 async def get_template(
     template_id: UUID,
@@ -109,6 +110,7 @@ async def get_template(
 
 
 # ── Create template ────────────────────────────────────────────────────────
+
 
 @router.post("", response_model=EmailTemplateRead, status_code=201)
 async def create_template(
@@ -158,6 +160,7 @@ async def create_template(
 
 # ── Update template metadata ──────────────────────────────────────────────
 
+
 @router.put("/{template_id}", response_model=EmailTemplateRead)
 async def update_template(
     template_id: UUID,
@@ -192,6 +195,7 @@ async def update_template(
 
 # ── Delete template ────────────────────────────────────────────────────────
 
+
 @router.delete("/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_template(
     template_id: UUID,
@@ -215,6 +219,7 @@ async def delete_template(
 
 
 # ── Template versions ─────────────────────────────────────────────────────
+
 
 @router.get("/{template_id}/versions", response_model=list[EmailTemplateVersionRead])
 async def list_versions(
@@ -263,8 +268,7 @@ async def create_version(
 
     # Calculate next version number for this language
     max_version = await db.execute(
-        select(func.coalesce(func.max(EmailTemplateVersion.version), 0))
-        .where(
+        select(func.coalesce(func.max(EmailTemplateVersion.version), 0)).where(
             EmailTemplateVersion.template_id == template_id,
             EmailTemplateVersion.language == body.language,
         )
@@ -379,6 +383,7 @@ async def delete_version(
 
 # ── Template links ─────────────────────────────────────────────────────────
 
+
 @router.post("/{template_id}/links", response_model=EmailTemplateLinkRead, status_code=201)
 async def add_link(
     template_id: UUID,
@@ -434,6 +439,7 @@ async def remove_link(
 
 # ── Availability check (for conditional UI) ────────────────────────────────
 
+
 @router.get("/check/{slug}", response_model=EmailTemplateCheckResponse)
 async def check_template_availability(
     slug: str,
@@ -470,6 +476,7 @@ async def check_template_availability(
 
 # ── Preview ────────────────────────────────────────────────────────────────
 
+
 @router.post("/{template_id}/preview")
 async def preview_template(
     template_id: UUID,
@@ -499,6 +506,7 @@ async def preview_template(
 
 
 # ── Seed defaults ──────────────────────────────────────────────────────────
+
 
 @router.post("/seed", status_code=201)
 async def seed_default_templates(
@@ -555,6 +563,7 @@ async def seed_default_templates(
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
 
 async def _deactivate_language_versions(
     db: AsyncSession,

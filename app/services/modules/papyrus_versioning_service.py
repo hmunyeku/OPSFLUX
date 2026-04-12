@@ -1,7 +1,7 @@
 """Papyrus versioning helpers for canonical document snapshots and diffs."""
 
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -133,7 +133,7 @@ async def reconstruct_document_version(
         return None
 
     current = deepcopy(ordered[snapshot_index].payload)
-    for item in ordered[snapshot_index + 1:]:
+    for item in ordered[snapshot_index + 1 :]:
         if item.patch_type == "snapshot":
             current = deepcopy(item.payload)
             continue
@@ -227,13 +227,11 @@ async def record_document_version(
         workflow_id=workflow_id,
         current_state=current_state,
         created_at=created_at,
-        updated_at=updated_at or datetime.now(timezone.utc),
+        updated_at=updated_at or datetime.now(UTC),
     )
 
     current_max = (
-        await db.execute(
-            select(func.max(PapyrusVersion.version)).where(PapyrusVersion.document_id == document_id)
-        )
+        await db.execute(select(func.max(PapyrusVersion.version)).where(PapyrusVersion.document_id == document_id))
     ).scalar_one()
     next_version = int(current_max or 0) + 1
 

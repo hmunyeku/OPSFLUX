@@ -35,8 +35,7 @@ async def _send_verification_email(
     entity_id: UUID,
     user: User,
 ) -> None:
-    """Send a verification email using the template system.
-    """
+    """Send a verification email using the template system."""
     verification_url = f"{settings.FRONTEND_URL}/verify-email?token={token}"
 
     sent = await render_and_send_email(
@@ -204,11 +203,7 @@ async def set_primary_email(
         )
 
     # Unset all other primary emails for this user
-    await db.execute(
-        update(UserEmail)
-        .where(UserEmail.user_id == current_user.id)
-        .values(is_primary=False)
-    )
+    await db.execute(update(UserEmail).where(UserEmail.user_id == current_user.id).values(is_primary=False))
 
     user_email.is_primary = True
     await db.commit()
@@ -278,9 +273,7 @@ async def verify_email_callback(
     db: AsyncSession = Depends(get_db),
 ):
     """Public callback for email verification links — no auth required."""
-    result = await db.execute(
-        select(UserEmail).where(UserEmail.verification_token == token)
-    )
+    result = await db.execute(select(UserEmail).where(UserEmail.verification_token == token))
     user_email = result.scalar_one_or_none()
     if not user_email:
         raise HTTPException(status_code=404, detail="Invalid verification token")

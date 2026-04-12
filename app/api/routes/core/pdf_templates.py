@@ -6,7 +6,6 @@ All templates are entity-scoped (X-Entity-ID header) or global (entity_id = NULL
 Required permission: core.pdf_templates.manage
 """
 
-from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -17,7 +16,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_entity, get_current_user, require_permission
 from app.core.database import get_db
-from app.core.pdf_templates import render_html_from_version, render_pdf_from_version, render_template_string, validate_pdf_template_source
+from app.core.pdf_templates import render_html_from_version, render_pdf_from_version, validate_pdf_template_source
 from app.models.common import (
     PdfTemplate,
     PdfTemplateVersion,
@@ -29,11 +28,11 @@ from app.schemas.common import (
     PdfTemplateRead,
     PdfTemplateSummaryRead,
     PdfTemplateUpdate,
+    PdfTemplateValidationRead,
+    PdfTemplateValidationRequest,
     PdfTemplateVersionCreate,
     PdfTemplateVersionRead,
     PdfTemplateVersionUpdate,
-    PdfTemplateValidationRead,
-    PdfTemplateValidationRequest,
 )
 from app.services.core.delete_service import delete_entity
 
@@ -57,11 +56,7 @@ def _assert_publishable_template_version(
         footer_html=footer_html,
         variables_schema=template.variables_schema,
     )
-    blocking_issues = [
-        issue["message"]
-        for issue in validation["issues"]
-        if issue["level"] == "error"
-    ]
+    blocking_issues = [issue["message"] for issue in validation["issues"] if issue["level"] == "error"]
     if blocking_issues:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -75,6 +70,7 @@ def _assert_publishable_template_version(
 
 # ── List all templates ─────────────────────────────────────────────────────
 
+
 @router.get("", response_model=list[PdfTemplateSummaryRead])
 async def list_templates(
     entity_id: UUID = Depends(get_current_entity),
@@ -85,9 +81,7 @@ async def list_templates(
     result = await db.execute(
         select(PdfTemplate)
         .options(selectinload(PdfTemplate.versions))
-        .where(
-            (PdfTemplate.entity_id == entity_id) | (PdfTemplate.entity_id.is_(None))
-        )
+        .where((PdfTemplate.entity_id == entity_id) | (PdfTemplate.entity_id.is_(None)))
         .order_by(PdfTemplate.slug)
     )
     templates = result.scalars().all()
@@ -117,6 +111,7 @@ async def list_templates(
 
 # ── Get single template (with versions) ───────────────────────────────────
 
+
 @router.get("/{template_id}", response_model=PdfTemplateRead)
 async def get_template(
     template_id: UUID,
@@ -140,6 +135,7 @@ async def get_template(
 
 
 # ── Create template ────────────────────────────────────────────────────────
+
 
 @router.post("", response_model=PdfTemplateRead, status_code=201)
 async def create_template(
@@ -183,14 +179,13 @@ async def create_template(
 
     # Re-fetch with relationships
     result = await db.execute(
-        select(PdfTemplate)
-        .options(selectinload(PdfTemplate.versions))
-        .where(PdfTemplate.id == template.id)
+        select(PdfTemplate).options(selectinload(PdfTemplate.versions)).where(PdfTemplate.id == template.id)
     )
     return result.scalar_one()
 
 
 # ── Update template metadata ──────────────────────────────────────────────
+
 
 @router.patch("/{template_id}", response_model=PdfTemplateRead)
 async def update_template(
@@ -223,6 +218,7 @@ async def update_template(
 
 # ── Delete template ────────────────────────────────────────────────────────
 
+
 @router.delete("/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_template(
     template_id: UUID,
@@ -246,6 +242,7 @@ async def delete_template(
 
 
 # ── Template versions ─────────────────────────────────────────────────────
+
 
 @router.get("/{template_id}/versions", response_model=list[PdfTemplateVersionRead])
 async def list_versions(
@@ -293,8 +290,7 @@ async def create_version(
 
     # Calculate next version number for this language
     max_version = await db.execute(
-        select(func.coalesce(func.max(PdfTemplateVersion.version_number), 0))
-        .where(
+        select(func.coalesce(func.max(PdfTemplateVersion.version_number), 0)).where(
             PdfTemplateVersion.template_id == template_id,
             PdfTemplateVersion.language == body.language,
         )
@@ -377,6 +373,7 @@ async def update_version(
 
 # ── Publish a version ─────────────────────────────────────────────────────
 
+
 @router.post(
     "/{template_id}/versions/{version_id}/publish",
     response_model=PdfTemplateVersionRead,
@@ -428,6 +425,7 @@ async def publish_version(
 
 # ── Delete a version ──────────────────────────────────────────────────────
 
+
 @router.delete(
     "/{template_id}/versions/{version_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -466,6 +464,7 @@ async def delete_version(
 
 # ── Preview ────────────────────────────────────────────────────────────────
 
+
 @router.post("/{template_id}/preview")
 async def preview_template(
     template_id: UUID,
@@ -501,10 +500,7 @@ async def preview_template(
         version = result.scalar_one_or_none()
         if not version:
             raise HTTPException(status_code=404, detail="Version not found")
-    elif any(
-        section is not None
-        for section in (body.body_html, body.header_html, body.footer_html)
-    ):
+    elif any(section is not None for section in (body.body_html, body.header_html, body.footer_html)):
         version = PdfTemplateVersion(
             template_id=template_id,
             version_number=0,
@@ -561,6 +557,7 @@ async def validate_template_source(
 
 
 # ── Seed defaults ──────────────────────────────────────────────────────────
+
 
 @router.post("/seed", status_code=201)
 async def seed_default_templates(
@@ -624,6 +621,7 @@ async def seed_default_templates(
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
 
 async def _unpublish_language_versions(
     db: AsyncSession,

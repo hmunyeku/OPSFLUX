@@ -19,6 +19,7 @@ from app.models.common import (
     WorkflowInstance,
     WorkflowTransition,
 )
+from app.schemas.common import PaginatedResponse
 from app.schemas.workflow import (
     STRUCTURE_LOCKED_WORKFLOW_SLUGS,
     TransitionRequest,
@@ -33,7 +34,6 @@ from app.schemas.workflow import (
     WorkflowStateBucket,
     WorkflowTransitionRead,
 )
-from app.schemas.common import PaginatedResponse
 from app.services.core.delete_service import delete_entity
 from app.services.core.fsm_service import FSMError, FSMPermissionError, fsm_service
 
@@ -152,10 +152,7 @@ async def list_definitions(
 
     Optionally filter by status (draft / published / archived) or entity_type.
     """
-    query = (
-        select(WorkflowDefinition)
-        .where(WorkflowDefinition.entity_id == entity_id)
-    )
+    query = select(WorkflowDefinition).where(WorkflowDefinition.entity_id == entity_id)
     if status_filter:
         if status_filter not in ("draft", "published", "archived"):
             raise HTTPException(
@@ -167,9 +164,7 @@ async def list_definitions(
         query = query.where(WorkflowDefinition.entity_type == entity_type)
     if search:
         like = f"%{search}%"
-        query = query.where(
-            WorkflowDefinition.name.ilike(like) | WorkflowDefinition.slug.ilike(like)
-        )
+        query = query.where(WorkflowDefinition.name.ilike(like) | WorkflowDefinition.slug.ilike(like))
     query = query.order_by(WorkflowDefinition.updated_at.desc())
     return await paginate(db, query, pagination)
 
@@ -366,7 +361,9 @@ async def publish_definition(
 
     logger.info(
         "Workflow definition '%s' v%d published by %s",
-        definition.slug, definition.version, current_user.id,
+        definition.slug,
+        definition.version,
+        current_user.id,
     )
     return definition
 
@@ -417,7 +414,9 @@ async def archive_definition(
 
     logger.info(
         "Workflow definition '%s' v%d archived by %s",
-        definition.slug, definition.version, current_user.id,
+        definition.slug,
+        definition.version,
+        current_user.id,
     )
     return definition
 
@@ -452,7 +451,7 @@ async def delete_definition(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Seuls les brouillons (draft) peuvent être supprimés. "
-                   "Les définitions publiées doivent être archivées.",
+            "Les définitions publiées doivent être archivées.",
         )
 
     # Check no instances reference this definition
@@ -484,7 +483,8 @@ async def delete_definition(
 
     logger.info(
         "Workflow definition '%s' deleted by %s",
-        definition.slug, current_user.id,
+        definition.slug,
+        current_user.id,
     )
     return None
 
@@ -558,7 +558,10 @@ async def clone_definition(
 
     logger.info(
         "Workflow definition '%s' cloned v%d → v%d by %s",
-        source.slug, source.version, cloned.version, current_user.id,
+        source.slug,
+        source.version,
+        cloned.version,
+        current_user.id,
     )
     return cloned
 
@@ -583,10 +586,7 @@ async def list_instances(
 
     Optionally filter by definition_id, current_state, created_by, or entity_type.
     """
-    query = (
-        select(WorkflowInstance)
-        .where(WorkflowInstance.entity_id == entity_id)
-    )
+    query = select(WorkflowInstance).where(WorkflowInstance.entity_id == entity_id)
     if definition_id:
         query = query.where(WorkflowInstance.workflow_definition_id == definition_id)
     if current_state:
@@ -838,8 +838,12 @@ async def execute_transition(
 
     logger.info(
         "Workflow instance %s transitioned %s -> %s (definition: %s, v%d) by %s",
-        instance.id, from_state, body.to_state, definition.slug,
-        instance.version, current_user.id,
+        instance.id,
+        from_state,
+        body.to_state,
+        definition.slug,
+        instance.version,
+        current_user.id,
     )
 
     return instance
@@ -882,10 +886,7 @@ async def get_workflow_stats(
         )
         rows = count_result.all()
 
-        by_state = [
-            WorkflowStateBucket(state=row[0], count=row[1])
-            for row in rows
-        ]
+        by_state = [WorkflowStateBucket(state=row[0], count=row[1]) for row in rows]
         total = sum(b.count for b in by_state)
 
         stats.append(
@@ -989,12 +990,8 @@ def _validate_definition_structure(states: dict | list, transitions: dict | list
 
     if isinstance(states, list):
         # Visual editor format: [{id, type, label, ...}]
-        node_types = {
-            s.get("type") for s in states if isinstance(s, dict) and s.get("type")
-        }
-        node_ids = {
-            s.get("id") for s in states if isinstance(s, dict) and s.get("id")
-        }
+        node_types = {s.get("type") for s in states if isinstance(s, dict) and s.get("type")}
+        node_ids = {s.get("id") for s in states if isinstance(s, dict) and s.get("id")}
 
         if "start" not in node_types:
             errors.append("Le workflow doit contenir un noeud de démarrage (start)")
@@ -1060,17 +1057,11 @@ def _validate_transition_runtime_metadata(
         else:
             resolver = assignee.get("resolver")
             if resolver not in {"field", "role"}:
-                errors.append(
-                    f"Transition #{index + 1}: assignee.resolver doit être 'field' ou 'role'"
-                )
+                errors.append(f"Transition #{index + 1}: assignee.resolver doit être 'field' ou 'role'")
             if resolver == "field" and not assignee.get("field"):
-                errors.append(
-                    f"Transition #{index + 1}: assignee.field est requis pour le resolver 'field'"
-                )
+                errors.append(f"Transition #{index + 1}: assignee.field est requis pour le resolver 'field'")
             if resolver == "role" and not assignee.get("role_code"):
-                errors.append(
-                    f"Transition #{index + 1}: assignee.role_code est requis pour le resolver 'role'"
-                )
+                errors.append(f"Transition #{index + 1}: assignee.role_code est requis pour le resolver 'role'")
 
     sla_hours = transition.get("sla_hours")
     if sla_hours is not None and (not isinstance(sla_hours, int) or sla_hours <= 0):
@@ -1117,10 +1108,6 @@ def _validate_transition_condition(
     if not field:
         errors.append(f"Transition #{index + 1}: {path}.field est requis")
     if op not in {"eq", "ne", "truthy", "falsy", "in", "not_in"}:
-        errors.append(
-            f"Transition #{index + 1}: {path}.op doit être l'un de eq, ne, truthy, falsy, in, not_in"
-        )
+        errors.append(f"Transition #{index + 1}: {path}.op doit être l'un de eq, ne, truthy, falsy, in, not_in")
     if op in {"eq", "ne", "in", "not_in"} and not has_value:
-        errors.append(
-            f"Transition #{index + 1}: {path} doit fournir value ou value_from pour l'opérateur '{op}'"
-        )
+        errors.append(f"Transition #{index + 1}: {path} doit fournir value ou value_from pour l'opérateur '{op}'")

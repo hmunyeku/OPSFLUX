@@ -11,10 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_entity, get_current_user, has_user_permission
 from app.core.database import get_db
-from app.services.core.module_lifecycle_service import is_module_enabled, normalize_module_slug
 from app.models.asset_registry import Installation
 from app.models.common import (
-
     ComplianceRecord,
     ComplianceType,
     Project,
@@ -23,6 +21,7 @@ from app.models.common import (
     User,
 )
 from app.models.planner import PlannerActivity
+from app.services.core.module_lifecycle_service import is_module_enabled, normalize_module_slug
 
 logger = logging.getLogger(__name__)
 
@@ -124,9 +123,7 @@ async def _user_belongs_to_entity(db: AsyncSession, *, user_id: UUID, entity_id:
     if result.first():
         return True
 
-    fallback = await db.execute(
-        select(User.id).where(User.id == user_id, User.default_entity_id == entity_id)
-    )
+    fallback = await db.execute(select(User.id).where(User.id == user_id, User.default_entity_id == entity_id))
     return fallback.first() is not None
 
 
@@ -156,12 +153,12 @@ async def _preview_assets(db: AsyncSession, entity_id: UUID, record_id: UUID) ->
         return None
     return PreviewResponse(
         id=str(row.id),
-        code=getattr(row, 'code', None),
+        code=getattr(row, "code", None),
         name=row.name,
-        type=getattr(row, 'installation_type', getattr(row, 'type', None)),
-        status=getattr(row, 'status', None),
-        created_at=_format_dt(getattr(row, 'created_at', None)),
-        extra={"max_pax": getattr(row, 'max_pax', None)} if getattr(row, 'max_pax', None) else None,
+        type=getattr(row, "installation_type", getattr(row, "type", None)),
+        status=getattr(row, "status", None),
+        created_at=_format_dt(getattr(row, "created_at", None)),
+        extra={"max_pax": getattr(row, "max_pax", None)} if getattr(row, "max_pax", None) else None,
     )
 
 
@@ -257,7 +254,9 @@ async def _preview_conformite(db: AsyncSession, entity_id: UUID, record_id: UUID
         type=category,
         status=record.status,
         created_at=_format_dt(record.created_at),
-        extra={"owner_type": record.owner_type, "issuer": record.issuer} if record.issuer else {"owner_type": record.owner_type},
+        extra={"owner_type": record.owner_type, "issuer": record.issuer}
+        if record.issuer
+        else {"owner_type": record.owner_type},
     )
 
 

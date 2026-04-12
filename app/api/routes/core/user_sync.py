@@ -6,20 +6,21 @@ Endpoints:
   POST /api/v1/user-sync/preview     — fetch users from provider (dry-run)
   POST /api/v1/user-sync/execute     — import selected users
 """
+
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, get_current_user, require_permission
+from app.api.deps import get_current_user, get_db, require_permission
 from app.core.audit import record_audit
 from app.core.security import hash_password
-from app.models.common import User, Setting, UserGroup, UserGroupMember
+from app.models.common import Setting, User, UserGroup, UserGroupMember
 from app.services.connectors.user_sync_service import (
     PROVIDER_REGISTRY,
     PROVIDER_SETTINGS_PREFIX,
@@ -32,6 +33,7 @@ router = APIRouter(prefix="/api/v1/user-sync", tags=["user-sync"])
 
 
 # ── Schemas ───────────────────────────────────────────────────
+
 
 class ProviderInfo(BaseModel):
     id: str
@@ -87,15 +89,14 @@ class ExecuteResponse(BaseModel):
 
 # ── Helper: read provider settings from DB ────────────────────
 
+
 async def _get_provider_settings(db: AsyncSession, prefix: str) -> dict[str, str]:
     """Read all settings with given prefix and return as flat dict."""
-    result = await db.execute(
-        select(Setting).where(Setting.key.startswith(prefix + "."))
-    )
+    result = await db.execute(select(Setting).where(Setting.key.startswith(prefix + ".")))
     settings: dict[str, str] = {}
     for row in result.scalars():
         # key = "integration.ldap.server_url" → field = "server_url"
-        field = row.key[len(prefix) + 1:]
+        field = row.key[len(prefix) + 1 :]
         val = row.value
         if isinstance(val, dict):
             val = val.get("v", "")
@@ -104,6 +105,7 @@ async def _get_provider_settings(db: AsyncSession, prefix: str) -> dict[str, str
 
 
 # ── Routes ────────────────────────────────────────────────────
+
 
 @router.get("/providers", response_model=list[ProviderInfo], dependencies=[require_permission("admin.users.read")])
 async def list_providers(
@@ -121,12 +123,14 @@ async def list_providers(
 
         last_sync = settings.get("last_user_sync_at")
 
-        providers.append(ProviderInfo(
-            id=pid,
-            label=cls.label,
-            configured=configured,
-            last_sync_at=last_sync,
-        ))
+        providers.append(
+            ProviderInfo(
+                id=pid,
+                label=cls.label,
+                configured=configured,
+                last_sync_at=last_sync,
+            )
+        )
 
     return providers
 
@@ -140,6 +144,7 @@ async def preview_sync(
     prefix = PROVIDER_SETTINGS_PREFIX.get(body.provider)
     if not prefix:
         from fastapi import HTTPException
+
         raise HTTPException(400, f"Unknown provider: {body.provider}")
 
     settings = await _get_provider_settings(db, prefix)
@@ -163,18 +168,20 @@ async def preview_sync(
         else:
             new_count += 1
 
-        preview_users.append(PreviewUser(
-            external_ref=u.external_ref,
-            email=u.email,
-            first_name=u.first_name,
-            last_name=u.last_name,
-            department=u.department,
-            position=u.position,
-            phone=u.phone,
-            groups=u.groups,
-            active=u.active,
-            already_exists=exists,
-        ))
+        preview_users.append(
+            PreviewUser(
+                external_ref=u.external_ref,
+                email=u.email,
+                first_name=u.first_name,
+                last_name=u.last_name,
+                department=u.department,
+                position=u.position,
+                phone=u.phone,
+                groups=u.groups,
+                active=u.active,
+                already_exists=exists,
+            )
+        )
 
     return PreviewResponse(
         provider=body.provider,
@@ -195,6 +202,7 @@ async def execute_sync(
     prefix = PROVIDER_SETTINGS_PREFIX.get(body.provider)
     if not prefix:
         from fastapi import HTTPException
+
         raise HTTPException(400, f"Unknown provider: {body.provider}")
 
     settings = await _get_provider_settings(db, prefix)
@@ -221,9 +229,7 @@ async def execute_sync(
     for ext_user in to_import:
         try:
             # Check if user already exists
-            result = await db.execute(
-                select(User).where(User.email == ext_user.email)
-            )
+            result = await db.execute(select(User).where(User.email == ext_user.email))
             existing = result.scalar_one_or_none()
 
             if existing:
@@ -260,14 +266,14 @@ async def execute_sync(
                     target_group_id = group_map.get(src_group)
                     if target_group_id:
                         # Check group exists
-                        grp = await db.execute(
-                            select(UserGroup).where(UserGroup.id == target_group_id)
-                        )
+                        grp = await db.execute(select(UserGroup).where(UserGroup.id == target_group_id))
                         if grp.scalar_one_or_none():
-                            db.add(UserGroupMember(
-                                group_id=target_group_id,
-                                user_id=str(target_user.id),
-                            ))
+                            db.add(
+                                UserGroupMember(
+                                    group_id=target_group_id,
+                                    user_id=str(target_user.id),
+                                )
+                            )
 
         except Exception as exc:
             errors.append(f"{ext_user.email}: {exc}")
@@ -292,10 +298,8 @@ async def execute_sync(
     )
 
     # Update last sync timestamp
-    now = datetime.now(timezone.utc).isoformat()
-    sync_setting = await db.execute(
-        select(Setting).where(Setting.key == f"{prefix}.last_user_sync_at")
-    )
+    now = datetime.now(UTC).isoformat()
+    sync_setting = await db.execute(select(Setting).where(Setting.key == f"{prefix}.last_user_sync_at"))
     existing_setting = sync_setting.scalar_one_or_none()
     if existing_setting:
         existing_setting.value = {"v": now}

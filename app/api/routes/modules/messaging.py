@@ -1,6 +1,6 @@
 """Messaging routes — announcements, login events journal, security rules."""
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -10,11 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import (
     get_current_entity,
     get_current_user,
-    has_user_permission,
     require_permission,
 )
 from app.core.database import get_db
-from app.services.core.delete_service import delete_entity
 from app.models.common import User
 from app.models.messaging import (
     Announcement,
@@ -33,6 +31,7 @@ from app.schemas.messaging import (
     SecurityRuleRead,
     SecurityRuleUpdate,
 )
+from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/messaging", tags=["messaging"])
 
@@ -40,6 +39,7 @@ router = APIRouter(prefix="/api/v1/messaging", tags=["messaging"])
 # ═══════════════════════════════════════════════════════════════════
 # ANNOUNCEMENTS
 # ═══════════════════════════════════════════════════════════════════
+
 
 @router.get("/announcements", response_model=PaginatedResponse[AnnouncementRead])
 async def list_announcements(
@@ -109,10 +109,14 @@ async def list_announcements(
     total = (await db.execute(count_stmt)).scalar() or 0
 
     # Paginate
-    stmt = stmt.order_by(
-        Announcement.pinned.desc(),
-        Announcement.created_at.desc(),
-    ).offset((page - 1) * page_size).limit(page_size)
+    stmt = (
+        stmt.order_by(
+            Announcement.pinned.desc(),
+            Announcement.created_at.desc(),
+        )
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
 
     result = await db.execute(stmt)
     announcements = result.scalars().all()
@@ -248,9 +252,7 @@ async def update_announcement(
     db: AsyncSession = Depends(get_db),
 ):
     """Update an announcement."""
-    result = await db.execute(
-        select(Announcement).where(Announcement.id == announcement_id)
-    )
+    result = await db.execute(select(Announcement).where(Announcement.id == announcement_id))
     announcement = result.scalar_one_or_none()
     if not announcement:
         raise HTTPException(status_code=404, detail="Annonce non trouvée")
@@ -278,9 +280,7 @@ async def delete_announcement(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete an announcement."""
-    result = await db.execute(
-        select(Announcement).where(Announcement.id == announcement_id)
-    )
+    result = await db.execute(select(Announcement).where(Announcement.id == announcement_id))
     announcement = result.scalar_one_or_none()
     if not announcement:
         raise HTTPException(status_code=404, detail="Annonce non trouvée")
@@ -297,9 +297,7 @@ async def dismiss_announcement(
 ):
     """Mark an announcement as read/dismissed by the current user."""
     # Check announcement exists
-    result = await db.execute(
-        select(Announcement).where(Announcement.id == announcement_id)
-    )
+    result = await db.execute(select(Announcement).where(Announcement.id == announcement_id))
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Annonce non trouvée")
 
@@ -315,11 +313,13 @@ async def dismiss_announcement(
     if receipt:
         receipt.dismissed = True
     else:
-        db.add(AnnouncementReceipt(
-            announcement_id=announcement_id,
-            user_id=current_user.id,
-            dismissed=True,
-        ))
+        db.add(
+            AnnouncementReceipt(
+                announcement_id=announcement_id,
+                user_id=current_user.id,
+                dismissed=True,
+            )
+        )
 
     await db.commit()
     return {"status": "dismissed"}
@@ -328,6 +328,7 @@ async def dismiss_announcement(
 # ═══════════════════════════════════════════════════════════════════
 # LOGIN EVENTS JOURNAL (Admin)
 # ═══════════════════════════════════════════════════════════════════
+
 
 @router.get(
     "/login-events",
@@ -370,9 +371,7 @@ async def list_login_events(
     count_stmt = select(func.count()).select_from(stmt.subquery())
     total = (await db.execute(count_stmt)).scalar() or 0
 
-    stmt = stmt.order_by(LoginEvent.created_at.desc()).offset(
-        (page - 1) * page_size
-    ).limit(page_size)
+    stmt = stmt.order_by(LoginEvent.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
 
     result = await db.execute(stmt)
     items = [LoginEventRead.model_validate(e) for e in result.scalars().all()]
@@ -402,44 +401,32 @@ async def login_event_stats(
     base = select(LoginEvent).where(LoginEvent.created_at >= since)
 
     # Total
-    total = (await db.execute(
-        select(func.count()).select_from(base.subquery())
-    )).scalar() or 0
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
 
     # Successful
-    successful = (await db.execute(
-        select(func.count()).where(
-            LoginEvent.created_at >= since, LoginEvent.success == True
-        )
-    )).scalar() or 0
+    successful = (
+        await db.execute(select(func.count()).where(LoginEvent.created_at >= since, LoginEvent.success == True))
+    ).scalar() or 0
 
     # Failed
-    failed = (await db.execute(
-        select(func.count()).where(
-            LoginEvent.created_at >= since, LoginEvent.success == False
-        )
-    )).scalar() or 0
+    failed = (
+        await db.execute(select(func.count()).where(LoginEvent.created_at >= since, LoginEvent.success == False))
+    ).scalar() or 0
 
     # Blocked
-    blocked = (await db.execute(
-        select(func.count()).where(
-            LoginEvent.created_at >= since, LoginEvent.blocked == True
-        )
-    )).scalar() or 0
+    blocked = (
+        await db.execute(select(func.count()).where(LoginEvent.created_at >= since, LoginEvent.blocked == True))
+    ).scalar() or 0
 
     # Suspicious
-    suspicious = (await db.execute(
-        select(func.count()).where(
-            LoginEvent.created_at >= since, LoginEvent.suspicious == True
-        )
-    )).scalar() or 0
+    suspicious = (
+        await db.execute(select(func.count()).where(LoginEvent.created_at >= since, LoginEvent.suspicious == True))
+    ).scalar() or 0
 
     # Unique IPs
-    unique_ips = (await db.execute(
-        select(func.count(func.distinct(LoginEvent.ip_address))).where(
-            LoginEvent.created_at >= since
-        )
-    )).scalar() or 0
+    unique_ips = (
+        await db.execute(select(func.count(func.distinct(LoginEvent.ip_address))).where(LoginEvent.created_at >= since))
+    ).scalar() or 0
 
     # Top failure reasons
     reason_result = await db.execute(
@@ -456,9 +443,7 @@ async def login_event_stats(
         .order_by(func.count().desc())
         .limit(10)
     )
-    top_failure_reasons = [
-        {"reason": r[0], "count": r[1]} for r in reason_result.all()
-    ]
+    top_failure_reasons = [{"reason": r[0], "count": r[1]} for r in reason_result.all()]
 
     return LoginEventStats(
         total=total,
@@ -488,9 +473,7 @@ async def my_login_events(
     count_stmt = select(func.count()).select_from(stmt.subquery())
     total = (await db.execute(count_stmt)).scalar() or 0
 
-    stmt = stmt.order_by(LoginEvent.created_at.desc()).offset(
-        (page - 1) * page_size
-    ).limit(page_size)
+    stmt = stmt.order_by(LoginEvent.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
 
     result = await db.execute(stmt)
     items = [LoginEventRead.model_validate(e) for e in result.scalars().all()]
@@ -507,6 +490,7 @@ async def my_login_events(
 # ═══════════════════════════════════════════════════════════════════
 # SECURITY RULES
 # ═══════════════════════════════════════════════════════════════════
+
 
 @router.get(
     "/security-rules",
@@ -573,9 +557,7 @@ async def update_security_rule(
     db: AsyncSession = Depends(get_db),
 ):
     """Update a security rule."""
-    result = await db.execute(
-        select(SecurityRule).where(SecurityRule.id == rule_id)
-    )
+    result = await db.execute(select(SecurityRule).where(SecurityRule.id == rule_id))
     rule = result.scalar_one_or_none()
     if not rule:
         raise HTTPException(status_code=404, detail="Règle non trouvée")
@@ -600,9 +582,7 @@ async def delete_security_rule(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a security rule."""
-    result = await db.execute(
-        select(SecurityRule).where(SecurityRule.id == rule_id)
-    )
+    result = await db.execute(select(SecurityRule).where(SecurityRule.id == rule_id))
     rule = result.scalar_one_or_none()
     if not rule:
         raise HTTPException(status_code=404, detail="Règle non trouvée")

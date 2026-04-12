@@ -178,15 +178,17 @@ class RiseUpConnector(ComplianceConnector):
                 cert_date_str = user_entry.get("certificationdate", "")
                 cert_date = _parse_date(cert_date_str)
 
-                records.append(ExternalComplianceRecord(
-                    external_id=f"cert:{ext_cert_id}:user:{external_user_id}",
-                    user_external_id=external_user_id,
-                    type_external_id=ext_cert_id,
-                    status="valid" if state == "certified" else "expired" if state == "expired" else "pending",
-                    title=cu.get("type", "Certificate"),
-                    issued_at=cert_date,
-                    extra={"riseup_state": state, "riseup_type": cu.get("type")},
-                ))
+                records.append(
+                    ExternalComplianceRecord(
+                        external_id=f"cert:{ext_cert_id}:user:{external_user_id}",
+                        user_external_id=external_user_id,
+                        type_external_id=ext_cert_id,
+                        status="valid" if state == "certified" else "expired" if state == "expired" else "pending",
+                        title=cu.get("type", "Certificate"),
+                        issued_at=cert_date,
+                        extra={"riseup_state": state, "riseup_type": cu.get("type")},
+                    )
+                )
 
         # 2) Course registrations (validated/pending/etc.)
         registrations = await self._get("/courseregistrations", {"iduser": external_user_id})
@@ -209,18 +211,20 @@ class RiseUpConnector(ComplianceConnector):
             else:
                 status = "pending"
 
-            records.append(ExternalComplianceRecord(
-                external_id=f"reg:{reg.get('id')}",
-                user_external_id=external_user_id,
-                type_external_id=ext_training_id,
-                status=status,
-                title=f"Training #{ext_training_id}",
-                issued_at=_parse_date(reg.get("subscribedate")),
-                expires_at=_parse_date(reg.get("trainingenddate")),
-                progress=progress,
-                score=reg.get("score"),
-                extra={"riseup_state": state, "riseup_registration_id": reg.get("id")},
-            ))
+            records.append(
+                ExternalComplianceRecord(
+                    external_id=f"reg:{reg.get('id')}",
+                    user_external_id=external_user_id,
+                    type_external_id=ext_training_id,
+                    status=status,
+                    title=f"Training #{ext_training_id}",
+                    issued_at=_parse_date(reg.get("subscribedate")),
+                    expires_at=_parse_date(reg.get("trainingenddate")),
+                    progress=progress,
+                    score=reg.get("score"),
+                    extra={"riseup_state": state, "riseup_registration_id": reg.get("id")},
+                )
+            )
 
         return records
 
@@ -230,10 +234,13 @@ class RiseUpConnector(ComplianceConnector):
         external_certificate_id: str,
     ) -> ExternalComplianceRecord | None:
         """Check a specific certificate for a user."""
-        cert_users = await self._get("/certificateuser", {
-            "iduser": external_user_id,
-            "idcertificate": external_certificate_id,
-        })
+        cert_users = await self._get(
+            "/certificateuser",
+            {
+                "iduser": external_user_id,
+                "idcertificate": external_certificate_id,
+            },
+        )
 
         for cu in cert_users:
             for user_entry in cu.get("users", []):

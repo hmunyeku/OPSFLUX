@@ -7,8 +7,8 @@ from pydantic import BaseModel, Field
 
 from app.schemas.common import OpsFluxSchema
 
-
 # ── Announcements ────────────────────────────────────────────────────────────
+
 
 class AnnouncementCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=300)
@@ -65,6 +65,7 @@ class AnnouncementRead(OpsFluxSchema):
 
 # ── Login Events ─────────────────────────────────────────────────────────────
 
+
 class LoginEventRead(OpsFluxSchema):
     id: UUID
     user_id: UUID | None
@@ -100,8 +101,11 @@ class LoginEventStats(BaseModel):
 
 # ── Security Rules ───────────────────────────────────────────────────────────
 
+
 class SecurityRuleCreate(BaseModel):
-    rule_type: str = Field(..., pattern=r"^(geo_block|ip_whitelist|ip_blacklist|max_attempts|time_window|device_trust|mfa_enforce)$")
+    rule_type: str = Field(
+        ..., pattern=r"^(geo_block|ip_whitelist|ip_blacklist|max_attempts|time_window|device_trust|mfa_enforce)$"
+    )
     name: str = Field(..., min_length=1, max_length=200)
     description: str | None = None
     config: dict = Field(...)

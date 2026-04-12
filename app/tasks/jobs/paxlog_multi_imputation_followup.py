@@ -27,7 +27,7 @@ Spec reference:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select
@@ -35,7 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session_factory
 from app.core.notifications import send_in_app
-from app.models.common import Setting, User, Project
+from app.models.common import Setting
 from app.models.paxlog import Ads, AdsEvent
 
 logger = logging.getLogger(__name__)
@@ -147,7 +147,7 @@ async def process_multi_imputation_followup() -> dict[str, int]:
         for ads in stale_ads_list:
             entity_id = ads.entity_id
             delay_hours = await _get_reminder_delay_hours(db, entity_id)
-            threshold = datetime.now(timezone.utc) - timedelta(hours=delay_hours)
+            threshold = datetime.now(UTC) - timedelta(hours=delay_hours)
 
             # Only relance an ADS that has been in pending_project_review
             # for at least `delay_hours`. We approximate "time since last
@@ -155,9 +155,7 @@ async def process_multi_imputation_followup() -> dict[str, int]:
             if ads.updated_at and ads.updated_at > threshold:
                 continue
 
-            pending_targets = await _get_ads_pending_project_review_targets(
-                db, ads=ads, entity_id=entity_id
-            )
+            pending_targets = await _get_ads_pending_project_review_targets(db, ads=ads, entity_id=entity_id)
             # Skip single-imputation — no "multi" dimension there.
             if len(pending_targets) < 2:
                 continue
@@ -223,14 +221,18 @@ async def process_multi_imputation_followup() -> dict[str, int]:
                 except Exception:
                     logger.exception(
                         "Failed to remind PM %s for AdS %s project %s",
-                        pm_id, ads.id, project_id,
+                        pm_id,
+                        ads.id,
+                        project_id,
                     )
                 pm_reminders_sent += 1
-                pm_reminded_for_this_ads.append({
-                    "user_id": str(pm_id),
-                    "project_id": str(project_id),
-                    "project_name": project_name,
-                })
+                pm_reminded_for_this_ads.append(
+                    {
+                        "user_id": str(pm_id),
+                        "project_id": str(project_id),
+                        "project_name": project_name,
+                    }
+                )
 
             # ── Notify requester of the stuck state (once per delay window) ──
             if pm_reminded_for_this_ads:
@@ -256,9 +258,7 @@ async def process_multi_imputation_followup() -> dict[str, int]:
                             },
                         )
                     )
-                    pending_names = ", ".join(
-                        p["project_name"] or "—" for p in pm_reminded_for_this_ads
-                    )
+                    pending_names = ", ".join(p["project_name"] or "—" for p in pm_reminded_for_this_ads)
                     try:
                         await send_in_app(
                             db,
@@ -278,7 +278,8 @@ async def process_multi_imputation_followup() -> dict[str, int]:
                     except Exception:
                         logger.exception(
                             "Failed to notify requester %s for stuck multi-imputation AdS %s",
-                            ads.requester_id, ads.id,
+                            ads.requester_id,
+                            ads.id,
                         )
                     requester_notifications_sent += 1
 
@@ -287,7 +288,8 @@ async def process_multi_imputation_followup() -> dict[str, int]:
 
     logger.info(
         "paxlog multi_imputation_followup done — %d PM reminders, %d requester notifications",
-        pm_reminders_sent, requester_notifications_sent,
+        pm_reminders_sent,
+        requester_notifications_sent,
     )
     return {
         "pm_reminders_sent": pm_reminders_sent,

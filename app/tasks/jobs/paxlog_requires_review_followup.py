@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
@@ -19,7 +19,7 @@ REMINDER_EVENT_TYPE = "requires_review_reminder"
 
 async def process_requires_review_followup() -> dict[str, int]:
     """Send a single reminder for AdS left in requires_review for 14 days."""
-    today = datetime.now(timezone.utc)
+    today = datetime.now(UTC)
     threshold = today - timedelta(days=REMINDER_DAYS)
     reminders_sent = 0
 

@@ -7,6 +7,7 @@ Distinct from UserEmail (auth-specific). This handles contact emails
 for tiers, tier contacts, assets, entities, etc.
 """
 
+from datetime import UTC
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -14,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
-from app.api.deps import get_current_user, check_polymorphic_owner_access
+from app.api.deps import check_polymorphic_owner_access, get_current_user
 from app.core.database import get_db
 from app.models.common import ContactEmail, User
 from app.schemas.common import ContactEmailCreate, ContactEmailRead, ContactEmailUpdate
@@ -88,7 +89,9 @@ async def update_contact_email(
     if not contact_email:
         raise HTTPException(status_code=404, detail="Contact email not found")
 
-    await check_polymorphic_owner_access(contact_email.owner_type, contact_email.owner_id, current_user, db, request, write=True)
+    await check_polymorphic_owner_access(
+        contact_email.owner_type, contact_email.owner_id, current_user, db, request, write=True
+    )
 
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
@@ -127,7 +130,9 @@ async def delete_contact_email(
     if not contact_email:
         raise HTTPException(status_code=404, detail="Contact email not found")
 
-    await check_polymorphic_owner_access(contact_email.owner_type, contact_email.owner_id, current_user, db, request, write=True)
+    await check_polymorphic_owner_access(
+        contact_email.owner_type, contact_email.owner_id, current_user, db, request, write=True
+    )
     await delete_entity(contact_email, db, "contact_email", entity_id=email_id, user_id=current_user.id)
     await db.commit()
 
@@ -140,7 +145,7 @@ async def send_email_verification(
 ):
     """Generate a verification token and send verification email via template."""
     import secrets
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta
 
     result = await db.execute(select(ContactEmail).where(ContactEmail.id == email_id))
     contact_email = result.scalar_one_or_none()
@@ -153,18 +158,19 @@ async def send_email_verification(
     # Generate secure token (48-char URL-safe)
     token = secrets.token_urlsafe(36)
     contact_email.verification_token = token
-    contact_email.verification_expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+    contact_email.verification_expires_at = datetime.now(UTC) + timedelta(hours=24)
     await db.commit()
 
     # Build verification URL
     from app.core.config import settings
+
     verification_url = f"{settings.FRONTEND_URL}/verify-email?token={token}&id={email_id}"
 
     # Send via email template system
-    from app.api.deps import get_current_entity
     entity_id = getattr(current_user, "current_entity_id", None)
     if entity_id:
         from app.core.email_templates import render_and_send_email
+
         sent = await render_and_send_email(
             db,
             slug="email_verification",
@@ -183,6 +189,7 @@ async def send_email_verification(
         )
     else:
         from app.core.email_templates import render_and_send_email
+
         sent = await render_and_send_email(
             db,
             slug="email_verification",
@@ -214,7 +221,7 @@ async def verify_contact_email(
     db: AsyncSession = Depends(get_db),
 ):
     """Verify a contact email with the token from the verification link."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     token = body.get("token", "")
     if not token:
@@ -233,11 +240,11 @@ async def verify_contact_email(
         raise HTTPException(status_code=400, detail="Invalid verification token")
 
     # Check expiry
-    if contact_email.verification_expires_at and contact_email.verification_expires_at < datetime.now(timezone.utc):
+    if contact_email.verification_expires_at and contact_email.verification_expires_at < datetime.now(UTC):
         raise HTTPException(status_code=400, detail="Verification token expired")
 
     contact_email.verified = True
-    contact_email.verified_at = datetime.now(timezone.utc)
+    contact_email.verified_at = datetime.now(UTC)
     contact_email.verification_token = None
     contact_email.verification_expires_at = None
     await db.commit()
@@ -252,7 +259,7 @@ async def verify_email_callback(
     db: AsyncSession = Depends(get_db),
 ):
     """Public callback for email verification links — no auth required."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     result = await db.execute(select(ContactEmail).where(ContactEmail.id == id))
     contact_email = result.scalar_one_or_none()
@@ -265,11 +272,11 @@ async def verify_email_callback(
     if not contact_email.verification_token or contact_email.verification_token != token:
         raise HTTPException(status_code=400, detail="Invalid verification token")
 
-    if contact_email.verification_expires_at and contact_email.verification_expires_at < datetime.now(timezone.utc):
+    if contact_email.verification_expires_at and contact_email.verification_expires_at < datetime.now(UTC):
         raise HTTPException(status_code=400, detail="Verification token expired")
 
     contact_email.verified = True
-    contact_email.verified_at = datetime.now(timezone.utc)
+    contact_email.verified_at = datetime.now(UTC)
     contact_email.verification_token = None
     contact_email.verification_expires_at = None
     await db.commit()

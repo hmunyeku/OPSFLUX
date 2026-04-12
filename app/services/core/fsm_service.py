@@ -40,17 +40,20 @@ logger = logging.getLogger(__name__)
 
 class FSMError(Exception):
     """Raised when a transition is not allowed."""
+
     pass
 
 
 class FSMPermissionError(FSMError):
     """Raised when the actor does not have the required role for the transition."""
+
     pass
 
 
 @dataclass
 class TransitionInfo:
     """Metadata about a single allowed transition edge."""
+
     from_state: str
     to_state: str
     label: str | None = None
@@ -151,9 +154,7 @@ class FSMService:
         )
         if entity_id_scope:
             # Prefer entity-scoped definition
-            scoped = await db.execute(
-                stmt.where(WorkflowDefinition.entity_id == entity_id_scope)
-            )
+            scoped = await db.execute(stmt.where(WorkflowDefinition.entity_id == entity_id_scope))
             definition = scoped.scalar_one_or_none()
             if not definition:
                 # Fall back to any active definition
@@ -238,9 +239,7 @@ class FSMService:
 
         # Re-select with lock to prevent concurrent transitions
         locked_result = await db.execute(
-            select(WorkflowInstance)
-            .where(WorkflowInstance.id == instance.id)
-            .with_for_update()
+            select(WorkflowInstance).where(WorkflowInstance.id == instance.id).with_for_update()
         )
         instance = locked_result.scalar_one()
         from_state = instance.current_state
@@ -254,15 +253,11 @@ class FSMService:
         definition = def_result.scalar_one()
 
         # Find matching transition and validate
-        transition_meta = self._find_transition(
-            definition.transitions, from_state, to_state, workflow_slug
-        )
+        transition_meta = self._find_transition(definition.transitions, from_state, to_state, workflow_slug)
 
         # Role-based guard: check if actor has the required role
         if not skip_role_check and transition_meta.required_roles:
-            has_role = await self._check_actor_role(
-                db, actor_id, instance.entity_id, transition_meta.required_roles
-            )
+            has_role = await self._check_actor_role(db, actor_id, instance.entity_id, transition_meta.required_roles)
             if not has_role:
                 raise FSMPermissionError(
                     f"Actor does not have required role(s) "
@@ -281,9 +276,7 @@ class FSMService:
 
         # Comment required check (typically for rejections)
         if transition_meta.comment_required and not comment:
-            raise FSMError(
-                f"Comment is required for transition '{from_state}' → '{to_state}'"
-            )
+            raise FSMError(f"Comment is required for transition '{from_state}' → '{to_state}'")
 
         # Execute transition
         instance.current_state = to_state
@@ -331,7 +324,11 @@ class FSMService:
 
         logger.info(
             "FSM: %s %s transitioned %s → %s by %s",
-            entity_type, entity_id, from_state, to_state, actor_id,
+            entity_type,
+            entity_id,
+            from_state,
+            to_state,
+            actor_id,
         )
 
         return instance
@@ -406,9 +403,7 @@ class FSMService:
         actor_id: UUID | None = None,
     ) -> list[TransitionInfo]:
         """Get allowed transitions from current state, optionally filtered by actor's roles."""
-        instance = await self.get_instance(
-            db, entity_type=entity_type, entity_id=entity_id
-        )
+        instance = await self.get_instance(db, entity_type=entity_type, entity_id=entity_id)
         if not instance:
             return []
 
@@ -490,9 +485,7 @@ class FSMService:
         entity_id: str,
     ) -> str | None:
         """Get current state of an entity's workflow instance."""
-        instance = await self.get_instance(
-            db, entity_type=entity_type, entity_id=entity_id
-        )
+        instance = await self.get_instance(db, entity_type=entity_type, entity_id=entity_id)
         return instance.current_state if instance else None
 
     async def get_transition_history(
@@ -503,9 +496,7 @@ class FSMService:
         entity_id: str,
     ) -> list[WorkflowTransition]:
         """Get full transition history for an entity."""
-        instance = await self.get_instance(
-            db, entity_type=entity_type, entity_id=entity_id
-        )
+        instance = await self.get_instance(db, entity_type=entity_type, entity_id=entity_id)
         if not instance:
             return []
 
@@ -552,10 +543,7 @@ class FSMService:
                     to_state=to_state,
                 )
 
-        raise FSMError(
-            f"Transition from '{from_state}' to '{to_state}' not allowed "
-            f"for workflow '{workflow_slug}'"
-        )
+        raise FSMError(f"Transition from '{from_state}' to '{to_state}' not allowed for workflow '{workflow_slug}'")
 
     def _get_transitions_from_state(
         self,
@@ -569,23 +557,27 @@ class FSMService:
                 t_from = t.get("from") or t.get("source")
                 t_to = t.get("to") or t.get("target")
                 if t_from == current_state and t_to:
-                    result.append(TransitionInfo(
-                        from_state=current_state,
-                        to_state=t_to,
-                        label=t.get("label"),
-                        required_roles=t.get("required_roles"),
-                        required_permission=t.get("required_permission"),
-                        comment_required=t.get("comment_required", False),
-                        sla_hours=t.get("sla_hours"),
-                        condition=t.get("condition"),
-                        assignee=t.get("assignee"),
-                    ))
+                    result.append(
+                        TransitionInfo(
+                            from_state=current_state,
+                            to_state=t_to,
+                            label=t.get("label"),
+                            required_roles=t.get("required_roles"),
+                            required_permission=t.get("required_permission"),
+                            comment_required=t.get("comment_required", False),
+                            sla_hours=t.get("sla_hours"),
+                            condition=t.get("condition"),
+                            assignee=t.get("assignee"),
+                        )
+                    )
         elif isinstance(transitions, dict):
             for target in transitions.get(current_state, []):
-                result.append(TransitionInfo(
-                    from_state=current_state,
-                    to_state=target,
-                ))
+                result.append(
+                    TransitionInfo(
+                        from_state=current_state,
+                        to_state=target,
+                    )
+                )
         return result
 
     async def _check_actor_role(

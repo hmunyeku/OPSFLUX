@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select, text
@@ -41,17 +41,14 @@ async def _resolve_tier_contact_phone(db: AsyncSession, contact_id: UUID) -> str
 
 
 def _build_pickup_sms_body(*, route_name: str, asset_name: str, scheduled_time: datetime) -> str:
-    scheduled_label = scheduled_time.astimezone(timezone.utc).strftime("%H:%M UTC")
-    return (
-        f"OpsFlux: votre navette {route_name} arrive bientot au point {asset_name}. "
-        f"Heure prevue: {scheduled_label}."
-    )
+    scheduled_label = scheduled_time.astimezone(UTC).strftime("%H:%M UTC")
+    return f"OpsFlux: votre navette {route_name} arrive bientot au point {asset_name}. Heure prevue: {scheduled_label}."
 
 
 async def process_travelwiz_pickup_reminders() -> dict[str, int]:
     """Send pickup reminders once per assigned passenger when a stop is imminent."""
     sent_count = 0
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     async with async_session_factory() as db:
         entity_result = await db.execute(

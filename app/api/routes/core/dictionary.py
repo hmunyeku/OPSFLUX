@@ -8,9 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
 from app.core.database import get_db
-from app.services.core.delete_service import delete_entity
 from app.models.common import DictionaryEntry, User
 from app.schemas.common import DictionaryEntryCreate, DictionaryEntryRead, DictionaryEntryUpdate
+from app.services.core.delete_service import delete_entity
 
 router = APIRouter(prefix="/api/v1/dictionary", tags=["dictionary"])
 
@@ -22,7 +22,9 @@ async def list_entries(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(DictionaryEntry).order_by(DictionaryEntry.category, DictionaryEntry.sort_order, DictionaryEntry.label)
+    query = select(DictionaryEntry).order_by(
+        DictionaryEntry.category, DictionaryEntry.sort_order, DictionaryEntry.label
+    )
     if category:
         query = query.where(DictionaryEntry.category == category)
     if active_only:
@@ -99,5 +101,6 @@ async def list_categories(
 ):
     """List all distinct categories."""
     from sqlalchemy import distinct
+
     result = await db.execute(select(distinct(DictionaryEntry.category)).order_by(DictionaryEntry.category))
     return result.scalars().all()

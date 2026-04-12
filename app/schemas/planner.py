@@ -5,14 +5,15 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ─── Base ────────────────────────────────────────────────────────────────────
+
 
 class PlannerSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
 # ─── Activity schemas ────────────────────────────────────────────────────────
+
 
 class ActivityRead(PlannerSchema):
     id: UUID
@@ -93,7 +94,9 @@ class ActivityCreate(BaseModel):
     asset_id: UUID
     project_id: UUID | None = None
     parent_id: UUID | None = None
-    type: str = Field(..., pattern=r"^(project|workover|drilling|integrity|maintenance|permanent_ops|inspection|event)$")
+    type: str = Field(
+        ..., pattern=r"^(project|workover|drilling|integrity|maintenance|permanent_ops|inspection|event)$"
+    )
     subtype: str | None = Field(None, pattern=r"^(preventive|corrective|regulatory)$")
     title: str = Field(..., min_length=1, max_length=300)
     description: str | None = None
@@ -162,6 +165,7 @@ class ActivityStatusUpdate(BaseModel):
 
 
 # ─── Conflict schemas ────────────────────────────────────────────────────────
+
 
 class ConflictRead(PlannerSchema):
     id: UUID
@@ -317,6 +321,7 @@ class RevisionDecisionRequestRead(PlannerSchema):
 
 # ─── Capacity schemas ────────────────────────────────────────────────────────
 
+
 class CapacityRead(BaseModel):
     asset_id: UUID
     asset_name: str | None = None
@@ -357,6 +362,7 @@ class CapacityHeatmapResponse(BaseModel):
 
 # ─── Dependency schemas ──────────────────────────────────────────────────────
 
+
 class DependencyRead(PlannerSchema):
     id: UUID
     predecessor_id: UUID
@@ -375,6 +381,7 @@ class DependencyCreate(BaseModel):
 
 
 # ─── Asset Capacity schemas ─────────────────────────────────────────────────
+
 
 class AssetCapacityRead(PlannerSchema):
     id: UUID
@@ -399,6 +406,7 @@ class AssetCapacityCreate(BaseModel):
 
 # ─── Availability schemas ────────────────────────────────────────────────────
 
+
 class DailyLoad(BaseModel):
     date: date
     max_pax_total: int
@@ -421,6 +429,7 @@ class AvailabilityResponse(BaseModel):
 
 # ─── Impact Preview schemas ─────────────────────────────────────────────────
 
+
 class ImpactChange(BaseModel):
     old: str | int | None = None
     new: str | int | None = None
@@ -437,6 +446,7 @@ class ImpactPreviewResponse(BaseModel):
 
 
 # ─── Gantt schemas ───────────────────────────────────────────────────────────
+
 
 class GanttActivity(BaseModel):
     id: UUID
@@ -472,6 +482,7 @@ class GanttAsset(BaseModel):
 
 class GanttDependency(BaseModel):
     """A predecessor → successor link between two visible activities."""
+
     id: UUID
     predecessor_id: UUID
     successor_id: UUID
@@ -487,6 +498,7 @@ class GanttResponse(BaseModel):
 # ─── Recurrence schemas ─────────────────────────────────────────────────────
 
 # ─── Scenario simulation schemas ─────────────────────────────────────────
+
 
 class ProposedActivity(BaseModel):
     asset_id: UUID
@@ -504,11 +516,12 @@ class ScenarioRequest(BaseModel):
 
 # ─── Forecast schemas ────────────────────────────────────────────────────
 
+
 class ForecastRequest(BaseModel):
     asset_id: UUID
     horizon_days: int = Field(90, ge=7, le=365)
     activity_type: str | None = None  # filter by activity type (project, workover, drilling, ...)
-    project_id: UUID | None = None    # filter by linked project
+    project_id: UUID | None = None  # filter by linked project
 
 
 class ForecastDayRead(BaseModel):
@@ -539,6 +552,7 @@ class ForecastResponse(BaseModel):
 
 # ─── Recurrence schemas ─────────────────────────────────────────────────────
 
+
 class RecurrenceRuleCreate(BaseModel):
     frequency: str = Field(..., pattern=r"^(daily|weekly|monthly|quarterly|annually)$")
     interval_value: int = Field(1, ge=1, le=365)
@@ -561,8 +575,10 @@ class RecurrenceRuleRead(PlannerSchema):
 
 # ─── Scenario schemas ───────────────────────────────────────────────────────
 
+
 class ScenarioActivityCreate(BaseModel):
     """Add a proposed activity to a scenario."""
+
     source_activity_id: UUID | None = None  # NULL = new, set = override
     title: str | None = None
     asset_id: UUID | None = None
@@ -644,6 +660,7 @@ class ScenarioRead(PlannerSchema):
 
 class ScenarioDetailRead(ScenarioRead):
     """Extended read with proposed activities + simulation result."""
+
     proposed_activities: list[ScenarioActivityRead] = []
     last_simulation_result: dict | None = None
     baseline_snapshot: dict | None = None
@@ -651,6 +668,7 @@ class ScenarioDetailRead(ScenarioRead):
 
 class ScenarioDiffRead(BaseModel):
     """Diff between scenario and baseline."""
+
     scenario_id: UUID
     new_activities: int = 0
     modified_activities: int = 0

@@ -16,11 +16,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_current_entity
+from app.api.deps import get_current_entity, get_current_user
 from app.core.ai_config import get_ai_config
 from app.core.audit import record_audit
-from app.core.rbac import get_user_permissions
 from app.core.database import get_db
+from app.core.rbac import get_user_permissions
 from app.mcp.mcp_native import NativeToolContext, get_or_create_backend
 from app.models.common import User
 
@@ -28,33 +28,64 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/ai-chat", tags=["ai-chat"])
 
-SAFE_OPSFLUX_TOOL_ALLOWLIST = frozenset({
-    "list_tiers", "get_tier", "list_contacts", "get_contact",
-    "list_sites", "list_assets", "get_asset", "list_fields", "get_field",
-    "list_equipment", "get_equipment", "get_asset_hierarchy",
-    "list_ads", "get_ads", "list_pax_groups",
-    "list_planner_activities", "get_planner_activity", "list_planner_conflicts",
-    "list_vectors", "get_vector", "list_voyages", "get_voyage",
-    "list_cost_centers", "list_imputation_references", "list_imputations",
-    "list_users", "get_user",
-    "list_projects", "get_project", "list_project_tasks", "list_project_milestones",
-    "get_project_cpm", "get_project_activity_feed", "list_project_templates",
-    "list_compliance_records", "list_compliance_types", "list_compliance_rules", "check_compliance",
-})
+SAFE_OPSFLUX_TOOL_ALLOWLIST = frozenset(
+    {
+        "list_tiers",
+        "get_tier",
+        "list_contacts",
+        "get_contact",
+        "list_sites",
+        "list_assets",
+        "get_asset",
+        "list_fields",
+        "get_field",
+        "list_equipment",
+        "get_equipment",
+        "get_asset_hierarchy",
+        "list_ads",
+        "get_ads",
+        "list_pax_groups",
+        "list_planner_activities",
+        "get_planner_activity",
+        "list_planner_conflicts",
+        "list_vectors",
+        "get_vector",
+        "list_voyages",
+        "get_voyage",
+        "list_cost_centers",
+        "list_imputation_references",
+        "list_imputations",
+        "list_users",
+        "get_user",
+        "list_projects",
+        "get_project",
+        "list_project_tasks",
+        "list_project_milestones",
+        "get_project_cpm",
+        "get_project_activity_feed",
+        "list_project_templates",
+        "list_compliance_records",
+        "list_compliance_types",
+        "list_compliance_rules",
+        "check_compliance",
+    }
+)
 
-SAFE_OPSFLUX_WRITE_TOOL_ALLOWLIST = frozenset({
-    "create_tier",
-    "update_tier",
-    "create_contact",
-    "update_contact",
-    "create_project",
-    "update_project",
-    "create_project_task",
-    "add_compliance_record",
-    "create_compliance_type",
-    "create_compliance_rule",
-    "add_imputation",
-})
+SAFE_OPSFLUX_WRITE_TOOL_ALLOWLIST = frozenset(
+    {
+        "create_tier",
+        "update_tier",
+        "create_contact",
+        "update_contact",
+        "create_project",
+        "update_project",
+        "create_project_task",
+        "add_compliance_record",
+        "create_compliance_type",
+        "create_compliance_rule",
+        "add_imputation",
+    }
+)
 
 SAFE_ASSISTANT_ROUTE_PREFIXES = (
     "/dashboard",
@@ -81,6 +112,7 @@ CANONICAL_ASSISTANT_ROUTE_ALIASES: dict[str, str] = {
 
 
 # ── Schemas ──────────────────────────────────────────────────────
+
 
 class ChatMessage(BaseModel):
     role: str = Field(..., pattern="^(user|assistant|system)$")
@@ -228,7 +260,9 @@ def _sanitize_action_tokens(text: str) -> str:
     sanitized = re.sub(r"\[\[action:go:([^|\]]+)\|([^\]]+)\]\]", _replace, text)
     sanitized = re.sub(
         r"\[\[action:confirm-write\|([^\]]+)\]\]",
-        lambda match: f"[[action:confirm-write|{re.sub(r'[\r\n\[\]\|]+', ' ', match.group(1)).strip()[:60] or 'Confirmer l action'}]]",
+        lambda match: (
+            f"[[action:confirm-write|{re.sub(r'[\r\n\[\]\|]+', ' ', match.group(1)).strip()[:60] or 'Confirmer l action'}]]"
+        ),
         sanitized,
     )
     return sanitized
@@ -280,10 +314,29 @@ def _score_tool(question: str, tool: dict) -> int:
 def _has_explicit_write_intent(question: str) -> bool:
     q = question.lower()
     markers = (
-        "crée", "cree", "créé", "creer", "créer",
-        "ajoute", "ajouter", "modifie", "modifier", "mets à jour", "met à jour",
-        "mettre à jour", "update", "change", "changer", "renseigne", "complète", "complete",
-        "bloque", "débloque", "debloque", "archive", "assigne",
+        "crée",
+        "cree",
+        "créé",
+        "creer",
+        "créer",
+        "ajoute",
+        "ajouter",
+        "modifie",
+        "modifier",
+        "mets à jour",
+        "met à jour",
+        "mettre à jour",
+        "update",
+        "change",
+        "changer",
+        "renseigne",
+        "complète",
+        "complete",
+        "bloque",
+        "débloque",
+        "debloque",
+        "archive",
+        "assigne",
     )
     return any(marker in q for marker in markers)
 
@@ -377,11 +430,14 @@ async def _run_opsflux_tool_if_needed(
         {"role": "system", "content": TOOL_PLANNER_PROMPT},
         {
             "role": "user",
-            "content": json.dumps({
-                "module": body.context_module,
-                "question": body.messages[-1].content,
-                "available_tools": candidates,
-            }, ensure_ascii=False),
+            "content": json.dumps(
+                {
+                    "module": body.context_module,
+                    "question": body.messages[-1].content,
+                    "available_tools": candidates,
+                },
+                ensure_ascii=False,
+            ),
         },
     ]
     response = await litellm.acompletion(
@@ -530,20 +586,24 @@ async def _generate_chat_response(
         {"role": "system", "content": FINAL_RESPONSE_PROMPT},
     ]
     if live_tool_context:
-        messages.append({
-            "role": "system",
-            "content": f"Contexte live MCP OpsFlux disponible:\n{live_tool_context}",
-        })
+        messages.append(
+            {
+                "role": "system",
+                "content": f"Contexte live MCP OpsFlux disponible:\n{live_tool_context}",
+            }
+        )
     if blocked_write_tool:
-        messages.append({
-            "role": "system",
-            "content": (
-                "Un outil MCP d'écriture pertinent a été identifié mais son exécution a été bloquée "
-                f"faute de confirmation explicite de l'utilisateur. Outil bloqué: {blocked_write_tool}. "
-                "N'affirme pas que l'action a été faite. Explique brièvement ce qui peut être fait et "
-                "demande une confirmation explicite avant exécution. Termine par [[action:confirm-write|Confirmer l'action]] si pertinent."
-            ),
-        })
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "Un outil MCP d'écriture pertinent a été identifié mais son exécution a été bloquée "
+                    f"faute de confirmation explicite de l'utilisateur. Outil bloqué: {blocked_write_tool}. "
+                    "N'affirme pas que l'action a été faite. Explique brièvement ce qui peut être fait et "
+                    "demande une confirmation explicite avant exécution. Termine par [[action:confirm-write|Confirmer l'action]] si pertinent."
+                ),
+            }
+        )
     messages.extend(_compact_history(body.messages))
 
     response = await litellm.acompletion(
@@ -563,11 +623,12 @@ async def _generate_chat_response(
 
 # ── Streaming SSE generator ─────────────────────────────────────
 
+
 async def _stream_text(text: str):
     try:
         chunk_size = 120
         for i in range(0, len(text), chunk_size):
-            yield f"data: {json.dumps({'type': 'content', 'text': text[i:i + chunk_size]})}\n\n"
+            yield f"data: {json.dumps({'type': 'content', 'text': text[i : i + chunk_size]})}\n\n"
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
     except Exception as e:
         logger.exception("AI chat streaming error")
@@ -575,6 +636,7 @@ async def _stream_text(text: str):
 
 
 # ── Endpoints ────────────────────────────────────────────────────
+
 
 @router.post("/stream")
 async def chat_stream(

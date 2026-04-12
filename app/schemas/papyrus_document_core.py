@@ -10,10 +10,9 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from app.schemas.common import OpsFluxSchema
-
 
 # ─── DocType schemas ────────────────────────────────────────────────────────
 
@@ -24,8 +23,7 @@ class DocTypeCreate(BaseModel):
         ..., description="JSONB multilingual name, e.g. {'fr': 'Note technique', 'en': 'Technical Note'}"
     )
     nomenclature_pattern: str = Field(
-        ..., min_length=1, max_length=500,
-        description="Pattern with tokens, e.g. '{ENTITY}-{DOCTYPE}-{PHASE}-{SEQ:4}'"
+        ..., min_length=1, max_length=500, description="Pattern with tokens, e.g. '{ENTITY}-{DOCTYPE}-{PHASE}-{SEQ:4}'"
     )
     discipline: str | None = Field(None, max_length=100)
     default_template_id: UUID | None = None
@@ -35,7 +33,7 @@ class DocTypeCreate(BaseModel):
         default="alpha",
         max_length=20,
         pattern=r"^(alpha|numeric|semver)$",
-        description="Revision numbering scheme: alpha (A,B,C…), numeric (1,2,3…), semver (1.0, 1.1…)"
+        description="Revision numbering scheme: alpha (A,B,C…), numeric (1,2,3…), semver (1.0, 1.1…)",
     )
 
 
@@ -80,11 +78,10 @@ class DocumentCreate(BaseModel):
         default="INT",
         max_length=20,
         pattern=r"^(INT|CONF|REST|PUB)$",
-        description="Classification level: INT (internal), CONF (confidential), REST (restricted), PUB (public)"
+        description="Classification level: INT (internal), CONF (confidential), REST (restricted), PUB (public)",
     )
     free_parts: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Free nomenclature tokens, e.g. {'PHASE': 'APD', 'FREE': 'STRUCT'}"
+        default_factory=dict, description="Free nomenclature tokens, e.g. {'PHASE': 'APD', 'FREE': 'STRUCT'}"
     )
 
 
@@ -120,6 +117,7 @@ class DocumentRead(OpsFluxSchema):
 
 class DocumentListRead(OpsFluxSchema):
     """Lightweight document read for list views — no content payload."""
+
     id: UUID
     entity_id: UUID
     bu_id: UUID | None = None
@@ -148,20 +146,16 @@ class DocumentListRead(OpsFluxSchema):
 
 class RevisionDraft(BaseModel):
     """Payload for saving a draft revision (auto-save or manual save)."""
-    content: dict[str, Any] = Field(
-        ..., description="Structured document content (block-based editor JSON)"
-    )
-    form_data: dict[str, Any] = Field(
-        ..., description="Template form field values, keyed by field_key"
-    )
-    yjs_state: bytes | None = Field(
-        None, description="Yjs binary state vector for collaborative editing"
-    )
+
+    content: dict[str, Any] = Field(..., description="Structured document content (block-based editor JSON)")
+    form_data: dict[str, Any] = Field(..., description="Template form field values, keyed by field_key")
+    yjs_state: bytes | None = Field(None, description="Yjs binary state vector for collaborative editing")
 
 
 class RevisionCreate(BaseModel):
     """Created when advancing to a new revision (rev_code is auto-generated
     based on the document's doc_type revision_scheme)."""
+
     pass
 
 
@@ -182,6 +176,7 @@ class RevisionRead(OpsFluxSchema):
 
 class RevisionSummaryRead(OpsFluxSchema):
     """Lightweight revision read for list views — no content or form_data."""
+
     id: UUID
     document_id: UUID
     rev_code: str
@@ -200,12 +195,8 @@ class TemplateCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     description: str | None = Field(None, max_length=1000)
     doc_type_id: UUID | None = None
-    structure: dict[str, Any] = Field(
-        ..., description="Template layout: sections, field slots, page settings"
-    )
-    styles: dict[str, Any] = Field(
-        ..., description="CSS/styling overrides: fonts, margins, headers/footers"
-    )
+    structure: dict[str, Any] = Field(..., description="Template layout: sections, field slots, page settings")
+    styles: dict[str, Any] = Field(..., description="CSS/styling overrides: fonts, margins, headers/footers")
 
 
 class TemplateUpdate(BaseModel):
@@ -239,34 +230,33 @@ class TemplateRead(OpsFluxSchema):
 
 class TemplateFieldCreate(BaseModel):
     section_id: str = Field(
-        ..., min_length=1, max_length=100,
-        description="Identifier of the template section this field belongs to"
+        ..., min_length=1, max_length=100, description="Identifier of the template section this field belongs to"
     )
     field_key: str = Field(
-        ..., min_length=1, max_length=100,
+        ...,
+        min_length=1,
+        max_length=100,
         pattern=r"^[a-z][a-z0-9_]*$",
-        description="Unique key within the template, e.g. 'doc_title', 'revision_date'"
+        description="Unique key within the template, e.g. 'doc_title', 'revision_date'",
     )
     field_type: str = Field(
-        ..., min_length=1, max_length=50,
+        ...,
+        min_length=1,
+        max_length=50,
         pattern=r"^(text|textarea|richtext|number|date|select|multiselect|checkbox|file|user|table)$",
-        description="Field widget type"
+        description="Field widget type",
     )
-    label: dict[str, Any] = Field(
-        ..., description="JSONB multilingual label, e.g. {'fr': 'Titre', 'en': 'Title'}"
-    )
+    label: dict[str, Any] = Field(..., description="JSONB multilingual label, e.g. {'fr': 'Titre', 'en': 'Title'}")
     is_required: bool = False
     is_locked: bool = Field(
         default=False, description="If true, field value cannot be changed after first revision lock"
     )
     options: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Type-specific options, e.g. select choices, number min/max, table columns"
+        default_factory=dict, description="Type-specific options, e.g. select choices, number min/max, table columns"
     )
     display_order: int = Field(default=0, ge=0)
     validation_rules: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Custom validation rules, e.g. {'min_length': 10, 'regex': '^[A-Z]'}"
+        default_factory=dict, description="Custom validation rules, e.g. {'min_length': 10, 'regex': '^[A-Z]'}"
     )
 
 
@@ -307,8 +297,7 @@ class ArborescenceNodeCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     display_order: int = Field(default=0, ge=0)
     nomenclature_override: dict[str, Any] | None = Field(
-        None,
-        description="Override nomenclature tokens at this node level, e.g. {'DISCIPLINE': 'ELEC'}"
+        None, description="Override nomenclature tokens at this node level, e.g. {'DISCIPLINE': 'ELEC'}"
     )
 
 
@@ -341,8 +330,9 @@ class DistributionListCreate(BaseModel):
         None, description="Optional doc_type_id to restrict this list to a specific document type"
     )
     recipients: list[dict[str, Any]] = Field(
-        ..., min_length=1,
-        description="List of recipients: [{'user_id': '…', 'role': 'approver'}, {'email': '…', 'role': 'cc'}]"
+        ...,
+        min_length=1,
+        description="List of recipients: [{'user_id': '…', 'role': 'approver'}, {'email': '…', 'role': 'cc'}]",
     )
 
 
@@ -410,21 +400,25 @@ class ShareLinkRead(OpsFluxSchema):
 
 class SubmitRequest(BaseModel):
     """Submit a document revision for review."""
+
     comment: str | None = None
 
 
 class ApproveRequest(BaseModel):
     """Approve a document revision."""
+
     comment: str | None = None
 
 
 class RejectRequest(BaseModel):
     """Reject a document revision — reason is mandatory."""
+
     reason: str = Field(..., min_length=1, max_length=2000)
 
 
 class PublishRequest(BaseModel):
     """Publish a document revision, optionally distributing to lists."""
+
     distribution_list_ids: list[UUID] = Field(default_factory=list)
 
 
@@ -433,17 +427,18 @@ class PublishRequest(BaseModel):
 
 class RevisionDiffResponse(BaseModel):
     """Structured diff between two revisions of a document."""
+
     rev_a: str = Field(..., description="Rev code of the base revision")
     rev_b: str = Field(..., description="Rev code of the compared revision")
     additions: list[dict[str, Any]] = Field(
         default_factory=list,
-        description="Content blocks added in rev_b, e.g. [{'path': 'section.1.2', 'content': '…'}]"
+        description="Content blocks added in rev_b, e.g. [{'path': 'section.1.2', 'content': '…'}]",
     )
     deletions: list[dict[str, Any]] = Field(
         default_factory=list,
-        description="Content blocks removed from rev_a, e.g. [{'path': 'section.1.3', 'content': '…'}]"
+        description="Content blocks removed from rev_a, e.g. [{'path': 'section.1.3', 'content': '…'}]",
     )
     modifications: list[dict[str, Any]] = Field(
         default_factory=list,
-        description="Content blocks changed between revisions, e.g. [{'path': '…', 'old': '…', 'new': '…'}]"
+        description="Content blocks changed between revisions, e.g. [{'path': '…', 'old': '…', 'new': '…'}]",
     )

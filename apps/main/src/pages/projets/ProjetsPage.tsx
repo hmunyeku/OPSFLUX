@@ -36,6 +36,7 @@ import {
   FormGrid,
   FormSection,
   InlineEditableRow,
+  InlineEditableSelect,
   InlineEditableTags,
   ReadOnlyRow,
   PanelActionButton,
@@ -2772,21 +2773,19 @@ function ProjectDetailPanel({ id }: { id: string }) {
                 <InlineEditableTags label="Météo" value={project.weather} options={projectWeatherOptions} onSave={(v) => handleSave('weather', v)} />
               </DetailFieldGrid>
               <DetailFieldGrid>
-                <div>
-                  <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Chef de projet</label>
-                  <select
-                    value={project.manager_id || ''}
-                    onChange={(e) => handleSave('manager_id', e.target.value || null)}
-                    className={`${panelInputClass} w-full text-xs mt-0.5`}
-                  >
-                    <option value="">-- Aucun --</option>
-                    {(allUsersData?.items ?? []).map(u => (
-                      <option key={u.id} value={u.id}>
-                        {`${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <InlineEditableSelect
+                  label="Chef de projet"
+                  value={project.manager_id || ''}
+                  displayValue={project.manager_name || '-- Aucun --'}
+                  options={[
+                    { value: '', label: '-- Aucun --' },
+                    ...(allUsersData?.items ?? []).map(u => ({
+                      value: u.id,
+                      label: `${u.first_name ?? ''} ${u.last_name ?? ''}`.trim() || u.email,
+                    })),
+                  ]}
+                  onSave={(v: string) => handleSave('manager_id', v || null)}
+                />
                 <ReadOnlyRow label="Entreprise" value={
                   project.tier_id ? (
                     <CrossModuleLink module="tiers" id={project.tier_id} label={project.tier_name || project.tier_id} mode="navigate" />
@@ -2794,10 +2793,15 @@ function ProjectDetailPanel({ id }: { id: string }) {
                 } />
                 <InlineEditableRow label="Budget" value={project.budget != null ? String(project.budget) : ''} onSave={(v) => handleSave('budget', v ? Number(v) : null)} type="number" suffix={projectCurrency} />
                 <div>
-                  <label className="text-[10px] text-muted-foreground uppercase tracking-wide">Site / Asset</label>
+                  <label className="text-[10px] text-muted-foreground uppercase tracking-wide block mb-0.5">Site / Installation</label>
                   <AssetPicker
                     value={project.asset_id || null}
-                    onChange={(id) => updateProject.mutate({ id: project.id, payload: { asset_id: id || null } }, { onError: () => toast({ title: t('common.error'), variant: 'error' }) })}
+                    onChange={(id) => {
+                      updateProject.mutate(
+                        { id: project.id, payload: { asset_id: id || null } },
+                        { onError: () => toast({ title: t('common.error'), variant: 'error' }) },
+                      )
+                    }}
                     placeholder="Sélectionner un site..."
                     clearable
                   />

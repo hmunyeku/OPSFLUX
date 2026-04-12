@@ -13,7 +13,7 @@
  * Permissions are fetched on login and filter all visible content.
  */
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Text, View, StyleSheet } from "react-native";
@@ -41,6 +41,7 @@ import CaptainPortalScreen from "../screens/CaptainPortalScreen";
 import DriverPickupScreen from "../screens/DriverPickupScreen";
 import AdsDetailScreen from "../screens/AdsDetailScreen";
 import VoyageDetailScreen from "../screens/VoyageDetailScreen";
+import OnboardingScreen, { isOnboardingComplete } from "../screens/OnboardingScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 
 const Stack = createNativeStackNavigator();
@@ -315,24 +316,37 @@ export default function AppNavigator() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const fetchPermissions = usePermissions((s) => s.fetchPermissions);
   const clearPermissions = usePermissions((s) => s.clear);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
 
-  // On auth change: fetch permissions + connect notifications
+  // On auth change: fetch permissions + connect notifications + check onboarding
   useEffect(() => {
     if (isAuthenticated) {
       fetchPermissions();
       connectNotifications();
+
+      // Check if onboarding has been completed
+      isOnboardingComplete().then((done) => {
+        setShowOnboarding(!done);
+        setOnboardingChecked(true);
+      });
     } else {
       clearPermissions();
       disconnectNotifications();
+      setOnboardingChecked(false);
     }
   }, [isAuthenticated]);
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {isAuthenticated ? (
-        <Stack.Screen name="Main" component={MainTabs} />
-      ) : (
+      {!isAuthenticated ? (
         <Stack.Screen name="Login" component={LoginScreen} />
+      ) : showOnboarding && onboardingChecked ? (
+        <Stack.Screen name="Onboarding">
+          {() => <OnboardingScreen onComplete={() => setShowOnboarding(false)} />}
+        </Stack.Screen>
+      ) : (
+        <Stack.Screen name="Main" component={MainTabs} />
       )}
     </Stack.Navigator>
   );

@@ -35,6 +35,8 @@ import { useBootstrap, BootstrapEntity } from "../hooks/useBootstrap";
 import { setBaseUrl } from "../services/api";
 import { clearPersistedAuth } from "../services/storage";
 import { disconnectNotifications, useNotifications } from "../services/notifications";
+import { useSettings } from "../stores/settings";
+import { resetOnboarding } from "./OnboardingScreen";
 import {
   getProfile,
   updateProfile,
@@ -153,6 +155,7 @@ export default function SettingsScreen() {
           disconnectNotifications();
           useNotifications.getState().clear();
           usePermissions.getState().clear();
+          useSettings.getState().clear();
           await clearPersistedAuth();
           logout();
         },
@@ -382,6 +385,17 @@ export default function SettingsScreen() {
             textColor={colors.textSecondary}
           >
             Vider le cache local
+          </Button>
+          <Button
+            mode="text"
+            compact
+            onPress={async () => {
+              await resetOnboarding();
+              Alert.alert("Tutoriel", "Le tutoriel sera affiché au prochain lancement.");
+            }}
+            textColor={colors.textSecondary}
+          >
+            Revoir le tutoriel
           </Button>
         </Card.Content>
       </Card>

@@ -5,6 +5,8 @@
  *  - User profile
  *  - Permissions
  *  - Available entities
+ *  - Settings (user + entity preferences)
+ *  - Enabled modules
  *  - Form definitions
  *  - Portal definitions
  *
@@ -15,6 +17,8 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchWithOfflineFallback } from "../services/offline";
 import { useAuthStore } from "../stores/auth";
 import { usePermissions } from "../stores/permissions";
+import { useSettings } from "../stores/settings";
+import { setSentryUser } from "../services/sentry";
 import { persistAuth } from "../services/storage";
 import type { FormDefinition, PortalDefinition } from "../types/forms";
 
@@ -35,10 +39,16 @@ interface BootstrapData {
     display_name: string;
     avatar_url: string | null;
     default_entity_id: string | null;
+    mfa_enabled: boolean;
   };
   permissions: string[];
   entities: BootstrapEntity[];
   current_entity_id: string;
+  settings: {
+    user: Record<string, string>;
+    entity: Record<string, string>;
+  };
+  modules: Array<{ slug: string; name: string }>;
   forms: FormDefinition[];
   portals: PortalDefinition[];
 }
@@ -68,7 +78,7 @@ export function useBootstrap() {
       const result = await fetchWithOfflineFallback<BootstrapData>(BOOTSTRAP_URL);
       const data = result.data;
 
-      // Populate auth store with user info
+      // 1. Populate auth store with user info
       const authStore = useAuthStore.getState();
       authStore.setUser(data.user.id, data.user.display_name);
       if (data.current_entity_id) {
@@ -76,12 +86,35 @@ export function useBootstrap() {
       }
       persistAuth();
 
-      // Populate permissions store
+      // 2. Set Sentry user context
+      setSentryUser({
+        id: data.user.id,
+        email: data.user.email,
+        displayName: data.user.display_name,
+      });
+
+      // 3. Populate permissions store
       usePermissions.setState({
         permissions: data.permissions,
         loaded: true,
         loading: false,
       });
+
+      // 4. Populate settings store (user prefs + entity config + modules)
+      useSettings.getState().setFromBootstrap({
+        user: data.settings?.user ?? {},
+        entity: data.settings?.entity ?? {},
+        modules: data.modules ?? [],
+      });
+
+      // 5. Apply user language preference if set on server
+      const serverLang = data.settings?.user?.["preference.language"];
+      if (serverLang) {
+        const { default: i18n } = await import("../locales/i18n");
+        if (["fr", "en", "es", "pt"].includes(serverLang)) {
+          i18n.changeLanguage(serverLang);
+        }
+      }
 
       setState({
         forms: data.forms,

@@ -34,8 +34,12 @@ MANIFEST = ModuleManifest(
         "travelwiz.pickup.manage",
         "travelwiz.pickup.create",
         "travelwiz.pickup.update",
+        # Pickup / shuttle (read)
+        "travelwiz.pickup.read",
         # Tracking / weather
+        "travelwiz.tracking.read",
         "travelwiz.tracking.update",
+        "travelwiz.weather.read",
         "travelwiz.weather.create",
     ],
     roles=[

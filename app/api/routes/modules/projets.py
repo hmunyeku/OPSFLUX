@@ -26,6 +26,7 @@ from app.models.common import (
     ProjectTaskAssignee, ProjectComment, ProjectStatusHistory,
     User, Tier,
 )
+from app.models.asset_registry import Installation
 from app.schemas.common import (
     PaginatedResponse,
     ProjectCreate, ProjectRead, ProjectUpdate,

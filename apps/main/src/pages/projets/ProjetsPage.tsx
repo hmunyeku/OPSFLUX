@@ -3481,6 +3481,7 @@ function buildSpreadsheetTree(
 }
 
 function SpreadsheetView() {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const { selection, setSelection, filteredProjectIds, isFiltered } = useProjectFilter()
@@ -3566,7 +3567,7 @@ function SpreadsheetView() {
 
   const columns = useMemo<ColumnDef<SpreadsheetRow, unknown>[]>(() => [
     {
-      accessorKey: 'title', header: 'Tâche', size: 380, enableResizing: true,
+      accessorKey: 'title', header: t('projets.columns.task'), size: 380, enableResizing: true,
       cell: ({ row }) => {
         const r = row.original
         if (r._isGroupHeader) {
@@ -3608,13 +3609,13 @@ function SpreadsheetView() {
       },
     },
     {
-      accessorKey: 'code', header: 'Réf', size: 80,
+      accessorKey: 'code', header: t('projets.columns.ref'), size: 80,
       cell: ({ row }) => row.original._isGroupHeader
         ? null
         : <span className="font-mono text-[10px] text-muted-foreground">{row.original.code || '--'}</span>,
     },
     {
-      accessorKey: 'status', header: 'Statut', size: 100,
+      accessorKey: 'status', header: t('projets.columns.status'), size: 100,
       cell: ({ row }) => {
         if (row.original._isGroupHeader) return null
         const meta = TASK_STATUS_META[row.original.status]
@@ -3622,7 +3623,7 @@ function SpreadsheetView() {
       },
     },
     {
-      accessorKey: 'priority', header: 'Priorité', size: 80,
+      accessorKey: 'priority', header: t('projets.columns.priority'), size: 80,
       cell: ({ row }) => {
         if (row.original._isGroupHeader) return null
         const p = row.original.priority
@@ -3631,7 +3632,7 @@ function SpreadsheetView() {
       },
     },
     {
-      accessorKey: 'start_date', header: 'Début', size: 90,
+      accessorKey: 'start_date', header: t('projets.columns.start_date'), size: 90,
       cell: ({ row }) => {
         if (row.original._isGroupHeader) return null
         return row.original.start_date
@@ -3640,7 +3641,7 @@ function SpreadsheetView() {
       },
     },
     {
-      accessorKey: 'due_date', header: 'Fin', size: 90,
+      accessorKey: 'due_date', header: t('projets.columns.due_date'), size: 90,
       cell: ({ row }) => {
         if (row.original._isGroupHeader) return null
         return row.original.due_date
@@ -3649,7 +3650,7 @@ function SpreadsheetView() {
       },
     },
     {
-      accessorKey: 'progress', header: '%', size: 70,
+      accessorKey: 'progress', header: t('projets.columns.progress'), size: 70,
       cell: ({ row }) => {
         if (row.original._isGroupHeader) return null
         return (
@@ -3663,20 +3664,20 @@ function SpreadsheetView() {
       },
     },
     {
-      accessorKey: 'estimated_hours', header: 'H.Est', size: 60,
+      accessorKey: 'estimated_hours', header: t('projets.columns.estimated_hours'), size: 60,
       cell: ({ row }) => row.original._isGroupHeader ? null : <span className="text-xs tabular-nums text-muted-foreground">{row.original.estimated_hours ?? '--'}</span>,
     },
     {
-      accessorKey: 'actual_hours', header: 'H.Réel', size: 60,
+      accessorKey: 'actual_hours', header: t('projets.columns.actual_hours'), size: 60,
       cell: ({ row }) => row.original._isGroupHeader ? null : <span className="text-xs tabular-nums text-muted-foreground">{row.original.actual_hours ?? '--'}</span>,
     },
     {
-      accessorKey: 'assignee_name', header: 'Responsable', size: 130,
+      accessorKey: 'assignee_name', header: t('projets.columns.assignee'), size: 130,
       cell: ({ row }) => row.original._isGroupHeader ? null : <span className="text-xs text-muted-foreground truncate">{row.original.assignee_name || '--'}</span>,
     },
     // ── Extra columns (hidden by default, toggle via column visibility) ──
     {
-      id: 'duration', header: 'Durée', size: 60,
+      id: 'duration', header: t('projets.columns.duration'), size: 60,
       accessorFn: (row) => row._durationDays,
       cell: ({ row }) => {
         if (row.original._isGroupHeader) return null
@@ -3685,7 +3686,7 @@ function SpreadsheetView() {
       },
     },
     {
-      id: 'predecessors', header: 'Antécédents', size: 140,
+      id: 'predecessors', header: t('projets.columns.predecessors'), size: 140,
       accessorFn: (row) => row._predecessorLabels,
       cell: ({ row }) => {
         if (row.original._isGroupHeader) return null
@@ -3694,7 +3695,7 @@ function SpreadsheetView() {
       },
     },
     {
-      id: 'child_count', header: 'Sous-tâches', size: 80,
+      id: 'child_count', header: t('projets.columns.subtasks'), size: 80,
       accessorFn: (row) => row._childCount,
       cell: ({ row }) => {
         if (row.original._isGroupHeader) return null
@@ -3703,7 +3704,7 @@ function SpreadsheetView() {
       },
     },
     {
-      accessorKey: 'description', header: 'Description', size: 200,
+      accessorKey: 'description', header: t('common.description'), size: 200,
       cell: ({ row }) => {
         if (row.original._isGroupHeader) return null
         const d = row.original.description
@@ -3711,19 +3712,19 @@ function SpreadsheetView() {
       },
     },
     {
-      id: 'project_code', header: 'Projet', size: 100,
+      id: 'project_code', header: t('projets.title'), size: 100,
       accessorFn: (row) => row.project_code,
       cell: ({ row }) => row.original._isGroupHeader ? null : <span className="font-mono text-[10px] text-muted-foreground">{row.original.project_code}</span>,
     },
     {
-      accessorKey: 'created_at', header: 'Créé le', size: 90,
+      accessorKey: 'created_at', header: t('common.created_at'), size: 90,
       cell: ({ row }) => {
         if (row.original._isGroupHeader || !row.original.created_at) return null
         return <span className="text-[10px] tabular-nums text-muted-foreground">{new Date(row.original.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>
       },
     },
     {
-      accessorKey: 'completed_at', header: 'Terminé le', size: 90,
+      accessorKey: 'completed_at', header: t('projets.columns.completed_at'), size: 90,
       cell: ({ row }) => {
         if (row.original._isGroupHeader || !row.original.completed_at) return null
         return <span className="text-[10px] tabular-nums text-muted-foreground">{new Date(row.original.completed_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>
@@ -4551,6 +4552,7 @@ const PROJETS_TABS: { id: ViewTab; label: string; icon: typeof FolderKanban }[] 
 // -- Main Page ----------------------------------------------------------------
 
 function ProjectsListView() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize, setPageSize } = usePageSize()
   const [search, setSearch] = useState('')
@@ -4608,25 +4610,25 @@ function ProjectsListView() {
   }, [])
 
   const columns = useMemo<ColumnDef<Project, unknown>[]>(() => [
-    { accessorKey: 'code', header: 'Code', size: 120, cell: ({ row }) => (
+    { accessorKey: 'code', header: t('projets.columns.code'), size: 120, cell: ({ row }) => (
       <div className="flex items-center gap-1">
         {(row.original.children_count ?? 0) > 0 && <Layers size={10} className="text-primary" />}
         <span className="font-medium text-foreground">{row.original.code}</span>
         {isGoutiProject(row.original) && <GoutiBadge />}
       </div>
     )},
-    { accessorKey: 'name', header: 'Nom', cell: ({ row }) => <span className="text-foreground">{row.original.name}</span> },
+    { accessorKey: 'name', header: t('projets.columns.name'), cell: ({ row }) => <span className="text-foreground">{row.original.name}</span> },
     {
-      accessorKey: 'status', header: 'Statut', size: 100,
+      accessorKey: 'status', header: t('projets.columns.status'), size: 100,
       cell: ({ row }) => {
         const s = row.original.status
         const cls = s === 'active' ? 'gl-badge-success' : s === 'completed' ? 'gl-badge-info' : s === 'on_hold' || s === 'cancelled' ? 'gl-badge-danger' : 'gl-badge-neutral'
         return <span className={cn('gl-badge', cls)}>{projectStatusLabels[s] ?? s}</span>
       },
     },
-    { accessorKey: 'weather', header: 'Météo', size: 60, cell: ({ row }) => <WeatherIcon weather={row.original.weather} /> },
+    { accessorKey: 'weather', header: t('projets.columns.weather'), size: 60, cell: ({ row }) => <WeatherIcon weather={row.original.weather} /> },
     {
-      accessorKey: 'progress', header: '%', size: 60,
+      accessorKey: 'progress', header: t('projets.columns.progress'), size: 60,
       cell: ({ row }) => (
         <div className="flex items-center gap-1.5">
           <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
@@ -4637,30 +4639,30 @@ function ProjectsListView() {
       ),
     },
     {
-      accessorKey: 'priority', header: 'Priorité', size: 80,
+      accessorKey: 'priority', header: t('projets.columns.priority'), size: 80,
       cell: ({ row }) => {
         const p = row.original.priority
         const cls = p === 'critical' ? 'gl-badge-danger' : p === 'high' ? 'gl-badge-warning' : 'gl-badge-neutral'
         return <span className={cn('gl-badge', cls)}>{projectPriorityLabels[p] ?? p}</span>
       },
     },
-    { accessorKey: 'manager_name', header: 'Chef de projet', size: 140, cell: ({ row }) => row.original.manager_id
+    { accessorKey: 'manager_name', header: t('projets.columns.assignee'), size: 140, cell: ({ row }) => row.original.manager_id
         ? <CrossModuleLink module="users" id={row.original.manager_id} label={row.original.manager_name || row.original.manager_id} showIcon={false} className="text-xs" />
         : <span className="text-muted-foreground/40">--</span>,
     },
-    { accessorKey: 'task_count', header: 'Taches', size: 70, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.task_count ?? 0}</span> },
+    { accessorKey: 'task_count', header: t('projets.columns.task_count'), size: 70, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.task_count ?? 0}</span> },
     {
-      accessorKey: 'parent_name', header: 'Macro-projet', size: 130,
+      accessorKey: 'parent_name', header: t('projets.columns.parent_project'), size: 130,
       cell: ({ row }) => row.original.parent_id
         ? <CrossModuleLink module="projets" id={row.original.parent_id} label={row.original.parent_name || row.original.parent_id} showIcon={false} className="text-xs" />
         : <span className="text-muted-foreground/40">--</span>,
     },
-    { accessorKey: 'tier_name', header: 'Entreprise', size: 130, cell: ({ row }) => row.original.tier_id
+    { accessorKey: 'tier_name', header: t('projets.columns.company'), size: 130, cell: ({ row }) => row.original.tier_id
         ? <CrossModuleLink module="tiers" id={row.original.tier_id} label={row.original.tier_name || row.original.tier_id} showIcon={false} className="text-xs" />
         : <span className="text-muted-foreground/40">--</span>,
     },
     {
-      accessorKey: 'end_date', header: 'Echeance', size: 100,
+      accessorKey: 'end_date', header: t('projets.columns.deadline'), size: 100,
       cell: ({ row }) => row.original.end_date
         ? <span className="text-muted-foreground text-xs">{new Date(row.original.end_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
         : <span className="text-muted-foreground/40">--</span>,

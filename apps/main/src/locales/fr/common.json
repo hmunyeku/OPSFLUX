@@ -1171,9 +1171,46 @@
     "subtitle": "Gestion de projets, tâches et planning",
     "create": "Nouveau projet",
     "tabs": {
+      "dashboard": "Tableau de bord",
       "projets": "Projets",
       "tableur": "Tableur",
+      "kanban": "Kanban",
       "planning": "Planning"
+    },
+    "columns": {
+      "code": "Code",
+      "name": "Nom",
+      "status": "Statut",
+      "priority": "Priorité",
+      "progress": "%",
+      "weather": "Météo",
+      "task_count": "Tâches",
+      "parent_project": "Macro-projet",
+      "company": "Entreprise",
+      "deadline": "Échéance",
+      "task": "Tâche",
+      "ref": "Réf",
+      "start_date": "Début",
+      "due_date": "Fin",
+      "estimated_hours": "H.Est",
+      "actual_hours": "H.Réel",
+      "assignee": "Responsable",
+      "duration": "Durée",
+      "predecessors": "Antécédents",
+      "subtasks": "Sous-tâches",
+      "completed_at": "Terminé le"
+    },
+    "task_status": {
+      "todo": "À faire",
+      "in_progress": "En cours",
+      "review": "Revue",
+      "done": "Terminé"
+    },
+    "task_subtabs": {
+      "dependencies": "Dépendances",
+      "deliverables": "Livrables",
+      "actions": "Actions",
+      "history": "Historique"
     },
     "fields": {
       "project_code": "Code projet",
@@ -1261,7 +1298,19 @@
     "add_member": "Ajouter un membre",
     "none_independent": "Aucun (projet indépendant)",
     "search_task": "Rechercher par tâche ou code projet...",
-    "search_project": "Rechercher par code ou nom..."
+    "search_project": "Rechercher par code ou nom...",
+    "toast": {
+      "project_created": "Projet créé",
+      "task_created": "Tâche créée",
+      "dependency_added": "Dépendance ajoutée",
+      "template_saved": "Template sauvegardé",
+      "template_save_error": "Erreur sauvegarde template",
+      "project_created_from_template": "Projet créé depuis template",
+      "template_clone_error": "Erreur clone template",
+      "import_failed": "Échec de l'import",
+      "default_filters_saved": "Filtres par défaut enregistrés",
+      "no_project_selected": "Aucun projet sélectionné"
+    }
   },
   "dashboard": {
     "title": "Tableau de bord",

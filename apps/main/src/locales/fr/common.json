@@ -2746,6 +2746,7 @@
     },
     "columns": {
       "title": "Titre",
+      "asset": "Installation",
       "type": "Type",
       "priority": "Priorité",
       "pax": "PAX",

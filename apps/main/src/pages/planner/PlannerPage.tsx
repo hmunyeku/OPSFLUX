@@ -759,16 +759,20 @@ function ActivitiesTab() {
       accessorKey: 'title',
       header: t('planner.columns.title'),
       cell: ({ row }) => (
-        <div className="min-w-0">
-          <span className="font-medium text-foreground block truncate max-w-[220px]">{row.original.title}</span>
-          {row.original.asset_name && row.original.asset_id && (
-            <CrossModuleLink module="assets" id={row.original.asset_id} label={row.original.asset_name} showIcon={false} className="text-[10px] block truncate" />
-          )}
-          {row.original.asset_name && !row.original.asset_id && (
-            <span className="text-[10px] text-muted-foreground block truncate">{row.original.asset_name}</span>
-          )}
-        </div>
+        <span className="font-medium text-foreground truncate block max-w-[280px]" title={row.original.title}>{row.original.title}</span>
       ),
+    },
+    {
+      accessorKey: 'asset_name',
+      header: t('planner.columns.asset', 'Installation'),
+      size: 160,
+      cell: ({ row }) => {
+        if (!row.original.asset_name) return <span className="text-muted-foreground text-xs">—</span>
+        if (row.original.asset_id) {
+          return <CrossModuleLink module="assets" id={row.original.asset_id} label={row.original.asset_name} showIcon={false} className="text-xs truncate block max-w-[150px]" />
+        }
+        return <span className="text-xs text-muted-foreground truncate block max-w-[150px]" title={row.original.asset_name}>{row.original.asset_name}</span>
+      },
     },
     {
       accessorKey: 'type',
@@ -1033,6 +1037,7 @@ function ActivitiesTab() {
             filenamePrefix: 'planning',
             exportHeaders: {
               title: 'Titre',
+              asset_name: 'Installation',
               type: 'Type',
               priority: 'Priorité',
               pax_quota: 'PAX',

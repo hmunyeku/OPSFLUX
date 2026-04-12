@@ -311,13 +311,13 @@ def _ensure_packlog_lt_operational_elements(
         return body_html, header_html, footer_html
 
     fallback_panel = f"""
-<section class="qr-fallback" style="margin-top:12px;padding:12px;border:1px dashed #94a3b8;border-radius:10px;background:#f8fafc;">
-  <div style="display:flex;align-items:center;gap:14px;">
-    <img src="{qr_image}" alt="QR Code" style="width:96px;height:96px;flex:0 0 auto;border:1px solid #e2e8f0;background:#fff;padding:4px;border-radius:8px;" />
+<section class="qr-fallback" style="margin-top:10px;padding:8px 10px;border:1px solid #333;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <img src="{qr_image}" alt="QR Code" style="width:72px;height:72px;flex:0 0 auto;border:1px solid #999;background:#fff;padding:3px;" />
     <div style="min-width:0;">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#0f172a;">Scanner pour ouvrir la demande d'expedition</div>
-      <div style="margin-top:4px;font-size:12px;color:#334155;">Ce QR ouvre directement la fiche PackLog de la lettre de transport et permet ensuite d'ouvrir les colis rattachés.</div>
-      <div style="margin-top:6px;font-size:10px;word-break:break-all;color:#64748b;">{qr_link}</div>
+      <div style="font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#111;">Scanner pour ouvrir la demande d'expedition</div>
+      <div style="margin-top:3px;font-size:7.5pt;color:#333;">Ce QR ouvre la fiche PackLog de la lettre de transport.</div>
+      <div style="margin-top:4px;font-size:7pt;word-break:break-all;color:#666;">{qr_link}</div>
     </div>
   </div>
 </section>"""
@@ -1624,194 +1624,232 @@ _VOYAGE_CARGO_MANIFEST_BODY_EN = """\
 </html>"""
 
 _CARGO_LT_BODY_FR = """\
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="utf-8"/>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10pt; color: #122033; }
-  .document { width: 100%; }
-  .hero { border: 1px solid #d8e1eb; border-radius: 14px; overflow: hidden; margin-bottom: 14px; }
-  .hero-top { background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%); color: white; padding: 16px 18px; display: flex; justify-content: space-between; gap: 16px; }
-  .hero-title { font-size: 18pt; font-weight: 800; letter-spacing: 0.02em; }
-  .hero-subtitle { font-size: 9pt; opacity: 0.82; margin-top: 4px; }
-  .hero-ref { text-align: right; min-width: 180px; }
-  .hero-ref .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.18em; opacity: 0.72; }
-  .hero-ref .value { font-size: 16pt; font-weight: 800; margin-top: 3px; }
-  .hero-body { display: flex; gap: 18px; padding: 16px 18px; background: #f8fafc; }
-  .hero-main { flex: 1; }
-  .hero-side { width: 148px; border-left: 1px dashed #cbd5e1; padding-left: 18px; text-align: center; }
-  .hero-side img { width: 118px; height: 118px; object-fit: contain; }
-  .hero-side .scan { font-size: 7pt; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.12em; color: #475569; }
-  .status-line { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
-  .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
-  .badge-ready { background: #dcfce7; color: #166534; }
-  .badge-pending { background: #fef3c7; color: #92400e; }
-  .badge-status { background: #dbeafe; color: #1d4ed8; }
-  .badge-hazmat { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
-  .metrics { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-  .metric { min-width: 100px; flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }
-  .metric .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.14em; color: #64748b; }
-  .metric .value { margin-top: 4px; font-size: 14pt; font-weight: 800; color: #0f172a; }
-  .addr-grid { display: flex; gap: 14px; margin-bottom: 14px; }
-  .addr-block { flex: 1; padding: 12px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
-  .addr-block .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.14em; color: #64748b; margin-bottom: 6px; font-weight: 700; }
-  .addr-block .name { font-size: 10pt; font-weight: 800; color: #0f172a; }
-  .addr-block .addr { font-size: 8.5pt; color: #334155; white-space: pre-line; margin-top: 4px; line-height: 1.4; }
-  .addr-block .contact { font-size: 8pt; color: #475569; margin-top: 6px; }
-  .meta-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
-  .meta-item { flex: 1; min-width: 170px; padding: 10px 12px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
-  .meta-item .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.12em; color: #64748b; }
-  .meta-item .value { font-size: 10pt; font-weight: 700; margin-top: 4px; }
-  .transport-bar { display: flex; gap: 10px; margin-bottom: 14px; padding: 10px 14px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; }
-  .transport-bar .item { flex: 1; }
-  .transport-bar .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.12em; color: #1e40af; }
-  .transport-bar .value { font-size: 10pt; font-weight: 700; color: #1e3a5f; margin-top: 2px; }
-  .section { margin-bottom: 14px; }
-  .section-title { font-size: 9pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em; color: #0f172a; margin-bottom: 8px; }
-  .description { padding: 12px 14px; background: #f8fafc; border: 1px solid #d8e1eb; border-radius: 10px; white-space: pre-wrap; line-height: 1.45; }
-  .requirements { margin-top: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid #e5e7eb; background: white; }
-  .requirements .line { font-size: 8pt; color: #475569; margin-top: 4px; }
-  .hazmat-banner { padding: 8px 12px; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
-  .hazmat-banner .icon { font-size: 14pt; }
-  .hazmat-banner .text { font-size: 8.5pt; font-weight: 700; color: #991b1b; text-transform: uppercase; letter-spacing: 0.08em; }
-  table { width: 100%; border-collapse: collapse; }
-  th { background: #0f172a; color: #fff; text-align: left; padding: 6px 6px; font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.10em; }
-  td { padding: 6px 6px; border-bottom: 1px solid #dbe4ee; font-size: 8pt; vertical-align: top; }
-  tr:nth-child(even) { background: #f8fafc; }
-  .mono { font-family: 'Courier New', monospace; font-size: 7.5pt; }
-  .mini-qr img { width: 40px; height: 40px; object-fit: contain; }
-  .status-chip { display: inline-block; padding: 2px 6px; border-radius: 999px; font-size: 6.5pt; font-weight: 700; background: #e2e8f0; color: #334155; }
-  .hazmat-chip { display: inline-block; padding: 2px 6px; border-radius: 999px; font-size: 6.5pt; font-weight: 700; background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
-  .dim { font-size: 7pt; color: #64748b; }
-  .totals-row td { font-weight: 800; background: #f1f5f9; border-top: 2px solid #0f172a; }
-  .footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #cbd5e1; font-size: 7pt; color: #64748b; display: flex; justify-content: space-between; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 9pt; color: #111; }
+  .doc { width: 100%; }
+
+  /* ── Header band ── */
+  .header-band { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 10px; }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo-placeholder { width: 48px; height: 48px; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 7pt; color: #999; text-align: center; }
+  .header-title-block {}
+  .header-title { font-size: 14pt; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #111; }
+  .header-org { font-size: 8pt; color: #555; margin-top: 2px; }
+  .header-right { text-align: right; display: flex; gap: 14px; align-items: flex-start; }
+  .header-ref { text-align: right; }
+  .header-ref .lbl { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.10em; color: #666; }
+  .header-ref .val { font-size: 12pt; font-weight: 700; color: #111; margin-top: 1px; }
+  .header-date { font-size: 8pt; color: #333; margin-top: 2px; }
+  .header-qr { width: 58px; }
+  .header-qr img { width: 54px; height: 54px; }
+  .header-qr .qr-lbl { font-size: 6pt; color: #666; text-align: center; margin-top: 2px; }
+
+  /* ── Status line ── */
+  .status-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; font-size: 8pt; }
+  .status-tag { display: inline-block; padding: 2px 7px; border: 1px solid #333; font-weight: 700; text-transform: uppercase; font-size: 7pt; letter-spacing: 0.04em; }
+  .status-tag.hazmat { border-color: #111; background: #111; color: #fff; }
+
+  /* ── Two-column address blocks ── */
+  .addr-row { display: flex; gap: 0; margin-bottom: 10px; }
+  .addr-box { flex: 1; border: 1px solid #333; padding: 8px 10px; }
+  .addr-box + .addr-box { border-left: none; }
+  .addr-box .lbl { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.10em; color: #666; font-weight: 700; margin-bottom: 4px; }
+  .addr-box .name { font-size: 9pt; font-weight: 700; color: #111; }
+  .addr-box .detail { font-size: 8pt; color: #333; white-space: pre-line; margin-top: 3px; line-height: 1.35; }
+
+  /* ── Info grid (key-value pairs in bordered cells) ── */
+  .info-grid { display: flex; flex-wrap: wrap; gap: 0; margin-bottom: 10px; }
+  .info-cell { flex: 1; min-width: 120px; border: 1px solid #333; padding: 5px 8px; margin-right: -1px; margin-bottom: -1px; }
+  .info-cell .lbl { font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.08em; color: #666; }
+  .info-cell .val { font-size: 9pt; font-weight: 700; color: #111; margin-top: 2px; }
+
+  /* ── Transport section ── */
+  .transport-section { margin-bottom: 10px; }
+  .transport-grid { display: flex; gap: 0; }
+  .transport-cell { flex: 1; border: 1px solid #333; padding: 5px 8px; margin-right: -1px; }
+  .transport-cell .lbl { font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.08em; color: #666; }
+  .transport-cell .val { font-size: 9pt; font-weight: 700; color: #111; margin-top: 2px; }
+
+  /* ── Section titles ── */
+  .sect-title { font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.10em; color: #111; border-bottom: 1px solid #333; padding-bottom: 3px; margin-bottom: 6px; margin-top: 10px; }
+
+  /* ── Description ── */
+  .desc-block { font-size: 8pt; color: #333; white-space: pre-wrap; line-height: 1.4; padding: 6px 0; border-bottom: 1px solid #ccc; margin-bottom: 6px; }
+  .req-block { margin-top: 4px; font-size: 7.5pt; color: #333; }
+  .req-block strong { font-size: 7.5pt; }
+  .req-block .line { margin-top: 2px; }
+
+  /* ── HAZMAT warning ── */
+  .hazmat-warn { border: 2px solid #111; padding: 5px 8px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .hazmat-warn .icon { font-size: 12pt; }
+  .hazmat-warn .text { font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* ── Cargo table ── */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+  th { background: #f0f0f0; color: #111; text-align: left; padding: 4px 5px; font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; border: 1px solid #333; }
+  td { padding: 4px 5px; border: 1px solid #999; font-size: 7.5pt; vertical-align: top; color: #111; }
+  tr:nth-child(even) td { background: #f8f8f8; }
+  .mono { font-family: 'Courier New', monospace; font-size: 7pt; }
+  .mini-qr img { width: 32px; height: 32px; }
+  .status-chip { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; }
+  .hazmat-flag { font-size: 6.5pt; font-weight: 700; border: 1px solid #111; padding: 1px 4px; margin-left: 3px; }
+  .dim { font-size: 6.5pt; color: #555; }
+  .totals-row td { font-weight: 700; background: #f0f0f0; border-top: 2px solid #111; font-size: 8pt; }
+
+  /* ── Totals summary ── */
+  .totals-summary { display: flex; gap: 0; margin-bottom: 12px; }
+  .totals-summary .cell { flex: 1; border: 1px solid #333; padding: 5px 8px; margin-right: -1px; text-align: center; }
+  .totals-summary .cell .lbl { font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.08em; color: #666; }
+  .totals-summary .cell .val { font-size: 11pt; font-weight: 700; color: #111; margin-top: 2px; }
+
+  /* ── Signatures ── */
+  .sig-section { margin-top: 16px; page-break-inside: avoid; }
+  .sig-grid { display: flex; gap: 0; }
+  .sig-box { flex: 1; border: 1px solid #333; padding: 8px 10px; margin-right: -1px; min-height: 70px; }
+  .sig-box .lbl { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.08em; color: #666; font-weight: 700; margin-bottom: 4px; }
+  .sig-box .sig-line { border-bottom: 1px solid #999; margin-top: 36px; margin-bottom: 4px; }
+  .sig-box .sig-date { font-size: 7pt; color: #666; }
+
+  /* ── Footer ── */
+  .doc-footer { margin-top: 10px; padding-top: 6px; border-top: 1px solid #333; font-size: 6.5pt; color: #666; display: flex; justify-content: space-between; }
+  .conditions { margin-top: 8px; font-size: 6pt; color: #999; line-height: 1.3; border-top: 1px solid #ccc; padding-top: 4px; }
 </style>
-</head>
-<body>
-  <div class="document">
-  <div class="hero">
-    <div class="hero-top">
-      <div>
-        <div class="hero-title">LETTRE DE TRANSPORT</div>
-        <div class="hero-subtitle">{{ entity.name | default('OpsFlux') }} · dossier logistique PackLog</div>
-      </div>
-      <div class="hero-ref">
-        <div class="label">Référence LT</div>
-        <div class="value">{{ request_code }}</div>
+
+<div class="doc">
+
+  <!-- ═══ HEADER ═══ -->
+  <div class="header-band">
+    <div class="header-left">
+      <div class="logo-placeholder">LOGO</div>
+      <div class="header-title-block">
+        <div class="header-title">Lettre de Transport</div>
+        <div class="header-org">{{ entity.name | default('OpsFlux') }}</div>
       </div>
     </div>
-    <div class="hero-body">
-      <div class="hero-main">
-        <div class="status-line">
-          <span class="badge badge-status">{{ request_status }}</span>
-          {% if request_ready %}
-            <span class="badge badge-ready">Dossier complet</span>
-          {% else %}
-            <span class="badge badge-pending">Dossier à compléter</span>
-          {% endif %}
-          {% if has_hazmat %}
-            <span class="badge badge-hazmat">HAZMAT</span>
-          {% endif %}
-        </div>
-        <div class="metrics">
-          <div class="metric"><div class="label">Colis</div><div class="value">{{ total_cargo_items }}</div></div>
-          <div class="metric"><div class="label">Poids total</div><div class="value">{{ total_weight_kg }} kg</div></div>
-          <div class="metric"><div class="label">Volume total</div><div class="value">{{ total_volume_m3 }} m³</div></div>
-          <div class="metric"><div class="label">Packages</div><div class="value">{{ total_packages }}</div></div>
-          <div class="metric"><div class="label">Livrés</div><div class="value">{{ status_breakdown.delivered_final | default(0) }}</div></div>
-        </div>
-        <div class="meta-grid">
-          <div class="meta-item"><div class="label">Intitulé</div><div class="value">{{ request_title }}</div></div>
-          <div class="meta-item"><div class="label">Demandeur</div><div class="value">{{ requester_name | default('--') }}</div></div>
-          <div class="meta-item"><div class="label">Imputation</div><div class="value">{{ imputation_reference | default('--') }}</div></div>
-        </div>
+    <div class="header-right">
+      <div class="header-ref">
+        <div class="lbl">Ref. LT</div>
+        <div class="val">{{ request_code }}</div>
+        <div class="header-date">{{ generated_at | default('--') }}</div>
       </div>
-      <div class="hero-side">
-        {% if request_qr_data or request_code %}
-          <img src="{{ qr_code(request_qr_data | default(request_code)) }}" alt="QR LT"/>
-          <div class="scan">Scanner pour ouvrir la demande dans PackLog</div>
-        {% endif %}
+      {% if request_qr_data or request_code %}
+      <div class="header-qr">
+        <img src="{{ qr_code(request_qr_data | default(request_code)) }}" alt="QR"/>
+        <div class="qr-lbl">SCANNER</div>
       </div>
+      {% endif %}
     </div>
   </div>
-  <div class="addr-grid">
-    <div class="addr-block">
-      <div class="label">Expéditeur</div>
+
+  <!-- ═══ STATUS ═══ -->
+  <div class="status-row">
+    <span class="status-tag">{{ request_status }}</span>
+    {% if request_ready %}
+      <span class="status-tag">COMPLET</span>
+    {% else %}
+      <span class="status-tag">A COMPLETER</span>
+    {% endif %}
+    {% if has_hazmat %}
+      <span class="status-tag hazmat">HAZMAT</span>
+    {% endif %}
+  </div>
+
+  <!-- ═══ EXPEDITEUR / DESTINATAIRE ═══ -->
+  <div class="addr-row">
+    <div class="addr-box">
+      <div class="lbl">Expediteur</div>
       <div class="name">{{ sender_name | default('--') }}</div>
-      {% if sender_address %}
-        <div class="addr">{{ sender_address }}</div>
-      {% endif %}
-      {% if sender_contact_name %}
-        <div class="contact">Contact : {{ sender_contact_name }}</div>
-      {% endif %}
+      {% if sender_address %}<div class="detail">{{ sender_address }}</div>{% endif %}
+      {% if sender_contact_name %}<div class="detail">Contact : {{ sender_contact_name }}</div>{% endif %}
     </div>
-    <div class="addr-block">
-      <div class="label">Destinataire</div>
+    <div class="addr-box">
+      <div class="lbl">Destinataire</div>
       <div class="name">{{ receiver_name | default('--') }}</div>
-      {% if destination_name %}
-        <div class="addr">{{ destination_name }}</div>
+      {% if destination_name %}<div class="detail">{{ destination_name }}</div>{% endif %}
+    </div>
+  </div>
+
+  <!-- ═══ INFOS DOSSIER ═══ -->
+  <div class="info-grid">
+    <div class="info-cell"><div class="lbl">Intitule</div><div class="val">{{ request_title }}</div></div>
+    <div class="info-cell"><div class="lbl">Demandeur</div><div class="val">{{ requester_name | default('--') }}</div></div>
+    <div class="info-cell"><div class="lbl">Imputation</div><div class="val">{{ imputation_reference | default('--') }}</div></div>
+  </div>
+
+  <!-- ═══ TRANSPORT ═══ -->
+  {% if transport_voyage_code %}
+  <div class="transport-section">
+    <div class="sect-title">Transport</div>
+    <div class="transport-grid">
+      <div class="transport-cell"><div class="lbl">Code voyage</div><div class="val">{{ transport_voyage_code }}</div></div>
+      {% if transport_vector_name %}
+        <div class="transport-cell"><div class="lbl">Vecteur</div><div class="val">{{ transport_vector_name }}</div></div>
+      {% endif %}
+      {% if transport_vector_registration %}
+        <div class="transport-cell"><div class="lbl">Immatriculation</div><div class="val">{{ transport_vector_registration }}</div></div>
       {% endif %}
     </div>
   </div>
-  {% if transport_voyage_code %}
-  <div class="transport-bar">
-    <div class="item"><div class="label">Voyage</div><div class="value">{{ transport_voyage_code }}</div></div>
-    {% if transport_vector_name %}
-      <div class="item"><div class="label">Vecteur</div><div class="value">{{ transport_vector_name }}</div></div>
-    {% endif %}
-    {% if transport_vector_registration %}
-      <div class="item"><div class="label">Immatriculation</div><div class="value">{{ transport_vector_registration }}</div></div>
-    {% endif %}
-  </div>
   {% endif %}
+
+  <!-- ═══ HAZMAT ═══ -->
   {% if has_hazmat %}
-  <div class="hazmat-banner">
+  <div class="hazmat-warn">
     <div class="icon">&#9888;</div>
-    <div class="text">Ce dossier contient des marchandises dangereuses (HAZMAT) — manipuler avec précaution</div>
+    <div class="text">Marchandises dangereuses (HAZMAT) -- manipuler avec precaution</div>
   </div>
   {% endif %}
-  <div class="section">
-    <div class="section-title">Instructions dossier</div>
-    <div class="description">{{ description | default('--') }}</div>
-    {% if request_missing_requirements and request_missing_requirements|length > 0 %}
-      <div class="requirements">
-        <strong>Points bloquants détectés</strong>
-        {% for item in request_missing_requirements %}
-          <div class="line">• {{ item }}</div>
-        {% endfor %}
-      </div>
-    {% endif %}
+
+  <!-- ═══ INSTRUCTIONS ═══ -->
+  <div class="sect-title">Instructions</div>
+  <div class="desc-block">{{ description | default('--') }}</div>
+  {% if request_missing_requirements and request_missing_requirements|length > 0 %}
+    <div class="req-block">
+      <strong>Points bloquants :</strong>
+      {% for item in request_missing_requirements %}
+        <div class="line">- {{ item }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- ═══ RECAPITULATIF ═══ -->
+  <div class="sect-title">Recapitulatif</div>
+  <div class="totals-summary">
+    <div class="cell"><div class="lbl">Colis</div><div class="val">{{ total_cargo_items }}</div></div>
+    <div class="cell"><div class="lbl">Packages</div><div class="val">{{ total_packages }}</div></div>
+    <div class="cell"><div class="lbl">Poids total</div><div class="val">{{ total_weight_kg }} kg</div></div>
+    <div class="cell"><div class="lbl">Volume total</div><div class="val">{{ total_volume_m3 }} m&sup3;</div></div>
+    <div class="cell"><div class="lbl">Livres</div><div class="val">{{ status_breakdown.delivered_final | default(0) }}</div></div>
   </div>
-  <div class="section">
-    <div class="section-title">Colis rattachés</div>
-    <table>
+
+  <!-- ═══ TABLEAU COLIS ═══ -->
+  <div class="sect-title">Detail des colis</div>
+  <table>
     <thead>
       <tr>
-        <th>#</th>
+        <th style="width:20px;">#</th>
         <th>Tracking</th>
-        <th>Désignation</th>
+        <th>Designation</th>
         <th>Type</th>
-        <th>Dimensions (L×l×H)</th>
-        <th>Vol.</th>
+        <th>Dimensions (LxlxH)</th>
         <th>Poids unit.</th>
         <th>Colis</th>
         <th>Poids total</th>
+        <th>HAZMAT</th>
         <th>Statut</th>
-        <th>QR</th>
+        <th style="width:36px;">QR</th>
       </tr>
     </thead>
     <tbody>
       {% for cargo in cargo_items %}
       <tr>
         <td>{{ loop.index }}</td>
-        <td><div class="mono">{{ cargo.tracking_code }}</div></td>
+        <td><span class="mono">{{ cargo.tracking_code }}</span></td>
         <td>
           {{ cargo.designation | default(cargo.description) }}
-          {% if cargo.is_hazmat %}<span class="hazmat-chip">HAZMAT</span>{% endif %}
           {% if cargo.pickup_contact_name %}
-            <div class="dim">Enlèvement : {{ cargo.pickup_contact_name }}{% if cargo.pickup_contact_phone %} · {{ cargo.pickup_contact_phone }}{% endif %}</div>
+            <div class="dim">Enlevement : {{ cargo.pickup_contact_name }}{% if cargo.pickup_contact_phone %} / {{ cargo.pickup_contact_phone }}{% endif %}</div>
           {% endif %}
           {% if cargo.pickup_location %}
             <div class="dim">Lieu : {{ cargo.pickup_location }}</div>
@@ -1820,19 +1858,18 @@ _CARGO_LT_BODY_FR = """\
         <td>{{ cargo.cargo_type | default('--') }}</td>
         <td>
           {% if cargo.length_cm and cargo.width_cm and cargo.height_cm %}
-            <span class="dim">{{ cargo.length_cm }}×{{ cargo.width_cm }}×{{ cargo.height_cm }} cm</span>
-          {% else %}
-            <span class="dim">--</span>
-          {% endif %}
+            {{ cargo.length_cm }}x{{ cargo.width_cm }}x{{ cargo.height_cm }} cm
+            {% if cargo.volume_m3 %}<div class="dim">{{ cargo.volume_m3 }} m&sup3;</div>{% endif %}
+          {% else %}--{% endif %}
         </td>
-        <td>{% if cargo.volume_m3 %}{{ cargo.volume_m3 }} m³{% else %}--{% endif %}</td>
         <td>{{ cargo.weight_kg }} kg</td>
         <td>{{ cargo.package_count | default('--') }}</td>
         <td>{{ cargo.weight_subtotal }} kg</td>
+        <td>{% if cargo.is_hazmat %}<span class="hazmat-flag">OUI</span>{% else %}--{% endif %}</td>
         <td><span class="status-chip">{{ cargo.status_label | default(cargo.status) }}</span></td>
         <td class="mini-qr">
           {% if cargo.qr_data %}
-            <img src="{{ qr_code(cargo.qr_data) }}" alt="QR {{ cargo.tracking_code }}"/>
+            <img src="{{ qr_code(cargo.qr_data) }}" alt="QR"/>
           {% endif %}
         </td>
       </tr>
@@ -1841,212 +1878,275 @@ _CARGO_LT_BODY_FR = """\
     <tfoot>
       <tr class="totals-row">
         <td colspan="5" style="text-align:right;">TOTAUX</td>
-        <td>{{ total_volume_m3 }} m³</td>
         <td></td>
         <td>{{ total_packages }}</td>
         <td>{{ total_weight_kg }} kg</td>
-        <td colspan="2"></td>
+        <td colspan="3"></td>
       </tr>
     </tfoot>
   </table>
+
+  <!-- ═══ SIGNATURES ═══ -->
+  <div class="sig-section">
+    <div class="sect-title">Signatures</div>
+    <div class="sig-grid">
+      <div class="sig-box">
+        <div class="lbl">Expediteur</div>
+        <div class="sig-line"></div>
+        <div class="sig-date">Date : ___/___/______</div>
+      </div>
+      <div class="sig-box">
+        <div class="lbl">Transporteur</div>
+        <div class="sig-line"></div>
+        <div class="sig-date">Date : ___/___/______</div>
+      </div>
+      <div class="sig-box">
+        <div class="lbl">Destinataire</div>
+        <div class="sig-line"></div>
+        <div class="sig-date">Date : ___/___/______</div>
+      </div>
+    </div>
   </div>
-  <div class="footer">
-    <span>Généré le {{ generated_at | default('--') }}</span>
-    <span>{{ entity.name | default('OpsFlux') }} · LT Cargo · exploitation PackLog</span>
+
+  <!-- ═══ FOOTER ═══ -->
+  <div class="doc-footer">
+    <span>Genere le {{ generated_at | default('--') }}</span>
+    <span>{{ entity.name | default('OpsFlux') }} -- Lettre de Transport -- PackLog</span>
   </div>
+  <div class="conditions">
+    Les marchandises voyagent aux risques et perils de l'expediteur. Le transporteur decline toute responsabilite en cas de
+    dommages resultant d'un emballage insuffisant ou d'une declaration inexacte. Ce document ne constitue pas un titre de propriete.
   </div>
-</body>
-</html>"""
+
+</div>"""
 
 _CARGO_LT_BODY_EN = """\
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10pt; color: #122033; }
-  .document { width: 100%; }
-  .hero { border: 1px solid #d8e1eb; border-radius: 14px; overflow: hidden; margin-bottom: 14px; }
-  .hero-top { background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%); color: white; padding: 16px 18px; display: flex; justify-content: space-between; gap: 16px; }
-  .hero-title { font-size: 18pt; font-weight: 800; letter-spacing: 0.02em; }
-  .hero-subtitle { font-size: 9pt; opacity: 0.82; margin-top: 4px; }
-  .hero-ref { text-align: right; min-width: 180px; }
-  .hero-ref .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.18em; opacity: 0.72; }
-  .hero-ref .value { font-size: 16pt; font-weight: 800; margin-top: 3px; }
-  .hero-body { display: flex; gap: 18px; padding: 16px 18px; background: #f8fafc; }
-  .hero-main { flex: 1; }
-  .hero-side { width: 148px; border-left: 1px dashed #cbd5e1; padding-left: 18px; text-align: center; }
-  .hero-side img { width: 118px; height: 118px; object-fit: contain; }
-  .hero-side .scan { font-size: 7pt; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.12em; color: #475569; }
-  .status-line { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
-  .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
-  .badge-ready { background: #dcfce7; color: #166534; }
-  .badge-pending { background: #fef3c7; color: #92400e; }
-  .badge-status { background: #dbeafe; color: #1d4ed8; }
-  .badge-hazmat { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
-  .metrics { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-  .metric { min-width: 100px; flex: 1; background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }
-  .metric .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.14em; color: #64748b; }
-  .metric .value { margin-top: 4px; font-size: 14pt; font-weight: 800; color: #0f172a; }
-  .addr-grid { display: flex; gap: 14px; margin-bottom: 14px; }
-  .addr-block { flex: 1; padding: 12px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
-  .addr-block .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.14em; color: #64748b; margin-bottom: 6px; font-weight: 700; }
-  .addr-block .name { font-size: 10pt; font-weight: 800; color: #0f172a; }
-  .addr-block .addr { font-size: 8.5pt; color: #334155; white-space: pre-line; margin-top: 4px; line-height: 1.4; }
-  .addr-block .contact { font-size: 8pt; color: #475569; margin-top: 6px; }
-  .meta-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
-  .meta-item { flex: 1; min-width: 170px; padding: 10px 12px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
-  .meta-item .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.12em; color: #64748b; }
-  .meta-item .value { font-size: 10pt; font-weight: 700; margin-top: 4px; }
-  .transport-bar { display: flex; gap: 10px; margin-bottom: 14px; padding: 10px 14px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; }
-  .transport-bar .item { flex: 1; }
-  .transport-bar .label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.12em; color: #1e40af; }
-  .transport-bar .value { font-size: 10pt; font-weight: 700; color: #1e3a5f; margin-top: 2px; }
-  .section { margin-bottom: 14px; }
-  .section-title { font-size: 9pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em; color: #0f172a; margin-bottom: 8px; }
-  .description { padding: 12px 14px; background: #f8fafc; border: 1px solid #d8e1eb; border-radius: 10px; white-space: pre-wrap; line-height: 1.45; }
-  .requirements { margin-top: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid #e5e7eb; background: white; }
-  .requirements .line { font-size: 8pt; color: #475569; margin-top: 4px; }
-  .hazmat-banner { padding: 8px 12px; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
-  .hazmat-banner .icon { font-size: 14pt; }
-  .hazmat-banner .text { font-size: 8.5pt; font-weight: 700; color: #991b1b; text-transform: uppercase; letter-spacing: 0.08em; }
-  table { width: 100%; border-collapse: collapse; }
-  th { background: #0f172a; color: #fff; text-align: left; padding: 6px 6px; font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.10em; }
-  td { padding: 6px 6px; border-bottom: 1px solid #dbe4ee; font-size: 8pt; vertical-align: top; }
-  tr:nth-child(even) { background: #f8fafc; }
-  .mono { font-family: 'Courier New', monospace; font-size: 7.5pt; }
-  .mini-qr img { width: 40px; height: 40px; object-fit: contain; }
-  .status-chip { display: inline-block; padding: 2px 6px; border-radius: 999px; font-size: 6.5pt; font-weight: 700; background: #e2e8f0; color: #334155; }
-  .hazmat-chip { display: inline-block; padding: 2px 6px; border-radius: 999px; font-size: 6.5pt; font-weight: 700; background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
-  .dim { font-size: 7pt; color: #64748b; }
-  .totals-row td { font-weight: 800; background: #f1f5f9; border-top: 2px solid #0f172a; }
-  .footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #cbd5e1; font-size: 7pt; color: #64748b; display: flex; justify-content: space-between; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 9pt; color: #111; }
+  .doc { width: 100%; }
+
+  /* ── Header band ── */
+  .header-band { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 10px; }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo-placeholder { width: 48px; height: 48px; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 7pt; color: #999; text-align: center; }
+  .header-title-block {}
+  .header-title { font-size: 14pt; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #111; }
+  .header-org { font-size: 8pt; color: #555; margin-top: 2px; }
+  .header-right { text-align: right; display: flex; gap: 14px; align-items: flex-start; }
+  .header-ref { text-align: right; }
+  .header-ref .lbl { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.10em; color: #666; }
+  .header-ref .val { font-size: 12pt; font-weight: 700; color: #111; margin-top: 1px; }
+  .header-date { font-size: 8pt; color: #333; margin-top: 2px; }
+  .header-qr { width: 58px; }
+  .header-qr img { width: 54px; height: 54px; }
+  .header-qr .qr-lbl { font-size: 6pt; color: #666; text-align: center; margin-top: 2px; }
+
+  /* ── Status line ── */
+  .status-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; font-size: 8pt; }
+  .status-tag { display: inline-block; padding: 2px 7px; border: 1px solid #333; font-weight: 700; text-transform: uppercase; font-size: 7pt; letter-spacing: 0.04em; }
+  .status-tag.hazmat { border-color: #111; background: #111; color: #fff; }
+
+  /* ── Two-column address blocks ── */
+  .addr-row { display: flex; gap: 0; margin-bottom: 10px; }
+  .addr-box { flex: 1; border: 1px solid #333; padding: 8px 10px; }
+  .addr-box + .addr-box { border-left: none; }
+  .addr-box .lbl { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.10em; color: #666; font-weight: 700; margin-bottom: 4px; }
+  .addr-box .name { font-size: 9pt; font-weight: 700; color: #111; }
+  .addr-box .detail { font-size: 8pt; color: #333; white-space: pre-line; margin-top: 3px; line-height: 1.35; }
+
+  /* ── Info grid ── */
+  .info-grid { display: flex; flex-wrap: wrap; gap: 0; margin-bottom: 10px; }
+  .info-cell { flex: 1; min-width: 120px; border: 1px solid #333; padding: 5px 8px; margin-right: -1px; margin-bottom: -1px; }
+  .info-cell .lbl { font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.08em; color: #666; }
+  .info-cell .val { font-size: 9pt; font-weight: 700; color: #111; margin-top: 2px; }
+
+  /* ── Transport section ── */
+  .transport-section { margin-bottom: 10px; }
+  .transport-grid { display: flex; gap: 0; }
+  .transport-cell { flex: 1; border: 1px solid #333; padding: 5px 8px; margin-right: -1px; }
+  .transport-cell .lbl { font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.08em; color: #666; }
+  .transport-cell .val { font-size: 9pt; font-weight: 700; color: #111; margin-top: 2px; }
+
+  /* ── Section titles ── */
+  .sect-title { font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.10em; color: #111; border-bottom: 1px solid #333; padding-bottom: 3px; margin-bottom: 6px; margin-top: 10px; }
+
+  /* ── Description ── */
+  .desc-block { font-size: 8pt; color: #333; white-space: pre-wrap; line-height: 1.4; padding: 6px 0; border-bottom: 1px solid #ccc; margin-bottom: 6px; }
+  .req-block { margin-top: 4px; font-size: 7.5pt; color: #333; }
+  .req-block strong { font-size: 7.5pt; }
+  .req-block .line { margin-top: 2px; }
+
+  /* ── HAZMAT warning ── */
+  .hazmat-warn { border: 2px solid #111; padding: 5px 8px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .hazmat-warn .icon { font-size: 12pt; }
+  .hazmat-warn .text { font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* ── Cargo table ── */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+  th { background: #f0f0f0; color: #111; text-align: left; padding: 4px 5px; font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; border: 1px solid #333; }
+  td { padding: 4px 5px; border: 1px solid #999; font-size: 7.5pt; vertical-align: top; color: #111; }
+  tr:nth-child(even) td { background: #f8f8f8; }
+  .mono { font-family: 'Courier New', monospace; font-size: 7pt; }
+  .mini-qr img { width: 32px; height: 32px; }
+  .status-chip { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; }
+  .hazmat-flag { font-size: 6.5pt; font-weight: 700; border: 1px solid #111; padding: 1px 4px; margin-left: 3px; }
+  .dim { font-size: 6.5pt; color: #555; }
+  .totals-row td { font-weight: 700; background: #f0f0f0; border-top: 2px solid #111; font-size: 8pt; }
+
+  /* ── Totals summary ── */
+  .totals-summary { display: flex; gap: 0; margin-bottom: 12px; }
+  .totals-summary .cell { flex: 1; border: 1px solid #333; padding: 5px 8px; margin-right: -1px; text-align: center; }
+  .totals-summary .cell .lbl { font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.08em; color: #666; }
+  .totals-summary .cell .val { font-size: 11pt; font-weight: 700; color: #111; margin-top: 2px; }
+
+  /* ── Signatures ── */
+  .sig-section { margin-top: 16px; page-break-inside: avoid; }
+  .sig-grid { display: flex; gap: 0; }
+  .sig-box { flex: 1; border: 1px solid #333; padding: 8px 10px; margin-right: -1px; min-height: 70px; }
+  .sig-box .lbl { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.08em; color: #666; font-weight: 700; margin-bottom: 4px; }
+  .sig-box .sig-line { border-bottom: 1px solid #999; margin-top: 36px; margin-bottom: 4px; }
+  .sig-box .sig-date { font-size: 7pt; color: #666; }
+
+  /* ── Footer ── */
+  .doc-footer { margin-top: 10px; padding-top: 6px; border-top: 1px solid #333; font-size: 6.5pt; color: #666; display: flex; justify-content: space-between; }
+  .conditions { margin-top: 8px; font-size: 6pt; color: #999; line-height: 1.3; border-top: 1px solid #ccc; padding-top: 4px; }
 </style>
-</head>
-<body>
-  <div class="document">
-  <div class="hero">
-    <div class="hero-top">
-      <div>
-        <div class="hero-title">TRANSPORT LETTER</div>
-        <div class="hero-subtitle">{{ entity.name | default('OpsFlux') }} · PackLog logistics dossier</div>
-      </div>
-      <div class="hero-ref">
-        <div class="label">LT reference</div>
-        <div class="value">{{ request_code }}</div>
+
+<div class="doc">
+
+  <!-- ═══ HEADER ═══ -->
+  <div class="header-band">
+    <div class="header-left">
+      <div class="logo-placeholder">LOGO</div>
+      <div class="header-title-block">
+        <div class="header-title">Transport Letter</div>
+        <div class="header-org">{{ entity.name | default('OpsFlux') }}</div>
       </div>
     </div>
-    <div class="hero-body">
-      <div class="hero-main">
-        <div class="status-line">
-          <span class="badge badge-status">{{ request_status }}</span>
-          {% if request_ready %}
-            <span class="badge badge-ready">Complete file</span>
-          {% else %}
-            <span class="badge badge-pending">File to complete</span>
-          {% endif %}
-          {% if has_hazmat %}
-            <span class="badge badge-hazmat">HAZMAT</span>
-          {% endif %}
-        </div>
-        <div class="metrics">
-          <div class="metric"><div class="label">Cargo items</div><div class="value">{{ total_cargo_items }}</div></div>
-          <div class="metric"><div class="label">Total weight</div><div class="value">{{ total_weight_kg }} kg</div></div>
-          <div class="metric"><div class="label">Total volume</div><div class="value">{{ total_volume_m3 }} m³</div></div>
-          <div class="metric"><div class="label">Packages</div><div class="value">{{ total_packages }}</div></div>
-          <div class="metric"><div class="label">Delivered</div><div class="value">{{ status_breakdown.delivered_final | default(0) }}</div></div>
-        </div>
-        <div class="meta-grid">
-          <div class="meta-item"><div class="label">Title</div><div class="value">{{ request_title }}</div></div>
-          <div class="meta-item"><div class="label">Requester</div><div class="value">{{ requester_name | default('--') }}</div></div>
-          <div class="meta-item"><div class="label">Imputation</div><div class="value">{{ imputation_reference | default('--') }}</div></div>
-        </div>
+    <div class="header-right">
+      <div class="header-ref">
+        <div class="lbl">LT Ref.</div>
+        <div class="val">{{ request_code }}</div>
+        <div class="header-date">{{ generated_at | default('--') }}</div>
       </div>
-      <div class="hero-side">
-        {% if request_qr_data or request_code %}
-          <img src="{{ qr_code(request_qr_data | default(request_code)) }}" alt="LT QR"/>
-          <div class="scan">Scan to open this request in PackLog</div>
-        {% endif %}
+      {% if request_qr_data or request_code %}
+      <div class="header-qr">
+        <img src="{{ qr_code(request_qr_data | default(request_code)) }}" alt="QR"/>
+        <div class="qr-lbl">SCAN</div>
       </div>
+      {% endif %}
     </div>
   </div>
-  <div class="addr-grid">
-    <div class="addr-block">
-      <div class="label">Sender</div>
+
+  <!-- ═══ STATUS ═══ -->
+  <div class="status-row">
+    <span class="status-tag">{{ request_status }}</span>
+    {% if request_ready %}
+      <span class="status-tag">COMPLETE</span>
+    {% else %}
+      <span class="status-tag">INCOMPLETE</span>
+    {% endif %}
+    {% if has_hazmat %}
+      <span class="status-tag hazmat">HAZMAT</span>
+    {% endif %}
+  </div>
+
+  <!-- ═══ SENDER / RECEIVER ═══ -->
+  <div class="addr-row">
+    <div class="addr-box">
+      <div class="lbl">Sender</div>
       <div class="name">{{ sender_name | default('--') }}</div>
-      {% if sender_address %}
-        <div class="addr">{{ sender_address }}</div>
-      {% endif %}
-      {% if sender_contact_name %}
-        <div class="contact">Contact: {{ sender_contact_name }}</div>
-      {% endif %}
+      {% if sender_address %}<div class="detail">{{ sender_address }}</div>{% endif %}
+      {% if sender_contact_name %}<div class="detail">Contact: {{ sender_contact_name }}</div>{% endif %}
     </div>
-    <div class="addr-block">
-      <div class="label">Receiver</div>
+    <div class="addr-box">
+      <div class="lbl">Receiver</div>
       <div class="name">{{ receiver_name | default('--') }}</div>
-      {% if destination_name %}
-        <div class="addr">{{ destination_name }}</div>
+      {% if destination_name %}<div class="detail">{{ destination_name }}</div>{% endif %}
+    </div>
+  </div>
+
+  <!-- ═══ FILE INFO ═══ -->
+  <div class="info-grid">
+    <div class="info-cell"><div class="lbl">Title</div><div class="val">{{ request_title }}</div></div>
+    <div class="info-cell"><div class="lbl">Requester</div><div class="val">{{ requester_name | default('--') }}</div></div>
+    <div class="info-cell"><div class="lbl">Imputation</div><div class="val">{{ imputation_reference | default('--') }}</div></div>
+  </div>
+
+  <!-- ═══ TRANSPORT ═══ -->
+  {% if transport_voyage_code %}
+  <div class="transport-section">
+    <div class="sect-title">Transport</div>
+    <div class="transport-grid">
+      <div class="transport-cell"><div class="lbl">Voyage code</div><div class="val">{{ transport_voyage_code }}</div></div>
+      {% if transport_vector_name %}
+        <div class="transport-cell"><div class="lbl">Vector</div><div class="val">{{ transport_vector_name }}</div></div>
+      {% endif %}
+      {% if transport_vector_registration %}
+        <div class="transport-cell"><div class="lbl">Registration</div><div class="val">{{ transport_vector_registration }}</div></div>
       {% endif %}
     </div>
   </div>
-  {% if transport_voyage_code %}
-  <div class="transport-bar">
-    <div class="item"><div class="label">Voyage</div><div class="value">{{ transport_voyage_code }}</div></div>
-    {% if transport_vector_name %}
-      <div class="item"><div class="label">Vector</div><div class="value">{{ transport_vector_name }}</div></div>
-    {% endif %}
-    {% if transport_vector_registration %}
-      <div class="item"><div class="label">Registration</div><div class="value">{{ transport_vector_registration }}</div></div>
-    {% endif %}
-  </div>
   {% endif %}
+
+  <!-- ═══ HAZMAT ═══ -->
   {% if has_hazmat %}
-  <div class="hazmat-banner">
+  <div class="hazmat-warn">
     <div class="icon">&#9888;</div>
-    <div class="text">This shipment contains hazardous materials (HAZMAT) — handle with care</div>
+    <div class="text">Hazardous materials (HAZMAT) -- handle with care</div>
   </div>
   {% endif %}
-  <div class="section">
-    <div class="section-title">Operational instructions</div>
-    <div class="description">{{ description | default('--') }}</div>
-    {% if request_missing_requirements and request_missing_requirements|length > 0 %}
-      <div class="requirements">
-        <strong>Open completion points</strong>
-        {% for item in request_missing_requirements %}
-          <div class="line">• {{ item }}</div>
-        {% endfor %}
-      </div>
-    {% endif %}
+
+  <!-- ═══ INSTRUCTIONS ═══ -->
+  <div class="sect-title">Instructions</div>
+  <div class="desc-block">{{ description | default('--') }}</div>
+  {% if request_missing_requirements and request_missing_requirements|length > 0 %}
+    <div class="req-block">
+      <strong>Open items:</strong>
+      {% for item in request_missing_requirements %}
+        <div class="line">- {{ item }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- ═══ SUMMARY ═══ -->
+  <div class="sect-title">Summary</div>
+  <div class="totals-summary">
+    <div class="cell"><div class="lbl">Cargo items</div><div class="val">{{ total_cargo_items }}</div></div>
+    <div class="cell"><div class="lbl">Packages</div><div class="val">{{ total_packages }}</div></div>
+    <div class="cell"><div class="lbl">Total weight</div><div class="val">{{ total_weight_kg }} kg</div></div>
+    <div class="cell"><div class="lbl">Total volume</div><div class="val">{{ total_volume_m3 }} m&sup3;</div></div>
+    <div class="cell"><div class="lbl">Delivered</div><div class="val">{{ status_breakdown.delivered_final | default(0) }}</div></div>
   </div>
-  <div class="section">
-    <div class="section-title">Linked cargo items</div>
-    <table>
+
+  <!-- ═══ CARGO TABLE ═══ -->
+  <div class="sect-title">Cargo details</div>
+  <table>
     <thead>
       <tr>
-        <th>#</th>
+        <th style="width:20px;">#</th>
         <th>Tracking</th>
         <th>Description</th>
         <th>Type</th>
-        <th>Dimensions (L×W×H)</th>
-        <th>Vol.</th>
+        <th>Dimensions (LxWxH)</th>
         <th>Unit wt.</th>
         <th>Pkgs</th>
         <th>Total wt.</th>
+        <th>HAZMAT</th>
         <th>Status</th>
-        <th>QR</th>
+        <th style="width:36px;">QR</th>
       </tr>
     </thead>
     <tbody>
       {% for cargo in cargo_items %}
       <tr>
         <td>{{ loop.index }}</td>
-        <td><div class="mono">{{ cargo.tracking_code }}</div></td>
+        <td><span class="mono">{{ cargo.tracking_code }}</span></td>
         <td>
           {{ cargo.designation | default(cargo.description) }}
-          {% if cargo.is_hazmat %}<span class="hazmat-chip">HAZMAT</span>{% endif %}
           {% if cargo.pickup_contact_name %}
-            <div class="dim">Pickup: {{ cargo.pickup_contact_name }}{% if cargo.pickup_contact_phone %} · {{ cargo.pickup_contact_phone }}{% endif %}</div>
+            <div class="dim">Pickup: {{ cargo.pickup_contact_name }}{% if cargo.pickup_contact_phone %} / {{ cargo.pickup_contact_phone }}{% endif %}</div>
           {% endif %}
           {% if cargo.pickup_location %}
             <div class="dim">Location: {{ cargo.pickup_location }}</div>
@@ -2055,19 +2155,18 @@ _CARGO_LT_BODY_EN = """\
         <td>{{ cargo.cargo_type | default('--') }}</td>
         <td>
           {% if cargo.length_cm and cargo.width_cm and cargo.height_cm %}
-            <span class="dim">{{ cargo.length_cm }}×{{ cargo.width_cm }}×{{ cargo.height_cm }} cm</span>
-          {% else %}
-            <span class="dim">--</span>
-          {% endif %}
+            {{ cargo.length_cm }}x{{ cargo.width_cm }}x{{ cargo.height_cm }} cm
+            {% if cargo.volume_m3 %}<div class="dim">{{ cargo.volume_m3 }} m&sup3;</div>{% endif %}
+          {% else %}--{% endif %}
         </td>
-        <td>{% if cargo.volume_m3 %}{{ cargo.volume_m3 }} m³{% else %}--{% endif %}</td>
         <td>{{ cargo.weight_kg }} kg</td>
         <td>{{ cargo.package_count | default('--') }}</td>
         <td>{{ cargo.weight_subtotal }} kg</td>
+        <td>{% if cargo.is_hazmat %}<span class="hazmat-flag">YES</span>{% else %}--{% endif %}</td>
         <td><span class="status-chip">{{ cargo.status_label | default(cargo.status) }}</span></td>
         <td class="mini-qr">
           {% if cargo.qr_data %}
-            <img src="{{ qr_code(cargo.qr_data) }}" alt="QR {{ cargo.tracking_code }}"/>
+            <img src="{{ qr_code(cargo.qr_data) }}" alt="QR"/>
           {% endif %}
         </td>
       </tr>
@@ -2076,22 +2175,47 @@ _CARGO_LT_BODY_EN = """\
     <tfoot>
       <tr class="totals-row">
         <td colspan="5" style="text-align:right;">TOTALS</td>
-        <td>{{ total_volume_m3 }} m³</td>
         <td></td>
         <td>{{ total_packages }}</td>
         <td>{{ total_weight_kg }} kg</td>
-        <td colspan="2"></td>
+        <td colspan="3"></td>
       </tr>
     </tfoot>
   </table>
+
+  <!-- ═══ SIGNATURES ═══ -->
+  <div class="sig-section">
+    <div class="sect-title">Signatures</div>
+    <div class="sig-grid">
+      <div class="sig-box">
+        <div class="lbl">Sender</div>
+        <div class="sig-line"></div>
+        <div class="sig-date">Date: ___/___/______</div>
+      </div>
+      <div class="sig-box">
+        <div class="lbl">Carrier</div>
+        <div class="sig-line"></div>
+        <div class="sig-date">Date: ___/___/______</div>
+      </div>
+      <div class="sig-box">
+        <div class="lbl">Receiver</div>
+        <div class="sig-line"></div>
+        <div class="sig-date">Date: ___/___/______</div>
+      </div>
+    </div>
   </div>
-  <div class="footer">
+
+  <!-- ═══ FOOTER ═══ -->
+  <div class="doc-footer">
     <span>Generated on {{ generated_at | default('--') }}</span>
-    <span>{{ entity.name | default('OpsFlux') }} · Cargo LT · PackLog operations</span>
+    <span>{{ entity.name | default('OpsFlux') }} -- Transport Letter -- PackLog</span>
   </div>
+  <div class="conditions">
+    Goods travel at the sender's risk. The carrier declines all responsibility for damage resulting from
+    insufficient packaging or inaccurate declaration. This document does not constitute a title of ownership.
   </div>
-</body>
-</html>"""
+
+</div>"""
 
 # ── Patch default versions with actual HTML ──────────────────────────────
 # (Avoids forward-reference issues with the walrus operator placeholders above)

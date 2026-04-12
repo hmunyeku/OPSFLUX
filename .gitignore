@@ -49,6 +49,7 @@ coverage/
 /apps/main/playwright-report/
 /apps/main/blob-report/
 /apps/main/playwright/.cache/
+/apps/main/e2e/**/*-snapshots/
 
 # Alembic
 alembic/versions/__pycache__/

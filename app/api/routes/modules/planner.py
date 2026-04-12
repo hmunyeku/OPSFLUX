@@ -2955,7 +2955,7 @@ async def _build_scenario_read(db: AsyncSession, scenario: PlannerScenario) -> d
     promoter = await db.get(User, scenario.promoted_by) if scenario.promoted_by else None
 
     act_count_result = await db.execute(
-        select(func.count()).select_from(PlannerScenarioActivity)
+        select(sqla_func.count()).select_from(PlannerScenarioActivity)
         .where(PlannerScenarioActivity.scenario_id == scenario.id)
     )
     act_count = act_count_result.scalar() or 0
@@ -3077,7 +3077,7 @@ async def create_scenario(
 
     # Capture baseline snapshot — lightweight summary of current plan state
     act_count_result = await db.execute(
-        select(func.count()).select_from(PlannerActivity)
+        select(sqla_func.count()).select_from(PlannerActivity)
         .where(PlannerActivity.entity_id == entity_id, PlannerActivity.active == True)  # noqa: E712
     )
     total_activities = act_count_result.scalar() or 0

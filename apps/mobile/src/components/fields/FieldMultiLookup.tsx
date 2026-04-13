@@ -46,8 +46,8 @@ export default function FieldMultiLookup({ field, value, error, required, onChan
   const [selectedLabels, setSelectedLabels] = useState<Record<string, string>>({});
 
   const selected = Array.isArray(value) ? (value as string[]) : [];
-  const source = field.lookup_source;
-  if (!source) return null;
+  const source = field.lookup_source!;
+  if (!field.lookup_source) return null;
 
   const doSearch = useCallback(
     async (query: string) => {

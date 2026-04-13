@@ -1,32 +1,37 @@
 /**
- * Login screen — email + password, with optional MFA flow.
- * Also includes a server URL field for on-prem deployments.
+ * LoginScreen — sober, professional login.
+ *
+ * Clean white background, typography-driven, minimal visuals.
+ * Inspired by Linear/Stripe auth screens.
  */
 
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from "react-native";
-import { colors } from "../utils/colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Button, Text, TextInput } from "react-native-paper";
+import { Ionicons } from "@expo/vector-icons";
 import { login, verifyMfa } from "../services/auth";
 import { useAuthStore } from "../stores/auth";
 import { setBaseUrl } from "../services/api";
+import { colors } from "../utils/colors";
+import { radius, spacing, typography } from "../utils/design";
 
 export default function LoginScreen() {
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [serverUrl, setServerUrl] = useState(useAuthStore.getState().baseUrl);
   const [showServerField, setShowServerField] = useState(false);
 
-  // MFA state
   const [mfaRequired, setMfaRequired] = useState(false);
   const [mfaToken, setMfaToken] = useState("");
   const [mfaCode, setMfaCode] = useState("");
@@ -42,14 +47,12 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      // Apply custom server URL if changed
       if (serverUrl && serverUrl !== useAuthStore.getState().baseUrl) {
         setBaseUrl(serverUrl);
         storeSetBaseUrl(serverUrl);
       }
 
       const response = await login(email.trim(), password);
-
       if (response.mfa_required && response.mfa_token) {
         setMfaToken(response.mfa_token);
         setMfaRequired(true);
@@ -57,8 +60,7 @@ export default function LoginScreen() {
         setTokens(response.access_token, response.refresh_token);
       }
     } catch (err: any) {
-      const message =
-        err?.response?.data?.detail || "Identifiants incorrects.";
+      const message = err?.response?.data?.detail || "Identifiants incorrects.";
       Alert.alert("Erreur de connexion", message);
     } finally {
       setLoading(false);
@@ -70,7 +72,6 @@ export default function LoginScreen() {
       Alert.alert("Erreur", "Veuillez saisir le code MFA.");
       return;
     }
-
     setLoading(true);
     try {
       const response = await verifyMfa(mfaToken, mfaCode.trim());
@@ -87,46 +88,66 @@ export default function LoginScreen() {
     return (
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.container}
+        style={styles.root}
       >
-        <View style={styles.card}>
-          <Text style={styles.title}>Vérification MFA</Text>
-          <Text style={styles.subtitle}>
-            Saisissez le code depuis votre application d'authentification.
-          </Text>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingTop: insets.top + spacing["3xl"] },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.content}>
+            <Ionicons
+              name="shield-checkmark-outline"
+              size={40}
+              color={colors.primary}
+              style={{ marginBottom: spacing.lg }}
+            />
+            <Text style={styles.title}>Vérification en 2 étapes</Text>
+            <Text style={styles.subtitle}>
+              Saisissez le code à 6 chiffres depuis votre application d'authentification.
+            </Text>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Code à 6 chiffres"
-            placeholderTextColor={colors.textMuted}
-            value={mfaCode}
-            onChangeText={setMfaCode}
-            keyboardType="number-pad"
-            maxLength={6}
-            autoFocus
-          />
+            <TextInput
+              mode="outlined"
+              label="Code"
+              value={mfaCode}
+              onChangeText={setMfaCode}
+              keyboardType="number-pad"
+              maxLength={6}
+              autoFocus
+              style={styles.input}
+              contentStyle={styles.mfaInput}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+            />
 
-          <Pressable
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleMfaVerify}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={colors.textInverse} />
-            ) : (
-              <Text style={styles.buttonText}>Vérifier</Text>
-            )}
-          </Pressable>
+            <Button
+              mode="contained"
+              onPress={handleMfaVerify}
+              loading={loading}
+              disabled={loading || mfaCode.length < 6}
+              style={styles.primaryButton}
+              contentStyle={styles.primaryButtonContent}
+              labelStyle={styles.primaryButtonLabel}
+              buttonColor={colors.textPrimary}
+            >
+              Vérifier
+            </Button>
 
-          <Pressable
-            onPress={() => {
-              setMfaRequired(false);
-              setMfaCode("");
-            }}
-          >
-            <Text style={styles.link}>Retour</Text>
-          </Pressable>
-        </View>
+            <Pressable
+              onPress={() => {
+                setMfaRequired(false);
+                setMfaCode("");
+              }}
+              style={styles.link}
+            >
+              <Text style={styles.linkText}>Retour</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     );
   }
@@ -134,147 +155,162 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+      style={styles.root}
     >
-      <View style={styles.card}>
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>OpsFlux</Text>
-          <Text style={styles.logoSubtext}>Mobile</Text>
-        </View>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: insets.top + spacing["3xl"] },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.content}>
+          <View style={styles.brand}>
+            <Text style={styles.brandName}>OpsFlux</Text>
+            <Text style={styles.brandTagline}>Opérations terrain</Text>
+          </View>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor={colors.textMuted}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
+          <Text style={styles.title}>Connexion</Text>
+          <Text style={styles.subtitle}>
+            Accédez à votre espace OpsFlux
+          </Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Mot de passe"
-          placeholderTextColor={colors.textMuted}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-
-        {showServerField && (
           <TextInput
-            style={styles.input}
-            placeholder="URL du serveur"
-            placeholderTextColor={colors.textMuted}
-            value={serverUrl}
-            onChangeText={setServerUrl}
-            keyboardType="url"
+            mode="outlined"
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            style={styles.input}
+            outlineColor={colors.border}
+            activeOutlineColor={colors.primary}
           />
-        )}
 
-        <Pressable
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color={colors.textInverse} />
-          ) : (
-            <Text style={styles.buttonText}>Se connecter</Text>
+          <TextInput
+            mode="outlined"
+            label="Mot de passe"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            right={
+              <TextInput.Icon
+                icon={showPassword ? "eye-off-outline" : "eye-outline"}
+                onPress={() => setShowPassword((s) => !s)}
+              />
+            }
+            style={styles.input}
+            outlineColor={colors.border}
+            activeOutlineColor={colors.primary}
+          />
+
+          {showServerField && (
+            <TextInput
+              mode="outlined"
+              label="URL du serveur"
+              value={serverUrl}
+              onChangeText={setServerUrl}
+              keyboardType="url"
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.input}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.primary}
+            />
           )}
-        </Pressable>
 
-        <Pressable onPress={() => setShowServerField(!showServerField)}>
-          <Text style={styles.link}>
-            {showServerField ? "Masquer" : "Serveur personnalisé"}
-          </Text>
-        </Pressable>
-      </View>
+          <Button
+            mode="contained"
+            onPress={handleLogin}
+            loading={loading}
+            disabled={loading}
+            style={styles.primaryButton}
+            contentStyle={styles.primaryButtonContent}
+            labelStyle={styles.primaryButtonLabel}
+            buttonColor={colors.textPrimary}
+          >
+            Se connecter
+          </Button>
+
+          <Pressable
+            onPress={() => setShowServerField(!showServerField)}
+            style={styles.link}
+          >
+            <Text style={styles.linkText}>
+              {showServerField ? "Masquer le serveur" : "Serveur personnalisé"}
+            </Text>
+          </Pressable>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
+  root: { flex: 1, backgroundColor: colors.background },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing["2xl"],
   },
-  card: {
+  content: {
+    maxWidth: 420,
     width: "100%",
-    maxWidth: 400,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 32,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    alignSelf: "center",
   },
-  logoContainer: {
-    alignItems: "center",
-    marginBottom: 32,
+  brand: {
+    marginBottom: spacing["3xl"],
   },
-  logoText: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: colors.primary,
-    letterSpacing: 1,
+  brandName: {
+    ...typography.displayMd,
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
   },
-  logoSubtext: {
-    fontSize: 14,
+  brandTagline: {
+    ...typography.bodyMd,
     color: colors.textSecondary,
-    marginTop: 4,
+    marginTop: 2,
   },
   title: {
-    fontSize: 22,
-    fontWeight: "700",
+    ...typography.headlineLg,
     color: colors.textPrimary,
-    textAlign: "center",
-    marginBottom: 8,
+    marginBottom: spacing.xs,
   },
   subtitle: {
-    fontSize: 14,
+    ...typography.bodyMd,
     color: colors.textSecondary,
-    textAlign: "center",
-    marginBottom: 24,
+    marginBottom: spacing["2xl"],
   },
   input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: colors.textPrimary,
-    backgroundColor: colors.surfaceAlt,
-    marginBottom: 14,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
   },
-  button: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 16,
-    alignItems: "center",
-    marginTop: 8,
+  mfaInput: {
+    fontSize: 24,
+    letterSpacing: 6,
+    textAlign: "center",
   },
-  buttonDisabled: {
-    opacity: 0.6,
+  primaryButton: {
+    borderRadius: radius.base,
+    marginTop: spacing.md,
   },
-  buttonText: {
-    color: colors.textInverse,
-    fontSize: 16,
-    fontWeight: "600",
+  primaryButtonContent: {
+    paddingVertical: 6,
+  },
+  primaryButtonLabel: {
+    ...typography.titleMd,
+    color: "#ffffff",
   },
   link: {
-    color: colors.primaryLight,
-    textAlign: "center",
-    marginTop: 16,
-    fontSize: 14,
+    alignItems: "center",
+    marginTop: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  linkText: {
+    ...typography.bodyMd,
+    color: colors.textSecondary,
+    fontWeight: "600",
   },
 });

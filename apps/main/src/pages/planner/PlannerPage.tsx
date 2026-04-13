@@ -3448,11 +3448,11 @@ function ScenarioDetailPanel({ id }: { id: string }) {
     <DynamicPanelShell
       title={scenario.title}
       icon={<FlaskConical size={14} className="text-primary" />}
-      actions={actions}
+      actionItems={actions}
     >
       <PanelContentLayout>
         {/* ── Identity ── */}
-        <FormSection title="Identification" icon={<FlaskConical size={13} />}>
+        <FormSection title="Identification">
           {editing ? (
             <FormGrid>
               <DynamicPanelField label="Titre" required>
@@ -3472,11 +3472,11 @@ function ScenarioDetailPanel({ id }: { id: string }) {
             <DetailFieldGrid>
               <DetailRow label="Titre" value={scenario.title} />
               <DetailRow label="Description" value={scenario.description || '—'} />
-              <DetailRow label="Statut">
+              <DetailRow label="Statut" value={
                 <span className={cn('gl-badge text-[10px]', STATUS_BADGE[scenario.status] || 'gl-badge-neutral')}>
                   {STATUS_LABEL[scenario.status] || scenario.status}
                 </span>
-              </DetailRow>
+              } />
               <DetailRow label="Créé par" value={scenario.created_by_name || '—'} />
               <DetailRow label="Créé le" value={new Date(scenario.created_at).toLocaleDateString('fr-FR')} />
               {scenario.promoted_by_name && <DetailRow label="Promu par" value={scenario.promoted_by_name} />}
@@ -3493,18 +3493,18 @@ function ScenarioDetailPanel({ id }: { id: string }) {
 
         {/* ── Simulation results ── */}
         {sim && (
-          <FormSection title="Résultat simulation" icon={<BarChart3 size={13} />} defaultOpen>
+          <FormSection title="Résultat simulation" defaultExpanded>
             <DetailFieldGrid>
-              <DetailRow label="Jours de conflit" value={sim.conflict_days ?? '—'} />
-              <DetailRow label="Débordement max" value={sim.worst_overflow ?? '—'} />
-              {sim.total_pax != null && <DetailRow label="PAX total" value={sim.total_pax} />}
+              <DetailRow label="Jours de conflit" value={String(sim.conflict_days ?? '—')} />
+              <DetailRow label="Débordement max" value={String(sim.worst_overflow ?? '—')} />
+              {sim.total_pax != null && <DetailRow label="PAX total" value={String(sim.total_pax)} />}
               {sim.avg_occupancy != null && <DetailRow label="Occupation moy." value={`${Math.round(sim.avg_occupancy * 100)}%`} />}
             </DetailFieldGrid>
           </FormSection>
         )}
 
         {/* ── Proposed activities ── */}
-        <FormSection title={`Activités proposées (${activities.length})`} icon={<ListTodo size={13} />} defaultOpen>
+        <FormSection title={`Activités proposées (${activities.length})`} defaultExpanded>
           {activities.length === 0 ? (
             <p className="text-xs text-muted-foreground py-3 text-center">Aucune activité proposée</p>
           ) : (
@@ -3518,10 +3518,10 @@ function ScenarioDetailPanel({ id }: { id: string }) {
                     {!act.source_activity_id && !act.is_removed && <span className="gl-badge gl-badge-info text-[9px]">Nouvelle</span>}
                   </div>
                   <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground">
-                    {act.asset_name && <span>{act.asset_name as string}</span>}
-                    {act.type && <span>{act.type as string}</span>}
-                    {act.start_date && <span>{act.start_date as string} → {act.end_date as string}</span>}
-                    {act.pax_quota != null && <span>{act.pax_quota as number} PAX</span>}
+                    {act.asset_name && <span>{String(act.asset_name)}</span>}
+                    {act.type && <span>{String(act.type)}</span>}
+                    {act.start_date && <span>{String(act.start_date)} → {String(act.end_date)}</span>}
+                    {act.pax_quota != null && <span>{String(act.pax_quota)} PAX</span>}
                   </div>
                 </div>
               ))}

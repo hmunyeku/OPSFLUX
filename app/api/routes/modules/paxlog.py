@@ -1668,11 +1668,24 @@ async def _promote_waitlisted_ads_pax_if_capacity_available(
 
 
 async def _get_ads_workflow_definition(db: AsyncSession, *, entity_id: UUID) -> WorkflowDefinition | None:
-    return await fsm_service.get_definition(
-        db,
-        workflow_slug=ADS_WORKFLOW_SLUG,
-        entity_id_scope=entity_id,
-    )
+    try:
+        return await fsm_service.get_definition(
+            db,
+            workflow_slug=ADS_WORKFLOW_SLUG,
+            entity_id_scope=entity_id,
+        )
+    except Exception:
+        # Multiple definitions (e.g. published + draft clone) — fall back to
+        # querying the published one directly.
+        from sqlalchemy import select
+        result = await db.execute(
+            select(WorkflowDefinition).where(
+                WorkflowDefinition.slug == ADS_WORKFLOW_SLUG,
+                WorkflowDefinition.entity_id == entity_id,
+                WorkflowDefinition.status == "published",
+            ).order_by(WorkflowDefinition.version.desc()).limit(1)
+        )
+        return result.scalar_one_or_none()
 
 
 async def _resolve_ads_auto_transition(

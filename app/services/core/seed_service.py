@@ -67,6 +67,11 @@ def _default_workflow_definitions() -> list[dict]:
             ],
             "transitions": [
                 {"from": "draft", "to": "submitted", "label": "Soumettre", "required_permission": "paxlog.ads.submit"},
+                {"from": "draft", "to": "pending_compliance", "label": "Soumettre (compliance)", "required_permission": "paxlog.ads.submit"},
+                {"from": "draft", "to": "pending_validation", "label": "Soumettre (validation)", "required_permission": "paxlog.ads.submit"},
+                {"from": "draft", "to": "pending_initiator_review", "label": "Soumettre (initiateur)", "required_permission": "paxlog.ads.submit"},
+                {"from": "draft", "to": "pending_project_review", "label": "Soumettre (projet)", "required_permission": "paxlog.ads.submit"},
+                {"from": "draft", "to": "pending_arbitration", "label": "Soumettre (arbitrage)", "required_permission": "paxlog.ads.submit"},
                 {"from": "draft", "to": "cancelled", "label": "Annuler", "required_permission": "paxlog.ads.cancel"},
                 {
                     "from": "submitted",
@@ -133,6 +138,10 @@ def _default_workflow_definitions() -> list[dict]:
                 {"from": "in_progress", "to": "completed", "label": "Terminer", "required_permission": "paxlog.ads.approve"},
                 {"from": "in_progress", "to": "requires_review", "label": "Demander révision"},
                 {"from": "requires_review", "to": "pending_compliance", "label": "Re-soumettre", "required_permission": "paxlog.ads.submit"},
+                {"from": "requires_review", "to": "pending_validation", "label": "Re-soumettre (validation)", "required_permission": "paxlog.ads.submit"},
+                {"from": "requires_review", "to": "pending_initiator_review", "label": "Re-soumettre (initiateur)", "required_permission": "paxlog.ads.submit"},
+                {"from": "requires_review", "to": "pending_project_review", "label": "Re-soumettre (projet)", "required_permission": "paxlog.ads.submit"},
+                {"from": "requires_review", "to": "pending_arbitration", "label": "Re-soumettre (arbitrage)", "required_permission": "paxlog.ads.submit"},
                 {"from": "requires_review", "to": "cancelled", "label": "Annuler", "required_permission": "paxlog.ads.cancel"},
                 {"from": "requires_review", "to": "submitted", "label": "Re-soumettre à l'étape nominale", "required_permission": "paxlog.ads.submit"},
             ],

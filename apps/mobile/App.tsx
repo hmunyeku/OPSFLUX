@@ -72,30 +72,42 @@ export default function App() {
 
   useEffect(() => {
     async function init() {
-      await restoreAuth();
-      startConnectivityMonitor();
-
-      // Register push after auth restore
-      if (useAuthStore.getState().isAuthenticated) {
-        registerForPushNotifications();
+      try {
+        await restoreAuth();
+      } catch (err) {
+        if (__DEV__) console.warn("[App] restoreAuth failed:", err);
       }
-
+      try {
+        startConnectivityMonitor();
+      } catch (err) {
+        if (__DEV__) console.warn("[App] connectivity monitor failed:", err);
+      }
+      // Register push after auth restore (best-effort, never blocks)
+      if (useAuthStore.getState().isAuthenticated) {
+        registerForPushNotifications().catch(() => {});
+      }
       setInitializing(false);
     }
     init();
-    return () => stopConnectivityMonitor();
+    return () => {
+      try {
+        stopConnectivityMonitor();
+      } catch {}
+    };
   }, []);
 
   // Refresh data when app comes back from background
   useAppLifecycle();
 
-  // Persist auth whenever tokens change
+  // Persist auth whenever access token changes
   useEffect(() => {
-    const unsub = useAuthStore.subscribe((state, prev) => {
-      if (state.accessToken !== prev.accessToken) {
+    let lastToken = useAuthStore.getState().accessToken;
+    const unsub = useAuthStore.subscribe((state) => {
+      if (state.accessToken !== lastToken) {
+        lastToken = state.accessToken;
         if (state.accessToken) {
           persistAuth();
-          registerForPushNotifications();
+          registerForPushNotifications().catch(() => {});
         }
       }
     });

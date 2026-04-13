@@ -17,6 +17,11 @@ import './lib/i18n'
 // Initialize offline queue auto-sync listeners
 import '@/lib/offlineQueue'
 
+// Auto-reload when a stale chunk 404s after a redeployment
+window.addEventListener('vite:preloadError', () => {
+  window.location.reload()
+})
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>

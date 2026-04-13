@@ -1153,8 +1153,7 @@ async def list_conflicts(
         d["activity_titles"] = activity_titles
         return d
 
-    from sqlalchemy import func as sql_func
-    count_query = select(sql_func.count()).select_from(query.subquery())
+    count_query = select(sqla_func.count()).select_from(query.subquery())
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
 

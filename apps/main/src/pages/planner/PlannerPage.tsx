@@ -98,7 +98,9 @@ import {
   useDeleteRecurrence,
   useForecast,
   useScenarios,
+  useScenario,
   useCreateScenario,
+  useUpdateScenario,
   useDeleteScenario,
   useSimulateScenarioPersistent,
   usePromoteScenario,
@@ -3311,8 +3313,223 @@ export function PlannerPage() {
       )}
 
       {dynamicPanel?.module === 'planner' && dynamicPanel.type === 'create' && <CreateActivityPanel />}
-      {dynamicPanel?.module === 'planner' && dynamicPanel.type === 'detail' && 'id' in dynamicPanel && <ActivityDetailPanel id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'planner' && dynamicPanel.type === 'detail' && 'id' in dynamicPanel && dynamicPanel.meta?.subtype === 'scenario' && <ScenarioDetailPanel id={dynamicPanel.id} />}
+      {dynamicPanel?.module === 'planner' && dynamicPanel.type === 'detail' && 'id' in dynamicPanel && dynamicPanel.meta?.subtype !== 'scenario' && <ActivityDetailPanel id={dynamicPanel.id} />}
     </div>
+  )
+}
+
+// ── Scenario Detail Panel ─────────────────────────────────────
+
+function ScenarioDetailPanel({ id }: { id: string }) {
+  const { t } = useTranslation()
+  const { toast } = useToast()
+  const confirm = useConfirm()
+  const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const { data: scenario, isLoading, isError } = useScenario(id)
+  const updateScenario = useUpdateScenario()
+  const deleteScenario = useDeleteScenario()
+  const simulateScenario = useSimulateScenarioPersistent()
+  const promoteScenario = usePromoteScenario()
+  const { hasPermission } = usePermission()
+  const canPromote = hasPermission('planner.activity.create')
+
+  const [editing, setEditing] = useState(false)
+  const [editForm, setEditForm] = useState({ title: '', description: '' })
+
+  useEffect(() => {
+    if (isError && id) closeDynamicPanel()
+  }, [isError, id, closeDynamicPanel])
+
+  useEffect(() => {
+    if (scenario) {
+      setEditForm({ title: scenario.title || '', description: scenario.description || '' })
+    }
+  }, [scenario])
+
+  const handleSave = useCallback(async () => {
+    if (!editForm.title.trim()) return
+    try {
+      await updateScenario.mutateAsync({ id, payload: { title: editForm.title.trim(), description: editForm.description.trim() || undefined } })
+      setEditing(false)
+      toast({ title: 'Scénario mis à jour', variant: 'success' })
+    } catch {
+      toast({ title: t('planner.toast.error_generic'), variant: 'error' })
+    }
+  }, [id, editForm, updateScenario, toast])
+
+  const handleStatusChange = useCallback(async (newStatus: string) => {
+    try {
+      await updateScenario.mutateAsync({ id, payload: { status: newStatus } })
+      toast({ title: `Statut → ${newStatus}`, variant: 'success' })
+    } catch {
+      toast({ title: t('planner.toast.error_generic'), variant: 'error' })
+    }
+  }, [id, updateScenario, toast])
+
+  const handleSimulate = useCallback(async () => {
+    try {
+      await simulateScenario.mutateAsync(id)
+      toast({ title: t('planner.toast.simulation_done'), variant: 'success' })
+    } catch (err) {
+      toast({ title: t('planner.toast.simulation_failed'), description: extractApiError(err), variant: 'error' })
+    }
+  }, [id, simulateScenario, toast])
+
+  const handlePromote = useCallback(async () => {
+    const ok = await confirm({
+      title: 'Promouvoir ce scénario ?',
+      message: 'Les activités proposées seront converties en activités réelles. Cette action est irréversible.',
+      confirmLabel: 'Promouvoir',
+      variant: 'warning',
+    })
+    if (!ok) return
+    try {
+      const result = await promoteScenario.mutateAsync(id)
+      toast({
+        title: t('planner.toast.activities_promoted', { count: result.promoted_activity_count }),
+        variant: result.errors?.length > 0 ? 'error' : 'success',
+      })
+    } catch (err) {
+      toast({ title: t('planner.toast.promote_failed'), description: extractApiError(err), variant: 'error' })
+    }
+  }, [id, promoteScenario, confirm, toast])
+
+  const handleDelete = useCallback(async () => {
+    const ok = await confirm({ title: 'Supprimer ce scénario ?', message: 'Le scénario sera archivé.', confirmLabel: 'Supprimer', variant: 'danger' })
+    if (!ok) return
+    await deleteScenario.mutateAsync(id)
+    closeDynamicPanel()
+  }, [id, deleteScenario, confirm, closeDynamicPanel])
+
+  if (isLoading || !scenario) {
+    return (
+      <DynamicPanelShell title="Chargement..." icon={<FlaskConical size={14} className="text-primary" />}>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 size={16} className="animate-spin text-muted-foreground" />
+        </div>
+      </DynamicPanelShell>
+    )
+  }
+
+  const STATUS_BADGE: Record<string, string> = {
+    draft: 'gl-badge-neutral',
+    validated: 'gl-badge-info',
+    promoted: 'gl-badge-success',
+    archived: 'gl-badge-warning',
+  }
+  const STATUS_LABEL: Record<string, string> = {
+    draft: 'Brouillon',
+    validated: 'Validé',
+    promoted: 'Promu',
+    archived: 'Archivé',
+  }
+
+  const isPromoted = scenario.status === 'promoted'
+  const isArchived = scenario.status === 'archived'
+  const sim = scenario.last_simulation_result
+  const activities = scenario.proposed_activities ?? []
+
+  const actions: ActionItem[] = []
+  if (!isPromoted && !isArchived) {
+    actions.push({ id: 'simulate', label: 'Simuler', icon: FlaskConical, onClick: handleSimulate, disabled: simulateScenario.isPending })
+  }
+  if (scenario.status === 'draft') {
+    actions.push({ id: 'validate', label: 'Valider', icon: CheckCircle2, onClick: () => handleStatusChange('validated') })
+  }
+  if (scenario.status === 'validated' && canPromote) {
+    actions.push({ id: 'promote', label: 'Promouvoir', icon: TrendingUp, onClick: handlePromote, variant: 'primary' })
+  }
+  if (!isPromoted) {
+    actions.push({ id: 'delete', label: 'Supprimer', icon: Trash2, onClick: handleDelete, variant: 'danger' })
+  }
+
+  return (
+    <DynamicPanelShell
+      title={scenario.title}
+      icon={<FlaskConical size={14} className="text-primary" />}
+      actions={actions}
+    >
+      <PanelContentLayout>
+        {/* ── Identity ── */}
+        <FormSection title="Identification" icon={<FlaskConical size={13} />}>
+          {editing ? (
+            <FormGrid>
+              <DynamicPanelField label="Titre" required>
+                <input className={panelInputClass} value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} autoFocus />
+              </DynamicPanelField>
+              <DynamicPanelField label="Description" span="full">
+                <textarea className={cn(panelInputClass, 'min-h-[60px]')} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
+              </DynamicPanelField>
+              <div className="col-span-full flex gap-2 justify-end">
+                <button className="gl-button-sm gl-button-default" onClick={() => setEditing(false)}>Annuler</button>
+                <button className="gl-button-sm gl-button-confirm" onClick={handleSave} disabled={!editForm.title.trim() || updateScenario.isPending}>
+                  {updateScenario.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
+                </button>
+              </div>
+            </FormGrid>
+          ) : (
+            <DetailFieldGrid>
+              <DetailRow label="Titre" value={scenario.title} />
+              <DetailRow label="Description" value={scenario.description || '—'} />
+              <DetailRow label="Statut">
+                <span className={cn('gl-badge text-[10px]', STATUS_BADGE[scenario.status] || 'gl-badge-neutral')}>
+                  {STATUS_LABEL[scenario.status] || scenario.status}
+                </span>
+              </DetailRow>
+              <DetailRow label="Créé par" value={scenario.created_by_name || '—'} />
+              <DetailRow label="Créé le" value={new Date(scenario.created_at).toLocaleDateString('fr-FR')} />
+              {scenario.promoted_by_name && <DetailRow label="Promu par" value={scenario.promoted_by_name} />}
+              {scenario.promoted_at && <DetailRow label="Promu le" value={new Date(scenario.promoted_at).toLocaleDateString('fr-FR')} />}
+              {scenario.last_simulated_at && <DetailRow label="Dernière simulation" value={new Date(scenario.last_simulated_at).toLocaleString('fr-FR')} />}
+              {!isPromoted && !isArchived && (
+                <div className="col-span-full pt-1">
+                  <button className="text-xs text-primary hover:underline" onClick={() => setEditing(true)}>Modifier</button>
+                </div>
+              )}
+            </DetailFieldGrid>
+          )}
+        </FormSection>
+
+        {/* ── Simulation results ── */}
+        {sim && (
+          <FormSection title="Résultat simulation" icon={<BarChart3 size={13} />} defaultOpen>
+            <DetailFieldGrid>
+              <DetailRow label="Jours de conflit" value={sim.conflict_days ?? '—'} />
+              <DetailRow label="Débordement max" value={sim.worst_overflow ?? '—'} />
+              {sim.total_pax != null && <DetailRow label="PAX total" value={sim.total_pax} />}
+              {sim.avg_occupancy != null && <DetailRow label="Occupation moy." value={`${Math.round(sim.avg_occupancy * 100)}%`} />}
+            </DetailFieldGrid>
+          </FormSection>
+        )}
+
+        {/* ── Proposed activities ── */}
+        <FormSection title={`Activités proposées (${activities.length})`} icon={<ListTodo size={13} />} defaultOpen>
+          {activities.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-3 text-center">Aucune activité proposée</p>
+          ) : (
+            <div className="divide-y divide-border">
+              {activities.map((act: Record<string, unknown>) => (
+                <div key={act.id as string} className="py-2 px-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-foreground">{(act.title as string) || (act.source_activity_title as string) || '—'}</span>
+                    {act.is_removed && <span className="gl-badge gl-badge-danger text-[9px]">Supprimée</span>}
+                    {act.source_activity_id && !act.is_removed && <span className="gl-badge gl-badge-neutral text-[9px]">Modifiée</span>}
+                    {!act.source_activity_id && !act.is_removed && <span className="gl-badge gl-badge-info text-[9px]">Nouvelle</span>}
+                  </div>
+                  <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground">
+                    {act.asset_name && <span>{act.asset_name as string}</span>}
+                    {act.type && <span>{act.type as string}</span>}
+                    {act.start_date && <span>{act.start_date as string} → {act.end_date as string}</span>}
+                    {act.pax_quota != null && <span>{act.pax_quota as number} PAX</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </FormSection>
+      </PanelContentLayout>
+    </DynamicPanelShell>
   )
 }
 

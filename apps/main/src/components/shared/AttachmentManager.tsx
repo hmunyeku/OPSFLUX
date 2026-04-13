@@ -267,19 +267,7 @@ export function AttachmentManager({ ownerType, ownerId, compact, initialShowForm
               </div>
             )}
 
-            {/* Auto-expand image thumbnails for images */}
-            {!isExpanded && IMAGE_TYPES.includes(baseContentType(att.content_type)) && (
-              <div
-                className="px-3 pb-2 cursor-pointer"
-                onClick={() => togglePreview(att.id)}
-              >
-                <AuthMediaPreview
-                  src={`/api/v1/attachments/${att.id}/download`}
-                  contentType={att.content_type}
-                  name={att.original_name}
-                />
-              </div>
-            )}
+            {/* Image thumbnail — only when explicitly expanded */}
           </div>
         )
       })}

@@ -1,0 +1,184 @@
+"""
+Mobile API routes — form registry, portal config, bootstrap, sync.
+
+The mobile app is a dynamic core that renders forms described by the server.
+These endpoints provide:
+  - Bootstrap (single call: user profile + permissions + forms + portals + entities)
+  - Form definitions (auto-generated from Pydantic schemas + enrichments)
+  - Portal configurations (role-based landing pages)
+  - Sync manifest (versions for offline cache invalidation)
+"""
+
+from __future__ import annotations
+
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Request
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_current_entity, get_current_user
+from app.core.acting_context import resolve_acting_context
+from app.core.database import get_db
+from app.models.common import Entity, Setting, User
+from app.services.mobile.form_definitions import (
+    get_all_form_definitions,
+    get_portal_definitions,
+)
+
+router = APIRouter(prefix="/api/v1/mobile", tags=["mobile"])
+
+
+@router.get("/bootstrap")
+async def mobile_bootstrap(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Single bootstrap call for the mobile app on login.
+
+    Returns everything the mobile app needs in one request:
+      - User profile (id, name, email, avatar)
+      - Permissions (flat list of permission codes)
+      - Available entities (for entity switch)
+      - Settings (user + entity level preferences)
+      - Enabled modules for this entity
+      - Form definitions (all server-defined forms)
+      - Portal configurations (role-based landing pages)
+
+    This avoids many separate API calls on startup and works
+    well with offline caching (single cache key to invalidate).
+    """
+    # Resolve permissions via acting context
+    context = await resolve_acting_context(request, current_user, entity_id, db)
+    permissions = sorted(context.permissions)
+
+    # Get all entities the user has access to
+    entities = []
+    if current_user.default_entity_id:
+        result = await db.execute(
+            select(Entity).where(Entity.id.in_(
+                select(Entity.id).where(Entity.archived == False)  # noqa: E712
+            ))
+        )
+        for ent in result.scalars().all():
+            entities.append({
+                "id": str(ent.id),
+                "name": ent.name,
+                "code": getattr(ent, "code", None),
+            })
+
+    # Load user settings (preferences: language, theme, notifications, etc.)
+    user_settings = {}
+    user_settings_result = await db.execute(
+        select(Setting).where(
+            Setting.scope == "user",
+            Setting.scope_id == str(current_user.id),
+        )
+    )
+    for s in user_settings_result.scalars().all():
+        user_settings[s.key] = s.value
+
+    # Load entity settings (relevant mobile ones)
+    entity_settings = {}
+    entity_settings_result = await db.execute(
+        select(Setting).where(
+            Setting.scope.in_(["tenant", "entity"]),
+        )
+    )
+    for s in entity_settings_result.scalars().all():
+        # Only expose non-sensitive settings to mobile
+        if not any(
+            s.key.startswith(prefix)
+            for prefix in ("integration.", "smtp.", "ldap.", "jwt.", "auth.password")
+        ):
+            entity_settings[s.key] = s.value
+
+    # Active modules for this entity
+    from app.core.module_registry import ModuleRegistry
+    registry = ModuleRegistry()
+    enabled_modules = [
+        {"slug": m.slug, "name": m.name}
+        for m in registry.get_all_modules()
+    ]
+
+    # Min app version from settings (for force update)
+    min_app_version = entity_settings.get("mobile.min_app_version")
+
+    # User account status
+    user_status = getattr(current_user, "status", None) or "active"
+    is_active = getattr(current_user, "is_active", True)
+    if not is_active:
+        user_status = "deactivated"
+
+    return {
+        "user": {
+            "id": str(current_user.id),
+            "email": current_user.email,
+            "first_name": current_user.first_name,
+            "last_name": current_user.last_name,
+            "display_name": f"{current_user.first_name} {current_user.last_name}",
+            "avatar_url": current_user.avatar_url,
+            "default_entity_id": str(current_user.default_entity_id) if current_user.default_entity_id else None,
+            "mfa_enabled": current_user.mfa_enabled,
+            "status": user_status,
+        },
+        "permissions": permissions,
+        "entities": entities,
+        "current_entity_id": str(entity_id),
+        "settings": {
+            "user": user_settings,
+            "entity": entity_settings,
+        },
+        "modules": enabled_modules,
+        "min_app_version": min_app_version,
+        "forms": get_all_form_definitions(),
+        "portals": get_portal_definitions(),
+    }
+
+
+@router.get("/form-definitions")
+async def list_form_definitions(
+    current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return all form definitions (for incremental refresh)."""
+    return {
+        "forms": get_all_form_definitions(),
+    }
+
+
+@router.get("/portal-config")
+async def get_portal_config(
+    current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return portal configurations (for incremental refresh)."""
+    return {
+        "portals": get_portal_definitions(),
+    }
+
+
+@router.get("/sync-manifest")
+async def get_sync_manifest(
+    current_user: User = Depends(get_current_user),
+    entity_id: UUID = Depends(get_current_entity),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Lightweight manifest of all definition versions.
+
+    The mobile app calls this periodically (or on reconnect) to check
+    if cached form/portal definitions are stale.
+    """
+    forms = get_all_form_definitions()
+    portals = get_portal_definitions()
+
+    return {
+        "forms": {f["id"]: f["version"] for f in forms},
+        "portals": {p["id"]: p["id"] for p in portals},
+    }

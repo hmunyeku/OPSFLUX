@@ -3513,8 +3513,8 @@ function ScenarioDetailPanel({ id }: { id: string }) {
                 <div key={act.id as string} className="py-2 px-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-foreground">{(act.title as string) || (act.source_activity_title as string) || '—'}</span>
-                    {act.is_removed && <span className="gl-badge gl-badge-danger text-[9px]">Supprimée</span>}
-                    {act.source_activity_id && !act.is_removed && <span className="gl-badge gl-badge-neutral text-[9px]">Modifiée</span>}
+                    {Boolean(act.is_removed) && <span className="gl-badge gl-badge-danger text-[9px]">Supprimée</span>}
+                    {Boolean(act.source_activity_id) && !act.is_removed && <span className="gl-badge gl-badge-neutral text-[9px]">Modifiée</span>}
                     {!act.source_activity_id && !act.is_removed && <span className="gl-badge gl-badge-info text-[9px]">Nouvelle</span>}
                   </div>
                   <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground">

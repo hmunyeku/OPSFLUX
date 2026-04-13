@@ -3518,9 +3518,9 @@ function ScenarioDetailPanel({ id }: { id: string }) {
                     {!act.source_activity_id && !act.is_removed && <span className="gl-badge gl-badge-info text-[9px]">Nouvelle</span>}
                   </div>
                   <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground">
-                    {act.asset_name && <span>{String(act.asset_name)}</span>}
-                    {act.type && <span>{String(act.type)}</span>}
-                    {act.start_date && <span>{String(act.start_date)} → {String(act.end_date)}</span>}
+                    {Boolean(act.asset_name) && <span>{String(act.asset_name)}</span>}
+                    {Boolean(act.type) && <span>{String(act.type)}</span>}
+                    {Boolean(act.start_date) && <span>{String(act.start_date)} → {String(act.end_date)}</span>}
                     {act.pax_quota != null && <span>{String(act.pax_quota)} PAX</span>}
                   </div>
                 </div>

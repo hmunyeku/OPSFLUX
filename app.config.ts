@@ -7,9 +7,9 @@ const config: ExpoConfig = {
   name: IS_PROD ? "OpsFlux" : IS_PREVIEW ? "OpsFlux (Preview)" : "OpsFlux (Dev)",
   slug: "opsflux-mobile",
   version: "1.0.0",
-  runtimeVersion: {
-    policy: "appVersion",
-  },
+  // New Architecture disabled: react-native-maps@1.18 has known crashes
+  // with Fabric/TurboModules on SDK 52. Re-enable when 1.20+ ships.
+  newArchEnabled: false,
   orientation: "default",
   icon: "./assets/icon.png",
   userInterfaceStyle: "automatic",
@@ -60,6 +60,21 @@ const config: ExpoConfig = {
     ],
   },
   plugins: [
+    [
+      "expo-build-properties",
+      {
+        android: {
+          newArchEnabled: false,
+          minSdkVersion: 24,
+          compileSdkVersion: 35,
+          targetSdkVersion: 35,
+        },
+        ios: {
+          newArchEnabled: false,
+          deploymentTarget: "15.1",
+        },
+      },
+    ],
     [
       "expo-camera",
       {

@@ -708,10 +708,12 @@ async def _try_ads_workflow_transition(
     except FSMPermissionError as e:
         raise HTTPException(403, str(e))
     except FSMError as e:
-        if "not found" in str(e).lower():
+        err_msg = str(e).lower()
+        if "not found" in err_msg or "not allowed" in err_msg:
             logger.debug(
-                "No workflow definition '%s' found — direct status update",
+                "Workflow '%s' FSM skip (%s) — direct status update",
                 ADS_WORKFLOW_SLUG,
+                str(e),
             )
             return None, None
         raise HTTPException(400, str(e))
@@ -756,10 +758,12 @@ async def _try_avm_workflow_transition(
     except FSMPermissionError as e:
         raise HTTPException(403, str(e))
     except FSMError as e:
-        if "not found" in str(e).lower():
+        err_msg = str(e).lower()
+        if "not found" in err_msg or "not allowed" in err_msg:
             logger.debug(
-                "No workflow definition '%s' found — direct status update",
+                "Workflow '%s' FSM skip (%s) — direct status update",
                 AVM_WORKFLOW_SLUG,
+                str(e),
             )
             return None, None
         raise HTTPException(400, str(e))

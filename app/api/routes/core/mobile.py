@@ -11,6 +11,7 @@ These endpoints provide:
 
 from __future__ import annotations
 
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
@@ -25,6 +26,8 @@ from app.services.mobile.form_definitions import (
     get_all_form_definitions,
     get_portal_definitions,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/mobile", tags=["mobile"])
 
@@ -47,71 +50,93 @@ async def mobile_bootstrap(
       - Enabled modules for this entity
       - Form definitions (all server-defined forms)
       - Portal configurations (role-based landing pages)
-
-    This avoids many separate API calls on startup and works
-    well with offline caching (single cache key to invalidate).
     """
-    # Resolve permissions via acting context
-    context = await resolve_acting_context(request, current_user, entity_id, db)
-    permissions = sorted(context.permissions)
 
-    # Get all entities the user has access to
-    entities = []
-    if current_user.default_entity_id:
-        result = await db.execute(
-            select(Entity).where(Entity.id.in_(
-                select(Entity.id).where(Entity.archived == False)  # noqa: E712
-            ))
+    # ── Permissions ────────────────────────────────────────────
+    try:
+        context = await resolve_acting_context(request, current_user, entity_id, db)
+        permissions = sorted(context.permissions)
+    except Exception as exc:
+        logger.warning("mobile.bootstrap: could not resolve permissions: %s", exc)
+        permissions = []
+
+    # ── Entities (only non-deleted, using correct 'active' column) ──
+    entities: list[dict] = []
+    try:
+        entities_result = await db.execute(
+            select(Entity).where(Entity.active == True)  # noqa: E712
         )
-        for ent in result.scalars().all():
+        for ent in entities_result.scalars().all():
             entities.append({
                 "id": str(ent.id),
                 "name": ent.name,
-                "code": getattr(ent, "code", None),
+                "code": ent.code,
             })
+    except Exception as exc:
+        logger.warning("mobile.bootstrap: could not load entities: %s", exc)
 
-    # Load user settings (preferences: language, theme, notifications, etc.)
-    user_settings = {}
-    user_settings_result = await db.execute(
-        select(Setting).where(
-            Setting.scope == "user",
-            Setting.scope_id == str(current_user.id),
+    # ── User settings (scope='user') ───────────────────────────
+    user_settings: dict[str, str] = {}
+    try:
+        user_settings_result = await db.execute(
+            select(Setting).where(
+                Setting.scope == "user",
+                Setting.scope_id == str(current_user.id),
+            )
         )
-    )
-    for s in user_settings_result.scalars().all():
-        user_settings[s.key] = s.value
+        for s in user_settings_result.scalars().all():
+            user_settings[s.key] = s.value
+    except Exception as exc:
+        logger.warning("mobile.bootstrap: could not load user settings: %s", exc)
 
-    # Load entity settings (relevant mobile ones)
-    entity_settings = {}
-    entity_settings_result = await db.execute(
-        select(Setting).where(
-            Setting.scope.in_(["tenant", "entity"]),
+    # ── Entity/tenant settings (non-sensitive) ─────────────────
+    entity_settings: dict[str, str] = {}
+    try:
+        entity_settings_result = await db.execute(
+            select(Setting).where(
+                Setting.scope.in_(["tenant", "entity"]),
+            )
         )
-    )
-    for s in entity_settings_result.scalars().all():
-        # Only expose non-sensitive settings to mobile
-        if not any(
-            s.key.startswith(prefix)
-            for prefix in ("integration.", "smtp.", "ldap.", "jwt.", "auth.password")
-        ):
-            entity_settings[s.key] = s.value
+        for s in entity_settings_result.scalars().all():
+            if not any(
+                s.key.startswith(prefix)
+                for prefix in ("integration.", "smtp.", "ldap.", "jwt.", "auth.password")
+            ):
+                entity_settings[s.key] = s.value
+    except Exception as exc:
+        logger.warning("mobile.bootstrap: could not load entity settings: %s", exc)
 
-    # Active modules for this entity
-    from app.core.module_registry import ModuleRegistry
-    registry = ModuleRegistry()
-    enabled_modules = [
-        {"slug": m.slug, "name": m.name}
-        for m in registry.get_all_modules()
-    ]
+    # ── Active modules ─────────────────────────────────────────
+    enabled_modules: list[dict] = []
+    try:
+        from app.core.module_registry import ModuleRegistry
+        registry = ModuleRegistry()
+        enabled_modules = [
+            {"slug": m.slug, "name": m.name}
+            for m in registry.get_all_modules()
+        ]
+    except Exception as exc:
+        logger.warning("mobile.bootstrap: could not load modules: %s", exc)
 
-    # Min app version from settings (for force update)
+    # ── Min app version + account status ───────────────────────
     min_app_version = entity_settings.get("mobile.min_app_version")
 
-    # User account status
-    user_status = getattr(current_user, "status", None) or "active"
-    is_active = getattr(current_user, "is_active", True)
-    if not is_active:
-        user_status = "deactivated"
+    # User.active is the flag on the model — no 'status' field exists
+    is_active = getattr(current_user, "active", True)
+    user_status = "active" if is_active else "deactivated"
+
+    # ── Form & portal registries (pure-python, always safe) ────
+    try:
+        forms = get_all_form_definitions()
+    except Exception as exc:
+        logger.error("mobile.bootstrap: form generation failed: %s", exc)
+        forms = []
+
+    try:
+        portals = get_portal_definitions()
+    except Exception as exc:
+        logger.error("mobile.bootstrap: portal generation failed: %s", exc)
+        portals = []
 
     return {
         "user": {
@@ -119,10 +144,10 @@ async def mobile_bootstrap(
             "email": current_user.email,
             "first_name": current_user.first_name,
             "last_name": current_user.last_name,
-            "display_name": f"{current_user.first_name} {current_user.last_name}",
+            "display_name": f"{current_user.first_name} {current_user.last_name}".strip() or current_user.email,
             "avatar_url": current_user.avatar_url,
             "default_entity_id": str(current_user.default_entity_id) if current_user.default_entity_id else None,
-            "mfa_enabled": current_user.mfa_enabled,
+            "mfa_enabled": bool(current_user.mfa_enabled),
             "status": user_status,
         },
         "permissions": permissions,
@@ -134,8 +159,8 @@ async def mobile_bootstrap(
         },
         "modules": enabled_modules,
         "min_app_version": min_app_version,
-        "forms": get_all_form_definitions(),
-        "portals": get_portal_definitions(),
+        "forms": forms,
+        "portals": portals,
     }
 
 

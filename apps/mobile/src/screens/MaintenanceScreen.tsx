@@ -8,11 +8,9 @@ import {
   ButtonSpinner,
   ButtonText,
   Heading,
-  Icon,
   Text,
-  VStack,
 } from "@gluestack-ui/themed";
-import { Wrench } from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import { api } from "../services/api";
 import { useAppState } from "../stores/appState";
@@ -43,7 +41,7 @@ export default function MaintenanceScreen() {
     <Box flex={1} bg="$backgroundLight50" justifyContent="center" alignItems="center" p="$6">
       <Box maxWidth={400} w="$full" bg="$white" borderRadius="$xl" p="$6" alignItems="center">
         <Box bg="$info50" borderRadius="$full" p="$5" mb="$5">
-          <Icon as={Wrench} size="xl" color="$info600" />
+          <MIcon name="build" size="xl" color="$info600" />
         </Box>
         <Heading size="xl" color="$textLight900" textAlign="center" mb="$2">
           {t("maintenance.title", "Maintenance en cours")}

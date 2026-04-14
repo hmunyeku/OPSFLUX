@@ -13,17 +13,15 @@ import {
   BadgeText,
   Box,
   HStack,
-  Icon,
-  Input,
+    Input,
   InputField,
-  InputIcon,
-  InputSlot,
+    InputSlot,
   Pressable,
   Spinner,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import { ArrowRight, Package, Search, AlertTriangle } from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
 import { listCargo } from "../services/packlog";
@@ -119,7 +117,7 @@ export default function CargoListScreen({ navigation }: Props) {
 
         <HStack space="md" alignItems="center" flexWrap="wrap" mb="$1">
           <HStack space="xs" alignItems="center">
-            <Icon as={Package} size="2xs" color="$textLight500" />
+            <MIcon name="inventory-2" size="2xs" color="$textLight500" />
             <Text size="xs" color="$textLight500">
               {item.cargo_type}
               {item.weight_kg ? ` · ${item.weight_kg} kg` : ""}
@@ -127,7 +125,7 @@ export default function CargoListScreen({ navigation }: Props) {
           </HStack>
           {item.hazmat && (
             <Badge action="error" variant="solid" size="sm">
-              <Icon as={AlertTriangle} size="2xs" color="$white" mr="$1" />
+              <MIcon name="warning" size="2xs" color="$white" mr="$1" />
               <BadgeText>HAZMAT</BadgeText>
             </Badge>
           )}
@@ -138,7 +136,7 @@ export default function CargoListScreen({ navigation }: Props) {
             <Text size="xs" color="$textLight500" numberOfLines={1} flexShrink={1}>
               {item.sender_name ?? "—"}
             </Text>
-            <Icon as={ArrowRight} size="2xs" color="$textLight400" />
+            <MIcon name="arrow-forward" size="2xs" color="$textLight400" />
             <Text size="xs" color="$textLight500" numberOfLines={1} flexShrink={1}>
               {item.recipient_name ?? "—"}
             </Text>
@@ -154,7 +152,7 @@ export default function CargoListScreen({ navigation }: Props) {
       <Box px="$3.5" mb="$2">
         <Input borderColor="$borderLight300" bg="$white">
           <InputSlot pl="$3">
-            <InputIcon as={Search} color="$textLight400" />
+            <MIcon name="search" color="$textLight400" />
           </InputSlot>
           <InputField
             value={search}

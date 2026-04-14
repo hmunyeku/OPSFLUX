@@ -7,14 +7,13 @@ import {
   Box,
   Heading,
   HStack,
-  Icon,
-  Pressable,
+    Pressable,
   Spinner,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, BadgeCheck, Mail } from "lucide-react-native";
+import { MIcon } from "../../components/MIcon";
 import { useTranslation } from "react-i18next";
 import { api } from "../../services/api";
 import { useAuthStore } from "../../stores/auth";
@@ -90,7 +89,7 @@ export default function EmailVerificationScreen({ navigation }: Props) {
       <Box pt={insets.top + 12} px="$4">
         <Pressable onPress={() => navigation.goBack()} py="$2" alignSelf="flex-start">
           <HStack alignItems="center" space="xs">
-            <Icon as={ArrowLeft} size="sm" color="$textLight600" />
+            <MIcon name="arrow-back" size="sm" color="$textLight600" />
             <Text size="md" color="$textLight600" fontWeight="$medium">
               {t("common.back", "Retour")}
             </Text>
@@ -134,7 +133,7 @@ export default function EmailVerificationScreen({ navigation }: Props) {
               >
                 <HStack space="md" alignItems="center">
                   <Box bg="$primary50" borderRadius="$lg" p="$2.5">
-                    <Icon as={Mail} size="md" color="$primary700" />
+                    <MIcon name="email" size="md" color="$primary700" />
                   </Box>
                   <VStack flex={1}>
                     <Text size="md" fontWeight="$semibold" color="$textLight900">
@@ -146,7 +145,7 @@ export default function EmailVerificationScreen({ navigation }: Props) {
                       </Text>
                     )}
                   </VStack>
-                  {e.verified && <Icon as={BadgeCheck} size="md" color="$success600" />}
+                  {e.verified && <MIcon name="verified" size="md" color="$success600" />}
                 </HStack>
               </Pressable>
             ))}

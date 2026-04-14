@@ -25,23 +25,13 @@ import {
   Box,
   Heading,
   HStack,
-  Icon,
+
   Pressable,
   Spinner,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import {
-  Bell,
-  CheckCircle2,
-  ChevronRight,
-  Lock,
-  QrCode,
-  Search,
-  Wifi,
-  WifiOff,
-  type LucideIcon,
-} from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 
@@ -151,7 +141,7 @@ export default function PortalHomeScreen({ navigation }: Props) {
   if (accessiblePortals.length === 0) {
     return (
       <Box flex={1} bg="$backgroundLight50" alignItems="center" justifyContent="center" p="$6">
-        <Icon as={Lock} size="xl" color="$textLight400" />
+        <MIcon name="lock" size="xl" color="$textLight400" />
         <Heading mt="$3" size="md" color="$textLight900">
           {t("home.noPortalTitle", "Aucun portail disponible")}
         </Heading>
@@ -228,7 +218,7 @@ export default function PortalHomeScreen({ navigation }: Props) {
                 borderColor="$borderLight200"
               >
                 <Box>
-                  <Icon as={Bell} size="md" color="$textLight700" />
+                  <MIcon name="notifications" size="md" color="$textLight700" />
                   {unreadCount > 0 && (
                     <Box
                       position="absolute"
@@ -258,7 +248,7 @@ export default function PortalHomeScreen({ navigation }: Props) {
                 borderWidth={1}
                 borderColor="$borderLight200"
               >
-                <Icon as={Search} size="md" color="$textLight700" />
+                <MIcon name="search" size="md" color="$textLight700" />
               </Pressable>
             </HStack>
           </HStack>
@@ -281,7 +271,7 @@ export default function PortalHomeScreen({ navigation }: Props) {
           >
             <HStack alignItems="center" space="md">
               <Box bg="$primary500" borderRadius="$lg" p="$3">
-                <Icon as={QrCode} size="xl" color="$white" />
+                <MIcon name="qr-code-scanner" size="xl" color="$white" />
               </Box>
               <VStack flex={1}>
                 <Heading size="md" color="$white">
@@ -291,7 +281,7 @@ export default function PortalHomeScreen({ navigation }: Props) {
                   {t("home.scanCta.subtitle", "ADS, colis, mission — auto-détection")}
                 </Text>
               </VStack>
-              <Icon as={ChevronRight} size="lg" color="$white" />
+              <MIcon name="chevron-right" size="lg" color="$white" />
             </HStack>
           </Pressable>
         </Box>
@@ -358,7 +348,7 @@ export default function PortalHomeScreen({ navigation }: Props) {
             </Heading>
             <VStack space="xs" bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200">
               {activePortal.actions.slice(isTablet ? 8 : 4).map((action, idx) => {
-                const ActionIcon = iconByName(action.icon ?? "list") as LucideIcon;
+                const actionIconName = iconByName(action.icon);
                 return (
                   <Pressable
                     key={idx}
@@ -371,12 +361,12 @@ export default function PortalHomeScreen({ navigation }: Props) {
                   >
                     <HStack alignItems="center" space="md">
                       <Box bg="$backgroundLight100" borderRadius="$md" p="$2">
-                        <Icon as={ActionIcon} size="sm" color="$textLight700" />
+                        <MIcon name={actionIconName} size="sm" color="$textLight700" />
                       </Box>
                       <Text flex={1} size="md" color="$textLight900">
                         {action.title}
                       </Text>
-                      <Icon as={ChevronRight} size="sm" color="$textLight400" />
+                      <MIcon name="chevron-right" size="sm" color="$textLight400" />
                     </HStack>
                   </Pressable>
                 );
@@ -406,7 +396,7 @@ function ConnectionChip({ isOnline, queueLength }: { isOnline: boolean; queueLen
   if (isOnline && queueLength === 0) {
     return (
       <HStack alignItems="center" space="xs">
-        <Icon as={CheckCircle2} size="xs" color="$success600" />
+        <MIcon name="check-circle" size="xs" color="$success600" />
         <Text size="xs" color="$textLight500">
           {t("home.allSynced", "Tout est synchronisé")}
         </Text>
@@ -417,7 +407,7 @@ function ConnectionChip({ isOnline, queueLength }: { isOnline: boolean; queueLen
   if (!isOnline) {
     return (
       <Badge action="warning" variant="solid" alignSelf="flex-start">
-        <Icon as={WifiOff} size="xs" color="$white" mr="$1" />
+        <MIcon name="wifi-off" size="xs" color="$white" mr="$1" />
         <BadgeText>
           {queueLength > 0
             ? t("home.offlineWithQueue", "Hors ligne · {{count}} en attente", { count: queueLength })
@@ -430,7 +420,7 @@ function ConnectionChip({ isOnline, queueLength }: { isOnline: boolean; queueLen
   // Online but with queue — syncing
   return (
     <Badge action="info" variant="solid" alignSelf="flex-start">
-      <Icon as={Wifi} size="xs" color="$white" mr="$1" />
+      <MIcon name="wifi" size="xs" color="$white" mr="$1" />
       <BadgeText>
         {t("home.syncing", "Synchronisation · {{count}} en attente", { count: queueLength })}
       </BadgeText>
@@ -447,7 +437,7 @@ function ActionTile({
   width: string | number;
   onPress: () => void;
 }) {
-  const ActionIcon = iconByName(action.icon ?? "list") as LucideIcon;
+  const actionIconName = iconByName(action.icon);
   return (
     <Pressable
       onPress={onPress}
@@ -460,7 +450,7 @@ function ActionTile({
       $active-bg="$backgroundLight100"
     >
       <Box bg="$primary50" borderRadius="$md" p="$2" alignSelf="flex-start" mb="$2">
-        <Icon as={ActionIcon} size="md" color="$primary700" />
+        <MIcon name={actionIconName} size="md" color="$primary700" />
       </Box>
       <Text size="sm" fontWeight="$semibold" color="$textLight900" numberOfLines={2}>
         {action.title}

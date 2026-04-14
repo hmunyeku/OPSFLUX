@@ -10,13 +10,12 @@ import {
   Box,
   Heading,
   HStack,
-  Icon,
-  Spinner,
+    Spinner,
   Switch,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import { Compass, Gauge, MapPin, Radar, Wifi, WifiOff } from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import { api } from "../services/api";
 import { useAuthStore } from "../stores/auth";
@@ -108,7 +107,7 @@ export default function LiveTrackingScreen() {
         <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" px="$3.5" py="$3">
           <HStack alignItems="center" justifyContent="space-between">
             <HStack space="sm" alignItems="center">
-              <Icon as={connected ? Wifi : WifiOff} size="sm" color={connected ? "$success600" : "$error600"} />
+              <MIcon name={connected ? "wifi" : "wifi-off"} size="sm" color={connected ? "$success600" : "$error600"} />
               <Text size="sm" color="$textLight700">
                 {connected
                   ? t("tracking.connected", "Connecté — suivi en temps réel")
@@ -125,7 +124,7 @@ export default function LiveTrackingScreen() {
         <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
           <HStack alignItems="center" justifyContent="space-between">
             <HStack space="sm" alignItems="center" flex={1}>
-              <Icon as={Radar} size="md" color={trackingEnabled ? "$success600" : "$textLight500"} />
+              <MIcon name="radar" size="md" color={trackingEnabled ? "$success600" : "$textLight500"} />
               <VStack flex={1}>
                 <Text size="sm" fontWeight="$semibold" color="$textLight900">
                   {t("tracking.beacon", "Balise GPS")}
@@ -197,7 +196,7 @@ export default function LiveTrackingScreen() {
                 </Badge>
               </HStack>
               <HStack space="xs" alignItems="center" mb="$1.5">
-                <Icon as={MapPin} size="2xs" color="$textLight400" />
+                <MIcon name="place" size="2xs" color="$textLight400" />
                 <Text size="xs" color="$textLight600" fontFamily="$mono">
                   {pos.latitude.toFixed(5)}, {pos.longitude.toFixed(5)}
                 </Text>
@@ -205,7 +204,7 @@ export default function LiveTrackingScreen() {
               <HStack space="md" alignItems="center" flexWrap="wrap">
                 {pos.speed_knots != null && (
                   <HStack space="xs" alignItems="center">
-                    <Icon as={Gauge} size="2xs" color="$textLight400" />
+                    <MIcon name="speed" size="2xs" color="$textLight400" />
                     <Text size="xs" color="$textLight500">
                       {pos.speed_knots.toFixed(1)} kn
                     </Text>
@@ -213,7 +212,7 @@ export default function LiveTrackingScreen() {
                 )}
                 {pos.heading != null && (
                   <HStack space="xs" alignItems="center">
-                    <Icon as={Compass} size="2xs" color="$textLight400" />
+                    <MIcon name="explore" size="2xs" color="$textLight400" />
                     <Text size="xs" color="$textLight500">
                       {t("tracking.heading", "Cap")} {pos.heading.toFixed(0)}°
                     </Text>

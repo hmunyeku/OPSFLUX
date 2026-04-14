@@ -22,12 +22,11 @@ import {
   ButtonText,
   Heading,
   HStack,
-  Icon,
-  Spinner,
+    Spinner,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import { ArrowLeft, QrCode, XCircle } from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import QrScanner from "../components/QrScanner";
@@ -173,11 +172,11 @@ export default function PairingScanScreen({ navigation }: Props) {
             bg="rgba(0,0,0,0.5)"
             onPress={() => navigation.goBack()}
           >
-            <Icon as={ArrowLeft} color="$white" size="sm" mr="$1" />
+            <MIcon name="arrow-back" color="$white" size="sm" mr="$1" />
             <ButtonText color="$white">{t("common.back", "Retour")}</ButtonText>
           </Button>
           <HStack bg="rgba(0,0,0,0.5)" px="$3" py="$2" borderRadius="$full" space="xs" alignItems="center">
-            <Icon as={QrCode} color="$white" size="sm" />
+            <MIcon name="qr-code-scanner" color="$white" size="sm" />
             <Text size="xs" color="$white" fontWeight="$semibold">
               {t("pairing.scanTitle", "Scanner le QR OpsFlux")}
             </Text>

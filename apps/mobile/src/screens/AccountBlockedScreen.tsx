@@ -9,10 +9,9 @@ import {
   ButtonText,
   Heading,
   HStack,
-  Icon,
   Text,
 } from "@gluestack-ui/themed";
-import { AlertTriangle, Info, LogOut } from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../stores/auth";
 import { clearPersistedAuth } from "../services/storage";
@@ -70,7 +69,7 @@ export default function AccountBlockedScreen({ reason, message }: Props) {
     <Box flex={1} bg="$backgroundLight50" justifyContent="center" alignItems="center" p="$6">
       <Box maxWidth={400} w="$full" bg="$white" borderRadius="$xl" p="$6" alignItems="center">
         <Box bg="$error50" borderRadius="$full" p="$5" mb="$5">
-          <Icon as={AlertTriangle} size="xl" color="$error600" />
+          <MIcon name="warning" size="xl" color="$error600" />
         </Box>
         <Heading size="xl" color="$error700" textAlign="center" mb="$2">
           {t(titleKey, titleFb)}
@@ -89,7 +88,7 @@ export default function AccountBlockedScreen({ reason, message }: Props) {
           mb="$5"
         >
           <HStack space="sm" alignItems="center">
-            <Icon as={Info} size="sm" color="$warning600" />
+            <MIcon name="info" size="sm" color="$warning600" />
             <Text size="sm" color="$textLight900" flex={1} lineHeight={20}>
               {t(
                 "blocked.contactAdmin",
@@ -100,8 +99,8 @@ export default function AccountBlockedScreen({ reason, message }: Props) {
         </Box>
 
         <Button size="lg" action="primary" w="$full" onPress={handleLogout}>
-          <Icon as={LogOut} color="$white" size="md" mr="$2" />
-          <ButtonText>{t("auth.logout", "Se déconnecter")}</ButtonText>
+          <MIcon name="logout" size="md" color="$white" />
+          <ButtonText> {t("auth.logout", "Se déconnecter")}</ButtonText>
         </Button>
       </Box>
     </Box>

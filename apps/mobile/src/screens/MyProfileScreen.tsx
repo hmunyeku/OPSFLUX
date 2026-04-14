@@ -23,23 +23,13 @@ import {
   Divider,
   Heading,
   HStack,
-  Icon,
+
   Pressable,
   Spinner,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import {
-  BadgeCheck,
-  Briefcase,
-  Building2,
-  ChevronRight,
-  Mail,
-  MapPin,
-  Phone,
-  Shield,
-  UserCog,
-} from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import { api } from "../services/api";
 import { useAuthStore } from "../stores/auth";
@@ -177,11 +167,11 @@ export default function MyProfileScreen({ navigation }: Props) {
                   <Divider my="$2" />
                   <VStack space="xs">
                     {me?.job_position_name && (
-                      <DetailRow icon={Briefcase} label={t("profile.position", "Poste")} value={me.job_position_name} />
+                      <DetailRow icon="work" label={t("profile.position", "Poste")} value={me.job_position_name} />
                     )}
                     {me?.business_unit_name && (
                       <DetailRow
-                        icon={Building2}
+                        icon="apartment"
                         label={t("profile.businessUnit", "Business unit")}
                         value={me.business_unit_name}
                       />
@@ -203,7 +193,7 @@ export default function MyProfileScreen({ navigation }: Props) {
             >
               <HStack space="md" alignItems="center">
                 <Box bg="$success50" borderRadius="$lg" p="$2.5">
-                  <Icon as={Shield} size="md" color="$success700" />
+                  <MIcon name="shield" size="md" color="$success700" />
                 </Box>
                 <VStack flex={1}>
                   <Text size="md" fontWeight="$semibold" color="$textLight900">
@@ -217,14 +207,14 @@ export default function MyProfileScreen({ navigation }: Props) {
                       : t("profile.noneVerified", "Aucun élément vérifié")}
                   </Text>
                 </VStack>
-                <Icon as={ChevronRight} size="md" color="$textLight400" />
+                <MIcon name="chevron-right" size="md" color="$textLight400" />
               </HStack>
             </Pressable>
 
             {/* Emails */}
             <SectionCard
               title={t("profile.emails", "Adresses email")}
-              icon={Mail}
+              icon="email"
               empty={emails.length === 0}
               emptyText={t("profile.emails.empty", "Aucune adresse enregistrée.")}
             >
@@ -241,7 +231,7 @@ export default function MyProfileScreen({ navigation }: Props) {
             {/* Phones */}
             <SectionCard
               title={t("profile.phones", "Téléphones")}
-              icon={Phone}
+              icon="phone"
               empty={phones.length === 0}
               emptyText={t("profile.phones.empty", "Aucun numéro enregistré.")}
             >
@@ -258,7 +248,7 @@ export default function MyProfileScreen({ navigation }: Props) {
             {/* Addresses */}
             <SectionCard
               title={t("profile.addresses", "Adresses postales")}
-              icon={MapPin}
+              icon="place"
               empty={addresses.length === 0}
               emptyText={t("profile.addresses.empty", "Aucune adresse enregistrée.")}
             >
@@ -289,7 +279,7 @@ export default function MyProfileScreen({ navigation }: Props) {
             {/* CTA: edit on web */}
             <Box bg="$primary50" borderRadius="$lg" borderWidth={1} borderColor="$primary200" p="$4">
               <HStack space="md" alignItems="flex-start">
-                <Icon as={UserCog} size="md" color="$primary700" mt="$0.5" />
+                <MIcon name="manage-accounts" size="md" color="$primary700" mt="$0.5" />
                 <VStack flex={1}>
                   <Text size="sm" fontWeight="$semibold" color="$primary900">
                     {t("profile.editOnWeb", "Modifier mon profil")}
@@ -321,7 +311,7 @@ function DetailRow({
 }) {
   return (
     <HStack space="sm" alignItems="center">
-      <Icon as={icon} size="xs" color="$textLight500" />
+      <MIcon name={icon} size="xs" color="$textLight500" />
       <Text size="xs" color="$textLight500">
         {label} :
       </Text>
@@ -348,7 +338,7 @@ function SectionCard({
   return (
     <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
       <HStack space="sm" alignItems="center" mb="$3">
-        <Icon as={icon} size="sm" color="$textLight600" />
+        <MIcon name={icon} size="sm" color="$textLight600" />
         <Heading size="xs" color="$textLight700" textTransform="uppercase" letterSpacing={0.5}>
           {title}
         </Heading>
@@ -385,7 +375,7 @@ function ContactRow({
           </Text>
         )}
       </VStack>
-      {verified && <Icon as={BadgeCheck} size="sm" color="$success600" />}
+      {verified && <MIcon name="verified" size="sm" color="$success600" />}
     </HStack>
   );
 }

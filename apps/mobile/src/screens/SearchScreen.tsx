@@ -9,8 +9,7 @@ import {
   BadgeText,
   Box,
   HStack,
-  Icon,
-  Input,
+    Input,
   InputField,
   InputIcon,
   InputSlot,
@@ -19,7 +18,7 @@ import {
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import { Search as SearchIcon, SearchX } from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
 import { globalSearch, type SearchResult } from "../services/search";
@@ -165,7 +164,7 @@ export default function SearchScreen({ navigation }: Props) {
           }}
           ListEmptyComponent={
             <VStack space="sm" alignItems="center" mt="$10" p="$6">
-              <Icon as={searched ? SearchX : SearchIcon} size="xl" color="$textLight300" />
+              <MIcon name={searched ? "search-off" : "search"} size="xl" color="$textLight300" />
               <Text size="sm" color="$textLight500" textAlign="center">
                 {searched
                   ? t("search.noResults", `Aucun résultat pour "{{query}}"`, { query })

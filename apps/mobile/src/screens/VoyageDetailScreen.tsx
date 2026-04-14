@@ -11,28 +11,11 @@ import {
   Divider,
   Heading,
   HStack,
-  Icon,
-  Spinner,
+    Spinner,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import {
-  AlertTriangle,
-  Clock,
-  ClockArrowDown,
-  ClockArrowUp,
-  Cloud,
-  Fuel,
-  MapPin,
-  MoreHorizontal,
-  Plane,
-  PlaneLanding,
-  PlaneTakeoff,
-  Shield,
-  StickyNote,
-  Wrench,
-  type LucideIcon,
-} from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
 import FleetMap, { type MapPosition } from "../components/FleetMap";
@@ -68,7 +51,7 @@ interface VoyageLog {
   created_by_name: string | null;
 }
 
-const EVENT_ICONS: Record<string, LucideIcon> = {
+const EVENT_ICONS: Record<string, MIconName> = {
   departure: PlaneTakeoff,
   arrival: PlaneLanding,
   weather: Cloud,
@@ -147,7 +130,7 @@ export default function VoyageDetailScreen({ route }: Props) {
           </Heading>
           <Box mt="$2" alignSelf="flex-start">
             <Badge action="muted" variant="solid" size="sm">
-              <Icon as={Plane} size="2xs" color="$white" mr="$1" />
+              <MIcon name="flight" size="2xs" color="$white" mr="$1" />
               <BadgeText>{voyage.vector_type}</BadgeText>
             </Badge>
           </Box>
@@ -290,7 +273,7 @@ export default function VoyageDetailScreen({ route }: Props) {
                   borderColor="$borderLight100"
                 >
                   <Box bg="$backgroundLight100" borderRadius="$md" p="$2">
-                    <Icon as={LogIcon} size="sm" color="$textLight600" />
+                    <MIcon name={LogIcon} size="sm" color="$textLight600" />
                   </Box>
                   <VStack flex={1}>
                     <Text size="sm" fontWeight="$semibold" color="$textLight900" textTransform="capitalize">
@@ -328,7 +311,7 @@ function ScheduleRow({
   return (
     <HStack space="sm" alignItems="center">
       <Box bg="$backgroundLight100" borderRadius="$md" p="$1.5">
-        <Icon as={icon} size="xs" color={iconColor} />
+        <MIcon name={icon} size="xs" color={iconColor} />
       </Box>
       <VStack flex={1}>
         <Text size="xs" color="$textLight500">

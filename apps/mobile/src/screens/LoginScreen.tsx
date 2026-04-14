@@ -26,8 +26,7 @@ import {
   FormControlLabelText,
   HStack,
   Heading,
-  Icon,
-  Input,
+    Input,
   InputField,
   InputIcon,
   InputSlot,
@@ -35,15 +34,7 @@ import {
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import {
-  ArrowLeft,
-  Eye,
-  EyeOff,
-  Mail,
-  QrCode,
-  Server,
-  Shield,
-} from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import { login, verifyMfa } from "../services/auth";
 import { useAuthStore } from "../stores/auth";
@@ -133,7 +124,7 @@ export default function LoginScreen({ navigation }: Props) {
         >
           <Box flex={1} px="$5" pb="$8">
             <Box maxWidth={420} w="$full" alignSelf="center">
-              <Icon as={Shield} size="xl" color="$primary600" mb="$4" />
+              <MIcon name="shield" size="xl" color="$primary600" mb="$4" />
               <Heading size="xl" mb="$1" color="$textLight900">
                 {t("auth.mfaTitle", "Vérification en 2 étapes")}
               </Heading>
@@ -180,7 +171,7 @@ export default function LoginScreen({ navigation }: Props) {
                 }}
               >
                 <HStack alignItems="center" space="xs">
-                  <Icon as={ArrowLeft} size="sm" color="$textLight500" />
+                  <MIcon name="arrow-back" size="sm" color="$textLight500" />
                   <Text size="md" color="$textLight500" fontWeight="$semibold">
                     {t("common.back", "Retour")}
                   </Text>
@@ -237,7 +228,7 @@ export default function LoginScreen({ navigation }: Props) {
             >
               <HStack space="md" alignItems="center">
                 <Box bg="$primary100" p="$2.5" borderRadius="$lg">
-                  <Icon as={QrCode} size="lg" color="$primary700" />
+                  <MIcon name="qr-code-scanner" size="lg" color="$primary700" />
                 </Box>
                 <VStack flex={1}>
                   <Text size="md" fontWeight="$semibold" color="$primary900">
@@ -266,7 +257,7 @@ export default function LoginScreen({ navigation }: Props) {
               </FormControlLabel>
               <Input borderColor="$borderLight300">
                 <InputSlot pl="$3">
-                  <InputIcon as={Mail} color="$textLight400" />
+                  <MIcon name="email" color="$textLight400" />
                 </InputSlot>
                 <InputField
                   value={email}
@@ -309,7 +300,7 @@ export default function LoginScreen({ navigation }: Props) {
                 </FormControlLabel>
                 <Input borderColor="$borderLight300">
                   <InputSlot pl="$3">
-                    <InputIcon as={Server} color="$textLight400" />
+                    <MIcon name="dns" color="$textLight400" />
                   </InputSlot>
                   <InputField
                     value={serverUrl}

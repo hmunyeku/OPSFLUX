@@ -23,8 +23,7 @@ import {
   ButtonText,
   Heading,
   HStack,
-  Icon,
-  Input,
+    Input,
   InputField,
   Progress,
   ProgressFilledTrack,
@@ -32,16 +31,7 @@ import {
   VStack,
 } from "@gluestack-ui/themed";
 import * as Location from "expo-location";
-import {
-  Car,
-  Check,
-  Clock,
-  MapPin,
-  Navigation,
-  Phone,
-  UserX,
-  X,
-} from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import { api } from "../services/api";
 import { startTracking, stopTracking } from "../services/tracking";
@@ -215,7 +205,7 @@ export default function DriverPickupScreen() {
       <Box flex={1} bg="$primary900" justifyContent="center" alignItems="center" p="$6">
         <Box maxWidth={400} w="$full" bg="$white" borderRadius="$xl" p="$6" alignItems="center">
           <Box bg="$success50" borderRadius="$full" p="$3" mb="$3">
-            <Icon as={Car} size="xl" color="$success700" />
+            <MIcon name="directions-car" size="xl" color="$success700" />
           </Box>
           <Heading size="lg" color="$primary700" mb="$1">
             {t("driver.title", "Mode Ramassage")}
@@ -306,7 +296,7 @@ export default function DriverPickupScreen() {
           <HStack space="xs" mt="$2">
             {item.distance_km != null && (
               <Badge action="info" variant="outline" size="sm">
-                <Icon as={MapPin} size="2xs" color="$info600" mr="$1" />
+                <MIcon name="place" size="2xs" color="$info600" mr="$1" />
                 <BadgeText>
                   {item.distance_km < 1
                     ? `${Math.round(item.distance_km * 1000)}m`
@@ -316,7 +306,7 @@ export default function DriverPickupScreen() {
             )}
             {item.eta_minutes != null && (
               <Badge action="muted" variant="outline" size="sm">
-                <Icon as={Clock} size="2xs" color="$textLight500" mr="$1" />
+                <MIcon name="schedule" size="2xs" color="$textLight500" mr="$1" />
                 <BadgeText>~{item.eta_minutes < 1 ? "<1" : item.eta_minutes} min</BadgeText>
               </Badge>
             )}
@@ -332,7 +322,7 @@ export default function DriverPickupScreen() {
             alignSelf="flex-start"
             mt="$1"
           >
-            <Icon as={Phone} size="2xs" color="$primary600" mr="$1" />
+            <MIcon name="phone" size="2xs" color="$primary600" mr="$1" />
             <ButtonText size="xs">{item.phone}</ButtonText>
           </Button>
         )}
@@ -348,7 +338,7 @@ export default function DriverPickupScreen() {
                 onPress={() => openNavigation(item.pickup_lat!, item.pickup_lon!, item.name)}
                 flex={1}
               >
-                <Icon as={Navigation} size="xs" color="$primary600" mr="$1" />
+                <MIcon name="navigation" size="xs" color="$primary600" mr="$1" />
                 <ButtonText size="sm">{t("driver.route", "Itinéraire")}</ButtonText>
               </Button>
             )}
@@ -362,7 +352,7 @@ export default function DriverPickupScreen() {
               {isUpdating ? (
                 <ButtonSpinner mr="$1" />
               ) : (
-                <Icon as={Check} size="xs" color="$white" mr="$1" />
+                <MIcon name="check" size="xs" color="$white" mr="$1" />
               )}
               <ButtonText size="sm">{t("driver.pickup", "Ramassé")}</ButtonText>
             </Button>
@@ -373,7 +363,7 @@ export default function DriverPickupScreen() {
               onPress={() => markNoShow(item.id)}
               isDisabled={isUpdating}
             >
-              <Icon as={UserX} size="xs" color="$error600" />
+              <MIcon name="person-off" size="xs" color="$error600" />
             </Button>
           </HStack>
         )}
@@ -403,7 +393,7 @@ export default function DriverPickupScreen() {
             </BadgeText>
           </Badge>
           <Badge action="success" variant="outline" size="sm">
-            <Icon as={Check} size="2xs" color="$success600" mr="$1" />
+            <MIcon name="check" size="2xs" color="$success600" mr="$1" />
             <BadgeText>
               {t("driver.pickedUpCount", "{{count}} ramassé(s)", { count: pickedUp })}
             </BadgeText>
@@ -445,7 +435,7 @@ export default function DriverPickupScreen() {
             setPassengers([]);
           }}
         >
-          <Icon as={X} size="md" color="$error600" mr="$2" />
+          <MIcon name="close" size="md" color="$error600" mr="$2" />
           <ButtonText>{t("driver.endPickup", "Terminer le ramassage")}</ButtonText>
         </Button>
       </Box>

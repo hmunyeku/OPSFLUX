@@ -13,22 +13,13 @@ import {
   Box,
   Heading,
   HStack,
-  Icon,
-  Progress,
+    Progress,
   ProgressFilledTrack,
   Spinner,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import {
-  AlertTriangle,
-  FileText,
-  HeartPulse,
-  Shield,
-  Wrench,
-  GraduationCap,
-  type LucideIcon,
-} from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
 import { api } from "../services/api";
@@ -53,7 +44,7 @@ interface ComplianceStats {
   expiring_soon: number;
 }
 
-const CATEGORY_ICONS: Record<string, LucideIcon> = {
+const CATEGORY_ICONS: Record<string, MIconName> = {
   safety: Shield,
   medical: HeartPulse,
   technical: Wrench,
@@ -196,7 +187,7 @@ export default function MyComplianceScreen() {
             p="$3.5"
           >
             <HStack space="sm" alignItems="center">
-              <Icon as={AlertTriangle} size="sm" color="$error600" />
+              <MIcon name="warning" size="sm" color="$error600" />
               <Text size="sm" color="$error700" fontWeight="$semibold" flex={1}>
                 {t(
                   "compliance.expiredAlert",
@@ -216,7 +207,7 @@ export default function MyComplianceScreen() {
             p="$3.5"
           >
             <HStack space="sm" alignItems="center">
-              <Icon as={AlertTriangle} size="sm" color="$warning600" />
+              <MIcon name="warning" size="sm" color="$warning600" />
               <Text size="sm" color="$warning700" fontWeight="$semibold" flex={1}>
                 {t(
                   "compliance.expiringAlert",
@@ -278,7 +269,7 @@ export default function MyComplianceScreen() {
                 borderColor="$borderLight100"
               >
                 <Box bg="$backgroundLight100" borderRadius="$md" p="$2">
-                  <Icon as={CredIcon} size="sm" color={iconColor} />
+                  <MIcon name={CredIcon} size="sm" color={iconColor} />
                 </Box>
                 <VStack flex={1}>
                   <Text size="sm" fontWeight="$semibold" color="$textLight900">

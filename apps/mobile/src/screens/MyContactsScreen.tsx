@@ -17,20 +17,12 @@ import {
   ButtonText,
   Heading,
   HStack,
-  Icon,
-  Pressable,
+    Pressable,
   Spinner,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import {
-  BadgeCheck,
-  Mail,
-  MapPin,
-  Phone,
-  Shield,
-  Trash2,
-} from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import { api } from "../services/api";
 import { useToast } from "../components/Toast";
@@ -148,7 +140,7 @@ export default function MyContactsScreen({ navigation }: { navigation: any }) {
         >
           <HStack space="md" alignItems="center">
             <Box bg="$primary100" borderRadius="$lg" p="$2.5">
-              <Icon as={Shield} size="md" color="$primary700" />
+              <MIcon name="shield" size="md" color="$primary700" />
             </Box>
             <VStack flex={1}>
               <Text size="md" fontWeight="$semibold" color="$primary900">
@@ -174,14 +166,14 @@ export default function MyContactsScreen({ navigation }: { navigation: any }) {
               <Row
                 key={p.id}
                 idx={idx}
-                left={<Icon as={Phone} size="sm" color={p.verified ? "$success600" : "$textLight400"} />}
+                left={<MIcon name="phone" size="sm" color={p.verified ? "$success600" : "$textLight400"} />}
                 primary={`${p.country_code ?? ""}${p.number}`}
                 secondary={p.label ?? undefined}
                 trailing={
                   <HStack space="xs" alignItems="center">
                     {p.verified ? (
                       <Badge action="success" variant="solid" size="sm">
-                        <Icon as={BadgeCheck} size="2xs" color="$white" mr="$1" />
+                        <MIcon name="verified" size="2xs" color="$white" mr="$1" />
                         <BadgeText>{t("contacts.verified", "Vérifié")}</BadgeText>
                       </Badge>
                     ) : (
@@ -195,7 +187,7 @@ export default function MyContactsScreen({ navigation }: { navigation: any }) {
                       </Button>
                     )}
                     <Pressable onPress={() => handleDelete("phone", p.id)} p="$1.5">
-                      <Icon as={Trash2} size="xs" color="$error500" />
+                      <MIcon name="delete" size="xs" color="$error500" />
                     </Pressable>
                   </HStack>
                 }
@@ -217,13 +209,13 @@ export default function MyContactsScreen({ navigation }: { navigation: any }) {
               <Row
                 key={e.id}
                 idx={idx}
-                left={<Icon as={Mail} size="sm" color={e.verified ? "$success600" : "$textLight400"} />}
+                left={<MIcon name="email" size="sm" color={e.verified ? "$success600" : "$textLight400"} />}
                 primary={e.email}
                 secondary={e.is_primary ? t("contacts.primary", "Principal") : undefined}
                 trailing={
                   e.verified ? (
                     <Badge action="success" variant="solid" size="sm">
-                      <Icon as={BadgeCheck} size="2xs" color="$white" mr="$1" />
+                      <MIcon name="verified" size="2xs" color="$white" mr="$1" />
                       <BadgeText>{t("contacts.verified", "Vérifié")}</BadgeText>
                     </Badge>
                   ) : (
@@ -255,13 +247,13 @@ export default function MyContactsScreen({ navigation }: { navigation: any }) {
               <Row
                 key={a.id}
                 idx={idx}
-                left={<Icon as={MapPin} size="sm" color="$textLight500" />}
+                left={<MIcon name="place" size="sm" color="$textLight500" />}
                 primary={a.street}
                 secondary={`${a.postal_code} ${a.city}${a.country ? ", " + a.country : ""}`}
                 superscript={a.label ?? undefined}
                 trailing={
                   <Pressable onPress={() => handleDelete("address", a.id)} p="$1.5">
-                    <Icon as={Trash2} size="xs" color="$error500" />
+                    <MIcon name="delete" size="xs" color="$error500" />
                   </Pressable>
                 }
               />
@@ -287,7 +279,7 @@ function SectionCard({
   return (
     <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
       <HStack space="sm" alignItems="center" mb="$3">
-        <Icon as={icon} size="sm" color="$textLight600" />
+        <MIcon name={icon} size="sm" color="$textLight600" />
         <Heading
           size="xs"
           color="$textLight500"

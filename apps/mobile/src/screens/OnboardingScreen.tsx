@@ -15,19 +15,11 @@ import {
   ButtonText,
   Heading,
   HStack,
-  Icon,
+
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import {
-  Bell,
-  CloudOff,
-  FileText,
-  MapPinned,
-  QrCode,
-  Sparkles,
-  type LucideIcon,
-} from "lucide-react-native";
+import { MIcon, type MIconName } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -35,7 +27,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const ONBOARDING_KEY = "@opsflux:onboarding_complete";
 
 interface Step {
-  icon: LucideIcon;
+  icon: MIconName;
   titleKey: string;
   titleFb: string;
   descKey: string;
@@ -50,7 +42,7 @@ interface Props {
 
 const STEPS: Step[] = [
   {
-    icon: Sparkles,
+    icon: "auto-awesome",
     titleKey: "onboarding.welcomeTitle",
     titleFb: "Bienvenue sur OpsFlux Mobile",
     descKey: "onboarding.welcomeDesc",
@@ -60,7 +52,7 @@ const STEPS: Step[] = [
     fg: "$primary600",
   },
   {
-    icon: QrCode,
+    icon: "qr-code-scanner",
     titleKey: "onboarding.scanTitle",
     titleFb: "Scannez en un geste",
     descKey: "onboarding.scanDesc",
@@ -70,7 +62,7 @@ const STEPS: Step[] = [
     fg: "$info600",
   },
   {
-    icon: FileText,
+    icon: "description",
     titleKey: "onboarding.formTitle",
     titleFb: "Formulaires intelligents",
     descKey: "onboarding.formDesc",
@@ -80,7 +72,7 @@ const STEPS: Step[] = [
     fg: "$primary600",
   },
   {
-    icon: CloudOff,
+    icon: "cloud-off",
     titleKey: "onboarding.offlineTitle",
     titleFb: "Fonctionne hors-ligne",
     descKey: "onboarding.offlineDesc",
@@ -90,7 +82,7 @@ const STEPS: Step[] = [
     fg: "$warning600",
   },
   {
-    icon: MapPinned,
+    icon: "location-on",
     titleKey: "onboarding.gpsTitle",
     titleFb: "Suivi en temps réel",
     descKey: "onboarding.gpsDesc",
@@ -100,7 +92,7 @@ const STEPS: Step[] = [
     fg: "$success600",
   },
   {
-    icon: Bell,
+    icon: "notifications",
     titleKey: "onboarding.notifTitle",
     titleFb: "Restez informé",
     descKey: "onboarding.notifDesc",
@@ -138,7 +130,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
   const renderStep = ({ item }: { item: Step }) => (
     <Box w={SCREEN_WIDTH} flex={1} alignItems="center" justifyContent="center" px="$10">
       <Box bg={item.bg} borderRadius="$full" p="$6" mb="$8">
-        <Icon as={item.icon} size="xl" color={item.fg} />
+        <MIcon name={item.icon} size="xl" color={item.fg} />
       </Box>
       <Heading size="xl" textAlign="center" color="$textLight900" mb="$4">
         {t(item.titleKey, item.titleFb)}

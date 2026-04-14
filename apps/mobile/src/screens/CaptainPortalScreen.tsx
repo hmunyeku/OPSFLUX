@@ -19,26 +19,14 @@ import {
   ButtonText,
   Heading,
   HStack,
-  Icon,
-  Input,
+    Input,
   InputField,
   Text,
   Textarea,
   TextareaInput,
   VStack,
 } from "@gluestack-ui/themed";
-import {
-  AlertTriangle,
-  Anchor,
-  Cloud,
-  Fuel,
-  LogOut,
-  PlaneLanding,
-  PlaneTakeoff,
-  ShieldAlert,
-  Wrench,
-  type LucideIcon,
-} from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import {
   captainAuthenticate,
@@ -57,7 +45,7 @@ interface EventType {
   code: string;
   labelKey: string;
   labelFb: string;
-  icon: LucideIcon;
+  icon: MIconName;
   color: string;
 }
 
@@ -134,7 +122,7 @@ export default function CaptainPortalScreen() {
       <Box flex={1} bg="$primary900" justifyContent="center" alignItems="center" p="$6">
         <Box maxWidth={400} w="$full" bg="$white" borderRadius="$xl" p="$6" alignItems="center">
           <Box bg="$primary50" borderRadius="$full" p="$3" mb="$3">
-            <Icon as={Anchor} size="xl" color="$primary700" />
+            <MIcon name="anchor" size="xl" color="$primary700" />
           </Box>
           <Heading size="lg" color="$primary700" mb="$1">
             {t("captain.title", "Portail Capitaine")}
@@ -273,7 +261,7 @@ export default function CaptainPortalScreen() {
               </VStack>
               {c.hazmat && (
                 <Badge action="error" variant="solid" size="sm">
-                  <Icon as={AlertTriangle} size="2xs" color="$white" mr="$1" />
+                  <MIcon name="warning" size="2xs" color="$white" mr="$1" />
                   <BadgeText>HAZMAT</BadgeText>
                 </Badge>
               )}
@@ -308,7 +296,7 @@ export default function CaptainPortalScreen() {
                 onPress={() => handleRecordEvent(evt.code)}
                 isDisabled={recordingEvent}
               >
-                <Icon as={evt.icon} size="xs" color={evt.color} mr="$1" />
+                <MIcon name={evt.icon} size="xs" color={evt.color} mr="$1" />
                 <ButtonText>{t(evt.labelKey, evt.labelFb)}</ButtonText>
               </Button>
             ))}
@@ -327,7 +315,7 @@ export default function CaptainPortalScreen() {
             setCode("");
           }}
         >
-          <Icon as={LogOut} color="$error600" size="md" mr="$2" />
+          <MIcon name="logout" color="$error600" size="md" mr="$2" />
           <ButtonText>{t("captain.exit", "Quitter le portail capitaine")}</ButtonText>
         </Button>
       </ScrollView>

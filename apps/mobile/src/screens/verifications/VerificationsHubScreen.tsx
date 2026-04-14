@@ -18,23 +18,12 @@ import {
   Box,
   Heading,
   HStack,
-  Icon,
-  Pressable,
+    Pressable,
   Spinner,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import {
-  BadgeCheck,
-  ChevronRight,
-  Clock,
-  FileBadge,
-  MapPin,
-  Mail,
-  Phone,
-  XCircle,
-  type LucideIcon,
-} from "lucide-react-native";
+import { MIcon } from "../../components/MIcon";
 import { useTranslation } from "react-i18next";
 import { listMyVerifications, type UserVerification } from "../../services/verifications";
 
@@ -47,7 +36,7 @@ type VType = "phone" | "email" | "location" | "id_document";
 interface Tile {
   type: VType;
   route: string;
-  icon: LucideIcon;
+  icon: MIconName;
   labelKey: string;
   labelFallback: string;
   descKey: string;
@@ -179,7 +168,7 @@ export default function VerificationsHubScreen({ navigation }: Props) {
                       borderRadius="$lg"
                       p="$2.5"
                     >
-                      <Icon as={tile.icon} size="lg" color="$primary700" />
+                      <MIcon name={tile.icon} size="lg" color="$primary700" />
                     </Box>
                     <VStack flex={1}>
                       <Text size="md" fontWeight="$semibold" color="$textLight900">
@@ -190,7 +179,7 @@ export default function VerificationsHubScreen({ navigation }: Props) {
                       </Text>
                       <StatusBadge state={state} />
                     </VStack>
-                    <Icon as={ChevronRight} size="md" color="$textLight400" />
+                    <MIcon name="chevron-right" size="md" color="$textLight400" />
                   </HStack>
                 </Pressable>
               );
@@ -219,7 +208,7 @@ function StatusBadge({ state }: { state: UserVerification | null }) {
   if (state.status === "verified") {
     return (
       <HStack mt="$1.5" alignItems="center" space="xs">
-        <Icon as={BadgeCheck} size="xs" color="$success600" />
+        <MIcon name="verified" size="xs" color="$success600" />
         <Text size="xs" color="$success700" fontWeight="$medium">
           {t("verif.status.verified", "Vérifié")}
         </Text>
@@ -230,7 +219,7 @@ function StatusBadge({ state }: { state: UserVerification | null }) {
   if (state.status === "pending") {
     return (
       <HStack mt="$1.5" alignItems="center" space="xs">
-        <Icon as={Clock} size="xs" color="$warning600" />
+        <MIcon name="schedule" size="xs" color="$warning600" />
         <Text size="xs" color="$warning700" fontWeight="$medium">
           {t("verif.status.pending", "En attente")}
         </Text>
@@ -240,7 +229,7 @@ function StatusBadge({ state }: { state: UserVerification | null }) {
 
   return (
     <HStack mt="$1.5" alignItems="center" space="xs">
-      <Icon as={XCircle} size="xs" color="$error600" />
+      <MIcon name="cancel" size="xs" color="$error600" />
       <Text size="xs" color="$error700" fontWeight="$medium">
         {state.status === "rejected"
           ? t("verif.status.rejected", "Rejeté")

@@ -17,15 +17,14 @@ import {
   ButtonText,
   Heading,
   HStack,
-  Icon,
-  Input,
+    Input,
   InputField,
   Pressable,
   Spinner,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import { ArrowLeft, CheckCircle2, RefreshCw } from "lucide-react-native";
+import { MIcon } from "../../components/MIcon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -100,7 +99,7 @@ export default function OtpWizard(props: OtpWizardProps) {
       <Box pt={insets.top + 12} px="$4">
         <Pressable onPress={props.onCancel} py="$2" alignSelf="flex-start">
           <HStack alignItems="center" space="xs">
-            <Icon as={ArrowLeft} size="sm" color="$textLight600" />
+            <MIcon name="arrow-back" size="sm" color="$textLight600" />
             <Text size="md" color="$textLight600" fontWeight="$medium">
               {t("common.back", "Retour")}
             </Text>
@@ -112,7 +111,7 @@ export default function OtpWizard(props: OtpWizardProps) {
         <Box maxWidth={420} w="$full" alignSelf="center" flex={1} justifyContent="center">
           {phase === "success" ? (
             <VStack space="md" alignItems="center">
-              <Icon as={CheckCircle2} size="xl" color="$success600" />
+              <MIcon name="check-circle" size="xl" color="$success600" />
               <Heading size="xl" textAlign="center" color="$textLight900">
                 {t("verif.verifiedTitle", "Vérifié !")}
               </Heading>
@@ -184,7 +183,7 @@ export default function OtpWizard(props: OtpWizardProps) {
 
                   <Pressable alignItems="center" py="$2" onPress={handleStart}>
                     <HStack alignItems="center" space="xs">
-                      <Icon as={RefreshCw} size="xs" color="$textLight500" />
+                      <MIcon name="refresh" size="xs" color="$textLight500" />
                       <Text size="sm" color="$textLight500" fontWeight="$medium">
                         {t("verif.resend", "Renvoyer le code")}
                       </Text>

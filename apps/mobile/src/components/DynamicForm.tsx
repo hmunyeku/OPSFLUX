@@ -15,13 +15,13 @@ import {
   ButtonText,
   Heading,
   HStack,
-  Icon,
+
   Progress,
   ProgressFilledTrack,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import { CheckCircle2, CloudOff } from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import { useFormEngine } from "../hooks/useFormEngine";
 import { useResponsive } from "../hooks/useResponsive";

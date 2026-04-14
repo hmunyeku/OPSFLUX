@@ -13,19 +13,13 @@ import {
   ButtonText,
   Heading,
   HStack,
-  Icon,
-  Pressable,
+    Pressable,
   Spinner,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  MapPin,
-  RefreshCw,
-} from "lucide-react-native";
+import { MIcon } from "../../components/MIcon";
 import { useTranslation } from "react-i18next";
 import * as Location from "expo-location";
 import { declareLocation } from "../../services/verifications";
@@ -100,7 +94,7 @@ export default function LocationVerificationScreen({ navigation }: Props) {
       <Box pt={insets.top + 12} px="$4">
         <Pressable onPress={() => navigation.goBack()} py="$2" alignSelf="flex-start">
           <HStack alignItems="center" space="xs">
-            <Icon as={ArrowLeft} size="sm" color="$textLight600" />
+            <MIcon name="arrow-back" size="sm" color="$textLight600" />
             <Text size="md" color="$textLight600" fontWeight="$medium">
               {t("common.back", "Retour")}
             </Text>
@@ -112,7 +106,7 @@ export default function LocationVerificationScreen({ navigation }: Props) {
         <Box maxWidth={420} w="$full" alignSelf="center">
           {phase === "done" ? (
             <VStack space="md" alignItems="center">
-              <Icon as={CheckCircle2} size="xl" color="$success600" />
+              <MIcon name="check-circle" size="xl" color="$success600" />
               <Heading size="xl" textAlign="center" color="$textLight900">
                 {t("verif.location.doneTitle", "Position enregistrée")}
               </Heading>
@@ -164,7 +158,7 @@ export default function LocationVerificationScreen({ navigation }: Props) {
                 <VStack space="md" mt="$4">
                   <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
                     <HStack space="sm" alignItems="center" mb="$2">
-                      <Icon as={MapPin} size="md" color="$primary700" />
+                      <MIcon name="place" size="md" color="$primary700" />
                       <Heading size="sm" color="$textLight900">
                         {t("verif.location.captured", "Position capturée")}
                       </Heading>
@@ -198,7 +192,7 @@ export default function LocationVerificationScreen({ navigation }: Props) {
 
                   <Pressable alignItems="center" py="$2" onPress={fetchLocation}>
                     <HStack alignItems="center" space="xs">
-                      <Icon as={RefreshCw} size="xs" color="$textLight500" />
+                      <MIcon name="refresh" size="xs" color="$textLight500" />
                       <Text size="sm" color="$textLight500" fontWeight="$medium">
                         {t("verif.location.refresh", "Réactualiser la position")}
                       </Text>

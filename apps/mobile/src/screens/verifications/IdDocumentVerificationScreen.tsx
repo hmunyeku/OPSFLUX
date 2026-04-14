@@ -18,20 +18,11 @@ import {
   ButtonText,
   Heading,
   HStack,
-  Icon,
-  Pressable,
+    Pressable,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import {
-  ArrowLeft,
-  Camera,
-  CheckCircle2,
-  ChevronRight,
-  FileBadge,
-  RotateCcw,
-  User,
-} from "lucide-react-native";
+import { MIcon } from "../../components/MIcon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import * as ImagePicker from "expo-image-picker";
@@ -143,7 +134,7 @@ export default function IdDocumentVerificationScreen({ navigation }: Props) {
           alignSelf="flex-start"
         >
           <HStack alignItems="center" space="xs">
-            <Icon as={ArrowLeft} size="sm" color="$textLight600" />
+            <MIcon name="arrow-back" size="sm" color="$textLight600" />
             <Text size="md" color="$textLight600" fontWeight="$medium">
               {t("common.back", "Retour")}
             </Text>
@@ -220,7 +211,7 @@ export default function IdDocumentVerificationScreen({ navigation }: Props) {
 
           {step === "done" && (
             <VStack space="md" alignItems="center" justifyContent="center" flex={1}>
-              <Icon as={CheckCircle2} size="xl" color="$success600" />
+              <MIcon name="check-circle" size="xl" color="$success600" />
               <Heading size="xl" textAlign="center" color="$textLight900">
                 {t("verif.id.doneTitle", "Documents soumis")}
               </Heading>
@@ -264,12 +255,12 @@ function DocTypeRow({
     >
       <HStack space="md" alignItems="center">
         <Box bg="$primary50" borderRadius="$lg" p="$2.5">
-          <Icon as={FileBadge} size="md" color="$primary700" />
+          <MIcon name="badge" size="md" color="$primary700" />
         </Box>
         <Text flex={1} size="md" fontWeight="$semibold" color="$textLight900">
           {t(labelKey, labelFallback)}
         </Text>
-        <Icon as={ChevronRight} size="md" color="$textLight400" />
+        <MIcon name="chevron-right" size="md" color="$textLight400" />
       </HStack>
     </Pressable>
   );
@@ -322,12 +313,12 @@ function CapturePrompt({
           alignItems="center"
           justifyContent="center"
         >
-          <Icon as={icon} size="xl" color="$textLight400" />
+          <MIcon name={icon} size="xl" color="$textLight400" />
         </Box>
       )}
 
       <Button size="xl" action="primary" onPress={onCapture}>
-        <Icon as={uri ? RotateCcw : Camera} color="$white" size="md" mr="$2" />
+        <MIcon name={uri ? RotateCcw : Camera} color="$white" size="md" mr="$2" />
         <ButtonText>
           {uri ? t("verif.id.retake", "Reprendre") : t("verif.id.takePhoto", "Prendre la photo")}
         </ButtonText>
@@ -400,7 +391,7 @@ function Thumb({ label, uri, onEdit }: { label: string; uri: string; onEdit: () 
         <Text flex={1} size="md" fontWeight="$medium" color="$textLight900">
           {label}
         </Text>
-        <Icon as={RotateCcw} size="sm" color="$textLight500" />
+        <MIcon name="refresh" size="sm" color="$textLight500" />
       </HStack>
     </Pressable>
   );

@@ -11,17 +11,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Box,
   HStack,
-  Icon,
-  Input,
+    Input,
   InputField,
-  InputIcon,
-  InputSlot,
+    InputSlot,
   Pressable,
   Spinner,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import { Calendar, MapPin, Search, Users } from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
 import { listAds } from "../services/paxlog";
@@ -124,14 +122,14 @@ export default function AdsListScreen({ route, navigation }: Props) {
         </Text>
         <HStack space="md" alignItems="center" flexWrap="wrap">
           <HStack space="xs" alignItems="center">
-            <Icon as={Calendar} size="2xs" color="$textLight500" />
+            <MIcon name="calendar-today" size="2xs" color="$textLight500" />
             <Text size="xs" color="$textLight500">
               {item.start_date} → {item.end_date}
             </Text>
           </HStack>
           {item.pax_count != null && (
             <HStack space="xs" alignItems="center">
-              <Icon as={Users} size="2xs" color="$textLight500" />
+              <MIcon name="people" size="2xs" color="$textLight500" />
               <Text size="xs" color="$textLight500">
                 {t("ads.paxCount", "{{count}} pax", { count: item.pax_count })}
               </Text>
@@ -140,7 +138,7 @@ export default function AdsListScreen({ route, navigation }: Props) {
         </HStack>
         {item.site_entry_asset_name && (
           <HStack space="xs" alignItems="center" mt="$1.5">
-            <Icon as={MapPin} size="2xs" color="$textLight400" />
+            <MIcon name="place" size="2xs" color="$textLight400" />
             <Text size="xs" color="$textLight400">
               {item.site_entry_asset_name}
             </Text>
@@ -157,7 +155,7 @@ export default function AdsListScreen({ route, navigation }: Props) {
       <Box px="$3.5" mb="$2">
         <Input borderColor="$borderLight300" bg="$white">
           <InputSlot pl="$3">
-            <InputIcon as={Search} color="$textLight400" />
+            <MIcon name="search" color="$textLight400" />
           </InputSlot>
           <InputField
             value={search}

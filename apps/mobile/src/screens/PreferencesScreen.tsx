@@ -17,14 +17,13 @@ import {
   HStack,
   Radio,
   RadioGroup,
-  RadioIcon,
-  RadioIndicator,
+    RadioIndicator,
   RadioLabel,
   Switch,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import { CircleIcon } from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import { AVAILABLE_LANGUAGES } from "../locales/i18n";
 import { useThemeStore } from "../stores/theme";
@@ -169,7 +168,7 @@ function RadioRow({ value, label }: { value: string; label: string }) {
   return (
     <Radio value={value} size="md">
       <RadioIndicator mr="$2">
-        <RadioIcon as={CircleIcon} />
+        <MIcon name="radio-button-unchecked" size="sm" color="$primary600" />
       </RadioIndicator>
       <RadioLabel>{label}</RadioLabel>
     </Radio>

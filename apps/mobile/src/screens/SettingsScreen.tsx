@@ -25,32 +25,13 @@ import {
   Divider,
   Heading,
   HStack,
-  Icon,
+
   Pressable,
   Spinner,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import {
-  Bell,
-  ChevronRight,
-  CircleCheck,
-  CircleDot,
-  CloudUpload,
-  HelpCircle,
-  Info,
-  LogOut,
-  RefreshCw,
-  Settings as SettingsIcon,
-  Shield,
-  ShieldCheck,
-  Trash2,
-  UserCircle,
-  Users,
-  Wifi,
-  WifiOff,
-  type LucideIcon,
-} from "lucide-react-native";
+import { MIcon, type MIconName } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../stores/auth";
 import { usePermissions } from "../stores/permissions";
@@ -184,14 +165,14 @@ export default function SettingsScreen({ navigation }: Props) {
                 </Text>
               )}
             </VStack>
-            <Icon as={ChevronRight} size="md" color="$textLight400" />
+            <MIcon name="chevron-right" size="md" color="$textLight400" />
           </HStack>
         </Pressable>
 
         {/* Quick navigation */}
         <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" overflow="hidden">
           <NavRow
-            icon={UserCircle}
+            icon="account-circle"
             iconColor="$primary600"
             iconBg="$primary50"
             title={t("settings.myProfile", "Mon profil")}
@@ -200,7 +181,7 @@ export default function SettingsScreen({ navigation }: Props) {
           />
           <Divider />
           <NavRow
-            icon={ShieldCheck}
+            icon="verified-user"
             iconColor="$success600"
             iconBg="$success50"
             title={t("settings.verifications", "Mes vérifications")}
@@ -209,7 +190,7 @@ export default function SettingsScreen({ navigation }: Props) {
           />
           <Divider />
           <NavRow
-            icon={Shield}
+            icon="shield"
             iconColor="$success600"
             iconBg="$success50"
             title={t("settings.compliance", "Ma conformité")}
@@ -218,7 +199,7 @@ export default function SettingsScreen({ navigation }: Props) {
           />
           <Divider />
           <NavRow
-            icon={Bell}
+            icon="notifications"
             iconColor="$info600"
             iconBg="$info50"
             title={t("settings.contacts", "Mes contacts & adresses")}
@@ -227,7 +208,7 @@ export default function SettingsScreen({ navigation }: Props) {
           />
           <Divider />
           <NavRow
-            icon={SettingsIcon}
+            icon="settings"
             iconColor="$textLight600"
             iconBg="$backgroundLight100"
             title={t("settings.preferences", "Préférences")}
@@ -254,7 +235,7 @@ export default function SettingsScreen({ navigation }: Props) {
             </HStack>
             {queueLength > 0 && (
               <HStack alignItems="center" space="sm">
-                <Icon as={CloudUpload} size="sm" color="$info600" />
+                <MIcon name="cloud-upload" size="sm" color="$info600" />
                 <Text size="sm" flex={1} color="$textLight900">
                   {t("settings.pendingSync", "{{count}} action(s) en attente de sync", {
                     count: queueLength,
@@ -278,7 +259,7 @@ export default function SettingsScreen({ navigation }: Props) {
         {entities.length > 1 && (
           <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
             <HStack space="sm" alignItems="center" mb="$3">
-              <Icon as={Users} size="sm" color="$textLight600" />
+              <MIcon name="people" size="sm" color="$textLight600" />
               <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5}>
                 {t("settings.entity", "Entité")}
               </Heading>
@@ -324,7 +305,7 @@ export default function SettingsScreen({ navigation }: Props) {
         {/* App info */}
         <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
           <HStack space="sm" alignItems="center" mb="$3">
-            <Icon as={Info} size="sm" color="$textLight600" />
+            <MIcon name="info" size="sm" color="$textLight600" />
             <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5}>
               {t("settings.application", "Application")}
             </Heading>
@@ -340,7 +321,7 @@ export default function SettingsScreen({ navigation }: Props) {
           <Divider my="$2" />
           <Pressable onPress={handleClearCache} py="$2">
             <HStack space="sm" alignItems="center">
-              <Icon as={Trash2} size="sm" color="$textLight500" />
+              <MIcon name="delete" size="sm" color="$textLight500" />
               <Text size="sm" color="$textLight700" flex={1}>
                 {t("settings.clearCache", "Vider le cache local")}
               </Text>
@@ -358,7 +339,7 @@ export default function SettingsScreen({ navigation }: Props) {
             py="$2"
           >
             <HStack space="sm" alignItems="center">
-              <Icon as={HelpCircle} size="sm" color="$textLight500" />
+              <MIcon name="help-outline" size="sm" color="$textLight500" />
               <Text size="sm" color="$textLight700" flex={1}>
                 {t("settings.replayTutorial", "Revoir le tutoriel")}
               </Text>
@@ -368,7 +349,7 @@ export default function SettingsScreen({ navigation }: Props) {
 
         {/* Logout */}
         <Button size="lg" action="negative" onPress={handleLogout}>
-          <Icon as={LogOut} color="$white" size="md" mr="$2" />
+          <MIcon name="logout" color="$white" size="md" mr="$2" />
           <ButtonText>{t("auth.logout", "Se déconnecter")}</ButtonText>
         </Button>
       </ScrollView>
@@ -384,7 +365,7 @@ function NavRow({
   description,
   onPress,
 }: {
-  icon: LucideIcon;
+  icon: MIconName;
   iconColor: string;
   iconBg: string;
   title: string;
@@ -395,7 +376,7 @@ function NavRow({
     <Pressable onPress={onPress} px="$4" py="$3" $active-bg="$backgroundLight100">
       <HStack space="md" alignItems="center">
         <Box bg={iconBg} borderRadius="$md" p="$2">
-          <Icon as={icon} size="sm" color={iconColor} />
+          <MIcon name={icon} size="sm" color={iconColor} />
         </Box>
         <VStack flex={1}>
           <Text size="md" fontWeight="$medium" color="$textLight900">
@@ -407,7 +388,7 @@ function NavRow({
             </Text>
           )}
         </VStack>
-        <Icon as={ChevronRight} size="sm" color="$textLight400" />
+        <MIcon name="chevron-right" size="sm" color="$textLight400" />
       </HStack>
     </Pressable>
   );

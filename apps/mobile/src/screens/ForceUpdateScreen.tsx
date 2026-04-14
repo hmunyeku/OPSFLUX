@@ -9,11 +9,10 @@ import {
   ButtonText,
   Heading,
   HStack,
-  Icon,
-  Text,
+    Text,
   VStack,
 } from "@gluestack-ui/themed";
-import { ArrowUpCircle } from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 
 interface Props {
@@ -48,7 +47,7 @@ export default function ForceUpdateScreen({
     <Box flex={1} bg="$backgroundLight50" justifyContent="center" alignItems="center" p="$6">
       <Box maxWidth={400} w="$full" bg="$white" borderRadius="$xl" p="$6" alignItems="center">
         <Box bg="$primary50" borderRadius="$full" p="$5" mb="$5">
-          <Icon as={ArrowUpCircle} size="xl" color="$primary600" />
+          <MIcon name="arrow-circle-up" size="xl" color="$primary600" />
         </Box>
         <Heading size="xl" color="$textLight900" textAlign="center" mb="$2">
           {t("update.title", "Mise à jour requise")}

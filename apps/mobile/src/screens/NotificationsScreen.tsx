@@ -9,12 +9,11 @@ import {
   Button,
   ButtonText,
   HStack,
-  Icon,
-  Pressable,
+    Pressable,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import { Bell, BellOff } from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import {
   useNotifications,
@@ -114,7 +113,7 @@ export default function NotificationsScreen({ navigation }: Props) {
         }}
         ListEmptyComponent={
           <VStack space="sm" alignItems="center" mt="$10" p="$6">
-            <Icon as={BellOff} size="xl" color="$textLight300" />
+            <MIcon name="notifications-off" size="xl" color="$textLight300" />
             <Text size="md" fontWeight="$semibold" color="$textLight900">
               {t("notif.emptyTitle", "Aucune notification")}
             </Text>

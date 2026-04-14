@@ -22,20 +22,11 @@ import {
   Divider,
   Heading,
   HStack,
-  Icon,
-  Spinner,
+    Spinner,
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  Calendar,
-  MapPin,
-  Repeat,
-  User,
-  Users,
-} from "lucide-react-native";
+import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
 import { api } from "../services/api";
@@ -191,7 +182,7 @@ export default function AdsDetailScreen({ route }: Props) {
             </Badge>
             {ads.is_round_trip_no_overnight && (
               <Badge action="info" variant="solid" size="sm">
-                <Icon as={Repeat} size="2xs" color="$white" mr="$1" />
+                <MIcon name="repeat" size="2xs" color="$white" mr="$1" />
                 <BadgeText>{t("ads.roundTrip", "A/R sans nuitée")}</BadgeText>
               </Badge>
             )}
@@ -253,7 +244,7 @@ export default function AdsDetailScreen({ route }: Props) {
         {ads.pax_entries && ads.pax_entries.length > 0 && (
           <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
             <HStack alignItems="center" space="sm" mb="$3">
-              <Icon as={Users} size="sm" color="$textLight600" />
+              <MIcon name="people" size="sm" color="$textLight600" />
               <Heading
                 size="xs"
                 color="$textLight500"
@@ -333,7 +324,7 @@ function DetailRow({ icon, label, value }: { icon: any; label: string; value: st
   return (
     <HStack space="sm" alignItems="center">
       <Box bg="$primary50" borderRadius="$md" p="$2">
-        <Icon as={icon} size="sm" color="$primary700" />
+        <MIcon name={icon} size="sm" color="$primary700" />
       </Box>
       <VStack flex={1}>
         <Text size="xs" color="$textLight500">

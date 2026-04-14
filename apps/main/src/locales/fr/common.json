@@ -3081,6 +3081,24 @@
     "no_cargo": "Aucun colis",
     "log_event": "Enregistrer l'événement",
     "vectors": "Vecteurs",
+    "stats": {
+      "total": "Total",
+      "planned": "Planifiés",
+      "in_progress": "En cours",
+      "pax_boarded": "PAX embarqués",
+      "manifests": "Manifestes",
+      "drafts": "Brouillons",
+      "validated": "Valides",
+      "pax_total": "PAX total"
+    },
+    "actions": {
+      "delete": "Supprimer",
+      "delete_voyage_confirm": "Supprimer ce voyage ?",
+      "delete_vector_confirm": "Supprimer ce vecteur ?",
+      "delete_confirm_title": "Supprimer ?",
+      "validate": "Valider",
+      "advance": "Avancer"
+    },
     "status_active": "Actif",
     "status_idle": "En veille",
     "status_in_transit": "En transit",

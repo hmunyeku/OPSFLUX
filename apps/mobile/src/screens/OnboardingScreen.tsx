@@ -1,96 +1,121 @@
 /**
- * Onboarding walkthrough — shown on first launch after login.
- *
- * Multi-step tutorial explaining the app features:
- *  1. Welcome + role-based portal explanation
- *  2. Scanner QR (ADS + colis)
- *  3. Formulaires dynamiques
- *  4. Mode offline
- *  5. GPS tracking
- *  6. Notifications
- *
- * Saved to AsyncStorage so it only shows once.
- * Can be replayed from Settings.
+ * OnboardingScreen — Gluestack refonte: 6-step horizontal walkthrough.
  */
-
 import React, { useRef, useState } from "react";
 import {
-  Animated,
   Dimensions,
   FlatList,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  StyleSheet,
-  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native";
-import { Button, Text } from "react-native-paper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  Box,
+  Button,
+  ButtonText,
+  Heading,
+  HStack,
+  Icon,
+  Text,
+  VStack,
+} from "@gluestack-ui/themed";
+import {
+  Bell,
+  CloudOff,
+  FileText,
+  MapPinned,
+  QrCode,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { colors } from "../utils/colors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const ONBOARDING_KEY = "@opsflux:onboarding_complete";
 
-interface OnboardingStep {
-  icon: string;
-  title: string;
-  description: string;
-  color: string;
+interface Step {
+  icon: LucideIcon;
+  titleKey: string;
+  titleFb: string;
+  descKey: string;
+  descFb: string;
+  bg: string;
+  fg: string;
 }
 
 interface Props {
   onComplete: () => void;
 }
 
+const STEPS: Step[] = [
+  {
+    icon: Sparkles,
+    titleKey: "onboarding.welcomeTitle",
+    titleFb: "Bienvenue sur OpsFlux Mobile",
+    descKey: "onboarding.welcomeDesc",
+    descFb:
+      "Votre application terrain pour gérer les opérations, le personnel, les colis et le transport. Tout est adapté à votre rôle et vos permissions.",
+    bg: "$primary50",
+    fg: "$primary600",
+  },
+  {
+    icon: QrCode,
+    titleKey: "onboarding.scanTitle",
+    titleFb: "Scannez en un geste",
+    descKey: "onboarding.scanDesc",
+    descFb:
+      "Scannez les QR codes des Avis de Séjour pour le boarding, et les codes des colis pour le suivi. Le scanner supporte QR, Code128, EAN et plus.",
+    bg: "$info50",
+    fg: "$info600",
+  },
+  {
+    icon: FileText,
+    titleKey: "onboarding.formTitle",
+    titleFb: "Formulaires intelligents",
+    descKey: "onboarding.formDesc",
+    descFb:
+      "Créez des ADS, des demandes d'expédition et des missions directement depuis l'app. Les formulaires sont dynamiques — ils s'adaptent automatiquement sans mise à jour.",
+    bg: "$primary50",
+    fg: "$primary600",
+  },
+  {
+    icon: CloudOff,
+    titleKey: "onboarding.offlineTitle",
+    titleFb: "Fonctionne hors-ligne",
+    descKey: "onboarding.offlineDesc",
+    descFb:
+      "Pas de réseau ? Pas de problème. Vos données sont mises en cache et vos actions sont envoyées automatiquement dès que la connexion revient.",
+    bg: "$warning50",
+    fg: "$warning600",
+  },
+  {
+    icon: MapPinned,
+    titleKey: "onboarding.gpsTitle",
+    titleFb: "Suivi en temps réel",
+    descKey: "onboarding.gpsDesc",
+    descFb:
+      "Activez la balise GPS pour être suivi pendant les voyages. Les capitaines et chauffeurs peuvent consulter le manifeste et enregistrer les événements en direct.",
+    bg: "$success50",
+    fg: "$success600",
+  },
+  {
+    icon: Bell,
+    titleKey: "onboarding.notifTitle",
+    titleFb: "Restez informé",
+    descKey: "onboarding.notifDesc",
+    descFb:
+      "Recevez les notifications en temps réel : validations ADS, réceptions de colis, événements de voyage. Tout est centralisé dans l'app.",
+    bg: "$error50",
+    fg: "$error600",
+  },
+];
+
 export default function OnboardingScreen({ onComplete }: Props) {
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
-
-  const steps: OnboardingStep[] = [
-    {
-      icon: "OPS",
-      title: "Bienvenue sur OpsFlux Mobile",
-      description:
-        "Votre application terrain pour gérer les opérations, le personnel, les colis et le transport. Tout est adapté à votre rôle et vos permissions.",
-      color: colors.primary,
-    },
-    {
-      icon: "QR",
-      title: "Scannez en un geste",
-      description:
-        "Scannez les QR codes des Avis de Séjour pour le boarding, et les codes des colis pour le suivi. Le scanner supporte QR, Code128, EAN et plus.",
-      color: colors.info,
-    },
-    {
-      icon: "F",
-      title: "Formulaires intelligents",
-      description:
-        "Créez des ADS, des demandes d'expédition et des missions directement depuis l'app. Les formulaires sont dynamiques — ils s'adaptent automatiquement sans mise à jour.",
-      color: colors.accent,
-    },
-    {
-      icon: "OFF",
-      title: "Fonctionne hors-ligne",
-      description:
-        "Pas de réseau ? Pas de problème. Vos données sont mises en cache et vos actions sont envoyées automatiquement dès que la connexion revient.",
-      color: colors.warning,
-    },
-    {
-      icon: "GPS",
-      title: "Suivi en temps réel",
-      description:
-        "Activez la balise GPS pour être suivi pendant les voyages. Les capitaines et chauffeurs peuvent consulter le manifeste et enregistrer les événements en direct.",
-      color: colors.success,
-    },
-    {
-      icon: "!",
-      title: "Restez informé",
-      description:
-        "Recevez les notifications en temps réel : validations ADS, réceptions de colis, événements de voyage. Tout est centralisé dans l'app.",
-      color: colors.danger,
-    },
-  ];
 
   function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
     const index = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
@@ -98,7 +123,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
   }
 
   function goToNext() {
-    if (currentIndex < steps.length - 1) {
+    if (currentIndex < STEPS.length - 1) {
       flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
     }
   }
@@ -108,27 +133,27 @@ export default function OnboardingScreen({ onComplete }: Props) {
     onComplete();
   }
 
-  const isLast = currentIndex === steps.length - 1;
+  const isLast = currentIndex === STEPS.length - 1;
 
-  const renderStep = ({ item }: { item: OnboardingStep }) => (
-    <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
-      <View style={[styles.iconCircle, { backgroundColor: item.color + "20" }]}>
-        <Text style={[styles.iconText, { color: item.color }]}>{item.icon}</Text>
-      </View>
-      <Text variant="headlineSmall" style={styles.stepTitle}>
-        {item.title}
+  const renderStep = ({ item }: { item: Step }) => (
+    <Box w={SCREEN_WIDTH} flex={1} alignItems="center" justifyContent="center" px="$10">
+      <Box bg={item.bg} borderRadius="$full" p="$6" mb="$8">
+        <Icon as={item.icon} size="xl" color={item.fg} />
+      </Box>
+      <Heading size="xl" textAlign="center" color="$textLight900" mb="$4">
+        {t(item.titleKey, item.titleFb)}
+      </Heading>
+      <Text size="md" textAlign="center" color="$textLight600" lineHeight={26}>
+        {t(item.descKey, item.descFb)}
       </Text>
-      <Text variant="bodyLarge" style={styles.stepDescription}>
-        {item.description}
-      </Text>
-    </View>
+    </Box>
   );
 
   return (
-    <View style={styles.container}>
+    <Box flex={1} bg="$backgroundLight50" pt={insets.top}>
       <FlatList
         ref={flatListRef}
-        data={steps}
+        data={STEPS}
         renderItem={renderStep}
         horizontal
         pagingEnabled
@@ -137,113 +162,42 @@ export default function OnboardingScreen({ onComplete }: Props) {
         keyExtractor={(_, i) => String(i)}
       />
 
-      {/* Dots */}
-      <View style={styles.dotsRow}>
-        {steps.map((_, i) => (
-          <View
+      <HStack justifyContent="center" space="xs" py="$4">
+        {STEPS.map((_, i) => (
+          <Box
             key={i}
-            style={[
-              styles.dot,
-              i === currentIndex && styles.dotActive,
-            ]}
+            w={i === currentIndex ? 24 : 8}
+            h={8}
+            borderRadius="$full"
+            bg={i === currentIndex ? "$primary600" : "$borderLight300"}
           />
         ))}
-      </View>
+      </HStack>
 
-      {/* Bottom actions */}
-      <View style={styles.bottomRow}>
-        <Button mode="text" onPress={handleComplete} textColor={colors.textSecondary}>
-          Passer
+      <HStack
+        justifyContent="space-between"
+        alignItems="center"
+        px="$6"
+        pb={insets.bottom + 24}
+      >
+        <Button size="md" variant="link" onPress={handleComplete}>
+          <ButtonText color="$textLight500">{t("onboarding.skip", "Passer")}</ButtonText>
         </Button>
-
-        {isLast ? (
-          <Button mode="contained" onPress={handleComplete} style={styles.startButton}>
-            Commencer
-          </Button>
-        ) : (
-          <Button mode="contained" onPress={goToNext} style={styles.nextButton}>
-            Suivant
-          </Button>
-        )}
-      </View>
-    </View>
+        <Button size="lg" action="primary" onPress={isLast ? handleComplete : goToNext} minWidth={140}>
+          <ButtonText>
+            {isLast ? t("onboarding.start", "Commencer") : t("onboarding.next", "Suivant")}
+          </ButtonText>
+        </Button>
+      </HStack>
+    </Box>
   );
 }
 
-/** Check if onboarding has been completed. */
 export async function isOnboardingComplete(): Promise<boolean> {
   const value = await AsyncStorage.getItem(ONBOARDING_KEY);
   return value === "true";
 }
 
-/** Reset onboarding flag (for Settings "replay tutorial"). */
 export async function resetOnboarding(): Promise<void> {
   await AsyncStorage.removeItem(ONBOARDING_KEY);
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  slide: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 40,
-  },
-  iconCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 32,
-  },
-  iconText: {
-    fontSize: 28,
-    fontWeight: "800",
-  },
-  stepTitle: {
-    fontWeight: "700",
-    color: colors.textPrimary,
-    textAlign: "center",
-    marginBottom: 16,
-  },
-  stepDescription: {
-    color: colors.textSecondary,
-    textAlign: "center",
-    lineHeight: 26,
-  },
-  dotsRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 16,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.border,
-  },
-  dotActive: {
-    backgroundColor: colors.primary,
-    width: 24,
-  },
-  bottomRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  nextButton: {
-    minWidth: 120,
-    borderRadius: 10,
-  },
-  startButton: {
-    minWidth: 140,
-    borderRadius: 10,
-  },
-});

@@ -1,21 +1,24 @@
 /**
- * Force Update Screen — shown when the app version is too old.
- *
- * The server's bootstrap response includes a `min_app_version` field.
- * If the current app version is below this, the user must update.
- *
- * Also supports soft update (optional) with a "Later" button.
+ * ForceUpdateScreen — Gluestack refonte: shown when app version < min_app_version.
  */
-
 import React from "react";
-import { Linking, Platform, StyleSheet, View } from "react-native";
-import { Button, Surface, Text } from "react-native-paper";
-import { colors } from "../utils/colors";
+import { Linking, Platform } from "react-native";
+import {
+  Box,
+  Button,
+  ButtonText,
+  Heading,
+  HStack,
+  Icon,
+  Text,
+  VStack,
+} from "@gluestack-ui/themed";
+import { ArrowUpCircle } from "lucide-react-native";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   currentVersion: string;
   requiredVersion: string;
-  /** If true, the user can skip the update. */
   soft?: boolean;
   onSkip?: () => void;
   storeUrl?: string;
@@ -34,66 +37,58 @@ export default function ForceUpdateScreen({
   onSkip,
   storeUrl,
 }: Props) {
+  const { t } = useTranslation();
+
   function openStore() {
     const url = storeUrl ?? DEFAULT_STORE_URL;
     if (url) Linking.openURL(url);
   }
 
   return (
-    <View style={styles.container}>
-      <Surface style={styles.card} elevation={3}>
-        <View style={styles.iconCircle}>
-          <Text style={styles.iconText}>UP</Text>
-        </View>
-
-        <Text variant="headlineSmall" style={styles.title}>
-          Mise à jour requise
+    <Box flex={1} bg="$backgroundLight50" justifyContent="center" alignItems="center" p="$6">
+      <Box maxWidth={400} w="$full" bg="$white" borderRadius="$xl" p="$6" alignItems="center">
+        <Box bg="$primary50" borderRadius="$full" p="$5" mb="$5">
+          <Icon as={ArrowUpCircle} size="xl" color="$primary600" />
+        </Box>
+        <Heading size="xl" color="$textLight900" textAlign="center" mb="$2">
+          {t("update.title", "Mise à jour requise")}
+        </Heading>
+        <Text size="md" color="$textLight600" textAlign="center" lineHeight={24} mb="$5">
+          {t("update.desc", "Une nouvelle version de l'application est disponible. Veuillez mettre à jour pour continuer.")}
         </Text>
 
-        <Text variant="bodyLarge" style={styles.description}>
-          Une nouvelle version de l'application est disponible. Veuillez mettre à jour pour continuer.
-        </Text>
+        <Box bg="$backgroundLight100" borderRadius="$lg" p="$3.5" w="$full" mb="$5">
+          <VStack space="xs">
+            <HStack justifyContent="space-between">
+              <Text size="sm" color="$textLight500">
+                {t("update.currentVersion", "Version actuelle")}
+              </Text>
+              <Text size="sm" fontWeight="$semibold" color="$textLight900" fontFamily="$mono">
+                {currentVersion}
+              </Text>
+            </HStack>
+            <HStack justifyContent="space-between">
+              <Text size="sm" color="$textLight500">
+                {t("update.requiredVersion", "Version requise")}
+              </Text>
+              <Text size="sm" fontWeight="$semibold" color="$primary700" fontFamily="$mono">
+                {requiredVersion}
+              </Text>
+            </HStack>
+          </VStack>
+        </Box>
 
-        <View style={styles.versionBox}>
-          <View style={styles.versionRow}>
-            <Text variant="bodyMedium" style={styles.versionLabel}>
-              Version actuelle
-            </Text>
-            <Text variant="bodyMedium" style={styles.versionValue}>
-              {currentVersion}
-            </Text>
-          </View>
-          <View style={styles.versionRow}>
-            <Text variant="bodyMedium" style={styles.versionLabel}>
-              Version requise
-            </Text>
-            <Text variant="bodyMedium" style={[styles.versionValue, { color: colors.primary }]}>
-              {requiredVersion}
-            </Text>
-          </View>
-        </View>
-
-        <Button
-          mode="contained"
-          onPress={openStore}
-          style={styles.updateButton}
-          buttonColor={colors.primary}
-        >
-          Mettre à jour
+        <Button size="lg" action="primary" w="$full" onPress={openStore}>
+          <ButtonText>{t("update.update", "Mettre à jour")}</ButtonText>
         </Button>
 
         {soft && onSkip && (
-          <Button
-            mode="text"
-            onPress={onSkip}
-            textColor={colors.textSecondary}
-            style={styles.skipButton}
-          >
-            Plus tard
+          <Button size="md" variant="link" mt="$2" onPress={onSkip}>
+            <ButtonText>{t("update.later", "Plus tard")}</ButtonText>
           </Button>
         )}
-      </Surface>
-    </View>
+      </Box>
+    </Box>
   );
 }
 
@@ -109,65 +104,3 @@ export function compareVersions(a: string, b: string): number {
   }
   return 0;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-    backgroundColor: colors.background,
-  },
-  card: {
-    borderRadius: 20,
-    padding: 36,
-    alignItems: "center",
-    width: "100%",
-    maxWidth: 400,
-  },
-  iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.primary + "15",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  iconText: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: colors.primary,
-  },
-  title: {
-    fontWeight: "700",
-    color: colors.textPrimary,
-    textAlign: "center",
-    marginBottom: 12,
-  },
-  description: {
-    color: colors.textSecondary,
-    textAlign: "center",
-    lineHeight: 24,
-    marginBottom: 20,
-  },
-  versionBox: {
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: 10,
-    padding: 14,
-    width: "100%",
-    marginBottom: 24,
-    gap: 8,
-  },
-  versionRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  versionLabel: { color: colors.textSecondary },
-  versionValue: { fontWeight: "600", color: colors.textPrimary, fontFamily: "monospace" },
-  updateButton: {
-    width: "100%",
-    borderRadius: 10,
-  },
-  skipButton: { marginTop: 8 },
-});

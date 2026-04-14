@@ -29,9 +29,9 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.core.database import async_session_factory
 from app.models.common import I18nCatalogMeta, I18nLanguage, I18nMessage
 
-LOCALES_DIR = Path(__file__).resolve().parent.parent / "apps" / "mobile" / "src" / "locales"
+MOBILE_LOCALES_DIR = Path(__file__).resolve().parent.parent / "apps" / "mobile" / "src" / "locales"
+APP_LOCALES_DIR = Path(__file__).resolve().parent.parent / "apps" / "main" / "src" / "locales"
 SEED_DIR = Path(__file__).resolve().parent / "i18n_seed"
-NAMESPACE = "mobile"
 # When True (--force flag), overwrite existing translations with values from
 # the JSON files. Default False = preserve admin edits, only insert new keys.
 FORCE = "--force" in sys.argv
@@ -154,15 +154,28 @@ def _flatten(node: dict, prefix: str = "") -> dict[str, str]:
     return flat
 
 
-def _load_locale(code: str) -> dict[str, str]:
-    """Load a locale from scripts/i18n_seed/{code}.json (preferred) or
-    fall back to parsing apps/mobile/src/locales/{code}.ts."""
+def _load_locale(code: str, namespace: str = "mobile") -> dict[str, str]:
+    """Load a locale from various sources depending on namespace.
+
+    For 'mobile': scripts/i18n_seed/{code}.json or apps/mobile/src/locales/{code}.ts
+    For 'app': apps/main/src/locales/{code}/common.json (nested → flattened)
+    """
+    if namespace == "app":
+        json_path = APP_LOCALES_DIR / code / "common.json"
+        if json_path.exists():
+            import json as _json
+            obj = _json.loads(json_path.read_text(encoding="utf-8"))
+            return _flatten(obj)
+        print(f"[skip] no app locale for {code}")
+        return {}
+
+    # namespace == "mobile"
     json_path = SEED_DIR / f"{code}.json"
     if json_path.exists():
         import json as _json
         return _json.loads(json_path.read_text(encoding="utf-8"))
     # Fallback: parse the TS file (legacy)
-    ts_path = LOCALES_DIR / f"{code}.ts"
+    ts_path = MOBILE_LOCALES_DIR / f"{code}.ts"
     if not ts_path.exists():
         print(f"[skip] no source for {code} (.json or .ts)")
         return {}
@@ -170,9 +183,70 @@ def _load_locale(code: str) -> dict[str, str]:
     return _flatten(obj)
 
 
+async def _seed_namespace(db, namespace: str, languages: list[str], existing_langs: set[str]) -> int:
+    """Seed one namespace across all available languages. Returns total pairs inserted."""
+    total = 0
+    for code in languages:
+        if code not in existing_langs:
+            continue
+        messages = _load_locale(code, namespace=namespace)
+        if not messages:
+            continue
+        print(f"[{namespace}/{code}] {len(messages)} messages")
+
+        for key, value in messages.items():
+            stmt = pg_insert(I18nMessage).values(
+                key=key,
+                language_code=code,
+                namespace=namespace,
+                value=value,
+                updated_by=None,
+            )
+            if FORCE:
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["key", "language_code"],
+                    set_={"value": stmt.excluded.value},
+                )
+            else:
+                stmt = stmt.on_conflict_do_nothing(
+                    index_elements=["key", "language_code"],
+                )
+            await db.execute(stmt)
+            total += 1
+
+        # Recompute hash
+        rows = (
+            await db.execute(
+                select(I18nMessage.key, I18nMessage.value)
+                .where(I18nMessage.language_code == code)
+                .where(I18nMessage.namespace == namespace)
+                .order_by(I18nMessage.key)
+            )
+        ).all()
+        payload = "\n".join(f"{k}={v}" for k, v in rows).encode("utf-8")
+        digest = hashlib.sha256(payload).hexdigest()
+
+        upsert_meta = pg_insert(I18nCatalogMeta).values(
+            language_code=code,
+            namespace=namespace,
+            hash=digest,
+            message_count=len(rows),
+        )
+        upsert_meta = upsert_meta.on_conflict_do_update(
+            index_elements=["language_code", "namespace"],
+            set_={
+                "hash": upsert_meta.excluded.hash,
+                "message_count": upsert_meta.excluded.message_count,
+            },
+        )
+        await db.execute(upsert_meta)
+        print(f"[{namespace}/{code}] hash={digest[:12]}… count={len(rows)}")
+
+    return total
+
+
 async def seed() -> None:
     async with async_session_factory() as db:
-        # Ensure all languages exist
         known = ["fr", "en", "es", "pt"]
         existing = {
             r.code
@@ -182,66 +256,20 @@ async def seed() -> None:
             if code not in existing:
                 print(f"[warn] Language '{code}' is not registered — skipping.")
 
-        total_inserted = 0
-        for code in known:
-            if code not in existing:
-                continue
-            messages = _load_locale(code)
-            print(f"[{code}] {len(messages)} messages from {code}.json")
+        total = 0
 
-            for key, value in messages.items():
-                stmt = pg_insert(I18nMessage).values(
-                    key=key,
-                    language_code=code,
-                    namespace=NAMESPACE,
-                    value=value,
-                    updated_by=None,
-                )
-                # IMPORTANT: ON CONFLICT DO NOTHING — never overwrite values that
-                # have already been edited by an admin via the backoffice UI.
-                # If we want to force-resync from the JSON files, pass --force.
-                if FORCE:
-                    stmt = stmt.on_conflict_do_update(
-                        index_elements=["key", "language_code"],
-                        set_={"value": stmt.excluded.value},
-                    )
-                else:
-                    stmt = stmt.on_conflict_do_nothing(
-                        index_elements=["key", "language_code"],
-                    )
-                await db.execute(stmt)
-                total_inserted += 1
+        # Seed mobile namespace (legacy mobile app translations)
+        total += await _seed_namespace(db, "mobile", known, existing)
 
-            # Recompute hash for this (lang, namespace)
-            rows = (
-                await db.execute(
-                    select(I18nMessage.key, I18nMessage.value)
-                    .where(I18nMessage.language_code == code)
-                    .where(I18nMessage.namespace == NAMESPACE)
-                    .order_by(I18nMessage.key)
-                )
-            ).all()
-            payload = "\n".join(f"{k}={v}" for k, v in rows).encode("utf-8")
-            digest = hashlib.sha256(payload).hexdigest()
-
-            upsert_meta = pg_insert(I18nCatalogMeta).values(
-                language_code=code,
-                namespace=NAMESPACE,
-                hash=digest,
-                message_count=len(rows),
-            )
-            upsert_meta = upsert_meta.on_conflict_do_update(
-                index_elements=["language_code", "namespace"],
-                set_={
-                    "hash": upsert_meta.excluded.hash,
-                    "message_count": upsert_meta.excluded.message_count,
-                },
-            )
-            await db.execute(upsert_meta)
-            print(f"[{code}] hash={digest[:12]}… count={len(rows)}")
+        # Seed app namespace (main web app translations from JSON files)
+        app_langs = [c for c in known if (APP_LOCALES_DIR / c / "common.json").exists()]
+        if app_langs:
+            total += await _seed_namespace(db, "app", app_langs, existing)
+        else:
+            print("[app] no locale files found — skipping")
 
         await db.commit()
-        print(f"\n✓ Seeded {total_inserted} (key, lang) pairs across {len(known)} languages.")
+        print(f"\n✓ Seeded {total} (key, lang) pairs across {len(known)} languages.")
 
 
 if __name__ == "__main__":

@@ -148,6 +148,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.setItem('refresh_token', refresh_token)
     set({ isAuthenticated: true, mfaToken: null, mfaPending: false })
 
+    // Reload i18n from server now that we have a token
+    import('@/lib/i18n').then(({ reloadTranslationsAfterAuth }) => reloadTranslationsAfterAuth()).catch(() => {})
+
     const userRes = await api.get('/api/v1/auth/me')
     const user = userRes.data
     set({ user, currentEntityId: await resolveAccessibleCurrentEntityId(user) })

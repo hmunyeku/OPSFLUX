@@ -11,8 +11,6 @@
  */
 
 import "react-native-gesture-handler";
-// NativeWind: inject global Tailwind stylesheet before any component mounts.
-import "./global.css";
 
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, View, StyleSheet } from "react-native";

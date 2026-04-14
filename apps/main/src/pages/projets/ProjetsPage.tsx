@@ -4648,12 +4648,12 @@ void _OldDashboardView_REMOVED
 
 type ViewTab = 'dashboard' | 'projets' | 'tableur' | 'kanban' | 'planning'
 
-const PROJETS_TABS: { id: ViewTab; label: string; icon: typeof FolderKanban }[] = [
-  { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-  { id: 'projets', label: 'Projets', icon: FolderKanban },
-  { id: 'tableur', label: 'Tableur', icon: Sheet },
-  { id: 'kanban', label: 'Kanban', icon: Layers },
-  { id: 'planning', label: 'Planning', icon: CalendarRange },
+const PROJETS_TABS: { id: ViewTab; labelKey: string; icon: typeof FolderKanban }[] = [
+  { id: 'dashboard', labelKey: 'projets.tabs.dashboard', icon: LayoutDashboard },
+  { id: 'projets', labelKey: 'projets.tabs.projets', icon: FolderKanban },
+  { id: 'tableur', labelKey: 'projets.tabs.tableur', icon: Sheet },
+  { id: 'kanban', labelKey: 'projets.tabs.kanban', icon: Layers },
+  { id: 'planning', labelKey: 'projets.tabs.planning', icon: CalendarRange },
 ]
 
 // -- Main Page ----------------------------------------------------------------
@@ -4831,7 +4831,7 @@ function ProjectsListView() {
 const VALID_VIEW_TABS = new Set<ViewTab>(['dashboard', 'projets', 'tableur', 'kanban', 'planning'])
 
 export function ProjetsPage() {
-  useTranslation()
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabFromUrl = searchParams.get('tab') as ViewTab | null
   const [viewTab, setViewTabRaw] = useState<ViewTab>(
@@ -4851,15 +4851,15 @@ export function ProjetsPage() {
   return (
     <div className="flex h-full">
       {!isFullPanel && <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <PanelHeader icon={FolderKanban} title="Projets" subtitle="Gestion de projets">
+        <PanelHeader icon={FolderKanban} title={t('projets.title')} subtitle={t('projets.subtitle')}>
           {viewTab !== 'dashboard' && <GoutiSyncToolbar />}
-          {viewTab !== 'dashboard' && <ToolbarButton icon={Plus} label="Nouveau projet" variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'projets' })} />}
+          {viewTab !== 'dashboard' && <ToolbarButton icon={Plus} label={t('projets.create')} variant="primary" onClick={() => openDynamicPanel({ type: 'create', module: 'projets' })} />}
         </PanelHeader>
 
         {/* Tab bar — sits below the title bar; rightSlot hosts the
             dashboard "Modifier" toolbar via portal when on the dashboard tab. */}
         <TabBar
-          items={PROJETS_TABS}
+          items={PROJETS_TABS.map((tab) => ({ id: tab.id, icon: tab.icon, label: t(tab.labelKey) }))}
           activeId={viewTab}
           onTabChange={setViewTab}
           rightSlot={viewTab === 'dashboard' ? <div id="dash-toolbar-projets" /> : null}

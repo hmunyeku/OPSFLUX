@@ -166,6 +166,7 @@ def generate_form_definition(
     steps: list[dict[str, Any]] | None = None,
     hidden_fields: list[str] | None = None,
     field_order: list[str] | None = None,
+    virtual_fields: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """
     Auto-generate a complete mobile form definition from a Pydantic schema.
@@ -293,6 +294,11 @@ def generate_form_definition(
         if "computed_formula" in enrichment:
             field_def["type"] = "computed"
             field_def["formula"] = enrichment["computed_formula"]
+        if "attachment_owner_type" in enrichment:
+            # For photo/signature fields — the owner_type used when the
+            # mobile app uploads attachments via POST /attachments after
+            # creating the main resource.
+            field_def["attachment_owner_type"] = enrichment["attachment_owner_type"]
 
         # Conditional logic
         if "visible_when" in enrichment:
@@ -309,6 +315,26 @@ def generate_form_definition(
                 field_def["item_fields"] = _build_sub_fields(sub_schema, enrichment.get("item_enrichments", {}))
 
         fields[field_name] = field_def
+
+    # 2b. Inject virtual fields (UI-only, not in the Pydantic schema).
+    # Used for photo/signature/barcode/location fields that are uploaded
+    # separately via /attachments — they never reach the Pydantic submit endpoint.
+    for vname, vdef in (virtual_fields or {}).items():
+        merged = {
+            "type": vdef.get("type", "text"),
+            "label": vdef.get("label", _humanize(vname)),
+            "required": vdef.get("required", False),
+            "order": vdef.get("order", len(fields)),
+        }
+        # Copy optional fields
+        for key in [
+            "help_text", "placeholder", "options", "validation",
+            "lookup_source", "ui_width", "visible_when", "required_when",
+            "auto_populate_from", "formula", "attachment_owner_type",
+        ]:
+            if key in vdef:
+                merged[key] = vdef[key]
+        fields[vname] = merged
 
     # 3. Build steps
     if steps:

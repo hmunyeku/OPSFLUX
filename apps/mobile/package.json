@@ -20,7 +20,6 @@
     "@gluestack-style/react": "^1.0.57",
     "@gluestack-ui/config": "^1.1.20",
     "@gluestack-ui/themed": "^1.1.73",
-    "@legendapp/motion": "^2.5.3",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/datetimepicker": "8.2.0",
     "@react-native-community/netinfo": "11.4.1",
@@ -48,7 +47,6 @@
     "expo-status-bar": "~2.0.0",
     "expo-task-manager": "~12.0.0",
     "i18next": "^23.12.0",
-    "nativewind": "^4.2.3",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-i18next": "^14.1.0",
@@ -61,7 +59,6 @@
     "react-native-svg": "^15.8.0",
     "react-native-web": "~0.19.13",
     "react-native-webview": "13.12.5",
-    "tailwindcss": "^3.4.19",
     "zustand": "^4.5.0"
   },
   "devDependencies": {

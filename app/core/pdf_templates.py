@@ -429,7 +429,7 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
             "approval_status": "Approval status (approved / pending / rejected)",
             "approver_name": "Full name of the approver",
             "approved_at": "Approval timestamp",
-            "passengers": "List of passenger objects [{name, company, badge_number, compliance_status}]",
+            "passengers": "List of passenger objects [{name, first_name, last_name, company, badge_number, compliance_status (ok/blocked), compliant (bool), status, type}]",
             "generated_at": "PDF generation timestamp",
             "qr_data": "Data to encode in QR code (defaults to reference)",
             "qr_url": "Operational QR target URL for boarding scan",
@@ -578,11 +578,22 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
             "entity.name": "Entity name",
             "transport_type": "Transport type (helicopter / boat / vehicle)",
             "carrier": "Carrier / operator name",
+            "vector_name": "Vector name",
+            "vector_type": "Vector type (helicopter / ship / vehicle)",
+            "vector_registration": "Vector registration number",
+            "vector_mode": "Vector mode (air / sea / road)",
             "departure_date": "Departure date and time",
             "departure_location": "Departure location",
             "arrival_location": "Arrival location",
-            "passengers": "List of passenger dicts",
+            "route": "Human-readable route string (A -> B -> C)",
+            "stops": "List of intermediate stop dicts",
+            "captain_name": "Captain full name",
+            "co_pilot_name": "Co-pilot full name",
+            "weather": "Latest weather dict (wind, sea, visibility, etc.)",
+            "passengers": "List of passenger dicts (seat_number, name, company, badge_number, declared_weight_kg, actual_weight_kg, emergency_contact, compliance_status)",
             "total_passengers": "Total passenger count",
+            "total_declared_weight_kg": "Sum of declared passenger weights",
+            "total_actual_weight_kg": "Sum of actual passenger weights",
             "max_capacity": "Maximum capacity",
             "generated_at": "Generation timestamp",
         },
@@ -615,13 +626,22 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
             "entity.name": "Entity name",
             "transport_type": "Transport type",
             "carrier": "Carrier / operator name",
+            "vector_name": "Vector name",
+            "vector_type": "Vector type",
+            "vector_registration": "Vector registration",
+            "vector_weight_capacity_kg": "Vector total weight capacity (kg)",
             "departure_date": "Departure date and time",
             "departure_location": "Departure location",
             "arrival_location": "Arrival location",
-            "cargo_items": "List of cargo dicts",
+            "route": "Human-readable route string",
+            "captain_name": "Captain full name",
+            "cargo_items": "List of cargo dicts (reference, request_code, designation, sender_name, receiver_name, destination_name, weight_kg, volume_m3, package_count, is_hazmat, hazmat_class, hazmat_un_number, is_urgent, handling_notes, status_label)",
             "total_cargo_items": "Total cargo item count",
-            "total_weight_kg": "Total cargo weight",
+            "total_weight_kg": "Total cargo weight (kg)",
+            "total_volume_m3": "Total cargo volume (m3)",
             "total_packages": "Total package count",
+            "hazmat_count": "Number of hazmat cargo items",
+            "urgent_count": "Number of urgent cargo items",
             "generated_at": "Generation timestamp",
         },
         "default_versions": {
@@ -1404,45 +1424,110 @@ _VOYAGE_MANIFEST_BODY_FR = """\
 <meta charset="utf-8"/>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10pt; color: #1a1a2e; }
-  .header { text-align: center; padding-bottom: 12px; border-bottom: 2px solid #16213e; margin-bottom: 16px; }
-  .header .title { font-size: 16pt; font-weight: 700; color: #16213e; }
-  .header .subtitle { font-size: 10pt; color: #555; margin-top: 4px; }
-  .meta-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
-  .meta-grid .meta-item { flex: 1; min-width: 140px; padding: 8px; background: #f8f9fa; border-radius: 4px; }
-  .meta-grid .label { font-size: 7pt; text-transform: uppercase; color: #888; }
-  .meta-grid .value { font-size: 10pt; font-weight: 600; }
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  th { background: #16213e; color: #fff; text-align: left; padding: 6px 8px; font-size: 8pt; text-transform: uppercase; }
-  td { padding: 5px 8px; border-bottom: 1px solid #ddd; font-size: 9pt; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9.5pt; color: #1a1a2e; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 2px solid #16213e; margin-bottom: 14px; }
+  .header .left .title { font-size: 16pt; font-weight: 700; color: #16213e; }
+  .header .left .subtitle { font-size: 9pt; color: #555; margin-top: 2px; }
+  .header .right { text-align: right; font-size: 9pt; }
+  .header .right .voyage-no { font-size: 13pt; font-weight: 700; color: #16213e; font-family: 'Courier New', monospace; }
+  .header .right .label { font-size: 7pt; text-transform: uppercase; color: #888; letter-spacing: 0.5px; }
+  .meta-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .meta-grid .meta-item { flex: 1; min-width: 130px; padding: 6px 8px; background: #f8f9fa; border-radius: 4px; }
+  .meta-grid .label { font-size: 6.5pt; text-transform: uppercase; color: #888; letter-spacing: 0.4px; }
+  .meta-grid .value { font-size: 9.5pt; font-weight: 600; }
+  .panel { display: flex; gap: 10px; margin-bottom: 12px; }
+  .panel .box { flex: 1; padding: 8px 10px; background: #f1f4f8; border-left: 3px solid #16213e; border-radius: 3px; font-size: 8.5pt; }
+  .panel .box .ttl { font-size: 6.5pt; text-transform: uppercase; color: #555; letter-spacing: 0.4px; margin-bottom: 2px; }
+  .panel .box .row { display: flex; justify-content: space-between; }
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  th { background: #16213e; color: #fff; text-align: left; padding: 5px 6px; font-size: 7.5pt; text-transform: uppercase; }
+  td { padding: 4px 6px; border-bottom: 1px solid #ddd; font-size: 8.5pt; vertical-align: top; }
   tr:nth-child(even) { background: #f8f9fa; }
-  .capacity-bar { margin-top: 12px; padding: 8px; background: #e8edf3; border-radius: 4px; text-align: center; font-size: 9pt; }
-  .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 7pt; color: #888; display: flex; justify-content: space-between; }
+  .totals { display: flex; gap: 10px; margin-top: 10px; }
+  .totals .total-box { flex: 1; padding: 6px 10px; background: #e8edf3; border-radius: 4px; }
+  .totals .total-box .label { font-size: 6.5pt; text-transform: uppercase; color: #555; letter-spacing: 0.4px; }
+  .totals .total-box .value { font-size: 11pt; font-weight: 700; color: #16213e; }
+  .signatures { margin-top: 18px; display: flex; gap: 16px; }
+  .signatures .sig { flex: 1; border-top: 1px solid #888; padding-top: 4px; font-size: 8pt; color: #555; }
+  .footer { margin-top: 16px; padding-top: 6px; border-top: 1px solid #ccc; font-size: 7pt; color: #888; display: flex; justify-content: space-between; }
 </style>
 </head>
 <body>
   <div class="header">
-    <div class="title">MANIFESTE DE VOYAGE</div>
-    <div class="subtitle">{{ entity.name | default('OpsFlux') }}</div>
+    <div class="left">
+      <div class="title">MANIFESTE PASSAGERS</div>
+      <div class="subtitle">{{ entity.name | default('OpsFlux') }}</div>
+    </div>
+    <div class="right">
+      <div class="label">N. de voyage</div>
+      <div class="voyage-no">{{ voyage_number }}</div>
+      <div class="label" style="margin-top:4px;">Date / Heure depart</div>
+      <div>{{ departure_date }}</div>
+    </div>
   </div>
   <div class="meta-grid">
-    <div class="meta-item"><div class="label">N. Voyage</div><div class="value">{{ voyage_number }}</div></div>
-    <div class="meta-item"><div class="label">Type de transport</div><div class="value">{{ transport_type }}</div></div>
-    <div class="meta-item"><div class="label">Transporteur</div><div class="value">{{ carrier | default('--') }}</div></div>
-    <div class="meta-item"><div class="label">Date de depart</div><div class="value">{{ departure_date }}</div></div>
-    <div class="meta-item"><div class="label">Lieu de depart</div><div class="value">{{ departure_location }}</div></div>
-    <div class="meta-item"><div class="label">Lieu d'arrivee</div><div class="value">{{ arrival_location }}</div></div>
+    <div class="meta-item"><div class="label">Vecteur</div><div class="value">{{ vector_name | default(carrier) }}</div></div>
+    <div class="meta-item"><div class="label">Type</div><div class="value">{{ vector_type | default(transport_type) }}</div></div>
+    <div class="meta-item"><div class="label">Immatriculation</div><div class="value">{{ vector_registration | default('--') }}</div></div>
+    <div class="meta-item"><div class="label">Mode</div><div class="value">{{ vector_mode | default('--') }}</div></div>
+  </div>
+  <div class="panel">
+    <div class="box">
+      <div class="ttl">Itineraire</div>
+      <div>{{ route | default(departure_location ~ ' -> ' ~ arrival_location) }}</div>
+      {% if stops %}<div style="margin-top:3px; color:#555; font-size:7.5pt;">{{ stops | length }} escale(s) intermediaire(s)</div>{% endif %}
+    </div>
+    <div class="box">
+      <div class="ttl">Equipage</div>
+      <div class="row"><span>Commandant</span><strong>{{ captain_name | default('--') }}</strong></div>
+      <div class="row"><span>Co-pilote</span><strong>{{ co_pilot_name | default('--') }}</strong></div>
+    </div>
+    {% if weather %}
+    <div class="box">
+      <div class="ttl">Meteo</div>
+      <div class="row"><span>Vent</span><strong>{{ weather.wind_speed_knots | default('--') }} kn</strong></div>
+      <div class="row"><span>Mer / Visibilite</span><strong>{{ weather.sea_state | default('--') }} / {{ weather.visibility_nm | default('--') }} NM</strong></div>
+      <div class="row"><span>Conditions</span><strong>{{ weather.weather_code | default(weather.flight_conditions | default('--')) }}</strong></div>
+    </div>
+    {% endif %}
   </div>
   <table>
-    <thead><tr><th>#</th><th>Nom</th><th>Societe</th><th>Badge</th><th>Conformité</th></tr></thead>
+    <thead>
+      <tr>
+        <th style="width:5%;">Siege</th>
+        <th>Nom</th>
+        <th>Societe</th>
+        <th>Badge</th>
+        <th>Poids decl. (kg)</th>
+        <th>Poids reel (kg)</th>
+        <th>Contact urgence</th>
+        <th>Conformite</th>
+      </tr>
+    </thead>
     <tbody>
       {% for pax in passengers %}
-      <tr><td>{{ loop.index }}</td><td>{{ pax.name }}</td><td>{{ pax.company | default('--') }}</td><td>{{ pax.badge_number | default('--') }}</td><td>{{ pax.compliance_status | default('--') }}</td></tr>
+      <tr>
+        <td>{{ pax.seat_number | default(loop.index) }}</td>
+        <td>{{ pax.name }}</td>
+        <td>{{ pax.company | default('--') }}</td>
+        <td>{{ pax.badge_number | default('--') }}</td>
+        <td>{{ pax.declared_weight_kg | default('--') }}</td>
+        <td>{{ pax.actual_weight_kg | default('--') }}</td>
+        <td>{{ pax.emergency_contact | default('--') }}</td>
+        <td>{{ pax.compliance_status | default('--') }}</td>
+      </tr>
       {% endfor %}
     </tbody>
   </table>
-  <div class="capacity-bar">
-    Passagers : <strong>{{ total_passengers | default(passengers | length) }}</strong> / {{ max_capacity | default('--') }}
+  <div class="totals">
+    <div class="total-box"><div class="label">Total PAX</div><div class="value">{{ total_passengers | default(passengers | length) }}{% if max_capacity %} / {{ max_capacity }}{% endif %}</div></div>
+    <div class="total-box"><div class="label">Poids declare</div><div class="value">{{ total_declared_weight_kg | default('--') }} kg</div></div>
+    <div class="total-box"><div class="label">Poids reel</div><div class="value">{{ total_actual_weight_kg | default('--') }} kg</div></div>
+  </div>
+  <div class="signatures">
+    <div class="sig">Visa preparation</div>
+    <div class="sig">Visa commandant</div>
+    <div class="sig">Date</div>
   </div>
   <div class="footer">
     <span>Genere le {{ generated_at | default('--') }}</span>
@@ -1458,45 +1543,110 @@ _VOYAGE_MANIFEST_BODY_EN = """\
 <meta charset="utf-8"/>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10pt; color: #1a1a2e; }
-  .header { text-align: center; padding-bottom: 12px; border-bottom: 2px solid #16213e; margin-bottom: 16px; }
-  .header .title { font-size: 16pt; font-weight: 700; color: #16213e; }
-  .header .subtitle { font-size: 10pt; color: #555; margin-top: 4px; }
-  .meta-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
-  .meta-grid .meta-item { flex: 1; min-width: 140px; padding: 8px; background: #f8f9fa; border-radius: 4px; }
-  .meta-grid .label { font-size: 7pt; text-transform: uppercase; color: #888; }
-  .meta-grid .value { font-size: 10pt; font-weight: 600; }
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  th { background: #16213e; color: #fff; text-align: left; padding: 6px 8px; font-size: 8pt; text-transform: uppercase; }
-  td { padding: 5px 8px; border-bottom: 1px solid #ddd; font-size: 9pt; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9.5pt; color: #1a1a2e; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 2px solid #16213e; margin-bottom: 14px; }
+  .header .left .title { font-size: 16pt; font-weight: 700; color: #16213e; }
+  .header .left .subtitle { font-size: 9pt; color: #555; margin-top: 2px; }
+  .header .right { text-align: right; font-size: 9pt; }
+  .header .right .voyage-no { font-size: 13pt; font-weight: 700; color: #16213e; font-family: 'Courier New', monospace; }
+  .header .right .label { font-size: 7pt; text-transform: uppercase; color: #888; letter-spacing: 0.5px; }
+  .meta-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .meta-grid .meta-item { flex: 1; min-width: 130px; padding: 6px 8px; background: #f8f9fa; border-radius: 4px; }
+  .meta-grid .label { font-size: 6.5pt; text-transform: uppercase; color: #888; letter-spacing: 0.4px; }
+  .meta-grid .value { font-size: 9.5pt; font-weight: 600; }
+  .panel { display: flex; gap: 10px; margin-bottom: 12px; }
+  .panel .box { flex: 1; padding: 8px 10px; background: #f1f4f8; border-left: 3px solid #16213e; border-radius: 3px; font-size: 8.5pt; }
+  .panel .box .ttl { font-size: 6.5pt; text-transform: uppercase; color: #555; letter-spacing: 0.4px; margin-bottom: 2px; }
+  .panel .box .row { display: flex; justify-content: space-between; }
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  th { background: #16213e; color: #fff; text-align: left; padding: 5px 6px; font-size: 7.5pt; text-transform: uppercase; }
+  td { padding: 4px 6px; border-bottom: 1px solid #ddd; font-size: 8.5pt; vertical-align: top; }
   tr:nth-child(even) { background: #f8f9fa; }
-  .capacity-bar { margin-top: 12px; padding: 8px; background: #e8edf3; border-radius: 4px; text-align: center; font-size: 9pt; }
-  .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 7pt; color: #888; display: flex; justify-content: space-between; }
+  .totals { display: flex; gap: 10px; margin-top: 10px; }
+  .totals .total-box { flex: 1; padding: 6px 10px; background: #e8edf3; border-radius: 4px; }
+  .totals .total-box .label { font-size: 6.5pt; text-transform: uppercase; color: #555; letter-spacing: 0.4px; }
+  .totals .total-box .value { font-size: 11pt; font-weight: 700; color: #16213e; }
+  .signatures { margin-top: 18px; display: flex; gap: 16px; }
+  .signatures .sig { flex: 1; border-top: 1px solid #888; padding-top: 4px; font-size: 8pt; color: #555; }
+  .footer { margin-top: 16px; padding-top: 6px; border-top: 1px solid #ccc; font-size: 7pt; color: #888; display: flex; justify-content: space-between; }
 </style>
 </head>
 <body>
   <div class="header">
-    <div class="title">VOYAGE MANIFEST</div>
-    <div class="subtitle">{{ entity.name | default('OpsFlux') }}</div>
+    <div class="left">
+      <div class="title">PASSENGER MANIFEST</div>
+      <div class="subtitle">{{ entity.name | default('OpsFlux') }}</div>
+    </div>
+    <div class="right">
+      <div class="label">Voyage No.</div>
+      <div class="voyage-no">{{ voyage_number }}</div>
+      <div class="label" style="margin-top:4px;">Departure date / time</div>
+      <div>{{ departure_date }}</div>
+    </div>
   </div>
   <div class="meta-grid">
-    <div class="meta-item"><div class="label">Voyage No.</div><div class="value">{{ voyage_number }}</div></div>
-    <div class="meta-item"><div class="label">Transport Type</div><div class="value">{{ transport_type }}</div></div>
-    <div class="meta-item"><div class="label">Carrier</div><div class="value">{{ carrier | default('--') }}</div></div>
-    <div class="meta-item"><div class="label">Departure Date</div><div class="value">{{ departure_date }}</div></div>
-    <div class="meta-item"><div class="label">Departure Location</div><div class="value">{{ departure_location }}</div></div>
-    <div class="meta-item"><div class="label">Arrival Location</div><div class="value">{{ arrival_location }}</div></div>
+    <div class="meta-item"><div class="label">Vector</div><div class="value">{{ vector_name | default(carrier) }}</div></div>
+    <div class="meta-item"><div class="label">Type</div><div class="value">{{ vector_type | default(transport_type) }}</div></div>
+    <div class="meta-item"><div class="label">Registration</div><div class="value">{{ vector_registration | default('--') }}</div></div>
+    <div class="meta-item"><div class="label">Mode</div><div class="value">{{ vector_mode | default('--') }}</div></div>
+  </div>
+  <div class="panel">
+    <div class="box">
+      <div class="ttl">Route</div>
+      <div>{{ route | default(departure_location ~ ' -> ' ~ arrival_location) }}</div>
+      {% if stops %}<div style="margin-top:3px; color:#555; font-size:7.5pt;">{{ stops | length }} intermediate stop(s)</div>{% endif %}
+    </div>
+    <div class="box">
+      <div class="ttl">Crew</div>
+      <div class="row"><span>Captain</span><strong>{{ captain_name | default('--') }}</strong></div>
+      <div class="row"><span>Co-pilot</span><strong>{{ co_pilot_name | default('--') }}</strong></div>
+    </div>
+    {% if weather %}
+    <div class="box">
+      <div class="ttl">Weather</div>
+      <div class="row"><span>Wind</span><strong>{{ weather.wind_speed_knots | default('--') }} kn</strong></div>
+      <div class="row"><span>Sea / Visibility</span><strong>{{ weather.sea_state | default('--') }} / {{ weather.visibility_nm | default('--') }} NM</strong></div>
+      <div class="row"><span>Conditions</span><strong>{{ weather.weather_code | default(weather.flight_conditions | default('--')) }}</strong></div>
+    </div>
+    {% endif %}
   </div>
   <table>
-    <thead><tr><th>#</th><th>Name</th><th>Company</th><th>Badge</th><th>Compliance</th></tr></thead>
+    <thead>
+      <tr>
+        <th style="width:5%;">Seat</th>
+        <th>Name</th>
+        <th>Company</th>
+        <th>Badge</th>
+        <th>Decl. weight (kg)</th>
+        <th>Actual weight (kg)</th>
+        <th>Emergency contact</th>
+        <th>Compliance</th>
+      </tr>
+    </thead>
     <tbody>
       {% for pax in passengers %}
-      <tr><td>{{ loop.index }}</td><td>{{ pax.name }}</td><td>{{ pax.company | default('--') }}</td><td>{{ pax.badge_number | default('--') }}</td><td>{{ pax.compliance_status | default('--') }}</td></tr>
+      <tr>
+        <td>{{ pax.seat_number | default(loop.index) }}</td>
+        <td>{{ pax.name }}</td>
+        <td>{{ pax.company | default('--') }}</td>
+        <td>{{ pax.badge_number | default('--') }}</td>
+        <td>{{ pax.declared_weight_kg | default('--') }}</td>
+        <td>{{ pax.actual_weight_kg | default('--') }}</td>
+        <td>{{ pax.emergency_contact | default('--') }}</td>
+        <td>{{ pax.compliance_status | default('--') }}</td>
+      </tr>
       {% endfor %}
     </tbody>
   </table>
-  <div class="capacity-bar">
-    Passengers: <strong>{{ total_passengers | default(passengers | length) }}</strong> / {{ max_capacity | default('--') }}
+  <div class="totals">
+    <div class="total-box"><div class="label">Total PAX</div><div class="value">{{ total_passengers | default(passengers | length) }}{% if max_capacity %} / {{ max_capacity }}{% endif %}</div></div>
+    <div class="total-box"><div class="label">Declared weight</div><div class="value">{{ total_declared_weight_kg | default('--') }} kg</div></div>
+    <div class="total-box"><div class="label">Actual weight</div><div class="value">{{ total_actual_weight_kg | default('--') }} kg</div></div>
+  </div>
+  <div class="signatures">
+    <div class="sig">Preparation signature</div>
+    <div class="sig">Captain signature</div>
+    <div class="sig">Date</div>
   </div>
   <div class="footer">
     <span>Generated on {{ generated_at | default('--') }}</span>
@@ -1513,72 +1663,119 @@ _VOYAGE_CARGO_MANIFEST_BODY_FR = """\
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9pt; color: #1a1a2e; }
-  .header { text-align: center; padding-bottom: 12px; border-bottom: 2px solid #16213e; margin-bottom: 14px; }
-  .header .title { font-size: 16pt; font-weight: 700; color: #16213e; }
-  .header .subtitle { font-size: 10pt; color: #555; margin-top: 4px; }
-  .meta-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
-  .meta-item { flex: 1; min-width: 140px; padding: 8px; background: #f8f9fa; border-radius: 4px; }
-  .meta-item .label { font-size: 7pt; text-transform: uppercase; color: #888; }
-  .meta-item .value { font-size: 10pt; font-weight: 600; }
-  .totals { display: flex; gap: 10px; margin-bottom: 14px; }
-  .total-box { flex: 1; background: #e8edf3; border-radius: 4px; padding: 8px; }
-  .total-box .label { font-size: 7pt; text-transform: uppercase; color: #667085; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 2px solid #16213e; margin-bottom: 12px; }
+  .header .left .title { font-size: 16pt; font-weight: 700; color: #16213e; }
+  .header .left .subtitle { font-size: 9pt; color: #555; margin-top: 2px; }
+  .header .right { text-align: right; font-size: 9pt; }
+  .header .right .voyage-no { font-size: 13pt; font-weight: 700; color: #16213e; font-family: 'Courier New', monospace; }
+  .header .right .label { font-size: 7pt; text-transform: uppercase; color: #888; letter-spacing: 0.5px; }
+  .meta-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .meta-item { flex: 1; min-width: 130px; padding: 6px 8px; background: #f8f9fa; border-radius: 4px; }
+  .meta-item .label { font-size: 6.5pt; text-transform: uppercase; color: #888; letter-spacing: 0.4px; }
+  .meta-item .value { font-size: 9.5pt; font-weight: 600; }
+  .panel { display: flex; gap: 10px; margin-bottom: 10px; }
+  .panel .box { flex: 1; padding: 6px 10px; background: #f1f4f8; border-left: 3px solid #16213e; border-radius: 3px; font-size: 8.5pt; }
+  .panel .box .ttl { font-size: 6.5pt; text-transform: uppercase; color: #555; letter-spacing: 0.4px; margin-bottom: 2px; }
+  .totals { display: flex; gap: 8px; margin-bottom: 10px; }
+  .total-box { flex: 1; background: #e8edf3; border-radius: 4px; padding: 6px 10px; }
+  .total-box .label { font-size: 6.5pt; text-transform: uppercase; color: #667085; letter-spacing: 0.4px; }
   .total-box .value { font-size: 11pt; font-weight: 700; color: #16213e; }
+  .total-box.warn { background: #fff4e0; }
+  .total-box.warn .value { color: #b86b00; }
   table { width: 100%; border-collapse: collapse; }
-  th { background: #16213e; color: #fff; text-align: left; padding: 6px 7px; font-size: 7.5pt; text-transform: uppercase; }
-  td { padding: 5px 7px; border-bottom: 1px solid #ddd; font-size: 8.5pt; vertical-align: top; }
+  th { background: #16213e; color: #fff; text-align: left; padding: 5px 6px; font-size: 7pt; text-transform: uppercase; }
+  td { padding: 4px 6px; border-bottom: 1px solid #ddd; font-size: 8pt; vertical-align: top; }
   tr:nth-child(even) { background: #f8f9fa; }
-  .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 7pt; color: #888; display: flex; justify-content: space-between; }
+  .haz { background: #ffe6e6 !important; }
+  .urg { background: #fff4d6 !important; }
+  .haz-tag { display: inline-block; padding: 1px 4px; background: #c0392b; color: #fff; font-size: 6.5pt; border-radius: 2px; margin-left: 2px; }
+  .urg-tag { display: inline-block; padding: 1px 4px; background: #e67e22; color: #fff; font-size: 6.5pt; border-radius: 2px; margin-left: 2px; }
+  .signatures { margin-top: 16px; display: flex; gap: 16px; }
+  .signatures .sig { flex: 1; border-top: 1px solid #888; padding-top: 4px; font-size: 8pt; color: #555; }
+  .footer { margin-top: 14px; padding-top: 6px; border-top: 1px solid #ccc; font-size: 7pt; color: #888; display: flex; justify-content: space-between; }
 </style>
 </head>
 <body>
   <div class="header">
-    <div class="title">MANIFESTE CARGO</div>
-    <div class="subtitle">{{ entity.name | default('OpsFlux') }}</div>
+    <div class="left">
+      <div class="title">MANIFESTE CARGO</div>
+      <div class="subtitle">{{ entity.name | default('OpsFlux') }}</div>
+    </div>
+    <div class="right">
+      <div class="label">N. de voyage</div>
+      <div class="voyage-no">{{ voyage_number }}</div>
+      <div class="label" style="margin-top:4px;">Date depart</div>
+      <div>{{ departure_date }}</div>
+    </div>
   </div>
   <div class="meta-grid">
-    <div class="meta-item"><div class="label">Voyage</div><div class="value">{{ voyage_number }}</div></div>
-    <div class="meta-item"><div class="label">Transport</div><div class="value">{{ transport_type }}</div></div>
-    <div class="meta-item"><div class="label">Vecteur</div><div class="value">{{ carrier | default('--') }}</div></div>
-    <div class="meta-item"><div class="label">Depart</div><div class="value">{{ departure_location }}</div></div>
-    <div class="meta-item"><div class="label">Arrivee</div><div class="value">{{ arrival_location }}</div></div>
-    <div class="meta-item"><div class="label">Date</div><div class="value">{{ departure_date }}</div></div>
+    <div class="meta-item"><div class="label">Vecteur</div><div class="value">{{ vector_name | default(carrier) }}</div></div>
+    <div class="meta-item"><div class="label">Type</div><div class="value">{{ vector_type | default(transport_type) }}</div></div>
+    <div class="meta-item"><div class="label">Immatriculation</div><div class="value">{{ vector_registration | default('--') }}</div></div>
+    <div class="meta-item"><div class="label">Capacite poids</div><div class="value">{{ vector_weight_capacity_kg | default('--') }} kg</div></div>
+  </div>
+  <div class="panel">
+    <div class="box">
+      <div class="ttl">Itineraire</div>
+      <div>{{ route | default(departure_location ~ ' -> ' ~ arrival_location) }}</div>
+    </div>
+    <div class="box">
+      <div class="ttl">Equipage</div>
+      <div>Commandant: <strong>{{ captain_name | default('--') }}</strong></div>
+    </div>
   </div>
   <div class="totals">
     <div class="total-box"><div class="label">Colis</div><div class="value">{{ total_cargo_items | default(cargo_items | length) }}</div></div>
-    <div class="total-box"><div class="label">Poids total</div><div class="value">{{ total_weight_kg | default('--') }} kg</div></div>
     <div class="total-box"><div class="label">Packages</div><div class="value">{{ total_packages | default('--') }}</div></div>
+    <div class="total-box"><div class="label">Poids total</div><div class="value">{{ total_weight_kg | default('--') }} kg</div></div>
+    <div class="total-box"><div class="label">Volume total</div><div class="value">{{ total_volume_m3 | default('--') }} m3</div></div>
+    {% if hazmat_count %}<div class="total-box warn"><div class="label">Hazmat</div><div class="value">{{ hazmat_count }}</div></div>{% endif %}
+    {% if urgent_count %}<div class="total-box warn"><div class="label">Urgent</div><div class="value">{{ urgent_count }}</div></div>{% endif %}
   </div>
   <table>
     <thead>
       <tr>
         <th>#</th>
-        <th>Tracking</th>
+        <th>Reference</th>
         <th>Demande</th>
         <th>Designation</th>
-        <th>Destination</th>
+        <th>Expediteur</th>
         <th>Destinataire</th>
-        <th>Poids</th>
+        <th>Destination</th>
+        <th>Poids (kg)</th>
+        <th>Volume (m3)</th>
         <th>Colis</th>
+        <th>Notes / Hazmat</th>
         <th>Statut</th>
       </tr>
     </thead>
     <tbody>
       {% for cargo in cargo_items %}
-      <tr>
+      <tr class="{% if cargo.is_hazmat %}haz{% elif cargo.is_urgent %}urg{% endif %}">
         <td>{{ loop.index }}</td>
-        <td>{{ cargo.tracking_code }}</td>
+        <td>{{ cargo.reference | default(cargo.tracking_code) }}</td>
         <td>{{ cargo.request_code | default('--') }}</td>
-        <td>{{ cargo.designation | default(cargo.description) }}</td>
-        <td>{{ cargo.destination_name | default('--') }}</td>
+        <td>{{ cargo.designation | default(cargo.description) }}{% if cargo.is_hazmat %}<span class="haz-tag">HAZ</span>{% endif %}{% if cargo.is_urgent %}<span class="urg-tag">URG</span>{% endif %}</td>
+        <td>{{ cargo.sender_name | default('--') }}</td>
         <td>{{ cargo.receiver_name | default('--') }}</td>
+        <td>{{ cargo.destination_name | default('--') }}</td>
         <td>{{ cargo.weight_kg | default('--') }}</td>
+        <td>{{ cargo.volume_m3 | default('--') }}</td>
         <td>{{ cargo.package_count | default('--') }}</td>
+        <td>
+          {% if cargo.is_hazmat %}Hazmat{% if cargo.hazmat_class %} cl. {{ cargo.hazmat_class }}{% endif %}{% if cargo.hazmat_un_number %} UN {{ cargo.hazmat_un_number }}{% endif %}{% if cargo.hazmat_validated %} (validé){% endif %}{% if cargo.handling_notes %}<br/>{% endif %}{% endif %}
+          {{ cargo.handling_notes | default('') }}
+        </td>
         <td>{{ cargo.status_label | default(cargo.status) }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  <div class="signatures">
+    <div class="sig">Visa preparation</div>
+    <div class="sig">Visa manutentionnaire</div>
+    <div class="sig">Date</div>
+  </div>
   <div class="footer">
     <span>Genere le {{ generated_at | default('--') }}</span>
     <span>{{ entity.name | default('OpsFlux') }} -- TravelWiz Cargo</span>
@@ -1594,72 +1791,119 @@ _VOYAGE_CARGO_MANIFEST_BODY_EN = """\
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9pt; color: #1a1a2e; }
-  .header { text-align: center; padding-bottom: 12px; border-bottom: 2px solid #16213e; margin-bottom: 14px; }
-  .header .title { font-size: 16pt; font-weight: 700; color: #16213e; }
-  .header .subtitle { font-size: 10pt; color: #555; margin-top: 4px; }
-  .meta-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
-  .meta-item { flex: 1; min-width: 140px; padding: 8px; background: #f8f9fa; border-radius: 4px; }
-  .meta-item .label { font-size: 7pt; text-transform: uppercase; color: #888; }
-  .meta-item .value { font-size: 10pt; font-weight: 600; }
-  .totals { display: flex; gap: 10px; margin-bottom: 14px; }
-  .total-box { flex: 1; background: #e8edf3; border-radius: 4px; padding: 8px; }
-  .total-box .label { font-size: 7pt; text-transform: uppercase; color: #667085; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 2px solid #16213e; margin-bottom: 12px; }
+  .header .left .title { font-size: 16pt; font-weight: 700; color: #16213e; }
+  .header .left .subtitle { font-size: 9pt; color: #555; margin-top: 2px; }
+  .header .right { text-align: right; font-size: 9pt; }
+  .header .right .voyage-no { font-size: 13pt; font-weight: 700; color: #16213e; font-family: 'Courier New', monospace; }
+  .header .right .label { font-size: 7pt; text-transform: uppercase; color: #888; letter-spacing: 0.5px; }
+  .meta-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .meta-item { flex: 1; min-width: 130px; padding: 6px 8px; background: #f8f9fa; border-radius: 4px; }
+  .meta-item .label { font-size: 6.5pt; text-transform: uppercase; color: #888; letter-spacing: 0.4px; }
+  .meta-item .value { font-size: 9.5pt; font-weight: 600; }
+  .panel { display: flex; gap: 10px; margin-bottom: 10px; }
+  .panel .box { flex: 1; padding: 6px 10px; background: #f1f4f8; border-left: 3px solid #16213e; border-radius: 3px; font-size: 8.5pt; }
+  .panel .box .ttl { font-size: 6.5pt; text-transform: uppercase; color: #555; letter-spacing: 0.4px; margin-bottom: 2px; }
+  .totals { display: flex; gap: 8px; margin-bottom: 10px; }
+  .total-box { flex: 1; background: #e8edf3; border-radius: 4px; padding: 6px 10px; }
+  .total-box .label { font-size: 6.5pt; text-transform: uppercase; color: #667085; letter-spacing: 0.4px; }
   .total-box .value { font-size: 11pt; font-weight: 700; color: #16213e; }
+  .total-box.warn { background: #fff4e0; }
+  .total-box.warn .value { color: #b86b00; }
   table { width: 100%; border-collapse: collapse; }
-  th { background: #16213e; color: #fff; text-align: left; padding: 6px 7px; font-size: 7.5pt; text-transform: uppercase; }
-  td { padding: 5px 7px; border-bottom: 1px solid #ddd; font-size: 8.5pt; vertical-align: top; }
+  th { background: #16213e; color: #fff; text-align: left; padding: 5px 6px; font-size: 7pt; text-transform: uppercase; }
+  td { padding: 4px 6px; border-bottom: 1px solid #ddd; font-size: 8pt; vertical-align: top; }
   tr:nth-child(even) { background: #f8f9fa; }
-  .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 7pt; color: #888; display: flex; justify-content: space-between; }
+  .haz { background: #ffe6e6 !important; }
+  .urg { background: #fff4d6 !important; }
+  .haz-tag { display: inline-block; padding: 1px 4px; background: #c0392b; color: #fff; font-size: 6.5pt; border-radius: 2px; margin-left: 2px; }
+  .urg-tag { display: inline-block; padding: 1px 4px; background: #e67e22; color: #fff; font-size: 6.5pt; border-radius: 2px; margin-left: 2px; }
+  .signatures { margin-top: 16px; display: flex; gap: 16px; }
+  .signatures .sig { flex: 1; border-top: 1px solid #888; padding-top: 4px; font-size: 8pt; color: #555; }
+  .footer { margin-top: 14px; padding-top: 6px; border-top: 1px solid #ccc; font-size: 7pt; color: #888; display: flex; justify-content: space-between; }
 </style>
 </head>
 <body>
   <div class="header">
-    <div class="title">CARGO MANIFEST</div>
-    <div class="subtitle">{{ entity.name | default('OpsFlux') }}</div>
+    <div class="left">
+      <div class="title">CARGO MANIFEST</div>
+      <div class="subtitle">{{ entity.name | default('OpsFlux') }}</div>
+    </div>
+    <div class="right">
+      <div class="label">Voyage No.</div>
+      <div class="voyage-no">{{ voyage_number }}</div>
+      <div class="label" style="margin-top:4px;">Departure date</div>
+      <div>{{ departure_date }}</div>
+    </div>
   </div>
   <div class="meta-grid">
-    <div class="meta-item"><div class="label">Voyage</div><div class="value">{{ voyage_number }}</div></div>
-    <div class="meta-item"><div class="label">Transport</div><div class="value">{{ transport_type }}</div></div>
-    <div class="meta-item"><div class="label">Vector</div><div class="value">{{ carrier | default('--') }}</div></div>
-    <div class="meta-item"><div class="label">Departure</div><div class="value">{{ departure_location }}</div></div>
-    <div class="meta-item"><div class="label">Arrival</div><div class="value">{{ arrival_location }}</div></div>
-    <div class="meta-item"><div class="label">Date</div><div class="value">{{ departure_date }}</div></div>
+    <div class="meta-item"><div class="label">Vector</div><div class="value">{{ vector_name | default(carrier) }}</div></div>
+    <div class="meta-item"><div class="label">Type</div><div class="value">{{ vector_type | default(transport_type) }}</div></div>
+    <div class="meta-item"><div class="label">Registration</div><div class="value">{{ vector_registration | default('--') }}</div></div>
+    <div class="meta-item"><div class="label">Weight capacity</div><div class="value">{{ vector_weight_capacity_kg | default('--') }} kg</div></div>
+  </div>
+  <div class="panel">
+    <div class="box">
+      <div class="ttl">Route</div>
+      <div>{{ route | default(departure_location ~ ' -> ' ~ arrival_location) }}</div>
+    </div>
+    <div class="box">
+      <div class="ttl">Crew</div>
+      <div>Captain: <strong>{{ captain_name | default('--') }}</strong></div>
+    </div>
   </div>
   <div class="totals">
     <div class="total-box"><div class="label">Cargo items</div><div class="value">{{ total_cargo_items | default(cargo_items | length) }}</div></div>
-    <div class="total-box"><div class="label">Total weight</div><div class="value">{{ total_weight_kg | default('--') }} kg</div></div>
     <div class="total-box"><div class="label">Packages</div><div class="value">{{ total_packages | default('--') }}</div></div>
+    <div class="total-box"><div class="label">Total weight</div><div class="value">{{ total_weight_kg | default('--') }} kg</div></div>
+    <div class="total-box"><div class="label">Total volume</div><div class="value">{{ total_volume_m3 | default('--') }} m3</div></div>
+    {% if hazmat_count %}<div class="total-box warn"><div class="label">Hazmat</div><div class="value">{{ hazmat_count }}</div></div>{% endif %}
+    {% if urgent_count %}<div class="total-box warn"><div class="label">Urgent</div><div class="value">{{ urgent_count }}</div></div>{% endif %}
   </div>
   <table>
     <thead>
       <tr>
         <th>#</th>
-        <th>Tracking</th>
+        <th>Reference</th>
         <th>Request</th>
         <th>Description</th>
-        <th>Destination</th>
+        <th>Sender</th>
         <th>Receiver</th>
-        <th>Weight</th>
+        <th>Destination</th>
+        <th>Weight (kg)</th>
+        <th>Volume (m3)</th>
         <th>Packages</th>
+        <th>Notes / Hazmat</th>
         <th>Status</th>
       </tr>
     </thead>
     <tbody>
       {% for cargo in cargo_items %}
-      <tr>
+      <tr class="{% if cargo.is_hazmat %}haz{% elif cargo.is_urgent %}urg{% endif %}">
         <td>{{ loop.index }}</td>
-        <td>{{ cargo.tracking_code }}</td>
+        <td>{{ cargo.reference | default(cargo.tracking_code) }}</td>
         <td>{{ cargo.request_code | default('--') }}</td>
-        <td>{{ cargo.designation | default(cargo.description) }}</td>
-        <td>{{ cargo.destination_name | default('--') }}</td>
+        <td>{{ cargo.designation | default(cargo.description) }}{% if cargo.is_hazmat %}<span class="haz-tag">HAZ</span>{% endif %}{% if cargo.is_urgent %}<span class="urg-tag">URG</span>{% endif %}</td>
+        <td>{{ cargo.sender_name | default('--') }}</td>
         <td>{{ cargo.receiver_name | default('--') }}</td>
+        <td>{{ cargo.destination_name | default('--') }}</td>
         <td>{{ cargo.weight_kg | default('--') }}</td>
+        <td>{{ cargo.volume_m3 | default('--') }}</td>
         <td>{{ cargo.package_count | default('--') }}</td>
+        <td>
+          {% if cargo.is_hazmat %}Hazmat{% if cargo.hazmat_class %} cl. {{ cargo.hazmat_class }}{% endif %}{% if cargo.hazmat_un_number %} UN {{ cargo.hazmat_un_number }}{% endif %}{% if cargo.hazmat_validated %} (validated){% endif %}{% if cargo.handling_notes %}<br/>{% endif %}{% endif %}
+          {{ cargo.handling_notes | default('') }}
+        </td>
         <td>{{ cargo.status_label | default(cargo.status) }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  <div class="signatures">
+    <div class="sig">Preparation signature</div>
+    <div class="sig">Handler signature</div>
+    <div class="sig">Date</div>
+  </div>
   <div class="footer">
     <span>Generated on {{ generated_at | default('--') }}</span>
     <span>{{ entity.name | default('OpsFlux') }} -- TravelWiz Cargo</span>

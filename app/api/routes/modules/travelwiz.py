@@ -452,7 +452,7 @@ async def _build_voyage_pdf_base_context(
     entity = await _get_entity_pdf_context(db, entity_id)
     vector = await db.get(TransportVector, voyage.vector_id) if voyage.vector_id else None
     departure_base = await db.get(Installation, voyage.departure_base_id) if voyage.departure_base_id else None
-    stops = (
+    stops_rows = (
         await db.execute(
             select(VoyageStop)
             .where(VoyageStop.voyage_id == voyage.id, VoyageStop.active == True)  # noqa: E712
@@ -460,17 +460,90 @@ async def _build_voyage_pdf_base_context(
         )
     ).scalars().all()
     arrival_location = departure_base.name if departure_base else "--"
-    if stops:
-        final_stop = await db.get(Installation, stops[-1].asset_id)
+    stops_view: list[dict] = []
+    for s in stops_rows:
+        inst = await db.get(Installation, s.asset_id)
+        stops_view.append({
+            "order": s.stop_order,
+            "name": inst.name if inst else "--",
+            "scheduled_arrival": _format_pdf_datetime(s.scheduled_arrival),
+        })
+    if stops_rows:
+        final_stop = await db.get(Installation, stops_rows[-1].asset_id)
         arrival_location = final_stop.name if final_stop else arrival_location
+
+    # Build a human-readable route string: A -> B -> ... -> Z
+    route_segments: list[str] = []
+    if departure_base:
+        route_segments.append(departure_base.name)
+    route_segments.extend(s["name"] for s in stops_view)
+    route = " -> ".join(seg for seg in route_segments if seg) or "--"
+
+    # Captain / co-pilot picked from the most recent captain log if present.
+    captain_name = "--"
+    co_pilot_name = "--"
+    last_log = (
+        await db.execute(
+            select(CaptainLog)
+            .where(CaptainLog.voyage_id == voyage.id, CaptainLog.active == True)  # noqa: E712
+            .order_by(CaptainLog.timestamp.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if last_log and last_log.created_by_name:
+        captain_name = last_log.created_by_name
+
+    # Latest weather record for the departure base (best-effort).
+    weather: dict | None = None
+    if voyage.departure_base_id:
+        wd = (
+            await db.execute(
+                select(WeatherData)
+                .where(
+                    WeatherData.asset_id == voyage.departure_base_id,
+                    WeatherData.active == True,  # noqa: E712
+                )
+                .order_by(WeatherData.recorded_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if wd:
+            weather = {
+                "wind_speed_knots": float(wd.wind_speed_knots) if wd.wind_speed_knots is not None else None,
+                "wind_direction_deg": wd.wind_direction_deg,
+                "wave_height_m": float(wd.wave_height_m) if wd.wave_height_m is not None else None,
+                "visibility_nm": float(wd.visibility_nm) if wd.visibility_nm is not None else None,
+                "sea_state": wd.sea_state,
+                "temperature_c": float(wd.temperature_c) if wd.temperature_c is not None else None,
+                "weather_code": wd.weather_code,
+                "flight_conditions": wd.flight_conditions,
+                "recorded_at": _format_pdf_datetime(wd.recorded_at),
+            }
+
     return {
         "entity": entity,
+        "entity_name": entity["name"],
         "voyage_number": voyage.code,
+        "voyage_status": voyage.status,
         "transport_type": vector.type if vector else "--",
         "carrier": vector.name if vector else "--",
+        "vector_name": vector.name if vector else "--",
+        "vector_type": vector.type if vector else "--",
+        "vector_registration": vector.registration if vector else "--",
+        "vector_mode": vector.mode if vector else "--",
+        "vector_pax_capacity": vector.pax_capacity if vector else None,
+        "vector_weight_capacity_kg": float(vector.weight_capacity_kg) if vector and vector.weight_capacity_kg else None,
+        "vector_volume_capacity_m3": float(vector.volume_capacity_m3) if vector and vector.volume_capacity_m3 else None,
+        "scheduled_departure": _format_pdf_datetime(voyage.scheduled_departure),
+        "scheduled_arrival": _format_pdf_datetime(voyage.scheduled_arrival),
         "departure_date": _format_pdf_datetime(voyage.scheduled_departure),
         "departure_location": departure_base.name if departure_base else "--",
         "arrival_location": arrival_location,
+        "stops": stops_view,
+        "route": route,
+        "captain_name": captain_name,
+        "co_pilot_name": co_pilot_name,
+        "weather": weather,
         "generated_at": _format_pdf_datetime(datetime.now(timezone.utc)),
     }
 
@@ -492,23 +565,84 @@ async def _build_voyage_pax_manifest_variables(
                 VoyageManifest.active == True,  # noqa: E712
                 ManifestPassenger.active == True,  # noqa: E712
             )
-            .order_by(ManifestPassenger.name.asc())
+            .order_by(ManifestPassenger.priority_score.desc(), ManifestPassenger.name.asc())
         )
     ).scalars().all()
     vector = await db.get(TransportVector, voyage.vector_id) if voyage.vector_id else None
+
+    # Resolve badge numbers + emergency contact via the linked User /
+    # TierContact (best-effort — older rows may have neither).
+    passenger_rows: list[dict] = []
+    total_declared_weight = 0.0
+    total_actual_weight = 0.0
+    for idx, p in enumerate(passengers, start=1):
+        badge_number = "--"
+        emergency_contact = "--"
+        if p.user_id:
+            u = await db.get(User, p.user_id)
+            if u:
+                badge_number = getattr(u, "badge_number", None) or "--"
+            # First emergency contact (best-effort, lightweight raw query)
+            try:
+                ec_row = await db.execute(
+                    text(
+                        "SELECT name, phone_number FROM emergency_contacts "
+                        "WHERE user_id = :uid LIMIT 1"
+                    ),
+                    {"uid": p.user_id},
+                )
+                ec = ec_row.first()
+                if ec:
+                    parts = [ec[0]]
+                    if ec[1]:
+                        parts.append(f"({ec[1]})")
+                    emergency_contact = " ".join(parts)
+            except Exception:
+                pass
+        elif p.contact_id:
+            c = await db.get(TierContact, p.contact_id)
+            if c:
+                badge_number = getattr(c, "badge_number", None) or "--"
+
+        declared = float(p.declared_weight_kg) if p.declared_weight_kg is not None else None
+        actual = float(p.actual_weight_kg) if p.actual_weight_kg is not None else None
+        if declared:
+            total_declared_weight += declared
+        if actual:
+            total_actual_weight += actual
+
+        # Compliance / boarding status display
+        if p.standby:
+            compliance_status = "Standby"
+        else:
+            compliance_status = (p.boarding_status or "pending").replace("_", " ").title()
+
+        passenger_rows.append({
+            "seat_number": idx,  # Sequential — true seat assignments not modelled yet
+            "name": p.name,
+            "first_name": (p.name.split(" ", 1)[0] if p.name else "--"),
+            "last_name": (p.name.split(" ", 1)[1] if p.name and " " in p.name else "--"),
+            "company": p.company or "--",
+            "badge_number": badge_number,
+            "declared_weight_kg": declared,
+            "actual_weight_kg": actual,
+            "weight_kg": actual if actual is not None else declared,
+            "emergency_contact": emergency_contact,
+            "boarding_status": p.boarding_status,
+            "standby": p.standby,
+            "priority_score": p.priority_score,
+            "compliance_status": compliance_status,
+        })
+
     variables.update(
         {
-            "passengers": [
-                {
-                    "name": passenger.name,
-                    "company": passenger.company,
-                    "badge_number": "--",
-                    "compliance_status": "Standby" if passenger.standby else passenger.boarding_status,
-                }
-                for passenger in passengers
-            ],
-            "total_passengers": len(passengers),
+            "passengers": passenger_rows,
+            "total_passengers": len(passenger_rows),
+            "total_declared_weight_kg": round(total_declared_weight, 2),
+            "total_actual_weight_kg": round(total_actual_weight, 2),
+            "total_weight_kg": round(total_actual_weight or total_declared_weight, 2),
             "max_capacity": vector.pax_capacity if vector else None,
+            "manifest_date": variables.get("departure_date"),
         }
     )
     return variables
@@ -526,11 +660,14 @@ async def _build_voyage_cargo_manifest_variables(
             select(
                 CargoItem,
                 CargoRequest.request_code.label("request_code"),
+                CargoRequest.title.label("request_title"),
                 Installation.name.label("destination_name"),
+                Tier.name.label("sender_name"),
             )
             .join(VoyageManifest, CargoItem.manifest_id == VoyageManifest.id)
             .outerjoin(CargoRequest, CargoItem.request_id == CargoRequest.id)
             .outerjoin(Installation, CargoItem.destination_asset_id == Installation.id)
+            .outerjoin(Tier, CargoItem.sender_tier_id == Tier.id)
             .where(
                 VoyageManifest.voyage_id == voyage.id,
                 VoyageManifest.manifest_type == "cargo",
@@ -542,22 +679,52 @@ async def _build_voyage_cargo_manifest_variables(
     ).all()
     cargo_items = []
     total_weight = 0.0
+    total_volume = 0.0
     total_packages = 0
-    for cargo, request_code, destination_name in cargo_rows:
+    hazmat_count = 0
+    urgent_count = 0
+    for cargo, request_code, request_title, destination_name, sender_name in cargo_rows:
         weight_value = float(cargo.weight_kg or 0)
         package_count = int(cargo.package_count or 0)
+        # Volume from declared dimensions if present (cm -> m^3)
+        volume_m3 = None
+        if cargo.width_cm and cargo.length_cm and cargo.height_cm:
+            volume_m3 = round(
+                (float(cargo.width_cm) * float(cargo.length_cm) * float(cargo.height_cm))
+                / 1_000_000.0,
+                3,
+            )
+            total_volume += volume_m3
         total_weight += weight_value
         total_packages += package_count
+        is_hazmat = (cargo.cargo_type == "hazmat")
+        is_urgent = bool(getattr(cargo, "is_urgent", False))
+        if is_hazmat:
+            hazmat_count += 1
+        if is_urgent:
+            urgent_count += 1
         cargo_items.append(
             {
                 "tracking_code": cargo.tracking_code,
+                "reference": cargo.tracking_code,
                 "request_code": request_code,
+                "request_title": request_title,
                 "designation": cargo.designation,
                 "description": cargo.description,
                 "destination_name": destination_name,
+                "sender_name": sender_name or "--",
                 "receiver_name": cargo.receiver_name,
                 "weight_kg": round(weight_value, 2),
+                "volume_m3": volume_m3,
                 "package_count": package_count,
+                "stackable": cargo.stackable,
+                "cargo_type": cargo.cargo_type,
+                "is_hazmat": is_hazmat,
+                "hazmat_class": getattr(cargo, "hazmat_class", None),
+                "hazmat_un_number": getattr(cargo, "un_number", None) or getattr(cargo, "hazmat_un_number", None),
+                "hazmat_validated": cargo.hazmat_validated,
+                "is_urgent": is_urgent,
+                "handling_notes": cargo.damage_notes or getattr(cargo, "handling_notes", None) or "",
                 "status": cargo.status,
                 "status_label": CARGO_PUBLIC_STATUS_LABELS.get(cargo.status, cargo.status),
             }
@@ -567,7 +734,11 @@ async def _build_voyage_cargo_manifest_variables(
             "cargo_items": cargo_items,
             "total_cargo_items": len(cargo_items),
             "total_weight_kg": round(total_weight, 2),
+            "total_volume_m3": round(total_volume, 3),
             "total_packages": total_packages,
+            "hazmat_count": hazmat_count,
+            "urgent_count": urgent_count,
+            "manifest_date": variables.get("departure_date"),
         }
     )
     return variables

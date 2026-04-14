@@ -5779,35 +5779,62 @@ async def _build_ads_pdf_template_variables(
 ) -> dict:
     from sqlalchemy import text as sql_text
 
-    # Load PAX entries with profile details (User + TierContact)
+    # Load PAX entries with profile details (User + TierContact).
+    # NOTE: the `ads.ticket` Jinja template iterates over `passengers`
+    # and reads `pax.name`, `pax.company`, `pax.badge_number`,
+    # `pax.compliance_status`. We MUST emit those exact keys (in addition
+    # to the granular first_name/last_name/compliant for any custom
+    # tenant template).
     pax_result = await db.execute(
         select(AdsPax).where(AdsPax.ads_id == ads.id)
     )
     pax_rows = pax_result.scalars().all()
     passengers = []
     for ads_pax in pax_rows:
+        first_name = "?"
+        last_name = "?"
+        badge_number = "—"
+        company = ""
+        pax_type = "internal"
         if ads_pax.user_id:
             u = await db.get(User, ads_pax.user_id)
-            passengers.append({
-                "first_name": u.first_name if u else "?",
-                "last_name": u.last_name if u else "?",
-                "badge_number": (u.badge_number if u else None) or "—",
-                "company": "",
-                "type": u.pax_type if u else "internal",
-                "status": ads_pax.status or "pending",
-                "compliant": (ads_pax.compliance_summary or {}).get("compliant", False),
-            })
+            if u:
+                first_name = u.first_name or ""
+                last_name = u.last_name or ""
+                badge_number = u.badge_number or "—"
+                pax_type = u.pax_type or "internal"
         elif ads_pax.contact_id:
             c = await db.get(TierContact, ads_pax.contact_id)
-            passengers.append({
-                "first_name": c.first_name if c else "?",
-                "last_name": c.last_name if c else "?",
-                "badge_number": (c.badge_number if c else None) or "—",
-                "company": "",
-                "type": "external",
-                "status": ads_pax.status or "pending",
-                "compliant": (ads_pax.compliance_summary or {}).get("compliant", False),
-            })
+            pax_type = "external"
+            if c:
+                first_name = c.first_name or ""
+                last_name = c.last_name or ""
+                badge_number = c.badge_number or "—"
+                # Company name from linked Tier (best-effort).
+                if c.tier_id:
+                    tier_row = await db.execute(
+                        sql_text("SELECT name FROM tiers WHERE id = :tid"),
+                        {"tid": c.tier_id},
+                    )
+                    tier = tier_row.first()
+                    if tier:
+                        company = tier[0] or ""
+
+        compliant = bool((ads_pax.compliance_summary or {}).get("compliant", False))
+        full_name = (f"{first_name} {last_name}".strip()) or "—"
+        passengers.append({
+            # Canonical fields used by the default ads.ticket template
+            "name": full_name,
+            "compliance_status": "ok" if compliant else "blocked",
+            # Granular fields kept for custom tenant templates
+            "first_name": first_name or "?",
+            "last_name": last_name or "?",
+            "badge_number": badge_number,
+            "company": company,
+            "type": pax_type,
+            "status": ads_pax.status or "pending",
+            "compliant": compliant,
+        })
 
     # Load requester info
     req_row = await db.execute(
@@ -5817,13 +5844,53 @@ async def _build_ads_pdf_template_variables(
     requester = req_row.first()
     requester_name = f"{requester[0]} {requester[1]}" if requester else "—"
 
-    # Load site name
+    # Load site name (destination)
     site_row = await db.execute(
         sql_text("SELECT name FROM ar_installations WHERE id = :aid"),
         {"aid": ads.site_entry_asset_id},
     )
     site = site_row.first()
     site_name = site[0] if site else "—"
+
+    # Departure base name (best-effort, outbound)
+    departure_base_name = "—"
+    if ads.outbound_departure_base_id:
+        dep_row = await db.execute(
+            sql_text("SELECT name FROM ar_installations WHERE id = :aid"),
+            {"aid": ads.outbound_departure_base_id},
+        )
+        dep = dep_row.first()
+        if dep:
+            departure_base_name = dep[0] or "—"
+
+    # Approver display name (best-effort: ads has no approver_id column,
+    # but a recent workflow audit row may carry it. Fallback to "—")
+    approver_name = "—"
+    try:
+        appr_row = await db.execute(
+            sql_text(
+                "SELECT u.first_name, u.last_name FROM workflow_audit_logs wal "
+                "JOIN users u ON u.id = wal.user_id "
+                "WHERE wal.entity_type = 'ads' AND wal.entity_record_id = :ads_id "
+                "AND wal.action IN ('approved','approve') "
+                "ORDER BY wal.created_at DESC LIMIT 1"
+            ),
+            {"ads_id": ads.id},
+        )
+        appr = appr_row.first()
+        if appr:
+            approver_name = f"{appr[0] or ''} {appr[1] or ''}".strip() or "—"
+    except Exception:
+        # workflow_audit_logs may not exist in every deployment
+        pass
+
+    # Approval status mapping (template expects approved / pending / rejected)
+    if ads.status in {"approved", "in_progress", "completed"}:
+        approval_status = "approved"
+    elif ads.status in {"rejected", "cancelled"}:
+        approval_status = "rejected"
+    else:
+        approval_status = "pending"
 
     # Load entity name
     entity_row = await db.execute(
@@ -5836,16 +5903,42 @@ async def _build_ads_pdf_template_variables(
     boarding_token = _build_ads_boarding_token(ads)
     boarding_url = _build_ads_boarding_url(boarding_token)
 
+    def _fmt_date(d) -> str:
+        if not d:
+            return "—"
+        try:
+            return d.strftime("%d/%m/%Y")
+        except Exception:
+            return str(d)
+
+    def _fmt_dt(d) -> str:
+        if not d:
+            return "—"
+        try:
+            return d.strftime("%d/%m/%Y %H:%M UTC")
+        except Exception:
+            return str(d)
+
     variables = {
         "reference": ads.reference,
         "status": ads.status,
-        "start_date": str(ads.start_date) if ads.start_date else "—",
-        "end_date": str(ads.end_date) if ads.end_date else "—",
+        # Granular dates kept for custom templates
+        "start_date": _fmt_date(ads.start_date),
+        "end_date": _fmt_date(ads.end_date),
+        # Canonical names used by the default ads.ticket template
+        "departure_date": _fmt_date(ads.start_date),
+        "return_date": _fmt_date(ads.end_date),
+        "departure_base": departure_base_name,
+        "destination_site": site_name,
+        "transport_mode": ads.outbound_transport_mode or "—",
         "site_name": site_name,
         "visit_purpose": ads.visit_purpose or "—",
         "visit_category": ads.visit_category or "—",
         "outbound_transport_mode": ads.outbound_transport_mode or "—",
         "return_transport_mode": ads.return_transport_mode or "—",
+        "approval_status": approval_status,
+        "approver_name": approver_name,
+        "approved_at": _fmt_dt(ads.approved_at),
         "requester_name": requester_name,
         "pax_count": len(passengers),
         "passengers": passengers,
@@ -5856,6 +5949,7 @@ async def _build_ads_pdf_template_variables(
         "entity_name": entity_name,
         "qr_data": boarding_url,
         "qr_url": boarding_url,
+        "generated_at": datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC"),
     }
     return variables
 

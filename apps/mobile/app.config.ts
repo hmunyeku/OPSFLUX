@@ -110,7 +110,7 @@ const config: ExpoConfig = {
   ],
   extra: {
     eas: {
-      projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? "",
+      projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? "62fd6975-31ef-4526-a5cf-c6e82f3f2d09",
     },
   },
 };

@@ -746,6 +746,7 @@ function ManifestesTab() {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('')
+  const [pendingValidateId, setPendingValidateId] = useState<string | null>(null)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const validateManifest = useValidateManifest()
   const manifestStatusLabels = useDictionaryLabels('travelwiz_manifest_status', MANIFEST_STATUS_LABELS_FALLBACK)
@@ -820,22 +821,27 @@ function ManifestesTab() {
       size: 80,
       cell: ({ row }) => {
         if (row.original.status === 'validated' || row.original.status === 'closed') return null
+        const isThisRowPending = pendingValidateId === row.original.id
         return (
           <button
             className="gl-button-sm gl-button-default text-xs"
             onClick={(e) => {
               e.stopPropagation()
-              validateManifest.mutate({ voyageId: row.original.voyage_id, manifestId: row.original.id })
+              setPendingValidateId(row.original.id)
+              validateManifest.mutate(
+                { voyageId: row.original.voyage_id, manifestId: row.original.id },
+                { onSettled: () => setPendingValidateId(null) },
+              )
             }}
-            disabled={validateManifest.isPending}
+            disabled={isThisRowPending}
           >
-            <CheckCircle2 size={10} className="mr-1" />
+            {isThisRowPending ? <Loader2 size={10} className="animate-spin mr-1" /> : <CheckCircle2 size={10} className="mr-1" />}
             Valider
           </button>
         )
       },
     },
-  ], [manifestStatusLabels, validateManifest, t])
+  ], [manifestStatusLabels, validateManifest, pendingValidateId, t])
 
   return (
     <>
@@ -1219,10 +1225,14 @@ function RotationsTab() {
       cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.departure_base_name || '—'}</span>,
     },
     {
-      accessorKey: 'schedule_cron',
+      accessorKey: 'schedule_description',
       header: 'Planification',
-      size: 130,
-      cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.original.schedule_cron || row.original.schedule_description || '—'}</span>,
+      size: 180,
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground truncate">
+          {row.original.schedule_description || row.original.schedule_cron || '—'}
+        </span>
+      ),
     },
     {
       accessorKey: 'active',

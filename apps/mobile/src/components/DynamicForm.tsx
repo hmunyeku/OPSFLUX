@@ -1,39 +1,32 @@
 /**
- * DynamicForm — renders any form from a server-provided JSON definition.
+ * DynamicForm — Gluestack refonte: renders any form from a server-provided JSON.
  *
- * This is the core of the mobile app's form engine.
- * It uses useFormEngine for state management and renders
- * the appropriate field component for each field type.
- *
- * Features:
- *  - Multi-step wizard with animated transitions
- *  - Step progress indicator
- *  - Conditional field visibility
- *  - Inline validation with error messages
- *  - Submit with offline queue fallback
- *  - Responsive layout (half/full width fields on tablets)
+ * Multi-step wizard, conditional visibility, inline validation, offline queue.
+ * All strings via t() so the server-driven catalog applies.
  */
 
 import React from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
-import {
+  Box,
   Button,
-  ProgressBar,
-  Surface,
+  ButtonSpinner,
+  ButtonText,
+  Heading,
+  HStack,
+  Icon,
+  Progress,
+  ProgressFilledTrack,
   Text,
-} from "react-native-paper";
+  VStack,
+} from "@gluestack-ui/themed";
+import { CheckCircle2, CloudOff } from "lucide-react-native";
+import { useTranslation } from "react-i18next";
 import { useFormEngine } from "../hooks/useFormEngine";
 import { useResponsive } from "../hooks/useResponsive";
 import { renderFieldByType } from "./fields/renderField";
 import type { FormDefinition } from "../types/forms";
-import { colors } from "../utils/colors";
 
 interface Props {
   form: FormDefinition;
@@ -46,301 +39,166 @@ export default function DynamicForm({ form, onSuccess, onCancel }: Props) {
   const { deviceType, contentPadding } = useResponsive();
   const isTablet = deviceType === "tablet";
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
-  // ── Success State ─────────────────────────────────────────────────
-
+  /* ── Success state ────────────────────────────────────────────── */
   if (engine.submitted) {
     return (
-      <View style={styles.successContainer}>
-        <Surface style={styles.successCard} elevation={2}>
-          <Text variant="headlineMedium" style={styles.successIcon}>
-            {engine.queuedOffline ? "~" : "\u2713"}
-          </Text>
-          <Text variant="titleLarge" style={styles.successTitle}>
+      <Box flex={1} bg="$backgroundLight50" alignItems="center" justifyContent="center" p="$6">
+        <Box maxWidth={400} w="$full" bg="$white" borderRadius="$xl" p="$8" alignItems="center">
+          <Box
+            bg={engine.queuedOffline ? "$warning50" : "$success50"}
+            borderRadius="$full"
+            p="$5"
+            mb="$4"
+          >
+            <Icon
+              as={engine.queuedOffline ? CloudOff : CheckCircle2}
+              size="xl"
+              color={engine.queuedOffline ? "$warning600" : "$success600"}
+            />
+          </Box>
+          <Heading size="xl" color="$textLight900" textAlign="center" mb="$2">
             {engine.queuedOffline
-              ? "Enregistré hors-ligne"
-              : "Soumis avec succès"}
-          </Text>
-          <Text variant="bodyMedium" style={styles.successMessage}>
+              ? t("form.savedOffline", "Enregistré hors-ligne")
+              : t("form.submitted", "Soumis avec succès")}
+          </Heading>
+          <Text size="md" color="$textLight600" textAlign="center" lineHeight={22} mb="$6">
             {engine.queuedOffline
-              ? "Votre demande sera envoyée automatiquement dès que la connexion sera rétablie."
-              : "Votre demande a été envoyée avec succès."}
+              ? t(
+                  "form.queuedDesc",
+                  "Votre demande sera envoyée automatiquement dès que la connexion sera rétablie."
+                )
+              : t("form.submittedDesc", "Votre demande a été envoyée avec succès.")}
           </Text>
-          <View style={styles.successActions}>
-            <Button mode="contained" onPress={onSuccess ?? engine.reset}>
-              Terminé
+          <VStack space="sm" w="$full">
+            <Button size="lg" action="primary" onPress={onSuccess ?? engine.reset}>
+              <ButtonText>{t("common.done", "Terminé")}</ButtonText>
             </Button>
-            <Button mode="outlined" onPress={engine.reset} style={{ marginTop: 8 }}>
-              Nouvelle demande
+            <Button size="md" variant="outline" action="secondary" onPress={engine.reset}>
+              <ButtonText>{t("form.newRequest", "Nouvelle demande")}</ButtonText>
             </Button>
-          </View>
-        </Surface>
-      </View>
+          </VStack>
+        </Box>
+      </Box>
     );
   }
 
-  // ── Step Progress ─────────────────────────────────────────────────
+  const progress = engine.totalSteps > 1 ? ((engine.currentStep + 1) / engine.totalSteps) * 100 : 100;
 
-  const progress = engine.totalSteps > 1
-    ? (engine.currentStep + 1) / engine.totalSteps
-    : 1;
-
-  // ── Field Renderer ────────────────────────────────────────────────
-
+  /* ── Field renderer ────────────────────────────────────────────── */
   function renderField(fieldName: string) {
     const field = form.fields[fieldName];
     if (!field) return null;
-
     const value = engine.values[fieldName];
     const error = engine.errors[fieldName];
     const required = engine.isFieldRequired(fieldName);
     const halfWidth = isTablet && field.ui_width === "half";
-
-    const fieldElement = renderFieldByType(
-      field,
-      fieldName,
-      value,
-      error,
-      required,
-      engine.setValue
-    );
-
+    const fieldElement = renderFieldByType(field, fieldName, value, error, required, engine.setValue);
     return (
-      <View
+      <Box
         key={fieldName}
-        style={[styles.fieldWrapper, halfWidth && styles.fieldHalf]}
+        width={halfWidth ? "48%" : "100%"}
+        mr={halfWidth ? "4%" : 0}
       >
         {fieldElement}
-      </View>
+      </Box>
     );
   }
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={{ flex: 1, backgroundColor: "#f9fafb" }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       {/* Header */}
-      <Surface style={styles.header} elevation={1}>
-        <Text variant="titleLarge" style={styles.headerTitle}>
+      <Box bg="$white" pt={insets.top + 8} px="$5" pb="$3" shadowColor="$black" shadowOpacity={0.05} shadowRadius={2}>
+        <Heading size="md" color="$primary700">
           {form.title}
-        </Text>
+        </Heading>
         {engine.totalSteps > 1 && (
           <>
-            <View style={styles.stepInfo}>
-              <Text variant="bodySmall" style={styles.stepLabel}>
-                Étape {engine.currentStep + 1} sur {engine.totalSteps}
+            <Box mt="$2">
+              <Text size="2xs" color="$textLight400" textTransform="uppercase" letterSpacing={0.5}>
+                {t("form.step", "Étape")} {engine.currentStep + 1} / {engine.totalSteps}
               </Text>
-              <Text variant="titleSmall" style={styles.stepTitle}>
+              <Text size="sm" fontWeight="$semibold" color="$textLight900" mt="$0.5">
                 {engine.currentStepDef?.title}
               </Text>
-            </View>
-            <ProgressBar
-              progress={progress}
-              color={colors.primary}
-              style={styles.progressBar}
-            />
+            </Box>
+            <Progress value={progress} h={4} mt="$2.5">
+              <ProgressFilledTrack bg="$primary600" />
+            </Progress>
           </>
         )}
-      </Surface>
+      </Box>
 
-      {/* Form body */}
+      {/* Body */}
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { padding: contentPadding },
-        ]}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: contentPadding, paddingBottom: 24 }}
         keyboardShouldPersistTaps="handled"
       >
         {engine.currentStepDef?.description ? (
-          <Text variant="bodyMedium" style={styles.stepDescription}>
+          <Text size="md" color="$textLight600" lineHeight={22} mb="$4">
             {engine.currentStepDef.description}
           </Text>
         ) : null}
 
-        <View style={[styles.fieldsContainer, isTablet && styles.fieldsRow]}>
+        <Box flexDirection="row" flexWrap="wrap" gap={14}>
           {engine.visibleFieldsInStep.map((fn) => renderField(fn))}
-        </View>
+        </Box>
 
         {engine.submitError && (
-          <Surface style={styles.errorBanner} elevation={1}>
-            <Text variant="bodyMedium" style={styles.errorText}>
+          <Box
+            bg="$error50"
+            borderRadius="$lg"
+            borderLeftWidth={4}
+            borderLeftColor="$error500"
+            p="$3.5"
+            mt="$4"
+          >
+            <Text size="sm" color="$error700">
               {engine.submitError}
             </Text>
-          </Surface>
+          </Box>
         )}
       </ScrollView>
 
-      {/* Footer navigation */}
-      <Surface
-        style={[styles.footer, { paddingBottom: 12 + Math.max(insets.bottom, 8) }]}
-        elevation={2}
+      {/* Footer */}
+      <Box
+        bg="$white"
+        borderTopWidth={1}
+        borderColor="$borderLight200"
+        px="$5"
+        pt="$3"
+        pb={12 + Math.max(insets.bottom, 8)}
       >
-        <View style={styles.footerRow}>
+        <HStack space="sm" justifyContent="space-between">
           {engine.canGoPrev ? (
-            <Button
-              mode="outlined"
-              onPress={engine.goPrev}
-              style={styles.footerButton}
-            >
-              Précédent
+            <Button size="lg" variant="outline" action="secondary" onPress={engine.goPrev} flex={1}>
+              <ButtonText>{t("common.previous", "Précédent")}</ButtonText>
             </Button>
           ) : onCancel ? (
-            <Button
-              mode="outlined"
-              onPress={onCancel}
-              style={styles.footerButton}
-            >
-              Annuler
+            <Button size="lg" variant="outline" action="secondary" onPress={onCancel} flex={1}>
+              <ButtonText>{t("common.cancel", "Annuler")}</ButtonText>
             </Button>
           ) : (
-            <View style={styles.footerButton} />
+            <Box flex={1} />
           )}
 
           {engine.isLastStep ? (
-            <Button
-              mode="contained"
-              onPress={engine.submit}
-              loading={engine.submitting}
-              disabled={engine.submitting}
-              style={styles.footerButton}
-              buttonColor={colors.success}
-            >
-              Soumettre
+            <Button size="lg" action="positive" onPress={engine.submit} isDisabled={engine.submitting} flex={1}>
+              {engine.submitting && <ButtonSpinner mr="$2" />}
+              <ButtonText>{t("common.submit", "Soumettre")}</ButtonText>
             </Button>
           ) : (
-            <Button
-              mode="contained"
-              onPress={engine.goNext}
-              style={styles.footerButton}
-            >
-              Suivant
+            <Button size="lg" action="primary" onPress={engine.goNext} flex={1}>
+              <ButtonText>{t("common.next", "Suivant")}</ButtonText>
             </Button>
           )}
-        </View>
-      </Surface>
+        </HStack>
+      </Box>
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-  },
-  headerTitle: {
-    fontWeight: "700",
-    color: colors.primary,
-  },
-  stepInfo: {
-    marginTop: 8,
-  },
-  stepLabel: {
-    color: colors.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  stepTitle: {
-    color: colors.textPrimary,
-    fontWeight: "600",
-    marginTop: 2,
-  },
-  progressBar: {
-    marginTop: 10,
-    borderRadius: 4,
-    height: 4,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 24,
-  },
-  stepDescription: {
-    color: colors.textSecondary,
-    marginBottom: 16,
-    lineHeight: 22,
-  },
-  fieldsContainer: {
-    gap: 14,
-  },
-  fieldsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  fieldWrapper: {
-    width: "100%",
-  },
-  fieldHalf: {
-    width: "48%",
-    marginRight: "4%",
-  },
-  errorBanner: {
-    backgroundColor: colors.danger + "10",
-    borderRadius: 8,
-    padding: 14,
-    marginTop: 14,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.danger,
-  },
-  errorText: {
-    color: colors.danger,
-  },
-  footer: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  footerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  footerButton: {
-    flex: 1,
-  },
-  // Success screen
-  successContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-    backgroundColor: colors.background,
-  },
-  successCard: {
-    borderRadius: 16,
-    padding: 32,
-    alignItems: "center",
-    maxWidth: 400,
-    width: "100%",
-  },
-  successIcon: {
-    fontSize: 48,
-    color: colors.success,
-    marginBottom: 16,
-  },
-  successTitle: {
-    fontWeight: "700",
-    color: colors.textPrimary,
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  successMessage: {
-    color: colors.textSecondary,
-    textAlign: "center",
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  successActions: {
-    width: "100%",
-  },
-});

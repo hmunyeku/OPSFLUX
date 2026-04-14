@@ -247,6 +247,30 @@ class CargoRead(OpsFluxSchema):
     planned_zone_name: str | None = None
 
 
+class CargoRequestItemInline(BaseModel):
+    """
+    Minimal cargo item schema for inline creation inside a CargoRequest.
+
+    Allows mobile clients to submit the request + its cargo items in a
+    single atomic call. On the backend, the request is created first,
+    then each cargo is created with request_id=<new_request_id>.
+    """
+    description: str = Field(..., min_length=1, max_length=500)
+    cargo_type: str = Field(
+        ...,
+        pattern=r"^(unit|bulk|consumable|packaging|waste|hazmat)$",
+    )
+    weight_kg: float = Field(..., gt=0)
+    designation: str | None = Field(None, max_length=255)
+    package_count: int = Field(default=1, ge=1)
+    width_cm: float | None = Field(None, gt=0)
+    length_cm: float | None = Field(None, gt=0)
+    height_cm: float | None = Field(None, gt=0)
+    stackable: bool = False
+    sap_article_code: str | None = None
+    hazmat_validated: bool = False
+
+
 class CargoRequestCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
@@ -258,6 +282,10 @@ class CargoRequestCreate(BaseModel):
     destination_asset_id: UUID | None = None
     requester_user_id: UUID | None = None
     requester_name: str | None = Field(None, max_length=200)
+    # Inline cargo items — submitted together with the request in a
+    # single atomic call. The backend creates the request, then each
+    # cargo with request_id set to the new request's id.
+    cargos: list[CargoRequestItemInline] = Field(default_factory=list)
 
 
 class CargoRequestUpdate(BaseModel):

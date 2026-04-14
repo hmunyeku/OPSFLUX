@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
-from app.api.deps import get_current_user, check_polymorphic_owner_access
+from app.api.deps import get_current_entity, get_current_user, check_polymorphic_owner_access
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.storage_service import store_file, get_file_path, get_download_url, delete_stored_file
@@ -29,6 +29,7 @@ async def list_attachments(
     owner_type: str = Query(..., description="Object type: user, tier, asset, entity"),
     owner_id: UUID = Query(..., description="UUID of the owning object"),
     request: Request = None,
+    entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -39,6 +40,7 @@ async def list_attachments(
         .where(
             Attachment.owner_type == owner_type,
             Attachment.owner_id == owner_id,
+            Attachment.entity_id == entity_id,
         )
         .order_by(Attachment.created_at.desc())
     )
@@ -52,6 +54,7 @@ async def upload_attachment(
     owner_type: str = Form(...),
     owner_id: str = Form(...),
     description: str | None = Form(None),
+    entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -75,10 +78,6 @@ async def upload_attachment(
         content_type=file.content_type or "application/octet-stream",
     )
 
-    # Resolve entity_id: prefer explicit header, fall back to user default
-    raw_entity_id = request.headers.get("x-entity-id")
-    entity_id = UUID(raw_entity_id) if raw_entity_id else getattr(current_user, "default_entity_id", None)
-
     attachment = Attachment(
         owner_type=owner_type,
         owner_id=parsed_owner_id,
@@ -101,12 +100,13 @@ async def upload_attachment(
 async def download_attachment(
     attachment_id: UUID,
     request: Request,
+    entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Download a file attachment."""
     result = await db.execute(
-        select(Attachment).where(Attachment.id == attachment_id)
+        select(Attachment).where(Attachment.id == attachment_id, Attachment.entity_id == entity_id)
     )
     attachment = result.scalar_one_or_none()
     if not attachment:
@@ -135,12 +135,13 @@ async def download_attachment(
 async def delete_attachment(
     attachment_id: UUID,
     request: Request,
+    entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a file attachment."""
     result = await db.execute(
-        select(Attachment).where(Attachment.id == attachment_id)
+        select(Attachment).where(Attachment.id == attachment_id, Attachment.entity_id == entity_id)
     )
     attachment = result.scalar_one_or_none()
     if not attachment:

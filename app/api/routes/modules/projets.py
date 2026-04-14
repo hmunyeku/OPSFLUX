@@ -1698,11 +1698,13 @@ async def create_task_dependency(
 async def delete_task_dependency(
     project_id: UUID,
     dep_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("project.update"),
     db: AsyncSession = Depends(get_db),
 ):
     """Remove a task dependency."""
+    await _get_project_or_404(db, project_id, entity_id)
     result = await db.execute(
         select(ProjectTaskDependency).where(ProjectTaskDependency.id == dep_id)
     )

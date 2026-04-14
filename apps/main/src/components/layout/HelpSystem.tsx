@@ -362,13 +362,62 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     ],
     elementHelp: {},
   },
+  assets: {
+    title: 'Registre des assets',
+    icon: '\u{1F3ED}',
+    description:
+      "Hierarchie des installations, sites, equipements et zones. Configuration des capacites et regles d'acces.",
+    workflows: [
+      {
+        title: 'Naviguer dans la hierarchie',
+        requiredAnyPermissions: ['asset.read'],
+        steps: [
+          "Selectionnez un site ou une installation dans l'arborescence a gauche",
+          'Consultez les details, capacites et equipements dans le panneau principal',
+          'Utilisez la recherche pour trouver un asset par nom ou code',
+        ],
+      },
+      {
+        title: 'Configurer les capacites',
+        requiredAnyPermissions: ['asset.update', 'asset.capacity.manage'],
+        steps: [
+          "Selectionnez l'asset dans l'arborescence",
+          'Allez dans l\'onglet "Capacites"',
+          'Ajoutez ou modifiez les limites (PAX, poids, etc.)',
+          'Les capacites sont historisees (chaque modification cree un nouvel enregistrement)',
+        ],
+      },
+    ],
+    tips: [
+      "La hierarchie est configurable par tenant (niveaux personnalisables)",
+      "Les capacites sont utilisees par le Planner pour detecter les conflits",
+      "Chaque asset peut avoir des regles de conformite specifiques",
+    ],
+    elementHelp: {},
+  },
   travelwiz: {
     title: 'TravelWiz — Voyages & Transport',
     icon: '\u{1F681}',
     description:
       'Gestion des voyages, reservations transport, manifestes et suivi en temps reel.',
-    workflows: [],
-    tips: ['Module en cours de developpement'],
+    workflows: [
+      {
+        title: 'Creer un voyage',
+        requiredAnyPermissions: ['travelwiz.voyage.create', 'travelwiz.voyage.read'],
+        steps: [
+          'Cliquez "+ Nouveau voyage"',
+          "Selectionnez le vecteur (helicoptere, bateau, vehicule)",
+          "Definissez l'itineraire et les escales",
+          "Ajoutez les passagers et le fret au manifeste",
+          "Validez le manifeste avant le depart",
+        ],
+      },
+    ],
+    tips: [
+      'Le suivi en temps reel affiche la position GPS des vecteurs actifs',
+      'Les manifestes doivent etre valides avant le depart',
+      'Le portail capitaine permet au capitaine de gerer le voyage depuis le terrain',
+    ],
     elementHelp: {},
   },
   support: {

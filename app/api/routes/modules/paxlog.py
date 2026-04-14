@@ -2279,7 +2279,10 @@ async def _resolve_pax_identity(
     Returns (entity, company_name) or raises 404.
     """
     if pax_source == "user":
-        result = await db.execute(select(User).where(User.id == profile_id))
+        query = select(User).where(User.id == profile_id)
+        if entity_id is not None:
+            query = query.where(User.default_entity_id == entity_id)
+        result = await db.execute(query)
         entity = result.scalar_one_or_none()
         if not entity:
             raise HTTPException(status_code=404, detail="PAX user not found")
@@ -2287,11 +2290,14 @@ async def _resolve_pax_identity(
             raise HTTPException(status_code=404, detail="PAX user not found")
         return entity, None
     elif pax_source == "contact":
-        result = await db.execute(
+        query = (
             select(TierContact, Tier.name.label("company_name"))
             .outerjoin(Tier, Tier.id == TierContact.tier_id)
             .where(TierContact.id == profile_id)
         )
+        if entity_id is not None:
+            query = query.where(Tier.entity_id == entity_id)
+        result = await db.execute(query)
         row = result.one_or_none()
         if not row:
             raise HTTPException(status_code=404, detail="PAX contact not found")
@@ -2825,6 +2831,13 @@ async def list_credentials(
     db: AsyncSession = Depends(get_db),
 ):
     """List credentials for a PAX (user or contact)."""
+    await _resolve_pax_identity(
+        db,
+        profile_id,
+        pax_source,
+        entity_id=entity_id,
+        current_user=current_user,
+    )
     result = await db.execute(
         select(PaxCredential)
         .where(_cred_pax_filter(profile_id, pax_source))
@@ -2848,6 +2861,13 @@ async def create_credential(
     db: AsyncSession = Depends(get_db),
 ):
     """Add a credential to a PAX (status=pending_validation)."""
+    await _resolve_pax_identity(
+        db,
+        profile_id,
+        pax_source,
+        entity_id=entity_id,
+        current_user=current_user,
+    )
     credential = PaxCredential(
         user_id=profile_id if pax_source == "user" else None,
         contact_id=profile_id if pax_source == "contact" else None,
@@ -2879,6 +2899,13 @@ async def validate_credential(
     db: AsyncSession = Depends(get_db),
 ):
     """Approve or reject a credential."""
+    await _resolve_pax_identity(
+        db,
+        profile_id,
+        pax_source,
+        entity_id=entity_id,
+        current_user=current_user,
+    )
     result = await db.execute(
         select(PaxCredential).where(
             PaxCredential.id == credential_id,

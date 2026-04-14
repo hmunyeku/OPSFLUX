@@ -21,7 +21,7 @@ export default function AdsInfoStep({ dossier, loading, onDownloadTicket, onCont
   const preconfiguredEntries = Object.entries(preconfigured).filter(([, value]) => value !== null && value !== '')
 
   return (
-    <div className="flex flex-col gap-5 animate-fade-in">
+    <div className="flex flex-col gap-3 animate-fade-in">
       {/* ── Rejection reason banner ── */}
       {ads.rejection_reason && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
@@ -32,7 +32,7 @@ export default function AdsInfoStep({ dossier, loading, onDownloadTicket, onCont
 
       {/* ── Info grid ── */}
       <div className="section-card">
-        <div className="flex items-start justify-between gap-4 mb-5">
+        <div className="flex items-start justify-between gap-4 mb-3">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">{ads.reference}</h3>
             {ads.visit_purpose && <p className="text-sm text-gray-500 mt-0.5">{ads.visit_purpose}</p>}

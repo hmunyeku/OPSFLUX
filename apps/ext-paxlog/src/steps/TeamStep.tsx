@@ -107,7 +107,7 @@ export default function TeamStep({
   }
 
   return (
-    <div className="flex flex-col gap-5 animate-fade-in">
+    <div className="flex flex-col gap-3 animate-fade-in">
       {/* ── Summary bar ── */}
       <div className="flex flex-wrap items-center gap-2">
         <EuiBadge color="primary">{t('pax_count')}: {summary.total ?? 0}</EuiBadge>
@@ -167,19 +167,18 @@ export default function TeamStep({
               {matches.length > 0 && (
                 <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3">
                   <p className="text-xs font-semibold text-amber-700 mb-2">{t('duplicate_candidates')}</p>
-                  <div className="flex flex-col gap-1.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {matches.map((match: any) => (
                       <button
                         key={match.contact_id}
                         type="button"
-                        className="flex items-center justify-between px-3 py-2 rounded border border-amber-200 bg-white hover:bg-amber-50 text-left transition-colors"
+                        className="flex flex-col items-start gap-1 px-3 py-2.5 rounded-lg border border-amber-200 bg-white hover:bg-amber-50 hover:border-amber-300 text-left transition-colors shadow-sm"
                         onClick={() => onAttachExisting(match.contact_id)}
                       >
-                        <span className="text-sm font-medium text-gray-800">{match.first_name} {match.last_name}</span>
-                        <span className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500">{match.job_position_name || match.position || ''}</span>
-                          <EuiBadge color="warning">{t('attach_pax')}</EuiBadge>
-                        </span>
+                        <span className="text-sm font-semibold text-gray-800">{match.first_name} {match.last_name}</span>
+                        <span className="text-[11px] text-gray-500">{match.job_position_name || match.position || '\u2014'}</span>
+                        {match.badge_number && <span className="text-[10px] text-gray-400 font-mono">{match.badge_number}</span>}
+                        <EuiBadge color="warning" className="mt-1">{t('attach_pax')}</EuiBadge>
                       </button>
                     ))}
                   </div>

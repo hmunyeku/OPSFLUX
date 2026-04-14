@@ -89,13 +89,13 @@ export default function SecurityStep({ linkInfo, authenticated, loading, onSendO
   // ── Already authenticated ──
   if (authenticated) {
     return (
-      <div className="flex flex-col items-center py-10 gap-4 animate-fade-in">
-        <div className="w-14 h-14 rounded-full bg-green-50 border-2 border-green-200 flex items-center justify-center">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#017d73" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <div className="flex items-center gap-3 py-4 px-4 rounded-lg bg-green-50 border border-green-200 animate-fade-in">
+        <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#017d73" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12" />
           </svg>
         </div>
-        <p className="text-base font-medium text-green-800">{t('authenticated')}</p>
+        <p className="text-sm font-medium text-green-800">{t('authenticated')}</p>
       </div>
     )
   }
@@ -103,13 +103,13 @@ export default function SecurityStep({ linkInfo, authenticated, loading, onSendO
   // ── OTP not required ──
   if (!linkInfo?.otp_required) {
     return (
-      <div className="flex flex-col items-center py-10 gap-4 animate-fade-in">
-        <div className="w-14 h-14 rounded-full bg-green-50 border-2 border-green-200 flex items-center justify-center">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#017d73" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <div className="flex items-center gap-3 py-4 px-4 rounded-lg bg-green-50 border border-green-200 animate-fade-in">
+        <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#017d73" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12" />
           </svg>
         </div>
-        <p className="text-base font-medium text-green-800">{t('otp_not_required')}</p>
+        <p className="text-sm font-medium text-green-800">{t('otp_not_required')}</p>
       </div>
     )
   }
@@ -118,20 +118,18 @@ export default function SecurityStep({ linkInfo, authenticated, loading, onSendO
   return (
     <div className="flex justify-center animate-fade-in-up">
       <div className="section-card w-full max-w-md">
-        {/* Icon */}
-        <div className="flex justify-center mb-5">
-          <div className="w-14 h-14 rounded-full bg-blue-50 border-2 border-blue-100 flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0077cc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        {/* Icon + Instruction — inline */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center flex-shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0077cc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
           </div>
+          <p className="text-sm text-gray-600">
+            {t('otp_enter_code')} <span className="font-medium text-gray-800">{linkInfo?.otp_destination_masked || '***'}</span>
+          </p>
         </div>
-
-        {/* Instruction */}
-        <p className="text-center text-sm text-gray-600 mb-6">
-          {t('otp_enter_code')} <span className="font-medium text-gray-800">{linkInfo?.otp_destination_masked || '***'}</span>
-        </p>
 
         {/* Send / Resend button */}
         {otpSentAt == null ? (

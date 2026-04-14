@@ -42,7 +42,7 @@ export default function ComplianceStep({
   const summary = dossier?.pax_summary || {}
 
   return (
-    <div className="flex flex-col gap-5 animate-fade-in">
+    <div className="flex flex-col gap-3 animate-fade-in">
       {/* ── Summary badges ── */}
       <div className="flex flex-wrap items-center gap-2">
         {(summary.pending_check ?? 0) > 0 && <EuiBadge color="warning">{t('pending_check')}: {summary.pending_check}</EuiBadge>}

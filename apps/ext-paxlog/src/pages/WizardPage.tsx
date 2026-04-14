@@ -319,7 +319,7 @@ export default function WizardPage() {
 
   return (
     <Layout adsRef={adsRef} companyName={companyName} status={adsStatus} authenticated={authenticated}>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         {/* ── Horizontal step progress ── */}
         <WizardNav steps={steps} activeStep={activeStep} onStepClick={goToStep} />
 
@@ -329,9 +329,7 @@ export default function WizardPage() {
         )}
 
         {/* ── Active step content ── */}
-        <div>
-          {stepContent[activeStep]}
-        </div>
+        {stepContent[activeStep]}
 
         {/* ── Prev / Next bar ── */}
         <div className="flex items-center justify-between pt-2 border-t border-gray-100">

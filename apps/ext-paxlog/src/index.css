@@ -85,6 +85,31 @@ body {
 .step-connector.done {
   background: #017d73;
 }
+.step-dot-compact {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: 2px solid #d3dae6;
+  background: #fff;
+  color: #69707d;
+  flex-shrink: 0;
+}
+.step-dot-compact.active {
+  border-color: #0077cc;
+  background: #0077cc;
+  color: #fff;
+}
+.step-dot-compact.done {
+  border-color: #017d73;
+  background: #017d73;
+  color: #fff;
+}
 
 /* ── Section borders ── */
 .section-card {

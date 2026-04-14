@@ -64,7 +64,7 @@ export default function Layout({ children, adsRef, companyName, status, authenti
       </header>
 
       {/* ── Page content ── */}
-      <main className="max-w-5xl mx-auto px-4 py-5">
+      <main className="max-w-4xl mx-auto px-4 py-3">
         {children}
       </main>
     </div>

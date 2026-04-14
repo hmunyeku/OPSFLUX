@@ -44,49 +44,39 @@ export function buildSteps(authenticated: boolean, dossier: any): WizardStep[] {
 
 export default function WizardNav({ steps, activeStep, onStepClick }: WizardNavProps) {
   return (
-    <nav className="section-card" style={{ padding: '12px 16px' }}>
-      <div className="flex items-center gap-0">
-        {steps.map((step, index) => {
-          const isActive = index === activeStep
-          const isDone = step.done
-          return (
-            <React.Fragment key={step.id}>
-              {index > 0 && (
-                <div className={`step-connector${isDone || (index <= activeStep) ? ' done' : ''}`} />
+    <nav className="flex items-center gap-0 px-2 py-2 rounded-lg bg-white border border-gray-100 shadow-sm">
+      {steps.map((step, index) => {
+        const isActive = index === activeStep
+        const isDone = step.done
+        return (
+          <React.Fragment key={step.id}>
+            {index > 0 && (
+              <div className={`step-connector${isDone || (index <= activeStep) ? ' done' : ''}`} />
+            )}
+            <button
+              type="button"
+              onClick={() => onStepClick(index)}
+              className={`step-dot-compact${isActive ? ' active' : ''}${isDone && !isActive ? ' done' : ''}`}
+              title={step.title}
+              aria-current={isActive ? 'step' : undefined}
+            >
+              {isDone && !isActive ? (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <span className="text-[11px]">{index + 1}</span>
               )}
-              <button
-                type="button"
-                onClick={() => onStepClick(index)}
-                className={`step-dot${isActive ? ' active' : ''}${isDone && !isActive ? ' done' : ''}`}
-                title={step.title}
-                aria-current={isActive ? 'step' : undefined}
-              >
-                {isDone && !isActive ? (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                ) : (
-                  index + 1
-                )}
-              </button>
-            </React.Fragment>
-          )
-        })}
-      </div>
-      {/* Step label below on wider screens */}
-      <div className="hidden sm:flex items-center mt-2 px-1" style={{ gap: 0 }}>
-        {steps.map((step, index) => (
-          <React.Fragment key={`label-${step.id}`}>
-            {index > 0 && <div className="flex-1" />}
+            </button>
+            {/* Inline label on wider screens */}
             <span
-              className={`text-xs font-medium text-center ${index === activeStep ? 'text-blue-700' : step.done ? 'text-green-700' : 'text-gray-400'}`}
-              style={{ width: 32, flexShrink: 0 }}
+              className={`hidden sm:inline text-[11px] font-medium ml-1.5 mr-1 whitespace-nowrap ${isActive ? 'text-blue-700' : isDone ? 'text-green-600' : 'text-gray-400'}`}
             >
               {step.title}
             </span>
           </React.Fragment>
-        ))}
-      </div>
+        )
+      })}
     </nav>
   )
 }

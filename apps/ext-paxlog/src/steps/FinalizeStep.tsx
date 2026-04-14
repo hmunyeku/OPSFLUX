@@ -59,7 +59,7 @@ export default function FinalizeStep({
   }
 
   return (
-    <div className="flex flex-col gap-5 animate-fade-in">
+    <div className="flex flex-col gap-3 animate-fade-in">
       {/* ── Status banner ── */}
       {readyForSubmission ? (
         <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 flex items-start gap-3">

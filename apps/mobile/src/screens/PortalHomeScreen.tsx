@@ -1,21 +1,49 @@
 /**
- * Portal Home — sober role-based landing page.
+ * PortalHomeScreen — Gluestack refonte, banking-app inspired layout.
  *
- * Professional design: clean whites, subtle borders, typography hierarchy.
- * No gradients, no flashy colors. Inspired by Linear/Notion/Stripe dashboard.
+ * Layout (top to bottom):
+ *   1. Hero header — greeting + avatar + alert chips (offline / sync)
+ *   2. Big "Scanner" CTA card (most-used action surfaced front)
+ *   3. Quick action grid (4 tiles per row on phone, 6 on tablet)
+ *   4. Portal switcher (segmented control if multiple portals available)
+ *   5. Portal-specific actions list (cards with icon + label + chevron)
+ *   6. Dashboard cards (stats from the portal config, if any)
+ *
+ * Strings via t("key", "fallback"). NativeWind tailwind classes for layout,
+ * Gluestack components for primitives. Smooth Pressable feedback + haptic.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
+import { RefreshControl, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Chip, Text, ActivityIndicator } from "react-native-paper";
-import { Ionicons } from "@expo/vector-icons";
+import {
+  Avatar,
+  AvatarFallbackText,
+  AvatarImage,
+  Badge,
+  BadgeText,
+  Box,
+  Heading,
+  HStack,
+  Icon,
+  Pressable,
+  Spinner,
+  Text,
+  VStack,
+} from "@gluestack-ui/themed";
+import {
+  Bell,
+  CheckCircle2,
+  ChevronRight,
+  Lock,
+  QrCode,
+  Search,
+  Wifi,
+  WifiOff,
+  type LucideIcon,
+} from "lucide-react-native";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from "react-i18next";
 
 import { useFormRegistry } from "../hooks/useFormRegistry";
 import { useResponsive } from "../hooks/useResponsive";
@@ -24,50 +52,20 @@ import { usePermissions } from "../stores/permissions";
 import { useOfflineStore } from "../services/offline";
 import { useNotifications } from "../services/notifications";
 import { useToast } from "../components/Toast";
-import ActionTile from "../components/ui/ActionTile";
-import { colors } from "../utils/colors";
-import { radius, spacing, typography } from "../utils/design";
-import type { PortalAction } from "../types/forms";
-
-const ICON_MAP: Record<string, keyof typeof Ionicons.glyphMap> = {
-  scan: "qr-code-outline",
-  "qr-code": "qr-code-outline",
-  "scan-circle": "scan-outline",
-  "package-plus": "cube-outline",
-  "user-plus": "person-add-outline",
-  briefcase: "briefcase-outline",
-  list: "list-outline",
-  inbox: "archive-outline",
-  key: "key-outline",
-  "check-circle": "checkmark-circle-outline",
-  users: "people-outline",
-  "file-edit": "create-outline",
-  truck: "car-outline",
-  anchor: "boat-outline",
-  car: "car-sport-outline",
-  "building-2": "business-outline",
-  "layout-dashboard": "grid-outline",
-  "map-pin": "location-outline",
-  navigation: "navigate-outline",
-  search: "search-outline",
-  settings: "settings-outline",
-};
-
-const ACCENT_MAP: Record<string, string> = {
-  scan: colors.accent,
-  form: colors.primary,
-  list: colors.info,
-  screen: colors.primaryLight,
-};
+import { iconByName } from "../utils/iconMap";
+import type { PortalAction, PortalDefinition } from "../types/forms";
 
 interface Props {
   navigation: any;
 }
 
 export default function PortalHomeScreen({ navigation }: Props) {
-  const { portals, forms, loading } = useFormRegistry();
-  const { cardWidth } = useResponsive();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+  const { portals, forms, loading, refresh } = useFormRegistry();
+  const { deviceType } = useResponsive();
+  const isTablet = deviceType === "tablet";
+
   const userDisplayName = useAuthStore((s) => s.userDisplayName);
   const permissions = usePermissions((s) => s.permissions);
   const hasPermission = usePermissions((s) => s.hasAny);
@@ -77,6 +75,7 @@ export default function PortalHomeScreen({ navigation }: Props) {
   const toast = useToast();
 
   const [activePortalId, setActivePortalId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const accessiblePortals = useMemo(() => {
     return portals.filter((portal) => {
@@ -87,10 +86,10 @@ export default function PortalHomeScreen({ navigation }: Props) {
       if (roles.includes("user")) return true;
       return false;
     });
-  }, [portals, permissions]);
+  }, [portals, permissions, hasPermission]);
 
-  const activePortal = useMemo(() => {
-    if (activePortalId) return accessiblePortals.find((p) => p.id === activePortalId);
+  const activePortal: PortalDefinition | null = useMemo(() => {
+    if (activePortalId) return accessiblePortals.find((p) => p.id === activePortalId) ?? null;
     return accessiblePortals[0] ?? null;
   }, [accessiblePortals, activePortalId]);
 
@@ -98,22 +97,30 @@ export default function PortalHomeScreen({ navigation }: Props) {
     if (accessiblePortals.length && !activePortalId) {
       setActivePortalId(accessiblePortals[0].id);
     }
-  }, [accessiblePortals]);
+  }, [accessiblePortals, activePortalId]);
 
   const handleAction = useCallback(
     (action: PortalAction) => {
       Haptics.selectionAsync();
       switch (action.type) {
         case "scan":
-          navigation.navigate(action.screen ?? "ScanAds");
+          navigation.navigate(action.screen ?? "Scanner");
           break;
         case "form":
           if (action.form_id) {
             const formDef = forms.find((f) => f.id === action.form_id);
             if (formDef) {
-              navigation.navigate("DynamicForm", { formId: action.form_id, formTitle: formDef.title });
+              navigation.navigate("DynamicForm", {
+                formId: action.form_id,
+                formTitle: formDef.title,
+              });
             } else {
-              toast.show(`Formulaire "${action.form_id}" non disponible`, "warning");
+              toast.show(
+                t("home.formUnavailable", `Formulaire "{{id}}" non disponible`, {
+                  id: action.form_id,
+                }),
+                "warning"
+              );
             }
           }
           break;
@@ -125,285 +132,346 @@ export default function PortalHomeScreen({ navigation }: Props) {
           break;
       }
     },
-    [navigation, forms, toast]
+    [navigation, forms, toast, t]
   );
+
+  /* ── Loading + empty states ──────────────────────────────────────── */
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="small" color={colors.primary} />
-        <Text style={styles.loadingText}>Chargement...</Text>
-      </View>
+      <Box flex={1} bg="$backgroundLight50" alignItems="center" justifyContent="center">
+        <Spinner color="$primary600" />
+        <Text mt="$3" size="sm" color="$textLight500">
+          {t("common.loading", "Chargement...")}
+        </Text>
+      </Box>
     );
   }
 
   if (accessiblePortals.length === 0) {
     return (
-      <View style={styles.center}>
-        <Ionicons name="lock-closed-outline" size={48} color={colors.textMuted} />
-        <Text style={styles.emptyTitle}>Aucun portail disponible</Text>
-        <Text style={styles.emptySubtitle}>
-          Votre compte n'a pas encore de permissions attribuées. Contactez votre administrateur.
+      <Box flex={1} bg="$backgroundLight50" alignItems="center" justifyContent="center" p="$6">
+        <Icon as={Lock} size="xl" color="$textLight400" />
+        <Heading mt="$3" size="md" color="$textLight900">
+          {t("home.noPortalTitle", "Aucun portail disponible")}
+        </Heading>
+        <Text mt="$2" textAlign="center" color="$textLight500" maxWidth={320}>
+          {t(
+            "home.noPortalDesc",
+            "Votre compte n'a pas encore de permissions attribuées. Contactez votre administrateur."
+          )}
         </Text>
-      </View>
+      </Box>
     );
   }
 
+  /* ── Main render ──────────────────────────────────────────────────── */
+
+  const initials = (userDisplayName ?? "?")
+    .split(" ")
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  const greeting = greetingForHour(new Date());
+
   return (
-    <View style={styles.root}>
+    <Box flex={1} bg="$backgroundLight50">
       <ScrollView
-        style={styles.scroll}
         contentContainerStyle={{
-          paddingTop: insets.top + spacing.base,
-          paddingBottom: spacing["3xl"],
+          paddingTop: insets.top + 12,
+          paddingBottom: insets.bottom + 24,
         }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              try {
+                await refresh?.();
+              } finally {
+                setRefreshing(false);
+              }
+            }}
+          />
+        }
       >
-        {/* Sober header */}
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>
-              {userDisplayName ?? "Bienvenue"}
-            </Text>
-            {!isOnline && (
-              <View style={styles.statusRow}>
-                <View style={[styles.statusDot, { backgroundColor: colors.warning }]} />
-                <Text style={styles.statusText}>
-                  Hors ligne{queueLength > 0 ? ` · ${queueLength} en attente` : ""}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.headerActions}>
-            <Pressable
-              style={styles.iconButton}
-              onPress={() => navigation.navigate("Search")}
-              android_ripple={{ color: colors.primary + "15", borderless: true, radius: 20 }}
-            >
-              <Ionicons name="search-outline" size={22} color={colors.textPrimary} />
-            </Pressable>
-            <Pressable
-              style={[styles.iconButton, { marginLeft: spacing.xs }]}
-              onPress={() => navigation.navigate("Notifications")}
-              android_ripple={{ color: colors.primary + "15", borderless: true, radius: 20 }}
-            >
-              <Ionicons name="notifications-outline" size={22} color={colors.textPrimary} />
-              {unreadCount > 0 && (
-                <View style={styles.notifBadge}>
-                  <Text style={styles.notifBadgeText}>
-                    {unreadCount > 9 ? "9+" : unreadCount}
+        {/* ── Hero header ───────────────────────────────────────── */}
+        <Box px="$4" mb="$5">
+          <HStack alignItems="center" justifyContent="space-between" mb="$3">
+            <Pressable onPress={() => navigation.navigate("Settings", { screen: "MyProfile" })}>
+              <HStack alignItems="center" space="sm">
+                <Avatar size="md" bgColor="$primary600">
+                  <AvatarFallbackText>{initials}</AvatarFallbackText>
+                </Avatar>
+                <VStack>
+                  <Text size="xs" color="$textLight500">
+                    {t(`home.greeting.${greeting.key}`, greeting.fallback)}
                   </Text>
-                </View>
-              )}
+                  <Text size="md" fontWeight="$semibold" color="$textLight900">
+                    {userDisplayName ?? t("home.welcome", "Bienvenue")}
+                  </Text>
+                </VStack>
+              </HStack>
             </Pressable>
-          </View>
-        </View>
 
-        {/* Portal switcher */}
-        {accessiblePortals.length > 1 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.portalSwitcher}
-          >
-            {accessiblePortals.map((portal) => (
-              <Chip
-                key={portal.id}
-                selected={portal.id === activePortal?.id}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setActivePortalId(portal.id);
-                }}
-                style={[
-                  styles.portalChip,
-                  portal.id === activePortal?.id && styles.portalChipActive,
-                ]}
-                textStyle={[
-                  styles.portalChipText,
-                  portal.id === activePortal?.id && styles.portalChipTextActive,
-                ]}
-                mode={portal.id === activePortal?.id ? "flat" : "outlined"}
-                compact
+            <HStack space="sm">
+              <Pressable
+                onPress={() => navigation.navigate("Notifications")}
+                p="$2.5"
+                borderRadius="$full"
+                bg="$white"
+                borderWidth={1}
+                borderColor="$borderLight200"
               >
-                {portal.title}
-              </Chip>
-            ))}
-          </ScrollView>
+                <Box>
+                  <Icon as={Bell} size="md" color="$textLight700" />
+                  {unreadCount > 0 && (
+                    <Box
+                      position="absolute"
+                      top={-4}
+                      right={-4}
+                      bg="$error500"
+                      borderRadius="$full"
+                      minWidth={16}
+                      height={16}
+                      alignItems="center"
+                      justifyContent="center"
+                      px={3}
+                    >
+                      <Text size="2xs" color="$white" fontWeight="$bold">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </Text>
+                    </Box>
+                  )}
+                </Box>
+              </Pressable>
+
+              <Pressable
+                onPress={() => navigation.navigate("Search")}
+                p="$2.5"
+                borderRadius="$full"
+                bg="$white"
+                borderWidth={1}
+                borderColor="$borderLight200"
+              >
+                <Icon as={Search} size="md" color="$textLight700" />
+              </Pressable>
+            </HStack>
+          </HStack>
+
+          {/* Connection status chip */}
+          <ConnectionChip isOnline={isOnline} queueLength={queueLength} />
+        </Box>
+
+        {/* ── Big scan CTA ───────────────────────────────────────── */}
+        <Box px="$4" mb="$5">
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              navigation.navigate("Scanner");
+            }}
+            bg="$primary600"
+            borderRadius="$xl"
+            p="$5"
+            $active-bg="$primary700"
+          >
+            <HStack alignItems="center" space="md">
+              <Box bg="$primary500" borderRadius="$lg" p="$3">
+                <Icon as={QrCode} size="xl" color="$white" />
+              </Box>
+              <VStack flex={1}>
+                <Heading size="md" color="$white">
+                  {t("home.scanCta.title", "Scanner un QR")}
+                </Heading>
+                <Text size="sm" color="$white" opacity={0.85}>
+                  {t("home.scanCta.subtitle", "ADS, colis, mission — auto-détection")}
+                </Text>
+              </VStack>
+              <Icon as={ChevronRight} size="lg" color="$white" />
+            </HStack>
+          </Pressable>
+        </Box>
+
+        {/* ── Portal switcher (if multiple) ───────────────────────── */}
+        {accessiblePortals.length > 1 && (
+          <Box px="$4" mb="$4">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8 }}
+            >
+              {accessiblePortals.map((p) => {
+                const isActive = p.id === activePortal?.id;
+                return (
+                  <Pressable
+                    key={p.id}
+                    onPress={() => setActivePortalId(p.id)}
+                    bg={isActive ? "$primary600" : "$white"}
+                    borderWidth={1}
+                    borderColor={isActive ? "$primary600" : "$borderLight200"}
+                    px="$3"
+                    py="$1.5"
+                    borderRadius="$full"
+                  >
+                    <Text
+                      size="sm"
+                      fontWeight="$semibold"
+                      color={isActive ? "$white" : "$textLight700"}
+                    >
+                      {p.title}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Box>
         )}
 
-        {/* Section header */}
-        {activePortal && (
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{activePortal.title}</Text>
-            {activePortal.description && (
-              <Text style={styles.sectionDesc}>{activePortal.description}</Text>
-            )}
-          </View>
-        )}
-
-        {/* Actions grid */}
-        {activePortal && (
-          <View style={styles.actionsGrid}>
-            {activePortal.actions.map((action) => {
-              const iconName = ICON_MAP[action.icon] ?? "ellipse-outline";
-              const accent = ACCENT_MAP[action.type] ?? colors.primary;
-              return (
+        {/* ── Quick action grid ───────────────────────────────────── */}
+        {activePortal?.actions && activePortal.actions.length > 0 && (
+          <Box px="$4" mb="$4">
+            <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5} mb="$3">
+              {t("home.quickActions", "Actions rapides")}
+            </Heading>
+            <Box flexDirection="row" flexWrap="wrap" gap={12}>
+              {activePortal.actions.slice(0, isTablet ? 8 : 4).map((action, idx) => (
                 <ActionTile
-                  key={action.id}
-                  title={action.title}
-                  icon={iconName}
-                  accent={accent}
-                  width={cardWidth}
+                  key={idx}
+                  action={action}
+                  width={isTablet ? "23%" : "47%"}
                   onPress={() => handleAction(action)}
                 />
-              );
-            })}
-          </View>
+              ))}
+            </Box>
+          </Box>
         )}
 
-        {/* Dashboard (subtle, no cards-in-cards) */}
-        {activePortal?.dashboard_cards && activePortal.dashboard_cards.length > 0 && (
-          <View style={styles.dashboardSection}>
-            <Text style={styles.dashboardTitle}>Indicateurs</Text>
-            <View style={styles.dashboardGrid}>
-              {activePortal.dashboard_cards.map((card, i) => (
-                <View key={i} style={styles.statCard}>
-                  <Text style={styles.statLabel}>{card.title}</Text>
-                  <Text style={styles.statValue}>—</Text>
-                </View>
-              ))}
-            </View>
-          </View>
+        {/* ── More actions list ────────────────────────────────────── */}
+        {activePortal?.actions && activePortal.actions.length > (isTablet ? 8 : 4) && (
+          <Box px="$4" mb="$4">
+            <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5} mb="$3">
+              {t("home.moreActions", "Plus d'actions")}
+            </Heading>
+            <VStack space="xs" bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200">
+              {activePortal.actions.slice(isTablet ? 8 : 4).map((action, idx) => {
+                const ActionIcon = iconByName(action.icon ?? "list") as LucideIcon;
+                return (
+                  <Pressable
+                    key={idx}
+                    onPress={() => handleAction(action)}
+                    px="$4"
+                    py="$3"
+                    borderTopWidth={idx === 0 ? 0 : 1}
+                    borderColor="$borderLight100"
+                    $active-bg="$backgroundLight100"
+                  >
+                    <HStack alignItems="center" space="md">
+                      <Box bg="$backgroundLight100" borderRadius="$md" p="$2">
+                        <Icon as={ActionIcon} size="sm" color="$textLight700" />
+                      </Box>
+                      <Text flex={1} size="md" color="$textLight900">
+                        {action.title}
+                      </Text>
+                      <Icon as={ChevronRight} size="sm" color="$textLight400" />
+                    </HStack>
+                  </Pressable>
+                );
+              })}
+            </VStack>
+          </Box>
+        )}
+
+        {/* ── Portal description / footer ─────────────────────────── */}
+        {activePortal?.description && (
+          <Box px="$4">
+            <Text size="xs" color="$textLight400" textAlign="center">
+              {activePortal.description}
+            </Text>
+          </Box>
         )}
       </ScrollView>
-    </View>
+    </Box>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  scroll: { flex: 1 },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.background,
-    padding: spacing.xl,
-  },
-  loadingText: { ...typography.bodySm, color: colors.textMuted, marginTop: spacing.md },
-  emptyTitle: { ...typography.headlineMd, color: colors.textPrimary, marginTop: spacing.lg, textAlign: "center" },
-  emptySubtitle: {
-    ...typography.bodyMd,
-    color: colors.textSecondary,
-    textAlign: "center",
-    marginTop: spacing.sm,
-    maxWidth: 280,
-    lineHeight: 20,
-  },
+/* ── Sub-components ─────────────────────────────────────────────────── */
 
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.base,
-  },
-  greeting: {
-    ...typography.displaySm,
-    color: colors.textPrimary,
-    letterSpacing: -0.3,
-  },
-  statusRow: { flexDirection: "row", alignItems: "center", marginTop: spacing.xs },
-  statusDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
-  statusText: { ...typography.caption, color: colors.textSecondary },
-  headerActions: { flexDirection: "row", alignItems: "center" },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
-  },
-  notifBadge: {
-    position: "absolute",
-    top: 6,
-    right: 6,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: colors.danger,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 4,
-    borderWidth: 2,
-    borderColor: colors.background,
-  },
-  notifBadgeText: { color: "#ffffff", fontSize: 9, fontWeight: "800" },
+function ConnectionChip({ isOnline, queueLength }: { isOnline: boolean; queueLength: number }) {
+  const { t } = useTranslation();
 
-  portalSwitcher: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  portalChip: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    marginRight: spacing.sm,
-  },
-  portalChipActive: { backgroundColor: colors.primary },
-  portalChipText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    fontWeight: "600",
-  },
-  portalChipTextActive: { color: "#ffffff" },
+  if (isOnline && queueLength === 0) {
+    return (
+      <HStack alignItems="center" space="xs">
+        <Icon as={CheckCircle2} size="xs" color="$success600" />
+        <Text size="xs" color="$textLight500">
+          {t("home.allSynced", "Tout est synchronisé")}
+        </Text>
+      </HStack>
+    );
+  }
 
-  sectionHeader: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.md,
-  },
-  sectionTitle: { ...typography.headlineMd, color: colors.textPrimary },
-  sectionDesc: { ...typography.bodyMd, color: colors.textSecondary, marginTop: 4 },
+  if (!isOnline) {
+    return (
+      <Badge action="warning" variant="solid" alignSelf="flex-start">
+        <Icon as={WifiOff} size="xs" color="$white" mr="$1" />
+        <BadgeText>
+          {queueLength > 0
+            ? t("home.offlineWithQueue", "Hors ligne · {{count}} en attente", { count: queueLength })
+            : t("home.offline", "Hors ligne")}
+        </BadgeText>
+      </Badge>
+    );
+  }
 
-  actionsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-  },
+  // Online but with queue — syncing
+  return (
+    <Badge action="info" variant="solid" alignSelf="flex-start">
+      <Icon as={Wifi} size="xs" color="$white" mr="$1" />
+      <BadgeText>
+        {t("home.syncing", "Synchronisation · {{count}} en attente", { count: queueLength })}
+      </BadgeText>
+    </Badge>
+  );
+}
 
-  dashboardSection: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing["2xl"],
-  },
-  dashboardTitle: {
-    ...typography.titleSm,
-    color: colors.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: spacing.md,
-  },
-  dashboardGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
-  statCard: {
-    flex: 1,
-    minWidth: 140,
-    padding: spacing.base,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  statLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  statValue: {
-    ...typography.displaySm,
-    color: colors.textPrimary,
-    marginTop: spacing.xs,
-  },
-});
+function ActionTile({
+  action,
+  width,
+  onPress,
+}: {
+  action: PortalAction;
+  width: string | number;
+  onPress: () => void;
+}) {
+  const ActionIcon = iconByName(action.icon ?? "list") as LucideIcon;
+  return (
+    <Pressable
+      onPress={onPress}
+      bg="$white"
+      borderRadius="$lg"
+      borderWidth={1}
+      borderColor="$borderLight200"
+      p="$3"
+      width={width as any}
+      $active-bg="$backgroundLight100"
+    >
+      <Box bg="$primary50" borderRadius="$md" p="$2" alignSelf="flex-start" mb="$2">
+        <Icon as={ActionIcon} size="md" color="$primary700" />
+      </Box>
+      <Text size="sm" fontWeight="$semibold" color="$textLight900" numberOfLines={2}>
+        {action.title}
+      </Text>
+    </Pressable>
+  );
+}
+
+function greetingForHour(d: Date): { key: string; fallback: string } {
+  const h = d.getHours();
+  if (h < 12) return { key: "morning", fallback: "Bonjour" };
+  if (h < 18) return { key: "afternoon", fallback: "Bon après-midi" };
+  return { key: "evening", fallback: "Bonsoir" };
+}

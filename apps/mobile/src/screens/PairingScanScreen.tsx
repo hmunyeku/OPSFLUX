@@ -117,6 +117,10 @@ export default function PairingScanScreen({ navigation }: Props) {
         });
 
         setTokens(data.access_token, data.refresh_token);
+        // Up-front permission prompts (best-effort)
+        import("../services/permissions")
+          .then((m) => m.requestEssentialPermissions())
+          .catch(() => {});
         // AppNavigator will pick up the new auth state and route us.
       } catch (err: any) {
         const detail =

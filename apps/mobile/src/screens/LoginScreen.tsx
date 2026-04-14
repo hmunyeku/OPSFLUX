@@ -89,6 +89,10 @@ export default function LoginScreen({ navigation }: Props) {
         setMfaRequired(true);
       } else {
         setTokens(response.access_token, response.refresh_token);
+        // Request all essential OS permissions up-front (best-effort)
+        import("../services/permissions")
+          .then((m) => m.requestEssentialPermissions())
+          .catch(() => {});
       }
     } catch (err: any) {
       const message = err?.response?.data?.detail || t("auth.invalidCredentials", "Identifiants incorrects.");

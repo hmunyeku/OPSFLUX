@@ -94,8 +94,17 @@ export default function App() {
       } catch (err) {
         if (__DEV__) console.warn("[App] connectivity monitor failed:", err);
       }
-      // Register push after auth restore (best-effort, never blocks)
+      // Once authenticated, ask for the OS permissions we'll need
+      // (camera, location, notifications, media library) in one batch
+      // so the user goes through OS prompts upfront rather than being
+      // surprised mid-flow.
       if (useAuthStore.getState().isAuthenticated) {
+        try {
+          const { requestEssentialPermissions } = await import("./src/services/permissions");
+          await requestEssentialPermissions();
+        } catch (err) {
+          if (__DEV__) console.warn("[App] permissions prompt failed:", err);
+        }
         registerForPushNotifications().catch(() => {});
       }
       setInitializing(false);

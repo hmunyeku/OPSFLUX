@@ -542,8 +542,8 @@ function VoyagesTab() {
       cell: ({ row }: { row: { original: { id: string } } }) => (
         <button
           className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={async (e: React.MouseEvent) => { e.stopPropagation(); const ok = await confirmDialog({ title: 'Supprimer ?', message: 'Supprimer ce voyage ?', confirmLabel: 'Supprimer', variant: 'danger' }); if (ok) deleteVoyage.mutate(row.original.id) }}
-          title="Supprimer"
+          onClick={async (e: React.MouseEvent) => { e.stopPropagation(); const ok = await confirmDialog({ title: t('travelwiz.actions.delete_confirm_title'), message: t('travelwiz.actions.delete_voyage_confirm'), confirmLabel: t('travelwiz.actions.delete'), variant: 'danger' }); if (ok) deleteVoyage.mutate(row.original.id) }}
+          title={t('travelwiz.actions.delete')}
         >
           <span className="text-xs">&times;</span>
         </button>
@@ -554,10 +554,10 @@ function VoyagesTab() {
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
-        <StatCard label="Total" value={total} icon={Plane} />
-        <StatCard label="Planifiés" value={stats.planned} icon={Calendar} />
-        <StatCard label="En cours" value={stats.inProgress} icon={Plane} accent="text-amber-500" />
-        <StatCard label="PAX embarqués" value={stats.totalPax} icon={Users} accent="text-blue-500" />
+        <StatCard label={t('travelwiz.stats.total')} value={total} icon={Plane} />
+        <StatCard label={t('travelwiz.stats.planned')} value={stats.planned} icon={Calendar} />
+        <StatCard label={t('travelwiz.stats.in_progress')} value={stats.inProgress} icon={Plane} accent="text-amber-500" />
+        <StatCard label={t('travelwiz.stats.pax_boarded')} value={stats.totalPax} icon={Users} accent="text-blue-500" />
       </div>
 
       <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
@@ -836,7 +836,7 @@ function ManifestesTab() {
             disabled={isThisRowPending}
           >
             {isThisRowPending ? <Loader2 size={10} className="animate-spin mr-1" /> : <CheckCircle2 size={10} className="mr-1" />}
-            Valider
+            {t('travelwiz.actions.validate')}
           </button>
         )
       },
@@ -846,10 +846,10 @@ function ManifestesTab() {
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
-        <StatCard label="Manifestes" value={stats.count} icon={FileText} />
-        <StatCard label="Brouillons" value={stats.draft} icon={FileText} />
-        <StatCard label="Valides" value={stats.validated} icon={CheckCircle2} />
-        <StatCard label="PAX total" value={stats.totalPax} icon={Users} />
+        <StatCard label={t('travelwiz.stats.manifests')} value={stats.count} icon={FileText} />
+        <StatCard label={t('travelwiz.stats.drafts')} value={stats.draft} icon={FileText} />
+        <StatCard label={t('travelwiz.stats.validated')} value={stats.validated} icon={CheckCircle2} />
+        <StatCard label={t('travelwiz.stats.pax_total')} value={stats.totalPax} icon={Users} />
       </div>
 
       <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
@@ -1001,7 +1001,7 @@ export function CargoTab() {
             }}
             disabled={isThisRowPending}
           >
-            {isThisRowPending ? <Loader2 size={11} className="animate-spin" /> : 'Avancer'}
+            {isThisRowPending ? <Loader2 size={11} className="animate-spin" /> : t('travelwiz.actions.advance')}
           </button>
         )
       },
@@ -1137,14 +1137,14 @@ function VecteursTab() {
       cell: ({ row }: { row: { original: { id: string } } }) => (
         <button
           className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={async (e: React.MouseEvent) => { e.stopPropagation(); const ok = await confirmDialog({ title: 'Supprimer ?', message: 'Supprimer ce vecteur ?', confirmLabel: 'Supprimer', variant: 'danger' }); if (ok) deleteVector.mutate(row.original.id) }}
-          title="Supprimer"
+          onClick={async (e: React.MouseEvent) => { e.stopPropagation(); const ok = await confirmDialog({ title: t('travelwiz.actions.delete_confirm_title'), message: t('travelwiz.actions.delete_vector_confirm'), confirmLabel: t('travelwiz.actions.delete'), variant: 'danger' }); if (ok) deleteVector.mutate(row.original.id) }}
+          title={t('travelwiz.actions.delete')}
         >
           <span className="text-xs">&times;</span>
         </button>
       ),
     }] : []),
-  ], [deleteVector, canDelete])
+  ], [deleteVector, canDelete, t])
 
   return (
     <>

@@ -2800,6 +2800,24 @@
     "no_cargo": "No cargo",
     "log_event": "Log event",
     "vectors": "Vectors",
+    "stats": {
+      "total": "Total",
+      "planned": "Planned",
+      "in_progress": "In progress",
+      "pax_boarded": "PAX boarded",
+      "manifests": "Manifests",
+      "drafts": "Drafts",
+      "validated": "Validated",
+      "pax_total": "Total PAX"
+    },
+    "actions": {
+      "delete": "Delete",
+      "delete_voyage_confirm": "Delete this voyage?",
+      "delete_vector_confirm": "Delete this vector?",
+      "delete_confirm_title": "Delete?",
+      "validate": "Validate",
+      "advance": "Advance"
+    },
     "status_active": "Active",
     "status_idle": "Idle",
     "status_in_transit": "In transit",

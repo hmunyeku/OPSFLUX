@@ -3790,6 +3790,23 @@
     "stats": "Statistics"
   },
   "packlog": {
+    "title": "PackLog",
+    "subtitle": "Shipping requests, cargo, SAP catalog and tracking",
+    "tabs": {
+      "dashboard": "Dashboard",
+      "requests": "Requests",
+      "cargo": "Cargo",
+      "catalog": "SAP Catalog",
+      "tracking": "Tracking",
+      "alerts": "Alerts"
+    },
+    "actions": {
+      "new_request": "New request",
+      "new_cargo": "New cargo",
+      "new_article": "New article",
+      "import_csv": "Import CSV",
+      "import_csv_running": "Importing…"
+    },
     "common": {
       "all": "All"
     },
@@ -3885,6 +3902,35 @@
       },
       "search_placeholder": "Search by tracking, voyage, destination...",
       "empty": "No tracking data"
+    },
+    "catalog": {
+      "columns": {
+        "sap_code": "SAP Code",
+        "description": "Description",
+        "management_type": "Management",
+        "packaging": "Packaging",
+        "hazmat": "HAZMAT"
+      },
+      "search_placeholder": "Search by SAP code or description...",
+      "empty": "No article",
+      "empty_sap": "No SAP article",
+      "smart_search": {
+        "title": "Smart SAP search",
+        "placeholder": "Describe a cargo item or article...",
+        "no_match": "No satisfactory match."
+      },
+      "hazmat_yes": "Yes",
+      "hazmat_no": "No"
+    },
+    "alerts": {
+      "columns": {
+        "reference": "Reference",
+        "label": "Subject",
+        "alert": "Alert",
+        "status": "Status",
+        "detected_at": "Detected on"
+      },
+      "empty": "No alert"
     }
   }
 }

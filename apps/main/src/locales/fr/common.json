@@ -4551,6 +4551,23 @@
     }
   },
   "packlog": {
+    "title": "PackLog",
+    "subtitle": "Demandes d'expédition, colis, catalogue SAP et tracking",
+    "tabs": {
+      "dashboard": "Dashboard",
+      "requests": "Demandes",
+      "cargo": "Colis",
+      "catalog": "Catalogue SAP",
+      "tracking": "Tracking",
+      "alerts": "Alertes"
+    },
+    "actions": {
+      "new_request": "Nouvelle demande",
+      "new_cargo": "Nouveau colis",
+      "new_article": "Nouvel article",
+      "import_csv": "Importer CSV",
+      "import_csv_running": "Import en cours…"
+    },
     "common": {
       "all": "Tous"
     },
@@ -4656,7 +4673,15 @@
         "hazmat": "HAZMAT"
       },
       "search_placeholder": "Rechercher par code SAP ou description...",
-      "empty": "Aucun article"
+      "empty": "Aucun article",
+      "empty_sap": "Aucun article SAP",
+      "smart_search": {
+        "title": "Recherche intelligente SAP",
+        "placeholder": "Décrire un colis ou un article...",
+        "no_match": "Aucun match satisfaisant."
+      },
+      "hazmat_yes": "Oui",
+      "hazmat_no": "Non"
     },
     "alerts": {
       "columns": {

@@ -56,14 +56,24 @@ type AlertRow = {
   created_at: string
 }
 
-const TABS: { id: PackLogTab; label: string; icon: typeof LayoutDashboard }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'requests', label: 'Demandes', icon: FileText },
-  { id: 'cargo', label: 'Colis', icon: Package },
-  { id: 'catalog', label: 'Catalogue SAP', icon: Boxes },
-  { id: 'tracking', label: 'Tracking', icon: ScanSearch },
-  { id: 'alerts', label: 'Alertes', icon: AlertTriangle },
+const TAB_DEFS: { id: PackLogTab; labelKey: string; icon: typeof LayoutDashboard }[] = [
+  { id: 'dashboard', labelKey: 'packlog.tabs.dashboard', icon: LayoutDashboard },
+  { id: 'requests', labelKey: 'packlog.tabs.requests', icon: FileText },
+  { id: 'cargo', labelKey: 'packlog.tabs.cargo', icon: Package },
+  { id: 'catalog', labelKey: 'packlog.tabs.catalog', icon: Boxes },
+  { id: 'tracking', labelKey: 'packlog.tabs.tracking', icon: ScanSearch },
+  { id: 'alerts', labelKey: 'packlog.tabs.alerts', icon: AlertTriangle },
 ]
+
+/** Shared StatCard for PackLog tabs — uniform across modules. */
+function StatCard({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-background p-3">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={`mt-1 text-lg font-semibold tabular-nums ${accent ?? 'text-foreground'}`}>{value}</p>
+    </div>
+  )
+}
 
 registerPanelRenderer('packlog', (view) => {
   if (view.type === 'create') {
@@ -185,13 +195,13 @@ function RequestsTab() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="grid gap-3 border-b border-border px-4 py-3 md:grid-cols-4">
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.requests.stats.total')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.total}</p></div>
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.requests.stats.ready')}</p><p className="mt-1 text-lg font-semibold text-emerald-600">{stats.ready}</p></div>
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.requests.stats.blocked')}</p><p className="mt-1 text-lg font-semibold text-amber-600">{stats.blocked}</p></div>
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.requests.stats.submitted')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.submitted}</p></div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
+        <StatCard label={t('packlog.requests.stats.total')} value={stats.total} />
+        <StatCard label={t('packlog.requests.stats.ready')} value={stats.ready} accent="text-emerald-600" />
+        <StatCard label={t('packlog.requests.stats.blocked')} value={stats.blocked} accent="text-amber-600" />
+        <StatCard label={t('packlog.requests.stats.submitted')} value={stats.submitted} />
       </div>
-      <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+      <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
         <div className="flex flex-wrap gap-1">
           {[{ value: '', label: t('packlog.common.all') }, ...requestStatusOptions].map((option) => (
             <button
@@ -256,13 +266,13 @@ function CargoTab() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="grid gap-3 border-b border-border px-4 py-3 md:grid-cols-4">
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.cargo.stats.total')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.total}</p></div>
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.cargo.stats.in_transit')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.inTransit}</p></div>
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.cargo.stats.delivered')}</p><p className="mt-1 text-lg font-semibold text-emerald-600">{stats.delivered}</p></div>
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.cargo.stats.incidents')}</p><p className="mt-1 text-lg font-semibold text-destructive">{stats.incidents}</p></div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
+        <StatCard label={t('packlog.cargo.stats.total')} value={stats.total} />
+        <StatCard label={t('packlog.cargo.stats.in_transit')} value={stats.inTransit} />
+        <StatCard label={t('packlog.cargo.stats.delivered')} value={stats.delivered} accent="text-emerald-600" />
+        <StatCard label={t('packlog.cargo.stats.incidents')} value={stats.incidents} accent="text-destructive" />
       </div>
-      <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+      <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
         <div className="flex flex-wrap gap-1">
           {[{ value: '', label: t('packlog.common.all') }, ...cargoStatusOptions].map((option) => (
             <button
@@ -315,16 +325,16 @@ function CatalogTab() {
     { accessorKey: 'description', header: t('packlog.catalog.columns.description'), cell: ({ row }) => <span className="font-medium text-foreground">{row.original.description}</span> },
     { id: 'management_type', header: t('packlog.catalog.columns.management_type'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.management_type ?? '—'}</span> },
     { id: 'packaging', header: t('packlog.catalog.columns.packaging'), cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.packaging ?? '—'}</span> },
-    { id: 'hazmat', header: t('packlog.catalog.columns.hazmat'), cell: ({ row }) => <span className={row.original.is_hazmat ? 'text-destructive text-xs font-medium' : 'text-muted-foreground text-xs'}>{row.original.is_hazmat ? (row.original.hazmat_class ?? 'Oui') : 'Non'}</span> },
-  ], [])
+    { id: 'hazmat', header: t('packlog.catalog.columns.hazmat'), cell: ({ row }) => <span className={row.original.is_hazmat ? 'text-destructive text-xs font-medium' : 'text-muted-foreground text-xs'}>{row.original.is_hazmat ? (row.original.hazmat_class ?? t('packlog.catalog.hazmat_yes')) : t('packlog.catalog.hazmat_no')}</span> },
+  ], [t])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="grid gap-3 border-b border-border px-4 py-3 md:grid-cols-[minmax(0,1fr)_320px]">
         <div className="rounded-lg border border-border/60 bg-card px-3 py-3">
           <div className="flex flex-wrap items-center gap-2">
-            <ToolbarButton icon={Plus} label="Nouvel article" onClick={() => openDynamicPanel({ type: 'create', module: 'packlog', meta: { subtype: 'article' } })} />
-            <ToolbarButton icon={FileDown} label={importCsv.isPending ? 'Import en cours…' : 'Importer CSV'} onClick={() => fileInputRef.current?.click()} disabled={importCsv.isPending} />
+            <ToolbarButton icon={Plus} label={t('packlog.actions.new_article')} onClick={() => openDynamicPanel({ type: 'create', module: 'packlog', meta: { subtype: 'article' } })} />
+            <ToolbarButton icon={FileDown} label={importCsv.isPending ? t('packlog.actions.import_csv_running') : t('packlog.actions.import_csv')} onClick={() => fileInputRef.current?.click()} disabled={importCsv.isPending} />
           </div>
           <input
             ref={fileInputRef}
@@ -346,14 +356,14 @@ function CatalogTab() {
           />
         </div>
         <div className="rounded-lg border border-border/60 bg-card px-3 py-3">
-          <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Recherche intelligente SAP</p>
+          <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('packlog.catalog.smart_search.title')}</p>
           <div className="flex items-center gap-2">
             <input
               type="text"
               value={sapQuery}
               onChange={(event) => setSapQuery(event.target.value)}
               className="gl-form-input"
-              placeholder="Décrire un colis ou un article..."
+              placeholder={t('packlog.catalog.smart_search.placeholder')}
             />
             <button className="gl-button-sm gl-button-default" onClick={() => sapQuery.trim() && sapMatch.mutate(sapQuery.trim())} disabled={sapMatch.isPending}>
               {sapMatch.isPending ? '...' : <Search size={12} />}
@@ -363,7 +373,7 @@ function CatalogTab() {
             <div className="mt-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs">
               {sapMatch.data.matched
                 ? <span className="text-foreground"><span className="font-mono">{sapMatch.data.sap_code}</span> — {sapMatch.data.description} ({Math.round(sapMatch.data.confidence * 100)}%)</span>
-                : <span className="text-muted-foreground">Aucun match satisfaisant.</span>}
+                : <span className="text-muted-foreground">{t('packlog.catalog.smart_search.no_match')}</span>}
             </div>
           )}
         </div>
@@ -377,10 +387,10 @@ function CatalogTab() {
           onPaginationChange={setPage}
           searchValue={search}
           onSearchChange={(value) => { setSearch(value); setPage(1) }}
-          searchPlaceholder="Rechercher par code SAP ou description..."
+          searchPlaceholder={t('packlog.catalog.search_placeholder')}
           onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'packlog', id: row.id, meta: { subtype: 'article' } })}
           emptyIcon={Boxes}
-          emptyTitle="Aucun article SAP"
+          emptyTitle={t('packlog.catalog.empty_sap')}
           storageKey="packlog-catalog"
         />
       </PanelContent>
@@ -535,11 +545,11 @@ function TrackingTab() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="grid gap-3 border-b border-border px-4 py-3 md:grid-cols-4">
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.stats.tracked')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.tracked}</p></div>
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.stats.assigned')}</p><p className="mt-1 text-lg font-semibold text-foreground">{stats.assigned}</p></div>
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.stats.received')}</p><p className="mt-1 text-lg font-semibold text-emerald-600">{stats.received}</p></div>
-        <div className="rounded-lg border border-border/60 bg-card px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{t('packlog.tracking.stats.pending_receipt')}</p><p className="mt-1 text-lg font-semibold text-amber-600">{stats.pendingReceipt}</p></div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
+        <StatCard label={t('packlog.tracking.stats.tracked')} value={stats.tracked} />
+        <StatCard label={t('packlog.tracking.stats.assigned')} value={stats.assigned} />
+        <StatCard label={t('packlog.tracking.stats.received')} value={stats.received} accent="text-emerald-600" />
+        <StatCard label={t('packlog.tracking.stats.pending_receipt')} value={stats.pendingReceipt} accent="text-amber-600" />
       </div>
       <div className="border-b border-border px-4 py-3">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
@@ -714,7 +724,7 @@ function AlertsTab() {
         isLoading={false}
         onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'packlog', id: row.id, meta: { subtype: row.kind === 'request' ? 'cargo-request' : 'cargo' } })}
         emptyIcon={AlertTriangle}
-        emptyTitle="Aucune alerte"
+        emptyTitle={t('packlog.alerts.empty')}
         storageKey="packlog-alerts"
       />
     </PanelContent>
@@ -724,6 +734,7 @@ function AlertsTab() {
 const VALID_PL_TABS = new Set<PackLogTab>(['dashboard', 'requests', 'cargo', 'catalog', 'tracking', 'alerts'])
 
 export function PackLogPage() {
+  const { t } = useTranslation()
   const dynamicPanel = useUIStore((s) => s.dynamicPanel)
   const panelMode = useUIStore((s) => s.dynamicPanelMode)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
@@ -763,33 +774,35 @@ export function PackLogPage() {
     }
   }, [cargoId, dynamicPanel?.module, openDynamicPanel, requestId, setSearchParams])
 
-  const tabItems = useMemo(() => TABS.map((tab) => ({
-    ...tab,
+  const tabItems = useMemo(() => TAB_DEFS.map((tab) => ({
+    id: tab.id,
+    icon: tab.icon,
+    label: t(tab.labelKey),
     badge:
       tab.id === 'requests' ? requestsSummary?.total
         : tab.id === 'cargo' ? cargoSummary?.total
           : tab.id === 'catalog' ? articlesSummary?.total
             : tab.id === 'alerts' ? buildAlerts(requestAlertsSummary?.items ?? [], cargoAlertsSummary?.items ?? []).length
             : undefined,
-  })), [articlesSummary?.total, cargoAlertsSummary?.items, cargoSummary?.total, requestAlertsSummary?.items, requestsSummary?.total])
+  })), [articlesSummary?.total, cargoAlertsSummary?.items, cargoSummary?.total, requestAlertsSummary?.items, requestsSummary?.total, t])
 
   return (
     <CargoWorkspaceProvider module="packlog" label="PackLog">
       <div className="flex h-full">
         {!isFullPanel && (
           <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
-            <PanelHeader icon={Package} title="PackLog" subtitle="Demandes d’expédition, colis, catalogue SAP et tracking">
+            <PanelHeader icon={Package} title={t('packlog.title')} subtitle={t('packlog.subtitle')}>
               {canCreateRequest && activeTab === 'requests' && (
                 <ToolbarButton
                   icon={FileText}
-                  label="Nouvelle demande"
+                  label={t('packlog.actions.new_request')}
                   onClick={() => openDynamicPanel({ type: 'create', module: 'packlog', meta: { subtype: 'cargo-request' } })}
                 />
               )}
               {canCreateRequest && activeTab === 'cargo' && (
                 <ToolbarButton
                   icon={Plus}
-                  label="Nouveau colis"
+                  label={t('packlog.actions.new_cargo')}
                   onClick={() => openDynamicPanel({ type: 'create', module: 'packlog', meta: { subtype: 'cargo' } })}
                 />
               )}

@@ -32,6 +32,21 @@ i18n.use(initReactI18next).init({
   interpolation: {
     escapeValue: false,
   },
+  // Never return a branch-node object to a <Text> — always coerce to a
+  // string (the provided fallback or the key itself). Prevents the
+  // "Objects are not valid as a React child" RedBox crash when a
+  // developer calls t("settings") instead of t("settings.foo") and the
+  // translator wrote "settings.foo" keys that get inflated into a
+  // { foo: "..." } nested object.
+  returnObjects: false,
+  returnNull: false,
+  returnedObjectHandler: (key, _value, options: any) => {
+    if (options && typeof options.defaultValue === "string") {
+      return options.defaultValue;
+    }
+    return String(key);
+  },
+  parseMissingKeyHandler: (key, defaultValue) => defaultValue ?? key,
 });
 
 export const AVAILABLE_LANGUAGES = [

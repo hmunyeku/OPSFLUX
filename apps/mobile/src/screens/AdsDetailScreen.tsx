@@ -33,6 +33,7 @@ import { api } from "../services/api";
 import { downloadAndOpenPdf } from "../services/pdf";
 import { usePermissions } from "../stores/permissions";
 import { useToast } from "../components/Toast";
+import AttachmentsSection from "../components/AttachmentsSection";
 import type { AdsSummary } from "../types/api";
 
 interface Props {
@@ -283,6 +284,9 @@ export default function AdsDetailScreen({ route }: Props) {
             ))}
           </Box>
         )}
+
+        {/* Pièces jointes */}
+        <AttachmentsSection ownerType="ads" ownerId={ads.id} />
 
         {/* Actions */}
         <VStack space="sm">

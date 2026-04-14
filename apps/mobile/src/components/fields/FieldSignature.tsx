@@ -62,9 +62,17 @@ export default function FieldSignature({ field, value, error, required, onChange
       },
 
       onPanResponderRelease: () => {
-        if (pointsRef.current.length > 1) {
+        // Rebuild the final path from the ref (NOT from currentPath state —
+        // PanResponder closure is created once via useRef and captures the
+        // initial empty currentPath, so reading it here always sees "").
+        const pts = pointsRef.current;
+        if (pts.length > 1) {
+          let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+          for (let i = 1; i < pts.length; i++) {
+            d += ` L ${pts[i].x.toFixed(1)} ${pts[i].y.toFixed(1)}`;
+          }
           setPaths((prev) => {
-            const updated = [...prev, currentPath];
+            const updated = [...prev, d];
             onChange(updated.join(" "));
             return updated;
           });

@@ -32,6 +32,7 @@ interface Props {
 type DetectedType =
   | { kind: "ads"; token: string }
   | { kind: "cargo"; code: string }
+  | { kind: "cargo_request"; id?: string; code?: string }
   | { kind: "avm"; id: string }
   | { kind: "unknown"; raw: string };
 
@@ -53,12 +54,26 @@ function detect(raw: string): DetectedType {
     return { kind: "avm", id: decodeURIComponent(avmMatch[1]) };
   }
 
-  // 3. Cargo — either a URL with /cargo/<code> or a raw tracking code
+  // 3. Cargo request (Lettre de Transport) — encoded as
+  //    `https://app.opsflux.io/packlog?request=<uuid>` by the LT PDF
+  //    template (packlog_service.py:1603). Also accept raw CGR- codes.
+  const requestMatch = trimmed.match(/[?&]request=([A-Za-z0-9-]+)/);
+  if (requestMatch?.[1]) {
+    return { kind: "cargo_request", id: decodeURIComponent(requestMatch[1]) };
+  }
+  if (/^CGR[- ]?\d/i.test(trimmed)) {
+    return {
+      kind: "cargo_request",
+      code: trimmed.toUpperCase().replace(/\s+/g, ""),
+    };
+  }
+
+  // 4. Cargo — either a URL with /cargo/<code> or a raw tracking code
   const cargoUrlMatch = trimmed.match(/\/cargo\/([^/?#]+)/);
   if (cargoUrlMatch?.[1]) {
     return { kind: "cargo", code: decodeURIComponent(cargoUrlMatch[1]) };
   }
-  if (/^(CGO|CRG|CARGO)[- ]?\d/i.test(trimmed)) {
+  if (/^(CGO|CARGO)[- ]?\d/i.test(trimmed)) {
     return { kind: "cargo", code: trimmed.toUpperCase().replace(/\s+/g, "") };
   }
 
@@ -89,6 +104,16 @@ export default function SmartScanScreen({ navigation }: Props) {
         navigation.replace("CargoDetail", {
           tracking,
           trackingCode: detected.code,
+        });
+        return;
+      }
+
+      if (detected.kind === "cargo_request") {
+        // LT (Lettre de Transport) — scanner la LT amène sur le détail
+        // de la demande d'expédition avec la liste des colis.
+        navigation.replace("CargoRequestDetail", {
+          requestId: detected.id,
+          requestCode: detected.code,
         });
         return;
       }

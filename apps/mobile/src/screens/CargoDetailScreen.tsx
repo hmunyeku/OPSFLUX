@@ -36,6 +36,7 @@ import type {
   PackageElement,
 } from "../types/api";
 import { downloadAndOpenPdf } from "../services/pdf";
+import AttachmentsSection from "../components/AttachmentsSection";
 
 interface Props {
   route: {
@@ -276,6 +277,13 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
             </Text>
           )}
         </Pressable>
+      )}
+
+      {/* Pièces jointes */}
+      {cargo?.id && (
+        <View style={{ marginTop: 12 }}>
+          <AttachmentsSection ownerType="cargo_item" ownerId={cargo.id} />
+        </View>
       )}
 
       {/* Receive button — navigates to full reception workflow */}

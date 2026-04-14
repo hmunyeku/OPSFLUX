@@ -311,6 +311,15 @@ def _resolve_owner_model(owner_type: str):
     if owner_type == "voyage":
         from app.models.travelwiz import Voyage
         return (Voyage, True)
+    if owner_type == "vector":
+        from app.models.travelwiz import TransportVector
+        return (TransportVector, True)
+    if owner_type == "rotation":
+        from app.models.travelwiz import TransportRotation
+        return (TransportRotation, True)
+    if owner_type == "manifest":
+        from app.models.travelwiz import VoyageManifest
+        return (VoyageManifest, False)  # manifests linked via voyage
     if owner_type == "support_ticket":
         from app.models.support import SupportTicket
         return (SupportTicket, True)
@@ -381,7 +390,13 @@ _OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
     "planner_activity": ("planner.activity.read", "planner.activity.update"),
     # PackLog / cargo
     "cargo_item": ("packlog.cargo.read", "packlog.cargo.update"),
+    "cargo": ("packlog.cargo.read", "packlog.cargo.update"),
     "cargo_request": ("packlog.cargo.read", "packlog.cargo.update"),
+    # TravelWiz — voyages, vectors, manifests, rotations carry attachments/notes/tags
+    "voyage": ("travelwiz.voyage.read", "travelwiz.voyage.update"),
+    "vector": ("travelwiz.vector.read", "travelwiz.vector.update"),
+    "manifest": ("travelwiz.voyage.read", "travelwiz.voyage.update"),
+    "rotation": ("travelwiz.voyage.read", "travelwiz.voyage.update"),
     # Papyrus documents
     "document": ("document.read", "document.edit"),
 }

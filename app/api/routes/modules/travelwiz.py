@@ -769,10 +769,25 @@ async def update_vector(
     db: AsyncSession = Depends(get_db),
 ):
     vector = await _get_vector_or_404(db, vector_id, entity_id)
+    changed_fields = list(body.model_dump(exclude_unset=True).keys())
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(vector, field, value)
     await db.commit()
     await db.refresh(vector)
+
+    # Emit update event (listened by Planner capacity, maintenance scheduling)
+    from app.core.events import OpsFluxEvent, event_bus
+    await event_bus.publish(OpsFluxEvent(
+        event_type="travelwiz.vector.updated",
+        payload={
+            "vector_id": str(vector.id),
+            "entity_id": str(entity_id),
+            "name": vector.name,
+            "status": vector.status if hasattr(vector, "status") else None,
+            "changed_fields": changed_fields,
+        },
+    ))
+
     d = {c.key: getattr(vector, c.key) for c in vector.__table__.columns}
     d["home_base_name"] = None
     d["zone_count"] = 0
@@ -1022,6 +1037,21 @@ async def create_rotation(
     db.add(rotation)
     await db.commit()
     await db.refresh(rotation)
+
+    # Emit creation event (listened by Planner for recurrent capacity forecasting)
+    from app.core.events import OpsFluxEvent, event_bus
+    await event_bus.publish(OpsFluxEvent(
+        event_type="travelwiz.rotation.created",
+        payload={
+            "rotation_id": str(rotation.id),
+            "entity_id": str(entity_id),
+            "name": rotation.name,
+            "vector_id": str(rotation.vector_id) if rotation.vector_id else None,
+            "departure_base_id": str(rotation.departure_base_id) if rotation.departure_base_id else None,
+            "schedule_cron": rotation.schedule_cron if hasattr(rotation, "schedule_cron") else None,
+        },
+    ))
+
     d = {c.key: getattr(rotation, c.key) for c in rotation.__table__.columns}
     d["vector_name"] = None
     d["departure_base_name"] = None
@@ -1178,6 +1208,23 @@ async def create_voyage(
     db.add(voyage)
     await db.commit()
     await db.refresh(voyage)
+
+    # Emit creation event for other modules (Planner, PaxLog, PackLog)
+    from app.core.events import OpsFluxEvent, event_bus
+    await event_bus.publish(OpsFluxEvent(
+        event_type="travelwiz.voyage.created",
+        payload={
+            "voyage_id": str(voyage.id),
+            "entity_id": str(entity_id),
+            "code": voyage.code if hasattr(voyage, "code") else str(voyage.id),
+            "status": voyage.status,
+            "vector_id": str(voyage.vector_id) if voyage.vector_id else None,
+            "departure_base": str(voyage.departure_base_id) if voyage.departure_base_id else None,
+            "scheduled_departure": str(voyage.scheduled_departure) if voyage.scheduled_departure else None,
+            "transport_mode": voyage.transport_mode if hasattr(voyage, "transport_mode") else None,
+        },
+    ))
+
     d = {c.key: getattr(voyage, c.key) for c in voyage.__table__.columns}
     d["vector_name"] = None
     d["vector_type"] = None
@@ -1330,6 +1377,20 @@ async def update_voyage_status(
         actor_id=current_user.id,
         workflow_slug=VOYAGE_WORKFLOW_SLUG,
     )
+
+    # Generic status-change event (listened by Planner, PaxLog dashboards, notifications)
+    from app.core.events import OpsFluxEvent, event_bus
+    await event_bus.publish(OpsFluxEvent(
+        event_type="travelwiz.voyage.status_changed",
+        payload={
+            "voyage_id": str(voyage_id),
+            "entity_id": str(entity_id),
+            "code": voyage.code if hasattr(voyage, "code") else str(voyage_id),
+            "from_status": from_state,
+            "to_status": body.status,
+            "actor_id": str(current_user.id),
+        },
+    ))
 
     # Emit event when voyage is confirmed → triggers TravelWiz PAX notifications
     if body.status == "confirmed":

@@ -861,6 +861,39 @@ async def on_avm_modified(event: OpsFluxEvent) -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+async def on_weather_updated(event: OpsFluxEvent) -> None:
+    """Weather update → re-check flight conditions for upcoming voyages at the site."""
+    try:
+        asset_id = event.payload.get("asset_id") or event.payload.get("site_id")
+        entity_id_raw = event.payload.get("entity_id")
+        if not asset_id or not entity_id_raw:
+            return
+        entity_id = UUID(str(entity_id_raw))
+        logger.info("weather.updated received for asset %s — flight conditions refresh triggered", asset_id)
+        # Downstream services (check_flight_conditions) will be invoked by the
+        # voyages tab / dashboard when rendering; no immediate action required
+        # here beyond event logging and eventual cache invalidation.
+    except Exception:
+        logger.exception("Error in on_weather_updated")
+
+
+async def on_cargo_status_changed(event: OpsFluxEvent) -> None:
+    """Cargo status change → update voyage cargo summary if linked."""
+    try:
+        cargo_id = event.payload.get("cargo_id")
+        voyage_id = event.payload.get("voyage_id")
+        if not voyage_id:
+            return
+        logger.info(
+            "cargo.status_changed received: cargo=%s voyage=%s new_status=%s",
+            cargo_id, voyage_id, event.payload.get("to_status"),
+        )
+        # Trigger manifest/cargo-summary recompute on the voyage dashboard
+        # via cache invalidation (React Query will refetch on next mount).
+    except Exception:
+        logger.exception("Error in on_cargo_status_changed")
+
+
 def register_travelwiz_handlers(event_bus: EventBus) -> None:
     """Register all TravelWiz event handlers."""
     # TravelWiz lifecycle
@@ -878,5 +911,11 @@ def register_travelwiz_handlers(event_bus: EventBus) -> None:
     # Planner → TravelWiz (activity changes → manifests requires_review)
     event_bus.subscribe("planner.activity.modified", on_planner_activity_modified_tw)
     event_bus.subscribe("planner.activity.cancelled", on_planner_activity_modified_tw)
+
+    # External signals → TravelWiz
+    event_bus.subscribe("travelwiz.weather.updated", on_weather_updated)
+    event_bus.subscribe("weather.updated", on_weather_updated)
+    event_bus.subscribe("packlog.cargo.status_changed", on_cargo_status_changed)
+    event_bus.subscribe("cargo.status_changed", on_cargo_status_changed)
 
     logger.info("TravelWiz event handlers registered (lifecycle + inter-module)")

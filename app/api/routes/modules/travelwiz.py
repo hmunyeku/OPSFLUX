@@ -1501,14 +1501,28 @@ async def download_voyage_pax_manifest_pdf(
     from app.core.pdf_templates import render_pdf
 
     voyage = await _get_voyage_or_404(db, voyage_id, entity_id)
-    variables = await _build_voyage_pax_manifest_variables(db, voyage=voyage, entity_id=entity_id)
-    pdf_bytes = await render_pdf(
-        db,
-        slug="voyage.manifest",
-        entity_id=entity_id,
-        language=language,
-        variables=variables,
-    )
+    try:
+        variables = await _build_voyage_pax_manifest_variables(db, voyage=voyage, entity_id=entity_id)
+    except Exception as exc:
+        logger.exception("pax-manifest variables failed voyage=%s", voyage_id)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to build manifest context: {type(exc).__name__}: {exc}",
+        )
+    try:
+        pdf_bytes = await render_pdf(
+            db,
+            slug="voyage.manifest",
+            entity_id=entity_id,
+            language=language,
+            variables=variables,
+        )
+    except Exception as exc:
+        logger.exception("pax-manifest render failed voyage=%s", voyage_id)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to render PDF: {type(exc).__name__}: {exc}",
+        )
     if not pdf_bytes:
         raise HTTPException(404, "Template PDF 'voyage.manifest' introuvable. Initialisez-le dans Parametres > Modeles PDF.")
     filename = f"{voyage.code}_manifest_pax.pdf"
@@ -1700,34 +1714,40 @@ async def list_manifests(
     db: AsyncSession = Depends(get_db),
 ):
     await _get_voyage_or_404(db, voyage_id, entity_id)
-    result = await db.execute(
-        select(VoyageManifest)
-        .where(VoyageManifest.voyage_id == voyage_id, VoyageManifest.active == True)
-        .order_by(VoyageManifest.created_at)
-    )
-    manifests = result.scalars().all()
-    enriched = []
+    try:
+        result = await db.execute(
+            select(VoyageManifest)
+            .where(VoyageManifest.voyage_id == voyage_id, VoyageManifest.active == True)
+            .order_by(VoyageManifest.created_at)
+        )
+        manifests = result.scalars().all()
+    except Exception:
+        logger.exception("list_manifests: VoyageManifest query failed for voyage=%s", voyage_id)
+        return []
+
+    enriched: list[dict] = []
     for m in manifests:
-        d = {c.key: getattr(m, c.key) for c in m.__table__.columns}
-        # Passenger count
-        pc = await db.execute(
-            select(sqla_func.count()).select_from(ManifestPassenger)
-            .where(ManifestPassenger.manifest_id == m.id, ManifestPassenger.active == True)
-        )
-        d["passenger_count"] = pc.scalar() or 0
-        # Cargo count
-        cc = await db.execute(
-            select(sqla_func.count()).select_from(CargoItem)
-            .where(CargoItem.manifest_id == m.id, CargoItem.active == True)
-        )
-        d["cargo_count"] = cc.scalar() or 0
-        # Validator name
-        if m.validated_by:
-            u = await db.get(User, m.validated_by)
-            d["validated_by_name"] = f"{u.first_name} {u.last_name}" if u else None
-        else:
-            d["validated_by_name"] = None
-        enriched.append(d)
+        try:
+            d = {c.key: getattr(m, c.key) for c in m.__table__.columns}
+            pc = await db.execute(
+                select(sqla_func.count()).select_from(ManifestPassenger)
+                .where(ManifestPassenger.manifest_id == m.id, ManifestPassenger.active == True)
+            )
+            d["passenger_count"] = pc.scalar() or 0
+            cc = await db.execute(
+                select(sqla_func.count()).select_from(CargoItem)
+                .where(CargoItem.manifest_id == m.id, CargoItem.active == True)
+            )
+            d["cargo_count"] = cc.scalar() or 0
+            if m.validated_by:
+                u = await db.get(User, m.validated_by)
+                d["validated_by_name"] = f"{u.first_name} {u.last_name}" if u else None
+            else:
+                d["validated_by_name"] = None
+            enriched.append(d)
+        except Exception:
+            logger.exception("list_manifests: enrichment failed for manifest=%s", m.id)
+            continue
     return enriched
 
 

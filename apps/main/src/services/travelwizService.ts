@@ -221,13 +221,16 @@ export const travelwizService = {
   },
 
   // ── Voyage Events (journal de bord) ──
+  //
+  // Backend route is /voyage-events (not /events) — /events gets caught
+  // by /{event_type_id} dynamic matches elsewhere and returns 404.
   getVoyageEvents: async (tripId: string): Promise<VoyageEvent[]> => {
-    const { data } = await api.get(`${BASE}/voyages/${tripId}/events`)
+    const { data } = await api.get(`${BASE}/voyages/${tripId}/voyage-events`)
     return data
   },
 
   recordVoyageEvent: async (tripId: string, payload: VoyageEventCreate): Promise<VoyageEvent> => {
-    const { data } = await api.post(`${BASE}/voyages/${tripId}/events`, payload)
+    const { data } = await api.post(`${BASE}/voyages/${tripId}/voyage-events`, payload)
     return data
   },
 

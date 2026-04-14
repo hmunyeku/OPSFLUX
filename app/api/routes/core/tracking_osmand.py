@@ -161,8 +161,12 @@ async def osmand_position(
     # and MUST NOT return 500 — the OsmAnd client has no retry logic
     # on server errors and would drop positions silently.
     persisted = False
+    debug_reason: str | None = None
     if vehicle_id:
-        if await _vector_exists(db, vehicle_id):
+        vector_ok = await _vector_exists(db, vehicle_id)
+        if not vector_ok:
+            debug_reason = "vector_not_found"
+        else:
             try:
                 pos = VectorPosition(
                     vector_id=vehicle_id,
@@ -177,21 +181,23 @@ async def osmand_position(
                 db.add(pos)
                 await db.commit()
                 persisted = True
-            except IntegrityError:
-                # Race: vector was deleted between our existence check
-                # and the INSERT. Swallow silently.
+            except IntegrityError as exc:
                 await db.rollback()
-            except SQLAlchemyError:
-                # Pool saturation, connection drop, etc. — log and
-                # respond 200 so the client doesn't retry aggressively.
-                logger.warning("OsmAnd persist failed vehicle_id=%s", vehicle_id, exc_info=True)
+                debug_reason = f"integrity:{type(exc).__name__}"
+                logger.warning("OsmAnd IntegrityError vehicle_id=%s: %s", vehicle_id, exc)
+            except SQLAlchemyError as exc:
                 await db.rollback()
-            except Exception:
+                debug_reason = f"sqlalchemy:{type(exc).__name__}"
+                logger.warning("OsmAnd SQLAlchemyError vehicle_id=%s: %s", vehicle_id, exc, exc_info=True)
+            except Exception as exc:
+                debug_reason = f"other:{type(exc).__name__}"
                 logger.exception("Unexpected OsmAnd error vehicle_id=%s", vehicle_id)
                 try:
                     await db.rollback()
                 except Exception:
                     pass
+    else:
+        debug_reason = "no_vehicle_id"
 
         if persisted:
             # Live fan-out to any WebSocket subscribers via Redis pub/sub.
@@ -245,7 +251,10 @@ async def osmand_position(
             pass
 
     response.status_code = 200
-    return {"ok": True, "persisted": persisted}
+    out: dict = {"ok": True, "persisted": persisted}
+    if debug_reason:
+        out["reason"] = debug_reason
+    return out
 
 
 @router.get("/osmand/health")

@@ -3210,26 +3210,18 @@ function VoyageDetailPanel({ id }: { id: string }) {
     }
   }
 
-  if (isLoading || !voyage) {
-    return (
-      <DynamicPanelShell title="Chargement..." icon={<Plane size={14} className="text-primary" />}>
-        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
-      </DynamicPanelShell>
-    )
-  }
-
-  const departureLabel = voyage.departure_base_name ?? voyage.origin ?? '?'
-  const destinationLabel = stops?.length ? stops[stops.length - 1]?.location ?? '—' : voyage.destination ?? '—'
+  // ⚠️ React hooks MUST be called in the same order every render, so all
+  // useMemo/useCallback calls below MUST run BEFORE any early return. The
+  // previous version returned <Loader/> when the voyage was still loading
+  // and THEN declared useMemo — which caused React error #310 ("Rendered
+  // more hooks than previous render") as soon as the query resolved.
 
   // PAX summary from manifests
   const paxSummary = useMemo(() => {
     if (!manifests) return { confirmed: 0, standby: 0, noShow: 0 }
-    return { confirmed: voyage.pax_count ?? 0, standby: 0, noShow: 0 }
+    return { confirmed: voyage?.pax_count ?? 0, standby: 0, noShow: 0 }
   }, [manifests, voyage])
 
-  // Cargo summary
-  const cargoWeight = capacity?.current_cargo_kg ?? 0
-  const hasHazmat = false // from cargo items if available
   const cargoReportExportRows = useMemo(() => (
     cargoOperationsReport?.items.map((item) => ({
       tracking_code: item.tracking_code,
@@ -3248,6 +3240,21 @@ function VoyageDetailPanel({ id }: { id: string }) {
       received_at: item.received_at ?? '',
     })) ?? []
   ), [cargoOperationsReport?.items, cargoStatusLabels, cargoWorkflowLabels, packageReturnStatusLabels])
+
+  if (isLoading || !voyage) {
+    return (
+      <DynamicPanelShell title="Chargement..." icon={<Plane size={14} className="text-primary" />}>
+        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+      </DynamicPanelShell>
+    )
+  }
+
+  const departureLabel = voyage.departure_base_name ?? voyage.origin ?? '?'
+  const destinationLabel = stops?.length ? stops[stops.length - 1]?.location ?? '—' : voyage.destination ?? '—'
+
+  // Cargo summary
+  const cargoWeight = capacity?.current_cargo_kg ?? 0
+  const hasHazmat = false // from cargo items if available
 
   return (
     <DynamicPanelShell

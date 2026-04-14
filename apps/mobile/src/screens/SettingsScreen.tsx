@@ -54,7 +54,8 @@ export default function SettingsScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const { userDisplayName, entityId, logout } = useAuthStore();
   const permissionCount = usePermissions((s) => s.permissions.length);
-  const { isOnline, queueLength, syncing, lastSyncAt } = useOfflineStore();
+  const { isOnline, queueLength, uploadQueueLength, syncing, lastSyncAt } =
+    useOfflineStore();
   const trackingEnabled = useTrackingStore((s) => s.enabled);
   const { entities } = useBootstrap();
 
@@ -95,13 +96,24 @@ export default function SettingsScreen({ navigation }: Props) {
   }
 
   async function handleForceSync() {
-    const result = await flushQueue();
+    // Drain JSON mutation queue first, then multipart uploads —
+    // resources must exist before their attachments can be posted.
+    const mutations = await flushQueue();
+    const { flushUploadQueue } = await import("../services/uploadQueue");
+    const uploads = await flushUploadQueue();
     Alert.alert(
       t("settings.sync", "Synchronisation"),
-      t("settings.syncResult", "{{success}} envoyée(s), {{failed}} échouée(s).", {
-        success: result.success,
-        failed: result.failed,
-      })
+      t(
+        "settings.syncResultFull",
+        "Mutations : {{ms}} envoyée(s), {{mf}} échouée(s). Uploads : {{us}} envoyée(s), {{uf}} échouée(s), {{ur}} restant(s).",
+        {
+          ms: mutations.success,
+          mf: mutations.failed,
+          us: uploads.success,
+          uf: uploads.failed,
+          ur: uploads.remaining,
+        }
+      )
     );
   }
 
@@ -245,6 +257,29 @@ export default function SettingsScreen({ navigation }: Props) {
                   {syncing && <Spinner size="small" color="$primary600" mr="$1" />}
                   <ButtonText>{t("settings.sync", "Sync")}</ButtonText>
                 </Button>
+              </HStack>
+            )}
+            {uploadQueueLength > 0 && (
+              <HStack alignItems="center" space="sm">
+                <MIcon name="photo" size="sm" color="$info600" />
+                <Text size="sm" flex={1} color="$textLight900">
+                  {t(
+                    "settings.pendingUploads",
+                    "{{count}} photo(s)/fichier(s) en attente d'envoi",
+                    { count: uploadQueueLength }
+                  )}
+                </Text>
+                {queueLength === 0 && (
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onPress={handleForceSync}
+                    isDisabled={syncing}
+                  >
+                    {syncing && <Spinner size="small" color="$primary600" mr="$1" />}
+                    <ButtonText>{t("settings.sync", "Sync")}</ButtonText>
+                  </Button>
+                )}
               </HStack>
             )}
             {lastSyncAt && (

@@ -13,6 +13,8 @@
 
 import { api } from "./api";
 import { useAuthStore } from "../stores/auth";
+import { useOfflineStore } from "./offline";
+import { queueUpload } from "./uploadQueue";
 
 export interface Attachment {
   id: string;
@@ -33,6 +35,15 @@ export interface UploadResult {
   attachment?: Attachment;
   error?: string;
   uri: string;
+  /** HTTP status code when available — used by the queue to decide
+   * whether a failure is permanent (4xx) or transient (5xx / 0). */
+  status?: number;
+  /** True when the file was persisted to the offline queue instead of
+   * being uploaded immediately (no network, or network error). */
+  queued?: boolean;
+  /** Id returned by the upload queue — lets callers cancel the
+   * pending upload from a "Sent items" screen. */
+  queueId?: string;
 }
 
 /** Infer content type from a file URI. */
@@ -53,12 +64,15 @@ function filenameFromUri(uri: string): string {
 }
 
 /**
- * Upload a single photo/file to the backend.
+ * Direct upload — no offline queue fallback.
  *
  * Uses native fetch multipart rather than axios, because axios on RN
  * has inconsistent FormData handling between iOS and Android.
+ *
+ * This is the low-level primitive. Most callers should use
+ * {@link uploadAttachment} which also queues on network failure.
  */
-export async function uploadAttachment(
+export async function uploadAttachmentDirect(
   uri: string,
   ownerType: string,
   ownerId: string,
@@ -96,19 +110,76 @@ export async function uploadAttachment(
       return {
         success: false,
         error: `${resp.status}: ${text.slice(0, 200)}`,
+        status: resp.status,
         uri,
       };
     }
 
     const attachment = await resp.json();
-    return { success: true, attachment, uri };
+    return { success: true, attachment, uri, status: resp.status };
   } catch (err: any) {
+    // Network error (no server reachable) → status undefined
     return {
       success: false,
       error: err?.message ?? "Upload failed",
       uri,
     };
   }
+}
+
+/**
+ * Upload a photo/file with offline-safe fallback.
+ *
+ * When the device is offline — or when the direct upload fails with
+ * a network error (no HTTP response) — the file is copied to the
+ * persistent queue and the caller receives a result indicating the
+ * upload is pending. The sync manager drains the queue as soon as
+ * connectivity is restored.
+ *
+ * Callers SHOULD treat `{ success: false, queued: true }` as a
+ * user-visible success ("Photo enregistrée, envoi quand le réseau
+ * revient"). They MUST NOT treat it as an error.
+ */
+export async function uploadAttachment(
+  uri: string,
+  ownerType: string,
+  ownerId: string,
+  description?: string
+): Promise<UploadResult> {
+  const { isOnline } = useOfflineStore.getState();
+
+  // If we already know we're offline, skip the doomed fetch and queue
+  // immediately.
+  if (!isOnline) {
+    try {
+      const queueId = await queueUpload(uri, ownerType, ownerId, description);
+      return { success: false, queued: true, queueId, uri };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err?.message ?? "Failed to queue upload",
+        uri,
+      };
+    }
+  }
+
+  const result = await uploadAttachmentDirect(uri, ownerType, ownerId, description);
+  if (result.success) return result;
+
+  // Only queue on actual network failures — a 4xx from the server
+  // means the upload will never succeed, queuing it would just fill
+  // storage with garbage.
+  const isNetworkError = result.status == null;
+  const isServerError = result.status != null && result.status >= 500;
+  if (isNetworkError || isServerError) {
+    try {
+      const queueId = await queueUpload(uri, ownerType, ownerId, description);
+      return { ...result, queued: true, queueId };
+    } catch {
+      /* fall through — return the original failure */
+    }
+  }
+  return result;
 }
 
 /**

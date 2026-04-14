@@ -30,9 +30,21 @@ export function useAppLifecycle(callbacks?: LifecycleCallbacks) {
         // App came to foreground
         const isAuth = useAuthStore.getState().isAuthenticated;
         if (isAuth) {
-          // Flush offline queue
+          // Flush offline queues (JSON first, then multipart uploads)
           if (useOfflineStore.getState().isOnline) {
-            flushQueue();
+            (async () => {
+              try {
+                await flushQueue();
+              } catch {
+                /* best-effort */
+              }
+              try {
+                const { flushUploadQueue } = await import("../services/uploadQueue");
+                await flushUploadQueue();
+              } catch {
+                /* best-effort */
+              }
+            })();
           }
           // Refresh permissions (checks account status too)
           usePermissions.getState().fetchPermissions();

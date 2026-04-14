@@ -99,6 +99,16 @@ export default function App() {
       } catch (err) {
         if (__DEV__) console.warn("[App] connectivity monitor failed:", err);
       }
+      // Hydrate the pending upload queue count so the Settings badge
+      // is accurate from the first render (no flash of "0 pending").
+      try {
+        const { getPendingUploadCount } = await import("./src/services/uploadQueue");
+        const { useOfflineStore } = await import("./src/services/offline");
+        const count = await getPendingUploadCount();
+        useOfflineStore.getState().setUploadQueueLength?.(count);
+      } catch {
+        /* noop */
+      }
       // Once authenticated, ask for the OS permissions we'll need
       // (camera, location, notifications, media library) in one batch
       // so the user goes through OS prompts upfront rather than being

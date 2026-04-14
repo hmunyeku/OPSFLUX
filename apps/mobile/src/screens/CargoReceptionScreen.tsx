@@ -91,20 +91,35 @@ export default function CargoReceptionScreen({ route, navigation }: Props) {
         photo_evidence_count: photos.length,
         notes: notes || undefined,
       });
-      // Upload photos after reception is confirmed
+      // Upload photos after reception is confirmed. The helper
+      // automatically queues any photo that can't be uploaded due to
+      // network issues — so a `queued` flag is a success, NOT a
+      // failure (sync manager will drain on reconnect).
+      let queuedCount = 0;
+      let permaFailed = 0;
       if (photos.length > 0 && recipient?.id) {
         const { uploadAttachments } = await import("../services/attachments");
         const results = await uploadAttachments(photos, "cargo", recipient.id);
-        const failed = results.filter((r) => !r.success);
-        if (failed.length > 0) {
-          toast.show(
-            `Réception confirmée mais ${failed.length} photo(s) n'ont pas pu être envoyées`,
-            "error"
-          );
+        for (const r of results) {
+          if (r.success) continue;
+          if (r.queued) queuedCount++;
+          else permaFailed++;
         }
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      toast.show("Réception confirmée", "success");
+      if (permaFailed > 0) {
+        toast.show(
+          `Réception confirmée — ${permaFailed} photo(s) refusée(s) par le serveur`,
+          "error"
+        );
+      } else if (queuedCount > 0) {
+        toast.show(
+          `Réception confirmée — ${queuedCount} photo(s) en attente d'envoi`,
+          "success"
+        );
+      } else {
+        toast.show("Réception confirmée", "success");
+      }
       navigation.goBack();
     } catch (err: any) {
       toast.show(err?.response?.data?.detail || "Erreur de réception", "error");

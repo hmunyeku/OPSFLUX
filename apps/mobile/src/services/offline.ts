@@ -37,10 +37,13 @@ interface QueuedMutation {
 interface OfflineState {
   isOnline: boolean;
   queueLength: number;
+  /** Count of pending multipart uploads (photos/files). */
+  uploadQueueLength: number;
   syncing: boolean;
   lastSyncAt: number | null;
   setOnline: (online: boolean) => void;
   setQueueLength: (len: number) => void;
+  setUploadQueueLength?: (len: number) => void;
   setSyncing: (syncing: boolean) => void;
   setLastSync: (ts: number) => void;
 }
@@ -50,10 +53,12 @@ interface OfflineState {
 export const useOfflineStore = create<OfflineState>((set) => ({
   isOnline: true,
   queueLength: 0,
+  uploadQueueLength: 0,
   syncing: false,
   lastSyncAt: null,
   setOnline: (online) => set({ isOnline: online }),
   setQueueLength: (len) => set({ queueLength: len }),
+  setUploadQueueLength: (len) => set({ uploadQueueLength: len }),
   setSyncing: (syncing) => set({ syncing }),
   setLastSync: (ts) => set({ lastSyncAt: ts }),
 }));
@@ -221,9 +226,24 @@ export function startConnectivityMonitor(): void {
 
     useOfflineStore.getState().setOnline(isNowOnline);
 
-    // Auto-flush queue when coming back online
+    // Auto-flush queues when coming back online. JSON mutations first
+    // (usually the resource the upload targets — e.g. a cargo receipt
+    // confirmation — needs to exist before its attachments can be
+    // posted). Uploads second.
     if (wasOffline && isNowOnline) {
-      flushQueue();
+      (async () => {
+        try {
+          await flushQueue();
+        } catch {
+          /* best-effort */
+        }
+        try {
+          const { flushUploadQueue } = await import("./uploadQueue");
+          await flushUploadQueue();
+        } catch {
+          /* best-effort */
+        }
+      })();
     }
   });
 }

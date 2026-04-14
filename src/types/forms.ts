@@ -81,6 +81,13 @@ export interface FieldDefinition {
   formula?: string;
   step?: string;
   item_fields?: Record<string, FieldDefinition>;
+  /**
+   * For 'photo' and 'signature' fields: owner_type used when uploading
+   * attachments after the form is submitted. The form engine links each
+   * file to the newly-created resource (owner_id = returned resource ID).
+   * If not set, attachments are NOT uploaded — the field just stores URIs locally.
+   */
+  attachment_owner_type?: string;
 }
 
 // ── Step Definition ───────────────────────────────────────────────────

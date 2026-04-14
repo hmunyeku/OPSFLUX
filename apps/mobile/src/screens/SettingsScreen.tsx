@@ -224,8 +224,8 @@ export default function SettingsScreen({ navigation }: Props) {
           </Heading>
           <VStack space="sm">
             <HStack alignItems="center" space="sm">
-              <Icon
-                as={isOnline ? Wifi : WifiOff}
+              <MIcon
+                name={isOnline ? "wifi" : "wifi-off"}
                 size="sm"
                 color={isOnline ? "$success600" : "$warning600"}
               />
@@ -279,8 +279,8 @@ export default function SettingsScreen({ navigation }: Props) {
                     p="$2.5"
                   >
                     <HStack space="sm" alignItems="center">
-                      <Icon
-                        as={isActive ? CircleCheck : CircleDot}
+                      <MIcon
+                        name={isActive ? "check-circle" : "radio-button-unchecked"}
                         size="sm"
                         color={isActive ? "$primary600" : "$textLight300"}
                       />

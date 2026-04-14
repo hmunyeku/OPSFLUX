@@ -45,9 +45,11 @@ interface TrackingState {
 
 /** Compute (or memoize) a stable device identifier. */
 function _resolveDeviceId(): string {
-  // Android: applicationId or androidId; iOS: idForVendor
-  const aid = Application.androidId || Application.applicationId;
-  const iid = (Application as any).getIosIdForVendorAsync; // exists but async
+  // Android: getAndroidId() (sync) or applicationId; iOS: idForVendor (async, deferred)
+  const aid =
+    (Platform.OS === "android" && typeof Application.getAndroidId === "function"
+      ? Application.getAndroidId()
+      : null) || Application.applicationId;
   return aid || `opsflux-mobile-${Platform.OS}-${Application.applicationId ?? "anon"}`;
 }
 
@@ -185,7 +187,10 @@ async function sendCurrentPosition(): Promise<void> {
 
     // Also include vehicle_id so the server can map the device to the
     // current OpsFlux trip even if the same device is used across voyages.
-    const params = { ...osmandParams, vehicle_id: state.vehicleId };
+    const params: Record<string, string | number> = {
+      ...osmandParams,
+      vehicle_id: state.vehicleId,
+    };
 
     const isOnline = useOfflineStore.getState().isOnline;
 

@@ -12,13 +12,13 @@
  *  - opsflux://pickup           → Driver pickup
  *  - opsflux://tracking         → Live tracking
  *
- * Also supports universal links via https://app.opsflux.com/...
+ * Also supports universal links via https://app.opsflux.io/...
  */
 
 import { LinkingOptions } from "@react-navigation/native";
 
 export const linking: LinkingOptions<any> = {
-  prefixes: ["opsflux://", "https://app.opsflux.com"],
+  prefixes: ["opsflux://", "https://app.opsflux.io"],
 
   config: {
     screens: {

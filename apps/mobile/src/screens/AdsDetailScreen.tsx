@@ -26,7 +26,7 @@ import {
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import { MIcon } from "../components/MIcon";
+import { MIcon, type MIconName } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
 import { api } from "../services/api";
@@ -192,19 +192,19 @@ export default function AdsDetailScreen({ route }: Props) {
         {/* Site / Period / Requester */}
         <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
           <DetailRow
-            icon={MapPin}
+            icon="place"
             label={t("ads.site", "Site d'accueil")}
             value={ads.site_entry_asset_name}
           />
           <Divider my="$2" />
           <DetailRow
-            icon={Calendar}
+            icon="event"
             label={t("ads.period", "Période")}
             value={`${ads.start_date} → ${ads.end_date}`}
           />
           <Divider my="$2" />
           <DetailRow
-            icon={User}
+            icon="person"
             label={t("ads.requester", "Demandeur")}
             value={ads.requester_display_name}
           />
@@ -224,7 +224,7 @@ export default function AdsDetailScreen({ route }: Props) {
             </Heading>
             {ads.outbound_transport_mode && (
               <DetailRow
-                icon={ArrowUpRight}
+                icon="arrow-outward"
                 label={t("ads.outbound", "Aller")}
                 value={transportLabel(ads.outbound_transport_mode, ads.outbound_departure_base_name, t)}
               />
@@ -232,7 +232,7 @@ export default function AdsDetailScreen({ route }: Props) {
             {ads.outbound_transport_mode && ads.return_transport_mode && <Divider my="$2" />}
             {ads.return_transport_mode && (
               <DetailRow
-                icon={ArrowDownLeft}
+                icon="south-west"
                 label={t("ads.return", "Retour")}
                 value={transportLabel(ads.return_transport_mode, ads.return_departure_base_name, t)}
               />
@@ -320,7 +320,7 @@ export default function AdsDetailScreen({ route }: Props) {
   );
 }
 
-function DetailRow({ icon, label, value }: { icon: any; label: string; value: string }) {
+function DetailRow({ icon, label, value }: { icon: MIconName; label: string; value: string }) {
   return (
     <HStack space="sm" alignItems="center">
       <Box bg="$primary50" borderRadius="$md" p="$2">

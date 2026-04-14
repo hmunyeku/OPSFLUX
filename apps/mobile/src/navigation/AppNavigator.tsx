@@ -156,19 +156,19 @@ function SharedScreens() {
     <>
       <Stack.Screen
         name="DynamicForm"
-        component={DynamicFormScreen}
+        component={DynamicFormScreen as any}
         options={({ route }: any) => ({
           title: route.params?.formTitle ?? "Formulaire",
         })}
       />
       <Stack.Screen
         name="AdsBoardingDetail"
-        component={AdsBoardingDetailScreen}
+        component={AdsBoardingDetailScreen as any}
         options={{ title: "Boarding ADS" }}
       />
       <Stack.Screen
         name="CargoDetail"
-        component={CargoDetailScreen}
+        component={CargoDetailScreen as any}
         options={{ title: "Détail Colis" }}
       />
       <Stack.Screen
@@ -198,17 +198,17 @@ function SharedScreens() {
       />
       <Stack.Screen
         name="AdsDetail"
-        component={AdsDetailScreen}
+        component={AdsDetailScreen as any}
         options={{ title: "Détail ADS" }}
       />
       <Stack.Screen
         name="VoyageDetail"
-        component={VoyageDetailScreen}
+        component={VoyageDetailScreen as any}
         options={{ title: "Détail Voyage" }}
       />
       <Stack.Screen
         name="CargoReception"
-        component={CargoReceptionScreen}
+        component={CargoReceptionScreen as any}
         options={{ title: "Réception Colis" }}
       />
     </>

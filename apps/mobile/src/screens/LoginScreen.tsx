@@ -28,7 +28,6 @@ import {
   Heading,
     Input,
   InputField,
-  InputIcon,
   InputSlot,
   Pressable,
   Text,
@@ -285,7 +284,11 @@ export default function LoginScreen({ navigation }: Props) {
                   placeholder="••••••••"
                 />
                 <InputSlot pr="$3" onPress={() => setShowPassword((s) => !s)}>
-                  <InputIcon as={showPassword ? EyeOff : Eye} color="$textLight400" />
+                  <MIcon
+                    name={showPassword ? "visibility-off" : "visibility"}
+                    size="sm"
+                    color="$textLight400"
+                  />
                 </InputSlot>
               </Input>
             </FormControl>

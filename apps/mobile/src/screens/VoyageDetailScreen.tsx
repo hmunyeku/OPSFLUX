@@ -142,7 +142,7 @@ export default function VoyageDetailScreen({ route }: Props) {
             {t("voyage.schedule", "Horaires")}
           </Heading>
           <ScheduleRow
-            icon={Clock}
+            icon="schedule"
             label={t("voyage.scheduledDeparture", "Départ prévu")}
             value={new Date(voyage.scheduled_departure).toLocaleString("fr-FR")}
           />
@@ -150,7 +150,7 @@ export default function VoyageDetailScreen({ route }: Props) {
             <>
               <Divider my="$2" />
               <ScheduleRow
-                icon={ClockArrowUp}
+                icon="flight-takeoff"
                 label={t("voyage.actualDeparture", "Départ effectif")}
                 value={new Date(voyage.actual_departure).toLocaleString("fr-FR")}
                 iconColor="$success600"
@@ -159,7 +159,7 @@ export default function VoyageDetailScreen({ route }: Props) {
           )}
           <Divider my="$2" />
           <ScheduleRow
-            icon={Clock}
+            icon="schedule"
             label={t("voyage.scheduledArrival", "Arrivée prévue")}
             value={new Date(voyage.scheduled_arrival).toLocaleString("fr-FR")}
           />
@@ -167,7 +167,7 @@ export default function VoyageDetailScreen({ route }: Props) {
             <>
               <Divider my="$2" />
               <ScheduleRow
-                icon={ClockArrowDown}
+                icon="flight-land"
                 label={t("voyage.actualArrival", "Arrivée effective")}
                 value={new Date(voyage.actual_arrival).toLocaleString("fr-FR")}
                 iconColor="$success600"
@@ -195,7 +195,7 @@ export default function VoyageDetailScreen({ route }: Props) {
           {voyage.departure_base_name && (
             <>
               <ScheduleRow
-                icon={MapPin}
+                icon="place"
                 label={t("voyage.departure", "Départ")}
                 value={voyage.departure_base_name}
               />
@@ -205,7 +205,7 @@ export default function VoyageDetailScreen({ route }: Props) {
             <>
               {voyage.departure_base_name && <Divider my="$2" />}
               <ScheduleRow
-                icon={MoreHorizontal}
+                icon="more-horiz"
                 label={t("voyage.stops", "Escales")}
                 value={t("voyage.stopCount", "{{count}} escale(s)", { count: voyage.stop_count })}
               />
@@ -215,7 +215,7 @@ export default function VoyageDetailScreen({ route }: Props) {
             <>
               {(voyage.departure_base_name || voyage.stop_count > 0) && <Divider my="$2" />}
               <ScheduleRow
-                icon={MapPin}
+                icon="place"
                 label={t("voyage.arrival", "Arrivée")}
                 value={voyage.arrival_base_name}
                 iconColor="$success600"
@@ -262,7 +262,7 @@ export default function VoyageDetailScreen({ route }: Props) {
               {t("voyage.logs", "Journal de bord")} ({logs.length})
             </Heading>
             {logs.map((log, idx) => {
-              const LogIcon = EVENT_ICONS[log.event_type] ?? StickyNote;
+              const LogIcon = EVENT_ICONS[log.event_type] ?? "sticky-note-2";
               return (
                 <HStack
                   key={log.id}
@@ -303,7 +303,7 @@ function ScheduleRow({
   value,
   iconColor = "$textLight600",
 }: {
-  icon: any;
+  icon: MIconName;
   label: string;
   value: string;
   iconColor?: string;

@@ -131,7 +131,7 @@ export default function NotificationsScreen({ navigation }: Props) {
   );
 }
 
-function formatTime(isoStr: string, t: (k: string, fb: string, opts?: any) => string): string {
+function formatTime(isoStr: string, t: any): string {
   const date = new Date(isoStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();

@@ -22,7 +22,7 @@ import {
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import { MIcon } from "../../components/MIcon";
+import { MIcon, type MIconName } from "../../components/MIcon";
 import { SuccessCheck } from "../../components/illustrations";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -168,7 +168,7 @@ export default function IdDocumentVerificationScreen({ navigation }: Props) {
               titleFallback="Photo recto"
               descKey="verif.id.frontDesc"
               descFallback="Posez le document à plat, sur fond uni. Toutes les informations doivent être lisibles."
-              icon={FileBadge}
+              icon="badge"
               uri={frontUri}
               onCapture={captureFront}
             />
@@ -180,7 +180,7 @@ export default function IdDocumentVerificationScreen({ navigation }: Props) {
               titleFallback="Photo verso"
               descKey="verif.id.backDesc"
               descFallback="Retournez le document et photographiez l'autre côté."
-              icon={FileBadge}
+              icon="badge"
               uri={backUri}
               onCapture={captureBack}
             />
@@ -192,7 +192,7 @@ export default function IdDocumentVerificationScreen({ navigation }: Props) {
               titleFallback="Selfie"
               descKey="verif.id.selfieDesc"
               descFallback="Prenez un selfie de votre visage en pleine lumière, sans lunettes ni masque."
-              icon={User}
+              icon="person"
               uri={selfieUri}
               onCapture={captureSelfie}
             />
@@ -280,7 +280,7 @@ function CapturePrompt({
   titleFallback: string;
   descKey: string;
   descFallback: string;
-  icon: any;
+  icon: MIconName;
   uri: string | null;
   onCapture: () => void;
 }) {
@@ -319,7 +319,7 @@ function CapturePrompt({
       )}
 
       <Button size="xl" action="primary" onPress={onCapture}>
-        <MIcon name={uri ? RotateCcw : Camera} color="$white" size="md" mr="$2" />
+        <MIcon name={uri ? "refresh" : "camera-alt"} color="$white" size="md" mr="$2" />
         <ButtonText>
           {uri ? t("verif.id.retake", "Reprendre") : t("verif.id.takePhoto", "Prendre la photo")}
         </ButtonText>

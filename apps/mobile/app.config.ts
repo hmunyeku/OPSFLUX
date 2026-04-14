@@ -62,8 +62,6 @@ const config: ExpoConfig = {
       : IS_PREVIEW
       ? "com.opsflux.mobile.preview"
       : "com.opsflux.mobile.dev",
-    // HTTPS only — no HTTP clear-text traffic allowed
-    usesCleartextTraffic: false,
     permissions: [
       "CAMERA",
       "ACCESS_FINE_LOCATION",
@@ -84,6 +82,8 @@ const config: ExpoConfig = {
           minSdkVersion: 24,
           compileSdkVersion: 35,
           targetSdkVersion: 35,
+          // HTTPS only — no HTTP clear-text traffic allowed.
+          usesCleartextTraffic: false,
         },
         ios: {
           newArchEnabled: false,

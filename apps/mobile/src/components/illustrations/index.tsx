@@ -118,7 +118,7 @@ export function WelcomeWave({ width = 240, color = DEFAULTS.color, accent = DEFA
       {/* Head */}
       <Circle cx="140" cy="60" r="22" fill={accent} />
       {/* Hand waving */}
-      <Path d="M170 75 Q190 55 175 35 Q200 50 195 75" fill={accent} stroke={color} strokeWidth={3} fill={accent} />
+      <Path d="M170 75 Q190 55 175 35 Q200 50 195 75" fill={accent} stroke={color} strokeWidth={3} />
       {/* Legs */}
       <Rect x="125" y="155" width="14" height="30" fill={color} opacity={0.7} />
       <Rect x="141" y="155" width="14" height="30" fill={color} opacity={0.7} />

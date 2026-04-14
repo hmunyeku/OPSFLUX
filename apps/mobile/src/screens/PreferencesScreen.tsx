@@ -93,19 +93,21 @@ export default function PreferencesScreen() {
 
         {/* Notifications */}
         <SettingsCard title={t("prefs.notifications", "Notifications")}>
-          <VStack divider={<Divider my="$1" />}>
+          <VStack>
             <ToggleRow
               title={t("prefs.pushNotif", "Notifications push")}
               description={t("prefs.pushNotifDesc", "Recevoir les alertes sur votre téléphone")}
               value={settings.get("preference.push_notifications") !== "false"}
               onChange={(v) => savePref("preference.push_notifications", String(v))}
             />
+            <Divider my="$1" />
             <ToggleRow
               title={t("prefs.emailNotif", "Notifications email")}
               description={t("prefs.emailNotifDesc", "Recevoir les notifications par email")}
               value={settings.get("preference.email_notifications") !== "false"}
               onChange={(v) => savePref("preference.email_notifications", String(v))}
             />
+            <Divider my="$1" />
             <ToggleRow
               title={t("prefs.smsNotif", "Notifications SMS")}
               description={t("prefs.smsNotifDesc", "Recevoir les alertes urgentes par SMS")}

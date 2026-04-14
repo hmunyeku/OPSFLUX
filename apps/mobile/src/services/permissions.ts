@@ -9,7 +9,7 @@
  * The actual feature gracefully degrades (camera screen will re-ask later
  * if needed, GPS will silently disable tracking, etc).
  */
-import * as Camera from "expo-camera";
+import { Camera } from "expo-camera";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import * as ImagePicker from "expo-image-picker";

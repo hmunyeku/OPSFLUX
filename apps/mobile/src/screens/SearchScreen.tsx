@@ -11,7 +11,6 @@ import {
   HStack,
     Input,
   InputField,
-  InputIcon,
   InputSlot,
   Pressable,
   Spinner,
@@ -137,7 +136,7 @@ export default function SearchScreen({ navigation }: Props) {
       <Box px="$3.5" pt={insets.top + 12} pb="$3">
         <Input borderColor="$borderLight300" bg="$white" size="lg">
           <InputSlot pl="$3">
-            <InputIcon as={SearchIcon} color="$textLight400" />
+            <MIcon name="search" size="sm" color="$textLight400" />
           </InputSlot>
           <InputField
             value={query}

@@ -93,12 +93,17 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
         { text: "Annuler", style: "cancel" },
         {
           text: "État: Bon",
-          onPress: () => confirmReceive({ condition: "good" }),
+          onPress: () => confirmReceive({ recipient_available: true, signature_collected: true }),
         },
         {
           text: "État: Endommagé",
           style: "destructive",
-          onPress: () => confirmReceive({ condition: "damaged" }),
+          onPress: () =>
+            confirmReceive({
+              recipient_available: true,
+              signature_collected: true,
+              damage_notes: "Colis endommagé — état constaté à la réception",
+            }),
         },
       ]
     );

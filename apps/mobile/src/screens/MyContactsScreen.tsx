@@ -22,9 +22,10 @@ import {
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import { MIcon } from "../components/MIcon";
+import { MIcon, type MIconName } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import { api } from "../services/api";
+import { useAuthStore } from "../stores/auth";
 import { useToast } from "../components/Toast";
 
 interface PhoneRow {
@@ -54,27 +55,54 @@ export default function MyContactsScreen({ navigation }: { navigation: any }) {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const toast = useToast();
+  const userId = useAuthStore((s) => s.userId);
   const [phones, setPhones] = useState<PhoneRow[]>([]);
   const [emails, setEmails] = useState<EmailRow[]>([]);
   const [addresses, setAddresses] = useState<AddressRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
     try {
-      const [phonesRes, emailsRes, addrRes] = await Promise.all([
-        api.get("/api/v1/phones").catch(() => ({ data: [] })),
-        api.get("/api/v1/contact-emails").catch(() => ({ data: [] })),
-        api.get("/api/v1/addresses").catch(() => ({ data: [] })),
+      // All these endpoints require owner_type+owner_id (or auth filter for /emails).
+      // Use Promise.allSettled so a single 4xx doesn't blank the whole screen.
+      const [phonesRes, emailsRes, addrRes] = await Promise.allSettled([
+        api.get<PhoneRow[]>("/api/v1/phones", {
+          params: { owner_type: "user", owner_id: userId },
+        }),
+        api.get<EmailRow[]>("/api/v1/emails"),
+        api.get<AddressRow[]>("/api/v1/addresses", {
+          params: { owner_type: "user", owner_id: userId },
+        }),
       ]);
-      setPhones(Array.isArray(phonesRes.data) ? phonesRes.data : phonesRes.data?.items ?? []);
-      setEmails(Array.isArray(emailsRes.data) ? emailsRes.data : emailsRes.data?.items ?? []);
-      setAddresses(Array.isArray(addrRes.data) ? addrRes.data : addrRes.data?.items ?? []);
-    } catch {
-      /* partial load ok */
+      setPhones(
+        phonesRes.status === "fulfilled"
+          ? Array.isArray(phonesRes.value.data)
+            ? phonesRes.value.data
+            : (phonesRes.value.data as any)?.items ?? []
+          : []
+      );
+      setEmails(
+        emailsRes.status === "fulfilled"
+          ? Array.isArray(emailsRes.value.data)
+            ? emailsRes.value.data
+            : (emailsRes.value.data as any)?.items ?? []
+          : []
+      );
+      setAddresses(
+        addrRes.status === "fulfilled"
+          ? Array.isArray(addrRes.value.data)
+            ? addrRes.value.data
+            : (addrRes.value.data as any)?.items ?? []
+          : []
+      );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     load();
@@ -155,7 +183,7 @@ export default function MyContactsScreen({ navigation }: { navigation: any }) {
 
         {/* Phones */}
         <SectionCard
-          icon={Phone}
+          icon="phone"
           title={t("contacts.phones", "Téléphones")}
           count={phones.length}
         >
@@ -198,7 +226,7 @@ export default function MyContactsScreen({ navigation }: { navigation: any }) {
 
         {/* Emails */}
         <SectionCard
-          icon={Mail}
+          icon="email"
           title={t("contacts.emails", "Emails")}
           count={emails.length}
         >
@@ -236,7 +264,7 @@ export default function MyContactsScreen({ navigation }: { navigation: any }) {
 
         {/* Addresses */}
         <SectionCard
-          icon={MapPin}
+          icon="place"
           title={t("contacts.addresses", "Adresses")}
           count={addresses.length}
         >
@@ -271,7 +299,7 @@ function SectionCard({
   count,
   children,
 }: {
-  icon: any;
+  icon: MIconName;
   title: string;
   count: number;
   children: React.ReactNode;

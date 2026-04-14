@@ -141,7 +141,11 @@ export interface PackageElement {
 }
 
 export interface CargoReceiptConfirm {
-  condition: "good" | "damaged" | "partial";
-  notes?: string;
-  photo_count?: number;
+  received_quantity?: number | null;
+  declared_quantity?: number | null;
+  recipient_available?: boolean;
+  signature_collected?: boolean;
+  damage_notes?: string | null;
+  photo_evidence_count?: number;
+  notes?: string | null;
 }

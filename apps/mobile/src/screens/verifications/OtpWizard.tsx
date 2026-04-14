@@ -160,7 +160,7 @@ export default function OtpWizard(props: OtpWizardProps) {
 
                   <Input size="xl" borderColor="$borderLight300">
                     <InputField
-                      ref={otpRef}
+                      ref={otpRef as any}
                       value={otp}
                       onChangeText={(v) => setOtp(v.replace(/[^0-9]/g, "").slice(0, 6))}
                       keyboardType="number-pad"

@@ -14,8 +14,12 @@ let initialized = false;
 async function loadSentry(): Promise<any> {
   if (SentryLib !== null) return SentryLib;
   try {
-    // Lazy import — only loads native module if available
-    const mod = await import("@sentry/react-native");
+    // Lazy import — only loads native module if available.
+    // Use a runtime-computed string so TS/Metro don't try to resolve
+    // the package at compile time when it isn't installed.
+    const moduleName = "@sentry/react-native";
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    const mod = await (Function("m", "return import(m)") as (m: string) => Promise<any>)(moduleName);
     SentryLib = mod;
     return mod;
   } catch {

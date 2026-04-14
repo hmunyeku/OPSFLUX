@@ -97,11 +97,14 @@ const SAFE_ASSISTANT_ROUTE_PREFIXES = [
   '/tiers',
   '/conformite',
   '/travelwiz',
+  '/packlog',
   '/support',
   '/settings',
   '/papyrus',
   '/assets',
   '/imputations',
+  '/workflows',
+  '/entites',
 ] as const
 
 const CANONICAL_ASSISTANT_ROUTE_ALIASES: Record<string, string> = {
@@ -109,6 +112,9 @@ const CANONICAL_ASSISTANT_ROUTE_ALIASES: Record<string, string> = {
   '/report-editor': '/papyrus',
   '/assets-legacy': '/assets',
   '/comptes': '/users',
+  '/entities': '/entites',
+  '/cargo': '/packlog',
+  '/transport': '/travelwiz',
 }
 
 function isSafeAssistantRoute(target: string): boolean {
@@ -232,31 +238,116 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   planner: {
     title: 'Planner', icon: '\u{1F4C5}',
-    description: 'Planification des activites sur les assets, gestion des capacites et scenarios.',
-    workflows: [{ title: 'Creer une activite', steps: ['Cliquez "+ Nouvelle activite"', "Choisissez l'asset, les dates, le type", 'Definissez le quota PAX', "L'activite apparait dans le Gantt"] }],
-    tips: ['Les conflits de capacite sont detectes automatiquement', 'Les scenarios permettent de comparer differentes planifications'],
+    description: 'Planification des activites sur les assets, gestion des capacites, detection des conflits et scenarios.',
+    workflows: [
+      { title: 'Creer une activite', steps: ['Cliquez "+ Nouvelle activite"', "Choisissez l'asset, les dates, le type", 'Definissez le quota PAX', 'Rattachez un projet ou centre de couts', "L'activite apparait dans le Gantt"] },
+      { title: 'Resoudre un conflit', steps: ['Les conflits sont signales par une icone rouge', 'Cliquez sur le conflit pour les details', 'Choisissez : decaler, reduire ou annuler', 'Validez la resolution'],
+        diagram: `graph TD\n    A["Activite A"]:::act --> C{"Conflit capacite"}\n    B["Activite B"]:::act --> C\n    C -->|Decaler| D["Reportee"]:::resolved\n    C -->|Reduire| E["Ajustee"]:::resolved\n    C -->|Annuler| F["Annulee"]:::cancelled\n    classDef act fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef resolved fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef cancelled fill:#ef4444,stroke:#f87171,color:#fff`,
+      },
+      { title: 'Comparer des scenarios', steps: ['Cliquez "Nouveau scenario"', 'Modifiez les activites sans affecter le reel', 'Comparez les scenarios cote a cote', 'Appliquez le scenario retenu'] },
+    ],
+    tips: ['Les conflits de capacite sont detectes automatiquement', 'Les scenarios permettent de comparer differentes planifications', 'La vue capacite affiche le taux de remplissage par asset'],
     elementHelp: {},
   },
   tiers: {
     title: 'Tiers', icon: '\u{1F3E2}',
     description: 'Annuaire des entreprises partenaires, fournisseurs, sous-traitants et leurs contacts.',
-    workflows: [{ title: 'Ajouter une entreprise', steps: ['Cliquez "+ Nouveau tiers"', 'Renseignez la raison sociale, SIRET, type', 'Ajoutez les contacts', "Liez l'entreprise aux utilisateurs concernes"] }],
-    tips: ['Un tiers peut etre fournisseur ET sous-traitant', 'Les contacts tiers sont utilises comme PAX externes dans PaxLog'],
+    workflows: [
+      { title: 'Ajouter une entreprise', steps: ['Cliquez "+ Nouveau tiers"', 'Renseignez la raison sociale, SIRET, type', 'Ajoutez les contacts', "Liez l'entreprise aux utilisateurs concernes"] },
+      { title: 'Gerer les contacts', steps: ['Ouvrez la fiche d\'un tiers', 'Onglet "Contacts" > "+ Nouveau contact"', 'Renseignez nom, fonction, email, telephone', 'Le contact peut etre utilise comme PAX'] },
+      { title: 'Transferer un contact', steps: ['Ouvrez la fiche du contact', 'Cliquez "Transferer"', 'Selectionnez le nouveau tiers', "L'historique est conserve"] },
+    ],
+    tips: ['Un tiers peut etre fournisseur ET sous-traitant', 'Les contacts tiers sont utilises comme PAX externes dans PaxLog', 'Le blocage d\'un tiers empeche les nouveaux AdS pour ses contacts'],
     elementHelp: {},
   },
   conformite: {
     title: 'Conformite', icon: '\u2705',
     description: 'Gestion des certifications, habilitations, formations obligatoires et audits.',
-    workflows: [{ title: "Verifier la conformite d'un PAX", steps: ['Allez dans l\'onglet Verifications', 'Recherchez le PAX', 'Consultez ses certifications', 'Les expirations sont signalees en rouge'],
-      diagram: `graph TD\n    A["Regles site"]:::rule --> D{"Verification"}\n    B["Profil / Habilitations"]:::rule --> D\n    C["Auto-declarations"]:::rule --> D\n    D -->|Tout OK| E["Conforme"]:::ok\n    D -->|Manquant| F["Non conforme"]:::nok\n    D -->|Expire| G["Expire"]:::expired\n    classDef rule fill:#475569,stroke:#64748b,color:#fff\n    classDef ok fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef nok fill:#f59e0b,stroke:#fbbf24,color:#000\n    classDef expired fill:#ef4444,stroke:#f87171,color:#fff`,
-    }],
-    tips: ['Les regles de conformite sont configurables par type de site'],
+    workflows: [
+      { title: "Verifier la conformite d'un PAX", steps: ['Onglet Verifications', 'Recherchez le PAX', 'Consultez ses certifications', 'Les expirations sont en rouge'],
+        diagram: `graph TD\n    A["Regles site"]:::rule --> D{"Verification"}\n    B["Profil / Habilitations"]:::rule --> D\n    C["Auto-declarations"]:::rule --> D\n    D -->|Tout OK| E["Conforme"]:::ok\n    D -->|Manquant| F["Non conforme"]:::nok\n    D -->|Expire| G["Expire"]:::expired\n    classDef rule fill:#475569,stroke:#64748b,color:#fff\n    classDef ok fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef nok fill:#f59e0b,stroke:#fbbf24,color:#000\n    classDef expired fill:#ef4444,stroke:#f87171,color:#fff`,
+      },
+      { title: 'Configurer les regles', steps: ['Onglet "Regles" > "+ Nouvelle regle"', 'Selectionnez le type de site', 'Definissez les certifications requises', 'Configurez les delais de validite'] },
+      { title: 'Enregistrer une certification', steps: ['Ouvrez le profil du PAX', 'Onglet "Conformite"', '"+Ajouter une certification"', 'Selectionnez type et validite', 'Joignez le justificatif'] },
+    ],
+    tips: ['Les regles sont configurables par type de site', 'Le score de conformite est calcule automatiquement', 'Alertes d\'expiration envoyees 30 jours avant l\'echeance'],
     elementHelp: {},
   },
   travelwiz: {
     title: 'TravelWiz', icon: '\u{1F681}',
-    description: 'Gestion des voyages, reservations transport, manifestes et suivi en temps reel.',
-    workflows: [], tips: ['Module en cours de developpement'], elementHelp: {},
+    description: 'Gestion des voyages helicoptere et bateau, manifestes passagers/fret, suivi des vecteurs et meteo.',
+    workflows: [
+      { title: 'Creer un voyage', steps: ['Cliquez "+ Nouveau voyage"', 'Selectionnez le vecteur', "Definissez l'itineraire et les escales", 'Renseignez date et horaires', 'Le voyage apparait dans le planning'] },
+      { title: 'Generer un manifeste', steps: ['Ouvrez un voyage valide', 'Cliquez "Generer manifeste"', 'Les PAX des AdS approuves sont listes', 'Verifiez les poids', 'Validez pour impression'],
+        diagram: `graph LR\n    A["AdS Approuves"]:::input --> B["Manifeste"]:::manifest\n    B --> C{"Poids"}\n    C -->|OK| D["Valide"]:::ok\n    C -->|Depasse| E["Surcharge"]:::warn\n    classDef input fill:#475569,stroke:#64748b,color:#fff\n    classDef manifest fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef ok fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef warn fill:#f59e0b,stroke:#fbbf24,color:#000`,
+      },
+      { title: 'Gerer la flotte', steps: ['Onglet "Flotte"', 'Ajoutez un vecteur (type, immatriculation, capacite)', 'Definissez les periodes de maintenance', 'Consultez la disponibilite'] },
+    ],
+    tips: ['Le manifeste calcule le poids total vs la capacite', 'Vecteurs en maintenance exclus automatiquement', 'Conditions meteo verifiees avant chaque vol', 'Portail capitaine pour la gestion terrain'],
+    elementHelp: {},
+  },
+  packlog: {
+    title: 'PackLog', icon: '\u{1F4E6}',
+    description: 'Gestion des articles, lettres de transport (LT), cargos et suivi des expeditions offshore.',
+    workflows: [
+      { title: 'Creer une lettre de transport', steps: ['Cliquez "+ Nouvelle LT"', "Selectionnez expediteur et destinataire", 'Ajoutez les articles (reference, quantite, poids)', 'Affectez un voyage TravelWiz', 'Validez la LT'] },
+      { title: 'Suivre un cargo', steps: ['Onglet "Cargos"', 'Filtrez par statut', 'Cliquez pour voir le detail', "L'historique des mouvements est trace"],
+        diagram: `graph LR\n    A["Preparation"]:::prep --> B["En transit"]:::transit\n    B --> C["Receptionne"]:::received\n    C --> D["Livre"]:::delivered\n    classDef prep fill:#475569,stroke:#64748b,color:#fff\n    classDef transit fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef received fill:#8b5cf6,stroke:#a78bfa,color:#fff\n    classDef delivered fill:#22c55e,stroke:#4ade80,color:#fff`,
+      },
+    ],
+    tips: ['Articles lies au catalogue centralise', 'Poids total calcule automatiquement', 'LT liees aux voyages TravelWiz', 'Alertes en cas de retard de livraison'],
+    elementHelp: {},
+  },
+  imputations: {
+    title: 'Imputations', icon: '\u{1F4B0}',
+    description: 'Ventilation des couts par centre de couts, projet, activite et entite. Suivi budgetaire.',
+    workflows: [
+      { title: 'Imputer un cout', steps: ['Cliquez "+ Nouvelle imputation"', 'Selectionnez la reference (projet, activite, voyage)', 'Choisissez le centre de couts', 'Renseignez montant et devise', "Validez l'imputation"] },
+      { title: 'Suivi budgetaire', steps: ['Onglet "Suivi budgetaire"', 'Filtrez par periode, projet ou centre de couts', 'Consultez budget consomme vs alloue', 'Exportez en PDF ou Excel'] },
+    ],
+    tips: ['Imputations liees automatiquement aux projets et activites', 'Detection des depassements budgetaires', 'Centres de couts configures dans les parametres', 'Export analytique pour rapprochement comptable'],
+    elementHelp: {},
+  },
+  papyrus: {
+    title: 'Papyrus', icon: '\u{1F4C4}',
+    description: 'Stockage, classement, versionning et partage des documents. Modeles et generation PDF.',
+    workflows: [
+      { title: 'Deposer un document', steps: ['Cliquez "+ Nouveau document" ou glissez-deposez', 'Choisissez categorie et classeur', 'Ajoutez des tags', "Definissez les droits d'acces", 'Le document est indexe immediatement'] },
+      { title: 'Generer depuis un modele', steps: ['Onglet "Modeles"', 'Selectionnez un modele', 'Donnees pre-remplies depuis le contexte', 'Completez les champs manuels', 'Generez le PDF final'] },
+    ],
+    tips: ['Recherche plein texte dans les PDF et documents Office', 'Versions precedentes conservees', 'Documents liables a tout objet (projet, AdS, tiers)', 'Modeles PDF personnalisables dans les parametres'],
+    elementHelp: {},
+  },
+  workflows: {
+    title: 'Workflows', icon: '\u{1F504}',
+    description: 'Conception et execution des workflows de validation. Editeur visuel, versioning et delegation.',
+    workflows: [
+      { title: 'Creer un workflow', steps: ['Cliquez "+ Nouveau workflow"', "Nommez et choisissez l'objet cible", 'Editeur drag-and-drop pour les etapes', 'Configurez les conditions de transition', 'Definissez les approbateurs', 'Publiez (nouvelle version creee)'],
+        diagram: `graph TD\n    A["Conception"]:::design --> B["Test"]:::test\n    B --> C["Publication"]:::published\n    C --> D["Nouvelle version"]:::version\n    D --> B\n    classDef design fill:#475569,stroke:#64748b,color:#fff\n    classDef test fill:#eab308,stroke:#facc15,color:#000\n    classDef published fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef version fill:#3b82f6,stroke:#60a5fa,color:#fff`,
+      },
+      { title: 'Deleguer une approbation', steps: ['Ouvrez vos taches en attente', 'Cliquez "Deleguer"', 'Selectionnez le delegataire', 'Definissez la duree (optionnel)', 'Le delegataire est notifie'] },
+    ],
+    tips: ['Chaque publication cree une nouvelle version', 'La delegation est tracee dans l\'audit trail', 'Notifications automatiques a chaque changement d\'etape'],
+    elementHelp: {},
+  },
+  assets: {
+    title: 'Assets', icon: '\u{1F3ED}',
+    description: 'Hierarchie des sites, installations, equipements et zones. Capacites et geolocalisation.',
+    workflows: [
+      { title: 'Naviguer dans la hierarchie', steps: ['Selectionnez un site dans l\'arborescence', 'Consultez details, capacites et equipements', 'Recherche par nom ou code'] },
+      { title: 'Configurer les capacites', steps: ['Selectionnez l\'asset', 'Onglet "Capacites"', 'Modifiez les limites (PAX, poids)', 'Chaque modification cree un nouvel enregistrement historise'] },
+    ],
+    tips: ['Hierarchie configurable par tenant', 'Capacites utilisees par le Planner pour detecter les conflits', 'Carte avec tous les assets geolocalises', 'Chaque asset peut avoir des regles de conformite specifiques'],
+    elementHelp: {},
+  },
+  entites: {
+    title: 'Entites', icon: '\u{1F310}',
+    description: 'Administration des entites (filiales, pays, divisions). Isolation des donnees operationnelles.',
+    workflows: [
+      { title: 'Configurer une entite', steps: ['Selectionnez l\'entite', 'Renseignez informations legales et adresse', 'Configurez departements et BU', 'Definissez devise et fuseau horaire', 'Affectez les utilisateurs'] },
+    ],
+    tips: ['Un utilisateur peut etre dans plusieurs entites', 'Changement d\'entite via le selecteur en haut de page', 'Donnees strictement isolees entre entites', 'Parametres globaux du tenant s\'appliquent sauf override'],
+    elementHelp: {},
   },
   support: {
     title: 'Support', icon: '\u{1F3AB}',
@@ -271,6 +362,27 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     workflows: [], tips: ['Les modeles PDF permettent de personnaliser les exports', 'La delegation permet de confier ses droits a un collegue'],
     elementHelp: {},
   },
+}
+
+// ── Contextual chat suggestions per module ────────────────────
+
+const CONTEXTUAL_SUGGESTIONS: Record<string, string[]> = {
+  dashboard: ['Quels sont mes KPIs importants ?', 'Comment personnaliser le tableau de bord ?', 'Expliquer les widgets disponibles'],
+  users: ['Comment creer un utilisateur ?', 'Aide avec les permissions RBAC', 'Comment deleguer mes droits ?'],
+  projets: ['Comment creer un projet ?', 'Expliquer le diagramme de Gantt', 'Comment suivre l\'avancement ?'],
+  paxlog: ['Comment soumettre un AdS ?', 'Expliquer le workflow de validation', 'Un PAX est non conforme, que faire ?'],
+  planner: ['Comment planifier une activite ?', 'Resoudre un conflit de capacite', 'Comment utiliser les scenarios ?'],
+  tiers: ['Comment ajouter un fournisseur ?', 'Transferer un contact entre entreprises', 'Comment bloquer un tiers ?'],
+  conformite: ['Verifier la conformite d\'un PAX', 'Comment configurer une regle ?', 'Gerer les certifications expirees'],
+  travelwiz: ['Comment planifier un vol ?', 'Generer un manifeste passagers', 'Comment gerer la flotte ?'],
+  packlog: ['Comment creer une lettre de transport ?', 'Suivre un cargo en transit', 'Comment gerer les articles ?'],
+  imputations: ['Comment imputer un cout ?', 'Consulter le suivi budgetaire', 'Exporter un rapport analytique'],
+  papyrus: ['Comment deposer un document ?', 'Generer un document depuis un modele', 'Comment gerer les versions ?'],
+  workflows: ['Comment creer un workflow ?', 'Deleguer une approbation', 'Expliquer le versioning des workflows'],
+  assets: ['Comment ajouter un site ?', 'Configurer les capacites d\'un asset', 'Naviguer dans la hierarchie'],
+  entites: ['Comment configurer une entite ?', 'Changer d\'entite active', 'Affecter des utilisateurs a une entite'],
+  support: ['Comment signaler un bug ?', 'Creer un ticket d\'amelioration', 'Voir mes tickets en cours'],
+  settings: ['Comment modifier mon profil ?', 'Configurer les notifications', 'Gerer les integrations'],
 }
 
 // ── Guided tours definitions ───────────────────────────────────
@@ -820,7 +932,7 @@ function ChatTab({ currentModule }: { currentModule: string }) {
               L'assistant connait le module {HELP_CONTENT[currentModule]?.title || currentModule}
             </p>
             <div className="flex flex-wrap gap-1.5 justify-center mt-4">
-              {['Comment creer un projet ?', 'Aide avec les permissions', 'Expliquer le workflow'].map(q => (
+              {(CONTEXTUAL_SUGGESTIONS[currentModule] || CONTEXTUAL_SUGGESTIONS.dashboard).map(q => (
                 <button
                   key={q}
                   onClick={() => { setInput(q); }}

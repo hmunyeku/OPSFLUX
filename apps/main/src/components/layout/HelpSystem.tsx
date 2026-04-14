@@ -284,7 +284,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     title: 'Planner — Planification des activites',
     icon: '\u{1F4C5}',
     description:
-      'Planification des activites sur les assets, gestion des capacites et scenarios.',
+      'Planification des activites sur les assets, gestion des capacites, detection des conflits et scenarios de planification.',
     workflows: [
       {
         title: 'Creer une activite',
@@ -293,7 +293,38 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
           'Cliquez "+ Nouvelle activite"',
           "Choisissez l'asset, les dates, le type",
           'Definissez le quota PAX necessaire',
+          'Rattachez un projet ou un centre de couts',
           "L'activite apparait dans le Gantt Planner",
+        ],
+      },
+      {
+        title: 'Resoudre un conflit de capacite',
+        requiredAnyPermissions: ['planner.conflict.resolve', 'planner.conflict.read'],
+        steps: [
+          'Les conflits sont signales par une icone rouge dans le Gantt',
+          'Cliquez sur le conflit pour voir les details',
+          'Choisissez une resolution : decaler, reduire ou annuler une activite',
+          'Validez la resolution pour mettre a jour le planning',
+        ],
+        diagram: `graph TD
+    A["\u{1F4C5} Activit\u00e9 A"]:::act --> C{"\u26A0\uFE0F Conflit capacit\u00e9"}
+    B["\u{1F4C5} Activit\u00e9 B"]:::act --> C
+    C -->|D\u00e9caler| D["\u{1F504} Report\u00e9e"]:::resolved
+    C -->|R\u00e9duire| E["\u2702\uFE0F Ajust\u00e9e"]:::resolved
+    C -->|Annuler| F["\u274C Annul\u00e9e"]:::cancelled
+
+    classDef act fill:#3b82f6,stroke:#60a5fa,color:#fff
+    classDef resolved fill:#22c55e,stroke:#4ade80,color:#fff
+    classDef cancelled fill:#ef4444,stroke:#f87171,color:#fff`,
+      },
+      {
+        title: 'Comparer des scenarios',
+        requiredAnyPermissions: ['planner.scenario.create', 'planner.scenario.read'],
+        steps: [
+          'Cliquez "Nouveau scenario" pour dupliquer le planning actuel',
+          'Modifiez les activites dans le scenario sans affecter le reel',
+          'Comparez cote a cote les scenarios (capacite, couts, conflits)',
+          'Appliquez le scenario retenu pour le rendre officiel',
         ],
       },
     ],
@@ -301,6 +332,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
       'Le Gantt Planner montre toutes les activites par asset',
       'Les conflits de capacite sont detectes automatiquement',
       'Les scenarios permettent de comparer differentes planifications',
+      'La vue capacite affiche le taux de remplissage de chaque asset',
     ],
     elementHelp: {},
   },
@@ -308,7 +340,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     title: 'Tiers — Entreprises & Contacts',
     icon: '\u{1F3E2}',
     description:
-      'Annuaire des entreprises partenaires, fournisseurs, sous-traitants et leurs contacts.',
+      'Annuaire des entreprises partenaires, fournisseurs, sous-traitants et leurs contacts. Portail externe pour les tiers.',
     workflows: [
       {
         title: 'Ajouter une entreprise',
@@ -320,10 +352,33 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
           "Liez l'entreprise aux utilisateurs concernes",
         ],
       },
+      {
+        title: 'Gerer les contacts',
+        requiredAnyPermissions: ['tier.contact.create', 'tier.contact.read'],
+        steps: [
+          'Ouvrez la fiche d\'un tiers',
+          'Allez dans l\'onglet "Contacts"',
+          'Cliquez "+ Nouveau contact"',
+          'Renseignez nom, prenom, fonction, email, telephone',
+          'Le contact peut etre utilise comme PAX dans PaxLog',
+        ],
+      },
+      {
+        title: 'Transferer un contact entre entreprises',
+        requiredAnyPermissions: ['tier.contact.transfer', 'tier.contact.update'],
+        steps: [
+          'Ouvrez la fiche du contact',
+          'Cliquez "Transferer"',
+          'Selectionnez le nouveau tiers de rattachement',
+          "L'historique des affectations est conserve",
+        ],
+      },
     ],
     tips: [
-      'Un tiers peut etre fournisseur ET sous-traitant',
+      'Un tiers peut etre fournisseur ET sous-traitant (types multiples)',
       'Les contacts tiers sont utilises comme PAX externes dans PaxLog',
+      'Le portail externe permet aux tiers de soumettre des documents directement',
+      'Le blocage d\'un tiers empeche la creation de nouveaux AdS pour ses contacts',
     ],
     elementHelp: {},
   },
@@ -331,7 +386,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     title: 'Conformite',
     icon: '\u2705',
     description:
-      'Gestion des certifications, habilitations, formations obligatoires et audits.',
+      'Gestion des certifications, habilitations, formations obligatoires et audits. Verification automatique avant chaque deplacement.',
     workflows: [
       {
         title: "Verifier la conformite d'un PAX",
@@ -355,10 +410,36 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     classDef nok fill:#f59e0b,stroke:#fbbf24,color:#000
     classDef expired fill:#ef4444,stroke:#f87171,color:#fff`,
       },
+      {
+        title: 'Configurer les regles de conformite',
+        requiredAnyPermissions: ['conformite.rule.create', 'conformite.admin'],
+        steps: [
+          'Allez dans l\'onglet "Regles"',
+          'Cliquez "+ Nouvelle regle"',
+          'Selectionnez le type de site ou de visite',
+          'Definissez les certifications requises',
+          'Configurez les delais de validite',
+          'La regle s\'applique immediatement aux nouvelles verifications',
+        ],
+      },
+      {
+        title: 'Enregistrer une certification',
+        requiredAnyPermissions: ['conformite.record.create', 'conformite.record.update'],
+        steps: [
+          'Ouvrez le profil du PAX concerne',
+          'Allez dans l\'onglet "Conformite"',
+          'Cliquez "+ Ajouter une certification"',
+          'Selectionnez le type et la date de validite',
+          'Joignez le justificatif (scan, PDF)',
+          'La certification est prise en compte dans les verifications',
+        ],
+      },
     ],
     tips: [
       'Les regles de conformite sont configurables par type de site',
       'Le score de conformite est calcule automatiquement',
+      'Les alertes d\'expiration sont envoyees 30 jours avant l\'echeance',
+      'La conformite est verifiee automatiquement lors de la soumission d\'un AdS',
     ],
     elementHelp: {},
   },
@@ -399,7 +480,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     title: 'TravelWiz — Voyages & Transport',
     icon: '\u{1F681}',
     description:
-      'Gestion des voyages, reservations transport, manifestes et suivi en temps reel.',
+      'Gestion des voyages helicoptere et bateau, manifestes passagers/fret, suivi des vecteurs et conditions meteo.',
     workflows: [
       {
         title: 'Creer un voyage',
@@ -407,16 +488,242 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
         steps: [
           'Cliquez "+ Nouveau voyage"',
           "Selectionnez le vecteur (helicoptere, bateau, vehicule)",
-          "Definissez l'itineraire et les escales",
-          "Ajoutez les passagers et le fret au manifeste",
-          "Validez le manifeste avant le depart",
+          "Definissez l'itineraire (depart, escales, arrivee)",
+          "Renseignez la date et les horaires prevus",
+          "Le voyage apparait dans le planning transport",
+        ],
+      },
+      {
+        title: 'Generer un manifeste',
+        requiredAnyPermissions: ['travelwiz.manifest.create', 'travelwiz.manifest.read'],
+        steps: [
+          'Ouvrez un voyage valide',
+          'Cliquez "Generer manifeste"',
+          'Les passagers des AdS approuves sont automatiquement listes',
+          'Verifiez les poids bagages et le fret',
+          'Validez le manifeste pour impression ou envoi',
+        ],
+        diagram: `graph LR
+    A["\u{1F4CB} AdS Approuv\u00e9s"]:::input --> B["\u{1F4E6} Manifeste"]:::manifest
+    B --> C{"\u2696\uFE0F Poids"}
+    C -->|OK| D["\u2705 Valid\u00e9"]:::ok
+    C -->|D\u00e9pass\u00e9| E["\u26A0\uFE0F Surcharge"]:::warn
+
+    classDef input fill:#475569,stroke:#64748b,color:#fff
+    classDef manifest fill:#3b82f6,stroke:#60a5fa,color:#fff
+    classDef ok fill:#22c55e,stroke:#4ade80,color:#fff
+    classDef warn fill:#f59e0b,stroke:#fbbf24,color:#000`,
+      },
+      {
+        title: 'Gerer la flotte',
+        requiredAnyPermissions: ['travelwiz.vector.create', 'travelwiz.vector.read'],
+        steps: [
+          'Allez dans l\'onglet "Flotte"',
+          'Ajoutez un vecteur (type, immatriculation, capacite)',
+          'Definissez les periodes de maintenance',
+          'Consultez la disponibilite dans le calendrier',
         ],
       },
     ],
     tips: [
       'Le suivi en temps reel affiche la position GPS des vecteurs actifs',
-      'Les manifestes doivent etre valides avant le depart',
+      'Le manifeste calcule le poids total (PAX + bagages + fret) vs la capacite',
+      'Les vecteurs en maintenance sont automatiquement exclus de la planification',
       'Le portail capitaine permet au capitaine de gerer le voyage depuis le terrain',
+      'Les conditions meteo sont verifiees automatiquement avant chaque vol',
+    ],
+    elementHelp: {},
+  },
+  packlog: {
+    title: 'PackLog — Logistique Cargo',
+    icon: '\u{1F4E6}',
+    description:
+      'Gestion des articles, lettres de transport (LT), cargos et suivi des expeditions pour les operations offshore.',
+    workflows: [
+      {
+        title: 'Creer une lettre de transport',
+        requiredAnyPermissions: ['packlog.lt.create', 'packlog.lt.read'],
+        steps: [
+          'Cliquez "+ Nouvelle LT"',
+          "Selectionnez l'expediteur et le destinataire",
+          'Ajoutez les articles (reference, quantite, poids)',
+          'Affectez un voyage TravelWiz pour le transport',
+          'Validez la LT pour expedition',
+        ],
+      },
+      {
+        title: 'Suivre un cargo',
+        requiredAnyPermissions: ['packlog.cargo.read', 'packlog.cargo.track'],
+        steps: [
+          'Ouvrez l\'onglet "Cargos"',
+          'Filtrez par statut (en preparation, en transit, livre)',
+          'Cliquez sur un cargo pour voir le detail',
+          "L'historique des mouvements est trace automatiquement",
+        ],
+        diagram: `graph LR
+    A["\u{1F4E6} Pr\u00e9paration"]:::prep --> B["\u{1F69A} En transit"]:::transit
+    B --> C["\u{1F4E5} R\u00e9ceptionn\u00e9"]:::received
+    C --> D["\u2705 Livr\u00e9"]:::delivered
+
+    classDef prep fill:#475569,stroke:#64748b,color:#fff
+    classDef transit fill:#3b82f6,stroke:#60a5fa,color:#fff
+    classDef received fill:#8b5cf6,stroke:#a78bfa,color:#fff
+    classDef delivered fill:#22c55e,stroke:#4ade80,color:#fff`,
+      },
+    ],
+    tips: [
+      "Les articles sont lies au catalogue centralise de l'entite",
+      'Le poids total du cargo est calcule automatiquement a partir des articles',
+      'Les LT sont liees aux voyages TravelWiz pour la tracabilite complete',
+      'Les alertes notifient automatiquement en cas de retard de livraison',
+    ],
+    elementHelp: {},
+  },
+  imputations: {
+    title: 'Imputations — Allocation des couts',
+    icon: '\u{1F4B0}',
+    description:
+      'Ventilation des couts par centre de couts, projet, activite et entite. Suivi budgetaire et analytique.',
+    workflows: [
+      {
+        title: 'Imputer un cout',
+        requiredAnyPermissions: ['imputation.create', 'imputation.read'],
+        steps: [
+          'Cliquez "+ Nouvelle imputation"',
+          'Selectionnez la reference (projet, activite, voyage)',
+          'Choisissez le centre de couts',
+          'Renseignez le montant et la devise',
+          'Ajoutez une justification si necessaire',
+          "Validez l'imputation",
+        ],
+      },
+      {
+        title: 'Consulter le suivi budgetaire',
+        requiredAnyPermissions: ['imputation.report.read', 'imputation.read'],
+        steps: [
+          'Allez dans l\'onglet "Suivi budgetaire"',
+          'Filtrez par periode, projet ou centre de couts',
+          'Les indicateurs montrent le budget consomme vs alloue',
+          'Exportez le rapport en PDF ou Excel',
+        ],
+      },
+    ],
+    tips: [
+      'Les imputations sont liees automatiquement aux projets et activites Planner',
+      'Le systeme detecte les depassements budgetaires et envoie des alertes',
+      "Les centres de couts sont configures dans les parametres de l'entite",
+      "L'export analytique permet le rapprochement comptable",
+    ],
+    elementHelp: {},
+  },
+  papyrus: {
+    title: 'Papyrus — Gestion documentaire',
+    icon: '\u{1F4C4}',
+    description:
+      'Stockage, classement, versionning et partage des documents. Modeles de documents et generation PDF.',
+    workflows: [
+      {
+        title: 'Deposer un document',
+        requiredAnyPermissions: ['papyrus.document.create', 'papyrus.document.upload'],
+        steps: [
+          'Cliquez "+ Nouveau document" ou glissez-deposez un fichier',
+          'Choisissez la categorie et le classeur',
+          'Ajoutez des tags pour faciliter la recherche',
+          "Definissez les droits d'acces (public, restreint, confidentiel)",
+          'Le document est indexe et disponible immediatement',
+        ],
+      },
+      {
+        title: 'Generer un document depuis un modele',
+        requiredAnyPermissions: ['papyrus.template.use', 'papyrus.document.create'],
+        steps: [
+          'Allez dans l\'onglet "Modeles"',
+          'Selectionnez un modele (rapport, formulaire, certificat)',
+          'Les donnees sont pre-remplies depuis le contexte',
+          'Completez les champs manuels',
+          'Generez le PDF final',
+        ],
+      },
+    ],
+    tips: [
+      'La recherche plein texte fonctionne sur le contenu des PDF et documents Office',
+      'Les versions precedentes sont conservees et consultables',
+      "Les documents peuvent etre lies a n'importe quel objet (projet, AdS, tiers)",
+      'Les modeles PDF sont personnalisables dans les parametres',
+    ],
+    elementHelp: {},
+  },
+  workflows: {
+    title: 'Workflows — Moteur de processus',
+    icon: '\u{1F504}',
+    description:
+      "Conception et execution des workflows de validation. Editeur visuel drag-and-drop, versioning et delegation.",
+    workflows: [
+      {
+        title: 'Creer un workflow',
+        requiredAnyPermissions: ['workflow.design', 'workflow.admin'],
+        steps: [
+          'Cliquez "+ Nouveau workflow"',
+          "Nommez le workflow et choisissez l'objet cible (AdS, projet, etc.)",
+          "Utilisez l'editeur drag-and-drop pour ajouter les etapes",
+          'Configurez les conditions de transition',
+          'Definissez les approbateurs pour chaque etape',
+          'Publiez le workflow (une nouvelle version est creee)',
+        ],
+        diagram: `graph TD
+    A["\u{1F4DD} Conception"]:::design --> B["\u{1F50D} Test"]:::test
+    B --> C["\u2705 Publication"]:::published
+    C --> D["\u{1F504} Nouvelle version"]:::version
+    D --> B
+
+    classDef design fill:#475569,stroke:#64748b,color:#fff
+    classDef test fill:#eab308,stroke:#facc15,color:#000
+    classDef published fill:#22c55e,stroke:#4ade80,color:#fff
+    classDef version fill:#3b82f6,stroke:#60a5fa,color:#fff`,
+      },
+      {
+        title: 'Deleguer une approbation',
+        requiredAnyPermissions: ['workflow.delegate', 'workflow.approve'],
+        steps: [
+          'Ouvrez vos taches en attente',
+          'Cliquez "Deleguer" sur la tache concernee',
+          'Selectionnez le collegue delegataire',
+          'Definissez la duree de la delegation (optionnel)',
+          'Le delegataire recoit une notification',
+        ],
+      },
+    ],
+    tips: [
+      "Chaque publication cree une nouvelle version, les instances en cours restent sur l'ancienne",
+      "La delegation est tracee dans l'audit trail",
+      'Les conditions de transition peuvent inclure des regles metier complexes',
+      "Les notifications sont envoyees automatiquement a chaque changement d'etape",
+    ],
+    elementHelp: {},
+  },
+  entites: {
+    title: 'Entites — Gestion des filiales',
+    icon: '\u{1F310}',
+    description:
+      'Administration des entites (filiales, pays, divisions). Chaque entite isole ses donnees operationnelles.',
+    workflows: [
+      {
+        title: 'Configurer une entite',
+        requiredAnyPermissions: ['entity.manage', 'entity.admin'],
+        steps: [
+          "Selectionnez l'entite dans la liste",
+          "Renseignez les informations legales et l'adresse",
+          'Configurez les departements et BU',
+          'Definissez les parametres specifiques (devise, fuseau horaire)',
+          "Affectez les utilisateurs a l'entite",
+        ],
+      },
+    ],
+    tips: [
+      'Un utilisateur peut etre affecte a plusieurs entites',
+      "Le changement d'entite active se fait via le selecteur en haut de page",
+      'Les donnees sont strictement isolees entre entites (filtrage par entity_id)',
+      "Les parametres globaux du tenant s'appliquent a toutes les entites sauf override",
     ],
     elementHelp: {},
   },

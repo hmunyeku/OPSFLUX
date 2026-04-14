@@ -3049,9 +3049,13 @@ export interface TravelDashboardCargoPending {
 
 export interface TravelFleetKpi {
   total_vectors: number
+  active_vectors: number
   active_voyages: number
+  voyages_today: number
   pax_in_transit: number
   cargo_in_transit: number
+  pending_cargo: number
+  in_transit_cargo: number
   no_shows_month: number
   utilization_by_type: Record<string, { total: number; active: number }>
 }

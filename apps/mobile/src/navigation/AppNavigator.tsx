@@ -59,6 +59,7 @@ import { APP_VERSION } from "../services/api";
 import MaintenanceScreen from "../screens/MaintenanceScreen";
 import MyComplianceScreen from "../screens/MyComplianceScreen";
 import MyContactsScreen from "../screens/MyContactsScreen";
+import MyProfileScreen from "../screens/MyProfileScreen";
 import PreferencesScreen from "../screens/PreferencesScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 
@@ -292,6 +293,11 @@ function SettingsStack() {
         name="SettingsMain"
         component={SettingsScreen}
         options={{ title: "Paramètres" }}
+      />
+      <Stack.Screen
+        name="MyProfile"
+        component={MyProfileScreen}
+        options={{ title: "Mon profil", animation: "slide_from_right" }}
       />
       <Stack.Screen
         name="MyCompliance"

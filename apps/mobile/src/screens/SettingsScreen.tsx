@@ -196,6 +196,22 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
       <Card style={styles.card}>
         <Card.Content style={{ gap: 0 }}>
           <List.Item
+            title="Mon profil"
+            description="Coordonnées, téléphones, emails, adresses"
+            left={(props) => <List.Icon {...props} icon="account-circle" color={colors.primary} />}
+            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+            onPress={() => navigation.navigate("MyProfile")}
+          />
+          <Divider />
+          <List.Item
+            title="Mes vérifications"
+            description="Téléphone, email, GPS, pièce d'identité"
+            left={(props) => <List.Icon {...props} icon="shield-account" color={colors.success} />}
+            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+            onPress={() => navigation.navigate("VerificationsHub")}
+          />
+          <Divider />
+          <List.Item
             title="Ma conformité"
             description="Documents, certifications, alertes expiration"
             left={(props) => <List.Icon {...props} icon="shield-check" color={colors.success} />}

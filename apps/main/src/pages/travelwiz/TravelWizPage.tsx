@@ -1869,8 +1869,8 @@ function CronScheduleBuilder({
   description,
   onChange,
 }: {
-  value: string | null
-  description: string | null
+  value: string | null | undefined
+  description: string | null | undefined
   onChange: (cron: string | null, description: string | null) => void
 }) {
   const [freq, setFreq] = useState('weekly')

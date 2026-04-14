@@ -17,8 +17,19 @@ import { useAppState } from "../stores/appState";
 /** Current app version — must match app.config.ts. */
 const APP_VERSION = "1.0.0";
 
-/** Base URL — configurable via env or settings screen. */
+/** Base URL — configurable via env or settings screen. HTTPS enforced. */
 const DEFAULT_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://api.opsflux.io";
+
+/** Refuse to use non-HTTPS URLs in production. */
+function enforceHttps(url: string): string {
+  if (!url) return DEFAULT_BASE_URL;
+  if (__DEV__) return url; // allow http://localhost in dev
+  if (!url.startsWith("https://")) {
+    console.warn(`[Security] Rejected non-HTTPS URL: ${url}`);
+    return DEFAULT_BASE_URL;
+  }
+  return url;
+}
 
 export const api = axios.create({
   baseURL: DEFAULT_BASE_URL,
@@ -182,7 +193,7 @@ api.interceptors.response.use(
 );
 
 export function setBaseUrl(url: string) {
-  api.defaults.baseURL = url;
+  api.defaults.baseURL = enforceHttps(url);
 }
 
 export { APP_VERSION };

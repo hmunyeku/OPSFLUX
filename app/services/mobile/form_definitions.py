@@ -66,8 +66,27 @@ def get_ads_create_form() -> dict:
                     "pax_entries", "allowed_company_ids",
                 ],
             },
+            {
+                "id": "documents",
+                "title": "Pièces jointes",
+                "description": "Ajoutez les documents justificatifs (passeports, autorisations, plan d'intervention, etc.)",
+                "fields": ["photos", "signature"],
+            },
         ],
         hidden_fields=["requester_id", "planner_activity_id"],
+        virtual_fields={
+            "photos": {
+                "type": "photo",
+                "label": "Documents & photos",
+                "help_text": "Scans de passeports, autorisations, plans, etc.",
+                "attachment_owner_type": "ads",
+            },
+            "signature": {
+                "type": "signature",
+                "label": "Signature du demandeur",
+                "attachment_owner_type": "ads",
+            },
+        },
         enrichments={
             "type": {
                 "label": "Type d'ADS",
@@ -278,7 +297,21 @@ def get_cargo_request_create_form() -> dict:
                 "description": "Ajoutez les colis concernés par cette demande",
                 "fields": ["cargos"],
             },
+            {
+                "id": "documents",
+                "title": "Photos & documents",
+                "description": "Photos des colis, bons de livraison, autorisations de transport",
+                "fields": ["photos"],
+            },
         ],
+        virtual_fields={
+            "photos": {
+                "type": "photo",
+                "label": "Photos des colis (avant expédition)",
+                "help_text": "Preuve de l'état des colis avant envoi — utile en cas de litige.",
+                "attachment_owner_type": "cargo_request",
+            },
+        },
         enrichments={
             "title": {
                 "label": "Titre de la demande",
@@ -472,8 +505,22 @@ def get_mission_notice_create_form() -> dict:
                     "per_pax_attachments_config",
                 ],
             },
+            {
+                "id": "attachments",
+                "title": "Pièces jointes",
+                "description": "Ajoutez les documents scannés ou photos",
+                "fields": ["photos"],
+            },
         ],
         hidden_fields=["programs"],
+        virtual_fields={
+            "photos": {
+                "type": "photo",
+                "label": "Documents & photos",
+                "help_text": "Plan de prévention, SIMOPS, attestations, etc.",
+                "attachment_owner_type": "mission_notice",
+            },
+        },
         enrichments={
             "title": {
                 "label": "Titre de la mission",

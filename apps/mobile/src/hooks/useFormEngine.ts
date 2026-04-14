@@ -10,6 +10,8 @@
 
 import { useCallback, useMemo, useState } from "react";
 import * as Haptics from "expo-haptics";
+import { api } from "../services/api";
+import { uploadAttachments } from "../services/attachments";
 import type {
   ConditionRule,
   FieldDefinition,
@@ -17,7 +19,6 @@ import type {
   StepDefinition,
 } from "../types/forms";
 import { mutateWithOfflineQueue } from "../services/offline";
-import { api } from "../services/api";
 
 interface FormEngineState {
   values: Record<string, unknown>;
@@ -27,6 +28,9 @@ interface FormEngineState {
   submitted: boolean;
   submitError: string | null;
   queuedOffline: boolean;
+  /** Upload progress for attached photos/signatures after submit. */
+  uploadProgress: { completed: number; total: number } | null;
+  uploadErrors: string[];
 }
 
 export function useFormEngine(form: FormDefinition) {
@@ -50,6 +54,8 @@ export function useFormEngine(form: FormDefinition) {
       submitted: false,
       submitError: null,
       queuedOffline: false,
+      uploadProgress: null,
+      uploadErrors: [],
     };
   });
 
@@ -289,29 +295,136 @@ export function useFormEngine(form: FormDefinition) {
   const submit = useCallback(async (): Promise<boolean> => {
     if (!validateCurrentStep()) return false;
 
+    // Collect attachment fields (photo/signature with attachment_owner_type)
+    const attachmentFields: Array<{
+      name: string;
+      ownerType: string;
+      uris: string[];
+    }> = [];
+
     // Build payload — only visible, non-null fields
+    // Strip attachment URIs from the payload; they will be uploaded separately
+    // via POST /attachments after we have the created resource ID.
     const payload: Record<string, unknown> = {};
     for (const [name, value] of Object.entries(state.values)) {
       if (!isFieldVisible(name)) continue;
       if (value === null || value === undefined || value === "") continue;
+
+      const field = form.fields[name];
+      if (
+        field &&
+        (field.type === "photo" || field.type === "signature") &&
+        field.attachment_owner_type
+      ) {
+        // Collect attachment URIs for post-submit upload
+        const uris = Array.isArray(value) ? (value as string[]) : [String(value)];
+        attachmentFields.push({
+          name,
+          ownerType: field.attachment_owner_type,
+          uris: uris.filter(Boolean),
+        });
+        // Send only the count to the server in the main payload
+        payload[`${name}_count`] = uris.length;
+        continue;
+      }
+
       payload[name] = value;
     }
 
-    setState((prev) => ({ ...prev, submitting: true, submitError: null }));
+    setState((prev) => ({
+      ...prev,
+      submitting: true,
+      submitError: null,
+      uploadProgress: null,
+      uploadErrors: [],
+    }));
+
+    let createdResourceId: string | null = null;
+    let wasSent = true;
 
     try {
-      const result = await mutateWithOfflineQueue(
-        form.submit.method,
-        form.submit.endpoint,
-        payload
-      );
+      // Step 1 — submit the main form.
+      // We need the response body (to get the new resource ID for
+      // attachment linking), so when online we call axios directly.
+      // When offline we fall back to the queue.
+      const { isOnline } = await import("../services/offline").then((m) => ({
+        isOnline: m.useOfflineStore.getState().isOnline,
+      }));
+
+      if (isOnline) {
+        try {
+          const response = await api.request({
+            method: form.submit.method,
+            url: form.submit.endpoint,
+            data: payload,
+          });
+          createdResourceId = response.data?.id ?? null;
+        } catch (httpErr: any) {
+          // 4xx = client error, do not queue
+          const status = httpErr?.response?.status;
+          if (status >= 400 && status < 500) throw httpErr;
+          // Network/5xx → fall back to queue
+          await mutateWithOfflineQueue(
+            form.submit.method,
+            form.submit.endpoint,
+            payload
+          );
+          wasSent = false;
+        }
+      } else {
+        // Offline: queue the mutation. Photos will be lost for now
+        // (they require the resource ID which we don't have yet).
+        await mutateWithOfflineQueue(
+          form.submit.method,
+          form.submit.endpoint,
+          payload
+        );
+        wasSent = false;
+      }
+
+      // Step 2 — upload attachments if we have an ID
+      const totalFiles = attachmentFields.reduce((s, f) => s + f.uris.length, 0);
+      const uploadErrors: string[] = [];
+
+      if (createdResourceId && totalFiles > 0) {
+        let completed = 0;
+        setState((prev) => ({
+          ...prev,
+          uploadProgress: { completed: 0, total: totalFiles },
+        }));
+
+        for (const field of attachmentFields) {
+          const results = await uploadAttachments(
+            field.uris,
+            field.ownerType,
+            createdResourceId,
+            (done) => {
+              setState((prev) => ({
+                ...prev,
+                uploadProgress: {
+                  completed: completed + done,
+                  total: totalFiles,
+                },
+              }));
+            }
+          );
+          completed += field.uris.length;
+          for (const r of results) {
+            if (!r.success) {
+              uploadErrors.push(`${field.name}: ${r.error}`);
+            }
+          }
+        }
+      }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setState((prev) => ({
         ...prev,
         submitting: false,
         submitted: true,
-        queuedOffline: !result.sent,
+        queuedOffline: !wasSent,
+        uploadProgress: null,
+        uploadErrors,
       }));
       return true;
     } catch (err: any) {
@@ -322,10 +435,11 @@ export function useFormEngine(form: FormDefinition) {
         ...prev,
         submitting: false,
         submitError: detail,
+        uploadProgress: null,
       }));
       return false;
     }
-  }, [state.values, form.submit, isFieldVisible, validateCurrentStep]);
+  }, [state.values, form.submit, form.fields, isFieldVisible, validateCurrentStep]);
 
   // ── Reset ────────────────────────────────────────────────────────
 
@@ -344,6 +458,8 @@ export function useFormEngine(form: FormDefinition) {
       submitted: false,
       submitError: null,
       queuedOffline: false,
+      uploadProgress: null,
+      uploadErrors: [],
     });
   }, [form.fields]);
 
@@ -356,6 +472,8 @@ export function useFormEngine(form: FormDefinition) {
     submitted: state.submitted,
     submitError: state.submitError,
     queuedOffline: state.queuedOffline,
+    uploadProgress: state.uploadProgress,
+    uploadErrors: state.uploadErrors,
 
     // Step info
     visibleSteps,

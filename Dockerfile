@@ -30,6 +30,8 @@ COPY alembic.ini ./
 COPY tests/ ./tests/
 # Scripts (seed_i18n, etc. — invoked via `python -m scripts.X` at boot)
 COPY scripts/ ./scripts/
+# Locale files for i18n seed (app namespace)
+COPY apps/main/src/locales/ ./apps/main/src/locales/
 
 # Create static directories for volume mount + non-root user
 RUN mkdir -p /opt/opsflux/static/avatars /opt/opsflux/static/attachments \

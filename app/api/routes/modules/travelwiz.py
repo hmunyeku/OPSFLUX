@@ -45,6 +45,7 @@ from app.models.travelwiz import (
     TransportVector,
     TransportVectorZone,
     VectorPosition,
+    VehicleCertification,
     Voyage,
     VoyageManifest,
     VoyageStop,
@@ -91,6 +92,9 @@ from app.schemas.travelwiz import (
     VectorZoneCreate,
     VectorZoneRead,
     VectorZoneUpdate,
+    VehicleCertificationCreate,
+    VehicleCertificationRead,
+    VehicleCertificationUpdate,
     VoyageCreate,
     VoyageRead,
     VoyageReassignRequest,
@@ -872,6 +876,98 @@ async def delete_vector_zone(
     await delete_entity(zone, db, "transport_vector_zone", entity_id=zone.id, user_id=current_user.id)
     await db.commit()
     return {"detail": "Zone deleted"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# VEHICLE CERTIFICATIONS CRUD
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/vectors/{vector_id}/certifications", response_model=list[VehicleCertificationRead])
+async def list_vehicle_certifications(
+    vector_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.vector.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """List certifications for a vehicle."""
+    await _get_vector_or_404(db, vector_id, entity_id)
+    result = await db.execute(
+        select(VehicleCertification)
+        .where(VehicleCertification.vehicle_id == vector_id)
+        .order_by(VehicleCertification.expiry_date.asc().nullslast())
+    )
+    return result.scalars().all()
+
+
+@router.post("/vectors/{vector_id}/certifications", response_model=VehicleCertificationRead, status_code=201)
+async def create_vehicle_certification(
+    vector_id: UUID,
+    body: VehicleCertificationCreate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.vector.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Add a certification to a vehicle."""
+    await _get_vector_or_404(db, vector_id, entity_id)
+    cert = VehicleCertification(vehicle_id=vector_id, **body.model_dump())
+    db.add(cert)
+    await db.commit()
+    await db.refresh(cert)
+    return cert
+
+
+@router.patch("/vectors/{vector_id}/certifications/{cert_id}", response_model=VehicleCertificationRead)
+async def update_vehicle_certification(
+    vector_id: UUID,
+    cert_id: UUID,
+    body: VehicleCertificationUpdate,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.vector.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a vehicle certification."""
+    await _get_vector_or_404(db, vector_id, entity_id)
+    result = await db.execute(
+        select(VehicleCertification).where(
+            VehicleCertification.id == cert_id, VehicleCertification.vehicle_id == vector_id
+        )
+    )
+    cert = result.scalar_one_or_none()
+    if not cert:
+        raise HTTPException(404, "Certification not found")
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(cert, field, value)
+    await db.commit()
+    await db.refresh(cert)
+    return cert
+
+
+@router.delete("/vectors/{vector_id}/certifications/{cert_id}")
+async def delete_vehicle_certification(
+    vector_id: UUID,
+    cert_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("travelwiz.vector.update"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a vehicle certification."""
+    await _get_vector_or_404(db, vector_id, entity_id)
+    result = await db.execute(
+        select(VehicleCertification).where(
+            VehicleCertification.id == cert_id, VehicleCertification.vehicle_id == vector_id
+        )
+    )
+    cert = result.scalar_one_or_none()
+    if not cert:
+        raise HTTPException(404, "Certification not found")
+    await delete_entity(cert, db, "vehicle_certification", entity_id=cert.id, user_id=current_user.id)
+    await db.commit()
+    return {"detail": "Certification deleted"}
 
 
 # ══════════════════════════════════════════════════════════════════════════════

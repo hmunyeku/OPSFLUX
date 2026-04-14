@@ -12,7 +12,7 @@ import {
   Anchor, Truck, Users, ArrowRight, Calendar, Weight,
   Loader2, Pencil, Trash2, Save, MapPin, AlertTriangle,
   Bell, CheckCircle2, XCircle, CloudSun, Route,
-  BarChart3, Map as MapIcon,
+  BarChart3, Map as MapIcon, Repeat,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
@@ -114,13 +114,15 @@ import type {
 
 // ── Tab definitions ───────────────────────────────────────────
 
-type TravelWizTab = 'dashboard' | 'voyages' | 'manifests' | 'vectors' | 'fleet_map' | 'pickup' | 'weather'
+type TravelWizTab = 'dashboard' | 'voyages' | 'manifests' | 'vectors' | 'rotations' | 'cargo' | 'fleet_map' | 'pickup' | 'weather'
 
 const TABS: { id: TravelWizTab; label: string; icon: typeof Plane }[] = [
   { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { id: 'voyages', label: 'Voyages', icon: Plane },
   { id: 'manifests', label: 'Manifestes PAX', icon: FileText },
   { id: 'vectors', label: 'Vecteurs', icon: Ship },
+  { id: 'rotations', label: 'Rotations', icon: Repeat },
+  { id: 'cargo', label: 'Cargo', icon: Package },
   { id: 'fleet_map', label: 'Carte flotte', icon: MapIcon },
   { id: 'pickup', label: 'Ramassage', icon: Route },
   { id: 'weather', label: 'Météo', icon: CloudSun },
@@ -1254,6 +1256,222 @@ function VecteursTab() {
 }
 
 // ══════════════════════════════════════════════════════════════
+// ── ROTATIONS TAB ────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+
+function RotationsTab() {
+  const { t } = useTranslation()
+  const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 300)
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+
+  const { data, isLoading } = useRotations({
+    page,
+    page_size: pageSize,
+    search: debouncedSearch || undefined,
+  })
+
+  const items: AnyRow[] = data?.items ?? []
+  const { data: vectorsData } = useVectors({ page: 1, page_size: 200 })
+  const vectorMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    ;(vectorsData?.items ?? []).forEach((v: AnyRow) => { map[v.id] = v.name })
+    return map
+  }, [vectorsData])
+
+  const stats = useMemo(() => {
+    const active = items.filter((r: AnyRow) => r.active).length
+    const inactive = items.filter((r: AnyRow) => !r.active).length
+    return { active, inactive, count: items.length }
+  }, [items])
+
+  const columns = useMemo<ColumnDef<AnyRow, unknown>[]>(() => [
+    {
+      accessorKey: 'name',
+      header: 'Libellé',
+      cell: ({ row }) => <span className="font-medium text-foreground">{row.original.name || '—'}</span>,
+    },
+    {
+      id: 'vector_name',
+      header: 'Vecteur',
+      size: 140,
+      cell: ({ row }) => <span className="text-xs text-muted-foreground">{vectorMap[row.original.vector_id] || '—'}</span>,
+    },
+    {
+      id: 'departure_base',
+      header: 'Base départ',
+      size: 130,
+      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.departure_base_name || '—'}</span>,
+    },
+    {
+      accessorKey: 'schedule_cron',
+      header: 'Planification',
+      size: 130,
+      cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.original.schedule_cron || row.original.schedule_description || '—'}</span>,
+    },
+    {
+      accessorKey: 'active',
+      header: 'Statut',
+      size: 90,
+      cell: ({ row }) => (
+        <span className={cn('gl-badge', row.original.active ? 'gl-badge-success' : 'gl-badge-neutral')}>
+          {row.original.active ? 'Actif' : 'Inactif'}
+        </span>
+      ),
+    },
+  ], [vectorMap])
+
+  return (
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 px-4 py-3 border-b border-border">
+        <StatCard label="Rotations" value={stats.count} icon={Repeat} />
+        <StatCard label="Actives" value={stats.active} icon={CheckCircle2} accent="text-green-500" />
+        <StatCard label="Inactives" value={stats.inactive} icon={XCircle} accent="text-muted-foreground" />
+      </div>
+
+      <PanelContent scroll={false}>
+        <DataTable<AnyRow>
+          columns={columns}
+          data={items}
+          isLoading={isLoading}
+          pagination={data ? { page: data.page, pageSize, total: data.total, pages: data.pages } : undefined}
+          onPaginationChange={(p) => setPage(p)}
+          searchValue={search}
+          onSearchChange={(v) => { setSearch(v); setPage(1) }}
+          searchPlaceholder="Rechercher une rotation..."
+          onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'travelwiz', id: row.id, meta: { subtype: 'rotation' } })}
+          emptyIcon={Repeat}
+          emptyTitle="Aucune rotation"
+          storageKey="travelwiz-rotations"
+        />
+      </PanelContent>
+    </>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// ── CARGO TAB ────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+
+function CargoTab() {
+  const { t } = useTranslation()
+  const [page, setPage] = useState(1)
+  const { pageSize } = usePageSize()
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 300)
+  const [statusFilter, setStatusFilter] = useState('')
+  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
+  const cargoStatusLabels = useDictionaryLabels('travelwiz_cargo_status', CARGO_STATUS_LABELS_FALLBACK)
+  const cargoStatusOptions = useMemo(
+    () => buildStatusOptions(cargoStatusLabels, ['registered', 'ready', 'ready_for_loading', 'loaded', 'in_transit', 'delivered', 'returned']),
+    [cargoStatusLabels],
+  )
+
+  const { data: requestsData, isLoading: loadingRequests } = useWorkspaceCargoRequests({
+    page,
+    page_size: pageSize,
+    search: debouncedSearch || undefined,
+    status: statusFilter || undefined,
+  })
+
+  const requests: AnyRow[] = requestsData?.items ?? []
+
+  const stats = useMemo(() => {
+    const inTransit = requests.filter((r: AnyRow) => r.status === 'in_transit').length
+    const delivered = requests.filter((r: AnyRow) => r.status === 'delivered' || r.status === 'delivered_final').length
+    const totalWeight = requests.reduce((sum: number, r: AnyRow) => sum + (r.total_weight_kg ?? r.weight_kg ?? 0), 0)
+    return { inTransit, delivered, totalWeight, count: requests.length }
+  }, [requests])
+
+  const columns = useMemo<ColumnDef<AnyRow, unknown>[]>(() => [
+    {
+      accessorKey: 'reference',
+      header: 'Référence',
+      size: 120,
+      cell: ({ row }) => <span className="font-medium font-mono text-xs text-foreground">{row.original.reference || row.original.code || '—'}</span>,
+    },
+    {
+      accessorKey: 'description',
+      header: 'Description',
+      cell: ({ row }) => <span className="text-xs text-foreground truncate">{row.original.description || row.original.designation || '—'}</span>,
+    },
+    {
+      id: 'destination',
+      header: 'Destination',
+      size: 130,
+      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.destination_name || row.original.destination || '—'}</span>,
+    },
+    {
+      accessorKey: 'status',
+      header: 'Statut',
+      size: 120,
+      cell: ({ row }) => <StatusBadge status={row.original.status} labels={cargoStatusLabels} badges={CARGO_STATUS_BADGES} />,
+    },
+    {
+      id: 'weight',
+      header: 'Poids',
+      size: 100,
+      cell: ({ row }) => {
+        const w = row.original.total_weight_kg ?? row.original.weight_kg
+        return (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {w ? `${Number(w).toLocaleString('fr-FR')} kg` : '—'}
+          </span>
+        )
+      },
+    },
+  ], [cargoStatusLabels])
+
+  return (
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
+        <StatCard label="Demandes cargo" value={stats.count} icon={Package} />
+        <StatCard label="En transit" value={stats.inTransit} icon={Truck} accent="text-amber-500" />
+        <StatCard label="Livrés" value={stats.delivered} icon={CheckCircle2} accent="text-green-500" />
+        <StatCard label="Poids total" value={`${stats.totalWeight.toLocaleString('fr-FR')} kg`} icon={Weight} />
+      </div>
+
+      <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
+        <div className="flex items-center gap-1 overflow-x-auto">
+          {cargoStatusOptions.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => { setStatusFilter(opt.value); setPage(1) }}
+              className={cn(
+                'px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap',
+                statusFilter === opt.value ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        {requestsData && <span className="text-xs text-muted-foreground ml-auto shrink-0">{requestsData.total ?? requests.length} demandes</span>}
+      </div>
+
+      <PanelContent scroll={false}>
+        <DataTable<AnyRow>
+          columns={columns}
+          data={requests}
+          isLoading={loadingRequests}
+          pagination={requestsData ? { page: requestsData.page, pageSize, total: requestsData.total, pages: requestsData.pages } : undefined}
+          onPaginationChange={(p) => setPage(p)}
+          searchValue={search}
+          onSearchChange={(v) => { setSearch(v); setPage(1) }}
+          searchPlaceholder="Rechercher par référence, description..."
+          onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'travelwiz', id: row.id, meta: { subtype: 'cargo_request' } })}
+          emptyIcon={Package}
+          emptyTitle="Aucune demande cargo"
+          storageKey="travelwiz-cargo"
+        />
+      </PanelContent>
+    </>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
 // ── ARTICLES TAB ─────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════
 
@@ -1262,9 +1480,37 @@ function VecteursTab() {
 // ══════════════════════════════════════════════════════════════
 
 function FleetMapTab() {
+  const { data: fleetKpis, isLoading: loadingKpis } = useFleetKpis()
+  const kpis = fleetKpis
+
   return (
-    <div className="flex-1 min-h-0 overflow-auto">
-      <MapErrorBoundary><FleetMap height="calc(100vh - 140px)" /></MapErrorBoundary>
+    <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
+      {/* Fleet KPI cards */}
+      <div className="grid grid-cols-3 gap-3 px-4 py-3 border-b border-border shrink-0">
+        <StatCard
+          label="Vecteurs actifs"
+          value={loadingKpis ? '...' : (kpis?.active_vectors ?? kpis?.total_vectors ?? 0)}
+          icon={Ship}
+          accent="text-primary"
+        />
+        <StatCard
+          label="Voyages en cours"
+          value={loadingKpis ? '...' : (kpis?.active_voyages ?? 0)}
+          icon={Plane}
+          accent="text-amber-500"
+        />
+        <StatCard
+          label="PAX en transit"
+          value={loadingKpis ? '...' : (kpis?.pax_in_transit ?? 0)}
+          icon={Users}
+          accent="text-blue-500"
+        />
+      </div>
+
+      {/* Fleet map */}
+      <div className="flex-1 min-h-0 overflow-auto">
+        <MapErrorBoundary><FleetMap height="calc(100vh - 220px)" /></MapErrorBoundary>
+      </div>
     </div>
   )
 }
@@ -1552,7 +1798,7 @@ function WeatherTab() {
 // ── MAIN PAGE COMPONENT ──────────────────────────────────────
 // ══════════════════════════════════════════════════════════════
 
-const VALID_TW_TABS = new Set<TravelWizTab>(['dashboard', 'voyages', 'manifests', 'vectors', 'fleet_map', 'pickup', 'weather'])
+const VALID_TW_TABS = new Set<TravelWizTab>(['dashboard', 'voyages', 'manifests', 'vectors', 'rotations', 'cargo', 'fleet_map', 'pickup', 'weather'])
 
 export function TravelWizPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -1574,19 +1820,22 @@ export function TravelWizPage() {
   const canCreate =
     activeTab === 'voyages' ? hasPermission('travelwiz.voyage.create')
       : activeTab === 'vectors' ? hasPermission('travelwiz.vector.create')
+        : activeTab === 'rotations' ? hasPermission('travelwiz.rotation.create')
           : false
 
   const handleCreate = useCallback(() => {
     if (activeTab === 'voyages') openDynamicPanel({ type: 'create', module: 'travelwiz', meta: { subtype: 'voyage' } })
     else if (activeTab === 'vectors') openDynamicPanel({ type: 'create', module: 'travelwiz', meta: { subtype: 'vector' } })
+    else if (activeTab === 'rotations') openDynamicPanel({ type: 'create', module: 'travelwiz', meta: { subtype: 'rotation' } })
   }, [activeTab, openDynamicPanel])
 
   const createLabel =
     activeTab === 'voyages' ? 'Nouveau voyage'
       : activeTab === 'vectors' ? 'Nouveau vecteur'
+        : activeTab === 'rotations' ? 'Nouvelle rotation'
           : ''
 
-  const showCreate = ['voyages', 'vectors'].includes(activeTab)
+  const showCreate = ['voyages', 'vectors', 'rotations'].includes(activeTab)
 
   return (
     <div className="flex h-full">
@@ -1606,6 +1855,8 @@ export function TravelWizPage() {
           {activeTab === 'voyages' && <VoyagesTab />}
           {activeTab === 'manifests' && <ManifestesTab />}
           {activeTab === 'vectors' && <VecteursTab />}
+          {activeTab === 'rotations' && <RotationsTab />}
+          {activeTab === 'cargo' && <CargoTab />}
           {activeTab === 'fleet_map' && <FleetMapTab />}
           {activeTab === 'pickup' && <PickupTab />}
           {activeTab === 'weather' && <WeatherTab />}
@@ -3339,6 +3590,11 @@ function VoyageDetailPanel({ id }: { id: string }) {
               </div>
             </SectionColumns>
 
+            {/* Deck Planning */}
+            <FormSection title="Plan de pont" collapsible defaultExpanded={false}>
+              <p className="text-xs text-muted-foreground py-2">Le plan de pont interactif sera disponible prochainement.</p>
+            </FormSection>
+
             {/* Tags, Notes & Attachments */}
             <FormSection title="Tags, notes & fichiers" collapsible defaultExpanded={false}>
               <div className="space-y-3">
@@ -3541,6 +3797,10 @@ function VectorDetailPanel({ id }: { id: string }) {
                   ))}
                 </div>
               ) : <p className="text-xs text-muted-foreground py-2">Aucune zone configuree.</p>}
+            </FormSection>
+
+            <FormSection title="Certifications" collapsible defaultExpanded={false}>
+              <p className="text-xs text-muted-foreground py-2">Les certifications véhicule seront disponibles prochainement.</p>
             </FormSection>
           </>
         )}

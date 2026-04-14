@@ -353,6 +353,52 @@ class VectorPositionRead(OpsFluxSchema):
     speed_knots: float | None = None
 
 
+# ─── Vehicle Certifications ─────────────────────────────────────────────────
+
+
+class VehicleCertificationCreate(BaseModel):
+    cert_type: str = Field(..., min_length=1, max_length=100)
+    cert_name: str = Field(..., min_length=1, max_length=300)
+    issuing_authority: str | None = Field(None, max_length=200)
+    cert_number: str | None = Field(None, max_length=100)
+    issued_date: date
+    expiry_date: date | None = None
+    status: str = Field("valid", pattern=r"^(valid|expired|revoked|pending)$")
+    proof_url: str | None = None
+    notes: str | None = None
+    alert_days_before: int = Field(30, ge=0, le=365)
+
+
+class VehicleCertificationUpdate(BaseModel):
+    cert_type: str | None = Field(None, min_length=1, max_length=100)
+    cert_name: str | None = Field(None, min_length=1, max_length=300)
+    issuing_authority: str | None = None
+    cert_number: str | None = None
+    issued_date: date | None = None
+    expiry_date: date | None = None
+    status: str | None = Field(None, pattern=r"^(valid|expired|revoked|pending)$")
+    proof_url: str | None = None
+    notes: str | None = None
+    alert_days_before: int | None = Field(None, ge=0, le=365)
+
+
+class VehicleCertificationRead(OpsFluxSchema):
+    id: UUID
+    vehicle_id: UUID
+    cert_type: str
+    cert_name: str
+    issuing_authority: str | None = None
+    cert_number: str | None = None
+    issued_date: date
+    expiry_date: date | None = None
+    status: str
+    proof_url: str | None = None
+    notes: str | None = None
+    alert_days_before: int
+    created_at: datetime
+    updated_at: datetime
+
+
 # ─── Capacity Check ─────────────────────────────────────────────────────────
 
 

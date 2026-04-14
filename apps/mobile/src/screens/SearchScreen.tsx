@@ -1,61 +1,63 @@
 /**
- * Global search screen — find ADS, colis, missions, users, etc.
- *
- * Queries the /api/v1/search endpoint and shows results
- * grouped by type with navigation to detail screens.
+ * SearchScreen — Gluestack refonte: global search across resource types.
  */
-
 import React, { useCallback, useEffect, useState } from "react";
-import { FlatList, Pressable, StyleSheet, View } from "react-native";
+import { FlatList } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  ActivityIndicator,
-  Chip,
-  Divider,
-  Searchbar,
+  Badge,
+  BadgeText,
+  Box,
+  HStack,
+  Icon,
+  Input,
+  InputField,
+  InputIcon,
+  InputSlot,
+  Pressable,
+  Spinner,
   Text,
-} from "react-native-paper";
+  VStack,
+} from "@gluestack-ui/themed";
+import { Search as SearchIcon, SearchX } from "lucide-react-native";
+import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
-import { globalSearch, SearchResult } from "../services/search";
+import { globalSearch, type SearchResult } from "../services/search";
 import { useDebounce } from "../hooks/useDebounce";
-import { colors } from "../utils/colors";
-
-const TYPE_LABELS: Record<string, string> = {
-  ads: "ADS",
-  cargo: "Colis",
-  mission_notice: "Mission",
-  user: "Utilisateur",
-  tier: "Tiers",
-  project: "Projet",
-  voyage: "Voyage",
-};
-
-const TYPE_COLORS: Record<string, string> = {
-  ads: colors.info,
-  cargo: colors.accent,
-  mission_notice: colors.primaryLight,
-  user: colors.success,
-  tier: colors.warning,
-  project: colors.primary,
-  voyage: colors.primaryDark,
-};
 
 interface Props {
   navigation: any;
 }
 
+const TYPE_LABELS: Record<string, { key: string; fb: string }> = {
+  ads: { key: "search.types.ads", fb: "ADS" },
+  cargo: { key: "search.types.cargo", fb: "Colis" },
+  mission_notice: { key: "search.types.mission_notice", fb: "Mission" },
+  user: { key: "search.types.user", fb: "Utilisateur" },
+  tier: { key: "search.types.tier", fb: "Tiers" },
+  project: { key: "search.types.project", fb: "Projet" },
+  voyage: { key: "search.types.voyage", fb: "Voyage" },
+};
+
+const TYPE_BADGE_ACTION: Record<string, "info" | "success" | "warning" | "muted" | "error"> = {
+  ads: "info",
+  cargo: "warning",
+  mission_notice: "info",
+  user: "success",
+  tier: "warning",
+  project: "info",
+  voyage: "info",
+};
+
 export default function SearchScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const debouncedQuery = useDebounce(query, 350);
-
-  // Auto-search on debounced query change
-  useEffect(() => {
-    if (debouncedQuery.trim().length >= 2) {
-      doSearch(debouncedQuery);
-    }
-  }, [debouncedQuery]);
 
   const doSearch = useCallback(async (q: string) => {
     if (q.trim().length < 2) return;
@@ -71,6 +73,12 @@ export default function SearchScreen({ navigation }: Props) {
     }
   }, []);
 
+  useEffect(() => {
+    if (debouncedQuery.trim().length >= 2) {
+      doSearch(debouncedQuery);
+    }
+  }, [debouncedQuery, doSearch]);
+
   function navigateToResult(item: SearchResult) {
     switch (item.type) {
       case "ads":
@@ -83,102 +91,90 @@ export default function SearchScreen({ navigation }: Props) {
         navigation.navigate("LiveTracking", { voyageId: item.id });
         break;
       default:
-        // For other types, we'd navigate to a generic detail screen
         break;
     }
   }
 
-  const renderItem = ({ item }: { item: SearchResult }) => (
-    <Pressable style={styles.resultCard} onPress={() => navigateToResult(item)}>
-      <View style={styles.resultHeader}>
-        <Chip
-          compact
-          style={[styles.typeChip, { backgroundColor: (TYPE_COLORS[item.type] ?? colors.textMuted) + "20" }]}
-          textStyle={[styles.typeChipText, { color: TYPE_COLORS[item.type] ?? colors.textMuted }]}
-        >
-          {TYPE_LABELS[item.type] ?? item.type}
-        </Chip>
-        {item.status && <StatusBadge status={item.status} />}
-      </View>
-      <Text variant="titleSmall" style={styles.resultTitle}>
-        {item.title}
-      </Text>
-      {item.subtitle && (
-        <Text variant="bodySmall" style={styles.resultSubtitle}>
-          {item.subtitle}
+  const renderItem = ({ item }: { item: SearchResult }) => {
+    const typeLabel = TYPE_LABELS[item.type] ?? { key: `search.types.${item.type}`, fb: item.type };
+    const badgeAction = TYPE_BADGE_ACTION[item.type] ?? "muted";
+    return (
+      <Pressable
+        onPress={() => navigateToResult(item)}
+        bg="$white"
+        borderRadius="$lg"
+        borderWidth={1}
+        borderColor="$borderLight200"
+        p="$3.5"
+        mb="$2"
+        $active-bg="$backgroundLight100"
+      >
+        <HStack alignItems="center" justifyContent="space-between" mb="$1">
+          <Badge action={badgeAction as any} variant="outline" size="sm">
+            <BadgeText>{t(typeLabel.key, typeLabel.fb)}</BadgeText>
+          </Badge>
+          {item.status && <StatusBadge status={item.status} />}
+        </HStack>
+        <Text size="sm" fontWeight="$semibold" color="$textLight900">
+          {item.title}
         </Text>
-      )}
-      {item.reference && (
-        <Text variant="bodySmall" style={styles.resultRef}>
-          {item.reference}
-        </Text>
-      )}
-    </Pressable>
-  );
+        {item.subtitle && (
+          <Text size="xs" color="$textLight500" mt="$0.5">
+            {item.subtitle}
+          </Text>
+        )}
+        {item.reference && (
+          <Text size="xs" color="$textLight400" italic mt="$0.5">
+            {item.reference}
+          </Text>
+        )}
+      </Pressable>
+    );
+  };
 
   return (
-    <View style={styles.container}>
-      <Searchbar
-        placeholder="Rechercher ADS, colis, missions..."
-        value={query}
-        onChangeText={setQuery}
-        onSubmitEditing={() => doSearch(query)}
-        style={styles.searchbar}
-        autoFocus
-      />
+    <Box flex={1} bg="$backgroundLight50">
+      <Box px="$3.5" pt={insets.top + 12} pb="$3">
+        <Input borderColor="$borderLight300" bg="$white" size="lg">
+          <InputSlot pl="$3">
+            <InputIcon as={SearchIcon} color="$textLight400" />
+          </InputSlot>
+          <InputField
+            value={query}
+            onChangeText={setQuery}
+            onSubmitEditing={() => doSearch(query)}
+            placeholder={t("search.placeholder", "Rechercher ADS, colis, missions...")}
+            autoFocus
+            autoCorrect={false}
+          />
+        </Input>
+      </Box>
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <Box flex={1} alignItems="center" justifyContent="center">
+          <Spinner color="$primary600" />
+        </Box>
       ) : (
         <FlatList
           data={results}
           keyExtractor={(item) => `${item.type}-${item.id}`}
           renderItem={renderItem}
-          ItemSeparatorComponent={Divider}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={{
+            paddingHorizontal: 14,
+            paddingBottom: insets.bottom + 24,
+          }}
           ListEmptyComponent={
-            searched ? (
-              <Text style={styles.emptyText}>
-                Aucun résultat pour "{query}"
+            <VStack space="sm" alignItems="center" mt="$10" p="$6">
+              <Icon as={searched ? SearchX : SearchIcon} size="xl" color="$textLight300" />
+              <Text size="sm" color="$textLight500" textAlign="center">
+                {searched
+                  ? t("search.noResults", `Aucun résultat pour "{{query}}"`, { query })
+                  : t("search.minChars", "Tapez au moins 2 caractères pour rechercher")}
               </Text>
-            ) : (
-              <Text style={styles.emptyText}>
-                Tapez au moins 2 caractères pour rechercher
-              </Text>
-            )
+            </VStack>
           }
         />
       )}
-    </View>
+    </Box>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  searchbar: { margin: 14 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  listContent: { paddingHorizontal: 14, paddingBottom: 20 },
-  resultCard: {
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-  },
-  resultHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-  typeChip: { height: 24 },
-  typeChipText: { fontSize: 11, fontWeight: "700" },
-  resultTitle: { fontWeight: "600", color: colors.textPrimary },
-  resultSubtitle: { color: colors.textSecondary, marginTop: 2 },
-  resultRef: { color: colors.textMuted, marginTop: 2, fontStyle: "italic" },
-  emptyText: {
-    textAlign: "center",
-    color: colors.textMuted,
-    fontSize: 15,
-    marginTop: 40,
-  },
-});

@@ -1,20 +1,29 @@
 /**
- * ADS list screen — paginated list of Avis de Séjour.
+ * AdsListScreen — Gluestack refonte: paginated list of Avis de Séjour.
+ *
+ * Filter chips at top, search bar, FlatList of cards with status badge,
+ * pull-to-refresh, infinite scroll, server-driven libellés.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { FlatList, RefreshControl } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  FlatList,
+  Box,
+  HStack,
+  Icon,
+  Input,
+  InputField,
+  InputIcon,
+  InputSlot,
   Pressable,
-  StyleSheet,
+  Spinner,
   Text,
-  TextInput,
-  View,
-} from "react-native";
-import { colors } from "../utils/colors";
-import { Chip } from "react-native-paper";
+  VStack,
+} from "@gluestack-ui/themed";
+import { Calendar, MapPin, Search, Users } from "lucide-react-native";
+import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
-import { ListSkeleton } from "../components/SkeletonLoader";
 import { listAds } from "../services/paxlog";
 import type { AdsSummary } from "../types/api";
 
@@ -23,15 +32,23 @@ interface Props {
   navigation: any;
 }
 
-const FILTER_OPTIONS = [
-  { label: "Tous", value: "" },
-  { label: "Mes ADS", value: "mine" },
-  { label: "Approuvés", value: "approved" },
-  { label: "En attente", value: "pending_validation" },
-  { label: "Brouillons", value: "draft" },
+interface FilterOption {
+  labelKey: string;
+  labelFallback: string;
+  value: string;
+}
+
+const FILTER_OPTIONS: FilterOption[] = [
+  { labelKey: "ads.filter.all", labelFallback: "Tous", value: "" },
+  { labelKey: "ads.filter.mine", labelFallback: "Mes ADS", value: "mine" },
+  { labelKey: "ads.filter.approved", labelFallback: "Approuvés", value: "approved" },
+  { labelKey: "ads.filter.pending", labelFallback: "En attente", value: "pending_validation" },
+  { labelKey: "ads.filter.draft", labelFallback: "Brouillons", value: "draft" },
 ];
 
 export default function AdsListScreen({ route, navigation }: Props) {
+  const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const initialStatus = route?.params?.status ?? "";
   const initialScope = route?.params?.scope ?? "";
 
@@ -42,6 +59,7 @@ export default function AdsListScreen({ route, navigation }: Props) {
   const [activeFilter, setActiveFilter] = useState(initialScope || initialStatus);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const fetchAds = useCallback(
     async (pageNum: number, isRefresh = false) => {
@@ -51,7 +69,6 @@ export default function AdsListScreen({ route, navigation }: Props) {
           page: pageNum,
           page_size: 20,
         };
-        // Apply filter
         if (activeFilter === "mine") {
           params.scope = "mine";
         } else if (activeFilter) {
@@ -65,10 +82,11 @@ export default function AdsListScreen({ route, navigation }: Props) {
         }
         setHasMore(pageNum < result.pages);
       } catch {
-        // Silently handle — list might be empty
+        /* silent */
       } finally {
         setLoading(false);
         setRefreshing(false);
+        setLoadingMore(false);
       }
     },
     [search, activeFilter]
@@ -78,174 +96,159 @@ export default function AdsListScreen({ route, navigation }: Props) {
     setLoading(true);
     setPage(1);
     fetchAds(1);
-  }, [search, activeFilter]);
+  }, [search, activeFilter, fetchAds]);
 
-  function handleRefresh() {
-    setRefreshing(true);
-    setPage(1);
-    fetchAds(1, true);
-  }
-
-  function handleLoadMore() {
-    if (!hasMore || loading) return;
-    const next = page + 1;
-    setPage(next);
-    fetchAds(next);
-  }
-
-  const renderItem = ({ item }: { item: AdsSummary }) => (
-    <Pressable
-      style={styles.card}
-      onPress={() => navigation.navigate("AdsDetail", { adsId: item.id })}
-      onLongPress={() => navigation.navigate("AdsBoardingDetail", { adsId: item.id })}
-    >
-      <View style={styles.cardHeader}>
-        <Text style={styles.reference}>{item.reference}</Text>
-        <StatusBadge status={item.status} />
-      </View>
-      <Text style={styles.purpose} numberOfLines={1}>
-        {item.visit_purpose}
-      </Text>
-      <View style={styles.cardFooter}>
-        <Text style={styles.meta}>
-          {item.start_date} — {item.end_date}
+  const renderItem = useCallback(
+    ({ item }: { item: AdsSummary }) => (
+      <Pressable
+        onPress={() => navigation.navigate("AdsDetail", { adsId: item.id })}
+        onLongPress={() =>
+          navigation.navigate("AdsBoardingDetail", { adsId: item.id })
+        }
+        bg="$white"
+        borderRadius="$lg"
+        borderWidth={1}
+        borderColor="$borderLight200"
+        p="$4"
+        mb="$2.5"
+        $active-bg="$backgroundLight100"
+      >
+        <HStack justifyContent="space-between" alignItems="center" mb="$1.5">
+          <Text size="md" fontWeight="$bold" color="$primary700">
+            {item.reference}
+          </Text>
+          <StatusBadge status={item.status} />
+        </HStack>
+        <Text size="sm" color="$textLight900" mb="$2" numberOfLines={2}>
+          {item.visit_purpose}
         </Text>
-        {item.pax_count != null && (
-          <Text style={styles.meta}>{item.pax_count} pax</Text>
+        <HStack space="md" alignItems="center" flexWrap="wrap">
+          <HStack space="xs" alignItems="center">
+            <Icon as={Calendar} size="2xs" color="$textLight500" />
+            <Text size="xs" color="$textLight500">
+              {item.start_date} → {item.end_date}
+            </Text>
+          </HStack>
+          {item.pax_count != null && (
+            <HStack space="xs" alignItems="center">
+              <Icon as={Users} size="2xs" color="$textLight500" />
+              <Text size="xs" color="$textLight500">
+                {t("ads.paxCount", "{{count}} pax", { count: item.pax_count })}
+              </Text>
+            </HStack>
+          )}
+        </HStack>
+        {item.site_entry_asset_name && (
+          <HStack space="xs" alignItems="center" mt="$1.5">
+            <Icon as={MapPin} size="2xs" color="$textLight400" />
+            <Text size="xs" color="$textLight400">
+              {item.site_entry_asset_name}
+            </Text>
+          </HStack>
         )}
-      </View>
-      {item.site_entry_asset_name && (
-        <Text style={styles.site}>{item.site_entry_asset_name}</Text>
-      )}
-    </Pressable>
+      </Pressable>
+    ),
+    [navigation, t]
   );
 
   return (
-    <View style={styles.container}>
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Rechercher un ADS..."
-        placeholderTextColor={colors.textMuted}
-        value={search}
-        onChangeText={setSearch}
-        autoCorrect={false}
-      />
+    <Box flex={1} bg="$backgroundLight50" pt={insets.top + 8}>
+      {/* Search */}
+      <Box px="$3.5" mb="$2">
+        <Input borderColor="$borderLight300" bg="$white">
+          <InputSlot pl="$3">
+            <InputIcon as={Search} color="$textLight400" />
+          </InputSlot>
+          <InputField
+            value={search}
+            onChangeText={setSearch}
+            placeholder={t("ads.searchPlaceholder", "Rechercher un ADS...")}
+            autoCorrect={false}
+          />
+        </Input>
+      </Box>
 
       {/* Filter chips */}
-      <View style={styles.filterRow}>
-        {FILTER_OPTIONS.map((opt) => (
-          <Chip
-            key={opt.value}
-            selected={activeFilter === opt.value}
-            onPress={() => setActiveFilter(opt.value)}
-            compact
-            mode={activeFilter === opt.value ? "flat" : "outlined"}
-            selectedColor={colors.primary}
-            style={styles.filterChip}
-          >
-            {opt.label}
-          </Chip>
-        ))}
-      </View>
+      <Box px="$3.5" mb="$2">
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={FILTER_OPTIONS}
+          keyExtractor={(o) => o.value}
+          contentContainerStyle={{ gap: 8, paddingRight: 8 }}
+          renderItem={({ item: opt }) => {
+            const isActive = activeFilter === opt.value;
+            return (
+              <Pressable
+                onPress={() => setActiveFilter(opt.value)}
+                bg={isActive ? "$primary600" : "$white"}
+                borderWidth={1}
+                borderColor={isActive ? "$primary600" : "$borderLight200"}
+                px="$3"
+                py="$1.5"
+                borderRadius="$full"
+              >
+                <Text
+                  size="sm"
+                  fontWeight="$semibold"
+                  color={isActive ? "$white" : "$textLight700"}
+                >
+                  {t(opt.labelKey, opt.labelFallback)}
+                </Text>
+              </Pressable>
+            );
+          }}
+        />
+      </Box>
 
+      {/* List */}
       {loading && ads.length === 0 ? (
-        <ListSkeleton items={6} />
+        <Box flex={1} alignItems="center" justifyContent="center">
+          <Spinner color="$primary600" />
+        </Box>
       ) : (
         <FlatList
           data={ads}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          onEndReached={handleLoadMore}
+          contentContainerStyle={{
+            paddingHorizontal: 14,
+            paddingBottom: insets.bottom + 24,
+          }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                setPage(1);
+                fetchAds(1, true);
+              }}
+            />
+          }
+          onEndReached={() => {
+            if (!hasMore || loadingMore) return;
+            setLoadingMore(true);
+            const next = page + 1;
+            setPage(next);
+            fetchAds(next);
+          }}
           onEndReachedThreshold={0.3}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>Aucun ADS trouvé.</Text>
+            <Box py="$10" alignItems="center">
+              <Text color="$textLight500" textAlign="center">
+                {t("ads.empty", "Aucun ADS trouvé.")}
+              </Text>
+            </Box>
+          }
+          ListFooterComponent={
+            loadingMore ? (
+              <Box py="$3" alignItems="center">
+                <Spinner color="$primary600" />
+              </Box>
+            ) : null
           }
         />
       )}
-    </View>
+    </Box>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  searchInput: {
-    margin: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: colors.textPrimary,
-    backgroundColor: colors.surface,
-  },
-  filterRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    paddingHorizontal: 14,
-    marginBottom: 10,
-  },
-  filterChip: {},
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  listContent: {
-    paddingHorizontal: 14,
-    paddingBottom: 20,
-    gap: 10,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  reference: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.primary,
-  },
-  purpose: {
-    fontSize: 13,
-    color: colors.textPrimary,
-    marginBottom: 6,
-  },
-  cardFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  meta: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  site: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 4,
-  },
-  emptyText: {
-    textAlign: "center",
-    color: colors.textMuted,
-    fontSize: 15,
-    marginTop: 40,
-  },
-});

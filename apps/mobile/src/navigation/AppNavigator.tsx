@@ -28,6 +28,7 @@ import { colors } from "../utils/colors";
 
 // Screens
 import LoginScreen from "../screens/LoginScreen";
+import PairingScanScreen from "../screens/PairingScanScreen";
 import PortalHomeScreen from "../screens/PortalHomeScreen";
 import ScanAdsScreen from "../screens/ScanAdsScreen";
 import SmartScanScreen from "../screens/SmartScanScreen";
@@ -445,7 +446,14 @@ export default function AppNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!isAuthenticated ? (
-        <Stack.Screen name="Login" component={LoginScreen} />
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen
+            name="PairingScan"
+            component={PairingScanScreen}
+            options={{ presentation: "modal", animation: "slide_from_bottom" }}
+          />
+        </>
       ) : showOnboarding && onboardingChecked ? (
         <Stack.Screen name="Onboarding">
           {() => <OnboardingScreen onComplete={() => setShowOnboarding(false)} />}

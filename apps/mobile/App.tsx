@@ -84,6 +84,11 @@ export default function App() {
       } catch (err) {
         if (__DEV__) console.warn("[App] i18n hydrate failed:", err);
       }
+      // Hydrate the sync manifest so we know what hash we're aligned with
+      try {
+        const { hydrateSyncHash } = await import("./src/services/syncManifest");
+        await hydrateSyncHash();
+      } catch {}
       try {
         await restoreAuth();
       } catch (err) {
@@ -117,8 +122,48 @@ export default function App() {
     };
   }, []);
 
-  // Refresh data when app comes back from background
-  useAppLifecycle();
+  // Refresh data when app comes back from background, network restores,
+  // or every 15 minutes (Epicollect-style).
+  useAppLifecycle({
+    onResume: async () => {
+      const { checkAndSync } = await import("./src/services/syncManifest");
+      const { triggerBootstrapRefresh } = await import("./src/hooks/useBootstrap");
+      checkAndSync(async () => triggerBootstrapRefresh()).catch(() => {});
+    },
+  });
+
+  // Subscribe to network online transitions to trigger a sync check.
+  useEffect(() => {
+    let prevOnline = true;
+    let unsub: (() => void) | undefined;
+    (async () => {
+      const { useOfflineStore } = await import("./src/services/offline");
+      unsub = useOfflineStore.subscribe(async (state) => {
+        if (!prevOnline && state.isOnline) {
+          // Just came back online — sync
+          const { checkAndSync } = await import("./src/services/syncManifest");
+          const { triggerBootstrapRefresh } = await import("./src/hooks/useBootstrap");
+          checkAndSync(async () => triggerBootstrapRefresh()).catch(() => {});
+        }
+        prevOnline = state.isOnline;
+      });
+    })();
+    return () => unsub?.();
+  }, []);
+
+  // Periodic 15-min sync polling while authenticated.
+  useEffect(() => {
+    if (initializing) return;
+    if (!useAuthStore.getState().isAuthenticated) return;
+    let cleanup: (() => void) | undefined;
+    (async () => {
+      const { startSyncPolling, stopSyncPolling } = await import("./src/services/syncManifest");
+      const { triggerBootstrapRefresh } = await import("./src/hooks/useBootstrap");
+      startSyncPolling(async () => triggerBootstrapRefresh());
+      cleanup = stopSyncPolling;
+    })();
+    return () => cleanup?.();
+  }, [initializing]);
 
   // Persist auth whenever access token changes
   useEffect(() => {

@@ -229,15 +229,133 @@ async def get_sync_manifest(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Lightweight manifest of all definition versions.
+    Lightweight manifest of all definition hashes — the mobile app calls
+    this periodically (every 15 min in background, on app foreground, on
+    network reconnect) to detect what changed since the last bootstrap.
 
-    The mobile app calls this periodically (or on reconnect) to check
-    if cached form/portal definitions are stale.
+    Response shape:
+      {
+        "bootstrap_hash": "...",        # hash of the entire bootstrap result
+        "forms": {form_id: hash},       # per-form hash for partial refresh
+        "portals_hash": "...",          # hash of portals payload
+        "i18n_hash": "...",             # hash of current user's i18n catalog
+        "settings_hash": "...",         # user + entity settings hash
+        "permissions_hash": "...",      # user permissions hash
+        "lookups_hashes": {},           # per-lookup endpoint hash (future)
+        "server_time": "ISO-8601"       # for clock-skew detection
+      }
     """
-    forms = get_all_form_definitions()
-    portals = get_portal_definitions()
+    import hashlib
+    import json
+    from datetime import UTC, datetime
+
+    def _h(payload) -> str:
+        """SHA-256 of a stable JSON serialization."""
+        s = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+        return hashlib.sha256(s.encode()).hexdigest()[:16]
+
+    # Forms — per-form hash so the mobile can do partial refresh
+    forms_hashes: dict[str, str] = {}
+    forms_payload: list = []
+    try:
+        forms_payload = get_all_form_definitions()
+        for f in forms_payload:
+            forms_hashes[f["id"]] = _h(f)
+    except Exception:
+        pass
+
+    # Portals
+    try:
+        portals_payload = get_portal_definitions()
+        portals_hash = _h(portals_payload)
+    except Exception:
+        portals_hash = ""
+
+    # Permissions — reuse same resolver as bootstrap for consistency
+    permissions: list[str] = []
+    try:
+        from fastapi import Request as _Request
+        # We don't have a Request here; resolve_acting_context needs one.
+        # Fall back to direct query on UserGroupRole → Permission.
+        from app.models.common import UserGroupRole, UserGroup, UserGroupMember, RolePermission, Permission as PermModel
+        result = await db.execute(
+            select(PermModel.code)
+            .join(RolePermission, RolePermission.permission_code == PermModel.code)
+            .join(UserGroupRole, UserGroupRole.role_code == RolePermission.role_code)
+            .join(UserGroup, UserGroup.id == UserGroupRole.group_id)
+            .join(UserGroupMember, UserGroupMember.group_id == UserGroup.id)
+            .where(UserGroupMember.user_id == current_user.id, UserGroup.active == True)  # noqa: E712
+            .distinct()
+        )
+        permissions = sorted([row[0] for row in result.all()])
+    except Exception:
+        pass
+
+    # i18n catalog hash for user's language
+    user_lang = (current_user.language or "fr").lower()[:2]
+    i18n_hash = ""
+    try:
+        from app.models.common import I18nCatalogMeta
+        meta = (
+            await db.execute(
+                select(I18nCatalogMeta)
+                .where(I18nCatalogMeta.language_code == user_lang)
+                .where(I18nCatalogMeta.namespace == "mobile")
+            )
+        ).scalar_one_or_none()
+        if meta:
+            i18n_hash = meta.hash[:16]
+    except Exception:
+        pass
+
+    # Settings
+    settings_payload: dict = {}
+    try:
+        user_settings = (
+            await db.execute(
+                select(Setting).where(
+                    Setting.scope == "user",
+                    Setting.scope_id == str(current_user.id),
+                )
+            )
+        ).scalars().all()
+        entity_settings = (
+            await db.execute(
+                select(Setting).where(Setting.scope.in_(["tenant", "entity"]))
+            )
+        ).scalars().all()
+        settings_payload = {
+            "user": {s.key: s.value for s in user_settings},
+            "entity": {
+                s.key: s.value
+                for s in entity_settings
+                if not any(
+                    s.key.startswith(p)
+                    for p in ("integration.", "smtp.", "ldap.", "jwt.", "auth.password")
+                )
+            },
+        }
+    except Exception:
+        pass
+
+    # Compute the all-encompassing bootstrap_hash so the mobile can fast-path
+    # "nothing changed" without comparing each individual hash.
+    aggregate = {
+        "forms": forms_hashes,
+        "portals": portals_hash,
+        "permissions": permissions,
+        "i18n": i18n_hash,
+        "settings": settings_payload,
+    }
+    bootstrap_hash = _h(aggregate)
 
     return {
-        "forms": {f["id"]: f["version"] for f in forms},
-        "portals": {p["id"]: p["id"] for p in portals},
+        "bootstrap_hash": bootstrap_hash,
+        "forms": forms_hashes,
+        "portals_hash": portals_hash,
+        "i18n_hash": i18n_hash,
+        "settings_hash": _h(settings_payload),
+        "permissions_hash": _h(sorted(permissions)),
+        "lookups_hashes": {},  # reserved for future per-endpoint hashes
+        "server_time": datetime.now(UTC).isoformat(),
     }

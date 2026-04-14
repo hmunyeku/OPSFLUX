@@ -26,7 +26,23 @@ import { compareVersions } from "../screens/ForceUpdateScreen";
 import { prefetchLookups, extractLookupEndpoints } from "../services/lookupCache";
 import i18n from "../locales/i18n";
 import { useI18nStore } from "../stores/i18n";
+import { create } from "zustand";
 import type { FormDefinition, PortalDefinition } from "../types/forms";
+
+/**
+ * Tiny global store used by syncManifest.ts to ask the active
+ * useBootstrap() hook to refetch. We bump `version` and the hook
+ * reacts.
+ */
+export const useBootstrapTrigger = create<{ version: number; bump: () => void }>((set) => ({
+  version: 0,
+  bump: () => set((s) => ({ version: s.version + 1 })),
+}));
+
+/** External hook to trigger a bootstrap refresh from anywhere. */
+export function triggerBootstrapRefresh(): void {
+  useBootstrapTrigger.getState().bump();
+}
 
 const BOOTSTRAP_URL = "/api/v1/mobile/bootstrap";
 
@@ -181,6 +197,18 @@ export function useBootstrap() {
         const endpoints = extractLookupEndpoints(data.forms);
         prefetchLookups(endpoints).catch(() => {});
       }
+
+      // 7. Capture the current sync baseline so periodic checks know
+      //    what hash they're comparing against. Reset to "" so the next
+      //    /sync-manifest call adopts the server's current hash without
+      //    triggering an immediate re-reload.
+      try {
+        const { setSyncBaseline, checkAndSync } = await import("../services/syncManifest");
+        setSyncBaseline("");
+        checkAndSync(async () => {}).catch(() => {});
+      } catch {
+        /* sync service not yet available — non-fatal */
+      }
     } catch (err: any) {
       setState((prev) => ({
         ...prev,
@@ -193,6 +221,14 @@ export function useBootstrap() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Subscribe to the global trigger so external services (syncManifest)
+  // can ask us to reload. Each bump in `version` triggers a refetch.
+  const triggerVersion = useBootstrapTrigger((s) => s.version);
+  useEffect(() => {
+    if (triggerVersion === 0) return; // initial mount only
+    load();
+  }, [triggerVersion, load]);
 
   return {
     ...state,

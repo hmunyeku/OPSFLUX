@@ -27,6 +27,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Sparkles,
   Trash2,
   Upload,
   X,
@@ -253,6 +254,7 @@ export default function I18nTab() {
           onChange={(e) => setNamespace(e.target.value)}
           className="gl-form-input w-32"
         >
+          <option value="app">app</option>
           <option value="mobile">mobile</option>
           <option value="backoffice">backoffice</option>
           <option value="email">email</option>
@@ -264,6 +266,12 @@ export default function I18nTab() {
         >
           <Plus size={14} /> Ajouter une clé
         </button>
+
+        <AiTranslateButton
+          sourceLang="fr"
+          targetLang={currentLang}
+          namespace={namespace}
+        />
 
         <ImportExportMenu
           languageCode={currentLang}
@@ -508,6 +516,68 @@ function AddKeyRow({
 }
 
 /* ── Import / Export ─────────────────────────────────────────────────── */
+
+function AiTranslateButton({
+  sourceLang,
+  targetLang,
+  namespace,
+}: {
+  sourceLang: string
+  targetLang: string
+  namespace: string
+}) {
+  const qc = useQueryClient()
+  const [result, setResult] = useState<{ translated: number; total_missing: number } | null>(null)
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post('/api/v1/i18n/admin/ai-translate', null, {
+        params: { source_lang: sourceLang, target_lang: targetLang, namespace },
+      })
+      return data as { translated: number; total_missing: number }
+    },
+    onSuccess: (data) => {
+      setResult(data)
+      qc.invalidateQueries({ queryKey: ['i18n', 'messages'] })
+    },
+  })
+
+  // Don't show if target is same as source
+  if (targetLang === sourceLang) return null
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => { setResult(null); mutation.mutate() }}
+        disabled={mutation.isPending}
+        className="gl-button-sm gl-button-default flex items-center gap-1.5"
+        title={`Traduire automatiquement les clés manquantes du ${sourceLang.toUpperCase()} vers ${targetLang.toUpperCase()} via l'IA`}
+      >
+        {mutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+        Traduire ({sourceLang.toUpperCase()} → {targetLang.toUpperCase()})
+      </button>
+      {result && (
+        <div className="absolute top-full mt-1 right-0 z-10 bg-card border border-border rounded-md shadow-lg px-3 py-2 text-xs whitespace-nowrap">
+          <span className="text-green-600 font-medium">{result.translated}</span> clés traduites
+          {result.total_missing > result.translated && (
+            <span className="text-muted-foreground"> / {result.total_missing} manquantes</span>
+          )}
+          <button onClick={() => setResult(null)} className="ml-2 text-muted-foreground hover:text-foreground">
+            <X size={10} />
+          </button>
+        </div>
+      )}
+      {mutation.isError && (
+        <div className="absolute top-full mt-1 right-0 z-10 bg-destructive/10 border border-destructive/30 rounded-md shadow-lg px-3 py-2 text-xs text-destructive whitespace-nowrap">
+          Erreur de traduction IA
+          <button onClick={() => mutation.reset()} className="ml-2 text-destructive/60 hover:text-destructive">
+            <X size={10} />
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function ImportExportMenu({
   languageCode,

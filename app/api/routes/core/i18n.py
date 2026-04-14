@@ -503,9 +503,17 @@ async def admin_ai_translate(
         lines = "\n".join(f"{k} = {v}" for k, v in batch)
 
         prompt = (
-            f"Translate the following UI labels from French to {target_label}. "
-            f"Keep the exact same keys (before =). Only translate the values (after =). "
-            f"Return ONLY the translated lines in the same format 'key = value', nothing else.\n\n"
+            f"You are translating UI labels for OpsFlux, a professional ERP platform "
+            f"for Oil & Gas operations. Translate from French to {target_label}.\n\n"
+            f"CRITICAL RULES:\n"
+            f"- Keep the exact same keys (before =). Only translate the values (after =).\n"
+            f"- PRESERVE all interpolation variables exactly as-is: {{{{count}}}}, {{{{name}}}}, {{{{0}}}}, etc.\n"
+            f"- PRESERVE all HTML tags: <strong>, <br/>, <a>, etc.\n"
+            f"- Maintain the same tone: formal/professional for business labels, friendly for user messages.\n"
+            f"- Keep technical terms (API, PDF, CSV, RBAC, PAX, POB, AdS) untranslated.\n"
+            f"- Keep brand names (OpsFlux, TravelWiz, PaxLog, PackLog, Planner) untranslated.\n"
+            f"- Use standard industry terminology for the target language.\n"
+            f"- Return ONLY the translated lines in the same format 'key = value', nothing else.\n\n"
             f"{lines}"
         )
 

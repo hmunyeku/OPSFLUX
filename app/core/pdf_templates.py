@@ -802,6 +802,50 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
             },
         },
     },
+    {
+        "slug": "packlog.cargo_label",
+        "name": "PackLog Cargo Label",
+        "description": (
+            "Physical label affixed to each cargo item, scannable by the "
+            "mobile app to capture GPS + status changes. 10×15 cm."
+        ),
+        "object_type": "cargo",
+        # A6 (105×148mm) — closest ISO size to the 100×150mm standard
+        # shipping-label format. Renders cleanly on most thermal printers.
+        "page_size": "A6",
+        "orientation": "portrait",
+        "margin_top": 5,
+        "margin_right": 5,
+        "margin_bottom": 5,
+        "margin_left": 5,
+        "variables_schema": {
+            "tracking_code": "Unique cargo tracking code (QR payload)",
+            "reference": "Human-readable cargo reference",
+            "description": "Cargo description",
+            "cargo_type": "Cargo type (GENERAL, REFRIG, HAZMAT, ...)",
+            "weight_kg": "Cargo weight in kg",
+            "sender_name": "Sender tier name",
+            "recipient_name": "Recipient name",
+            "destination_name": "Destination installation name",
+            "hazmat": "Whether the cargo is hazardous (bool)",
+            "request_code": "Cargo request (LT) reference if any",
+            "qr_code_data_uri": "Base64-encoded QR code PNG data URI",
+            "entity.name": "Entity name",
+            "generated_at": "Generation timestamp",
+        },
+        "default_versions": {
+            "fr": {
+                "body_html": "",
+                "header_html": None,
+                "footer_html": None,
+            },
+            "en": {
+                "body_html": "",
+                "header_html": None,
+                "footer_html": None,
+            },
+        },
+    },
 ]
 
 
@@ -2880,6 +2924,112 @@ _PLANNER_GANTT_EXPORT_BODY_EN = _PLANNER_GANTT_EXPORT_BODY_FR.replace(
 
 DEFAULT_PDF_TEMPLATES[9]["default_versions"]["fr"]["body_html"] = _PLANNER_GANTT_EXPORT_BODY_FR
 DEFAULT_PDF_TEMPLATES[9]["default_versions"]["en"]["body_html"] = _PLANNER_GANTT_EXPORT_BODY_EN
+
+
+# ── PackLog Cargo Label HTML (index 10) ─────────────────────────────────
+# 10×15 cm physical label. Kept deliberately simple so it prints clearly
+# on cheap thermal printers and handheld-camera-friendly QR stays large.
+
+_CARGO_LABEL_BODY_FR = """
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+         font-size: 9pt; color: #0f172a; margin: 0; }
+  .label { display: flex; flex-direction: column; gap: 4mm; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start;
+            border-bottom: 1pt solid #1e3a5f; padding-bottom: 2mm; }
+  .header .brand { font-size: 11pt; font-weight: 700; color: #1e3a5f; }
+  .header .entity { font-size: 7pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.5pt; }
+  .reference { font-size: 14pt; font-weight: 800; letter-spacing: 0.5pt; text-align: center;
+               padding: 2mm; background: #1e3a5f; color: #ffffff; border-radius: 2mm; }
+  .qr-block { display: flex; justify-content: center; margin: 1mm 0; }
+  .qr-block img { width: 52mm; height: 52mm; }
+  .tracking-code { font-family: 'Courier New', monospace; font-size: 9pt;
+                   text-align: center; letter-spacing: 0.5pt; color: #334155; }
+  .info { font-size: 8pt; line-height: 1.35; }
+  .info .row { display: flex; border-top: 0.5pt solid #e2e8f0; padding: 1mm 0; }
+  .info .row .label { width: 22mm; color: #64748b; font-size: 7pt;
+                      text-transform: uppercase; letter-spacing: 0.3pt; }
+  .info .row .value { flex: 1; font-weight: 500; }
+  .hazmat { background: #dc2626; color: #ffffff; font-weight: 700; font-size: 9pt;
+            text-align: center; padding: 2mm; border-radius: 1mm; letter-spacing: 0.5pt; }
+  .footer { font-size: 6pt; color: #94a3b8; text-align: center; margin-top: auto;
+            padding-top: 1mm; border-top: 0.5pt dashed #cbd5e1; }
+</style>
+<div class="label">
+  <div class="header">
+    <div>
+      <div class="brand">{{ entity.name or 'OpsFlux' }}</div>
+      <div class="entity">Bordereau de colis</div>
+    </div>
+    <div style="text-align: right; font-size: 7pt; color: #64748b;">
+      {{ generated_at }}
+    </div>
+  </div>
+
+  <div class="reference">{{ reference or tracking_code }}</div>
+
+  {% if hazmat %}
+  <div class="hazmat">⚠ MATIÈRE DANGEREUSE — MANIPULATION SPÉCIALE</div>
+  {% endif %}
+
+  <div class="qr-block">
+    <img src="{{ qr_code_data_uri }}" alt="QR code"/>
+  </div>
+  <div class="tracking-code">{{ tracking_code }}</div>
+
+  <div class="info">
+    {% if description %}
+    <div class="row"><div class="label">Désignation</div><div class="value">{{ description }}</div></div>
+    {% endif %}
+    {% if cargo_type %}
+    <div class="row"><div class="label">Type</div><div class="value">{{ cargo_type }}</div></div>
+    {% endif %}
+    {% if weight_kg %}
+    <div class="row"><div class="label">Poids</div><div class="value">{{ weight_kg }} kg</div></div>
+    {% endif %}
+    {% if sender_name %}
+    <div class="row"><div class="label">Expéditeur</div><div class="value">{{ sender_name }}</div></div>
+    {% endif %}
+    {% if recipient_name %}
+    <div class="row"><div class="label">Destinataire</div><div class="value">{{ recipient_name }}</div></div>
+    {% endif %}
+    {% if destination_name %}
+    <div class="row"><div class="label">Destination</div><div class="value">{{ destination_name }}</div></div>
+    {% endif %}
+    {% if request_code %}
+    <div class="row"><div class="label">N° LT</div><div class="value">{{ request_code }}</div></div>
+    {% endif %}
+  </div>
+
+  <div class="footer">
+    Scannez ce code avec l'application OpsFlux pour enregistrer la position et le statut.
+  </div>
+</div>
+"""
+
+_CARGO_LABEL_BODY_EN = _CARGO_LABEL_BODY_FR.replace(
+    "Bordereau de colis", "Cargo label"
+).replace(
+    "MATIÈRE DANGEREUSE — MANIPULATION SPÉCIALE", "HAZARDOUS MATERIAL — SPECIAL HANDLING"
+).replace(
+    "Désignation", "Description"
+).replace(
+    "Poids", "Weight"
+).replace(
+    "Expéditeur", "Sender"
+).replace(
+    "Destinataire", "Recipient"
+).replace(
+    "Destination", "Destination"
+).replace(
+    "N° LT", "LT #"
+).replace(
+    "Scannez ce code avec l'application OpsFlux pour enregistrer la position et le statut.",
+    "Scan this code with the OpsFlux app to record position and status.",
+)
+
+DEFAULT_PDF_TEMPLATES[10]["default_versions"]["fr"]["body_html"] = _CARGO_LABEL_BODY_FR
+DEFAULT_PDF_TEMPLATES[10]["default_versions"]["en"]["body_html"] = _CARGO_LABEL_BODY_EN
 
 
 # ── Rendering helpers ────────────────────────────────────────────────────

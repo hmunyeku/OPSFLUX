@@ -49,6 +49,7 @@ import LiveTrackingScreen from "../screens/LiveTrackingScreen";
 import CaptainPortalScreen from "../screens/CaptainPortalScreen";
 import DriverPickupScreen from "../screens/DriverPickupScreen";
 import MyPickupWaitingScreen from "../screens/MyPickupWaitingScreen";
+import CargoScanAssistantScreen from "../screens/CargoScanAssistantScreen";
 import AdsDetailScreen from "../screens/AdsDetailScreen";
 import VoyageDetailScreen from "../screens/VoyageDetailScreen";
 import CargoReceptionScreen from "../screens/CargoReceptionScreen";
@@ -216,6 +217,11 @@ function SharedScreens() {
         name="MyPickupWaiting"
         component={MyPickupWaitingScreen as any}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="CargoScanAssistant"
+        component={CargoScanAssistantScreen as any}
+        options={{ title: "Scan Colis" }}
       />
     </>
   );

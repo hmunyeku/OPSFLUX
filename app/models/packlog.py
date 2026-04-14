@@ -211,6 +211,64 @@ class CargoAttachmentEvidence(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
 
+# ─── Cargo Scan Events ──────────────────────────────────────────────────────
+
+class CargoScanEvent(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """GPS-stamped scan event recording *when and where* a cargo was seen.
+
+    Produced every time a mobile operator scans a cargo label. The
+    latitude/longitude are the scanner's position at the moment of the
+    scan — NOT the cargo's. We use them to auto-detect which
+    ar_installation (or address) the cargo is most likely at, by
+    comparing against a configurable radius (Setting
+    ``packlog.scan_radius_m``, default 500m).
+
+    The ``action`` field disambiguates scan types:
+      - ``scan``               — passive read, no status change
+      - ``location_confirmed`` — operator confirmed the matched location
+      - ``location_corrected`` — operator picked a different location
+      - ``status_updated``     — operator changed status through the scan
+    """
+    __tablename__ = "cargo_scan_events"
+    __table_args__ = (
+        Index("idx_cargo_scan_events_cargo", "cargo_item_id"),
+        Index("idx_cargo_scan_events_scanned_at", "scanned_at"),
+        Index("idx_cargo_scan_events_user", "user_id"),
+    )
+
+    entity_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("entities.id"), nullable=False
+    )
+    cargo_item_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("cargo_items.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True,
+    )
+    scanned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    accuracy_m: Mapped[float | None] = mapped_column(Float)
+    # Nearest installation within the configured radius at scan time.
+    matched_asset_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=True
+    )
+    matched_distance_m: Mapped[float | None] = mapped_column(Float)
+    # Final decision after operator confirmation (may differ from matched).
+    confirmed_asset_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ar_installations.id"), nullable=True
+    )
+    status_before: Mapped[str | None] = mapped_column(String(40))
+    status_after: Mapped[str | None] = mapped_column(String(40))
+    action: Mapped[str] = mapped_column(String(40), nullable=False, default="scan")
+    note: Mapped[str | None] = mapped_column(String(500))
+    device_id: Mapped[str | None] = mapped_column(String(200))
+
+
 # ─── Article Catalog (SAP matching) ─────────────────────────────────────────
 
 class ArticleCatalog(UUIDPrimaryKeyMixin, TimestampMixin, Base):

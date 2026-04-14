@@ -414,3 +414,71 @@ class VoyageCargoTrackingRead(BaseModel):
     scheduled_arrival: datetime | None = None
     cargo_count: int
     items: list[VoyageCargoTrackingItemRead] = []
+
+
+# ─── Cargo scan (GPS-stamped) ───────────────────────────────────────────────
+
+class CargoScanRequest(BaseModel):
+    """Payload the mobile scanner sends with every scan."""
+
+    lat: float = Field(..., ge=-90, le=90)
+    lon: float = Field(..., ge=-180, le=180)
+    accuracy_m: float | None = Field(default=None, ge=0)
+    scanned_at: datetime | None = Field(
+        default=None,
+        description="Client-side timestamp; server uses NOW() when absent.",
+    )
+    device_id: str | None = Field(default=None, max_length=200)
+    note: str | None = Field(default=None, max_length=500)
+
+
+class ScanMatchedLocation(BaseModel):
+    id: UUID
+    name: str
+    code: str | None = None
+    distance_m: float
+    is_origin: bool = False
+    is_destination: bool = False
+
+
+class CargoScanResult(OpsFluxSchema):
+    """What the backend returns after storing a scan event."""
+
+    scan_event_id: UUID
+    cargo: "CargoRead"
+    scan: dict  # {lat, lon, accuracy_m, scanned_at}
+    matched_installation: ScanMatchedLocation | None = None
+    nearby_installations: list[ScanMatchedLocation] = []
+    radius_m: float
+    status_current: str
+    status_suggestion: str | None = None
+    status_suggestion_reason: str | None = None
+    can_update_status: bool = False
+
+
+class CargoScanConfirmRequest(BaseModel):
+    """Follow-up call after the user confirms / corrects the match."""
+
+    scan_event_id: UUID
+    confirmed_asset_id: UUID | None = None
+    new_status: str | None = Field(default=None, max_length=40)
+    note: str | None = Field(default=None, max_length=500)
+
+
+class CargoScanHistoryEntry(OpsFluxSchema):
+    id: UUID
+    scanned_at: datetime
+    latitude: float
+    longitude: float
+    accuracy_m: float | None
+    matched_asset_id: UUID | None
+    matched_asset_name: str | None = None
+    matched_distance_m: float | None
+    confirmed_asset_id: UUID | None
+    status_before: str | None
+    status_after: str | None
+    action: str
+    note: str | None
+    user_id: UUID | None
+    user_display_name: str | None = None
+    device_id: str | None

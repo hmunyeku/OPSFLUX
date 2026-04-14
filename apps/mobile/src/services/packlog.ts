@@ -75,3 +75,87 @@ export async function receiveCargo(
   );
   return data;
 }
+
+/** Authenticated resolve: tracking_code → full CargoRead (with id). */
+export async function getCargoByTrackingCode(
+  trackingCode: string
+): Promise<CargoRead> {
+  const { data } = await api.get<CargoRead>(
+    `/api/v1/packlog/cargo/by-tracking/${encodeURIComponent(trackingCode)}`
+  );
+  return data;
+}
+
+// ── Scan (GPS-stamped) ─────────────────────────────────────────────────────
+
+export interface ScanMatchedLocation {
+  id: string;
+  name: string;
+  code: string | null;
+  distance_m: number;
+  is_origin: boolean;
+  is_destination: boolean;
+}
+
+export interface CargoScanRequest {
+  lat: number;
+  lon: number;
+  accuracy_m?: number | null;
+  scanned_at?: string | null;
+  device_id?: string | null;
+  note?: string | null;
+}
+
+export interface CargoScanResult {
+  scan_event_id: string;
+  cargo: CargoRead;
+  scan: {
+    lat: number;
+    lon: number;
+    accuracy_m: number | null;
+    scanned_at: string;
+  };
+  matched_installation: ScanMatchedLocation | null;
+  nearby_installations: ScanMatchedLocation[];
+  radius_m: number;
+  status_current: string;
+  status_suggestion: string | null;
+  status_suggestion_reason: string | null;
+  can_update_status: boolean;
+}
+
+/** Record a GPS-stamped scan and get the location + status suggestion. */
+export async function scanCargo(
+  cargoId: string,
+  payload: CargoScanRequest
+): Promise<CargoScanResult> {
+  const { data } = await api.post<CargoScanResult>(
+    `/api/v1/packlog/cargo/${cargoId}/scan`,
+    payload
+  );
+  return data;
+}
+
+export interface CargoScanConfirmRequest {
+  scan_event_id: string;
+  confirmed_asset_id?: string | null;
+  new_status?: string | null;
+  note?: string | null;
+}
+
+/** Apply the operator's confirmation (optional status change). */
+export async function confirmCargoScan(
+  cargoId: string,
+  body: CargoScanConfirmRequest
+): Promise<CargoRead> {
+  const { data } = await api.post<CargoRead>(
+    `/api/v1/packlog/cargo/${cargoId}/scan/confirm`,
+    body
+  );
+  return data;
+}
+
+/** Build the URL to download the cargo label PDF. */
+export function cargoLabelPdfPath(cargoId: string, language: string = "fr"): string {
+  return `/api/v1/packlog/cargo/${cargoId}/label.pdf?language=${language}`;
+}

@@ -18,7 +18,8 @@ import {
   View,
 } from "react-native";
 import QrScanner from "../components/QrScanner";
-import { getPublicCargoTracking } from "../services/packlog";
+import { getCargoByTrackingCode, getPublicCargoTracking } from "../services/packlog";
+import { useAuthStore } from "../stores/auth";
 import { colors } from "../utils/colors";
 
 interface Props {
@@ -46,6 +47,26 @@ export default function ScanCargoScreen({ navigation }: Props) {
 
     setLoading(true);
     try {
+      // Authenticated users go through the scan assistant (GPS capture
+      // + location match + optional status change). Anonymous users
+      // fall back to the public tracking page.
+      const isAuth = !!useAuthStore.getState().accessToken;
+      if (isAuth) {
+        try {
+          const cargo = await getCargoByTrackingCode(trackingCode);
+          navigation.replace("CargoScanAssistant", {
+            cargoId: cargo.id,
+            trackingCode,
+          });
+          return;
+        } catch (authErr: any) {
+          // Fall through to public tracking if the authed lookup
+          // 404s — shouldn't happen for a valid code within the user's
+          // entity, but keeps public codes (cross-entity return
+          // receipts, etc.) working.
+          if (authErr?.response?.status !== 404) throw authErr;
+        }
+      }
       const tracking = await getPublicCargoTracking(trackingCode);
       navigation.navigate("CargoDetail", { tracking, trackingCode });
     } catch (err: any) {

@@ -22,6 +22,9 @@ from app.schemas.packlog import (
     CargoRequestCreate,
     CargoRequestRead,
     CargoRequestUpdate,
+    CargoScanConfirmRequest,
+    CargoScanHistoryEntry,
+    CargoScanRequest,
     CargoTrackingRead,
     CargoUpdate,
     CargoStatusUpdate,
@@ -322,6 +325,279 @@ async def update_cargo_workflow_status(
         entity_id=entity_id,
         current_user=current_user,
         db=db,
+    )
+
+
+@router.get("/cargo/by-tracking/{tracking_code}", response_model=CargoRead)
+async def get_cargo_by_tracking_code(
+    tracking_code: str,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = PACKLOG_READ,
+    db: AsyncSession = Depends(get_db),
+):
+    """Resolve a cargo by its human-scannable tracking_code.
+
+    Used by the authenticated mobile scanner so it can hand off to
+    the /scan endpoint (which requires the UUID).
+    """
+    from app.models.packlog import CargoItem
+    from sqlalchemy import select as _select
+    from app.api.routes.modules.packlog_shared import build_packlog_cargo_read_data
+
+    row = await db.execute(
+        _select(CargoItem).where(
+            CargoItem.tracking_code == tracking_code,
+            CargoItem.entity_id == entity_id,
+            CargoItem.active == True,  # noqa: E712
+        ).limit(1)
+    )
+    cargo = row.scalar_one_or_none()
+    if cargo is None:
+        raise HTTPException(status_code=404, detail="Cargo not found")
+    return await build_packlog_cargo_read_data(db, cargo)
+
+
+# ─── Cargo Scan (GPS-stamped tracking) ──────────────────────────────────────
+#
+# Any authorized user with `packlog.cargo.read` can record a scan. Status
+# transition via scan requires `packlog.cargo.update` in addition.
+
+PACKLOG_SCAN_LIST = require_permission("packlog.cargo.read")
+
+
+@router.post("/cargo/{cargo_id}/scan")
+async def scan_cargo(
+    cargo_id: UUID,
+    body: CargoScanRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = PACKLOG_READ,
+    db: AsyncSession = Depends(get_db),
+):
+    """Log a GPS-stamped scan and return the location-match + status suggestion."""
+    from app.services.modules.packlog_scan_service import record_scan
+    from app.services.modules.packlog_service import get_packlog_cargo_or_404
+    from app.api.deps import has_user_permission
+
+    cargo = await get_packlog_cargo_or_404(db, cargo_id, entity_id)
+    result = await record_scan(
+        db,
+        cargo=cargo,
+        user=current_user,
+        lat=body.lat,
+        lon=body.lon,
+        accuracy_m=body.accuracy_m,
+        scanned_at=body.scanned_at,
+        device_id=body.device_id,
+        note=body.note,
+    )
+
+    # Hydrate the cargo view so the mobile has everything in one response.
+    from app.api.routes.modules.packlog_shared import build_packlog_cargo_read_data
+    result["cargo"] = await build_packlog_cargo_read_data(db, cargo)
+    result["can_update_status"] = await has_user_permission(
+        current_user, entity_id, "packlog.cargo.update", db
+    )
+    return result
+
+
+@router.post("/cargo/{cargo_id}/scan/confirm")
+async def confirm_cargo_scan(
+    cargo_id: UUID,
+    body: CargoScanConfirmRequest,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = PACKLOG_READ,
+    db: AsyncSession = Depends(get_db),
+):
+    """Apply the operator's confirmation (confirm location + optional status change)."""
+    from app.services.modules.packlog_scan_service import confirm_scan
+    from app.services.modules.packlog_service import get_packlog_cargo_or_404
+    from app.api.deps import has_user_permission
+
+    cargo = await get_packlog_cargo_or_404(db, cargo_id, entity_id)
+
+    # Status change requires the update permission on top of read.
+    if body.new_status and body.new_status != cargo.status:
+        allowed = await has_user_permission(
+            current_user, entity_id, "packlog.cargo.update", db
+        )
+        if not allowed:
+            raise HTTPException(
+                status_code=403,
+                detail="Permission denied: packlog.cargo.update required to change status via scan",
+            )
+
+    await confirm_scan(
+        db,
+        cargo=cargo,
+        user=current_user,
+        scan_event_id=body.scan_event_id,
+        confirmed_asset_id=body.confirmed_asset_id,
+        new_status=body.new_status,
+        note=body.note,
+    )
+
+    # Return the updated cargo so the mobile screen can refresh.
+    from app.api.routes.modules.packlog_shared import build_packlog_cargo_read_data
+    return await build_packlog_cargo_read_data(db, cargo)
+
+
+@router.get("/cargo/{cargo_id}/scan-history", response_model=list[CargoScanHistoryEntry])
+async def get_cargo_scan_history(
+    cargo_id: UUID,
+    limit: int = Query(default=50, ge=1, le=200),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = PACKLOG_READ,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the N most recent scan events for this cargo (newest first)."""
+    from app.models.packlog import CargoScanEvent
+    from app.models.asset_registry import Installation
+    from app.models.common import User as UserModel
+    from app.services.modules.packlog_service import get_packlog_cargo_or_404
+    from sqlalchemy import select
+
+    await get_packlog_cargo_or_404(db, cargo_id, entity_id)
+    rows = (await db.execute(
+        select(CargoScanEvent)
+        .where(
+            CargoScanEvent.cargo_item_id == cargo_id,
+            CargoScanEvent.entity_id == entity_id,
+        )
+        .order_by(CargoScanEvent.scanned_at.desc())
+        .limit(limit)
+    )).scalars().all()
+
+    # N+1-avoidant batch lookup of asset names + user names.
+    asset_ids = {e.matched_asset_id for e in rows if e.matched_asset_id}
+    asset_ids |= {e.confirmed_asset_id for e in rows if e.confirmed_asset_id}
+    user_ids = {e.user_id for e in rows if e.user_id}
+    asset_map: dict = {}
+    if asset_ids:
+        for inst in (await db.execute(
+            select(Installation).where(Installation.id.in_(list(asset_ids)))
+        )).scalars():
+            asset_map[inst.id] = inst
+    user_map: dict = {}
+    if user_ids:
+        for u in (await db.execute(
+            select(UserModel).where(UserModel.id.in_(list(user_ids)))
+        )).scalars():
+            user_map[u.id] = u
+
+    out: list[dict] = []
+    for e in rows:
+        display_user = None
+        if e.user_id and e.user_id in user_map:
+            u = user_map[e.user_id]
+            display_user = f"{u.first_name or ''} {u.last_name or ''}".strip() or u.email
+        matched_asset_name = None
+        if e.matched_asset_id and e.matched_asset_id in asset_map:
+            matched_asset_name = asset_map[e.matched_asset_id].name
+        out.append({
+            "id": e.id,
+            "scanned_at": e.scanned_at,
+            "latitude": e.latitude,
+            "longitude": e.longitude,
+            "accuracy_m": e.accuracy_m,
+            "matched_asset_id": e.matched_asset_id,
+            "matched_asset_name": matched_asset_name,
+            "matched_distance_m": e.matched_distance_m,
+            "confirmed_asset_id": e.confirmed_asset_id,
+            "status_before": e.status_before,
+            "status_after": e.status_after,
+            "action": e.action,
+            "note": e.note,
+            "user_id": e.user_id,
+            "user_display_name": display_user,
+            "device_id": e.device_id,
+        })
+    return out
+
+
+@router.get("/cargo/{cargo_id}/label.pdf")
+async def download_cargo_label_pdf(
+    cargo_id: UUID,
+    language: str = Query(default="fr", description="Label language (fr, en)"),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = PACKLOG_READ,
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate a printable 10×15cm label PDF for this cargo.
+
+    The QR code embedded in the label contains the tracking_code, which
+    is what the mobile scanner reads to fire a scan event against this
+    cargo.
+    """
+    from app.core.pdf_templates import generate_qr_base64, render_pdf
+    from app.services.modules.packlog_service import get_packlog_cargo_or_404
+    from app.models.common import Entity
+    from app.models.asset_registry import Installation
+    from datetime import datetime as _dt, timezone as _tz
+    from fastapi.responses import Response
+    from sqlalchemy import select as _select
+
+    cargo = await get_packlog_cargo_or_404(db, cargo_id, entity_id)
+
+    # Load related display names (single round-trip each).
+    entity = await db.get(Entity, entity_id)
+    destination = None
+    if cargo.destination_asset_id:
+        destination = await db.get(Installation, cargo.destination_asset_id)
+
+    sender_name = None
+    if cargo.sender_tier_id:
+        from app.models.common import Tier
+        sender = await db.get(Tier, cargo.sender_tier_id)
+        sender_name = sender.name if sender else None
+
+    request_code = None
+    if cargo.request_id:
+        from app.models.packlog import CargoRequest
+        req = await db.get(CargoRequest, cargo.request_id)
+        request_code = req.request_code if req else None
+
+    # QR code payload = tracking_code (simple + scannable by any mobile).
+    qr_data_uri = generate_qr_base64(cargo.tracking_code, box_size=8, border=1)
+
+    variables = {
+        "tracking_code": cargo.tracking_code,
+        "reference": cargo.tracking_code,  # human-visible reference
+        "description": cargo.description,
+        "cargo_type": cargo.cargo_type,
+        "weight_kg": cargo.weight_kg,
+        "sender_name": sender_name,
+        "recipient_name": cargo.receiver_name,
+        "destination_name": destination.name if destination else None,
+        "hazmat": bool(cargo.hazmat_validated),
+        "request_code": request_code,
+        "qr_code_data_uri": qr_data_uri,
+        "entity": {"name": entity.name if entity else ""},
+        "generated_at": _dt.now(_tz.utc).strftime("%Y-%m-%d %H:%M UTC"),
+    }
+
+    pdf_bytes = await render_pdf(
+        db,
+        slug="packlog.cargo_label",
+        entity_id=entity_id,
+        language=language,
+        variables=variables,
+    )
+    if not pdf_bytes:
+        raise HTTPException(
+            status_code=404,
+            detail="Template 'packlog.cargo_label' introuvable — seed via scripts/seed_pdf_templates.",
+        )
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="label_{cargo.tracking_code}.pdf"',
+        },
     )
 
 

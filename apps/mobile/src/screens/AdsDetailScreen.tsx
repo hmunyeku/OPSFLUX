@@ -1,33 +1,46 @@
 /**
- * ADS Detail Screen — full view of a single Avis de Séjour.
+ * AdsDetailScreen — Gluestack refonte: full view of a single Avis de Séjour.
  *
- * Shows:
- *  - Header with reference, status, dates
- *  - Site information
- *  - Transport details (outbound/return)
- *  - PAX list with compliance status
- *  - Action buttons (submit, approve, reject based on permissions)
- *  - History/timeline
+ * Layout:
+ *   - Header card: reference + status + visit purpose + category chip + A/R chip
+ *   - Site / Period / Requester card (icon + label + value rows)
+ *   - Transport card (outbound + return modes + departure base)
+ *   - PAX list card (each entry with status badge + non-conformité tag)
+ *   - Action buttons (Soumettre / Approuver / Rejeter — based on permissions)
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  ActivityIndicator,
+  Badge,
+  BadgeText,
+  Box,
   Button,
-  Card,
-  Chip,
+  ButtonSpinner,
+  ButtonText,
   Divider,
-  List,
-  Surface,
+  Heading,
+  HStack,
+  Icon,
+  Spinner,
   Text,
-} from "react-native-paper";
+  VStack,
+} from "@gluestack-ui/themed";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Calendar,
+  MapPin,
+  Repeat,
+  User,
+  Users,
+} from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
 import { api } from "../services/api";
 import { usePermissions } from "../stores/permissions";
 import { useToast } from "../components/Toast";
-import { colors } from "../utils/colors";
 import type { AdsSummary } from "../types/api";
 
 interface Props {
@@ -54,24 +67,25 @@ interface AdsDetail extends AdsSummary {
   }>;
 }
 
-const TRANSPORT_LABELS: Record<string, string> = {
-  helicopter: "Hélicoptère",
-  boat: "Bateau",
-  road: "Route",
-  other: "Autre",
+const TRANSPORT_LABELS: Record<string, { key: string; fb: string }> = {
+  helicopter: { key: "ads.transport.helicopter", fb: "Hélicoptère" },
+  boat: { key: "ads.transport.boat", fb: "Bateau" },
+  road: { key: "ads.transport.road", fb: "Route" },
+  other: { key: "ads.transport.other", fb: "Autre" },
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  project_work: "Travaux projet",
-  maintenance: "Maintenance",
-  inspection: "Inspection",
-  visit: "Visite",
-  permanent_ops: "Opérations permanentes",
-  other: "Autre",
+const CATEGORY_LABELS: Record<string, { key: string; fb: string }> = {
+  project_work: { key: "ads.category.projectWork", fb: "Travaux projet" },
+  maintenance: { key: "ads.category.maintenance", fb: "Maintenance" },
+  inspection: { key: "ads.category.inspection", fb: "Inspection" },
+  visit: { key: "ads.category.visit", fb: "Visite" },
+  permanent_ops: { key: "ads.category.permanentOps", fb: "Opérations permanentes" },
+  other: { key: "ads.category.other", fb: "Autre" },
 };
 
-export default function AdsDetailScreen({ route, navigation }: Props) {
+export default function AdsDetailScreen({ route }: Props) {
   const { adsId } = route.params;
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const [ads, setAds] = useState<AdsDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,39 +99,42 @@ export default function AdsDetailScreen({ route, navigation }: Props) {
       const { data } = await api.get(`/api/v1/pax/ads/${adsId}`);
       setAds(data);
     } catch {
-      toast.show("Impossible de charger l'ADS", "error");
+      toast.show(t("ads.loadError", "Impossible de charger l'ADS"), "error");
     } finally {
       setLoading(false);
     }
-  }, [adsId]);
+  }, [adsId, toast, t]);
 
   useEffect(() => {
     loadAds();
   }, [loadAds]);
 
-  async function handleAction(action: "submit" | "approve" | "reject") {
+  function handleAction(action: "submit" | "approve" | "reject") {
     if (!ads) return;
-    const confirmMessages = {
-      submit: "Soumettre cet ADS pour validation ?",
-      approve: "Approuver cet ADS ?",
-      reject: "Rejeter cet ADS ?",
+    const confirmMessages: Record<string, string> = {
+      submit: t("ads.confirmSubmit", "Soumettre cet ADS pour validation ?"),
+      approve: t("ads.confirmApprove", "Approuver cet ADS ?"),
+      reject: t("ads.confirmReject", "Rejeter cet ADS ?"),
     };
 
-    Alert.alert("Confirmation", confirmMessages[action], [
-      { text: t("common.cancel"), style: "cancel" },
+    Alert.alert(t("common.confirm", "Confirmation"), confirmMessages[action], [
+      { text: t("common.cancel", "Annuler"), style: "cancel" },
       {
-        text: t("common.confirm"),
+        text: t("common.confirm", "Confirmer"),
         onPress: async () => {
           setActing(true);
           try {
             const { data } = await api.post(`/api/v1/pax/ads/${adsId}/${action}`);
             setAds(data);
-            toast.show(
-              action === "approve" ? "ADS approuvé" : action === "reject" ? "ADS rejeté" : "ADS soumis",
-              "success"
-            );
+            const successMsg =
+              action === "approve"
+                ? t("ads.approved", "ADS approuvé")
+                : action === "reject"
+                ? t("ads.rejected", "ADS rejeté")
+                : t("ads.submitted", "ADS soumis");
+            toast.show(successMsg, "success");
           } catch (err: any) {
-            toast.show(err?.response?.data?.detail || "Erreur", "error");
+            toast.show(err?.response?.data?.detail || t("common.error", "Erreur"), "error");
           } finally {
             setActing(false);
           }
@@ -128,198 +145,210 @@ export default function AdsDetailScreen({ route, navigation }: Props) {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <Box flex={1} bg="$backgroundLight50" alignItems="center" justifyContent="center">
+        <Spinner color="$primary600" />
+      </Box>
     );
   }
 
   if (!ads) {
     return (
-      <View style={styles.center}>
-        <Text variant="titleMedium">ADS introuvable</Text>
-      </View>
+      <Box flex={1} bg="$backgroundLight50" alignItems="center" justifyContent="center">
+        <Text color="$textLight500">{t("ads.notFound", "ADS introuvable")}</Text>
+      </Box>
     );
   }
 
+  const cat = CATEGORY_LABELS[ads.visit_category] ?? {
+    key: `ads.category.${ads.visit_category}`,
+    fb: ads.visit_category,
+  };
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <View style={styles.headerRow}>
-            <Text variant="headlineSmall" style={styles.reference}>
+    <Box flex={1} bg="$backgroundLight50">
+      <ScrollView
+        contentContainerStyle={{
+          paddingTop: insets.top + 8,
+          paddingHorizontal: 14,
+          paddingBottom: insets.bottom + 32,
+          gap: 12,
+        }}
+      >
+        {/* Header */}
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+          <HStack justifyContent="space-between" alignItems="center" mb="$2">
+            <Heading size="lg" color="$primary700">
               {ads.reference}
-            </Text>
+            </Heading>
             <StatusBadge status={ads.status} size="md" />
-          </View>
-          <Text variant="bodyLarge" style={styles.purpose}>
+          </HStack>
+          <Text size="md" color="$textLight900" mb="$3" lineHeight={22}>
             {ads.visit_purpose}
           </Text>
-          <Chip compact style={styles.categoryChip}>
-            {CATEGORY_LABELS[ads.visit_category] ?? ads.visit_category}
-          </Chip>
-          {ads.is_round_trip_no_overnight && (
-            <Chip compact icon="repeat" style={styles.roundTripChip}>
-              A/R sans nuitée
-            </Chip>
-          )}
-        </Card.Content>
-      </Card>
+          <HStack space="xs" flexWrap="wrap">
+            <Badge action="muted" variant="solid" size="sm">
+              <BadgeText>{t(cat.key, cat.fb)}</BadgeText>
+            </Badge>
+            {ads.is_round_trip_no_overnight && (
+              <Badge action="info" variant="solid" size="sm">
+                <Icon as={Repeat} size="2xs" color="$white" mr="$1" />
+                <BadgeText>{t("ads.roundTrip", "A/R sans nuitée")}</BadgeText>
+              </Badge>
+            )}
+          </HStack>
+        </Box>
 
-      {/* Dates & Site */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <List.Item
-            title="Site d'accueil"
-            description={ads.site_entry_asset_name}
-            left={(props) => <List.Icon {...props} icon="map-marker" />}
+        {/* Site / Period / Requester */}
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+          <DetailRow
+            icon={MapPin}
+            label={t("ads.site", "Site d'accueil")}
+            value={ads.site_entry_asset_name}
           />
-          <List.Item
-            title="Période"
-            description={`${ads.start_date} — ${ads.end_date}`}
-            left={(props) => <List.Icon {...props} icon="calendar" />}
+          <Divider my="$2" />
+          <DetailRow
+            icon={Calendar}
+            label={t("ads.period", "Période")}
+            value={`${ads.start_date} → ${ads.end_date}`}
           />
-          <List.Item
-            title="Demandeur"
-            description={ads.requester_display_name}
-            left={(props) => <List.Icon {...props} icon="account" />}
+          <Divider my="$2" />
+          <DetailRow
+            icon={User}
+            label={t("ads.requester", "Demandeur")}
+            value={ads.requester_display_name}
           />
-        </Card.Content>
-      </Card>
+        </Box>
 
-      {/* Transport */}
-      {(ads.outbound_transport_mode || ads.return_transport_mode) && (
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleSmall" style={styles.sectionTitle}>
-              Transport
-            </Text>
+        {/* Transport */}
+        {(ads.outbound_transport_mode || ads.return_transport_mode) && (
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+            <Heading
+              size="xs"
+              color="$textLight500"
+              textTransform="uppercase"
+              letterSpacing={0.5}
+              mb="$3"
+            >
+              {t("ads.transport", "Transport")}
+            </Heading>
             {ads.outbound_transport_mode && (
-              <List.Item
-                title="Aller"
-                description={`${TRANSPORT_LABELS[ads.outbound_transport_mode] ?? ads.outbound_transport_mode}${ads.outbound_departure_base_name ? ` — ${ads.outbound_departure_base_name}` : ""}`}
-                left={(props) => <List.Icon {...props} icon="arrow-right" />}
+              <DetailRow
+                icon={ArrowUpRight}
+                label={t("ads.outbound", "Aller")}
+                value={transportLabel(ads.outbound_transport_mode, ads.outbound_departure_base_name, t)}
               />
             )}
+            {ads.outbound_transport_mode && ads.return_transport_mode && <Divider my="$2" />}
             {ads.return_transport_mode && (
-              <List.Item
-                title="Retour"
-                description={`${TRANSPORT_LABELS[ads.return_transport_mode] ?? ads.return_transport_mode}${ads.return_departure_base_name ? ` — ${ads.return_departure_base_name}` : ""}`}
-                left={(props) => <List.Icon {...props} icon="arrow-left" />}
+              <DetailRow
+                icon={ArrowDownLeft}
+                label={t("ads.return", "Retour")}
+                value={transportLabel(ads.return_transport_mode, ads.return_departure_base_name, t)}
               />
             )}
-          </Card.Content>
-        </Card>
-      )}
+          </Box>
+        )}
 
-      {/* PAX List */}
-      {ads.pax_entries && ads.pax_entries.length > 0 && (
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleSmall" style={styles.sectionTitle}>
-              Personnel ({ads.pax_entries.length})
-            </Text>
-            {(ads.pax_entries ?? []).map((pax) => (
-              <View key={pax.id} style={styles.paxRow}>
-                <View style={{ flex: 1 }}>
-                  <Text variant="bodyMedium" style={styles.paxName}>
-                    {pax.display_name}
-                  </Text>
-                  {pax.company_name && (
-                    <Text variant="bodySmall" style={styles.paxCompany}>
-                      {pax.company_name}
+        {/* PAX list */}
+        {ads.pax_entries && ads.pax_entries.length > 0 && (
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+            <HStack alignItems="center" space="sm" mb="$3">
+              <Icon as={Users} size="sm" color="$textLight600" />
+              <Heading
+                size="xs"
+                color="$textLight500"
+                textTransform="uppercase"
+                letterSpacing={0.5}
+              >
+                {t("ads.pax", "Personnel")} ({ads.pax_entries.length})
+              </Heading>
+            </HStack>
+            {(ads.pax_entries ?? []).map((pax, idx) => (
+              <Box key={pax.id}>
+                {idx > 0 && <Divider my="$2" />}
+                <HStack alignItems="center" justifyContent="space-between">
+                  <VStack flex={1}>
+                    <Text size="sm" fontWeight="$medium" color="$textLight900">
+                      {pax.display_name}
                     </Text>
-                  )}
-                </View>
-                <View style={styles.paxRight}>
-                  <StatusBadge status={pax.status} />
-                  {!pax.compliance_ok && (
-                    <Text style={styles.nonCompliant}>Non conforme</Text>
-                  )}
-                </View>
-              </View>
+                    {pax.company_name && (
+                      <Text size="xs" color="$textLight500">
+                        {pax.company_name}
+                      </Text>
+                    )}
+                  </VStack>
+                  <VStack alignItems="flex-end" space="xs">
+                    <StatusBadge status={pax.status} />
+                    {!pax.compliance_ok && (
+                      <Text size="2xs" color="$error600" fontWeight="$semibold">
+                        {t("ads.nonCompliant", "Non conforme")}
+                      </Text>
+                    )}
+                  </VStack>
+                </HStack>
+              </Box>
             ))}
-          </Card.Content>
-        </Card>
-      )}
-
-      {/* Actions */}
-      <View style={styles.actions}>
-        {ads.status === "draft" && canSubmit && (
-          <Button
-            mode="contained"
-            onPress={() => handleAction("submit")}
-            loading={acting}
-            style={styles.actionButton}
-            buttonColor={colors.info}
-          >
-            Soumettre
-          </Button>
+          </Box>
         )}
-        {(ads.status === "pending_validation" || ads.status === "pending_compliance") && canApprove && (
-          <View style={styles.approvalRow}>
-            <Button
-              mode="contained"
-              onPress={() => handleAction("approve")}
-              loading={acting}
-              style={[styles.actionButton, { flex: 2 }]}
-              buttonColor={colors.success}
-            >
-              Approuver
-            </Button>
-            <Button
-              mode="outlined"
-              onPress={() => handleAction("reject")}
-              loading={acting}
-              style={[styles.actionButton, { flex: 1 }]}
-              textColor={colors.danger}
-            >
-              Rejeter
-            </Button>
-          </View>
-        )}
-      </View>
 
-      <View style={{ height: 32 }} />
-    </ScrollView>
+        {/* Actions */}
+        <VStack space="sm">
+          {ads.status === "draft" && canSubmit && (
+            <Button size="lg" action="primary" onPress={() => handleAction("submit")} isDisabled={acting}>
+              {acting && <ButtonSpinner mr="$2" />}
+              <ButtonText>{t("ads.submit", "Soumettre")}</ButtonText>
+            </Button>
+          )}
+          {(ads.status === "pending_validation" || ads.status === "pending_compliance") && canApprove && (
+            <HStack space="sm">
+              <Button
+                size="lg"
+                action="positive"
+                flex={2}
+                onPress={() => handleAction("approve")}
+                isDisabled={acting}
+              >
+                {acting && <ButtonSpinner mr="$2" />}
+                <ButtonText>{t("ads.approve", "Approuver")}</ButtonText>
+              </Button>
+              <Button
+                size="lg"
+                action="negative"
+                variant="outline"
+                flex={1}
+                onPress={() => handleAction("reject")}
+                isDisabled={acting}
+              >
+                <ButtonText>{t("ads.reject", "Rejeter")}</ButtonText>
+              </Button>
+            </HStack>
+          )}
+        </VStack>
+      </ScrollView>
+    </Box>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 14, gap: 12 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  card: { borderRadius: 12 },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  reference: { fontWeight: "700", color: colors.primary },
-  purpose: { color: colors.textPrimary, marginBottom: 8, lineHeight: 22 },
-  categoryChip: { alignSelf: "flex-start", marginRight: 8 },
-  roundTripChip: { alignSelf: "flex-start", marginTop: 6 },
-  sectionTitle: {
-    fontWeight: "700",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  paxRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceAlt,
-  },
-  paxName: { fontWeight: "600", color: colors.textPrimary },
-  paxCompany: { color: colors.textSecondary },
-  paxRight: { alignItems: "flex-end", gap: 4 },
-  nonCompliant: { fontSize: 11, color: colors.danger, fontWeight: "600" },
-  actions: { marginTop: 4 },
-  actionButton: { borderRadius: 10 },
-  approvalRow: { flexDirection: "row", gap: 10 },
-});
+function DetailRow({ icon, label, value }: { icon: any; label: string; value: string }) {
+  return (
+    <HStack space="sm" alignItems="center">
+      <Box bg="$primary50" borderRadius="$md" p="$2">
+        <Icon as={icon} size="sm" color="$primary700" />
+      </Box>
+      <VStack flex={1}>
+        <Text size="xs" color="$textLight500">
+          {label}
+        </Text>
+        <Text size="sm" fontWeight="$medium" color="$textLight900">
+          {value}
+        </Text>
+      </VStack>
+    </HStack>
+  );
+}
+
+function transportLabel(mode: string, base: string | null, t: any): string {
+  const tx = TRANSPORT_LABELS[mode];
+  const label = tx ? t(tx.key, tx.fb) : mode;
+  return base ? `${label} — ${base}` : label;
+}

@@ -1043,6 +1043,13 @@ class Phone(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "phones"
     __table_args__ = (
         Index("idx_phones_owner", "owner_type", "owner_id"),
+        # Dedup: a given (owner, number) pair can only exist once.
+        # Prevents duplicate rows on retried/parallel POSTs — the
+        # backend should translate the IntegrityError to a 409.
+        UniqueConstraint(
+            "owner_type", "owner_id", "number",
+            name="uq_phones_owner_number",
+        ),
     )
 
     owner_type: Mapped[str] = mapped_column(String(50), nullable=False)

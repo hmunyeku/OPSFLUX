@@ -310,7 +310,7 @@ export default function VoyageDetailScreen({ route }: Props) {
             onPress={async () => {
               setDownloadingPdf("pax");
               const result = await downloadAndOpenPdf(
-                `/api/v1/voyages/${voyage.id}/pdf/pax-manifest`,
+                `/api/v1/travelwiz/voyages/${voyage.id}/pdf/pax-manifest`,
                 `${voyage.code}_manifest_pax`
               );
               setDownloadingPdf(null);
@@ -339,7 +339,7 @@ export default function VoyageDetailScreen({ route }: Props) {
             onPress={async () => {
               setDownloadingPdf("cargo");
               const result = await downloadAndOpenPdf(
-                `/api/v1/voyages/${voyage.id}/pdf/cargo-manifest`,
+                `/api/v1/travelwiz/voyages/${voyage.id}/pdf/cargo-manifest`,
                 `${voyage.code}_manifest_cargo`
               );
               setDownloadingPdf(null);

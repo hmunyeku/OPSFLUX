@@ -1,6 +1,7 @@
 /** Profile & phone verification API calls. */
 
 import { api } from "./api";
+import { useAuthStore } from "../stores/auth";
 
 export interface UserProfile {
   id: string;
@@ -24,7 +25,7 @@ export interface PhoneEntry {
 
 /** Get current user profile. */
 export async function getProfile(): Promise<UserProfile> {
-  const { data } = await api.get<UserProfile>("/api/v1/users/me");
+  const { data } = await api.get<UserProfile>("/api/v1/auth/me");
   return data;
 }
 
@@ -32,13 +33,20 @@ export async function getProfile(): Promise<UserProfile> {
 export async function updateProfile(
   body: Partial<Pick<UserProfile, "first_name" | "last_name" | "phone">>
 ): Promise<UserProfile> {
-  const { data } = await api.patch<UserProfile>("/api/v1/users/me", body);
+  // The profile update endpoint lives under /api/v1/profile, not /users/me.
+  const { data } = await api.patch<UserProfile>("/api/v1/profile", body);
   return data;
 }
 
-/** List user's phone numbers. */
+/** List current user's phone numbers. */
 export async function listPhones(): Promise<PhoneEntry[]> {
-  const { data } = await api.get<PhoneEntry[]>("/api/v1/phones");
+  // /phones requires owner_type+owner_id filters; scope to the
+  // authenticated user.
+  const { userId } = useAuthStore.getState();
+  if (!userId) return [];
+  const { data } = await api.get<PhoneEntry[]>("/api/v1/phones", {
+    params: { owner_type: "user", owner_id: userId },
+  });
   return data;
 }
 

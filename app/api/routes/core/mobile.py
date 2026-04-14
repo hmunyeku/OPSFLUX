@@ -14,7 +14,11 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+import hashlib
+import json
+
+from fastapi import APIRouter, Depends, Request, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -170,7 +174,7 @@ async def mobile_bootstrap(
         logger.error("mobile.bootstrap: portal generation failed: %s", exc)
         portals = []
 
-    return {
+    payload = {
         "user": {
             "id": str(current_user.id),
             "email": current_user.email,
@@ -196,6 +200,24 @@ async def mobile_bootstrap(
         "portals": portals,
         "i18n": i18n_payload,
     }
+
+    # ── ETag / If-None-Match ──────────────────────────────────────
+    # Cold-start bootstrap is ~43 KB. Mobile cold-starts re-fetch
+    # this every time today; exposing an ETag and honoring the
+    # standard If-None-Match header lets the client get a 304
+    # (zero-byte body) when nothing changed.
+    payload_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode()
+    etag = '"' + hashlib.sha256(payload_bytes).hexdigest()[:16] + '"'
+
+    inm = (request.headers.get("if-none-match") or "").strip()
+    if inm and inm == etag:
+        # 304 must NOT include a body.
+        return Response(status_code=304, headers={"ETag": etag, "Cache-Control": "private, must-revalidate"})
+
+    return JSONResponse(
+        content=payload,
+        headers={"ETag": etag, "Cache-Control": "private, must-revalidate"},
+    )
 
 
 @router.get("/form-definitions")

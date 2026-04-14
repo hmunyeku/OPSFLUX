@@ -275,6 +275,78 @@ async def has_user_permission(
 
 
 # Permission mapping for polymorphic owner types
+# Mapping of owner_type → (SQLAlchemy model, entity-scoped?).
+# Used to validate that the target row actually exists before accepting
+# a polymorphic write (attachment, note, tag, etc.). Without this check
+# a client can POST attachments with any random UUID and create orphan
+# rows (storage DoS + silent corruption).
+def _resolve_owner_model(owner_type: str):
+    """Return (Model, entity_scoped: bool) for the given owner_type,
+    or (None, False) if unknown. Imports are local so we don't create
+    circular dependencies at module-import time."""
+    if owner_type == "tier":
+        from app.models.common import Tier
+        return (Tier, True)
+    if owner_type == "tier_contact":
+        from app.models.common import TierContact
+        return (TierContact, True)
+    if owner_type == "entity":
+        from app.models.common import Entity
+        return (Entity, False)
+    if owner_type == "ads":
+        from app.models.paxlog import Ads
+        return (Ads, True)
+    if owner_type in ("cargo_item", "cargo"):
+        from app.models.packlog import CargoItem
+        return (CargoItem, True)
+    if owner_type == "cargo_request":
+        from app.models.packlog import CargoRequest
+        return (CargoRequest, True)
+    if owner_type == "project":
+        from app.models.common import Project
+        return (Project, True)
+    if owner_type == "project_task":
+        from app.models.common import ProjectTask
+        return (ProjectTask, True)
+    if owner_type == "voyage":
+        from app.models.travelwiz import Voyage
+        return (Voyage, True)
+    if owner_type == "support_ticket":
+        from app.models.support import SupportTicket
+        return (SupportTicket, True)
+    if owner_type == "document":
+        from app.models.papyrus_document_core import Document
+        return (Document, True)
+    if owner_type == "planner_activity":
+        from app.models.planner import PlannerActivity
+        return (PlannerActivity, True)
+    # Unmapped (asset, medical_check, passport, etc.) fall through to
+    # permission-only check upstream. Doesn't close the orphan loophole
+    # for those types but doesn't regress them either.
+    return (None, False)
+
+
+async def _assert_owner_row_exists(
+    owner_type: str,
+    owner_id: UUID,
+    entity_id: UUID | None,
+    db: AsyncSession,
+) -> None:
+    """404 if the polymorphic owner row doesn't exist."""
+    Model, entity_scoped = _resolve_owner_model(owner_type)
+    if Model is None:
+        return  # unmapped types: rely on permission check alone
+    query = select(Model.id).where(Model.id == owner_id)
+    if entity_scoped and entity_id is not None and hasattr(Model, "entity_id"):
+        query = query.where(Model.entity_id == entity_id)
+    result = await db.execute(query.limit(1))
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"{owner_type} not found",
+        )
+
+
 _OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
     # owner_type: (read_permission, write_permission)
     "tier": ("tiers.read", "tiers.update"),
@@ -411,6 +483,11 @@ async def check_polymorphic_owner_access(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Permission denied",
         )
+
+    # Now that permissions pass, verify the target row actually exists.
+    # This closes the orphan-attachment loophole (CONC-003) where a
+    # permitted user could POST attachments against arbitrary UUIDs.
+    await _assert_owner_row_exists(owner_type, owner_id, entity_id, db)
 
 
 async def check_user_data_access(

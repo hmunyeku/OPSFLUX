@@ -55,6 +55,30 @@ api.interceptors.response.use(undefined, async (error: AxiosError) => {
   return api(config);
 });
 
+// ── 429 rate-limit backoff (respects Retry-After) ────────────────
+//
+// The backend sets `Retry-After` (seconds) on every 429 response.
+// Automatically wait then retry ONCE — avoids flooding the user with
+// errors when a cold-start + sync fires many requests in the same
+// second. If we hit 429 twice in a row on the same request, give up
+// and propagate the error so the UI can show a toast.
+api.interceptors.response.use(undefined, async (error: AxiosError) => {
+  const config = error.config as InternalAxiosRequestConfig & { _retriedAfter429?: boolean };
+  if (!config || config._retriedAfter429) return Promise.reject(error);
+  if (error.response?.status !== 429) return Promise.reject(error);
+
+  const retryAfterRaw = error.response.headers?.["retry-after"];
+  const retryAfterSec = typeof retryAfterRaw === "string" ? parseInt(retryAfterRaw, 10) : NaN;
+  const waitMs = Number.isFinite(retryAfterSec) && retryAfterSec > 0
+    ? Math.min(retryAfterSec * 1000, 30_000) // cap at 30s to avoid deadlocks
+    : 2_000; // sensible default when header absent
+
+  config._retriedAfter429 = true;
+  if (__DEV__) console.warn(`[api] 429 on ${config.url}, waiting ${waitMs}ms before retry`);
+  await new Promise((r) => setTimeout(r, waitMs));
+  return api(config);
+});
+
 /** Attach JWT access token + entity header to every request. */
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const { accessToken, entityId } = useAuthStore.getState();

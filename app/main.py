@@ -207,8 +207,12 @@ app = FastAPI(
 
 # ─── Middlewares (order matters: last added = first executed) ──────────────
 from app.core.middleware.sensitive_data_audit import SensitiveDataAuditMiddleware
+from app.core.middleware.body_size_limit import BodySizeLimitMiddleware
 app.add_middleware(SensitiveDataAuditMiddleware)
 app.add_middleware(RateLimitMiddleware, max_requests=200, window_seconds=60)
+# 2 MB soft cap on non-multipart JSON bodies — prevents memory-exhaustion
+# DoS and stops the 422 handler from echoing MB-sized payloads.
+app.add_middleware(BodySizeLimitMiddleware, max_bytes=2 * 1024 * 1024)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(EntityScopeMiddleware)
 app.add_middleware(TenantSchemaMiddleware)
@@ -234,6 +238,56 @@ if settings.ALLOWED_HOSTS != "*":
 # does NOT run through CORSMiddleware, so the browser sees a misleading
 # "CORS policy blocked" error instead of the real 500. This handler ensures
 # the browser always gets a clean JSON error + the proper CORS headers.
+# ── 422 validation-error scrubbing on auth endpoints ─────────────────
+# Pydantic V2's default ValidationError serializer includes the offending
+# input under `errors[].input`. For auth routes this means a typo like
+# {"pasword": "MySecret"} ends up echoed verbatim in the response — any
+# error-logging layer (Sentry, NGINX body capture) now stores cleartext
+# credentials. Override the 422 handler for auth paths to strip `input`
+# and redact any field whose name matches a secret pattern.
+from fastapi.exceptions import RequestValidationError as _RequestValidationError
+
+_AUTH_PATH_PREFIXES = ("/api/v1/auth/", "/api/v1/profile/change-password")
+_SENSITIVE_FIELD_NAMES = {
+    "password", "new_password", "old_password", "current_password",
+    "refresh_token", "access_token", "mfa_token", "otp", "verification_code",
+    "code", "token",
+}
+
+
+def _is_sensitive_route(path: str) -> bool:
+    return any(path.startswith(p) for p in _AUTH_PATH_PREFIXES)
+
+
+def _scrub_validation_errors(errors: list) -> list:
+    out = []
+    for err in errors:
+        # err is a dict with loc, msg, type, input, url, ctx…
+        cleaned = {k: v for k, v in err.items() if k != "input"}
+        loc = cleaned.get("loc") or ()
+        last = str(loc[-1]).lower() if loc else ""
+        if any(s in last for s in _SENSITIVE_FIELD_NAMES):
+            cleaned["msg"] = "Invalid or missing credential field"
+        out.append(cleaned)
+    return out
+
+
+@app.exception_handler(_RequestValidationError)
+async def _validation_error_handler(request, exc):  # type: ignore[no-untyped-def]
+    from starlette.responses import JSONResponse as _JSONResponse
+
+    if _is_sensitive_route(request.url.path):
+        return _JSONResponse(
+            status_code=422,
+            content={"detail": _scrub_validation_errors(list(exc.errors()))},
+        )
+    # Default behavior for non-auth routes (FastAPI's default format).
+    return _JSONResponse(
+        status_code=422,
+        content={"detail": list(exc.errors())},
+    )
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):  # type: ignore[no-untyped-def]
     import logging as _logging

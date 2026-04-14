@@ -26,7 +26,7 @@ from __future__ import annotations
 import hashlib
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -107,6 +107,7 @@ async def list_languages(
 
 @router.get("/catalog", response_model=I18nCatalogResponse)
 async def get_catalog(
+    request: Request,
     response: Response,
     lang: str = Query("fr", description="Language code, e.g. 'fr'"),
     namespace: str = Query("mobile", description="Catalog namespace"),
@@ -117,9 +118,17 @@ async def get_catalog(
     """
     Return the full message catalog for one language/namespace.
 
-    Clients can pass `if_none_match=<hash>` to get 304 when nothing changed
+    Clients can pass the catalog hash either as a query param
+    (`?if_none_match=<hash>`) or as the standard HTTP header
+    (`If-None-Match: <hash>`) to get 304 when nothing changed
     (saves bandwidth on app cold-start).
     """
+    # Fall back to the HTTP header when the query param is absent —
+    # React Native's fetch only sends headers, not custom query args.
+    if not if_none_match:
+        header_hash = request.headers.get("if-none-match") or ""
+        # Strip surrounding quotes that proxies sometimes add
+        if_none_match = header_hash.strip('"') or None
     # Check language exists & active
     lang_row = (
         await db.execute(select(I18nLanguage).where(I18nLanguage.code == lang))

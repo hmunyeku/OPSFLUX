@@ -256,7 +256,7 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
           onPress={async () => {
             setDownloadingLt(true);
             const result = await downloadAndOpenPdf(
-              `/api/v1/cargo-requests/${cargo.request_id}/pdf/lt`,
+              `/api/v1/travelwiz/cargo-requests/${cargo.request_id}/pdf/lt`,
               `LT_${cargo.reference}`
             );
             setDownloadingLt(false);

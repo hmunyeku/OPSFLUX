@@ -8,6 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
@@ -68,7 +69,28 @@ async def create_phone(
         is_default=body.is_default,
     )
     db.add(phone)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Unique constraint (owner_type, owner_id, number) — caller
+        # hit a race or a retry; return the existing row rather than
+        # creating a duplicate. Idempotent for the mobile client.
+        await db.rollback()
+        existing_q = await db.execute(
+            select(Phone).where(
+                Phone.owner_type == body.owner_type,
+                Phone.owner_id == body.owner_id,
+                Phone.number == body.number,
+            ).limit(1)
+        )
+        existing_phone = existing_q.scalar_one_or_none()
+        if existing_phone is not None:
+            return existing_phone
+        # Really unexpected — surface as 409
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Phone already exists for this owner",
+        )
     await db.refresh(phone)
     return phone
 

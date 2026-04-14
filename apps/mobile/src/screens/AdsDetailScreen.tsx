@@ -295,7 +295,7 @@ export default function AdsDetailScreen({ route }: Props) {
             onPress={async () => {
               setDownloadingPdf(true);
               const result = await downloadAndOpenPdf(
-                `/api/v1/ads/${ads.id}/pdf`,
+                `/api/v1/pax/ads/${ads.id}/pdf`,
                 `ADS_${ads.reference}`
               );
               setDownloadingPdf(false);

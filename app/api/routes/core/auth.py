@@ -324,13 +324,18 @@ async def login(body: LoginRequest, request: Request, db: AsyncSession = Depends
         remaining_attempts = MAX_FAILED_ATTEMPTS - user.failed_login_count
         await db.commit()
 
+        # Never include ``remaining_attempts`` in the 401 body — it
+        # would be a user-enumeration oracle (different response shape
+        # for a valid vs unknown email) AND a trivial lock-anyone DoS.
+        # We still include a subtle warning once the user is on the
+        # last 2 tries; this text is the same regardless of whether
+        # the email exists, so response-shape diffing tells nothing.
         detail: dict = {
             "code": "INVALID_CREDENTIALS",
             "message": "Email ou mot de passe incorrect.",
-            "remaining_attempts": remaining_attempts,
         }
         if remaining_attempts <= 2:
-            detail["warning"] = f"Attention : {remaining_attempts} tentative(s) restante(s) avant verrouillage du compte."
+            detail["warning"] = "Attention : votre compte sera bientôt verrouillé."
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

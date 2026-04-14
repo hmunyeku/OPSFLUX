@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
 from app.core.database import get_db
+from app.core.redis_client import get_redis
 from app.models.common import (
     Phone,
     User,
@@ -76,6 +77,88 @@ async def list_my_verifications(
     return (await db.execute(query)).scalars().all()
 
 
+# ── OTP rate limit ────────────────────────────────────────────────────
+#
+# Protects against SMS billing DoS. An authenticated user could
+# otherwise loop `/phone/start` and drain the OVH SMS credit. We gate:
+#   1. per (user, phone_id): one OTP at most every 60s + max 5 per 24h
+#   2. per (user): max 20 OTP attempts per hour across all verification
+#      flows (email/phone combined)
+#
+# Redis-backed so the counters survive a backend restart and are shared
+# across the 4 uvicorn workers.
+
+_OTP_COOLDOWN_SECONDS = 60
+_OTP_DAILY_CAP = 5
+_OTP_HOURLY_USER_CAP = 20
+
+
+async def _check_otp_rate_limit(user_id: UUID, target_key: str) -> None:
+    """Raise 429 when the user exceeds any configured OTP limit.
+
+    ``target_key`` is a phone id / email id / ... — uniquely identifies
+    the destination so different phones don't share a cooldown.
+    """
+    try:
+        redis = get_redis()
+    except RuntimeError:
+        return  # redis down → fail-open, log only (don't break UX)
+
+    cooldown_key = f"otp:cooldown:{user_id}:{target_key}"
+    daily_key = f"otp:daily:{user_id}:{target_key}"
+    hourly_key = f"otp:hourly:{user_id}"
+
+    # 1. Per-target cooldown
+    if await redis.exists(cooldown_key):
+        ttl = await redis.ttl(cooldown_key)
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "code": "OTP_COOLDOWN",
+                "message": f"Veuillez patienter {ttl}s avant une nouvelle tentative.",
+                "retry_after": ttl,
+            },
+            headers={"Retry-After": str(max(1, ttl))},
+        )
+
+    # 2. Per-target daily cap
+    daily_count = await redis.get(daily_key)
+    if daily_count and int(daily_count) >= _OTP_DAILY_CAP:
+        ttl = await redis.ttl(daily_key)
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "code": "OTP_DAILY_CAP",
+                "message": "Limite quotidienne d'OTP atteinte.",
+                "retry_after": ttl,
+            },
+            headers={"Retry-After": str(max(1, ttl))},
+        )
+
+    # 3. Per-user hourly cap (all flows combined)
+    hourly_count = await redis.get(hourly_key)
+    if hourly_count and int(hourly_count) >= _OTP_HOURLY_USER_CAP:
+        ttl = await redis.ttl(hourly_key)
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "code": "OTP_USER_HOURLY_CAP",
+                "message": "Trop de demandes de vérification. Réessayez plus tard.",
+                "retry_after": ttl,
+            },
+            headers={"Retry-After": str(max(1, ttl))},
+        )
+
+    # All checks pass — commit the counters.
+    await redis.setex(cooldown_key, _OTP_COOLDOWN_SECONDS, "1")
+    new_daily = await redis.incr(daily_key)
+    if new_daily == 1:
+        await redis.expire(daily_key, 24 * 3600)
+    new_hourly = await redis.incr(hourly_key)
+    if new_hourly == 1:
+        await redis.expire(hourly_key, 3600)
+
+
 # ── Phone verification ────────────────────────────────────────────────
 
 @router.post("/phone/start", response_model=UserVerificationRead)
@@ -92,6 +175,9 @@ async def start_phone_verification(
         raise HTTPException(status_code=404, detail="Phone not found")
     if phone.owner_type == "user" and str(phone.owner_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Phone does not belong to you")
+
+    # Enforce OTP rate-limits (SMS billing DoS protection).
+    await _check_otp_rate_limit(current_user.id, f"phone:{phone.id}")
 
     otp = _gen_otp()
     otp_hash = _hash_otp(otp)
@@ -200,6 +286,10 @@ async def start_email_verification(
     ).scalar_one_or_none()
     if not email or email.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Email not found")
+
+    # Same rate-limit regime as phone OTP (no per-email SMS billing
+    # concern, but we don't want to become a mailer-loop gateway).
+    await _check_otp_rate_limit(current_user.id, f"email:{email.id}")
 
     otp = _gen_otp()
     otp_hash = _hash_otp(otp)

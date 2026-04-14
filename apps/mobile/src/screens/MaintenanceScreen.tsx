@@ -23,7 +23,8 @@ export default function MaintenanceScreen() {
   async function checkAgain() {
     setChecking(true);
     try {
-      await api.get("/api/v1/health");
+      // Health endpoint is mounted at /api/health (not /api/v1/health).
+      await api.get("/api/health");
       useAppState.getState().setMaintenance(false);
     } catch {
       /* still down */

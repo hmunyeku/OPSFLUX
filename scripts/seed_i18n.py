@@ -30,6 +30,7 @@ from app.core.database import async_session_factory
 from app.models.common import I18nCatalogMeta, I18nLanguage, I18nMessage
 
 LOCALES_DIR = Path(__file__).resolve().parent.parent / "apps" / "mobile" / "src" / "locales"
+SEED_DIR = Path(__file__).resolve().parent / "i18n_seed"
 NAMESPACE = "mobile"
 
 
@@ -151,11 +152,18 @@ def _flatten(node: dict, prefix: str = "") -> dict[str, str]:
 
 
 def _load_locale(code: str) -> dict[str, str]:
-    path = LOCALES_DIR / f"{code}.ts"
-    if not path.exists():
-        print(f"[skip] {path} not found")
+    """Load a locale from scripts/i18n_seed/{code}.json (preferred) or
+    fall back to parsing apps/mobile/src/locales/{code}.ts."""
+    json_path = SEED_DIR / f"{code}.json"
+    if json_path.exists():
+        import json as _json
+        return _json.loads(json_path.read_text(encoding="utf-8"))
+    # Fallback: parse the TS file (legacy)
+    ts_path = LOCALES_DIR / f"{code}.ts"
+    if not ts_path.exists():
+        print(f"[skip] no source for {code} (.json or .ts)")
         return {}
-    obj = _parse_ts_object(path.read_text(encoding="utf-8"))
+    obj = _parse_ts_object(ts_path.read_text(encoding="utf-8"))
     return _flatten(obj)
 
 

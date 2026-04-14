@@ -3472,7 +3472,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
                   </div>
                   <div className="rounded-lg border border-border p-3">
                     <div className="flex items-center gap-1.5 text-muted-foreground mb-1"><Weight size={12} /><span className="text-[10px] font-medium uppercase tracking-wide">Cargo (kg)</span></div>
-                    <p className="text-sm font-semibold tabular-nums">{capacity.current_cargo_kg.toLocaleString('fr-FR')} / {capacity.vector_capacity_cargo_kg?.toLocaleString('fr-FR') ?? '∞'}</p>
+                    <p className="text-sm font-semibold tabular-nums">{(capacity.current_cargo_kg ?? 0).toLocaleString('fr-FR')} / {capacity.vector_capacity_cargo_kg?.toLocaleString('fr-FR') ?? '∞'}</p>
                     {capacity.cargo_utilization_pct !== null && (
                       <div className="mt-1.5 h-1.5 rounded-full bg-border overflow-hidden">
                         <div className={cn('h-full rounded-full transition-all', capacity.cargo_utilization_pct > 90 ? 'bg-destructive' : 'bg-primary')} style={{ width: `${Math.min(100, capacity.cargo_utilization_pct)}%` }} />
@@ -3509,7 +3509,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
               <FormSection title="KPIs du voyage" collapsible defaultExpanded>
                 <div className="grid grid-cols-2 gap-2">
                   <DetailRow label="PAX total" value={kpis.total_pax} />
-                  <DetailRow label="Cargo total" value={`${kpis.total_cargo_kg.toLocaleString('fr-FR')} kg`} />
+                  <DetailRow label="Cargo total" value={`${(kpis.total_cargo_kg ?? 0).toLocaleString('fr-FR')} kg`} />
                   <DetailRow label="No-shows" value={kpis.no_shows} />
                   <DetailRow label="A l'heure" value={kpis.on_time ? 'Oui' : `Non (${kpis.delay_minutes ?? 0} min)`} />
                   <DetailRow label="Événements" value={kpis.events_count} />

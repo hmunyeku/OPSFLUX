@@ -895,13 +895,11 @@ export function CargoTab() {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState('')
+  const [pendingAdvanceId, setPendingAdvanceId] = useState<string | null>(null)
   const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
   const { panelModule } = useCargoWorkspace()
-  const cargoRequestStatusCategory = useCargoDictionaryCategory('cargo_request_status')
   const cargoStatusCategory = useCargoDictionaryCategory('cargo_status')
   const updateCargoStatus = useWorkspaceUpdateCargoStatus()
-  const { data: cargoRequestsData } = useWorkspaceCargoRequests({ page: 1, page_size: 8 })
-  const cargoRequestStatusLabels = useDictionaryLabels(cargoRequestStatusCategory)
   const cargoStatusLabels = useDictionaryLabels(cargoStatusCategory, CARGO_STATUS_LABELS_FALLBACK)
   const cargoStatusOptions = useMemo(
     () => buildStatusOptions(cargoStatusLabels, ['registered', 'ready', 'ready_for_loading', 'loaded', 'in_transit', 'delivered', 'delivered_intermediate', 'delivered_final', 'return_declared', 'return_in_transit', 'returned', 'reintegrated', 'scrapped', 'damaged', 'missing']),
@@ -917,7 +915,6 @@ export function CargoTab() {
 
   const items: AnyRow[] = data?.items ?? []
   const total = data?.total ?? 0
-  const cargoRequests = cargoRequestsData?.items ?? []
 
   const stats = useMemo(() => {
     const totalWeight = items.reduce((sum: number, c: AnyRow) => sum + (c.weight_kg ?? 0), 0)
@@ -951,39 +948,25 @@ export function CargoTab() {
       ),
     },
     {
-      id: 'origin',
-      header: t('travelwiz.columns.origin'),
-      size: 100,
-      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.sender_name || '—'}</span>,
-    },
-    {
-      id: 'destination',
-      header: t('travelwiz.columns.destination'),
-      size: 100,
-      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate">{row.original.receiver_name || '—'}</span>,
+      id: 'route',
+      header: 'Expéditeur → Destinataire',
+      cell: ({ row }) => (
+        <span className="flex items-center gap-1 text-xs text-muted-foreground truncate">
+          <span className="truncate">{row.original.sender_name || '—'}</span>
+          <ArrowRight size={10} className="shrink-0" />
+          <span className="truncate">{row.original.receiver_name || '—'}</span>
+        </span>
+      ),
     },
     {
       accessorKey: 'status',
       header: t('travelwiz.columns.status'),
-      size: 120,
-      cell: ({ row }) => <StatusBadge status={row.original.status} labels={cargoStatusLabels} badges={CARGO_STATUS_BADGES} />,
-    },
-    {
-      id: 'flags',
-      header: '',
-      size: 50,
+      size: 130,
       cell: ({ row }) => (
-        <div className="flex items-center gap-1">
-          {row.original.hazmat_validated && (
-            <span title="HAZMAT validé" className="text-destructive">
-              <AlertTriangle size={12} />
-            </span>
-          )}
-          {row.original.is_urgent && (
-            <span title="Urgent" className="text-destructive">
-              <Bell size={12} />
-            </span>
-          )}
+        <div className="flex items-center gap-1.5">
+          <StatusBadge status={row.original.status} labels={cargoStatusLabels} badges={CARGO_STATUS_BADGES} />
+          {row.original.hazmat_validated && <AlertTriangle size={11} className="text-destructive shrink-0" aria-label="HAZMAT" />}
+          {row.original.is_urgent && <Bell size={11} className="text-amber-500 shrink-0" aria-label="Urgent" />}
         </div>
       ),
     },
@@ -998,44 +981,29 @@ export function CargoTab() {
         }
         const next = nextStatusMap[row.original.status]
         if (!next) return null
+        const isThisRowPending = pendingAdvanceId === row.original.id
         return (
           <button
             className="gl-button-sm gl-button-default text-xs"
-            onClick={(e) => { e.stopPropagation(); updateCargoStatus.mutate({ id: row.original.id, status: next }) }}
-            disabled={updateCargoStatus.isPending}
+            onClick={(e) => {
+              e.stopPropagation()
+              setPendingAdvanceId(row.original.id)
+              updateCargoStatus.mutate(
+                { id: row.original.id, status: next },
+                { onSettled: () => setPendingAdvanceId(null) },
+              )
+            }}
+            disabled={isThisRowPending}
           >
-            Avancer
+            {isThisRowPending ? <Loader2 size={11} className="animate-spin" /> : 'Avancer'}
           </button>
         )
       },
     },
-  ], [cargoStatusLabels, updateCargoStatus, t])
+  ], [cargoStatusLabels, updateCargoStatus, pendingAdvanceId, t])
 
   return (
     <>
-      {cargoRequests.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 px-4 py-3 border-b border-border bg-muted/20">
-          {cargoRequests.map((request) => (
-            <button
-              key={request.id}
-              onClick={() => openDynamicPanel({ type: 'detail', module: panelModule, id: request.id, meta: { subtype: 'cargo-request' } })}
-              className="rounded-xl border border-border/70 bg-card px-3 py-3 text-left hover:bg-muted/40 transition-colors"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-mono text-muted-foreground">{request.request_code}</p>
-                <span className="text-[11px] text-muted-foreground">
-                  {cargoRequestStatusLabels[request.status] ?? request.status}
-                </span>
-              </div>
-              <p className="mt-1 text-sm font-medium text-foreground line-clamp-2">{request.title}</p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {request.cargo_count} colis
-                {request.destination_name ? ` • ${request.destination_name}` : ''}
-              </p>
-            </button>
-          ))}
-        </div>
-      )}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
         <StatCard label="Total colis" value={stats.count} icon={Package} />
         <StatCard label="Poids total" value={`${stats.totalWeight.toLocaleString('fr-FR')} kg`} icon={Weight} />

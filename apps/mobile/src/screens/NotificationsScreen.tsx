@@ -14,6 +14,7 @@ import {
   VStack,
 } from "@gluestack-ui/themed";
 import { MIcon } from "../components/MIcon";
+import { EmptyInbox } from "../components/illustrations";
 import { useTranslation } from "react-i18next";
 import {
   useNotifications,
@@ -112,9 +113,9 @@ export default function NotificationsScreen({ navigation }: Props) {
           paddingBottom: insets.bottom + 24,
         }}
         ListEmptyComponent={
-          <VStack space="sm" alignItems="center" mt="$10" p="$6">
-            <MIcon name="notifications-off" size="xl" color="$textLight300" />
-            <Text size="md" fontWeight="$semibold" color="$textLight900">
+          <VStack space="md" alignItems="center" mt="$10" p="$6">
+            <EmptyInbox width={180} />
+            <Text size="md" fontWeight="$semibold" color="$textLight900" mt="$2">
               {t("notif.emptyTitle", "Aucune notification")}
             </Text>
             <Text size="sm" color="$textLight500" textAlign="center">

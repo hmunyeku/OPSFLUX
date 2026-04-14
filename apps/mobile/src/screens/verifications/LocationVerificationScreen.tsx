@@ -20,6 +20,7 @@ import {
 } from "@gluestack-ui/themed";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MIcon } from "../../components/MIcon";
+import { SuccessCheck } from "../../components/illustrations";
 import { useTranslation } from "react-i18next";
 import * as Location from "expo-location";
 import { declareLocation } from "../../services/verifications";
@@ -106,8 +107,8 @@ export default function LocationVerificationScreen({ navigation }: Props) {
         <Box maxWidth={420} w="$full" alignSelf="center">
           {phase === "done" ? (
             <VStack space="md" alignItems="center">
-              <MIcon name="check-circle" size="xl" color="$success600" />
-              <Heading size="xl" textAlign="center" color="$textLight900">
+              <SuccessCheck width={180} />
+              <Heading size="xl" textAlign="center" color="$textLight900" mt="$2">
                 {t("verif.location.doneTitle", "Position enregistrée")}
               </Heading>
               <Text textAlign="center" color="$textLight600">

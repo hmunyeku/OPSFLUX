@@ -22,6 +22,7 @@ import {
   VStack,
 } from "@gluestack-ui/themed";
 import { MIcon } from "../components/MIcon";
+import { SuccessCheck, NoConnection } from "../components/illustrations";
 import { useTranslation } from "react-i18next";
 import { useFormEngine } from "../hooks/useFormEngine";
 import { useResponsive } from "../hooks/useResponsive";
@@ -46,17 +47,8 @@ export default function DynamicForm({ form, onSuccess, onCancel }: Props) {
     return (
       <Box flex={1} bg="$backgroundLight50" alignItems="center" justifyContent="center" p="$6">
         <Box maxWidth={400} w="$full" bg="$white" borderRadius="$xl" p="$8" alignItems="center">
-          <Box
-            bg={engine.queuedOffline ? "$warning50" : "$success50"}
-            borderRadius="$full"
-            p="$5"
-            mb="$4"
-          >
-            <Icon
-              as={engine.queuedOffline ? CloudOff : CheckCircle2}
-              size="xl"
-              color={engine.queuedOffline ? "$warning600" : "$success600"}
-            />
+          <Box mb="$4">
+            {engine.queuedOffline ? <NoConnection width={180} /> : <SuccessCheck width={180} />}
           </Box>
           <Heading size="xl" color="$textLight900" textAlign="center" mb="$2">
             {engine.queuedOffline

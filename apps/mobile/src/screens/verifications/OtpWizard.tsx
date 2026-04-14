@@ -25,6 +25,7 @@ import {
   VStack,
 } from "@gluestack-ui/themed";
 import { MIcon } from "../../components/MIcon";
+import { SuccessCheck } from "../../components/illustrations";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -111,8 +112,8 @@ export default function OtpWizard(props: OtpWizardProps) {
         <Box maxWidth={420} w="$full" alignSelf="center" flex={1} justifyContent="center">
           {phase === "success" ? (
             <VStack space="md" alignItems="center">
-              <MIcon name="check-circle" size="xl" color="$success600" />
-              <Heading size="xl" textAlign="center" color="$textLight900">
+              <SuccessCheck width={180} />
+              <Heading size="xl" textAlign="center" color="$textLight900" mt="$2">
                 {t("verif.verifiedTitle", "Vérifié !")}
               </Heading>
               <Text textAlign="center" color="$textLight600">

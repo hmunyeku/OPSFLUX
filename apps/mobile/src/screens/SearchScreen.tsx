@@ -19,6 +19,7 @@ import {
   VStack,
 } from "@gluestack-ui/themed";
 import { MIcon } from "../components/MIcon";
+import { NoResults } from "../components/illustrations";
 import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
 import { globalSearch, type SearchResult } from "../services/search";
@@ -163,8 +164,12 @@ export default function SearchScreen({ navigation }: Props) {
             paddingBottom: insets.bottom + 24,
           }}
           ListEmptyComponent={
-            <VStack space="sm" alignItems="center" mt="$10" p="$6">
-              <MIcon name={searched ? "search-off" : "search"} size="xl" color="$textLight300" />
+            <VStack space="md" alignItems="center" mt="$10" p="$6">
+              {searched ? (
+                <NoResults width={180} />
+              ) : (
+                <MIcon name="search" size={64} color="$textLight300" />
+              )}
               <Text size="sm" color="$textLight500" textAlign="center">
                 {searched
                   ? t("search.noResults", `Aucun résultat pour "{{query}}"`, { query })

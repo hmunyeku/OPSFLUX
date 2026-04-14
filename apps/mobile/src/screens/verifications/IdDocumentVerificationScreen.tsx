@@ -23,6 +23,7 @@ import {
   VStack,
 } from "@gluestack-ui/themed";
 import { MIcon } from "../../components/MIcon";
+import { SuccessCheck } from "../../components/illustrations";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import * as ImagePicker from "expo-image-picker";
@@ -211,8 +212,8 @@ export default function IdDocumentVerificationScreen({ navigation }: Props) {
 
           {step === "done" && (
             <VStack space="md" alignItems="center" justifyContent="center" flex={1}>
-              <MIcon name="check-circle" size="xl" color="$success600" />
-              <Heading size="xl" textAlign="center" color="$textLight900">
+              <SuccessCheck width={180} />
+              <Heading size="xl" textAlign="center" color="$textLight900" mt="$2">
                 {t("verif.id.doneTitle", "Documents soumis")}
               </Heading>
               <Text textAlign="center" color="$textLight600" px="$4">

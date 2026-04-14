@@ -20,20 +20,28 @@ import {
   VStack,
 } from "@gluestack-ui/themed";
 import { MIcon, type MIconName } from "../components/MIcon";
+import {
+  WelcomeWave,
+  ScanningPhone,
+  EmptyInbox,
+  NoConnection,
+  GpsLocation,
+  EmailEnvelope,
+} from "../components/illustrations";
 import { useTranslation } from "react-i18next";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const ONBOARDING_KEY = "@opsflux:onboarding_complete";
 
+type IllustrationFn = (props: { width?: number; color?: string }) => React.ReactElement;
+
 interface Step {
-  icon: MIconName;
+  illustration: IllustrationFn;
   titleKey: string;
   titleFb: string;
   descKey: string;
   descFb: string;
-  bg: string;
-  fg: string;
 }
 
 interface Props {
@@ -42,64 +50,52 @@ interface Props {
 
 const STEPS: Step[] = [
   {
-    icon: "auto-awesome",
+    illustration: WelcomeWave,
     titleKey: "onboarding.welcomeTitle",
     titleFb: "Bienvenue sur OpsFlux Mobile",
     descKey: "onboarding.welcomeDesc",
     descFb:
       "Votre application terrain pour gérer les opérations, le personnel, les colis et le transport. Tout est adapté à votre rôle et vos permissions.",
-    bg: "$primary50",
-    fg: "$primary600",
   },
   {
-    icon: "qr-code-scanner",
+    illustration: ScanningPhone,
     titleKey: "onboarding.scanTitle",
     titleFb: "Scannez en un geste",
     descKey: "onboarding.scanDesc",
     descFb:
       "Scannez les QR codes des Avis de Séjour pour le boarding, et les codes des colis pour le suivi. Le scanner supporte QR, Code128, EAN et plus.",
-    bg: "$info50",
-    fg: "$info600",
   },
   {
-    icon: "description",
+    illustration: EmailEnvelope,
     titleKey: "onboarding.formTitle",
     titleFb: "Formulaires intelligents",
     descKey: "onboarding.formDesc",
     descFb:
       "Créez des ADS, des demandes d'expédition et des missions directement depuis l'app. Les formulaires sont dynamiques — ils s'adaptent automatiquement sans mise à jour.",
-    bg: "$primary50",
-    fg: "$primary600",
   },
   {
-    icon: "cloud-off",
+    illustration: NoConnection,
     titleKey: "onboarding.offlineTitle",
     titleFb: "Fonctionne hors-ligne",
     descKey: "onboarding.offlineDesc",
     descFb:
       "Pas de réseau ? Pas de problème. Vos données sont mises en cache et vos actions sont envoyées automatiquement dès que la connexion revient.",
-    bg: "$warning50",
-    fg: "$warning600",
   },
   {
-    icon: "location-on",
+    illustration: GpsLocation,
     titleKey: "onboarding.gpsTitle",
     titleFb: "Suivi en temps réel",
     descKey: "onboarding.gpsDesc",
     descFb:
       "Activez la balise GPS pour être suivi pendant les voyages. Les capitaines et chauffeurs peuvent consulter le manifeste et enregistrer les événements en direct.",
-    bg: "$success50",
-    fg: "$success600",
   },
   {
-    icon: "notifications",
+    illustration: EmptyInbox,
     titleKey: "onboarding.notifTitle",
     titleFb: "Restez informé",
     descKey: "onboarding.notifDesc",
     descFb:
       "Recevez les notifications en temps réel : validations ADS, réceptions de colis, événements de voyage. Tout est centralisé dans l'app.",
-    bg: "$error50",
-    fg: "$error600",
   },
 ];
 
@@ -127,19 +123,22 @@ export default function OnboardingScreen({ onComplete }: Props) {
 
   const isLast = currentIndex === STEPS.length - 1;
 
-  const renderStep = ({ item }: { item: Step }) => (
-    <Box w={SCREEN_WIDTH} flex={1} alignItems="center" justifyContent="center" px="$10">
-      <Box bg={item.bg} borderRadius="$full" p="$6" mb="$8">
-        <MIcon name={item.icon} size="xl" color={item.fg} />
+  const renderStep = ({ item }: { item: Step }) => {
+    const Illustration = item.illustration;
+    return (
+      <Box w={SCREEN_WIDTH} flex={1} alignItems="center" justifyContent="center" px="$10">
+        <Box mb="$8">
+          <Illustration width={Math.min(SCREEN_WIDTH * 0.65, 260)} />
+        </Box>
+        <Heading size="xl" textAlign="center" color="$textLight900" mb="$4">
+          {t(item.titleKey, item.titleFb)}
+        </Heading>
+        <Text size="md" textAlign="center" color="$textLight600" lineHeight={26}>
+          {t(item.descKey, item.descFb)}
+        </Text>
       </Box>
-      <Heading size="xl" textAlign="center" color="$textLight900" mb="$4">
-        {t(item.titleKey, item.titleFb)}
-      </Heading>
-      <Text size="md" textAlign="center" color="$textLight600" lineHeight={26}>
-        {t(item.descKey, item.descFb)}
-      </Text>
-    </Box>
-  );
+    );
+  };
 
   return (
     <Box flex={1} bg="$backgroundLight50" pt={insets.top}>

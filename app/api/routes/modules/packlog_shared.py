@@ -313,10 +313,7 @@ async def create_cargo_request_impl(
             receiver_name=cargo_request.receiver_name,
             destination_asset_id=cargo_request.destination_asset_id,
             requester_name=cargo_request.requester_name,
-            created_at=now,
-            updated_at=now,
-            created_by=current_user.id,
-            status="registered",
+            registered_by=current_user.id,
             # Cargo-specific fields from the inline payload
             description=cargo_data["description"],
             designation=cargo_data.get("designation"),

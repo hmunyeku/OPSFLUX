@@ -1,0 +1,36 @@
+# Critical flow — open the verifications hub from Settings.
+# Verifies the 4 tiles render and the My Profile screen is reachable.
+
+appId: ${APP_ID:-com.opsflux.mobile.preview}
+---
+- launchApp
+- waitForAnimationToEnd
+
+# Bottom tab → Profil
+- tapOn:
+    text: "Profil"
+
+- waitForAnimationToEnd
+- assertVisible: "Mon profil"
+- assertVisible: "Mes vérifications"
+
+# Open verifications hub
+- tapOn:
+    text: "Mes vérifications"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+- assertVisible: "Numéro de téléphone"
+- assertVisible: "Adresse email"
+- assertVisible: "Localisation GPS"
+- assertVisible: "Pièce d'identité"
+- takeScreenshot: 04-verifications-hub
+
+# Open phone verification
+- tapOn:
+    text: "Numéro de téléphone"
+- waitForAnimationToEnd
+- assertVisible: "Quel numéro vérifier"
+
+- back
+- back

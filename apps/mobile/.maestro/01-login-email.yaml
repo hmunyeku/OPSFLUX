@@ -1,0 +1,29 @@
+# Critical flow — log in with email + password and reach the portal.
+# Run with:
+#   maestro test apps/mobile/.maestro/01-login-email.yaml \
+#     --env LOGIN_EMAIL=admin@opsflux.io --env LOGIN_PASSWORD=...
+
+appId: ${APP_ID:-com.opsflux.mobile.preview}
+---
+- launchApp:
+    clearState: true
+- assertVisible: "OpsFlux"
+- assertVisible: "Connexion"
+
+# Skip the QR pairing CTA — we test email login here
+- tapOn:
+    text: "Email"
+- inputText: ${LOGIN_EMAIL}
+- tapOn:
+    text: "Mot de passe"
+- inputText: ${LOGIN_PASSWORD}
+
+- tapOn:
+    text: "Se connecter"
+
+# Wait for the portal home (greeting message contains either "Bonjour",
+# "Bon après-midi" or "Bonsoir", followed by the user's display name)
+- waitForAnimationToEnd:
+    timeout: 5000
+- assertVisible: "Scanner un QR"
+- takeScreenshot: 01-login-success

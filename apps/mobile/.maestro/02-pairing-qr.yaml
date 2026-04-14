@@ -1,0 +1,33 @@
+# Critical flow — open the QR pairing scanner from the login screen.
+# Verifies the camera screen mounts and the bottom hint card is visible.
+#
+# Note: we cannot scan a real QR in CI; this only tests that the flow
+# reaches the camera. The actual consume() is covered by API tests
+# server-side.
+
+appId: ${APP_ID:-com.opsflux.mobile.preview}
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Scanner un QR code"
+
+- tapOn:
+    text: "Scanner un QR code"
+
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Camera permission may pop up on first run — accept it.
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn: "Allow"
+
+- assertVisible: "Comment obtenir le QR ?"
+- assertVisible: "1. Connectez-vous sur app.opsflux.com"
+- takeScreenshot: 02-pairing-camera-open
+
+- tapOn:
+    text: "Retour"
+- assertVisible: "Connexion"

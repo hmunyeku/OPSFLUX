@@ -1,10 +1,10 @@
 /**
  * Permissions store — fetched from /api/v1/auth/me/permissions on login.
  *
- * Used to filter:
- *  - Which portals are visible
- *  - Which actions/forms appear in portals
- *  - Which screens/features are accessible
+ * Permission matching supports wildcards:
+ *  - "*"                 → super-admin (grants everything)
+ *  - "module.*"          → all permissions in module
+ *  - "module.resource.*" → all actions on resource
  */
 
 import { create } from "zustand";
@@ -15,20 +15,36 @@ interface PermissionsState {
   loaded: boolean;
   loading: boolean;
 
-  /** Fetch permissions from server. */
   fetchPermissions: () => Promise<void>;
-
-  /** Check if user has a specific permission. */
   has: (permission: string) => boolean;
-
-  /** Check if user has ANY of the given permissions. */
   hasAny: (permissions: string[]) => boolean;
-
-  /** Check if user has ALL of the given permissions. */
   hasAll: (permissions: string[]) => boolean;
-
-  /** Clear on logout. */
   clear: () => void;
+}
+
+/**
+ * Check if `granted` satisfies the requested permission.
+ * Supports wildcards:
+ *   granted "*"                        matches anything
+ *   granted "paxlog.*"                 matches "paxlog.ads.read", "paxlog.ads.approve", etc.
+ *   granted "paxlog.ads.*"             matches "paxlog.ads.read", "paxlog.ads.approve"
+ *   granted "paxlog.ads.read" (exact)  matches only "paxlog.ads.read"
+ */
+function permissionMatches(granted: string, requested: string): boolean {
+  if (granted === "*") return true;
+  if (granted === requested) return true;
+
+  if (granted.endsWith(".*")) {
+    const prefix = granted.slice(0, -1); // "paxlog." including the dot
+    return requested.startsWith(prefix);
+  }
+
+  return false;
+}
+
+/** Check if user's grants include a given permission (respecting wildcards). */
+function checkPermission(grants: string[], requested: string): boolean {
+  return grants.some((g) => permissionMatches(g, requested));
 }
 
 export const usePermissions = create<PermissionsState>((set, get) => ({
@@ -47,18 +63,21 @@ export const usePermissions = create<PermissionsState>((set, get) => ({
   },
 
   has: (permission: string) => {
-    return get().permissions.includes(permission);
+    return checkPermission(get().permissions, permission);
   },
 
   hasAny: (permissions: string[]) => {
-    const mine = get().permissions;
-    return permissions.some((p) => mine.includes(p));
+    const grants = get().permissions;
+    return permissions.some((p) => checkPermission(grants, p));
   },
 
   hasAll: (permissions: string[]) => {
-    const mine = get().permissions;
-    return permissions.every((p) => mine.includes(p));
+    const grants = get().permissions;
+    return permissions.every((p) => checkPermission(grants, p));
   },
 
   clear: () => set({ permissions: [], loaded: false }),
 }));
+
+// Exported for tests
+export { permissionMatches, checkPermission };

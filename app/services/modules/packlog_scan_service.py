@@ -33,6 +33,10 @@ from app.models.packlog import CargoItem, CargoScanEvent
 logger = logging.getLogger(__name__)
 
 DEFAULT_RADIUS_M = 500.0
+# Debounce window for the same (user, cargo) scan — prevents
+# malicious/runaway clients from filling cargo_scan_events (SEC-H3).
+_SCAN_DEBOUNCE_SECONDS = 8
+
 # Status transitions the scan flow is allowed to suggest automatically.
 _ALLOWED_STATUS_SUGGESTIONS = {
     # (from_status, at_destination) -> suggested_status
@@ -166,6 +170,26 @@ def suggest_status(
 # ── Main scan entry point ─────────────────────────────────────────────
 
 
+async def _is_scan_debounced(cargo_id: UUID, user_id: UUID | None) -> bool:
+    """Return True if the same (user, cargo) scanned within the debounce
+    window. Fails open (returns False) if Redis is unavailable so the
+    feature keeps working during Redis outages."""
+    if user_id is None:
+        return False
+    try:
+        from app.core.redis_client import get_redis
+        redis = get_redis()
+    except (RuntimeError, Exception):
+        return False
+    key = f"cargo_scan_debounce:{cargo_id}:{user_id}"
+    try:
+        # SETNX semantics: only the first setter wins within the window.
+        was_set = await redis.set(key, "1", ex=_SCAN_DEBOUNCE_SECONDS, nx=True)
+    except Exception:
+        return False
+    return not bool(was_set)  # debounced when we could NOT claim the lock
+
+
 async def record_scan(
     db: AsyncSession,
     *,
@@ -181,7 +205,27 @@ async def record_scan(
     """Persist a scan event and compute the match + status suggestion.
 
     Returns a dict shaped to match ``CargoScanResult``.
+
+    Security notes:
+      - ``scanned_at`` is clock-skew bounded to ``[now − 24h, now + 5min]``
+        so a malicious client can't backdate or forward-date events to
+        pollute the scan-history ordering (SEC-H2).
+      - Per-(user, cargo) debounce of ``_SCAN_DEBOUNCE_SECONDS`` so a
+        runaway client can't fill cargo_scan_events (SEC-H3). Raises
+        HTTP 429 when the debounce is hit.
     """
+    # Short-circuit if this same (user, cargo) scanned seconds ago.
+    if await _is_scan_debounced(cargo.id, user.id if user else None):
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "code": "SCAN_DEBOUNCED",
+                "message": f"Scan ignoré : patientez {_SCAN_DEBOUNCE_SECONDS}s entre deux scans du même colis.",
+            },
+            headers={"Retry-After": str(_SCAN_DEBOUNCE_SECONDS)},
+        )
+
     radius_m = await get_scan_radius_m(db, cargo.entity_id)
     nearby = await find_nearby_installations(
         db,
@@ -196,7 +240,21 @@ async def record_scan(
     matched_asset_id = matched[0].id if matched else None
     matched_distance = matched[1] if matched else None
 
-    effective_scanned_at = scanned_at or datetime.now(UTC)
+    # Clamp client-supplied timestamp to [now-24h, now+5min] to prevent
+    # audit-trail pollution via clock-skew / forward-dated scans.
+    now = datetime.now(UTC)
+    if scanned_at is None:
+        effective_scanned_at = now
+    else:
+        # scanned_at may be naive if the client omitted timezone; treat as UTC.
+        ts = scanned_at if scanned_at.tzinfo else scanned_at.replace(tzinfo=UTC)
+        from datetime import timedelta as _td
+        lower = now - _td(hours=24)
+        upper = now + _td(minutes=5)
+        if ts < lower or ts > upper:
+            effective_scanned_at = now
+        else:
+            effective_scanned_at = ts
 
     # Build and persist the event.
     event = CargoScanEvent(
@@ -267,37 +325,94 @@ async def confirm_scan(
 ) -> CargoScanEvent:
     """Apply the operator's confirmation to a previously-logged scan.
 
-    - Updates the scan event's ``confirmed_asset_id`` and ``status_after``
-    - If ``new_status`` is supplied, updates the cargo's ``status``
-
-    The permission check for status update must be done by the caller.
+    Security / integrity:
+      - ``confirmed_asset_id`` is validated against ``ar_installations``
+        with ``entity_id = cargo.entity_id`` (closes IDOR leak via
+        scan-history returning foreign installation names — SEC-C2).
+      - ``new_status`` is routed through ``update_packlog_cargo_status``
+        which validates the transition against
+        ``CARGO_FORWARD_TRANSITIONS`` / ``CARGO_RETURN_TRANSITIONS`` and
+        writes to ``cargo_status_log`` — no more arbitrary string
+        injections or workflow skips (SEC-C1).
+      - Uses ``SELECT … FOR UPDATE`` on the scan event + refuses
+        re-confirmation once the action has already been committed
+        (SEC-H1 TOCTOU / idempotency).
     """
+    from fastapi import HTTPException
+    from app.services.modules.packlog_service import (
+        update_packlog_cargo_status,
+        normalize_packlog_status,
+    )
+
+    # Lock the event row so two parallel confirms serialize.
     row = await db.execute(
         select(CargoScanEvent).where(
             CargoScanEvent.id == scan_event_id,
             CargoScanEvent.cargo_item_id == cargo.id,
             CargoScanEvent.entity_id == cargo.entity_id,
-        )
+        ).with_for_update()
     )
     event = row.scalar_one_or_none()
     if event is None:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Scan event not found")
 
+    # Idempotency — once status_updated fired, refuse re-apply.
+    if event.action == "status_updated" and event.status_after is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Scan event already confirmed with a status change",
+        )
+
+    # Validate confirmed_asset_id is reachable in this entity.
     if confirmed_asset_id is not None:
+        from app.models.asset_registry import Installation
+        inst_row = await db.execute(
+            select(Installation.id).where(
+                Installation.id == confirmed_asset_id,
+                Installation.entity_id == cargo.entity_id,
+                Installation.archived == False,  # noqa: E712
+            ).limit(1)
+        )
+        if inst_row.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Installation not found in this entity",
+            )
         event.confirmed_asset_id = confirmed_asset_id
         event.action = (
             "location_confirmed"
             if confirmed_asset_id == event.matched_asset_id
             else "location_corrected"
         )
+
     if note is not None:
         event.note = note
-    if new_status is not None and new_status != cargo.status:
-        event.status_before = cargo.status
-        event.status_after = new_status
-        event.action = "status_updated"
-        cargo.status = new_status
+
+    # Route status change through the vetted lifecycle function.
+    if new_status is not None:
+        try:
+            normalized = normalize_packlog_status(new_status)
+        except Exception:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid cargo status: '{new_status}'",
+            )
+        if normalized != cargo.status:
+            try:
+                await update_packlog_cargo_status(
+                    db,
+                    cargo_item_id=cargo.id,
+                    new_status=normalized,
+                    entity_id=cargo.entity_id,
+                    user_id=user.id,
+                    location_asset_id=confirmed_asset_id or event.matched_asset_id,
+                )
+            except ValueError as exc:
+                # Transition not allowed OR workflow pre-conditions not met.
+                raise HTTPException(status_code=422, detail=str(exc))
+            event.status_before = cargo.status  # updated in-session above
+            event.status_after = normalized
+            event.action = "status_updated"
 
     await db.commit()
     await db.refresh(event)

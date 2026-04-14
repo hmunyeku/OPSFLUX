@@ -399,6 +399,17 @@ async def scan_cargo(
     result["can_update_status"] = await has_user_permission(
         current_user, entity_id, "packlog.cargo.update", db
     )
+
+    # Information-disclosure guard (SEC-M1): only surface nearby
+    # installations when the user has `asset.read`. Without the
+    # permission we keep the matched one (the match IS the actionable
+    # value) but scrub the alternatives. Prevents an attacker from
+    # enumerating the entity's installation topology by sweeping GPS.
+    can_read_assets = await has_user_permission(
+        current_user, entity_id, "asset.read", db
+    )
+    if not can_read_assets:
+        result["nearby_installations"] = []
     return result
 
 
@@ -493,7 +504,10 @@ async def get_cargo_scan_history(
         display_user = None
         if e.user_id and e.user_id in user_map:
             u = user_map[e.user_id]
-            display_user = f"{u.first_name or ''} {u.last_name or ''}".strip() or u.email
+            # Never fall back to email — that would leak employee
+            # addresses to any viewer with packlog.cargo.read (SEC-M2).
+            fullname = f"{u.first_name or ''} {u.last_name or ''}".strip()
+            display_user = fullname or f"Opérateur #{str(u.id)[:8]}"
         matched_asset_name = None
         if e.matched_asset_id and e.matched_asset_id in asset_map:
             matched_asset_name = asset_map[e.matched_asset_id].name
@@ -561,6 +575,30 @@ async def download_cargo_label_pdf(
         req = await db.get(CargoRequest, cargo.request_id)
         request_code = req.request_code if req else None
 
+    # Cache the rendered PDF for 1h — WeasyPrint is expensive and the
+    # content doesn't change between scans (SEC-H4 DoS mitigation).
+    from app.core.redis_client import get_redis
+    cache_key = f"cargo_label_pdf:{cargo.id}:{cargo.tracking_code}:{language}"
+    try:
+        redis = get_redis()
+        cached_b64 = await redis.get(cache_key)
+        if cached_b64:
+            import base64 as _b64
+            cached_bytes = _b64.b64decode(cached_b64)
+            import re as _re
+            safe_cached = _re.sub(r"[^A-Za-z0-9._-]", "_", cargo.tracking_code)[:60] or "cargo"
+            from fastapi.responses import Response as _Resp
+            return _Resp(
+                content=cached_bytes,
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": f'inline; filename="label_{safe_cached}.pdf"',
+                    "X-Cache": "HIT",
+                },
+            )
+    except Exception:
+        redis = None  # fall through to live render
+
     # QR code payload = tracking_code (simple + scannable by any mobile).
     qr_data_uri = generate_qr_base64(cargo.tracking_code, box_size=8, border=1)
 
@@ -592,11 +630,26 @@ async def download_cargo_label_pdf(
             status_code=404,
             detail="Template 'packlog.cargo_label' introuvable — seed via scripts/seed_pdf_templates.",
         )
+    # Populate the Redis cache (1h TTL) for subsequent requests.
+    if redis is not None:
+        try:
+            import base64 as _b64
+            await redis.set(cache_key, _b64.b64encode(pdf_bytes), ex=3600)
+        except Exception:
+            pass
+
+    # Defensive: tracking_code is server-generated today but sanitize
+    # anyway — any future bulk-import / SAP sync path that allows \r\n
+    # or quotes in tracking_code would otherwise open a header-injection
+    # primitive (SEC-M3). Keep only ASCII alnum + dash + dot.
+    import re as _re
+    safe_code = _re.sub(r"[^A-Za-z0-9._-]", "_", cargo.tracking_code)[:60] or "cargo"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'inline; filename="label_{cargo.tracking_code}.pdf"',
+            "Content-Disposition": f'inline; filename="label_{safe_code}.pdf"',
+            "X-Cache": "MISS",
         },
     )
 

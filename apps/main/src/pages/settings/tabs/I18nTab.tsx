@@ -531,6 +531,22 @@ function AiTranslateButton({
   const qc = useQueryClient()
   const [result, setResult] = useState<{ translated: number; total_missing: number } | null>(null)
 
+  // Check if AI is configured by looking at settings
+  const { data: aiConfigured } = useQuery({
+    queryKey: ['ai', 'configured'],
+    queryFn: async () => {
+      try {
+        const { data } = await api.get('/api/v1/settings', { params: { scope: 'entity', key_prefix: 'ai.' } })
+        const settings = Array.isArray(data) ? data : []
+        const apiKey = settings.find((s: Record<string, unknown>) => s.key === 'ai.api_key' || s.key === 'ai.provider')
+        return Boolean(apiKey?.value)
+      } catch {
+        return false
+      }
+    },
+    staleTime: 60_000,
+  })
+
   const mutation = useMutation({
     mutationFn: async () => {
       const { data } = await api.post('/api/v1/i18n/admin/ai-translate', null, {
@@ -544,8 +560,8 @@ function AiTranslateButton({
     },
   })
 
-  // Don't show if target is same as source
-  if (targetLang === sourceLang) return null
+  // Don't show if target is same as source or AI not configured
+  if (targetLang === sourceLang || !aiConfigured) return null
 
   return (
     <div className="relative">

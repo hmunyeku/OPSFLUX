@@ -1,0 +1,7 @@
+# Maestro shared configuration — Android + iOS bundle ids per env.
+appId:
+  android: com.opsflux.mobile.preview
+  ios: com.opsflux.mobile.preview
+
+# Override per-env via:
+#   maestro --env APP_ID=com.opsflux.mobile test 01-login.yaml

@@ -395,29 +395,51 @@ def _build_sub_fields(
     schema_props: dict[str, Any],
     enrichments: dict[str, Any],
 ) -> dict[str, dict[str, Any]]:
-    """Build field definitions for a sub-schema (repeater items)."""
+    """
+    Build field definitions for a sub-schema (repeater items).
+
+    Applies the same enrichment passes as top-level fields so nested
+    lookups, selects, dates, etc. work correctly inside a repeater.
+    """
     props = schema_props.get("properties", {})
     required = set(schema_props.get("required", []))
     sub_fields: dict[str, dict[str, Any]] = {}
 
+    # Keys we propagate from enrichments verbatim — same set as top-level.
+    PASS_THROUGH = (
+        "type", "label", "help_text", "placeholder",
+        "lookup_source", "options", "ui_width", "default",
+        "visible_when", "required_when", "step",
+        "attachment_owner_type", "min", "max",
+    )
+
     for idx, (fname, prop) in enumerate(props.items()):
         enrichment = enrichments.get(fname, {})
-        field_type = _infer_field_type(prop, fname, enrichment)
+        field_type = enrichment.get("type") or _infer_field_type(prop, fname, enrichment)
         is_nullable = "anyOf" in prop and any(
             t.get("type") == "null" for t in prop.get("anyOf", [])
         )
-        sub_fields[fname] = {
+        field_def: dict[str, Any] = {
             "type": field_type,
             "label": enrichment.get("label", _humanize(fname)),
             "required": fname in required and not is_nullable,
             "order": idx,
         }
+
+        # Pull derived metadata from the JSON schema first
         options = _extract_enum_options(prop)
         if options:
-            sub_fields[fname]["options"] = options
+            field_def["options"] = options
         validation = _extract_validation(prop)
         if validation:
-            sub_fields[fname]["validation"] = validation
+            field_def["validation"] = validation
+
+        # Apply enrichment overrides (lookup_source, placeholder, etc.)
+        for key in PASS_THROUGH:
+            if key in enrichment:
+                field_def[key] = enrichment[key]
+
+        sub_fields[fname] = field_def
 
     return sub_fields
 

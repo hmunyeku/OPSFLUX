@@ -31,7 +31,7 @@ def get_ads_create_form() -> dict:
         form_id="ads_create",
         title="Nouvel Avis de Séjour",
         description="Créer une demande d'accès site pour du personnel.",
-        submit_endpoint="/api/v1/paxlog/ads",
+        submit_endpoint="/api/v1/pax/ads",
         submit_method="post",
         icon="user-check",
         module="paxlog",
@@ -129,7 +129,7 @@ def get_ads_create_form() -> dict:
                 "type": "lookup",
                 "lookup_source": {
                     "entity": "projects",
-                    "endpoint": "/api/v1/projets",
+                    "endpoint": "/api/v1/projects",
                     "display": "name",
                     "value": "id",
                     "search_param": "search",
@@ -238,7 +238,7 @@ def get_ads_create_form() -> dict:
                         "type": "lookup",
                         "lookup_source": {
                             "entity": "tier_contacts",
-                            "endpoint": "/api/v1/tiers/contacts",
+                            "endpoint": "/api/v1/tiers/contacts/all",
                             "display": "display_name",
                             "value": "id",
                             "search_param": "search",
@@ -327,7 +327,7 @@ def get_cargo_request_create_form() -> dict:
                 "type": "lookup",
                 "lookup_source": {
                     "entity": "projects",
-                    "endpoint": "/api/v1/projets",
+                    "endpoint": "/api/v1/projects",
                     "display": "name",
                     "value": "id",
                     "search_param": "search",
@@ -361,7 +361,7 @@ def get_cargo_request_create_form() -> dict:
                 "type": "lookup",
                 "lookup_source": {
                     "entity": "tier_contacts",
-                    "endpoint": "/api/v1/tiers/contacts",
+                    "endpoint": "/api/v1/tiers/contacts/all",
                     "display": "display_name",
                     "value": "id",
                     "search_param": "search",
@@ -471,7 +471,7 @@ def get_mission_notice_create_form() -> dict:
         form_id="mission_notice_create",
         title="Demande de mission",
         description="Créer un nouvel avis de mission pour du personnel.",
-        submit_endpoint="/api/v1/paxlog/mission-notices",
+        submit_endpoint="/api/v1/pax/avm",
         submit_method="post",
         icon="briefcase",
         module="paxlog",
@@ -638,7 +638,7 @@ def get_portal_definitions() -> list[dict]:
                 {"type": "qr", "label": "Scan ADS boarding", "target": "ScanAds"},
             ],
             dashboard_cards=[
-                {"type": "stat", "title": "ADS actifs", "endpoint": "/api/v1/paxlog/ads", "params": {"status": "approved"}, "display": "total"},
+                {"type": "stat", "title": "ADS actifs", "endpoint": "/api/v1/pax/ads", "params": {"status": "approved"}, "display": "total"},
             ],
         ),
         build_portal_config(

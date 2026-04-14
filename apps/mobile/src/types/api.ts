@@ -92,6 +92,8 @@ export interface CargoRead {
   weight_kg: number | null;
   tracking_code: string | null;
   hazmat: boolean;
+  /** Linked cargo request (used to download the LT — lettre de transport). */
+  request_id: string | null;
   created_at: string;
   received_at: string | null;
   received_by_name: string | null;

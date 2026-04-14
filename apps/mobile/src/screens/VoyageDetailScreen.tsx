@@ -8,6 +8,9 @@ import {
   Badge,
   BadgeText,
   Box,
+  Button,
+  ButtonSpinner,
+  ButtonText,
   Divider,
   Heading,
   HStack,
@@ -20,6 +23,8 @@ import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
 import FleetMap, { type MapPosition } from "../components/FleetMap";
 import { api } from "../services/api";
+import { downloadAndOpenPdf } from "../services/pdf";
+import { useToast } from "../components/Toast";
 
 interface Props {
   route: { params: { voyageId: string } };
@@ -69,6 +74,8 @@ export default function VoyageDetailScreen({ route }: Props) {
   const [logs, setLogs] = useState<VoyageLog[]>([]);
   const [positions, setPositions] = useState<MapPosition[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloadingPdf, setDownloadingPdf] = useState<"pax" | "cargo" | null>(null);
+  const toast = useToast();
 
   const load = useCallback(async () => {
     try {
@@ -292,6 +299,68 @@ export default function VoyageDetailScreen({ route }: Props) {
             })}
           </Box>
         )}
+
+        {/* PDF downloads */}
+        <VStack space="sm">
+          <Button
+            size="lg"
+            variant="outline"
+            action="secondary"
+            isDisabled={downloadingPdf !== null}
+            onPress={async () => {
+              setDownloadingPdf("pax");
+              const result = await downloadAndOpenPdf(
+                `/api/v1/voyages/${voyage.id}/pdf/pax-manifest`,
+                `${voyage.code}_manifest_pax`
+              );
+              setDownloadingPdf(null);
+              if (!result.ok) {
+                toast.show(
+                  t("voyage.pdfError", "Téléchargement du PDF impossible."),
+                  "error"
+                );
+              }
+            }}
+          >
+            {downloadingPdf === "pax" ? (
+              <ButtonSpinner mr="$2" />
+            ) : (
+              <MIcon name="people" size="sm" color="$primary700" mr="$2" />
+            )}
+            <ButtonText>
+              {t("voyage.downloadPaxManifest", "Manifeste PAX (PDF)")}
+            </ButtonText>
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            action="secondary"
+            isDisabled={downloadingPdf !== null}
+            onPress={async () => {
+              setDownloadingPdf("cargo");
+              const result = await downloadAndOpenPdf(
+                `/api/v1/voyages/${voyage.id}/pdf/cargo-manifest`,
+                `${voyage.code}_manifest_cargo`
+              );
+              setDownloadingPdf(null);
+              if (!result.ok) {
+                toast.show(
+                  t("voyage.pdfError", "Téléchargement du PDF impossible."),
+                  "error"
+                );
+              }
+            }}
+          >
+            {downloadingPdf === "cargo" ? (
+              <ButtonSpinner mr="$2" />
+            ) : (
+              <MIcon name="inventory" size="sm" color="$primary700" mr="$2" />
+            )}
+            <ButtonText>
+              {t("voyage.downloadCargoManifest", "Manifeste Cargo (PDF)")}
+            </ButtonText>
+          </Button>
+        </VStack>
       </ScrollView>
     </Box>
   );

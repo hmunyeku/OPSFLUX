@@ -35,6 +35,7 @@ import type {
   CargoTrackingRead,
   PackageElement,
 } from "../types/api";
+import { downloadAndOpenPdf } from "../services/pdf";
 
 interface Props {
   route: {
@@ -58,6 +59,7 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
   );
   const [elements, setElements] = useState<PackageElement[]>([]);
   const [loading, setLoading] = useState(false);
+  const [downloadingLt, setDownloadingLt] = useState(false);
   const [receiving, setReceiving] = useState(false);
 
   // Load full cargo detail + compliance if we have auth
@@ -246,6 +248,36 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
         </View>
       )}
 
+      {/* LT (Lettre de transport) PDF download */}
+      {cargo?.request_id && (
+        <Pressable
+          style={styles.pdfButton}
+          disabled={downloadingLt}
+          onPress={async () => {
+            setDownloadingLt(true);
+            const result = await downloadAndOpenPdf(
+              `/api/v1/cargo-requests/${cargo.request_id}/pdf/lt`,
+              `LT_${cargo.reference}`
+            );
+            setDownloadingLt(false);
+            if (!result.ok) {
+              Alert.alert(
+                "Erreur",
+                "Téléchargement de la lettre de transport impossible."
+              );
+            }
+          }}
+        >
+          {downloadingLt ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : (
+            <Text style={styles.pdfButtonText}>
+              📄 Télécharger la lettre de transport
+            </Text>
+          )}
+        </Pressable>
+      )}
+
       {/* Receive button — navigates to full reception workflow */}
       {cargo &&
         !["received", "delivered_final", "returned"].includes(
@@ -431,6 +463,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  // PDF button (outline secondary)
+  pdfButton: {
+    backgroundColor: colors.surface ?? "#fff",
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 12,
+  },
+  pdfButtonText: {
+    color: colors.primary,
+    fontSize: 15,
+    fontWeight: "600",
   },
   // Receive button
   receiveButton: {

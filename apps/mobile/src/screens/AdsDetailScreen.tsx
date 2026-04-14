@@ -30,6 +30,7 @@ import { MIcon, type MIconName } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
 import { api } from "../services/api";
+import { downloadAndOpenPdf } from "../services/pdf";
 import { usePermissions } from "../stores/permissions";
 import { useToast } from "../components/Toast";
 import type { AdsSummary } from "../types/api";
@@ -81,6 +82,7 @@ export default function AdsDetailScreen({ route }: Props) {
   const [ads, setAds] = useState<AdsDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const canApprove = usePermissions((s) => s.has("paxlog.ads.approve"));
   const canSubmit = usePermissions((s) => s.has("paxlog.ads.submit"));
   const toast = useToast();
@@ -284,6 +286,35 @@ export default function AdsDetailScreen({ route }: Props) {
 
         {/* Actions */}
         <VStack space="sm">
+          {/* PDF download — available as soon as the ADS exists */}
+          <Button
+            size="lg"
+            variant="outline"
+            action="secondary"
+            isDisabled={downloadingPdf}
+            onPress={async () => {
+              setDownloadingPdf(true);
+              const result = await downloadAndOpenPdf(
+                `/api/v1/ads/${ads.id}/pdf`,
+                `ADS_${ads.reference}`
+              );
+              setDownloadingPdf(false);
+              if (!result.ok) {
+                toast.show(
+                  t("ads.pdfError", "Téléchargement du PDF impossible."),
+                  "error"
+                );
+              }
+            }}
+          >
+            {downloadingPdf ? (
+              <ButtonSpinner mr="$2" />
+            ) : (
+              <MIcon name="picture-as-pdf" size="sm" color="$primary700" mr="$2" />
+            )}
+            <ButtonText>{t("ads.downloadPdf", "Télécharger le PDF")}</ButtonText>
+          </Button>
+
           {ads.status === "draft" && canSubmit && (
             <Button size="lg" action="primary" onPress={() => handleAction("submit")} isDisabled={acting}>
               {acting && <ButtonSpinner mr="$2" />}

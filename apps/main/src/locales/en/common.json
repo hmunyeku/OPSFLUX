@@ -2770,12 +2770,15 @@
     "title": "TravelWiz",
     "subtitle": "Travel, vector and logistics rotation management",
     "tabs": {
+      "dashboard": "Dashboard",
       "voyages": "Voyages",
       "vectors": "Vectors",
       "cargo": "Cargo",
       "manifests": "Manifests",
+      "manifests_pax": "PAX Manifests",
       "rotations": "Rotations",
       "fleet_map": "Fleet Map",
+      "pickup": "Pickup",
       "pickup_rounds": "Pickup Rounds",
       "weather": "Weather"
     },

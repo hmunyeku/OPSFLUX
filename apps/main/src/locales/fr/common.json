@@ -3051,12 +3051,15 @@
     "title": "TravelWiz",
     "subtitle": "Gestion des voyages, vecteurs et rotations logistiques",
     "tabs": {
+      "dashboard": "Tableau de bord",
       "voyages": "Voyages",
       "vectors": "Vecteurs",
       "cargo": "Cargo",
       "manifests": "Manifestes",
+      "manifests_pax": "Manifestes PAX",
       "rotations": "Rotations",
       "fleet_map": "Carte flotte",
+      "pickup": "Ramassage",
       "pickup_rounds": "Ramassage",
       "weather": "Météo"
     },

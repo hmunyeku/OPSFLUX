@@ -116,16 +116,16 @@ import type {
 
 type TravelWizTab = 'dashboard' | 'voyages' | 'manifests' | 'vectors' | 'rotations' | 'cargo' | 'fleet_map' | 'pickup' | 'weather'
 
-const TABS: { id: TravelWizTab; label: string; icon: typeof Plane }[] = [
-  { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-  { id: 'voyages', label: 'Voyages', icon: Plane },
-  { id: 'manifests', label: 'Manifestes PAX', icon: FileText },
-  { id: 'vectors', label: 'Vecteurs', icon: Ship },
-  { id: 'rotations', label: 'Rotations', icon: Repeat },
-  { id: 'cargo', label: 'Cargo', icon: Package },
-  { id: 'fleet_map', label: 'Carte flotte', icon: MapIcon },
-  { id: 'pickup', label: 'Ramassage', icon: Route },
-  { id: 'weather', label: 'Météo', icon: CloudSun },
+const TABS: { id: TravelWizTab; labelKey: string; icon: typeof Plane }[] = [
+  { id: 'dashboard', labelKey: 'travelwiz.tabs.dashboard', icon: LayoutDashboard },
+  { id: 'voyages', labelKey: 'travelwiz.tabs.voyages', icon: Plane },
+  { id: 'manifests', labelKey: 'travelwiz.tabs.manifests_pax', icon: FileText },
+  { id: 'vectors', labelKey: 'travelwiz.tabs.vectors', icon: Ship },
+  { id: 'rotations', labelKey: 'travelwiz.tabs.rotations', icon: Repeat },
+  { id: 'cargo', labelKey: 'travelwiz.tabs.cargo', icon: Package },
+  { id: 'fleet_map', labelKey: 'travelwiz.tabs.fleet_map', icon: MapIcon },
+  { id: 'pickup', labelKey: 'travelwiz.tabs.pickup', icon: Route },
+  { id: 'weather', labelKey: 'travelwiz.tabs.weather', icon: CloudSun },
 ]
 
 
@@ -1600,6 +1600,7 @@ function WeatherTab() {
 const VALID_TW_TABS = new Set<TravelWizTab>(['dashboard', 'voyages', 'manifests', 'vectors', 'rotations', 'cargo', 'fleet_map', 'pickup', 'weather'])
 
 export function TravelWizPage() {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabFromUrl = searchParams.get('tab') as TravelWizTab | null
   const [activeTab, setActiveTabRaw] = useState<TravelWizTab>(
@@ -1645,7 +1646,7 @@ export function TravelWizPage() {
           </PanelHeader>
 
           <TabBar
-            items={TABS}
+            items={TABS.map((tab) => ({ id: tab.id, icon: tab.icon, label: t(tab.labelKey) }))}
             activeId={activeTab}
             onTabChange={setActiveTab}
           />

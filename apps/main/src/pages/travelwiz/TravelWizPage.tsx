@@ -441,7 +441,6 @@ function VoyagesTab() {
   const canDelete = hasPermission('travelwiz.voyage.delete')
   const canExport = hasPermission('travelwiz.voyage.read')
   const canImport = hasPermission('travelwiz.voyage.create')
-  const { data: rotationsData, isLoading: loadingRotations } = useRotations({ page: 1, page_size: 100 })
   const voyageStatusLabels = useDictionaryLabels('travelwiz_voyage_status', VOYAGE_STATUS_LABELS_FALLBACK)
   const voyageStatusOptions = useMemo(
     () => buildStatusOptions(voyageStatusLabels, ['planned', 'confirmed', 'boarding', 'departed', 'arrived', 'closed', 'cancelled', 'delayed']),
@@ -456,7 +455,6 @@ function VoyagesTab() {
   })
 
   const items: AnyRow[] = data?.items ?? []
-  const rotations: AnyRow[] = rotationsData?.items ?? []
   const total = data?.total ?? 0
 
   const stats = useMemo(() => {
@@ -464,8 +462,8 @@ function VoyagesTab() {
     const inProgress = items.filter((v) => ['boarding', 'departed'].includes(v.status)).length
     const arrived = items.filter((v) => v.status === 'arrived').length
     const totalPax = items.reduce((sum, v) => sum + (v.pax_count ?? 0), 0)
-    return { planned, inProgress, arrived, totalPax, rotations: rotations.length }
-  }, [items, rotations.length])
+    return { planned, inProgress, arrived, totalPax }
+  }, [items])
 
   const columns = useMemo<ColumnDef<AnyRow, unknown>[]>(() => [
     {
@@ -556,10 +554,10 @@ function VoyagesTab() {
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 border-b border-border">
+        <StatCard label="Total" value={total} icon={Plane} />
         <StatCard label="Planifiés" value={stats.planned} icon={Calendar} />
-        <StatCard label="En cours" value={stats.inProgress} icon={Plane} />
-        <StatCard label="Arrivés" value={stats.arrived} icon={Anchor} />
-        <StatCard label="Rotations actives" value={stats.rotations} icon={Route} />
+        <StatCard label="En cours" value={stats.inProgress} icon={Plane} accent="text-amber-500" />
+        <StatCard label="PAX embarqués" value={stats.totalPax} icon={Users} accent="text-blue-500" />
       </div>
 
       <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
@@ -607,58 +605,6 @@ function VoyagesTab() {
           } : undefined}
           storageKey="travelwiz-voyages"
         />
-
-        <div className="mt-5 space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Programmations récurrentes</h3>
-              <p className="text-xs text-muted-foreground">
-                Les rotations définissent les voyages périodiques par vecteur, base et cadence.
-              </p>
-            </div>
-            {canImport && (
-              <button
-                className="gl-button-sm gl-button-primary text-xs"
-                onClick={() => openDynamicPanel({ type: 'create', module: 'travelwiz', meta: { subtype: 'rotation' } })}
-              >
-                <Plus size={10} className="mr-1" />
-                Nouvelle rotation
-              </button>
-            )}
-          </div>
-          {loadingRotations ? (
-            <div className="flex items-center justify-center rounded-lg border border-border bg-card py-8">
-              <Loader2 size={16} className="animate-spin text-muted-foreground" />
-            </div>
-          ) : rotations.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border bg-card px-4 py-6 text-sm text-muted-foreground">
-              Aucune rotation configurée. Créez une rotation pour programmer des voyages récurrents sans ressaisie manuelle.
-            </div>
-          ) : (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {rotations.map((rotation) => (
-                <button
-                  key={rotation.id}
-                  type="button"
-                  onClick={() => openDynamicPanel({ type: 'detail', module: 'travelwiz', id: rotation.id, meta: { subtype: 'rotation' } })}
-                  className="rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-muted/30"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{rotation.name}</p>
-                      <p className="text-xs text-muted-foreground mt-1 truncate">{rotation.vector_name ?? 'Vecteur non résolu'}</p>
-                    </div>
-                    <span className="gl-badge gl-badge-neutral shrink-0">Rotation</span>
-                  </div>
-                  <div className="mt-3 space-y-1.5 text-xs text-muted-foreground">
-                    <p><span className="text-foreground font-medium">Base:</span> {rotation.departure_base_name ?? '—'}</p>
-                    <p><span className="text-foreground font-medium">Cadence:</span> {rotation.schedule_description ?? rotation.schedule_cron ?? '—'}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
       </PanelContent>
     </>
   )

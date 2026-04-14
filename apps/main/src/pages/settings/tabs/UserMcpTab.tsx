@@ -4,11 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
   Ban,
-  Check,
   ChevronDown,
   Copy,
   ExternalLink,
-  Globe,
   Key,
   Loader2,
   Plug,
@@ -277,41 +275,26 @@ export function UserMcpTab() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <button className="gl-button gl-button-default" onClick={() => navigator.clipboard.writeText(mcpBaseUrl)}>
-                      <Copy size={14} />
-                    </button>
                     {!token.revoked && (
-                      <button className="gl-button gl-button-default" onClick={() => revokeToken.mutate(token.id)}>
+                      <button
+                        className="gl-button gl-button-default"
+                        onClick={() => revokeToken.mutate(token.id)}
+                        title="Révoquer le token"
+                      >
                         <Ban size={14} />
                       </button>
                     )}
-                    <button className="gl-button gl-button-danger" onClick={() => deleteToken.mutate(token.id)}>
+                    <button
+                      className="gl-button gl-button-danger"
+                      onClick={() => deleteToken.mutate(token.id)}
+                      title="Supprimer le token"
+                    >
                       <AlertTriangle size={14} />
                     </button>
                   </div>
                 </div>
               )
             })}
-          </div>
-
-          <div className="border border-border/50 rounded-lg px-4 py-3 bg-muted/20">
-            <div className="flex items-center gap-2 mb-2">
-              <Globe size={14} className="text-muted-foreground" />
-              <span className="text-sm font-semibold text-foreground">Configuration client</span>
-            </div>
-            <p className="text-xs text-muted-foreground mb-2">Endpoint par défaut pour le backend OpsFlux :</p>
-            <div className="flex items-center gap-2">
-              <code className="text-xs break-all flex-1">{mcpBaseUrl}</code>
-              <button
-                className="gl-button gl-button-default"
-                onClick={() => navigator.clipboard.writeText(mcpBaseUrl)}
-              >
-                <Check size={14} />
-              </button>
-              <a className="gl-button gl-button-default" href={mcpBaseUrl} target="_blank" rel="noreferrer">
-                <ExternalLink size={14} />
-              </a>
-            </div>
           </div>
         </div>
       </CollapsibleSection>

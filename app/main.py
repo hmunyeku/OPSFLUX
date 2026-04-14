@@ -109,6 +109,8 @@ from app.api.routes.core.departments import router as departments_router
 from app.api.routes.core.preview import router as preview_router
 from app.api.routes.core.dictionary import router as dictionary_router
 from app.api.routes.core.i18n import router as i18n_router
+from app.api.routes.core.mobile_pairing import router as mobile_pairing_router
+from app.api.routes.core.verifications import router as verifications_router
 from app.api.routes.core.ai_chat import router as ai_chat_router
 from app.api.routes.core.gdpr import router as gdpr_router
 from app.api.routes.core.modules import router as modules_router
@@ -324,6 +326,8 @@ app.include_router(opening_hours_router)
 app.include_router(preview_router)
 app.include_router(dictionary_router)
 app.include_router(i18n_router)
+app.include_router(mobile_pairing_router)
+app.include_router(verifications_router)
 app.include_router(ai_chat_router)
 app.include_router(gdpr_router)
 app.include_router(modules_router)

@@ -2519,6 +2519,90 @@ class UserHealthConditionRead(BaseModel):
     updated_at: datetime
 
 
+# ─── Mobile QR Pairing (WhatsApp-Web style) ───────────────────────────────────
+
+class MobilePairingGenerateResponse(BaseModel):
+    """Response when the web asks for a fresh pairing token."""
+    token: str  # Plaintext — displayed in QR, shown once
+    qr_payload: str  # Full string to encode in the QR (JSON with api, token, v)
+    expires_at: datetime
+    ttl_seconds: int
+
+
+class MobilePairingStatusResponse(BaseModel):
+    """Polled by the web to know when the mobile has scanned."""
+    status: str  # pending | consumed | expired | revoked
+    consumed_at: datetime | None = None
+    consumed_device_info: dict | None = None
+
+
+class MobilePairingConsumeRequest(BaseModel):
+    """Mobile posts the scanned token + its device info to exchange for JWT."""
+    token: str
+    device_info: dict = Field(
+        default_factory=dict,
+        description="Mobile device metadata (os, os_version, model, app_version, locale)",
+    )
+
+
+class MobilePairingConsumeResponse(BaseModel):
+    """Same shape as LoginResponse, plus the user info bootstrap needs."""
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    user: dict  # { id, email, first_name, last_name, language, default_entity_id }
+    entity_id: str | None = None
+
+
+# ─── User Verifications (phone, email, location, ID, biometric) ───────────────
+
+class VerificationStartPhoneRequest(BaseModel):
+    phone_id: UUID
+    preferred_channel: str | None = None  # 'whatsapp' | 'sms' | None = use entity default
+
+
+class VerificationStartEmailRequest(BaseModel):
+    email_id: UUID
+
+
+class VerificationConfirmOtpRequest(BaseModel):
+    verification_id: UUID
+    otp: str = Field(min_length=4, max_length=10)
+
+
+class VerificationLocationRequest(BaseModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    accuracy_m: float | None = Field(default=None, ge=0)
+    altitude_m: float | None = None
+    source: str = "gps"  # gps | network | fused
+    captured_at: datetime | None = None
+
+
+class VerificationIdDocumentRequest(BaseModel):
+    id_document_type: str  # passport | national_id | driver_license
+    front_attachment_id: UUID
+    back_attachment_id: UUID | None = None
+    selfie_attachment_id: UUID
+    document_number: str | None = None
+    issuing_country: str | None = None
+
+
+class UserVerificationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    user_id: UUID
+    type: str
+    status: str
+    method: str
+    verified_at: datetime | None = None
+    expires_at: datetime | None = None
+    rejection_reason: str | None = None
+    evidence: dict | None = None
+    created_at: datetime
+
+
 # ─── i18n — Server-driven translations ────────────────────────────────────────
 
 class I18nLanguageRead(BaseModel):

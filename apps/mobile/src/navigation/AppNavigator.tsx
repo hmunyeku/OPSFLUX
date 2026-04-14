@@ -29,6 +29,11 @@ import { colors } from "../utils/colors";
 // Screens
 import LoginScreen from "../screens/LoginScreen";
 import PairingScanScreen from "../screens/PairingScanScreen";
+import VerificationsHubScreen from "../screens/verifications/VerificationsHubScreen";
+import PhoneVerificationScreen from "../screens/verifications/PhoneVerificationScreen";
+import EmailVerificationScreen from "../screens/verifications/EmailVerificationScreen";
+import LocationVerificationScreen from "../screens/verifications/LocationVerificationScreen";
+import IdDocumentVerificationScreen from "../screens/verifications/IdDocumentVerificationScreen";
 import PortalHomeScreen from "../screens/PortalHomeScreen";
 import ScanAdsScreen from "../screens/ScanAdsScreen";
 import SmartScanScreen from "../screens/SmartScanScreen";
@@ -302,6 +307,31 @@ function SettingsStack() {
         name="Preferences"
         component={PreferencesScreen}
         options={{ title: "Préférences" }}
+      />
+      <Stack.Screen
+        name="VerificationsHub"
+        component={VerificationsHubScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="PhoneVerification"
+        component={PhoneVerificationScreen}
+        options={{ headerShown: false, animation: "slide_from_right" }}
+      />
+      <Stack.Screen
+        name="EmailVerification"
+        component={EmailVerificationScreen}
+        options={{ headerShown: false, animation: "slide_from_right" }}
+      />
+      <Stack.Screen
+        name="LocationVerification"
+        component={LocationVerificationScreen}
+        options={{ headerShown: false, animation: "slide_from_right" }}
+      />
+      <Stack.Screen
+        name="IdDocumentVerification"
+        component={IdDocumentVerificationScreen}
+        options={{ headerShown: false, animation: "slide_from_right" }}
       />
     </Stack.Navigator>
   );

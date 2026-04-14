@@ -1,0 +1,251 @@
+/**
+ * VerificationsHub — lists verification types and their current status.
+ *
+ * Routes to the appropriate flow when a tile is tapped:
+ *   - phone       → PhoneVerification
+ *   - email       → EmailVerification
+ *   - location    → LocationVerification
+ *   - id_document → IdDocumentVerification
+ *
+ * Polls listMyVerifications() to show real-time status (pending, verified,
+ * rejected, expired).
+ */
+
+import React, { useCallback, useEffect, useState } from "react";
+import { RefreshControl, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  Box,
+  Heading,
+  HStack,
+  Icon,
+  Pressable,
+  Spinner,
+  Text,
+  VStack,
+} from "@gluestack-ui/themed";
+import {
+  BadgeCheck,
+  ChevronRight,
+  Clock,
+  FileBadge,
+  MapPin,
+  Mail,
+  Phone,
+  XCircle,
+  type LucideIcon,
+} from "lucide-react-native";
+import { useTranslation } from "react-i18next";
+import { listMyVerifications, type UserVerification } from "../../services/verifications";
+
+interface Props {
+  navigation: any;
+}
+
+type VType = "phone" | "email" | "location" | "id_document";
+
+interface Tile {
+  type: VType;
+  route: string;
+  icon: LucideIcon;
+  labelKey: string;
+  labelFallback: string;
+  descKey: string;
+  descFallback: string;
+}
+
+const TILES: Tile[] = [
+  {
+    type: "phone",
+    route: "PhoneVerification",
+    icon: Phone,
+    labelKey: "verif.phone.title",
+    labelFallback: "Numéro de téléphone",
+    descKey: "verif.phone.desc",
+    descFallback: "Recevez un code par SMS ou WhatsApp",
+  },
+  {
+    type: "email",
+    route: "EmailVerification",
+    icon: Mail,
+    labelKey: "verif.email.title",
+    labelFallback: "Adresse email",
+    descKey: "verif.email.desc",
+    descFallback: "Recevez un code par email",
+  },
+  {
+    type: "location",
+    route: "LocationVerification",
+    icon: MapPin,
+    labelKey: "verif.location.title",
+    labelFallback: "Localisation GPS",
+    descKey: "verif.location.desc",
+    descFallback: "Confirmez votre position actuelle",
+  },
+  {
+    type: "id_document",
+    route: "IdDocumentVerification",
+    icon: FileBadge,
+    labelKey: "verif.id.title",
+    labelFallback: "Pièce d'identité",
+    descKey: "verif.id.desc",
+    descFallback: "Passeport, carte nationale ou permis",
+  },
+];
+
+function statusOf(verifications: UserVerification[], type: VType): UserVerification | null {
+  // Prefer the most recent "verified", else the latest entry
+  const matching = verifications.filter((v) => v.type === type);
+  const verified = matching.find((v) => v.status === "verified");
+  if (verified) return verified;
+  return matching[0] ?? null;
+}
+
+export default function VerificationsHubScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+  const [verifications, setVerifications] = useState<UserVerification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const data = await listMyVerifications();
+      setVerifications(data);
+    } catch {
+      /* silent */
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  return (
+    <Box flex={1} bg="$backgroundLight50">
+      <ScrollView
+        contentContainerStyle={{
+          paddingTop: insets.top + 12,
+          paddingHorizontal: 16,
+          paddingBottom: insets.bottom + 24,
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              load();
+            }}
+          />
+        }
+      >
+        <VStack space="md">
+          <Box mb="$2">
+            <Heading size="xl" color="$textLight900">
+              {t("verif.hub.title", "Mes vérifications")}
+            </Heading>
+            <Text size="md" color="$textLight600" mt="$1">
+              {t(
+                "verif.hub.subtitle",
+                "Renforcez la sécurité de votre compte en vérifiant votre identité."
+              )}
+            </Text>
+          </Box>
+
+          {loading ? (
+            <Box py="$10" alignItems="center">
+              <Spinner color="$primary600" />
+            </Box>
+          ) : (
+            TILES.map((tile) => {
+              const state = statusOf(verifications, tile.type);
+              return (
+                <Pressable
+                  key={tile.type}
+                  onPress={() => navigation.navigate(tile.route)}
+                  bg="$white"
+                  borderRadius="$lg"
+                  borderWidth={1}
+                  borderColor="$borderLight200"
+                  p="$4"
+                  $active-bg="$backgroundLight100"
+                >
+                  <HStack space="md" alignItems="center">
+                    <Box
+                      bg="$primary50"
+                      borderRadius="$lg"
+                      p="$2.5"
+                    >
+                      <Icon as={tile.icon} size="lg" color="$primary700" />
+                    </Box>
+                    <VStack flex={1}>
+                      <Text size="md" fontWeight="$semibold" color="$textLight900">
+                        {t(tile.labelKey, tile.labelFallback)}
+                      </Text>
+                      <Text size="xs" color="$textLight500" mt="$0.5">
+                        {t(tile.descKey, tile.descFallback)}
+                      </Text>
+                      <StatusBadge state={state} />
+                    </VStack>
+                    <Icon as={ChevronRight} size="md" color="$textLight400" />
+                  </HStack>
+                </Pressable>
+              );
+            })
+          )}
+        </VStack>
+      </ScrollView>
+    </Box>
+  );
+}
+
+function StatusBadge({ state }: { state: UserVerification | null }) {
+  const { t } = useTranslation();
+
+  if (!state) {
+    return (
+      <HStack mt="$1.5" alignItems="center" space="xs">
+        <Box w="$2" h="$2" borderRadius="$full" bg="$textLight300" />
+        <Text size="xs" color="$textLight500" fontWeight="$medium">
+          {t("verif.status.notStarted", "Non vérifié")}
+        </Text>
+      </HStack>
+    );
+  }
+
+  if (state.status === "verified") {
+    return (
+      <HStack mt="$1.5" alignItems="center" space="xs">
+        <Icon as={BadgeCheck} size="xs" color="$success600" />
+        <Text size="xs" color="$success700" fontWeight="$medium">
+          {t("verif.status.verified", "Vérifié")}
+        </Text>
+      </HStack>
+    );
+  }
+
+  if (state.status === "pending") {
+    return (
+      <HStack mt="$1.5" alignItems="center" space="xs">
+        <Icon as={Clock} size="xs" color="$warning600" />
+        <Text size="xs" color="$warning700" fontWeight="$medium">
+          {t("verif.status.pending", "En attente")}
+        </Text>
+      </HStack>
+    );
+  }
+
+  return (
+    <HStack mt="$1.5" alignItems="center" space="xs">
+      <Icon as={XCircle} size="xs" color="$error600" />
+      <Text size="xs" color="$error700" fontWeight="$medium">
+        {state.status === "rejected"
+          ? t("verif.status.rejected", "Rejeté")
+          : t("verif.status.expired", "Expiré")}
+      </Text>
+    </HStack>
+  );
+}

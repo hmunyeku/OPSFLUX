@@ -101,16 +101,17 @@ def upgrade() -> None:
     )
 
     # Seed tenant-level default radius (idempotent — insert only if absent).
+    # The settings table schema is: (id, key, value, scope, scope_id, updated_at).
+    # No `created_at` column — only updated_at via server_default.
     op.execute(
         """
-        INSERT INTO settings (id, key, value, scope, scope_id, created_at, updated_at)
+        INSERT INTO settings (id, key, value, scope, scope_id, updated_at)
         SELECT
             gen_random_uuid(),
             'packlog.scan_radius_m',
             '500'::jsonb,
             'tenant',
             NULL,
-            NOW(),
             NOW()
         WHERE NOT EXISTS (
             SELECT 1 FROM settings

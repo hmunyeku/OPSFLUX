@@ -29,6 +29,18 @@ export default function WizardPage() {
   const [bootstrapped, setBootstrapped] = useState(false)
   const didAutoSkip = useRef(false)
 
+  // Auto-skip security step when already authenticated or OTP not required.
+  // MUST be declared before any early return (React hooks rules).
+  useEffect(() => {
+    if (!bootstrapped || didAutoSkip.current || activeStep !== 0) return
+    const auth = Boolean(linkInfo?.authenticated)
+    const securityDone = auth || (linkInfo != null && !linkInfo.otp_required)
+    if (securityDone) {
+      didAutoSkip.current = true
+      setActiveStep(1)
+    }
+  }, [bootstrapped, linkInfo, activeStep])
+
   const api = useCallback(
     (path: string, options?: RequestInit) => apiRequest(sessionToken, path, options),
     [sessionToken],
@@ -290,19 +302,10 @@ export default function WizardPage() {
   }
 
   const authenticated = Boolean(linkInfo?.authenticated)
-  const securityDone = authenticated || (linkInfo != null && !linkInfo.otp_required)
   const steps = buildSteps(authenticated, dossier)
   const adsRef = dossier?.ads?.reference || dossier?.ads?.ref || linkInfo?.ads_reference
   const companyName = dossier?.allowed_company_name || null
   const adsStatus = dossier?.ads?.status || null
-
-  // Auto-skip security step when already authenticated or OTP not required
-  useEffect(() => {
-    if (bootstrapped && securityDone && activeStep === 0 && !didAutoSkip.current) {
-      didAutoSkip.current = true
-      setActiveStep(1)
-    }
-  }, [bootstrapped, securityDone, activeStep])
 
   const goToStep = (index: number) => {
     setActiveStep(index)

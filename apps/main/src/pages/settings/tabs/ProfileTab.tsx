@@ -17,6 +17,7 @@ import { Camera, Loader2, Pencil, Check, Plus, Download, Trash2 } from 'lucide-r
 import api from '@/lib/api'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { ImageEditor } from '@/components/shared/ImageEditor'
+import { MobilePairingCard } from '@/components/shared/MobilePairingCard'
 
 import { PhoneManager } from '@/components/shared/PhoneManager'
 import { EmergencyContactManager } from '@/components/shared/EmergencyContactManager'
@@ -562,6 +563,8 @@ export function ProfileTab() {
       </CollapsibleSection>
 
       <AddressesTab />
+
+      <MobilePairingCard />
 
       <CollapsibleSection
         id="user-emergency-contacts"

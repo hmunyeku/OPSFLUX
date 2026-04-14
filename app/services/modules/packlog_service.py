@@ -904,20 +904,21 @@ async def update_cargo_status(
         cargo.received_at = datetime.now(timezone.utc)
 
     try:
-        await db.execute(
-            text(
-                "INSERT INTO cargo_status_log "
-                "(cargo_item_id, from_status, to_status, changed_by, location_asset_id, changed_at) "
-                "VALUES (:cid, :from_s, :to_s, :uid, :loc, NOW())"
-            ),
-            {
-                "cid": str(cargo_item_id),
-                "from_s": old_status,
-                "to_s": new_status,
-                "uid": str(user_id),
-                "loc": str(location_asset_id) if location_asset_id else None,
-            },
-        )
+        async with db.begin_nested():
+            await db.execute(
+                text(
+                    "INSERT INTO cargo_status_log "
+                    "(cargo_item_id, from_status, to_status, changed_by, location_asset_id, changed_at) "
+                    "VALUES (:cid, :from_s, :to_s, :uid, :loc, NOW())"
+                ),
+                {
+                    "cid": str(cargo_item_id),
+                    "from_s": old_status,
+                    "to_s": new_status,
+                    "uid": str(user_id),
+                    "loc": str(location_asset_id) if location_asset_id else None,
+                },
+            )
     except Exception:
         logger.debug("cargo_status_log table may not exist yet, skipping log insert")
 

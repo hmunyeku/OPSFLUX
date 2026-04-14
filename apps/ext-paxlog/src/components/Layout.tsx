@@ -23,7 +23,7 @@ export default function Layout({ children, adsRef, companyName, status, authenti
     <div className="min-h-screen" style={{ background: '#f8f9fb' }}>
       {/* ── Compact top header ── */}
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
-        <div className="max-w-5xl mx-auto px-4 h-12 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 h-12 flex items-center justify-between">
           {/* Left: logo + ADS ref */}
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-7 h-7 rounded bg-gray-900 flex items-center justify-center flex-shrink-0">
@@ -64,7 +64,7 @@ export default function Layout({ children, adsRef, companyName, status, authenti
       </header>
 
       {/* ── Page content ── */}
-      <main className="max-w-4xl mx-auto px-4 py-3">
+      <main className="max-w-6xl mx-auto px-4 py-3">
         {children}
       </main>
     </div>

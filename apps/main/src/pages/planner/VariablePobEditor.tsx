@@ -203,7 +203,11 @@ export function VariablePobEditor({
       e.preventDefault()
       nudge(-1)
     } else if (/^[0-9]$/.test(e.key)) {
-      // Start typing a number → open the bulk fill prompt with that digit
+      // Start typing a number → open the bulk fill prompt with that digit.
+      // preventDefault + stopPropagation so the digit isn't re-captured by
+      // the autoFocus'd input below (was producing "55" when user typed "5").
+      e.preventDefault()
+      e.stopPropagation()
       setBulkFillValue(e.key)
       setBulkFillOpen(true)
     }

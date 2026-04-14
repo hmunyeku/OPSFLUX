@@ -16,7 +16,6 @@
     "src/**/*.tsx",
     "App.tsx",
     "app.config.ts",
-    "index.js",
-    "nativewind-env.d.ts"
+    "index.js"
   ]
 }

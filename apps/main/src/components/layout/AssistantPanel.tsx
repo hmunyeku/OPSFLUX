@@ -212,8 +212,8 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     elementHelp: {},
   },
   projets: {
-    title: 'Gestion de projets', icon: '\u{1F4C1}',
-    description: 'Planification et suivi des projets : taches, jalons, Gantt, budget, equipe.',
+    title: 'Projets — Gestion de projets', icon: '\u{1F4C1}',
+    description: 'Module complet de gestion de projets pour les operations Oil & Gas. Il comprend un diagramme de Gantt interactif avec gestion des dependances entre taches (FS, FF, SS, SF), un tableur pour l\'edition en masse, une vue Kanban par statut, et un systeme de calcul d\'avancement ponderable (effort, duree, poids manuel ou egal). Les projets sont rattaches a un site/installation et peuvent etre importes depuis Gouti. Chaque projet supporte les jalons, les sous-taches, les pieces jointes, les commentaires et le suivi budgetaire.',
     workflows: [
       { title: 'Creer un projet', steps: ['Cliquez "+ Nouveau projet"', 'Renseignez le nom, code, dates, budget', 'Affectez un site/asset et un chef de projet', "Ajoutez des taches dans l'onglet Planning"],
         diagram: `graph LR\n    A["Planifie"]:::planned --> B["Actif"]:::active\n    B --> C["Termine"]:::done\n    B --> D["Annule"]:::cancelled\n    classDef planned fill:#475569,stroke:#64748b,color:#fff\n    classDef active fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef done fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef cancelled fill:#ef4444,stroke:#f87171,color:#fff`,
@@ -226,27 +226,27 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     elementHelp: {},
   },
   paxlog: {
-    title: 'PaxLog', icon: '\u2708\uFE0F',
-    description: "Avis de séjour, gestion des passagers, conformité, rotations et listes d'attente.",
+    title: 'PaxLog — Gestion des passagers', icon: '\u2708\uFE0F',
+    description: "Module central de gestion des avis de sejour (AdS) et du suivi des passagers (PAX). Il couvre l'ensemble du cycle de vie d'une demande de deplacement : creation de l'AdS avec destination et dates, ajout des passagers avec verification de conformite (certifications, habilitations), soumission pour validation hierarchique, puis suivi en temps reel du sejour. Le module integre egalement la gestion des incidents PAX, la liste d'attente POB, les rotations de personnel et le portail externe pour les sous-traitants.",
     workflows: [
-      { title: 'Soumettre un avis de séjour', steps: ['Cliquez "+ Nouvel AdS"', 'Choisissez le type', 'Selectionnez le site, dates, categorie', 'Ajoutez les passagers', 'Verifiez la conformite', 'Cliquez "Soumettre"'],
+      { title: 'Soumettre un avis de sejour (AdS)', steps: ['Cliquez "+ Nouvel AdS" dans l\'onglet "Avis de sejour"', 'Choisissez le type (Individuel ou Equipe) et selectionnez le site d\'entree', 'Renseignez la categorie de visite (Maintenance, Projet, Inspection...), les dates et l\'objet', 'Ajoutez les passagers : creez un nouveau profil ou attachez un contact existant du module Tiers', 'Verifiez la conformite de chaque PAX — les certifications manquantes ou expirees sont signalees en rouge', 'Une fois tous les checks verts, cliquez "Soumettre" — l\'AdS entre dans le workflow de validation'],
         diagram: `graph TD\n    A["Brouillon"]:::draft -->|Soumettre| B["Soumis"]:::submitted\n    B --> C{"Conformite"}\n    C -->|OK| D["En validation"]:::validation\n    C -->|Issues| E["Bloque"]:::blocked\n    D -->|Approuver| F["Approuve"]:::approved\n    D -->|Rejeter| G["Rejete"]:::rejected\n    F -->|Demarrer| H["En cours"]:::progress\n    H -->|Terminer| I["Termine"]:::done\n    classDef draft fill:#475569,stroke:#64748b,color:#fff\n    classDef submitted fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef validation fill:#8b5cf6,stroke:#a78bfa,color:#fff\n    classDef blocked fill:#f59e0b,stroke:#fbbf24,color:#000\n    classDef approved fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef rejected fill:#ef4444,stroke:#f87171,color:#fff\n    classDef progress fill:#06b6d4,stroke:#22d3ee,color:#fff\n    classDef done fill:#10b981,stroke:#34d399,color:#fff`,
       },
     ],
-    tips: ['La conformite verifie les certifications de chaque PAX', 'Un PAX bloque doit regulariser sa situation'],
+    tips: ['La conformite est verifiee automatiquement pour chaque PAX — les certifications manquantes ou expirees bloquent la soumission', 'Un PAX non conforme doit regulariser ses documents avant que l\'AdS puisse avancer dans le workflow', 'Le lien externe permet aux sous-traitants de remplir les informations PAX sans acces a OpsFlux', 'La liste d\'attente POB gere les situations de depassement de capacite sur un site', 'Les signalements permettent de remonter des incidents lies a un PAX (comportement, securite, interdiction)', 'L\'onglet Rotations affiche le planning des rotations de personnel par site'],
     elementHelp: {},
   },
   planner: {
-    title: 'Planner', icon: '\u{1F4C5}',
-    description: 'Planification des activites sur les assets, gestion des capacites, detection des conflits et scenarios.',
+    title: 'Planner — Planification operationnelle', icon: '\u{1F4C5}',
+    description: 'Module de planification operationnelle des activites sur les installations. Il permet de visualiser et gerer le plan d\'occupation des sites via un Gantt interactif, de detecter automatiquement les conflits de capacite (quand le nombre de PAX prevu depasse la capacite d\'un site), de resoudre ces conflits via un systeme d\'arbitrage, et de simuler des scenarios what-if pour comparer differentes organisations avant de les appliquer. Le module est connecte aux Projets (chaque activite peut etre rattachee a un projet) et a PaxLog (les quotas PAX impactent le calcul POB).',
     workflows: [
-      { title: 'Creer une activite', steps: ['Cliquez "+ Nouvelle activite"', "Choisissez l'asset, les dates, le type", 'Definissez le quota PAX', 'Rattachez un projet ou centre de couts', "L'activite apparait dans le Gantt"] },
-      { title: 'Resoudre un conflit', steps: ['Les conflits sont signales par une icone rouge', 'Cliquez sur le conflit pour les details', 'Choisissez : decaler, reduire ou annuler', 'Validez la resolution'],
+      { title: 'Creer une activite', steps: ['Cliquez "+ Nouvelle activite" dans la barre d\'outils ou via le menu contextuel du Gantt', 'Selectionnez le site/installation cible dans le picker d\'assets (hierarchie arborescente)', 'Choisissez le type d\'activite (Projet, Maintenance, Workover, Forage, Inspection, Evenement)', 'Definissez les dates de debut et fin, et le quota PAX prevu', 'Rattachez optionnellement un projet existant et/ou un centre de couts pour l\'imputation', 'L\'activite apparait immediatement dans le Gantt — les conflits eventuels sont detectes en temps reel'] },
+      { title: 'Resoudre un conflit de capacite', steps: ['Les conflits apparaissent dans l\'onglet "Conflits" avec un compteur rouge dans la tab bar', 'Cliquez sur un conflit pour voir les activites concernees et le depassement de capacite', 'Trois options de resolution : decaler une activite dans le temps, reduire le quota PAX, ou annuler', 'Le directeur des operations (DO) peut forcer la priorite d\'une activite critique via l\'action "Forcer"', 'Validez la resolution — les activites sont mises a jour et le conflit passe en "Resolu"'],
         diagram: `graph TD\n    A["Activite A"]:::act --> C{"Conflit capacite"}\n    B["Activite B"]:::act --> C\n    C -->|Decaler| D["Reportee"]:::resolved\n    C -->|Reduire| E["Ajustee"]:::resolved\n    C -->|Annuler| F["Annulee"]:::cancelled\n    classDef act fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef resolved fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef cancelled fill:#ef4444,stroke:#f87171,color:#fff`,
       },
       { title: 'Comparer des scenarios', steps: ['Cliquez "Nouveau scenario"', 'Modifiez les activites sans affecter le reel', 'Comparez les scenarios cote a cote', 'Appliquez le scenario retenu'] },
     ],
-    tips: ['Les conflits de capacite sont detectes automatiquement', 'Les scenarios permettent de comparer differentes planifications', 'La vue capacite affiche le taux de remplissage par asset'],
+    tips: ['Les conflits de capacite sont detectes automatiquement des qu\'une activite est creee ou modifiee — le Planner compare le total PAX prevu avec la capacite POB du site', 'Les scenarios what-if permettent de tester des modifications sans affecter le plan reel — creez un scenario, ajoutez/modifiez des activites, simulez l\'impact, puis promouvez le scenario si valide', 'La vue Capacite affiche un heatmap du taux de remplissage par site et par jour — les zones rouges indiquent un depassement', 'Les signaux de revision alertent quand une activite validee a ete modifiee apres approbation', 'Les previsions (Forecast) montrent la tendance du plan de charge sur les prochaines semaines avec un calendrier heatmap'],
     elementHelp: {},
   },
   tiers: {
@@ -274,8 +274,8 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     elementHelp: {},
   },
   travelwiz: {
-    title: 'TravelWiz', icon: '\u{1F681}',
-    description: 'Gestion des voyages helicoptere et bateau, manifestes passagers/fret, suivi des vecteurs et meteo.',
+    title: 'TravelWiz — Transport & Logistique', icon: '\u{1F681}',
+    description: 'Module de gestion du transport aerien (helicoptere) et maritime (bateau) entre les bases logistiques et les installations offshore. Il couvre la planification des voyages, la generation des manifestes passagers et fret (avec verification automatique du poids vs capacite du vecteur), le suivi en temps reel de la flotte sur carte, les conditions meteo par site, et la gestion de la maintenance des vecteurs. Le portail capitaine permet au commandant de bord de gerer le voyage directement depuis le terrain.',
     workflows: [
       { title: 'Creer un voyage', steps: ['Cliquez "+ Nouveau voyage"', 'Selectionnez le vecteur', "Definissez l'itineraire et les escales", 'Renseignez date et horaires', 'Le voyage apparait dans le planning'] },
       { title: 'Generer un manifeste', steps: ['Ouvrez un voyage valide', 'Cliquez "Generer manifeste"', 'Les PAX des AdS approuves sont listes', 'Verifiez les poids', 'Validez pour impression'],
@@ -367,22 +367,22 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
 // ── Contextual chat suggestions per module ────────────────────
 
 const CONTEXTUAL_SUGGESTIONS: Record<string, string[]> = {
-  dashboard: ['Quels sont mes KPIs importants ?', 'Comment personnaliser le tableau de bord ?', 'Expliquer les widgets disponibles'],
-  users: ['Comment creer un utilisateur ?', 'Aide avec les permissions RBAC', 'Comment deleguer mes droits ?'],
-  projets: ['Comment creer un projet ?', 'Expliquer le diagramme de Gantt', 'Comment suivre l\'avancement ?'],
-  paxlog: ['Comment soumettre un AdS ?', 'Expliquer le workflow de validation', 'Un PAX est non conforme, que faire ?'],
-  planner: ['Comment planifier une activite ?', 'Resoudre un conflit de capacite', 'Comment utiliser les scenarios ?'],
-  tiers: ['Comment ajouter un fournisseur ?', 'Transferer un contact entre entreprises', 'Comment bloquer un tiers ?'],
-  conformite: ['Verifier la conformite d\'un PAX', 'Comment configurer une regle ?', 'Gerer les certifications expirees'],
-  travelwiz: ['Comment planifier un vol ?', 'Generer un manifeste passagers', 'Comment gerer la flotte ?'],
-  packlog: ['Comment creer une lettre de transport ?', 'Suivre un cargo en transit', 'Comment gerer les articles ?'],
-  imputations: ['Comment imputer un cout ?', 'Consulter le suivi budgetaire', 'Exporter un rapport analytique'],
-  papyrus: ['Comment deposer un document ?', 'Generer un document depuis un modele', 'Comment gerer les versions ?'],
-  workflows: ['Comment creer un workflow ?', 'Deleguer une approbation', 'Expliquer le versioning des workflows'],
-  assets: ['Comment ajouter un site ?', 'Configurer les capacites d\'un asset', 'Naviguer dans la hierarchie'],
-  entites: ['Comment configurer une entite ?', 'Changer d\'entite active', 'Affecter des utilisateurs a une entite'],
-  support: ['Comment signaler un bug ?', 'Creer un ticket d\'amelioration', 'Voir mes tickets en cours'],
-  settings: ['Comment modifier mon profil ?', 'Configurer les notifications', 'Gerer les integrations'],
+  dashboard: ['Quels sont mes KPIs importants aujourd\'hui ?', 'Comment personnaliser mon tableau de bord avec des widgets ?', 'Expliquer les indicateurs de chaque module', 'Comment ajouter un widget meteo ou charge PAX ?'],
+  users: ['Comment creer un compte utilisateur et lui attribuer un role ?', 'Expliquer le systeme RBAC (roles, groupes, permissions)', 'Comment deleguer temporairement mes droits a un collegue ?', 'Quelle est la difference entre un override utilisateur et un role ?'],
+  projets: ['Comment creer un projet et definir les taches dans le Gantt ?', 'Comment fonctionne le calcul d\'avancement pondere (effort, duree, manuel) ?', 'Comment ajouter des dependances entre taches (FS, SS, FF, SF) ?', 'Comment exporter le planning Gantt en PDF ?'],
+  paxlog: ['Comment creer et soumettre un avis de sejour (AdS) complet ?', 'Un PAX a des certifications expirees — comment regulariser avant soumission ?', 'Comment fonctionne le workflow de validation multi-niveaux (initiateur, chef de projet, CDS) ?', 'Comment generer un lien externe pour qu\'un sous-traitant remplisse les infos PAX ?', 'Expliquer la liste d\'attente POB et la promotion automatique'],
+  planner: ['Comment creer une activite et la positionner sur le Gantt du plan ?', 'Il y a un conflit de capacite sur un site — comment le resoudre ?', 'Comment creer un scenario what-if pour comparer des options de planification ?', 'Comment fonctionne la detection automatique des conflits PAX ?', 'Expliquer les signaux de revision et les demandes de decision'],
+  tiers: ['Comment ajouter une entreprise sous-traitante et ses contacts ?', 'Comment transferer un contact d\'une entreprise a une autre en gardant l\'historique ?', 'Comment bloquer un tiers pour empecher les nouveaux AdS pour ses contacts ?', 'Quelle est la difference entre un tiers fournisseur et un sous-traitant ?'],
+  conformite: ['Comment verifier la conformite complete d\'un PAX avant un deplacement ?', 'Comment configurer les regles de conformite par type de site (certifications requises) ?', 'Comment enregistrer une nouvelle certification pour un PAX ?', 'Les alertes d\'expiration fonctionnent comment ?'],
+  travelwiz: ['Comment planifier un vol helicoptere avec passagers et fret ?', 'Comment generer et valider un manifeste avant le depart ?', 'Comment fonctionne le portail capitaine pour la gestion terrain ?', 'Comment surveiller les conditions meteo sur les sites avant un vol ?', 'Comment gerer la maintenance d\'un vecteur (helicoptere, bateau) ?'],
+  packlog: ['Comment creer une lettre de transport (LT) avec des articles ?', 'Comment suivre un cargo de la preparation a la livraison ?', 'Comment lier une LT a un voyage TravelWiz ?', 'Expliquer le catalogue d\'articles et le mode global vs per-entity'],
+  imputations: ['Comment imputer un cout a un projet ou un centre de couts ?', 'Comment consulter le suivi budgetaire par periode ?', 'Comment exporter les donnees analytiques pour le rapprochement comptable ?'],
+  papyrus: ['Comment deposer et classer un document dans Papyrus ?', 'Comment generer un PDF depuis un modele avec des donnees pre-remplies ?', 'Comment retrouver un document par recherche plein texte ?'],
+  workflows: ['Comment concevoir un workflow de validation avec l\'editeur visuel ?', 'Comment deleguer une approbation a un collegue ?', 'Comment fonctionne le versioning des workflows (brouillon, publie, archive) ?'],
+  assets: ['Comment naviguer dans la hierarchie des installations ?', 'Comment configurer la capacite POB d\'un site ?', 'Comment les capacites sont utilisees par le Planner pour les conflits ?'],
+  entites: ['Comment configurer une nouvelle entite (filiale, pays) ?', 'Comment changer d\'entite active dans l\'application ?', 'Comment les donnees sont isolees entre entites ?'],
+  support: ['Comment signaler un bug avec une capture d\'ecran ?', 'Comment creer un ticket d\'amelioration ?', 'Comment suivre l\'avancement de mes tickets ?'],
+  settings: ['Comment modifier mon profil et mes preferences ?', 'Comment configurer les notifications par module ?', 'Comment connecter une integration externe (SMTP, S3, OAuth) ?', 'Comment personnaliser les modeles PDF d\'export ?'],
 }
 
 // ── Guided tours definitions ───────────────────────────────────

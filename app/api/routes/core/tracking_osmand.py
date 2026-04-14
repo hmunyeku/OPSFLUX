@@ -46,6 +46,7 @@ from app.api.deps import get_current_user, require_permission
 from app.core.database import get_db
 from app.models.common import Setting, User
 from app.models.travelwiz import VectorPosition
+from app.services.tracking_pubsub import publish_position
 
 router = APIRouter(prefix="/api/v1/tracking", tags=["tracking"])
 
@@ -94,6 +95,19 @@ async def osmand_position(
         )
         db.add(pos)
         await db.commit()
+        # Live fan-out to any WebSocket subscribers via Redis pub/sub.
+        # Fire-and-forget: if Redis is down we still persisted the
+        # position and the next polling fallback will pick it up.
+        await publish_position(
+            vehicle_id,
+            lat,
+            lon,
+            recorded_at=recorded_at,
+            heading=bearing,
+            speed_knots=speed,
+            accuracy_m=accuracy,
+            device_id=id,
+        )
 
     # Optional forwarding to an external Traccar Server (fire-and-forget)
     try:

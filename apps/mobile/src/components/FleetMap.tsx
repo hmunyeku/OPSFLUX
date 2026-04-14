@@ -23,6 +23,17 @@ import { WebView, WebViewMessageEvent } from "react-native-webview";
 import { colors } from "../utils/colors";
 import { radius } from "../utils/design";
 
+export type VehicleIconType =
+  | "car"
+  | "truck"
+  | "bus"
+  | "van"
+  | "ship"
+  | "boat"
+  | "helicopter"
+  | "plane"
+  | "default";
+
 export interface MapPosition {
   id: string;
   vector_id: string;
@@ -33,6 +44,8 @@ export interface MapPosition {
   speed_knots: number | null;
   heading: number | null;
   recorded_at: string;
+  /** Visual icon type — drives the SVG shape rendered at the marker. */
+  vehicle_type?: VehicleIconType;
 }
 
 interface Props {
@@ -80,6 +93,7 @@ export default function FleetMap({
         speed: p.speed_knots,
         heading: p.heading,
         time: p.recorded_at,
+        vehicle_type: p.vehicle_type ?? "default",
       })),
       track: track ?? [],
       focusVehicleId,
@@ -144,6 +158,9 @@ function buildLeafletHtml(center: { lat: number; lon: number; zoom?: number }): 
     .vehicle-marker {
       background: transparent;
       border: none;
+      width: 36px;
+      height: 36px;
+      position: relative;
     }
     .vehicle-dot {
       width: 16px;
@@ -152,9 +169,24 @@ function buildLeafletHtml(center: { lat: number; lon: number; zoom?: number }): 
       border: 3px solid #fff;
       box-shadow: 0 2px 8px rgba(0,0,0,0.25);
     }
+    /* Rotation wrapper so the icon points along the heading. */
+    .vehicle-rot {
+      width: 36px;
+      height: 36px;
+      transform-origin: 50% 50%;
+      transition: transform 0.5s linear;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .vehicle-icon svg {
+      width: 30px;
+      height: 30px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35));
+    }
     .vehicle-label {
       position: absolute;
-      top: -26px;
+      top: -24px;
       left: 50%;
       transform: translateX(-50%);
       background: #1e3a5f;
@@ -165,6 +197,7 @@ function buildLeafletHtml(center: { lat: number; lon: number; zoom?: number }): 
       border-radius: 4px;
       white-space: nowrap;
       font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      pointer-events: none;
     }
     .leaflet-popup-content {
       margin: 10px 12px;
@@ -192,46 +225,16 @@ function buildLeafletHtml(center: { lat: number; lon: number; zoom?: number }): 
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    var markersLayer = L.layerGroup().addTo(map);
     var trackLayer = L.layerGroup().addTo(map);
     var userMarker = null;
+    // Live-map registry keyed by vector_id so we can animate instead of
+    // destroying markers every update (Yango/Uber-like feel).
+    var markerRegistry = {};  // vector_id -> { marker, state, rotEl }
 
     function postMessage(msg) {
       if (window.ReactNativeWebView) {
         window.ReactNativeWebView.postMessage(JSON.stringify(msg));
       }
-    }
-
-    function buildMarker(p) {
-      var html =
-        '<div class="vehicle-marker">' +
-          '<div class="vehicle-label">' + escapeHtml(p.name) + '</div>' +
-          '<div class="vehicle-dot" style="background:' + p.color + '"></div>' +
-        '</div>';
-      var icon = L.divIcon({
-        className: 'vehicle-marker-icon',
-        html: html,
-        iconSize: [16, 16],
-        iconAnchor: [8, 8],
-      });
-      var marker = L.marker([p.lat, p.lon], { icon: icon });
-
-      var speedTxt = p.speed != null ? p.speed.toFixed(1) + ' kn' : '—';
-      var headingTxt = p.heading != null ? p.heading.toFixed(0) + '°' : '—';
-      var time = new Date(p.time).toLocaleTimeString('fr-FR');
-      var popupHtml =
-        '<strong>' + escapeHtml(p.name) + '</strong>' +
-        '<div>Source: <b>' + (p.source || '?').toUpperCase() + '</b></div>' +
-        '<div>Vitesse: ' + speedTxt + '</div>' +
-        '<div>Cap: ' + headingTxt + '</div>' +
-        '<div class="meta">' + time + '</div>';
-      marker.bindPopup(popupHtml);
-
-      marker.on('click', function() {
-        postMessage({ type: 'marker_click', vector_id: p.vector_id });
-      });
-
-      return marker;
     }
 
     function escapeHtml(s) {
@@ -240,43 +243,188 @@ function buildLeafletHtml(center: { lat: number; lon: number; zoom?: number }): 
       });
     }
 
+    // ── SVG icons by vehicle type ───────────────────────────────────
+    // The icon is authored pointing UP (north = 0°); CSS rotation then
+    // aligns it with the vehicle's heading.
+    function iconSvg(type, color) {
+      var c = color || '#1e3a5f';
+      if (type === 'car' || type === 'van' || type === 'default') {
+        // compact sedan, top-down
+        return '<svg viewBox="0 0 24 24" fill="' + c + '" xmlns="http://www.w3.org/2000/svg">' +
+          '<path stroke="#fff" stroke-width="1" d="M7 3h10l1.5 6H5.5L7 3zm-1.5 7h13v9a1 1 0 0 1-1 1H14v-2h-4v2H6.5a1 1 0 0 1-1-1v-9zm2 2.5a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zm8 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4z"/>' +
+        '</svg>';
+      }
+      if (type === 'truck' || type === 'bus') {
+        return '<svg viewBox="0 0 24 24" fill="' + c + '" xmlns="http://www.w3.org/2000/svg">' +
+          '<path stroke="#fff" stroke-width="1" d="M6 3h8l1 4h4v11h-2.2a2 2 0 0 1-3.6 0H8.8a2 2 0 0 1-3.6 0H4V6a3 3 0 0 1 3-3h-1zm1 2v3h6V5H7zm-1 10.5a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zm10 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4z"/>' +
+        '</svg>';
+      }
+      if (type === 'ship' || type === 'boat') {
+        return '<svg viewBox="0 0 24 24" fill="' + c + '" xmlns="http://www.w3.org/2000/svg">' +
+          '<path stroke="#fff" stroke-width="1" d="M12 2l1 5 5 1-6 3-6-3 5-1 1-5zm-8 11h16l-2 6a3 3 0 0 1-3 2H9a3 3 0 0 1-3-2L4 13z"/>' +
+        '</svg>';
+      }
+      if (type === 'plane') {
+        return '<svg viewBox="0 0 24 24" fill="' + c + '" xmlns="http://www.w3.org/2000/svg">' +
+          '<path stroke="#fff" stroke-width="1" d="M12 2l2 8 8 3-8 2-2 8-2-8-8-2 8-3 2-8z"/>' +
+        '</svg>';
+      }
+      if (type === 'helicopter') {
+        return '<svg viewBox="0 0 24 24" fill="' + c + '" xmlns="http://www.w3.org/2000/svg">' +
+          '<path stroke="#fff" stroke-width="1" d="M2 6h20v1H2V6zm9 2h2v4h5l1 2h-5l-1 5h-2l-1-5H5l1-2h5V8z"/>' +
+        '</svg>';
+      }
+      // fallback: filled dot
+      return '<svg viewBox="0 0 24 24" fill="' + c + '" xmlns="http://www.w3.org/2000/svg">' +
+        '<circle cx="12" cy="12" r="8" stroke="#fff" stroke-width="2"/></svg>';
+    }
+
+    function buildDivIconHtml(p) {
+      var heading = (p.heading != null) ? p.heading : 0;
+      return '' +
+        '<div class="vehicle-marker">' +
+          '<div class="vehicle-label">' + escapeHtml(p.name) + '</div>' +
+          '<div class="vehicle-rot" style="transform:rotate(' + heading + 'deg)">' +
+            '<div class="vehicle-icon">' + iconSvg(p.vehicle_type, p.color) + '</div>' +
+          '</div>' +
+        '</div>';
+    }
+
+    function popupHtmlFor(p) {
+      var speedTxt = p.speed != null ? p.speed.toFixed(1) + ' kn' : '—';
+      var headingTxt = p.heading != null ? p.heading.toFixed(0) + '°' : '—';
+      var time = p.time ? new Date(p.time).toLocaleTimeString('fr-FR') : '—';
+      return '<strong>' + escapeHtml(p.name) + '</strong>' +
+        '<div>Source: <b>' + (p.source || '?').toUpperCase() + '</b></div>' +
+        '<div>Vitesse: ' + speedTxt + '</div>' +
+        '<div>Cap: ' + headingTxt + '</div>' +
+        '<div class="meta">' + time + '</div>';
+    }
+
+    // Linearly interpolate a marker from (fromLat, fromLon) to
+    // (toLat, toLon) over durationMs — gives the "gliding" effect.
+    function animateMarker(marker, fromLat, fromLon, toLat, toLon, durationMs) {
+      if (marker.__animHandle) cancelAnimationFrame(marker.__animHandle);
+      var start = performance.now();
+      function step(now) {
+        var t = Math.min(1, (now - start) / durationMs);
+        var lat = fromLat + (toLat - fromLat) * t;
+        var lon = fromLon + (toLon - fromLon) * t;
+        marker.setLatLng([lat, lon]);
+        if (t < 1) {
+          marker.__animHandle = requestAnimationFrame(step);
+        } else {
+          marker.__animHandle = null;
+        }
+      }
+      marker.__animHandle = requestAnimationFrame(step);
+    }
+
+    function upsertMarker(p) {
+      var existing = markerRegistry[p.vector_id];
+      if (!existing) {
+        var icon = L.divIcon({
+          className: 'vehicle-marker-icon',
+          html: buildDivIconHtml(p),
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
+        });
+        var marker = L.marker([p.lat, p.lon], { icon: icon });
+        marker.bindPopup(popupHtmlFor(p));
+        marker.on('click', function() {
+          postMessage({ type: 'marker_click', vector_id: p.vector_id });
+        });
+        marker.addTo(map);
+        markerRegistry[p.vector_id] = { marker: marker, lat: p.lat, lon: p.lon };
+        return;
+      }
+
+      // Update popup content
+      existing.marker.setPopupContent(popupHtmlFor(p));
+
+      // Rotate the inner <div class="vehicle-rot"> via CSS transform
+      // rather than rebuilding the icon — preserves the DOM node and
+      // lets the CSS transition animate smoothly.
+      var el = existing.marker.getElement();
+      if (el) {
+        var rot = el.querySelector('.vehicle-rot');
+        if (rot && p.heading != null) {
+          rot.style.transform = 'rotate(' + p.heading + 'deg)';
+        }
+      }
+
+      // Animate position change over 1s for a natural feel. The
+      // actual GPS update interval is ~30s, but animating every
+      // single transition over 30s would feel sluggish; 1s matches
+      // Yango/Uber's perceived cadence.
+      animateMarker(existing.marker, existing.lat, existing.lon, p.lat, p.lon, 1000);
+      existing.lat = p.lat;
+      existing.lon = p.lon;
+    }
+
+    function removeStaleMarkers(activeIds) {
+      Object.keys(markerRegistry).forEach(function(id) {
+        if (activeIds.indexOf(id) === -1) {
+          map.removeLayer(markerRegistry[id].marker);
+          delete markerRegistry[id];
+        }
+      });
+    }
+
     window.updateMap = function(payload) {
-      markersLayer.clearLayers();
       trackLayer.clearLayers();
 
-      var bounds = [];
+      var activeIds = [];
       (payload.positions || []).forEach(function(p) {
-        var m = buildMarker(p);
-        markersLayer.addLayer(m);
-        bounds.push([p.lat, p.lon]);
+        upsertMarker(p);
+        activeIds.push(p.vector_id);
       });
+      removeStaleMarkers(activeIds);
 
       if (payload.track && payload.track.length > 1) {
         var coords = payload.track.map(function(pt) { return [pt.latitude, pt.longitude]; });
         L.polyline(coords, { color: '#1e3a5f', weight: 3, opacity: 0.7 }).addTo(trackLayer);
-        coords.forEach(function(c) { bounds.push(c); });
       }
 
-      if (bounds.length > 0) {
-        if (payload.focusVehicleId) {
-          var focused = (payload.positions || []).find(function(p) {
-            return p.vector_id === payload.focusVehicleId;
-          });
-          if (focused) {
-            map.setView([focused.lat, focused.lon], 13);
-            return;
+      // Initial fit / focus (only when markers appear, not on every update
+      // — otherwise the camera would jump every 30s while a passenger is
+      // watching a single vehicle).
+      if (!window.__hasFitted) {
+        var bounds = (payload.positions || []).map(function(p) { return [p.lat, p.lon]; });
+        if (payload.track) {
+          (payload.track || []).forEach(function(pt) { bounds.push([pt.latitude, pt.longitude]); });
+        }
+        if (bounds.length > 0) {
+          if (payload.focusVehicleId) {
+            var focused = (payload.positions || []).find(function(p) {
+              return p.vector_id === payload.focusVehicleId;
+            });
+            if (focused) {
+              map.setView([focused.lat, focused.lon], 14);
+              window.__hasFitted = true;
+              return;
+            }
           }
+          if (bounds.length === 1) {
+            map.setView(bounds[0], 14);
+          } else {
+            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+          }
+          window.__hasFitted = true;
         }
-        if (bounds.length === 1) {
-          map.setView(bounds[0], 12);
-        } else {
-          map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+      } else if (payload.focusVehicleId) {
+        // When following a single vehicle, keep the camera on it softly
+        // (pan only, no zoom change).
+        var toFollow = (payload.positions || []).find(function(p) {
+          return p.vector_id === payload.focusVehicleId;
+        });
+        if (toFollow) {
+          map.panTo([toFollow.lat, toFollow.lon], { animate: true, duration: 0.8 });
         }
       }
 
-      if (payload.showUserLocation && navigator.geolocation) {
+      if (payload.showUserLocation && navigator.geolocation && !userMarker) {
         navigator.geolocation.getCurrentPosition(function(pos) {
-          if (userMarker) map.removeLayer(userMarker);
           userMarker = L.circleMarker([pos.coords.latitude, pos.coords.longitude], {
             radius: 8,
             fillColor: '#3b82f6',

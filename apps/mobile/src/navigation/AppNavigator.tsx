@@ -48,6 +48,7 @@ import NotificationsScreen from "../screens/NotificationsScreen";
 import LiveTrackingScreen from "../screens/LiveTrackingScreen";
 import CaptainPortalScreen from "../screens/CaptainPortalScreen";
 import DriverPickupScreen from "../screens/DriverPickupScreen";
+import MyPickupWaitingScreen from "../screens/MyPickupWaitingScreen";
 import AdsDetailScreen from "../screens/AdsDetailScreen";
 import VoyageDetailScreen from "../screens/VoyageDetailScreen";
 import CargoReceptionScreen from "../screens/CargoReceptionScreen";
@@ -210,6 +211,11 @@ function SharedScreens() {
         name="CargoReception"
         component={CargoReceptionScreen as any}
         options={{ title: "Réception Colis" }}
+      />
+      <Stack.Screen
+        name="MyPickupWaiting"
+        component={MyPickupWaitingScreen as any}
+        options={{ headerShown: false }}
       />
     </>
   );

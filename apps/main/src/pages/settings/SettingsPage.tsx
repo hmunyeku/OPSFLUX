@@ -21,6 +21,7 @@ import {
   Globe, Plug, FileText, FileOutput, Trash2,
   Activity, Hash, BookOpen, ShieldCheck, Database,
   Users, CalendarClock, Ship, Boxes, FolderKanban,
+  Languages,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PanelHeader, PanelContent } from '@/components/layout/PanelHeader'
@@ -145,6 +146,7 @@ import { PdfTemplatesTab } from './tabs/PdfTemplatesTab'
 import { NumberingTab } from './tabs/NumberingTab'
 import { DeletePoliciesTab } from './tabs/DeletePoliciesTab'
 import DictionaryTab from './tabs/DictionaryTab'
+import I18nTab from './tabs/I18nTab'
 import { SecurityPolicyTab } from './tabs/SecurityPolicyTab'
 
 import { PaxLogConfigTab } from './tabs/PaxLogConfigTab'
@@ -188,6 +190,7 @@ registerSettingsSection({ id: 'integrations', label: 'Intégrations', icon: Plug
 registerSettingsSection({ id: 'email-templates', label: 'Modèles d\'emails', icon: FileText, component: EmailTemplatesTab, category: 'general', order: 20, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'pdf-templates', label: 'Modèles PDF', icon: FileOutput, component: PdfTemplatesTab, category: 'general', order: 25, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'dictionnaire', label: 'Dictionnaire', icon: BookOpen, component: DictionaryTab, category: 'general', order: 30, requiredPermission: 'core.settings.manage' })
+registerSettingsSection({ id: 'i18n', label: 'Traductions', icon: Languages, component: I18nTab, category: 'general', order: 31, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'numbering', label: 'Numérotation', icon: Hash, component: NumberingTab, category: 'general', order: 35, requiredPermission: 'core.settings.manage' })
 
 // ── Module-specific configuration tabs ──

@@ -174,6 +174,44 @@ export function useFormEngine(form: FormDefinition) {
     setState((prev) => {
       const newValues = { ...prev.values, [fieldName]: value };
 
+      // ── ADS-specific cross-field rules ─────────────────────────────
+      //
+      // The ADS form has `start_date`, `end_date`, and
+      // `is_round_trip_no_overnight` (A/R sans nuitée). Enforce:
+      //   - end_date >= start_date (if end < start, snap to start)
+      //   - checking A/R sets end_date = start_date
+      //   - setting start_date = end_date auto-checks A/R
+      // We apply the rules only when the target fields exist in this
+      // form definition, so other forms are unaffected.
+      const hasStart = "start_date" in form.fields;
+      const hasEnd = "end_date" in form.fields;
+      const hasRound = "is_round_trip_no_overnight" in form.fields;
+      if (hasStart && hasEnd) {
+        const start = newValues["start_date"] as string | undefined;
+        const end = newValues["end_date"] as string | undefined;
+        if (fieldName === "start_date" && end && start && end < start) {
+          // Start moved after existing end — snap end to start.
+          newValues["end_date"] = start;
+        }
+        if (fieldName === "end_date" && start && end && end < start) {
+          // User picked an end before start — ignore the invalid pick.
+          newValues["end_date"] = start;
+        }
+        if (hasRound && fieldName === "is_round_trip_no_overnight" && value) {
+          // Checked A/R → force end = start.
+          if (start) newValues["end_date"] = start;
+        }
+        if (hasRound && (fieldName === "start_date" || fieldName === "end_date")) {
+          const s = newValues["start_date"];
+          const e = newValues["end_date"];
+          if (s && e && s === e) {
+            newValues["is_round_trip_no_overnight"] = true;
+          } else if (s && e && s !== e) {
+            newValues["is_round_trip_no_overnight"] = false;
+          }
+        }
+      }
+
       // Recompute all computed fields whenever any value changes
       for (const [fn, fd] of Object.entries(form.fields)) {
         if (fd.type === "computed" && fd.formula) {

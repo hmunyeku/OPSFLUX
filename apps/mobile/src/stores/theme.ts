@@ -1,8 +1,14 @@
 /**
  * Theme store — dark mode toggle with system preference detection.
+ *
+ * TEMPORARY: dark mode is force-disabled for v1 because many screens
+ * hardcode light-theme color tokens (`$textLight900`, etc.) which become
+ * near-invisible on a dark background. A proper dark-mode pass (swap to
+ * semantic tokens `$text` / `$background` everywhere) is scheduled for
+ * v1.1. For now every user sees the polished light theme regardless of
+ * their system preference.
  */
 
-import { Appearance } from "react-native";
 import { create } from "zustand";
 
 type ThemeMode = "light" | "dark" | "system";
@@ -13,21 +19,9 @@ interface ThemeState {
   setMode: (mode: ThemeMode) => void;
 }
 
-function resolveIsDark(mode: ThemeMode): boolean {
-  if (mode === "system") return Appearance.getColorScheme() === "dark";
-  return mode === "dark";
-}
-
 export const useThemeStore = create<ThemeState>((set) => ({
-  mode: "system",
-  isDark: resolveIsDark("system"),
-  setMode: (mode) => set({ mode, isDark: resolveIsDark(mode) }),
+  mode: "light",
+  isDark: false,
+  // No-op until v1.1 — always stay in light mode.
+  setMode: (_mode) => set({ mode: "light", isDark: false }),
 }));
-
-// Listen to system appearance changes
-Appearance.addChangeListener(({ colorScheme }) => {
-  const { mode } = useThemeStore.getState();
-  if (mode === "system") {
-    useThemeStore.setState({ isDark: colorScheme === "dark" });
-  }
-});

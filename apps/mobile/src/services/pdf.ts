@@ -119,13 +119,44 @@ export async function downloadPdf(
 }
 
 /**
- * Hand a local PDF to the OS share/open sheet.
- * Works for both "view in another app" and "save to files".
+ * Open a local PDF with the system PDF viewer.
+ *
+ * On Android we use the native Intent system via IntentLauncher with a
+ * ``content://`` URI produced by ``FileSystem.getContentUriAsync`` —
+ * this launches the user's default PDF reader in VIEW mode (no share
+ * sheet). Falls back to expo-sharing if the intent fails (no PDF
+ * viewer installed).
+ *
+ * On iOS the only reliable way to view a file from cache is the
+ * document-interaction sheet provided by expo-sharing; there's no
+ * pure "open in reader" intent. Users tap "Open in Files / Books /
+ * whatever" which is the platform norm.
  */
 export async function openPdf(localUri: string): Promise<void> {
+  const { Platform } = await import("react-native");
+
+  if (Platform.OS === "android") {
+    try {
+      const IntentLauncher = await import("expo-intent-launcher");
+      const contentUri = await FileSystem.getContentUriAsync(localUri);
+      await IntentLauncher.startActivityAsync(
+        "android.intent.action.VIEW",
+        {
+          data: contentUri,
+          flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+          type: "application/pdf",
+        }
+      );
+      return;
+    } catch (err) {
+      // No PDF reader installed, or intent rejected — fall through to
+      // the share sheet so the user can at least pick a handler.
+    }
+  }
+
   const available = await Sharing.isAvailableAsync();
   if (!available) {
-    throw new Error("Le partage n'est pas disponible sur cet appareil.");
+    throw new Error("Aucun lecteur PDF disponible sur cet appareil.");
   }
   await Sharing.shareAsync(localUri, {
     mimeType: "application/pdf",
@@ -135,9 +166,60 @@ export async function openPdf(localUri: string): Promise<void> {
 }
 
 /**
- * Convenience: download + open in a single call. Handles the common
- * error cases with user-facing messages but never throws — returns
- * `false` on failure so callers can show a toast.
+ * Save a PDF into the user-visible Downloads folder (Android) via the
+ * StorageAccessFramework. On iOS this falls back to sharing since the
+ * platform has no "Downloads" folder accessible to third parties.
+ *
+ * Returns the final location's URI so the caller can optionally open
+ * it too.
+ */
+export async function savePdfToDownloads(
+  localUri: string,
+  filename: string
+): Promise<string | null> {
+  const { Platform } = await import("react-native");
+  if (Platform.OS !== "android") {
+    // iOS — share sheet is the platform norm.
+    await openPdf(localUri);
+    return null;
+  }
+  try {
+    const safe = sanitizeFilename(filename);
+    // SAF (Storage Access Framework) lets us write to Downloads without
+    // needing WRITE_EXTERNAL_STORAGE permission on Android 10+.
+    const perms = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+    if (!perms.granted) {
+      // User denied — fall back to the share sheet so they can save
+      // via Files / Drive etc.
+      await openPdf(localUri);
+      return null;
+    }
+    const destUri = await FileSystem.StorageAccessFramework.createFileAsync(
+      perms.directoryUri,
+      safe,
+      "application/pdf"
+    );
+    const data = await FileSystem.readAsStringAsync(localUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    await FileSystem.writeAsStringAsync(destUri, data, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    return destUri;
+  } catch {
+    // Any failure → fall back to share sheet.
+    await openPdf(localUri);
+    return null;
+  }
+}
+
+/**
+ * Convenience: download + open in the system PDF viewer.
+ *
+ * Unlike ``savePdfToDownloads`` (which prompts the user to pick a save
+ * location), this just opens the PDF in the platform's PDF reader —
+ * the expected behaviour when the user taps a "Download PDF" button on
+ * a detail screen. Never throws.
  */
 export async function downloadAndOpenPdf(
   apiPath: string,
@@ -148,6 +230,33 @@ export async function downloadAndOpenPdf(
     const { uri } = await downloadPdf(apiPath, filename, opts);
     await openPdf(uri);
     return { ok: true, uri };
+  } catch (err: any) {
+    const msg = err?.message ?? "Erreur inconnue";
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Convenience: download + save to the user-visible Downloads folder.
+ *
+ * On Android this is the "save this to my device" flow — user picks a
+ * destination via the system picker, file lands in their chosen
+ * directory, nothing is opened. On iOS falls back to the share sheet
+ * (iOS has no user-accessible Downloads folder for third-party apps).
+ */
+export async function downloadAndSavePdf(
+  apiPath: string,
+  filename: string,
+  opts: DownloadPdfOptions = {}
+): Promise<{ ok: true; uri: string | null } | { ok: false; error: string }> {
+  try {
+    const { uri: cacheUri, filename: safeName } = await downloadPdf(
+      apiPath,
+      filename,
+      opts
+    );
+    const savedAt = await savePdfToDownloads(cacheUri, safeName);
+    return { ok: true, uri: savedAt };
   } catch (err: any) {
     const msg = err?.message ?? "Erreur inconnue";
     return { ok: false, error: msg };

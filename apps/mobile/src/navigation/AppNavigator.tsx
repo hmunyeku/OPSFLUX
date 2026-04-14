@@ -50,6 +50,7 @@ import CaptainPortalScreen from "../screens/CaptainPortalScreen";
 import DriverPickupScreen from "../screens/DriverPickupScreen";
 import MyPickupWaitingScreen from "../screens/MyPickupWaitingScreen";
 import CargoScanAssistantScreen from "../screens/CargoScanAssistantScreen";
+import CargoRequestDetailScreen from "../screens/CargoRequestDetailScreen";
 import AdsDetailScreen from "../screens/AdsDetailScreen";
 import VoyageDetailScreen from "../screens/VoyageDetailScreen";
 import CargoReceptionScreen from "../screens/CargoReceptionScreen";
@@ -223,6 +224,11 @@ function SharedScreens() {
         component={CargoScanAssistantScreen as any}
         options={{ title: "Scan Colis" }}
       />
+      <Stack.Screen
+        name="CargoRequestDetail"
+        component={CargoRequestDetailScreen as any}
+        options={{ title: "Lettre de Transport" }}
+      />
     </>
   );
 }
@@ -253,12 +259,12 @@ function ScannerStack() {
         options={{ title: "Scanner" }}
       />
       <Stack.Screen
-        name="ScanAdsMain"
+        name="ScanAds"
         component={ScanAdsScreen}
         options={{ title: "Scanner ADS" }}
       />
       <Stack.Screen
-        name="ScanCargoMain"
+        name="ScanCargo"
         component={ScanCargoScreen}
         options={{ title: "Scanner Colis" }}
       />
@@ -273,7 +279,7 @@ function TrackingStack() {
   return (
     <Stack.Navigator screenOptions={defaultScreenOptions}>
       <Stack.Screen
-        name="LiveTrackingMain"
+        name="LiveTracking"
         component={LiveTrackingScreen}
         options={{ title: "Suivi en direct" }}
       />

@@ -149,6 +149,7 @@ async def mobile_bootstrap(
             "default_entity_id": str(current_user.default_entity_id) if current_user.default_entity_id else None,
             "mfa_enabled": bool(current_user.mfa_enabled),
             "status": user_status,
+            "language": current_user.language or "fr",
         },
         "permissions": permissions,
         "entities": entities,

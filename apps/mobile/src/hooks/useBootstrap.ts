@@ -24,6 +24,7 @@ import { useAppState } from "../stores/appState";
 import { APP_VERSION } from "../services/api";
 import { compareVersions } from "../screens/ForceUpdateScreen";
 import { prefetchLookups, extractLookupEndpoints } from "../services/lookupCache";
+import i18n from "../locales/i18n";
 import type { FormDefinition, PortalDefinition } from "../types/forms";
 
 const BOOTSTRAP_URL = "/api/v1/mobile/bootstrap";
@@ -44,6 +45,7 @@ interface BootstrapData {
     avatar_url: string | null;
     default_entity_id: string | null;
     mfa_enabled: boolean;
+    language?: string;
   };
   permissions: string[];
   entities: BootstrapEntity[];
@@ -109,6 +111,14 @@ export function useBootstrap() {
         authStore.setEntity(data.current_entity_id);
       }
       persistAuth();
+
+      // 1b. Sync i18n language with the user's server-side preference
+      if (data.user.language) {
+        const lng = data.user.language.slice(0, 2).toLowerCase();
+        if (["fr", "en", "es", "pt"].includes(lng) && i18n.language !== lng) {
+          i18n.changeLanguage(lng).catch(() => {});
+        }
+      }
 
       // 2. Set Sentry user context
       setSentryUser({

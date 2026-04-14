@@ -82,11 +82,27 @@ export default function CargoReceptionScreen({ route, navigation }: Props) {
 
     setSubmitting(true);
     try {
-      await receiveCargo(cargo.id, {
-        condition,
+      // Build payload matching the server's CargoReceiptConfirm schema
+      const damageNotes = condition !== "good" ? notes : undefined;
+      const recipient = await receiveCargo(cargo.id, {
+        recipient_available: true,
+        signature_collected: Boolean(signature),
+        damage_notes: damageNotes,
+        photo_evidence_count: photos.length,
         notes: notes || undefined,
-        photo_count: photos.length,
       });
+      // Upload photos after reception is confirmed
+      if (photos.length > 0 && recipient?.id) {
+        const { uploadAttachments } = await import("../services/attachments");
+        const results = await uploadAttachments(photos, "cargo", recipient.id);
+        const failed = results.filter((r) => !r.success);
+        if (failed.length > 0) {
+          toast.show(
+            `Réception confirmée mais ${failed.length} photo(s) n'ont pas pu être envoyées`,
+            "error"
+          );
+        }
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       toast.show("Réception confirmée", "success");
       navigation.goBack();

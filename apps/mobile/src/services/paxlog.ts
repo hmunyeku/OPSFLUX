@@ -16,7 +16,7 @@ export async function listAds(params?: {
   page_size?: number;
 }): Promise<PaginatedResponse<AdsSummary>> {
   const { data } = await api.get<PaginatedResponse<AdsSummary>>(
-    "/api/v1/paxlog/ads",
+    "/api/v1/pax/ads",
     { params }
   );
   return data;
@@ -27,7 +27,7 @@ export async function getAdsBoardingScanContext(
   token: string
 ): Promise<AdsBoardingContext> {
   const { data } = await api.get<AdsBoardingContext>(
-    `/api/v1/paxlog/ads/boarding/scan/${encodeURIComponent(token)}`
+    `/api/v1/pax/ads/boarding/scan/${encodeURIComponent(token)}`
   );
   return data;
 }
@@ -39,7 +39,7 @@ export async function updateAdsBoardingPassenger(
   boardingStatus: "pending" | "boarded" | "no_show" | "offloaded"
 ): Promise<AdsBoardingPassenger> {
   const { data } = await api.post<AdsBoardingPassenger>(
-    `/api/v1/paxlog/ads/boarding/scan/${encodeURIComponent(token)}/passengers/${passengerId}`,
+    `/api/v1/pax/ads/boarding/scan/${encodeURIComponent(token)}/passengers/${passengerId}`,
     { boarding_status: boardingStatus }
   );
   return data;

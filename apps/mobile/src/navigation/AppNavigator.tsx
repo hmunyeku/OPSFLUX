@@ -18,6 +18,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Text, View, StyleSheet } from "react-native";
 import { Badge } from "react-native-paper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuthStore } from "../stores/auth";
 import { usePermissions } from "../stores/permissions";
@@ -29,6 +30,7 @@ import { colors } from "../utils/colors";
 import LoginScreen from "../screens/LoginScreen";
 import PortalHomeScreen from "../screens/PortalHomeScreen";
 import ScanAdsScreen from "../screens/ScanAdsScreen";
+import SmartScanScreen from "../screens/SmartScanScreen";
 import ScanCargoScreen from "../screens/ScanCargoScreen";
 import AdsBoardingDetailScreen from "../screens/AdsBoardingDetailScreen";
 import CargoDetailScreen from "../screens/CargoDetailScreen";
@@ -227,6 +229,11 @@ function ScannerStack() {
   return (
     <Stack.Navigator screenOptions={defaultScreenOptions}>
       <Stack.Screen
+        name="SmartScan"
+        component={SmartScanScreen}
+        options={{ title: "Scanner" }}
+      />
+      <Stack.Screen
         name="ScanAdsMain"
         component={ScanAdsScreen}
         options={{ title: "Scanner ADS" }}
@@ -303,6 +310,7 @@ function SettingsStack() {
 
 function MainTabs() {
   const hasTracking = usePermissions((s) => s.hasAny(["travelwiz.tracking.update", "travelwiz.boarding.manage"]));
+  const insets = useSafeAreaInsets();
 
   return (
     <Tab.Navigator
@@ -314,7 +322,10 @@ function MainTabs() {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          // height auto-calculated by react-navigation with proper safe area
+          // Explicit bottom safe-area padding so the Android gesture bar
+          // never covers the tab icons.
+          paddingBottom: Math.max(insets.bottom, 8),
+          height: 58 + Math.max(insets.bottom, 8),
         },
         tabBarLabelStyle: { fontSize: 10, fontWeight: "600", marginBottom: 4 },
         tabBarItemStyle: { paddingTop: 6 },

@@ -63,7 +63,7 @@ export default function MyComplianceScreen({ navigation }: { navigation: any }) 
   const load = useCallback(async () => {
     if (!userId) return;
     try {
-      const { data } = await api.get(`/api/v1/paxlog/profiles/${userId}/credentials`);
+      const { data } = await api.get(`/api/v1/pax/profiles/${userId}/credentials`);
       const items = Array.isArray(data) ? data : data?.items ?? [];
       // Enrich with days until expiry
       const enriched = items.map((c: any) => ({

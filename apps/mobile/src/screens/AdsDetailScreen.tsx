@@ -82,7 +82,7 @@ export default function AdsDetailScreen({ route, navigation }: Props) {
 
   const loadAds = useCallback(async () => {
     try {
-      const { data } = await api.get(`/api/v1/paxlog/ads/${adsId}`);
+      const { data } = await api.get(`/api/v1/pax/ads/${adsId}`);
       setAds(data);
     } catch {
       toast.show("Impossible de charger l'ADS", "error");
@@ -110,7 +110,7 @@ export default function AdsDetailScreen({ route, navigation }: Props) {
         onPress: async () => {
           setActing(true);
           try {
-            const { data } = await api.post(`/api/v1/paxlog/ads/${adsId}/${action}`);
+            const { data } = await api.post(`/api/v1/pax/ads/${adsId}/${action}`);
             setAds(data);
             toast.show(
               action === "approve" ? "ADS approuvé" : action === "reject" ? "ADS rejeté" : "ADS soumis",

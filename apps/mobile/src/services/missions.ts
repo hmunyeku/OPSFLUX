@@ -49,7 +49,7 @@ export async function listMissionNotices(params?: {
   page_size?: number;
 }): Promise<PaginatedResponse<MissionNoticeSummary>> {
   const { data } = await api.get<PaginatedResponse<MissionNoticeSummary>>(
-    "/api/v1/paxlog/mission-notices",
+    "/api/v1/pax/avm",
     { params }
   );
   return data;
@@ -59,7 +59,7 @@ export async function getMissionNotice(
   id: string
 ): Promise<MissionNoticeRead> {
   const { data } = await api.get<MissionNoticeRead>(
-    `/api/v1/paxlog/mission-notices/${id}`
+    `/api/v1/pax/avm/${id}`
   );
   return data;
 }
@@ -68,7 +68,7 @@ export async function createMissionNotice(
   body: MissionNoticeCreate
 ): Promise<MissionNoticeRead> {
   const { data } = await api.post<MissionNoticeRead>(
-    "/api/v1/paxlog/mission-notices",
+    "/api/v1/pax/avm",
     body
   );
   return data;

@@ -783,7 +783,7 @@ async def update_vector(
             "vector_id": str(vector.id),
             "entity_id": str(entity_id),
             "name": vector.name,
-            "status": vector.status if hasattr(vector, "status") else None,
+            "active": vector.active,
             "changed_fields": changed_fields,
         },
     ))

@@ -1,6 +1,6 @@
 const { getDefaultConfig } = require("expo/metro-config");
+const { withNativeWind } = require("nativewind/metro");
 
-// Default Expo metro config — no custom transforms.
-// react-native-svg works at runtime via <Svg> components and does NOT need
-// metro to transform .svg files (we don't import .svg files anywhere).
-module.exports = getDefaultConfig(__dirname);
+const config = getDefaultConfig(__dirname);
+
+module.exports = withNativeWind(config, { input: "./global.css" });

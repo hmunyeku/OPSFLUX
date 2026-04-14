@@ -11,6 +11,8 @@
  */
 
 import "react-native-gesture-handler";
+// NativeWind: inject global Tailwind stylesheet before any component mounts.
+import "./global.css";
 
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, View, StyleSheet } from "react-native";
@@ -18,6 +20,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { NavigationContainer } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { PaperProvider, MD3LightTheme, MD3DarkTheme, Text } from "react-native-paper";
+import { GluestackUIProvider } from "@gluestack-ui/themed";
+import { config as gluestackConfig } from "@gluestack-ui/config";
 import { StatusBar } from "expo-status-bar";
 
 // Initialize i18n before any component renders
@@ -72,6 +76,14 @@ export default function App() {
 
   useEffect(() => {
     async function init() {
+      // Hydrate the i18n catalog cache first so offline cold-starts show
+      // the right language immediately.
+      try {
+        const { useI18nStore } = await import("./src/stores/i18n");
+        await useI18nStore.getState().hydrate();
+      } catch (err) {
+        if (__DEV__) console.warn("[App] i18n hydrate failed:", err);
+      }
       try {
         await restoreAuth();
       } catch (err) {
@@ -128,13 +140,15 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ErrorBoundary>
         <SafeAreaProvider>
-          <PaperProvider theme={theme}>
-            <NavigationContainer linking={linking}>
-              <NetworkBanner />
-              <AppNavigator />
-              <Toast />
-            </NavigationContainer>
-          </PaperProvider>
+          <GluestackUIProvider config={gluestackConfig} colorMode={isDark ? "dark" : "light"}>
+            <PaperProvider theme={theme}>
+              <NavigationContainer linking={linking}>
+                <NetworkBanner />
+                <AppNavigator />
+                <Toast />
+              </NavigationContainer>
+            </PaperProvider>
+          </GluestackUIProvider>
           <StatusBar style="light" />
         </SafeAreaProvider>
       </ErrorBoundary>

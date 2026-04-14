@@ -25,6 +25,7 @@ import { APP_VERSION } from "../services/api";
 import { compareVersions } from "../screens/ForceUpdateScreen";
 import { prefetchLookups, extractLookupEndpoints } from "../services/lookupCache";
 import i18n from "../locales/i18n";
+import { useI18nStore } from "../stores/i18n";
 import type { FormDefinition, PortalDefinition } from "../types/forms";
 
 const BOOTSTRAP_URL = "/api/v1/mobile/bootstrap";
@@ -57,6 +58,12 @@ interface BootstrapData {
   modules: Array<{ slug: string; name: string }>;
   forms: FormDefinition[];
   portals: PortalDefinition[];
+  i18n?: {
+    language: string;
+    namespace: string;
+    hash: string;
+    messages: Record<string, string>;
+  };
 }
 
 interface BootstrapState {
@@ -112,11 +119,21 @@ export function useBootstrap() {
       }
       persistAuth();
 
-      // 1b. Sync i18n language with the user's server-side preference
-      if (data.user.language) {
+      // 1b. Apply the server-side i18n catalog (if present) + sync language.
+      //     This REPLACES the hardcoded locale bundles with server-driven ones,
+      //     so an admin can change any label without shipping a new APK.
+      if (data.i18n && data.i18n.messages && Object.keys(data.i18n.messages).length > 0) {
+        await useI18nStore.getState().applyCatalog({
+          language: data.i18n.language || data.user.language || "fr",
+          namespace: data.i18n.namespace || "mobile",
+          hash: data.i18n.hash || "",
+          messages: data.i18n.messages,
+        });
+      } else if (data.user.language) {
+        // Fallback: no catalog payload, at least honor the user's language.
         const lng = data.user.language.slice(0, 2).toLowerCase();
-        if (["fr", "en", "es", "pt"].includes(lng) && i18n.language !== lng) {
-          i18n.changeLanguage(lng).catch(() => {});
+        if (i18n.language !== lng) {
+          await i18n.changeLanguage(lng).catch(() => {});
         }
       }
 

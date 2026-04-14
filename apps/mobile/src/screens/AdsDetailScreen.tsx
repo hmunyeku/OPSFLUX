@@ -220,7 +220,7 @@ export default function AdsDetailScreen({ route, navigation }: Props) {
             <Text variant="titleSmall" style={styles.sectionTitle}>
               Personnel ({ads.pax_entries.length})
             </Text>
-            {ads.pax_entries.map((pax) => (
+            {(ads.pax_entries ?? []).map((pax) => (
               <View key={pax.id} style={styles.paxRow}>
                 <View style={{ flex: 1 }}>
                   <Text variant="bodyMedium" style={styles.paxName}>

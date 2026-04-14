@@ -38,11 +38,11 @@ export default function AdsBoardingDetailScreen({ route }: Props) {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const allPassengers = [
-    ...ctx.manifests.flatMap((m) =>
-      m.passengers.map((p) => ({ ...p, _voyageRef: m.voyage_reference }))
+    ...(ctx.manifests ?? []).flatMap((m) =>
+      (m.passengers ?? []).map((p) => ({ ...p, _voyageRef: m.voyage_reference }))
     ),
-    ...ctx.declared_pax.map((p) => ({ ...p, _voyageRef: "Déclarés" })),
-    ...ctx.unassigned_pax.map((p) => ({ ...p, _voyageRef: "Non assignés" })),
+    ...(ctx.declared_pax ?? []).map((p) => ({ ...p, _voyageRef: "Déclarés" })),
+    ...(ctx.unassigned_pax ?? []).map((p) => ({ ...p, _voyageRef: "Non assignés" })),
   ];
 
   const boardedCount = allPassengers.filter(
@@ -83,12 +83,12 @@ export default function AdsBoardingDetailScreen({ route }: Props) {
               newStatus === "boarded"
                 ? prev.pax_boarded + 1
                 : prev.pax_boarded - 1,
-            manifests: prev.manifests.map((m) => ({
+            manifests: (prev.manifests ?? []).map((m) => ({
               ...m,
-              passengers: m.passengers.map(updatePax),
+              passengers: (m.passengers ?? []).map(updatePax),
             })),
-            declared_pax: prev.declared_pax.map(updatePax),
-            unassigned_pax: prev.unassigned_pax.map(updatePax),
+            declared_pax: (prev.declared_pax ?? []).map(updatePax),
+            unassigned_pax: (prev.unassigned_pax ?? []).map(updatePax),
           };
         });
       } catch (err: any) {

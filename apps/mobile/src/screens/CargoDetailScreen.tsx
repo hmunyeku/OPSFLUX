@@ -164,7 +164,7 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
             status={compliance.overall_status}
             size="md"
           />
-          {compliance.checks.map((check, i) => (
+          {(compliance.checks ?? []).map((check, i) => (
             <View key={i} style={styles.checkRow}>
               <View
                 style={[
@@ -194,10 +194,10 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
       {tracking.events && tracking.events.length > 0 && (
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Suivi</Text>
-          {tracking.events.map((event, i) => (
+          {(tracking.events ?? []).map((event, i) => (
             <View key={i} style={styles.timelineItem}>
               <View style={styles.timelineDot} />
-              {i < tracking.events.length - 1 && (
+              {i < (tracking.events?.length ?? 0) - 1 && (
                 <View style={styles.timelineLine} />
               )}
               <View style={styles.timelineContent}>

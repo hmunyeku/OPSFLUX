@@ -1,12 +1,13 @@
 /**
- * Signature capture field — draws on a canvas and stores as SVG path data.
+ * Signature capture field — draws on a canvas using PanResponder + react-native-svg.
  *
- * Uses react-native-svg for rendering. The user draws with their finger,
- * and the path data is stored as the field value.
+ * Each stroke = one SVG <Path>. The full value stored is all paths concatenated.
+ * Layout-aware: SVG is sized to the actual View dimensions to ensure
+ * coordinates match what the user sees.
  */
 
 import React, { useRef, useState } from "react";
-import { PanResponder, StyleSheet, View } from "react-native";
+import { LayoutChangeEvent, PanResponder, StyleSheet, View } from "react-native";
 import { Button, HelperText, Text } from "react-native-paper";
 import Svg, { Path } from "react-native-svg";
 import type { FieldDefinition } from "../../types/forms";
@@ -21,109 +22,139 @@ interface Props {
   onChange: (value: string) => void;
 }
 
-interface Point {
-  x: number;
-  y: number;
-}
-
 export default function FieldSignature({ field, value, error, required, onChange }: Props) {
-  const [paths, setPaths] = useState<string[]>(
-    value ? [value as string] : []
-  );
-  const [currentPath, setCurrentPath] = useState<Point[]>([]);
-  const containerRef = useRef<View>(null);
-  const offsetRef = useRef({ x: 0, y: 0 });
+  const [paths, setPaths] = useState<string[]>(() => {
+    if (typeof value === "string" && value.length > 0) {
+      return value.split(/(?=M )/g).filter((p) => p.trim().length > 0);
+    }
+    return [];
+  });
+  const [currentPath, setCurrentPath] = useState<string>("");
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+
+  const pointsRef = useRef<{ x: number; y: number }[]>([]);
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
       onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
 
       onPanResponderGrant: (evt) => {
-        // Measure container position for accurate coordinates
-        containerRef.current?.measure((_x, _y, _w, _h, pageX, pageY) => {
-          offsetRef.current = { x: pageX, y: pageY };
-        });
         const { locationX, locationY } = evt.nativeEvent;
-        setCurrentPath([{ x: locationX, y: locationY }]);
+        pointsRef.current = [{ x: locationX, y: locationY }];
+        setCurrentPath(`M ${locationX.toFixed(1)} ${locationY.toFixed(1)}`);
       },
 
       onPanResponderMove: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
-        setCurrentPath((prev) => [...prev, { x: locationX, y: locationY }]);
+        pointsRef.current.push({ x: locationX, y: locationY });
+        const pts = pointsRef.current;
+        const first = pts[0];
+        let d = `M ${first.x.toFixed(1)} ${first.y.toFixed(1)}`;
+        for (let i = 1; i < pts.length; i++) {
+          d += ` L ${pts[i].x.toFixed(1)} ${pts[i].y.toFixed(1)}`;
+        }
+        setCurrentPath(d);
       },
 
       onPanResponderRelease: () => {
-        if (currentPath.length > 1) {
-          const pathData = pointsToSvgPath(currentPath);
-          const newPaths = [...paths, pathData];
-          setPaths(newPaths);
-          onChange(newPaths.join(" "));
+        if (pointsRef.current.length > 1) {
+          setPaths((prev) => {
+            const updated = [...prev, currentPath];
+            onChange(updated.join(" "));
+            return updated;
+          });
         }
-        setCurrentPath([]);
+        pointsRef.current = [];
+        setCurrentPath("");
+      },
+
+      onPanResponderTerminate: () => {
+        pointsRef.current = [];
+        setCurrentPath("");
       },
     })
   ).current;
 
   function clear() {
     setPaths([]);
-    setCurrentPath([]);
+    setCurrentPath("");
+    pointsRef.current = [];
     onChange("");
   }
 
-  const currentPathData =
-    currentPath.length > 1 ? pointsToSvgPath(currentPath) : "";
+  function handleLayout(e: LayoutChangeEvent) {
+    const { width, height } = e.nativeEvent.layout;
+    setCanvasSize({ width, height });
+  }
+
   const hasSigned = paths.length > 0 || currentPath.length > 0;
 
   return (
     <View>
-      <Text variant="bodySmall" style={styles.label}>
-        {field.label}{required ? " *" : ""}
-      </Text>
+      <View style={styles.labelRow}>
+        <Text variant="bodySmall" style={styles.label}>
+          {field.label}{required ? " *" : ""}
+        </Text>
+        {hasSigned && (
+          <Button
+            mode="text"
+            compact
+            onPress={clear}
+            textColor={colors.danger}
+            style={styles.clearButton}
+          >
+            Effacer
+          </Button>
+        )}
+      </View>
 
       <View
-        ref={containerRef}
+        onLayout={handleLayout}
         style={[styles.canvas, error ? styles.canvasError : null]}
         {...panResponder.panHandlers}
       >
-        <Svg width="100%" height="100%">
-          {paths.map((d, i) => (
-            <Path
-              key={i}
-              d={d}
-              stroke={colors.primary}
-              strokeWidth={2.5}
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          ))}
-          {currentPathData && (
-            <Path
-              d={currentPathData}
-              stroke={colors.primary}
-              strokeWidth={2.5}
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          )}
-        </Svg>
+        {canvasSize.width > 0 && (
+          <Svg
+            width={canvasSize.width}
+            height={canvasSize.height}
+            style={StyleSheet.absoluteFillObject}
+            pointerEvents="none"
+          >
+            {paths.map((d, i) => (
+              <Path
+                key={i}
+                d={d}
+                stroke={colors.primary}
+                strokeWidth={2.5}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            ))}
+            {currentPath.length > 0 && (
+              <Path
+                d={currentPath}
+                stroke={colors.primary}
+                strokeWidth={2.5}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+          </Svg>
+        )}
 
         {!hasSigned && (
-          <View style={styles.placeholder}>
+          <View style={styles.placeholder} pointerEvents="none">
             <Text variant="bodyMedium" style={styles.placeholderText}>
               Signez ici
             </Text>
           </View>
-        )}
-      </View>
-
-      <View style={styles.actions}>
-        {hasSigned && (
-          <Button mode="outlined" compact onPress={clear} textColor={colors.danger}>
-            Effacer
-          </Button>
         )}
       </View>
 
@@ -136,33 +167,29 @@ export default function FieldSignature({ field, value, error, required, onChange
   );
 }
 
-/** Convert a list of points to an SVG path data string. */
-function pointsToSvgPath(points: Point[]): string {
-  if (points.length < 2) return "";
-  let d = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
-  for (let i = 1; i < points.length; i++) {
-    d += ` L ${points[i].x.toFixed(1)} ${points[i].y.toFixed(1)}`;
-  }
-  return d;
-}
-
 const styles = StyleSheet.create({
-  label: { color: colors.textSecondary, marginBottom: 8 },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  label: { color: colors.textSecondary },
+  clearButton: { marginVertical: -6 },
   canvas: {
-    height: 160,
+    height: 180,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     overflow: "hidden",
+    position: "relative",
   },
   canvasError: { borderColor: colors.danger },
   placeholder: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
     alignItems: "center",
-    pointerEvents: "none",
   },
-  placeholderText: { color: colors.textMuted },
-  actions: { flexDirection: "row", justifyContent: "flex-end", marginTop: 6 },
+  placeholderText: { color: colors.textMuted, fontStyle: "italic" },
 });

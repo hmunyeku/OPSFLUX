@@ -1,11 +1,12 @@
 /**
- * Lookup field — searches server entities with offline cache fallback.
+ * Lookup field — searches server entities, supports offline cache fallback.
  *
- * Displays a searchable modal that queries the API endpoint
- * defined in the field's lookup_source configuration.
+ * When the field has a pre-existing value (UUID), we resolve the label
+ * by fetching /<endpoint>/<value> to show the name instead of the UUID.
+ * Search is debounced 300ms to avoid hammering the server.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
@@ -19,6 +20,7 @@ import {
   Text,
   TouchableRipple,
 } from "react-native-paper";
+import { api } from "../../services/api";
 import { fetchWithOfflineFallback } from "../../services/offline";
 import { getCachedLookup } from "../../services/lookupCache";
 import type { FieldDefinition } from "../../types/forms";
@@ -44,31 +46,67 @@ export default function FieldLookup({ field, value, error, required, onChange }:
   const [items, setItems] = useState<LookupItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedLabel, setSelectedLabel] = useState<string>("");
+  const [resolvingLabel, setResolvingLabel] = useState(false);
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const source = field.lookup_source;
-  if (!source) return null;
 
-  // Resolve display label for current value
+  // Resolve label for existing value by calling GET /<endpoint>/<id>
   useEffect(() => {
-    if (!value) {
+    if (!source || !value) {
       setSelectedLabel("");
       return;
     }
-    // Try to find in already-loaded items
-    const found = items.find((i) => i[source.value] === value);
+
+    // First check if we already have it in the loaded items
+    const found = items.find((i) => String(i[source.value]) === String(value));
     if (found) {
       setSelectedLabel(String(found[source.display] ?? ""));
+      return;
     }
-  }, [value, items]);
+
+    // Then check the offline cache
+    (async () => {
+      try {
+        const cached = await getCachedLookup(source.endpoint);
+        if (cached) {
+          const cachedItem = (cached as LookupItem[]).find(
+            (i) => String(i[source.value]) === String(value)
+          );
+          if (cachedItem) {
+            setSelectedLabel(String(cachedItem[source.display] ?? ""));
+            return;
+          }
+        }
+      } catch {}
+
+      // Fallback: fetch the specific item via GET /<endpoint>/<value>
+      setResolvingLabel(true);
+      try {
+        const { data } = await api.get(`${source.endpoint}/${value}`);
+        const label = data?.[source.display] ?? data?.name ?? data?.display_name;
+        if (label) {
+          setSelectedLabel(String(label));
+        } else {
+          // Last resort — show the UUID truncated
+          setSelectedLabel(String(value).slice(0, 8) + "…");
+        }
+      } catch {
+        setSelectedLabel(String(value).slice(0, 8) + "…");
+      } finally {
+        setResolvingLabel(false);
+      }
+    })();
+  }, [value, items, source?.endpoint]);
 
   const doSearch = useCallback(
     async (query: string) => {
-      if (!source.endpoint) return;
+      if (!source?.endpoint) return;
       setLoading(true);
       try {
         const params: Record<string, unknown> = {
           ...(source.filter || {}),
-          page_size: 20,
+          page_size: 30,
         };
         if (query && source.search_param) {
           params[source.search_param] = query;
@@ -80,11 +118,9 @@ export default function FieldLookup({ field, value, error, required, onChange }:
           const data = result.data;
           list = Array.isArray(data) ? data : data?.items ?? [];
         } catch {
-          // Offline — fallback to pre-fetched lookup cache
           const cached = await getCachedLookup(source.endpoint);
           if (cached) {
             list = cached as LookupItem[];
-            // Client-side filter if we have a search query
             if (query && source.display) {
               const q = query.toLowerCase();
               list = list.filter((item) =>
@@ -96,8 +132,6 @@ export default function FieldLookup({ field, value, error, required, onChange }:
           }
         }
         setItems(list);
-      } catch {
-        // Keep existing items on error
       } finally {
         setLoading(false);
       }
@@ -105,9 +139,35 @@ export default function FieldLookup({ field, value, error, required, onChange }:
     [source]
   );
 
+  // Debounced search
   useEffect(() => {
-    if (open) doSearch(search);
+    if (!open) return;
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(() => {
+      doSearch(search);
+    }, 300);
+    return () => {
+      if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    };
+  }, [search, open]);
+
+  // Initial load when dialog opens
+  useEffect(() => {
+    if (open) doSearch("");
   }, [open]);
+
+  if (!source) {
+    return (
+      <View style={styles.triggerInner}>
+        <Text variant="bodySmall" style={styles.triggerLabel}>
+          {field.label}
+        </Text>
+        <Text variant="bodyMedium" style={{ color: colors.danger }}>
+          Configuration manquante
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <>
@@ -116,13 +176,22 @@ export default function FieldLookup({ field, value, error, required, onChange }:
           <Text variant="bodySmall" style={styles.triggerLabel}>
             {field.label}{required ? " *" : ""}
           </Text>
-          <Text
-            variant="bodyLarge"
-            style={selectedLabel ? styles.triggerValue : styles.triggerPlaceholder}
-            numberOfLines={1}
-          >
-            {selectedLabel || field.placeholder || "Rechercher..."}
-          </Text>
+          {resolvingLabel ? (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text variant="bodyLarge" style={[styles.triggerValue, { marginLeft: 8 }]}>
+                Chargement…
+              </Text>
+            </View>
+          ) : value && selectedLabel ? (
+            <Text variant="bodyLarge" style={styles.triggerValue} numberOfLines={1}>
+              {selectedLabel}
+            </Text>
+          ) : (
+            <Text variant="bodyLarge" style={styles.triggerPlaceholder}>
+              {field.placeholder ?? "Sélectionner…"}
+            </Text>
+          )}
         </View>
       </TouchableRipple>
 
@@ -137,17 +206,15 @@ export default function FieldLookup({ field, value, error, required, onChange }:
           <Dialog.Title>{field.label}</Dialog.Title>
           <Dialog.Content style={styles.content}>
             <Searchbar
-              placeholder="Rechercher..."
+              placeholder="Rechercher…"
               value={search}
-              onChangeText={(text) => {
-                setSearch(text);
-                doSearch(text);
-              }}
+              onChangeText={setSearch}
               style={styles.searchbar}
+              autoFocus
             />
             {loading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" />
+                <ActivityIndicator size="small" color={colors.primary} />
               </View>
             ) : (
               <FlatList
@@ -155,29 +222,36 @@ export default function FieldLookup({ field, value, error, required, onChange }:
                 keyExtractor={(item) => String(item[source.value] ?? item.id)}
                 style={styles.list}
                 ItemSeparatorComponent={Divider}
+                keyboardShouldPersistTaps="handled"
                 renderItem={({ item }) => (
                   <List.Item
                     title={String(item[source.display] ?? "")}
+                    description={item.code ? String(item.code) : undefined}
                     onPress={() => {
-                      onChange(String(item[source.value] ?? item.id));
-                      setSelectedLabel(String(item[source.display] ?? ""));
+                      const itemId = String(item[source.value] ?? item.id);
+                      const label = String(item[source.display] ?? "");
+                      onChange(itemId);
+                      setSelectedLabel(label);
                       setOpen(false);
+                      setSearch("");
                     }}
                     left={(props) =>
-                      String(item[source.value]) === String(value) ? (
+                      String(item[source.value] ?? item.id) === String(value) ? (
                         <List.Icon {...props} icon="check" color={colors.primary} />
                       ) : null
                     }
                   />
                 )}
                 ListEmptyComponent={
-                  <Text style={styles.empty}>Aucun résultat</Text>
+                  <Text style={styles.empty}>
+                    {search ? `Aucun résultat pour "${search}"` : "Aucune donnée"}
+                  </Text>
                 }
               />
             )}
           </Dialog.Content>
           <Dialog.Actions>
-            {value && (
+            {Boolean(value) && (
               <Button
                 onPress={() => {
                   onChange(null);
@@ -206,15 +280,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     backgroundColor: colors.surface,
+    minHeight: 56,
+    justifyContent: "center",
   },
   triggerError: { borderColor: colors.danger },
   triggerLabel: { color: colors.textSecondary, marginBottom: 2 },
   triggerValue: { color: colors.textPrimary },
   triggerPlaceholder: { color: colors.textMuted },
-  dialog: { maxHeight: "80%" },
+  dialog: { maxHeight: "85%" },
   content: { paddingHorizontal: 0 },
-  searchbar: { marginHorizontal: 16, marginBottom: 8 },
-  list: { maxHeight: 300 },
+  searchbar: { marginHorizontal: 16, marginBottom: 8, elevation: 0 },
+  list: { maxHeight: 380 },
   loadingContainer: { padding: 24, alignItems: "center" },
   empty: { textAlign: "center", padding: 24, color: colors.textMuted },
 });

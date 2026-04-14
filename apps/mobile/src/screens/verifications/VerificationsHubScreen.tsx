@@ -23,7 +23,7 @@ import {
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import { MIcon } from "../../components/MIcon";
+import { MIcon, type MIconName } from "../../components/MIcon";
 import { useTranslation } from "react-i18next";
 import { listMyVerifications, type UserVerification } from "../../services/verifications";
 
@@ -47,7 +47,7 @@ const TILES: Tile[] = [
   {
     type: "phone",
     route: "PhoneVerification",
-    icon: Phone,
+    icon: "phone",
     labelKey: "verif.phone.title",
     labelFallback: "Numéro de téléphone",
     descKey: "verif.phone.desc",
@@ -56,7 +56,7 @@ const TILES: Tile[] = [
   {
     type: "email",
     route: "EmailVerification",
-    icon: Mail,
+    icon: "email",
     labelKey: "verif.email.title",
     labelFallback: "Adresse email",
     descKey: "verif.email.desc",
@@ -65,7 +65,7 @@ const TILES: Tile[] = [
   {
     type: "location",
     route: "LocationVerification",
-    icon: MapPin,
+    icon: "place",
     labelKey: "verif.location.title",
     labelFallback: "Localisation GPS",
     descKey: "verif.location.desc",
@@ -74,7 +74,7 @@ const TILES: Tile[] = [
   {
     type: "id_document",
     route: "IdDocumentVerification",
-    icon: FileBadge,
+    icon: "badge",
     labelKey: "verif.id.title",
     labelFallback: "Pièce d'identité",
     descKey: "verif.id.desc",

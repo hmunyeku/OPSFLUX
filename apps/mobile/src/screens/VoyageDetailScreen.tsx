@@ -15,7 +15,7 @@ import {
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import { MIcon } from "../components/MIcon";
+import { MIcon, type MIconName } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
 import FleetMap, { type MapPosition } from "../components/FleetMap";
@@ -52,13 +52,13 @@ interface VoyageLog {
 }
 
 const EVENT_ICONS: Record<string, MIconName> = {
-  departure: PlaneTakeoff,
-  arrival: PlaneLanding,
-  weather: Cloud,
-  technical: Wrench,
-  fuel: Fuel,
-  safety: Shield,
-  incident: AlertTriangle,
+  departure: "flight-takeoff",
+  arrival: "flight-land",
+  weather: "cloud",
+  technical: "build",
+  fuel: "local-gas-station",
+  safety: "shield",
+  incident: "warning",
 };
 
 export default function VoyageDetailScreen({ route }: Props) {
@@ -178,7 +178,7 @@ export default function VoyageDetailScreen({ route }: Props) {
             <>
               <Divider my="$2" />
               <ScheduleRow
-                icon={AlertTriangle}
+                icon="warning"
                 label={t("voyage.delayReason", "Motif de retard")}
                 value={voyage.delay_reason}
                 iconColor="$warning600"

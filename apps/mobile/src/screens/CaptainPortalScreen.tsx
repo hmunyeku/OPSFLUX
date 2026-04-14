@@ -26,7 +26,7 @@ import {
   TextareaInput,
   VStack,
 } from "@gluestack-ui/themed";
-import { MIcon } from "../components/MIcon";
+import { MIcon, type MIconName } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import {
   captainAuthenticate,
@@ -50,12 +50,12 @@ interface EventType {
 }
 
 const EVENT_TYPES: EventType[] = [
-  { code: "departure", labelKey: "captain.event.departure", labelFb: "Départ", icon: PlaneTakeoff, color: "$info600" },
-  { code: "arrival", labelKey: "captain.event.arrival", labelFb: "Arrivée", icon: PlaneLanding, color: "$success600" },
-  { code: "weather", labelKey: "captain.event.weather", labelFb: "Météo", icon: Cloud, color: "$warning600" },
-  { code: "incident", labelKey: "captain.event.incident", labelFb: "Incident", icon: ShieldAlert, color: "$error600" },
-  { code: "fuel", labelKey: "captain.event.fuel", labelFb: "Carburant", icon: Fuel, color: "$info600" },
-  { code: "technical", labelKey: "captain.event.technical", labelFb: "Technique", icon: Wrench, color: "$primary600" },
+  { code: "departure", labelKey: "captain.event.departure", labelFb: "Départ", icon: "flight-takeoff", color: "$info600" },
+  { code: "arrival", labelKey: "captain.event.arrival", labelFb: "Arrivée", icon: "flight-land", color: "$success600" },
+  { code: "weather", labelKey: "captain.event.weather", labelFb: "Météo", icon: "cloud", color: "$warning600" },
+  { code: "incident", labelKey: "captain.event.incident", labelFb: "Incident", icon: "gpp-bad", color: "$error600" },
+  { code: "fuel", labelKey: "captain.event.fuel", labelFb: "Carburant", icon: "local-gas-station", color: "$info600" },
+  { code: "technical", labelKey: "captain.event.technical", labelFb: "Technique", icon: "build", color: "$primary600" },
 ];
 
 export default function CaptainPortalScreen() {

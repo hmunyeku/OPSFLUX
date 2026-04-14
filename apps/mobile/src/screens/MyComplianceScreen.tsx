@@ -19,7 +19,7 @@ import {
   Text,
   VStack,
 } from "@gluestack-ui/themed";
-import { MIcon } from "../components/MIcon";
+import { MIcon, type MIconName } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
 import { api } from "../services/api";
@@ -45,11 +45,11 @@ interface ComplianceStats {
 }
 
 const CATEGORY_ICONS: Record<string, MIconName> = {
-  safety: Shield,
-  medical: HeartPulse,
-  technical: Wrench,
-  administrative: FileText,
-  training: GraduationCap,
+  safety: "shield",
+  medical: "favorite",
+  technical: "build",
+  administrative: "description",
+  training: "school",
 };
 
 export default function MyComplianceScreen() {
@@ -226,7 +226,7 @@ export default function MyComplianceScreen() {
           </Heading>
 
           {sorted.map((cred, idx) => {
-            const CredIcon = CATEGORY_ICONS[cred.credential_type_category] ?? FileText;
+            const CredIcon = CATEGORY_ICONS[cred.credential_type_category] ?? "description";
             const iconColor =
               cred.status === "valid"
                 ? "$success600"

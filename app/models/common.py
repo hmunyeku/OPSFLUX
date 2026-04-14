@@ -2337,3 +2337,61 @@ class JobExecution(UUIDPrimaryKeyMixin, Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_traceback: Mapped[str | None] = mapped_column(Text, nullable=True)
     triggered_by: Mapped[str] = mapped_column(String(20), default="scheduler", server_default="scheduler", nullable=False)  # scheduler | manual
+
+
+# ─── i18n — Server-driven translations ────────────────────────────────────────
+
+class I18nLanguage(TimestampMixin, Base):
+    """
+    A language registered in the system. Code is a BCP-47 / ISO-639-1 tag
+    (e.g. 'fr', 'en', 'es', 'pt'). Adding a row here makes the language
+    available for selection in the mobile app and backoffice.
+    """
+    __tablename__ = "i18n_languages"
+
+    code: Mapped[str] = mapped_column(String(10), primary_key=True)
+    label: Mapped[str] = mapped_column(String(100), nullable=False)  # Native name: "Français"
+    english_label: Mapped[str] = mapped_column(String(100), nullable=False)  # "French"
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    rtl: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+
+
+class I18nMessage(TimestampMixin, Base):
+    """
+    A single translation: (key, language) -> value. The key follows a
+    dot-notation convention: `<area>.<screen>.<element>[.<variant>]`,
+    e.g. `ads.detail.action.approve`.
+
+    `namespace` is used to group related keys for efficient partial fetches
+    (e.g. "mobile", "backoffice", "email").
+    """
+    __tablename__ = "i18n_messages"
+    __table_args__ = (
+        Index("uq_i18n_message", "key", "language_code", unique=True),
+        Index("ix_i18n_message_namespace_lang", "namespace", "language_code"),
+    )
+
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=lambda: __import__("uuid").uuid4())
+    key: Mapped[str] = mapped_column(String(255), nullable=False)
+    language_code: Mapped[str] = mapped_column(String(10), ForeignKey("i18n_languages.code", ondelete="CASCADE"), nullable=False)
+    namespace: Mapped[str] = mapped_column(String(50), default="mobile", server_default="mobile", nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    # Optional notes for translators (context, variables, etc.)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Track who last edited the message (for audit)
+    updated_by: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+
+class I18nCatalogMeta(TimestampMixin, Base):
+    """
+    Per-language catalog metadata. Stores a content hash so clients can
+    skip re-downloading an unchanged catalog. Recomputed by a server-side
+    trigger or an explicit recompute endpoint after bulk edits.
+    """
+    __tablename__ = "i18n_catalog_meta"
+
+    language_code: Mapped[str] = mapped_column(String(10), ForeignKey("i18n_languages.code", ondelete="CASCADE"), primary_key=True)
+    namespace: Mapped[str] = mapped_column(String(50), default="mobile", server_default="mobile", primary_key=True)
+    hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    message_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

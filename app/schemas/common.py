@@ -2517,3 +2517,90 @@ class UserHealthConditionRead(BaseModel):
     notes: str | None = None
     created_at: datetime
     updated_at: datetime
+
+
+# ─── i18n — Server-driven translations ────────────────────────────────────────
+
+class I18nLanguageRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    code: str
+    label: str
+    english_label: str
+    active: bool
+    rtl: bool
+    sort_order: int
+
+
+class I18nLanguageCreate(BaseModel):
+    code: str = Field(min_length=2, max_length=10)
+    label: str
+    english_label: str
+    active: bool = True
+    rtl: bool = False
+    sort_order: int = 0
+
+
+class I18nLanguageUpdate(BaseModel):
+    label: str | None = None
+    english_label: str | None = None
+    active: bool | None = None
+    rtl: bool | None = None
+    sort_order: int | None = None
+
+
+class I18nMessageRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    key: str
+    language_code: str
+    namespace: str
+    value: str
+    notes: str | None = None
+    updated_by: UUID | None = None
+    updated_at: datetime
+
+
+class I18nMessageUpsert(BaseModel):
+    """Create-or-update — (key, language_code, namespace) is the natural key."""
+    key: str = Field(min_length=1, max_length=255)
+    language_code: str = Field(min_length=2, max_length=10)
+    namespace: str = "mobile"
+    value: str
+    notes: str | None = None
+
+
+class I18nMessageUpdate(BaseModel):
+    value: str | None = None
+    notes: str | None = None
+
+
+class I18nCatalogResponse(BaseModel):
+    """Public catalog response — flat dict of key -> value, plus meta."""
+    language: str
+    namespace: str
+    hash: str
+    messages: dict[str, str]
+    count: int
+
+
+class I18nCatalogMetaRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    language_code: str
+    namespace: str
+    hash: str
+    message_count: int
+    updated_at: datetime
+
+
+class I18nBulkUpsertItem(BaseModel):
+    key: str
+    value: str
+    notes: str | None = None
+
+
+class I18nBulkUpsertRequest(BaseModel):
+    """Replace or upsert many keys for a single (language, namespace)."""
+    language_code: str
+    namespace: str = "mobile"
+    messages: list[I18nBulkUpsertItem]
+    replace: bool = False  # if true, delete keys not in this payload

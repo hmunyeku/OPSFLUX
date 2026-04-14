@@ -125,6 +125,38 @@ async def mobile_bootstrap(
     is_active = getattr(current_user, "active", True)
     user_status = "active" if is_active else "deactivated"
 
+    # ── i18n catalog for the user's language ───────────────────
+    # Return the full catalog inline so the mobile has it ready offline.
+    # Client will compare `hash` and only refetch if changed.
+    i18n_payload: dict = {
+        "language": (current_user.language or "fr").lower()[:2],
+        "namespace": "mobile",
+        "hash": "",
+        "messages": {},
+    }
+    try:
+        from app.models.common import I18nCatalogMeta, I18nMessage
+        lang = i18n_payload["language"]
+        meta = (
+            await db.execute(
+                select(I18nCatalogMeta)
+                .where(I18nCatalogMeta.language_code == lang)
+                .where(I18nCatalogMeta.namespace == "mobile")
+            )
+        ).scalar_one_or_none()
+        if meta:
+            i18n_payload["hash"] = meta.hash
+        msgs = (
+            await db.execute(
+                select(I18nMessage.key, I18nMessage.value)
+                .where(I18nMessage.language_code == lang)
+                .where(I18nMessage.namespace == "mobile")
+            )
+        ).all()
+        i18n_payload["messages"] = {k: v for k, v in msgs}
+    except Exception as exc:
+        logger.warning("mobile.bootstrap: could not load i18n catalog: %s", exc)
+
     # ── Form & portal registries (pure-python, always safe) ────
     try:
         forms = get_all_form_definitions()
@@ -162,6 +194,7 @@ async def mobile_bootstrap(
         "min_app_version": min_app_version,
         "forms": forms,
         "portals": portals,
+        "i18n": i18n_payload,
     }
 
 

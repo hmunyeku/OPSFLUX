@@ -47,6 +47,11 @@ const config: ExpoConfig = {
       usesNonExemptEncryption: false,
     },
   },
+  web: {
+    bundler: "metro",
+    favicon: "./assets/icon.png",
+    output: "single",
+  },
   android: {
     adaptiveIcon: {
       foregroundImage: "./assets/adaptive-icon.png",

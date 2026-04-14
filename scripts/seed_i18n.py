@@ -32,6 +32,9 @@ from app.models.common import I18nCatalogMeta, I18nLanguage, I18nMessage
 LOCALES_DIR = Path(__file__).resolve().parent.parent / "apps" / "mobile" / "src" / "locales"
 SEED_DIR = Path(__file__).resolve().parent / "i18n_seed"
 NAMESPACE = "mobile"
+# When True (--force flag), overwrite existing translations with values from
+# the JSON files. Default False = preserve admin edits, only insert new keys.
+FORCE = "--force" in sys.argv
 
 
 def _parse_ts_object(text: str) -> dict:
@@ -184,7 +187,7 @@ async def seed() -> None:
             if code not in existing:
                 continue
             messages = _load_locale(code)
-            print(f"[{code}] {len(messages)} messages from {code}.ts")
+            print(f"[{code}] {len(messages)} messages from {code}.json")
 
             for key, value in messages.items():
                 stmt = pg_insert(I18nMessage).values(
@@ -194,10 +197,18 @@ async def seed() -> None:
                     value=value,
                     updated_by=None,
                 )
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=["key", "language_code"],
-                    set_={"value": stmt.excluded.value},
-                )
+                # IMPORTANT: ON CONFLICT DO NOTHING — never overwrite values that
+                # have already been edited by an admin via the backoffice UI.
+                # If we want to force-resync from the JSON files, pass --force.
+                if FORCE:
+                    stmt = stmt.on_conflict_do_update(
+                        index_elements=["key", "language_code"],
+                        set_={"value": stmt.excluded.value},
+                    )
+                else:
+                    stmt = stmt.on_conflict_do_nothing(
+                        index_elements=["key", "language_code"],
+                    )
                 await db.execute(stmt)
                 total_inserted += 1
 

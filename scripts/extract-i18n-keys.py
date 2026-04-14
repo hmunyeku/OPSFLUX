@@ -23,7 +23,7 @@ MOBILE_SRC = ROOT / "apps" / "mobile" / "src"
 SEED_DIR = ROOT / "scripts" / "i18n_seed"
 
 PATTERN_DOUBLE = re.compile(
-    r"""\bt\(\s*"((?:[^"\\]|\\.)*)"\s*,\s*"((?:[^"\\]|\\.)*)"""",
+    r'\bt\(\s*"((?:[^"\\]|\\.)*)"\s*,\s*"((?:[^"\\]|\\.)*)"',
     re.DOTALL,
 )
 PATTERN_SINGLE = re.compile(

@@ -28,6 +28,8 @@ COPY app/ ./app/
 COPY alembic/ ./alembic/
 COPY alembic.ini ./
 COPY tests/ ./tests/
+# Scripts (seed_i18n, etc. — invoked via `python -m scripts.X` at boot)
+COPY scripts/ ./scripts/
 
 # Create static directories for volume mount + non-root user
 RUN mkdir -p /opt/opsflux/static/avatars /opt/opsflux/static/attachments \

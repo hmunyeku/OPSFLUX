@@ -1260,7 +1260,6 @@ function VecteursTab() {
 // ══════════════════════════════════════════════════════════════
 
 function RotationsTab() {
-  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
   const [search, setSearch] = useState('')

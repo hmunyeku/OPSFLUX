@@ -66,8 +66,10 @@ async function fetchServerCatalog(lang: string): Promise<Record<string, string> 
     const token = localStorage.getItem('access_token')
     if (!token) return null // Not authenticated yet — use bundled
 
-    const savedHash = localStorage.getItem(`${I18N_HASH_KEY}_${lang}`) || ''
-    const url = `${apiBase}/api/v1/i18n/catalog?lang=${lang}&namespace=${I18N_NAMESPACE}&if_none_match=${savedHash}`
+    // Normalize lang code: "fr-FR" → "fr", "en-US" → "en"
+    const shortLang = lang.split('-')[0].toLowerCase()
+    const savedHash = localStorage.getItem(`${I18N_HASH_KEY}_${shortLang}`) || ''
+    const url = `${apiBase}/api/v1/i18n/catalog?lang=${shortLang}&namespace=${I18N_NAMESPACE}&if_none_match=${savedHash}`
 
     const resp = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
@@ -76,7 +78,7 @@ async function fetchServerCatalog(lang: string): Promise<Record<string, string> 
 
     if (resp.status === 304) {
       // Cache still valid — use cached version
-      const cached = localStorage.getItem(`${I18N_CACHE_KEY}_${lang}`)
+      const cached = localStorage.getItem(`${I18N_CACHE_KEY}_${shortLang}`)
       return cached ? JSON.parse(cached) : null
     }
 
@@ -87,8 +89,8 @@ async function fetchServerCatalog(lang: string): Promise<Record<string, string> 
     const hash: string = data.hash || ''
 
     if (Object.keys(messages).length > 0) {
-      localStorage.setItem(`${I18N_HASH_KEY}_${lang}`, hash)
-      localStorage.setItem(`${I18N_CACHE_KEY}_${lang}`, JSON.stringify(messages))
+      localStorage.setItem(`${I18N_HASH_KEY}_${shortLang}`, hash)
+      localStorage.setItem(`${I18N_CACHE_KEY}_${shortLang}`, JSON.stringify(messages))
       return messages
     }
     return null

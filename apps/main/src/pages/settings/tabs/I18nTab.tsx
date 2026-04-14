@@ -54,7 +54,7 @@ interface I18nMessage {
   updated_at: string
 }
 
-const DEFAULT_NAMESPACE = 'mobile'
+const DEFAULT_NAMESPACE = 'app'
 
 /* ── Hooks ──────────────────────────────────────────────────────────── */
 

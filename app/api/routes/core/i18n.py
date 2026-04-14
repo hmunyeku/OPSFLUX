@@ -431,3 +431,118 @@ async def admin_delete_language(
         raise HTTPException(status_code=404, detail="Language not found")
     await db.delete(lang)
     await db.commit()
+
+
+# ── AI Translation ───────────────────────────────────────────────────
+
+
+@router.post(
+    "/admin/ai-translate",
+    dependencies=[require_permission("core.settings.manage")],
+)
+async def admin_ai_translate(
+    source_lang: str = Query("fr", description="Source language code"),
+    target_lang: str = Query(..., description="Target language code"),
+    namespace: str = Query("app", description="Namespace"),
+    key_prefix: str | None = Query(None, description="Only translate keys starting with this prefix"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Use AI to translate missing keys from source to target language.
+
+    Only translates keys that exist in source but are missing in target.
+    Never overwrites existing translations.
+    """
+    from app.core.ai_config import get_ai_config
+    from app.api.routes.core.ai_chat import _normalize_model_config
+    import litellm
+
+    # Get source messages
+    source_query = (
+        select(I18nMessage.key, I18nMessage.value)
+        .where(I18nMessage.language_code == source_lang)
+        .where(I18nMessage.namespace == namespace)
+    )
+    if key_prefix:
+        source_query = source_query.where(I18nMessage.key.like(f"{key_prefix}%"))
+    source_rows = (await db.execute(source_query)).all()
+    source_map = {k: v for k, v in source_rows}
+
+    # Get existing target keys
+    target_keys = set(
+        row[0]
+        for row in (
+            await db.execute(
+                select(I18nMessage.key)
+                .where(I18nMessage.language_code == target_lang)
+                .where(I18nMessage.namespace == namespace)
+            )
+        ).all()
+    )
+
+    # Find missing keys
+    missing = {k: v for k, v in source_map.items() if k not in target_keys}
+    if not missing:
+        return {"translated": 0, "message": "All keys already exist in target language"}
+
+    # Get language labels for the prompt
+    target_lang_row = (
+        await db.execute(select(I18nLanguage).where(I18nLanguage.code == target_lang))
+    ).scalar_one_or_none()
+    if not target_lang_row:
+        raise HTTPException(400, f"Target language '{target_lang}' not found")
+
+    target_label = target_lang_row.english_label or target_lang
+
+    # Batch translate (max 50 keys per AI call to avoid token limits)
+    translated_count = 0
+    items = list(missing.items())
+
+    for batch_start in range(0, len(items), 50):
+        batch = items[batch_start:batch_start + 50]
+        lines = "\n".join(f"{k} = {v}" for k, v in batch)
+
+        prompt = (
+            f"Translate the following UI labels from French to {target_label}. "
+            f"Keep the exact same keys (before =). Only translate the values (after =). "
+            f"Return ONLY the translated lines in the same format 'key = value', nothing else.\n\n"
+            f"{lines}"
+        )
+
+        try:
+            ai_cfg = await get_ai_config()
+            _, llm_kwargs = _normalize_model_config(ai_cfg)
+            resp = await litellm.acompletion(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=4000,
+                **llm_kwargs,
+            )
+            result = resp.choices[0].message.content or ""
+        except Exception:
+            continue
+
+        # Parse AI response
+        for line in result.strip().split("\n"):
+            line = line.strip()
+            if " = " not in line:
+                continue
+            key, _, value = line.partition(" = ")
+            key = key.strip()
+            value = value.strip()
+            if key in missing and value:
+                stmt = pg_insert(I18nMessage).values(
+                    key=key,
+                    language_code=target_lang,
+                    namespace=namespace,
+                    value=value,
+                    notes=f"AI-translated from {source_lang}",
+                    updated_by=current_user.id,
+                )
+                stmt = stmt.on_conflict_do_nothing(index_elements=["key", "language_code"])
+                await db.execute(stmt)
+                translated_count += 1
+
+    await _recompute_hash(db, target_lang, namespace)
+    await db.commit()
+
+    return {"translated": translated_count, "total_missing": len(missing)}

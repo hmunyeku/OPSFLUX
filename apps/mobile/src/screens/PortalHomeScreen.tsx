@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     marginRight: spacing.sm,
   },
-  portalChipActive: { backgroundColor: colors.textPrimary },
+  portalChipActive: { backgroundColor: colors.primary },
   portalChipText: {
     ...typography.bodySm,
     color: colors.textSecondary,

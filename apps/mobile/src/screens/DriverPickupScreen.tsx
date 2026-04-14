@@ -15,6 +15,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Alert,
   FlatList,
@@ -86,6 +87,7 @@ interface Props {
 type Step = "auth" | "pickup";
 
 export default function DriverPickupScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState<Step>("auth");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -466,7 +468,10 @@ export default function DriverPickupScreen({ navigation }: Props) {
       />
 
       {/* Footer — end pickup */}
-      <Surface style={styles.footer} elevation={2}>
+      <Surface
+        style={[styles.footer, { paddingBottom: 16 + Math.max(insets.bottom, 8) }]}
+        elevation={2}
+      >
         <Button
           mode="outlined"
           onPress={() => {

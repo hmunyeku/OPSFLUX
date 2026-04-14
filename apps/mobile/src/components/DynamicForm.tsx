@@ -15,6 +15,7 @@
  */
 
 import React from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -62,6 +63,7 @@ export default function DynamicForm({ form, onSuccess, onCancel }: Props) {
   const engine = useFormEngine(form);
   const { deviceType, contentPadding } = useResponsive();
   const isTablet = deviceType === "tablet";
+  const insets = useSafeAreaInsets();
 
   // ── Success State ─────────────────────────────────────────────────
 
@@ -189,7 +191,10 @@ export default function DynamicForm({ form, onSuccess, onCancel }: Props) {
       </ScrollView>
 
       {/* Footer navigation */}
-      <Surface style={styles.footer} elevation={2}>
+      <Surface
+        style={[styles.footer, { paddingBottom: 12 + Math.max(insets.bottom, 8) }]}
+        elevation={2}
+      >
         <View style={styles.footerRow}>
           {engine.canGoPrev ? (
             <Button

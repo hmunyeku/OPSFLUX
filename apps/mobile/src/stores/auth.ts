@@ -28,7 +28,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   entityId: null,
   userId: null,
   userDisplayName: null,
-  baseUrl: "https://api.opsflux.com",
+  baseUrl: "https://api.opsflux.io",
   isAuthenticated: false,
 
   setTokens: (access, refresh) =>

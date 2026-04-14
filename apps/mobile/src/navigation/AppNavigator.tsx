@@ -313,10 +313,12 @@ function MainTabs() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
-          paddingBottom: 4,
-          height: 60,
+          borderTopWidth: 1,
+          // height auto-calculated by react-navigation with proper safe area
         },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: "600" },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: "600", marginBottom: 4 },
+        tabBarItemStyle: { paddingTop: 6 },
+        tabBarHideOnKeyboard: true,
       }}
     >
       <Tab.Screen

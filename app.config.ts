@@ -34,7 +34,14 @@ const config: ExpoConfig = {
         "OpsFlux utilise votre position pour le suivi en temps réel des voyages.",
       NSLocationAlwaysAndWhenInUseUsageDescription:
         "OpsFlux utilise votre position en arrière-plan pour le suivi des voyages.",
+      NSFaceIDUsageDescription:
+        "Utilisez Face ID pour déverrouiller rapidement OpsFlux.",
       UIBackgroundModes: ["location", "fetch", "remote-notification"],
+      // ATS explicit: HTTPS only, no arbitrary loads
+      NSAppTransportSecurity: {
+        NSAllowsArbitraryLoads: false,
+        NSExceptionDomains: {},
+      },
     },
     config: {
       usesNonExemptEncryption: false,
@@ -50,6 +57,8 @@ const config: ExpoConfig = {
       : IS_PREVIEW
       ? "com.opsflux.mobile.preview"
       : "com.opsflux.mobile.dev",
+    // HTTPS only — no HTTP clear-text traffic allowed
+    usesCleartextTraffic: false,
     permissions: [
       "CAMERA",
       "ACCESS_FINE_LOCATION",
@@ -57,6 +66,8 @@ const config: ExpoConfig = {
       "ACCESS_BACKGROUND_LOCATION",
       "VIBRATE",
       "RECEIVE_BOOT_COMPLETED",
+      "USE_BIOMETRIC",
+      "USE_FINGERPRINT",
     ],
   },
   plugins: [
@@ -95,6 +106,7 @@ const config: ExpoConfig = {
     ],
     "expo-notifications",
     "expo-secure-store",
+    "expo-local-authentication",
   ],
   extra: {
     eas: {

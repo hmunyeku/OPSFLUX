@@ -132,7 +132,7 @@ export default function LoginScreen() {
               style={styles.primaryButton}
               contentStyle={styles.primaryButtonContent}
               labelStyle={styles.primaryButtonLabel}
-              buttonColor={colors.textPrimary}
+              buttonColor={colors.primary}
             >
               Vérifier
             </Button>
@@ -229,7 +229,7 @@ export default function LoginScreen() {
             style={styles.primaryButton}
             contentStyle={styles.primaryButtonContent}
             labelStyle={styles.primaryButtonLabel}
-            buttonColor={colors.textPrimary}
+            buttonColor={colors.primary}
           >
             Se connecter
           </Button>

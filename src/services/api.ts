@@ -18,7 +18,7 @@ import { useAppState } from "../stores/appState";
 const APP_VERSION = "1.0.0";
 
 /** Base URL — configurable via env or settings screen. */
-const DEFAULT_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://api.opsflux.com";
+const DEFAULT_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://api.opsflux.io";
 
 export const api = axios.create({
   baseURL: DEFAULT_BASE_URL,

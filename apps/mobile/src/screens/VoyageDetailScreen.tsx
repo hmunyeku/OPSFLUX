@@ -1,26 +1,45 @@
 /**
- * Voyage Detail Screen — full view of a voyage with manifest, logs, tracking.
+ * VoyageDetailScreen — Gluestack refonte: full view of a voyage.
  */
-
 import React, { useCallback, useEffect, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  ActivityIndicator,
-  Button,
-  Card,
-  Chip,
+  Badge,
+  BadgeText,
+  Box,
   Divider,
-  List,
+  Heading,
+  HStack,
+  Icon,
+  Spinner,
   Text,
-} from "react-native-paper";
+  VStack,
+} from "@gluestack-ui/themed";
+import {
+  AlertTriangle,
+  Clock,
+  ClockArrowDown,
+  ClockArrowUp,
+  Cloud,
+  Fuel,
+  MapPin,
+  MoreHorizontal,
+  Plane,
+  PlaneLanding,
+  PlaneTakeoff,
+  Shield,
+  StickyNote,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react-native";
+import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
-import FleetMap, { MapPosition } from "../components/FleetMap";
+import FleetMap, { type MapPosition } from "../components/FleetMap";
 import { api } from "../services/api";
-import { colors } from "../utils/colors";
 
 interface Props {
   route: { params: { voyageId: string } };
-  navigation: any;
 }
 
 interface VoyageDetail {
@@ -49,18 +68,20 @@ interface VoyageLog {
   created_by_name: string | null;
 }
 
-const EVENT_ICONS: Record<string, string> = {
-  departure: "airplane-takeoff",
-  arrival: "airplane-landing",
-  weather: "weather-cloudy",
-  technical: "wrench",
-  fuel: "gas-station",
-  safety: "shield-check",
-  incident: "alert",
+const EVENT_ICONS: Record<string, LucideIcon> = {
+  departure: PlaneTakeoff,
+  arrival: PlaneLanding,
+  weather: Cloud,
+  technical: Wrench,
+  fuel: Fuel,
+  safety: Shield,
+  incident: AlertTriangle,
 };
 
-export default function VoyageDetailScreen({ route, navigation }: Props) {
+export default function VoyageDetailScreen({ route }: Props) {
   const { voyageId } = route.params;
+  const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [voyage, setVoyage] = useState<VoyageDetail | null>(null);
   const [logs, setLogs] = useState<VoyageLog[]>([]);
   const [positions, setPositions] = useState<MapPosition[]>([]);
@@ -77,7 +98,7 @@ export default function VoyageDetailScreen({ route, navigation }: Props) {
       setLogs(logsRes.data);
       setPositions(trackRes.data.positions ?? []);
     } catch {
-      // partial load ok
+      /* partial */
     } finally {
       setLoading(false);
     }
@@ -89,180 +110,234 @@ export default function VoyageDetailScreen({ route, navigation }: Props) {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <Box flex={1} bg="$backgroundLight50" alignItems="center" justifyContent="center">
+        <Spinner color="$primary600" />
+      </Box>
     );
   }
 
   if (!voyage) {
     return (
-      <View style={styles.center}>
-        <Text variant="titleMedium">Voyage introuvable</Text>
-      </View>
+      <Box flex={1} bg="$backgroundLight50" alignItems="center" justifyContent="center">
+        <Text color="$textLight500">{t("voyage.notFound", "Voyage introuvable")}</Text>
+      </Box>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <View style={styles.headerRow}>
-            <Text variant="headlineSmall" style={styles.code}>
+    <Box flex={1} bg="$backgroundLight50">
+      <ScrollView
+        contentContainerStyle={{
+          paddingTop: insets.top + 8,
+          paddingHorizontal: 14,
+          paddingBottom: insets.bottom + 32,
+          gap: 12,
+        }}
+      >
+        {/* Header */}
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+          <HStack justifyContent="space-between" alignItems="center">
+            <Heading size="lg" color="$primary700">
               {voyage.code}
-            </Text>
+            </Heading>
             <StatusBadge status={voyage.status} size="md" />
-          </View>
-          <Text variant="titleMedium" style={styles.vectorName}>
+          </HStack>
+          <Heading size="sm" color="$textLight900" mt="$1">
             {voyage.vector_name}
-          </Text>
-          <Chip compact style={styles.typeChip}>
-            {voyage.vector_type}
-          </Chip>
-        </Card.Content>
-      </Card>
+          </Heading>
+          <Box mt="$2" alignSelf="flex-start">
+            <Badge action="muted" variant="solid" size="sm">
+              <Icon as={Plane} size="2xs" color="$white" mr="$1" />
+              <BadgeText>{voyage.vector_type}</BadgeText>
+            </Badge>
+          </Box>
+        </Box>
 
-      {/* Schedule */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleSmall" style={styles.sectionTitle}>Horaires</Text>
-          <List.Item
-            title="Départ prévu"
-            description={new Date(voyage.scheduled_departure).toLocaleString("fr-FR")}
-            left={(props) => <List.Icon {...props} icon="clock-outline" />}
+        {/* Schedule */}
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+          <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5} mb="$3">
+            {t("voyage.schedule", "Horaires")}
+          </Heading>
+          <ScheduleRow
+            icon={Clock}
+            label={t("voyage.scheduledDeparture", "Départ prévu")}
+            value={new Date(voyage.scheduled_departure).toLocaleString("fr-FR")}
           />
           {voyage.actual_departure && (
-            <List.Item
-              title="Départ effectif"
-              description={new Date(voyage.actual_departure).toLocaleString("fr-FR")}
-              left={(props) => <List.Icon {...props} icon="clock-check" />}
-            />
+            <>
+              <Divider my="$2" />
+              <ScheduleRow
+                icon={ClockArrowUp}
+                label={t("voyage.actualDeparture", "Départ effectif")}
+                value={new Date(voyage.actual_departure).toLocaleString("fr-FR")}
+                iconColor="$success600"
+              />
+            </>
           )}
-          <List.Item
-            title="Arrivée prévue"
-            description={new Date(voyage.scheduled_arrival).toLocaleString("fr-FR")}
-            left={(props) => <List.Icon {...props} icon="clock-outline" />}
+          <Divider my="$2" />
+          <ScheduleRow
+            icon={Clock}
+            label={t("voyage.scheduledArrival", "Arrivée prévue")}
+            value={new Date(voyage.scheduled_arrival).toLocaleString("fr-FR")}
           />
           {voyage.actual_arrival && (
-            <List.Item
-              title="Arrivée effective"
-              description={new Date(voyage.actual_arrival).toLocaleString("fr-FR")}
-              left={(props) => <List.Icon {...props} icon="clock-check" />}
-            />
+            <>
+              <Divider my="$2" />
+              <ScheduleRow
+                icon={ClockArrowDown}
+                label={t("voyage.actualArrival", "Arrivée effective")}
+                value={new Date(voyage.actual_arrival).toLocaleString("fr-FR")}
+                iconColor="$success600"
+              />
+            </>
           )}
           {voyage.delay_reason && (
-            <List.Item
-              title="Motif de retard"
-              description={voyage.delay_reason}
-              left={(props) => <List.Icon {...props} icon="alert" color={colors.warning} />}
-            />
+            <>
+              <Divider my="$2" />
+              <ScheduleRow
+                icon={AlertTriangle}
+                label={t("voyage.delayReason", "Motif de retard")}
+                value={voyage.delay_reason}
+                iconColor="$warning600"
+              />
+            </>
           )}
-        </Card.Content>
-      </Card>
+        </Box>
 
-      {/* Route */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleSmall" style={styles.sectionTitle}>Itinéraire</Text>
+        {/* Route */}
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+          <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5} mb="$3">
+            {t("voyage.route", "Itinéraire")}
+          </Heading>
           {voyage.departure_base_name && (
-            <List.Item
-              title="Départ"
-              description={voyage.departure_base_name}
-              left={(props) => <List.Icon {...props} icon="map-marker" />}
-            />
+            <>
+              <ScheduleRow
+                icon={MapPin}
+                label={t("voyage.departure", "Départ")}
+                value={voyage.departure_base_name}
+              />
+            </>
           )}
           {voyage.stop_count > 0 && (
-            <List.Item
-              title="Escales"
-              description={`${voyage.stop_count} escale(s)`}
-              left={(props) => <List.Icon {...props} icon="dots-horizontal" />}
-            />
+            <>
+              {voyage.departure_base_name && <Divider my="$2" />}
+              <ScheduleRow
+                icon={MoreHorizontal}
+                label={t("voyage.stops", "Escales")}
+                value={t("voyage.stopCount", "{{count}} escale(s)", { count: voyage.stop_count })}
+              />
+            </>
           )}
           {voyage.arrival_base_name && (
-            <List.Item
-              title="Arrivée"
-              description={voyage.arrival_base_name}
-              left={(props) => <List.Icon {...props} icon="map-marker-check" />}
-            />
-          )}
-        </Card.Content>
-      </Card>
-
-      {/* Stats */}
-      <View style={styles.statsRow}>
-        <Card style={[styles.card, styles.statCard]}>
-          <Card.Content style={styles.statContent}>
-            <Text variant="headlineMedium" style={styles.statValue}>{voyage.pax_count}</Text>
-            <Text variant="bodySmall" style={styles.statLabel}>Passagers</Text>
-          </Card.Content>
-        </Card>
-        <Card style={[styles.card, styles.statCard]}>
-          <Card.Content style={styles.statContent}>
-            <Text variant="headlineMedium" style={styles.statValue}>{voyage.cargo_count}</Text>
-            <Text variant="bodySmall" style={styles.statLabel}>Cargo</Text>
-          </Card.Content>
-        </Card>
-      </View>
-
-      {/* Map */}
-      {positions.length > 0 && (
-        <Card style={styles.card}>
-          <FleetMap
-            positions={positions}
-            focusVehicleId={voyage.id}
-            style={styles.map}
-          />
-        </Card>
-      )}
-
-      {/* Captain Logs */}
-      {logs.length > 0 && (
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleSmall" style={styles.sectionTitle}>
-              Journal de bord ({logs.length})
-            </Text>
-            {logs.map((log) => (
-              <List.Item
-                key={log.id}
-                title={log.event_type}
-                description={`${log.description}\n${new Date(log.timestamp).toLocaleString("fr-FR")}${log.created_by_name ? ` — ${log.created_by_name}` : ""}`}
-                descriptionNumberOfLines={3}
-                left={(props) => (
-                  <List.Icon
-                    {...props}
-                    icon={EVENT_ICONS[log.event_type] ?? "note-text"}
-                  />
-                )}
+            <>
+              {(voyage.departure_base_name || voyage.stop_count > 0) && <Divider my="$2" />}
+              <ScheduleRow
+                icon={MapPin}
+                label={t("voyage.arrival", "Arrivée")}
+                value={voyage.arrival_base_name}
+                iconColor="$success600"
               />
-            ))}
-          </Card.Content>
-        </Card>
-      )}
+            </>
+          )}
+        </Box>
 
-      <View style={{ height: 32 }} />
-    </ScrollView>
+        {/* Stats */}
+        <HStack space="md">
+          <Box flex={1} bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4" alignItems="center">
+            <Heading size="xl" color="$primary700">
+              {voyage.pax_count}
+            </Heading>
+            <Text size="xs" color="$textLight500">
+              {t("voyage.passengers", "Passagers")}
+            </Text>
+          </Box>
+          <Box flex={1} bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4" alignItems="center">
+            <Heading size="xl" color="$primary700">
+              {voyage.cargo_count}
+            </Heading>
+            <Text size="xs" color="$textLight500">
+              {t("voyage.cargo", "Cargo")}
+            </Text>
+          </Box>
+        </HStack>
+
+        {/* Map */}
+        {positions.length > 0 && (
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" overflow="hidden">
+            <FleetMap
+              positions={positions}
+              focusVehicleId={voyage.id}
+              style={{ height: 250, borderRadius: 12 }}
+            />
+          </Box>
+        )}
+
+        {/* Logs */}
+        {logs.length > 0 && (
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+            <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5} mb="$3">
+              {t("voyage.logs", "Journal de bord")} ({logs.length})
+            </Heading>
+            {logs.map((log, idx) => {
+              const LogIcon = EVENT_ICONS[log.event_type] ?? StickyNote;
+              return (
+                <HStack
+                  key={log.id}
+                  space="sm"
+                  alignItems="flex-start"
+                  py="$3"
+                  borderTopWidth={idx === 0 ? 0 : 1}
+                  borderColor="$borderLight100"
+                >
+                  <Box bg="$backgroundLight100" borderRadius="$md" p="$2">
+                    <Icon as={LogIcon} size="sm" color="$textLight600" />
+                  </Box>
+                  <VStack flex={1}>
+                    <Text size="sm" fontWeight="$semibold" color="$textLight900" textTransform="capitalize">
+                      {log.event_type}
+                    </Text>
+                    <Text size="sm" color="$textLight700">
+                      {log.description}
+                    </Text>
+                    <Text size="2xs" color="$textLight400" mt="$0.5">
+                      {new Date(log.timestamp).toLocaleString("fr-FR")}
+                      {log.created_by_name ? ` · ${log.created_by_name}` : ""}
+                    </Text>
+                  </VStack>
+                </HStack>
+              );
+            })}
+          </Box>
+        )}
+      </ScrollView>
+    </Box>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 14, gap: 12 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  card: { borderRadius: 12 },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  code: { fontWeight: "700", color: colors.primary },
-  vectorName: { fontWeight: "600", color: colors.textPrimary, marginTop: 4 },
-  typeChip: { alignSelf: "flex-start", marginTop: 8 },
-  sectionTitle: {
-    fontWeight: "700", color: colors.textSecondary,
-    textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8,
-  },
-  statsRow: { flexDirection: "row", gap: 12 },
-  statCard: { flex: 1 },
-  statContent: { alignItems: "center" },
-  statValue: { fontWeight: "700", color: colors.primary },
-  statLabel: { color: colors.textSecondary },
-  map: { height: 250, borderRadius: 12 },
-});
+function ScheduleRow({
+  icon,
+  label,
+  value,
+  iconColor = "$textLight600",
+}: {
+  icon: any;
+  label: string;
+  value: string;
+  iconColor?: string;
+}) {
+  return (
+    <HStack space="sm" alignItems="center">
+      <Box bg="$backgroundLight100" borderRadius="$md" p="$1.5">
+        <Icon as={icon} size="xs" color={iconColor} />
+      </Box>
+      <VStack flex={1}>
+        <Text size="xs" color="$textLight500">
+          {label}
+        </Text>
+        <Text size="sm" fontWeight="$medium" color="$textLight900">
+          {value}
+        </Text>
+      </VStack>
+    </HStack>
+  );
+}

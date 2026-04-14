@@ -1,47 +1,50 @@
 /**
- * Driver Pickup Screen — Yango/CartoGo-style passenger pickup mode.
+ * DriverPickupScreen — Gluestack refonte: Yango/CartoGo-style pickup mode.
  *
  * Flow:
- *  1. Driver authenticates via trip code (like captain)
- *  2. Gets a list of passengers to pick up with addresses/locations
- *  3. For each passenger:
- *     - Shows pickup location + navigation link (opens native maps)
- *     - Big "Pax ramassé" button to mark as picked up
- *     - Updates boarding_status on server in real-time
- *  4. Progress bar showing picked-up vs total
- *  5. Sends GPS position continuously (tracking beacon)
- *
- * Uses the TravelWiz driver session endpoints.
+ *   1. Driver enters 6-digit rotation code → captain auth endpoint
+ *   2. Server returns session token + voyage context
+ *   3. Mobile loads manifest, computes distance/ETA per passenger via
+ *      driver's current GPS (Haversine), sorts by proximity
+ *   4. For each passenger : navigation link (native maps), "Ramassé"
+ *      button (POST /captain/{id}/event), "Absent" button
+ *   5. GPS beacon runs continuously every 15s
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
+import { Alert, FlatList, Linking, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  Alert,
-  FlatList,
-  Linking,
-  Platform,
-  StyleSheet,
-  View,
-} from "react-native";
-import {
-  ActivityIndicator,
-  Avatar,
+  Badge,
+  BadgeText,
+  Box,
   Button,
-  Card,
-  Chip,
-  Divider,
-  ProgressBar,
-  Surface,
+  ButtonSpinner,
+  ButtonText,
+  Heading,
+  HStack,
+  Icon,
+  Input,
+  InputField,
+  Progress,
+  ProgressFilledTrack,
   Text,
-  TextInput,
-} from "react-native-paper";
+  VStack,
+} from "@gluestack-ui/themed";
 import * as Location from "expo-location";
+import {
+  Car,
+  Check,
+  Clock,
+  MapPin,
+  Navigation,
+  Phone,
+  UserX,
+  X,
+} from "lucide-react-native";
+import { useTranslation } from "react-i18next";
 import { api } from "../services/api";
-import { startTracking, stopTracking, useTrackingStore } from "../services/tracking";
-import { colors } from "../utils/colors";
-
-// ── Types ─────────────────────────────────────────────────────────────
+import { startTracking, stopTracking } from "../services/tracking";
 
 interface PickupPassenger {
   id: string;
@@ -54,65 +57,42 @@ interface PickupPassenger {
   boarding_status: "pending" | "boarded" | "no_show" | "offloaded";
   priority_score: number;
   declared_weight_kg: number | null;
-  /** Computed client-side from driver GPS. */
   distance_km?: number;
   eta_minutes?: number;
 }
 
-/** Haversine distance in km between two lat/lon points. */
-function haversineKm(
-  lat1: number, lon1: number,
-  lat2: number, lon2: number,
-): number {
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-    Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLon / 2) ** 2;
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/** Estimate ETA in minutes assuming average city speed (30 km/h). */
 function estimateEta(distanceKm: number): number {
   return Math.round((distanceKm / 30) * 60);
 }
 
-interface Props {
-  navigation: any;
-}
-
-type Step = "auth" | "pickup";
-
-export default function DriverPickupScreen({ navigation }: Props) {
+export default function DriverPickupScreen() {
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState<Step>("auth");
+  const { t } = useTranslation();
+  const [step, setStep] = useState<"auth" | "pickup">("auth");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Session
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [voyageId, setVoyageId] = useState<string | null>(null);
   const [voyageCode, setVoyageCode] = useState("");
-  const [vehicleId, setVehicleId] = useState<string | null>(null);
 
-  // Passengers
   const [passengers, setPassengers] = useState<PickupPassenger[]>([]);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-
-  // Driver position
-  const [driverLat, setDriverLat] = useState<number | null>(null);
-  const [driverLon, setDriverLon] = useState<number | null>(null);
-
-  // ── Auth ───────────────────────────────────────────────────────────
 
   const handleAuth = useCallback(async () => {
     if (code.length < 4) return;
     setLoading(true);
     try {
-      // Use the captain/driver auth endpoint
       const { data } = await api.post(
         "/api/v1/travelwiz/captain/authenticate",
         null,
@@ -122,46 +102,36 @@ export default function DriverPickupScreen({ navigation }: Props) {
       setSessionToken(data.session_token);
       setVoyageId(data.voyage_id);
       setVoyageCode(data.voyage_code ?? code);
-      setVehicleId(data.vehicle_id ?? null);
 
-      // Load manifest passengers
       const manifest = await api.get(
         `/api/v1/travelwiz/captain/${data.voyage_id}/manifest`,
         { headers: { "X-Captain-Session": data.session_token } }
       );
 
-      const pax: PickupPassenger[] = (manifest.data.passengers ?? []).map(
-        (p: any) => ({
-          id: p.id,
-          name: p.name,
-          company: p.company,
-          phone: p.phone ?? null,
-          pickup_address: p.pickup_address ?? p.departure_base_name ?? null,
-          pickup_lat: p.pickup_lat ?? null,
-          pickup_lon: p.pickup_lon ?? null,
-          boarding_status: p.boarding_status ?? "pending",
-          priority_score: p.priority_score ?? 0,
-          declared_weight_kg: p.declared_weight_kg ?? null,
-        })
-      );
+      const pax: PickupPassenger[] = (manifest.data.passengers ?? []).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        company: p.company,
+        phone: p.phone ?? null,
+        pickup_address: p.pickup_address ?? p.departure_base_name ?? null,
+        pickup_lat: p.pickup_lat ?? null,
+        pickup_lon: p.pickup_lon ?? null,
+        boarding_status: p.boarding_status ?? "pending",
+        priority_score: p.priority_score ?? 0,
+        declared_weight_kg: p.declared_weight_kg ?? null,
+      }));
 
       setStep("pickup");
 
-      // Start tracking beacon if vehicle assigned
-      if (data.vehicle_id) {
-        startTracking(data.vehicle_id, 15_000); // every 15s for pickup
-      }
+      if (data.vehicle_id) startTracking(data.vehicle_id, 15_000);
 
-      // Get driver position and compute distances + sort by proximity
+      // Compute distances & sort by proximity
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === "granted") {
         const loc = await Location.getCurrentPositionAsync({});
         const dLat = loc.coords.latitude;
         const dLon = loc.coords.longitude;
-        setDriverLat(dLat);
-        setDriverLon(dLon);
 
-        // Enrich with distance & ETA, sort by proximity
         const enriched = pax.map((p) => {
           if (p.pickup_lat != null && p.pickup_lon != null) {
             const dist = haversineKm(dLat, dLon, p.pickup_lat, p.pickup_lon);
@@ -175,13 +145,14 @@ export default function DriverPickupScreen({ navigation }: Props) {
         setPassengers(pax);
       }
     } catch (err: any) {
-      Alert.alert("Erreur", err?.response?.data?.detail || "Code invalide.");
+      Alert.alert(
+        t("common.error", "Erreur"),
+        err?.response?.data?.detail || t("driver.codeInvalid", "Code invalide.")
+      );
     } finally {
       setLoading(false);
     }
-  }, [code]);
-
-  // ── Mark Passenger Picked Up ──────────────────────────────────────
+  }, [code, t]);
 
   const markPickedUp = useCallback(
     async (passengerId: string) => {
@@ -190,27 +161,22 @@ export default function DriverPickupScreen({ navigation }: Props) {
       try {
         await api.post(
           `/api/v1/travelwiz/captain/${voyageId}/event`,
-          {
-            event_type: "pax_pickup",
-            notes: `Passager ${passengerId} ramassé`,
-          },
+          { event_type: "pax_pickup", notes: `Passager ${passengerId} ramassé` },
           { headers: { "X-Captain-Session": sessionToken } }
         );
-
         setPassengers((prev) =>
-          prev.map((p) =>
-            p.id === passengerId
-              ? { ...p, boarding_status: "boarded" }
-              : p
-          )
+          prev.map((p) => (p.id === passengerId ? { ...p, boarding_status: "boarded" } : p))
         );
       } catch (err: any) {
-        Alert.alert("Erreur", err?.response?.data?.detail || "Impossible de mettre à jour.");
+        Alert.alert(
+          t("common.error", "Erreur"),
+          err?.response?.data?.detail || t("driver.updateFail", "Impossible de mettre à jour.")
+        );
       } finally {
         setUpdatingId(null);
       }
     },
-    [voyageId, sessionToken]
+    [voyageId, sessionToken, t]
   );
 
   const markNoShow = useCallback(
@@ -220,30 +186,20 @@ export default function DriverPickupScreen({ navigation }: Props) {
       try {
         await api.post(
           `/api/v1/travelwiz/captain/${voyageId}/event`,
-          {
-            event_type: "pax_no_show",
-            notes: `Passager ${passengerId} absent`,
-          },
+          { event_type: "pax_no_show", notes: `Passager ${passengerId} absent` },
           { headers: { "X-Captain-Session": sessionToken } }
         );
-
         setPassengers((prev) =>
-          prev.map((p) =>
-            p.id === passengerId
-              ? { ...p, boarding_status: "no_show" }
-              : p
-          )
+          prev.map((p) => (p.id === passengerId ? { ...p, boarding_status: "no_show" } : p))
         );
       } catch {
-        Alert.alert("Erreur", "Impossible de mettre à jour.");
+        Alert.alert(t("common.error", "Erreur"), t("driver.updateFail", "Impossible de mettre à jour."));
       } finally {
         setUpdatingId(null);
       }
     },
-    [voyageId, sessionToken]
+    [voyageId, sessionToken, t]
   );
-
-  // ── Open Navigation ───────────────────────────────────────────────
 
   function openNavigation(lat: number, lon: number, name: string) {
     const scheme = Platform.select({
@@ -253,51 +209,54 @@ export default function DriverPickupScreen({ navigation }: Props) {
     if (scheme) Linking.openURL(scheme);
   }
 
-  // ── Auth Screen ───────────────────────────────────────────────────
-
+  /* ── Auth view ────────────────────────────────────────────────────── */
   if (step === "auth") {
     return (
-      <View style={styles.authContainer}>
-        <Surface style={styles.authCard} elevation={2}>
-          <Text variant="headlineSmall" style={styles.authTitle}>
-            Mode Ramassage
+      <Box flex={1} bg="$primary900" justifyContent="center" alignItems="center" p="$6">
+        <Box maxWidth={400} w="$full" bg="$white" borderRadius="$xl" p="$6" alignItems="center">
+          <Box bg="$success50" borderRadius="$full" p="$3" mb="$3">
+            <Icon as={Car} size="xl" color="$success700" />
+          </Box>
+          <Heading size="lg" color="$primary700" mb="$1">
+            {t("driver.title", "Mode Ramassage")}
+          </Heading>
+          <Text size="sm" color="$textLight600" textAlign="center" mb="$5">
+            {t("driver.subtitle", "Entrez le code de la rotation pour commencer le ramassage")}
           </Text>
-          <Text variant="bodyMedium" style={styles.authSubtitle}>
-            Entrez le code de la rotation pour commencer le ramassage
-          </Text>
-          <TextInput
-            mode="outlined"
-            label="Code de rotation"
-            value={code}
-            onChangeText={setCode}
-            keyboardType="number-pad"
-            maxLength={6}
-            style={styles.codeInput}
-            contentStyle={styles.codeInputContent}
-            autoFocus
-          />
+          <Input size="xl" w="$full" mb="$4" borderColor="$borderLight300">
+            <InputField
+              value={code}
+              onChangeText={(v) => setCode(v.replace(/[^0-9]/g, "").slice(0, 6))}
+              keyboardType="number-pad"
+              maxLength={6}
+              autoFocus
+              textAlign="center"
+              fontSize={28}
+              letterSpacing={8}
+              placeholder="••••••"
+            />
+          </Input>
           <Button
-            mode="contained"
+            size="xl"
+            action="positive"
+            w="$full"
             onPress={handleAuth}
-            loading={loading}
-            disabled={loading || code.length < 4}
-            style={styles.authButton}
-            buttonColor={colors.success}
+            isDisabled={loading || code.length < 4}
           >
-            Démarrer le ramassage
+            {loading && <ButtonSpinner mr="$2" />}
+            <ButtonText>{t("driver.start", "Démarrer le ramassage")}</ButtonText>
           </Button>
-        </Surface>
-      </View>
+        </Box>
+      </Box>
     );
   }
 
-  // ── Pickup Screen ─────────────────────────────────────────────────
-
+  /* ── Pickup view ──────────────────────────────────────────────────── */
   const pickedUp = passengers.filter((p) => p.boarding_status === "boarded").length;
   const noShow = passengers.filter((p) => p.boarding_status === "no_show").length;
   const remaining = passengers.filter((p) => p.boarding_status === "pending");
   const done = passengers.filter((p) => p.boarding_status !== "pending");
-  const progress = passengers.length ? (pickedUp + noShow) / passengers.length : 0;
+  const progress = passengers.length ? ((pickedUp + noShow) / passengers.length) * 100 : 0;
 
   const renderPassenger = ({ item }: { item: PickupPassenger }) => {
     const isPending = item.boarding_status === "pending";
@@ -306,174 +265,179 @@ export default function DriverPickupScreen({ navigation }: Props) {
     const isUpdating = updatingId === item.id;
 
     return (
-      <Card
-        style={[
-          styles.paxCard,
-          isBoarded && styles.paxCardBoarded,
-          isNoShow && styles.paxCardNoShow,
-        ]}
+      <Box
+        bg="$white"
+        borderRadius="$lg"
+        borderWidth={1}
+        borderColor="$borderLight200"
+        borderLeftWidth={isBoarded ? 4 : isNoShow ? 4 : 1}
+        borderLeftColor={isBoarded ? "$success500" : isNoShow ? "$error500" : "$borderLight200"}
+        opacity={isNoShow ? 0.7 : 1}
+        p="$4"
       >
-        <Card.Content>
-          <View style={styles.paxHeader}>
-            <View style={{ flex: 1 }}>
-              <Text variant="titleMedium" style={styles.paxName}>
-                {item.name}
-              </Text>
-              {item.company && (
-                <Text variant="bodySmall" style={styles.paxCompany}>
-                  {item.company}
-                </Text>
-              )}
-            </View>
-            {!isPending && (
-              <Chip
-                compact
-                style={{
-                  backgroundColor: isBoarded
-                    ? colors.success + "20"
-                    : colors.danger + "20",
-                }}
-                textStyle={{
-                  color: isBoarded ? colors.success : colors.danger,
-                }}
-              >
-                {isBoarded ? "Ramassé" : "Absent"}
-              </Chip>
-            )}
-          </View>
-
-          {/* Pickup address */}
-          {item.pickup_address && (
-            <Text variant="bodyMedium" style={styles.paxAddress}>
-              {item.pickup_address}
+        <HStack alignItems="center" mb="$1">
+          <VStack flex={1}>
+            <Text size="md" fontWeight="$bold" color="$textLight900">
+              {item.name}
             </Text>
+            {item.company && (
+              <Text size="xs" color="$textLight500">
+                {item.company}
+              </Text>
+            )}
+          </VStack>
+          {!isPending && (
+            <Badge action={isBoarded ? "success" : "error"} variant="solid" size="sm">
+              <BadgeText>
+                {isBoarded ? t("driver.pickedUp", "Ramassé") : t("driver.noShow", "Absent")}
+              </BadgeText>
+            </Badge>
           )}
+        </HStack>
 
-          {/* Distance & ETA */}
-          {(item.distance_km != null || item.eta_minutes != null) && isPending && (
-            <View style={styles.distanceRow}>
-              {item.distance_km != null && (
-                <Chip compact icon="map-marker-distance" style={styles.distanceChip}>
+        {item.pickup_address && (
+          <Text size="sm" color="$textLight700" mt="$1">
+            {item.pickup_address}
+          </Text>
+        )}
+
+        {/* Distance & ETA */}
+        {(item.distance_km != null || item.eta_minutes != null) && isPending && (
+          <HStack space="xs" mt="$2">
+            {item.distance_km != null && (
+              <Badge action="info" variant="outline" size="sm">
+                <Icon as={MapPin} size="2xs" color="$info600" mr="$1" />
+                <BadgeText>
                   {item.distance_km < 1
                     ? `${Math.round(item.distance_km * 1000)}m`
                     : `${item.distance_km.toFixed(1)} km`}
-                </Chip>
-              )}
-              {item.eta_minutes != null && (
-                <Chip compact icon="clock-outline" style={styles.etaChip}>
-                  ~{item.eta_minutes < 1 ? "<1" : item.eta_minutes} min
-                </Chip>
-              )}
-            </View>
-          )}
+                </BadgeText>
+              </Badge>
+            )}
+            {item.eta_minutes != null && (
+              <Badge action="muted" variant="outline" size="sm">
+                <Icon as={Clock} size="2xs" color="$textLight500" mr="$1" />
+                <BadgeText>~{item.eta_minutes < 1 ? "<1" : item.eta_minutes} min</BadgeText>
+              </Badge>
+            )}
+          </HStack>
+        )}
 
-          {/* Phone */}
-          {item.phone && (
+        {/* Phone */}
+        {item.phone && (
+          <Button
+            size="xs"
+            variant="link"
+            onPress={() => Linking.openURL(`tel:${item.phone}`)}
+            alignSelf="flex-start"
+            mt="$1"
+          >
+            <Icon as={Phone} size="2xs" color="$primary600" mr="$1" />
+            <ButtonText size="xs">{item.phone}</ButtonText>
+          </Button>
+        )}
+
+        {/* Action buttons */}
+        {isPending && (
+          <HStack space="xs" mt="$3">
+            {item.pickup_lat && item.pickup_lon && (
+              <Button
+                size="md"
+                variant="outline"
+                action="primary"
+                onPress={() => openNavigation(item.pickup_lat!, item.pickup_lon!, item.name)}
+                flex={1}
+              >
+                <Icon as={Navigation} size="xs" color="$primary600" mr="$1" />
+                <ButtonText size="sm">{t("driver.route", "Itinéraire")}</ButtonText>
+              </Button>
+            )}
             <Button
-              mode="text"
-              compact
-              icon="phone"
-              onPress={() => Linking.openURL(`tel:${item.phone}`)}
-              style={styles.phoneButton}
+              size="md"
+              action="positive"
+              flex={2}
+              onPress={() => markPickedUp(item.id)}
+              isDisabled={isUpdating}
             >
-              {item.phone}
-            </Button>
-          )}
-
-          {/* Action buttons */}
-          {isPending && (
-            <View style={styles.actionRow}>
-              {/* Navigate to pickup */}
-              {item.pickup_lat && item.pickup_lon && (
-                <Button
-                  mode="outlined"
-                  icon="navigation"
-                  compact
-                  onPress={() =>
-                    openNavigation(item.pickup_lat!, item.pickup_lon!, item.name)
-                  }
-                  style={styles.navButton}
-                >
-                  Itinéraire
-                </Button>
+              {isUpdating ? (
+                <ButtonSpinner mr="$1" />
+              ) : (
+                <Icon as={Check} size="xs" color="$white" mr="$1" />
               )}
-
-              {/* Mark picked up */}
-              <Button
-                mode="contained"
-                icon="check"
-                loading={isUpdating}
-                disabled={isUpdating}
-                onPress={() => markPickedUp(item.id)}
-                style={styles.pickupButton}
-                buttonColor={colors.success}
-              >
-                Ramassé
-              </Button>
-
-              {/* Mark no-show */}
-              <Button
-                mode="outlined"
-                compact
-                loading={isUpdating}
-                disabled={isUpdating}
-                onPress={() => markNoShow(item.id)}
-                textColor={colors.danger}
-                style={styles.noShowButton}
-              >
-                Absent
-              </Button>
-            </View>
-          )}
-        </Card.Content>
-      </Card>
+              <ButtonText size="sm">{t("driver.pickup", "Ramassé")}</ButtonText>
+            </Button>
+            <Button
+              size="md"
+              variant="outline"
+              action="negative"
+              onPress={() => markNoShow(item.id)}
+              isDisabled={isUpdating}
+            >
+              <Icon as={UserX} size="xs" color="$error600" />
+            </Button>
+          </HStack>
+        )}
+      </Box>
     );
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header with progress */}
-      <Surface style={styles.header} elevation={1}>
-        <View style={styles.headerRow}>
-          <Text variant="titleMedium" style={styles.headerTitle}>
-            Rotation {voyageCode}
-          </Text>
-          <Text variant="bodyMedium" style={styles.headerCount}>
+    <Box flex={1} bg="$backgroundLight50">
+      {/* Header */}
+      <Box bg="$white" pt={insets.top + 8} pb="$3" px="$4" borderBottomWidth={1} borderColor="$borderLight200">
+        <HStack justifyContent="space-between" alignItems="center">
+          <Heading size="md" color="$primary700">
+            {t("driver.rotation", "Rotation")} {voyageCode}
+          </Heading>
+          <Text size="lg" fontWeight="$bold" color="$success600">
             {pickedUp}/{passengers.length}
           </Text>
-        </View>
-        <ProgressBar progress={progress} color={colors.success} style={styles.progressBar} />
-        <View style={styles.statsRow}>
-          <Chip compact style={styles.statChip}>
-            {remaining.length} restant{remaining.length > 1 ? "s" : ""}
-          </Chip>
-          <Chip compact icon="check" style={[styles.statChip, { backgroundColor: colors.success + "15" }]}>
-            {pickedUp} ramassé{pickedUp > 1 ? "s" : ""}
-          </Chip>
+        </HStack>
+        <Progress value={progress} h={6} mt="$2.5">
+          <ProgressFilledTrack bg="$success500" />
+        </Progress>
+        <HStack space="xs" mt="$2.5">
+          <Badge action="muted" variant="outline" size="sm">
+            <BadgeText>
+              {t("driver.remaining", "{{count}} restant(s)", { count: remaining.length })}
+            </BadgeText>
+          </Badge>
+          <Badge action="success" variant="outline" size="sm">
+            <Icon as={Check} size="2xs" color="$success600" mr="$1" />
+            <BadgeText>
+              {t("driver.pickedUpCount", "{{count}} ramassé(s)", { count: pickedUp })}
+            </BadgeText>
+          </Badge>
           {noShow > 0 && (
-            <Chip compact style={[styles.statChip, { backgroundColor: colors.danger + "15" }]}>
-              {noShow} absent{noShow > 1 ? "s" : ""}
-            </Chip>
+            <Badge action="error" variant="outline" size="sm">
+              <BadgeText>
+                {t("driver.noShowCount", "{{count}} absent(s)", { count: noShow })}
+              </BadgeText>
+            </Badge>
           )}
-        </View>
-      </Surface>
+        </HStack>
+      </Box>
 
-      {/* Passenger list — pending first, then done */}
+      {/* Passenger list */}
       <FlatList
         data={[...remaining, ...done]}
         keyExtractor={(item) => item.id}
         renderItem={renderPassenger}
-        contentContainerStyle={styles.listContent}
-        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+        contentContainerStyle={{ padding: 14, gap: 10 }}
       />
 
-      {/* Footer — end pickup */}
-      <Surface
-        style={[styles.footer, { paddingBottom: 16 + Math.max(insets.bottom, 8) }]}
-        elevation={2}
+      {/* Footer */}
+      <Box
+        bg="$white"
+        borderTopWidth={1}
+        borderColor="$borderLight200"
+        p="$4"
+        pb={16 + Math.max(insets.bottom, 8)}
       >
         <Button
-          mode="outlined"
+          size="lg"
+          variant="outline"
+          action="negative"
           onPress={() => {
             stopTracking();
             setStep("auth");
@@ -481,58 +445,10 @@ export default function DriverPickupScreen({ navigation }: Props) {
             setPassengers([]);
           }}
         >
-          Terminer le ramassage
+          <Icon as={X} size="md" color="$error600" mr="$2" />
+          <ButtonText>{t("driver.endPickup", "Terminer le ramassage")}</ButtonText>
         </Button>
-      </Surface>
-    </View>
+      </Box>
+    </Box>
   );
 }
-
-const styles = StyleSheet.create({
-  // Auth
-  authContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-    backgroundColor: colors.primaryDark,
-  },
-  authCard: { borderRadius: 16, padding: 32, alignItems: "center", width: "100%", maxWidth: 400 },
-  authTitle: { fontWeight: "700", color: colors.primary, marginBottom: 8 },
-  authSubtitle: { color: colors.textSecondary, textAlign: "center", marginBottom: 24 },
-  codeInput: { width: "100%", backgroundColor: colors.surface, marginBottom: 16 },
-  codeInputContent: { fontSize: 28, letterSpacing: 8, textAlign: "center" },
-  authButton: { width: "100%", borderRadius: 10 },
-
-  // Pickup
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { padding: 16, backgroundColor: colors.surface },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  headerTitle: { fontWeight: "700", color: colors.primary },
-  headerCount: { fontWeight: "700", color: colors.success, fontSize: 18 },
-  progressBar: { marginTop: 10, height: 6, borderRadius: 3 },
-  statsRow: { flexDirection: "row", gap: 8, marginTop: 10 },
-  statChip: { backgroundColor: colors.surfaceAlt },
-  listContent: { padding: 14 },
-  paxCard: { borderRadius: 12 },
-  paxCardBoarded: { borderLeftWidth: 4, borderLeftColor: colors.success },
-  paxCardNoShow: { borderLeftWidth: 4, borderLeftColor: colors.danger, opacity: 0.6 },
-  paxHeader: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
-  paxName: { fontWeight: "700", color: colors.textPrimary },
-  paxCompany: { color: colors.textSecondary },
-  paxAddress: { color: colors.textPrimary, marginTop: 4 },
-  distanceRow: { flexDirection: "row", gap: 8, marginTop: 6 },
-  distanceChip: { backgroundColor: colors.info + "15" },
-  etaChip: { backgroundColor: colors.accent + "15" },
-  phoneButton: { alignSelf: "flex-start", marginTop: 4 },
-  actionRow: { flexDirection: "row", gap: 8, marginTop: 12 },
-  navButton: { flex: 1 },
-  pickupButton: { flex: 2 },
-  noShowButton: {},
-  footer: {
-    padding: 16,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-});

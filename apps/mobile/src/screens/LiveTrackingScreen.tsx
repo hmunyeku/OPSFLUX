@@ -1,37 +1,27 @@
 /**
- * Live Tracking screen — real-time fleet map via SSE.
- *
- * Subscribes to /tracking/sse for real-time position updates
- * and displays a map with all tracked vehicles/vessels.
- *
- * Also allows enabling GPS beacon mode (send own position).
+ * LiveTrackingScreen — Gluestack refonte: real-time fleet map + GPS beacon.
  */
-
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { Alert, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
-import {
-  ActivityIndicator,
-  Button,
-  Card,
-  Chip,
-  Divider,
-  Surface,
+  Badge,
+  BadgeText,
+  Box,
+  Heading,
+  HStack,
+  Icon,
+  Spinner,
   Switch,
   Text,
-} from "react-native-paper";
+  VStack,
+} from "@gluestack-ui/themed";
+import { Compass, Gauge, MapPin, Radar, Wifi, WifiOff } from "lucide-react-native";
+import { useTranslation } from "react-i18next";
 import { api } from "../services/api";
 import { useAuthStore } from "../stores/auth";
 import { useTrackingStore, startTracking, stopTracking } from "../services/tracking";
-import FleetMap, { MapPosition } from "../components/FleetMap";
-import { colors } from "../utils/colors";
-
-// ── Types ─────────────────────────────────────────────────────────────
+import FleetMap, { type MapPosition } from "../components/FleetMap";
 
 interface VehiclePosition {
   id: string;
@@ -45,28 +35,24 @@ interface VehiclePosition {
   recorded_at: string;
 }
 
-interface Props {
-  navigation: any;
-}
-
-export default function LiveTrackingScreen({ navigation }: Props) {
+export default function LiveTrackingScreen() {
+  const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [positions, setPositions] = useState<VehiclePosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(false);
-  const eventSourceRef = useRef<EventSource | null>(null);
 
   const trackingEnabled = useTrackingStore((s) => s.enabled);
   const lastPosition = useTrackingStore((s) => s.lastPosition);
   const positionCount = useTrackingStore((s) => s.positionCount);
 
-  // ── Load initial fleet positions ──────────────────────────────────
-
   const loadFleet = useCallback(async () => {
     try {
       const { data } = await api.get("/api/v1/travelwiz/tracking/fleet");
       setPositions(data.positions ?? []);
+      setConnected(true);
     } catch {
-      // May not have permission — that's ok
+      /* may not have permission */
     } finally {
       setLoading(false);
     }
@@ -76,15 +62,9 @@ export default function LiveTrackingScreen({ navigation }: Props) {
     loadFleet();
   }, [loadFleet]);
 
-  // ── SSE real-time subscription ────────────────────────────────────
-
   useEffect(() => {
-    const { accessToken, baseUrl, entityId } = useAuthStore.getState();
+    const { accessToken } = useAuthStore.getState();
     if (!accessToken) return;
-
-    const url = `${baseUrl}/api/v1/travelwiz/tracking/sse`;
-
-    // Use fetch-based SSE (EventSource not available in RN, use polling fallback)
     const pollInterval = setInterval(async () => {
       try {
         const { data } = await api.get("/api/v1/travelwiz/tracking/fleet");
@@ -95,202 +75,158 @@ export default function LiveTrackingScreen({ navigation }: Props) {
       } catch {
         setConnected(false);
       }
-    }, 10_000); // Poll every 10s as SSE fallback
-
-    setConnected(true);
-
-    return () => {
-      clearInterval(pollInterval);
-      setConnected(false);
-    };
+    }, 10_000);
+    return () => clearInterval(pollInterval);
   }, []);
 
-  // ── Beacon toggle ─────────────────────────────────────────────────
-
-  async function toggleBeacon(enabled: boolean) {
+  function toggleBeacon(enabled: boolean) {
     if (enabled) {
-      // Need a vehicle ID — prompt user or auto-detect
-      Alert.prompt
-        ? Alert.prompt(
-            "ID du vecteur",
-            "Entrez l'identifiant du vecteur de transport",
-            (vehicleId) => {
-              if (vehicleId) startTracking(vehicleId);
-            }
-          )
-        : Alert.alert(
-            "Tracking GPS",
-            "Le tracking GPS sera activé pour le vecteur assigné.",
-            [
-              { text: "Annuler", style: "cancel" },
-              { text: "Activer", onPress: () => startTracking("default") },
-            ]
-          );
+      Alert.alert(
+        t("tracking.beaconTitle", "Tracking GPS"),
+        t("tracking.beaconConfirm", "Le tracking GPS sera activé pour le vecteur assigné."),
+        [
+          { text: t("common.cancel", "Annuler"), style: "cancel" },
+          { text: t("tracking.activate", "Activer"), onPress: () => startTracking("default") },
+        ]
+      );
     } else {
       stopTracking();
     }
   }
 
-  // ── Render ────────────────────────────────────────────────────────
-
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Connection status */}
-      <Surface style={styles.statusBar} elevation={1}>
-        <View style={styles.statusRow}>
-          <View
-            style={[
-              styles.statusDot,
-              { backgroundColor: connected ? colors.success : colors.danger },
-            ]}
-          />
-          <Text variant="bodySmall" style={styles.statusText}>
-            {connected ? "Connecté — suivi en temps réel" : "Déconnecté"}
-          </Text>
-        </View>
-        <Text variant="bodySmall" style={styles.statusCount}>
-          {positions.length} vecteur{positions.length !== 1 ? "s" : ""}
-        </Text>
-      </Surface>
-
-      {/* GPS Beacon toggle */}
-      <Card style={styles.beaconCard}>
-        <Card.Content>
-          <View style={styles.beaconRow}>
-            <View style={{ flex: 1 }}>
-              <Text variant="titleSmall" style={styles.beaconTitle}>
-                Balise GPS
+    <Box flex={1} bg="$backgroundLight50">
+      <ScrollView
+        contentContainerStyle={{
+          paddingTop: insets.top + 8,
+          paddingHorizontal: 14,
+          paddingBottom: insets.bottom + 32,
+          gap: 12,
+        }}
+      >
+        {/* Connection */}
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" px="$3.5" py="$3">
+          <HStack alignItems="center" justifyContent="space-between">
+            <HStack space="sm" alignItems="center">
+              <Icon as={connected ? Wifi : WifiOff} size="sm" color={connected ? "$success600" : "$error600"} />
+              <Text size="sm" color="$textLight700">
+                {connected
+                  ? t("tracking.connected", "Connecté — suivi en temps réel")
+                  : t("tracking.disconnected", "Déconnecté")}
               </Text>
-              <Text variant="bodySmall" style={styles.beaconDesc}>
-                Envoyez votre position en temps réel pour le suivi de voyage
-              </Text>
-            </View>
-            <Switch
-              value={trackingEnabled}
-              onValueChange={toggleBeacon}
-              color={colors.success}
-            />
-          </View>
-          {trackingEnabled && lastPosition && (
-            <View style={styles.beaconInfo}>
-              <Text variant="bodySmall" style={styles.beaconCoord}>
-                {lastPosition.lat.toFixed(5)}, {lastPosition.lon.toFixed(5)}
-              </Text>
-              <Text variant="bodySmall" style={styles.beaconCoord}>
-                {positionCount} position{positionCount > 1 ? "s" : ""} envoyée{positionCount > 1 ? "s" : ""}
-              </Text>
-            </View>
-          )}
-        </Card.Content>
-      </Card>
-
-      {/* Fleet map */}
-      {positions.length > 0 && (
-        <Surface style={styles.mapContainer} elevation={1}>
-          <FleetMap
-            positions={positions as MapPosition[]}
-            showUserLocation={trackingEnabled}
-            style={styles.mapView}
-          />
-        </Surface>
-      )}
-
-      {/* Fleet positions list */}
-      <Text variant="titleMedium" style={styles.sectionTitle}>
-        Positions de la flotte
-      </Text>
-
-      {loading ? (
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 24 }} />
-      ) : positions.length === 0 ? (
-        <Text style={styles.emptyText}>
-          Aucune position de vecteur disponible.
-        </Text>
-      ) : (
-        positions.map((pos) => (
-          <Surface key={pos.id} style={styles.positionCard} elevation={1}>
-            <View style={styles.posCardHeader}>
-              <Text variant="titleSmall" style={styles.posVehicleName}>
-                {pos.vector_name ?? pos.vector_id.slice(0, 8)}
-              </Text>
-              <Chip compact style={styles.sourceChip}>
-                {pos.source.toUpperCase()}
-              </Chip>
-            </View>
-            <Text variant="bodySmall" style={styles.posCoords}>
-              {pos.latitude.toFixed(5)}, {pos.longitude.toFixed(5)}
+            </HStack>
+            <Text size="xs" color="$textLight400">
+              {t("tracking.vectorCount", "{{count}} vecteur(s)", { count: positions.length })}
             </Text>
-            <View style={styles.posFooter}>
-              {pos.speed_knots != null && (
-                <Text variant="bodySmall" style={styles.posMeta}>
-                  {pos.speed_knots.toFixed(1)} kn
-                </Text>
-              )}
-              {pos.heading != null && (
-                <Text variant="bodySmall" style={styles.posMeta}>
-                  Cap: {pos.heading.toFixed(0)}°
-                </Text>
-              )}
-              <Text variant="bodySmall" style={styles.posTime}>
-                {new Date(pos.recorded_at).toLocaleTimeString("fr-FR")}
-              </Text>
-            </View>
-          </Surface>
-        ))
-      )}
+          </HStack>
+        </Box>
 
-      <View style={{ height: 32 }} />
-    </ScrollView>
+        {/* Beacon */}
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+          <HStack alignItems="center" justifyContent="space-between">
+            <HStack space="sm" alignItems="center" flex={1}>
+              <Icon as={Radar} size="md" color={trackingEnabled ? "$success600" : "$textLight500"} />
+              <VStack flex={1}>
+                <Text size="sm" fontWeight="$semibold" color="$textLight900">
+                  {t("tracking.beacon", "Balise GPS")}
+                </Text>
+                <Text size="xs" color="$textLight500">
+                  {t(
+                    "tracking.beaconDesc",
+                    "Envoyez votre position en temps réel pour le suivi de voyage"
+                  )}
+                </Text>
+              </VStack>
+            </HStack>
+            <Switch value={trackingEnabled} onValueChange={toggleBeacon} />
+          </HStack>
+          {trackingEnabled && lastPosition && (
+            <Box mt="$3" pt="$3" borderTopWidth={1} borderColor="$borderLight200">
+              <HStack justifyContent="space-between">
+                <Text size="xs" color="$textLight500" fontFamily="$mono">
+                  {lastPosition.lat.toFixed(5)}, {lastPosition.lon.toFixed(5)}
+                </Text>
+                <Text size="xs" color="$textLight500">
+                  {t("tracking.sentCount", "{{count}} envoyée(s)", { count: positionCount })}
+                </Text>
+              </HStack>
+            </Box>
+          )}
+        </Box>
+
+        {/* Map */}
+        {positions.length > 0 && (
+          <Box bg="$white" borderRadius="$lg" overflow="hidden" borderWidth={1} borderColor="$borderLight200">
+            <FleetMap
+              positions={positions as MapPosition[]}
+              showUserLocation={trackingEnabled}
+              style={{ height: 280, borderRadius: 12 }}
+            />
+          </Box>
+        )}
+
+        {/* List */}
+        <Heading size="sm" color="$textLight900" mt="$1">
+          {t("tracking.fleetPositions", "Positions de la flotte")}
+        </Heading>
+
+        {loading ? (
+          <Box py="$8" alignItems="center">
+            <Spinner color="$primary600" />
+          </Box>
+        ) : positions.length === 0 ? (
+          <Text size="sm" color="$textLight500" textAlign="center" py="$4">
+            {t("tracking.empty", "Aucune position de vecteur disponible.")}
+          </Text>
+        ) : (
+          positions.map((pos) => (
+            <Box
+              key={pos.id}
+              bg="$white"
+              borderRadius="$lg"
+              borderWidth={1}
+              borderColor="$borderLight200"
+              p="$3.5"
+            >
+              <HStack alignItems="center" justifyContent="space-between" mb="$1.5">
+                <Text size="sm" fontWeight="$bold" color="$primary700">
+                  {pos.vector_name ?? pos.vector_id.slice(0, 8)}
+                </Text>
+                <Badge action="muted" variant="outline" size="sm">
+                  <BadgeText>{pos.source.toUpperCase()}</BadgeText>
+                </Badge>
+              </HStack>
+              <HStack space="xs" alignItems="center" mb="$1.5">
+                <Icon as={MapPin} size="2xs" color="$textLight400" />
+                <Text size="xs" color="$textLight600" fontFamily="$mono">
+                  {pos.latitude.toFixed(5)}, {pos.longitude.toFixed(5)}
+                </Text>
+              </HStack>
+              <HStack space="md" alignItems="center" flexWrap="wrap">
+                {pos.speed_knots != null && (
+                  <HStack space="xs" alignItems="center">
+                    <Icon as={Gauge} size="2xs" color="$textLight400" />
+                    <Text size="xs" color="$textLight500">
+                      {pos.speed_knots.toFixed(1)} kn
+                    </Text>
+                  </HStack>
+                )}
+                {pos.heading != null && (
+                  <HStack space="xs" alignItems="center">
+                    <Icon as={Compass} size="2xs" color="$textLight400" />
+                    <Text size="xs" color="$textLight500">
+                      {t("tracking.heading", "Cap")} {pos.heading.toFixed(0)}°
+                    </Text>
+                  </HStack>
+                )}
+                <Text size="xs" color="$textLight400" ml="auto">
+                  {new Date(pos.recorded_at).toLocaleTimeString("fr-FR")}
+                </Text>
+              </HStack>
+            </Box>
+          ))
+        )}
+      </ScrollView>
+    </Box>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 14, gap: 12 },
-  statusBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: colors.surface,
-  },
-  statusRow: { flexDirection: "row", alignItems: "center" },
-  statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
-  statusText: { color: colors.textSecondary },
-  statusCount: { color: colors.textMuted },
-  beaconCard: { borderRadius: 12 },
-  beaconRow: { flexDirection: "row", alignItems: "center" },
-  beaconTitle: { fontWeight: "700", color: colors.textPrimary },
-  beaconDesc: { color: colors.textSecondary, marginTop: 2 },
-  beaconInfo: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  beaconCoord: { color: colors.textMuted, fontFamily: "monospace" },
-  mapContainer: { borderRadius: 12, overflow: "hidden" },
-  mapView: { height: 280, borderRadius: 12 },
-  sectionTitle: { fontWeight: "700", color: colors.textPrimary, marginTop: 4 },
-  emptyText: { textAlign: "center", color: colors.textMuted, marginTop: 24, fontSize: 14 },
-  positionCard: {
-    borderRadius: 10,
-    padding: 14,
-    backgroundColor: colors.surface,
-  },
-  posCardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  posVehicleName: { fontWeight: "600", color: colors.primary },
-  sourceChip: { height: 24 },
-  posCoords: { color: colors.textSecondary, fontFamily: "monospace" },
-  posFooter: { flexDirection: "row", gap: 12, marginTop: 6 },
-  posMeta: { color: colors.textSecondary },
-  posTime: { color: colors.textMuted, marginLeft: "auto" },
-});

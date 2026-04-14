@@ -1,97 +1,109 @@
 /**
- * Captain Portal — lightweight auth via 6-digit trip code.
+ * CaptainPortalScreen — Gluestack refonte: 6-digit code login + voyage manifest.
  *
- * Flow:
- *  1. Enter 6-digit code → POST /captain/authenticate
- *  2. Get session token + voyage context
- *  3. View manifest (pax + cargo) via GET /captain/{id}/manifest
- *  4. Record events (departure, arrival, etc.) via POST /captain/{id}/event
- *
- * The captain session is separate from the main JWT auth.
+ * Auth flow (separate from main JWT — uses TripCodeAccess):
+ *   1. Captain enters 6-digit code → POST /captain/authenticate
+ *   2. Server returns session_token + voyage context
+ *   3. View manifest (PAX + cargo) + record events (depart/arrive/weather/etc.)
  */
 
 import React, { useCallback, useState } from "react";
+import { Alert, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  Alert,
-  FlatList,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
-import {
-  ActivityIndicator,
+  Badge,
+  BadgeText,
+  Box,
   Button,
-  Card,
-  Chip,
-  Divider,
-  Surface,
+  ButtonSpinner,
+  ButtonText,
+  Heading,
+  HStack,
+  Icon,
+  Input,
+  InputField,
   Text,
-  TextInput,
-} from "react-native-paper";
+  Textarea,
+  TextareaInput,
+  VStack,
+} from "@gluestack-ui/themed";
+import {
+  AlertTriangle,
+  Anchor,
+  Cloud,
+  Fuel,
+  LogOut,
+  PlaneLanding,
+  PlaneTakeoff,
+  ShieldAlert,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react-native";
+import { useTranslation } from "react-i18next";
 import {
   captainAuthenticate,
   getCaptainManifest,
   postCaptainEvent,
-  CaptainAuthResult,
-  CaptainManifest,
-  CaptainManifestPassenger,
+  type CaptainAuthResult,
+  type CaptainManifest,
 } from "../services/travelwiz";
 import StatusBadge from "../components/StatusBadge";
-import { colors } from "../utils/colors";
 
 interface Props {
   navigation: any;
 }
 
-type Step = "auth" | "manifest";
+interface EventType {
+  code: string;
+  labelKey: string;
+  labelFb: string;
+  icon: LucideIcon;
+  color: string;
+}
 
-const EVENT_TYPES = [
-  { code: "departure", label: "Départ", icon: "D", color: colors.info },
-  { code: "arrival", label: "Arrivée", icon: "A", color: colors.success },
-  { code: "weather", label: "Météo", icon: "M", color: colors.warning },
-  { code: "incident", label: "Incident", icon: "!", color: colors.danger },
-  { code: "fuel", label: "Carburant", icon: "F", color: colors.accent },
-  { code: "technical", label: "Technique", icon: "T", color: colors.primaryLight },
+const EVENT_TYPES: EventType[] = [
+  { code: "departure", labelKey: "captain.event.departure", labelFb: "Départ", icon: PlaneTakeoff, color: "$info600" },
+  { code: "arrival", labelKey: "captain.event.arrival", labelFb: "Arrivée", icon: PlaneLanding, color: "$success600" },
+  { code: "weather", labelKey: "captain.event.weather", labelFb: "Météo", icon: Cloud, color: "$warning600" },
+  { code: "incident", labelKey: "captain.event.incident", labelFb: "Incident", icon: ShieldAlert, color: "$error600" },
+  { code: "fuel", labelKey: "captain.event.fuel", labelFb: "Carburant", icon: Fuel, color: "$info600" },
+  { code: "technical", labelKey: "captain.event.technical", labelFb: "Technique", icon: Wrench, color: "$primary600" },
 ];
 
-export default function CaptainPortalScreen({ navigation }: Props) {
-  const [step, setStep] = useState<Step>("auth");
+export default function CaptainPortalScreen() {
+  const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+  const [step, setStep] = useState<"auth" | "manifest">("auth");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Session
   const [session, setSession] = useState<CaptainAuthResult | null>(null);
   const [manifest, setManifest] = useState<CaptainManifest | null>(null);
 
-  // Event recording
   const [eventNotes, setEventNotes] = useState("");
   const [recordingEvent, setRecordingEvent] = useState(false);
 
-  // ── Auth ───────────────────────────────────────────────────────────
-
   const handleAuth = useCallback(async () => {
     if (code.length < 4) {
-      Alert.alert("Erreur", "Entrez le code d'accès voyage.");
+      Alert.alert(t("common.error", "Erreur"), t("captain.codeRequired", "Entrez le code d'accès voyage."));
       return;
     }
     setLoading(true);
     try {
       const result = await captainAuthenticate(code);
       setSession(result);
-
-      // Load manifest
       const mf = await getCaptainManifest(result.voyage_id, result.session_token);
       setManifest(mf);
       setStep("manifest");
     } catch (err: any) {
-      const detail = err?.response?.data?.detail;
-      Alert.alert("Accès refusé", detail || "Code invalide ou expiré.");
+      Alert.alert(
+        t("captain.accessDenied", "Accès refusé"),
+        err?.response?.data?.detail ?? t("captain.codeInvalid", "Code invalide ou expiré.")
+      );
     } finally {
       setLoading(false);
     }
-  }, [code]);
-
-  // ── Record Event ──────────────────────────────────────────────────
+  }, [code, t]);
 
   const handleRecordEvent = useCallback(
     async (eventCode: string) => {
@@ -102,275 +114,223 @@ export default function CaptainPortalScreen({ navigation }: Props) {
           event_type: eventCode,
           notes: eventNotes || undefined,
         });
-        Alert.alert("Enregistré", `Événement "${eventCode}" enregistré.`);
+        Alert.alert(
+          t("captain.recorded", "Enregistré"),
+          t("captain.eventSaved", `Événement « {{event}} » enregistré.`, { event: eventCode })
+        );
         setEventNotes("");
       } catch (err: any) {
-        Alert.alert("Erreur", err?.response?.data?.detail || "Impossible d'enregistrer.");
+        Alert.alert(t("common.error", "Erreur"), err?.response?.data?.detail || t("captain.saveFail", "Impossible d'enregistrer."));
       } finally {
         setRecordingEvent(false);
       }
     },
-    [session, eventNotes]
+    [session, eventNotes, t]
   );
 
-  // ── Auth Screen ───────────────────────────────────────────────────
-
+  /* ── Auth view ────────────────────────────────────────────────────── */
   if (step === "auth") {
     return (
-      <View style={styles.authContainer}>
-        <Surface style={styles.authCard} elevation={2}>
-          <Text variant="headlineSmall" style={styles.authTitle}>
-            Portail Capitaine
+      <Box flex={1} bg="$primary900" justifyContent="center" alignItems="center" p="$6">
+        <Box maxWidth={400} w="$full" bg="$white" borderRadius="$xl" p="$6" alignItems="center">
+          <Box bg="$primary50" borderRadius="$full" p="$3" mb="$3">
+            <Icon as={Anchor} size="xl" color="$primary700" />
+          </Box>
+          <Heading size="lg" color="$primary700" mb="$1">
+            {t("captain.title", "Portail Capitaine")}
+          </Heading>
+          <Text size="sm" color="$textLight600" textAlign="center" mb="$5">
+            {t("captain.subtitle", "Entrez le code d'accès voyage à 6 chiffres")}
           </Text>
-          <Text variant="bodyMedium" style={styles.authSubtitle}>
-            Entrez le code d'accès voyage à 6 chiffres
-          </Text>
-
-          <TextInput
-            mode="outlined"
-            label="Code d'accès"
-            value={code}
-            onChangeText={setCode}
-            keyboardType="number-pad"
-            maxLength={6}
-            style={styles.codeInput}
-            contentStyle={styles.codeInputContent}
-            autoFocus
-          />
-
+          <Input size="xl" w="$full" mb="$4" borderColor="$borderLight300">
+            <InputField
+              value={code}
+              onChangeText={(v) => setCode(v.replace(/[^0-9]/g, "").slice(0, 6))}
+              keyboardType="number-pad"
+              maxLength={6}
+              autoFocus
+              textAlign="center"
+              fontSize={28}
+              letterSpacing={8}
+              placeholder="••••••"
+            />
+          </Input>
           <Button
-            mode="contained"
+            size="xl"
+            action="primary"
+            w="$full"
             onPress={handleAuth}
-            loading={loading}
-            disabled={loading || code.length < 4}
-            style={styles.authButton}
+            isDisabled={loading || code.length < 4}
           >
-            Accéder au voyage
+            {loading && <ButtonSpinner mr="$2" />}
+            <ButtonText>{t("captain.access", "Accéder au voyage")}</ButtonText>
           </Button>
-        </Surface>
-      </View>
+        </Box>
+      </Box>
     );
   }
 
-  // ── Manifest Screen ───────────────────────────────────────────────
-
+  /* ── Manifest view ────────────────────────────────────────────────── */
   const voyage = manifest?.voyage;
   const passengers = manifest?.passengers ?? [];
   const cargo = manifest?.cargo ?? [];
   const boardedCount = passengers.filter((p) => p.boarding_status === "boarded").length;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Voyage header */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <View style={styles.voyageHeader}>
-            <Text variant="titleLarge" style={styles.voyageCode}>
+    <Box flex={1} bg="$backgroundLight50">
+      <ScrollView
+        contentContainerStyle={{
+          paddingTop: insets.top + 8,
+          paddingHorizontal: 14,
+          paddingBottom: insets.bottom + 32,
+          gap: 12,
+        }}
+      >
+        {/* Voyage header */}
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+          <HStack justifyContent="space-between" alignItems="center" mb="$2">
+            <Heading size="lg" color="$primary700">
               {voyage?.code ?? session?.voyage_code}
-            </Text>
+            </Heading>
             {voyage?.status && <StatusBadge status={voyage.status} size="md" />}
-          </View>
-          <Text variant="bodyMedium" style={styles.vesselName}>
+          </HStack>
+          <Heading size="sm" color="$textLight900">
             {voyage?.vessel_name ?? session?.vessel_name}
-          </Text>
+          </Heading>
           {voyage?.scheduled_departure && (
-            <Text variant="bodySmall" style={styles.scheduleMeta}>
-              Départ: {new Date(voyage.scheduled_departure).toLocaleString("fr-FR")}
+            <Text size="xs" color="$textLight500" mt="$1">
+              {t("captain.departure", "Départ :")} {new Date(voyage.scheduled_departure).toLocaleString("fr-FR")}
             </Text>
           )}
           {voyage?.scheduled_arrival && (
-            <Text variant="bodySmall" style={styles.scheduleMeta}>
-              Arrivée: {new Date(voyage.scheduled_arrival).toLocaleString("fr-FR")}
+            <Text size="xs" color="$textLight500">
+              {t("captain.arrival", "Arrivée :")} {new Date(voyage.scheduled_arrival).toLocaleString("fr-FR")}
             </Text>
           )}
-        </Card.Content>
-      </Card>
+        </Box>
 
-      {/* PAX Manifest */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            Passagers ({boardedCount}/{passengers.length})
-          </Text>
-          {passengers.map((pax) => (
-            <View key={pax.id} style={styles.paxRow}>
-              <View style={{ flex: 1 }}>
-                <Text variant="bodyMedium" style={styles.paxName}>
+        {/* PAX */}
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+          <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5} mb="$3">
+            {t("captain.pax", "Passagers")} ({boardedCount}/{passengers.length})
+          </Heading>
+          {passengers.map((pax, idx) => (
+            <HStack
+              key={pax.id}
+              alignItems="center"
+              py="$2.5"
+              borderTopWidth={idx === 0 ? 0 : 1}
+              borderColor="$borderLight100"
+            >
+              <VStack flex={1}>
+                <Text size="sm" fontWeight="$semibold" color="$textLight900">
                   {pax.name}
                 </Text>
                 {pax.company && (
-                  <Text variant="bodySmall" style={styles.paxCompany}>
+                  <Text size="xs" color="$textLight500">
                     {pax.company}
                   </Text>
                 )}
-              </View>
-              <View style={styles.paxRight}>
+              </VStack>
+              <VStack alignItems="flex-end" space="xs">
                 <StatusBadge status={pax.boarding_status} />
                 {pax.standby && (
-                  <Chip compact style={styles.standbyChip}>
-                    Standby
-                  </Chip>
+                  <Badge action="warning" variant="solid" size="sm">
+                    <BadgeText>{t("captain.standby", "Standby")}</BadgeText>
+                  </Badge>
                 )}
-              </View>
-            </View>
+              </VStack>
+            </HStack>
           ))}
           {passengers.length === 0 && (
-            <Text variant="bodyMedium" style={styles.emptyText}>
-              Aucun passager.
+            <Text size="sm" color="$textLight500" italic textAlign="center" py="$3">
+              {t("captain.noPax", "Aucun passager.")}
             </Text>
           )}
-        </Card.Content>
-      </Card>
+        </Box>
 
-      {/* Cargo Manifest */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            Cargo ({cargo.length})
-          </Text>
-          {cargo.map((c) => (
-            <View key={c.id} style={styles.cargoRow}>
-              <View style={{ flex: 1 }}>
-                <Text variant="bodyMedium" style={styles.cargoRef}>
+        {/* Cargo */}
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+          <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5} mb="$3">
+            {t("captain.cargo", "Cargo")} ({cargo.length})
+          </Heading>
+          {cargo.map((c, idx) => (
+            <HStack
+              key={c.id}
+              alignItems="center"
+              py="$2.5"
+              borderTopWidth={idx === 0 ? 0 : 1}
+              borderColor="$borderLight100"
+            >
+              <VStack flex={1}>
+                <Text size="sm" fontWeight="$semibold" color="$primary700">
                   {c.reference}
                 </Text>
-                <Text variant="bodySmall" style={styles.cargoDesc}>
+                <Text size="xs" color="$textLight600">
                   {c.designation}
-                  {c.weight_kg ? ` — ${c.weight_kg} kg` : ""}
+                  {c.weight_kg ? ` · ${c.weight_kg} kg` : ""}
                 </Text>
-              </View>
+              </VStack>
               {c.hazmat && (
-                <Chip compact style={styles.hazmatChip} textStyle={{ color: colors.danger }}>
-                  HAZMAT
-                </Chip>
+                <Badge action="error" variant="solid" size="sm">
+                  <Icon as={AlertTriangle} size="2xs" color="$white" mr="$1" />
+                  <BadgeText>HAZMAT</BadgeText>
+                </Badge>
               )}
-            </View>
+            </HStack>
           ))}
           {cargo.length === 0 && (
-            <Text variant="bodyMedium" style={styles.emptyText}>
-              Aucun cargo.
+            <Text size="sm" color="$textLight500" italic textAlign="center" py="$3">
+              {t("captain.noCargo", "Aucun cargo.")}
             </Text>
           )}
-        </Card.Content>
-      </Card>
+        </Box>
 
-      {/* Event recording */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            Journal de bord
-          </Text>
-          <TextInput
-            mode="outlined"
-            label="Notes (optionnel)"
-            value={eventNotes}
-            onChangeText={setEventNotes}
-            multiline
-            numberOfLines={2}
-            style={styles.eventNotes}
-          />
-          <View style={styles.eventGrid}>
+        {/* Event recording */}
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+          <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5} mb="$3">
+            {t("captain.logbook", "Journal de bord")}
+          </Heading>
+          <Textarea size="md" mb="$3" borderColor="$borderLight300">
+            <TextareaInput
+              value={eventNotes}
+              onChangeText={setEventNotes}
+              placeholder={t("captain.notesPlaceholder", "Notes (optionnel)")}
+            />
+          </Textarea>
+          <Box flexDirection="row" flexWrap="wrap" gap={8}>
             {EVENT_TYPES.map((evt) => (
               <Button
                 key={evt.code}
-                mode="outlined"
-                compact
-                loading={recordingEvent}
+                size="sm"
+                variant="outline"
+                action="secondary"
                 onPress={() => handleRecordEvent(evt.code)}
-                style={styles.eventButton}
-                labelStyle={{ fontSize: 12 }}
+                isDisabled={recordingEvent}
               >
-                {evt.label}
+                <Icon as={evt.icon} size="xs" color={evt.color} mr="$1" />
+                <ButtonText>{t(evt.labelKey, evt.labelFb)}</ButtonText>
               </Button>
             ))}
-          </View>
-        </Card.Content>
-      </Card>
+          </Box>
+        </Box>
 
-      {/* Disconnect */}
-      <Button
-        mode="outlined"
-        onPress={() => {
-          setSession(null);
-          setManifest(null);
-          setStep("auth");
-          setCode("");
-        }}
-        style={styles.disconnectButton}
-      >
-        Quitter le portail capitaine
-      </Button>
-
-      <View style={{ height: 32 }} />
-    </ScrollView>
+        {/* Disconnect */}
+        <Button
+          size="lg"
+          variant="outline"
+          action="negative"
+          onPress={() => {
+            setSession(null);
+            setManifest(null);
+            setStep("auth");
+            setCode("");
+          }}
+        >
+          <Icon as={LogOut} color="$error600" size="md" mr="$2" />
+          <ButtonText>{t("captain.exit", "Quitter le portail capitaine")}</ButtonText>
+        </Button>
+      </ScrollView>
+    </Box>
   );
 }
-
-const styles = StyleSheet.create({
-  // Auth
-  authContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-    backgroundColor: colors.primaryDark,
-  },
-  authCard: {
-    borderRadius: 16,
-    padding: 32,
-    alignItems: "center",
-    width: "100%",
-    maxWidth: 400,
-  },
-  authTitle: { fontWeight: "700", color: colors.primary, marginBottom: 8 },
-  authSubtitle: { color: colors.textSecondary, textAlign: "center", marginBottom: 24 },
-  codeInput: { width: "100%", backgroundColor: colors.surface, marginBottom: 16 },
-  codeInputContent: { fontSize: 28, letterSpacing: 8, textAlign: "center" },
-  authButton: { width: "100%", borderRadius: 10 },
-
-  // Manifest
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 14, gap: 12 },
-  card: { borderRadius: 12 },
-  voyageHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  voyageCode: { fontWeight: "700", color: colors.primary },
-  vesselName: { color: colors.textPrimary, fontWeight: "600", marginTop: 4 },
-  scheduleMeta: { color: colors.textSecondary, marginTop: 2 },
-  sectionTitle: {
-    fontWeight: "700",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 10,
-  },
-  // PAX
-  paxRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceAlt,
-  },
-  paxName: { fontWeight: "600", color: colors.textPrimary },
-  paxCompany: { color: colors.textSecondary },
-  paxRight: { alignItems: "flex-end", gap: 4 },
-  standbyChip: { backgroundColor: colors.warning + "20" },
-  // Cargo
-  cargoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceAlt,
-  },
-  cargoRef: { fontWeight: "600", color: colors.primary },
-  cargoDesc: { color: colors.textSecondary },
-  hazmatChip: { backgroundColor: colors.danger + "15" },
-  // Events
-  eventNotes: { backgroundColor: colors.surface, marginBottom: 12 },
-  eventGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  eventButton: { minWidth: 90 },
-  // General
-  emptyText: { color: colors.textMuted, fontStyle: "italic" },
-  disconnectButton: { marginTop: 8, borderColor: colors.danger },
-});

@@ -289,10 +289,18 @@ export default function WizardPage() {
   }
 
   const authenticated = Boolean(linkInfo?.authenticated)
+  const securityDone = authenticated || !linkInfo?.otp_required
   const steps = buildSteps(authenticated, dossier)
   const adsRef = dossier?.ads?.reference || dossier?.ads?.ref || linkInfo?.ads_reference
   const companyName = dossier?.allowed_company_name || null
   const adsStatus = dossier?.ads?.status || null
+
+  // Auto-skip security step when already authenticated or OTP not required
+  useEffect(() => {
+    if (bootstrapped && securityDone && activeStep === 0) {
+      setActiveStep(1)
+    }
+  }, [bootstrapped, securityDone]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const goToStep = (index: number) => {
     setActiveStep(index)

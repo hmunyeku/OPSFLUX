@@ -2044,8 +2044,7 @@ function CreateRotationPanel() {
               description={form.schedule_description}
               onChange={(cron, desc) => setForm({ ...form, schedule_cron: cron, schedule_description: desc })}
             />
-            </FormGrid>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-2">
               La rotation définit la cadence nominale. Les voyages opérationnels restent des occurrences concrètes générées ou planifiées sur cette base.
             </p>
           </FormSection>

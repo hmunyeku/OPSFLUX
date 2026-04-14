@@ -93,7 +93,8 @@ export default function MyProfileScreen({ navigation }: Props) {
     try {
       const [meRes, emailsRes, phonesRes, addressesRes, verifs] = await Promise.allSettled([
         api.get<MeProfile>("/api/v1/auth/me"),
-        api.get<EmailRow[]>(`/api/v1/users/${userId}/emails`),
+        // Real endpoint is /api/v1/emails (server filters by auth context)
+        api.get<EmailRow[]>(`/api/v1/emails`),
         api.get<PhoneRow[]>("/api/v1/phones", {
           params: { owner_type: "user", owner_id: userId },
         }),

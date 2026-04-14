@@ -45,7 +45,9 @@ export default function EmailVerificationScreen({ navigation }: Props) {
   useEffect(() => {
     async function load() {
       try {
-        const { data } = await api.get<EmailEntry[]>(`/api/v1/users/${userId}/emails`);
+        // The user-emails endpoint lives at /api/v1/emails (filtered server-side
+        // by the auth context to the current user's emails)
+        const { data } = await api.get<EmailEntry[]>(`/api/v1/emails`);
         setEmails(data);
       } catch {
         setEmails([]);

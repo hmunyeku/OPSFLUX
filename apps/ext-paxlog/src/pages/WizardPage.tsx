@@ -27,6 +27,7 @@ export default function WizardPage() {
   const [message, setMessage] = useState<MessageData | null>(null)
   const [activeStep, setActiveStep] = useState(0)
   const [bootstrapped, setBootstrapped] = useState(false)
+  const didAutoSkip = useRef(false)
 
   const api = useCallback(
     (path: string, options?: RequestInit) => apiRequest(sessionToken, path, options),
@@ -296,7 +297,6 @@ export default function WizardPage() {
   const adsStatus = dossier?.ads?.status || null
 
   // Auto-skip security step when already authenticated or OTP not required
-  const didAutoSkip = useRef(false)
   useEffect(() => {
     if (bootstrapped && securityDone && activeStep === 0 && !didAutoSkip.current) {
       didAutoSkip.current = true

@@ -254,10 +254,8 @@ export default function I18nTab() {
           onChange={(e) => setNamespace(e.target.value)}
           className="gl-form-input w-32"
         >
-          <option value="app">app</option>
-          <option value="mobile">mobile</option>
-          <option value="backoffice">backoffice</option>
-          <option value="email">email</option>
+          <option value="app">Application</option>
+          <option value="mobile">Mobile</option>
         </select>
 
         <button
@@ -292,12 +290,24 @@ export default function I18nTab() {
         )}
       </div>
 
+      {/* Add key form (always visible when toggled, even if list is empty) */}
+      {showAddKey && (
+        <div className="border border-border rounded-md overflow-hidden mb-2">
+          <AddKeyRow
+            languageCode={currentLang}
+            namespace={namespace}
+            onCancel={() => setShowAddKey(false)}
+            onDone={() => setShowAddKey(false)}
+          />
+        </div>
+      )}
+
       {/* List */}
       {messagesLoading ? (
         <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
           <Loader2 size={16} className="animate-spin" /> Chargement...
         </div>
-      ) : messages.length === 0 ? (
+      ) : messages.length === 0 && !showAddKey ? (
         <EmptyState
           icon={Globe}
           title="Aucune traduction"
@@ -305,14 +315,6 @@ export default function I18nTab() {
         />
       ) : (
         <div className="border border-border rounded-md overflow-hidden">
-          {showAddKey && (
-            <AddKeyRow
-              languageCode={currentLang}
-              namespace={namespace}
-              onCancel={() => setShowAddKey(false)}
-              onDone={() => setShowAddKey(false)}
-            />
-          )}
           <div className="max-h-[600px] overflow-y-auto divide-y divide-border">
             {filtered.map((msg) => (
               <MessageRow key={msg.id} message={msg} />

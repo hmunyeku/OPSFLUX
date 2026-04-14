@@ -1,6 +1,6 @@
 """TravelWiz Pydantic schemas — request/response models for transport logistics."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 

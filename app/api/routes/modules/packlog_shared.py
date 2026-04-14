@@ -281,17 +281,61 @@ async def create_cargo_request_impl(
     )
     request_code = await _generate_cargo_request_code(db, entity_id)
     now = datetime.now(timezone.utc)
+
+    # Extract inline cargos from payload — handled separately below
+    payload = body.model_dump()
+    inline_cargos = payload.pop("cargos", []) or []
+
     cargo_request = CargoRequest(
         entity_id=entity_id,
         request_code=request_code,
         requested_by=current_user.id,
         created_at=now,
         updated_at=now,
-        **body.model_dump(),
+        **payload,
     )
     db.add(cargo_request)
+    await db.flush()  # assign ID without final commit
+    await db.refresh(cargo_request)
+
+    # Create inline cargo items (atomic with the request)
+    created_cargos = 0
+    for cargo_data in inline_cargos:
+        tracking_code = await _generate_cargo_code(db, entity_id)
+        cargo_item = CargoItem(
+            entity_id=entity_id,
+            request_id=cargo_request.id,
+            tracking_code=tracking_code,
+            # Inherit context from request
+            project_id=cargo_request.project_id,
+            imputation_reference_id=cargo_request.imputation_reference_id,
+            sender_tier_id=cargo_request.sender_tier_id,
+            receiver_name=cargo_request.receiver_name,
+            destination_asset_id=cargo_request.destination_asset_id,
+            requester_name=cargo_request.requester_name,
+            created_at=now,
+            updated_at=now,
+            created_by=current_user.id,
+            status="registered",
+            # Cargo-specific fields from the inline payload
+            description=cargo_data["description"],
+            designation=cargo_data.get("designation"),
+            cargo_type=cargo_data["cargo_type"],
+            weight_kg=cargo_data["weight_kg"],
+            package_count=cargo_data.get("package_count", 1),
+            width_cm=cargo_data.get("width_cm"),
+            length_cm=cargo_data.get("length_cm"),
+            height_cm=cargo_data.get("height_cm"),
+            stackable=cargo_data.get("stackable", False),
+            sap_article_code=cargo_data.get("sap_article_code"),
+            hazmat_validated=cargo_data.get("hazmat_validated", False),
+        )
+        db.add(cargo_item)
+        created_cargos += 1
+
     await db.commit()
     await db.refresh(cargo_request)
+
     await record_audit(
         db,
         action="packlog.cargo_request.create",
@@ -299,10 +343,14 @@ async def create_cargo_request_impl(
         resource_id=str(cargo_request.id),
         user_id=current_user.id,
         entity_id=entity_id,
-        details={"request_code": cargo_request.request_code, "status": cargo_request.status},
+        details={
+            "request_code": cargo_request.request_code,
+            "status": cargo_request.status,
+            "inline_cargos_created": created_cargos,
+        },
     )
     await db.commit()
-    return await build_packlog_request_read_data(db, cargo_request, cargo_count=0)
+    return await build_packlog_request_read_data(db, cargo_request, cargo_count=created_cargos)
 
 
 async def get_cargo_request_impl(*, request_id: UUID, entity_id: UUID, db: AsyncSession):

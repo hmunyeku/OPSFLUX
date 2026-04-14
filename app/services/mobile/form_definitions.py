@@ -272,6 +272,12 @@ def get_cargo_request_create_form() -> dict:
                     "receiver_name", "destination_asset_id",
                 ],
             },
+            {
+                "id": "cargos",
+                "title": "Colis à expédier",
+                "description": "Ajoutez les colis concernés par cette demande",
+                "fields": ["cargos"],
+            },
         ],
         enrichments={
             "title": {
@@ -370,6 +376,56 @@ def get_cargo_request_create_form() -> dict:
                     "search_param": "search",
                 },
                 "ui_width": "half",
+            },
+            "cargos": {
+                "label": "Colis",
+                "type": "repeater",
+                "help_text": "Listez les colis à expédier. Poids en kg, dimensions en cm.",
+                "item_enrichments": {
+                    "description": {
+                        "label": "Description du colis",
+                        "placeholder": "Ex: Carton de filtres P-301",
+                    },
+                    "cargo_type": {
+                        "label": "Type",
+                        "options": [
+                            {"value": "unit",       "label": "Unité"},
+                            {"value": "bulk",       "label": "Vrac"},
+                            {"value": "consumable", "label": "Consommable"},
+                            {"value": "packaging",  "label": "Emballage"},
+                            {"value": "waste",      "label": "Déchet"},
+                            {"value": "hazmat",     "label": "Matière dangereuse"},
+                        ],
+                    },
+                    "weight_kg": {
+                        "label": "Poids (kg)",
+                        "placeholder": "0.0",
+                    },
+                    "designation": {
+                        "label": "Désignation SAP (optionnel)",
+                    },
+                    "package_count": {
+                        "label": "Nombre de colis",
+                    },
+                    "width_cm": {
+                        "label": "Largeur (cm)",
+                    },
+                    "length_cm": {
+                        "label": "Longueur (cm)",
+                    },
+                    "height_cm": {
+                        "label": "Hauteur (cm)",
+                    },
+                    "stackable": {
+                        "label": "Gerbable",
+                    },
+                    "sap_article_code": {
+                        "label": "Code article SAP",
+                    },
+                    "hazmat_validated": {
+                        "label": "Matière dangereuse validée",
+                    },
+                },
             },
         },
     )

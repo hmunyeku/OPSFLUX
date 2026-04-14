@@ -519,6 +519,11 @@ async def admin_ai_translate(
 
         try:
             ai_cfg = await get_ai_config()
+            if not ai_cfg.get("api_key") and ai_cfg.get("provider") != "ollama":
+                raise HTTPException(
+                    status_code=503,
+                    detail="AI provider not configured. Set an API key in Settings > Integrations.",
+                )
             _, llm_kwargs = _normalize_model_config(ai_cfg)
             resp = await litellm.acompletion(
                 messages=[{"role": "user", "content": prompt}],
@@ -526,7 +531,18 @@ async def admin_ai_translate(
                 **llm_kwargs,
             )
             result = resp.choices[0].message.content or ""
-        except Exception:
+        except HTTPException:
+            raise
+        except Exception as exc:
+            import logging
+            logging.getLogger("app.i18n").error("AI translate batch failed: %s", exc, exc_info=True)
+            # On first batch, raise so the user knows it failed
+            if batch_start == 0:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"AI translation failed: {str(exc)[:200]}",
+                )
+            # On subsequent batches, skip and continue with what we have
             continue
 
         # Parse AI response

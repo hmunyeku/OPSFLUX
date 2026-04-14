@@ -1,176 +1,203 @@
 /**
- * Preferences Screen — lightweight settings the user can configure from mobile.
+ * PreferencesScreen — Gluestack refonte: light user-tunable settings.
  *
- * Includes:
- *  - Language
- *  - Theme (light/dark/system)
- *  - Notification preferences (push, email, SMS)
- *  - Preferred communication channel
+ *  - Language (RadioGroup) — also drives the i18n catalog refresh
+ *  - Theme (RadioGroup: system/light/dark)
+ *  - Notification toggles (push, email, SMS)
+ *  - Preferred messaging channel for OTP/comms
  */
 
 import React from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  Card,
+  Box,
   Divider,
-  List,
-  RadioButton,
+  Heading,
+  HStack,
+  Radio,
+  RadioGroup,
+  RadioIcon,
+  RadioIndicator,
+  RadioLabel,
   Switch,
   Text,
-} from "react-native-paper";
+  VStack,
+} from "@gluestack-ui/themed";
+import { CircleIcon } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { AVAILABLE_LANGUAGES } from "../locales/i18n";
 import { useThemeStore } from "../stores/theme";
 import { useSettings } from "../stores/settings";
+import { useI18nStore } from "../stores/i18n";
 import { api } from "../services/api";
 import { useToast } from "../components/Toast";
-import { colors } from "../utils/colors";
 
 export default function PreferencesScreen() {
+  const insets = useSafeAreaInsets();
   const { t, i18n } = useTranslation();
   const toast = useToast();
-  const { isDark, mode: themeMode, setMode: setThemeMode } = useThemeStore();
+  const { mode: themeMode, setMode: setThemeMode } = useThemeStore();
   const settings = useSettings();
+  const changeI18nLanguage = useI18nStore((s) => s.changeLanguage);
 
-  // Save a user preference to the server
   async function savePref(key: string, value: string) {
     try {
       await api.put("/api/v1/settings?scope=user", { key, value });
     } catch {
-      // Non-critical — will sync later
+      /* non-critical, will sync later */
     }
   }
 
   async function changeLanguage(lang: string) {
-    i18n.changeLanguage(lang);
+    await changeI18nLanguage(lang);
     await savePref("preference.language", lang);
-    toast.show(t("common.save"), "success", 1500);
+    toast.show(t("common.save", "Enregistré"), "success", 1500);
   }
 
-  async function changeTheme(mode: "light" | "dark" | "system") {
-    setThemeMode(mode);
+  async function changeTheme(mode: string) {
+    setThemeMode(mode as any);
     await savePref("preference.theme", mode);
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Language */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            {t("settings.language")}
-          </Text>
-          <RadioButton.Group
-            value={i18n.language}
-            onValueChange={changeLanguage}
-          >
-            {AVAILABLE_LANGUAGES.map((lang) => (
-              <RadioButton.Item
-                key={lang.code}
-                label={lang.label}
-                value={lang.code}
-                labelStyle={styles.radioLabel}
-              />
-            ))}
-          </RadioButton.Group>
-        </Card.Content>
-      </Card>
+    <Box flex={1} bg="$backgroundLight50">
+      <ScrollView
+        contentContainerStyle={{
+          paddingTop: insets.top + 12,
+          paddingHorizontal: 14,
+          paddingBottom: insets.bottom + 32,
+          gap: 12,
+        }}
+      >
+        {/* Language */}
+        <SettingsCard title={t("settings.language", "Langue")}>
+          <RadioGroup value={i18n.language} onChange={changeLanguage}>
+            <VStack space="xs">
+              {AVAILABLE_LANGUAGES.map((lang) => (
+                <RadioRow key={lang.code} value={lang.code} label={lang.label} />
+              ))}
+            </VStack>
+          </RadioGroup>
+        </SettingsCard>
 
-      {/* Theme */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            {t("settings.darkMode")}
-          </Text>
-          <RadioButton.Group
-            value={themeMode}
-            onValueChange={(v) => changeTheme(v as any)}
-          >
-            <RadioButton.Item label="Automatique (système)" value="system" labelStyle={styles.radioLabel} />
-            <RadioButton.Item label="Clair" value="light" labelStyle={styles.radioLabel} />
-            <RadioButton.Item label="Sombre" value="dark" labelStyle={styles.radioLabel} />
-          </RadioButton.Group>
-        </Card.Content>
-      </Card>
+        {/* Theme */}
+        <SettingsCard title={t("prefs.theme", "Thème")}>
+          <RadioGroup value={themeMode} onChange={changeTheme}>
+            <VStack space="xs">
+              <RadioRow value="system" label={t("prefs.themeSystem", "Automatique (système)")} />
+              <RadioRow value="light" label={t("prefs.themeLight", "Clair")} />
+              <RadioRow value="dark" label={t("prefs.themeDark", "Sombre")} />
+            </VStack>
+          </RadioGroup>
+        </SettingsCard>
 
-      {/* Notifications */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            Notifications
-          </Text>
-          <List.Item
-            title="Notifications push"
-            description="Recevoir les alertes sur votre téléphone"
-            right={() => (
-              <Switch
-                value={settings.get("preference.push_notifications") !== "false"}
-                onValueChange={(v) => savePref("preference.push_notifications", String(v))}
-                color={colors.primary}
-              />
-            )}
-          />
-          <Divider />
-          <List.Item
-            title="Notifications email"
-            description="Recevoir les notifications par email"
-            right={() => (
-              <Switch
-                value={settings.get("preference.email_notifications") !== "false"}
-                onValueChange={(v) => savePref("preference.email_notifications", String(v))}
-                color={colors.primary}
-              />
-            )}
-          />
-          <Divider />
-          <List.Item
-            title="Notifications SMS"
-            description="Recevoir les alertes urgentes par SMS"
-            right={() => (
-              <Switch
-                value={settings.get("preference.sms_notifications") === "true"}
-                onValueChange={(v) => savePref("preference.sms_notifications", String(v))}
-                color={colors.primary}
-              />
-            )}
-          />
-        </Card.Content>
-      </Card>
+        {/* Notifications */}
+        <SettingsCard title={t("prefs.notifications", "Notifications")}>
+          <VStack divider={<Divider my="$1" />}>
+            <ToggleRow
+              title={t("prefs.pushNotif", "Notifications push")}
+              description={t("prefs.pushNotifDesc", "Recevoir les alertes sur votre téléphone")}
+              value={settings.get("preference.push_notifications") !== "false"}
+              onChange={(v) => savePref("preference.push_notifications", String(v))}
+            />
+            <ToggleRow
+              title={t("prefs.emailNotif", "Notifications email")}
+              description={t("prefs.emailNotifDesc", "Recevoir les notifications par email")}
+              value={settings.get("preference.email_notifications") !== "false"}
+              onChange={(v) => savePref("preference.email_notifications", String(v))}
+            />
+            <ToggleRow
+              title={t("prefs.smsNotif", "Notifications SMS")}
+              description={t("prefs.smsNotifDesc", "Recevoir les alertes urgentes par SMS")}
+              value={settings.get("preference.sms_notifications") === "true"}
+              onChange={(v) => savePref("preference.sms_notifications", String(v))}
+            />
+          </VStack>
+        </SettingsCard>
 
-      {/* Communication channel */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            Canal de communication préféré
-          </Text>
-          <Text variant="bodySmall" style={styles.hint}>
-            Utilisé pour les vérifications OTP et les communications importantes.
-          </Text>
-          <RadioButton.Group
+        {/* Messaging channel */}
+        <SettingsCard
+          title={t("prefs.messagingChannel", "Canal de communication préféré")}
+          hint={t(
+            "prefs.messagingChannelHint",
+            "Utilisé pour les vérifications OTP et les communications importantes."
+          )}
+        >
+          <RadioGroup
             value={settings.get("preference.messaging_channel", "auto")}
-            onValueChange={(v) => savePref("preference.messaging_channel", v)}
+            onChange={(v) => savePref("preference.messaging_channel", v)}
           >
-            <RadioButton.Item label="Automatique" value="auto" labelStyle={styles.radioLabel} />
-            <RadioButton.Item label="WhatsApp" value="whatsapp" labelStyle={styles.radioLabel} />
-            <RadioButton.Item label="SMS" value="sms" labelStyle={styles.radioLabel} />
-            <RadioButton.Item label="Email" value="email" labelStyle={styles.radioLabel} />
-          </RadioButton.Group>
-        </Card.Content>
-      </Card>
-
-      <View style={{ height: 32 }} />
-    </ScrollView>
+            <VStack space="xs">
+              <RadioRow value="auto" label={t("prefs.channelAuto", "Automatique")} />
+              <RadioRow value="whatsapp" label="WhatsApp" />
+              <RadioRow value="sms" label="SMS" />
+              <RadioRow value="email" label="Email" />
+            </VStack>
+          </RadioGroup>
+        </SettingsCard>
+      </ScrollView>
+    </Box>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 14, gap: 12 },
-  card: { borderRadius: 12 },
-  sectionTitle: {
-    fontWeight: "700", color: colors.textSecondary,
-    textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4,
-  },
-  radioLabel: { fontSize: 15 },
-  hint: { color: colors.textMuted, marginBottom: 8 },
-});
+function SettingsCard({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+      <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5} mb="$2">
+        {title}
+      </Heading>
+      {hint && (
+        <Text size="xs" color="$textLight500" mb="$2">
+          {hint}
+        </Text>
+      )}
+      {children}
+    </Box>
+  );
+}
+
+function RadioRow({ value, label }: { value: string; label: string }) {
+  return (
+    <Radio value={value} size="md">
+      <RadioIndicator mr="$2">
+        <RadioIcon as={CircleIcon} />
+      </RadioIndicator>
+      <RadioLabel>{label}</RadioLabel>
+    </Radio>
+  );
+}
+
+function ToggleRow({
+  title,
+  description,
+  value,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <HStack alignItems="center" justifyContent="space-between" py="$2">
+      <VStack flex={1} mr="$3">
+        <Text size="sm" fontWeight="$medium" color="$textLight900">
+          {title}
+        </Text>
+        <Text size="xs" color="$textLight500">
+          {description}
+        </Text>
+      </VStack>
+      <Switch value={value} onValueChange={onChange} />
+    </HStack>
+  );
+}

@@ -1,154 +1,104 @@
 /**
- * Settings / Profile screen — full profile, OTP verify, entity switch, logout.
+ * SettingsScreen — Gluestack refonte: hub for navigation + connection info + logout.
+ *
+ * Profile editing has been moved to MyProfile (web is the canonical edit
+ * surface). Phone OTP verification has been moved to VerificationsHub.
+ * This screen now focuses on:
+ *   - Quick navigation links (My Profile, Verifications, Compliance, Contacts, Preferences)
+ *   - Profile summary (avatar + name + email + entity)
+ *   - Connection status (online, queue size, last sync)
+ *   - Entity switcher (if multiple)
+ *   - App info + maintenance actions (clear cache, reset onboarding)
+ *   - Logout
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { Alert, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
-import {
-  ActivityIndicator,
   Avatar,
+  AvatarFallbackText,
+  AvatarImage,
+  Box,
   Button,
-  Card,
-  Chip,
+  ButtonText,
   Divider,
-  HelperText,
-  List,
-  Surface,
-  Switch,
+  Heading,
+  HStack,
+  Icon,
+  Pressable,
+  Spinner,
   Text,
-  TextInput,
-} from "react-native-paper";
-import { colors } from "../utils/colors";
+  VStack,
+} from "@gluestack-ui/themed";
+import {
+  Bell,
+  ChevronRight,
+  CircleCheck,
+  CircleDot,
+  CloudUpload,
+  HelpCircle,
+  Info,
+  LogOut,
+  RefreshCw,
+  Settings as SettingsIcon,
+  Shield,
+  ShieldCheck,
+  Trash2,
+  UserCircle,
+  Users,
+  Wifi,
+  WifiOff,
+  type LucideIcon,
+} from "lucide-react-native";
+import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../stores/auth";
 import { usePermissions } from "../stores/permissions";
 import { useOfflineStore, clearCache, flushQueue } from "../services/offline";
 import { useTrackingStore, stopTracking } from "../services/tracking";
-import { useTranslation } from "react-i18next";
-import { AVAILABLE_LANGUAGES } from "../locales/i18n";
-import { useThemeStore } from "../stores/theme";
-import { useBootstrap, BootstrapEntity } from "../hooks/useBootstrap";
-import { setBaseUrl } from "../services/api";
+import { useBootstrap } from "../hooks/useBootstrap";
 import { clearPersistedAuth } from "../services/storage";
 import { disconnectNotifications, useNotifications } from "../services/notifications";
 import { useSettings } from "../stores/settings";
 import { resetOnboarding } from "./OnboardingScreen";
-import {
-  getProfile,
-  updateProfile,
-  listPhones,
-  sendPhoneOtp,
-  verifyPhoneOtp,
-  UserProfile,
-  PhoneEntry,
-} from "../services/profile";
+import { getProfile, type UserProfile } from "../services/profile";
+import { APP_VERSION } from "../services/api";
 
-export default function SettingsScreen({ navigation }: { navigation: any }) {
-  const { t, i18n } = useTranslation();
-  const { userDisplayName, baseUrl, entityId, logout } = useAuthStore();
+interface Props {
+  navigation: any;
+}
+
+export default function SettingsScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+  const { userDisplayName, entityId, logout } = useAuthStore();
   const permissionCount = usePermissions((s) => s.permissions.length);
   const { isOnline, queueLength, syncing, lastSyncAt } = useOfflineStore();
   const trackingEnabled = useTrackingStore((s) => s.enabled);
-  const { isDark, mode: themeMode, setMode: setThemeMode } = useThemeStore();
   const { entities } = useBootstrap();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [phones, setPhones] = useState<PhoneEntry[]>([]);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
-  // OTP state
-  const [otpPhoneId, setOtpPhoneId] = useState<string | null>(null);
-  const [otpCode, setOtpCode] = useState("");
-  const [otpSending, setOtpSending] = useState(false);
-  const [otpVerifying, setOtpVerifying] = useState(false);
-
-  // Edit state
-  const [editing, setEditing] = useState(false);
-  const [editFirstName, setEditFirstName] = useState("");
-  const [editLastName, setEditLastName] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const loadProfile = useCallback(async () => {
-    try {
-      const [p, ph] = await Promise.all([getProfile(), listPhones()]);
-      setProfile(p);
-      setPhones(ph);
-      setEditFirstName(p.first_name);
-      setEditLastName(p.last_name);
-      useAuthStore.getState().setUser(p.id, `${p.first_name} ${p.last_name}`);
-    } catch {
-      // Might be offline — show cached info
-    } finally {
-      setLoadingProfile(false);
-    }
+  useEffect(() => {
+    (async () => {
+      try {
+        const p = await getProfile();
+        setProfile(p);
+        useAuthStore.getState().setUser(p.id, `${p.first_name} ${p.last_name}`);
+      } catch {
+        /* offline ok */
+      } finally {
+        setLoadingProfile(false);
+      }
+    })();
   }, []);
 
-  useEffect(() => {
-    loadProfile();
-  }, [loadProfile]);
-
-  // ── Profile Edit ──────────────────────────────────────────────────
-
-  async function handleSaveProfile() {
-    setSaving(true);
-    try {
-      const updated = await updateProfile({
-        first_name: editFirstName,
-        last_name: editLastName,
-      });
-      setProfile(updated);
-      useAuthStore.getState().setUser(updated.id, `${updated.first_name} ${updated.last_name}`);
-      setEditing(false);
-    } catch (err: any) {
-      Alert.alert("Erreur", err?.response?.data?.detail || "Impossible de sauvegarder.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  // ── OTP Flow ──────────────────────────────────────────────────────
-
-  async function handleSendOtp(phoneId: string) {
-    setOtpSending(true);
-    try {
-      await sendPhoneOtp(phoneId);
-      setOtpPhoneId(phoneId);
-      setOtpCode("");
-      Alert.alert("Code envoyé", "Un code de vérification a été envoyé par SMS.");
-    } catch (err: any) {
-      Alert.alert("Erreur", err?.response?.data?.detail || "Impossible d'envoyer le code.");
-    } finally {
-      setOtpSending(false);
-    }
-  }
-
-  async function handleVerifyOtp() {
-    if (!otpPhoneId || !otpCode.trim()) return;
-    setOtpVerifying(true);
-    try {
-      await verifyPhoneOtp(otpPhoneId, otpCode.trim());
-      Alert.alert("Vérifié", "Votre numéro a été vérifié avec succès.");
-      setOtpPhoneId(null);
-      setOtpCode("");
-      loadProfile(); // refresh
-    } catch (err: any) {
-      Alert.alert("Erreur", err?.response?.data?.detail || "Code invalide.");
-    } finally {
-      setOtpVerifying(false);
-    }
-  }
-
-  // ── Logout ────────────────────────────────────────────────────────
-
   function handleLogout() {
-    Alert.alert("Déconnexion", "Voulez-vous vous déconnecter ?", [
-      { text: "Annuler", style: "cancel" },
+    Alert.alert(t("auth.logout", "Déconnexion"), t("auth.logoutConfirm", "Voulez-vous vous déconnecter ?"), [
+      { text: t("common.cancel", "Annuler"), style: "cancel" },
       {
-        text: "Déconnexion",
+        text: t("auth.logout", "Déconnexion"),
         style: "destructive",
         onPress: async () => {
           if (trackingEnabled) stopTracking();
@@ -166,390 +116,299 @@ export default function SettingsScreen({ navigation }: { navigation: any }) {
   async function handleForceSync() {
     const result = await flushQueue();
     Alert.alert(
-      "Synchronisation",
-      `${result.success} envoyée(s), ${result.failed} échouée(s).`
+      t("settings.sync", "Synchronisation"),
+      t("settings.syncResult", "{{success}} envoyée(s), {{failed}} échouée(s).", {
+        success: result.success,
+        failed: result.failed,
+      })
     );
   }
 
   async function handleClearCache() {
     await clearCache();
-    Alert.alert("Cache vidé", "Le cache local a été supprimé.");
+    Alert.alert(
+      t("settings.clearCache", "Vider le cache"),
+      t("settings.cacheCleared", "Le cache local a été supprimé.")
+    );
   }
-
-  // ── Render ────────────────────────────────────────────────────────
 
   if (loadingProfile) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <Box flex={1} bg="$backgroundLight50" alignItems="center" justifyContent="center">
+        <Spinner color="$primary600" />
+      </Box>
     );
   }
 
   const initials = profile
-    ? `${profile.first_name?.[0] ?? ""}${profile.last_name?.[0] ?? ""}`.toUpperCase()
+    ? `${profile.first_name?.[0] ?? ""}${profile.last_name?.[0] ?? ""}`.toUpperCase() || "?"
     : "?";
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Quick navigation */}
-      <Card style={styles.card}>
-        <Card.Content style={{ gap: 0 }}>
-          <List.Item
-            title="Mon profil"
-            description="Coordonnées, téléphones, emails, adresses"
-            left={(props) => <List.Icon {...props} icon="account-circle" color={colors.primary} />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+    <Box flex={1} bg="$backgroundLight50">
+      <ScrollView
+        contentContainerStyle={{
+          paddingTop: insets.top + 12,
+          paddingHorizontal: 14,
+          paddingBottom: insets.bottom + 32,
+          gap: 12,
+        }}
+      >
+        {/* Profile summary */}
+        <Pressable
+          onPress={() => navigation.navigate("MyProfile")}
+          bg="$white"
+          borderRadius="$lg"
+          borderWidth={1}
+          borderColor="$borderLight200"
+          p="$4"
+          $active-bg="$backgroundLight100"
+        >
+          <HStack space="md" alignItems="center">
+            <Avatar size="lg" bgColor="$primary600">
+              <AvatarFallbackText>{initials}</AvatarFallbackText>
+              {profile?.avatar_url && <AvatarImage source={{ uri: profile.avatar_url }} alt="" />}
+            </Avatar>
+            <VStack flex={1}>
+              <Heading size="md" color="$textLight900">
+                {profile ? `${profile.first_name} ${profile.last_name}` : userDisplayName}
+              </Heading>
+              <Text size="sm" color="$textLight500">
+                {profile?.email}
+              </Text>
+              {permissionCount > 0 && (
+                <Text size="2xs" color="$textLight400" mt="$0.5">
+                  {t("settings.permissionsLoaded", "{{count}} permission(s) chargée(s)", {
+                    count: permissionCount,
+                  })}
+                </Text>
+              )}
+            </VStack>
+            <Icon as={ChevronRight} size="md" color="$textLight400" />
+          </HStack>
+        </Pressable>
+
+        {/* Quick navigation */}
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" overflow="hidden">
+          <NavRow
+            icon={UserCircle}
+            iconColor="$primary600"
+            iconBg="$primary50"
+            title={t("settings.myProfile", "Mon profil")}
+            description={t("settings.myProfileDesc", "Coordonnées, téléphones, emails, adresses")}
             onPress={() => navigation.navigate("MyProfile")}
           />
           <Divider />
-          <List.Item
-            title="Mes vérifications"
-            description="Téléphone, email, GPS, pièce d'identité"
-            left={(props) => <List.Icon {...props} icon="shield-account" color={colors.success} />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+          <NavRow
+            icon={ShieldCheck}
+            iconColor="$success600"
+            iconBg="$success50"
+            title={t("settings.verifications", "Mes vérifications")}
+            description={t("settings.verificationsDesc", "Téléphone, email, GPS, pièce d'identité")}
             onPress={() => navigation.navigate("VerificationsHub")}
           />
           <Divider />
-          <List.Item
-            title="Ma conformité"
-            description="Documents, certifications, alertes expiration"
-            left={(props) => <List.Icon {...props} icon="shield-check" color={colors.success} />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+          <NavRow
+            icon={Shield}
+            iconColor="$success600"
+            iconBg="$success50"
+            title={t("settings.compliance", "Ma conformité")}
+            description={t("settings.complianceDesc", "Documents, certifications, alertes expiration")}
             onPress={() => navigation.navigate("MyCompliance")}
           />
           <Divider />
-          <List.Item
-            title="Mes contacts & adresses"
-            description="Téléphones, emails, adresses postales"
-            left={(props) => <List.Icon {...props} icon="card-account-phone" color={colors.info} />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+          <NavRow
+            icon={Bell}
+            iconColor="$info600"
+            iconBg="$info50"
+            title={t("settings.contacts", "Mes contacts & adresses")}
+            description={t("settings.contactsDesc", "Téléphones, emails, adresses postales")}
             onPress={() => navigation.navigate("MyContacts")}
           />
           <Divider />
-          <List.Item
-            title="Préférences"
-            description="Langue, thème, notifications, canal SMS"
-            left={(props) => <List.Icon {...props} icon="cog" color={colors.accent} />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
+          <NavRow
+            icon={SettingsIcon}
+            iconColor="$textLight600"
+            iconBg="$backgroundLight100"
+            title={t("settings.preferences", "Préférences")}
+            description={t("settings.preferencesDesc", "Langue, thème, notifications, canal SMS")}
             onPress={() => navigation.navigate("Preferences")}
           />
-        </Card.Content>
-      </Card>
+        </Box>
 
-      {/* Profile card */}
-      <Card style={styles.card}>
-        <Card.Content style={styles.profileContent}>
-          <Avatar.Text
-            size={72}
-            label={initials}
-            style={{ backgroundColor: colors.primary }}
-          />
-          {!editing ? (
-            <>
-              <Text variant="headlineSmall" style={styles.profileName}>
-                {profile?.first_name} {profile?.last_name}
+        {/* Connection status */}
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+          <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5} mb="$3">
+            {t("settings.connection", "Connexion")}
+          </Heading>
+          <VStack space="sm">
+            <HStack alignItems="center" space="sm">
+              <Icon
+                as={isOnline ? Wifi : WifiOff}
+                size="sm"
+                color={isOnline ? "$success600" : "$warning600"}
+              />
+              <Text size="sm" flex={1} color="$textLight900">
+                {isOnline ? t("common.online", "En ligne") : t("common.offline", "Hors ligne")}
               </Text>
-              <Text variant="bodyMedium" style={styles.profileEmail}>
-                {profile?.email}
-              </Text>
-              <Button
-                mode="outlined"
-                compact
-                onPress={() => setEditing(true)}
-                style={{ marginTop: 12 }}
-              >
-                Modifier le profil
-              </Button>
-            </>
-          ) : (
-            <View style={styles.editForm}>
-              <TextInput
-                mode="outlined"
-                label="Prénom"
-                value={editFirstName}
-                onChangeText={setEditFirstName}
-                style={styles.editInput}
-              />
-              <TextInput
-                mode="outlined"
-                label="Nom"
-                value={editLastName}
-                onChangeText={setEditLastName}
-                style={styles.editInput}
-              />
-              <View style={styles.editActions}>
-                <Button mode="outlined" onPress={() => setEditing(false)}>
-                  Annuler
+            </HStack>
+            {queueLength > 0 && (
+              <HStack alignItems="center" space="sm">
+                <Icon as={CloudUpload} size="sm" color="$info600" />
+                <Text size="sm" flex={1} color="$textLight900">
+                  {t("settings.pendingSync", "{{count}} action(s) en attente de sync", {
+                    count: queueLength,
+                  })}
+                </Text>
+                <Button size="xs" variant="outline" onPress={handleForceSync} isDisabled={syncing}>
+                  {syncing && <Spinner size="small" color="$primary600" mr="$1" />}
+                  <ButtonText>{t("settings.sync", "Sync")}</ButtonText>
                 </Button>
-                <Button
-                  mode="contained"
-                  onPress={handleSaveProfile}
-                  loading={saving}
-                >
-                  Enregistrer
-                </Button>
-              </View>
-            </View>
-          )}
-        </Card.Content>
-      </Card>
-
-      {/* Phone numbers + OTP */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            Téléphones
-          </Text>
-          {phones.length === 0 ? (
-            <Text variant="bodyMedium" style={styles.emptyText}>
-              Aucun numéro enregistré.
-            </Text>
-          ) : (
-            phones.map((phone) => (
-              <View key={phone.id}>
-                <List.Item
-                  title={phone.number}
-                  description={phone.label ?? (phone.is_primary ? "Principal" : "")}
-                  right={() => (
-                    <View style={styles.phoneRight}>
-                      {phone.verified ? (
-                        <Chip compact icon="check" style={styles.verifiedChip}>
-                          Vérifié
-                        </Chip>
-                      ) : (
-                        <Button
-                          mode="outlined"
-                          compact
-                          loading={otpSending}
-                          onPress={() => handleSendOtp(phone.id)}
-                        >
-                          Vérifier
-                        </Button>
-                      )}
-                    </View>
-                  )}
-                />
-                {otpPhoneId === phone.id && (
-                  <View style={styles.otpRow}>
-                    <TextInput
-                      mode="outlined"
-                      label="Code à 6 chiffres"
-                      value={otpCode}
-                      onChangeText={setOtpCode}
-                      keyboardType="number-pad"
-                      maxLength={6}
-                      style={styles.otpInput}
-                    />
-                    <Button
-                      mode="contained"
-                      onPress={handleVerifyOtp}
-                      loading={otpVerifying}
-                      disabled={otpCode.length < 6}
-                    >
-                      OK
-                    </Button>
-                  </View>
-                )}
-              </View>
-            ))
-          )}
-        </Card.Content>
-      </Card>
-
-      {/* Connection / Offline info */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            Connexion
-          </Text>
-          <List.Item
-            title="Serveur"
-            description={baseUrl}
-            left={(props) => <List.Icon {...props} icon="server-network" />}
-          />
-          <List.Item
-            title="Entité"
-            description={entityId ?? "Non définie"}
-            left={(props) => <List.Icon {...props} icon="domain" />}
-          />
-          <List.Item
-            title="Permissions"
-            description={`${permissionCount} permission(s) chargée(s)`}
-            left={(props) => <List.Icon {...props} icon="shield-check" />}
-          />
-          <Divider style={{ marginVertical: 8 }} />
-          <List.Item
-            title="Statut"
-            description={isOnline ? "En ligne" : "Hors ligne"}
-            left={(props) => (
-              <List.Icon
-                {...props}
-                icon={isOnline ? "wifi" : "wifi-off"}
-                color={isOnline ? colors.success : colors.danger}
-              />
+              </HStack>
             )}
-          />
-          {queueLength > 0 && (
-            <List.Item
-              title="File d'attente"
-              description={`${queueLength} action(s) en attente de sync`}
-              left={(props) => <List.Icon {...props} icon="cloud-upload" />}
-              right={() => (
-                <Button
-                  compact
-                  mode="outlined"
-                  onPress={handleForceSync}
-                  loading={syncing}
-                >
-                  Sync
-                </Button>
-              )}
-            />
-          )}
-          {lastSyncAt && (
-            <Text variant="bodySmall" style={styles.lastSync}>
-              Dernière sync: {new Date(lastSyncAt).toLocaleString("fr-FR")}
-            </Text>
-          )}
-        </Card.Content>
-      </Card>
+            {lastSyncAt && (
+              <Text size="xs" color="$textLight400">
+                {t("settings.lastSync", "Dernière sync :")} {new Date(lastSyncAt).toLocaleString("fr-FR")}
+              </Text>
+            )}
+          </VStack>
+        </Box>
 
-      {/* App info */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            Application
-          </Text>
-          <List.Item title="Version" description="1.0.0" />
-          <List.Item title="Plateforme" description="React Native / Expo" />
-          <Button
-            mode="text"
-            compact
-            onPress={handleClearCache}
-            textColor={colors.textSecondary}
-          >
-            Vider le cache local
-          </Button>
-          <Button
-            mode="text"
-            compact
+        {/* Entity switcher */}
+        {entities.length > 1 && (
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+            <HStack space="sm" alignItems="center" mb="$3">
+              <Icon as={Users} size="sm" color="$textLight600" />
+              <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5}>
+                {t("settings.entity", "Entité")}
+              </Heading>
+            </HStack>
+            <VStack space="xs">
+              {entities.map((ent) => {
+                const isActive = ent.id === entityId;
+                return (
+                  <Pressable
+                    key={ent.id}
+                    onPress={() => {
+                      useAuthStore.getState().setEntity(ent.id);
+                      usePermissions.getState().fetchPermissions();
+                    }}
+                    bg={isActive ? "$primary50" : "transparent"}
+                    borderRadius="$md"
+                    p="$2.5"
+                  >
+                    <HStack space="sm" alignItems="center">
+                      <Icon
+                        as={isActive ? CircleCheck : CircleDot}
+                        size="sm"
+                        color={isActive ? "$primary600" : "$textLight300"}
+                      />
+                      <VStack flex={1}>
+                        <Text size="sm" fontWeight={isActive ? "$bold" : "$medium"} color="$textLight900">
+                          {ent.name}
+                        </Text>
+                        {ent.code && (
+                          <Text size="xs" color="$textLight500">
+                            {ent.code}
+                          </Text>
+                        )}
+                      </VStack>
+                    </HStack>
+                  </Pressable>
+                );
+              })}
+            </VStack>
+          </Box>
+        )}
+
+        {/* App info */}
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+          <HStack space="sm" alignItems="center" mb="$3">
+            <Icon as={Info} size="sm" color="$textLight600" />
+            <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5}>
+              {t("settings.application", "Application")}
+            </Heading>
+          </HStack>
+          <HStack justifyContent="space-between" mb="$2">
+            <Text size="sm" color="$textLight500">
+              {t("settings.version", "Version")}
+            </Text>
+            <Text size="sm" color="$textLight900" fontWeight="$medium">
+              {APP_VERSION}
+            </Text>
+          </HStack>
+          <Divider my="$2" />
+          <Pressable onPress={handleClearCache} py="$2">
+            <HStack space="sm" alignItems="center">
+              <Icon as={Trash2} size="sm" color="$textLight500" />
+              <Text size="sm" color="$textLight700" flex={1}>
+                {t("settings.clearCache", "Vider le cache local")}
+              </Text>
+            </HStack>
+          </Pressable>
+          <Divider my="$2" />
+          <Pressable
             onPress={async () => {
               await resetOnboarding();
-              Alert.alert("Tutoriel", "Le tutoriel sera affiché au prochain lancement.");
+              Alert.alert(
+                t("settings.tutorial", "Tutoriel"),
+                t("settings.tutorialReset", "Le tutoriel sera affiché au prochain lancement.")
+              );
             }}
-            textColor={colors.textSecondary}
+            py="$2"
           >
-            Revoir le tutoriel
-          </Button>
-        </Card.Content>
-      </Card>
+            <HStack space="sm" alignItems="center">
+              <Icon as={HelpCircle} size="sm" color="$textLight500" />
+              <Text size="sm" color="$textLight700" flex={1}>
+                {t("settings.replayTutorial", "Revoir le tutoriel")}
+              </Text>
+            </HStack>
+          </Pressable>
+        </Box>
 
-      {/* Entity switch */}
-      {entities.length > 1 && (
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleSmall" style={styles.sectionTitle}>
-              {t("settings.switchEntity")}
-            </Text>
-            {entities.map((ent) => (
-              <List.Item
-                key={ent.id}
-                title={ent.name}
-                description={ent.code ?? undefined}
-                left={(props) => (
-                  <List.Icon
-                    {...props}
-                    icon={ent.id === entityId ? "check-circle" : "circle-outline"}
-                    color={ent.id === entityId ? colors.primary : colors.textMuted}
-                  />
-                )}
-                onPress={() => {
-                  useAuthStore.getState().setEntity(ent.id);
-                  // Refetch permissions for new entity
-                  usePermissions.getState().fetchPermissions();
-                }}
-              />
-            ))}
-          </Card.Content>
-        </Card>
-      )}
-
-      {/* Preferences */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            Préférences
-          </Text>
-          <List.Item
-            title={t("settings.darkMode")}
-            left={(props) => <List.Icon {...props} icon="brightness-6" />}
-            right={() => (
-              <Switch
-                value={isDark}
-                onValueChange={(v) => setThemeMode(v ? "dark" : "light")}
-                color={colors.primary}
-              />
-            )}
-          />
-          <List.Item
-            title={t("settings.language")}
-            description={AVAILABLE_LANGUAGES.find((l) => l.code === i18n.language)?.label ?? i18n.language}
-            left={(props) => <List.Icon {...props} icon="translate" />}
-            onPress={() => {
-              const codes = AVAILABLE_LANGUAGES.map((l) => l.code);
-              const idx = codes.indexOf(i18n.language);
-              const next = codes[(idx + 1) % codes.length];
-              i18n.changeLanguage(next);
-            }}
-          />
-        </Card.Content>
-      </Card>
-
-      {/* Logout */}
-      <Button
-        mode="contained"
-        buttonColor={colors.danger}
-        onPress={handleLogout}
-        style={styles.logoutButton}
-      >
-        {t("auth.logout")}
-      </Button>
-
-      <View style={{ height: 32 }} />
-    </ScrollView>
+        {/* Logout */}
+        <Button size="lg" action="negative" onPress={handleLogout}>
+          <Icon as={LogOut} color="$white" size="md" mr="$2" />
+          <ButtonText>{t("auth.logout", "Se déconnecter")}</ButtonText>
+        </Button>
+      </ScrollView>
+    </Box>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 14, gap: 12 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  card: { borderRadius: 12 },
-  profileContent: { alignItems: "center", paddingVertical: 20 },
-  profileName: { fontWeight: "700", color: colors.textPrimary, marginTop: 12 },
-  profileEmail: { color: colors.textSecondary, marginTop: 2 },
-  editForm: { width: "100%", marginTop: 16, gap: 10 },
-  editInput: { backgroundColor: colors.surface },
-  editActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8 },
-  sectionTitle: {
-    fontWeight: "700",
-    color: colors.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  emptyText: { color: colors.textMuted },
-  phoneRight: { justifyContent: "center" },
-  verifiedChip: { backgroundColor: colors.success + "20" },
-  otpRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
-  otpInput: { flex: 1, backgroundColor: colors.surface },
-  lastSync: { color: colors.textMuted, paddingHorizontal: 16, marginTop: 4 },
-  logoutButton: { marginTop: 8, borderRadius: 12 },
-});
+function NavRow({
+  icon,
+  iconColor,
+  iconBg,
+  title,
+  description,
+  onPress,
+}: {
+  icon: LucideIcon;
+  iconColor: string;
+  iconBg: string;
+  title: string;
+  description?: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} px="$4" py="$3" $active-bg="$backgroundLight100">
+      <HStack space="md" alignItems="center">
+        <Box bg={iconBg} borderRadius="$md" p="$2">
+          <Icon as={icon} size="sm" color={iconColor} />
+        </Box>
+        <VStack flex={1}>
+          <Text size="md" fontWeight="$medium" color="$textLight900">
+            {title}
+          </Text>
+          {description && (
+            <Text size="xs" color="$textLight500">
+              {description}
+            </Text>
+          )}
+        </VStack>
+        <Icon as={ChevronRight} size="sm" color="$textLight400" />
+      </HStack>
+    </Pressable>
+  );
+}

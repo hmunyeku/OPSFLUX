@@ -92,6 +92,12 @@ const config: ExpoConfig = {
       "USE_BIOMETRIC",
       "USE_FINGERPRINT",
     ],
+    // Permissions héritées transitivement qu'on ne veut pas shipper :
+    // SYSTEM_ALERT_WINDOW n'est utilisée par aucune de nos libs
+    // release — seul le manifest debug de React Native la déclare
+    // pour le menu dev overlay. Play Console refuse les apps qui
+    // demandent cette permission sans justification explicite.
+    blockedPermissions: ["android.permission.SYSTEM_ALERT_WINDOW"],
   },
   plugins: [
     [
@@ -138,6 +144,10 @@ const config: ExpoConfig = {
     // interdit le cleartext (défense en profondeur avec
     // usesCleartextTraffic: false plus haut).
     "./plugins/withNetworkSecurityConfig",
+    // Scope READ/WRITE_EXTERNAL_STORAGE à android:maxSdkVersion=32
+    // pour éviter les warnings Play Console sur API 33+ où ces
+    // permissions sont obsolètes (scoped storage / Photo Picker).
+    "./plugins/withPermissionHardening",
   ],
   extra: {
     eas: {

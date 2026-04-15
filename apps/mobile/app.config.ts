@@ -62,6 +62,19 @@ const config: ExpoConfig = {
       : IS_PREVIEW
       ? "com.opsflux.mobile.preview"
       : "com.opsflux.mobile.dev",
+    // FCM config — required for push notifications (even when using the
+    // Expo push service, which proxies to FCM under the hood). Without
+    // this the `com.google.gms.google-services` Gradle plugin is never
+    // applied and the APK ships with an empty resources.arsc (no
+    // `google_app_id`, `gcm_defaultSenderId`, etc.), breaking every
+    // push delivery on Android.
+    //
+    // The env-var override lets EAS inject the file from a secret of
+    // type "file" (see `eas env:create --name GOOGLE_SERVICES_JSON`).
+    // Local dev falls back to the gitignored file sitting alongside
+    // app.config.ts.
+    googleServicesFile:
+      process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
     permissions: [
       "CAMERA",
       "ACCESS_FINE_LOCATION",

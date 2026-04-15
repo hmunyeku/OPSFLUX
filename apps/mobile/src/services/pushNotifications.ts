@@ -10,6 +10,7 @@
 
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { api } from "./api";
 
@@ -57,10 +58,25 @@ export async function registerForPushNotifications(): Promise<string | null> {
     });
   }
 
-  // Get push token
-  const tokenData = await Notifications.getExpoPushTokenAsync({
-    projectId: "opsflux-mobile",
-  });
+  // Get push token.
+  //
+  // `getExpoPushTokenAsync` expects the EAS project UUID, NOT the app
+  // slug. Passing the slug silently fails on preview/production builds
+  // (Expo Go used to hide this bug because it has its own credentials).
+  // We source the UUID from the runtime Expo config — same value we
+  // export under `extra.eas.projectId` in app.config.ts.
+  const projectId =
+    (Constants.expoConfig?.extra as { eas?: { projectId?: string } })?.eas
+      ?.projectId ?? (Constants as any).easConfig?.projectId;
+  if (!projectId) {
+    if (__DEV__) {
+      console.warn(
+        "[pushNotifications] EAS projectId unavailable — skipping token"
+      );
+    }
+    return null;
+  }
+  const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
   const pushToken = tokenData.data;
 
   // Register with server

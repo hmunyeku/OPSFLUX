@@ -7,8 +7,8 @@
  */
 
 import React, { useRef, useState } from "react";
-import { LayoutChangeEvent, PanResponder, StyleSheet, View } from "react-native";
-import { Button, HelperText, Text } from "react-native-paper";
+import { LayoutChangeEvent, PanResponder, Pressable, StyleSheet, View } from "react-native";
+import { Text } from "@gluestack-ui/themed";
 import Svg, { Path } from "react-native-svg";
 import type { FieldDefinition } from "../../types/forms";
 import { colors } from "../../utils/colors";
@@ -103,21 +103,18 @@ export default function FieldSignature({ field, value, error, required, onChange
   const hasSigned = paths.length > 0 || currentPath.length > 0;
 
   return (
-    <View>
+    <View style={{ marginBottom: 16 }}>
       <View style={styles.labelRow}>
-        <Text variant="bodySmall" style={styles.label}>
-          {field.label}{required ? " *" : ""}
+        <Text size="xs" fontWeight="$medium" color="$textLight600">
+          {field.label}
+          {required ? <Text color="$error600"> *</Text> : null}
         </Text>
         {hasSigned && (
-          <Button
-            mode="text"
-            compact
-            onPress={clear}
-            textColor={colors.danger}
-            style={styles.clearButton}
-          >
-            Effacer
-          </Button>
+          <Pressable onPress={clear} hitSlop={8}>
+            <Text size="xs" color="$error600" fontWeight="$medium">
+              Effacer
+            </Text>
+          </Pressable>
         )}
       </View>
 
@@ -159,7 +156,7 @@ export default function FieldSignature({ field, value, error, required, onChange
 
         {!hasSigned && (
           <View style={styles.placeholder} pointerEvents="none">
-            <Text variant="bodyMedium" style={styles.placeholderText}>
+            <Text size="sm" color="$textLight400" italic>
               Signez ici
             </Text>
           </View>
@@ -167,9 +164,14 @@ export default function FieldSignature({ field, value, error, required, onChange
       </View>
 
       {(error || field.help_text) && (
-        <HelperText type={error ? "error" : "info"} visible>
+        <Text
+          size="2xs"
+          color={error ? "$error600" : "$textLight500"}
+          mt="$1"
+          ml="$0.5"
+        >
           {error || field.help_text}
-        </HelperText>
+        </Text>
       )}
     </View>
   );

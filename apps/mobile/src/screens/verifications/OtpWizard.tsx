@@ -75,7 +75,16 @@ export default function OtpWizard(props: OtpWizardProps) {
       setPhase("waiting");
     } catch (err: any) {
       setPhase("ready");
-      const detail = err?.response?.data?.detail ?? t("verif.startError", "Impossible d'envoyer le code.");
+      // Backend can return detail as string OR structured object
+      // (e.g. {code:"OTP_COOLDOWN", message:"...", retry_after:8}).
+      // Alert.alert() needs a string — coerce robustly.
+      const raw = err?.response?.data?.detail;
+      const detail =
+        typeof raw === "string"
+          ? raw
+          : raw && typeof raw === "object"
+          ? raw.message ?? JSON.stringify(raw)
+          : t("verif.startError", "Impossible d'envoyer le code.");
       Alert.alert(t("common.error", "Erreur"), detail);
     }
   }
@@ -90,7 +99,13 @@ export default function OtpWizard(props: OtpWizardProps) {
     } catch (err: any) {
       setPhase("waiting");
       setOtp("");
-      const detail = err?.response?.data?.detail ?? t("verif.confirmError", "Code invalide.");
+      const raw = err?.response?.data?.detail;
+      const detail =
+        typeof raw === "string"
+          ? raw
+          : raw && typeof raw === "object"
+          ? raw.message ?? JSON.stringify(raw)
+          : t("verif.confirmError", "Code invalide.");
       Alert.alert(t("common.error", "Erreur"), detail);
     }
   }

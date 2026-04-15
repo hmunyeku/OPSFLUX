@@ -1,5 +1,10 @@
+/**
+ * FieldNumber — integer / decimal input via Gluestack shell.
+ */
+
 import React from "react";
-import { TextInput, HelperText } from "react-native-paper";
+import { StyleSheet, TextInput } from "react-native";
+import FieldShell from "./FieldShell";
 import type { FieldDefinition } from "../../types/forms";
 import { colors } from "../../utils/colors";
 
@@ -14,13 +19,17 @@ interface Props {
 
 export default function FieldNumber({ field, value, error, required, onChange }: Props) {
   const displayValue = value !== null && value !== undefined ? String(value) : "";
-
   return (
-    <>
+    <FieldShell
+      label={field.label}
+      required={required}
+      error={error}
+      helpText={field.help_text}
+    >
       <TextInput
-        mode="outlined"
-        label={field.label + (required ? " *" : "")}
+        style={styles.input}
         placeholder={field.placeholder}
+        placeholderTextColor={colors.textMuted}
         value={displayValue}
         onChangeText={(text) => {
           if (text === "") {
@@ -30,17 +39,17 @@ export default function FieldNumber({ field, value, error, required, onChange }:
           const num = field.type === "integer" ? parseInt(text, 10) : parseFloat(text);
           if (!isNaN(num)) onChange(num);
         }}
-        error={!!error}
         keyboardType={field.type === "integer" ? "number-pad" : "decimal-pad"}
-        outlineColor={colors.border}
-        activeOutlineColor={colors.primary}
-        style={{ backgroundColor: colors.surface }}
       />
-      {(error || field.help_text) && (
-        <HelperText type={error ? "error" : "info"} visible>
-          {error || field.help_text}
-        </HelperText>
-      )}
-    </>
+    </FieldShell>
   );
 }
+
+const styles = StyleSheet.create({
+  input: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.textPrimary,
+  },
+});

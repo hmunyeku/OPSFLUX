@@ -1,25 +1,31 @@
 /**
- * Lookup field — searches server entities, supports offline cache fallback.
+ * FieldLookup — server-side autocomplete picker via Gluestack modal.
  *
- * When the field has a pre-existing value (UUID), we resolve the label
- * by fetching /<endpoint>/<value> to show the name instead of the UUID.
- * Search is debounced 300ms to avoid hammering the server.
+ * Rewritten off react-native-paper (which produced the "trop arrondi"
+ * dialog + invisible list text bugs on mobile). Now a proper bottom
+ * sheet with rounded-top-only corners, clearly-readable labels, and
+ * inline search bar.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { FlatList, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
+  FlatList,
+  Modal,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  View,
+} from "react-native";
+import {
   Button,
-  Dialog,
-  Divider,
-  HelperText,
-  List,
-  Portal,
-  Searchbar,
+  ButtonText,
+  Heading,
+  HStack,
   Text,
-  TouchableRipple,
-} from "react-native-paper";
+} from "@gluestack-ui/themed";
+import { MIcon } from "../MIcon";
+import FieldShell from "./FieldShell";
 import { api } from "../../services/api";
 import { fetchWithOfflineFallback } from "../../services/offline";
 import { getCachedLookup } from "../../services/lookupCache";
@@ -40,7 +46,13 @@ interface LookupItem {
   [key: string]: unknown;
 }
 
-export default function FieldLookup({ field, value, error, required, onChange }: Props) {
+export default function FieldLookup({
+  field,
+  value,
+  error,
+  required,
+  onChange,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [items, setItems] = useState<LookupItem[]>([]);
@@ -51,21 +63,16 @@ export default function FieldLookup({ field, value, error, required, onChange }:
 
   const source = field.lookup_source;
 
-  // Resolve label for existing value by calling GET /<endpoint>/<id>
   useEffect(() => {
     if (!source || !value) {
       setSelectedLabel("");
       return;
     }
-
-    // First check if we already have it in the loaded items
     const found = items.find((i) => String(i[source.value]) === String(value));
     if (found) {
       setSelectedLabel(String(found[source.display] ?? ""));
       return;
     }
-
-    // Then check the offline cache
     (async () => {
       try {
         const cached = await getCachedLookup(source.endpoint);
@@ -79,18 +86,13 @@ export default function FieldLookup({ field, value, error, required, onChange }:
           }
         }
       } catch {}
-
-      // Fallback: fetch the specific item via GET /<endpoint>/<value>
       setResolvingLabel(true);
       try {
         const { data } = await api.get(`${source.endpoint}/${value}`);
-        const label = data?.[source.display] ?? data?.name ?? data?.display_name;
-        if (label) {
-          setSelectedLabel(String(label));
-        } else {
-          // Last resort — show the UUID truncated
-          setSelectedLabel(String(value).slice(0, 8) + "…");
-        }
+        const label =
+          data?.[source.display] ?? data?.name ?? data?.display_name;
+        if (label) setSelectedLabel(String(label));
+        else setSelectedLabel(String(value).slice(0, 8) + "…");
       } catch {
         setSelectedLabel(String(value).slice(0, 8) + "…");
       } finally {
@@ -111,10 +113,12 @@ export default function FieldLookup({ field, value, error, required, onChange }:
         if (query && source.search_param) {
           params[source.search_param] = query;
         }
-
         let list: LookupItem[];
         try {
-          const result = await fetchWithOfflineFallback<any>(source.endpoint, params);
+          const result = await fetchWithOfflineFallback<any>(
+            source.endpoint,
+            params
+          );
           const data = result.data;
           list = Array.isArray(data) ? data : data?.items ?? [];
         } catch {
@@ -124,7 +128,9 @@ export default function FieldLookup({ field, value, error, required, onChange }:
             if (query && source.display) {
               const q = query.toLowerCase();
               list = list.filter((item) =>
-                String(item[source.display] ?? "").toLowerCase().includes(q)
+                String(item[source.display] ?? "")
+                  .toLowerCase()
+                  .includes(q)
               );
             }
           } else {
@@ -139,7 +145,6 @@ export default function FieldLookup({ field, value, error, required, onChange }:
     [source]
   );
 
-  // Debounced search
   useEffect(() => {
     if (!open) return;
     if (searchDebounce.current) clearTimeout(searchDebounce.current);
@@ -151,67 +156,89 @@ export default function FieldLookup({ field, value, error, required, onChange }:
     };
   }, [search, open]);
 
-  // Initial load when dialog opens
   useEffect(() => {
     if (open) doSearch("");
   }, [open]);
 
   if (!source) {
     return (
-      <View style={styles.triggerInner}>
-        <Text variant="bodySmall" style={styles.triggerLabel}>
-          {field.label}
-        </Text>
-        <Text variant="bodyMedium" style={{ color: colors.danger }}>
-          Configuration manquante
-        </Text>
-      </View>
+      <FieldShell label={field.label} required={required} error="Configuration manquante" bare>
+        <View style={styles.trigger} />
+      </FieldShell>
     );
   }
 
   return (
-    <>
-      <TouchableRipple onPress={() => setOpen(true)} style={styles.trigger}>
-        <View style={[styles.triggerInner, error ? styles.triggerError : null]}>
-          <Text variant="bodySmall" style={styles.triggerLabel}>
-            {field.label}{required ? " *" : ""}
+    <FieldShell
+      label={field.label}
+      required={required}
+      error={error}
+      helpText={field.help_text}
+      bare
+    >
+      <Pressable
+        style={[styles.trigger, error ? styles.triggerError : null]}
+        onPress={() => setOpen(true)}
+      >
+        {resolvingLabel ? (
+          <>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text size="md" color="$textLight500" ml="$2" flex={1}>
+              Chargement…
+            </Text>
+          </>
+        ) : (
+          <Text
+            size="md"
+            color={value && selectedLabel ? "$textLight900" : "$textLight400"}
+            numberOfLines={1}
+            flex={1}
+          >
+            {value && selectedLabel
+              ? selectedLabel
+              : field.placeholder ?? "Sélectionner…"}
           </Text>
-          {resolvingLabel ? (
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <Text variant="bodyLarge" style={[styles.triggerValue, { marginLeft: 8 }]}>
-                Chargement…
-              </Text>
+        )}
+        <MIcon name="search" size="sm" color="$textLight500" />
+      </Pressable>
+
+      <Modal
+        visible={open}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setOpen(false)}
+      >
+        <View style={styles.modalRoot}>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setOpen(false)}
+          />
+          <View style={styles.modalSheet}>
+            <HStack alignItems="center" justifyContent="space-between" mb="$3">
+              <Heading size="sm">{field.label}</Heading>
+              <Pressable onPress={() => setOpen(false)} hitSlop={8}>
+                <MIcon name="close" size="md" color="$textLight600" />
+              </Pressable>
+            </HStack>
+
+            <View style={styles.searchBox}>
+              <MIcon name="search" size="sm" color="$textLight500" />
+              <TextInput
+                placeholder="Rechercher…"
+                placeholderTextColor={colors.textMuted}
+                value={search}
+                onChangeText={setSearch}
+                style={styles.searchInput}
+                autoFocus
+                autoCorrect={false}
+              />
+              {search.length > 0 && (
+                <Pressable onPress={() => setSearch("")} hitSlop={8}>
+                  <MIcon name="close" size="xs" color="$textLight500" />
+                </Pressable>
+              )}
             </View>
-          ) : value && selectedLabel ? (
-            <Text variant="bodyLarge" style={styles.triggerValue} numberOfLines={1}>
-              {selectedLabel}
-            </Text>
-          ) : (
-            <Text variant="bodyLarge" style={styles.triggerPlaceholder}>
-              {field.placeholder ?? "Sélectionner…"}
-            </Text>
-          )}
-        </View>
-      </TouchableRipple>
 
-      {(error || field.help_text) && (
-        <HelperText type={error ? "error" : "info"} visible>
-          {error || field.help_text}
-        </HelperText>
-      )}
-
-      <Portal>
-        <Dialog visible={open} onDismiss={() => setOpen(false)} style={styles.dialog}>
-          <Dialog.Title>{field.label}</Dialog.Title>
-          <Dialog.Content style={styles.content}>
-            <Searchbar
-              placeholder="Rechercher…"
-              value={search}
-              onChangeText={setSearch}
-              style={styles.searchbar}
-              autoFocus
-            />
             {loading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color={colors.primary} />
@@ -219,78 +246,168 @@ export default function FieldLookup({ field, value, error, required, onChange }:
             ) : (
               <FlatList
                 data={items}
-                keyExtractor={(item) => String(item[source.value] ?? item.id)}
+                keyExtractor={(item) =>
+                  String(item[source.value] ?? item.id)
+                }
                 style={styles.list}
-                ItemSeparatorComponent={Divider}
                 keyboardShouldPersistTaps="handled"
-                renderItem={({ item }) => (
-                  <List.Item
-                    title={String(item[source.display] ?? "")}
-                    description={item.code ? String(item.code) : undefined}
-                    onPress={() => {
-                      const itemId = String(item[source.value] ?? item.id);
-                      const label = String(item[source.display] ?? "");
-                      onChange(itemId);
-                      setSelectedLabel(label);
-                      setOpen(false);
-                      setSearch("");
-                    }}
-                    left={(props) =>
-                      String(item[source.value] ?? item.id) === String(value) ? (
-                        <List.Icon {...props} icon="check" color={colors.primary} />
-                      ) : null
-                    }
-                  />
-                )}
+                renderItem={({ item }) => {
+                  const itemId = String(item[source.value] ?? item.id);
+                  const label = String(item[source.display] ?? "");
+                  const secondary =
+                    item.code ? String(item.code) : undefined;
+                  const isSelected = itemId === String(value);
+                  return (
+                    <Pressable
+                      style={[
+                        styles.option,
+                        isSelected ? styles.optionSelected : null,
+                      ]}
+                      onPress={() => {
+                        onChange(itemId);
+                        setSelectedLabel(label);
+                        setOpen(false);
+                        setSearch("");
+                      }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          size="md"
+                          color={isSelected ? "$primary700" : "$textLight900"}
+                          fontWeight={isSelected ? "$semibold" : "$normal"}
+                          numberOfLines={1}
+                        >
+                          {label || "(sans nom)"}
+                        </Text>
+                        {secondary && (
+                          <Text size="xs" color="$textLight500" mt="$0.5">
+                            {secondary}
+                          </Text>
+                        )}
+                      </View>
+                      {isSelected && (
+                        <MIcon name="check" size="sm" color="$primary700" />
+                      )}
+                    </Pressable>
+                  );
+                }}
                 ListEmptyComponent={
-                  <Text style={styles.empty}>
-                    {search ? `Aucun résultat pour "${search}"` : "Aucune donnée"}
-                  </Text>
+                  <View style={styles.emptyContainer}>
+                    <MIcon
+                      name="search-off"
+                      size="xl"
+                      color="$textLight300"
+                    />
+                    <Text size="sm" color="$textLight500" mt="$2">
+                      {search
+                        ? `Aucun résultat pour "${search}"`
+                        : "Aucune donnée"}
+                    </Text>
+                  </View>
                 }
               />
             )}
-          </Dialog.Content>
-          <Dialog.Actions>
-            {Boolean(value) && (
+
+            <HStack space="sm" mt="$3">
+              {Boolean(value) && (
+                <Button
+                  variant="outline"
+                  action="negative"
+                  flex={1}
+                  onPress={() => {
+                    onChange(null);
+                    setSelectedLabel("");
+                    setOpen(false);
+                  }}
+                >
+                  <ButtonText>Effacer</ButtonText>
+                </Button>
+              )}
               <Button
-                onPress={() => {
-                  onChange(null);
-                  setSelectedLabel("");
-                  setOpen(false);
-                }}
-                textColor={colors.danger}
+                variant="outline"
+                action="secondary"
+                flex={1}
+                onPress={() => setOpen(false)}
               >
-                Effacer
+                <ButtonText>Fermer</ButtonText>
               </Button>
-            )}
-            <Button onPress={() => setOpen(false)}>Fermer</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-    </>
+            </HStack>
+          </View>
+        </View>
+      </Modal>
+    </FieldShell>
   );
 }
 
 const styles = StyleSheet.create({
-  trigger: { borderRadius: 4 },
-  triggerInner: {
+  trigger: {
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 4,
+    borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     backgroundColor: colors.surface,
-    minHeight: 56,
-    justifyContent: "center",
+    minHeight: 44,
   },
-  triggerError: { borderColor: colors.danger },
-  triggerLabel: { color: colors.textSecondary, marginBottom: 2 },
-  triggerValue: { color: colors.textPrimary },
-  triggerPlaceholder: { color: colors.textMuted },
-  dialog: { maxHeight: "85%" },
-  content: { paddingHorizontal: 0 },
-  searchbar: { marginHorizontal: 16, marginBottom: 8, elevation: 0 },
-  list: { maxHeight: 380 },
-  loadingContainer: { padding: 24, alignItems: "center" },
-  empty: { textAlign: "center", padding: 24, color: colors.textMuted },
+  triggerError: {
+    borderColor: colors.danger,
+  },
+  modalRoot: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  modalSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 36,
+    maxHeight: "85%",
+  },
+  searchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 44,
+    marginBottom: 8,
+    backgroundColor: colors.surfaceAlt,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: colors.textPrimary,
+    paddingVertical: 0,
+  },
+  list: {
+    maxHeight: 400,
+  },
+  option: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 2,
+  },
+  optionSelected: {
+    backgroundColor: "#eff6ff",
+  },
+  loadingContainer: {
+    padding: 32,
+    alignItems: "center",
+  },
+  emptyContainer: {
+    padding: 48,
+    alignItems: "center",
+  },
 });

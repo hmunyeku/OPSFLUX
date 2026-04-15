@@ -1,9 +1,24 @@
+/**
+ * FieldDate / FieldDateTime — date picker trigger via Gluestack shell.
+ *
+ * Rewritten off react-native-paper. Uses the native DateTimePicker
+ * modal on Android (default spinner picker) and a Gluestack bottom-
+ * sheet-style modal on iOS with an Apple-native spinner inside.
+ */
+
 import React, { useState } from "react";
-import { Platform, StyleSheet, View } from "react-native";
-import { Button, Dialog, HelperText, Portal, Text, TouchableRipple } from "react-native-paper";
+import {
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { Button, ButtonText, Text } from "@gluestack-ui/themed";
+import FieldShell from "./FieldShell";
 import type { FieldDefinition } from "../../types/forms";
 import { colors } from "../../utils/colors";
 
@@ -18,98 +33,145 @@ interface Props {
 
 export default function FieldDate({ field, value, error, required, onChange }: Props) {
   const [showPicker, setShowPicker] = useState(false);
+  const [temporaryValue, setTemporaryValue] = useState<Date | null>(null);
   const isDatetime = field.type === "datetime";
-  const dateValue = value ? new Date(value as string) : new Date();
   const hasValue = !!value;
-
+  const dateValue = value ? new Date(value as string) : new Date();
   const displayText = hasValue
-    ? format(dateValue, isDatetime ? "dd MMM yyyy HH:mm" : "dd MMM yyyy", { locale: fr })
+    ? format(dateValue, isDatetime ? "dd MMM yyyy HH:mm" : "dd MMM yyyy", {
+        locale: fr,
+      })
     : field.placeholder ?? "Sélectionner une date...";
 
-  function handleChange(_event: unknown, selectedDate?: Date) {
-    if (Platform.OS === "android") setShowPicker(false);
-    if (selectedDate) {
-      const formatted = isDatetime
-        ? selectedDate.toISOString()
-        : selectedDate.toISOString().split("T")[0];
-      onChange(formatted);
-    }
+  function emit(d: Date) {
+    onChange(isDatetime ? d.toISOString() : d.toISOString().split("T")[0]);
+  }
+
+  function handleAndroid(_event: unknown, selectedDate?: Date) {
+    setShowPicker(false);
+    if (selectedDate) emit(selectedDate);
   }
 
   return (
-    <>
-      <TouchableRipple onPress={() => setShowPicker(true)} style={styles.trigger}>
-        <View style={[styles.triggerInner, error ? styles.triggerError : null]}>
-          <Text variant="bodySmall" style={styles.triggerLabel}>
-            {field.label}{required ? " *" : ""}
-          </Text>
-          <Text variant="bodyLarge" style={hasValue ? styles.triggerValue : styles.triggerPlaceholder}>
-            {displayText}
-          </Text>
-        </View>
-      </TouchableRipple>
+    <FieldShell
+      label={field.label}
+      required={required}
+      error={error}
+      helpText={field.help_text}
+      bare
+    >
+      <Pressable
+        style={[
+          styles.trigger,
+          error ? styles.triggerError : null,
+        ]}
+        onPress={() => {
+          setTemporaryValue(dateValue);
+          setShowPicker(true);
+        }}
+      >
+        <Text
+          size="md"
+          color={hasValue ? "$textLight900" : "$textLight400"}
+        >
+          {displayText}
+        </Text>
+      </Pressable>
 
-      {(error || field.help_text) && (
-        <HelperText type={error ? "error" : "info"} visible>
-          {error || field.help_text}
-        </HelperText>
-      )}
-
+      {/* Android — inline picker that closes on confirm */}
       {showPicker && Platform.OS === "android" && (
         <DateTimePicker
           value={dateValue}
           mode={isDatetime ? "datetime" : "date"}
           display="default"
-          onChange={handleChange}
+          onChange={handleAndroid}
         />
       )}
 
+      {/* iOS — bottom-sheet-style modal with native spinner */}
       {Platform.OS === "ios" && (
-        <Portal>
-          <Dialog visible={showPicker} onDismiss={() => setShowPicker(false)}>
-            <Dialog.Title>{field.label}</Dialog.Title>
-            <Dialog.Content>
+        <Modal
+          visible={showPicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowPicker(false)}
+        >
+          <View style={styles.modalRoot}>
+            <Pressable
+              style={styles.modalBackdrop}
+              onPress={() => setShowPicker(false)}
+            />
+            <View style={styles.modalSheet}>
+              <Text size="md" fontWeight="$semibold" mb="$2">
+                {field.label}
+              </Text>
               <DateTimePicker
-                value={dateValue}
+                value={temporaryValue ?? dateValue}
                 mode={isDatetime ? "datetime" : "date"}
                 display="spinner"
-                onChange={handleChange}
                 locale="fr"
+                onChange={(_e, d) => d && setTemporaryValue(d)}
               />
-            </Dialog.Content>
-            <Dialog.Actions>
-              <Button onPress={() => setShowPicker(false)}>OK</Button>
-            </Dialog.Actions>
-          </Dialog>
-        </Portal>
+              <View style={styles.modalActions}>
+                <Button
+                  variant="outline"
+                  action="secondary"
+                  flex={1}
+                  onPress={() => setShowPicker(false)}
+                >
+                  <ButtonText>Annuler</ButtonText>
+                </Button>
+                <Button
+                  action="primary"
+                  flex={1}
+                  onPress={() => {
+                    if (temporaryValue) emit(temporaryValue);
+                    setShowPicker(false);
+                  }}
+                >
+                  <ButtonText>Valider</ButtonText>
+                </Button>
+              </View>
+            </View>
+          </View>
+        </Modal>
       )}
-    </>
+    </FieldShell>
   );
 }
 
 const styles = StyleSheet.create({
   trigger: {
-    borderRadius: 4,
-  },
-  triggerInner: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 4,
+    borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     backgroundColor: colors.surface,
+    minHeight: 44,
+    justifyContent: "center",
   },
   triggerError: {
     borderColor: colors.danger,
   },
-  triggerLabel: {
-    color: colors.textSecondary,
-    marginBottom: 2,
+  modalRoot: {
+    flex: 1,
+    justifyContent: "flex-end",
   },
-  triggerValue: {
-    color: colors.textPrimary,
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.4)",
   },
-  triggerPlaceholder: {
-    color: colors.textMuted,
+  modalSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 36,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
   },
 });

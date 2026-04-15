@@ -222,7 +222,16 @@ export function startConnectivityMonitor(): void {
 
   unsubscribeNetInfo = NetInfo.addEventListener((state: NetInfoState) => {
     const wasOffline = !useOfflineStore.getState().isOnline;
-    const isNowOnline = state.isConnected ?? false;
+    // Only mark offline when BOTH: not connected AND internet
+    // explicitly not reachable. On Android the listener often fires
+    // once early with `isConnected: false` before the OS has resolved
+    // the active interface — which used to push every mutation into
+    // the queue even though the device was about to be online
+    // milliseconds later. Treat "unknown" states as online to avoid
+    // that UX glitch; NetInfo will re-fire if we're really offline.
+    const connected = state.isConnected !== false; // true OR null
+    const reachable = state.isInternetReachable !== false; // true OR null
+    const isNowOnline = connected && reachable;
 
     useOfflineStore.getState().setOnline(isNowOnline);
 

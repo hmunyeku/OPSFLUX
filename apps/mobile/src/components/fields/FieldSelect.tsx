@@ -1,6 +1,18 @@
+/**
+ * FieldSelect — single-select picker via Gluestack bottom-sheet modal.
+ */
+
 import React, { useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
-import { Button, Chip, Dialog, HelperText, List, Portal, RadioButton, Text, TouchableRipple } from "react-native-paper";
+import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import {
+  Button,
+  ButtonText,
+  Heading,
+  HStack,
+  Text,
+} from "@gluestack-ui/themed";
+import { MIcon } from "../MIcon";
+import FieldShell from "./FieldShell";
 import type { FieldDefinition } from "../../types/forms";
 import { colors } from "../../utils/colors";
 
@@ -13,95 +25,145 @@ interface Props {
   onChange: (value: string) => void;
 }
 
-export default function FieldSelect({ field, value, error, required, onChange }: Props) {
+export default function FieldSelect({
+  field,
+  value,
+  error,
+  required,
+  onChange,
+}: Props) {
   const [open, setOpen] = useState(false);
   const options = field.options ?? [];
   const selected = options.find((o) => o.value === value);
 
   return (
-    <>
-      <TouchableRipple onPress={() => setOpen(true)} style={styles.trigger}>
-        <View style={[styles.triggerInner, error ? styles.triggerError : null]}>
-          <Text variant="bodySmall" style={styles.triggerLabel}>
-            {field.label}{required ? " *" : ""}
-          </Text>
-          <Text variant="bodyLarge" style={selected ? styles.triggerValue : styles.triggerPlaceholder}>
-            {selected?.label ?? field.placeholder ?? "Sélectionner..."}
-          </Text>
-        </View>
-      </TouchableRipple>
+    <FieldShell
+      label={field.label}
+      required={required}
+      error={error}
+      helpText={field.help_text}
+      bare
+    >
+      <Pressable
+        style={[styles.trigger, error ? styles.triggerError : null]}
+        onPress={() => setOpen(true)}
+      >
+        <Text
+          size="md"
+          color={selected ? "$textLight900" : "$textLight400"}
+          flex={1}
+        >
+          {selected?.label ?? field.placeholder ?? "Sélectionner..."}
+        </Text>
+        <MIcon name="expand-more" size="sm" color="$textLight500" />
+      </Pressable>
 
-      {(error || field.help_text) && (
-        <HelperText type={error ? "error" : "info"} visible>
-          {error || field.help_text}
-        </HelperText>
-      )}
-
-      <Portal>
-        <Dialog visible={open} onDismiss={() => setOpen(false)} style={styles.dialog}>
-          <Dialog.Title>{field.label}</Dialog.Title>
-          <Dialog.ScrollArea style={styles.scrollArea}>
-            <ScrollView>
-              <RadioButton.Group
-                value={String(value ?? "")}
-                onValueChange={(v) => {
-                  onChange(v);
-                  setOpen(false);
-                }}
-              >
-                {options.map((opt) => (
-                  <RadioButton.Item
+      <Modal
+        visible={open}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setOpen(false)}
+      >
+        <View style={styles.modalRoot}>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setOpen(false)}
+          />
+          <View style={styles.modalSheet}>
+            <HStack alignItems="center" justifyContent="space-between" mb="$3">
+              <Heading size="sm">{field.label}</Heading>
+              <Pressable onPress={() => setOpen(false)}>
+                <MIcon name="close" size="md" color="$textLight600" />
+              </Pressable>
+            </HStack>
+            <ScrollView style={styles.modalScroll}>
+              {options.map((opt) => {
+                const isSelected = opt.value === value;
+                return (
+                  <Pressable
                     key={opt.value}
-                    label={opt.label}
-                    value={opt.value}
-                    labelStyle={styles.optionLabel}
-                  />
-                ))}
-              </RadioButton.Group>
+                    onPress={() => {
+                      onChange(opt.value);
+                      setOpen(false);
+                    }}
+                    style={[
+                      styles.option,
+                      isSelected ? styles.optionSelected : null,
+                    ]}
+                  >
+                    <Text
+                      size="md"
+                      color={isSelected ? "$primary700" : "$textLight900"}
+                      fontWeight={isSelected ? "$semibold" : "$normal"}
+                      flex={1}
+                    >
+                      {opt.label}
+                    </Text>
+                    {isSelected && (
+                      <MIcon name="check" size="sm" color="$primary700" />
+                    )}
+                  </Pressable>
+                );
+              })}
             </ScrollView>
-          </Dialog.ScrollArea>
-          <Dialog.Actions>
-            <Button onPress={() => setOpen(false)}>Fermer</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-    </>
+            <Button
+              variant="outline"
+              action="secondary"
+              mt="$3"
+              onPress={() => setOpen(false)}
+            >
+              <ButtonText>Fermer</ButtonText>
+            </Button>
+          </View>
+        </View>
+      </Modal>
+    </FieldShell>
   );
 }
 
 const styles = StyleSheet.create({
   trigger: {
-    borderRadius: 4,
-  },
-  triggerInner: {
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 4,
+    borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     backgroundColor: colors.surface,
+    minHeight: 44,
   },
   triggerError: {
     borderColor: colors.danger,
   },
-  triggerLabel: {
-    color: colors.textSecondary,
+  modalRoot: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  modalSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 36,
+    maxHeight: "80%",
+  },
+  modalScroll: {
+    maxHeight: 400,
+  },
+  option: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 10,
     marginBottom: 2,
   },
-  triggerValue: {
-    color: colors.textPrimary,
-  },
-  triggerPlaceholder: {
-    color: colors.textMuted,
-  },
-  dialog: {
-    maxHeight: "70%",
-  },
-  scrollArea: {
-    maxHeight: 350,
-    paddingHorizontal: 0,
-  },
-  optionLabel: {
-    fontSize: 15,
+  optionSelected: {
+    backgroundColor: "#eff6ff",
   },
 });

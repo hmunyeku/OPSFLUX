@@ -259,9 +259,9 @@ export const plannerService = {
   },
 
   // ── Capacity Heatmap ──
-  getCapacityHeatmap: async (startDate: string, endDate: string, assetId?: string): Promise<CapacityHeatmapResponse> => {
+  getCapacityHeatmap: async (startDate: string, endDate: string, assetId?: string, scenarioId?: string): Promise<CapacityHeatmapResponse> => {
     const { data } = await api.get(`${BASE}/capacity-heatmap`, {
-      params: { start_date: startDate, end_date: endDate, asset_id: assetId },
+      params: { start_date: startDate, end_date: endDate, asset_id: assetId, scenario_id: scenarioId },
     })
     return data
   },

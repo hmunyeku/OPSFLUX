@@ -2282,3 +2282,60 @@ async def seed_compliance_matrix(db: AsyncSession, entity_id) -> None:
         "Seed: compliance matrix — %d positions, %d types, %d rules created",
         len(jp_map), len(ct_map), rules_created,
     )
+
+    # ── Planner: ensure a reference scenario exists ──────────────────────────
+    # On first boot (or after adding the is_reference column) create a
+    # "Plan de référence" scenario for the default entity if none exists yet.
+    # This gives the UI a stable reference plan from day one.
+    try:
+        from app.models.planner import PlannerActivity, PlannerScenario, PlannerScenarioActivity
+
+        ref_check = await db.execute(
+            select(PlannerScenario).where(
+                PlannerScenario.entity_id == entity.id,
+                PlannerScenario.is_reference == True,  # noqa: E712
+                PlannerScenario.active == True,  # noqa: E712
+            )
+        )
+        if not ref_check.scalar_one_or_none():
+            # Count existing scenarios — only create if no reference has been
+            # set yet (avoids clobbering a freshly promoted scenario on restart).
+            existing_check = await db.execute(
+                select(PlannerScenario).where(
+                    PlannerScenario.entity_id == entity.id,
+                    PlannerScenario.active == True,  # noqa: E712
+                )
+            )
+            if not existing_check.scalars().first():
+                # Brand-new install — create the initial reference scenario.
+                from datetime import datetime, timezone as _tz
+                ref_scenario = PlannerScenario(
+                    entity_id=entity.id,
+                    title="Plan de référence",
+                    description="Plan opérationnel actif — toutes les activités validées font partie de ce plan.",
+                    created_by=admin.id,
+                    is_reference=True,
+                    status="promoted",
+                    baseline_snapshot={"total_activities": 0, "captured_at": datetime.now(_tz.utc).isoformat()},
+                    baseline_snapshot_at=datetime.now(_tz.utc),
+                )
+                db.add(ref_scenario)
+                await db.flush()
+
+                # Auto-seed: link every existing live activity to the reference scenario.
+                live_acts_res = await db.execute(
+                    select(PlannerActivity).where(
+                        PlannerActivity.entity_id == entity.id,
+                        PlannerActivity.active == True,  # noqa: E712
+                    )
+                )
+                for act in live_acts_res.scalars().all():
+                    db.add(PlannerScenarioActivity(
+                        scenario_id=ref_scenario.id,
+                        source_activity_id=act.id,
+                    ))
+
+                await db.flush()
+                logger.info("Seed: created initial reference scenario for entity %s", entity.code)
+    except Exception as _exc:
+        logger.warning("Seed: could not create reference scenario — %s", _exc)

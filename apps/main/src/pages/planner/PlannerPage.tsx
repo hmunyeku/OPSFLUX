@@ -2067,6 +2067,7 @@ function CapacityTab({
   onTimelineScaleChange,
   onTimelineRangeChange,
   compact: _compact = false,
+  scenarioId,
 }: {
   timelineScale: TimeScale
   timelineStartDate: string
@@ -2074,6 +2075,7 @@ function CapacityTab({
   onTimelineScaleChange: (scale: TimeScale) => void
   onTimelineRangeChange: (from: string, to: string) => void
   compact?: boolean
+  scenarioId?: string
 }) {
   const { t } = useTranslation()
   const [assetId, setAssetId] = useState('')
@@ -2081,11 +2083,12 @@ function CapacityTab({
   const [expandedSiteIds, setExpandedSiteIds] = useState<Set<string>>(new Set())
   const dateRange_ = useMemo(() => ({ from: timelineStartDate, to: timelineEndDate }), [timelineEndDate, timelineStartDate])
 
-  // Heatmap data
+  // Heatmap data — scenario-aware when scenarioId is provided
   const { data: heatmapData, isLoading: heatmapLoading } = useCapacityHeatmap(
     dateRange_.from,
     dateRange_.to,
     assetId || undefined,
+    scenarioId,
   )
   const { data: assetHierarchy = [] } = useAssetHierarchy()
 
@@ -3280,6 +3283,8 @@ export function PlannerPage() {
   const activeScenarioId = scenarioFromUrl || undefined
 
   const { data: referenceScenario } = useReferenceScenario()
+  // Fetch the active scenario's metadata so we can show its name in the banner.
+  const { data: activeScenarioData } = useScenario(activeScenarioId)
 
   // True if we're viewing a scenario that is NOT the reference (= simulation mode)
   const isSimulationMode = !!activeScenarioId && activeScenarioId !== referenceScenario?.id
@@ -3420,15 +3425,18 @@ export function PlannerPage() {
           {isSimulationMode && (
             <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-sm">
               <FlaskConical size={14} className="shrink-0" />
-              <span className="font-medium">Mode simulation</span>
-              <span className="text-amber-600 dark:text-amber-400 truncate">
-                — toutes les vues affichent le scénario sélectionné. Les modifications ne déclenchent aucun workflow.
+              <span className="font-medium">Simulation</span>
+              {activeScenarioData?.title && (
+                <span className="font-semibold truncate max-w-[200px]">— {activeScenarioData.title}</span>
+              )}
+              <span className="text-amber-600 dark:text-amber-400 hidden sm:inline truncate">
+                — aucune modification ne déclenche de workflow
               </span>
               <button
                 onClick={() => setActiveScenario(null)}
-                className="ml-auto shrink-0 text-xs underline hover:no-underline"
+                className="ml-auto shrink-0 text-xs px-2 py-0.5 rounded border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors whitespace-nowrap"
               >
-                Revenir au plan de référence
+                ✕ Quitter
               </button>
             </div>
           )}
@@ -3474,12 +3482,17 @@ export function PlannerPage() {
               timelineEndDate={sharedTimelineRange.end}
               onTimelineScaleChange={handleTimelineScaleChange}
               onTimelineRangeChange={handleTimelineRangeChange}
+              scenarioId={activeScenarioId}
             />
           )}
           {activeTab === 'scenarios' && (
             <ScenariosTab
               activeScenarioId={activeScenarioId}
-              onActivateScenario={setActiveScenario}
+              onActivateScenario={(sid) => {
+                setActiveScenario(sid)
+                // Switch to Gantt so the user immediately sees the scenario overlaid on the plan
+                if (sid) setActiveTab('gantt')
+              }}
             />
           )}
           {activeTab === 'forecast' && <ForecastTab />}
@@ -3500,6 +3513,26 @@ function ScenarioDetailPanel({ id }: { id: string }) {
   const { toast } = useToast()
   const confirm = useConfirm()
   const closeDynamicPanel = useUIStore((s) => s.closeDynamicPanel)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeScenarioInUrl = searchParams.get('scenario')
+  const isThisScenarioActive = activeScenarioInUrl === id
+  const { data: referenceScenario } = useReferenceScenario()
+  const isReference = referenceScenario?.id === id
+
+  const handleActivate = useCallback(() => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (isThisScenarioActive) {
+        next.delete('scenario')
+      } else {
+        next.set('scenario', id)
+        // Switch to gantt tab so the user immediately sees the scenario
+        next.set('tab', 'gantt')
+      }
+      return next
+    }, { replace: true })
+  }, [id, isThisScenarioActive, setSearchParams])
+
   const { data: scenario, isLoading, isError } = useScenario(id)
   const updateScenario = useUpdateScenario()
   const deleteScenario = useDeleteScenario()
@@ -3667,7 +3700,8 @@ function ScenarioDetailPanel({ id }: { id: string }) {
   const isPromoted = scenario.status === 'promoted'
   const isArchived = scenario.status === 'archived'
   const sim = scenario.last_simulation_result
-  const activities = scenario.proposed_activities ?? []
+  // Overlay records only (new/removed/modified — NOT the inherited live activities)
+  const overlayActivities = scenario.proposed_activities ?? []
 
   const actions: ActionItem[] = []
   if (!isPromoted && !isArchived) {
@@ -3692,11 +3726,19 @@ function ScenarioDetailPanel({ id }: { id: string }) {
   if (!isPromoted) {
     actions.push({ id: 'delete', label: 'Supprimer', icon: Trash2, onClick: handleDelete, variant: 'danger' })
   }
+  // "Activer / Désactiver" — switch all tabs to this scenario's view
+  actions.unshift({
+    id: 'activate',
+    label: isThisScenarioActive ? 'Désactiver' : 'Activer',
+    icon: isThisScenarioActive ? XCircle : Play,
+    onClick: handleActivate,
+    variant: isThisScenarioActive ? 'default' : 'primary',
+  })
 
   return (
     <DynamicPanelShell
       title={scenario.title}
-      icon={<FlaskConical size={14} className="text-primary" />}
+      icon={<FlaskConical size={14} className={isReference ? 'text-amber-500' : 'text-primary'} />}
       actionItems={actions}
     >
       <PanelContentLayout>
@@ -3722,9 +3764,19 @@ function ScenarioDetailPanel({ id }: { id: string }) {
               <DetailRow label="Titre" value={scenario.title} />
               <DetailRow label="Description" value={scenario.description || '—'} />
               <DetailRow label="Statut" value={
-                <span className={cn('gl-badge text-[10px]', STATUS_BADGE[scenario.status] || 'gl-badge-neutral')}>
-                  {STATUS_LABEL[scenario.status] || scenario.status}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className={cn('gl-badge text-[10px]', STATUS_BADGE[scenario.status] || 'gl-badge-neutral')}>
+                    {STATUS_LABEL[scenario.status] || scenario.status}
+                  </span>
+                  {isReference && (
+                    <span className="gl-badge text-[10px] gl-badge-warning inline-flex items-center gap-1">
+                      <Star size={9} className="fill-amber-500" /> Référence
+                    </span>
+                  )}
+                  {isThisScenarioActive && (
+                    <span className="gl-badge text-[10px] gl-badge-info">Vue active</span>
+                  )}
+                </div>
               } />
               <DetailRow label="Créé par" value={scenario.created_by_name || '—'} />
               <DetailRow label="Créé le" value={new Date(scenario.created_at).toLocaleDateString('fr-FR')} />
@@ -3754,7 +3806,10 @@ function ScenarioDetailPanel({ id }: { id: string }) {
 
         {/* ── Proposed activities ── */}
         <FormSection
-          title={`Activités proposées (${activities.length})`}
+          title={overlayActivities.length > 0
+            ? `Modifications du scénario (${overlayActivities.length})`
+            : `Activités héritées du plan (${scenario.activity_count ?? 0})`
+          }
           defaultExpanded
           headerExtra={!isPromoted && !isArchived && (
             <button
@@ -3808,11 +3863,20 @@ function ScenarioDetailPanel({ id }: { id: string }) {
               </div>
             </div>
           )}
-          {activities.length === 0 && !showAddActivity ? (
-            <p className="text-xs text-muted-foreground py-3 text-center">Aucune activité proposée — cliquez sur "Ajouter" pour en créer une dans ce scénario</p>
+          {/* Inherited activities count */}
+          {!showAddActivity && overlayActivities.length === 0 && (
+            <div className="rounded-md bg-muted/30 border border-border px-3 py-2 mb-2">
+              <p className="text-[11px] text-muted-foreground">
+                Ce scénario hérite de <strong className="text-foreground">{scenario.activity_count ?? 0}</strong> activité(s) du plan de référence.
+                Cliquez <strong>"Activer"</strong> pour les voir dans le Gantt, ou <strong>"Ajouter"</strong> pour créer des activités spécifiques à ce scénario.
+              </p>
+            </div>
+          )}
+          {overlayActivities.length === 0 && !showAddActivity ? (
+            <p className="text-xs text-muted-foreground py-2 text-center">Aucune modification ou nouvelle activité dans ce scénario</p>
           ) : (
             <div className="divide-y divide-border">
-              {activities.map((act: Record<string, unknown>) => (
+              {overlayActivities.map((act: Record<string, unknown>) => (
                 <div key={act.id as string} className="py-2 px-1 flex items-start justify-between gap-2 group">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -3824,7 +3888,7 @@ function ScenarioDetailPanel({ id }: { id: string }) {
                     <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
                       {Boolean(act.asset_name) && <span>{String(act.asset_name)}</span>}
                       {Boolean(act.type) && <span className="capitalize">{String(act.type)}</span>}
-                      {Boolean(act.start_date) && <span>{String(act.start_date)} → {String(act.end_date)}</span>}
+                      {Boolean(act.start_date) && <span>{formatDateOnly(act.start_date as string)} → {formatDateOnly(act.end_date as string)}</span>}
                       {act.pax_quota != null && <span>{String(act.pax_quota)} PAX</span>}
                     </div>
                   </div>
@@ -3844,7 +3908,7 @@ function ScenarioDetailPanel({ id }: { id: string }) {
         </FormSection>
 
         {/* ── How scenarios work ── */}
-        <FormSection title="Comment fonctionne un scénario ?" collapsible defaultExpanded={activities.length === 0}>
+        <FormSection title="Comment fonctionne un scénario ?" collapsible defaultExpanded={overlayActivities.length === 0}>
           <div className="text-xs text-muted-foreground space-y-2 leading-relaxed">
             <p><span className="font-semibold text-foreground">1. Créer</span> — Un scénario est un plan alternatif ("et si ?"). Il ne touche pas au plan en cours.</p>
             <p><span className="font-semibold text-foreground">2. Ajouter des activités</span> — Cliquez "Ajouter" pour créer des activités propres à ce scénario, ou depuis le Gantt, sélectionnez une activité et choisissez "Ajouter au scénario".</p>

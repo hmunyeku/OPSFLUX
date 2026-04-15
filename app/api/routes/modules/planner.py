@@ -2781,17 +2781,27 @@ async def get_heatmap(
     start_date: date = Query(...),
     end_date: date = Query(...),
     asset_id: UUID | None = None,
+    scenario_id: UUID | None = Query(None, description="When set, applies scenario overlay to activity loads"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get capacity heatmap data — daily saturation percentage per asset."""
+    """Get capacity heatmap data — daily saturation percentage per asset.
+
+    When scenario_id is provided, the capacity load is computed against
+    the scenario's merged activity set (removed activities excluded,
+    overrides applied, new activities included).
+    """
     from app.services.modules.planner_service import get_capacity_heatmap
 
     asset_ids = [asset_id] if asset_id else None
     return {
-        "days": await get_capacity_heatmap(db, entity_id, start_date, end_date, asset_ids=asset_ids),
+        "days": await get_capacity_heatmap(
+            db, entity_id, start_date, end_date,
+            asset_ids=asset_ids,
+            scenario_id=scenario_id,
+        ),
         "config": await _get_capacity_heatmap_config(db, entity_id),
     }
 

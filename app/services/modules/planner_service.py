@@ -858,6 +858,7 @@ async def get_capacity_heatmap(
     start_date: date,
     end_date: date,
     asset_ids: list[UUID] | None = None,
+    scenario_id: "UUID | None" = None,
 ) -> list[dict]:
     """Get capacity heatmap data — daily saturation per asset.
 
@@ -953,6 +954,7 @@ async def get_capacity_heatmap(
     # ── 3. All activities overlapping the range, in one query ──────
     activities_result = await db.execute(
         select(
+            PlannerActivity.id,
             PlannerActivity.asset_id,
             PlannerActivity.start_date,
             PlannerActivity.end_date,
@@ -970,14 +972,97 @@ async def get_capacity_heatmap(
             PlannerActivity.end_date >= datetime.combine(start_date, datetime.min.time(), tzinfo=timezone.utc),
         )
     )
+    # Collect rows as list so we can apply scenario overlay before aggregating.
+    # Each element: (id, asset_id, start_date, end_date, pax_quota, mode, daily)
+    act_rows = list(activities_result.all())
+
+    # ── Scenario overlay on activity load ──────────────────────────
+    # When a scenario is active, apply its overlay:
+    #   - is_removed activities are dropped
+    #   - overridden activities get patched (dates / pax_quota)
+    #   - new scenario activities (source_activity_id IS NULL) are appended
+    if scenario_id:
+        from app.models.planner import PlannerScenario, PlannerScenarioActivity
+        sc_ok = await db.execute(
+            select(PlannerScenario).where(
+                PlannerScenario.id == scenario_id,
+                PlannerScenario.entity_id == entity_id,
+                PlannerScenario.active == True,  # noqa: E712
+            )
+        )
+        if sc_ok.scalar_one_or_none():
+            ov_result = await db.execute(
+                select(PlannerScenarioActivity).where(
+                    PlannerScenarioActivity.scenario_id == scenario_id
+                )
+            )
+            removed_ids: set[UUID] = set()
+            overrides: dict[UUID, "PlannerScenarioActivity"] = {}
+            new_ov_acts: list["PlannerScenarioActivity"] = []
+            for ov in ov_result.scalars().all():
+                if ov.source_activity_id:
+                    if ov.is_removed:
+                        removed_ids.add(ov.source_activity_id)
+                    else:
+                        overrides[ov.source_activity_id] = ov
+                elif not ov.is_removed:
+                    new_ov_acts.append(ov)
+
+            patched: list = []
+            for row in act_rows:
+                row_id = row[0]
+                if row_id in removed_ids:
+                    continue  # excluded by scenario
+                if row_id in overrides:
+                    ov = overrides[row_id]
+                    # Patch start/end/pax if the scenario specifies overrides
+                    patched.append((
+                        row_id,
+                        row[1],                         # asset_id (unchanged)
+                        ov.start_date or row[2],        # start_date
+                        ov.end_date or row[3],          # end_date
+                        ov.pax_quota if ov.pax_quota is not None else row[4],  # pax_quota
+                        row[5],                         # pax_quota_mode
+                        row[6],                         # pax_quota_daily
+                    ))
+                else:
+                    patched.append(row)
+
+            # Append new scenario activities (not backed by a live PlannerActivity)
+            asset_ids_set = set(asset_ids_list)
+            for ov in new_ov_acts:
+                if not ov.asset_id or not ov.start_date or not ov.end_date:
+                    continue
+                # If caller filtered by specific assets, only include activities for those assets
+                if asset_ids and ov.asset_id not in asset_ids_set:
+                    continue
+                # Filter to the heatmap date range
+                ov_start_d = ov.start_date.date() if hasattr(ov.start_date, "date") else ov.start_date
+                ov_end_d = ov.end_date.date() if hasattr(ov.end_date, "date") else ov.end_date
+                if ov_end_d < start_date or ov_start_d > end_date:
+                    continue
+                patched.append((
+                    ov.id,
+                    ov.asset_id,
+                    ov.start_date,
+                    ov.end_date,
+                    ov.pax_quota or 1,
+                    "constant",
+                    None,
+                ))
+
+            act_rows = patched
+
+    # ── Aggregate activity rows into forecast_by_asset_day ─────────
     # forecast_by_asset_day[asset_id][YYYY-MM-DD] = sum_pax
     forecast_by_asset_day: dict[UUID, dict[str, int]] = {}
-    for row in activities_result.all():
-        aid = row.asset_id
+    for row in act_rows:
+        # Index 0 = id, 1 = asset_id, 2 = start, 3 = end, 4 = pax_quota, 5 = mode, 6 = daily
+        aid = row[1]
         if aid is None:
             continue
-        a_start_dt = row.start_date
-        a_end_dt = row.end_date
+        a_start_dt = row[2]
+        a_end_dt = row[3]
         if a_start_dt is None or a_end_dt is None:
             continue
         a_start_d = a_start_dt.date() if hasattr(a_start_dt, "date") else a_start_dt
@@ -987,14 +1072,14 @@ async def get_capacity_heatmap(
         to_d = min(a_end_d, end_date)
         if to_d < from_d:
             continue
-        is_variable = row.pax_quota_mode == "variable" and isinstance(row.pax_quota_daily, dict)
-        constant_q = int(row.pax_quota or 0)
+        is_variable = row[5] == "variable" and isinstance(row[6], dict)
+        constant_q = int(row[4] or 0)
         per_asset = forecast_by_asset_day.setdefault(aid, {})
         cur_d = from_d
         while cur_d <= to_d:
             day_key = cur_d.isoformat()
             if is_variable:
-                v = int(row.pax_quota_daily.get(day_key, constant_q))
+                v = int(row[6].get(day_key, constant_q))
             else:
                 v = constant_q
             per_asset[day_key] = per_asset.get(day_key, 0) + v

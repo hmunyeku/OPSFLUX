@@ -395,7 +395,7 @@ export function GanttView({
     show_permanent_ops: true,
     scenario_id: scenarioId,
   })
-  const { data: heatmapData } = useCapacityHeatmap(startDate, endDate)
+  const { data: heatmapData } = useCapacityHeatmap(startDate, endDate, undefined, scenarioId)
   const { data: hierarchyData = [] } = useAssetHierarchy()
   const { data: pendingRevisionRequests } = useRevisionDecisionRequests({
     status: 'pending',

@@ -377,10 +377,10 @@ export function useReferenceScenario() {
 
 // ── Capacity Heatmap ──
 
-export function useCapacityHeatmap(startDate: string, endDate: string, assetId?: string) {
+export function useCapacityHeatmap(startDate: string, endDate: string, assetId?: string, scenarioId?: string) {
   return useQuery({
-    queryKey: ['planner', 'capacity-heatmap', startDate, endDate, assetId],
-    queryFn: () => plannerService.getCapacityHeatmap(startDate, endDate, assetId),
+    queryKey: ['planner', 'capacity-heatmap', startDate, endDate, assetId, scenarioId],
+    queryFn: () => plannerService.getCapacityHeatmap(startDate, endDate, assetId, scenarioId),
     enabled: !!startDate && !!endDate,
     placeholderData: keepPreviousData,
   })

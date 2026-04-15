@@ -4,7 +4,7 @@ PackLog owns cargo request, cargo item, tracking, and evidence contracts.
 TravelWiz may still consume some of these contracts during the migration.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
@@ -119,6 +119,11 @@ class CargoCreate(BaseModel):
     planned_zone_id: UUID | None = None
     sap_article_code: str | None = Field(None, max_length=50)
     hazmat_validated: bool = False
+    # Emballage: this colis is contained inside another
+    parent_cargo_id: UUID | None = None
+    # Reusable container (basket, skid, DNV box…)
+    is_reusable: bool = False
+    expected_return_date: date | None = None
 
     _check_pickup_contact_xor = model_validator(mode="after")(_validate_pickup_contact_xor)
 
@@ -160,6 +165,9 @@ class CargoUpdate(BaseModel):
     planned_zone_id: UUID | None = None
     sap_article_code: str | None = None
     hazmat_validated: bool | None = None
+    parent_cargo_id: UUID | None = None
+    is_reusable: bool | None = None
+    expected_return_date: date | None = None
 
     _check_pickup_contact_xor = model_validator(mode="after")(_validate_pickup_contact_xor)
 
@@ -245,6 +253,11 @@ class CargoRead(OpsFluxSchema):
     request_code: str | None = None
     request_title: str | None = None
     planned_zone_name: str | None = None
+    # Emballage + reusable
+    parent_cargo_id: UUID | None = None
+    is_reusable: bool = False
+    expected_return_date: date | None = None
+    sub_item_count: int = 0  # injected by route handler
 
 
 class CargoRequestItemInline(BaseModel):

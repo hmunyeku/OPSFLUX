@@ -19,12 +19,14 @@ The reverse-direction back_populates relationship lives in TravelWiz:
 uses a string forward ref so the import order doesn't matter.
 """
 
+from datetime import date as _date
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID as PyUUID
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -177,12 +179,41 @@ class CargoItem(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     )
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    # ── Emballage (container packaging) ─────────────────────────────────────
+    # A non-null parent_cargo_id means this item is physically contained inside
+    # another CargoItem (the emballage). The parent typically has
+    # cargo_type='packaging'. Single-level hierarchy only.
+    parent_cargo_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("cargo_items.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    # ── Reusable container tracking ──────────────────────────────────────────
+    # Marks this colis as a returnable container (basket, skid, DNV box…).
+    # Return lifecycle is tracked via the standard `status` field:
+    #   → return_declared → return_in_transit → returned/reintegrated/scrapped
+    is_reusable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    expected_return_date: Mapped[_date | None] = mapped_column(Date, nullable=True)
+
     # Forward ref to TravelWiz so we don't import the class directly
     # (would create a circular import). SQLAlchemy resolves the string
     # at mapper configuration time, which happens after both modules
     # are loaded via app/models/__init__.py.
     manifest: Mapped["VoyageManifest | None"] = relationship(  # noqa: F821
         back_populates="cargo_items"
+    )
+    # Self-referential: children contained in this emballage
+    sub_items: Mapped[list["CargoItem"]] = relationship(
+        "CargoItem",
+        foreign_keys="CargoItem.parent_cargo_id",
+        back_populates="parent_cargo",
+    )
+    parent_cargo: Mapped["CargoItem | None"] = relationship(
+        "CargoItem",
+        foreign_keys=[parent_cargo_id],
+        back_populates="sub_items",
+        remote_side="CargoItem.id",
     )
 
 

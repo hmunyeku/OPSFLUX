@@ -2043,7 +2043,7 @@ export interface CargoItem {
   stackable: boolean
   volume_m3: number | null
   cargo_type: string
-  status: 'registered' | 'ready' | 'loaded' | 'in_transit' | 'delivered_intermediate' | 'delivered_final' | 'damaged' | 'missing'
+  status: 'registered' | 'ready' | 'ready_for_loading' | 'loaded' | 'in_transit' | 'delivered' | 'delivered_intermediate' | 'delivered_final' | 'return_declared' | 'return_in_transit' | 'returned' | 'reintegrated' | 'scrapped' | 'damaged' | 'missing'
   sender_tier_id: string | null
   receiver_name: string | null
   destination_asset_id: string | null
@@ -2088,6 +2088,11 @@ export interface CargoItem {
   voyage_code?: string | null
   hazmat_class?: string | null
   is_urgent?: boolean
+  // Emballage + reusable
+  parent_cargo_id?: string | null
+  is_reusable?: boolean
+  expected_return_date?: string | null
+  sub_item_count?: number
 }
 
 export interface CargoItemCreate {
@@ -2127,6 +2132,9 @@ export interface CargoItemCreate {
   planned_zone_id?: string | null
   sap_article_code?: string | null
   hazmat_validated?: boolean
+  parent_cargo_id?: string | null
+  is_reusable?: boolean
+  expected_return_date?: string | null
 }
 
 export interface CargoItemUpdate {
@@ -2169,6 +2177,9 @@ export interface CargoItemUpdate {
   sap_article_code?: string | null
   hazmat_validated?: boolean
   notes?: string | null
+  parent_cargo_id?: string | null
+  is_reusable?: boolean | null
+  expected_return_date?: string | null
 }
 
 export interface CargoWorkflowStatusUpdate {

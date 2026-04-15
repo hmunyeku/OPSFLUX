@@ -242,6 +242,9 @@ export function CreateCargoPanel() {
     manifest_id: null,
     sap_article_code: null,
     hazmat_validated: false,
+    is_reusable: false,
+    expected_return_date: null as string | null,
+    parent_cargo_id: null as string | null,
   })
   const cargoRequests = cargoRequestsData?.items ?? []
   const preselectedRequestId =
@@ -423,6 +426,17 @@ export function CreateCargoPanel() {
                       Conforme / validé pour traitement HAZMAT
                     </label>
                   </DynamicPanelField>
+                  <DynamicPanelField label="Colis réutilisable">
+                    <label className="inline-flex items-center gap-2 text-xs">
+                      <input type="checkbox" checked={form.is_reusable ?? false} onChange={(e) => setForm({ ...form, is_reusable: e.target.checked })} />
+                      Emballage / conteneur retournable (basket, skid, coffre DNV…)
+                    </label>
+                  </DynamicPanelField>
+                  {form.is_reusable && (
+                    <DynamicPanelField label="Date retour prévue">
+                      <input type="date" value={form.expected_return_date ?? ''} onChange={(e) => setForm({ ...form, expected_return_date: e.target.value || null })} className={panelInputClass} />
+                    </DynamicPanelField>
+                  )}
                 </FormGrid>
               </FormSection>
               <FormSection title="Enlèvement et preuves" collapsible defaultExpanded>

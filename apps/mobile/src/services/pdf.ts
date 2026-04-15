@@ -28,7 +28,51 @@
 
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import { api } from "./api";
 import { useAuthStore } from "../stores/auth";
+
+/**
+ * Convert a JS ArrayBuffer to a base64 string. Hermes/JSC doesn't ship
+ * Buffer, so we do it manually. Kept small — PDF tickets are typically
+ * a few KB so we don't need streaming.
+ */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunk = 0x8000; // prevent call-stack overflow on large buffers
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(
+      null,
+      Array.from(bytes.subarray(i, i + chunk))
+    );
+  }
+  // globalThis.btoa exists on RN but not everywhere — inline fallback.
+  if (typeof (globalThis as any).btoa === "function") {
+    return (globalThis as any).btoa(binary);
+  }
+  // Minimal base64 encoder — only needed on ancient engines.
+  const chars =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let out = "";
+  let i = 0;
+  while (i < binary.length) {
+    const c1 = binary.charCodeAt(i++) & 0xff;
+    const c2 = i < binary.length ? binary.charCodeAt(i++) & 0xff : NaN;
+    const c3 = i < binary.length ? binary.charCodeAt(i++) & 0xff : NaN;
+    const e1 = c1 >> 2;
+    const e2 = ((c1 & 3) << 4) | (isNaN(c2) ? 0 : c2 >> 4);
+    const e3 = isNaN(c2)
+      ? 64
+      : ((c2 & 15) << 2) | (isNaN(c3) ? 0 : c3 >> 6);
+    const e4 = isNaN(c3) ? 64 : c3 & 63;
+    out +=
+      chars.charAt(e1) +
+      chars.charAt(e2) +
+      (e3 === 64 ? "=" : chars.charAt(e3)) +
+      (e4 === 64 ? "=" : chars.charAt(e4));
+  }
+  return out;
+}
 
 const CACHE_DIR = (FileSystem.cacheDirectory ?? "") + "opsflux-pdf/";
 
@@ -68,6 +112,12 @@ function sanitizeFilename(name: string): string {
 /**
  * Download a PDF from the backend using the current auth session.
  *
+ * Uses our axios instance (which auto-refreshes expired JWT tokens
+ * via the response interceptor) and writes the bytes to the cache
+ * directory. The previous implementation used FileSystem.downloadAsync
+ * which bypasses interceptors — so any expired access_token caused a
+ * silent 401 and an opaque "download failed" toast on the client.
+ *
  * @param apiPath path starting with `/api/v1/...` (NOT a full URL)
  * @param filename the name to save it as (will be sanitized & .pdf appended)
  */
@@ -76,9 +126,8 @@ export async function downloadPdf(
   filename: string,
   opts: DownloadPdfOptions = {}
 ): Promise<PdfDownloadResult> {
-  const { accessToken, entityId: storeEntityId, baseUrl } = useAuthStore.getState();
+  const { accessToken, entityId: storeEntityId } = useAuthStore.getState();
   if (!accessToken) throw new Error("Not authenticated");
-  if (!baseUrl) throw new Error("No base URL configured");
 
   await ensureCacheDir();
   const safeName = sanitizeFilename(filename);
@@ -92,30 +141,59 @@ export async function downloadPdf(
     }
   }
 
-  const url = baseUrl.replace(/\/$/, "") + apiPath;
-  const entityId = opts.entityId ?? storeEntityId;
+  // Fetch via axios → auto-refresh on 401, consistent 403/503 handling,
+  // correct baseURL wiring. We ask for an arraybuffer so we get the raw
+  // PDF bytes and not a decoded JSON/string.
+  const headers: Record<string, string> = { Accept: "application/pdf" };
+  const entityOverride = opts.entityId ?? storeEntityId;
+  if (entityOverride) headers["X-Entity-Id"] = entityOverride;
 
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${accessToken}`,
-    Accept: "application/pdf",
-  };
-  if (entityId) headers["X-Entity-Id"] = entityId;
-
-  const { status, uri } = await FileSystem.downloadAsync(url, localUri, {
-    headers,
-  });
-
-  if (status < 200 || status >= 300) {
-    // Clean the partial/empty file so a retry doesn't serve garbage
-    try {
-      await FileSystem.deleteAsync(uri, { idempotent: true });
-    } catch {
-      /* noop */
+  let response;
+  try {
+    response = await api.get(apiPath, {
+      responseType: "arraybuffer",
+      // 45s — large voyage manifest PDFs can take a few seconds to
+      // render server-side.
+      timeout: 45_000,
+      headers,
+    });
+  } catch (err: any) {
+    const status = err?.response?.status;
+    const bodyBytes: ArrayBuffer | undefined = err?.response?.data;
+    // Surface the actual API message — backend returns JSON with
+    // `detail`, but in arraybuffer mode that arrives as bytes. Decode
+    // a short slice to a string for diagnostics.
+    let hint = "";
+    if (bodyBytes && bodyBytes.byteLength > 0) {
+      try {
+        const bytes = new Uint8Array(
+          bodyBytes.slice(0, Math.min(400, bodyBytes.byteLength))
+        );
+        let text = "";
+        for (let i = 0; i < bytes.length; i++) {
+          text += String.fromCharCode(bytes[i]);
+        }
+        const parsed = JSON.parse(text);
+        if (parsed?.detail && typeof parsed.detail === "string") {
+          hint = ` — ${parsed.detail}`;
+        }
+      } catch {
+        /* body isn't JSON, ignore */
+      }
     }
-    throw new Error(`Download failed: HTTP ${status}`);
+    throw new Error(
+      `PDF indisponible${status ? ` (HTTP ${status})` : ""}${hint}`
+    );
   }
 
-  return { uri, filename: safeName, cached: false };
+  // Persist the arraybuffer to disk as base64 — expo-file-system
+  // doesn't yet support direct arraybuffer writes.
+  const base64 = arrayBufferToBase64(response.data as ArrayBuffer);
+  await FileSystem.writeAsStringAsync(localUri, base64, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  return { uri: localUri, filename: safeName, cached: false };
 }
 
 /**

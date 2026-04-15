@@ -45,21 +45,15 @@ interface Props {
 interface AdsDetail extends AdsSummary {
   visit_purpose: string;
   visit_category: string;
-  site_entry_asset_name: string;
-  requester_display_name: string;
+  /** Backend-returned site name (composed "CODE — Name"). */
+  site_name?: string | null;
+  /** Backend-returned requester full name. */
   requester_name?: string | null;
   outbound_transport_mode: string | null;
-  outbound_departure_base_name: string | null;
+  outbound_departure_base_name?: string | null;
   return_transport_mode: string | null;
-  return_departure_base_name: string | null;
+  return_departure_base_name?: string | null;
   is_round_trip_no_overnight: boolean;
-  pax_entries: Array<{
-    id: string;
-    display_name: string;
-    status: string;
-    compliance_ok: boolean;
-    company_name: string | null;
-  }>;
   // Workflow & dates
   submitted_at?: string | null;
   approved_at?: string | null;
@@ -71,16 +65,36 @@ interface AdsDetail extends AdsSummary {
   project_name?: string | null;
   project_manager_id?: string | null;
   project_manager_name?: string | null;
-  linked_projects?: Array<{ id: string; name: string }>;
+  linked_projects?: Array<{
+    project_id: string;
+    project_name: string | null;
+    project_manager_id?: string | null;
+    project_manager_name?: string | null;
+  }>;
   allowed_company_names?: string[];
   cross_company_flag?: boolean;
   // Linked mission
   origin_mission_notice_id?: string | null;
   origin_mission_notice_reference?: string | null;
   origin_mission_notice_title?: string | null;
+  origin_mission_program_activity?: string | null;
   // Planner activity
   planner_activity_title?: string | null;
   planner_activity_status?: string | null;
+}
+
+/**
+ * PAX entry returned by `/api/v1/pax/ads/{id}/pax` — the detail
+ * endpoint does NOT embed the pax list, it must be fetched separately.
+ */
+interface AdsPaxItem {
+  id: string;
+  status: string;
+  compliance_summary?: string | null;
+  pax_first_name?: string | null;
+  pax_last_name?: string | null;
+  pax_company_name?: string | null;
+  pax_badge?: string | null;
 }
 
 function formatDateTime(iso?: string | null): string | null {
@@ -119,6 +133,7 @@ export default function AdsDetailScreen({ route }: Props) {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const [ads, setAds] = useState<AdsDetail | null>(null);
+  const [pax, setPax] = useState<AdsPaxItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -128,9 +143,7 @@ export default function AdsDetailScreen({ route }: Props) {
 
   const loadAds = useCallback(async () => {
     try {
-      // Offline-aware: returns cached record when the device has no
-      // connectivity, so the user can still review what they loaded
-      // previously even without internet.
+      // Detail endpoint: /pax/ads/{id} returns AdsRead — offline-aware.
       const result = await fetchWithOfflineFallback<AdsDetail>(
         `/api/v1/pax/ads/${adsId}`
       );
@@ -143,6 +156,17 @@ export default function AdsDetailScreen({ route }: Props) {
           ),
           "warning"
         );
+      }
+      // PAX list lives on a separate endpoint — fetch in parallel,
+      // don't fail the whole screen if this 404s (some ADS types
+      // don't have PAX).
+      try {
+        const paxResult = await fetchWithOfflineFallback<AdsPaxItem[]>(
+          `/api/v1/pax/ads/${adsId}/pax`
+        );
+        setPax(Array.isArray(paxResult.data) ? paxResult.data : []);
+      } catch {
+        setPax([]);
       }
     } catch {
       toast.show(t("ads.loadError", "Impossible de charger l'ADS"), "error");
@@ -249,7 +273,7 @@ export default function AdsDetailScreen({ route }: Props) {
           <DetailRow
             icon="place"
             label={t("ads.site", "Site d'accueil")}
-            value={ads.site_entry_asset_name}
+            value={ads.site_name ?? "—"}
           />
           <Divider my="$1" />
           <DetailRow
@@ -261,7 +285,7 @@ export default function AdsDetailScreen({ route }: Props) {
           <DetailRow
             icon="person"
             label={t("ads.requester", "Demandeur")}
-            value={ads.requester_display_name}
+            value={ads.requester_name ?? "—"}
           />
         </Box>
 
@@ -281,7 +305,7 @@ export default function AdsDetailScreen({ route }: Props) {
               <DetailRow
                 icon="arrow-outward"
                 label={t("ads.outbound", "Aller")}
-                value={transportLabel(ads.outbound_transport_mode, ads.outbound_departure_base_name, t)}
+                value={transportLabel(ads.outbound_transport_mode, ads.outbound_departure_base_name ?? null, t)}
               />
             )}
             {ads.outbound_transport_mode && ads.return_transport_mode && <Divider my="$1" />}
@@ -289,7 +313,7 @@ export default function AdsDetailScreen({ route }: Props) {
               <DetailRow
                 icon="south-west"
                 label={t("ads.return", "Retour")}
-                value={transportLabel(ads.return_transport_mode, ads.return_departure_base_name, t)}
+                value={transportLabel(ads.return_transport_mode, ads.return_departure_base_name ?? null, t)}
               />
             )}
           </Box>
@@ -479,8 +503,8 @@ export default function AdsDetailScreen({ route }: Props) {
           </Box>
         )}
 
-        {/* PAX list */}
-        {ads.pax_entries && ads.pax_entries.length > 0 && (
+        {/* PAX list — separately fetched from /pax/ads/{id}/pax */}
+        {pax.length > 0 && (
           <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3">
             <HStack alignItems="center" space="sm" mb="$3">
               <MIcon name="people" size="sm" color="$textLight600" />
@@ -490,34 +514,46 @@ export default function AdsDetailScreen({ route }: Props) {
                 textTransform="uppercase"
                 letterSpacing={0.5}
               >
-                {t("ads.pax", "Personnel")} ({ads.pax_entries.length})
+                {t("ads.pax", "Personnel")} ({pax.length})
               </Heading>
             </HStack>
-            {(ads.pax_entries ?? []).map((pax, idx) => (
-              <Box key={pax.id}>
-                {idx > 0 && <Divider my="$1" />}
-                <HStack alignItems="center" justifyContent="space-between">
-                  <VStack flex={1}>
-                    <Text size="sm" fontWeight="$medium" color="$textLight900">
-                      {pax.display_name}
-                    </Text>
-                    {pax.company_name && (
-                      <Text size="xs" color="$textLight500">
-                        {pax.company_name}
+            {pax.map((p, idx) => {
+              const fullName = [p.pax_first_name, p.pax_last_name]
+                .filter(Boolean)
+                .join(" ")
+                .trim();
+              const compliance = (p.compliance_summary ?? "").toLowerCase();
+              const isCompliant =
+                compliance === "ok" ||
+                compliance === "pass" ||
+                compliance === "compliant";
+              return (
+                <Box key={p.id}>
+                  {idx > 0 && <Divider my="$1" />}
+                  <HStack alignItems="center" justifyContent="space-between">
+                    <VStack flex={1}>
+                      <Text size="sm" fontWeight="$medium" color="$textLight900">
+                        {fullName || "—"}
                       </Text>
-                    )}
-                  </VStack>
-                  <VStack alignItems="flex-end" space="xs">
-                    <StatusBadge status={pax.status} />
-                    {!pax.compliance_ok && (
-                      <Text size="2xs" color="$error600" fontWeight="$semibold">
-                        {t("ads.nonCompliant", "Non conforme")}
-                      </Text>
-                    )}
-                  </VStack>
-                </HStack>
-              </Box>
-            ))}
+                      {p.pax_company_name && (
+                        <Text size="xs" color="$textLight500">
+                          {p.pax_company_name}
+                          {p.pax_badge ? ` · ${p.pax_badge}` : ""}
+                        </Text>
+                      )}
+                    </VStack>
+                    <VStack alignItems="flex-end" space="xs">
+                      <StatusBadge status={p.status} />
+                      {!isCompliant && p.compliance_summary && (
+                        <Text size="2xs" color="$error600" fontWeight="$semibold">
+                          {t("ads.nonCompliant", "Non conforme")}
+                        </Text>
+                      )}
+                    </VStack>
+                  </HStack>
+                </Box>
+              );
+            })}
           </Box>
         )}
 
@@ -540,8 +576,13 @@ export default function AdsDetailScreen({ route }: Props) {
               );
               setDownloadingPdf(false);
               if (!result.ok) {
+                // Show the actual message from the server (e.g.
+                // "Permission insuffisante", "ADS not found") instead
+                // of an opaque "Téléchargement impossible" — helps
+                // the user know whether to retry or escalate.
                 toast.show(
-                  t("ads.pdfError", "Téléchargement du PDF impossible."),
+                  result.error ||
+                    t("ads.pdfError", "Téléchargement du PDF impossible."),
                   "error"
                 );
               }

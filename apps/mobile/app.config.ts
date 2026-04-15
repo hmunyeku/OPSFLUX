@@ -62,6 +62,13 @@ const config: ExpoConfig = {
       : IS_PREVIEW
       ? "com.opsflux.mobile.preview"
       : "com.opsflux.mobile.dev",
+    // Sécurité : désactive adb backup. Par défaut Android autorise
+    // `adb backup` qui dump tout le /data/data/<pkg> — y compris
+    // SecureStore chez certains OEM qui n'honorent pas le flag
+    // `no_backup` du keystore. En le mettant à false on bloque
+    // l'export des tokens JWT sans avoir à compter sur l'exclusion
+    // côté SecureStore.
+    allowBackup: false,
     // FCM config — required for push notifications (even when using the
     // Expo push service, which proxies to FCM under the hood). Without
     // this the `com.google.gms.google-services` Gradle plugin is never

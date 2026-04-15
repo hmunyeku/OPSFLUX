@@ -350,6 +350,9 @@ class PlannerScenario(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
     last_simulation_result: Mapped[dict | None] = mapped_column(JSONB)
     last_simulated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Exactly one scenario per entity is the live reference plan.
+    # All other scenarios are simulations / what-if branches.
+    is_reference: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
     proposed_activities: Mapped[list["PlannerScenarioActivity"]] = relationship(

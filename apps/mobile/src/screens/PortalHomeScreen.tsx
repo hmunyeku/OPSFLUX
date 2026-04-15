@@ -175,7 +175,23 @@ export default function PortalHomeScreen({ navigation }: Props) {
   if (loading) {
     return (
       <Box flex={1} bg="$backgroundLight50" pt="$3" px="$4">
+        {/* Skeleton hero */}
+        <HStack alignItems="center" justifyContent="space-between" mb="$5">
+          <HStack alignItems="center" space="sm">
+            <Skeleton width={44} height={44} radius={22} />
+            <VStack>
+              <Skeleton width={80} height={11} />
+              <Skeleton width={140} height={16} style={{ marginTop: 6 }} />
+            </VStack>
+          </HStack>
+          <HStack space="sm">
+            <Skeleton width={40} height={40} radius={20} />
+            <Skeleton width={40} height={40} radius={20} />
+          </HStack>
+        </HStack>
+        {/* Skeleton big CTA */}
         <Skeleton width="100%" height={92} radius={16} style={{ marginBottom: 20 }} />
+        {/* Skeleton quick-actions */}
         <Skeleton width={140} height={12} style={{ marginBottom: 12 }} />
         <HStack flexWrap="wrap" gap={12}>
           {Array.from({ length: 4 }).map((_, i) => (

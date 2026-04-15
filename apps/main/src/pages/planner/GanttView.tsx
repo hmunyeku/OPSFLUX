@@ -336,6 +336,8 @@ interface GanttViewProps {
   ganttSettings?: Partial<import('@/components/shared/gantt/ganttTypes').GanttSettings>
   /** Called when GanttCore mutates its internal settings — parent persists them */
   onGanttSettingsChange?: (settings: import('@/components/shared/gantt/ganttTypes').GanttSettings) => void
+  /** When set, the gantt displays the scenario overlay instead of the live plan */
+  scenarioId?: string
 }
 
 export function GanttView({
@@ -349,6 +351,7 @@ export function GanttView({
   onViewPrefsChange,
   ganttSettings,
   onGanttSettingsChange,
+  scenarioId,
 }: GanttViewProps = {}) {
   const { t } = useTranslation()
   const { toast } = useToast()
@@ -390,8 +393,9 @@ export function GanttView({
     types: typeFilter,
     statuses: statusFilter,
     show_permanent_ops: true,
+    scenario_id: scenarioId,
   })
-  const { data: heatmapData } = useCapacityHeatmap(startDate, endDate)
+  const { data: heatmapData } = useCapacityHeatmap(startDate, endDate, undefined, scenarioId)
   const { data: hierarchyData = [] } = useAssetHierarchy()
   const { data: pendingRevisionRequests } = useRevisionDecisionRequests({
     status: 'pending',

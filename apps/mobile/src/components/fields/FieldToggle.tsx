@@ -1,8 +1,13 @@
+/**
+ * FieldToggle — boolean switch via Gluestack (rewritten off Paper).
+ */
+
 import React from "react";
-import { StyleSheet, View } from "react-native";
-import { HelperText, Switch, Text } from "react-native-paper";
+import { StyleSheet, Switch, View } from "react-native";
+import { Text } from "@gluestack-ui/themed";
 import type { FieldDefinition } from "../../types/forms";
 import { colors } from "../../utils/colors";
+import { spacing } from "../../utils/design";
 
 interface Props {
   field: FieldDefinition;
@@ -13,16 +18,25 @@ interface Props {
   onChange: (value: boolean) => void;
 }
 
-export default function FieldToggle({ field, value, error, required, onChange }: Props) {
+export default function FieldToggle({
+  field,
+  value,
+  error,
+  required,
+  onChange,
+}: Props) {
   return (
-    <>
+    <View style={styles.wrap}>
       <View style={styles.row}>
         <View style={styles.labelContainer}>
-          <Text variant="bodyLarge" style={styles.label}>
-            {field.label}{required ? " *" : ""}
+          <Text size="md" color="$textLight900" fontWeight="$medium">
+            {field.label}
+            {required ? (
+              <Text color="$error600"> *</Text>
+            ) : null}
           </Text>
           {field.help_text && (
-            <Text variant="bodySmall" style={styles.help}>
+            <Text size="xs" color="$textLight500" mt="$1">
               {field.help_text}
             </Text>
           )}
@@ -30,19 +44,24 @@ export default function FieldToggle({ field, value, error, required, onChange }:
         <Switch
           value={!!value}
           onValueChange={onChange}
-          color={colors.primary}
+          trackColor={{ false: colors.border, true: colors.primary }}
+          thumbColor="#ffffff"
+          ios_backgroundColor={colors.border}
         />
       </View>
       {error && (
-        <HelperText type="error" visible>
+        <Text size="2xs" color="$error600" style={styles.error}>
           {error}
-        </HelperText>
+        </Text>
       )}
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrap: {
+    marginBottom: spacing.md,
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -50,19 +69,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 4,
+    borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
+    minHeight: 56,
   },
   labelContainer: {
     flex: 1,
     marginRight: 12,
   },
-  label: {
-    color: colors.textPrimary,
-  },
-  help: {
-    color: colors.textSecondary,
-    marginTop: 2,
+  error: {
+    marginTop: 4,
+    marginLeft: 2,
   },
 });

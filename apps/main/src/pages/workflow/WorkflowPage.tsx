@@ -203,7 +203,16 @@ function WorkflowEditorInner({
 }) {
   const { t } = useTranslation()
   const reactFlow = useReactFlow()
-  const initial = useMemo(() => definitionToFlow(definition), [definition])
+  const isDraft = definition.status === 'draft'
+  const structureLocked = isStructureLockedDefinition(definition)
+
+  // Published / archived workflows can't have nodes dragged, so always apply
+  // a fresh Dagre layout to guarantee a clean, overlap-free diagram.
+  const initial = useMemo(
+    () => definitionToFlow(definition, undefined, !isDraft),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [definition.id, isDraft],
+  )
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges)
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
@@ -211,13 +220,13 @@ function WorkflowEditorInner({
   const [showValidation, setShowValidation] = useState(false)
   const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>('TB')
   const nodeIdCounter = useRef(Date.now())
-  const isDraft = definition.status === 'draft'
-  const structureLocked = isStructureLockedDefinition(definition)
+
   const { data: roleCatalog } = useRoles()
   const availableRoles = useMemo(() => {
     const codes = (roleCatalog || []).map((role) => role.code).filter(Boolean)
     return codes.length > 0 ? codes : [...FALLBACK_ROLES]
   }, [roleCatalog])
+
 
   // Undo/redo
   const { saveSnapshot, undo, redo, pushToFuture, canUndo, canRedo } = useUndoRedo(initial.nodes, initial.edges)

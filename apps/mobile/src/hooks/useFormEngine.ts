@@ -382,26 +382,49 @@ export function useFormEngine(form: FormDefinition) {
 
     try {
       // Step 1 — submit the main form.
-      // We need the response body (to get the new resource ID for
-      // attachment linking), so when online we call axios directly.
-      // When offline we fall back to the queue.
-      const { isOnline } = await import("../services/offline").then((m) => ({
-        isOnline: m.useOfflineStore.getState().isOnline,
-      }));
+      //
+      // Offline detection: read the store AND also do a live NetInfo
+      // fetch so a user who cut internet a split-second before
+      // pressing "Submit" doesn't have to wait for a 15s axios
+      // timeout. If either signal says offline, we queue immediately.
+      const offlineMod = await import("../services/offline");
+      const storeOnline = offlineMod.useOfflineStore.getState().isOnline;
+      let liveOnline = storeOnline;
+      try {
+        const NetInfo = (await import("@react-native-community/netinfo"))
+          .default;
+        const state = await NetInfo.fetch();
+        if (state.isConnected === false) liveOnline = false;
+        else if (
+          state.isConnected === true &&
+          state.isInternetReachable === false
+        )
+          liveOnline = false;
+      } catch {
+        /* defer to store */
+      }
+      const isOnline = storeOnline && liveOnline;
 
       if (isOnline) {
         try {
+          // Short-circuit a hung axios request: if we hit 8s with no
+          // response on this submission we flip to the offline queue
+          // rather than make the user wait 15s before they see any
+          // feedback.
           const response = await api.request({
             method: form.submit.method,
             url: form.submit.endpoint,
             data: payload,
+            timeout: 8_000,
           });
           createdResourceId = response.data?.id ?? null;
         } catch (httpErr: any) {
           // 4xx = client error, do not queue
           const status = httpErr?.response?.status;
-          if (status >= 400 && status < 500) throw httpErr;
-          // Network/5xx → fall back to queue
+          if (status && status >= 400 && status < 500) throw httpErr;
+          // Network/5xx/timeout → fall back to queue. Flip the store
+          // offline flag so subsequent reads also short-circuit.
+          offlineMod.useOfflineStore.getState().setOnline(false);
           await mutateWithOfflineQueue(
             form.submit.method,
             form.submit.endpoint,
@@ -410,8 +433,9 @@ export function useFormEngine(form: FormDefinition) {
           wasSent = false;
         }
       } else {
-        // Offline: queue the mutation. Photos will be lost for now
-        // (they require the resource ID which we don't have yet).
+        // Offline: queue the mutation. Photos require the resource ID
+        // which we don't have yet — they'll be lost on this path, so
+        // the UI warns the user below via \`queuedOffline\`.
         await mutateWithOfflineQueue(
           form.submit.method,
           form.submit.endpoint,

@@ -1,6 +1,7 @@
 /** PackLog API calls — cargo scanning, tracking, reception. */
 
 import { api } from "./api";
+import { fetchWithOfflineFallback } from "./offline";
 import type {
   CargoRead,
   CargoTrackingRead,
@@ -10,7 +11,12 @@ import type {
   PaginatedResponse,
 } from "../types/api";
 
-/** List cargo items for the current entity. */
+/**
+ * List cargo items for the current entity.
+ *
+ * Offline-aware: falls back to the last cached page when the device
+ * has no connectivity.
+ */
 export async function listCargo(params?: {
   search?: string;
   status?: string;
@@ -19,19 +25,19 @@ export async function listCargo(params?: {
   page?: number;
   page_size?: number;
 }): Promise<PaginatedResponse<CargoRead>> {
-  const { data } = await api.get<PaginatedResponse<CargoRead>>(
+  const result = await fetchWithOfflineFallback<PaginatedResponse<CargoRead>>(
     "/api/v1/packlog/cargo",
-    { params }
+    params as Record<string, unknown> | undefined
   );
-  return data;
+  return result.data;
 }
 
-/** Get a single cargo by ID. */
+/** Get a single cargo by ID (offline-aware). */
 export async function getCargo(cargoId: string): Promise<CargoRead> {
-  const { data } = await api.get<CargoRead>(
+  const result = await fetchWithOfflineFallback<CargoRead>(
     `/api/v1/packlog/cargo/${cargoId}`
   );
-  return data;
+  return result.data;
 }
 
 /** Public tracking by tracking code (no auth required). */

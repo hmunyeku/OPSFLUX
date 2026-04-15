@@ -1,6 +1,7 @@
 /** PaxLog API calls — ADS boarding scan and passenger management. */
 
 import { api } from "./api";
+import { fetchWithOfflineFallback } from "./offline";
 import type {
   AdsBoardingContext,
   AdsBoardingPassenger,
@@ -8,18 +9,25 @@ import type {
   PaginatedResponse,
 } from "../types/api";
 
-/** List ADS for the current entity. */
+/**
+ * List ADS for the current entity.
+ *
+ * Offline-aware: when the device is offline and we have a cached
+ * response, returns the cached list so the user can still browse
+ * items loaded during the last online session.
+ */
 export async function listAds(params?: {
   search?: string;
   status?: string;
   page?: number;
   page_size?: number;
+  scope?: string;
 }): Promise<PaginatedResponse<AdsSummary>> {
-  const { data } = await api.get<PaginatedResponse<AdsSummary>>(
+  const result = await fetchWithOfflineFallback<PaginatedResponse<AdsSummary>>(
     "/api/v1/pax/ads",
-    { params }
+    params as Record<string, unknown> | undefined
   );
-  return data;
+  return result.data;
 }
 
 /** Resolve a boarding QR token into a full boarding context. */

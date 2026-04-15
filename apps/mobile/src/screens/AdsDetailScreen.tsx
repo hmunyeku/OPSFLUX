@@ -30,6 +30,7 @@ import { MIcon, type MIconName } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
 import { api } from "../services/api";
+import { fetchWithOfflineFallback } from "../services/offline";
 import { downloadAndOpenPdf } from "../services/pdf";
 import { usePermissions } from "../stores/permissions";
 import { useToast } from "../components/Toast";
@@ -127,8 +128,22 @@ export default function AdsDetailScreen({ route }: Props) {
 
   const loadAds = useCallback(async () => {
     try {
-      const { data } = await api.get(`/api/v1/pax/ads/${adsId}`);
-      setAds(data);
+      // Offline-aware: returns cached record when the device has no
+      // connectivity, so the user can still review what they loaded
+      // previously even without internet.
+      const result = await fetchWithOfflineFallback<AdsDetail>(
+        `/api/v1/pax/ads/${adsId}`
+      );
+      setAds(result.data);
+      if (result.fromCache) {
+        toast.show(
+          t(
+            "common.offlineCache",
+            "Données hors-ligne — la fiche peut être obsolète."
+          ),
+          "warning"
+        );
+      }
     } catch {
       toast.show(t("ads.loadError", "Impossible de charger l'ADS"), "error");
     } finally {

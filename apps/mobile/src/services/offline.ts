@@ -217,21 +217,71 @@ export async function flushQueue(): Promise<{
 
 let unsubscribeNetInfo: (() => void) | null = null;
 
+/**
+ * Evaluate a NetInfo state to a single online/offline boolean.
+ *
+ * Rules (explicit > inferred):
+ *  - `isConnected === false`                             → offline
+ *  - `isConnected === true && isInternetReachable === false` → offline
+ *  - `isConnected === true && isInternetReachable === true`  → online
+ *  - `isConnected === true && isInternetReachable === null`  → online
+ *    (unknown reachability right after a WiFi association; re-check
+ *    will fire soon). This prevents a spurious "offline" flash on
+ *    boot on Android that used to cause mutations to be queued
+ *    milliseconds before the connection was actually ready.
+ *  - `isConnected === null`                              → keep prior
+ *    state (don't flip on unknown startup state).
+ */
+function evaluateNetInfo(
+  state: NetInfoState,
+  prior: boolean
+): boolean {
+  if (state.isConnected === false) return false;
+  if (state.isConnected === true) {
+    if (state.isInternetReachable === false) return false;
+    return true; // true OR null → online
+  }
+  // isConnected is null/undefined — defer to previous state rather
+  // than flipping. NetInfo will fire again with a definite value.
+  return prior;
+}
+
 export function startConnectivityMonitor(): void {
   if (unsubscribeNetInfo) return;
 
+  // Configure a real reachability probe so Android can tell
+  // "connected to wifi router but no internet" apart from
+  // "connected AND reachable". Without this the `isInternetReachable`
+  // flag stays null on Android networks that haven't been probed,
+  // which our evaluator then treats as online — and mutations hang
+  // on the axios timeout instead of queueing immediately.
+  NetInfo.configure({
+    reachabilityUrl:
+      (api.defaults.baseURL ?? "https://api.opsflux.io") + "/api/v1/health",
+    reachabilityTest: async (response) => response.status < 500,
+    reachabilityLongTimeout: 60_000,
+    reachabilityShortTimeout: 5_000,
+    reachabilityRequestTimeout: 5_000,
+    reachabilityShouldRun: () => true,
+  });
+
+  // Fetch the current state once synchronously so the store matches
+  // reality from the first frame (prevents a "false online" flash
+  // when the app launches without connectivity).
+  NetInfo.fetch()
+    .then((state) => {
+      const prior = useOfflineStore.getState().isOnline;
+      const isNowOnline = evaluateNetInfo(state, prior);
+      useOfflineStore.getState().setOnline(isNowOnline);
+    })
+    .catch(() => {
+      /* ignore */
+    });
+
   unsubscribeNetInfo = NetInfo.addEventListener((state: NetInfoState) => {
-    const wasOffline = !useOfflineStore.getState().isOnline;
-    // Only mark offline when BOTH: not connected AND internet
-    // explicitly not reachable. On Android the listener often fires
-    // once early with `isConnected: false` before the OS has resolved
-    // the active interface — which used to push every mutation into
-    // the queue even though the device was about to be online
-    // milliseconds later. Treat "unknown" states as online to avoid
-    // that UX glitch; NetInfo will re-fire if we're really offline.
-    const connected = state.isConnected !== false; // true OR null
-    const reachable = state.isInternetReachable !== false; // true OR null
-    const isNowOnline = connected && reachable;
+    const prior = useOfflineStore.getState().isOnline;
+    const wasOffline = !prior;
+    const isNowOnline = evaluateNetInfo(state, prior);
 
     useOfflineStore.getState().setOnline(isNowOnline);
 
@@ -269,6 +319,10 @@ export function stopConnectivityMonitor(): void {
 /**
  * Fetch with offline fallback: tries the API first, falls back to cache.
  * When online, caches the fresh response for future offline use.
+ *
+ * Uses a short timeout (8s) so a user who cut connectivity mid-browse
+ * doesn't have to wait the default 15s axios timeout to see their
+ * cached list — we give up fast and hand the cached copy back.
  */
 export async function fetchWithOfflineFallback<T>(
   url: string,
@@ -278,11 +332,14 @@ export async function fetchWithOfflineFallback<T>(
 
   if (isOnline) {
     try {
-      const { data } = await api.get<T>(url, { params });
+      const { data } = await api.get<T>(url, { params, timeout: 8_000 });
       await setCache(url, data, params);
       return { data, fromCache: false };
     } catch {
-      // Network error — fall back to cache
+      // Network error / timeout — fall back to cache AND flip the
+      // store offline flag so subsequent reads go straight to cache
+      // without re-hitting the 8s timeout.
+      useOfflineStore.getState().setOnline(false);
       const cached = await getCached<T>(url, params);
       if (cached) return { data: cached, fromCache: true };
       throw new Error("Pas de connexion et aucune donnée en cache.");

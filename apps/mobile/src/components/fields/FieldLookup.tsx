@@ -46,6 +46,50 @@ interface LookupItem {
   [key: string]: unknown;
 }
 
+/**
+ * Compute a human-readable label for a lookup item.
+ *
+ * Priority:
+ *   1. The `display` field configured on the lookup source.
+ *   2. Common composite fields: `display_name`, `full_name`, `name`,
+ *      `title`, `label`.
+ *   3. `first_name + last_name` (users / contacts API shape).
+ *   4. `email` then `username` then `code`.
+ *   5. Last resort: a short id snippet, never an empty "(sans nom)".
+ */
+function computeLabel(
+  item: Record<string, unknown>,
+  primaryKey?: string
+): string {
+  if (primaryKey) {
+    const v = item[primaryKey];
+    if (v !== null && v !== undefined && String(v).trim()) return String(v);
+  }
+  for (const k of ["display_name", "full_name", "name", "title", "label"]) {
+    const v = item[k];
+    if (v && String(v).trim()) return String(v);
+  }
+  const fn = item.first_name ? String(item.first_name).trim() : "";
+  const ln = item.last_name ? String(item.last_name).trim() : "";
+  if (fn || ln) return [fn, ln].filter(Boolean).join(" ");
+  for (const k of ["email", "username", "code", "reference"]) {
+    const v = item[k];
+    if (v && String(v).trim()) return String(v);
+  }
+  const id = item.id ? String(item.id) : "";
+  return id ? `#${id.slice(0, 8)}` : "—";
+}
+
+/** Compute a secondary line (subtitle) for richer rows. */
+function computeSecondary(item: Record<string, unknown>): string | undefined {
+  // Show email if we already used names for primary, or position/code
+  for (const k of ["email", "code", "position", "reference", "phone"]) {
+    const v = item[k];
+    if (v && String(v).trim()) return String(v);
+  }
+  return undefined;
+}
+
 export default function FieldLookup({
   field,
   value,
@@ -70,7 +114,7 @@ export default function FieldLookup({
     }
     const found = items.find((i) => String(i[source.value]) === String(value));
     if (found) {
-      setSelectedLabel(String(found[source.display] ?? ""));
+      setSelectedLabel(computeLabel(found, source.display));
       return;
     }
     (async () => {
@@ -81,7 +125,7 @@ export default function FieldLookup({
             (i) => String(i[source.value]) === String(value)
           );
           if (cachedItem) {
-            setSelectedLabel(String(cachedItem[source.display] ?? ""));
+            setSelectedLabel(computeLabel(cachedItem, source.display));
             return;
           }
         }
@@ -89,10 +133,7 @@ export default function FieldLookup({
       setResolvingLabel(true);
       try {
         const { data } = await api.get(`${source.endpoint}/${value}`);
-        const label =
-          data?.[source.display] ?? data?.name ?? data?.display_name;
-        if (label) setSelectedLabel(String(label));
-        else setSelectedLabel(String(value).slice(0, 8) + "…");
+        setSelectedLabel(computeLabel(data, source.display));
       } catch {
         setSelectedLabel(String(value).slice(0, 8) + "…");
       } finally {
@@ -253,9 +294,8 @@ export default function FieldLookup({
                 keyboardShouldPersistTaps="handled"
                 renderItem={({ item }) => {
                   const itemId = String(item[source.value] ?? item.id);
-                  const label = String(item[source.display] ?? "");
-                  const secondary =
-                    item.code ? String(item.code) : undefined;
+                  const label = computeLabel(item, source.display);
+                  const secondary = computeSecondary(item);
                   const isSelected = itemId === String(value);
                   return (
                     <Pressable
@@ -277,9 +317,9 @@ export default function FieldLookup({
                           fontWeight={isSelected ? "$semibold" : "$normal"}
                           numberOfLines={1}
                         >
-                          {label || "(sans nom)"}
+                          {label}
                         </Text>
-                        {secondary && (
+                        {secondary && secondary !== label && (
                           <Text size="xs" color="$textLight500" mt="$0.5">
                             {secondary}
                           </Text>

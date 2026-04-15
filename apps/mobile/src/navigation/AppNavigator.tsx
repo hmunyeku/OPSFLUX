@@ -62,6 +62,7 @@ import AdsDetailScreen from "../screens/AdsDetailScreen";
 import VoyageDetailScreen from "../screens/VoyageDetailScreen";
 import CargoReceptionScreen from "../screens/CargoReceptionScreen";
 import OnboardingScreen, { isOnboardingComplete } from "../screens/OnboardingScreen";
+import AppTopBar from "../components/AppTopBar";
 import AccountBlockedScreen from "../screens/AccountBlockedScreen";
 import ForceUpdateScreen, { compareVersions } from "../screens/ForceUpdateScreen";
 import { useAppState } from "../stores/appState";
@@ -259,7 +260,12 @@ function HomeStack() {
       <Stack.Screen
         name="PortalHome"
         component={PortalHomeScreen}
-        options={{ title: "OpsFlux" }}
+        options={{
+          // Use the persistent AppTopBar (with avatar / portal switcher /
+          // search / notifications) instead of a generic React Navigation
+          // header — matches the look of every modern mobile app.
+          header: () => <AppTopBar showPortalSwitcher />,
+        }}
       />
       {SharedScreens()}
     </Stack.Navigator>
@@ -420,6 +426,22 @@ function MainTabs() {
           tabBarLabel: "Scanner",
           tabBarIcon: ({ focused }) => <TabIcon label="QR" focused={focused} />,
         }}
+        listeners={({ navigation }) => ({
+          // Tapping the Scanner tab always returns the user to the
+          // camera viewfinder (root of the stack). Without this, after
+          // a successful scan the user would stay on the detail screen
+          // and be unable to scan again from this tab.
+          tabPress: () => {
+            const targetState = (navigation.getState().routes.find(
+              (r: any) => r.name === "Scanner"
+            ) as any)?.state;
+            if (targetState && targetState.index > 0) {
+              navigation.navigate("Scanner", {
+                screen: "SmartScan",
+              });
+            }
+          },
+        })}
       />
       {hasTracking && (
         <Tab.Screen

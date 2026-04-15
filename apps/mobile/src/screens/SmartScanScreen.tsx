@@ -92,7 +92,7 @@ export default function SmartScanScreen({ navigation }: Props) {
     try {
       if (detected.kind === "ads") {
         const context = await getAdsBoardingScanContext(detected.token);
-        navigation.replace("AdsBoardingDetail", {
+        navigation.navigate("AdsBoardingDetail", {
           context,
           token: detected.token,
         });
@@ -101,7 +101,7 @@ export default function SmartScanScreen({ navigation }: Props) {
 
       if (detected.kind === "cargo") {
         const tracking = await getPublicCargoTracking(detected.code);
-        navigation.replace("CargoDetail", {
+        navigation.navigate("CargoDetail", {
           tracking,
           trackingCode: detected.code,
         });
@@ -111,7 +111,7 @@ export default function SmartScanScreen({ navigation }: Props) {
       if (detected.kind === "cargo_request") {
         // LT (Lettre de Transport) — scanner la LT amène sur le détail
         // de la demande d'expédition avec la liste des colis.
-        navigation.replace("CargoRequestDetail", {
+        navigation.navigate("CargoRequestDetail", {
           requestId: detected.id,
           requestCode: detected.code,
         });
@@ -119,14 +119,14 @@ export default function SmartScanScreen({ navigation }: Props) {
       }
 
       if (detected.kind === "avm") {
-        navigation.replace("AvmDetail", { avmId: detected.id });
+        navigation.navigate("AvmDetail", { avmId: detected.id });
         return;
       }
 
       // Unknown — try to guess: first ADS, then cargo
       try {
         const context = await getAdsBoardingScanContext(detected.raw);
-        navigation.replace("AdsBoardingDetail", {
+        navigation.navigate("AdsBoardingDetail", {
           context,
           token: detected.raw,
         });
@@ -136,7 +136,7 @@ export default function SmartScanScreen({ navigation }: Props) {
       }
       try {
         const tracking = await getPublicCargoTracking(detected.raw);
-        navigation.replace("CargoDetail", {
+        navigation.navigate("CargoDetail", {
           tracking,
           trackingCode: detected.raw,
         });

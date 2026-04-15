@@ -1,29 +1,39 @@
 /**
- * Cargo detail screen — shows tracking info after scanning a colis.
+ * Cargo detail screen — full Gluestack rewrite.
  *
- * Displays:
- *  - Cargo summary (reference, type, status, sender/recipient)
- *  - Tracking timeline
- *  - Compliance check results
- *  - Package elements
- *  - "Confirm reception" action button
+ * Sections:
+ *  - Header: reference + status + hazmat badge + cargo type
+ *  - Description (if present)
+ *  - Identification card: tracking code + LT reference + created date
+ *  - Logistics card: sender → recipient + origin → destination + weight
+ *  - Compliance card: overall status + per-rule check rows
+ *  - Tracking timeline (icon dots + status / location / notes / date)
+ *  - Package contents (each element with status badge)
+ *  - Attachments (photos + files)
+ *  - Actions: Download LT PDF, Receive
  */
 
 import React, { useCallback, useEffect, useState } from "react";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Pressable,
-  ScrollView,
-  StyleSheet,
+  Badge,
+  BadgeText,
+  Box,
+  Button,
+  ButtonSpinner,
+  ButtonText,
+  Divider,
+  Heading,
+  HStack,
+  Spinner,
   Text,
-  View,
-} from "react-native";
-import { colors } from "../utils/colors";
+  VStack,
+} from "@gluestack-ui/themed";
+import { MIcon, type MIconName } from "../components/MIcon";
 import StatusBadge from "../components/StatusBadge";
+import AttachmentsSection from "../components/AttachmentsSection";
 import {
-  getCargo,
   getCargoComplianceCheck,
   listPackageElements,
   receiveCargo,
@@ -36,14 +46,13 @@ import type {
   PackageElement,
 } from "../types/api";
 import { downloadAndOpenPdf } from "../services/pdf";
-import AttachmentsSection from "../components/AttachmentsSection";
+import { colors } from "../utils/colors";
 
 interface Props {
   route: {
     params: {
       tracking: CargoTrackingRead;
       trackingCode: string;
-      /** If navigated from an authenticated cargo list, we get the full cargo. */
       cargo?: CargoRead;
     };
   };
@@ -52,6 +61,7 @@ interface Props {
 
 export default function CargoDetailScreen({ route, navigation }: Props) {
   const { tracking, trackingCode } = route.params;
+  const insets = useSafeAreaInsets();
   const [cargo, setCargo] = useState<CargoRead | null>(
     route.params.cargo ?? null
   );
@@ -59,11 +69,9 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
     null
   );
   const [elements, setElements] = useState<PackageElement[]>([]);
-  const [loading, setLoading] = useState(false);
   const [downloadingLt, setDownloadingLt] = useState(false);
   const [receiving, setReceiving] = useState(false);
 
-  // Load full cargo detail + compliance if we have auth
   useEffect(() => {
     if (cargo) {
       loadDetails(cargo.id);
@@ -79,425 +87,411 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
       if (complianceRes) setCompliance(complianceRes);
       setElements(elementsRes);
     } catch {
-      // Non-critical — just show what we have
+      /* non-critical */
     }
   }
 
-  const handleReceive = useCallback(async () => {
+  const handleReceive = useCallback(() => {
     if (!cargo) {
       Alert.alert("Info", "Connectez-vous pour confirmer la réception.");
       return;
     }
+    // Route the user through the dedicated reception workflow
+    // (signature, photos, condition assessment).
+    navigation.navigate("CargoReception", { cargo });
+  }, [cargo, navigation]);
 
-    Alert.alert(
-      "Confirmer réception",
-      `Confirmez-vous la réception du colis ${tracking.reference} ?`,
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "État: Bon",
-          onPress: () => confirmReceive({ recipient_available: true, signature_collected: true }),
-        },
-        {
-          text: "État: Endommagé",
-          style: "destructive",
-          onPress: () =>
-            confirmReceive({
-              recipient_available: true,
-              signature_collected: true,
-              damage_notes: "Colis endommagé — état constaté à la réception",
-            }),
-        },
-      ]
-    );
-  }, [cargo, tracking.reference]);
-
-  async function confirmReceive(body: CargoReceiptConfirm) {
-    if (!cargo) return;
-    setReceiving(true);
+  const formatDate = (iso: string | null | undefined) => {
+    if (!iso) return null;
     try {
-      const updated = await receiveCargo(cargo.id, body);
-      setCargo(updated);
-      Alert.alert("Succès", "Réception confirmée.");
-    } catch (err: any) {
-      Alert.alert(
-        "Erreur",
-        err?.response?.data?.detail || "Impossible de confirmer la réception."
-      );
-    } finally {
-      setReceiving(false);
+      return new Date(iso).toLocaleString("fr-FR", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return iso;
     }
-  }
+  };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Cargo header */}
-      <View style={styles.card}>
-        <View style={styles.headerRow}>
-          <Text style={styles.reference}>{tracking.reference}</Text>
-          <StatusBadge status={tracking.status} size="md" />
-        </View>
-
-        {tracking.cargo_type && (
-          <Text style={styles.cargoType}>
-            Type: {tracking.cargo_type}
-          </Text>
-        )}
-
-        {tracking.description && (
-          <Text style={styles.description}>{tracking.description}</Text>
-        )}
-
-        <View style={styles.infoGrid}>
-          {tracking.sender_name && (
-            <InfoRow label="Expéditeur" value={tracking.sender_name} />
+    <Box flex={1} bg="$backgroundLight50">
+      <ScrollView
+        contentContainerStyle={{
+          paddingTop: insets.top + 8,
+          paddingHorizontal: 14,
+          paddingBottom: insets.bottom + 32,
+          gap: 12,
+        }}
+      >
+        {/* ── Header ──────────────────────────────────────────────── */}
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4" style={styles.shadow}>
+          <HStack justifyContent="space-between" alignItems="center" mb="$2">
+            <Heading size="lg" color="$primary700" flex={1} numberOfLines={1}>
+              {tracking.reference}
+            </Heading>
+            <StatusBadge status={tracking.status} size="md" />
+          </HStack>
+          <HStack space="xs" alignItems="center" flexWrap="wrap">
+            {tracking.cargo_type && (
+              <Badge action="muted" variant="solid" size="sm">
+                <MIcon name="inventory-2" size="2xs" color="$textLight700" mr="$1" />
+                <BadgeText>{tracking.cargo_type}</BadgeText>
+              </Badge>
+            )}
+            {cargo?.hazmat && (
+              <Badge action="error" variant="solid" size="sm">
+                <MIcon name="warning" size="2xs" color="$white" mr="$1" />
+                <BadgeText>HAZMAT</BadgeText>
+              </Badge>
+            )}
+            {cargo?.weight_kg != null && (
+              <Badge action="info" variant="solid" size="sm">
+                <MIcon name="scale" size="2xs" color="$white" mr="$1" />
+                <BadgeText>{cargo.weight_kg} kg</BadgeText>
+              </Badge>
+            )}
+          </HStack>
+          {tracking.description && (
+            <Text size="sm" color="$textLight900" mt="$3" lineHeight={20}>
+              {tracking.description}
+            </Text>
           )}
-          {tracking.recipient_name && (
-            <InfoRow label="Destinataire" value={tracking.recipient_name} />
-          )}
-          {tracking.origin_name && (
-            <InfoRow label="Origine" value={tracking.origin_name} />
-          )}
-          {tracking.destination_name && (
-            <InfoRow label="Destination" value={tracking.destination_name} />
-          )}
-        </View>
-      </View>
+        </Box>
 
-      {/* Compliance check */}
-      {compliance && (
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Conformité</Text>
-          <StatusBadge
-            status={compliance.overall_status}
-            size="md"
-          />
-          {(compliance.checks ?? []).map((check, i) => (
-            <View key={i} style={styles.checkRow}>
-              <View
-                style={[
-                  styles.checkDot,
-                  {
-                    backgroundColor:
-                      check.status === "pass"
-                        ? colors.success
-                        : check.status === "fail"
-                        ? colors.danger
-                        : colors.warning,
-                  },
-                ]}
+        {/* ── Identification ──────────────────────────────────────── */}
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4" style={styles.shadow}>
+          <SectionTitle icon="badge" label="Identification" />
+          {cargo?.tracking_code && (
+            <DetailRow
+              icon="qr-code"
+              label="Code de suivi"
+              value={cargo.tracking_code}
+            />
+          )}
+          {!cargo?.tracking_code && trackingCode && (
+            <DetailRow icon="qr-code" label="Code de suivi" value={trackingCode} />
+          )}
+          {cargo?.request_id && (
+            <>
+              <Divider my="$2" />
+              <DetailRow
+                icon="description"
+                label="Lettre de transport"
+                value={`#${cargo.request_id.slice(0, 8)}`}
               />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.checkRule}>{check.rule}</Text>
-                {check.message && (
-                  <Text style={styles.checkMessage}>{check.message}</Text>
-                )}
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Tracking timeline */}
-      {tracking.events && tracking.events.length > 0 && (
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Suivi</Text>
-          {(tracking.events ?? []).map((event, i) => (
-            <View key={i} style={styles.timelineItem}>
-              <View style={styles.timelineDot} />
-              {i < (tracking.events?.length ?? 0) - 1 && (
-                <View style={styles.timelineLine} />
-              )}
-              <View style={styles.timelineContent}>
-                <Text style={styles.timelineStatus}>{event.status}</Text>
-                {event.location && (
-                  <Text style={styles.timelineLocation}>{event.location}</Text>
-                )}
-                {event.notes && (
-                  <Text style={styles.timelineNotes}>{event.notes}</Text>
-                )}
-                <Text style={styles.timelineDate}>
-                  {new Date(event.timestamp).toLocaleString("fr-FR")}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Package elements */}
-      {elements.length > 0 && (
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>
-            Contenu ({elements.length} élément{elements.length > 1 ? "s" : ""})
-          </Text>
-          {elements.map((el) => (
-            <View key={el.id} style={styles.elementRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.elementDesc}>{el.description}</Text>
-                <Text style={styles.elementMeta}>
-                  Qté: {el.quantity}
-                  {el.weight_kg ? ` — ${el.weight_kg} kg` : ""}
-                  {el.sap_code ? ` — SAP: ${el.sap_code}` : ""}
-                </Text>
-              </View>
-              {el.return_status && (
-                <StatusBadge status={el.return_status} />
-              )}
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* LT (Lettre de transport) PDF download */}
-      {cargo?.request_id && (
-        <Pressable
-          style={styles.pdfButton}
-          disabled={downloadingLt}
-          onPress={async () => {
-            setDownloadingLt(true);
-            const result = await downloadAndOpenPdf(
-              `/api/v1/travelwiz/cargo-requests/${cargo.request_id}/pdf/lt`,
-              `LT_${cargo.reference}`
-            );
-            setDownloadingLt(false);
-            if (!result.ok) {
-              Alert.alert(
-                "Erreur",
-                "Téléchargement de la lettre de transport impossible."
-              );
-            }
-          }}
-        >
-          {downloadingLt ? (
-            <ActivityIndicator color={colors.primary} />
-          ) : (
-            <Text style={styles.pdfButtonText}>
-              📄 Télécharger la lettre de transport
-            </Text>
+            </>
           )}
-        </Pressable>
-      )}
+          {cargo?.created_at && (
+            <>
+              <Divider my="$2" />
+              <DetailRow
+                icon="event"
+                label="Créé le"
+                value={formatDate(cargo.created_at) ?? cargo.created_at}
+              />
+            </>
+          )}
+          {cargo?.received_at && (
+            <>
+              <Divider my="$2" />
+              <DetailRow
+                icon="check-circle"
+                label="Reçu le"
+                value={
+                  (formatDate(cargo.received_at) ?? cargo.received_at) +
+                  (cargo.received_by_name ? ` · ${cargo.received_by_name}` : "")
+                }
+              />
+            </>
+          )}
+        </Box>
 
-      {/* Pièces jointes */}
-      {cargo?.id && (
-        <View style={{ marginTop: 12 }}>
-          <AttachmentsSection ownerType="cargo_item" ownerId={cargo.id} />
-        </View>
-      )}
-
-      {/* Receive button — navigates to full reception workflow */}
-      {cargo &&
-        !["received", "delivered_final", "returned"].includes(
-          cargo.status
-        ) && (
-          <Pressable
-            style={styles.receiveButton}
-            onPress={() =>
-              navigation.navigate("CargoReception", { cargo })
-            }
-          >
-            <Text style={styles.receiveButtonText}>
-              Confirmer la réception
-            </Text>
-          </Pressable>
+        {/* ── Logistics ───────────────────────────────────────────── */}
+        {(tracking.sender_name ||
+          tracking.recipient_name ||
+          tracking.origin_name ||
+          tracking.destination_name) && (
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4" style={styles.shadow}>
+            <SectionTitle icon="local-shipping" label="Logistique" />
+            {(tracking.sender_name || tracking.recipient_name) && (
+              <DetailRow
+                icon="swap-horiz"
+                label="Expéditeur → Destinataire"
+                value={`${tracking.sender_name ?? "—"}  →  ${tracking.recipient_name ?? "—"}`}
+              />
+            )}
+            {tracking.origin_name && (
+              <>
+                <Divider my="$2" />
+                <DetailRow
+                  icon="flight-takeoff"
+                  label="Origine"
+                  value={tracking.origin_name}
+                />
+              </>
+            )}
+            {tracking.destination_name && (
+              <>
+                <Divider my="$2" />
+                <DetailRow
+                  icon="flight-land"
+                  label="Destination"
+                  value={tracking.destination_name}
+                />
+              </>
+            )}
+          </Box>
         )}
 
-      <View style={{ height: 40 }} />
-    </ScrollView>
+        {/* ── Compliance ──────────────────────────────────────────── */}
+        {compliance && (
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4" style={styles.shadow}>
+            <HStack justifyContent="space-between" alignItems="center" mb="$3">
+              <SectionTitle icon="verified" label="Conformité" inline />
+              <StatusBadge status={compliance.overall_status} size="md" />
+            </HStack>
+            {(compliance.checks ?? []).map((check, i) => (
+              <View key={i}>
+                {i > 0 && <Divider my="$2" />}
+                <HStack space="sm" alignItems="flex-start">
+                  <Box
+                    style={[
+                      styles.checkDot,
+                      {
+                        backgroundColor:
+                          check.status === "pass"
+                            ? colors.success
+                            : check.status === "fail"
+                            ? colors.danger
+                            : colors.warning,
+                      },
+                    ]}
+                  />
+                  <VStack flex={1}>
+                    <Text size="sm" fontWeight="$semibold" color="$textLight900">
+                      {check.rule}
+                    </Text>
+                    {check.message && (
+                      <Text size="xs" color="$textLight500" mt="$0.5">
+                        {check.message}
+                      </Text>
+                    )}
+                  </VStack>
+                </HStack>
+              </View>
+            ))}
+          </Box>
+        )}
+
+        {/* ── Timeline ────────────────────────────────────────────── */}
+        {tracking.events && tracking.events.length > 0 && (
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4" style={styles.shadow}>
+            <SectionTitle icon="timeline" label="Suivi" />
+            {tracking.events.map((event, i) => (
+              <View key={i} style={styles.timelineRow}>
+                <View style={styles.timelineDot} />
+                {i < (tracking.events?.length ?? 0) - 1 && (
+                  <View style={styles.timelineLine} />
+                )}
+                <VStack flex={1} pb="$3" pl="$3">
+                  <Text size="sm" fontWeight="$semibold" color="$textLight900">
+                    {event.status}
+                  </Text>
+                  {event.location && (
+                    <Text size="xs" color="$textLight600" mt="$0.5">
+                      {event.location}
+                    </Text>
+                  )}
+                  {event.notes && (
+                    <Text size="xs" color="$textLight500" italic mt="$0.5">
+                      {event.notes}
+                    </Text>
+                  )}
+                  <Text size="2xs" color="$textLight400" mt="$0.5">
+                    {formatDate(event.timestamp) ?? event.timestamp}
+                  </Text>
+                </VStack>
+              </View>
+            ))}
+          </Box>
+        )}
+
+        {/* ── Package elements ────────────────────────────────────── */}
+        {elements.length > 0 && (
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4" style={styles.shadow}>
+            <SectionTitle
+              icon="list-alt"
+              label={`Contenu (${elements.length} élément${elements.length > 1 ? "s" : ""})`}
+            />
+            {elements.map((el, i) => (
+              <View key={el.id}>
+                {i > 0 && <Divider my="$2" />}
+                <HStack space="sm" alignItems="center">
+                  <VStack flex={1}>
+                    <Text size="sm" fontWeight="$medium" color="$textLight900">
+                      {el.description}
+                    </Text>
+                    <Text size="xs" color="$textLight500" mt="$0.5">
+                      Qté: {el.quantity}
+                      {el.weight_kg ? ` · ${el.weight_kg} kg` : ""}
+                      {el.sap_code ? ` · SAP: ${el.sap_code}` : ""}
+                    </Text>
+                  </VStack>
+                  {el.return_status && <StatusBadge status={el.return_status} />}
+                </HStack>
+              </View>
+            ))}
+          </Box>
+        )}
+
+        {/* ── Attachments ─────────────────────────────────────────── */}
+        {cargo?.id && (
+          <AttachmentsSection ownerType="cargo_item" ownerId={cargo.id} />
+        )}
+
+        {/* ── Actions ─────────────────────────────────────────────── */}
+        <VStack space="sm">
+          {cargo?.request_id && (
+            <Button
+              size="lg"
+              variant="outline"
+              action="secondary"
+              isDisabled={downloadingLt}
+              onPress={async () => {
+                setDownloadingLt(true);
+                const result = await downloadAndOpenPdf(
+                  `/api/v1/travelwiz/cargo-requests/${cargo.request_id}/pdf/lt`,
+                  `LT_${cargo.reference}`
+                );
+                setDownloadingLt(false);
+                if (!result.ok) {
+                  Alert.alert(
+                    "Erreur",
+                    "Téléchargement de la lettre de transport impossible."
+                  );
+                }
+              }}
+            >
+              {downloadingLt ? (
+                <ButtonSpinner mr="$2" />
+              ) : (
+                <MIcon name="picture-as-pdf" size="sm" color="$primary700" mr="$2" />
+              )}
+              <ButtonText>Télécharger la lettre de transport</ButtonText>
+            </Button>
+          )}
+
+          {cargo &&
+            !["received", "delivered_final", "returned"].includes(cargo.status) && (
+              <Button
+                size="lg"
+                action="positive"
+                bg="$success600"
+                $active-bg="$success700"
+                onPress={handleReceive}
+                isDisabled={receiving}
+              >
+                {receiving ? (
+                  <ButtonSpinner mr="$2" color="$white" />
+                ) : (
+                  <MIcon name="check" size="md" color="$white" mr="$2" />
+                )}
+                <ButtonText color="$white">Confirmer la réception</ButtonText>
+              </Button>
+            )}
+        </VStack>
+      </ScrollView>
+    </Box>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+/* ── Sub-components ─────────────────────────────────────────────────── */
+
+function SectionTitle({
+  icon,
+  label,
+  inline = false,
+}: {
+  icon: MIconName;
+  label: string;
+  inline?: boolean;
+}) {
   return (
-    <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
-    </View>
+    <HStack alignItems="center" space="sm" mb={inline ? "$0" : "$3"}>
+      <MIcon name={icon} size="sm" color="$textLight600" />
+      <Heading
+        size="xs"
+        color="$textLight500"
+        textTransform="uppercase"
+        letterSpacing={0.5}
+      >
+        {label}
+      </Heading>
+    </HStack>
+  );
+}
+
+function DetailRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: MIconName;
+  label: string;
+  value: string;
+}) {
+  return (
+    <HStack space="sm" alignItems="center">
+      <Box bg="$primary50" borderRadius="$md" p="$2">
+        <MIcon name={icon} size="sm" color="$primary700" />
+      </Box>
+      <VStack flex={1}>
+        <Text size="xs" color="$textLight500">
+          {label}
+        </Text>
+        <Text size="sm" fontWeight="$medium" color="$textLight900">
+          {value}
+        </Text>
+      </VStack>
+    </HStack>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 14,
-    gap: 12,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: "#000",
+  shadow: {
+    shadowColor: "#0f172a",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  reference: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: colors.primary,
-  },
-  cargoType: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  description: {
-    fontSize: 14,
-    color: colors.textPrimary,
-    marginBottom: 12,
-  },
-  infoGrid: {
-    gap: 6,
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  infoLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontWeight: "500",
-  },
-  infoValue: {
-    fontSize: 13,
-    color: colors.textPrimary,
-    fontWeight: "600",
-    textAlign: "right",
-    flex: 1,
-    marginLeft: 12,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.textPrimary,
-    marginBottom: 12,
-  },
-  // Compliance
-  checkRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginTop: 10,
-    gap: 10,
+    shadowRadius: 3,
+    elevation: 1,
   },
   checkDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginTop: 5,
-  },
-  checkRule: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.textPrimary,
-  },
-  checkMessage: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  // Timeline
-  timelineItem: {
-    flexDirection: "row",
-    marginBottom: 2,
-    minHeight: 50,
-  },
-  timelineDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
+    marginTop: 6,
+  },
+  timelineRow: {
+    flexDirection: "row",
+    minHeight: 50,
+  },
+  timelineDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: colors.primary,
     marginTop: 4,
-    marginRight: 12,
     zIndex: 1,
   },
   timelineLine: {
     position: "absolute",
-    left: 4,
-    top: 14,
+    left: 5,
+    top: 16,
     bottom: -2,
     width: 2,
     backgroundColor: colors.border,
-  },
-  timelineContent: {
-    flex: 1,
-    paddingBottom: 14,
-  },
-  timelineStatus: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.textPrimary,
-  },
-  timelineLocation: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  timelineNotes: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontStyle: "italic",
-    marginTop: 1,
-  },
-  timelineDate: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  // Elements
-  elementRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceAlt,
-  },
-  elementDesc: {
-    fontSize: 14,
-    color: colors.textPrimary,
-    fontWeight: "500",
-  },
-  elementMeta: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  // PDF button (outline secondary)
-  pdfButton: {
-    backgroundColor: colors.surface ?? "#fff",
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 12,
-  },
-  pdfButtonText: {
-    color: colors.primary,
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  // Receive button
-  receiveButton: {
-    backgroundColor: colors.success,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: "center",
-    marginTop: 4,
-  },
-  receiveButtonText: {
-    color: colors.textInverse,
-    fontSize: 16,
-    fontWeight: "700",
   },
 });

@@ -22,6 +22,7 @@ import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
 import { SkeletonCard } from "../components/Skeleton";
+import EmptyState from "../components/EmptyState";
 import { listAds } from "../services/paxlog";
 import type { AdsSummary } from "../types/api";
 
@@ -107,43 +108,44 @@ export default function AdsListScreen({ route, navigation }: Props) {
         borderRadius="$lg"
         borderWidth={1}
         borderColor="$borderLight200"
-        p="$4"
-        mb="$2.5"
+        px="$3"
+        py="$2.5"
+        mb="$1.5"
         $active-bg="$backgroundLight100"
       >
-        <HStack justifyContent="space-between" alignItems="center" mb="$1.5">
-          <Text size="md" fontWeight="$bold" color="$primary700">
+        <HStack justifyContent="space-between" alignItems="center" mb="$1">
+          <Text size="sm" fontWeight="$bold" color="$primary700">
             {item.reference}
           </Text>
           <StatusBadge status={item.status} />
         </HStack>
-        <Text size="sm" color="$textLight900" mb="$2" numberOfLines={2}>
+        <Text size="sm" color="$textLight900" numberOfLines={1} mb="$1">
           {item.visit_purpose}
         </Text>
-        <HStack space="md" alignItems="center" flexWrap="wrap">
+        <HStack space="sm" alignItems="center" flexWrap="wrap">
           <HStack space="xs" alignItems="center">
             <MIcon name="calendar-today" size="2xs" color="$textLight500" />
-            <Text size="xs" color="$textLight500">
+            <Text size="2xs" color="$textLight500">
               {item.start_date} → {item.end_date}
             </Text>
           </HStack>
           {item.pax_count != null && (
             <HStack space="xs" alignItems="center">
               <MIcon name="people" size="2xs" color="$textLight500" />
-              <Text size="xs" color="$textLight500">
+              <Text size="2xs" color="$textLight500">
                 {t("ads.paxCount", "{{count}} pax", { count: item.pax_count })}
               </Text>
             </HStack>
           )}
+          {item.site_entry_asset_name && (
+            <HStack space="xs" alignItems="center" flex={1}>
+              <MIcon name="place" size="2xs" color="$textLight400" />
+              <Text size="2xs" color="$textLight400" numberOfLines={1}>
+                {item.site_entry_asset_name}
+              </Text>
+            </HStack>
+          )}
         </HStack>
-        {item.site_entry_asset_name && (
-          <HStack space="xs" alignItems="center" mt="$1.5">
-            <MIcon name="place" size="2xs" color="$textLight400" />
-            <Text size="xs" color="$textLight400">
-              {item.site_entry_asset_name}
-            </Text>
-          </HStack>
-        )}
       </Pressable>
     ),
     [navigation, t]
@@ -234,11 +236,22 @@ export default function AdsListScreen({ route, navigation }: Props) {
           }}
           onEndReachedThreshold={0.3}
           ListEmptyComponent={
-            <Box py="$10" alignItems="center">
-              <Text color="$textLight500" textAlign="center">
-                {t("ads.empty", "Aucun ADS trouvé.")}
-              </Text>
-            </Box>
+            <EmptyState
+              illustration={search ? "no-results" : "inbox"}
+              title={
+                search
+                  ? t("ads.emptySearch", "Aucun ADS ne correspond")
+                  : t("ads.emptyTitle", "Aucun ADS pour l'instant")
+              }
+              description={
+                search
+                  ? t("ads.emptySearchDesc", "Essayez d'autres mots-clés.")
+                  : t(
+                      "ads.emptyDesc",
+                      "Vos avis de séjour apparaîtront ici dès qu'ils seront créés."
+                    )
+              }
+            />
           }
           ListFooterComponent={
             loadingMore ? (

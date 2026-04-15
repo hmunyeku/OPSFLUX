@@ -1,17 +1,34 @@
 /**
  * EmptyState — illustrated empty view for lists & detail screens.
  *
- * Uses a MIcon in a soft circle (not a code-style glyph) and a
- * Gluestack button so the visual fits the rest of the app.
+ * Uses an UnDraw-style SVG illustration (or a falling-back MIcon if a
+ * specific illustration isn't passed) for a friendlier "nothing here"
+ * screen. Same Gluestack button + typography for the action.
  */
 
 import React from "react";
 import { StyleSheet, View } from "react-native";
 import { Button, ButtonText, Text } from "@gluestack-ui/themed";
 import { MIcon, type MIconName } from "./MIcon";
-import { colors } from "../utils/colors";
+import {
+  EmptyInbox,
+  NoConnection,
+  NoResults,
+  type IllustrationProps,
+} from "./illustrations";
+
+type IllustrationKind = "inbox" | "no-results" | "offline" | "icon";
 
 interface Props {
+  /**
+   * Which illustration to render.
+   *  - "inbox": empty list of items
+   *  - "no-results": search returned nothing
+   *  - "offline": no network
+   *  - "icon": use the legacy MIcon-in-circle (back-compat, default)
+   */
+  illustration?: IllustrationKind;
+  /** Used when illustration === "icon". */
   icon?: MIconName;
   title: string;
   description?: string;
@@ -19,23 +36,40 @@ interface Props {
   onAction?: () => void;
 }
 
+const ILLUS_MAP: Record<
+  Exclude<IllustrationKind, "icon">,
+  React.FC<IllustrationProps>
+> = {
+  inbox: EmptyInbox,
+  "no-results": NoResults,
+  offline: NoConnection,
+};
+
 export default function EmptyState({
+  illustration = "icon",
   icon = "inbox",
   title,
   description,
   actionLabel,
   onAction,
 }: Props) {
+  const Illus = illustration !== "icon" ? ILLUS_MAP[illustration] : null;
+
   return (
     <View style={styles.container}>
-      <View style={styles.iconCircle}>
-        <MIcon name={icon} size="xl" color="$primary400" />
-      </View>
+      {Illus ? (
+        <Illus width={180} />
+      ) : (
+        <View style={styles.iconCircle}>
+          <MIcon name={icon} size="xl" color="$primary400" />
+        </View>
+      )}
       <Text
         size="md"
         fontWeight="$semibold"
         color="$textLight900"
         style={styles.title}
+        mt="$5"
       >
         {title}
       </Text>
@@ -58,7 +92,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 32,
-    paddingTop: 60,
+    paddingTop: 40,
   },
   iconCircle: {
     width: 84,
@@ -67,7 +101,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#eff6ff",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
   },
   title: {
     textAlign: "center",

@@ -15,10 +15,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshControl, ScrollView } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-  Avatar,
-  AvatarFallbackText,
   Badge,
   BadgeText,
   Box,
@@ -30,16 +27,16 @@ import {
 } from "@gluestack-ui/themed";
 import { MIcon } from "../components/MIcon";
 import Skeleton from "../components/Skeleton";
+import { EmptyInbox } from "../components/illustrations";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 
 import { useFormRegistry } from "../hooks/useFormRegistry";
 import { useResponsive } from "../hooks/useResponsive";
-import { useAuthStore } from "../stores/auth";
 import { usePermissions } from "../stores/permissions";
 import { useOfflineStore } from "../services/offline";
-import { useNotifications } from "../services/notifications";
 import { useToast } from "../components/Toast";
+import { useActivePortal } from "../stores/activePortal";
 import { iconByName } from "../utils/iconMap";
 import type { PortalAction, PortalDefinition } from "../types/forms";
 
@@ -48,21 +45,21 @@ interface Props {
 }
 
 export default function PortalHomeScreen({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const { portals, forms, loading, refresh } = useFormRegistry();
   const { deviceType } = useResponsive();
   const isTablet = deviceType === "tablet";
 
-  const userDisplayName = useAuthStore((s) => s.userDisplayName);
   const permissions = usePermissions((s) => s.permissions);
   const hasPermission = usePermissions((s) => s.hasAny);
   const isOnline = useOfflineStore((s) => s.isOnline);
   const queueLength = useOfflineStore((s) => s.queueLength);
-  const unreadCount = useNotifications((s) => s.unreadCount);
   const toast = useToast();
 
-  const [activePortalId, setActivePortalId] = useState<string | null>(null);
+  // The active portal id lives in a shared store so the AppTopBar
+  // switcher (above) and this body stay in sync.
+  const activePortalId = useActivePortal((s) => s.activePortalId);
+  const setActivePortalId = useActivePortal((s) => s.setActivePortalId);
   const [refreshing, setRefreshing] = useState(false);
 
   const accessiblePortals = useMemo(() => {
@@ -127,24 +124,8 @@ export default function PortalHomeScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <Box flex={1} bg="$backgroundLight50" pt={insets.top + 12} px="$4">
-        {/* Skeleton hero */}
-        <HStack alignItems="center" justifyContent="space-between" mb="$5">
-          <HStack alignItems="center" space="sm">
-            <Skeleton width={44} height={44} radius={22} />
-            <VStack>
-              <Skeleton width={80} height={11} />
-              <Skeleton width={140} height={16} style={{ marginTop: 6 }} />
-            </VStack>
-          </HStack>
-          <HStack space="sm">
-            <Skeleton width={40} height={40} radius={20} />
-            <Skeleton width={40} height={40} radius={20} />
-          </HStack>
-        </HStack>
-        {/* Skeleton big CTA */}
+      <Box flex={1} bg="$backgroundLight50" pt="$3" px="$4">
         <Skeleton width="100%" height={92} radius={16} style={{ marginBottom: 20 }} />
-        {/* Skeleton quick-actions */}
         <Skeleton width={140} height={12} style={{ marginBottom: 12 }} />
         <HStack flexWrap="wrap" gap={12}>
           {Array.from({ length: 4 }).map((_, i) => (
@@ -157,9 +138,15 @@ export default function PortalHomeScreen({ navigation }: Props) {
 
   if (accessiblePortals.length === 0) {
     return (
-      <Box flex={1} bg="$backgroundLight50" alignItems="center" justifyContent="center" p="$6">
-        <MIcon name="lock" size="xl" color="$textLight400" />
-        <Heading mt="$3" size="md" color="$textLight900">
+      <Box
+        flex={1}
+        bg="$backgroundLight50"
+        alignItems="center"
+        justifyContent="center"
+        p="$6"
+      >
+        <EmptyInbox width={180} />
+        <Heading mt="$5" size="md" color="$textLight900">
           {t("home.noPortalTitle", "Aucun portail disponible")}
         </Heading>
         <Text mt="$2" textAlign="center" color="$textLight500" maxWidth={320}>
@@ -174,22 +161,12 @@ export default function PortalHomeScreen({ navigation }: Props) {
 
   /* ── Main render ──────────────────────────────────────────────────── */
 
-  const initials = (userDisplayName ?? "?")
-    .split(" ")
-    .map((p) => p[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
-  const greeting = greetingForHour(new Date());
-
   return (
     <Box flex={1} bg="$backgroundLight50">
       <ScrollView
         contentContainerStyle={{
-          paddingTop: insets.top + 12,
-          paddingBottom: insets.bottom + 24,
+          paddingTop: 12,
+          paddingBottom: 24,
         }}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -206,71 +183,8 @@ export default function PortalHomeScreen({ navigation }: Props) {
           />
         }
       >
-        {/* ── Hero header ───────────────────────────────────────── */}
-        <Box px="$4" mb="$5">
-          <HStack alignItems="center" justifyContent="space-between" mb="$3">
-            <Pressable onPress={() => navigation.navigate("Settings", { screen: "MyProfile" })}>
-              <HStack alignItems="center" space="sm">
-                <Avatar size="md" bgColor="$primary600">
-                  <AvatarFallbackText>{initials}</AvatarFallbackText>
-                </Avatar>
-                <VStack>
-                  <Text size="xs" color="$textLight500">
-                    {t(`home.greeting.${greeting.key}`, greeting.fallback)}
-                  </Text>
-                  <Text size="md" fontWeight="$semibold" color="$textLight900">
-                    {userDisplayName ?? t("home.welcome", "Bienvenue")}
-                  </Text>
-                </VStack>
-              </HStack>
-            </Pressable>
-
-            <HStack space="sm">
-              <Pressable
-                onPress={() => navigation.navigate("Notifications")}
-                p="$2.5"
-                borderRadius="$full"
-                bg="$white"
-                borderWidth={1}
-                borderColor="$borderLight200"
-              >
-                <Box>
-                  <MIcon name="notifications" size="md" color="$textLight700" />
-                  {unreadCount > 0 && (
-                    <Box
-                      position="absolute"
-                      top={-4}
-                      right={-4}
-                      bg="$error500"
-                      borderRadius="$full"
-                      minWidth={16}
-                      height={16}
-                      alignItems="center"
-                      justifyContent="center"
-                      px={3}
-                    >
-                      <Text size="2xs" color="$white" fontWeight="$bold">
-                        {unreadCount > 99 ? "99+" : unreadCount}
-                      </Text>
-                    </Box>
-                  )}
-                </Box>
-              </Pressable>
-
-              <Pressable
-                onPress={() => navigation.navigate("Search")}
-                p="$2.5"
-                borderRadius="$full"
-                bg="$white"
-                borderWidth={1}
-                borderColor="$borderLight200"
-              >
-                <MIcon name="search" size="md" color="$textLight700" />
-              </Pressable>
-            </HStack>
-          </HStack>
-
-          {/* Connection status chip */}
+        {/* Connection status chip */}
+        <Box px="$4" mb="$3">
           <ConnectionChip isOnline={isOnline} queueLength={queueLength} />
         </Box>
 
@@ -309,41 +223,6 @@ export default function PortalHomeScreen({ navigation }: Props) {
             </HStack>
           </Pressable>
         </Box>
-
-        {/* ── Portal switcher (if multiple) ───────────────────────── */}
-        {accessiblePortals.length > 1 && (
-          <Box px="$4" mb="$4">
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8 }}
-            >
-              {accessiblePortals.map((p) => {
-                const isActive = p.id === activePortal?.id;
-                return (
-                  <Pressable
-                    key={p.id}
-                    onPress={() => setActivePortalId(p.id)}
-                    bg={isActive ? "$primary600" : "$white"}
-                    borderWidth={1}
-                    borderColor={isActive ? "$primary600" : "$borderLight200"}
-                    px="$3"
-                    py="$1.5"
-                    borderRadius="$full"
-                  >
-                    <Text
-                      size="sm"
-                      fontWeight="$semibold"
-                      color={isActive ? "$white" : "$textLight700"}
-                    >
-                      {p.title}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </Box>
-        )}
 
         {/* ── Quick action grid ───────────────────────────────────── */}
         {activePortal?.actions && activePortal.actions.length > 0 && (
@@ -503,9 +382,3 @@ function ActionTile({
   );
 }
 
-function greetingForHour(d: Date): { key: string; fallback: string } {
-  const h = d.getHours();
-  if (h < 12) return { key: "morning", fallback: "Bonjour" };
-  if (h < 18) return { key: "afternoon", fallback: "Bon après-midi" };
-  return { key: "evening", fallback: "Bonsoir" };
-}

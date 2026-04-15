@@ -45,6 +45,30 @@ interface LookupItem {
   [key: string]: unknown;
 }
 
+/** Same fallback chain as FieldLookup — keeps user/contact rows readable. */
+function computeLabel(
+  item: Record<string, unknown>,
+  primaryKey?: string
+): string {
+  if (primaryKey) {
+    const v = item[primaryKey];
+    if (v !== null && v !== undefined && String(v).trim()) return String(v);
+  }
+  for (const k of ["display_name", "full_name", "name", "title", "label"]) {
+    const v = item[k];
+    if (v && String(v).trim()) return String(v);
+  }
+  const fn = item.first_name ? String(item.first_name).trim() : "";
+  const ln = item.last_name ? String(item.last_name).trim() : "";
+  if (fn || ln) return [fn, ln].filter(Boolean).join(" ");
+  for (const k of ["email", "username", "code", "reference"]) {
+    const v = item[k];
+    if (v && String(v).trim()) return String(v);
+  }
+  const id = item.id ? String(item.id) : "";
+  return id ? `#${id.slice(0, 8)}` : "—";
+}
+
 export default function FieldMultiLookup({
   field,
   value,
@@ -116,7 +140,7 @@ export default function FieldMultiLookup({
 
   function toggleItem(item: LookupItem) {
     const itemId = String(item[source!.value] ?? item.id);
-    const label = String(item[source!.display] ?? "");
+    const label = computeLabel(item, source!.display);
     if (selected.includes(itemId)) {
       onChange(selected.filter((id) => id !== itemId));
       setSelectedLabels((prev) => {
@@ -220,7 +244,7 @@ export default function FieldMultiLookup({
                 keyboardShouldPersistTaps="handled"
                 renderItem={({ item }) => {
                   const itemId = String(item[source.value] ?? item.id);
-                  const label = String(item[source.display] ?? "");
+                  const label = computeLabel(item, source.display);
                   const isSelected = selected.includes(itemId);
                   return (
                     <Pressable
@@ -246,7 +270,7 @@ export default function FieldMultiLookup({
                         flex={1}
                         numberOfLines={1}
                       >
-                        {label || "(sans nom)"}
+                        {label}
                       </Text>
                     </Pressable>
                   );

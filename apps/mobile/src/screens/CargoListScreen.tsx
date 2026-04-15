@@ -24,6 +24,7 @@ import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
 import { SkeletonCard } from "../components/Skeleton";
+import EmptyState from "../components/EmptyState";
 import { listCargo } from "../services/packlog";
 import type { CargoRead } from "../types/api";
 
@@ -98,50 +99,52 @@ export default function CargoListScreen({ navigation }: Props) {
         borderRadius="$lg"
         borderWidth={1}
         borderColor="$borderLight200"
-        p="$4"
-        mb="$2.5"
+        px="$3"
+        py="$2.5"
+        mb="$1.5"
         $active-bg="$backgroundLight100"
       >
-        <HStack justifyContent="space-between" alignItems="center" mb="$1.5">
-          <Text size="md" fontWeight="$bold" color="$primary700">
-            {item.reference}
-          </Text>
+        <HStack justifyContent="space-between" alignItems="center" mb="$1">
+          <HStack space="xs" alignItems="center" flex={1}>
+            <Text size="sm" fontWeight="$bold" color="$primary700">
+              {item.reference}
+            </Text>
+            {item.hazmat && (
+              <Badge action="error" variant="solid" size="sm">
+                <MIcon name="warning" size="2xs" color="$white" />
+                <BadgeText ml="$0.5">HAZ</BadgeText>
+              </Badge>
+            )}
+          </HStack>
           <StatusBadge status={item.status} />
         </HStack>
 
         {item.description && (
-          <Text size="sm" color="$textLight900" mb="$2" numberOfLines={1}>
+          <Text size="sm" color="$textLight900" numberOfLines={1} mb="$1">
             {item.description}
           </Text>
         )}
 
-        <HStack space="md" alignItems="center" flexWrap="wrap" mb="$1">
+        <HStack space="sm" alignItems="center" flexWrap="wrap">
           <HStack space="xs" alignItems="center">
             <MIcon name="inventory-2" size="2xs" color="$textLight500" />
-            <Text size="xs" color="$textLight500">
+            <Text size="2xs" color="$textLight500">
               {item.cargo_type}
-              {item.weight_kg ? ` · ${item.weight_kg} kg` : ""}
+              {item.weight_kg ? ` · ${item.weight_kg}kg` : ""}
             </Text>
           </HStack>
-          {item.hazmat && (
-            <Badge action="error" variant="solid" size="sm">
-              <MIcon name="warning" size="2xs" color="$white" mr="$1" />
-              <BadgeText>HAZMAT</BadgeText>
-            </Badge>
+          {(item.sender_name || item.recipient_name) && (
+            <HStack space="xs" alignItems="center" flex={1}>
+              <Text size="2xs" color="$textLight500" numberOfLines={1} flexShrink={1}>
+                {item.sender_name ?? "—"}
+              </Text>
+              <MIcon name="arrow-forward" size="2xs" color="$textLight400" />
+              <Text size="2xs" color="$textLight500" numberOfLines={1} flexShrink={1}>
+                {item.recipient_name ?? "—"}
+              </Text>
+            </HStack>
           )}
         </HStack>
-
-        {(item.sender_name || item.recipient_name) && (
-          <HStack space="xs" alignItems="center" mt="$1">
-            <Text size="xs" color="$textLight500" numberOfLines={1} flexShrink={1}>
-              {item.sender_name ?? "—"}
-            </Text>
-            <MIcon name="arrow-forward" size="2xs" color="$textLight400" />
-            <Text size="xs" color="$textLight500" numberOfLines={1} flexShrink={1}>
-              {item.recipient_name ?? "—"}
-            </Text>
-          </HStack>
-        )}
       </Pressable>
     ),
     [navigation]
@@ -197,11 +200,22 @@ export default function CargoListScreen({ navigation }: Props) {
           }}
           onEndReachedThreshold={0.3}
           ListEmptyComponent={
-            <Box py="$10" alignItems="center">
-              <Text color="$textLight500" textAlign="center">
-                {t("cargo.empty", "Aucun colis trouvé.")}
-              </Text>
-            </Box>
+            <EmptyState
+              illustration={search ? "no-results" : "inbox"}
+              title={
+                search
+                  ? t("cargo.emptySearch", "Aucun colis ne correspond")
+                  : t("cargo.emptyTitle", "Aucun colis pour l'instant")
+              }
+              description={
+                search
+                  ? t("cargo.emptySearchDesc", "Essayez d'autres mots-clés.")
+                  : t(
+                      "cargo.emptyDesc",
+                      "Les colis envoyés ou reçus apparaîtront ici."
+                    )
+              }
+            />
           }
           ListFooterComponent={
             loadingMore ? (

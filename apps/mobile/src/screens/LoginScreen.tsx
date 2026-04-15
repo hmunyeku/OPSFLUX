@@ -34,6 +34,7 @@ import {
   VStack,
 } from "@gluestack-ui/themed";
 import { MIcon } from "../components/MIcon";
+import { WelcomeWave } from "../components/illustrations";
 import { useTranslation } from "react-i18next";
 import { login, verifyMfa } from "../services/auth";
 import { useAuthStore } from "../stores/auth";
@@ -196,9 +197,15 @@ export default function LoginScreen({ navigation }: Props) {
       >
         <Box flex={1} px="$5" pb="$8">
           <Box maxWidth={420} w="$full" alignSelf="center">
-            {/* Brand */}
-            <VStack mb="$8">
-              <Heading size="2xl" color="$textLight900" letterSpacing={-0.5}>
+            {/* Brand + illustration */}
+            <VStack mb="$6" alignItems="center">
+              <WelcomeWave width={200} />
+              <Heading
+                size="2xl"
+                color="$textLight900"
+                letterSpacing={-0.5}
+                mt="$2"
+              >
                 OpsFlux
               </Heading>
               <Text size="md" color="$textLight600" mt="$0.5">

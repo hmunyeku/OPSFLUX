@@ -13,6 +13,7 @@ import {
   VStack,
 } from "@gluestack-ui/themed";
 import { MIcon } from "../components/MIcon";
+import { ScanningPhone } from "../components/illustrations";
 import { useTranslation } from "react-i18next";
 
 interface Props {
@@ -46,8 +47,8 @@ export default function ForceUpdateScreen({
   return (
     <Box flex={1} bg="$backgroundLight50" justifyContent="center" alignItems="center" p="$6">
       <Box maxWidth={400} w="$full" bg="$white" borderRadius="$xl" p="$6" alignItems="center">
-        <Box bg="$primary50" borderRadius="$full" p="$5" mb="$5">
-          <MIcon name="arrow-circle-up" size="xl" color="$primary600" />
+        <Box mb="$4">
+          <ScanningPhone width={180} />
         </Box>
         <Heading size="xl" color="$textLight900" textAlign="center" mb="$2">
           {t("update.title", "Mise à jour requise")}

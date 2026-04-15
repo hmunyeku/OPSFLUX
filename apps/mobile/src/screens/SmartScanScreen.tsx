@@ -21,6 +21,7 @@ import {
   View,
 } from "react-native";
 import QrScanner from "../components/QrScanner";
+import { ScanningPhone } from "../components/illustrations";
 import { getAdsBoardingScanContext } from "../services/paxlog";
 import { getPublicCargoTracking } from "../services/packlog";
 import { colors } from "../utils/colors";
@@ -173,7 +174,12 @@ export default function SmartScanScreen({ navigation }: Props) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ScanningPhone width={180} />
+        <ActivityIndicator
+          size="large"
+          color={colors.primary}
+          style={{ marginTop: 24 }}
+        />
         <Text style={styles.loadingText}>Reconnaissance en cours...</Text>
       </View>
     );
@@ -182,6 +188,9 @@ export default function SmartScanScreen({ navigation }: Props) {
   if (manualMode) {
     return (
       <View style={styles.manualContainer}>
+        <View style={{ alignItems: "center", marginBottom: 20 }}>
+          <ScanningPhone width={140} />
+        </View>
         <Text style={styles.manualTitle}>Saisie manuelle</Text>
         <Text style={styles.manualSubtitle}>
           Entrez un code (tracking colis, token ADS, ID AVM) ou collez une URL

@@ -12,6 +12,7 @@ import {
   Text,
 } from "@gluestack-ui/themed";
 import { MIcon } from "../components/MIcon";
+import { NoConnection } from "../components/illustrations";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../stores/auth";
 import { clearPersistedAuth } from "../services/storage";
@@ -68,8 +69,8 @@ export default function AccountBlockedScreen({ reason, message }: Props) {
   return (
     <Box flex={1} bg="$backgroundLight50" justifyContent="center" alignItems="center" p="$6">
       <Box maxWidth={400} w="$full" bg="$white" borderRadius="$xl" p="$6" alignItems="center">
-        <Box bg="$error50" borderRadius="$full" p="$5" mb="$5">
-          <MIcon name="warning" size="xl" color="$error600" />
+        <Box mb="$4">
+          <NoConnection width={180} color="#dc2626" accent="#fecaca" />
         </Box>
         <Heading size="xl" color="$error700" textAlign="center" mb="$2">
           {t(titleKey, titleFb)}

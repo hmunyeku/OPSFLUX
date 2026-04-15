@@ -132,6 +132,12 @@ const config: ExpoConfig = {
     "expo-notifications",
     "expo-secure-store",
     "expo-local-authentication",
+    // Injecte res/xml/network_security_config.xml + la référence
+    // `android:networkSecurityConfig` dans AndroidManifest. Exige
+    // pinning SPKI SHA-256 sur api.opsflux.io + app.opsflux.io et
+    // interdit le cleartext (défense en profondeur avec
+    // usesCleartextTraffic: false plus haut).
+    "./plugins/withNetworkSecurityConfig",
   ],
   extra: {
     eas: {

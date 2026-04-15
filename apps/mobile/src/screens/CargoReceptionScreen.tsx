@@ -6,28 +6,34 @@
  *  - Damage notes
  *  - Signature confirmation
  *  - Submit to server
+ *
+ * Rewritten off react-native-paper. Uses Gluestack + MIcon for UI
+ * consistency with the rest of the mobile app (no more mixed libs).
  */
 
 import React, { useState } from "react";
 import {
   Alert,
   Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   View,
 } from "react-native";
 import {
+  Box,
   Button,
-  Card,
-  Chip,
-  Divider,
-  IconButton,
-  RadioButton,
+  ButtonSpinner,
+  ButtonText,
+  HStack,
   Text,
-  TextInput,
-} from "react-native-paper";
+  Textarea,
+  TextareaInput,
+  VStack,
+} from "@gluestack-ui/themed";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
+import { MIcon } from "../components/MIcon";
 import FieldSignature from "../components/fields/FieldSignature";
 import StatusBadge from "../components/StatusBadge";
 import { receiveCargo } from "../services/packlog";
@@ -45,6 +51,34 @@ interface Props {
 }
 
 type Condition = "good" | "damaged" | "partial";
+
+interface ConditionOption {
+  value: Condition;
+  label: string;
+  color: string;
+  iconName: string;
+}
+
+const CONDITION_OPTIONS: ConditionOption[] = [
+  {
+    value: "good",
+    label: "Bon état — aucun dommage visible",
+    color: colors.success,
+    iconName: "check-circle",
+  },
+  {
+    value: "damaged",
+    label: "Endommagé — dommages visibles",
+    color: colors.danger,
+    iconName: "error",
+  },
+  {
+    value: "partial",
+    label: "Partiel — contenu incomplet",
+    color: colors.warning,
+    iconName: "warning",
+  },
+];
 
 export default function CargoReceptionScreen({ route, navigation }: Props) {
   const { cargo } = route.params;
@@ -72,11 +106,17 @@ export default function CargoReceptionScreen({ route, navigation }: Props) {
   async function handleSubmit() {
     // Validation
     if (condition === "damaged" && photos.length === 0) {
-      Alert.alert("Photos requises", "Veuillez prendre au moins une photo pour un colis endommagé.");
+      Alert.alert(
+        "Photos requises",
+        "Veuillez prendre au moins une photo pour un colis endommagé."
+      );
       return;
     }
     if (!signature) {
-      Alert.alert("Signature requise", "Veuillez signer pour confirmer la réception.");
+      Alert.alert(
+        "Signature requise",
+        "Veuillez signer pour confirmer la réception."
+      );
       return;
     }
 
@@ -129,143 +169,196 @@ export default function CargoReceptionScreen({ route, navigation }: Props) {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+    >
       {/* Cargo summary */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <View style={styles.headerRow}>
-            <Text variant="titleLarge" style={styles.reference}>
-              {cargo.reference}
-            </Text>
-            <StatusBadge status={cargo.status} size="md" />
-          </View>
-          {cargo.description && (
-            <Text variant="bodyMedium" style={styles.description}>
-              {cargo.description}
-            </Text>
-          )}
-          {cargo.sender_name && (
-            <Text variant="bodySmall" style={styles.meta}>
-              Expéditeur: {cargo.sender_name}
-            </Text>
-          )}
-          {cargo.weight_kg && (
-            <Text variant="bodySmall" style={styles.meta}>
-              Poids: {cargo.weight_kg} kg
-            </Text>
-          )}
-        </Card.Content>
-      </Card>
+      <Box style={styles.card}>
+        <HStack
+          justifyContent="space-between"
+          alignItems="center"
+          mb="$2"
+        >
+          <Text size="lg" fontWeight="$bold" color="$primary700">
+            {cargo.reference}
+          </Text>
+          <StatusBadge status={cargo.status} size="md" />
+        </HStack>
+        {cargo.description ? (
+          <Text size="sm" color="$textLight900" mb="$1">
+            {cargo.description}
+          </Text>
+        ) : null}
+        {cargo.sender_name ? (
+          <Text size="xs" color="$textLight500">
+            Expéditeur: {cargo.sender_name}
+          </Text>
+        ) : null}
+        {cargo.weight_kg ? (
+          <Text size="xs" color="$textLight500">
+            Poids: {cargo.weight_kg} kg
+          </Text>
+        ) : null}
+      </Box>
 
       {/* Condition assessment */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            État du colis à la réception
-          </Text>
-          <RadioButton.Group value={condition} onValueChange={(v) => setCondition(v as Condition)}>
-            <RadioButton.Item
-              label="Bon état — aucun dommage visible"
-              value="good"
-              labelStyle={styles.radioLabel}
-            />
-            <RadioButton.Item
-              label="Endommagé — dommages visibles"
-              value="damaged"
-              labelStyle={[styles.radioLabel, condition === "damaged" && { color: colors.danger }]}
-            />
-            <RadioButton.Item
-              label="Partiel — contenu incomplet"
-              value="partial"
-              labelStyle={[styles.radioLabel, condition === "partial" && { color: colors.warning }]}
-            />
-          </RadioButton.Group>
-        </Card.Content>
-      </Card>
+      <Box style={styles.card}>
+        <Text
+          size="xs"
+          fontWeight="$bold"
+          color="$textLight500"
+          textTransform="uppercase"
+          letterSpacing={0.5}
+          mb="$3"
+        >
+          État du colis à la réception
+        </Text>
+        <VStack space="sm">
+          {CONDITION_OPTIONS.map((opt) => {
+            const selected = condition === opt.value;
+            return (
+              <Pressable
+                key={opt.value}
+                onPress={() => setCondition(opt.value)}
+                style={[
+                  styles.radioRow,
+                  selected && {
+                    borderColor: opt.color,
+                    backgroundColor: opt.color + "10",
+                  },
+                ]}
+              >
+                <MIcon
+                  name={
+                    selected ? "radio-button-checked" : "radio-button-unchecked"
+                  }
+                  size="md"
+                  color={selected ? opt.color : "#94a3b8"}
+                />
+                <Text
+                  size="sm"
+                  color={selected ? "$textLight900" : "$textLight700"}
+                  fontWeight={selected ? "$semibold" : "$normal"}
+                  style={{ flex: 1 }}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </VStack>
+      </Box>
 
       {/* Damage notes */}
       {condition !== "good" && (
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="titleSmall" style={styles.sectionTitle}>
-              Description des dommages
-            </Text>
-            <TextInput
-              mode="outlined"
-              label="Notes"
-              placeholder="Décrivez les dommages ou éléments manquants..."
+        <Box style={styles.card}>
+          <Text
+            size="xs"
+            fontWeight="$bold"
+            color="$textLight500"
+            textTransform="uppercase"
+            letterSpacing={0.5}
+            mb="$3"
+          >
+            Description des dommages
+          </Text>
+          <Textarea size="md" borderColor="$borderLight300">
+            <TextareaInput
               value={notes}
               onChangeText={setNotes}
-              multiline
+              placeholder="Décrivez les dommages ou éléments manquants..."
               numberOfLines={3}
-              style={styles.notesInput}
             />
-          </Card.Content>
-        </Card>
+          </Textarea>
+        </Box>
       )}
 
       {/* Photo evidence */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            Photos{condition === "damaged" ? " (obligatoires)" : ""}
-          </Text>
+      <Box style={styles.card}>
+        <Text
+          size="xs"
+          fontWeight="$bold"
+          color="$textLight500"
+          textTransform="uppercase"
+          letterSpacing={0.5}
+          mb="$3"
+        >
+          Photos{condition === "damaged" ? " (obligatoires)" : ""}
+        </Text>
 
-          {photos.length > 0 && (
-            <View style={styles.photoGrid}>
-              {photos.map((uri, i) => (
-                <View key={i} style={styles.photoWrapper}>
-                  <Image source={{ uri }} style={styles.photo} />
-                  <IconButton
-                    icon="close-circle"
-                    size={20}
-                    style={styles.photoRemove}
-                    iconColor={colors.danger}
-                    onPress={() => removePhoto(i)}
-                  />
-                </View>
-              ))}
-            </View>
-          )}
+        {photos.length > 0 && (
+          <View style={styles.photoGrid}>
+            {photos.map((uri, i) => (
+              <View key={i} style={styles.photoWrapper}>
+                <Image source={{ uri }} style={styles.photo} />
+                <Pressable
+                  onPress={() => removePhoto(i)}
+                  style={styles.photoRemove}
+                  hitSlop={6}
+                >
+                  <MIcon name="cancel" size="md" color="$error600" />
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        )}
 
-          <Button mode="outlined" icon="camera" onPress={takePhoto}>
+        <Button
+          action="primary"
+          variant="outline"
+          onPress={takePhoto}
+          alignSelf="flex-start"
+        >
+          <MIcon name="camera-alt" size="sm" color="$primary700" mr="$2" />
+          <ButtonText>
             Prendre une photo ({photos.length})
-          </Button>
-        </Card.Content>
-      </Card>
+          </ButtonText>
+        </Button>
+      </Box>
 
       {/* Signature */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleSmall" style={styles.sectionTitle}>
-            Signature de réception
-          </Text>
-          <FieldSignature
-            field={{
-              type: "signature",
-              label: "Signez pour confirmer",
-              required: true,
-              order: 0,
-            }}
-            fieldName="signature"
-            value={signature}
-            required
-            onChange={setSignature}
-          />
-        </Card.Content>
-      </Card>
+      <Box style={styles.card}>
+        <Text
+          size="xs"
+          fontWeight="$bold"
+          color="$textLight500"
+          textTransform="uppercase"
+          letterSpacing={0.5}
+          mb="$3"
+        >
+          Signature de réception
+        </Text>
+        <FieldSignature
+          field={{
+            type: "signature",
+            label: "Signez pour confirmer",
+            required: true,
+            order: 0,
+          }}
+          fieldName="signature"
+          value={signature}
+          required
+          onChange={setSignature}
+        />
+      </Box>
 
       {/* Submit */}
       <Button
-        mode="contained"
+        action="positive"
         onPress={handleSubmit}
-        loading={submitting}
-        disabled={submitting}
+        isDisabled={submitting}
+        size="lg"
+        bg="$success600"
+        $active-bg="$success700"
         style={styles.submitButton}
-        buttonColor={colors.success}
-        icon="check"
       >
-        Confirmer la réception
+        {submitting ? (
+          <ButtonSpinner color="$white" mr="$2" />
+        ) : (
+          <MIcon name="check" size="md" color="$white" mr="$2" />
+        )}
+        <ButtonText color="$white">Confirmer la réception</ButtonText>
       </Button>
 
       <View style={{ height: 32 }} />
@@ -276,17 +369,41 @@ export default function CargoReceptionScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 14, gap: 12 },
-  card: { borderRadius: 12 },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
-  reference: { fontWeight: "700", color: colors.primary },
-  description: { color: colors.textPrimary, marginBottom: 4 },
-  meta: { color: colors.textSecondary },
-  sectionTitle: { fontWeight: "700", color: colors.textSecondary, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 },
-  radioLabel: { fontSize: 14 },
-  notesInput: { backgroundColor: colors.surface },
-  photoGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
+  card: {
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+  },
+  radioRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    backgroundColor: colors.surface,
+  },
+  photoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 12,
+  },
   photoWrapper: { position: "relative" },
   photo: { width: 90, height: 90, borderRadius: 8 },
-  photoRemove: { position: "absolute", top: -8, right: -8, backgroundColor: colors.surface },
-  submitButton: { borderRadius: 12, paddingVertical: 4 },
+  photoRemove: {
+    position: "absolute",
+    top: -8,
+    right: -8,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+  },
+  submitButton: {
+    borderRadius: 12,
+    paddingVertical: 4,
+  },
 });

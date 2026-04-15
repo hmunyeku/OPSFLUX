@@ -13,13 +13,12 @@ import {
   BadgeText,
   Box,
   HStack,
-    Input,
+  Input,
   InputField,
-    InputSlot,
+  InputSlot,
   Pressable,
   Spinner,
   Text,
-  VStack,
 } from "@gluestack-ui/themed";
 import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";

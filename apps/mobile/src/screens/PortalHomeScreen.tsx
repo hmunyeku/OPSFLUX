@@ -19,15 +19,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Avatar,
   AvatarFallbackText,
-  AvatarImage,
   Badge,
   BadgeText,
   Box,
   Heading,
   HStack,
-
   Pressable,
-  Spinner,
   Text,
   VStack,
 } from "@gluestack-ui/themed";

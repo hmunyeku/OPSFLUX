@@ -12,12 +12,11 @@
 
 import "react-native-gesture-handler";
 
-import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, View, StyleSheet } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Text, View, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { NavigationContainer } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { PaperProvider, MD3LightTheme, MD3DarkTheme, Text } from "react-native-paper";
 import { GluestackUIProvider } from "@gluestack-ui/themed";
 import { config as gluestackConfig } from "@gluestack-ui/config";
 import { StatusBar } from "expo-status-bar";
@@ -36,41 +35,16 @@ import { restoreAuth, persistAuth } from "./src/services/storage";
 import { registerForPushNotifications } from "./src/services/pushNotifications";
 import { useAuthStore } from "./src/stores/auth";
 import { useThemeStore } from "./src/stores/theme";
-import { initSentry, setSentryUser, clearSentryUser } from "./src/services/sentry";
+import { initSentry } from "./src/services/sentry";
 import { colors } from "./src/utils/colors";
 import { darkColors } from "./src/utils/darkColors";
 
 // Initialize Sentry lazily (non-blocking, safe if not installed)
 initSentry().catch(() => {});
 
-function buildTheme(isDark: boolean) {
-  const c = isDark ? darkColors : colors;
-  const base = isDark ? MD3DarkTheme : MD3LightTheme;
-  return {
-    ...base,
-    colors: {
-      ...base.colors,
-      primary: c.primary,
-      primaryContainer: c.primaryLight + "20",
-      secondary: c.accent,
-      secondaryContainer: c.accent + "20",
-      error: c.danger,
-      surface: c.surface,
-      surfaceVariant: c.surfaceAlt,
-      background: c.background,
-      outline: c.border,
-      onPrimary: isDark ? darkColors.textInverse : colors.textInverse,
-      onSurface: c.textPrimary,
-      onSurfaceVariant: c.textSecondary,
-    },
-    roundness: 10,
-  };
-}
-
 export default function App() {
   const [initializing, setInitializing] = useState(true);
   const isDark = useThemeStore((s) => s.isDark);
-  const theme = useMemo(() => buildTheme(isDark), [isDark]);
 
   useEffect(() => {
     async function init() {
@@ -202,14 +176,15 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ErrorBoundary>
         <SafeAreaProvider>
-          <GluestackUIProvider config={gluestackConfig} colorMode={isDark ? "dark" : "light"}>
-            <PaperProvider theme={theme}>
-              <NavigationContainer linking={linking}>
-                <NetworkBanner />
-                <AppNavigator />
-                <Toast />
-              </NavigationContainer>
-            </PaperProvider>
+          <GluestackUIProvider
+            config={gluestackConfig}
+            colorMode={isDark ? "dark" : "light"}
+          >
+            <NavigationContainer linking={linking}>
+              <NetworkBanner />
+              <AppNavigator />
+              <Toast />
+            </NavigationContainer>
           </GluestackUIProvider>
           <StatusBar style="light" />
         </SafeAreaProvider>

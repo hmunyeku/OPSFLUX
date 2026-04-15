@@ -256,9 +256,15 @@ export function startConnectivityMonitor(): void {
   // which our evaluator then treats as online — and mutations hang
   // on the axios timeout instead of queueing immediately.
   NetInfo.configure({
+    // Hit our own /ping endpoint (cheap, no DB/Redis, always 2xx when
+    // the HTTP server is up) instead of Google's default clients3.google
+    // probe — which often fails on locked-down networks and gave users
+    // a false "offline" state even though api.opsflux.io was reachable.
     reachabilityUrl:
-      (api.defaults.baseURL ?? "https://api.opsflux.io") + "/api/v1/health",
-    reachabilityTest: async (response) => response.status < 500,
+      (api.defaults.baseURL ?? "https://api.opsflux.io") + "/api/v1/ping",
+    // Any HTTP response (even 5xx) means the server is reachable; only
+    // a network failure / DNS error is treated as offline.
+    reachabilityTest: async (response) => response.status < 600,
     reachabilityLongTimeout: 60_000,
     reachabilityShortTimeout: 5_000,
     reachabilityRequestTimeout: 5_000,

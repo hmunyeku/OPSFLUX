@@ -398,6 +398,21 @@ os.makedirs(os.path.join(STATIC_DIR, "avatars"), exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
+@app.get("/api/v1/ping")
+async def ping():
+    """
+    Ultra-cheap reachability probe.
+
+    The mobile app polls this from its NetInfo reachability configuration
+    to tell "really online" (can reach our backend) from "on a captive
+    wifi that routes to nowhere". Must stay dependency-free (no DB /
+    Redis), respond within a few ms, and always return 2xx while the
+    HTTP server is up — so NetInfo doesn't flip offline on a degraded
+    DB.
+    """
+    return {"ok": True}
+
+
 @app.get("/api/health")
 async def health_check():
     """Public health check — tests DB and Redis, returns 503 if any critical service is down."""

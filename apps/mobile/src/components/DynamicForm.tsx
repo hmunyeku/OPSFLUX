@@ -180,9 +180,22 @@ export default function DynamicForm({ form, onSuccess, onCancel }: Props) {
           )}
 
           {engine.isLastStep ? (
-            <Button size="lg" action="positive" onPress={engine.submit} isDisabled={engine.submitting} flex={1}>
-              {engine.submitting && <ButtonSpinner mr="$2" />}
-              <ButtonText>{t("common.submit", "Soumettre")}</ButtonText>
+            // Explicit success green + white text — `action="positive"`
+            // alone renders as light-green on light-green, which looks
+            // disabled at a glance.
+            <Button
+              size="lg"
+              onPress={engine.submit}
+              isDisabled={engine.submitting}
+              flex={1}
+              bg="$success600"
+              $active-bg="$success700"
+              $disabled-opacity={0.5}
+            >
+              {engine.submitting && <ButtonSpinner mr="$2" color="$white" />}
+              <ButtonText color="$white" fontWeight="$bold">
+                {t("common.submit", "Soumettre")}
+              </ButtonText>
             </Button>
           ) : (
             <Button size="lg" action="primary" onPress={engine.goNext} flex={1}>

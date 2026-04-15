@@ -17,6 +17,7 @@ import React, { useEffect, useState } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Text, View, StyleSheet } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 // Custom mini-badge replacing react-native-paper.Badge for notif counts.
 function MiniBadge({ children }: { children: React.ReactNode }) {
   return (
@@ -83,12 +84,29 @@ const defaultScreenOptions = {
   headerTitleStyle: { fontWeight: "600" as const },
 };
 
-function TabIcon({ label, focused }: { label: string; focused: boolean }) {
+type TabIconName = React.ComponentProps<typeof MaterialIcons>["name"];
+
+/**
+ * Tab icon with a subtle pill background when focused. Uses the
+ * MaterialIcons glyph font directly (via @expo/vector-icons) — the
+ * previous implementation shipped ASCII placeholders ("H", "QR", "GPS"…)
+ * which appeared as literal letters in the tab bar because no icon
+ * component was ever rendered.
+ */
+function TabIcon({
+  icon,
+  focused,
+}: {
+  icon: TabIconName;
+  focused: boolean;
+}) {
   return (
     <View style={[tabStyles.icon, focused && tabStyles.iconFocused]}>
-      <Text style={[tabStyles.iconText, focused && tabStyles.iconTextFocused]}>
-        {label}
-      </Text>
+      <MaterialIcons
+        name={icon}
+        size={22}
+        color={focused ? colors.primary : colors.textMuted}
+      />
     </View>
   );
 }
@@ -97,7 +115,7 @@ function HomeTabIcon({ focused }: { focused: boolean }) {
   const isOnline = useOfflineStore((s) => s.isOnline);
   return (
     <View>
-      <TabIcon label="H" focused={focused} />
+      <TabIcon icon="home" focused={focused} />
       <View
         style={[
           tabStyles.connectDot,
@@ -112,7 +130,7 @@ function NotifTabIcon({ focused }: { focused: boolean }) {
   const unreadCount = useNotifications((s) => s.unreadCount);
   return (
     <View>
-      <TabIcon label="N" focused={focused} />
+      <TabIcon icon="notifications" focused={focused} />
       {unreadCount > 0 && (
         <MiniBadge>{unreadCount > 9 ? "9+" : unreadCount}</MiniBadge>
       )}
@@ -131,14 +149,6 @@ const tabStyles = StyleSheet.create({
   },
   iconFocused: {
     backgroundColor: colors.primary + "15",
-  },
-  iconText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.textMuted,
-  },
-  iconTextFocused: {
-    color: colors.primary,
   },
   badge: {
     position: "absolute",
@@ -424,7 +434,7 @@ function MainTabs() {
         component={ScannerStack}
         options={{
           tabBarLabel: "Scanner",
-          tabBarIcon: ({ focused }) => <TabIcon label="QR" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon="qr-code-scanner" focused={focused} />,
         }}
         listeners={({ navigation }) => ({
           // Tapping the Scanner tab always returns the user to the
@@ -449,7 +459,7 @@ function MainTabs() {
           component={TrackingStack}
           options={{
             tabBarLabel: "Tracking",
-            tabBarIcon: ({ focused }) => <TabIcon label="GPS" focused={focused} />,
+            tabBarIcon: ({ focused }) => <TabIcon icon="gps-fixed" focused={focused} />,
           }}
         />
       )}
@@ -466,7 +476,7 @@ function MainTabs() {
         component={SettingsStack}
         options={{
           tabBarLabel: "Profil",
-          tabBarIcon: ({ focused }) => <TabIcon label="U" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon icon="person" focused={focused} />,
         }}
       />
     </Tab.Navigator>

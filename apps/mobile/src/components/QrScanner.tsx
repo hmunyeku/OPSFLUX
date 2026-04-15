@@ -8,12 +8,14 @@
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { useIsFocused } from "@react-navigation/native";
 import { colors } from "../utils/colors";
 
 interface Props {
@@ -32,6 +34,18 @@ export default function QrScanner({
 }: Props) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+  const isFocused = useIsFocused();
+  // Track foreground/background — CameraView must release the hardware
+  // when the app is backgrounded, otherwise Samsung smartface (face
+  // unlock) fights us for the device and logcat fills with
+  // TimeoutException / ERROR_CAMERA_IN_USE when the app resumes.
+  const [isActive, setIsActive] = useState(true);
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      setIsActive(state === "active");
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (paused) setScanned(false);
@@ -60,20 +74,28 @@ export default function QrScanner({
 
   return (
     <View style={styles.container}>
-      <CameraView
-        style={StyleSheet.absoluteFillObject}
-        barcodeScannerSettings={{
-          barcodeTypes: ["qr", "code128", "code39", "ean13", "ean8"],
-        }}
-        onBarcodeScanned={
-          scanned || paused
-            ? undefined
-            : ({ data }) => {
-                setScanned(true);
-                onScan(data);
-              }
-        }
-      />
+      {isFocused && isActive ? (
+        <CameraView
+          style={StyleSheet.absoluteFillObject}
+          barcodeScannerSettings={{
+            barcodeTypes: ["qr", "code128", "code39", "ean13", "ean8"],
+          }}
+          onBarcodeScanned={
+            scanned || paused
+              ? undefined
+              : ({ data }) => {
+                  setScanned(true);
+                  onScan(data);
+                }
+          }
+        />
+      ) : (
+        // Dim placeholder while the camera is released (screen off,
+        // app backgrounded, or user navigated away). CameraView
+        // unmounts → hardware is freed → Samsung smartface and the
+        // lock-screen bouncer can use camera 0 without fighting us.
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "#000" }]} />
+      )}
 
       {/* Viewfinder overlay */}
       <View style={styles.overlay}>

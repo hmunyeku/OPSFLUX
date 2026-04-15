@@ -133,9 +133,16 @@ export default function PortalHomeScreen({ navigation }: Props) {
           if (action.form_id) {
             const formDef = forms.find((f) => f.id === action.form_id);
             if (formDef) {
+              // Pass the full formDef in the nav params — DynamicFormScreen
+              // uses it directly and skips a second round-trip to the
+              // form registry. Without this, opening a form always
+              // showed "Chargement du formulaire..." for a few seconds
+              // while useFormRegistry re-fetched data that was already
+              // in memory from the bootstrap.
               navigation.navigate("DynamicForm", {
                 formId: action.form_id,
                 formTitle: formDef.title,
+                formDef,
               });
             } else {
               toast.show(

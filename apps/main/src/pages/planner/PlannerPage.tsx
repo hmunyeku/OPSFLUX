@@ -12,7 +12,7 @@ import {
   Calendar, Clock, Users, CheckCircle2, XCircle, Send, Ban,
   Wrench, HardHat, Gauge, Shield, Drill, Pencil, Trash2, Link2, Loader2,
   ChevronLeft, ChevronRight, ChevronDown, GanttChart, Eye, Repeat, ArrowUpDown,
-  FlaskConical, TrendingUp, LayoutDashboard,
+  FlaskConical, TrendingUp, LayoutDashboard, RotateCcw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
@@ -104,6 +104,7 @@ import {
   useDeleteScenario,
   useSimulateScenarioPersistent,
   usePromoteScenario,
+  useRestoreScenario,
 } from '@/hooks/usePlanner'
 import { usePermission } from '@/hooks/usePermission'
 import type {
@@ -3331,6 +3332,7 @@ function ScenarioDetailPanel({ id }: { id: string }) {
   const deleteScenario = useDeleteScenario()
   const simulateScenario = useSimulateScenarioPersistent()
   const promoteScenario = usePromoteScenario()
+  const restoreScenario = useRestoreScenario()
   const { hasPermission } = usePermission()
   const canPromote = hasPermission('planner.activity.create')
 
@@ -3379,7 +3381,7 @@ function ScenarioDetailPanel({ id }: { id: string }) {
   const handlePromote = useCallback(async () => {
     const ok = await confirm({
       title: 'Promouvoir ce scénario ?',
-      message: 'Les activités proposées seront converties en activités réelles. Cette action est irréversible.',
+      message: 'Les activités proposées seront converties en activités réelles. L\'état actuel du plan sera sauvegardé — vous pourrez Restaurer plus tard si besoin.',
       confirmLabel: 'Promouvoir',
       variant: 'warning',
     })
@@ -3394,6 +3396,25 @@ function ScenarioDetailPanel({ id }: { id: string }) {
       toast({ title: t('planner.toast.promote_failed'), description: extractApiError(err), variant: 'error' })
     }
   }, [id, promoteScenario, confirm, toast])
+
+  const handleRestore = useCallback(async () => {
+    const ok = await confirm({
+      title: 'Restaurer le plan d\'avant ?',
+      message: 'Annule la promotion : les activités modifiées reviennent à leur état antérieur, et celles créées par ce scénario seront annulées. Le scénario sera marqué Archivé.',
+      confirmLabel: 'Restaurer',
+      variant: 'warning',
+    })
+    if (!ok) return
+    try {
+      const result = await restoreScenario.mutateAsync(id)
+      toast({
+        title: `Plan restauré : ${result.restored_activities} activités revenues, ${result.cancelled_created_activities} annulées`,
+        variant: result.errors?.length > 0 ? 'error' : 'success',
+      })
+    } catch (err) {
+      toast({ title: 'Restauration échouée', description: extractApiError(err), variant: 'error' })
+    }
+  }, [id, restoreScenario, confirm, toast])
 
   const handleDelete = useCallback(async () => {
     const ok = await confirm({ title: 'Supprimer ce scénario ?', message: 'Le scénario sera archivé.', confirmLabel: 'Supprimer', variant: 'danger' })
@@ -3439,6 +3460,16 @@ function ScenarioDetailPanel({ id }: { id: string }) {
   }
   if (scenario.status === 'validated' && canPromote) {
     actions.push({ id: 'promote', label: 'Promouvoir', icon: TrendingUp, onClick: handlePromote, variant: 'primary' })
+  }
+  if (isPromoted && canPromote) {
+    actions.push({
+      id: 'restore',
+      label: 'Restaurer',
+      icon: RotateCcw,
+      onClick: handleRestore,
+      variant: 'primary',
+      disabled: restoreScenario.isPending,
+    })
   }
   if (!isPromoted) {
     actions.push({ id: 'delete', label: 'Supprimer', icon: Trash2, onClick: handleDelete, variant: 'danger' })

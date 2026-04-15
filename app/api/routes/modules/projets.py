@@ -945,8 +945,15 @@ async def list_project_tasks(
     result = await db.execute(query)
     tasks = result.scalars().all()
     enriched = []
+    from decimal import Decimal as _Decimal
     for t in tasks:
-        d = {c.key: getattr(t, c.key) for c in t.__table__.columns}
+        d: dict = {}
+        for c in t.__table__.columns:
+            val = getattr(t, c.key)
+            # Numeric(10,2) columns return Decimal — cast to float for JSON
+            if isinstance(val, _Decimal):
+                val = float(val)
+            d[c.key] = val
         if t.assignee_id:
             u = await db.get(User, t.assignee_id)
             d["assignee_name"] = f"{u.first_name} {u.last_name}" if u else None
@@ -976,7 +983,13 @@ async def create_project_task(
     await db.refresh(task)
     await _update_project_progress(db, project_id)
     await db.commit()
-    d = {c.key: getattr(task, c.key) for c in task.__table__.columns}
+    from decimal import Decimal as _Decimal
+    d: dict = {}
+    for c in task.__table__.columns:
+        val = getattr(task, c.key)
+        if isinstance(val, _Decimal):
+            val = float(val)
+        d[c.key] = val
     d["assignee_name"] = None
     return d
 
@@ -1040,8 +1053,18 @@ async def update_project_task(
 
     await _update_project_progress(db, project_id)
     await db.commit()
-    d = {c.key: getattr(task, c.key) for c in task.__table__.columns}
-    d["assignee_name"] = None
+    from decimal import Decimal as _Decimal
+    d: dict = {}
+    for c in task.__table__.columns:
+        val = getattr(task, c.key)
+        if isinstance(val, _Decimal):
+            val = float(val)
+        d[c.key] = val
+    if task.assignee_id:
+        u = await db.get(User, task.assignee_id)
+        d["assignee_name"] = f"{u.first_name} {u.last_name}" if u else None
+    else:
+        d["assignee_name"] = None
     return d
 
 

@@ -380,4 +380,8 @@ export const plannerService = {
     const { data } = await api.post(`${BASE}/scenarios/${scenarioId}/promote`)
     return data
   },
+  restoreScenario: async (scenarioId: string) => {
+    const { data } = await api.post(`${BASE}/scenarios/${scenarioId}/restore`)
+    return data
+  },
 }

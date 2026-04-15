@@ -3362,6 +3362,29 @@ async def promote_scenario(
     promoted_count = 0
     skipped_count = 0
     errors: list[str] = []
+    created_activity_ids: list[str] = []
+
+    # Capture pre-promotion state of every live activity that this scenario
+    # will touch. Stored in baseline_snapshot so we can restore later.
+    touched_source_ids = {pa.source_activity_id for pa in proposed if pa.source_activity_id}
+    pre_promotion_state: dict = {"activities": [], "created_ids": []}
+    if touched_source_ids:
+        state_rows = (await db.execute(
+            select(PlannerActivity).where(PlannerActivity.id.in_(touched_source_ids))
+        )).scalars().all()
+        for act in state_rows:
+            pre_promotion_state["activities"].append({
+                "id": str(act.id),
+                "title": act.title,
+                "asset_id": str(act.asset_id) if act.asset_id else None,
+                "type": act.type,
+                "priority": act.priority,
+                "pax_quota": act.pax_quota,
+                "start_date": act.start_date.isoformat() if act.start_date else None,
+                "end_date": act.end_date.isoformat() if act.end_date else None,
+                "status": act.status,
+                "description": act.description,
+            })
 
     for pa in proposed:
         if pa.is_removed:
@@ -3409,9 +3432,14 @@ async def promote_scenario(
                 created_by=current_user.id,
             )
             db.add(new_act)
+            await db.flush()
+            created_activity_ids.append(str(new_act.id))
             promoted_count += 1
 
-    # Mark scenario as promoted
+    pre_promotion_state["created_ids"] = created_activity_ids
+
+    # Overwrite baseline_snapshot with pre-promotion state so `restore` can use it.
+    scenario.baseline_snapshot = pre_promotion_state
     scenario.status = "promoted"
     scenario.promoted_by = current_user.id
     scenario.promoted_at = datetime.now(tz.utc)
@@ -3424,3 +3452,85 @@ async def promote_scenario(
         skipped_count=skipped_count,
         errors=errors,
     )
+
+
+@router.post("/scenarios/{scenario_id}/restore")
+async def restore_scenario(
+    scenario_id: UUID,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.create"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Restore the live plan to its state before this scenario was promoted.
+
+    - Re-applies saved field values (status/dates/pax_quota/...) on each
+      activity the scenario had modified.
+    - Cancels every activity this scenario had created (since they didn't
+      exist pre-promotion).
+    - Marks the scenario as 'archived' so it cannot be restored twice.
+    """
+    from datetime import timezone as tz, date as _date
+
+    result = await db.execute(
+        select(PlannerScenario).where(
+            PlannerScenario.id == scenario_id,
+            PlannerScenario.entity_id == entity_id,
+        )
+    )
+    scenario = result.scalar_one_or_none()
+    if not scenario:
+        raise HTTPException(404, "Scenario not found")
+    if scenario.status != "promoted":
+        raise HTTPException(400, "Only a promoted scenario can be restored")
+
+    snapshot = scenario.baseline_snapshot or {}
+    restored_count = 0
+    cancelled_count = 0
+    errors: list[str] = []
+
+    # 1. Revert modified activities to their pre-promotion state
+    for saved in (snapshot.get("activities") or []):
+        try:
+            act_id = UUID(saved["id"])
+            act = await db.get(PlannerActivity, act_id)
+            if not act:
+                errors.append(f"Activity {act_id} not found")
+                continue
+            act.title = saved.get("title") or act.title
+            act.asset_id = UUID(saved["asset_id"]) if saved.get("asset_id") else act.asset_id
+            act.type = saved.get("type") or act.type
+            act.priority = saved.get("priority") or act.priority
+            act.pax_quota = saved.get("pax_quota") if saved.get("pax_quota") is not None else act.pax_quota
+            if saved.get("start_date"):
+                act.start_date = _date.fromisoformat(saved["start_date"])
+            if saved.get("end_date"):
+                act.end_date = _date.fromisoformat(saved["end_date"])
+            act.status = saved.get("status") or act.status
+            act.description = saved.get("description")
+            restored_count += 1
+        except Exception as exc:
+            errors.append(f"Failed to restore {saved.get('id')}: {exc}")
+
+    # 2. Cancel activities created by this scenario's promotion
+    for created_id_str in (snapshot.get("created_ids") or []):
+        try:
+            created_id = UUID(created_id_str)
+            act = await db.get(PlannerActivity, created_id)
+            if act and act.status not in ("cancelled", "completed"):
+                act.status = "cancelled"
+                cancelled_count += 1
+        except Exception as exc:
+            errors.append(f"Failed to cancel {created_id_str}: {exc}")
+
+    # 3. Mark scenario as archived (can't be restored twice)
+    scenario.status = "archived"
+    scenario.promoted_at = scenario.promoted_at  # keep history
+    await db.commit()
+
+    return {
+        "scenario_id": str(scenario_id),
+        "restored_activities": restored_count,
+        "cancelled_created_activities": cancelled_count,
+        "errors": errors,
+    }

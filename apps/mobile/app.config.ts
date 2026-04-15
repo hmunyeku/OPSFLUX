@@ -148,6 +148,9 @@ const config: ExpoConfig = {
     // pour éviter les warnings Play Console sur API 33+ où ces
     // permissions sont obsolètes (scoped storage / Photo Picker).
     "./plugins/withPermissionHardening",
+    // Limite les ABIs natifs à arm64-v8a + armeabi-v7a (supprime
+    // x86/x86_64 émulateurs). ~50% de taille APK en moins.
+    "./plugins/withAbiFilters",
   ],
   extra: {
     eas: {

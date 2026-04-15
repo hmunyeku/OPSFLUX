@@ -218,7 +218,6 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     classDef review fill:#eab308,stroke:#facc15,color:#000
     classDef done fill:#22c55e,stroke:#4ade80,color:#fff`,
       },
-    ],
       {
         title: 'Importer un projet Gouti',
         requiredAnyPermissions: ['project.import', 'project.gouti.sync'],

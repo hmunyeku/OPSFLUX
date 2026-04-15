@@ -8,6 +8,7 @@ web-build/
 
 # Build artifacts
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key

@@ -24,6 +24,7 @@ import {
 import { MIcon } from "../components/MIcon";
 import { useTranslation } from "react-i18next";
 import StatusBadge from "../components/StatusBadge";
+import { SkeletonCard } from "../components/Skeleton";
 import { listCargo } from "../services/packlog";
 import type { CargoRead } from "../types/api";
 
@@ -164,8 +165,10 @@ export default function CargoListScreen({ navigation }: Props) {
       </Box>
 
       {loading && cargo.length === 0 ? (
-        <Box flex={1} alignItems="center" justifyContent="center">
-          <Spinner color="$primary600" />
+        <Box px="$3.5" pt="$1">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
         </Box>
       ) : (
         <FlatList

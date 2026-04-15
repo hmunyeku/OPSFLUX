@@ -84,12 +84,50 @@ export default function PortalHomeScreen({ navigation }: Props) {
     }
   }, [accessiblePortals, activePortalId]);
 
+  /**
+   * Some portal actions target screens that live in OTHER tabs (e.g.
+   * "LiveTracking" is in the Tracking tab, "ScanCargo" in the Scanner
+   * tab). A plain `navigation.navigate("LiveTracking")` from inside
+   * HomeStack doesn't find the screen and the tap does nothing. This
+   * map routes each known cross-tab name to the correct parent tab +
+   * nested screen.
+   */
+  const CROSS_TAB_ROUTES: Record<
+    string,
+    { tab: string; screen: string }
+  > = {
+    LiveTracking: { tab: "Tracking", screen: "LiveTracking" },
+    ScanCargo: { tab: "Scanner", screen: "ScanCargo" },
+    ScanAds: { tab: "Scanner", screen: "ScanAds" },
+    SmartScan: { tab: "Scanner", screen: "SmartScan" },
+    Scanner: { tab: "Scanner", screen: "SmartScan" },
+    NotificationsMain: {
+      tab: "Notifications",
+      screen: "NotificationsMain",
+    },
+  };
+
+  const routeTo = useCallback(
+    (screenName: string, params?: Record<string, unknown>) => {
+      const cross = CROSS_TAB_ROUTES[screenName];
+      if (cross) {
+        navigation.navigate(cross.tab, {
+          screen: cross.screen,
+          params,
+        });
+        return;
+      }
+      navigation.navigate(screenName, params ?? {});
+    },
+    [navigation]
+  );
+
   const handleAction = useCallback(
     (action: PortalAction) => {
       Haptics.selectionAsync();
       switch (action.type) {
         case "scan":
-          navigation.navigate(action.screen ?? "Scanner");
+          routeTo(action.screen ?? "Scanner");
           break;
         case "form":
           if (action.form_id) {
@@ -112,12 +150,17 @@ export default function PortalHomeScreen({ navigation }: Props) {
         case "list":
         case "screen":
           if (action.screen) {
-            navigation.navigate(action.screen, action.params ?? {});
+            routeTo(action.screen, action.params);
+          } else {
+            toast.show(
+              t("home.screenUnavailable", "Action non disponible"),
+              "warning"
+            );
           }
           break;
       }
     },
-    [navigation, forms, toast, t]
+    [navigation, forms, toast, t, routeTo]
   );
 
   /* ── Loading + empty states ──────────────────────────────────────── */
@@ -193,7 +236,7 @@ export default function PortalHomeScreen({ navigation }: Props) {
           <Pressable
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              navigation.navigate("Scanner");
+              routeTo("SmartScan");
             }}
             bg="$primary600"
             borderRadius="$xl"

@@ -109,43 +109,53 @@ export default function AdsListScreen({ route, navigation }: Props) {
         borderWidth={1}
         borderColor="$borderLight200"
         px="$3"
-        py="$2.5"
+        py="$2"
         mb="$1.5"
         $active-bg="$backgroundLight100"
       >
-        <HStack justifyContent="space-between" alignItems="center" mb="$1">
-          <Text size="sm" fontWeight="$bold" color="$primary700">
-            {item.reference}
-          </Text>
+        {/* Row 1: ref + status + pax count */}
+        <HStack alignItems="center" justifyContent="space-between" mb="$0.5">
+          <HStack space="xs" alignItems="center" flex={1}>
+            <Text size="sm" fontWeight="$bold" color="$primary700">
+              {item.reference}
+            </Text>
+            {item.pax_count != null && item.pax_count > 0 && (
+              <HStack space="xs" alignItems="center">
+                <MIcon name="people" size="2xs" color="$textLight400" />
+                <Text size="2xs" color="$textLight500" fontWeight="$semibold">
+                  {item.pax_count}
+                </Text>
+              </HStack>
+            )}
+          </HStack>
           <StatusBadge status={item.status} />
         </HStack>
-        <Text size="sm" color="$textLight900" numberOfLines={1} mb="$1">
-          {item.visit_purpose}
-        </Text>
-        <HStack space="sm" alignItems="center" flexWrap="wrap">
-          <HStack space="xs" alignItems="center">
-            <MIcon name="calendar-today" size="2xs" color="$textLight500" />
-            <Text size="2xs" color="$textLight500">
-              {item.start_date} → {item.end_date}
+        {/* Row 2: purpose + dates — purpose 1 line, dates on the right */}
+        <HStack alignItems="center" space="sm">
+          <Text
+            size="xs"
+            color="$textLight900"
+            numberOfLines={1}
+            flex={1}
+          >
+            {item.visit_purpose}
+          </Text>
+          <Text size="2xs" color="$textLight500" flexShrink={0}>
+            {item.start_date}
+            {item.end_date && item.end_date !== item.start_date
+              ? ` → ${item.end_date}`
+              : ""}
+          </Text>
+        </HStack>
+        {/* Row 3 (optional): site — only if present */}
+        {item.site_entry_asset_name ? (
+          <HStack space="xs" alignItems="center" mt="$0.5">
+            <MIcon name="place" size="2xs" color="$textLight400" />
+            <Text size="2xs" color="$textLight400" numberOfLines={1} flex={1}>
+              {item.site_entry_asset_name}
             </Text>
           </HStack>
-          {item.pax_count != null && (
-            <HStack space="xs" alignItems="center">
-              <MIcon name="people" size="2xs" color="$textLight500" />
-              <Text size="2xs" color="$textLight500">
-                {t("ads.paxCount", "{{count}} pax", { count: item.pax_count })}
-              </Text>
-            </HStack>
-          )}
-          {item.site_entry_asset_name && (
-            <HStack space="xs" alignItems="center" flex={1}>
-              <MIcon name="place" size="2xs" color="$textLight400" />
-              <Text size="2xs" color="$textLight400" numberOfLines={1}>
-                {item.site_entry_asset_name}
-              </Text>
-            </HStack>
-          )}
-        </HStack>
+        ) : null}
       </Pressable>
     ),
     [navigation, t]

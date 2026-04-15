@@ -169,7 +169,7 @@ export default function AdsDetailScreen({ route }: Props) {
         }}
       >
         {/* Header */}
-        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3">
           <HStack justifyContent="space-between" alignItems="center" mb="$2">
             <Heading size="lg" color="$primary700">
               {ads.reference}
@@ -193,19 +193,19 @@ export default function AdsDetailScreen({ route }: Props) {
         </Box>
 
         {/* Site / Period / Requester */}
-        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3">
           <DetailRow
             icon="place"
             label={t("ads.site", "Site d'accueil")}
             value={ads.site_entry_asset_name}
           />
-          <Divider my="$2" />
+          <Divider my="$1" />
           <DetailRow
             icon="event"
             label={t("ads.period", "Période")}
             value={`${ads.start_date} → ${ads.end_date}`}
           />
-          <Divider my="$2" />
+          <Divider my="$1" />
           <DetailRow
             icon="person"
             label={t("ads.requester", "Demandeur")}
@@ -215,7 +215,7 @@ export default function AdsDetailScreen({ route }: Props) {
 
         {/* Transport */}
         {(ads.outbound_transport_mode || ads.return_transport_mode) && (
-          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3">
             <Heading
               size="xs"
               color="$textLight500"
@@ -232,7 +232,7 @@ export default function AdsDetailScreen({ route }: Props) {
                 value={transportLabel(ads.outbound_transport_mode, ads.outbound_departure_base_name, t)}
               />
             )}
-            {ads.outbound_transport_mode && ads.return_transport_mode && <Divider my="$2" />}
+            {ads.outbound_transport_mode && ads.return_transport_mode && <Divider my="$1" />}
             {ads.return_transport_mode && (
               <DetailRow
                 icon="south-west"
@@ -245,7 +245,7 @@ export default function AdsDetailScreen({ route }: Props) {
 
         {/* PAX list */}
         {ads.pax_entries && ads.pax_entries.length > 0 && (
-          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4">
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3">
             <HStack alignItems="center" space="sm" mb="$3">
               <MIcon name="people" size="sm" color="$textLight600" />
               <Heading
@@ -259,7 +259,7 @@ export default function AdsDetailScreen({ route }: Props) {
             </HStack>
             {(ads.pax_entries ?? []).map((pax, idx) => (
               <Box key={pax.id}>
-                {idx > 0 && <Divider my="$2" />}
+                {idx > 0 && <Divider my="$1" />}
                 <HStack alignItems="center" justifyContent="space-between">
                   <VStack flex={1}>
                     <Text size="sm" fontWeight="$medium" color="$textLight900">
@@ -357,18 +357,21 @@ export default function AdsDetailScreen({ route }: Props) {
 
 function DetailRow({ icon, label, value }: { icon: MIconName; label: string; value: string }) {
   return (
-    <HStack space="sm" alignItems="center">
-      <Box bg="$primary50" borderRadius="$md" p="$2">
-        <MIcon name={icon} size="sm" color="$primary700" />
-      </Box>
-      <VStack flex={1}>
-        <Text size="xs" color="$textLight500">
-          {label}
-        </Text>
-        <Text size="sm" fontWeight="$medium" color="$textLight900">
-          {value}
-        </Text>
-      </VStack>
+    <HStack space="sm" alignItems="center" py="$1">
+      <MIcon name={icon} size="xs" color="$textLight500" />
+      <Text size="xs" color="$textLight500" minWidth={90}>
+        {label}
+      </Text>
+      <Text
+        size="xs"
+        fontWeight="$semibold"
+        color="$textLight900"
+        flex={1}
+        textAlign="right"
+        numberOfLines={2}
+      >
+        {value}
+      </Text>
     </HStack>
   );
 }

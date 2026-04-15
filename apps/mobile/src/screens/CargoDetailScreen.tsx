@@ -127,7 +127,7 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
         }}
       >
         {/* ── Header ──────────────────────────────────────────────── */}
-        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4" style={styles.shadow}>
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3" style={styles.shadow}>
           <HStack justifyContent="space-between" alignItems="center" mb="$2">
             <Heading size="lg" color="$primary700" flex={1} numberOfLines={1}>
               {tracking.reference}
@@ -162,7 +162,7 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
         </Box>
 
         {/* ── Identification ──────────────────────────────────────── */}
-        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4" style={styles.shadow}>
+        <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3" style={styles.shadow}>
           <SectionTitle icon="badge" label="Identification" />
           {cargo?.tracking_code && (
             <DetailRow
@@ -176,7 +176,7 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
           )}
           {cargo?.request_id && (
             <>
-              <Divider my="$2" />
+              <Divider my="$1" />
               <DetailRow
                 icon="description"
                 label="Lettre de transport"
@@ -186,7 +186,7 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
           )}
           {cargo?.created_at && (
             <>
-              <Divider my="$2" />
+              <Divider my="$1" />
               <DetailRow
                 icon="event"
                 label="Créé le"
@@ -196,7 +196,7 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
           )}
           {cargo?.received_at && (
             <>
-              <Divider my="$2" />
+              <Divider my="$1" />
               <DetailRow
                 icon="check-circle"
                 label="Reçu le"
@@ -214,7 +214,7 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
           tracking.recipient_name ||
           tracking.origin_name ||
           tracking.destination_name) && (
-          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4" style={styles.shadow}>
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3" style={styles.shadow}>
             <SectionTitle icon="local-shipping" label="Logistique" />
             {(tracking.sender_name || tracking.recipient_name) && (
               <DetailRow
@@ -225,7 +225,7 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
             )}
             {tracking.origin_name && (
               <>
-                <Divider my="$2" />
+                <Divider my="$1" />
                 <DetailRow
                   icon="flight-takeoff"
                   label="Origine"
@@ -235,7 +235,7 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
             )}
             {tracking.destination_name && (
               <>
-                <Divider my="$2" />
+                <Divider my="$1" />
                 <DetailRow
                   icon="flight-land"
                   label="Destination"
@@ -248,14 +248,14 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
 
         {/* ── Compliance ──────────────────────────────────────────── */}
         {compliance && (
-          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4" style={styles.shadow}>
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3" style={styles.shadow}>
             <HStack justifyContent="space-between" alignItems="center" mb="$3">
               <SectionTitle icon="verified" label="Conformité" inline />
               <StatusBadge status={compliance.overall_status} size="md" />
             </HStack>
             {(compliance.checks ?? []).map((check, i) => (
               <View key={i}>
-                {i > 0 && <Divider my="$2" />}
+                {i > 0 && <Divider my="$1" />}
                 <HStack space="sm" alignItems="flex-start">
                   <Box
                     style={[
@@ -288,7 +288,7 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
 
         {/* ── Timeline ────────────────────────────────────────────── */}
         {tracking.events && tracking.events.length > 0 && (
-          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4" style={styles.shadow}>
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3" style={styles.shadow}>
             <SectionTitle icon="timeline" label="Suivi" />
             {tracking.events.map((event, i) => (
               <View key={i} style={styles.timelineRow}>
@@ -321,14 +321,14 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
 
         {/* ── Package elements ────────────────────────────────────── */}
         {elements.length > 0 && (
-          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$4" style={styles.shadow}>
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3" style={styles.shadow}>
             <SectionTitle
               icon="list-alt"
               label={`Contenu (${elements.length} élément${elements.length > 1 ? "s" : ""})`}
             />
             {elements.map((el, i) => (
               <View key={el.id}>
-                {i > 0 && <Divider my="$2" />}
+                {i > 0 && <Divider my="$1" />}
                 <HStack space="sm" alignItems="center">
                   <VStack flex={1}>
                     <Text size="sm" fontWeight="$medium" color="$textLight900">
@@ -444,18 +444,21 @@ function DetailRow({
   value: string;
 }) {
   return (
-    <HStack space="sm" alignItems="center">
-      <Box bg="$primary50" borderRadius="$md" p="$2">
-        <MIcon name={icon} size="sm" color="$primary700" />
-      </Box>
-      <VStack flex={1}>
-        <Text size="xs" color="$textLight500">
-          {label}
-        </Text>
-        <Text size="sm" fontWeight="$medium" color="$textLight900">
-          {value}
-        </Text>
-      </VStack>
+    <HStack space="sm" alignItems="center" py="$1">
+      <MIcon name={icon} size="xs" color="$textLight500" />
+      <Text size="xs" color="$textLight500" minWidth={110}>
+        {label}
+      </Text>
+      <Text
+        size="xs"
+        fontWeight="$semibold"
+        color="$textLight900"
+        flex={1}
+        textAlign="right"
+        numberOfLines={2}
+      >
+        {value}
+      </Text>
     </HStack>
   );
 }

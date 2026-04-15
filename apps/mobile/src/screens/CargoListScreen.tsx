@@ -100,11 +100,12 @@ export default function CargoListScreen({ navigation }: Props) {
         borderWidth={1}
         borderColor="$borderLight200"
         px="$3"
-        py="$2.5"
+        py="$2"
         mb="$1.5"
         $active-bg="$backgroundLight100"
       >
-        <HStack justifyContent="space-between" alignItems="center" mb="$1">
+        {/* Row 1: ref + HAZMAT + type/weight chip + status */}
+        <HStack alignItems="center" justifyContent="space-between" mb="$0.5">
           <HStack space="xs" alignItems="center" flex={1}>
             <Text size="sm" fontWeight="$bold" color="$primary700">
               {item.reference}
@@ -115,36 +116,34 @@ export default function CargoListScreen({ navigation }: Props) {
                 <BadgeText ml="$0.5">HAZ</BadgeText>
               </Badge>
             )}
+            <Text size="2xs" color="$textLight500">
+              · {item.cargo_type}
+              {item.weight_kg ? ` · ${item.weight_kg}kg` : ""}
+            </Text>
           </HStack>
           <StatusBadge status={item.status} />
         </HStack>
 
-        {item.description && (
-          <Text size="sm" color="$textLight900" numberOfLines={1} mb="$1">
+        {/* Row 2: description — always present, truncated */}
+        {item.description ? (
+          <Text size="xs" color="$textLight900" numberOfLines={1} mb="$0.5">
             {item.description}
           </Text>
-        )}
+        ) : null}
 
-        <HStack space="sm" alignItems="center" flexWrap="wrap">
+        {/* Row 3: sender → recipient — only if any */}
+        {(item.sender_name || item.recipient_name) && (
           <HStack space="xs" alignItems="center">
-            <MIcon name="inventory-2" size="2xs" color="$textLight500" />
-            <Text size="2xs" color="$textLight500">
-              {item.cargo_type}
-              {item.weight_kg ? ` · ${item.weight_kg}kg` : ""}
+            <MIcon name="person" size="2xs" color="$textLight400" />
+            <Text size="2xs" color="$textLight500" numberOfLines={1} flexShrink={1}>
+              {item.sender_name ?? "—"}
+            </Text>
+            <MIcon name="arrow-forward" size="2xs" color="$textLight400" />
+            <Text size="2xs" color="$textLight500" numberOfLines={1} flexShrink={1}>
+              {item.recipient_name ?? "—"}
             </Text>
           </HStack>
-          {(item.sender_name || item.recipient_name) && (
-            <HStack space="xs" alignItems="center" flex={1}>
-              <Text size="2xs" color="$textLight500" numberOfLines={1} flexShrink={1}>
-                {item.sender_name ?? "—"}
-              </Text>
-              <MIcon name="arrow-forward" size="2xs" color="$textLight400" />
-              <Text size="2xs" color="$textLight500" numberOfLines={1} flexShrink={1}>
-                {item.recipient_name ?? "—"}
-              </Text>
-            </HStack>
-          )}
-        </HStack>
+        )}
       </Pressable>
     ),
     [navigation]

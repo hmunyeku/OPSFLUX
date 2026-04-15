@@ -3995,6 +3995,11 @@ function ActivityDetailPanel({ id }: { id: string }) {
   }, [id, deleteActivity, toast, closeDynamicPanel])
 
   const handleSubmit = useCallback(() => {
+    // Frontend guard: catch pax_quota = 0 before hitting the API
+    if (activity && !activity.has_children && (activity.pax_quota_mode ?? 'constant') === 'constant' && (activity.pax_quota ?? 0) <= 0) {
+      toast({ title: t('planner.toast.submission_refused'), description: 'Le quota PAX doit être supérieur à 0 avant de soumettre.', variant: 'error' })
+      return
+    }
     submitActivity.mutate(id, {
       onSuccess: () => toast({ title: t('planner.toast.activity_submitted'), variant: 'success' }),
       onError: (err) => toast({
@@ -4003,7 +4008,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
         variant: 'error',
       }),
     })
-  }, [id, submitActivity, toast])
+  }, [id, activity, submitActivity, toast, t])
 
   const handleValidate = useCallback(() => {
     validateActivity.mutate(id, {
@@ -4414,9 +4419,9 @@ function ActivityDetailPanel({ id }: { id: string }) {
                     <input
                       type="number"
                       value={editForm.pax_quota as number}
-                      onChange={(e) => setEditForm({ ...editForm, pax_quota: parseInt(e.target.value) || 0 })}
+                      onChange={(e) => setEditForm({ ...editForm, pax_quota: Math.max(1, parseInt(e.target.value) || 1) })}
                       className={panelInputClass}
-                      min={0}
+                      min={1}
                     />
                   </DynamicPanelField>
                 )}
@@ -5058,7 +5063,7 @@ function CreateActivityPanel() {
     title: '',
     description: null,
     priority: 'medium',
-    pax_quota: 0,
+    pax_quota: 1,
     pax_quota_mode: 'constant',
     pax_quota_daily: null,
     start_date: null,
@@ -5181,11 +5186,11 @@ function CreateActivityPanel() {
                 <DynamicPanelField label="Quota PAX">
                   <input
                     type="number"
-                    value={form.pax_quota ?? 0}
-                    onChange={(e) => setForm({ ...form, pax_quota: parseInt(e.target.value) || 0 })}
+                    value={form.pax_quota ?? 1}
+                    onChange={(e) => setForm({ ...form, pax_quota: Math.max(1, parseInt(e.target.value) || 1) })}
                     className={panelInputClass}
-                    min={0}
-                    placeholder="0"
+                    min={1}
+                    placeholder="1"
                   />
                 </DynamicPanelField>
               )}

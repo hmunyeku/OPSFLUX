@@ -639,7 +639,15 @@ async def submit_activity(
     # Validate required fields
     if not activity.start_date or not activity.end_date:
         raise HTTPException(400, "Start date and end date are required to submit")
-    if activity.pax_quota <= 0:
+    # For parent activities (has_children), PAX is aggregated from children — skip quota check
+    child_count_result = await db.execute(
+        select(sqla_func.count()).where(
+            PlannerActivity.parent_id == activity.id,
+            PlannerActivity.entity_id == entity_id,
+        )
+    )
+    is_parent = (child_count_result.scalar() or 0) > 0
+    if not is_parent and (activity.pax_quota or 0) <= 0:
         raise HTTPException(400, "PAX quota must be greater than 0")
 
     # ── Dependency-chain validation ────────────────────────────────────

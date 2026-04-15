@@ -732,10 +732,12 @@ export function ProjectGanttWrapper() {
         parent_id: selectedRowId && !selectedRowId.startsWith('proj-') ? selectedRowId : undefined,
       })
       toast({ title: t('projets.toast.task_created'), variant: 'success' })
+      // Refresh the Gantt rows for this project
+      qc.invalidateQueries({ queryKey: ['project-tasks', projectId] })
     } catch {
       toast({ title: t('projets.toast.error'), variant: 'error' })
     }
-  }, [selectedRowId, projects, findProjectForRow, toast, t])
+  }, [selectedRowId, projects, findProjectForRow, toast, t, qc])
 
   // ── Add milestone ─────────────────────────────────────────────
 
@@ -750,10 +752,11 @@ export function ProjectGanttWrapper() {
         due_date: nextMonth,
       })
       toast({ title: t('projets.toast.milestone_created'), variant: 'success' })
+      qc.invalidateQueries({ queryKey: ['project-milestones', projectId] })
     } catch {
       toast({ title: t('projets.toast.error'), variant: 'error' })
     }
-  }, [selectedRowId, projects, findProjectForRow, toast, t])
+  }, [selectedRowId, projects, findProjectForRow, toast, t, qc])
 
   // ── Indent (make child of previous sibling) ───────────────────
 

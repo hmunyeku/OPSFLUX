@@ -13,7 +13,14 @@ const config: ExpoConfig = {
   orientation: "default",
   icon: "./assets/icon.png",
   userInterfaceStyle: "automatic",
-  scheme: "opsflux",
+  // Deep link scheme dérivé du profil pour éviter les collisions
+  // quand preview et production sont installées côte à côte (QA).
+  // Sinon `opsflux://ads/123` ouvrait au hasard l'un ou l'autre.
+  scheme: IS_PROD
+    ? "opsflux"
+    : IS_PREVIEW
+    ? "opsflux-preview"
+    : "opsflux-dev",
   splash: {
     image: "./assets/splash.png",
     backgroundColor: "#1e3a5f",

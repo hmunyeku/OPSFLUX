@@ -29,89 +29,100 @@ import type { WorkflowDefinition, WorkflowEdgeDef, WorkflowNodeDef } from '@/ser
 export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
   icon: React.ReactNode
   labelKey: string
-  color: string
-  bgColor: string
-  borderColor: string
+  color: string        // text colour for icon + label
+  bgColor: string      // node background
+  borderColor: string  // node border
+  accentBg: string     // solid left accent bar colour (for rectangle nodes)
   descriptionKey: string
 }> = {
   start: {
-    icon: <Play size={16} />,
+    icon: <Play size={14} />,
     labelKey: 'workflow.node.start',
-    color: 'text-blue-700 dark:text-blue-300',
-    bgColor: 'bg-blue-50 dark:bg-blue-950/40',
-    borderColor: 'border-blue-300 dark:border-blue-700',
+    color: 'text-white',
+    bgColor: 'bg-blue-600 dark:bg-blue-700',
+    borderColor: 'border-blue-700 dark:border-blue-800',
+    accentBg: 'bg-blue-800',
     descriptionKey: 'workflow.node_desc.start',
   },
   human_validation: {
-    icon: <User size={16} />,
+    icon: <User size={14} />,
     labelKey: 'workflow.node.human_validation',
     color: 'text-purple-700 dark:text-purple-300',
-    bgColor: 'bg-purple-50 dark:bg-purple-950/40',
-    borderColor: 'border-purple-300 dark:border-purple-700',
+    bgColor: 'bg-white dark:bg-slate-900',
+    borderColor: 'border-purple-200 dark:border-purple-800',
+    accentBg: 'bg-purple-500',
     descriptionKey: 'workflow.node_desc.human_validation',
   },
   system_check: {
-    icon: <Settings2 size={16} />,
+    icon: <Settings2 size={14} />,
     labelKey: 'workflow.node.system_check',
     color: 'text-cyan-700 dark:text-cyan-300',
-    bgColor: 'bg-cyan-50 dark:bg-cyan-950/40',
-    borderColor: 'border-cyan-300 dark:border-cyan-700',
+    bgColor: 'bg-white dark:bg-slate-900',
+    borderColor: 'border-cyan-200 dark:border-cyan-800',
+    accentBg: 'bg-cyan-500',
     descriptionKey: 'workflow.node_desc.system_check',
   },
   notification: {
-    icon: <Bell size={16} />,
+    icon: <Bell size={14} />,
     labelKey: 'workflow.node.notification',
     color: 'text-amber-700 dark:text-amber-300',
-    bgColor: 'bg-amber-50 dark:bg-amber-950/40',
-    borderColor: 'border-amber-300 dark:border-amber-700',
+    bgColor: 'bg-white dark:bg-slate-900',
+    borderColor: 'border-amber-200 dark:border-amber-800',
+    accentBg: 'bg-amber-500',
     descriptionKey: 'workflow.node_desc.notification',
   },
   condition: {
-    icon: <Diamond size={16} />,
+    icon: <Diamond size={14} />,
     labelKey: 'workflow.node.condition',
     color: 'text-orange-700 dark:text-orange-300',
     bgColor: 'bg-orange-50 dark:bg-orange-950/40',
-    borderColor: 'border-orange-300 dark:border-orange-700',
+    borderColor: 'border-orange-300 dark:border-orange-600',
+    accentBg: 'bg-orange-500',
     descriptionKey: 'workflow.node_desc.condition',
   },
   parallel: {
-    icon: <GitFork size={16} />,
+    icon: <GitFork size={14} />,
     labelKey: 'workflow.node.parallel',
     color: 'text-indigo-700 dark:text-indigo-300',
-    bgColor: 'bg-indigo-50 dark:bg-indigo-950/40',
-    borderColor: 'border-indigo-300 dark:border-indigo-700',
+    bgColor: 'bg-white dark:bg-slate-900',
+    borderColor: 'border-indigo-200 dark:border-indigo-800',
+    accentBg: 'bg-indigo-500',
     descriptionKey: 'workflow.node_desc.parallel',
   },
   timer: {
-    icon: <Timer size={16} />,
+    icon: <Timer size={14} />,
     labelKey: 'workflow.node.timer',
     color: 'text-teal-700 dark:text-teal-300',
-    bgColor: 'bg-teal-50 dark:bg-teal-950/40',
-    borderColor: 'border-teal-300 dark:border-teal-700',
+    bgColor: 'bg-white dark:bg-slate-900',
+    borderColor: 'border-teal-200 dark:border-teal-800',
+    accentBg: 'bg-teal-500',
     descriptionKey: 'workflow.node_desc.timer',
   },
   end_approved: {
-    icon: <CheckCircle2 size={16} />,
+    icon: <CheckCircle2 size={14} />,
     labelKey: 'workflow.node.end_approved',
-    color: 'text-emerald-700 dark:text-emerald-300',
-    bgColor: 'bg-emerald-50 dark:bg-emerald-950/40',
-    borderColor: 'border-emerald-300 dark:border-emerald-700',
+    color: 'text-white',
+    bgColor: 'bg-emerald-600 dark:bg-emerald-700',
+    borderColor: 'border-emerald-700 dark:border-emerald-800',
+    accentBg: 'bg-emerald-800',
     descriptionKey: 'workflow.node_desc.end_approved',
   },
   end_rejected: {
-    icon: <XCircle size={16} />,
+    icon: <XCircle size={14} />,
     labelKey: 'workflow.node.end_rejected',
-    color: 'text-red-700 dark:text-red-300',
-    bgColor: 'bg-red-50 dark:bg-red-950/40',
-    borderColor: 'border-red-300 dark:border-red-700',
+    color: 'text-white',
+    bgColor: 'bg-red-600 dark:bg-red-700',
+    borderColor: 'border-red-700 dark:border-red-800',
+    accentBg: 'bg-red-800',
     descriptionKey: 'workflow.node_desc.end_rejected',
   },
   end_cancelled: {
-    icon: <Archive size={16} />,
+    icon: <Archive size={14} />,
     labelKey: 'workflow.node.end_cancelled',
-    color: 'text-zinc-600 dark:text-zinc-400',
-    bgColor: 'bg-zinc-100 dark:bg-zinc-800/60',
-    borderColor: 'border-zinc-300 dark:border-zinc-600',
+    color: 'text-white',
+    bgColor: 'bg-zinc-500 dark:bg-zinc-600',
+    borderColor: 'border-zinc-600 dark:border-zinc-700',
+    accentBg: 'bg-zinc-700',
     descriptionKey: 'workflow.node_desc.end_cancelled',
   },
 }
@@ -195,16 +206,33 @@ export function formatWorkflowConditionExpression(condition: unknown): string | 
 }
 
 export const EDGE_DEFAULTS = {
-  markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },
-  style: { strokeWidth: 2 },
-  labelStyle: { fontSize: 11, fontWeight: 600 },
-  labelBgStyle: { fill: '#ffffff', fillOpacity: 0.9, rx: 4, ry: 4 },
-  type: 'smoothstep' as const,
+  // Filled arrowhead — larger and clearly visible
+  markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20, color: '#64748b' },
+  style: { strokeWidth: 2, stroke: '#94a3b8' },
+  // Step = orthogonal routing (right-angle corners) → classic flowchart look
+  type: 'step' as const,
+  // Edge labels rendered as pill bubbles
+  labelStyle: { fontSize: 10, fontWeight: 700, fill: '#1e293b' },
+  labelBgStyle: { fill: '#f8fafc', fillOpacity: 1, rx: 8, ry: 8 },
+  labelBgPadding: [5, 10] as [number, number],
 }
 
-// Extra padding around the actual rendered node to prevent label/handle overlap
-const NODE_WIDTH = 220
-const NODE_HEIGHT = 72
+// ── Node dimensions ──────────────────────────────────────────────
+// Used by both the layout engine and the node renderer.
+// Condition nodes are square so the diamond fits without clipping.
+export const DIAMOND_SIZE = 100          // container side for condition (px)
+export const DIAMOND_INNER = 68          // inner rotated-square side (px)
+const PILL_W = 160                       // start / end pill width
+const PILL_H = 44                        // start / end pill height
+const RECT_W = 210                       // standard process node width
+const RECT_H = 68                        // standard process node height
+
+function nodeDims(nodeType: string): { w: number; h: number } {
+  if (nodeType === 'start') return { w: PILL_W, h: PILL_H }
+  if (nodeType?.startsWith('end_')) return { w: PILL_W + 20, h: PILL_H }
+  if (nodeType === 'condition') return { w: DIAMOND_SIZE, h: DIAMOND_SIZE }
+  return { w: RECT_W, h: RECT_H }
+}
 
 export type LayoutDirection = 'TB' | 'LR'
 
@@ -219,30 +247,23 @@ export function computeAutoLayout(
   g.setDefaultEdgeLabel(() => ({}))
   g.setGraph({
     rankdir: direction,
-    // Horizontal gap between sibling nodes in the same rank.
-    // Must exceed NODE_WIDTH so adjacent nodes never touch.
     nodesep: direction === 'TB' ? 80 : 60,
-    // Vertical gap between successive ranks (layers).
-    // Needs room for edge labels ("Soumettre", "Valider", …).
-    ranksep: direction === 'TB' ? 110 : 160,
-    // Extra space between parallel edges in the same rank.
+    ranksep: direction === 'TB' ? 120 : 160,
     edgesep: 20,
-    // Canvas margins so nodes don't hug the border.
     marginx: 60,
     marginy: 60,
-    // Dagre 'longest-path' ranker gives cleaner layering for
-    // complex DAGs with many parallel branches.
     ranker: 'longest-path',
     align: 'DL',
   })
 
+  // Use per-type dimensions so Dagre allocates the right bounding box
   nodes.forEach((node) => {
-    g.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT })
+    const { w, h } = nodeDims(String(node.data?.nodeType ?? ''))
+    g.setNode(node.id, { width: w, height: h })
   })
 
-  // De-duplicate edges before passing to Dagre — multiple transitions
-  // between the same pair of nodes collapse into one layout edge so the
-  // ranker doesn't get confused by parallel arrows.
+  // De-duplicate parallel edges — multiple transitions between the same
+  // pair produce one layout edge to prevent rank confusion.
   const seenEdges = new Set<string>()
   edges.forEach((edge) => {
     const key = `${edge.source}→${edge.target}`
@@ -254,17 +275,16 @@ export function computeAutoLayout(
 
   dagre.layout(g)
 
+  const snap = 10
   return nodes.map((node) => {
     const dagreNode = g.node(node.id)
     if (!dagreNode) return node
-    // Snap to a 10px grid (fine enough to look clean, coarse enough to
-    // avoid sub-pixel jitter when zooming).
-    const snap = 10
+    const { w, h } = nodeDims(String(node.data?.nodeType ?? ''))
     return {
       ...node,
       position: {
-        x: Math.round((dagreNode.x - NODE_WIDTH / 2) / snap) * snap,
-        y: Math.round((dagreNode.y - NODE_HEIGHT / 2) / snap) * snap,
+        x: Math.round((dagreNode.x - w / 2) / snap) * snap,
+        y: Math.round((dagreNode.y - h / 2) / snap) * snap,
       },
     }
   })
@@ -290,10 +310,9 @@ function needsAutoLayout(nodes: Node[]): boolean {
   if (Math.max(...xs) - Math.min(...xs) < 50 && Math.max(...ys) - Math.min(...ys) < 50) return true
 
   // Case 3: any two nodes share the same cell (overlap detection)
-  // Use a loose threshold — if centres are within 75 % of NODE_WIDTH/HEIGHT
-  // the nodes are visually overlapping.
-  const xThreshold = NODE_WIDTH * 0.75
-  const yThreshold = NODE_HEIGHT * 0.75
+  // Use a loose threshold based on a typical node width/height.
+  const xThreshold = RECT_W * 0.75
+  const yThreshold = RECT_H * 0.75
   for (let i = 0; i < positions.length - 1; i++) {
     for (let j = i + 1; j < positions.length; j++) {
       if (
@@ -307,46 +326,148 @@ function needsAutoLayout(nodes: Node[]): boolean {
   return false
 }
 
-function WorkflowNode({ data, selected }: NodeProps) {
+// ── Shared handle style ──────────────────────────────────────────
+const H_TARGET = '!w-3 !h-3 !bg-slate-400 !border-2 !border-white dark:!border-slate-900 !rounded-full'
+const H_SOURCE = '!w-3 !h-3 !bg-primary !border-2 !border-white dark:!border-slate-900 !rounded-full'
+
+// ── ① PILL — Start & End nodes ───────────────────────────────────
+function PillNode({ data, selected }: NodeProps) {
   const nodeType = (data.nodeType as WorkflowNodeDef['type']) || 'start'
   const config = NODE_TYPE_CONFIG[nodeType] || NODE_TYPE_CONFIG.start
   const isStart = nodeType === 'start'
-  const isEnd = nodeType.startsWith('end_')
   const isHighlighted = data.__highlighted as boolean
 
   return (
-    <div className={cn(
-      'rounded-md border shadow-sm transition-all',
-      config.bgColor, config.borderColor,
-      selected ? 'ring-2 ring-primary shadow-md' : 'hover:shadow-md',
-      isHighlighted && 'ring-2 ring-emerald-500 shadow-lg shadow-emerald-200/50 dark:shadow-emerald-900/50',
-    )} style={{ minWidth: 130, maxWidth: 220 }}>
-      {!isStart && (
-        <Handle type="target" position={Position.Top} className="!w-2.5 !h-2.5 !bg-muted-foreground !border-2 !border-background" />
+    <div
+      className={cn(
+        'flex items-center gap-2 px-5 rounded-full border-2 shadow transition-all select-none',
+        config.bgColor, config.borderColor, config.color,
+        selected && 'ring-2 ring-offset-2 ring-primary',
+        isHighlighted && 'ring-2 ring-offset-1 ring-emerald-400',
       )}
-      <div className="px-3 py-1.5">
+      style={{ height: PILL_H, minWidth: PILL_W }}
+    >
+      {!isStart && (
+        <Handle type="target" position={Position.Top} className={H_TARGET} />
+      )}
+      <span className="shrink-0">{config.icon}</span>
+      <span className="text-[11px] font-bold tracking-wide truncate">
+        {(data.label as string) || i18n.t(config.labelKey)}
+      </span>
+      {isStart && (
+        <Handle type="source" position={Position.Bottom} className={H_SOURCE} />
+      )}
+    </div>
+  )
+}
+
+// ── ② DIAMOND — Condition nodes ──────────────────────────────────
+function ConditionNode({ data, selected }: NodeProps) {
+  const config = NODE_TYPE_CONFIG.condition
+  const isHighlighted = data.__highlighted as boolean
+  const label = (data.label as string) || i18n.t(config.labelKey)
+  const expr = typeof data.expression === 'string' ? data.expression : ''
+
+  return (
+    <div style={{ width: DIAMOND_SIZE, height: DIAMOND_SIZE }} className="relative select-none">
+      <Handle
+        type="target" position={Position.Top}
+        style={{ top: 2 }}
+        className={H_TARGET}
+      />
+
+      {/* Rotated inner square → diamond shape */}
+      <div
+        className={cn(
+          'absolute border-2 transition-all',
+          config.bgColor, config.borderColor,
+          selected && '!border-primary',
+          isHighlighted && '!border-emerald-500',
+        )}
+        style={{
+          width: DIAMOND_INNER,
+          height: DIAMOND_INNER,
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%) rotate(45deg)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+        }}
+      />
+
+      {/* Content — NOT rotated, centred over the diamond */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 z-10 px-2">
+        <Diamond size={13} className={config.color} />
+        <span className={cn('text-[10px] font-bold text-center leading-tight', config.color)}>
+          {label}
+        </span>
+        {expr && (
+          <span className="text-[9px] text-orange-500 dark:text-orange-400 font-mono truncate max-w-[78px]">
+            {expr}
+          </span>
+        )}
+      </div>
+
+      <Handle
+        type="source" position={Position.Bottom}
+        style={{ bottom: 2 }}
+        className={H_SOURCE}
+      />
+    </div>
+  )
+}
+
+// ── ③ RECTANGLE — All other process nodes ────────────────────────
+function RectNode({ data, selected }: NodeProps) {
+  const nodeType = (data.nodeType as WorkflowNodeDef['type']) || 'human_validation'
+  const config = NODE_TYPE_CONFIG[nodeType] || NODE_TYPE_CONFIG.human_validation
+  const isHighlighted = data.__highlighted as boolean
+
+  return (
+    <div
+      className={cn(
+        'flex rounded-lg border shadow-sm transition-all overflow-hidden select-none',
+        config.bgColor, config.borderColor,
+        selected && 'ring-2 ring-primary shadow-md',
+        isHighlighted && 'ring-2 ring-emerald-500 shadow-emerald-200/50 dark:shadow-emerald-900/50',
+      )}
+      style={{ width: RECT_W, minHeight: RECT_H }}
+    >
+      <Handle type="target" position={Position.Top} className={H_TARGET} />
+
+      {/* Left accent bar — solid colour per node type */}
+      <div className={cn('w-1.5 shrink-0 self-stretch', config.accentBg)} />
+
+      {/* Body */}
+      <div className="flex-1 min-w-0 px-3 py-2 flex flex-col justify-center gap-0.5">
         <div className={cn('flex items-center gap-1.5', config.color)}>
           {config.icon}
-          <span className="text-xs font-semibold leading-tight truncate">
+          <span className="text-[11px] font-semibold leading-snug truncate">
             {(data.label as string) || i18n.t(config.labelKey)}
           </span>
         </div>
         {typeof data.role === 'string' && data.role && (
-          <p className="text-[10px] text-muted-foreground truncate mt-0.5 flex items-center gap-0.5">
-            <Shield size={8} className="shrink-0" /> {data.role}
+          <p className="text-[9px] text-muted-foreground truncate flex items-center gap-0.5">
+            <Shield size={7} className="shrink-0" />{data.role}
           </p>
         )}
         {typeof data.expression === 'string' && data.expression && (
-          <p className="text-[10px] text-muted-foreground truncate mt-0.5 font-mono flex items-center gap-0.5">
-            <Code2 size={8} className="shrink-0" /> {data.expression}
+          <p className="text-[9px] text-muted-foreground font-mono truncate flex items-center gap-0.5">
+            <Code2 size={7} className="shrink-0" />{data.expression}
           </p>
         )}
       </div>
-      {!isEnd && (
-        <Handle type="source" position={Position.Bottom} className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-background" />
-      )}
+
+      <Handle type="source" position={Position.Bottom} className={H_SOURCE} />
     </div>
   )
+}
+
+// ── Dispatcher — routes to the correct shape ──────────────────────
+function WorkflowNode(props: NodeProps) {
+  const nodeType = props.data?.nodeType as string | undefined
+  if (nodeType === 'start' || nodeType?.startsWith('end_')) return <PillNode {...props} />
+  if (nodeType === 'condition') return <ConditionNode {...props} />
+  return <RectNode {...props} />
 }
 
 export const nodeTypes: NodeTypes = { workflowNode: WorkflowNode }

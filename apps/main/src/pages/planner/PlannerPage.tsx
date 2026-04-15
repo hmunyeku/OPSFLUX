@@ -3024,100 +3024,112 @@ function ForecastTab() {
             />
           </div>
 
-          {/* ── Calendar heatmap — saturation per day ── */}
+          {/* ── Calendar heatmap — saturation per day (custom React grid) ── */}
           <div className="border border-border rounded-lg p-4 bg-card">
             <div className="text-xs font-semibold mb-3 flex items-center gap-1.5">
               <CalendarRange size={13} className="text-primary" /> Calendrier de saturation
             </div>
             {(() => {
               const monthCount = Math.max(1, Math.ceil(horizon / 30))
-              const ROW_H = 24 // cell height (px)
-              const HEADER = 28 // space for month label + day-of-week row
-              const GAP = 24 // gap between months
-              const MONTH_H = HEADER + 6 * ROW_H + GAP
-              const TOP_PAD = 12
-              const BOTTOM_PAD = 60 // visualMap space
+              const MONTH_NAMES = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
+              const DAY_NAMES = ['Lu','Ma','Me','Je','Ve','Sa','Di']
+
+              // Build date → ForecastDay lookup
+              const dayMap = new Map<string, ForecastDay>()
+              data.forecast.forEach((d: ForecastDay) => dayMap.set(d.date, d))
+
+              const getSatColor = (pct: number): string => {
+                if (pct <= 0) return '#f0fdf4'
+                if (pct < 60) {
+                  const t = pct / 60
+                  const r = Math.round(220 + (250 - 220) * t)
+                  const g = Math.round(252 + (204 - 252) * t)
+                  const b = Math.round(231 + (21 - 231) * t)
+                  return `rgb(${r},${g},${b})`
+                }
+                const t = (pct - 60) / 40
+                const r = Math.round(250 + (239 - 250) * t)
+                const g = Math.round(204 + (68 - 204) * t)
+                const b = Math.round(21 + (68 - 21) * t)
+                return `rgb(${r},${g},${b})`
+              }
+
+              const startDate = new Date(data.forecast[0]?.date || new Date())
+
               return (
-                <ReactECharts
-                  style={{ height: TOP_PAD + monthCount * MONTH_H + BOTTOM_PAD }}
-                  option={{
-                    tooltip: {
-                      formatter: (params: { value?: [string, number] }) => {
-                        if (!params.value) return ''
-                        const [date, pct] = params.value
-                        const day = data.forecast.find((d: ForecastDay) => d.date === date)
-                        return `<strong>${date}</strong><br/>Charge: ${day?.combined_load ?? 0} / ${day?.max_capacity ?? 0}<br/>Saturation: ${Math.round(pct)}%<br/>POB réel: ${day?.real_pob ?? 0}`
-                      },
-                    },
-                    visualMap: {
-                      min: 0,
-                      max: 100,
-                      show: true,
-                      orient: 'horizontal',
-                      left: 'center',
-                      bottom: 10,
-                      itemWidth: 16,
-                      itemHeight: 10,
-                      textStyle: { fontSize: 10 },
-                      inRange: {
-                        color: ['#dcfce7', '#bbf7d0', '#86efac', '#facc15', '#fb923c', '#ef4444', '#991b1b'],
-                      },
-                      formatter: (val: number) => `${Math.round(val)}%`,
-                    },
-                    calendar: Array.from({ length: monthCount }, (_, i) => {
-                      const start = new Date(data.forecast[0]?.date || new Date())
-                      const calStart = new Date(start.getFullYear(), start.getMonth() + i, 1)
-                      const calEnd = new Date(start.getFullYear(), start.getMonth() + i + 1, 0)
-                      return {
-                        top: TOP_PAD + i * MONTH_H + HEADER,
-                        left: 44,
-                        right: 20,
-                        cellSize: ['auto', ROW_H],
-                        range: [calStart.toISOString().slice(0, 10), calEnd.toISOString().slice(0, 10)],
-                        yearLabel: { show: false },
-                        monthLabel: {
-                          show: true,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: '#334155',
-                          nameMap: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'],
-                          margin: 18,
-                          align: 'left',
-                          position: 'start',
-                        },
-                        dayLabel: {
-                          firstDay: 1,
-                          nameMap: ['Di', 'Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa'],
-                          fontSize: 10,
-                          color: '#64748b',
-                          margin: 8,
-                        },
-                        itemStyle: {
-                          borderWidth: 1.5,
-                          borderColor: 'var(--background, #ffffff)',
-                          color: '#f1f5f9',
-                        },
-                        splitLine: { show: false },
-                      }
-                    }),
-                    series: Array.from({ length: monthCount }, (_, i) => ({
-                      type: 'heatmap',
-                      coordinateSystem: 'calendar',
-                      calendarIndex: i,
-                      data: data.forecast.map((d: ForecastDay) => [d.date, d.max_capacity > 0 ? Math.round((d.combined_load / d.max_capacity) * 100) : 0]),
-                      label: {
-                        show: true,
-                        fontSize: 9,
-                        color: '#334155',
-                        formatter: (params: { value?: [string, number] }) => {
-                          if (!params.value) return ''
-                          const d = new Date(params.value[0])
-                          return String(d.getDate())
-                        },
-                      },
-                    })),
-                  }}
-                />
+                <div className="space-y-5">
+                  {Array.from({ length: monthCount }, (_, mi) => {
+                    // JS Date handles month overflow automatically
+                    const firstDay = new Date(startDate.getFullYear(), startDate.getMonth() + mi, 1)
+                    const daysInMonth = new Date(firstDay.getFullYear(), firstDay.getMonth() + 1, 0).getDate()
+
+                    // Monday-based offset (0=Mon … 6=Sun)
+                    const rawDow = firstDay.getDay() // 0=Sun
+                    const startOffset = rawDow === 0 ? 6 : rawDow - 1
+
+                    const cells: Array<{ date: string | null; day: number | null }> = []
+                    for (let i = 0; i < startOffset; i++) cells.push({ date: null, day: null })
+                    for (let d = 1; d <= daysInMonth; d++) {
+                      const dateStr = `${firstDay.getFullYear()}-${String(firstDay.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+                      cells.push({ date: dateStr, day: d })
+                    }
+
+                    return (
+                      <div key={mi}>
+                        {/* Month header */}
+                        <div className="text-[11px] font-semibold text-foreground mb-1.5 tracking-wide uppercase">
+                          {MONTH_NAMES[firstDay.getMonth()]} {firstDay.getFullYear()}
+                        </div>
+                        {/* Grid */}
+                        <div className="grid grid-cols-7 gap-0.5">
+                          {/* Day-of-week headers */}
+                          {DAY_NAMES.map(dn => (
+                            <div key={dn} className="text-center text-[9px] text-muted-foreground font-medium py-0.5 select-none">
+                              {dn}
+                            </div>
+                          ))}
+                          {/* Day cells */}
+                          {cells.map((cell, ci) => {
+                            if (!cell.date || !cell.day) {
+                              return <div key={ci} className="h-7 rounded" />
+                            }
+                            const fd = dayMap.get(cell.date)
+                            const pct = fd && fd.max_capacity > 0
+                              ? Math.round((fd.combined_load / fd.max_capacity) * 100)
+                              : 0
+                            const bg = getSatColor(pct)
+                            const textColor = pct > 65 ? '#ffffff' : '#334155'
+                            const title = fd
+                              ? `${cell.date}\nCharge: ${fd.combined_load} / ${fd.max_capacity}\nSaturation: ${pct}%\nPOB réel: ${fd.real_pob}`
+                              : cell.date
+                            return (
+                              <div
+                                key={ci}
+                                title={title}
+                                className="h-7 flex items-center justify-center text-[10px] font-medium rounded cursor-default select-none transition-opacity hover:opacity-80"
+                                style={{ backgroundColor: bg, color: textColor }}
+                              >
+                                {cell.day}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {/* Legend */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="text-[10px] text-muted-foreground shrink-0">0 %</span>
+                    <div className="flex flex-1 max-w-[200px] h-3 rounded overflow-hidden gap-px">
+                      {[0, 10, 20, 35, 50, 65, 80, 100].map(p => (
+                        <div key={p} className="flex-1" style={{ backgroundColor: getSatColor(p) }} />
+                      ))}
+                    </div>
+                    <span className="text-[10px] text-muted-foreground shrink-0">100 %</span>
+                    <span className="text-[10px] text-muted-foreground ml-2 shrink-0">— Saturation capacité</span>
+                  </div>
+                </div>
               )
             })()}
           </div>

@@ -202,8 +202,9 @@ export const EDGE_DEFAULTS = {
   type: 'smoothstep' as const,
 }
 
-const NODE_WIDTH = 180
-const NODE_HEIGHT = 60
+// Extra padding around the actual rendered node to prevent label/handle overlap
+const NODE_WIDTH = 220
+const NODE_HEIGHT = 72
 
 export type LayoutDirection = 'TB' | 'LR'
 
@@ -212,23 +213,43 @@ export function computeAutoLayout(
   edges: Edge[],
   direction: LayoutDirection = 'TB',
 ): Node[] {
-  const g = new dagre.graphlib.Graph()
+  if (nodes.length === 0) return nodes
+
+  const g = new dagre.graphlib.Graph({ multigraph: false, compound: false })
   g.setDefaultEdgeLabel(() => ({}))
   g.setGraph({
     rankdir: direction,
-    nodesep: 60,
-    ranksep: 80,
-    edgesep: 30,
-    marginx: 40,
-    marginy: 40,
+    // Horizontal gap between sibling nodes in the same rank.
+    // Must exceed NODE_WIDTH so adjacent nodes never touch.
+    nodesep: direction === 'TB' ? 80 : 60,
+    // Vertical gap between successive ranks (layers).
+    // Needs room for edge labels ("Soumettre", "Valider", …).
+    ranksep: direction === 'TB' ? 110 : 160,
+    // Extra space between parallel edges in the same rank.
+    edgesep: 20,
+    // Canvas margins so nodes don't hug the border.
+    marginx: 60,
+    marginy: 60,
+    // Dagre 'longest-path' ranker gives cleaner layering for
+    // complex DAGs with many parallel branches.
+    ranker: 'longest-path',
+    align: 'DL',
   })
 
   nodes.forEach((node) => {
     g.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT })
   })
 
+  // De-duplicate edges before passing to Dagre — multiple transitions
+  // between the same pair of nodes collapse into one layout edge so the
+  // ranker doesn't get confused by parallel arrows.
+  const seenEdges = new Set<string>()
   edges.forEach((edge) => {
-    g.setEdge(edge.source, edge.target)
+    const key = `${edge.source}→${edge.target}`
+    if (!seenEdges.has(key)) {
+      seenEdges.add(key)
+      g.setEdge(edge.source, edge.target)
+    }
   })
 
   dagre.layout(g)
@@ -236,26 +257,54 @@ export function computeAutoLayout(
   return nodes.map((node) => {
     const dagreNode = g.node(node.id)
     if (!dagreNode) return node
+    // Snap to a 10px grid (fine enough to look clean, coarse enough to
+    // avoid sub-pixel jitter when zooming).
+    const snap = 10
     return {
       ...node,
       position: {
-        x: Math.round((dagreNode.x - NODE_WIDTH / 2) / 20) * 20,
-        y: Math.round((dagreNode.y - NODE_HEIGHT / 2) / 20) * 20,
+        x: Math.round((dagreNode.x - NODE_WIDTH / 2) / snap) * snap,
+        y: Math.round((dagreNode.y - NODE_HEIGHT / 2) / snap) * snap,
       },
     }
   })
 }
 
+/**
+ * Returns true when nodes need an auto-layout pass.
+ *
+ * Detects three cases that produce broken diagrams:
+ *  1. All nodes stacked at the origin (fresh definition).
+ *  2. Total spread < 50 px (essentially same as case 1).
+ *  3. Any two nodes overlap (saved layout is broken / too dense).
+ */
 function needsAutoLayout(nodes: Node[]): boolean {
   if (nodes.length <= 1) return false
-  const positions = nodes.map((node) => node.position)
-  const allAtOrigin = positions.every((position) => position.x === 0 && position.y === 0)
+  const positions = nodes.map((n) => n.position)
+
+  // Case 1 & 2: all at origin or spread is negligible
+  const allAtOrigin = positions.every((p) => p.x === 0 && p.y === 0)
   if (allAtOrigin) return true
-  const xs = positions.map((position) => position.x)
-  const ys = positions.map((position) => position.y)
-  const spreadX = Math.max(...xs) - Math.min(...xs)
-  const spreadY = Math.max(...ys) - Math.min(...ys)
-  return spreadX < 50 && spreadY < 50
+  const xs = positions.map((p) => p.x)
+  const ys = positions.map((p) => p.y)
+  if (Math.max(...xs) - Math.min(...xs) < 50 && Math.max(...ys) - Math.min(...ys) < 50) return true
+
+  // Case 3: any two nodes share the same cell (overlap detection)
+  // Use a loose threshold — if centres are within 75 % of NODE_WIDTH/HEIGHT
+  // the nodes are visually overlapping.
+  const xThreshold = NODE_WIDTH * 0.75
+  const yThreshold = NODE_HEIGHT * 0.75
+  for (let i = 0; i < positions.length - 1; i++) {
+    for (let j = i + 1; j < positions.length; j++) {
+      if (
+        Math.abs(positions[i].x - positions[j].x) < xThreshold &&
+        Math.abs(positions[i].y - positions[j].y) < yThreshold
+      ) {
+        return true
+      }
+    }
+  }
+  return false
 }
 
 function WorkflowNode({ data, selected }: NodeProps) {
@@ -302,7 +351,13 @@ function WorkflowNode({ data, selected }: NodeProps) {
 
 export const nodeTypes: NodeTypes = { workflowNode: WorkflowNode }
 
-export function definitionToFlow(def: WorkflowDefinition, highlightNodeId?: string): { nodes: Node[]; edges: Edge[] } {
+export function definitionToFlow(
+  def: WorkflowDefinition,
+  highlightNodeId?: string,
+  /** Force a fresh Dagre layout regardless of stored positions.
+   *  Use this for read-only / published views where users can't drag nodes. */
+  forceLayout = false,
+): { nodes: Node[]; edges: Edge[] } {
   let nodes: Node[] = (def.nodes || []).map((node) => ({
     id: node.id,
     type: 'workflowNode',
@@ -335,7 +390,7 @@ export function definitionToFlow(def: WorkflowDefinition, highlightNodeId?: stri
     ...EDGE_DEFAULTS,
   }))
 
-  if (needsAutoLayout(nodes)) {
+  if (forceLayout || needsAutoLayout(nodes)) {
     nodes = computeAutoLayout(nodes, edges, 'TB')
   }
 

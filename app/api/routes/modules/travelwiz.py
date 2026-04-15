@@ -167,8 +167,8 @@ VOYAGE_PUBLIC_STATUS_LABELS = {
     "planned": "Planifié",
     "confirmed": "Confirmé",
     "boarding": "Embarquement",
-    "in_progress": "En cours",
-    "completed": "Terminé",
+    "departed": "En cours",
+    "arrived": "Terminé",
     "closed": "Clôturé",
     "delayed": "Retardé",
     "cancelled": "Annulé",
@@ -3042,6 +3042,7 @@ async def sap_match(
     description: str,
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
+    _: None = require_permission("packlog.cargo.create"),
     db: AsyncSession = Depends(get_db),
 ):
     """Find matching SAP codes for a cargo description."""

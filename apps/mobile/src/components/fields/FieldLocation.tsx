@@ -1,10 +1,12 @@
 /**
- * Location capture field — auto-captures GPS coordinates.
+ * FieldLocation — one-tap GPS capture via Gluestack button.
  */
 
 import React, { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { Button, HelperText, Text } from "react-native-paper";
+import { Button, ButtonSpinner, ButtonText, Text } from "@gluestack-ui/themed";
+import { MIcon } from "../MIcon";
+import FieldShell from "./FieldShell";
 import * as Location from "expo-location";
 import type { FieldDefinition } from "../../types/forms";
 import { colors } from "../../utils/colors";
@@ -18,7 +20,13 @@ interface Props {
   onChange: (value: { lat: number; lon: number; accuracy: number } | null) => void;
 }
 
-export default function FieldLocation({ field, value, error, required, onChange }: Props) {
+export default function FieldLocation({
+  field,
+  value,
+  error,
+  required,
+  onChange,
+}: Props) {
   const [capturing, setCapturing] = useState(false);
   const loc = value as { lat: number; lon: number; accuracy: number } | null;
 
@@ -26,15 +34,10 @@ export default function FieldLocation({ field, value, error, required, onChange 
     setCapturing(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        setCapturing(false);
-        return;
-      }
-
+      if (status !== "granted") return;
       const position = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
-
       onChange({
         lat: position.coords.latitude,
         lon: position.coords.longitude,
@@ -48,74 +51,84 @@ export default function FieldLocation({ field, value, error, required, onChange 
   }
 
   return (
-    <View>
-      <Text variant="bodySmall" style={styles.label}>
-        {field.label}{required ? " *" : ""}
-      </Text>
-
-      <View style={[styles.container, error ? styles.containerError : null]}>
+    <FieldShell
+      label={field.label}
+      required={required}
+      error={error}
+      helpText={field.help_text}
+      bare
+    >
+      <View
+        style={[styles.container, error ? styles.containerError : null]}
+      >
         {loc ? (
           <View style={styles.coordsRow}>
             <View style={styles.coordCol}>
-              <Text variant="bodySmall" style={styles.coordLabel}>Latitude</Text>
-              <Text variant="bodyMedium" style={styles.coordValue}>
+              <Text size="2xs" color="$textLight500" textTransform="uppercase">
+                Lat.
+              </Text>
+              <Text size="sm" color="$textLight900" fontFamily="monospace" fontWeight="$semibold">
                 {loc.lat.toFixed(6)}
               </Text>
             </View>
             <View style={styles.coordCol}>
-              <Text variant="bodySmall" style={styles.coordLabel}>Longitude</Text>
-              <Text variant="bodyMedium" style={styles.coordValue}>
+              <Text size="2xs" color="$textLight500" textTransform="uppercase">
+                Lon.
+              </Text>
+              <Text size="sm" color="$textLight900" fontFamily="monospace" fontWeight="$semibold">
                 {loc.lon.toFixed(6)}
               </Text>
             </View>
             <View style={styles.coordCol}>
-              <Text variant="bodySmall" style={styles.coordLabel}>Précision</Text>
-              <Text variant="bodyMedium" style={styles.coordValue}>
-                {loc.accuracy.toFixed(0)}m
+              <Text size="2xs" color="$textLight500" textTransform="uppercase">
+                ± m
+              </Text>
+              <Text size="sm" color="$textLight900" fontFamily="monospace" fontWeight="$semibold">
+                {loc.accuracy.toFixed(0)}
               </Text>
             </View>
           </View>
         ) : (
-          <Text variant="bodyMedium" style={styles.placeholder}>
+          <Text size="sm" color="$textLight500" italic mb="$2">
             Position non capturée
           </Text>
         )}
-
         <Button
-          mode={loc ? "outlined" : "contained"}
-          compact
-          loading={capturing}
+          action="primary"
+          variant={loc ? "outline" : "solid"}
+          size="sm"
           onPress={captureLocation}
-          style={styles.captureButton}
-          icon="crosshairs-gps"
+          isDisabled={capturing}
+          mt="$2"
         >
-          {loc ? "Actualiser" : "Capturer la position"}
+          {capturing ? (
+            <ButtonSpinner mr="$2" />
+          ) : (
+            <MIcon name="gps-fixed" size="xs" color={loc ? "$primary700" : "$white"} mr="$2" />
+          )}
+          <ButtonText>{loc ? "Actualiser" : "Capturer la position"}</ButtonText>
         </Button>
       </View>
-
-      {(error || field.help_text) && (
-        <HelperText type={error ? "error" : "info"} visible>
-          {error || field.help_text}
-        </HelperText>
-      )}
-    </View>
+    </FieldShell>
   );
 }
 
 const styles = StyleSheet.create({
-  label: { color: colors.textSecondary, marginBottom: 8 },
   container: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 14,
     backgroundColor: colors.surface,
   },
-  containerError: { borderColor: colors.danger },
-  coordsRow: { flexDirection: "row", gap: 12, marginBottom: 10 },
-  coordCol: { flex: 1 },
-  coordLabel: { color: colors.textMuted, fontSize: 11 },
-  coordValue: { color: colors.textPrimary, fontFamily: "monospace", fontWeight: "600" },
-  placeholder: { color: colors.textMuted, marginBottom: 10 },
-  captureButton: {},
+  containerError: {
+    borderColor: colors.danger,
+  },
+  coordsRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  coordCol: {
+    flex: 1,
+  },
 });

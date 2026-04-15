@@ -1,10 +1,12 @@
 /**
- * Photo capture field — takes photos via camera or picks from gallery.
+ * FieldPhoto — camera capture / gallery picker via Gluestack chrome.
  */
 
-import React, { useState } from "react";
-import { Image, StyleSheet, View } from "react-native";
-import { Button, HelperText, IconButton, Surface, Text } from "react-native-paper";
+import React from "react";
+import { Image, Pressable, StyleSheet, View } from "react-native";
+import { Button, ButtonText, HStack } from "@gluestack-ui/themed";
+import { MIcon } from "../MIcon";
+import FieldShell from "./FieldShell";
 import * as ImagePicker from "expo-image-picker";
 import type { FieldDefinition } from "../../types/forms";
 import { colors } from "../../utils/colors";
@@ -18,18 +20,22 @@ interface Props {
   onChange: (value: string[]) => void;
 }
 
-export default function FieldPhoto({ field, value, error, required, onChange }: Props) {
+export default function FieldPhoto({
+  field,
+  value,
+  error,
+  required,
+  onChange,
+}: Props) {
   const photos = Array.isArray(value) ? (value as string[]) : [];
 
   async function takePhoto() {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") return;
-
     const result = await ImagePicker.launchCameraAsync({
       quality: 0.7,
       base64: false,
     });
-
     if (!result.canceled && result.assets[0]) {
       onChange([...photos, result.assets[0].uri]);
     }
@@ -40,7 +46,6 @@ export default function FieldPhoto({ field, value, error, required, onChange }: 
       quality: 0.7,
       base64: false,
     });
-
     if (!result.canceled && result.assets[0]) {
       onChange([...photos, result.assets[0].uri]);
     }
@@ -51,64 +56,82 @@ export default function FieldPhoto({ field, value, error, required, onChange }: 
   }
 
   return (
-    <View>
-      <Text variant="bodySmall" style={styles.label}>
-        {field.label}{required ? " *" : ""}
-      </Text>
-
+    <FieldShell
+      label={field.label}
+      required={required}
+      error={error}
+      helpText={field.help_text}
+      bare
+    >
       {photos.length > 0 && (
         <View style={styles.photoGrid}>
           {photos.map((uri, i) => (
             <View key={i} style={styles.photoContainer}>
               <Image source={{ uri }} style={styles.photo} />
-              <IconButton
-                icon="close-circle"
-                size={20}
+              <Pressable
                 style={styles.removeButton}
-                iconColor={colors.danger}
                 onPress={() => removePhoto(i)}
-              />
+                hitSlop={8}
+              >
+                <MIcon name="close" size="xs" color="#ffffff" />
+              </Pressable>
             </View>
           ))}
         </View>
       )}
-
-      <View style={styles.buttonRow}>
+      <HStack space="sm">
         <Button
-          mode="outlined"
-          icon="camera"
-          compact
+          variant="outline"
+          action="primary"
+          flex={1}
+          size="md"
           onPress={takePhoto}
-          style={styles.captureButton}
         >
-          Photo
+          <MIcon name="camera-alt" size="sm" color="$primary700" mr="$2" />
+          <ButtonText>Photo</ButtonText>
         </Button>
         <Button
-          mode="outlined"
-          icon="image"
-          compact
+          variant="outline"
+          action="secondary"
+          flex={1}
+          size="md"
           onPress={pickFromGallery}
-          style={styles.captureButton}
         >
-          Galerie
+          <MIcon name="image" size="sm" color="$textLight700" mr="$2" />
+          <ButtonText>Galerie</ButtonText>
         </Button>
-      </View>
-
-      {(error || field.help_text) && (
-        <HelperText type={error ? "error" : "info"} visible>
-          {error || field.help_text}
-        </HelperText>
-      )}
-    </View>
+      </HStack>
+    </FieldShell>
   );
 }
 
 const styles = StyleSheet.create({
-  label: { color: colors.textSecondary, marginBottom: 8 },
-  photoGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 10 },
-  photoContainer: { position: "relative" },
-  photo: { width: 80, height: 80, borderRadius: 8 },
-  removeButton: { position: "absolute", top: -8, right: -8, backgroundColor: colors.surface },
-  buttonRow: { flexDirection: "row", gap: 8 },
-  captureButton: { flex: 1 },
+  photoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 10,
+  },
+  photoContainer: {
+    position: "relative",
+  },
+  photo: {
+    width: 84,
+    height: 84,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceAlt,
+  },
+  removeButton: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.danger,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: colors.surface,
+  },
 });

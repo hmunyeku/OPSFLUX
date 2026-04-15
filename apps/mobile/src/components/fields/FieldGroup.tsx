@@ -1,12 +1,10 @@
 /**
- * Group field — visual section/card containing sub-fields.
- * Currently renders as a titled card with a hint that sub-fields
- * are handled at the step level.
+ * FieldGroup — visual section/card containing sub-fields.
  */
 
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import { Card, HelperText, Text } from "react-native-paper";
+import { Text } from "@gluestack-ui/themed";
 import type { FieldDefinition } from "../../types/forms";
 import { colors } from "../../utils/colors";
 
@@ -21,28 +19,40 @@ interface Props {
 
 export default function FieldGroup({ field, error }: Props) {
   return (
-    <Card style={styles.card} mode="outlined">
-      <Card.Content>
-        <Text variant="titleSmall" style={styles.title}>
-          {field.label}
+    <View style={styles.card}>
+      <Text
+        size="sm"
+        fontWeight="$bold"
+        color="$primary700"
+        style={styles.title}
+      >
+        {field.label}
+      </Text>
+      {field.help_text && (
+        <Text size="xs" color="$textLight500" mt="$1">
+          {field.help_text}
         </Text>
-        {field.help_text && (
-          <Text variant="bodySmall" style={styles.help}>
-            {field.help_text}
-          </Text>
-        )}
-      </Card.Content>
-      {error && (
-        <HelperText type="error" visible>
-          {error}
-        </HelperText>
       )}
-    </Card>
+      {error && (
+        <Text size="2xs" color="$error600" mt="$2">
+          {error}
+        </Text>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { borderColor: colors.border },
-  title: { fontWeight: "700", color: colors.primary },
-  help: { color: colors.textSecondary, marginTop: 4 },
+  card: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+  title: {
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
 });

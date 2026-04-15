@@ -1,10 +1,11 @@
 /**
- * Error boundary — catches JS errors in the component tree and shows a fallback.
+ * ErrorBoundary — catches JS errors in the tree and shows a fallback.
  */
 
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import { Button, Text } from "react-native-paper";
+import { Button, ButtonText, Text } from "@gluestack-ui/themed";
+import { MIcon } from "./MIcon";
 import { captureError } from "../services/sentry";
 import { colors } from "../utils/colors";
 
@@ -38,26 +39,34 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         <View style={styles.container}>
           <View style={styles.iconCircle}>
-            <Text style={styles.iconText}>!</Text>
+            <MIcon name="error-outline" size="2xl" color="$error600" />
           </View>
-          <Text variant="headlineSmall" style={styles.title}>
+          <Text
+            size="lg"
+            fontWeight="$bold"
+            color="$textLight900"
+            style={styles.title}
+          >
             Oups, une erreur est survenue
           </Text>
-          <Text variant="bodyMedium" style={styles.description}>
+          <Text size="sm" color="$textLight500" style={styles.description}>
             L'application a rencontré un problème inattendu.
           </Text>
           <ScrollView style={styles.errorBox} horizontal>
-            <Text variant="bodySmall" style={styles.errorText}>
+            <Text
+              size="2xs"
+              color="$error700"
+              style={styles.errorText}
+            >
               {this.state.error?.message ?? "Unknown error"}
             </Text>
           </ScrollView>
-          <Button mode="contained" onPress={this.handleReset} style={styles.button}>
-            Réessayer
+          <Button action="primary" onPress={this.handleReset} mt="$5">
+            <ButtonText>Réessayer</ButtonText>
           </Button>
         </View>
       );
     }
-
     return this.props.children;
   }
 }
@@ -71,28 +80,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.danger + "15",
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: "#fee2e2",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
   },
-  iconText: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: colors.danger,
-  },
   title: {
-    fontWeight: "700",
-    color: colors.textPrimary,
     textAlign: "center",
   },
   description: {
-    color: colors.textSecondary,
     textAlign: "center",
     marginTop: 8,
+    maxWidth: 280,
   },
   errorBox: {
     maxHeight: 60,
@@ -100,14 +102,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: colors.surfaceAlt,
-    borderRadius: 6,
+    borderRadius: 8,
+    alignSelf: "stretch",
   },
   errorText: {
     fontFamily: "monospace",
-    color: colors.danger,
-    fontSize: 11,
-  },
-  button: {
-    marginTop: 24,
   },
 });

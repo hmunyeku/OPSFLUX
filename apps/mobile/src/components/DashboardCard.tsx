@@ -1,10 +1,13 @@
 /**
- * Dashboard stat card — fetches a stat from a server endpoint and displays it.
+ * Dashboard stat card — fetches a stat from a server endpoint.
+ *
+ * Clean Gluestack card with soft shadow, uppercase micro-label, big
+ * primary-coloured value. Consistent with the rest of the portal.
  */
 
 import React, { useEffect, useState } from "react";
-import { StyleSheet } from "react-native";
-import { ActivityIndicator, Surface, Text } from "react-native-paper";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { Text } from "@gluestack-ui/themed";
 import { fetchWithOfflineFallback } from "../services/offline";
 import { colors } from "../utils/colors";
 import type { DashboardCard as DashboardCardDef } from "../types/forms";
@@ -25,10 +28,12 @@ export default function DashboardCard({ card }: Props) {
           card.params as Record<string, unknown> | undefined
         );
         const data = result.data;
-        // Extract the display value
         if (card.display === "total" && typeof data?.total === "number") {
           setValue(data.total);
-        } else if (card.display === "count" && typeof data?.items?.length === "number") {
+        } else if (
+          card.display === "count" &&
+          typeof data?.items?.length === "number"
+        ) {
           setValue(data.items.length);
         } else if (typeof data === "number") {
           setValue(data);
@@ -45,18 +50,33 @@ export default function DashboardCard({ card }: Props) {
   }, [card.endpoint]);
 
   return (
-    <Surface style={styles.card} elevation={1}>
-      <Text variant="bodySmall" style={styles.label}>
+    <View style={styles.card}>
+      <Text
+        size="2xs"
+        color="$textLight500"
+        textTransform="uppercase"
+        letterSpacing={0.5}
+        fontWeight="$medium"
+      >
         {card.title}
       </Text>
       {loading ? (
-        <ActivityIndicator size="small" color={colors.primary} style={styles.loader} />
+        <ActivityIndicator
+          size="small"
+          color={colors.primary}
+          style={styles.loader}
+        />
       ) : (
-        <Text variant="headlineMedium" style={styles.value}>
+        <Text
+          size="3xl"
+          color="$primary700"
+          fontWeight="$bold"
+          mt="$1"
+        >
           {value}
         </Text>
       )}
-    </Surface>
+    </View>
   );
 }
 
@@ -64,19 +84,16 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     minWidth: 140,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
     backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  label: {
-    color: colors.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  value: {
-    fontWeight: "700",
-    color: colors.primary,
-    marginTop: 4,
-  },
-  loader: { marginTop: 8 },
+  loader: { marginTop: 8, alignSelf: "flex-start" },
 });

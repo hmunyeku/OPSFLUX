@@ -9,8 +9,8 @@
  */
 
 import React, { useEffect, useRef } from "react";
-import { Animated, StyleSheet, View } from "react-native";
-import { Text } from "react-native-paper";
+import { Animated, StyleSheet } from "react-native";
+import { Text } from "@gluestack-ui/themed";
 import { useOfflineStore } from "../services/offline";
 import { colors } from "../utils/colors";
 
@@ -53,7 +53,7 @@ export default function NetworkBanner() {
     <Animated.View
       style={[styles.banner, { backgroundColor: bgColor, transform: [{ translateY }] }]}
     >
-      <Text variant="labelMedium" style={styles.text}>
+      <Text size="xs" fontWeight="$bold" color="$white" letterSpacing={0.3}>
         {message}
       </Text>
     </Animated.View>
@@ -71,9 +71,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     alignItems: "center",
   },
-  text: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 12,
-  },
+  // Text styling handled by Gluestack Text props inline.
 });

@@ -8,7 +8,7 @@
 
 import React from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
-import { Text } from "react-native-paper";
+import { Text } from "@gluestack-ui/themed";
 import DynamicForm from "../components/DynamicForm";
 import { useFormRegistry } from "../hooks/useFormRegistry";
 import { colors } from "../utils/colors";
@@ -35,7 +35,7 @@ export default function DynamicFormScreen({ route, navigation }: Props) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text variant="bodyMedium" style={styles.loadingText}>
+        <Text style={styles.loadingText}>
           Chargement du formulaire...
         </Text>
       </View>
@@ -45,10 +45,10 @@ export default function DynamicFormScreen({ route, navigation }: Props) {
   if (!form) {
     return (
       <View style={styles.center}>
-        <Text variant="titleMedium" style={styles.errorText}>
+        <Text style={styles.errorText}>
           Formulaire introuvable
         </Text>
-        <Text variant="bodyMedium" style={styles.errorDetail}>
+        <Text style={styles.errorDetail}>
           Le formulaire "{formId}" n'est pas disponible.
         </Text>
       </View>

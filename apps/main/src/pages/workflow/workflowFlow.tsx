@@ -48,8 +48,8 @@ export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
     icon: <User size={14} />,
     labelKey: 'workflow.node.human_validation',
     color: 'text-purple-700 dark:text-purple-300',
-    bgColor: 'bg-white dark:bg-slate-900',
-    borderColor: 'border-purple-200 dark:border-purple-800',
+    bgColor: 'bg-white dark:bg-slate-800',
+    borderColor: 'border-purple-400 dark:border-purple-500',
     accentBg: 'bg-purple-500',
     descriptionKey: 'workflow.node_desc.human_validation',
   },
@@ -57,8 +57,8 @@ export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
     icon: <Settings2 size={14} />,
     labelKey: 'workflow.node.system_check',
     color: 'text-cyan-700 dark:text-cyan-300',
-    bgColor: 'bg-white dark:bg-slate-900',
-    borderColor: 'border-cyan-200 dark:border-cyan-800',
+    bgColor: 'bg-white dark:bg-slate-800',
+    borderColor: 'border-cyan-400 dark:border-cyan-500',
     accentBg: 'bg-cyan-500',
     descriptionKey: 'workflow.node_desc.system_check',
   },
@@ -66,8 +66,8 @@ export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
     icon: <Bell size={14} />,
     labelKey: 'workflow.node.notification',
     color: 'text-amber-700 dark:text-amber-300',
-    bgColor: 'bg-white dark:bg-slate-900',
-    borderColor: 'border-amber-200 dark:border-amber-800',
+    bgColor: 'bg-white dark:bg-slate-800',
+    borderColor: 'border-amber-400 dark:border-amber-500',
     accentBg: 'bg-amber-500',
     descriptionKey: 'workflow.node_desc.notification',
   },
@@ -76,7 +76,7 @@ export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
     labelKey: 'workflow.node.condition',
     color: 'text-orange-700 dark:text-orange-300',
     bgColor: 'bg-orange-50 dark:bg-orange-950/40',
-    borderColor: 'border-orange-300 dark:border-orange-600',
+    borderColor: 'border-orange-400 dark:border-orange-500',
     accentBg: 'bg-orange-500',
     descriptionKey: 'workflow.node_desc.condition',
   },
@@ -84,8 +84,8 @@ export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
     icon: <GitFork size={14} />,
     labelKey: 'workflow.node.parallel',
     color: 'text-indigo-700 dark:text-indigo-300',
-    bgColor: 'bg-white dark:bg-slate-900',
-    borderColor: 'border-indigo-200 dark:border-indigo-800',
+    bgColor: 'bg-white dark:bg-slate-800',
+    borderColor: 'border-indigo-400 dark:border-indigo-500',
     accentBg: 'bg-indigo-500',
     descriptionKey: 'workflow.node_desc.parallel',
   },
@@ -93,8 +93,8 @@ export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
     icon: <Timer size={14} />,
     labelKey: 'workflow.node.timer',
     color: 'text-teal-700 dark:text-teal-300',
-    bgColor: 'bg-white dark:bg-slate-900',
-    borderColor: 'border-teal-200 dark:border-teal-800',
+    bgColor: 'bg-white dark:bg-slate-800',
+    borderColor: 'border-teal-400 dark:border-teal-500',
     accentBg: 'bg-teal-500',
     descriptionKey: 'workflow.node_desc.timer',
   },
@@ -206,15 +206,15 @@ export function formatWorkflowConditionExpression(condition: unknown): string | 
 }
 
 export const EDGE_DEFAULTS = {
-  // Filled arrowhead — larger and clearly visible
-  markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20, color: '#64748b' },
-  style: { strokeWidth: 2, stroke: '#94a3b8' },
-  // Step = orthogonal routing (right-angle corners) → classic flowchart look
-  type: 'step' as const,
-  // Edge labels rendered as pill bubbles
+  // smoothstep = rounded orthogonal curves that naturally separate when
+  // multiple edges share the same column — much easier to trace than strict step.
+  type: 'smoothstep' as const,
+  markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18, color: '#64748b' },
+  style: { strokeWidth: 1.75, stroke: '#94a3b8' },
+  // Edge labels: compact pill bubble, easy to read at any zoom level
   labelStyle: { fontSize: 10, fontWeight: 700, fill: '#1e293b' },
-  labelBgStyle: { fill: '#f8fafc', fillOpacity: 1, rx: 8, ry: 8 },
-  labelBgPadding: [5, 10] as [number, number],
+  labelBgStyle: { fill: '#f1f5f9', fillOpacity: 1, rx: 8, ry: 8 },
+  labelBgPadding: [4, 10] as [number, number],
 }
 
 // ── Node dimensions ──────────────────────────────────────────────
@@ -417,6 +417,7 @@ function ConditionNode({ data, selected }: NodeProps) {
 }
 
 // ── ③ RECTANGLE — All other process nodes ────────────────────────
+// Standard draw.io / Lucidchart style: white bg, coloured border, subtle shadow.
 function RectNode({ data, selected }: NodeProps) {
   const nodeType = (data.nodeType as WorkflowNodeDef['type']) || 'human_validation'
   const config = NODE_TYPE_CONFIG[nodeType] || NODE_TYPE_CONFIG.human_validation
@@ -425,34 +426,30 @@ function RectNode({ data, selected }: NodeProps) {
   return (
     <div
       className={cn(
-        'flex rounded-lg border shadow-sm transition-all overflow-hidden select-none',
-        config.bgColor, config.borderColor,
-        selected && 'ring-2 ring-primary shadow-md',
-        isHighlighted && 'ring-2 ring-emerald-500 shadow-emerald-200/50 dark:shadow-emerald-900/50',
+        'rounded-lg border-2 bg-white dark:bg-slate-800 shadow-sm transition-all select-none',
+        config.borderColor,
+        selected && 'ring-2 ring-offset-1 ring-primary shadow-md',
+        isHighlighted && 'ring-2 ring-offset-1 ring-emerald-400',
       )}
       style={{ width: RECT_W, minHeight: RECT_H }}
     >
       <Handle type="target" position={Position.Top} className={H_TARGET} />
 
-      {/* Left accent bar — solid colour per node type */}
-      <div className={cn('w-1.5 shrink-0 self-stretch', config.accentBg)} />
-
-      {/* Body */}
-      <div className="flex-1 min-w-0 px-3 py-2 flex flex-col justify-center gap-0.5">
-        <div className={cn('flex items-center gap-1.5', config.color)}>
+      <div className="px-3 py-2.5 flex flex-col justify-center gap-1">
+        <div className={cn('flex items-center gap-2', config.color)}>
           {config.icon}
           <span className="text-[11px] font-semibold leading-snug truncate">
             {(data.label as string) || i18n.t(config.labelKey)}
           </span>
         </div>
         {typeof data.role === 'string' && data.role && (
-          <p className="text-[9px] text-muted-foreground truncate flex items-center gap-0.5">
-            <Shield size={7} className="shrink-0" />{data.role}
+          <p className="text-[9px] text-muted-foreground truncate flex items-center gap-1">
+            <Shield size={8} className="shrink-0" />{data.role}
           </p>
         )}
         {typeof data.expression === 'string' && data.expression && (
-          <p className="text-[9px] text-muted-foreground font-mono truncate flex items-center gap-0.5">
-            <Code2 size={7} className="shrink-0" />{data.expression}
+          <p className="text-[9px] text-muted-foreground font-mono truncate flex items-center gap-1">
+            <Code2 size={8} className="shrink-0" />{data.expression}
           </p>
         )}
       </div>

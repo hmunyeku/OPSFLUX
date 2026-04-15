@@ -13,6 +13,101 @@ import {
   Wrench, HardHat, Gauge, Shield, Drill, Pencil, Trash2, Link2, Loader2,
   ChevronLeft, ChevronRight, ChevronDown, GanttChart, Eye, Repeat, ArrowUpDown,
   FlaskConical, TrendingUp, LayoutDashboard, RotateCcw,
+  Star, Play,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { normalizeNames } from '@/lib/normalize'
+import { DataTable } from '@/components/ui/DataTable/DataTable'
+import type { ColumnDef } from '@tanstack/react-table'
+import { useDebounce } from '@/hooks/useDebounce'
+import { usePageSize } from '@/hooks/usePageSize'
+import { useFilterPersistence } from '@/hooks/useFilterPersistence'
+import { useDictionaryLabels } from '@/hooks/useDictionary'
+import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
+import { useUIStore } from '@/stores/uiStore'
+import {
+  DynamicPanelShell,
+  PanelContentLayout,
+  FormSection,
+  FormGrid,
+  DetailFieldGrid,
+  DynamicPanelField,
+  PanelActionButton,
+  DetailRow,
+  InlineEditableRow,
+  panelInputClass,
+  type ActionItem,
+} from '@/components/layout/DynamicPanel'
+import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
+import ReactECharts from 'echarts-for-react'
+import { GanttView } from './GanttView'
+import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
+import { TabBar } from '@/components/ui/Tabs'
+import { buildCells, buildHeaderGroups, getDefaultDateRange } from '@/components/shared/gantt/ganttEngine'
+import type { TimeScale } from '@/components/shared/gantt/ganttEngine'
+import type { GanttSettings } from '@/components/shared/gantt/ganttTypes'
+import { useUserPreferences } from '@/hooks/useUserPreferences'
+import {
+  DEFAULT_PLANNER_GANTT_VIEW,
+  validatePlannerGanttPrefs,
+  type PlannerGanttViewPrefs,
+} from './PlannerCustomizationModal'
+import { VariablePobEditor } from './VariablePobEditor'
+import { TagManager } from '@/components/shared/TagManager'
+import { NoteManager } from '@/components/shared/NoteManager'
+import { AttachmentManager } from '@/components/shared/AttachmentManager'
+import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
+import { AssetPicker } from '@/components/shared/AssetPicker'
+import { ActivityPicker } from '@/components/shared/ActivityPicker'
+import { ProjectPicker } from '@/components/shared/ProjectPicker'
+import { DateRangePicker } from '@/components/shared/DateRangePicker'
+import { useToast } from '@/components/ui/Toast'
+import { plannerService } from '@/services/plannerService'
+import { useConfirm, usePromptInput } from '@/components/ui/ConfirmDialog'
+import { useAssetHierarchy } from '@/hooks/useAssetRegistry'
+import {
+  useActivities,
+  useActivity,
+  useCreateActivity,
+  useUpdateActivity,
+  useDeleteActivity,
+  useSubmitActivity,
+  useValidateActivity,
+  useRejectActivity,
+  useCancelActivity,
+  useActivityDependencies,
+  useAddDependency,
+  useRemoveDependency,
+  useConflicts,
+  useRevisionSignals,
+  useRevisionSignalImpactSummary,
+  useAcknowledgeRevisionSignal,
+  useRevisionDecisionRequests,
+  useRequestRevisionDecision,
+  useRespondRevisionDecisionRequest,
+  useForceRevisionDecisionRequest,
+  useResolveConflict,
+  useConflictAudit,
+  useBulkResolveConflicts,
+  useGanttData,
+  useCapacityHeatmap,
+  useAssetCapacities,
+  useCreateAssetCapacity,
+  useImpactPreview,
+  useOverridePriority,
+  useSetRecurrence,
+  useDeleteRecurrence,
+  useForecast,
+  useScenarios,
+  useScenario,
+  useCreateScenario,
+  useUpdateScenario,
+  useDeleteScenario,
+  useSimulateScenarioPersistent,
+  usePromoteScenario,
+  useRestoreScenario,
+  useAddScenarioActivity,
+  useRemoveScenarioActivity,
   useReferenceScenario,
 } from '@/hooks/usePlanner'
 import { usePermission } from '@/hooks/usePermission'

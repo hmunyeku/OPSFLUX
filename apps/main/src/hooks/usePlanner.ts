@@ -624,14 +624,3 @@ export function useRestoreScenario() {
     },
   })
 }
-
-export function useRestoreScenario() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (scenarioId: string) => plannerService.restoreScenario(scenarioId),
-    onSuccess: () => {
-      invalidateScenarioViews(qc)
-      invalidatePlannerViews(qc)
-    },
-  })
-}

@@ -88,6 +88,7 @@ interface ActivityListParams extends PaginationParams {
   start_date?: string
   end_date?: string
   search?: string
+  scenario_id?: string
 }
 
 interface ConflictListParams extends PaginationParams {
@@ -108,6 +109,7 @@ interface GanttParams {
   types?: string
   statuses?: string
   show_permanent_ops?: boolean
+  scenario_id?: string
 }
 
 export const plannerService = {
@@ -342,6 +344,11 @@ export const plannerService = {
   },
 
   // ── Scenarios (persistent what-if) ──
+  getReferenceScenario: async () => {
+    const { data } = await api.get(`${BASE}/scenarios/reference`)
+    return data
+  },
+
   listScenarios: async (params: { page?: number; page_size?: number; status?: string; search?: string } = {}) => {
     const { data } = await api.get(`${BASE}/scenarios`, { params })
     return data

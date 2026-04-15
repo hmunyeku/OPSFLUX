@@ -13,6 +13,7 @@ import {
   Wrench, HardHat, Gauge, Shield, Drill, Pencil, Trash2, Link2, Loader2,
   ChevronLeft, ChevronRight, ChevronDown, GanttChart, Eye, Repeat, ArrowUpDown,
   FlaskConical, TrendingUp, LayoutDashboard, RotateCcw,
+  Star, Play,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
@@ -107,6 +108,7 @@ import {
   useRestoreScenario,
   useAddScenarioActivity,
   useRemoveScenarioActivity,
+  useReferenceScenario,
 } from '@/hooks/usePlanner'
 import { usePermission } from '@/hooks/usePermission'
 import type {
@@ -686,7 +688,7 @@ const DEFAULT_ACTIVITIES_FILTERS: ActivitiesTabFilters = {
   endDate: null,
 }
 
-function ActivitiesTab() {
+function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize } = usePageSize()
@@ -741,6 +743,7 @@ function ActivitiesTab() {
     project_id: filters.projectId || undefined,
     start_date: filters.startDate || undefined,
     end_date: filters.endDate || undefined,
+    scenario_id: scenarioId,
   })
 
   const items: PlannerActivity[] = data?.items ?? []
@@ -2628,7 +2631,13 @@ function CapacityTab({
 
 // ── Scenarios Tab (what-if simulation) ──────────────────────────────────
 
-function ScenariosTab() {
+function ScenariosTab({
+  activeScenarioId,
+  onActivateScenario,
+}: {
+  activeScenarioId?: string
+  onActivateScenario?: (id: string | null) => void
+}) {
   const { t } = useTranslation()
   const { toast } = useToast()
   const { pageSize } = usePageSize()
@@ -2643,6 +2652,7 @@ function ScenariosTab() {
   const confirmDialog = useConfirm()
   const { hasPermission } = usePermission()
   const canPromote = hasPermission('planner.activity.create')
+  const { data: referenceScenario } = useReferenceScenario()
 
   const scenarios = data?.items ?? []
   const total = data?.total ?? 0
@@ -2760,60 +2770,98 @@ function ScenariosTab() {
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {scenarios.map((s: Record<string, unknown>) => (
-              <div
-                key={s.id as string}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 cursor-pointer group"
-                onClick={() => openDynamicPanel({ type: 'detail', module: 'planner', id: s.id as string, meta: { subtype: 'scenario' } })}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground truncate">{s.title as string}</span>
-                    <span className={cn('gl-badge text-[10px]', STATUS_BADGE[s.status as string] || 'gl-badge-neutral')}>
-                      {STATUS_LABEL[s.status as string] || s.status as string}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground">
-                    <span>{s.created_by_name as string || '—'}</span>
-                    <span>{formatDateShort(s.created_at as string)}</span>
-                    <span>{(s.activity_count as number) || 0} activités</span>
-                    {(s.conflict_days as number) != null && (
-                      <span className={cn((s.conflict_days as number) > 0 && 'text-red-500 font-medium')}>
-                        {s.conflict_days as number}j conflit
+            {scenarios.map((s: Record<string, unknown>) => {
+              const sid = s.id as string
+              const isActive = activeScenarioId === sid
+              const isReference = referenceScenario?.id === sid
+              return (
+                <div
+                  key={sid}
+                  className={cn(
+                    'flex items-center gap-3 px-4 py-3 cursor-pointer group transition-colors',
+                    isActive
+                      ? 'bg-amber-50 dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30'
+                      : 'hover:bg-muted/30',
+                  )}
+                  onClick={() => openDynamicPanel({ type: 'detail', module: 'planner', id: sid, meta: { subtype: 'scenario' } })}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      {isReference && (
+                        <span title="Scénario de référence (plan actif)">
+                          <Star size={11} className="text-amber-500 fill-amber-500 shrink-0" />
+                        </span>
+                      )}
+                      <span className="text-sm font-medium text-foreground truncate">{s.title as string}</span>
+                      <span className={cn('gl-badge text-[10px]', STATUS_BADGE[s.status as string] || 'gl-badge-neutral')}>
+                        {STATUS_LABEL[s.status as string] || s.status as string}
                       </span>
+                      {isActive && (
+                        <span className="gl-badge text-[10px] gl-badge-warning">Vue active</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground">
+                      <span>{s.created_by_name as string || '—'}</span>
+                      <span>{formatDateShort(s.created_at as string)}</span>
+                      <span>{(s.activity_count as number) || 0} activités</span>
+                      {(s.conflict_days as number) != null && (
+                        <span className={cn((s.conflict_days as number) > 0 && 'text-red-500 font-medium')}>
+                          {s.conflict_days as number}j conflit
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {/* Activate/deactivate button — always visible */}
+                    {isActive ? (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onActivateScenario?.(null) }}
+                        className="px-2 py-1 rounded text-[10px] font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors shrink-0"
+                        title="Revenir au plan de référence"
+                      >
+                        Désactiver
+                      </button>
+                    ) : (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onActivateScenario?.(sid) }}
+                        className="px-2 py-1 rounded text-[10px] font-medium opacity-0 group-hover:opacity-100 bg-primary/10 text-primary hover:bg-primary/20 transition-all shrink-0"
+                        title="Voir toutes les vues en mode scénario"
+                      >
+                        <Play size={9} className="inline mr-0.5" />Activer
+                      </button>
                     )}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {s.status === 'draft' && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleSimulate(sid) }}
+                          className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                          title="Simuler"
+                          disabled={simulateScenario.isPending}
+                        >
+                          <FlaskConical size={13} />
+                        </button>
+                      )}
+                      {canPromote && s.status === 'validated' && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handlePromote(sid) }}
+                          className="p-1.5 rounded hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-600"
+                          title="Promouvoir en activités réelles (devient référence)"
+                        >
+                          <TrendingUp size={13} />
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDelete(sid) }}
+                        className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                        title="Supprimer"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {s.status === 'draft' && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleSimulate(s.id as string) }}
-                      className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
-                      title="Simuler"
-                      disabled={simulateScenario.isPending}
-                    >
-                      <FlaskConical size={13} />
-                    </button>
-                  )}
-                  {canPromote && s.status === 'validated' && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handlePromote(s.id as string) }}
-                      className="p-1.5 rounded hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-600"
-                      title="Promouvoir en activités réelles"
-                    >
-                      <TrendingUp size={13} />
-                    </button>
-                  )}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(s.id as string) }}
-                    className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                    title="Supprimer"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </PanelContent>
@@ -3221,12 +3269,44 @@ export function PlannerPage() {
   const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabFromUrl = searchParams.get('tab') as PlannerTab | null
+  const scenarioFromUrl = searchParams.get('scenario')
+
   const [activeTab, setActiveTabRaw] = useState<PlannerTab>(
     tabFromUrl && VALID_PLANNER_TABS.has(tabFromUrl) ? tabFromUrl : 'dashboard',
   )
+
+  // Active scenario: if URL has ?scenario=<id>, we're in simulation mode for that scenario.
+  // If no scenario param, we're viewing the live reference plan.
+  const activeScenarioId = scenarioFromUrl || undefined
+
+  const { data: referenceScenario } = useReferenceScenario()
+
+  // True if we're viewing a scenario that is NOT the reference (= simulation mode)
+  const isSimulationMode = !!activeScenarioId && activeScenarioId !== referenceScenario?.id
+
   const setActiveTab = useCallback((tab: PlannerTab) => {
     setActiveTabRaw(tab)
-    setSearchParams(tab === 'dashboard' ? {} : { tab }, { replace: true })
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (tab === 'dashboard') {
+        next.delete('tab')
+      } else {
+        next.set('tab', tab)
+      }
+      return next
+    }, { replace: true })
+  }, [setSearchParams])
+
+  const setActiveScenario = useCallback((scenarioId: string | null) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (scenarioId) {
+        next.set('scenario', scenarioId)
+      } else {
+        next.delete('scenario')
+      }
+      return next
+    }, { replace: true })
   }, [setSearchParams])
 
   // Translate tab labels from i18n keys so the UI follows the active language.
@@ -3331,10 +3411,27 @@ export function PlannerPage() {
       {!isFullPanel && (
         <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
           <PanelHeader icon={CalendarRange} title={t('planner.title')} subtitle={t('planner.subtitle')}>
-            {canCreate && (activeTab === 'activities' || activeTab === 'gantt') && (
+            {canCreate && (activeTab === 'activities' || activeTab === 'gantt') && !isSimulationMode && (
               <ToolbarButton icon={Plus} label={t('planner.actions.new_activity')} variant="primary" onClick={handleCreate} />
             )}
           </PanelHeader>
+
+          {/* ── Simulation mode banner ───────────────────────────────── */}
+          {isSimulationMode && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-sm">
+              <FlaskConical size={14} className="shrink-0" />
+              <span className="font-medium">Mode simulation</span>
+              <span className="text-amber-600 dark:text-amber-400 truncate">
+                — toutes les vues affichent le scénario sélectionné. Les modifications ne déclenchent aucun workflow.
+              </span>
+              <button
+                onClick={() => setActiveScenario(null)}
+                className="ml-auto shrink-0 text-xs underline hover:no-underline"
+              >
+                Revenir au plan de référence
+              </button>
+            </div>
+          )}
 
           {/* Tab bar — uses the shared `TabBar` component for visual
               parity with Tiers / Projets / PaxLog / TravelWiz.
@@ -3364,10 +3461,11 @@ export function PlannerPage() {
                 onViewPrefsChange={handleGanttViewPrefsChange}
                 ganttSettings={ganttCoreSettings}
                 onGanttSettingsChange={handleGanttCoreSettingsChange}
+                scenarioId={activeScenarioId}
               />
             </div>
           )}
-          {activeTab === 'activities' && <ActivitiesTab />}
+          {activeTab === 'activities' && <ActivitiesTab scenarioId={activeScenarioId} />}
           {activeTab === 'conflicts' && <ConflitsTab />}
           {activeTab === 'capacity' && (
             <CapacityTab
@@ -3378,7 +3476,12 @@ export function PlannerPage() {
               onTimelineRangeChange={handleTimelineRangeChange}
             />
           )}
-          {activeTab === 'scenarios' && <ScenariosTab />}
+          {activeTab === 'scenarios' && (
+            <ScenariosTab
+              activeScenarioId={activeScenarioId}
+              onActivateScenario={setActiveScenario}
+            />
+          )}
           {activeTab === 'forecast' && <ForecastTab />}
         </div>
       )}

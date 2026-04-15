@@ -448,6 +448,7 @@ async def list_activities(
     end_date: datetime | None = None,
     search: str | None = None,
     scope: str | None = None,
+    scenario_id: UUID | None = None,
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -496,9 +497,47 @@ async def list_activities(
 
     query = query.order_by(PlannerActivity.start_date.asc().nullslast(), PlannerActivity.created_at.desc())
 
+    # ── Scenario overlay ────────────────────────────────────────────────────
+    # When scenario_id is supplied, load the scenario's overlay and merge it
+    # with the live activities:
+    #   - Activities marked is_removed=True in the overlay are excluded
+    #   - Activities with field overrides use the scenario's values
+    #   - New activities (source_activity_id IS NULL) are appended
+    scenario_overlay: dict[str, "PlannerScenarioActivity"] = {}
+    scenario_new_acts: list["PlannerScenarioActivity"] = []
+    if scenario_id:
+        sc_check = await db.execute(
+            select(PlannerScenario).where(
+                PlannerScenario.id == scenario_id,
+                PlannerScenario.entity_id == entity_id,
+                PlannerScenario.active == True,  # noqa: E712
+            )
+        )
+        if sc_check.scalar_one_or_none():
+            ov_result = await db.execute(
+                select(PlannerScenarioActivity).where(
+                    PlannerScenarioActivity.scenario_id == scenario_id
+                )
+            )
+            for ov in ov_result.scalars().all():
+                if ov.source_activity_id:
+                    scenario_overlay[str(ov.source_activity_id)] = ov
+                else:
+                    scenario_new_acts.append(ov)
+
     async def _transform(row):
         activity = row[0]
         d = {c.key: getattr(activity, c.key) for c in activity.__table__.columns}
+        # Apply scenario overlay if applicable
+        if scenario_id and str(activity.id) in scenario_overlay:
+            ov = scenario_overlay[str(activity.id)]
+            if ov.is_removed:
+                return None  # Signal to exclude
+            # Apply non-null override fields
+            for f in ("title", "type", "priority", "pax_quota", "start_date", "end_date", "notes"):
+                if getattr(ov, f) is not None:
+                    d[f] = getattr(ov, f)
+            d["_scenario_modified"] = True
         d["asset_name"] = row[1]
         d["project_name"] = row[2]
         d["created_by_name"] = None
@@ -508,7 +547,45 @@ async def list_activities(
         d.update(await _compute_children_pob(db, activity.id, activity.entity_id))
         return d
 
-    return await paginate(db, query, pagination, transform=_transform)
+    async def _transform_filtered(row):
+        result = await _transform(row)
+        return result  # None rows are filtered by paginate or post-processed
+
+    if not scenario_id:
+        return await paginate(db, query, pagination, transform=_transform)
+
+    # With scenario overlay: we need to filter removed activities and append new ones.
+    # Fetch all (no pagination limit on raw query for now — apply manually).
+    count_q = select(sqla_func.count()).select_from(query.subquery())
+    count_result = await db.execute(count_q)
+    total = count_result.scalar() or 0
+
+    offset = (pagination.page - 1) * pagination.page_size if hasattr(pagination, 'page') else 0
+    page_size = pagination.page_size if hasattr(pagination, 'page_size') else 50
+
+    rows_result = await db.execute(query.offset(offset).limit(page_size + len(scenario_overlay) + 10))
+    items = []
+    for row in rows_result.all():
+        d = await _transform(row)
+        if d is not None:  # skip removed
+            items.append(d)
+
+    # Append new scenario activities (not based on live activities)
+    for new_act in scenario_new_acts:
+        d = {c.key: getattr(new_act, c.key) for c in new_act.__table__.columns if hasattr(PlannerActivity.__table__.c, c.key)}
+        inst = await db.get(Installation, new_act.asset_id) if new_act.asset_id else None
+        d["asset_name"] = inst.name if inst else None
+        d["project_name"] = None
+        d["created_by_name"] = None
+        d["submitted_by_name"] = None
+        d["validated_by_name"] = None
+        d["_scenario_new"] = True
+        d["entity_id"] = entity_id
+        d.setdefault("status", "draft")
+        d.setdefault("active", True)
+        items.append(d)
+
+    return {"items": items[:page_size], "total": total + len(scenario_new_acts), "page": getattr(pagination, 'page', 1), "page_size": page_size}
 
 
 @router.post("/activities", response_model=ActivityRead, status_code=201)
@@ -2537,12 +2614,19 @@ async def get_gantt(
     types: str | None = Query(None, description="Comma-separated activity types"),
     statuses: str | None = Query(None, description="Comma-separated statuses"),
     show_permanent_ops: bool = Query(True),
+    scenario_id: UUID | None = Query(None, description="When set, applies scenario overlay on top of live activities"),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
     _: None = require_permission("planner.activity.read"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get Gantt chart data — activities grouped by asset with capacity info."""
+    """Get Gantt chart data — activities grouped by asset with capacity info.
+
+    When scenario_id is provided the live activities are merged with the
+    scenario's overlay: removed activities are excluded, field overrides are
+    applied, and new scenario activities are appended. This lets every tab
+    show the full simulation without touching the live plan.
+    """
     from app.services.modules.planner_service import get_gantt_data
 
     asset_ids = [asset_id] if asset_id else None
@@ -2555,6 +2639,7 @@ async def get_gantt(
         types=type_list,
         statuses=status_list,
         show_permanent_ops=show_permanent_ops,
+        scenario_id=scenario_id,
     )
 
 
@@ -3032,6 +3117,39 @@ async def list_scenarios(
     return {"items": items, "total": total, "page": page, "page_size": page_size, "pages": pages}
 
 
+@router.get("/scenarios/reference", response_model=ScenarioDetailRead)
+async def get_reference_scenario(
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.capacity.read"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the current reference scenario (the live plan).
+
+    Returns 404 if no reference scenario exists yet — the frontend should
+    redirect the user to the Scenarios tab to create one.
+    """
+    result = await db.execute(
+        select(PlannerScenario).where(
+            PlannerScenario.entity_id == entity_id,
+            PlannerScenario.is_reference == True,  # noqa: E712
+            PlannerScenario.active == True,          # noqa: E712
+        )
+    )
+    scenario = result.scalar_one_or_none()
+    if not scenario:
+        raise HTTPException(404, "No reference scenario configured")
+
+    base = await _build_scenario_read(db, scenario)
+    acts_result = await db.execute(
+        select(PlannerScenarioActivity)
+        .where(PlannerScenarioActivity.scenario_id == scenario.id)
+        .order_by(PlannerScenarioActivity.created_at.asc())
+    )
+    proposed = [await _build_scenario_activity_read(db, act) for act in acts_result.scalars().all()]
+    return {**base, "proposed_activities": proposed, "last_simulation_result": scenario.last_simulation_result, "baseline_snapshot": scenario.baseline_snapshot}
+
+
 @router.get("/scenarios/{scenario_id}", response_model=ScenarioDetailRead)
 async def get_scenario(
     scenario_id: UUID,
@@ -3079,18 +3197,27 @@ async def create_scenario(
     _: None = require_permission("planner.capacity.read"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new scenario with optional seed activities."""
+    """Create a new scenario — automatically seeded from all live activities.
+
+    When a new scenario is created, ALL current PlannerActivity rows are
+    copied as PlannerScenarioActivity entries (source_activity_id set).
+    This gives the scenario a full picture of the current plan from day one.
+    The user can then add new activities, modify existing ones, or mark some
+    as removed — all within the simulation without touching the live plan.
+    """
     from datetime import timezone as tz
 
-    # Capture baseline snapshot — lightweight summary of current plan state
-    act_count_result = await db.execute(
-        select(sqla_func.count()).select_from(PlannerActivity)
-        .where(PlannerActivity.entity_id == entity_id, PlannerActivity.active == True)  # noqa: E712
+    # Capture baseline snapshot
+    live_acts_result = await db.execute(
+        select(PlannerActivity).where(
+            PlannerActivity.entity_id == entity_id,
+            PlannerActivity.active == True,  # noqa: E712
+        )
     )
-    total_activities = act_count_result.scalar() or 0
+    live_acts = live_acts_result.scalars().all()
 
     baseline = {
-        "total_activities": total_activities,
+        "total_activities": len(live_acts),
         "captured_at": datetime.now(tz.utc).isoformat(),
     }
 
@@ -3105,14 +3232,19 @@ async def create_scenario(
     db.add(scenario)
     await db.flush()
 
-    # Seed with proposed activities if provided
+    # Auto-seed: create a ScenarioActivity pointing to every live activity.
+    # No field overrides — source_activity_id links to the live record.
+    for act in live_acts:
+        db.add(PlannerScenarioActivity(
+            scenario_id=scenario.id,
+            source_activity_id=act.id,
+            # No overrides — scenario inherits the live values
+        ))
+
+    # Also apply any explicitly provided proposed_activities (new/modified)
     if body.proposed_activities:
         for pa in body.proposed_activities:
-            act = PlannerScenarioActivity(
-                scenario_id=scenario.id,
-                **pa.model_dump(),
-            )
-            db.add(act)
+            db.add(PlannerScenarioActivity(scenario_id=scenario.id, **pa.model_dump()))
 
     await db.commit()
     await db.refresh(scenario)
@@ -3451,6 +3583,20 @@ async def promote_scenario(
     scenario.status = "promoted"
     scenario.promoted_by = current_user.id
     scenario.promoted_at = datetime.now(tz.utc)
+
+    # ── Reference scenario promotion ─────────────────────────────────────────
+    # Demote every currently-reference scenario for this entity, then mark
+    # the newly promoted scenario as the reference plan.
+    prev_refs_result = await db.execute(
+        select(PlannerScenario).where(
+            PlannerScenario.entity_id == entity_id,
+            PlannerScenario.is_reference == True,  # noqa: E712
+            PlannerScenario.id != scenario_id,
+        )
+    )
+    for prev in prev_refs_result.scalars().all():
+        prev.is_reference = False
+    scenario.is_reference = True
 
     await db.commit()
 

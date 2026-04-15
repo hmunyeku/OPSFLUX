@@ -28,6 +28,7 @@ export function useActivities(params: PaginationParams & {
   start_date?: string
   end_date?: string
   search?: string
+  scenario_id?: string
 } = {}) {
   return useQuery({
     queryKey: ['planner', 'activities', params],
@@ -343,12 +344,34 @@ export function useGanttData(startDate: string, endDate: string, params?: {
   types?: string
   statuses?: string
   show_permanent_ops?: boolean
+  scenario_id?: string
 }) {
   return useQuery({
     queryKey: ['planner', 'gantt', startDate, endDate, params],
     queryFn: () => plannerService.getGanttData(startDate, endDate, params),
     enabled: !!startDate && !!endDate,
     placeholderData: keepPreviousData,
+  })
+}
+
+// ── Reference scenario ──
+
+export function useReferenceScenario() {
+  return useQuery({
+    queryKey: ['planner', 'scenarios', 'reference'],
+    queryFn: async () => {
+      try {
+        return await plannerService.getReferenceScenario()
+      } catch (err: unknown) {
+        // 404 = no reference scenario yet (not an error state)
+        if (err && typeof err === 'object' && 'response' in err) {
+          const status = (err as { response?: { status?: number } }).response?.status
+          if (status === 404) return null
+        }
+        throw err
+      }
+    },
+    staleTime: 30_000,
   })
 }
 
@@ -584,8 +607,9 @@ export function usePromoteScenario() {
     mutationFn: (scenarioId: string) => plannerService.promoteScenario(scenarioId),
     onSuccess: () => {
       invalidateScenarioViews(qc)
-      // Promotion creates real activities — invalidate the full activity views
+      // Promotion creates real activities and sets is_reference — invalidate all views
       invalidatePlannerViews(qc)
+      qc.invalidateQueries({ queryKey: ['planner', 'scenarios', 'reference'] })
     },
   })
 }

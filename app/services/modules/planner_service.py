@@ -478,6 +478,7 @@ async def get_gantt_data(
     types: list[str] | None = None,
     statuses: list[str] | None = None,
     show_permanent_ops: bool = True,
+    scenario_id: "UUID | None" = None,
 ) -> dict:
     """Get activities grouped by asset for Gantt chart rendering.
 
@@ -519,7 +520,80 @@ async def get_gantt_data(
         )
 
     result = await db.execute(query.order_by(PlannerActivity.start_date))
-    activities = result.scalars().all()
+    activities = list(result.scalars().all())
+
+    # ── Scenario overlay ─────────────────────────────────────────────────────
+    # When a scenario_id is supplied, apply the scenario's overlay on top of
+    # the live activities: excluded (is_removed) activities are dropped, field
+    # overrides are patched in-place on the objects, and new scenario activities
+    # (source_activity_id IS NULL) are converted to synthetic PlannerActivity
+    # instances so the rest of the gantt logic can handle them uniformly.
+    if scenario_id:
+        from app.models.planner import PlannerScenario, PlannerScenarioActivity
+        sc_check = await db.execute(
+            select(PlannerScenario).where(
+                PlannerScenario.id == scenario_id,
+                PlannerScenario.entity_id == entity_id,
+                PlannerScenario.active == True,  # noqa: E712
+            )
+        )
+        if sc_check.scalar_one_or_none():
+            ov_result = await db.execute(
+                select(PlannerScenarioActivity).where(
+                    PlannerScenarioActivity.scenario_id == scenario_id
+                )
+            )
+            overlay_records = ov_result.scalars().all()
+            removed_ids: set[UUID] = set()
+            overrides: dict[UUID, PlannerScenarioActivity] = {}
+            new_scenario_acts: list[PlannerScenarioActivity] = []
+            for ov in overlay_records:
+                if ov.source_activity_id:
+                    if ov.is_removed:
+                        removed_ids.add(ov.source_activity_id)
+                    else:
+                        overrides[ov.source_activity_id] = ov
+                else:
+                    new_scenario_acts.append(ov)
+
+            # Filter out removed activities and apply overrides
+            filtered: list[PlannerActivity] = []
+            for act in activities:
+                if act.id in removed_ids:
+                    continue
+                if act.id in overrides:
+                    ov = overrides[act.id]
+                    _OVERLAY_FIELDS = ("title", "type", "priority", "pax_quota", "start_date", "end_date")
+                    for f in _OVERLAY_FIELDS:
+                        val = getattr(ov, f, None)
+                        if val is not None:
+                            setattr(act, f, val)
+                filtered.append(act)
+
+            # Append new scenario activities as synthetic PlannerActivity objects
+            for ov in new_scenario_acts:
+                if not ov.title or not ov.asset_id or not ov.start_date or not ov.end_date:
+                    continue
+                # Only include if within the date range
+                if ov.end_date < start_date or ov.start_date > end_date:
+                    continue
+                synth = PlannerActivity(
+                    id=ov.id,  # reuse scenario activity id as a stable key
+                    entity_id=entity_id,
+                    asset_id=ov.asset_id,
+                    title=ov.title,
+                    type=ov.type or "project",
+                    priority=ov.priority or "medium",
+                    pax_quota=ov.pax_quota or 1,
+                    start_date=ov.start_date,
+                    end_date=ov.end_date,
+                    status="draft",
+                    description=ov.notes,
+                    active=True,
+                )
+                filtered.append(synth)
+
+            activities = filtered
 
     # Batch-fetch linked project task progress for activities that reference
     # a source_task_id. This lets the Gantt bar show the task progress bar

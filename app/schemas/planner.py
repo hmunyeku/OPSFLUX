@@ -634,6 +634,7 @@ class ScenarioRead(PlannerSchema):
     title: str
     description: str | None = None
     status: str
+    is_reference: bool = False
     created_by: UUID
     promoted_by: UUID | None = None
     promoted_at: datetime | None = None

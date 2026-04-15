@@ -46,6 +46,7 @@ interface AdsDetail extends AdsSummary {
   visit_category: string;
   site_entry_asset_name: string;
   requester_display_name: string;
+  requester_name?: string | null;
   outbound_transport_mode: string | null;
   outbound_departure_base_name: string | null;
   return_transport_mode: string | null;
@@ -58,6 +59,42 @@ interface AdsDetail extends AdsSummary {
     compliance_ok: boolean;
     company_name: string | null;
   }>;
+  // Workflow & dates
+  submitted_at?: string | null;
+  approved_at?: string | null;
+  rejected_at?: string | null;
+  rejection_reason?: string | null;
+  created_by_name?: string | null;
+  // Project / team
+  project_id?: string | null;
+  project_name?: string | null;
+  project_manager_id?: string | null;
+  project_manager_name?: string | null;
+  linked_projects?: Array<{ id: string; name: string }>;
+  allowed_company_names?: string[];
+  cross_company_flag?: boolean;
+  // Linked mission
+  origin_mission_notice_id?: string | null;
+  origin_mission_notice_reference?: string | null;
+  origin_mission_notice_title?: string | null;
+  // Planner activity
+  planner_activity_title?: string | null;
+  planner_activity_status?: string | null;
+}
+
+function formatDateTime(iso?: string | null): string | null {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleString("fr-FR", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
 }
 
 const TRANSPORT_LABELS: Record<string, { key: string; fb: string }> = {
@@ -239,6 +276,190 @@ export default function AdsDetailScreen({ route }: Props) {
                 label={t("ads.return", "Retour")}
                 value={transportLabel(ads.return_transport_mode, ads.return_departure_base_name, t)}
               />
+            )}
+          </Box>
+        )}
+
+        {/* Projet & équipe */}
+        {(ads.project_name ||
+          ads.project_manager_name ||
+          (ads.allowed_company_names && ads.allowed_company_names.length > 0)) && (
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3">
+            <HStack space="sm" alignItems="center" mb="$2">
+              <MIcon name="folder" size="sm" color="$textLight600" />
+              <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5}>
+                {t("ads.projectTeam", "Projet & équipe")}
+              </Heading>
+            </HStack>
+            {ads.project_name && (
+              <DetailRow icon="folder-open" label={t("ads.project", "Projet")} value={ads.project_name} />
+            )}
+            {ads.project_manager_name && (
+              <>
+                {ads.project_name && <Divider my="$1" />}
+                <DetailRow
+                  icon="badge"
+                  label={t("ads.projectManager", "Chef de projet")}
+                  value={ads.project_manager_name}
+                />
+              </>
+            )}
+            {ads.allowed_company_names && ads.allowed_company_names.length > 0 && (
+              <>
+                {(ads.project_name || ads.project_manager_name) && <Divider my="$1" />}
+                <VStack py="$1">
+                  <HStack space="sm" alignItems="center">
+                    <MIcon name="business" size="xs" color="$textLight500" />
+                    <Text size="xs" color="$textLight500">
+                      {t("ads.companies", "Compagnies autorisées")}
+                    </Text>
+                  </HStack>
+                  <HStack space="xs" flexWrap="wrap" mt="$1" ml="$5">
+                    {ads.allowed_company_names.map((name, i) => (
+                      <Badge key={i} action="muted" variant="outline" size="sm">
+                        <BadgeText>{name}</BadgeText>
+                      </Badge>
+                    ))}
+                  </HStack>
+                </VStack>
+              </>
+            )}
+            {ads.cross_company_flag && (
+              <HStack space="xs" alignItems="center" mt="$2">
+                <MIcon name="group-work" size="2xs" color="$warning600" />
+                <Text size="2xs" color="$warning700" fontWeight="$semibold">
+                  {t("ads.crossCompany", "Inter-compagnies")}
+                </Text>
+              </HStack>
+            )}
+          </Box>
+        )}
+
+        {/* Mission d'origine (AVM liée) */}
+        {ads.origin_mission_notice_reference && (
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3">
+            <HStack space="sm" alignItems="center" mb="$2">
+              <MIcon name="link" size="sm" color="$textLight600" />
+              <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5}>
+                {t("ads.originMission", "Mission d'origine")}
+              </Heading>
+            </HStack>
+            <DetailRow
+              icon="tag"
+              label={t("ads.reference", "Référence")}
+              value={ads.origin_mission_notice_reference}
+            />
+            {ads.origin_mission_notice_title && (
+              <>
+                <Divider my="$1" />
+                <DetailRow
+                  icon="subject"
+                  label={t("ads.title", "Titre")}
+                  value={ads.origin_mission_notice_title}
+                />
+              </>
+            )}
+          </Box>
+        )}
+
+        {/* Parcours workflow — dates + rejet */}
+        {(ads.submitted_at ||
+          ads.approved_at ||
+          ads.rejected_at ||
+          ads.created_at) && (
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3">
+            <HStack space="sm" alignItems="center" mb="$2">
+              <MIcon name="timeline" size="sm" color="$textLight600" />
+              <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5}>
+                {t("ads.workflow", "Parcours")}
+              </Heading>
+            </HStack>
+            {ads.created_at && (
+              <DetailRow
+                icon="add-circle"
+                label={t("ads.createdAt", "Créé le")}
+                value={
+                  (formatDateTime(ads.created_at) ?? ads.created_at) +
+                  (ads.created_by_name ? ` · ${ads.created_by_name}` : "")
+                }
+              />
+            )}
+            {ads.submitted_at && (
+              <>
+                {ads.created_at && <Divider my="$1" />}
+                <DetailRow
+                  icon="send"
+                  label={t("ads.submittedAt", "Soumis le")}
+                  value={formatDateTime(ads.submitted_at) ?? ads.submitted_at}
+                />
+              </>
+            )}
+            {ads.approved_at && (
+              <>
+                <Divider my="$1" />
+                <DetailRow
+                  icon="check-circle"
+                  label={t("ads.approvedAt", "Approuvé le")}
+                  value={formatDateTime(ads.approved_at) ?? ads.approved_at}
+                />
+              </>
+            )}
+            {ads.rejected_at && (
+              <>
+                <Divider my="$1" />
+                <DetailRow
+                  icon="cancel"
+                  label={t("ads.rejectedAt", "Rejeté le")}
+                  value={formatDateTime(ads.rejected_at) ?? ads.rejected_at}
+                />
+              </>
+            )}
+            {ads.rejection_reason && (
+              <>
+                <Divider my="$1" />
+                <VStack py="$1">
+                  <HStack space="sm" alignItems="center">
+                    <MIcon name="error" size="xs" color="$error600" />
+                    <Text size="xs" color="$error600" fontWeight="$semibold">
+                      {t("ads.rejectionReason", "Motif du rejet")}
+                    </Text>
+                  </HStack>
+                  <Text size="xs" color="$textLight900" mt="$1" ml="$5">
+                    {ads.rejection_reason}
+                  </Text>
+                </VStack>
+              </>
+            )}
+          </Box>
+        )}
+
+        {/* Activité planner liée */}
+        {ads.planner_activity_title && (
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3">
+            <HStack space="sm" alignItems="center" mb="$2">
+              <MIcon name="event-note" size="sm" color="$textLight600" />
+              <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5}>
+                {t("ads.plannerActivity", "Activité planifiée")}
+              </Heading>
+            </HStack>
+            <DetailRow
+              icon="assignment"
+              label={t("ads.title", "Titre")}
+              value={ads.planner_activity_title}
+            />
+            {ads.planner_activity_status && (
+              <>
+                <Divider my="$1" />
+                <HStack justifyContent="space-between" alignItems="center" py="$1">
+                  <HStack space="sm" alignItems="center">
+                    <MIcon name="flag" size="xs" color="$textLight500" />
+                    <Text size="xs" color="$textLight500">
+                      {t("common.status", "Statut")}
+                    </Text>
+                  </HStack>
+                  <StatusBadge status={ads.planner_activity_status} />
+                </HStack>
+              </>
             )}
           </Box>
         )}

@@ -84,19 +84,53 @@ export interface CargoRead {
   status: string;
   workflow_status: string;
   description: string | null;
+  designation?: string | null;
   sender_name: string | null;
   recipient_name: string | null;
+  receiver_name?: string | null;
   destination_asset_id: string | null;
   destination_asset_name: string | null;
   origin_name: string | null;
   weight_kg: number | null;
+  // Dimensions
+  width_cm?: number | null;
+  length_cm?: number | null;
+  height_cm?: number | null;
+  surface_m2?: number | null;
+  package_count?: number;
+  stackable?: boolean;
   tracking_code: string | null;
   hazmat: boolean;
+  hazmat_validated?: boolean;
   /** Linked cargo request (used to download the LT — lettre de transport). */
   request_id: string | null;
+  request_code?: string | null;
+  request_title?: string | null;
   created_at: string;
   received_at: string | null;
   received_by_name: string | null;
+  // Pickup
+  pickup_location_label?: string | null;
+  pickup_latitude?: number | null;
+  pickup_longitude?: number | null;
+  pickup_contact_display_name?: string | null;
+  pickup_contact_phone?: string | null;
+  // Requester
+  requester_name?: string | null;
+  // Imputation / SAP
+  imputation_reference_code?: string | null;
+  imputation_reference_name?: string | null;
+  sap_article_code?: string | null;
+  // Lifting / evidence
+  lifting_provider?: string | null;
+  lifting_points_certified?: boolean;
+  weight_ticket_provided?: boolean;
+  photo_evidence_count?: number;
+  document_attachment_count?: number;
+  // Zone
+  planned_zone_name?: string | null;
+  // Damage / reception notes
+  damage_notes?: string | null;
 }
 
 export interface CargoTrackingRead {

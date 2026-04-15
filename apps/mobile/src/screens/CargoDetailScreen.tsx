@@ -246,6 +246,279 @@ export default function CargoDetailScreen({ route, navigation }: Props) {
           </Box>
         )}
 
+        {/* ── Dimensions & colisage ───────────────────────────────── */}
+        {(cargo?.length_cm != null ||
+          cargo?.width_cm != null ||
+          cargo?.height_cm != null ||
+          cargo?.surface_m2 != null ||
+          (cargo?.package_count != null && cargo.package_count > 1) ||
+          cargo?.stackable != null) && (
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3" style={styles.shadow}>
+            <SectionTitle icon="straighten" label="Dimensions" />
+            {(cargo.length_cm != null ||
+              cargo.width_cm != null ||
+              cargo.height_cm != null) && (
+              <DetailRow
+                icon="aspect-ratio"
+                label="L × l × h (cm)"
+                value={`${cargo.length_cm ?? "—"} × ${cargo.width_cm ?? "—"} × ${cargo.height_cm ?? "—"}`}
+              />
+            )}
+            {cargo.surface_m2 != null && (
+              <>
+                <Divider my="$1" />
+                <DetailRow
+                  icon="crop-square"
+                  label="Surface"
+                  value={`${cargo.surface_m2} m²`}
+                />
+              </>
+            )}
+            {cargo.package_count != null && cargo.package_count > 0 && (
+              <>
+                <Divider my="$1" />
+                <DetailRow
+                  icon="inventory"
+                  label="Nombre de colis"
+                  value={String(cargo.package_count)}
+                />
+              </>
+            )}
+            {cargo.stackable != null && (
+              <>
+                <Divider my="$1" />
+                <HStack space="sm" alignItems="center" py="$1">
+                  <MIcon
+                    name={cargo.stackable ? "layers" : "layers-clear"}
+                    size="xs"
+                    color={cargo.stackable ? "$success600" : "$warning600"}
+                  />
+                  <Text size="xs" color="$textLight500" flex={1}>
+                    Gerbable
+                  </Text>
+                  <Text
+                    size="xs"
+                    fontWeight="$semibold"
+                    color={cargo.stackable ? "$success700" : "$warning700"}
+                  >
+                    {cargo.stackable ? "Oui" : "Non"}
+                  </Text>
+                </HStack>
+              </>
+            )}
+          </Box>
+        )}
+
+        {/* ── Ramassage / Pickup ──────────────────────────────────── */}
+        {(cargo?.pickup_location_label ||
+          cargo?.pickup_contact_display_name ||
+          cargo?.pickup_contact_phone ||
+          cargo?.requester_name) && (
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3" style={styles.shadow}>
+            <SectionTitle icon="where-to-vote" label="Ramassage" />
+            {cargo.pickup_location_label && (
+              <DetailRow
+                icon="place"
+                label="Lieu"
+                value={cargo.pickup_location_label}
+              />
+            )}
+            {(cargo.pickup_latitude != null ||
+              cargo.pickup_longitude != null) && (
+              <>
+                {cargo.pickup_location_label && <Divider my="$1" />}
+                <DetailRow
+                  icon="my-location"
+                  label="Coordonnées"
+                  value={`${cargo.pickup_latitude?.toFixed(5) ?? "—"}, ${cargo.pickup_longitude?.toFixed(5) ?? "—"}`}
+                />
+              </>
+            )}
+            {cargo.pickup_contact_display_name && (
+              <>
+                <Divider my="$1" />
+                <DetailRow
+                  icon="person"
+                  label="Contact"
+                  value={cargo.pickup_contact_display_name}
+                />
+              </>
+            )}
+            {cargo.pickup_contact_phone && (
+              <>
+                <Divider my="$1" />
+                <DetailRow
+                  icon="phone"
+                  label="Téléphone"
+                  value={cargo.pickup_contact_phone}
+                />
+              </>
+            )}
+            {cargo.requester_name && (
+              <>
+                <Divider my="$1" />
+                <DetailRow
+                  icon="badge"
+                  label="Demandeur"
+                  value={cargo.requester_name}
+                />
+              </>
+            )}
+          </Box>
+        )}
+
+        {/* ── Imputation / Référencement ──────────────────────────── */}
+        {(cargo?.imputation_reference_code ||
+          cargo?.imputation_reference_name ||
+          cargo?.sap_article_code ||
+          cargo?.request_code ||
+          cargo?.planned_zone_name) && (
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3" style={styles.shadow}>
+            <SectionTitle icon="assignment-turned-in" label="Référencement" />
+            {cargo.imputation_reference_code && (
+              <DetailRow
+                icon="qr-code-2"
+                label="Imputation"
+                value={`${cargo.imputation_reference_code}${cargo.imputation_reference_name ? ` · ${cargo.imputation_reference_name}` : ""}`}
+              />
+            )}
+            {cargo.sap_article_code && (
+              <>
+                {cargo.imputation_reference_code && <Divider my="$1" />}
+                <DetailRow
+                  icon="tag"
+                  label="Code SAP"
+                  value={cargo.sap_article_code}
+                />
+              </>
+            )}
+            {cargo.request_code && (
+              <>
+                <Divider my="$1" />
+                <DetailRow
+                  icon="description"
+                  label="Demande"
+                  value={
+                    cargo.request_title
+                      ? `${cargo.request_code} · ${cargo.request_title}`
+                      : cargo.request_code
+                  }
+                />
+              </>
+            )}
+            {cargo.planned_zone_name && (
+              <>
+                <Divider my="$1" />
+                <DetailRow
+                  icon="grid-view"
+                  label="Zone planifiée"
+                  value={cargo.planned_zone_name}
+                />
+              </>
+            )}
+          </Box>
+        )}
+
+        {/* ── Preuves & validation ────────────────────────────────── */}
+        {(cargo?.lifting_provider ||
+          cargo?.lifting_points_certified != null ||
+          cargo?.weight_ticket_provided != null ||
+          cargo?.hazmat_validated != null ||
+          cargo?.damage_notes) && (
+          <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3" style={styles.shadow}>
+            <SectionTitle icon="verified" label="Preuves & validation" />
+            {cargo.lifting_provider && (
+              <DetailRow
+                icon="construction"
+                label="Prestataire levage"
+                value={cargo.lifting_provider}
+              />
+            )}
+            {cargo.lifting_points_certified != null && (
+              <>
+                {cargo.lifting_provider && <Divider my="$1" />}
+                <HStack space="sm" alignItems="center" py="$1">
+                  <MIcon
+                    name={cargo.lifting_points_certified ? "check-circle" : "error"}
+                    size="xs"
+                    color={cargo.lifting_points_certified ? "$success600" : "$warning600"}
+                  />
+                  <Text size="xs" color="$textLight500" flex={1}>
+                    Points de levage certifiés
+                  </Text>
+                  <Text
+                    size="xs"
+                    fontWeight="$semibold"
+                    color={cargo.lifting_points_certified ? "$success700" : "$warning700"}
+                  >
+                    {cargo.lifting_points_certified ? "Oui" : "Non"}
+                  </Text>
+                </HStack>
+              </>
+            )}
+            {cargo.weight_ticket_provided != null && (
+              <>
+                <Divider my="$1" />
+                <HStack space="sm" alignItems="center" py="$1">
+                  <MIcon
+                    name={cargo.weight_ticket_provided ? "receipt" : "receipt-long"}
+                    size="xs"
+                    color={cargo.weight_ticket_provided ? "$success600" : "$textLight400"}
+                  />
+                  <Text size="xs" color="$textLight500" flex={1}>
+                    Ticket de pesée
+                  </Text>
+                  <Text
+                    size="xs"
+                    fontWeight="$semibold"
+                    color={cargo.weight_ticket_provided ? "$success700" : "$textLight500"}
+                  >
+                    {cargo.weight_ticket_provided ? "Fourni" : "Non fourni"}
+                  </Text>
+                </HStack>
+              </>
+            )}
+            {cargo.hazmat && cargo.hazmat_validated != null && (
+              <>
+                <Divider my="$1" />
+                <HStack space="sm" alignItems="center" py="$1">
+                  <MIcon
+                    name={cargo.hazmat_validated ? "verified" : "warning"}
+                    size="xs"
+                    color={cargo.hazmat_validated ? "$success600" : "$error600"}
+                  />
+                  <Text size="xs" color="$textLight500" flex={1}>
+                    HAZMAT validé
+                  </Text>
+                  <Text
+                    size="xs"
+                    fontWeight="$semibold"
+                    color={cargo.hazmat_validated ? "$success700" : "$error700"}
+                  >
+                    {cargo.hazmat_validated ? "Oui" : "Non"}
+                  </Text>
+                </HStack>
+              </>
+            )}
+            {cargo.damage_notes && (
+              <>
+                <Divider my="$1" />
+                <VStack py="$1">
+                  <HStack space="sm" alignItems="center">
+                    <MIcon name="report-problem" size="xs" color="$error600" />
+                    <Text size="xs" color="$error600" fontWeight="$semibold">
+                      Notes de dommage
+                    </Text>
+                  </HStack>
+                  <Text size="xs" color="$textLight900" mt="$1" ml="$5">
+                    {cargo.damage_notes}
+                  </Text>
+                </VStack>
+              </>
+            )}
+          </Box>
+        )}
+
         {/* ── Compliance ──────────────────────────────────────────── */}
         {compliance && (
           <Box bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200" p="$3" style={styles.shadow}>

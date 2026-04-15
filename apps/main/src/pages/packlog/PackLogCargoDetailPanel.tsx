@@ -6,6 +6,7 @@ import {
   MapPin,
   Package,
   Pencil,
+  Printer,
   Save,
   Search,
   Undo2,
@@ -238,6 +239,8 @@ export function CargoDetailPanel({ id }: { id: string }) {
       planned_zone_id: cargo.planned_zone_id,
       sap_article_code: cargo.sap_article_code,
       hazmat_validated: cargo.hazmat_validated,
+      is_reusable: cargo.is_reusable ?? false,
+      expected_return_date: cargo.expected_return_date ?? null,
     })
     setEditing(true)
   }, [cargo])
@@ -409,6 +412,14 @@ export function CargoDetailPanel({ id }: { id: string }) {
             Ouvrir la demande
           </PanelActionButton>
         )}
+        {!editing && (
+          <PanelActionButton
+            icon={<Printer size={12} />}
+            onClick={() => window.open(`${import.meta.env.VITE_API_URL || ''}/api/v1/packlog/cargo/${id}/label.pdf`, '_blank')}
+          >
+            Étiquette PDF
+          </PanelActionButton>
+        )}
         {!editing && <PanelActionButton onClick={startEdit} icon={<Pencil size={12} />}>Modifier</PanelActionButton>}
         {editing && <>
           <PanelActionButton onClick={() => setEditing(false)}>Annuler</PanelActionButton>
@@ -421,7 +432,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
       <PanelContentLayout>
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={cargo.status} labels={cargoStatusLabels} badges={CARGO_STATUS_BADGES} />
-          <span className="gl-badge gl-badge-info">{cargoWorkflowLabels[cargo.workflow_status] ?? cargo.workflow_status}</span>
+          <span className="gl-badge gl-badge-neutral text-[10px]">Validation : {cargoWorkflowLabels[cargo.workflow_status] ?? cargo.workflow_status}</span>
           {cargo.hazmat_validated && (
             <span className="inline-flex items-center gap-1 text-xs text-destructive font-medium">
               <AlertTriangle size={12} />
@@ -530,6 +541,17 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   Conforme et validé pour transport HAZMAT
                 </label>
               </DynamicPanelField>
+              <DynamicPanelField label="Colis réutilisable">
+                <label className="inline-flex items-center gap-2 text-xs">
+                  <input type="checkbox" checked={(editForm as { is_reusable?: boolean }).is_reusable ?? false} onChange={(e) => setEditForm({ ...editForm, is_reusable: e.target.checked } as typeof editForm)} />
+                  Emballage retournable (basket, skid, coffre DNV…)
+                </label>
+              </DynamicPanelField>
+              {(editForm as { is_reusable?: boolean }).is_reusable && (
+                <DynamicPanelField label="Date retour prévue">
+                  <input type="date" value={(editForm as { expected_return_date?: string | null }).expected_return_date ?? ''} onChange={(e) => setEditForm({ ...editForm, expected_return_date: e.target.value || null } as typeof editForm)} className={panelInputClass} />
+                </DynamicPanelField>
+              )}
               <DynamicPanelField label="Contexte hérité de la demande" span="full">
                 <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 md:grid-cols-4">
                   <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Expéditeur</p><p className="mt-1 text-sm text-foreground">{cargo.sender_name ?? '—'}</p></div>
@@ -633,6 +655,13 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   <DetailRow label="Propriété du matériel" value={cargo.ownership_type ? (ownershipLabels[cargo.ownership_type] ?? cargo.ownership_type) : '—'} />
                   <DetailRow label="Article SAP" value={cargo.sap_article_code ?? '—'} />
                   <DetailRow label="HAZMAT validé" value={cargo.hazmat_validated ? 'Oui' : 'Non'} />
+                  <DetailRow label="Réutilisable" value={cargo.is_reusable ? 'Oui — retour attendu' : 'Non'} />
+                  {cargo.is_reusable && cargo.expected_return_date && (
+                    <DetailRow label="Date retour prévue" value={new Date(cargo.expected_return_date).toLocaleDateString('fr-FR')} />
+                  )}
+                  {(cargo.sub_item_count ?? 0) > 0 && (
+                    <DetailRow label="Sous-colis (emballage)" value={`${cargo.sub_item_count} colis contenus`} />
+                  )}
                   <DetailRow label="Demandeur" value={cargo.requester_name ?? cargo.request_requester_name ?? '—'} />
                   <DetailRow label="Préparé le" value={cargo.document_prepared_at ? new Date(cargo.document_prepared_at).toLocaleString('fr-FR') : '—'} />
                   <DetailRow label="Disponible le" value={cargo.available_from ? new Date(cargo.available_from).toLocaleString('fr-FR') : '—'} />

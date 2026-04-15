@@ -105,6 +105,8 @@ import {
   useSimulateScenarioPersistent,
   usePromoteScenario,
   useRestoreScenario,
+  useAddScenarioActivity,
+  useRemoveScenarioActivity,
 } from '@/hooks/usePlanner'
 import { usePermission } from '@/hooks/usePermission'
 import type {
@@ -3401,11 +3403,22 @@ function ScenarioDetailPanel({ id }: { id: string }) {
   const simulateScenario = useSimulateScenarioPersistent()
   const promoteScenario = usePromoteScenario()
   const restoreScenario = useRestoreScenario()
+  const addScenarioActivity = useAddScenarioActivity()
+  const removeScenarioActivity = useRemoveScenarioActivity()
   const { hasPermission } = usePermission()
   const canPromote = hasPermission('planner.activity.create')
 
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({ title: '', description: '' })
+  const [showAddActivity, setShowAddActivity] = useState(false)
+  const [addActivityForm, setAddActivityForm] = useState({
+    title: '',
+    type: 'project' as string,
+    start_date: '',
+    end_date: '',
+    pax_quota: 1,
+    notes: '',
+  })
 
   useEffect(() => {
     if (isError && id) closeDynamicPanel()
@@ -3490,6 +3503,40 @@ function ScenarioDetailPanel({ id }: { id: string }) {
     await deleteScenario.mutateAsync(id)
     closeDynamicPanel()
   }, [id, deleteScenario, confirm, closeDynamicPanel])
+
+  const handleAddScenarioActivity = useCallback(async () => {
+    if (!addActivityForm.title.trim() || !addActivityForm.start_date || !addActivityForm.end_date) {
+      toast({ title: 'Titre, date début et date fin sont requis', variant: 'error' })
+      return
+    }
+    try {
+      await addScenarioActivity.mutateAsync({
+        scenarioId: id,
+        payload: {
+          title: addActivityForm.title.trim(),
+          type: addActivityForm.type || undefined,
+          start_date: addActivityForm.start_date,
+          end_date: addActivityForm.end_date,
+          pax_quota: addActivityForm.pax_quota > 0 ? addActivityForm.pax_quota : 1,
+          notes: addActivityForm.notes.trim() || undefined,
+        },
+      })
+      toast({ title: 'Activité ajoutée au scénario', variant: 'success' })
+      setShowAddActivity(false)
+      setAddActivityForm({ title: '', type: 'project', start_date: '', end_date: '', pax_quota: 1, notes: '' })
+    } catch (err) {
+      toast({ title: 'Erreur lors de l\'ajout', description: extractApiError(err), variant: 'error' })
+    }
+  }, [id, addActivityForm, addScenarioActivity, toast])
+
+  const handleRemoveScenarioActivity = useCallback(async (activityId: string) => {
+    try {
+      await removeScenarioActivity.mutateAsync({ scenarioId: id, activityId })
+      toast({ title: 'Activité retirée du scénario', variant: 'success' })
+    } catch (err) {
+      toast({ title: 'Erreur lors de la suppression', description: extractApiError(err), variant: 'error' })
+    }
+  }, [id, removeScenarioActivity, toast])
 
   if (isLoading || !scenario) {
     return (
@@ -3603,29 +3650,105 @@ function ScenarioDetailPanel({ id }: { id: string }) {
         )}
 
         {/* ── Proposed activities ── */}
-        <FormSection title={`Activités proposées (${activities.length})`} defaultExpanded>
-          {activities.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-3 text-center">Aucune activité proposée</p>
+        <FormSection
+          title={`Activités proposées (${activities.length})`}
+          defaultExpanded
+          headerExtra={!isPromoted && !isArchived && (
+            <button
+              className="text-[10px] text-primary hover:underline inline-flex items-center gap-1"
+              onClick={() => setShowAddActivity((v) => !v)}
+            >
+              <Plus size={10} /> Ajouter
+            </button>
+          )}
+        >
+          {showAddActivity && !isPromoted && !isArchived && (
+            <div className="mb-3 rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Nouvelle activité dans le scénario</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="col-span-2">
+                  <label className="text-[10px] text-muted-foreground">Titre *</label>
+                  <input type="text" className={cn(panelInputClass, 'mt-0.5')} value={addActivityForm.title} onChange={(e) => setAddActivityForm((f) => ({ ...f, title: e.target.value }))} placeholder="Ex: Campagne forage P22" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground">Type</label>
+                  <select className={cn(panelInputClass, 'mt-0.5')} value={addActivityForm.type} onChange={(e) => setAddActivityForm((f) => ({ ...f, type: e.target.value }))}>
+                    <option value="project">Projet</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="drilling">Forage</option>
+                    <option value="inspection">Inspection</option>
+                    <option value="other">Autre</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground">PAX quota</label>
+                  <input type="number" min={1} className={cn(panelInputClass, 'mt-0.5')} value={addActivityForm.pax_quota} onChange={(e) => setAddActivityForm((f) => ({ ...f, pax_quota: Math.max(1, parseInt(e.target.value) || 1) }))} />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground">Date début *</label>
+                  <input type="date" className={cn(panelInputClass, 'mt-0.5')} value={addActivityForm.start_date} onChange={(e) => setAddActivityForm((f) => ({ ...f, start_date: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground">Date fin *</label>
+                  <input type="date" className={cn(panelInputClass, 'mt-0.5')} value={addActivityForm.end_date} onChange={(e) => setAddActivityForm((f) => ({ ...f, end_date: e.target.value }))} />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] text-muted-foreground">Notes</label>
+                  <textarea className={cn(panelInputClass, 'mt-0.5 min-h-[40px]')} value={addActivityForm.notes} onChange={(e) => setAddActivityForm((f) => ({ ...f, notes: e.target.value }))} />
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button className="gl-button-sm gl-button-default text-xs" onClick={() => setShowAddActivity(false)}>Annuler</button>
+                <button className="gl-button-sm gl-button-confirm text-xs" onClick={handleAddScenarioActivity} disabled={addScenarioActivity.isPending}>
+                  {addScenarioActivity.isPending ? <Loader2 size={11} className="animate-spin" /> : 'Ajouter'}
+                </button>
+              </div>
+            </div>
+          )}
+          {activities.length === 0 && !showAddActivity ? (
+            <p className="text-xs text-muted-foreground py-3 text-center">Aucune activité proposée — cliquez sur "Ajouter" pour en créer une dans ce scénario</p>
           ) : (
             <div className="divide-y divide-border">
               {activities.map((act: Record<string, unknown>) => (
-                <div key={act.id as string} className="py-2 px-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-foreground">{(act.title as string) || (act.source_activity_title as string) || '—'}</span>
-                    {Boolean(act.is_removed) && <span className="gl-badge gl-badge-danger text-[9px]">Supprimée</span>}
-                    {Boolean(act.source_activity_id) && !act.is_removed && <span className="gl-badge gl-badge-neutral text-[9px]">Modifiée</span>}
-                    {!act.source_activity_id && !act.is_removed && <span className="gl-badge gl-badge-info text-[9px]">Nouvelle</span>}
+                <div key={act.id as string} className="py-2 px-1 flex items-start justify-between gap-2 group">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-medium text-foreground truncate">{(act.title as string) || (act.source_activity_title as string) || '—'}</span>
+                      {Boolean(act.is_removed) && <span className="gl-badge gl-badge-danger text-[9px]">Supprimée</span>}
+                      {Boolean(act.source_activity_id) && !act.is_removed && <span className="gl-badge gl-badge-neutral text-[9px]">Modifiée</span>}
+                      {!act.source_activity_id && !act.is_removed && <span className="gl-badge gl-badge-info text-[9px]">Nouvelle</span>}
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground flex-wrap">
+                      {Boolean(act.asset_name) && <span>{String(act.asset_name)}</span>}
+                      {Boolean(act.type) && <span className="capitalize">{String(act.type)}</span>}
+                      {Boolean(act.start_date) && <span>{String(act.start_date)} → {String(act.end_date)}</span>}
+                      {act.pax_quota != null && <span>{String(act.pax_quota)} PAX</span>}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground">
-                    {Boolean(act.asset_name) && <span>{String(act.asset_name)}</span>}
-                    {Boolean(act.type) && <span>{String(act.type)}</span>}
-                    {Boolean(act.start_date) && <span>{String(act.start_date)} → {String(act.end_date)}</span>}
-                    {act.pax_quota != null && <span>{String(act.pax_quota)} PAX</span>}
-                  </div>
+                  {!isPromoted && !isArchived && (
+                    <button
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                      title="Retirer du scénario"
+                      onClick={() => handleRemoveScenarioActivity(act.id as string)}
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
           )}
+        </FormSection>
+
+        {/* ── How scenarios work ── */}
+        <FormSection title="Comment fonctionne un scénario ?" collapsible defaultExpanded={activities.length === 0}>
+          <div className="text-xs text-muted-foreground space-y-2 leading-relaxed">
+            <p><span className="font-semibold text-foreground">1. Créer</span> — Un scénario est un plan alternatif ("et si ?"). Il ne touche pas au plan en cours.</p>
+            <p><span className="font-semibold text-foreground">2. Ajouter des activités</span> — Cliquez "Ajouter" pour créer des activités propres à ce scénario, ou depuis le Gantt, sélectionnez une activité et choisissez "Ajouter au scénario".</p>
+            <p><span className="font-semibold text-foreground">3. Simuler</span> — Lance un calcul de conflits de capacité pour évaluer la faisabilité du scénario.</p>
+            <p><span className="font-semibold text-foreground">4. Valider → Promouvoir</span> — Passer à "Validé" pour review, puis "Promouvoir" convertit les activités du scénario en activités réelles dans le plan.</p>
+            <p><span className="font-semibold text-foreground">5. Restaurer</span> — Si un scénario promu pose problème, "Restaurer" annule la promotion et revient à l'état précédent.</p>
+          </div>
         </FormSection>
       </PanelContentLayout>
     </DynamicPanelShell>

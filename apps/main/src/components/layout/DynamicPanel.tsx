@@ -635,6 +635,7 @@ export function FormSection({
   defaultExpanded = true,
   storageKey,
   id,
+  headerExtra,
 }: {
   title?: React.ReactNode
   children: React.ReactNode
@@ -647,6 +648,8 @@ export function FormSection({
   storageKey?: string
   /** Unique section ID (used for localStorage persistence) */
   id?: string
+  /** Extra content rendered inline at the end of the section header */
+  headerExtra?: React.ReactNode
 }) {
   // Restore persisted state
   const resolvedId = id || (typeof title === 'string' ? title : '') || ''
@@ -683,28 +686,34 @@ export function FormSection({
 
   return (
     <fieldset className={cn('space-y-4', className)}>
-      {title && (
+      {(title || headerExtra) && (
         collapsible ? (
-          <button
-            type="button"
-            onClick={toggle}
-            className="flex items-center gap-1.5 w-full text-left group cursor-pointer select-none"
-          >
-            <ChevronRight
-              size={13}
-              className={cn(
-                'shrink-0 text-muted-foreground transition-transform duration-200',
-                expanded && 'rotate-90',
-              )}
-            />
-            <legend className="text-sm font-semibold text-foreground">
+          <div className="flex items-center gap-1.5 w-full">
+            <button
+              type="button"
+              onClick={toggle}
+              className="flex items-center gap-1.5 flex-1 text-left group cursor-pointer select-none"
+            >
+              <ChevronRight
+                size={13}
+                className={cn(
+                  'shrink-0 text-muted-foreground transition-transform duration-200',
+                  expanded && 'rotate-90',
+                )}
+              />
+              <legend className="text-sm font-semibold text-foreground">
+                {title}
+              </legend>
+            </button>
+            {headerExtra && <span className="ml-auto">{headerExtra}</span>}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 pb-2">
+            <legend className="text-sm font-semibold text-foreground flex-1">
               {title}
             </legend>
-          </button>
-        ) : (
-          <legend className="text-sm font-semibold text-foreground pb-2">
-            {title}
-          </legend>
+            {headerExtra && <span className="ml-auto">{headerExtra}</span>}
+          </div>
         )
       )}
       {/* Content with animated expand/collapse */}

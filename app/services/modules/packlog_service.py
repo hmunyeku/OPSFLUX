@@ -1384,6 +1384,15 @@ async def build_packlog_cargo_read_data(
     image_count = evidence_counts.get("cargo_photo", 0)
     document_count = sum(count for evidence_type, count in evidence_counts.items() if evidence_type != "cargo_photo")
 
+    # Count sub-items (emballage children)
+    sub_count_result = await db.execute(
+        select(sqla_func.count()).where(
+            CargoItem.parent_cargo_id == cargo.id,
+            CargoItem.active == True,
+        )
+    )
+    sub_item_count = int(sub_count_result.scalar() or 0)
+
     data["sender_name"] = sender_name
     data["destination_name"] = destination_name
     data["imputation_reference_code"] = imputation_reference_code
@@ -1400,6 +1409,7 @@ async def build_packlog_cargo_read_data(
     data["weight_ticket_provided"] = bool(getattr(cargo, "weight_ticket_provided", False) or evidence_counts.get("weight_ticket", 0) > 0)
     data["lifting_points_certified"] = bool(getattr(cargo, "lifting_points_certified", False) or evidence_counts.get("lifting_certificate", 0) > 0)
     data["_evidence_counts"] = evidence_counts
+    data["sub_item_count"] = sub_item_count
     return data
 
 

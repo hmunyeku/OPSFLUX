@@ -1,7 +1,35 @@
 import { ExpoConfig } from "expo/config";
+import * as fs from "fs";
+import * as path from "path";
 
 const IS_PROD = process.env.APP_ENV === "production";
 const IS_PREVIEW = process.env.APP_ENV === "staging";
+
+/**
+ * Résout le chemin de `google-services.json` sans casser le build si
+ * absent :
+ *   1. Si EAS a injecté le fichier via `eas env:create --type file
+ *      --name GOOGLE_SERVICES_JSON`, on utilise ce chemin tel quel.
+ *   2. Sinon, on cherche un fichier local `./google-services.json`
+ *      (gitignored, présent sur la machine du dev).
+ *   3. Si aucune des deux options ne donne un fichier existant, on
+ *      retourne `undefined` — Expo/Gradle sautent alors l'application
+ *      du plugin `com.google.gms.google-services` au lieu de faire
+ *      planter le build. Les push notifs ne seront pas actives sur
+ *      cet APK, mais tout le reste fonctionne.
+ */
+function resolveGoogleServicesFile(): string | undefined {
+  const candidate =
+    process.env.GOOGLE_SERVICES_JSON ??
+    path.resolve(__dirname, "google-services.json");
+  try {
+    return fs.existsSync(candidate) ? candidate : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const googleServicesFile = resolveGoogleServicesFile();
 
 const config: ExpoConfig = {
   name: IS_PROD ? "OpsFlux" : IS_PREVIEW ? "OpsFlux (Preview)" : "OpsFlux (Dev)",
@@ -76,19 +104,15 @@ const config: ExpoConfig = {
     // l'export des tokens JWT sans avoir à compter sur l'exclusion
     // côté SecureStore.
     allowBackup: false,
-    // FCM config — required for push notifications (even when using the
-    // Expo push service, which proxies to FCM under the hood). Without
-    // this the `com.google.gms.google-services` Gradle plugin is never
-    // applied and the APK ships with an empty resources.arsc (no
-    // `google_app_id`, `gcm_defaultSenderId`, etc.), breaking every
-    // push delivery on Android.
+    // FCM config — requis pour les push notifications Android (même
+    // via Expo push service qui proxy vers FCM). Le fichier vient
+    // soit du secret EAS `GOOGLE_SERVICES_JSON` (type=file), soit du
+    // fichier local gitignored à côté de app.config.ts. S'il est
+    // absent des deux sources, on ne déclare rien — le build passe,
+    // les push sont simplement désactivés sur cet APK.
     //
-    // The env-var override lets EAS inject the file from a secret of
-    // type "file" (see `eas env:create --name GOOGLE_SERVICES_JSON`).
-    // Local dev falls back to the gitignored file sitting alongside
-    // app.config.ts.
-    googleServicesFile:
-      process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
+    // Voir resolveGoogleServicesFile() en tête de fichier.
+    ...(googleServicesFile ? { googleServicesFile } : {}),
     permissions: [
       "CAMERA",
       "ACCESS_FINE_LOCATION",

@@ -17,7 +17,14 @@ import React, { useEffect, useState } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Text, View, StyleSheet } from "react-native";
-import { Badge } from "react-native-paper";
+// Custom mini-badge replacing react-native-paper.Badge for notif counts.
+function MiniBadge({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={tabStyles.badge}>
+      <Text style={tabStyles.badgeText}>{children}</Text>
+    </View>
+  );
+}
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuthStore } from "../stores/auth";
@@ -106,9 +113,7 @@ function NotifTabIcon({ focused }: { focused: boolean }) {
     <View>
       <TabIcon label="N" focused={focused} />
       {unreadCount > 0 && (
-        <Badge size={16} style={tabStyles.badge}>
-          {unreadCount > 9 ? "9+" : unreadCount}
-        </Badge>
+        <MiniBadge>{unreadCount > 9 ? "9+" : unreadCount}</MiniBadge>
       )}
     </View>
   );
@@ -136,9 +141,22 @@ const tabStyles = StyleSheet.create({
   },
   badge: {
     position: "absolute",
-    top: -2,
-    right: -6,
+    top: -4,
+    right: -8,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
     backgroundColor: colors.danger,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: colors.surface,
+  },
+  badgeText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "700",
   },
   connectDot: {
     position: "absolute",

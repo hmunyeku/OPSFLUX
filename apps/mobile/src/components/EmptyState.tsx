@@ -1,48 +1,52 @@
 /**
- * Empty state component — shown when lists/screens have no data.
+ * EmptyState — illustrated empty view for lists & detail screens.
+ *
+ * Uses a MIcon in a soft circle (not a code-style glyph) and a
+ * Gluestack button so the visual fits the rest of the app.
  */
 
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import { Button, Text } from "react-native-paper";
+import { Button, ButtonText, Text } from "@gluestack-ui/themed";
+import { MIcon, type MIconName } from "./MIcon";
 import { colors } from "../utils/colors";
 
 interface Props {
-  icon?: string;
+  icon?: MIconName;
   title: string;
   description?: string;
   actionLabel?: string;
   onAction?: () => void;
 }
 
-const ICONS: Record<string, string> = {
-  search: "?",
-  list: "[ ]",
-  scan: "QR",
-  notification: "!",
-  cargo: "PKG",
-  ads: "ADS",
-  map: "MAP",
-  form: "F",
-};
-
-export default function EmptyState({ icon, title, description, actionLabel, onAction }: Props) {
+export default function EmptyState({
+  icon = "inbox",
+  title,
+  description,
+  actionLabel,
+  onAction,
+}: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.iconCircle}>
-        <Text style={styles.iconText}>{ICONS[icon ?? "list"] ?? icon ?? "—"}</Text>
+        <MIcon name={icon} size="xl" color="$primary400" />
       </View>
-      <Text variant="titleMedium" style={styles.title}>
+      <Text
+        size="md"
+        fontWeight="$semibold"
+        color="$textLight900"
+        style={styles.title}
+      >
         {title}
       </Text>
       {description && (
-        <Text variant="bodyMedium" style={styles.description}>
+        <Text size="sm" color="$textLight500" style={styles.description}>
           {description}
         </Text>
       )}
       {actionLabel && onAction && (
-        <Button mode="contained" onPress={onAction} style={styles.action}>
-          {actionLabel}
+        <Button action="primary" onPress={onAction} mt="$5" size="md">
+          <ButtonText>{actionLabel}</ButtonText>
         </Button>
       )}
     </View>
@@ -57,31 +61,21 @@ const styles = StyleSheet.create({
     paddingTop: 60,
   },
   iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.surfaceAlt,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: "#eff6ff",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
   },
-  iconText: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: colors.textMuted,
-  },
   title: {
-    fontWeight: "600",
-    color: colors.textPrimary,
     textAlign: "center",
   },
   description: {
-    color: colors.textSecondary,
     textAlign: "center",
     marginTop: 8,
     lineHeight: 22,
-  },
-  action: {
-    marginTop: 20,
+    maxWidth: 280,
   },
 });

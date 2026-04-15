@@ -8,7 +8,7 @@ import React, { ReactNode } from "react";
 import { StyleSheet, View, ViewStyle } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Text } from "react-native-paper";
+import { Text } from "@gluestack-ui/themed";
 import { gradients, spacing, typography } from "../../utils/design";
 
 interface Props {

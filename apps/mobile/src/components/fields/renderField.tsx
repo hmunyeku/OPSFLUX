@@ -8,7 +8,7 @@
 
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import { Text } from "react-native-paper";
+import { Text } from "@gluestack-ui/themed";
 import FieldText from "./FieldText";
 import FieldNumber from "./FieldNumber";
 import FieldSelect from "./FieldSelect";
@@ -99,10 +99,10 @@ export function renderFieldByType(
     case "readonly":
       return (
         <View style={styles.readonlyField}>
-          <Text variant="bodySmall" style={styles.readonlyLabel}>
+          <Text style={styles.readonlyLabel}>
             {field.label}
           </Text>
-          <Text variant="bodyLarge" style={styles.readonlyValue}>
+          <Text style={styles.readonlyValue}>
             {String(value ?? "—")}
           </Text>
         </View>

@@ -345,7 +345,7 @@ async def provider_compliance_expiry(
         LEFT JOIN users u ON u.id = pc.user_id
         LEFT JOIN tier_contacts tc ON tc.id = pc.contact_id
         JOIN credential_types ct ON ct.id = pc.credential_type_id
-        WHERE COALESCE(u.entity_id, tc.entity_id) = :entity_id
+        WHERE COALESCE(u.default_entity_id, tc.entity_id) = :entity_id
           AND COALESCE(u.archived, tc.archived) = FALSE
           AND pc.expiry_date IS NOT NULL
           AND pc.expiry_date BETWEEN CURRENT_DATE AND CURRENT_DATE + :days_ahead
@@ -1164,7 +1164,7 @@ async def provider_packlog_overview(
         SELECT
             COUNT(*) AS total_requests,
             COUNT(*) FILTER (WHERE status IN ('draft', 'submitted', 'approved', 'assigned', 'in_progress')) AS active_requests,
-            COUNT(*) FILTER (WHERE COALESCE(is_ready_for_submission, FALSE) = FALSE) AS blocked_requests,
+            COUNT(*) FILTER (WHERE status = 'draft') AS blocked_requests,
             COALESCE(SUM(cargo_count), 0) AS cargo_count
         FROM cargo_requests
         WHERE entity_id = :eid AND active = TRUE
@@ -1231,10 +1231,12 @@ async def provider_packlog_tracking(
             ci.tracking_code,
             ci.description,
             ci.status,
-            ci.voyage_code,
-            COALESCE(ci.destination_name, ci.receiver_name) AS destination_name,
+            v.code AS voyage_code,
+            COALESCE(ai.name, ci.receiver_name) AS destination_name,
             COALESCE(ci.received_at, ci.created_at) AS updated_at
         FROM cargo_items ci
+        LEFT JOIN voyages v ON v.id = ci.voyage_id
+        LEFT JOIN ar_installations ai ON ai.id = ci.destination_asset_id
         WHERE ci.entity_id = :eid AND ci.active = TRUE
         ORDER BY COALESCE(ci.received_at, ci.created_at) DESC
         LIMIT 12
@@ -1263,7 +1265,7 @@ async def provider_packlog_alerts(
                 cr.request_code AS reference,
                 cr.title AS label,
                 CASE
-                    WHEN COALESCE(cr.is_ready_for_submission, FALSE) = FALSE THEN 'Dossier incomplet'
+                    WHEN cr.status = 'draft' THEN 'Dossier incomplet'
                     WHEN cr.status = 'submitted' AND cr.created_at < NOW() - INTERVAL '2 days' THEN 'Soumis sans suite'
                     ELSE NULL
                 END AS alert

@@ -2951,30 +2951,45 @@ function ForecastTab() {
           </div>
 
           {/* ── Cumulative trend chart (ECharts) ── */}
-          <div className="border border-border rounded p-3">
-            <div className="text-xs font-semibold mb-2 flex items-center gap-1">
-              <TrendingUp size={12} className="text-primary" /> {t('planner.forecast.cumulative_title')}
+          <div className="border border-border rounded-lg p-4 bg-card">
+            <div className="text-xs font-semibold mb-3 flex items-center gap-1.5">
+              <TrendingUp size={13} className="text-primary" /> {t('planner.forecast.cumulative_title')}
             </div>
             <ReactECharts
-              style={{ height: 280 }}
+              style={{ height: 300 }}
               option={{
-                tooltip: { trigger: 'axis' },
+                tooltip: { trigger: 'axis', axisPointer: { type: 'line', lineStyle: { color: '#94a3b8' } } },
                 legend: {
                   data: [t('planner.forecast.projected_load'), t('planner.forecast.real_pob'), t('planner.forecast.capacity_max')],
                   bottom: 0,
-                  textStyle: { fontSize: 10 },
+                  textStyle: { fontSize: 11 },
+                  icon: 'roundRect',
+                  itemWidth: 14,
+                  itemHeight: 8,
                 },
-                grid: { left: 45, right: 15, top: 10, bottom: 40 },
+                grid: { left: 50, right: 20, top: 16, bottom: 70, containLabel: false },
                 xAxis: {
                   type: 'category',
                   data: data.forecast.map((d: ForecastDay) => d.date),
-                  axisLabel: { fontSize: 9, rotate: 45, interval: Math.max(0, Math.floor(data.forecast.length / 15) - 1) },
+                  axisLabel: {
+                    fontSize: 10,
+                    rotate: 0,
+                    interval: Math.max(0, Math.floor(data.forecast.length / 8) - 1),
+                    formatter: (value: string) => {
+                      // Show as "15/04" instead of full ISO
+                      const d = new Date(value)
+                      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+                    },
+                  },
+                  axisLine: { lineStyle: { color: '#cbd5e1' } },
                   boundaryGap: false,
                 },
                 yAxis: {
                   type: 'value',
-                  axisLabel: { fontSize: 9 },
+                  axisLabel: { fontSize: 10 },
                   splitLine: { lineStyle: { opacity: 0.15 } },
+                  axisLine: { show: false },
+                  axisTick: { show: false },
                 },
                 series: [
                   {
@@ -2982,8 +2997,8 @@ function ForecastTab() {
                     type: 'line',
                     data: data.forecast.map((d: ForecastDay) => d.combined_load),
                     smooth: true,
-                    lineStyle: { width: 2 },
-                    areaStyle: { opacity: 0.1 },
+                    lineStyle: { width: 2.5 },
+                    areaStyle: { opacity: 0.12 },
                     itemStyle: { color: '#3b82f6' },
                     showSymbol: false,
                   },
@@ -2992,7 +3007,7 @@ function ForecastTab() {
                     type: 'line',
                     data: data.forecast.map((d: ForecastDay) => d.real_pob),
                     smooth: true,
-                    lineStyle: { width: 1.5, type: 'dashed' },
+                    lineStyle: { width: 1.75, type: 'dashed' },
                     itemStyle: { color: '#10b981' },
                     showSymbol: false,
                   },
@@ -3010,60 +3025,101 @@ function ForecastTab() {
           </div>
 
           {/* ── Calendar heatmap — saturation per day ── */}
-          <div className="border border-border rounded p-3">
-            <div className="text-xs font-semibold mb-2 flex items-center gap-1">
-              <CalendarRange size={12} className="text-primary" /> Calendrier de saturation
+          <div className="border border-border rounded-lg p-4 bg-card">
+            <div className="text-xs font-semibold mb-3 flex items-center gap-1.5">
+              <CalendarRange size={13} className="text-primary" /> Calendrier de saturation
             </div>
-            <ReactECharts
-              style={{ height: Math.max(180, Math.ceil(horizon / 30) * 120 + 60) }}
-              option={{
-                tooltip: {
-                  formatter: (params: { value?: [string, number] }) => {
-                    if (!params.value) return ''
-                    const [date, pct] = params.value
-                    const day = data.forecast.find((d: ForecastDay) => d.date === date)
-                    return `<strong>${date}</strong><br/>Charge: ${day?.combined_load ?? 0} / ${day?.max_capacity ?? 0}<br/>Saturation: ${Math.round(pct)}%<br/>POB réel: ${day?.real_pob ?? 0}`
-                  },
-                },
-                visualMap: {
-                  min: 0,
-                  max: 100,
-                  show: true,
-                  orient: 'horizontal',
-                  left: 'center',
-                  bottom: 0,
-                  itemWidth: 12,
-                  itemHeight: 80,
-                  textStyle: { fontSize: 9 },
-                  inRange: {
-                    color: ['#e8f5e9', '#a5d6a7', '#66bb6a', '#fdd835', '#fb8c00', '#e53935', '#b71c1c'],
-                  },
-                  formatter: (val: number) => `${Math.round(val)}%`,
-                },
-                calendar: Array.from({ length: Math.ceil(horizon / 30) }, (_, i) => {
-                  const start = new Date(data.forecast[0]?.date || new Date())
-                  const calStart = new Date(start.getFullYear(), start.getMonth() + i, 1)
-                  const calEnd = new Date(start.getFullYear(), start.getMonth() + i + 1, 0)
-                  return {
-                    top: i * 120 + 30,
-                    left: 60,
-                    right: 30,
-                    cellSize: ['auto', 15],
-                    range: [calStart.toISOString().slice(0, 10), calEnd.toISOString().slice(0, 10)],
-                    yearLabel: { show: false },
-                    monthLabel: { show: true, fontSize: 10 },
-                    dayLabel: { firstDay: 1, nameMap: ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'], fontSize: 9 },
-                    itemStyle: { borderWidth: 2, borderColor: 'var(--background, #fff)' },
-                  }
-                }),
-                series: Array.from({ length: Math.ceil(horizon / 30) }, (_, i) => ({
-                  type: 'heatmap',
-                  coordinateSystem: 'calendar',
-                  calendarIndex: i,
-                  data: data.forecast.map((d: ForecastDay) => [d.date, d.max_capacity > 0 ? Math.round((d.combined_load / d.max_capacity) * 100) : 0]),
-                })),
-              }}
-            />
+            {(() => {
+              const monthCount = Math.max(1, Math.ceil(horizon / 30))
+              const ROW_H = 24 // cell height (px)
+              const HEADER = 28 // space for month label + day-of-week row
+              const GAP = 24 // gap between months
+              const MONTH_H = HEADER + 6 * ROW_H + GAP
+              const TOP_PAD = 12
+              const BOTTOM_PAD = 60 // visualMap space
+              return (
+                <ReactECharts
+                  style={{ height: TOP_PAD + monthCount * MONTH_H + BOTTOM_PAD }}
+                  option={{
+                    tooltip: {
+                      formatter: (params: { value?: [string, number] }) => {
+                        if (!params.value) return ''
+                        const [date, pct] = params.value
+                        const day = data.forecast.find((d: ForecastDay) => d.date === date)
+                        return `<strong>${date}</strong><br/>Charge: ${day?.combined_load ?? 0} / ${day?.max_capacity ?? 0}<br/>Saturation: ${Math.round(pct)}%<br/>POB réel: ${day?.real_pob ?? 0}`
+                      },
+                    },
+                    visualMap: {
+                      min: 0,
+                      max: 100,
+                      show: true,
+                      orient: 'horizontal',
+                      left: 'center',
+                      bottom: 10,
+                      itemWidth: 16,
+                      itemHeight: 10,
+                      textStyle: { fontSize: 10 },
+                      inRange: {
+                        color: ['#dcfce7', '#bbf7d0', '#86efac', '#facc15', '#fb923c', '#ef4444', '#991b1b'],
+                      },
+                      formatter: (val: number) => `${Math.round(val)}%`,
+                    },
+                    calendar: Array.from({ length: monthCount }, (_, i) => {
+                      const start = new Date(data.forecast[0]?.date || new Date())
+                      const calStart = new Date(start.getFullYear(), start.getMonth() + i, 1)
+                      const calEnd = new Date(start.getFullYear(), start.getMonth() + i + 1, 0)
+                      return {
+                        top: TOP_PAD + i * MONTH_H + HEADER,
+                        left: 44,
+                        right: 20,
+                        cellSize: ['auto', ROW_H],
+                        range: [calStart.toISOString().slice(0, 10), calEnd.toISOString().slice(0, 10)],
+                        yearLabel: { show: false },
+                        monthLabel: {
+                          show: true,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: '#334155',
+                          nameMap: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'],
+                          margin: 18,
+                          align: 'left',
+                          position: 'start',
+                        },
+                        dayLabel: {
+                          firstDay: 1,
+                          nameMap: ['Di', 'Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa'],
+                          fontSize: 10,
+                          color: '#64748b',
+                          margin: 8,
+                        },
+                        itemStyle: {
+                          borderWidth: 1.5,
+                          borderColor: 'var(--background, #ffffff)',
+                          color: '#f1f5f9',
+                        },
+                        splitLine: { show: false },
+                      }
+                    }),
+                    series: Array.from({ length: monthCount }, (_, i) => ({
+                      type: 'heatmap',
+                      coordinateSystem: 'calendar',
+                      calendarIndex: i,
+                      data: data.forecast.map((d: ForecastDay) => [d.date, d.max_capacity > 0 ? Math.round((d.combined_load / d.max_capacity) * 100) : 0]),
+                      label: {
+                        show: true,
+                        fontSize: 9,
+                        color: '#334155',
+                        formatter: (params: { value?: [string, number] }) => {
+                          if (!params.value) return ''
+                          const d = new Date(params.value[0])
+                          return String(d.getDate())
+                        },
+                      },
+                    })),
+                  }}
+                />
+              )
+            })()}
           </div>
         </>
       )}

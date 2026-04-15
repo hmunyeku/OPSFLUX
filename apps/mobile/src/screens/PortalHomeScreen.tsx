@@ -32,6 +32,7 @@ import {
   VStack,
 } from "@gluestack-ui/themed";
 import { MIcon } from "../components/MIcon";
+import Skeleton from "../components/Skeleton";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 
@@ -129,11 +130,30 @@ export default function PortalHomeScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <Box flex={1} bg="$backgroundLight50" alignItems="center" justifyContent="center">
-        <Spinner color="$primary600" />
-        <Text mt="$3" size="sm" color="$textLight500">
-          {t("common.loading", "Chargement...")}
-        </Text>
+      <Box flex={1} bg="$backgroundLight50" pt={insets.top + 12} px="$4">
+        {/* Skeleton hero */}
+        <HStack alignItems="center" justifyContent="space-between" mb="$5">
+          <HStack alignItems="center" space="sm">
+            <Skeleton width={44} height={44} radius={22} />
+            <VStack>
+              <Skeleton width={80} height={11} />
+              <Skeleton width={140} height={16} style={{ marginTop: 6 }} />
+            </VStack>
+          </HStack>
+          <HStack space="sm">
+            <Skeleton width={40} height={40} radius={20} />
+            <Skeleton width={40} height={40} radius={20} />
+          </HStack>
+        </HStack>
+        {/* Skeleton big CTA */}
+        <Skeleton width="100%" height={92} radius={16} style={{ marginBottom: 20 }} />
+        {/* Skeleton quick-actions */}
+        <Skeleton width={140} height={12} style={{ marginBottom: 12 }} />
+        <HStack flexWrap="wrap" gap={12}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} width="47%" height={88} radius={12} />
+          ))}
+        </HStack>
       </Box>
     );
   }
@@ -268,6 +288,13 @@ export default function PortalHomeScreen({ navigation }: Props) {
             borderRadius="$xl"
             p="$5"
             $active-bg="$primary700"
+            style={{
+              shadowColor: "#0f172a",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.15,
+              shadowRadius: 12,
+              elevation: 4,
+            }}
           >
             <HStack alignItems="center" space="md">
               <Box bg="$primary500" borderRadius="$lg" p="$3">
@@ -346,7 +373,20 @@ export default function PortalHomeScreen({ navigation }: Props) {
             <Heading size="xs" color="$textLight500" textTransform="uppercase" letterSpacing={0.5} mb="$3">
               {t("home.moreActions", "Plus d'actions")}
             </Heading>
-            <VStack space="xs" bg="$white" borderRadius="$lg" borderWidth={1} borderColor="$borderLight200">
+            <VStack
+              space="xs"
+              bg="$white"
+              borderRadius="$lg"
+              borderWidth={1}
+              borderColor="$borderLight200"
+              style={{
+                shadowColor: "#0f172a",
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.04,
+                shadowRadius: 3,
+                elevation: 1,
+              }}
+            >
               {activePortal.actions.slice(isTablet ? 8 : 4).map((action, idx) => {
                 const actionIconName = iconByName(action.icon);
                 return (
@@ -448,6 +488,13 @@ function ActionTile({
       p="$3"
       width={width as any}
       $active-bg="$backgroundLight100"
+      style={{
+        shadowColor: "#0f172a",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 3,
+        elevation: 1,
+      }}
     >
       <Box bg="$primary50" borderRadius="$md" p="$2" alignSelf="flex-start" mb="$2">
         <MIcon name={actionIconName} size="md" color="$primary700" />

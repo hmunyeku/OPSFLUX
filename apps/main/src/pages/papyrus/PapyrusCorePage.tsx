@@ -411,7 +411,7 @@ function RevisionDiffViewer({
       {/* Diff content */}
       <div className="p-3 space-y-1 max-h-[300px] overflow-y-auto text-xs">
         {addCount === 0 && delCount === 0 && modCount === 0 && (
-          <p className="text-muted-foreground py-2 text-center">Aucune difference detectee.</p>
+          <p className="text-muted-foreground py-2 text-center">Aucune différence détectée.</p>
         )}
         {diff.additions?.map((item, i) => (
           <div key={`add-${i}`} className="flex gap-2 px-2 py-1 rounded bg-green-50 dark:bg-green-900/20 border-l-2 border-green-500">
@@ -888,7 +888,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
 
         <FormSection title="Historique Papyrus" collapsible>
           {!papyrusVersions || papyrusVersions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucune version technique Papyrus enregistree.</p>
+            <p className="text-sm text-muted-foreground">Aucune version technique Papyrus enregistrée.</p>
           ) : (
             <div className="border border-border rounded-lg overflow-hidden">
               <table className="w-full text-sm">

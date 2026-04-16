@@ -787,7 +787,7 @@ function LibraryTab() {
       ) : (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <BookOpen size={32} className="mb-2 opacity-40" />
-          <p className="text-sm">Aucun element dans la bibliotheque.</p>
+          <p className="text-sm">Aucun élément dans la bibliothèque.</p>
         </div>
       )}
     </div>

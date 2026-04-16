@@ -2314,7 +2314,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
         <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{todoCount} a faire</span>
         <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary">{inProgressCount} en cours</span>
         {reviewCount > 0 && <span className="px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-600">{reviewCount} revue</span>}
-        <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-600">{doneCount} terminees</span>
+        <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-600">{doneCount} terminées</span>
       </div>
 
       {/* Task treegrid (hierarchy preserved via parent_id) */}
@@ -2324,7 +2324,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
           {orphanNodes}
         </div>
       ) : (
-        <EmptyState icon={ListTodo} title="Aucune tache" variant="search" size="compact" />
+        <EmptyState icon={ListTodo} title="Aucune tâche" variant="search" size="compact" />
       )}
 
       {/* Create form or button */}

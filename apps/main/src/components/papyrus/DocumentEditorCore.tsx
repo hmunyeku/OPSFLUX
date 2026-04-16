@@ -337,7 +337,7 @@ export function DocumentEditor({ content, onChange, readOnly = false }: Document
       ) : (
         <div className="p-3 space-y-3">
           {doc.blocks.length === 0 ? (
-            <div className="text-sm text-muted-foreground py-8 text-center">Aucun bloc. Ajoute un paragraphe ou passe en mode JSON.</div>
+            <div className="text-sm text-muted-foreground py-8 text-center">Aucun bloc. Ajoutez un paragraphe ou passez en mode JSON.</div>
           ) : null}
           {doc.blocks.map((block, index) => {
             const type = String(block.type ?? 'paragraph')

@@ -1423,7 +1423,7 @@ function PickupTab() {
             </button>
           ))}
         </div>
-        {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{total} tournees</span>}
+        {data && <span className="text-xs text-muted-foreground ml-auto shrink-0">{total} tournées</span>}
       </div>
 
       <div className="flex flex-1 min-h-0">
@@ -1441,7 +1441,7 @@ function PickupTab() {
               searchPlaceholder="Rechercher une tournee..."
               onRowClick={(row) => setSelectedId(row.id)}
               emptyIcon={Route}
-              emptyTitle="Aucune tournee de ramassage"
+              emptyTitle="Aucune tournée de ramassage"
               storageKey="travelwiz-pickup"
             />
           </PanelContent>
@@ -3727,7 +3727,7 @@ function VectorDetailPanel({ id }: { id: string }) {
                     </div>
                   ))}
                 </div>
-              ) : <p className="text-xs text-muted-foreground py-2">Aucune zone configuree.</p>}
+              ) : <p className="text-xs text-muted-foreground py-2">Aucune zone configurée.</p>}
             </FormSection>
 
             <FormSection title="Certifications" collapsible defaultExpanded={false}>

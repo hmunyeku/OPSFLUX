@@ -5272,7 +5272,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
             {/* Priority Override (DO-level action) — gated on
                 planner.priority.override so non-arbitres never see it. */}
             {canOverridePriority && (
-            <FormSection title="Actions avancees">
+            <FormSection title="Actions avancées">
               {showPriorityOverride ? (
                 <div className="space-y-2 p-2.5 rounded-lg border border-border bg-background-subtle">
                   <div className="grid grid-cols-2 gap-2">

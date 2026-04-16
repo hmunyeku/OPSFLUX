@@ -13,7 +13,7 @@ import {
   Wrench, HardHat, Gauge, Shield, Drill, Pencil, Trash2, Link2, Loader2,
   ChevronLeft, ChevronRight, ChevronDown, GanttChart, Eye, Repeat, ArrowUpDown,
   FlaskConical, TrendingUp, LayoutDashboard, RotateCcw,
-  Star, Play,
+  Star, Play, Info, CalendarDays, Paperclip,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
@@ -43,7 +43,7 @@ import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer
 import ReactECharts from 'echarts-for-react'
 import { GanttView } from './GanttView'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
-import { PageNavBar } from '@/components/ui/Tabs'
+import { PageNavBar, TabBar } from '@/components/ui/Tabs'
 import { buildCells, buildHeaderGroups, getDefaultDateRange } from '@/components/shared/gantt/ganttEngine'
 import type { TimeScale } from '@/components/shared/gantt/ganttEngine'
 import type { GanttSettings } from '@/components/shared/gantt/ganttTypes'
@@ -3589,6 +3589,8 @@ function ScenarioDetailPanel({ id }: { id: string }) {
   const { hasPermission } = usePermission()
   const canPromote = hasPermission('planner.activity.create')
 
+  const [detailTab, setDetailTab] = useState<'informations' | 'activites'>('informations')
+
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({ title: '', description: '' })
   const [showAddActivity, setShowAddActivity] = useState(false)
@@ -3786,8 +3788,19 @@ function ScenarioDetailPanel({ id }: { id: string }) {
       icon={<FlaskConical size={14} className={isReference ? 'text-amber-500' : 'text-primary'} />}
       actionItems={actions}
     >
+      <TabBar
+        items={[
+          { id: 'informations', label: 'Informations', icon: Info },
+          { id: 'activites', label: 'Activites', icon: CalendarDays },
+        ]}
+        activeId={detailTab}
+        onTabChange={(id) => setDetailTab(id as 'informations' | 'activites')}
+        className="px-4 pt-3 pb-0"
+      />
       <PanelContentLayout>
-        {/* ── Identity ── */}
+        {/* ── Tab: Informations ── */}
+        {detailTab === 'informations' && (
+        <>
         <FormSection title="Identification">
           {editing ? (
             <FormGrid>
@@ -3839,16 +3852,20 @@ function ScenarioDetailPanel({ id }: { id: string }) {
 
         {/* ── Simulation results ── */}
         {sim && (
-          <FormSection title="Résultat simulation" defaultExpanded>
+          <FormSection title="Resultat simulation" defaultExpanded>
             <DetailFieldGrid>
               <ReadOnlyRow label="Jours de conflit" value={String(sim.conflict_days ?? '—')} />
-              <ReadOnlyRow label="Débordement max" value={String(sim.worst_overflow ?? '—')} />
+              <ReadOnlyRow label="Debordement max" value={String(sim.worst_overflow ?? '—')} />
               {sim.total_pax != null && <ReadOnlyRow label="PAX total" value={String(sim.total_pax)} />}
               {sim.avg_occupancy != null && <ReadOnlyRow label="Occupation moy." value={`${Math.round(sim.avg_occupancy * 100)}%`} />}
             </DetailFieldGrid>
           </FormSection>
         )}
+        </>)}
 
+        {/* ── Tab: Activites ── */}
+        {detailTab === 'activites' && (
+        <>
         {/* ── Proposed activities ── */}
         <FormSection
           title={overlayActivities.length > 0
@@ -3953,15 +3970,16 @@ function ScenarioDetailPanel({ id }: { id: string }) {
         </FormSection>
 
         {/* ── How scenarios work ── */}
-        <FormSection title="Comment fonctionne un scénario ?" collapsible defaultExpanded={overlayActivities.length === 0}>
+        <FormSection title="Comment fonctionne un scenario ?" collapsible defaultExpanded={overlayActivities.length === 0}>
           <div className="text-xs text-muted-foreground space-y-2 leading-relaxed">
-            <p><span className="font-semibold text-foreground">1. Créer</span> — Un scénario est un plan alternatif ("et si ?"). Il ne touche pas au plan en cours.</p>
-            <p><span className="font-semibold text-foreground">2. Ajouter des activités</span> — Cliquez "Ajouter" pour créer des activités propres à ce scénario, ou depuis le Gantt, sélectionnez une activité et choisissez "Ajouter au scénario".</p>
-            <p><span className="font-semibold text-foreground">3. Simuler</span> — Lance un calcul de conflits de capacité pour évaluer la faisabilité du scénario.</p>
-            <p><span className="font-semibold text-foreground">4. Valider → Promouvoir</span> — Passer à "Validé" pour review, puis "Promouvoir" convertit les activités du scénario en activités réelles dans le plan.</p>
-            <p><span className="font-semibold text-foreground">5. Restaurer</span> — Si un scénario promu pose problème, "Restaurer" annule la promotion et revient à l'état précédent.</p>
+            <p><span className="font-semibold text-foreground">1. Creer</span> — Un scenario est un plan alternatif ("et si ?"). Il ne touche pas au plan en cours.</p>
+            <p><span className="font-semibold text-foreground">2. Ajouter des activites</span> — Cliquez "Ajouter" pour creer des activites propres a ce scenario, ou depuis le Gantt, selectionnez une activite et choisissez "Ajouter au scenario".</p>
+            <p><span className="font-semibold text-foreground">3. Simuler</span> — Lance un calcul de conflits de capacite pour evaluer la faisabilite du scenario.</p>
+            <p><span className="font-semibold text-foreground">4. Valider &rarr; Promouvoir</span> — Passer a "Valide" pour review, puis "Promouvoir" convertit les activites du scenario en activites reelles dans le plan.</p>
+            <p><span className="font-semibold text-foreground">5. Restaurer</span> — Si un scenario promu pose probleme, "Restaurer" annule la promotion et revient a l'etat precedent.</p>
           </div>
         </FormSection>
+        </>)}
       </PanelContentLayout>
     </DynamicPanelShell>
   )
@@ -4196,6 +4214,8 @@ function ActivityDetailPanel({ id }: { id: string }) {
   const activityTypeOptions = useMemo(() => buildDictionaryOptions(activityTypeLabels, PLANNER_ACTIVITY_TYPE_VALUES), [activityTypeLabels])
   const priorityOptions = useMemo(() => buildDictionaryOptions(priorityLabels, PLANNER_PRIORITY_VALUES), [priorityLabels])
   const dependencyTypeOptions = useMemo(() => buildDictionaryOptions(dependencyTypeLabels, PLANNER_DEP_TYPE_VALUES), [dependencyTypeLabels])
+
+  const [detailTab, setDetailTab] = useState<'informations' | 'ressources' | 'documents'>('informations')
 
   // Auto-close panel if activity was deleted (404)
   useEffect(() => {
@@ -4695,6 +4715,16 @@ function ActivityDetailPanel({ id }: { id: string }) {
         })
       }
     >
+      <TabBar
+        items={[
+          { id: 'informations', label: 'Informations', icon: Info },
+          { id: 'ressources', label: 'Ressources', icon: Users },
+          { id: 'documents', label: 'Documents', icon: Paperclip },
+        ]}
+        activeId={detailTab}
+        onTabChange={(id) => setDetailTab(id as 'informations' | 'ressources' | 'documents')}
+        className="px-4 pt-3 pb-0"
+      />
       <PanelContentLayout>
         {editing ? (
           /* ── EDIT MODE ── */
@@ -4876,6 +4906,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
         ) : (
           /* ── READ MODE ── */
           <>
+            {detailTab === 'informations' && (
             <div className="@container space-y-5">
               {/* Informations + Rattachement — side by side on wide panels */}
               <SectionColumns>
@@ -5105,9 +5136,11 @@ function ActivityDetailPanel({ id }: { id: string }) {
                 )}
               </FormSection>
             </div>
+            )}
 
+            {detailTab === 'ressources' && (<>
             {/* Dependencies */}
-            <FormSection title="Dépendances">
+            <FormSection title="Dependances">
               {dependencies && dependencies.length > 0 ? (
                 <div className="space-y-1.5">
                   {dependencies.map((dep: PlannerDependency) => (
@@ -5312,15 +5345,17 @@ function ActivityDetailPanel({ id }: { id: string }) {
               )}
             </FormSection>
             )}
+            </>)}
 
-            {/* Tags, Notes & Attachments */}
-            <FormSection title="Tags, notes & fichiers" collapsible defaultExpanded={false}>
+            {detailTab === 'documents' && (
+            <FormSection title="Tags, notes & fichiers" defaultExpanded>
               <div className="space-y-3">
                 <TagManager ownerType="planner_activity" ownerId={activity.id} compact />
                 <AttachmentManager ownerType="planner_activity" ownerId={activity.id} compact />
                 <NoteManager ownerType="planner_activity" ownerId={activity.id} compact />
               </div>
             </FormSection>
+            )}
           </>
         )}
       </PanelContentLayout>

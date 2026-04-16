@@ -21,13 +21,13 @@ import {
   Building2, Plus, Loader2, Trash2, MapPin, Paperclip, MessageSquare,
   Phone, Mail, Users, ArrowLeft, Star, Globe, Clock,
   ChevronDown, FileText, Search, ShieldBan, ShieldCheck, Link2, X,
-  LayoutDashboard,
+  LayoutDashboard, FolderKanban, Shield, User,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef, ImportExportConfig } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
-import { PageNavBar } from '@/components/ui/Tabs'
+import { PageNavBar, TabBar } from '@/components/ui/Tabs'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { normalizeNames } from '@/lib/normalize'
 import { validateTierForm, validateTierContactForm, type FormErrors } from '@/lib/formValidation'
@@ -395,6 +395,9 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
   // the global contacts DataTable.
   const [selectedContactId, setSelectedContactId] = useState<string | null>(initialContactId ?? null)
 
+  // Tab navigation for TierDetailPanel — MUST be before early returns
+  const [detailTab, setDetailTab] = useState<'fiche' | 'contacts' | 'conformite' | 'projets' | 'documents'>('fiche')
+
   const handleInlineSave = useCallback((field: keyof TierCreate, value: string | number | null) => {
     updateTier.mutate({ id, payload: normalizeNames({ [field]: value } as Partial<TierCreate>) })
   }, [id, updateTier])
@@ -482,6 +485,19 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
       actionItems={tierActionItems}
       onActionConfirm={confirm}
     >
+      <TabBar
+        activeId={detailTab}
+        onTabChange={(id) => setDetailTab(id as typeof detailTab)}
+        items={[
+          { id: 'fiche', label: 'Fiche', icon: Building2 },
+          { id: 'contacts', label: 'Contacts', icon: Users },
+          { id: 'conformite', label: 'Conformite', icon: Shield },
+          { id: 'projets', label: 'Projets', icon: FolderKanban },
+          { id: 'documents', label: 'Documents', icon: Paperclip },
+        ]}
+      />
+
+      {detailTab === 'fiche' && (
       <PanelContentLayout>
         {/* Tags — full width */}
         <TagManager ownerType="tier" ownerId={tier.id} compact />
@@ -560,7 +576,7 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
             </FormSection>
           </div>
 
-          {/* ── Right column: Infos legales + Contacts ── */}
+          {/* ── Right column: Infos legales ── */}
           <div className="@container space-y-5">
             <FormSection title={`${t('tiers.ui.sections.legal')} (${identifiers?.length ?? 0})`} collapsible defaultExpanded storageKey="tier-detail-sections">
               <DetailFieldGrid>
@@ -591,18 +607,22 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                 <LegalIdentifierManager ownerType="tier" ownerId={tier.id} compact />
               </div>
             </FormSection>
-
-            <FormSection title={`${t('tiers.tab_contacts')} (${contactList.length})`} collapsible defaultExpanded storageKey="tier-detail-sections">
-              <ContactListSection
-                tierId={tier.id}
-                contacts={contactList}
-                isLoading={contactsLoading}
-                onSelectContact={setSelectedContactId}
-                canEdit={canEdit}
-              />
-            </FormSection>
           </div>
         </SectionColumns>
+      </PanelContentLayout>
+      )}
+
+      {detailTab === 'contacts' && (
+      <PanelContentLayout>
+        <FormSection title={`${t('tiers.tab_contacts')} (${contactList.length})`} collapsible defaultExpanded storageKey="tier-detail-sections">
+          <ContactListSection
+            tierId={tier.id}
+            contacts={contactList}
+            isLoading={contactsLoading}
+            onSelectContact={setSelectedContactId}
+            canEdit={canEdit}
+          />
+        </FormSection>
 
         {/* Blocage */}
         <FormSection
@@ -796,15 +816,21 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
             <p className="text-xs text-muted-foreground/60 italic">{t('tiers.ui.no_external_refs')}</p>
           )}
         </FormSection>
+      </PanelContentLayout>
+      )}
 
-        {/* Conformite */}
-        <FormSection title={t('nav.conformite')} collapsible defaultExpanded={false} storageKey="tier-detail-conformite">
+      {detailTab === 'conformite' && (
+      <PanelContentLayout>
+        <FormSection title={t('nav.conformite')} collapsible defaultExpanded storageKey="tier-detail-conformite">
           <ReferentielManager ownerType="tier" ownerId={tier.id} compact />
         </FormSection>
+      </PanelContentLayout>
+      )}
 
-        {/* Projets liés */}
-        {relatedProjects && relatedProjects.items.length > 0 && (
-          <FormSection title={`${t('tiers.ui.related_projects')} (${relatedProjects.total})`} collapsible defaultExpanded={false} storageKey="tier-detail-projets">
+      {detailTab === 'projets' && (
+      <PanelContentLayout>
+        <FormSection title={`${t('tiers.ui.related_projects')} (${relatedProjects?.total ?? 0})`} collapsible defaultExpanded storageKey="tier-detail-projets">
+          {relatedProjects && relatedProjects.items.length > 0 ? (
             <div className="space-y-1.5">
               {relatedProjects.items.map((p) => (
                 <div key={p.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-accent/50 transition-colors">
@@ -815,11 +841,16 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
                 </div>
               ))}
             </div>
-          </FormSection>
-        )}
+          ) : (
+            <p className="text-xs text-muted-foreground/60 italic">{t('tiers.ui.no_related_projects', 'Aucun projet associe.')}</p>
+          )}
+        </FormSection>
+      </PanelContentLayout>
+      )}
 
-        {/* Full-width sections below the columns */}
-        <FormSection title={t('tiers.ui.sections.notes_documents')} collapsible defaultExpanded={false} storageKey="tier-detail-sections">
+      {detailTab === 'documents' && (
+      <PanelContentLayout>
+        <FormSection title={t('tiers.ui.sections.notes_documents')} collapsible defaultExpanded storageKey="tier-detail-sections">
           <DetailFieldGrid>
             <div>
               <SubSectionLabel icon={MessageSquare} label={t('common.notes')} count={notes?.length ?? 0} />
@@ -830,6 +861,14 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
               <AttachmentManager ownerType="tier" ownerId={tier.id} compact />
             </div>
           </DetailFieldGrid>
+        </FormSection>
+
+        <FormSection title={t('common.description')} collapsible defaultExpanded={false} storageKey="tier-detail-sections">
+          <InlineEditableRow
+            label={t('common.description')}
+            value={tier.description || ''}
+            onSave={(v) => handleInlineSave('description', v)}
+          />
         </FormSection>
 
         <FormSection title={t('tiers.ui.sections.configuration')} collapsible defaultExpanded={false} storageKey="tier-detail-configuration">
@@ -844,15 +883,8 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
             </div>
           </DetailFieldGrid>
         </FormSection>
-
-        <FormSection title={t('common.description')} collapsible defaultExpanded={false} storageKey="tier-detail-sections">
-          <InlineEditableRow
-            label={t('common.description')}
-            value={tier.description || ''}
-            onSave={(v) => handleInlineSave('description', v)}
-          />
-        </FormSection>
       </PanelContentLayout>
+      )}
     </DynamicPanelShell>
   )
 }
@@ -1194,6 +1226,9 @@ function ContactDetailPanel({
     ]
   }, [canEdit, t, handleDelete])
 
+  // Tab navigation for ContactDetailPanel — MUST be before early returns
+  const [contactTab, setContactTab] = useState<'fiche' | 'documents'>('fiche')
+
   if (!contact) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<Users size={14} className="text-primary" />}>
@@ -1215,6 +1250,16 @@ function ContactDetailPanel({
       actionItems={contactActionItems}
       onActionConfirm={confirmContact}
     >
+      <TabBar
+        activeId={contactTab}
+        onTabChange={(id) => setContactTab(id as typeof contactTab)}
+        items={[
+          { id: 'fiche', label: 'Fiche', icon: User },
+          { id: 'documents', label: 'Documents', icon: Paperclip },
+        ]}
+      />
+
+      {contactTab === 'fiche' && (
       <PanelContentLayout>
         {/* Back button + breadcrumb */}
         <button
@@ -1333,14 +1378,18 @@ function ContactDetailPanel({
             </FormSection>
           </div>
         </SectionColumns>
+      </PanelContentLayout>
+      )}
 
+      {contactTab === 'documents' && (
+      <PanelContentLayout>
         {/* Référentiels & Conformité — HSE compliance per employee */}
-        <FormSection title={t('tiers.ui.sections.compliance')} collapsible defaultExpanded={false} storageKey="contact-detail-conformite">
+        <FormSection title={t('tiers.ui.sections.compliance')} collapsible defaultExpanded storageKey="contact-detail-conformite">
           <ReferentielManager ownerType="tier_contact" ownerId={contact.id} compact />
         </FormSection>
 
         {/* Full-width: Notes & Documents */}
-        <FormSection title={t('tiers.ui.sections.notes_documents')} collapsible defaultExpanded={false} storageKey="contact-detail-sections">
+        <FormSection title={t('tiers.ui.sections.notes_documents')} collapsible defaultExpanded storageKey="contact-detail-sections">
           <DetailFieldGrid>
             <div>
               <SubSectionLabel icon={MessageSquare} label={t('common.notes')} count={contactNotes?.length ?? 0} />
@@ -1353,6 +1402,7 @@ function ContactDetailPanel({
           </DetailFieldGrid>
         </FormSection>
       </PanelContentLayout>
+      )}
     </DynamicPanelShell>
   )
 }

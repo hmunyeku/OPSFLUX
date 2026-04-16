@@ -13,6 +13,7 @@ import {
   Loader2, Pencil, Trash2, Save, MapPin, AlertTriangle,
   Bell, CheckCircle2, XCircle, CloudSun, Route,
   BarChart3, Map as MapIcon, Repeat,
+  Info, BookOpen, Settings, Paperclip,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
@@ -20,7 +21,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
-import { PageNavBar } from '@/components/ui/Tabs'
+import { PageNavBar, TabBar } from '@/components/ui/Tabs'
 import { useUIStore } from '@/stores/uiStore'
 import {
   DynamicPanelShell,
@@ -3167,6 +3168,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
   const [editing, setEditing] = useState(false)
   const [cargoReportExportOpen, setCargoReportExportOpen] = useState(false)
   const [editForm, setEditForm] = useState<VoyageUpdate>({})
+  const [detailTab, setDetailTab] = useState<'informations' | 'manifestes' | 'cargo' | 'journal' | 'documents'>('informations')
 
   const startEdit = useCallback(() => {
     if (!voyage) return
@@ -3296,149 +3298,160 @@ function VoyageDetailPanel({ id }: { id: string }) {
       actionItems={voyageDetailActions}
       headerRight={voyageStatusSelect}
     >
+      <TabBar
+        items={[
+          { id: 'informations', label: 'Informations', icon: Info },
+          { id: 'manifestes', label: 'Manifestes PAX', icon: Users },
+          { id: 'cargo', label: 'Cargo', icon: Package },
+          { id: 'journal', label: 'Journal', icon: BookOpen },
+          { id: 'documents', label: 'Documents', icon: Paperclip },
+        ]}
+        activeId={detailTab}
+        onTabChange={setDetailTab}
+      />
       <PanelContentLayout>
         {/* Status badge */}
         <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={voyage.status} labels={voyageStatusLabels} badges={VOYAGE_STATUS_BADGES} />
         </div>
 
-        {editing ? (
-          <FormSection title="Informations">
-            <FormGrid>
-              <DynamicPanelField label="Code">
-                <span className="text-sm font-mono font-medium text-foreground">{voyage.code}</span>
-              </DynamicPanelField>
-              <DynamicPanelField label="Vecteur" required>
-                <select
-                  value={editForm.vector_id ?? ''}
-                  onChange={(e) => setEditForm({ ...editForm, vector_id: e.target.value || null })}
-                  className={panelInputClass}
-                >
-                  <option value="">Sélectionner...</option>
-                  {(vectors?.items ?? []).map((vector) => (
-                    <option key={vector.id} value={vector.id}>
-                      {vector.name} {vector.registration ? `(${vector.registration})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </DynamicPanelField>
-              <DynamicPanelField label="Rotation">
-                <select
-                  value={editForm.rotation_id ?? ''}
-                  onChange={(e) => setEditForm({ ...editForm, rotation_id: e.target.value || null })}
-                  className={panelInputClass}
-                >
-                  <option value="">Aucune rotation</option>
-                  {(rotations?.items ?? []).map((rotation) => (
-                    <option key={rotation.id} value={rotation.id}>
-                      {rotation.name}{rotation.schedule_description ? ` - ${rotation.schedule_description}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </DynamicPanelField>
-              <DynamicPanelField label="Base de départ" span="full">
-                <AssetPicker
-                  value={editForm.departure_base_id ?? null}
-                  onChange={(assetId) => setEditForm({ ...editForm, departure_base_id: assetId ?? null })}
-                  placeholder="Sélectionner la base de départ..."
-                />
-              </DynamicPanelField>
-              <DynamicPanelField label="Départ programmé">
-                <input
-                  type="datetime-local"
-                  value={editForm.scheduled_departure ?? ''}
-                  onChange={(e) => setEditForm({ ...editForm, scheduled_departure: e.target.value || null })}
-                  className={panelInputClass}
-                />
-              </DynamicPanelField>
-              <DynamicPanelField label="Arrivée programmée">
-                <input
-                  type="datetime-local"
-                  value={editForm.scheduled_arrival ?? ''}
-                  onChange={(e) => setEditForm({ ...editForm, scheduled_arrival: e.target.value || null })}
-                  className={panelInputClass}
-                />
-              </DynamicPanelField>
-            </FormGrid>
-          </FormSection>
-        ) : (
-          <>
-            <SectionColumns>
-              <div className="@container space-y-5">
-                {/* Info */}
-                <FormSection title="Informations">
-                  <DetailFieldGrid>
-                    <ReadOnlyRow label="Code" value={voyage.code} />
-                    <ReadOnlyRow label="Vecteur" value={voyage.vector_name ?? '—'} />
-                    <ReadOnlyRow label="Rotation" value={voyage.rotation_name ?? '—'} />
-                    <ReadOnlyRow label="Base de départ" value={departureLabel} />
-                    <ReadOnlyRow label="Dernière escale planifiée" value={destinationLabel} />
-                    <ReadOnlyRow label="Départ programmé" value={voyage.scheduled_departure ? new Date(voyage.scheduled_departure).toLocaleString('fr-FR') : '—'} />
-                    <ReadOnlyRow label="Arrivée programmée" value={voyage.scheduled_arrival ? new Date(voyage.scheduled_arrival).toLocaleString('fr-FR') : '—'} />
-                    <ReadOnlyRow label="Départ réel" value={voyage.actual_departure ? new Date(voyage.actual_departure).toLocaleString('fr-FR') : '—'} />
-                    <ReadOnlyRow label="Arrivée réelle" value={voyage.actual_arrival ? new Date(voyage.actual_arrival).toLocaleString('fr-FR') : '—'} />
-                    <ReadOnlyRow label="Motif du retard" value={voyage.delay_reason ?? '—'} />
-                  </DetailFieldGrid>
-                </FormSection>
-
-            {/* Route: Stops */}
-            <FormSection title={`Route (${(stops?.length ?? 0) + 2} points)`} collapsible defaultExpanded>
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2 p-1.5 rounded bg-primary/5 border border-primary/10">
-                  <div className="w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">O</div>
-                  <span className="text-xs font-medium text-foreground">{departureLabel}</span>
-                  <span className="text-[10px] text-muted-foreground ml-auto">{formatDateTime(voyage.scheduled_departure)}</span>
-                </div>
-                {stops?.map((stop, idx) => (
-                  <div key={stop.id} className="flex items-center gap-2 p-1.5 rounded border border-border/60">
-                    <div className="w-5 h-5 rounded-full bg-muted text-muted-foreground text-[10px] font-bold flex items-center justify-center shrink-0">{idx + 1}</div>
-                    <span className="text-xs text-foreground">{stop.location}</span>
-                    <span className="text-[10px] text-muted-foreground ml-auto">{formatDateTime(stop.arrival_at)}</span>
-                  </div>
-                ))}
-                <div className="flex items-center gap-2 p-1.5 rounded bg-green-500/5 border border-green-500/10">
-                  <div className="w-5 h-5 rounded-full bg-green-500/20 text-green-600 text-[10px] font-bold flex items-center justify-center shrink-0">D</div>
-                  <span className="text-xs font-medium text-foreground">{destinationLabel}</span>
-                  <span className="text-[10px] text-muted-foreground ml-auto">{formatDateTime(voyage.scheduled_arrival)}</span>
-                </div>
-              </div>
+        {detailTab === 'informations' && (
+          editing ? (
+            <FormSection title="Informations">
+              <FormGrid>
+                <DynamicPanelField label="Code">
+                  <span className="text-sm font-mono font-medium text-foreground">{voyage.code}</span>
+                </DynamicPanelField>
+                <DynamicPanelField label="Vecteur" required>
+                  <select
+                    value={editForm.vector_id ?? ''}
+                    onChange={(e) => setEditForm({ ...editForm, vector_id: e.target.value || null })}
+                    className={panelInputClass}
+                  >
+                    <option value="">Selectionner...</option>
+                    {(vectors?.items ?? []).map((vector) => (
+                      <option key={vector.id} value={vector.id}>
+                        {vector.name} {vector.registration ? `(${vector.registration})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </DynamicPanelField>
+                <DynamicPanelField label="Rotation">
+                  <select
+                    value={editForm.rotation_id ?? ''}
+                    onChange={(e) => setEditForm({ ...editForm, rotation_id: e.target.value || null })}
+                    className={panelInputClass}
+                  >
+                    <option value="">Aucune rotation</option>
+                    {(rotations?.items ?? []).map((rotation) => (
+                      <option key={rotation.id} value={rotation.id}>
+                        {rotation.name}{rotation.schedule_description ? ` - ${rotation.schedule_description}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </DynamicPanelField>
+                <DynamicPanelField label="Base de depart" span="full">
+                  <AssetPicker
+                    value={editForm.departure_base_id ?? null}
+                    onChange={(assetId) => setEditForm({ ...editForm, departure_base_id: assetId ?? null })}
+                    placeholder="Selectionner la base de depart..."
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label="Depart programme">
+                  <input
+                    type="datetime-local"
+                    value={editForm.scheduled_departure ?? ''}
+                    onChange={(e) => setEditForm({ ...editForm, scheduled_departure: e.target.value || null })}
+                    className={panelInputClass}
+                  />
+                </DynamicPanelField>
+                <DynamicPanelField label="Arrivee programmee">
+                  <input
+                    type="datetime-local"
+                    value={editForm.scheduled_arrival ?? ''}
+                    onChange={(e) => setEditForm({ ...editForm, scheduled_arrival: e.target.value || null })}
+                    className={panelInputClass}
+                  />
+                </DynamicPanelField>
+              </FormGrid>
             </FormSection>
-              </div>
+          ) : (
+            <>
+              <FormSection title="Informations">
+                <DetailFieldGrid>
+                  <ReadOnlyRow label="Code" value={voyage.code} />
+                  <ReadOnlyRow label="Vecteur" value={voyage.vector_name ?? '\u2014'} />
+                  <ReadOnlyRow label="Rotation" value={voyage.rotation_name ?? '\u2014'} />
+                  <ReadOnlyRow label="Base de depart" value={departureLabel} />
+                  <ReadOnlyRow label="Derniere escale planifiee" value={destinationLabel} />
+                  <ReadOnlyRow label="Depart programme" value={voyage.scheduled_departure ? new Date(voyage.scheduled_departure).toLocaleString('fr-FR') : '\u2014'} />
+                  <ReadOnlyRow label="Arrivee programmee" value={voyage.scheduled_arrival ? new Date(voyage.scheduled_arrival).toLocaleString('fr-FR') : '\u2014'} />
+                  <ReadOnlyRow label="Depart reel" value={voyage.actual_departure ? new Date(voyage.actual_departure).toLocaleString('fr-FR') : '\u2014'} />
+                  <ReadOnlyRow label="Arrivee reelle" value={voyage.actual_arrival ? new Date(voyage.actual_arrival).toLocaleString('fr-FR') : '\u2014'} />
+                  <ReadOnlyRow label="Motif du retard" value={voyage.delay_reason ?? '\u2014'} />
+                </DetailFieldGrid>
+              </FormSection>
 
-              <div className="@container space-y-5">
-            {/* PAX manifest summary */}
-            <FormSection title={`Manifestes PAX (${manifests?.length ?? 0})`} collapsible defaultExpanded>
-              <div className="grid grid-cols-3 gap-2 mb-2">
-                <div className="text-center p-2 rounded bg-muted/50">
-                  <p className="text-sm font-semibold tabular-nums">{paxSummary.confirmed}</p>
-                  <p className="text-[10px] text-muted-foreground">Confirmes</p>
-                </div>
-                <div className="text-center p-2 rounded bg-muted/50">
-                  <p className="text-sm font-semibold tabular-nums">{paxSummary.standby}</p>
-                  <p className="text-[10px] text-muted-foreground">Standby</p>
-                </div>
-                <div className="text-center p-2 rounded bg-muted/50">
-                  <p className="text-sm font-semibold tabular-nums">{paxSummary.noShow}</p>
-                  <p className="text-[10px] text-muted-foreground">No-show</p>
-                </div>
-              </div>
-              {manifests && manifests.length > 0 ? (
+              <FormSection title={`Route (${(stops?.length ?? 0) + 2} points)`} collapsible defaultExpanded>
                 <div className="space-y-1.5">
-                  {manifests.map((m) => (
-                    <div key={m.id} className="flex items-center gap-3 p-2 rounded-lg border border-border/60 bg-card">
-                      <FileText size={14} className="text-muted-foreground shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-foreground truncate">{m.reference || m.manifest_type || 'Manifeste'}</p>
-                        <p className="text-xs text-muted-foreground">{m.passenger_count ?? 0} passagers</p>
-                      </div>
-                      <StatusBadge status={m.status} labels={manifestStatusLabels} badges={MANIFEST_STATUS_BADGES} />
+                  <div className="flex items-center gap-2 p-1.5 rounded bg-primary/5 border border-primary/10">
+                    <div className="w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">O</div>
+                    <span className="text-xs font-medium text-foreground">{departureLabel}</span>
+                    <span className="text-[10px] text-muted-foreground ml-auto">{formatDateTime(voyage.scheduled_departure)}</span>
+                  </div>
+                  {stops?.map((stop, idx) => (
+                    <div key={stop.id} className="flex items-center gap-2 p-1.5 rounded border border-border/60">
+                      <div className="w-5 h-5 rounded-full bg-muted text-muted-foreground text-[10px] font-bold flex items-center justify-center shrink-0">{idx + 1}</div>
+                      <span className="text-xs text-foreground">{stop.location}</span>
+                      <span className="text-[10px] text-muted-foreground ml-auto">{formatDateTime(stop.arrival_at)}</span>
                     </div>
                   ))}
+                  <div className="flex items-center gap-2 p-1.5 rounded bg-green-500/5 border border-green-500/10">
+                    <div className="w-5 h-5 rounded-full bg-green-500/20 text-green-600 text-[10px] font-bold flex items-center justify-center shrink-0">D</div>
+                    <span className="text-xs font-medium text-foreground">{destinationLabel}</span>
+                    <span className="text-[10px] text-muted-foreground ml-auto">{formatDateTime(voyage.scheduled_arrival)}</span>
+                  </div>
                 </div>
-              ) : <p className="text-xs text-muted-foreground py-2">Aucun manifeste.</p>}
-            </FormSection>
+              </FormSection>
+            </>
+          )
+        )}
 
-            {/* Cargo summary */}
+        {detailTab === 'manifestes' && (
+          <FormSection title={`Manifestes PAX (${manifests?.length ?? 0})`} collapsible defaultExpanded>
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              <div className="text-center p-2 rounded bg-muted/50">
+                <p className="text-sm font-semibold tabular-nums">{paxSummary.confirmed}</p>
+                <p className="text-[10px] text-muted-foreground">Confirmes</p>
+              </div>
+              <div className="text-center p-2 rounded bg-muted/50">
+                <p className="text-sm font-semibold tabular-nums">{paxSummary.standby}</p>
+                <p className="text-[10px] text-muted-foreground">Standby</p>
+              </div>
+              <div className="text-center p-2 rounded bg-muted/50">
+                <p className="text-sm font-semibold tabular-nums">{paxSummary.noShow}</p>
+                <p className="text-[10px] text-muted-foreground">No-show</p>
+              </div>
+            </div>
+            {manifests && manifests.length > 0 ? (
+              <div className="space-y-1.5">
+                {manifests.map((m) => (
+                  <div key={m.id} className="flex items-center gap-3 p-2 rounded-lg border border-border/60 bg-card">
+                    <FileText size={14} className="text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-foreground truncate">{m.reference || m.manifest_type || 'Manifeste'}</p>
+                      <p className="text-xs text-muted-foreground">{m.passenger_count ?? 0} passagers</p>
+                    </div>
+                    <StatusBadge status={m.status} labels={manifestStatusLabels} badges={MANIFEST_STATUS_BADGES} />
+                  </div>
+                ))}
+              </div>
+            ) : <p className="text-xs text-muted-foreground py-2">Aucun manifeste.</p>}
+          </FormSection>
+        )}
+
+        {detailTab === 'cargo' && (
+          <>
             <FormSection title="Cargo" collapsible defaultExpanded>
               <div className="grid grid-cols-2 gap-2">
                 <div className="text-center p-2 rounded bg-muted/50">
@@ -3459,13 +3472,12 @@ function VoyageDetailPanel({ id }: { id: string }) {
               onOpenExport={() => setCargoReportExportOpen(true)}
             />
 
-            {/* Capacity */}
             {capacity && (
-              <FormSection title="Capacité" collapsible defaultExpanded>
+              <FormSection title="Capacite" collapsible defaultExpanded>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-lg border border-border p-3">
                     <div className="flex items-center gap-1.5 text-muted-foreground mb-1"><Users size={12} /><span className="text-[10px] font-medium uppercase tracking-wide">PAX</span></div>
-                    <p className="text-sm font-semibold tabular-nums">{capacity.current_pax} / {capacity.vector_capacity_pax ?? '∞'}</p>
+                    <p className="text-sm font-semibold tabular-nums">{capacity.current_pax} / {capacity.vector_capacity_pax ?? '\u221e'}</p>
                     {capacity.pax_utilization_pct !== null && (
                       <div className="mt-1.5 h-1.5 rounded-full bg-border overflow-hidden">
                         <div className={cn('h-full rounded-full transition-all', capacity.pax_utilization_pct > 90 ? 'bg-destructive' : 'bg-primary')} style={{ width: `${Math.min(100, capacity.pax_utilization_pct)}%` }} />
@@ -3474,7 +3486,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
                   </div>
                   <div className="rounded-lg border border-border p-3">
                     <div className="flex items-center gap-1.5 text-muted-foreground mb-1"><Weight size={12} /><span className="text-[10px] font-medium uppercase tracking-wide">Cargo (kg)</span></div>
-                    <p className="text-sm font-semibold tabular-nums">{(capacity.current_cargo_kg ?? 0).toLocaleString('fr-FR')} / {capacity.vector_capacity_cargo_kg?.toLocaleString('fr-FR') ?? '∞'}</p>
+                    <p className="text-sm font-semibold tabular-nums">{(capacity.current_cargo_kg ?? 0).toLocaleString('fr-FR')} / {capacity.vector_capacity_cargo_kg?.toLocaleString('fr-FR') ?? '\u221e'}</p>
                     {capacity.cargo_utilization_pct !== null && (
                       <div className="mt-1.5 h-1.5 rounded-full bg-border overflow-hidden">
                         <div className={cn('h-full rounded-full transition-all', capacity.cargo_utilization_pct > 90 ? 'bg-destructive' : 'bg-primary')} style={{ width: `${Math.min(100, capacity.cargo_utilization_pct)}%` }} />
@@ -3484,8 +3496,11 @@ function VoyageDetailPanel({ id }: { id: string }) {
                 </div>
               </FormSection>
             )}
+          </>
+        )}
 
-            {/* Voyage Events Timeline */}
+        {detailTab === 'journal' && (
+          <>
             <FormSection title={`Journal de bord (${events?.length ?? 0})`} collapsible defaultExpanded>
               {events && events.length > 0 ? (
                 <div className="relative pl-4 border-l-2 border-border space-y-3">
@@ -3494,7 +3509,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
                       <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-primary border-2 border-background" />
                       <div className="ml-2">
                         <p className="text-xs font-medium text-foreground">{evt.event_code.replace(/_/g, ' ')}</p>
-                        <p className="text-[10px] text-muted-foreground">{formatDateTime(evt.recorded_at)}{evt.recorded_by_name ? ` • ${evt.recorded_by_name}` : ''}</p>
+                        <p className="text-[10px] text-muted-foreground">{formatDateTime(evt.recorded_at)}{evt.recorded_by_name ? ` \u2022 ${evt.recorded_by_name}` : ''}</p>
                         {evt.notes && <p className="text-xs text-muted-foreground mt-0.5">{evt.notes}</p>}
                         {(evt.latitude || evt.longitude) && (
                           <p className="text-[10px] text-muted-foreground mt-0.5 inline-flex items-center gap-1"><MapPin size={9} />{evt.latitude?.toFixed(4)}, {evt.longitude?.toFixed(4)}</p>
@@ -3503,10 +3518,9 @@ function VoyageDetailPanel({ id }: { id: string }) {
                     </div>
                   ))}
                 </div>
-              ) : <p className="text-xs text-muted-foreground py-2">Aucun événement enregistré.</p>}
+              ) : <p className="text-xs text-muted-foreground py-2">Aucun evenement enregistre.</p>}
             </FormSection>
 
-            {/* KPIs (if trip completed) */}
             {kpis && (
               <FormSection title="KPIs du voyage" collapsible defaultExpanded>
                 <DetailFieldGrid>
@@ -3519,16 +3533,16 @@ function VoyageDetailPanel({ id }: { id: string }) {
                 </DetailFieldGrid>
               </FormSection>
             )}
-              </div>
-            </SectionColumns>
+          </>
+        )}
 
-            {/* Deck Planning */}
+        {detailTab === 'documents' && (
+          <>
             <FormSection title="Plan de pont" collapsible defaultExpanded={false}>
               <p className="text-xs text-muted-foreground py-2">Le plan de pont interactif sera disponible prochainement.</p>
             </FormSection>
 
-            {/* Tags, Notes & Attachments */}
-            <FormSection title="Tags, notes & fichiers" collapsible defaultExpanded={false}>
+            <FormSection title="Tags, notes & fichiers" collapsible defaultExpanded>
               <div className="space-y-3">
                 <TagManager ownerType="voyage" ownerId={voyage.id} compact />
                 <AttachmentManager ownerType="voyage" ownerId={voyage.id} compact />
@@ -3579,6 +3593,7 @@ function VectorDetailPanel({ id }: { id: string }) {
   const canDelete = hasPermission('travelwiz.voyage.delete')
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<TravelVectorUpdate>({})
+  const [detailTab, setDetailTab] = useState<'fiche' | 'operationnel' | 'documents'>('fiche')
 
   const startEdit = useCallback(() => {
     if (!vector) return
@@ -3639,52 +3654,92 @@ function VectorDetailPanel({ id }: { id: string }) {
     <DynamicPanelShell title={vector.name} subtitle={vector.registration} icon={<Ship size={14} className="text-primary" />}
       actionItems={vectorDetailActions}
     >
+      <TabBar
+        items={[
+          { id: 'fiche', label: 'Fiche', icon: Info },
+          { id: 'operationnel', label: 'Operationnel', icon: Settings },
+          { id: 'documents', label: 'Documents', icon: Paperclip },
+        ]}
+        activeId={detailTab}
+        onTabChange={setDetailTab}
+      />
       <PanelContentLayout>
-        {editing ? (
-          <>
-            <FormSection title="Identification">
+        {detailTab === 'fiche' && (
+          editing ? (
+            <>
+              <FormSection title="Identification">
+                <FormGrid>
+                  <DynamicPanelField label="Immatriculation"><input type="text" value={editForm.registration ?? ''} onChange={(e) => setEditForm({ ...editForm, registration: e.target.value })} className={panelInputClass} /></DynamicPanelField>
+                  <DynamicPanelField label="Nom"><input type="text" value={editForm.name ?? ''} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className={panelInputClass} /></DynamicPanelField>
+                  <DynamicPanelField label="Type">
+                    <select value={editForm.type ?? ''} onChange={(e) => handleEditTypeChange(e.target.value)} className={panelInputClass}>
+                      {Object.entries(VECTOR_TYPE_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                    </select>
+                  </DynamicPanelField>
+                  <DynamicPanelField label="Mode">
+                    <select value={editForm.mode ?? ''} onChange={(e) => setEditForm({ ...editForm, mode: e.target.value })} className={panelInputClass}>
+                      <option value="air">Aerien</option>
+                      <option value="sea">Maritime</option>
+                      <option value="road">Routier</option>
+                    </select>
+                  </DynamicPanelField>
+                  <DynamicPanelField label="Base d'attache" span="full">
+                    <AssetPicker
+                      value={editForm.home_base_id}
+                      onChange={(assetId) => setEditForm({ ...editForm, home_base_id: assetId })}
+                      placeholder="Selectionner une base..."
+                      clearable
+                    />
+                  </DynamicPanelField>
+                </FormGrid>
+              </FormSection>
+              <FormSection title="Capacites">
+                <FormGrid>
+                  <DynamicPanelField label="Capacite PAX"><input type="number" min={0} value={editForm.pax_capacity ?? ''} onChange={(e) => setEditForm({ ...editForm, pax_capacity: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+                  <DynamicPanelField label="Capacite poids (kg)"><input type="number" min={0} step="any" value={editForm.weight_capacity_kg ?? ''} onChange={(e) => setEditForm({ ...editForm, weight_capacity_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+                  <DynamicPanelField label="Volume (m3)"><input type="number" min={0} step="any" value={editForm.volume_capacity_m3 ?? ''} onChange={(e) => setEditForm({ ...editForm, volume_capacity_m3: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+                </FormGrid>
+              </FormSection>
+            </>
+          ) : (
+            <SectionColumns>
+              <div className="@container space-y-4">
+                <FormSection title="Identification">
+                  <DetailFieldGrid>
+                    <ReadOnlyRow label="Immatriculation" value={<span className="font-mono">{vector.registration}</span>} />
+                    <ReadOnlyRow label="Nom" value={vector.name} />
+                    <ReadOnlyRow label="Type" value={<span className={cn('gl-badge inline-flex items-center gap-1', typeEntry?.badge || 'gl-badge-neutral')}>{typeEntry?.label || vector.type}</span>} />
+                    <ReadOnlyRow label="Mode" value={modeLabels[vector.mode] || vector.mode} />
+                    <ReadOnlyRow label="Base d'attache" value={vector.home_base_name ?? '\u2014'} />
+                    <ReadOnlyRow label="Actif" value={vector.active ? 'Oui' : 'Non'} />
+                  </DetailFieldGrid>
+                </FormSection>
+              </div>
+              <div className="@container space-y-4">
+                <FormSection title="Capacites">
+                  <DetailFieldGrid>
+                    <ReadOnlyRow label="Capacite PAX" value={vector.pax_capacity} />
+                    <ReadOnlyRow label="Capacite poids" value={vector.weight_capacity_kg ? `${vector.weight_capacity_kg.toLocaleString('fr-FR')} kg` : '\u2014'} />
+                    <ReadOnlyRow label="Volume" value={vector.volume_capacity_m3 ? `${vector.volume_capacity_m3.toLocaleString('fr-FR')} m\u00b3` : '\u2014'} />
+                  </DetailFieldGrid>
+                </FormSection>
+              </div>
+            </SectionColumns>
+          )
+        )}
+
+        {detailTab === 'operationnel' && (
+          editing ? (
+            <FormSection title="Operationnel">
               <FormGrid>
-                <DynamicPanelField label="Immatriculation"><input type="text" value={editForm.registration ?? ''} onChange={(e) => setEditForm({ ...editForm, registration: e.target.value })} className={panelInputClass} /></DynamicPanelField>
-                <DynamicPanelField label="Nom"><input type="text" value={editForm.name ?? ''} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className={panelInputClass} /></DynamicPanelField>
-                <DynamicPanelField label="Type">
-                  <select value={editForm.type ?? ''} onChange={(e) => handleEditTypeChange(e.target.value)} className={panelInputClass}>
-                    {Object.entries(VECTOR_TYPE_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                  </select>
-                </DynamicPanelField>
-                <DynamicPanelField label="Mode">
-                  <select value={editForm.mode ?? ''} onChange={(e) => setEditForm({ ...editForm, mode: e.target.value })} className={panelInputClass}>
-                    <option value="air">Aerien</option>
-                    <option value="sea">Maritime</option>
-                    <option value="road">Routier</option>
-                  </select>
-                </DynamicPanelField>
-                <DynamicPanelField label="Base d'attache" span="full">
-                  <AssetPicker
-                    value={editForm.home_base_id}
-                    onChange={(assetId) => setEditForm({ ...editForm, home_base_id: assetId })}
-                    placeholder="Sélectionner une base..."
-                    clearable
-                  />
-                </DynamicPanelField>
-              </FormGrid>
-            </FormSection>
-            <FormSection title="Capacites">
-              <FormGrid>
-                <DynamicPanelField label="Capacité PAX"><input type="number" min={0} value={editForm.pax_capacity ?? ''} onChange={(e) => setEditForm({ ...editForm, pax_capacity: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-                <DynamicPanelField label="Capacité poids (kg)"><input type="number" min={0} step="any" value={editForm.weight_capacity_kg ?? ''} onChange={(e) => setEditForm({ ...editForm, weight_capacity_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-                <DynamicPanelField label="Volume (m3)"><input type="number" min={0} step="any" value={editForm.volume_capacity_m3 ?? ''} onChange={(e) => setEditForm({ ...editForm, volume_capacity_m3: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-              </FormGrid>
-            </FormSection>
-            <FormSection title="Opérationnel" collapsible defaultExpanded={false}>
-              <FormGrid>
-                <DynamicPanelField label="Pesée requise">
+                <DynamicPanelField label="Pesee requise">
                   <label className="inline-flex items-center gap-2 text-xs">
                     <input type="checkbox" checked={editForm.requires_weighing ?? false} onChange={(e) => setEditForm({ ...editForm, requires_weighing: e.target.checked })} />
                     Activer la pesee obligatoire
                   </label>
                 </DynamicPanelField>
                 {(editForm.mode === 'sea') && (
-                  <DynamicPanelField label="Numéro MMSI"><input type="text" value={editForm.mmsi_number ?? ''} onChange={(e) => setEditForm({ ...editForm, mmsi_number: e.target.value || null })} className={panelInputClass} placeholder="123456789" /></DynamicPanelField>
+                  <DynamicPanelField label="Numero MMSI"><input type="text" value={editForm.mmsi_number ?? ''} onChange={(e) => setEditForm({ ...editForm, mmsi_number: e.target.value || null })} className={panelInputClass} placeholder="123456789" /></DynamicPanelField>
                 )}
                 <DynamicPanelField label="Actif">
                   <label className="inline-flex items-center gap-2 text-xs">
@@ -3694,62 +3749,43 @@ function VectorDetailPanel({ id }: { id: string }) {
                 </DynamicPanelField>
               </FormGrid>
             </FormSection>
-          </>
-        ) : (
-          <>
-            <SectionColumns>
-              <div className="@container space-y-4">
-                <FormSection title="Identification">
-                  <DetailFieldGrid>
-                    <ReadOnlyRow label="Immatriculation" value={<span className="font-mono">{vector.registration}</span>} />
-                    <ReadOnlyRow label="Nom" value={vector.name} />
-                    <ReadOnlyRow label="Type" value={<span className={cn('gl-badge inline-flex items-center gap-1', typeEntry?.badge || 'gl-badge-neutral')}>{typeEntry?.label || vector.type}</span>} />
-                    <ReadOnlyRow label="Mode" value={modeLabels[vector.mode] || vector.mode} />
-                    <ReadOnlyRow label="Base d'attache" value={vector.home_base_name ?? '—'} />
-                    <ReadOnlyRow label="Actif" value={vector.active ? 'Oui' : 'Non'} />
-                  </DetailFieldGrid>
-                </FormSection>
-              </div>
-              <div className="@container space-y-4">
-                <FormSection title="Capacites">
-                  <DetailFieldGrid>
-                    <ReadOnlyRow label="Capacite PAX" value={vector.pax_capacity} />
-                    <ReadOnlyRow label="Capacite poids" value={vector.weight_capacity_kg ? `${vector.weight_capacity_kg.toLocaleString('fr-FR')} kg` : '—'} />
-                    <ReadOnlyRow label="Volume" value={vector.volume_capacity_m3 ? `${vector.volume_capacity_m3.toLocaleString('fr-FR')} m³` : '—'} />
-                  </DetailFieldGrid>
-                </FormSection>
-              </div>
-            </SectionColumns>
+          ) : (
+            <>
+              <FormSection title="Operationnel" collapsible defaultExpanded>
+                <DetailFieldGrid>
+                  <ReadOnlyRow label="Pesee requise" value={vector.requires_weighing ? 'Oui' : 'Non'} />
+                  {vector.mode === 'sea' && <ReadOnlyRow label="Numero MMSI" value={vector.mmsi_number ?? '\u2014'} />}
+                </DetailFieldGrid>
+              </FormSection>
 
-            <FormSection title="Operationnel" collapsible defaultExpanded={false}>
-              <DetailFieldGrid>
-                <ReadOnlyRow label="Pesee requise" value={vector.requires_weighing ? 'Oui' : 'Non'} />
-                {vector.mode === 'sea' && <ReadOnlyRow label="Numero MMSI" value={vector.mmsi_number ?? '—'} />}
-              </DetailFieldGrid>
-            </FormSection>
-
-            {/* Deck surfaces / Zones */}
-            <FormSection title={`Zones / Surfaces pont (${zones?.length ?? 0})`} collapsible defaultExpanded>
-              {zones && zones.length > 0 ? (
-                <div className="space-y-2">
-                  {zones.map((zone) => (
-                    <div key={zone.id} className="flex items-center gap-3 p-2 rounded-lg border border-border/60 bg-card">
-                      <MapPin size={14} className="text-muted-foreground shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{zone.name}</p>
-                        <p className="text-xs text-muted-foreground">{zone.zone_type}{zone.capacity ? ` • Capacité: ${zone.capacity}` : ''}</p>
+              <FormSection title={`Zones / Surfaces pont (${zones?.length ?? 0})`} collapsible defaultExpanded>
+                {zones && zones.length > 0 ? (
+                  <div className="space-y-2">
+                    {zones.map((zone) => (
+                      <div key={zone.id} className="flex items-center gap-3 p-2 rounded-lg border border-border/60 bg-card">
+                        <MapPin size={14} className="text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{zone.name}</p>
+                          <p className="text-xs text-muted-foreground">{zone.zone_type}{zone.capacity ? ` \u2022 Capacite: ${zone.capacity}` : ''}</p>
+                        </div>
+                        <span className={cn('gl-badge', zone.active ? 'gl-badge-success' : 'gl-badge-neutral')}>{zone.active ? 'Actif' : 'Inactif'}</span>
                       </div>
-                      <span className={cn('gl-badge', zone.active ? 'gl-badge-success' : 'gl-badge-neutral')}>{zone.active ? 'Actif' : 'Inactif'}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : <p className="text-xs text-muted-foreground py-2">Aucune zone configurée.</p>}
-            </FormSection>
+                    ))}
+                  </div>
+                ) : <p className="text-xs text-muted-foreground py-2">Aucune zone configuree.</p>}
+              </FormSection>
 
-            <FormSection title="Certifications" collapsible defaultExpanded={false}>
-              <p className="text-xs text-muted-foreground py-2">Les certifications véhicule seront disponibles prochainement.</p>
-            </FormSection>
-          </>
+              <FormSection title="Certifications" collapsible defaultExpanded={false}>
+                <p className="text-xs text-muted-foreground py-2">Les certifications vehicule seront disponibles prochainement.</p>
+              </FormSection>
+            </>
+          )
+        )}
+
+        {detailTab === 'documents' && (
+          <FormSection title="Fichiers" collapsible defaultExpanded>
+            <AttachmentManager ownerType="vector" ownerId={vector.id} compact />
+          </FormSection>
         )}
       </PanelContentLayout>
     </DynamicPanelShell>
@@ -3765,6 +3801,7 @@ function RotationDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState<RotationUpdate>({})
+  const [detailTab, setDetailTab] = useState<'informations' | 'documents'>('informations')
 
   const rotation = useMemo(
     () => (rotationsData?.items ?? []).find((item) => item.id === id),
@@ -3820,57 +3857,65 @@ function RotationDetailPanel({ id }: { id: string }) {
       icon={<Route size={14} className="text-primary" />}
       actionItems={rotationDetailActions}
     >
+      <TabBar
+        items={[
+          { id: 'informations', label: 'Informations', icon: Info },
+          { id: 'documents', label: 'Documents', icon: Paperclip },
+        ]}
+        activeId={detailTab}
+        onTabChange={setDetailTab}
+      />
       <PanelContentLayout>
-        {editing ? (
-          <>
-            <FormSection title="Identification">
-              <FormGrid>
-                <DynamicPanelField label="Nom">
-                  <input type="text" value={editForm.name ?? ''} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className={panelInputClass} />
-                </DynamicPanelField>
-                <DynamicPanelField label="Vecteur">
-                  <select value={editForm.vector_id ?? ''} onChange={(e) => setEditForm({ ...editForm, vector_id: e.target.value || null })} className={panelInputClass}>
-                    <option value="">Sélectionner...</option>
-                    {(vectorsData?.items ?? []).map((vector) => (
-                      <option key={vector.id} value={vector.id}>{vector.registration} - {vector.name}</option>
-                    ))}
-                  </select>
-                </DynamicPanelField>
-                <DynamicPanelField label="Base de départ" span="full">
-                  <AssetPicker
-                    value={editForm.departure_base_id ?? null}
-                    onChange={(assetId) => setEditForm({ ...editForm, departure_base_id: assetId ?? null })}
-                    placeholder="Sélectionner la base de départ..."
-                  />
-                </DynamicPanelField>
-              </FormGrid>
-            </FormSection>
-            <FormSection title="Programmation">
-              <FormGrid>
-                <DynamicPanelField label="Expression CRON">
-                  <input type="text" value={editForm.schedule_cron ?? ''} onChange={(e) => setEditForm({ ...editForm, schedule_cron: e.target.value || null })} className={panelInputClass} />
-                </DynamicPanelField>
-                <DynamicPanelField label="Description métier" span="full">
-                  <textarea value={editForm.schedule_description ?? ''} onChange={(e) => setEditForm({ ...editForm, schedule_description: e.target.value || null })} className={`${panelInputClass} min-h-[72px] resize-y`} rows={3} />
-                </DynamicPanelField>
-                <DynamicPanelField label="Active">
-                  <label className="inline-flex items-center gap-2 text-xs">
-                    <input type="checkbox" checked={editForm.active ?? true} onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })} />
-                    Rotation active
-                  </label>
-                </DynamicPanelField>
-              </FormGrid>
-            </FormSection>
-          </>
-        ) : (
-          <>
+        {detailTab === 'informations' && (
+          editing ? (
+            <>
+              <FormSection title="Identification">
+                <FormGrid>
+                  <DynamicPanelField label="Nom">
+                    <input type="text" value={editForm.name ?? ''} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className={panelInputClass} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label="Vecteur">
+                    <select value={editForm.vector_id ?? ''} onChange={(e) => setEditForm({ ...editForm, vector_id: e.target.value || null })} className={panelInputClass}>
+                      <option value="">Selectionner...</option>
+                      {(vectorsData?.items ?? []).map((vector) => (
+                        <option key={vector.id} value={vector.id}>{vector.registration} - {vector.name}</option>
+                      ))}
+                    </select>
+                  </DynamicPanelField>
+                  <DynamicPanelField label="Base de depart" span="full">
+                    <AssetPicker
+                      value={editForm.departure_base_id ?? null}
+                      onChange={(assetId) => setEditForm({ ...editForm, departure_base_id: assetId ?? null })}
+                      placeholder="Selectionner la base de depart..."
+                    />
+                  </DynamicPanelField>
+                </FormGrid>
+              </FormSection>
+              <FormSection title="Programmation">
+                <FormGrid>
+                  <DynamicPanelField label="Expression CRON">
+                    <input type="text" value={editForm.schedule_cron ?? ''} onChange={(e) => setEditForm({ ...editForm, schedule_cron: e.target.value || null })} className={panelInputClass} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label="Description metier" span="full">
+                    <textarea value={editForm.schedule_description ?? ''} onChange={(e) => setEditForm({ ...editForm, schedule_description: e.target.value || null })} className={`${panelInputClass} min-h-[72px] resize-y`} rows={3} />
+                  </DynamicPanelField>
+                  <DynamicPanelField label="Active">
+                    <label className="inline-flex items-center gap-2 text-xs">
+                      <input type="checkbox" checked={editForm.active ?? true} onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })} />
+                      Rotation active
+                    </label>
+                  </DynamicPanelField>
+                </FormGrid>
+              </FormSection>
+            </>
+          ) : (
             <SectionColumns>
               <div className="@container space-y-4">
                 <FormSection title="Identification">
                   <DetailFieldGrid>
                     <ReadOnlyRow label="Nom" value={rotation.name} />
-                    <ReadOnlyRow label="Vecteur" value={rotation.vector_name ?? '—'} />
-                    <ReadOnlyRow label="Base de depart" value={rotation.departure_base_name ?? '—'} />
+                    <ReadOnlyRow label="Vecteur" value={rotation.vector_name ?? '\u2014'} />
+                    <ReadOnlyRow label="Base de depart" value={rotation.departure_base_name ?? '\u2014'} />
                     <ReadOnlyRow label="Active" value={rotation.active ? 'Oui' : 'Non'} />
                   </DetailFieldGrid>
                 </FormSection>
@@ -3878,13 +3923,19 @@ function RotationDetailPanel({ id }: { id: string }) {
               <div className="@container space-y-4">
                 <FormSection title="Programmation">
                   <DetailFieldGrid>
-                    <ReadOnlyRow label="Expression CRON" value={rotation.schedule_cron ?? '—'} />
-                    <ReadOnlyRow label="Description metier" value={rotation.schedule_description ?? '—'} />
+                    <ReadOnlyRow label="Expression CRON" value={rotation.schedule_cron ?? '\u2014'} />
+                    <ReadOnlyRow label="Description metier" value={rotation.schedule_description ?? '\u2014'} />
                   </DetailFieldGrid>
                 </FormSection>
               </div>
             </SectionColumns>
-          </>
+          )
+        )}
+
+        {detailTab === 'documents' && (
+          <FormSection title="Fichiers" collapsible defaultExpanded>
+            <AttachmentManager ownerType="rotation" ownerId={rotation.id} compact />
+          </FormSection>
         )}
       </PanelContentLayout>
     </DynamicPanelShell>

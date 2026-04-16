@@ -16,12 +16,13 @@ import {
   FileText, Plus, Loader2, Trash2, LayoutDashboard, Files, FileCode2, FolderCog,
   Send, CheckCircle2, XCircle, Globe, Download, Link2, Clock,
   Archive, PenTool, GitCompare, ChevronDown, ChevronRight, Folder, PanelLeftClose, PanelLeft, Upload,
+  Info, Paperclip,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
-import { PageNavBar } from '@/components/ui/Tabs'
+import { PageNavBar, TabBar } from '@/components/ui/Tabs'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useFilterPersistence } from '@/hooks/useFilterPersistence'
@@ -813,6 +814,8 @@ function DocumentDetailPanel({ id }: { id: string }) {
     }] : []),
   ], [canDeleteDoc, handleDelete, t])
 
+  const [detailTab, setDetailTab] = useState<'informations' | 'documents'>('informations')
+
   if (docLoading || !doc) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<FileText size={14} className="text-primary" />}>
@@ -839,6 +842,17 @@ function DocumentDetailPanel({ id }: { id: string }) {
       icon={<FileText size={14} className="text-primary" />}
       actionItems={docDetailActions}
     >
+      <TabBar
+        items={[
+          { id: 'informations', label: 'Informations', icon: Info },
+          { id: 'documents', label: 'Fichiers', icon: Paperclip },
+        ]}
+        activeId={detailTab}
+        onTabChange={(id) => setDetailTab(id as 'informations' | 'documents')}
+        variant="muted"
+        className="px-3 pt-2"
+      />
+      {detailTab === 'informations' && (
       <PanelContentLayout>
         {/* Metadata */}
         <FormSection title="Informations" collapsible defaultExpanded>
@@ -1432,11 +1446,18 @@ function DocumentDetailPanel({ id }: { id: string }) {
         <FormSection title="Tags, notes & fichiers" collapsible defaultExpanded={false}>
           <div className="space-y-3">
             <TagManager ownerType="document" ownerId={doc.id} compact />
-            <AttachmentManager ownerType="document" ownerId={doc.id} compact />
             <NoteManager ownerType="document" ownerId={doc.id} compact />
           </div>
         </FormSection>
       </PanelContentLayout>
+      )}
+      {detailTab === 'documents' && (
+      <PanelContentLayout>
+        <FormSection title="Fichiers attaches" collapsible defaultExpanded>
+          <AttachmentManager ownerType="document" ownerId={doc.id} compact />
+        </FormSection>
+      </PanelContentLayout>
+      )}
     </DynamicPanelShell>
   )
 }
@@ -2410,6 +2431,7 @@ function DocTypeDetailPanel({ id }: { id: string }) {
 
   const docType = useMemo(() => docTypes?.find((dt) => dt.id === id), [docTypes, id])
 
+  const [detailTab, setDetailTab] = useState<'informations' | 'documents'>('informations')
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({ name_fr: '', name_en: '', discipline: '', nomenclature_pattern: '' })
 
@@ -2472,6 +2494,17 @@ function DocTypeDetailPanel({ id }: { id: string }) {
       icon={<FolderCog size={14} className="text-primary" />}
       actionItems={docTypeDetailActions}
     >
+      <TabBar
+        items={[
+          { id: 'informations', label: 'Informations', icon: Info },
+          { id: 'documents', label: 'Documents', icon: Paperclip },
+        ]}
+        activeId={detailTab}
+        onTabChange={(id) => setDetailTab(id as 'informations' | 'documents')}
+        variant="muted"
+        className="px-3 pt-2"
+      />
+      {detailTab === 'informations' && (
       <PanelContentLayout>
         <FormSection title="Identification">
           <FormGrid>
@@ -2506,12 +2539,20 @@ function DocTypeDetailPanel({ id }: { id: string }) {
             ) : (
               <ReadOnlyRow label="Pattern" value={docType.nomenclature_pattern} />
             )}
-            <ReadOnlyRow label="Schéma de révision" value={docType.revision_scheme} />
-            <ReadOnlyRow label="Langue par défaut" value={docType.default_language} />
+            <ReadOnlyRow label="Schema de revision" value={docType.revision_scheme} />
+            <ReadOnlyRow label="Langue par defaut" value={docType.default_language} />
             <ReadOnlyRow label="Actif" value={docType.is_active ? 'Oui' : 'Non'} />
           </FormGrid>
         </FormSection>
       </PanelContentLayout>
+      )}
+      {detailTab === 'documents' && (
+      <PanelContentLayout>
+        <FormSection title="Fichiers attaches" collapsible defaultExpanded>
+          <AttachmentManager ownerType="document_type" ownerId={id} compact />
+        </FormSection>
+      </PanelContentLayout>
+      )}
     </DynamicPanelShell>
   )
 }
@@ -2533,6 +2574,7 @@ function TemplateDetailPanel({ id }: { id: string }) {
     return dt ? `${dt.code} — ${dt.name?.fr || dt.code}` : '--'
   }, [template, docTypes])
 
+  const [detailTab, setDetailTab] = useState<'informations' | 'documents'>('informations')
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({ name: '', description: '' })
 
@@ -2592,6 +2634,17 @@ function TemplateDetailPanel({ id }: { id: string }) {
       icon={<FileCode2 size={14} className="text-primary" />}
       actionItems={templateDetailActions}
     >
+      <TabBar
+        items={[
+          { id: 'informations', label: 'Informations', icon: Info },
+          { id: 'documents', label: 'Documents', icon: Paperclip },
+        ]}
+        activeId={detailTab}
+        onTabChange={(id) => setDetailTab(id as 'informations' | 'documents')}
+        variant="muted"
+        className="px-3 pt-2"
+      />
+      {detailTab === 'informations' && (
       <PanelContentLayout>
         <FormSection title="Informations">
           <FormGrid>
@@ -2617,6 +2670,14 @@ function TemplateDetailPanel({ id }: { id: string }) {
           </FormGrid>
         </FormSection>
       </PanelContentLayout>
+      )}
+      {detailTab === 'documents' && (
+      <PanelContentLayout>
+        <FormSection title="Fichiers attaches" collapsible defaultExpanded>
+          <AttachmentManager ownerType="template" ownerId={id} compact />
+        </FormSection>
+      </PanelContentLayout>
+      )}
     </DynamicPanelShell>
   )
 }

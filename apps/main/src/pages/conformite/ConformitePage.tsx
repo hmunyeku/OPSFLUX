@@ -9,14 +9,14 @@ import { useTranslation } from 'react-i18next'
 import {
   ShieldCheck, Plus, Loader2, Trash2, FileCheck, ClipboardList,
   Briefcase, GitBranch, Scale, ShieldOff, Check, X, ClipboardCheck, Grid3X3, List,
-  Download, Paperclip, LayoutDashboard,
+  Download, Paperclip, LayoutDashboard, Info, Shield,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import { DataTableToolbar } from '@/components/ui/DataTable/Toolbar'
 import { ExportWizard } from '@/components/shared/ExportWizard'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { ConditionBuilder } from '@/components/shared/ConditionBuilder'
-import { PageNavBar, SubTabBar } from '@/components/ui/Tabs'
+import { PageNavBar, SubTabBar, TabBar } from '@/components/ui/Tabs'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
@@ -269,6 +269,7 @@ function TypeDetailPanel({ id }: { id: string }) {
   const deleteType = useDeleteComplianceType()
   const { toast } = useToast()
   const { categoryLabels } = useConformiteDictionaryState()
+  const [detailTab, setDetailTab] = useState<'fiche' | 'documents'>('fiche')
 
   const handleSave = useCallback((field: string, value: string) => {
     updateType.mutate({ id, payload: normalizeNames({ [field]: value }) })
@@ -306,25 +307,37 @@ function TypeDetailPanel({ id }: { id: string }) {
       icon={<ShieldCheck size={14} className="text-primary" />}
       actionItems={actionItems}
     >
-      <PanelContentLayout>
-        <FormSection title="Informations" collapsible defaultExpanded>
-          <DetailFieldGrid>
-            <ReadOnlyRow label="Catégorie" value={<span className="gl-badge gl-badge-info">{categoryLabels[ct.category] ?? ct.category}</span>} />
-            <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{ct.code || '—'}</span>} />
-            <InlineEditableRow label="Nom" value={ct.name} onSave={(v) => handleSave('name', v)} />
-            <ReadOnlyRow label="Validité" value={ct.validity_days ? `${ct.validity_days} jours` : 'Permanent'} />
-            <ReadOnlyRow label="Obligatoire" value={ct.is_mandatory ? 'Oui' : 'Non'} />
-          </DetailFieldGrid>
-        </FormSection>
-
-        <FormSection title="Description" collapsible defaultExpanded={false}>
-          <InlineEditableRow label="Description" value={ct.description || ''} onSave={(v) => handleSave('description', v)} />
-        </FormSection>
-
-        <FormSection title="Pièces jointes" collapsible defaultExpanded={false}>
-          <AttachmentManager ownerType="compliance_type" ownerId={ct.id} compact />
-        </FormSection>
-      </PanelContentLayout>
+      <TabBar
+        items={[
+          { id: 'fiche', label: 'Informations', icon: Info },
+          { id: 'documents', label: 'Documents', icon: Paperclip },
+        ]}
+        activeId={detailTab}
+        onTabChange={(id) => setDetailTab(id as typeof detailTab)}
+      />
+      {detailTab === 'fiche' && (
+        <PanelContentLayout>
+          <FormSection title="Informations">
+            <DetailFieldGrid>
+              <ReadOnlyRow label="Catégorie" value={<span className="gl-badge gl-badge-info">{categoryLabels[ct.category] ?? ct.category}</span>} />
+              <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{ct.code || '—'}</span>} />
+              <InlineEditableRow label="Nom" value={ct.name} onSave={(v) => handleSave('name', v)} />
+              <ReadOnlyRow label="Validité" value={ct.validity_days ? `${ct.validity_days} jours` : 'Permanent'} />
+              <ReadOnlyRow label="Obligatoire" value={ct.is_mandatory ? 'Oui' : 'Non'} />
+            </DetailFieldGrid>
+          </FormSection>
+          <FormSection title="Description">
+            <InlineEditableRow label="Description" value={ct.description || ''} onSave={(v) => handleSave('description', v)} />
+          </FormSection>
+        </PanelContentLayout>
+      )}
+      {detailTab === 'documents' && (
+        <PanelContentLayout>
+          <FormSection title="Pièces jointes">
+            <AttachmentManager ownerType="compliance_type" ownerId={ct.id} compact />
+          </FormSection>
+        </PanelContentLayout>
+      )}
     </DynamicPanelShell>
   )
 }
@@ -495,6 +508,7 @@ function ComplianceRecordDetailPanel({ id }: { id: string }) {
   const { toast } = useToast()
   const { statusLabels } = useConformiteDictionaryState()
   const record = data?.items.find((item) => item.id === id)
+  const [detailTab, setDetailTab] = useState<'informations' | 'documents'>('informations')
 
   const handleDelete = useCallback(async () => {
     await deleteRecord.mutateAsync(id)
@@ -541,34 +555,46 @@ function ComplianceRecordDetailPanel({ id }: { id: string }) {
       icon={<FileCheck size={14} className="text-primary" />}
       actionItems={actionItems}
     >
-      <PanelContentLayout>
-        <FormSection title={t('conformite.records.sections.general')}>
-          <DetailFieldGrid>
-            <ReadOnlyRow label={t('conformite.records.fields.type')} value={record.type_name || '—'} />
-            <ReadOnlyRow label={t('conformite.records.fields.owner_type')} value={record.owner_type} />
-            <ReadOnlyRow label={t('conformite.records.fields.owner_id')} value={<span className="font-mono text-xs">{record.owner_id}</span>} />
-            <ReadOnlyRow label={t('conformite.records.fields.status')} value={<span className={cn('gl-badge', statusClass)}>{statusLabels[record.status] ?? record.status}</span>} />
-            <ReadOnlyRow label={t('common.created_at')} value={record.created_at ? new Date(record.created_at).toLocaleDateString('fr-FR') : '—'} />
-          </DetailFieldGrid>
-        </FormSection>
-
-        <FormSection title={t('conformite.records.sections.reference')} collapsible defaultExpanded>
-          <DetailFieldGrid>
-            <InlineEditableRow label={t('conformite.records.fields.issuer')} value={record.issuer || ''} onSave={(value) => handleSave({ issuer: value || null })} />
-            <InlineEditableRow label={t('conformite.records.fields.reference_number')} value={record.reference_number || ''} onSave={(value) => handleSave({ reference_number: value || null })} />
-            <ReadOnlyRow label={t('conformite.records.fields.issued_at')} value={record.issued_at ? new Date(record.issued_at).toLocaleDateString('fr-FR') : '—'} />
-            <ReadOnlyRow label={t('conformite.records.fields.expires_at')} value={record.expires_at ? new Date(record.expires_at).toLocaleDateString('fr-FR') : '—'} />
-          </DetailFieldGrid>
-          <div className="mt-3">
-            <InlineEditableRow label={t('conformite.records.fields.notes')} value={record.notes || ''} onSave={(value) => handleSave({ notes: value || null })} />
-          </div>
-        </FormSection>
-
-        <FormSection title={t('conformite.records.sections.attachments')} collapsible defaultExpanded>
-          <p className="mb-2 text-xs text-muted-foreground">{t('conformite.records.attachments_help')}</p>
-          <AttachmentManager ownerType="compliance_record" ownerId={record.id} compact />
-        </FormSection>
-      </PanelContentLayout>
+      <TabBar
+        items={[
+          { id: 'informations', label: 'Informations', icon: Info },
+          { id: 'documents', label: 'Documents', icon: Paperclip },
+        ]}
+        activeId={detailTab}
+        onTabChange={(id) => setDetailTab(id as typeof detailTab)}
+      />
+      {detailTab === 'informations' && (
+        <PanelContentLayout>
+          <FormSection title={t('conformite.records.sections.general')}>
+            <DetailFieldGrid>
+              <ReadOnlyRow label={t('conformite.records.fields.type')} value={record.type_name || '—'} />
+              <ReadOnlyRow label={t('conformite.records.fields.owner_type')} value={record.owner_type} />
+              <ReadOnlyRow label={t('conformite.records.fields.owner_id')} value={<span className="font-mono text-xs">{record.owner_id}</span>} />
+              <ReadOnlyRow label={t('conformite.records.fields.status')} value={<span className={cn('gl-badge', statusClass)}>{statusLabels[record.status] ?? record.status}</span>} />
+              <ReadOnlyRow label={t('common.created_at')} value={record.created_at ? new Date(record.created_at).toLocaleDateString('fr-FR') : '—'} />
+            </DetailFieldGrid>
+          </FormSection>
+          <FormSection title={t('conformite.records.sections.reference')}>
+            <DetailFieldGrid>
+              <InlineEditableRow label={t('conformite.records.fields.issuer')} value={record.issuer || ''} onSave={(value) => handleSave({ issuer: value || null })} />
+              <InlineEditableRow label={t('conformite.records.fields.reference_number')} value={record.reference_number || ''} onSave={(value) => handleSave({ reference_number: value || null })} />
+              <ReadOnlyRow label={t('conformite.records.fields.issued_at')} value={record.issued_at ? new Date(record.issued_at).toLocaleDateString('fr-FR') : '—'} />
+              <ReadOnlyRow label={t('conformite.records.fields.expires_at')} value={record.expires_at ? new Date(record.expires_at).toLocaleDateString('fr-FR') : '—'} />
+            </DetailFieldGrid>
+            <div className="mt-3">
+              <InlineEditableRow label={t('conformite.records.fields.notes')} value={record.notes || ''} onSave={(value) => handleSave({ notes: value || null })} />
+            </div>
+          </FormSection>
+        </PanelContentLayout>
+      )}
+      {detailTab === 'documents' && (
+        <PanelContentLayout>
+          <FormSection title={t('conformite.records.sections.attachments')}>
+            <p className="mb-2 text-xs text-muted-foreground">{t('conformite.records.attachments_help')}</p>
+            <AttachmentManager ownerType="compliance_record" ownerId={record.id} compact />
+          </FormSection>
+        </PanelContentLayout>
+      )}
     </DynamicPanelShell>
   )
 }
@@ -698,6 +724,7 @@ function ExemptionDetailPanel({ id }: { id: string }) {
   const { toast } = useToast()
   const [rejectReason, setRejectReason] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
+  const [detailTab, setDetailTab] = useState<'informations' | 'documents'>('informations')
 
   const handleApprove = useCallback(async () => {
     try {
@@ -762,79 +789,79 @@ function ExemptionDetailPanel({ id }: { id: string }) {
       icon={<ShieldOff size={14} className="text-amber-500" />}
       actionItems={actionItems}
     >
-      <PanelContentLayout>
-        <FormSection title="Informations" collapsible defaultExpanded>
-          <DetailFieldGrid>
-            <ReadOnlyRow label="Statut" value={statusBadge} />
-            <ReadOnlyRow label="Type de conformité" value={exemption.record_type_name || '--'} />
-            <ReadOnlyRow label="Catégorie" value={exemption.record_type_category ? <span className="gl-badge gl-badge-neutral">{exemption.record_type_category}</span> : '--'} />
-            <ReadOnlyRow label="Propriétaire" value={exemption.owner_name || '--'} />
-            <ReadOnlyRow label="Date de début" value={new Date(exemption.start_date).toLocaleDateString('fr-FR')} />
-            <ReadOnlyRow label="Date de fin" value={new Date(exemption.end_date).toLocaleDateString('fr-FR')} />
-            <ReadOnlyRow label="Approuvé par" value={exemption.approver_name || '--'} />
-            <ReadOnlyRow label="Créé par" value={exemption.creator_name || '--'} />
-            <ReadOnlyRow label="Créé le" value={new Date(exemption.created_at).toLocaleDateString('fr-FR')} />
-          </DetailFieldGrid>
-        </FormSection>
-
-        <FormSection title="Motif" collapsible defaultExpanded>
-          <p className="text-sm text-foreground whitespace-pre-wrap">{exemption.reason}</p>
-        </FormSection>
-
-        {exemption.conditions && (
-          <FormSection title="Conditions" collapsible defaultExpanded>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{exemption.conditions}</p>
+      <TabBar
+        items={[
+          { id: 'informations', label: 'Informations', icon: Info },
+          { id: 'documents', label: 'Documents', icon: Paperclip },
+        ]}
+        activeId={detailTab}
+        onTabChange={(id) => setDetailTab(id as typeof detailTab)}
+      />
+      {detailTab === 'informations' && (
+        <PanelContentLayout>
+          <FormSection title="Informations">
+            <DetailFieldGrid>
+              <ReadOnlyRow label="Statut" value={statusBadge} />
+              <ReadOnlyRow label="Type de conformité" value={exemption.record_type_name || '--'} />
+              <ReadOnlyRow label="Catégorie" value={exemption.record_type_category ? <span className="gl-badge gl-badge-neutral">{exemption.record_type_category}</span> : '--'} />
+              <ReadOnlyRow label="Propriétaire" value={exemption.owner_name || '--'} />
+              <ReadOnlyRow label="Date de début" value={new Date(exemption.start_date).toLocaleDateString('fr-FR')} />
+              <ReadOnlyRow label="Date de fin" value={new Date(exemption.end_date).toLocaleDateString('fr-FR')} />
+              <ReadOnlyRow label="Approuvé par" value={exemption.approver_name || '--'} />
+              <ReadOnlyRow label="Créé par" value={exemption.creator_name || '--'} />
+              <ReadOnlyRow label="Créé le" value={new Date(exemption.created_at).toLocaleDateString('fr-FR')} />
+            </DetailFieldGrid>
           </FormSection>
-        )}
-
-        {exemption.rejection_reason && (
-          <FormSection title="Motif du rejet" collapsible defaultExpanded>
-            <p className="text-sm text-red-600 whitespace-pre-wrap">{exemption.rejection_reason}</p>
+          <FormSection title="Motif">
+            <p className="text-sm text-foreground whitespace-pre-wrap">{exemption.reason}</p>
           </FormSection>
-        )}
-
-        {exemption.status === 'pending' && (
-          <FormSection title="Actions" collapsible defaultExpanded>
-            <div className="flex gap-2">
-              <PanelActionButton
-                variant="primary"
-                onClick={handleApprove}
-                disabled={approveExemption.isPending}
-              >
-                {approveExemption.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                <span className="ml-1">Approuver</span>
-              </PanelActionButton>
-              <PanelActionButton
-                onClick={() => setShowRejectForm(!showRejectForm)}
-              >
-                <X size={12} />
-                <span className="ml-1">Rejeter</span>
-              </PanelActionButton>
-            </div>
-            {showRejectForm && (
-              <div className="mt-3 space-y-2">
-                <textarea
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  className={`${panelInputClass} min-h-[60px] resize-y`}
-                  placeholder="Motif du rejet..."
-                  rows={2}
-                />
-                <PanelActionButton
-                  onClick={handleReject}
-                  disabled={rejectExemption.isPending || !rejectReason.trim()}
-                >
-                  {rejectExemption.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Confirmer le rejet'}
+          {exemption.conditions && (
+            <FormSection title="Conditions">
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{exemption.conditions}</p>
+            </FormSection>
+          )}
+          {exemption.rejection_reason && (
+            <FormSection title="Motif du rejet">
+              <p className="text-sm text-red-600 whitespace-pre-wrap">{exemption.rejection_reason}</p>
+            </FormSection>
+          )}
+          {exemption.status === 'pending' && (
+            <FormSection title="Actions">
+              <div className="flex gap-2">
+                <PanelActionButton variant="primary" onClick={handleApprove} disabled={approveExemption.isPending}>
+                  {approveExemption.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                  <span className="ml-1">Approuver</span>
+                </PanelActionButton>
+                <PanelActionButton onClick={() => setShowRejectForm(!showRejectForm)}>
+                  <X size={12} />
+                  <span className="ml-1">Rejeter</span>
                 </PanelActionButton>
               </div>
-            )}
+              {showRejectForm && (
+                <div className="mt-3 space-y-2">
+                  <textarea
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    className={`${panelInputClass} min-h-[60px] resize-y`}
+                    placeholder="Motif du rejet..."
+                    rows={2}
+                  />
+                  <PanelActionButton onClick={handleReject} disabled={rejectExemption.isPending || !rejectReason.trim()}>
+                    {rejectExemption.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Confirmer le rejet'}
+                  </PanelActionButton>
+                </div>
+              )}
+            </FormSection>
+          )}
+        </PanelContentLayout>
+      )}
+      {detailTab === 'documents' && (
+        <PanelContentLayout>
+          <FormSection title="Pièces jointes">
+            <AttachmentManager ownerType="compliance_exemption" ownerId={exemption.id} compact />
           </FormSection>
-        )}
-
-        <FormSection title="Pièces jointes" collapsible defaultExpanded={false}>
-          <AttachmentManager ownerType="compliance_exemption" ownerId={exemption.id} compact />
-        </FormSection>
-      </PanelContentLayout>
+        </PanelContentLayout>
+      )}
     </DynamicPanelShell>
   )
 }
@@ -930,6 +957,7 @@ function JobPositionDetailPanel({ id }: { id: string }) {
   const deleteJP = useDeleteJobPosition()
   const { toast } = useToast()
   const { categoryLabels, rulePriorityLabels } = useConformiteDictionaryState()
+  const [detailTab, setDetailTab] = useState<'fiche' | 'regles' | 'documents'>('fiche')
 
   // Rules linked to this job position + global rules
   const { data: allRules } = useComplianceRules(undefined)
@@ -986,20 +1014,32 @@ function JobPositionDetailPanel({ id }: { id: string }) {
       icon={<Briefcase size={14} className="text-primary" />}
       actionItems={actionItems}
     >
-      <PanelContentLayout>
-        <FormSection title="Informations" collapsible defaultExpanded>
-          <DetailFieldGrid>
-            <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{jp.code || '—'}</span>} />
-            <InlineEditableRow label="Intitulé" value={jp.name} onSave={(v) => handleSave('name', v)} />
-            <InlineEditableRow label="Departement" value={jp.department || ''} onSave={(v) => handleSave('department', v)} />
-          </DetailFieldGrid>
-        </FormSection>
-
-        <FormSection title="Description" collapsible defaultExpanded={false}>
-          <InlineEditableRow label="Description" value={jp.description || ''} onSave={(v) => handleSave('description', v)} />
-        </FormSection>
-
-        <FormSection title={`Exigences de conformité (${linkedRules.length})`} collapsible defaultExpanded>
+      <TabBar
+        items={[
+          { id: 'fiche', label: 'Fiche de poste', icon: Info },
+          { id: 'regles', label: `Exigences (${linkedRules.length})`, icon: Shield },
+          { id: 'documents', label: 'Documents', icon: Paperclip },
+        ]}
+        activeId={detailTab}
+        onTabChange={(id) => setDetailTab(id as typeof detailTab)}
+      />
+      {detailTab === 'fiche' && (
+        <PanelContentLayout>
+          <FormSection title="Informations">
+            <DetailFieldGrid>
+              <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{jp.code || '—'}</span>} />
+              <InlineEditableRow label="Intitulé" value={jp.name} onSave={(v) => handleSave('name', v)} />
+              <InlineEditableRow label="Departement" value={jp.department || ''} onSave={(v) => handleSave('department', v)} />
+            </DetailFieldGrid>
+          </FormSection>
+          <FormSection title="Description">
+            <InlineEditableRow label="Description" value={jp.description || ''} onSave={(v) => handleSave('description', v)} />
+          </FormSection>
+        </PanelContentLayout>
+      )}
+      {detailTab === 'regles' && (
+        <PanelContentLayout>
+          <FormSection title={`Exigences de conformité (${linkedRules.length})`}>
           {linkedRules.length > 0 ? (
             <div className="space-y-1.5">
               {linkedRules.map(r => {
@@ -1043,11 +1083,15 @@ function JobPositionDetailPanel({ id }: { id: string }) {
             <p className="text-xs text-muted-foreground">Aucune exigence de conformité définie pour ce poste.</p>
           )}
         </FormSection>
-
-        <FormSection title="Pièces jointes" collapsible defaultExpanded={false}>
-          <AttachmentManager ownerType="job_position" ownerId={jp.id} compact />
-        </FormSection>
-      </PanelContentLayout>
+        </PanelContentLayout>
+      )}
+      {detailTab === 'documents' && (
+        <PanelContentLayout>
+          <FormSection title="Pièces jointes">
+            <AttachmentManager ownerType="job_position" ownerId={jp.id} compact />
+          </FormSection>
+        </PanelContentLayout>
+      )}
     </DynamicPanelShell>
   )
 }

@@ -19,12 +19,13 @@ import {
   LayoutDashboard, Layers, GitBranch, Tag, BookOpen,
   Lock, FilePlus2, ShieldCheck,
   FileDown, Cpu, History, PenTool, X,
+  Info, Paperclip, Settings,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
-import { PageNavBar } from '@/components/ui/Tabs'
+import { PageNavBar, TabBar } from '@/components/ui/Tabs'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useFilterPersistence } from '@/hooks/useFilterPersistence'
 import { usePageSize } from '@/hooks/usePageSize'
@@ -340,6 +341,7 @@ function PIDDetailPanel({ id }: { id: string }) {
 
   // Draw.io editor state
   const [showEditor, setShowEditor] = useState(false)
+  const [detailTab, setDetailTab] = useState<'fiche' | 'equipements' | 'documents'>('fiche')
 
   const handleSaveXml = useCallback(async (xml: string) => {
     try {
@@ -466,6 +468,18 @@ function PIDDetailPanel({ id }: { id: string }) {
       icon={<FileText size={14} className="text-primary" />}
       actionItems={pidActionItems}
     >
+      <TabBar
+        items={[
+          { id: 'fiche', label: 'Informations', icon: Info },
+          { id: 'equipements', label: 'Equipements', icon: Settings },
+          { id: 'documents', label: 'Documents', icon: Paperclip },
+        ]}
+        activeId={detailTab}
+        onTabChange={(id) => setDetailTab(id as 'fiche' | 'equipements' | 'documents')}
+        variant="muted"
+        className="px-3 pt-2"
+      />
+      {detailTab === 'fiche' && (
       <PanelContentLayout>
         <SectionColumns>
           {/* ── Left Column ── */}
@@ -473,7 +487,7 @@ function PIDDetailPanel({ id }: { id: string }) {
             {/* Identification */}
             <FormSection title="Identification" collapsible defaultExpanded>
               <DetailFieldGrid>
-                <ReadOnlyRow label="Numéro" value={doc.number} />
+                <ReadOnlyRow label="Numero" value={doc.number} />
                 <InlineEditableRow label="Titre" value={doc.title} onSave={handleFieldSave('title')} />
                 <ReadOnlyRow
                   label="Type"
@@ -484,16 +498,16 @@ function PIDDetailPanel({ id }: { id: string }) {
                   }
                 />
                 <ReadOnlyRow label="Statut" value={<StatusBadge status={doc.status} />} />
-                <ReadOnlyRow label="Révision" value={<span className="font-mono text-xs">{doc.revision}</span>} />
+                <ReadOnlyRow label="Revision" value={<span className="font-mono text-xs">{doc.revision}</span>} />
               </DetailFieldGrid>
             </FormSection>
 
             {/* Specifications */}
-            <FormSection title="Spécifications" collapsible defaultExpanded>
+            <FormSection title="Specifications" collapsible defaultExpanded>
               <DetailFieldGrid>
                 <ReadOnlyRow label="Format" value={<SheetFormatCard format={doc.sheet_format} />} />
-                <InlineEditableRow label="Échelle" value={doc.scale || ''} onSave={handleFieldSave('scale')} />
-                <InlineEditableRow label="N° dessin" value={doc.drawing_number || ''} onSave={handleFieldSave('drawing_number')} />
+                <InlineEditableRow label="Echelle" value={doc.scale || ''} onSave={handleFieldSave('scale')} />
+                <InlineEditableRow label="N dessin" value={doc.drawing_number || ''} onSave={handleFieldSave('drawing_number')} />
               </DetailFieldGrid>
             </FormSection>
           </div>
@@ -504,10 +518,10 @@ function PIDDetailPanel({ id }: { id: string }) {
             <FormSection title="Associations" collapsible defaultExpanded>
               <DetailFieldGrid>
                 <ReadOnlyRow label="Projet" value={doc.project_name || '--'} />
-                <ReadOnlyRow label="Équipements" value={<span className="tabular-nums">{doc.equipment_count}</span>} />
-                <ReadOnlyRow label="Créé par" value={doc.creator_name || '--'} />
+                <ReadOnlyRow label="Equipements" value={<span className="tabular-nums">{doc.equipment_count}</span>} />
+                <ReadOnlyRow label="Cree par" value={doc.creator_name || '--'} />
                 <ReadOnlyRow
-                  label="Créé le"
+                  label="Cree le"
                   value={new Date(doc.created_at).toLocaleDateString('fr-FR')}
                 />
               </DetailFieldGrid>
@@ -536,7 +550,7 @@ function PIDDetailPanel({ id }: { id: string }) {
 
             {/* Diagram Preview */}
             {showEditor ? (
-              <FormSection title="Éditeur Draw.io" collapsible={false}>
+              <FormSection title="Editeur Draw.io" collapsible={false}>
                 <div className="h-[500px] -mx-3 -mb-1">
                   <DrawioEditor
                     xmlContent={doc.xml_content ?? undefined}
@@ -547,7 +561,7 @@ function PIDDetailPanel({ id }: { id: string }) {
                 </div>
               </FormSection>
             ) : doc.xml_content ? (
-              <FormSection title="Aperçu du diagramme" collapsible defaultExpanded>
+              <FormSection title="Apercu du diagramme" collapsible defaultExpanded>
                 <div
                   className="w-full max-h-[200px] overflow-hidden rounded border border-border bg-muted/10 flex items-center justify-center cursor-pointer hover:bg-muted/20 transition-colors"
                   onClick={() => setShowEditor(true)}
@@ -564,7 +578,7 @@ function PIDDetailPanel({ id }: { id: string }) {
         </SectionColumns>
 
         {/* -- Revision History (full width below columns) -- */}
-        <FormSection title={`Historique des révisions${revisions ? ` (${revisions.length})` : ''}`} collapsible defaultExpanded>
+        <FormSection title={`Historique des revisions${revisions ? ` (${revisions.length})` : ''}`} collapsible defaultExpanded>
           {revisionsLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 size={14} className="animate-spin text-muted-foreground" />
@@ -586,26 +600,42 @@ function PIDDetailPanel({ id }: { id: string }) {
                       <p className="text-muted-foreground mt-0.5">{rev.change_description}</p>
                     )}
                     <p className="text-muted-foreground/60 mt-0.5">
-                      {rev.creator_name || 'Système'} — {new Date(rev.created_at).toLocaleDateString('fr-FR')}
+                      {rev.creator_name || 'Systeme'} — {new Date(rev.created_at).toLocaleDateString('fr-FR')}
                     </p>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground">Aucune révision enregistrée.</p>
+            <p className="text-xs text-muted-foreground">Aucune revision enregistree.</p>
           )}
         </FormSection>
 
-        {/* Tags, Notes & Attachments */}
-        <FormSection title="Tags, notes & fichiers" collapsible defaultExpanded={false}>
+        {/* Tags & Notes */}
+        <FormSection title="Tags & notes" collapsible defaultExpanded={false}>
           <div className="space-y-3">
             <TagManager ownerType="pid_document" ownerId={doc.id} compact />
-            <AttachmentManager ownerType="pid_document" ownerId={doc.id} compact />
             <NoteManager ownerType="pid_document" ownerId={doc.id} compact />
           </div>
         </FormSection>
       </PanelContentLayout>
+      )}
+      {detailTab === 'equipements' && (
+      <PanelContentLayout>
+        <FormSection title="Equipements" collapsible defaultExpanded>
+          <p className="text-xs text-muted-foreground">
+            Ce PID contient <span className="font-medium text-foreground">{doc.equipment_count}</span> equipement{doc.equipment_count !== 1 ? 's' : ''}. Consultez l'onglet Equipements de la page principale pour les details.
+          </p>
+        </FormSection>
+      </PanelContentLayout>
+      )}
+      {detailTab === 'documents' && (
+      <PanelContentLayout>
+        <FormSection title="Fichiers attaches" collapsible defaultExpanded>
+          <AttachmentManager ownerType="pid_document" ownerId={doc.id} compact />
+        </FormSection>
+      </PanelContentLayout>
+      )}
     </DynamicPanelShell>
   )
 }
@@ -1567,6 +1597,8 @@ function EquipmentDetailPanel({ id }: { id: string }) {
   const updateEquipment = useUpdateEquipment()
   const deleteEquipment = useDeleteEquipment()
 
+  const [detailTab, setDetailTab] = useState<'fiche' | 'documents'>('fiche')
+
   const handleInlineSave = useCallback((field: string, value: string) => {
     updateEquipment.mutate({ id, payload: { [field]: value } })
   }, [id, updateEquipment])
@@ -1621,6 +1653,17 @@ function EquipmentDetailPanel({ id }: { id: string }) {
       actionItems={equipActionItems}
       onActionConfirm={confirmEquip}
     >
+      <TabBar
+        items={[
+          { id: 'fiche', label: 'Informations', icon: Info },
+          { id: 'documents', label: 'Documents', icon: Paperclip },
+        ]}
+        activeId={detailTab}
+        onTabChange={(id) => setDetailTab(id as 'fiche' | 'documents')}
+        variant="muted"
+        className="px-3 pt-2"
+      />
+      {detailTab === 'fiche' && (
       <PanelContentLayout>
         {/* -- Identification -- */}
         <FormSection title="Identification" collapsible defaultExpanded>
@@ -1673,7 +1716,7 @@ function EquipmentDetailPanel({ id }: { id: string }) {
               }
             />
             {equip.capacity_value != null && (
-              <ReadOnlyRow label="Capacité" value={`${equip.capacity_value} ${equip.capacity_unit || ''}`} />
+              <ReadOnlyRow label="Capacite" value={`${equip.capacity_value} ${equip.capacity_unit || ''}`} />
             )}
           </DetailFieldGrid>
         </FormSection>
@@ -1688,15 +1731,22 @@ function EquipmentDetailPanel({ id }: { id: string }) {
           </DetailFieldGrid>
         </FormSection>
 
-        {/* -- Tags, Notes & Attachments -- */}
-        <FormSection title="Tags, notes & fichiers" collapsible defaultExpanded={false}>
+        {/* -- Tags & Notes -- */}
+        <FormSection title="Tags & notes" collapsible defaultExpanded={false}>
           <div className="space-y-3">
             <TagManager ownerType="equipment" ownerId={id} compact />
-            <AttachmentManager ownerType="equipment" ownerId={id} compact />
             <NoteManager ownerType="equipment" ownerId={id} compact />
           </div>
         </FormSection>
       </PanelContentLayout>
+      )}
+      {detailTab === 'documents' && (
+      <PanelContentLayout>
+        <FormSection title="Fichiers attaches" collapsible defaultExpanded>
+          <AttachmentManager ownerType="equipment" ownerId={id} compact />
+        </FormSection>
+      </PanelContentLayout>
+      )}
     </DynamicPanelShell>
   )
 }

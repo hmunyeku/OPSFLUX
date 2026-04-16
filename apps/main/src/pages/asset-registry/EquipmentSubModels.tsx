@@ -365,7 +365,7 @@ export function SeparatorNozzleManager({ equipmentId, canEdit }: { equipmentId: 
       isLoading={isLoading}
       fields={FIELDS}
       displayColumns={DISPLAY_COLUMNS}
-      emptyLabel="Aucune piquage"
+      emptyLabel="Aucun piquage"
       emptyIcon={Circle}
       onCreate={(p) => create.mutate({ eqId: equipmentId, payload: p })}
       onUpdate={(id, p) => update.mutate({ eqId: equipmentId, id, payload: p as SeparatorNozzleUpdate })}

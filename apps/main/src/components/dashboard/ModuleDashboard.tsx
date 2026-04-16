@@ -31,6 +31,8 @@ import {
 import { DashboardGrid } from './DashboardGrid'
 import { DashboardEditorLayout } from './DashboardEditorLayout'
 import type { DashboardEditorHandle } from './DashboardEditorLayout'
+import { DashboardFilterProvider } from './DashboardFilterContext'
+import { DashboardFilterBar } from './DashboardFilterBar'
 import type { DashboardWidget } from '@/services/dashboardService'
 
 interface ModuleDashboardProps {
@@ -181,9 +183,12 @@ export function ModuleDashboard({ module, title, className, children, toolbarPor
           onExitEdit={() => setEditMode(false)}
         />
       ) : (
-        <div className="px-5 py-4">
-          <DashboardGrid widgets={widgets} mode="view" />
-        </div>
+        <DashboardFilterProvider>
+          <DashboardFilterBar />
+          <div className="px-5 py-4">
+            <DashboardGrid widgets={widgets} mode="view" />
+          </div>
+        </DashboardFilterProvider>
       )}
     </div>
   )

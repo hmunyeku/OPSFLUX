@@ -117,6 +117,26 @@ const LABEL_FR: Record<string, string> = {
   helice: 'Hélicoptère', bateau: 'Bateau', vehicule: 'Véhicule',
   helicopter: 'Hélicoptère', boat: 'Bateau', vehicle: 'Véhicule',
   offshore: 'Offshore', onshore: 'Onshore',
+  // Users KPI details
+  inactive: 'Inactifs', online: 'En ligne',
+  // Asset KPI details
+  fields: 'Champs', sites: 'Sites', installations: 'Installations',
+  equipment: 'Équipements', pipelines: 'Pipelines',
+  // Tiers KPI details
+  clients: 'Clients', suppliers: 'Fournisseurs', subcontractors: 'Sous-traitants',
+  contacts: 'Contacts', partners: 'Partenaires',
+  // Support KPI details
+  open: 'Ouverts', resolved: 'Résolus', critical: 'Critique',
+  // Papyrus KPI details
+  forms: 'Formulaires', links: 'Liens actifs',
+  pending_submissions: 'Soumissions', failed_dispatches: 'Envois échoués',
+  // Planner KPI details
+  total_pax: 'PAX total', draft: 'Brouillons',
+  // PackLog KPI details
+  active_requests: 'Demandes actives', blocked_requests: 'Demandes bloquées',
+  cargo_count: 'Colis', total_weight_kg: 'Poids (kg)',
+  in_motion: 'En transit', incidents: 'Incidents',
+  active_articles: 'Articles actifs', hazmat_articles: 'HAZMAT',
 }
 
 /** Translate a raw label to French if a mapping exists */

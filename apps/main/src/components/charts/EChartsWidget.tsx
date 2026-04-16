@@ -114,15 +114,18 @@ export function EChartsWidget({
     // Build series based on chart type
     switch (chartType) {
       case 'bar': {
-        const xData = data.map((d) => String(d[xField] ?? ''))
+        const xDataRaw = data.map((d) => String(d[xField] ?? ''))
+        // Truncate long labels when rotated (>7 categories)
+        const willRotate = xDataRaw.length > 7
+        const xData = xDataRaw.map((s) => willRotate && s.length > 14 ? s.slice(0, 13) + '…' : s)
         const hasLegend = yFields.length > 1
         return {
           color: COLOR_PALETTE,
           tooltip: { trigger: 'axis', ...tooltipStyle },
           toolbox,
           ...(hasLegend ? { legend: { bottom: 0, textStyle: baseTextStyle, icon: 'roundRect', itemWidth: 10, itemHeight: 6 } } : {}),
-          grid: { left: 40, right: 16, top: title ? 32 : 16, bottom: hasLegend ? 36 : 24, containLabel: false },
-          xAxis: { type: 'category', data: xData, ...axisCommon, axisLabel: { ...baseTextStyle, rotate: xData.length > 8 ? 30 : 0, hideOverlap: true } },
+          grid: { left: 8, right: 8, top: title ? 32 : 12, bottom: hasLegend ? 38 : 20, containLabel: true },
+          xAxis: { type: 'category', data: xData, ...axisCommon, axisLabel: { ...baseTextStyle, rotate: willRotate ? 25 : 0, hideOverlap: true, margin: 6 } },
           yAxis: { type: 'value', ...axisCommon, minInterval: 1 },
           series: yFields.map((field, i) => {
             const isSingleSeries = yFields.length === 1
@@ -137,26 +140,25 @@ export function EChartsWidget({
                 // Single series: each bar gets a different color from palette
                 ...(isSingleSeries ? { itemStyle: { color: getDataColor(String(d[xField] ?? ''), j) } } : {}),
               })),
-              barMaxWidth: 36,
+              barMaxWidth: 32,
+              barMinHeight: 3,
               itemStyle: {
-                // For stacked bars, only round the top of the stack
                 borderRadius: isStacked ? (isTopOfStack ? [4, 4, 0, 0] : [0, 0, 0, 0]) : [4, 4, 0, 0],
                 ...(isSingleSeries ? {} : { color: COLOR_PALETTE[i % COLOR_PALETTE.length] }),
               },
               emphasis: {
-                itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.15)' },
+                itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.2)', brightness: 0.1 },
               },
               label: {
-                // Stacked: only show the total label on the top of each stack
                 show: isStacked
                   ? (isTopOfStack && data.length <= 16)
-                  : data.length <= 12,
+                  : data.length <= 10,
                 position: 'top' as const,
                 fontSize: 9,
+                fontWeight: 'bold' as const,
                 color: baseTextStyle.color,
                 formatter: isStacked
                   ? (p: { dataIndex: number }) => {
-                      // Sum across all series for this x to display the column total
                       const row = data[p.dataIndex] as Record<string, unknown> | undefined
                       if (!row) return ''
                       let total = 0
@@ -182,8 +184,8 @@ export function EChartsWidget({
           tooltip: { trigger: 'axis', ...tooltipStyle },
           toolbox,
           ...(hasLegend ? { legend: { bottom: 0, textStyle: baseTextStyle, icon: 'roundRect', itemWidth: 10, itemHeight: 6 } } : {}),
-          grid: { left: 40, right: 16, top: title ? 32 : 16, bottom: hasLegend ? 36 : 24, containLabel: false },
-          xAxis: { type: 'category', data: xData, ...axisCommon, axisLabel: { ...baseTextStyle, rotate: xData.length > 8 ? 30 : 0, hideOverlap: true } },
+          grid: { left: 8, right: 8, top: title ? 32 : 12, bottom: hasLegend ? 38 : 20, containLabel: true },
+          xAxis: { type: 'category', data: xData, ...axisCommon, axisLabel: { ...baseTextStyle, rotate: xData.length > 8 ? 25 : 0, hideOverlap: true, margin: 6 } },
           yAxis: { type: 'value', ...axisCommon, minInterval: 1 },
           series: yFields.map((field, i) => {
             const c = COLOR_PALETTE[i % COLOR_PALETTE.length]
@@ -191,8 +193,8 @@ export function EChartsWidget({
               name: field,
               type: 'line',
               data: data.map((d) => d[field] ?? 0),
-              smooth: 0.3,
-              showSymbol: data.length <= 30,
+              smooth: 0.35,
+              showSymbol: data.length <= 24,
               symbol: 'circle',
               symbolSize: 5,
               lineStyle: { width: 2.5, color: c },
@@ -212,8 +214,8 @@ export function EChartsWidget({
           tooltip: { trigger: 'axis', ...tooltipStyle },
           toolbox,
           ...(hasLegend ? { legend: { bottom: 0, textStyle: baseTextStyle, icon: 'roundRect', itemWidth: 10, itemHeight: 6 } } : {}),
-          grid: { left: 40, right: 16, top: title ? 32 : 16, bottom: hasLegend ? 36 : 24, containLabel: false },
-          xAxis: { type: 'category', data: xData, ...axisCommon, axisLabel: { ...baseTextStyle, rotate: xData.length > 8 ? 30 : 0, hideOverlap: true } },
+          grid: { left: 8, right: 8, top: title ? 32 : 12, bottom: hasLegend ? 38 : 20, containLabel: true },
+          xAxis: { type: 'category', data: xData, ...axisCommon, axisLabel: { ...baseTextStyle, rotate: xData.length > 8 ? 25 : 0, hideOverlap: true, margin: 6 } },
           yAxis: { type: 'value', ...axisCommon, minInterval: 1 },
           series: yFields.map((field, i) => {
             const c = COLOR_PALETTE[i % COLOR_PALETTE.length]
@@ -221,14 +223,14 @@ export function EChartsWidget({
               name: field,
               type: 'line',
               data: data.map((d) => d[field] ?? 0),
-              smooth: 0.3,
+              smooth: 0.4,
               showSymbol: false,
               areaStyle: {
                 color: {
                   type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1,
                   colorStops: [
-                    { offset: 0, color: c + '30' },
-                    { offset: 1, color: c + '05' },
+                    { offset: 0, color: c + '35' },
+                    { offset: 1, color: c + '04' },
                   ],
                 },
               },

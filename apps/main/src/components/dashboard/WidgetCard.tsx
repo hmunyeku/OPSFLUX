@@ -490,6 +490,10 @@ const KPI_ICON_COLORS: Record<string, { bg: string; fg: string }> = {
   cyan:   { bg: 'bg-cyan-100 dark:bg-cyan-500/20 ring-1 ring-inset ring-cyan-200 dark:ring-cyan-500/30',       fg: 'text-cyan-600 dark:text-cyan-400' },
   pink:   { bg: 'bg-pink-100 dark:bg-pink-500/20 ring-1 ring-inset ring-pink-200 dark:ring-pink-500/30',       fg: 'text-pink-600 dark:text-pink-400' },
   slate:  { bg: 'bg-slate-100 dark:bg-slate-700/50 ring-1 ring-inset ring-slate-200 dark:ring-slate-600/50',   fg: 'text-slate-600 dark:text-slate-400' },
+  // aliases
+  amber:  { bg: 'bg-yellow-100 dark:bg-yellow-500/20 ring-1 ring-inset ring-yellow-200 dark:ring-yellow-500/30', fg: 'text-yellow-700 dark:text-yellow-400' },
+  indigo: { bg: 'bg-indigo-100 dark:bg-indigo-500/20 ring-1 ring-inset ring-indigo-200 dark:ring-indigo-500/30', fg: 'text-indigo-600 dark:text-indigo-400' },
+  teal:   { bg: 'bg-teal-100 dark:bg-teal-500/20 ring-1 ring-inset ring-teal-200 dark:ring-teal-500/30',       fg: 'text-teal-600 dark:text-teal-400' },
 }
 
 // Semantic icon map — widget_id → Lucide icon
@@ -1572,15 +1576,23 @@ function MapWidget({ config, data }: MapWidgetProps) {
   const tileUrl = getTileUrl(provider, apiKey, style)
   const attribution = getTileAttribution(provider)
 
-  // Extract positions from data
-  const positions = (data as Record<string, unknown>[])
-    .filter((d) => d.latitude != null && d.longitude != null)
+  // Extract positions — support both flat array {latitude,longitude} and
+  // provider-wrapped {markers:[{lat,lng,...}]} formats
+  const rawItems = data as Record<string, unknown>[]
+  const flatItems: Record<string, unknown>[] =
+    rawItems.length === 1 && Array.isArray((rawItems[0] as Record<string, unknown>)?.markers)
+      ? ((rawItems[0] as Record<string, unknown>).markers as Record<string, unknown>[])
+      : rawItems
+
+  const positions = flatItems
+    .filter((d) => (d.latitude != null && d.longitude != null) || (d.lat != null && d.lng != null))
     .map((d) => ({
-      lat: Number(d.latitude),
-      lng: Number(d.longitude),
-      name: String(d.name || d.vector_name || d.code || ''),
+      lat: Number(d.latitude ?? d.lat),
+      lng: Number(d.longitude ?? d.lng),
+      name: String(d.name || d.label || d.vector_name || d.code || ''),
       type: String(d.type || d.transport_mode || ''),
       pax: d.pax_count != null ? Number(d.pax_count) : null,
+      color: (d.color as string) || undefined,
     }))
 
   // Init map
@@ -1634,9 +1646,18 @@ function MapWidget({ config, data }: MapWidgetProps) {
     if (positions.length === 0) return
 
     for (const pos of positions) {
-      const marker = L.marker([pos.lat, pos.lng])
+      // Use colored circle icon when position has a color (asset registry markers)
+      const icon = pos.color
+        ? L.divIcon({
+            className: '',
+            html: `<div style="width:12px;height:12px;border-radius:50%;background:${pos.color};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div>`,
+            iconSize: [12, 12],
+            iconAnchor: [6, 6],
+          })
+        : undefined
+      const marker = L.marker([pos.lat, pos.lng], icon ? { icon } : undefined)
         .addTo(map)
-        .bindPopup(`<div style="font-size:12px;"><b>${pos.name}</b>${pos.type ? `<br/>${pos.type}` : ''}${pos.pax != null ? `<br/>PAX: ${pos.pax}` : ''}</div>`)
+        .bindPopup(`<div style="font-size:12px;"><b>${pos.name}</b>${pos.type ? `<br/><span style="opacity:.65">${pos.type}</span>` : ''}${pos.pax != null ? `<br/>PAX: ${pos.pax}` : ''}</div>`)
       markersRef.current.push(marker)
     }
 
@@ -1646,7 +1667,7 @@ function MapWidget({ config, data }: MapWidgetProps) {
     }
   }, [positions.length, isFleetMap])
 
-  if (positions.length === 0 && data.length === 0) {
+  if (positions.length === 0 && flatItems.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-1 text-center">
         <MapPin className="h-6 w-6 text-muted-foreground/30" />

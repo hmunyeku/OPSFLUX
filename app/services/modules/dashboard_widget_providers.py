@@ -1593,7 +1593,10 @@ async def provider_support_trend(
         GROUP BY DATE_TRUNC('week', created_at)
         ORDER BY DATE_TRUNC('week', created_at)
     """), {"eid": str(entity_id)})
-    return {"data": [dict(row) for row in r.mappings().all()]}
+    return {
+        "data": [dict(row) for row in r.mappings().all()],
+        "series": [{"name": "Ouverts", "type": "area"}, {"name": "Résolus", "type": "area"}],
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1684,7 +1687,10 @@ async def provider_conformite_trend(
         GROUP BY DATE_TRUNC('month', cr.updated_at)
         ORDER BY DATE_TRUNC('month', cr.updated_at)
     """), {"eid": str(entity_id)})
-    return {"data": [dict(row) for row in r.mappings().all()]}
+    return {
+        "data": [dict(row) for row in r.mappings().all()],
+        "series": [{"name": "Score conformité", "type": "area"}],
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

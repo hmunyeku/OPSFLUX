@@ -998,7 +998,7 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "tab_order": 0,
             "widgets": [
                 _make_widget("papyrus_overview", "Documents",
-                             {"source": "papyrus", "icon_color": "amber"},
+                             {"source": "papyrus", "icon_color": "yellow"},
                              {"x": 0, "y": 0, "w": 3, "h": 4}),
                 _make_widget("papyrus_forms_overview", "Collecte externe",
                              {"source": "papyrus", "icon_color": "green"},

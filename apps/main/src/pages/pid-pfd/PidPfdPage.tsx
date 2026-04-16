@@ -434,7 +434,7 @@ function PIDDetailPanel({ id }: { id: string }) {
               onClick={handleCreateRevision}
               disabled={createRevision.isPending}
             >
-              Revision
+              Révision
             </PanelActionButton>
           )}
           <PanelActionButton

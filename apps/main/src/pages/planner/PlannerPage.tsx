@@ -4811,9 +4811,9 @@ function ActivityDetailPanel({ id }: { id: string }) {
 
             {/* Conditional specialized fields in edit mode */}
             {(editForm.type === 'workover') && (
-              <FormSection title="Details Workover">
+              <FormSection title="Détails Workover">
                 <FormGrid>
-                  <DynamicPanelField label="Reference puits">
+                  <DynamicPanelField label="Référence puits">
                     <input
                       type="text"
                       value={editForm.well_reference as string}
@@ -4834,7 +4834,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
             )}
 
             {(editForm.type === 'drilling') && (
-              <FormSection title="Details Forage">
+              <FormSection title="Détails Forage">
                 <FormGrid>
                   <DynamicPanelField label="Date spud">
                     <input
@@ -4865,9 +4865,9 @@ function ActivityDetailPanel({ id }: { id: string }) {
             )}
 
             {(editForm.type === 'maintenance' || editForm.type === 'integrity') && (
-              <FormSection title="Details Maintenance / Integrite">
+              <FormSection title="Détails Maintenance / Intégrité">
                 <FormGrid>
-                  <DynamicPanelField label="Reference reglementaire">
+                  <DynamicPanelField label="Référence réglementaire">
                     <input
                       type="text"
                       value={editForm.regulatory_ref as string}
@@ -5054,16 +5054,16 @@ function ActivityDetailPanel({ id }: { id: string }) {
 
               {/* Details specialises (conditionnel) */}
               {tp === 'workover' && (activity.well_reference || activity.rig_name) && (
-                <FormSection title="Details Workover">
+                <FormSection title="Détails Workover">
                   <DetailFieldGrid>
-                    <DetailRow label="Reference puits" value={activity.well_reference || '—'} />
+                    <DetailRow label="Référence puits" value={activity.well_reference || '—'} />
                     <DetailRow label="Nom du rig" value={activity.rig_name || '—'} />
                   </DetailFieldGrid>
                 </FormSection>
               )}
 
               {tp === 'drilling' && (activity.spud_date || activity.target_depth || activity.drilling_program_ref) && (
-                <FormSection title="Details Forage">
+                <FormSection title="Détails Forage">
                   <DetailFieldGrid>
                     <DetailRow label="Date spud" value={formatDateShort(activity.spud_date)} />
                     <DetailRow label="Profondeur cible" value={activity.target_depth != null ? `${activity.target_depth} m` : '—'} />
@@ -5077,9 +5077,9 @@ function ActivityDetailPanel({ id }: { id: string }) {
               )}
 
               {(tp === 'maintenance' || tp === 'integrity') && (activity.regulatory_ref || activity.work_order_ref) && (
-                <FormSection title="Details Maintenance / Integrite">
+                <FormSection title="Détails Maintenance / Intégrité">
                   <DetailFieldGrid>
-                    <DetailRow label="Reference reglementaire" value={activity.regulatory_ref || '—'} />
+                    <DetailRow label="Référence réglementaire" value={activity.regulatory_ref || '—'} />
                     <DetailRow label="Bon de travail" value={activity.work_order_ref || '—'} />
                   </DetailFieldGrid>
                 </FormSection>
@@ -5100,7 +5100,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                   <DetailFieldGrid>
                     {activity.validated_by_name && (
                       <DetailRow
-                        label="Valide par"
+                        label="Validé par"
                         value={`${activity.validated_by_name}${activity.validated_at ? ` — ${formatDateShort(activity.validated_at)}` : ''}`}
                       />
                     )}
@@ -5581,9 +5581,9 @@ function CreateActivityPanel() {
 
           {/* Conditional fields: Workover */}
           {form.type === 'workover' && (
-            <FormSection title="Details Workover">
+            <FormSection title="Détails Workover">
               <FormGrid>
-                <DynamicPanelField label="Reference puits">
+                <DynamicPanelField label="Référence puits">
                   <input
                     type="text"
                     value={form.well_reference ?? ''}
@@ -5607,7 +5607,7 @@ function CreateActivityPanel() {
 
           {/* Conditional fields: Drilling */}
           {form.type === 'drilling' && (
-            <FormSection title="Details Forage">
+            <FormSection title="Détails Forage">
               <FormGrid>
                 <DynamicPanelField label="Date spud">
                   <input
@@ -5632,7 +5632,7 @@ function CreateActivityPanel() {
                     value={form.drilling_program_ref ?? ''}
                     onChange={(e) => setForm({ ...form, drilling_program_ref: e.target.value || null })}
                     className={panelInputClass}
-                    placeholder="Reference programme"
+                    placeholder="Référence programme"
                   />
                 </DynamicPanelField>
               </FormGrid>
@@ -5641,15 +5641,15 @@ function CreateActivityPanel() {
 
           {/* Conditional fields: Maintenance / Integrity */}
           {(form.type === 'maintenance' || form.type === 'integrity') && (
-            <FormSection title="Details Maintenance / Integrite">
+            <FormSection title="Détails Maintenance / Intégrité">
               <FormGrid>
-                <DynamicPanelField label="Reference reglementaire">
+                <DynamicPanelField label="Référence réglementaire">
                   <input
                     type="text"
                     value={form.regulatory_ref ?? ''}
                     onChange={(e) => setForm({ ...form, regulatory_ref: e.target.value || null })}
                     className={panelInputClass}
-                    placeholder="Ref. reglementaire"
+                    placeholder="Réf. réglementaire"
                   />
                 </DynamicPanelField>
                 <DynamicPanelField label="Bon de travail">

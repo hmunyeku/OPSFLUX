@@ -631,7 +631,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
           <>
             <SectionColumns>
               <div className="@container space-y-5">
-                <FormSection title="Details">
+                <FormSection title="Détails">
                   <DetailRow label="Code" value={cargo.code} />
                   <DetailRow label="Demande d’expédition" value={cargo.request_code ? `${cargo.request_code} — ${cargo.request_title ?? ''}`.trim() : '—'} />
                   <DetailRow label="Statut demande" value={cargoRequestStatusLabel} />

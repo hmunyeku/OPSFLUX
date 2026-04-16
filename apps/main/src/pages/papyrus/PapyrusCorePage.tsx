@@ -839,8 +839,8 @@ function DocumentDetailPanel({ id }: { id: string }) {
             <ReadOnlyRow label="Type" value={doc.doc_type_name || '--'} />
             <ReadOnlyRow label="Statut" value={<StatusBadge status={doc.status} />} />
             <ReadOnlyRow label="Classification" value={<ClassificationBadge classification={doc.classification} />} />
-            <ReadOnlyRow label="Revision courante" value={doc.current_rev_code || '--'} />
-            <ReadOnlyRow label="Nb revisions" value={String(doc.revision_count)} />
+            <ReadOnlyRow label="Révision courante" value={doc.current_rev_code || '--'} />
+            <ReadOnlyRow label="Nb révisions" value={String(doc.revision_count)} />
             <ReadOnlyRow label="Projet" value={doc.project_name || '--'} />
             <ReadOnlyRow label="Langue" value={doc.language} />
             <ReadOnlyRow label="Créateur" value={doc.creator_name || '--'} />

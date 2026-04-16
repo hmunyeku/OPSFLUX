@@ -2003,7 +2003,7 @@ function TaskRow({
               />
             </div>
             <div>
-              <label className="text-[10px] text-muted-foreground block mb-0.5">Heures reelles</label>
+              <label className="text-[10px] text-muted-foreground block mb-0.5">Heures réelles</label>
               <input
                 type="number" min="0" step="0.5"
                 defaultValue={task.actual_hours ?? ''}

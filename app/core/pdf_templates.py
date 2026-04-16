@@ -968,7 +968,7 @@ _ADS_TICKET_BODY_FR = """\
             <tr>
               <th>#</th>
               <th>Nom</th>
-              <th>Societe</th>
+              <th>Société</th>
               <th>Badge</th>
               <th>Conformité</th>
             </tr>
@@ -1236,7 +1236,7 @@ _ADS_MANIFEST_BODY_FR = """\
       <tr>
         <th>#</th>
         <th>Nom complet</th>
-        <th>Societe</th>
+        <th>Société</th>
         <th>N. Badge</th>
         <th>Conformité</th>
         <th>Siege</th>
@@ -1496,12 +1496,12 @@ _VOYAGE_MANIFEST_BODY_FR = """\
       <tr>
         <th style="width:5%;">Siege</th>
         <th>Nom</th>
-        <th>Societe</th>
+        <th>Société</th>
         <th>Badge</th>
         <th>Poids decl. (kg)</th>
-        <th>Poids reel (kg)</th>
+        <th>Poids réel (kg)</th>
         <th>Contact urgence</th>
-        <th>Conformite</th>
+        <th>Conformité</th>
       </tr>
     </thead>
     <tbody>
@@ -1521,8 +1521,8 @@ _VOYAGE_MANIFEST_BODY_FR = """\
   </table>
   <div class="totals">
     <div class="total-box"><div class="label">Total PAX</div><div class="value">{{ total_passengers | default(passengers | length) }}{% if max_capacity %} / {{ max_capacity }}{% endif %}</div></div>
-    <div class="total-box"><div class="label">Poids declare</div><div class="value">{{ total_declared_weight_kg | default('--') }} kg</div></div>
-    <div class="total-box"><div class="label">Poids reel</div><div class="value">{{ total_actual_weight_kg | default('--') }} kg</div></div>
+    <div class="total-box"><div class="label">Poids déclaré</div><div class="value">{{ total_declared_weight_kg | default('--') }} kg</div></div>
+    <div class="total-box"><div class="label">Poids réel</div><div class="value">{{ total_actual_weight_kg | default('--') }} kg</div></div>
   </div>
   <div class="signatures">
     <div class="sig">Visa preparation</div>

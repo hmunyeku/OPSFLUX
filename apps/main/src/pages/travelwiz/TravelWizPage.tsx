@@ -1478,7 +1478,7 @@ function PickupTab() {
                     <p className="text-muted-foreground">Prevu: {formatDateTime(stop.scheduled_time)}</p>
                   )}
                   {stop.actual_time && (
-                    <p className="text-muted-foreground">Reel: {formatDateTime(stop.actual_time)}</p>
+                    <p className="text-muted-foreground">Réel: {formatDateTime(stop.actual_time)}</p>
                   )}
                   {stop.pax_names.length > 0 && (
                     <p className="text-muted-foreground">PAX: {stop.pax_names.join(', ')}</p>

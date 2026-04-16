@@ -38,7 +38,7 @@ const MODULE_LABELS: Record<string, string> = {
   planner: 'Planner',
   paxlog: 'PaxLog',
   packlog: 'PackLog',
-  conformite: 'Conformite',
+  conformite: 'Conformité',
   travelwiz: 'TravelWiz',
   workflow: 'Workflow',
   papyrus: 'Papyrus',

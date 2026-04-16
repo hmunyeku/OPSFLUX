@@ -865,7 +865,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                   disabled={createRevision.isPending}
                 >
                   {createRevision.isPending ? <Loader2 size={12} className="animate-spin" /> : <PenTool size={12} />}
-                  <span>Creer revision</span>
+                  <span>Créer révision</span>
                 </button>
                 <button
                   className="gl-button-sm gl-button-default"
@@ -980,7 +980,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                   disabled={createPapyrusForm.isPending}
                 >
                   {createPapyrusForm.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-                  <span>Creer le formulaire</span>
+                  <span>Créer le formulaire</span>
                 </button>
                 <button
                   type="button"
@@ -1039,7 +1039,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                   disabled={createPapyrusExternalLink.isPending}
                 >
                   {createPapyrusExternalLink.isPending ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
-                  <span>Generer un lien externe</span>
+                  <span>Générer un lien externe</span>
                 </button>
                 <button
                   type="button"
@@ -1380,7 +1380,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                         className="h-3 w-3 rounded border-border text-primary accent-primary cursor-pointer shrink-0"
                         checked={selectedRevisions.includes(rev.id)}
                         onChange={() => handleToggleRevisionSelect(rev.id)}
-                        title="Selectionner pour comparer"
+                        title="Sélectionner pour comparer"
                       />
                     )}
                     <div className="flex items-center gap-1.5 min-w-[50px]">
@@ -1798,7 +1798,7 @@ export function ReportEditorPage() {
                     }}
                     className="w-full text-xs rounded border border-border bg-background px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary"
                   >
-                    <option value="">Selectionner un projet...</option>
+                    <option value="">Sélectionner un projet...</option>
                     {projectsData?.items?.map((p: { id: string; name: string }) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
@@ -2145,7 +2145,7 @@ function CreateDocumentPanel() {
                       onChange={(e) => setForm((f) => ({ ...f, doc_type_id: e.target.value }))}
                       className={panelInputClass}
                     >
-                      <option value="">Selectionner...</option>
+                      <option value="">Sélectionner...</option>
                       {docTypes?.map((dt: DocType) => (
                         <option key={dt.id} value={dt.id}>
                           {dt.code} — {dt.name.fr || dt.name.en || dt.code}
@@ -2248,7 +2248,7 @@ function CreateDocTypePanel() {
             variant="primary"
             onClick={() => (document.getElementById('create-doctype-form') as HTMLFormElement)?.requestSubmit()}
           >
-            Creer
+            Créer
           </PanelActionButton>
         </>
       }
@@ -2287,9 +2287,9 @@ function CreateDocTypePanel() {
                       <option value="semver">Semantique (1.0, 1.1...)</option>
                     </select>
                   </DynamicPanelField>
-                  <DynamicPanelField label="Langue par defaut">
+                  <DynamicPanelField label="Langue par défaut">
                     <select value={form.default_language} onChange={(e) => setForm(f => ({ ...f, default_language: e.target.value }))} className={panelInputClass}>
-                      <option value="fr">Francais</option>
+                      <option value="fr">Français</option>
                       <option value="en">English</option>
                     </select>
                   </DynamicPanelField>
@@ -2355,7 +2355,7 @@ function CreateTemplatePanel() {
             variant="primary"
             onClick={() => (document.getElementById('create-template-form') as HTMLFormElement)?.requestSubmit()}
           >
-            Creer
+            Créer
           </PanelActionButton>
         </>
       }
@@ -2500,7 +2500,7 @@ function DocTypeDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label="Pattern" value={docType.nomenclature_pattern} />
             )}
             <ReadOnlyRow label="Schema de revision" value={docType.revision_scheme} />
-            <ReadOnlyRow label="Langue par defaut" value={docType.default_language} />
+            <ReadOnlyRow label="Langue par défaut" value={docType.default_language} />
             <ReadOnlyRow label="Actif" value={docType.is_active ? 'Oui' : 'Non'} />
           </FormGrid>
         </FormSection>

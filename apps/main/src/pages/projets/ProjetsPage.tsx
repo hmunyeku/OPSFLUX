@@ -1497,7 +1497,7 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
         <button onClick={onClose} className="px-2.5 py-1 text-xs rounded border border-border hover:bg-muted text-muted-foreground">Annuler</button>
         <button onClick={handleSubmit} disabled={createTask.isPending || !form.title.trim()} className="px-2.5 py-1 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40">
           {createTask.isPending ? <Loader2 size={10} className="animate-spin inline mr-1" /> : null}
-          Creer
+          Créer
         </button>
       </div>
     </div>
@@ -2400,7 +2400,7 @@ function TemplatesSection({ projectId }: { projectId: string }) {
         {/* Clone from template */}
         {!showClone ? (
           <button onClick={() => setShowClone(true)} className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80">
-            <LayoutTemplate size={12} /> Creer depuis un template
+            <LayoutTemplate size={12} /> Créer depuis un template
           </button>
         ) : (
           <div className="space-y-2 border rounded p-2 bg-muted/30">
@@ -2413,7 +2413,7 @@ function TemplatesSection({ projectId }: { projectId: string }) {
             <input value={cloneName} onChange={(e) => setCloneName(e.target.value)} placeholder="Nom du nouveau projet" className={panelInputClass} />
             <div className="flex gap-2">
               <button onClick={handleClone} disabled={cloneFromTemplate.isPending || !selectedTpl || !cloneName.trim()} className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 disabled:opacity-50">
-                {cloneFromTemplate.isPending ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />} Creer
+                {cloneFromTemplate.isPending ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />} Créer
               </button>
               <button onClick={() => setShowClone(false)} className="text-xs text-muted-foreground hover:text-foreground"><X size={10} /></button>
             </div>
@@ -2681,9 +2681,9 @@ function ActivityFeedSection({ projectId }: { projectId: string }) {
   }
 
   return (
-    <FormSection title={`Activite (${feed.length})`} collapsible defaultExpanded={false} storageKey="project-detail-activity">
+    <FormSection title={`Activité (${feed.length})`} collapsible defaultExpanded={false} storageKey="project-detail-activity">
       {isLoading ? <Loader2 size={12} className="animate-spin text-muted-foreground" /> : feed.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Aucune activite</p>
+        <p className="text-xs text-muted-foreground">Aucune activité</p>
       ) : (
         <div className="space-y-1 max-h-64 overflow-y-auto">
           {feed.map((item, i) => (
@@ -2840,7 +2840,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-1"><WeatherIcon weather={project.weather} size={14} /> {projectWeatherLabels[project.weather] ?? project.weather}</div>
           <div className="flex items-center gap-1"><Target size={11} /> {project.progress}%</div>
-          <div className="flex items-center gap-1"><ListTodo size={11} /> {tasks?.length ?? 0} taches</div>
+          <div className="flex items-center gap-1"><ListTodo size={11} /> {tasks?.length ?? 0} tâches</div>
           <div className="flex items-center gap-1"><Users size={11} /> {members?.length ?? 0} personnes</div>
           <div className="flex items-center gap-1"><Milestone size={11} /> {milestones?.length ?? 0} jalons</div>
         </div>

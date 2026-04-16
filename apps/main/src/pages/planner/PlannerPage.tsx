@@ -1349,7 +1349,7 @@ function ConflitsTab() {
               <span key={i} className="text-xs text-muted-foreground truncate block">{title}</span>
             ))
           ) : (
-            <span className="text-xs text-muted-foreground">{row.original.activity_ids.length} activite(s)</span>
+            <span className="text-xs text-muted-foreground">{row.original.activity_ids.length} activité(s)</span>
           )}
         </div>
       ),
@@ -2426,7 +2426,7 @@ function CapacityTab({
               onClick={() => setShowCapModal(true)}
             >
               <Pencil size={11} />
-              Modifier capacite
+              Modifier capacité
             </button>
           </div>
         )}
@@ -2640,7 +2640,7 @@ function CapacityTab({
       {showCapModal && (
         <div className="gl-modal-backdrop" onClick={() => setShowCapModal(false)}>
           <div className="gl-modal-card" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-foreground">Modifier la capacite</h3>
+            <h3 className="text-sm font-semibold text-foreground">Modifier la capacité</h3>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground block mb-1">Max PAX total</label>
@@ -5439,7 +5439,7 @@ function CreateActivityPanel() {
 
   return (
     <DynamicPanelShell
-      title="Nouvelle activite"
+      title="Nouvelle activité"
       subtitle="Planner"
       icon={<CalendarRange size={14} className="text-primary" />}
       actions={
@@ -5468,7 +5468,7 @@ function CreateActivityPanel() {
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                   className={panelInputClass}
-                  placeholder="Titre de l'activite"
+                  placeholder="Titre de l'activité"
                 />
               </DynamicPanelField>
               <DynamicPanelField label="Site" required>
@@ -5574,7 +5574,7 @@ function CreateActivityPanel() {
                 value={form.description ?? ''}
                 onChange={(e) => setForm({ ...form, description: e.target.value || null })}
                 className={cn(panelInputClass, 'min-h-[80px] py-2')}
-                placeholder="Description de l'activite..."
+                placeholder="Description de l'activité..."
               />
             </DynamicPanelField>
           </FormSection>

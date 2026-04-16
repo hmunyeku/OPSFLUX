@@ -246,7 +246,7 @@ function CreateTypePanel() {
 
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={form.is_mandatory} onChange={(e) => setForm({ ...form, is_mandatory: e.target.checked })} className="rounded border-border" />
-                Obligatoire par defaut
+                Obligatoire par défaut
               </label>
             </div>
           </SectionColumns>

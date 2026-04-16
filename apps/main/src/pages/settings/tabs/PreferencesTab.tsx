@@ -212,7 +212,7 @@ function PageSizeSection() {
           )}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Nombre de lignes affichees par defaut dans tous les tableaux. Maximum : {maxPageSize}.
+          Nombre de lignes affichées par défaut dans tous les tableaux. Maximum : {maxPageSize}.
         </p>
       </div>
     </div>

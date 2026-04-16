@@ -2128,7 +2128,7 @@ function CreateVectorPanel() {
                 <AssetPicker
                   value={form.home_base_id}
                   onChange={(assetId) => setForm({ ...form, home_base_id: assetId })}
-                  placeholder="Selectionner une base..."
+                  placeholder="Sélectionner une base..."
                   clearable
                 />
               </DynamicPanelField>
@@ -3657,7 +3657,7 @@ function VectorDetailPanel({ id }: { id: string }) {
                   <AssetPicker
                     value={editForm.home_base_id}
                     onChange={(assetId) => setEditForm({ ...editForm, home_base_id: assetId })}
-                    placeholder="Selectionner une base..."
+                    placeholder="Sélectionner une base..."
                     clearable
                   />
                 </DynamicPanelField>

@@ -37,7 +37,7 @@ export function CompanyPicker({
       className={className}
       label={label}
       clearable={clearable}
-      placeholder={placeholder || t('tiers.select_company', 'Selectionner une entreprise...')}
+      placeholder={placeholder || t('tiers.select_company', 'Sélectionner une entreprise...')}
       icon={Building2}
       recentKey="opsflux:company-picker:recent"
       toItem={(item) => ({

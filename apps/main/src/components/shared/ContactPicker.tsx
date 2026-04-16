@@ -47,7 +47,7 @@ export function ContactPicker({
       className={className}
       label={label}
       clearable={clearable}
-      placeholder={placeholder || t('tiers.select_contact', 'Selectionner un contact...')}
+      placeholder={placeholder || t('tiers.select_contact', 'Sélectionner un contact...')}
       icon={Contact}
       recentKey="opsflux:contact-picker:recent"
       toItem={(item) => ({

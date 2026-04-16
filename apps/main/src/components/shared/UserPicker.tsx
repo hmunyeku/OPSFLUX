@@ -37,7 +37,7 @@ export function UserPicker({
       className={className}
       label={label}
       clearable={clearable}
-      placeholder={placeholder || t('users.select_user', 'Selectionner un utilisateur...')}
+      placeholder={placeholder || t('users.select_user', 'Sélectionner un utilisateur...')}
       icon={User}
       recentKey="opsflux:user-picker:recent"
       toItem={(item) => ({

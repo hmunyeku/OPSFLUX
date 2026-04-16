@@ -1556,7 +1556,7 @@ function CreateEquipmentPanel() {
         <div className="p-3 border-t border-border">
           <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createEquipment.isPending}>
             {createEquipment.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <Plus size={12} className="mr-2" />}
-            Creer l'equipement
+            Créer l'équipement
           </button>
         </div>
       </PanelContentLayout>
@@ -1808,7 +1808,7 @@ function CreateProcessLinePanel() {
         <div className="p-3 border-t border-border">
           <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createLine.isPending}>
             {createLine.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <Plus size={12} className="mr-2" />}
-            Creer la ligne
+            Créer la ligne
           </button>
         </div>
       </PanelContentLayout>
@@ -1915,7 +1915,7 @@ function CreateDCSTagPanel() {
         <div className="p-3 border-t border-border">
           <button className="gl-button gl-button-confirm w-full" onClick={handleSubmit} disabled={createTag.isPending}>
             {createTag.isPending ? <Loader2 size={12} className="animate-spin mr-2" /> : <Plus size={12} className="mr-2" />}
-            Creer le tag DCS
+            Créer le tag DCS
           </button>
         </div>
       </PanelContentLayout>

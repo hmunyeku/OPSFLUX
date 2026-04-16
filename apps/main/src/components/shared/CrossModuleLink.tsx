@@ -107,16 +107,16 @@ const STATUS_DISPLAY: Record<string, { label: string; color: string }> = {
   on_hold: { label: 'En pause', color: 'bg-orange-500' },
   submitted: { label: 'Soumis', color: 'bg-blue-400' },
   validated: { label: 'Valide', color: 'bg-emerald-500' },
-  rejected: { label: 'Rejete', color: 'bg-red-500' },
+  rejected: { label: 'Rejeté', color: 'bg-red-500' },
   cancelled: { label: 'Annulé', color: 'bg-zinc-500' },
-  expired: { label: 'Expire', color: 'bg-red-400' },
+  expired: { label: 'Expiré', color: 'bg-red-400' },
   pending: { label: 'En attente', color: 'bg-amber-400' },
   inactif: { label: 'Inactif', color: 'bg-zinc-400' },
   inactive: { label: 'Inactif', color: 'bg-zinc-400' },
   suspended: { label: 'Suspendu', color: 'bg-orange-500' },
   incomplete: { label: 'Incomplet', color: 'bg-amber-400' },
-  'archive': { label: 'Archive', color: 'bg-zinc-500' },
-  'bloque': { label: 'Bloque', color: 'bg-red-500' },
+  'archive': { label: 'Archivé', color: 'bg-zinc-500' },
+  'bloque': { label: 'Bloqué', color: 'bg-red-500' },
 }
 
 // ── Preview API ──────────────────────────────────────────────────────────────

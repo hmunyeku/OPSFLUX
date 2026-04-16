@@ -2618,7 +2618,7 @@ function CapacityTab({
                     <span className="text-right">Max PAX</span>
                     <span className="text-right">Quota ops perm.</span>
                     <span>Motif</span>
-                    <span>Modifie par</span>
+                    <span>Modifié par</span>
                   </div>
                   {capacityItems.map((cap) => (
                     <div key={cap.id} className="grid grid-cols-5 gap-2 px-3 py-2 border-b border-border/50 last:border-0">

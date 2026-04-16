@@ -744,7 +744,7 @@ function LibraryTab() {
           onChange={(e) => setLibCategory(e.target.value)}
           className="gl-form-select"
         >
-          <option value="">Toutes categories</option>
+          <option value="">Toutes catégories</option>
           {categories.map((cat) => (
             <option key={cat} value={cat}>{cat}</option>
           ))}

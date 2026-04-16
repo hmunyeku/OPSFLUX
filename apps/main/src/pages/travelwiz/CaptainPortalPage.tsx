@@ -23,10 +23,10 @@ import type { VoyageEventCreate, CaptainWeatherReport } from '@/types/api'
 // ── Constants ────────────────────────────────────────────────
 
 const EVENT_TYPES = [
-  { value: 'departure', label: 'Depart' },
-  { value: 'arrival', label: 'Arrivee' },
-  { value: 'stop_arrival', label: 'Arrivee escale' },
-  { value: 'stop_departure', label: 'Depart escale' },
+  { value: 'departure', label: 'Départ' },
+  { value: 'arrival', label: 'Arrivée' },
+  { value: 'stop_arrival', label: 'Arrivée escale' },
+  { value: 'stop_departure', label: 'Départ escale' },
   { value: 'pax_boarding', label: 'Embarquement PAX' },
   { value: 'pax_disembark', label: 'Débarquement PAX' },
   { value: 'cargo_loaded', label: 'Cargo chargé' },

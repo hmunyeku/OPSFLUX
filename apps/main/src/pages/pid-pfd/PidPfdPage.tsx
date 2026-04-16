@@ -231,7 +231,7 @@ const TAG_TYPE_OPTIONS = [
   // Actuated valves
   { value: 'XV', label: 'XV - Vanne TOR' },
   { value: 'HV', label: 'HV - Vanne manuelle' },
-  { value: 'MOV', label: 'MOV - Vanne motorisee' },
+  { value: 'MOV', label: 'MOV - Vanne motorisée' },
   { value: 'SOV', label: 'SOV - Electrovanne' },
   // Position / Logic
   { value: 'ZSO', label: 'ZSO - Fin de course ouvert' },

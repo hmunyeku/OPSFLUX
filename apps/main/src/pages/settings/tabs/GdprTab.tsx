@@ -98,7 +98,7 @@ export function GdprTab() {
         description="Durees de conservation appliquees automatiquement. Les donnees au-dela de ces delais sont supprimees ou anonymisees."
         storageKey="settings.gdpr.collapse">
         <div className="mt-2 space-y-0">
-          <SettingRow label="Logs d'audit" description="Duree de conservation des logs d'audit (en mois).">
+          <SettingRow label="Logs d'audit" description="Durée de conservation des logs d'audit (en mois).">
             <div className="flex items-center gap-2">
               <input type="number" min={6} max={120} className="gl-form-input w-20 text-sm text-right font-mono"
                 defaultValue={(s['gdpr.retention_audit_months'] as number) ?? 36}
@@ -106,7 +106,7 @@ export function GdprTab() {
               <span className="text-xs text-muted-foreground">mois</span>
             </div>
           </SettingRow>
-          <SettingRow label="Sessions de connexion" description="Duree de conservation de l'historique des sessions.">
+          <SettingRow label="Sessions de connexion" description="Durée de conservation de l'historique des sessions.">
             <div className="flex items-center gap-2">
               <input type="number" min={1} max={24} className="gl-form-input w-20 text-sm text-right font-mono"
                 defaultValue={(s['gdpr.retention_sessions_months'] as number) ?? 6}
@@ -114,7 +114,7 @@ export function GdprTab() {
               <span className="text-xs text-muted-foreground">mois</span>
             </div>
           </SettingRow>
-          <SettingRow label="Comptes inactifs" description="Delai avant anonymisation automatique des comptes inactifs.">
+          <SettingRow label="Comptes inactifs" description="Délai avant anonymisation automatique des comptes inactifs.">
             <div className="flex items-center gap-2">
               <input type="number" min={6} max={60} className="gl-form-input w-20 text-sm text-right font-mono"
                 defaultValue={(s['gdpr.retention_inactive_accounts_months'] as number) ?? 24}
@@ -122,7 +122,7 @@ export function GdprTab() {
               <span className="text-xs text-muted-foreground">mois</span>
             </div>
           </SettingRow>
-          <SettingRow label="Notifications" description="Duree de conservation des notifications utilisateur.">
+          <SettingRow label="Notifications" description="Durée de conservation des notifications utilisateur.">
             <div className="flex items-center gap-2">
               <input type="number" min={1} max={12} className="gl-form-input w-20 text-sm text-right font-mono"
                 defaultValue={(s['gdpr.retention_notifications_months'] as number) ?? 3}

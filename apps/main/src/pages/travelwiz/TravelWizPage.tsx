@@ -598,7 +598,7 @@ function VoyagesTab() {
             exportHeaders: {
               code: 'Reference',
               vector_name: 'Vecteur',
-              departure_at: 'Depart',
+              departure_at: 'Départ',
               status: 'Statut',
               pax_count: 'PAX',
             },
@@ -2147,9 +2147,9 @@ function CreateVectorPanel() {
               </DynamicPanelField>
             </FormGrid>
           </FormSection>
-          <FormSection title="Operationnel" collapsible defaultExpanded={false}>
+          <FormSection title="Opérationnel" collapsible defaultExpanded={false}>
             <FormGrid>
-              <DynamicPanelField label="Pesee requise">
+              <DynamicPanelField label="Pesée requise">
                 <label className="inline-flex items-center gap-2 text-xs">
                   <input type="checkbox" checked={form.requires_weighing ?? false} onChange={(e) => setForm({ ...form, requires_weighing: e.target.checked })} />
                   Activer la pesee obligatoire
@@ -3670,9 +3670,9 @@ function VectorDetailPanel({ id }: { id: string }) {
                 <DynamicPanelField label="Volume (m3)"><input type="number" min={0} step="any" value={editForm.volume_capacity_m3 ?? ''} onChange={(e) => setEditForm({ ...editForm, volume_capacity_m3: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
               </FormGrid>
             </FormSection>
-            <FormSection title="Operationnel" collapsible defaultExpanded={false}>
+            <FormSection title="Opérationnel" collapsible defaultExpanded={false}>
               <FormGrid>
-                <DynamicPanelField label="Pesee requise">
+                <DynamicPanelField label="Pesée requise">
                   <label className="inline-flex items-center gap-2 text-xs">
                     <input type="checkbox" checked={editForm.requires_weighing ?? false} onChange={(e) => setEditForm({ ...editForm, requires_weighing: e.target.checked })} />
                     Activer la pesee obligatoire
@@ -3707,8 +3707,8 @@ function VectorDetailPanel({ id }: { id: string }) {
               <DetailRow label="Volume" value={vector.volume_capacity_m3 ? `${vector.volume_capacity_m3.toLocaleString('fr-FR')} m³` : '—'} />
             </FormSection>
 
-            <FormSection title="Operationnel" collapsible defaultExpanded={false}>
-              <DetailRow label="Pesee requise" value={vector.requires_weighing ? 'Oui' : 'Non'} />
+            <FormSection title="Opérationnel" collapsible defaultExpanded={false}>
+              <DetailRow label="Pesée requise" value={vector.requires_weighing ? 'Oui' : 'Non'} />
               {vector.mode === 'sea' && <DetailRow label="Numero MMSI" value={vector.mmsi_number ?? '—'} />}
             </FormSection>
 

@@ -713,10 +713,10 @@ function KPIWidget({
       {/* ── Bottom: detail stat grid ── */}
       {hasDetails && (
         <div className={cn(
-          'shrink-0 grid gap-x-2 gap-y-1.5',
+          'shrink-0 grid gap-x-2 gap-y-1',
           Object.keys(details!).length <= 4 ? 'grid-cols-2' : 'grid-cols-3',
         )}>
-          {Object.entries(details!).slice(0, 6).map(([k, v]) => {
+          {Object.entries(details!).slice(0, 9).map(([k, v]) => {
             const label = tLabel(k)
             const n = typeof v === 'number' ? v : parseFloat(String(v))
             // Smart formatting based on key semantics

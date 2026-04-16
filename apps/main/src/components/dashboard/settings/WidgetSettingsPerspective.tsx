@@ -28,7 +28,7 @@ interface WidgetSettingsPerspectiveProps {
 export function WidgetSettingsPerspective({ config, onChange }: WidgetSettingsPerspectiveProps) {
   return (
     <FormSection title="Configuration Perspective" collapsible defaultExpanded storageKey="widget-settings-perspective">
-      <DynamicPanelField label="Source de donnees">
+      <DynamicPanelField label="Source de données">
         <input
           type="text"
           className={panelInputClass}
@@ -37,7 +37,7 @@ export function WidgetSettingsPerspective({ config, onChange }: WidgetSettingsPe
           placeholder="ex: assets, monthly_stats"
         />
         <p className="text-[10px] text-muted-foreground mt-1">
-          Endpoint API ou identifiant de jeu de donnees
+          Endpoint API ou identifiant de jeu de données
         </p>
       </DynamicPanelField>
 

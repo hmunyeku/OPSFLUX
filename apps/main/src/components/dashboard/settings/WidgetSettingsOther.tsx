@@ -33,7 +33,7 @@ export function WidgetSettingsOther({ widgetType, config, onChange }: WidgetSett
 
     return (
       <FormSection title="Configuration Tableau" collapsible defaultExpanded storageKey="widget-settings-table">
-        <DynamicPanelField label="Source de donnees">
+        <DynamicPanelField label="Source de données">
           <input
             type="text"
             className={panelInputClass}

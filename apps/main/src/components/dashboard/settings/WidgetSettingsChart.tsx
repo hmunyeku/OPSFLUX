@@ -32,7 +32,7 @@ export function WidgetSettingsChart({ config, onChange }: WidgetSettingsChartPro
           onChange={(v) => onChange({ chart_type: v })}
         />
       </DynamicPanelField>
-      <DynamicPanelField label="Source de donnees">
+      <DynamicPanelField label="Source de données">
         <input
           type="text"
           className={panelInputClass}
@@ -50,7 +50,7 @@ export function WidgetSettingsChart({ config, onChange }: WidgetSettingsChartPro
           placeholder="ex: month, date"
         />
       </DynamicPanelField>
-      <DynamicPanelField label="Champs Y (ordonnees)">
+      <DynamicPanelField label="Champs Y (ordonnées)">
         <input
           type="text"
           className={panelInputClass}

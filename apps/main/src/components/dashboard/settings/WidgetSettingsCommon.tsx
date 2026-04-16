@@ -9,7 +9,7 @@ import {
 import type { DashboardWidget } from '@/services/dashboardService'
 
 const REFRESH_OPTIONS = [
-  { value: '0', label: 'Desactive' },
+  { value: '0', label: 'Désactivé' },
   { value: '30', label: '30 secondes' },
   { value: '60', label: '1 minute' },
   { value: '300', label: '5 minutes' },
@@ -17,7 +17,7 @@ const REFRESH_OPTIONS = [
 ]
 
 const PRESET_COLORS = [
-  { value: '', label: 'Defaut' },
+  { value: '', label: 'Défaut' },
   { value: '#1e3a5f', label: 'Bleu marine' },
   { value: '#1e40af', label: 'Bleu' },
   { value: '#047857', label: 'Vert' },
@@ -25,12 +25,12 @@ const PRESET_COLORS = [
   { value: '#dc2626', label: 'Rouge' },
   { value: '#7c3aed', label: 'Violet' },
   { value: '#0891b2', label: 'Cyan' },
-  { value: '#374151', label: 'Gris fonce' },
+  { value: '#374151', label: 'Gris foncé' },
   { value: '#0f172a', label: 'Noir' },
 ]
 
 const ACCENT_COLORS = [
-  { value: '', label: 'Defaut' },
+  { value: '', label: 'Défaut' },
   { value: '#3b82f6', label: 'Bleu' },
   { value: '#10b981', label: 'Vert' },
   { value: '#f59e0b', label: 'Jaune' },
@@ -71,7 +71,7 @@ export function WidgetSettingsCommon({ widget, onUpdateMeta, onUpdateConfig }: W
             placeholder="Description du widget..."
           />
         </DynamicPanelField>
-        <DynamicPanelField label="Rafraichissement">
+        <DynamicPanelField label="Rafraîchissement">
           <select
             className="gl-form-select"
             value={String(widget.config?.refresh_interval ?? 0)}

@@ -28,7 +28,7 @@ function getMoonPhase(date: Date): { name: string; emoji: string; illumination: 
   if (normalized < 0.3125) return { name: 'Premier quartier', emoji: '🌓', illumination: 50 }
   if (normalized < 0.4375) return { name: 'Gibbeuse croissante', emoji: '🌔', illumination: 85 }
   if (normalized < 0.5625) return { name: 'Pleine lune', emoji: '🌕', illumination: 100 }
-  if (normalized < 0.6875) return { name: 'Gibbeuse decroissante', emoji: '🌖', illumination: 85 }
+  if (normalized < 0.6875) return { name: 'Gibbeuse décroissante', emoji: '🌖', illumination: 85 }
   if (normalized < 0.8125) return { name: 'Dernier quartier', emoji: '🌗', illumination: 50 }
   if (normalized < 0.9375) return { name: 'Dernier croissant', emoji: '🌘', illumination: 15 }
   return { name: 'Nouvelle lune', emoji: '🌑', illumination: 0 }
@@ -41,7 +41,7 @@ function getSeason(date: Date, hemisphere: 'north' | 'south' = 'north'): { name:
   const seasons = hemisphere === 'north'
     ? [
         { range: [2, 4], name: 'Printemps', emoji: '🌸' },
-        { range: [5, 7], name: 'Ete', emoji: '☀️' },
+        { range: [5, 7], name: 'Été', emoji: '☀️' },
         { range: [8, 10], name: 'Automne', emoji: '🍂' },
         { range: [11, 1], name: 'Hiver', emoji: '❄️' },
       ]

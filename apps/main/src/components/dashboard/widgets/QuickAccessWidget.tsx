@@ -46,7 +46,7 @@ export function QuickAccessWidget({ config }: QuickAccessWidgetProps) {
   if (items.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
-        Configurez les raccourcis dans les parametres du widget
+        Configurez les raccourcis dans les paramètres du widget
       </div>
     )
   }

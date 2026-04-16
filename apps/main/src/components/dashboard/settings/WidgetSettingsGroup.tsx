@@ -62,7 +62,7 @@ export function WidgetSettingsGroup({ config, onChange }: WidgetSettingsGroupPro
         />
       </DynamicPanelField>
 
-      <DynamicPanelField label="Source de donnees">
+      <DynamicPanelField label="Source de données">
         <input
           type="text"
           className={panelInputClass}

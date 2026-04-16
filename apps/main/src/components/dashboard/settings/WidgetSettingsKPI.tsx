@@ -22,7 +22,7 @@ interface WidgetSettingsKPIProps {
 export function WidgetSettingsKPI({ config, onChange }: WidgetSettingsKPIProps) {
   return (
     <FormSection title="Configuration KPI" collapsible defaultExpanded storageKey="widget-settings-kpi">
-      <DynamicPanelField label="Source de donnees">
+      <DynamicPanelField label="Source de données">
         <input
           type="text"
           className={panelInputClass}
@@ -49,7 +49,7 @@ export function WidgetSettingsKPI({ config, onChange }: WidgetSettingsKPIProps) 
           placeholder="ex: Assets actifs"
         />
       </DynamicPanelField>
-      <DynamicPanelField label="Couleur icone">
+      <DynamicPanelField label="Couleur icône">
         <TagSelector
           options={[
             { value: 'blue', label: 'Bleu' },
@@ -73,7 +73,7 @@ export function WidgetSettingsKPI({ config, onChange }: WidgetSettingsKPIProps) 
           onChange={(v) => onChange({ format: v })}
         />
       </DynamicPanelField>
-      <DynamicPanelField label="Unite">
+      <DynamicPanelField label="Unité">
         <input
           type="text"
           className={panelInputClass}

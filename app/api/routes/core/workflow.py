@@ -1001,10 +1001,10 @@ def _validate_definition_structure(states: dict | list, transitions: dict | list
 
         end_types = {"end_approved", "end_rejected", "end_cancelled"}
         if not node_types & end_types:
-            errors.append("Le workflow doit contenir au moins un noeud de fin")
+            errors.append("Le workflow doit contenir au moins un nœud de fin")
 
         if len(states) < 2:
-            errors.append("Le workflow doit contenir au moins 2 noeuds")
+            errors.append("Le workflow doit contenir au moins 2 nœuds")
 
         # Validate edge references
         if isinstance(transitions, list):

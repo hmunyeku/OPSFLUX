@@ -203,7 +203,7 @@ async def _validate_cargo_request_refs(
     if requester_user_id:
         requester = await db.get(User, requester_user_id)
         if not requester or not requester.active or not await _user_has_access_to_entity(db, user_id=requester_user_id, entity_id=entity_id):
-            raise HTTPException(400, "Demandeur introuvable ou hors entite")
+            raise HTTPException(400, "Demandeur introuvable ou hors entité")
     if sender_contact_tier_contact_id:
         sender_contact = await db.get(TierContact, sender_contact_tier_contact_id)
         if not sender_contact or not sender_contact.active:

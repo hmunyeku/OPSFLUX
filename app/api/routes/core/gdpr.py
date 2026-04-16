@@ -490,8 +490,8 @@ async def _async_export_user_data(user_id_str: str):
                 db,
                 user_id=uid,
                 entity_id=eid,
-                title="Export RGPD pret",
-                body="Votre export de donnees personnelles est pret. Ouvrez votre profil pour le telecharger.",
+                title="Export RGPD prêt",
+                body="Votre export de données personnelles est prêt. Ouvrez votre profil pour le télécharger.",
                 category="system",
                 link="/settings#gdpr-personal",
             )

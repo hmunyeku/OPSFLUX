@@ -204,7 +204,7 @@ def validate_pdf_template_source(
         and not any(declared_name.startswith(f"{var_name}.") for declared_name in declared)
     )
     for var_name in unknown:
-        issues.append({"level": "warning", "area": "variables", "message": f"Variable non declaree dans le schema: {var_name}."})
+        issues.append({"level": "warning", "area": "variables", "message": f"Variable non déclarée dans le schéma : {var_name}."})
 
     return {
         "valid": not any(issue["level"] == "error" for issue in issues),
@@ -713,7 +713,7 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
     {
         "slug": "project.report",
         "name": "Rapport de projet",
-        "description": "Rapport PDF complet d'un projet: fiche, taches, jalons, WBS.",
+        "description": "Rapport PDF complet d'un projet : fiche, tâches, jalons, WBS.",
         "object_type": "project",
         "page_size": "A4",
         "orientation": "portrait",
@@ -725,20 +725,20 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
             "project.code": "Code du projet",
             "project.name": "Nom du projet",
             "project.status": "Statut",
-            "project.priority": "Priorite",
+            "project.priority": "Priorité",
             "project.progress": "Pourcentage d'avancement",
-            "project.weather": "Meteo du projet",
-            "project.start_date": "Date de debut",
-            "project.end_date": "Date de fin prevue",
+            "project.weather": "Météo du projet",
+            "project.start_date": "Date de début",
+            "project.end_date": "Date de fin prévue",
             "project.budget": "Budget",
             "project.description": "Description",
             "project.manager_name": "Chef de projet",
-            "tasks": "Liste des taches [{title, status, priority, progress, start, end}]",
+            "tasks": "Liste des tâches [{title, status, priority, progress, start, end}]",
             "milestones": "Liste des jalons [{name, due_date, status}]",
-            "wbs_nodes": "Noeuds WBS [{code, name, budget}]",
-            "task_count": "Nombre de taches",
+            "wbs_nodes": "Nœuds WBS [{code, name, budget}]",
+            "task_count": "Nombre de tâches",
             "milestone_count": "Nombre de jalons",
-            "generated_at": "Date de generation",
+            "generated_at": "Date de génération",
         },
         "default_versions": {
             "fr": {
@@ -765,15 +765,15 @@ DEFAULT_PDF_TEMPLATES: list[dict] = [
         "margin_bottom": 10,
         "margin_left": 10,
         "variables_schema": {
-            "pid_number": "Numero du document PID",
+            "pid_number": "Numéro du document PID",
             "pid_title": "Titre du PID",
-            "revision": "Revision courante",
-            "drawing_number": "Numero de dessin",
+            "revision": "Révision courante",
+            "drawing_number": "Numéro de dessin",
             "status": "Statut du document",
             "sheet_format": "Format de feuille",
-            "svg_content": "Contenu SVG du schema",
-            "generated_at": "Date de generation",
-            "entity.name": "Nom de l'entite",
+            "svg_content": "Contenu SVG du schéma",
+            "generated_at": "Date de génération",
+            "entity.name": "Nom de l'entité",
         },
         "default_versions": {
             "fr": {

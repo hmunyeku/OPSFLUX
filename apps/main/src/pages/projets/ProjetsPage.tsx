@@ -2467,7 +2467,7 @@ function CustomFieldsSection({ projectId }: { projectId: string }) {
   }
 
   return (
-    <FormSection title="Champs personnalises" collapsible defaultExpanded storageKey="project-detail-custom-fields">
+    <FormSection title="Champs personnalisés" collapsible defaultExpanded storageKey="project-detail-custom-fields">
       <DetailFieldGrid>
         {fields.map((f) => (
           <InlineEditableRow

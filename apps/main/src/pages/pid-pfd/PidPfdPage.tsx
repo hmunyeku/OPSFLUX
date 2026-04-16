@@ -545,7 +545,7 @@ function PIDDetailPanel({ id }: { id: string }) {
 
             {/* Diagram Preview */}
             {showEditor ? (
-              <FormSection title="Editeur Draw.io" collapsible={false}>
+              <FormSection title="Éditeur Draw.io" collapsible={false}>
                 <div className="h-[500px] -mx-3 -mb-1">
                   <DrawioEditor
                     xmlContent={doc.xml_content ?? undefined}
@@ -556,7 +556,7 @@ function PIDDetailPanel({ id }: { id: string }) {
                 </div>
               </FormSection>
             ) : doc.xml_content ? (
-              <FormSection title="Apercu du diagramme" collapsible defaultExpanded>
+              <FormSection title="Aperçu du diagramme" collapsible defaultExpanded>
                 <div
                   className="w-full max-h-[200px] overflow-hidden rounded border border-border bg-muted/10 flex items-center justify-center cursor-pointer hover:bg-muted/20 transition-colors"
                   onClick={() => setShowEditor(true)}

@@ -239,7 +239,7 @@ function CreateTypePanel() {
                   value={form.description ?? ''}
                   onChange={(e) => setForm({ ...form, description: e.target.value || null })}
                   className={`${panelInputClass} min-h-[60px] resize-y`}
-                  placeholder="Description du type de conformite..."
+                  placeholder="Description du type de conformité..."
                   rows={3}
                 />
               </FormSection>
@@ -303,7 +303,7 @@ function TypeDetailPanel({ id }: { id: string }) {
             <ReadOnlyRow label="Catégorie" value={<span className="gl-badge gl-badge-info">{categoryLabels[ct.category] ?? ct.category}</span>} />
             <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{ct.code || '—'}</span>} />
             <InlineEditableRow label="Nom" value={ct.name} onSave={(v) => handleSave('name', v)} />
-            <ReadOnlyRow label="Validite" value={ct.validity_days ? `${ct.validity_days} jours` : 'Permanent'} />
+            <ReadOnlyRow label="Validité" value={ct.validity_days ? `${ct.validity_days} jours` : 'Permanent'} />
             <ReadOnlyRow label="Obligatoire" value={ct.is_mandatory ? 'Oui' : 'Non'} />
           </DetailFieldGrid>
         </FormSection>
@@ -588,7 +588,7 @@ function CreateExemptionPanel() {
   return (
     <DynamicPanelShell
       title="Nouvelle exemption"
-      subtitle="Derogation de conformite"
+      subtitle="Dérogation de conformité"
       icon={<ShieldOff size={14} className="text-amber-500" />}
       actions={
         <>
@@ -605,7 +605,7 @@ function CreateExemptionPanel() {
     >
       <form id="create-exemption-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title="Enregistrement de conformite">
+          <FormSection title="Enregistrement de conformité">
             <DynamicPanelField label="Enregistrement" required>
               <select
                 required
@@ -735,10 +735,10 @@ function ExemptionDetailPanel({ id }: { id: string }) {
         <FormSection title="Informations" collapsible defaultExpanded>
           <DetailFieldGrid>
             <ReadOnlyRow label="Statut" value={statusBadge} />
-            <ReadOnlyRow label="Type de conformite" value={exemption.record_type_name || '--'} />
+            <ReadOnlyRow label="Type de conformité" value={exemption.record_type_name || '--'} />
             <ReadOnlyRow label="Catégorie" value={exemption.record_type_category ? <span className="gl-badge gl-badge-neutral">{exemption.record_type_category}</span> : '--'} />
-            <ReadOnlyRow label="Proprietaire" value={exemption.owner_name || '--'} />
-            <ReadOnlyRow label="Date de debut" value={new Date(exemption.start_date).toLocaleDateString('fr-FR')} />
+            <ReadOnlyRow label="Propriétaire" value={exemption.owner_name || '--'} />
+            <ReadOnlyRow label="Date de début" value={new Date(exemption.start_date).toLocaleDateString('fr-FR')} />
             <ReadOnlyRow label="Date de fin" value={new Date(exemption.end_date).toLocaleDateString('fr-FR')} />
             <ReadOnlyRow label="Approuvé par" value={exemption.approver_name || '--'} />
             <ReadOnlyRow label="Créé par" value={exemption.creator_name || '--'} />
@@ -3158,7 +3158,7 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
         </DetailFieldGrid>
 
         {/* ── Attachments ── */}
-        <FormSection title="Pieces jointes">
+        <FormSection title="Pièces jointes">
           {(item.attachment_required !== false) && ((item.attachment_count ?? 0) <= 0) && (
             <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
               {t('conformite.verifications.proof_required_before_verify')}

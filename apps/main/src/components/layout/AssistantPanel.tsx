@@ -303,7 +303,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     elementHelp: {},
   },
   conformite: {
-    title: 'Conformite', icon: '\u2705',
+    title: 'Conformité', icon: '\u2705',
     description: 'Gestion des certifications, habilitations, formations obligatoires et audits.',
     workflows: [
       { title: "Vérifier la conformité d'un PAX", steps: ['Onglet Vérifications', 'Recherchez le PAX', 'Consultez ses certifications', 'Les expirations sont en rouge'],

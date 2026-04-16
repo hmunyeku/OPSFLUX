@@ -5116,7 +5116,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
             </div>
 
             {/* Dependencies */}
-            <FormSection title="Dependances">
+            <FormSection title="Dépendances">
               {dependencies && dependencies.length > 0 ? (
                 <div className="space-y-1.5">
                   {dependencies.map((dep: PlannerDependency) => (
@@ -5190,7 +5190,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
 
             {/* Recurrence (maintenance only) */}
             {tp === 'maintenance' && (
-              <FormSection title="Recurrence">
+              <FormSection title="Récurrence">
                 {showRecurrence ? (
                   <div className="space-y-2 p-2.5 rounded-lg border border-border bg-background-subtle">
                     <div className="grid grid-cols-2 gap-2">
@@ -5488,7 +5488,7 @@ function CreateActivityPanel() {
             </FormGrid>
           </FormSection>
 
-          <FormSection title="Type et priorite">
+          <FormSection title="Type et priorité">
             <FormGrid>
               <DynamicPanelField label="Type" required>
                 <select

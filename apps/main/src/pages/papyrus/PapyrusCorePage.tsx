@@ -850,7 +850,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
         </FormSection>
 
         {/* Document Editor */}
-        <FormSection title="Editeur de contenu" collapsible defaultExpanded={showEditor}>
+        <FormSection title="Éditeur de contenu" collapsible defaultExpanded={showEditor}>
           {showEditor ? (
             <div className="space-y-2">
               <DocumentEditor
@@ -917,7 +917,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
           )}
         </FormSection>
 
-        <FormSection title="Apercu rendu Papyrus" collapsible>
+        <FormSection title="Aperçu rendu Papyrus" collapsible>
           {!renderedPapyrusDocument ? (
             <p className="text-sm text-muted-foreground">Rendu Papyrus indisponible.</p>
           ) : (
@@ -930,7 +930,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
               </DetailFieldGrid>
 
               <div className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground">References resolues</div>
+                <div className="text-xs font-medium text-muted-foreground">Références résolues</div>
                 <pre className="rounded-md border border-border bg-muted/20 p-3 text-[11px] overflow-x-auto">
 {JSON.stringify(renderedPapyrusDocument.resolved_refs ?? {}, null, 2)}
                 </pre>
@@ -1083,7 +1083,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
           )}
         </FormSection>
 
-        <FormSection title="Rapport automatise" collapsible defaultExpanded={false}>
+        <FormSection title="Rapport automatisé" collapsible defaultExpanded={false}>
           <div className="space-y-3">
             <div className="grid gap-3 md:grid-cols-2">
               <label className="flex items-center gap-2 text-sm">
@@ -2159,7 +2159,7 @@ function CreateDocumentPanel() {
 
             {/* Column 2: Parametres */}
             <div className="@container space-y-5">
-              <FormSection title="Parametres">
+              <FormSection title="Paramètres">
                 <FormGrid>
                   <DynamicPanelField label="Classification">
                     <select

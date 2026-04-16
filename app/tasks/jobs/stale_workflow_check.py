@@ -129,7 +129,7 @@ async def check_stale_workflows() -> None:
                             entity_id=UUID(str(entity_id)),
                             title=f"{workflow_name}: demande en attente",
                             body=(
-                                f"L'instance de workflow est a l'etat '{current_state}' "
+                                f"L'instance de workflow est à l'état '{current_state}' "
                                 f"depuis {days_stale} jours. Veuillez prendre action."
                             ),
                             category="workflow",

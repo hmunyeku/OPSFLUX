@@ -1168,28 +1168,12 @@ function UserDetailPanel({ id }: { id: string }) {
     updateUser.mutate({ id, payload: { failed_login_count: 0, locked_until: null } })
   }, [id, updateUser])
 
-  if (!user) {
-    return (
-      <DynamicPanelShell title={t('common.loading')} icon={<Users size={14} className="text-primary" />}>
-        <div className="flex items-center justify-center py-16">
-          <Loader2 size={16} className="animate-spin text-muted-foreground" />
-        </div>
-      </DynamicPanelShell>
-    )
-  }
-
-  const entitiesCount = userEntities?.length ?? 0
-  const isLocked = !!(user.locked_until && new Date(user.locked_until) > new Date())
-  const isExpired = !!(user.account_expires_at && new Date(user.account_expires_at) < new Date())
-  const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
-  const formatDateTime = (d: string | null) => d ? new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
-
   const userDetailActionItems = useMemo<ActionItem[]>(() => [
     {
       id: 'toggle-active',
-      label: user.active ? 'Desactiver' : 'Activer',
-      icon: user.active ? UserX : UserCheck,
-      variant: user.active ? 'danger' : 'primary',
+      label: user?.active ? 'Desactiver' : 'Activer',
+      icon: user?.active ? UserX : UserCheck,
+      variant: user?.active ? 'danger' : 'primary',
       priority: 80,
       loading: updateUser.isPending,
       disabled: updateUser.isPending,
@@ -1205,7 +1189,23 @@ function UserDetailPanel({ id }: { id: string }) {
       disabled: deleteUser.isPending,
       onClick: handleDelete,
     },
-  ], [user.active, updateUser.isPending, deleteUser.isPending, handleToggleActive, handleDelete])
+  ], [user?.active, updateUser.isPending, deleteUser.isPending, handleToggleActive, handleDelete])
+
+  if (!user) {
+    return (
+      <DynamicPanelShell title={t('common.loading')} icon={<Users size={14} className="text-primary" />}>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 size={16} className="animate-spin text-muted-foreground" />
+        </div>
+      </DynamicPanelShell>
+    )
+  }
+
+  const entitiesCount = userEntities?.length ?? 0
+  const isLocked = !!(user.locked_until && new Date(user.locked_until) > new Date())
+  const isExpired = !!(user.account_expires_at && new Date(user.account_expires_at) < new Date())
+  const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+  const formatDateTime = (d: string | null) => d ? new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
 
   return (
     <DynamicPanelShell

@@ -4,7 +4,8 @@ import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import {
   FormSection,
   DynamicPanelField,
-  DetailRow,
+  DetailFieldGrid,
+  ReadOnlyRow,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import type {
@@ -145,8 +146,10 @@ export function CargoLocationSection({
   return (
     <FormSection title="Localisation d’enlèvement" collapsible defaultExpanded>
       <div className="space-y-2">
-        <DetailRow label="Lieu" value={pickupLocationLabel ?? '—'} />
-        <DetailRow label="Coordonnées" value={pickupCoordinatesLabel} />
+        <DetailFieldGrid>
+          <ReadOnlyRow label="Lieu" value={pickupLocationLabel ?? '—'} />
+          <ReadOnlyRow label="Coordonnées" value={pickupCoordinatesLabel} />
+        </DetailFieldGrid>
         {pickupMapEmbedUrl ? (
           <div className="space-y-2">
             <div className="overflow-hidden rounded-lg border border-border">

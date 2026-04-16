@@ -280,14 +280,6 @@ function TypeDetailPanel({ id }: { id: string }) {
     toast({ title: t('conformite.toast.type_archived'), variant: 'success' })
   }, [id, deleteType, closeDynamicPanel, toast])
 
-  if (!ct) {
-    return (
-      <DynamicPanelShell title={t('common.loading')} icon={<ShieldCheck size={14} className="text-primary" />}>
-        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
-      </DynamicPanelShell>
-    )
-  }
-
   const actionItems = useMemo<ActionItem[]>(() => [
     {
       id: 'delete',
@@ -298,6 +290,14 @@ function TypeDetailPanel({ id }: { id: string }) {
       onClick: handleDelete,
     },
   ], [t, handleDelete])
+
+  if (!ct) {
+    return (
+      <DynamicPanelShell title={t('common.loading')} icon={<ShieldCheck size={14} className="text-primary" />}>
+        <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+      </DynamicPanelShell>
+    )
+  }
 
   return (
     <DynamicPanelShell
@@ -506,6 +506,17 @@ function ComplianceRecordDetailPanel({ id }: { id: string }) {
     updateRecord.mutate({ id, payload: normalizeNames(payload) })
   }, [id, updateRecord])
 
+  const actionItems = useMemo<ActionItem[]>(() => [
+    {
+      id: 'delete',
+      label: t('common.delete'),
+      icon: Trash2,
+      variant: 'danger',
+      priority: 20,
+      onClick: handleDelete,
+    },
+  ], [t, handleDelete])
+
   if (!record) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<FileCheck size={14} className="text-primary" />}>
@@ -522,17 +533,6 @@ function ComplianceRecordDetailPanel({ id }: { id: string }) {
         : record.status === 'pending'
           ? 'gl-badge-warning'
           : 'gl-badge-neutral'
-
-  const actionItems = useMemo<ActionItem[]>(() => [
-    {
-      id: 'delete',
-      label: t('common.delete'),
-      icon: Trash2,
-      variant: 'danger',
-      priority: 20,
-      onClick: handleDelete,
-    },
-  ], [t, handleDelete])
 
   return (
     <DynamicPanelShell
@@ -729,6 +729,17 @@ function ExemptionDetailPanel({ id }: { id: string }) {
   }, [id, deleteExemption, closeDynamicPanel, toast])
   const { exemptionStatusLabels } = useConformiteDictionaryState()
 
+  const actionItems = useMemo<ActionItem[]>(() => [
+    {
+      id: 'delete',
+      label: t('common.delete'),
+      icon: Trash2,
+      variant: 'danger',
+      priority: 20,
+      onClick: handleDelete,
+    },
+  ], [t, handleDelete])
+
   if (!exemption) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<ShieldOff size={14} className="text-amber-500" />}>
@@ -743,17 +754,6 @@ function ExemptionDetailPanel({ id }: { id: string }) {
     const label = exemptionStatusLabels[s] ?? s
     return <span className={cn('gl-badge', cls)}>{label}</span>
   })()
-
-  const actionItems = useMemo<ActionItem[]>(() => [
-    {
-      id: 'delete',
-      label: t('common.delete'),
-      icon: Trash2,
-      variant: 'danger',
-      priority: 20,
-      onClick: handleDelete,
-    },
-  ], [t, handleDelete])
 
   return (
     <DynamicPanelShell
@@ -952,6 +952,17 @@ function JobPositionDetailPanel({ id }: { id: string }) {
     return m
   }, [typesData?.items])
 
+  const actionItems = useMemo<ActionItem[]>(() => [
+    {
+      id: 'delete',
+      label: t('common.delete'),
+      icon: Trash2,
+      variant: 'danger',
+      priority: 20,
+      onClick: handleDelete,
+    },
+  ], [t, handleDelete])
+
   if (!jp) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<Briefcase size={14} className="text-primary" />}>
@@ -967,17 +978,6 @@ function JobPositionDetailPanel({ id }: { id: string }) {
       r.target_type === 'all'
     )
   ) ?? []
-
-  const actionItems = useMemo<ActionItem[]>(() => [
-    {
-      id: 'delete',
-      label: t('common.delete'),
-      icon: Trash2,
-      variant: 'danger',
-      priority: 20,
-      onClick: handleDelete,
-    },
-  ], [t, handleDelete])
 
   return (
     <DynamicPanelShell

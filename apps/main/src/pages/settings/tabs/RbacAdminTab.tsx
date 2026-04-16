@@ -19,7 +19,7 @@ import type { ExportFormat } from '@/components/ui/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useToast } from '@/components/ui/Toast'
 import { Tooltip } from '@/components/ui/Tooltip'
-import { DynamicPanelShell, FormSection, InlineEditableRow, DetailRow, DangerConfirmButton } from '@/components/layout/DynamicPanel'
+import { DynamicPanelShell, FormSection, InlineEditableRow, DetailFieldGrid, ReadOnlyRow, DangerConfirmButton } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import {
   useRoles,
@@ -631,23 +631,25 @@ export function RoleDetailPanel({ code, onClose, inline = true }: { code: string
       {/* Left column: Info + Groups */}
       <div className="space-y-1 min-w-0">
         <FormSection title="Informations" defaultExpanded storageKey="rbac.role.info">
-          <div className="space-y-0">
+          <div className="space-y-1">
             {!isProtected ? (
               <>
                 <InlineEditableRow label="Nom" value={role.name} onSave={(v) => updateMut.mutate({ code, payload: { name: v } })} />
                 <InlineEditableRow label="Description" value={role.description || ''} onSave={(v) => updateMut.mutate({ code, payload: { description: v || null } })} />
               </>
             ) : (
-              <>
-                <DetailRow label="Nom" value={role.name} />
-                <DetailRow label="Description" value={role.description || '—'} />
-              </>
+              <DetailFieldGrid>
+                <ReadOnlyRow label="Nom" value={role.name} />
+                <ReadOnlyRow label="Description" value={role.description || '—'} />
+              </DetailFieldGrid>
             )}
-            <DetailRow label="Code" value={<span className="font-mono text-foreground">{role.code}</span>} />
-            <DetailRow label="Module" value={<span className="gl-badge gl-badge-neutral">{role.module || 'core'}</span>} />
-            <DetailRow label="Permissions" value={`${permCount} permission(s)`} />
-            <DetailRow label="Groupes" value={`${role.group_count ?? 0} groupe(s)`} />
-            <DetailRow label="Utilisateurs" value={`${role.user_count ?? 0} utilisateur(s)`} />
+            <DetailFieldGrid>
+              <ReadOnlyRow label="Code" value={<span className="font-mono text-foreground">{role.code}</span>} />
+              <ReadOnlyRow label="Module" value={<span className="gl-badge gl-badge-neutral">{role.module || 'core'}</span>} />
+              <ReadOnlyRow label="Permissions" value={`${permCount} permission(s)`} />
+              <ReadOnlyRow label="Groupes" value={`${role.group_count ?? 0} groupe(s)`} />
+              <ReadOnlyRow label="Utilisateurs" value={`${role.user_count ?? 0} utilisateur(s)`} />
+            </DetailFieldGrid>
           </div>
         </FormSection>
 
@@ -1900,65 +1902,67 @@ export function GroupDetailPanel({ groupId, onClose, inline = true }: { groupId:
       {/* Left column — Info + Members */}
       <div className="space-y-1 min-w-0">
         <FormSection title="Informations" defaultExpanded storageKey="rbac.group.info">
-          <div className="space-y-0">
+          <div className="space-y-1">
             <InlineEditableRow
               label="Nom"
               value={group.name}
               onSave={(v) => updateMut.mutate({ id: groupId, payload: { name: v } })}
             />
-            <DetailRow
-              label="Rôles"
-              value={
-                isProtected ? (
-                  <div className="flex flex-wrap gap-1">
-                    {group.role_codes.map((code, i) => (
-                      <button
-                        key={code}
-                        onClick={() => useUIStore.getState().openDynamicPanel({ type: 'detail', module: 'roles', id: code })}
-                        className="gl-badge gl-badge-info cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
-                      >
-                        {group.role_names[i] || code}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <RolePicker
-                    values={group.role_codes}
-                    roles={roles || []}
-                    onChange={(codes) => updateMut.mutate({ id: groupId, payload: { role_codes: codes } })}
-                  />
-                )
-              }
-            />
-            <DetailRow
-              label="Entité"
-              value={<CrossModuleLink module="entities" id={group.entity_id} label={group.entity_name || group.entity_id} showIcon={false} className="text-foreground" />}
-            />
-            <DetailRow
-              label="Scope asset"
-              value={group.asset_scope_name
-                ? <span className="gl-badge gl-badge-neutral">{group.asset_scope_name}</span>
-                : <span className="text-muted-foreground italic">Global (toute l'entité)</span>
-              }
-            />
-            <DetailRow
-              label="Statut"
-              value={group.active
-                ? <span className="gl-badge gl-badge-success">Actif</span>
-                : <span className="gl-badge gl-badge-neutral">Inactif</span>
-              }
-            />
-            <DetailRow
-              label="Permissions"
-              value={
-                <span className="text-foreground">
-                  {permCount} effective(s)
-                  {overrideCount > 0 && (
-                    <span className="text-muted-foreground ml-1">({rolePermCodes.size} rôle + {overrideCount} surcharge(s))</span>
-                  )}
-                </span>
-              }
-            />
+            <DetailFieldGrid>
+              <ReadOnlyRow
+                label="Rôles"
+                value={
+                  isProtected ? (
+                    <div className="flex flex-wrap gap-1">
+                      {group.role_codes.map((code, i) => (
+                        <button
+                          key={code}
+                          onClick={() => useUIStore.getState().openDynamicPanel({ type: 'detail', module: 'roles', id: code })}
+                          className="gl-badge gl-badge-info cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all"
+                        >
+                          {group.role_names[i] || code}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <RolePicker
+                      values={group.role_codes}
+                      roles={roles || []}
+                      onChange={(codes) => updateMut.mutate({ id: groupId, payload: { role_codes: codes } })}
+                    />
+                  )
+                }
+              />
+              <ReadOnlyRow
+                label="Entité"
+                value={<CrossModuleLink module="entities" id={group.entity_id} label={group.entity_name || group.entity_id} showIcon={false} className="text-foreground" />}
+              />
+              <ReadOnlyRow
+                label="Scope asset"
+                value={group.asset_scope_name
+                  ? <span className="gl-badge gl-badge-neutral">{group.asset_scope_name}</span>
+                  : <span className="text-muted-foreground italic">Global (toute l'entité)</span>
+                }
+              />
+              <ReadOnlyRow
+                label="Statut"
+                value={group.active
+                  ? <span className="gl-badge gl-badge-success">Actif</span>
+                  : <span className="gl-badge gl-badge-neutral">Inactif</span>
+                }
+              />
+              <ReadOnlyRow
+                label="Permissions"
+                value={
+                  <span className="text-foreground">
+                    {permCount} effective(s)
+                    {overrideCount > 0 && (
+                      <span className="text-muted-foreground ml-1">({rolePermCodes.size} rôle + {overrideCount} surcharge(s))</span>
+                    )}
+                  </span>
+                }
+              />
+            </DetailFieldGrid>
           </div>
         </FormSection>
 

@@ -29,7 +29,8 @@ import {
   FormGrid,
   DynamicPanelField,
   PanelActionButton,
-  DetailRow,
+  DetailFieldGrid,
+  ReadOnlyRow,
   SectionColumns,
   panelInputClass,
   type ActionItem,
@@ -2972,18 +2973,20 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
             </FormSection>
 
             <FormSection title="Demande d'expédition">
-              <DetailRow label="Code" value={cargoRequest.request_code} />
-              <DetailRow label="Intitulé" value={cargoRequest.title} />
-              <DetailRow label="Statut" value={requestStatusLabels[cargoRequest.status] ?? cargoRequest.status} />
-              <DetailRow label="Description" value={cargoRequest.description ?? '—'} />
-              <DetailRow label="Entreprise expéditrice" value={cargoRequest.sender_name ?? '—'} />
-              <DetailRow label="Contact entreprise" value={cargoRequest.sender_contact_name ?? '—'} />
-              <DetailRow label="Destinataire" value={cargoRequest.receiver_name ?? '—'} />
-              <DetailRow label="Destination" value={cargoRequest.destination_name ?? '—'} />
-              <DetailRow label="Imputation" value={cargoRequest.imputation_reference_name ? `${cargoRequest.imputation_reference_code ?? ''} ${cargoRequest.imputation_reference_name}`.trim() : '—'} />
-              <DetailRow label="Demandeur" value={cargoRequest.requester_display_name ?? cargoRequest.requester_name ?? '—'} />
-              <DetailRow label="Nombre de colis" value={String(cargoRequest.cargo_count ?? 0)} />
-              <DetailRow label="Créée le" value={new Date(cargoRequest.created_at).toLocaleString('fr-FR')} />
+              <DetailFieldGrid>
+                <ReadOnlyRow label="Code" value={cargoRequest.request_code} />
+                <ReadOnlyRow label="Intitulé" value={cargoRequest.title} />
+                <ReadOnlyRow label="Statut" value={requestStatusLabels[cargoRequest.status] ?? cargoRequest.status} />
+                <ReadOnlyRow label="Description" value={cargoRequest.description ?? '—'} />
+                <ReadOnlyRow label="Entreprise expéditrice" value={cargoRequest.sender_name ?? '—'} />
+                <ReadOnlyRow label="Contact entreprise" value={cargoRequest.sender_contact_name ?? '—'} />
+                <ReadOnlyRow label="Destinataire" value={cargoRequest.receiver_name ?? '—'} />
+                <ReadOnlyRow label="Destination" value={cargoRequest.destination_name ?? '—'} />
+                <ReadOnlyRow label="Imputation" value={cargoRequest.imputation_reference_name ? `${cargoRequest.imputation_reference_code ?? ''} ${cargoRequest.imputation_reference_name}`.trim() : '—'} />
+                <ReadOnlyRow label="Demandeur" value={cargoRequest.requester_display_name ?? cargoRequest.requester_name ?? '—'} />
+                <ReadOnlyRow label="Nombre de colis" value={String(cargoRequest.cargo_count ?? 0)} />
+                <ReadOnlyRow label="Créée le" value={new Date(cargoRequest.created_at).toLocaleString('fr-FR')} />
+              </DetailFieldGrid>
             </FormSection>
 
             <FormSection title="Complétude de la demande" collapsible defaultExpanded>
@@ -3364,16 +3367,18 @@ function VoyageDetailPanel({ id }: { id: string }) {
               <div className="@container space-y-5">
                 {/* Info */}
                 <FormSection title="Informations">
-                  <DetailRow label="Code" value={voyage.code} />
-                  <DetailRow label="Vecteur" value={voyage.vector_name ?? '—'} />
-                  <DetailRow label="Rotation" value={voyage.rotation_name ?? '—'} />
-                  <DetailRow label="Base de départ" value={departureLabel} />
-                  <DetailRow label="Dernière escale planifiée" value={destinationLabel} />
-                  <DetailRow label="Départ programmé" value={voyage.scheduled_departure ? new Date(voyage.scheduled_departure).toLocaleString('fr-FR') : '—'} />
-                  <DetailRow label="Arrivée programmée" value={voyage.scheduled_arrival ? new Date(voyage.scheduled_arrival).toLocaleString('fr-FR') : '—'} />
-                  <DetailRow label="Départ réel" value={voyage.actual_departure ? new Date(voyage.actual_departure).toLocaleString('fr-FR') : '—'} />
-                  <DetailRow label="Arrivée réelle" value={voyage.actual_arrival ? new Date(voyage.actual_arrival).toLocaleString('fr-FR') : '—'} />
-                  <DetailRow label="Motif du retard" value={voyage.delay_reason ?? '—'} />
+                  <DetailFieldGrid>
+                    <ReadOnlyRow label="Code" value={voyage.code} />
+                    <ReadOnlyRow label="Vecteur" value={voyage.vector_name ?? '—'} />
+                    <ReadOnlyRow label="Rotation" value={voyage.rotation_name ?? '—'} />
+                    <ReadOnlyRow label="Base de départ" value={departureLabel} />
+                    <ReadOnlyRow label="Dernière escale planifiée" value={destinationLabel} />
+                    <ReadOnlyRow label="Départ programmé" value={voyage.scheduled_departure ? new Date(voyage.scheduled_departure).toLocaleString('fr-FR') : '—'} />
+                    <ReadOnlyRow label="Arrivée programmée" value={voyage.scheduled_arrival ? new Date(voyage.scheduled_arrival).toLocaleString('fr-FR') : '—'} />
+                    <ReadOnlyRow label="Départ réel" value={voyage.actual_departure ? new Date(voyage.actual_departure).toLocaleString('fr-FR') : '—'} />
+                    <ReadOnlyRow label="Arrivée réelle" value={voyage.actual_arrival ? new Date(voyage.actual_arrival).toLocaleString('fr-FR') : '—'} />
+                    <ReadOnlyRow label="Motif du retard" value={voyage.delay_reason ?? '—'} />
+                  </DetailFieldGrid>
                 </FormSection>
 
             {/* Route: Stops */}
@@ -3504,14 +3509,14 @@ function VoyageDetailPanel({ id }: { id: string }) {
             {/* KPIs (if trip completed) */}
             {kpis && (
               <FormSection title="KPIs du voyage" collapsible defaultExpanded>
-                <div className="grid grid-cols-2 gap-2">
-                  <DetailRow label="PAX total" value={kpis.total_pax} />
-                  <DetailRow label="Cargo total" value={`${(kpis.total_cargo_kg ?? 0).toLocaleString('fr-FR')} kg`} />
-                  <DetailRow label="No-shows" value={kpis.no_shows} />
-                  <DetailRow label="A l'heure" value={kpis.on_time ? 'Oui' : `Non (${kpis.delay_minutes ?? 0} min)`} />
-                  <DetailRow label="Événements" value={kpis.events_count} />
-                  <DetailRow label="Articles HAZMAT" value={kpis.hazmat_items} />
-                </div>
+                <DetailFieldGrid>
+                  <ReadOnlyRow label="PAX total" value={kpis.total_pax} />
+                  <ReadOnlyRow label="Cargo total" value={`${(kpis.total_cargo_kg ?? 0).toLocaleString('fr-FR')} kg`} />
+                  <ReadOnlyRow label="No-shows" value={kpis.no_shows} />
+                  <ReadOnlyRow label="A l'heure" value={kpis.on_time ? 'Oui' : `Non (${kpis.delay_minutes ?? 0} min)`} />
+                  <ReadOnlyRow label="Evenements" value={kpis.events_count} />
+                  <ReadOnlyRow label="Articles HAZMAT" value={kpis.hazmat_items} />
+                </DetailFieldGrid>
               </FormSection>
             )}
               </div>
@@ -3692,24 +3697,35 @@ function VectorDetailPanel({ id }: { id: string }) {
           </>
         ) : (
           <>
-            <FormSection title="Identification">
-              <DetailRow label="Immatriculation" value={<span className="font-mono">{vector.registration}</span>} />
-              <DetailRow label="Nom" value={vector.name} />
-              <DetailRow label="Type" value={<span className={cn('gl-badge inline-flex items-center gap-1', typeEntry?.badge || 'gl-badge-neutral')}>{typeEntry?.label || vector.type}</span>} />
-              <DetailRow label="Mode" value={modeLabels[vector.mode] || vector.mode} />
-              <DetailRow label="Base d'attache" value={vector.home_base_name ?? '—'} />
-              <DetailRow label="Actif" value={vector.active ? 'Oui' : 'Non'} />
-            </FormSection>
+            <SectionColumns>
+              <div className="@container space-y-4">
+                <FormSection title="Identification">
+                  <DetailFieldGrid>
+                    <ReadOnlyRow label="Immatriculation" value={<span className="font-mono">{vector.registration}</span>} />
+                    <ReadOnlyRow label="Nom" value={vector.name} />
+                    <ReadOnlyRow label="Type" value={<span className={cn('gl-badge inline-flex items-center gap-1', typeEntry?.badge || 'gl-badge-neutral')}>{typeEntry?.label || vector.type}</span>} />
+                    <ReadOnlyRow label="Mode" value={modeLabels[vector.mode] || vector.mode} />
+                    <ReadOnlyRow label="Base d'attache" value={vector.home_base_name ?? '—'} />
+                    <ReadOnlyRow label="Actif" value={vector.active ? 'Oui' : 'Non'} />
+                  </DetailFieldGrid>
+                </FormSection>
+              </div>
+              <div className="@container space-y-4">
+                <FormSection title="Capacites">
+                  <DetailFieldGrid>
+                    <ReadOnlyRow label="Capacite PAX" value={vector.pax_capacity} />
+                    <ReadOnlyRow label="Capacite poids" value={vector.weight_capacity_kg ? `${vector.weight_capacity_kg.toLocaleString('fr-FR')} kg` : '—'} />
+                    <ReadOnlyRow label="Volume" value={vector.volume_capacity_m3 ? `${vector.volume_capacity_m3.toLocaleString('fr-FR')} m³` : '—'} />
+                  </DetailFieldGrid>
+                </FormSection>
+              </div>
+            </SectionColumns>
 
-            <FormSection title="Capacites">
-              <DetailRow label="Capacité PAX" value={vector.pax_capacity} />
-              <DetailRow label="Capacité poids" value={vector.weight_capacity_kg ? `${vector.weight_capacity_kg.toLocaleString('fr-FR')} kg` : '—'} />
-              <DetailRow label="Volume" value={vector.volume_capacity_m3 ? `${vector.volume_capacity_m3.toLocaleString('fr-FR')} m³` : '—'} />
-            </FormSection>
-
-            <FormSection title="Opérationnel" collapsible defaultExpanded={false}>
-              <DetailRow label="Pesée requise" value={vector.requires_weighing ? 'Oui' : 'Non'} />
-              {vector.mode === 'sea' && <DetailRow label="Numéro MMSI" value={vector.mmsi_number ?? '—'} />}
+            <FormSection title="Operationnel" collapsible defaultExpanded={false}>
+              <DetailFieldGrid>
+                <ReadOnlyRow label="Pesee requise" value={vector.requires_weighing ? 'Oui' : 'Non'} />
+                {vector.mode === 'sea' && <ReadOnlyRow label="Numero MMSI" value={vector.mmsi_number ?? '—'} />}
+              </DetailFieldGrid>
             </FormSection>
 
             {/* Deck surfaces / Zones */}
@@ -3848,16 +3864,26 @@ function RotationDetailPanel({ id }: { id: string }) {
           </>
         ) : (
           <>
-            <FormSection title="Identification">
-              <DetailRow label="Nom" value={rotation.name} />
-              <DetailRow label="Vecteur" value={rotation.vector_name ?? '—'} />
-              <DetailRow label="Base de départ" value={rotation.departure_base_name ?? '—'} />
-              <DetailRow label="Active" value={rotation.active ? 'Oui' : 'Non'} />
-            </FormSection>
-            <FormSection title="Programmation">
-              <DetailRow label="Expression CRON" value={rotation.schedule_cron ?? '—'} />
-              <DetailRow label="Description métier" value={rotation.schedule_description ?? '—'} />
-            </FormSection>
+            <SectionColumns>
+              <div className="@container space-y-4">
+                <FormSection title="Identification">
+                  <DetailFieldGrid>
+                    <ReadOnlyRow label="Nom" value={rotation.name} />
+                    <ReadOnlyRow label="Vecteur" value={rotation.vector_name ?? '—'} />
+                    <ReadOnlyRow label="Base de depart" value={rotation.departure_base_name ?? '—'} />
+                    <ReadOnlyRow label="Active" value={rotation.active ? 'Oui' : 'Non'} />
+                  </DetailFieldGrid>
+                </FormSection>
+              </div>
+              <div className="@container space-y-4">
+                <FormSection title="Programmation">
+                  <DetailFieldGrid>
+                    <ReadOnlyRow label="Expression CRON" value={rotation.schedule_cron ?? '—'} />
+                    <ReadOnlyRow label="Description metier" value={rotation.schedule_description ?? '—'} />
+                  </DetailFieldGrid>
+                </FormSection>
+              </div>
+            </SectionColumns>
           </>
         )}
       </PanelContentLayout>

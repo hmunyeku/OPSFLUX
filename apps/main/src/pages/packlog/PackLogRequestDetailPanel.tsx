@@ -21,9 +21,9 @@ import {
   FormSection,
   FormGrid,
   DetailFieldGrid,
+  ReadOnlyRow,
   DynamicPanelField,
   PanelActionButton,
-  DetailRow,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import type { ActionItem } from '@/components/layout/DynamicPanel'
@@ -499,8 +499,8 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
             {/* Identification & expédition */}
             <FormSection title="Identification">
               <DetailFieldGrid>
-                <DetailRow label="Code" value={<span className="font-mono text-xs">{cargoRequest.request_code}</span>} />
-                <DetailRow
+                <ReadOnlyRow label="Code" value={<span className="font-mono text-xs">{cargoRequest.request_code}</span>} />
+                <ReadOnlyRow
                   label="Statut"
                   value={
                     <span className={cn('gl-badge', REQUEST_STATUS_BADGES[cargoRequest.status] ?? 'gl-badge-neutral')}>
@@ -508,8 +508,8 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                     </span>
                   }
                 />
-                <DetailRow label="Intitulé" value={cargoRequest.title} />
-                <DetailRow
+                <ReadOnlyRow label="Intitulé" value={cargoRequest.title} />
+                <ReadOnlyRow
                   label="Créée le"
                   value={new Date(cargoRequest.created_at).toLocaleString('fr-FR')}
                 />
@@ -527,15 +527,15 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
             {/* Parties */}
             <FormSection title="Parties impliquées">
               <DetailFieldGrid>
-                <DetailRow label="Expéditeur" value={cargoRequest.sender_name ?? '—'} />
-                <DetailRow label="Contact" value={cargoRequest.sender_contact_name ?? '—'} />
-                <DetailRow label="Destinataire" value={cargoRequest.receiver_name ?? '—'} />
-                <DetailRow label="Destination" value={cargoRequest.destination_name ?? '—'} />
-                <DetailRow
+                <ReadOnlyRow label="Expéditeur" value={cargoRequest.sender_name ?? '—'} />
+                <ReadOnlyRow label="Contact" value={cargoRequest.sender_contact_name ?? '—'} />
+                <ReadOnlyRow label="Destinataire" value={cargoRequest.receiver_name ?? '—'} />
+                <ReadOnlyRow label="Destination" value={cargoRequest.destination_name ?? '—'} />
+                <ReadOnlyRow
                   label="Demandeur"
                   value={cargoRequest.requester_display_name ?? cargoRequest.requester_name ?? '—'}
                 />
-                <DetailRow
+                <ReadOnlyRow
                   label="Imputation"
                   value={
                     cargoRequest.imputation_reference_name

@@ -167,7 +167,19 @@ export function EChartsWidget({
         const hasLegend = yFields.length > 1
         return {
           color: COLOR_PALETTE,
-          tooltip: { trigger: 'axis', ...tooltipStyle },
+          tooltip: {
+            trigger: 'axis',
+            ...tooltipStyle,
+            formatter: (params: { seriesName: string; value: number | { value: number }; name: string; marker: string }[]) => {
+              if (!params.length) return ''
+              const label = params[0]?.name ?? ''
+              const rows = params.map((p) => {
+                const v = typeof p.value === 'object' ? (p.value as { value: number }).value : p.value
+                return `${p.marker}${p.seriesName}&nbsp;<b>${fmtNum(v ?? 0)}</b>`
+              })
+              return `<b>${label}</b><br/>${rows.join('<br/>')}`
+            },
+          },
           toolbox,
           ...(hasLegend ? { legend: { bottom: 0, textStyle: baseTextStyle, icon: 'roundRect', itemWidth: 10, itemHeight: 6 } } : {}),
           grid: { left: 8, right: 8, top: title ? 32 : 12, bottom: hasLegend ? 38 : 20, containLabel: true },
@@ -225,9 +237,14 @@ export function EChartsWidget({
       case 'line': {
         const xData = data.map((d) => String(d[xField] ?? ''))
         const hasLegend = yFields.length > 1
+        const axisTooltipFmt = (params: { seriesName: string; value: number; name: string; marker: string }[]) => {
+          if (!params.length) return ''
+          const rows = params.map((p) => `${p.marker}${p.seriesName}&nbsp;<b>${fmtNum(p.value ?? 0)}</b>`)
+          return `<b>${params[0]?.name ?? ''}</b><br/>${rows.join('<br/>')}`
+        }
         return {
           color: COLOR_PALETTE,
-          tooltip: { trigger: 'axis', ...tooltipStyle },
+          tooltip: { trigger: 'axis', ...tooltipStyle, formatter: axisTooltipFmt },
           toolbox,
           ...(hasLegend ? { legend: { bottom: 0, textStyle: baseTextStyle, icon: 'roundRect', itemWidth: 10, itemHeight: 6 } } : {}),
           grid: { left: 8, right: 8, top: title ? 32 : 12, bottom: hasLegend ? 38 : 20, containLabel: true },
@@ -255,11 +272,17 @@ export function EChartsWidget({
       case 'area': {
         const xData = data.map((d) => String(d[xField] ?? ''))
         const hasLegend = yFields.length > 1
+        const areaFmt = (params: { seriesName: string; value: number; name: string; marker: string }[]) => {
+          if (!params.length) return ''
+          const rows = params.map((p) => `${p.marker}${p.seriesName}&nbsp;<b>${fmtNum(p.value ?? 0)}</b>`)
+          return `<b>${params[0]?.name ?? ''}</b><br/>${rows.join('<br/>')}`
+        }
         return {
           color: COLOR_PALETTE,
           tooltip: {
             trigger: 'axis',
             ...tooltipStyle,
+            formatter: areaFmt,
             axisPointer: {
               type: 'cross',
               crossStyle: { color: isDark ? '#52525b' : '#d1d5db' },
@@ -412,7 +435,7 @@ export function EChartsWidget({
             {
               type: 'radar',
               data: yFields.map((field, i) => ({
-                name: field,
+                name: getSeriesDisplayName(field, i),
                 value: data.map((d) => d[field] ?? 0),
                 lineStyle: { color: COLOR_PALETTE[i % COLOR_PALETTE.length] },
                 areaStyle: { opacity: 0.1, color: COLOR_PALETTE[i % COLOR_PALETTE.length] },

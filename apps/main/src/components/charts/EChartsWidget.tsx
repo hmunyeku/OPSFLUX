@@ -205,7 +205,7 @@ export function EChartsWidget({
                 ...(isSingleSeries ? {} : { color: COLOR_PALETTE[i % COLOR_PALETTE.length] }),
               },
               emphasis: {
-                itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.2)', brightness: 0.1 },
+                itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.2)' },
               },
               label: {
                 show: isStacked

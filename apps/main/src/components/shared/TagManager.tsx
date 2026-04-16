@@ -77,7 +77,7 @@ export function TagManager({ ownerType, ownerId, compact }: TagManagerProps) {
       setName('')
       setParentId(null)
       setShowForm(false)
-      toast({ title: 'Tag ajoute', variant: 'success' })
+      toast({ title: 'Tag ajouté', variant: 'success' })
     } catch {
       toast({ title: 'Erreur', description: 'Impossible de créer le tag.', variant: 'error' })
     }
@@ -87,7 +87,7 @@ export function TagManager({ ownerType, ownerId, compact }: TagManagerProps) {
     try {
       await deleteTag.mutateAsync(id)
       setConfirmDeleteId(null)
-      toast({ title: 'Tag supprime', variant: 'success' })
+      toast({ title: 'Tag supprimé', variant: 'success' })
     } catch {
       toast({ title: 'Erreur', description: 'Impossible de supprimer le tag.', variant: 'error' })
     }
@@ -122,7 +122,7 @@ export function TagManager({ ownerType, ownerId, compact }: TagManagerProps) {
                 try {
                   await updateTag.mutateAsync({ id, payload: updates })
                   setEditingTagId(null)
-                  toast({ title: 'Tag modifie', variant: 'success' })
+                  toast({ title: 'Tag modifié', variant: 'success' })
                 } catch {
                   toast({ title: 'Erreur', variant: 'error' })
                 }

@@ -62,7 +62,7 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
         issuer: form.issuer || null,
         reference_number: form.reference_number || null,
       })
-      toast({ title: 'Enregistrement cree', variant: 'success' })
+      toast({ title: 'Enregistrement créé', variant: 'success' })
       setShowForm(false)
       setForm({ compliance_type_id: '', status: 'valid', issued_at: '', expires_at: '', issuer: '', reference_number: '' })
     } catch {
@@ -73,7 +73,7 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
   const handleDelete = async (id: string) => {
     try {
       await deleteRecord.mutateAsync(id)
-      toast({ title: 'Supprime', variant: 'success' })
+      toast({ title: 'Supprimé', variant: 'success' })
     } catch {
       toast({ title: 'Erreur', variant: 'error' })
     }

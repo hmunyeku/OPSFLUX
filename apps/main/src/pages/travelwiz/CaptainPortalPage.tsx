@@ -377,7 +377,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground block mb-1">Etat de mer</label>
+                <label className="text-xs text-muted-foreground block mb-1">État de mer</label>
                 <select
                   value={weatherForm.sea_state ?? ''}
                   onChange={(e) => setWeatherForm({ ...weatherForm, sea_state: e.target.value || null })}

@@ -196,239 +196,239 @@ interface ModuleHelp {
 const HELP_CONTENT: Record<string, ModuleHelp> = {
   dashboard: {
     title: 'Tableau de bord', icon: '\u{1F4CA}',
-    description: "Vue d'ensemble de vos operations. Les widgets affichent les KPIs en temps reel de tous les modules.",
-    workflows: [{ title: 'Personnaliser le dashboard', steps: ['Cliquez sur "Modifier" en haut a droite', 'Glissez-deposez les widgets', 'Cliquez "+" pour ajouter un widget', 'Configurez via l\'icone \u2699\uFE0F', 'Cliquez "Terminer"'] }],
-    tips: ['Chaque module a son propre dashboard', 'Les donnees se rafraichissent toutes les 5 minutes'],
+    description: "Vue d'ensemble de vos opérations. Les widgets affichent les KPIs en temps réel de tous les modules.",
+    workflows: [{ title: 'Personnaliser le dashboard', steps: ['Cliquez sur "Modifier" en haut à droite', 'Glissez-déposez les widgets', 'Cliquez "+" pour ajouter un widget', 'Configurez via l\'icône \u2699\uFE0F', 'Cliquez "Terminer"'] }],
+    tips: ['Chaque module a son propre dashboard', 'Les données se rafraîchissent toutes les 5 minutes'],
     elementHelp: {},
   },
   users: {
     title: 'Comptes utilisateurs', icon: '\u{1F465}',
-    description: "Gestion des comptes, roles, groupes et permissions. Controle d'acces centralise (RBAC).",
+    description: "Gestion des comptes, rôles, groupes et permissions. Contrôle d'accès centralisé (RBAC).",
     workflows: [
-      { title: 'Creer un utilisateur', steps: ['Cliquez "+ Nouvel utilisateur"', 'Renseignez nom, prenom, email', "Choisissez l'entite et le role", 'Le mot de passe temporaire est envoye par email'] },
-      { title: 'Gerer les permissions', steps: ['Cliquez sur un utilisateur', 'Allez dans l\'onglet "Permissions"', 'Cliquez sur les cellules pour accorder ou retirer', 'Les permissions heritees sont indiquees par un badge'],
-        diagram: `graph TD\n    A["Utilisateur"]:::user --> B["Groupe"]:::group\n    B --> C["Role"]:::role\n    C --> D["Permissions de base"]:::perm\n    B --> E["Overrides groupe"]:::override\n    A --> F["Overrides utilisateur"]:::override\n    D --> G["Permissions effectives"]:::effective\n    E --> G\n    F --> G\n    classDef user fill:#8b5cf6,stroke:#a78bfa,color:#fff\n    classDef group fill:#06b6d4,stroke:#22d3ee,color:#fff\n    classDef role fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef perm fill:#475569,stroke:#64748b,color:#fff\n    classDef override fill:#f59e0b,stroke:#fbbf24,color:#000\n    classDef effective fill:#22c55e,stroke:#4ade80,color:#fff`,
+      { title: 'Créer un utilisateur', steps: ['Cliquez "+ Nouvel utilisateur"', 'Renseignez nom, prénom, email', "Choisissez l'entité et le rôle", 'Le mot de passe temporaire est envoyé par email'] },
+      { title: 'Gérer les permissions', steps: ['Cliquez sur un utilisateur', 'Allez dans l\'onglet "Permissions"', 'Cliquez sur les cellules pour accorder ou retirer', 'Les permissions héritées sont indiquées par un badge'],
+        diagram: `graph TD\n    A["Utilisateur"]:::user --> B["Groupe"]:::group\n    B --> C["Rôle"]:::role\n    C --> D["Permissions de base"]:::perm\n    B --> E["Overrides groupe"]:::override\n    A --> F["Overrides utilisateur"]:::override\n    D --> G["Permissions effectives"]:::effective\n    E --> G\n    F --> G\n    classDef user fill:#8b5cf6,stroke:#a78bfa,color:#fff\n    classDef group fill:#06b6d4,stroke:#22d3ee,color:#fff\n    classDef role fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef perm fill:#475569,stroke:#64748b,color:#fff\n    classDef override fill:#f59e0b,stroke:#fbbf24,color:#000\n    classDef effective fill:#22c55e,stroke:#4ade80,color:#fff`,
       },
     ],
-    tips: ['Un utilisateur peut appartenir a plusieurs groupes', 'Les overrides utilisateur priment sur les permissions du groupe/role'],
+    tips: ['Un utilisateur peut appartenir à plusieurs groupes', 'Les overrides utilisateur priment sur les permissions du groupe/rôle'],
     elementHelp: {},
   },
   projets: {
     title: 'Projets — Gestion de projets', icon: '\u{1F4C1}',
-    description: 'Module complet de gestion de projets pour les operations Oil & Gas. Il comprend un diagramme de Gantt interactif avec gestion des dependances entre taches (FS, FF, SS, SF), un tableur pour l\'edition en masse, une vue Kanban par statut, et un systeme de calcul d\'avancement ponderable (effort, duree, poids manuel ou egal). Les projets sont rattaches a un site/installation et peuvent etre importes depuis Gouti. Chaque projet supporte les jalons, les sous-taches, les pieces jointes, les commentaires et le suivi budgetaire.',
+    description: 'Module complet de gestion de projets pour les opérations Oil & Gas. Il comprend un diagramme de Gantt interactif avec gestion des dépendances entre tâches (FS, FF, SS, SF), un tableur pour l\'édition en masse, une vue Kanban par statut, et un système de calcul d\'avancement pondérable (effort, durée, poids manuel ou égal). Les projets sont rattachés à un site/installation et peuvent être importés depuis Gouti. Chaque projet supporte les jalons, les sous-tâches, les pièces jointes, les commentaires et le suivi budgétaire.',
     workflows: [
-      { title: 'Creer un projet', steps: ['Cliquez "+ Nouveau projet"', 'Renseignez le nom, code, dates, budget', 'Affectez un site/asset et un chef de projet', "Ajoutez des taches dans l'onglet Planning"],
-        diagram: `graph LR\n    A["Planifie"]:::planned --> B["Actif"]:::active\n    B --> C["Termine"]:::done\n    B --> D["Annule"]:::cancelled\n    classDef planned fill:#475569,stroke:#64748b,color:#fff\n    classDef active fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef done fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef cancelled fill:#ef4444,stroke:#f87171,color:#fff`,
+      { title: 'Créer un projet', steps: ['Cliquez "+ Nouveau projet"', 'Renseignez le nom, code, dates, budget', 'Affectez un site/asset et un chef de projet', "Ajoutez des tâches dans l'onglet Planning"],
+        diagram: `graph LR\n    A["Planifié"]:::planned --> B["Actif"]:::active\n    B --> C["Terminé"]:::done\n    B --> D["Annulé"]:::cancelled\n    classDef planned fill:#475569,stroke:#64748b,color:#fff\n    classDef active fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef done fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef cancelled fill:#ef4444,stroke:#f87171,color:#fff`,
       },
-      { title: "Suivre l'avancement", steps: ['Le Gantt montre la timeline', "Double-cliquez une tache pour l'editer", "Le % d'avancement se met a jour automatiquement", "Le Tableur permet l'edition en masse"],
+      { title: "Suivre l'avancement", steps: ['Le Gantt montre la timeline', "Double-cliquez une tâche pour l'éditer", "Le % d'avancement se met à jour automatiquement", "Le Tableur permet l'édition en masse"],
         diagram: `graph LR\n    A["A faire"]:::todo --> B["En cours"]:::progress\n    B --> C["Revue"]:::review\n    C --> D["Termine"]:::done\n    C -->|Corrections| B\n    classDef todo fill:#475569,stroke:#64748b,color:#fff\n    classDef progress fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef review fill:#eab308,stroke:#facc15,color:#000\n    classDef done fill:#22c55e,stroke:#4ade80,color:#fff`,
       },
     ],
-    tips: ['Utilisez le Kanban pour un suivi par statut', 'Les dependances sont visibles dans le Gantt', 'Le mode Poids manuel est recommande quand toutes les taches n\'ont pas le meme impact business', 'Sync Gouti permet d\'importer des projets avec rafraichissement auto'],
+    tips: ['Utilisez le Kanban pour un suivi par statut', 'Les dépendances sont visibles dans le Gantt', 'Le mode Poids manuel est recommandé quand toutes les tâches n\'ont pas le même impact business', 'Sync Gouti permet d\'importer des projets avec rafraîchissement auto'],
     elementHelp: {
-      'projets.create': 'Cree un nouveau projet. Le code projet doit etre unique au sein de l\'entite (ex: WO-EBO-2026-001 pour Workover Ebome).',
-      'projets.gantt.toggle': 'Bascule entre les vues Gantt, Tableur et Kanban du projet. Chaque vue partage les memes donnees.',
-      'projets.tasks.create': 'Ajoute une tache au projet. Disponible en sous-tache d\'une tache existante (hierarchie WBS jusqu\'a 5 niveaux).',
-      'projets.task.dependency': 'Cree une dependance entre taches. FS = Fin-Debut, SS = Debut-Debut, FF = Fin-Fin, SF = Debut-Fin.',
-      'projets.task.progress': 'Pourcentage d\'avancement de la tache (0-100). Met a jour automatiquement l\'avancement projet selon le mode de ponderation configure.',
-      'projets.milestone.create': 'Ajoute un jalon (milestone) — point cle sans duree. Visualise en losange dans le Gantt et peut declencher des notifications.',
-      'projets.progress.mode': 'Mode de calcul d\'avancement projet. Effort = pondere par charge homme-jours. Duree = pondere par duree calendaire. Poids manuel = vous saisissez le poids. Egal = toutes les taches comptent pareil.',
-      'projets.gouti.sync': 'Synchronise le projet avec Gouti. Importe la WBS, les dates, dependances et avancement. Sync unidirectionnelle (Gouti -> OpsFlux).',
-      'projets.export.gantt': 'Exporte le Gantt en PDF haute resolution. Choisissez le format papier (A4/A3/A2), orientation et options.',
-      'projets.budget.tracker': 'Suivi budgetaire — compare les couts engages au budget previsionnel. Alerte automatique si depassement > 10%.',
-      'projets.kanban.column': 'Colonne du Kanban representant un statut. Glissez-deposez les taches pour changer leur statut.',
-      'projets.critical.path': 'Chemin critique — sequence de taches determinant la duree totale du projet. Tout retard sur ces taches retarde le projet entier.',
+      'projets.create': 'Crée un nouveau projet. Le code projet doit être unique au sein de l\'entité (ex: WO-EBO-2026-001 pour Workover Ebome).',
+      'projets.gantt.toggle': 'Bascule entre les vues Gantt, Tableur et Kanban du projet. Chaque vue partage les mêmes données.',
+      'projets.tasks.create': 'Ajoute une tâche au projet. Disponible en sous-tâche d\'une tâche existante (hiérarchie WBS jusqu\'à 5 niveaux).',
+      'projets.task.dependency': 'Crée une dépendance entre tâches. FS = Fin-Début, SS = Début-Début, FF = Fin-Fin, SF = Début-Fin.',
+      'projets.task.progress': 'Pourcentage d\'avancement de la tâche (0-100). Met à jour automatiquement l\'avancement projet selon le mode de pondération configuré.',
+      'projets.milestone.create': 'Ajoute un jalon (milestone) — point clé sans durée. Visualisé en losange dans le Gantt et peut déclencher des notifications.',
+      'projets.progress.mode': 'Mode de calcul d\'avancement projet. Effort = pondéré par charge homme-jours. Durée = pondéré par durée calendaire. Poids manuel = vous saisissez le poids. Égal = toutes les tâches comptent pareil.',
+      'projets.gouti.sync': 'Synchronise le projet avec Gouti. Importe la WBS, les dates, dépendances et avancement. Sync unidirectionnelle (Gouti -> OpsFlux).',
+      'projets.export.gantt': 'Exporte le Gantt en PDF haute résolution. Choisissez le format papier (A4/A3/A2), orientation et options.',
+      'projets.budget.tracker': 'Suivi budgétaire — compare les coûts engagés au budget prévisionnel. Alerte automatique si dépassement > 10%.',
+      'projets.kanban.column': 'Colonne du Kanban représentant un statut. Glissez-déposez les tâches pour changer leur statut.',
+      'projets.critical.path': 'Chemin critique — séquence de tâches déterminant la durée totale du projet. Tout retard sur ces tâches retarde le projet entier.',
     },
   },
   paxlog: {
     title: 'PaxLog — Gestion des passagers', icon: '\u2708\uFE0F',
-    description: "Module central de gestion des avis de sejour (AdS) et du suivi des passagers (PAX). Il couvre l'ensemble du cycle de vie d'une demande de deplacement : creation de l'AdS avec destination et dates, ajout des passagers avec verification de conformite (certifications, habilitations), soumission pour validation hierarchique, puis suivi en temps reel du sejour. Le module integre egalement la gestion des incidents PAX, la liste d'attente POB, les rotations de personnel et le portail externe pour les sous-traitants.",
+    description: "Module central de gestion des avis de séjour (AdS) et du suivi des passagers (PAX). Il couvre l'ensemble du cycle de vie d'une demande de déplacement : création de l'AdS avec destination et dates, ajout des passagers avec vérification de conformité (certifications, habilitations), soumission pour validation hiérarchique, puis suivi en temps réel du séjour. Le module intègre également la gestion des incidents PAX, la liste d'attente POB, les rotations de personnel et le portail externe pour les sous-traitants.",
     workflows: [
-      { title: 'Soumettre un avis de sejour (AdS)', steps: ['Cliquez "+ Nouvel AdS" dans l\'onglet "Avis de sejour"', 'Choisissez le type (Individuel ou Equipe) et selectionnez le site d\'entree', 'Renseignez la categorie de visite (Maintenance, Projet, Inspection...), les dates et l\'objet', 'Ajoutez les passagers : creez un nouveau profil ou attachez un contact existant du module Tiers', 'Verifiez la conformite de chaque PAX — les certifications manquantes ou expirees sont signalees en rouge', 'Une fois tous les checks verts, cliquez "Soumettre" — l\'AdS entre dans le workflow de validation'],
-        diagram: `graph TD\n    A["Brouillon"]:::draft -->|Soumettre| B["Soumis"]:::submitted\n    B --> C{"Conformite"}\n    C -->|OK| D["En validation"]:::validation\n    C -->|Issues| E["Bloque"]:::blocked\n    D -->|Approuver| F["Approuve"]:::approved\n    D -->|Rejeter| G["Rejete"]:::rejected\n    F -->|Demarrer| H["En cours"]:::progress\n    H -->|Terminer| I["Termine"]:::done\n    classDef draft fill:#475569,stroke:#64748b,color:#fff\n    classDef submitted fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef validation fill:#8b5cf6,stroke:#a78bfa,color:#fff\n    classDef blocked fill:#f59e0b,stroke:#fbbf24,color:#000\n    classDef approved fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef rejected fill:#ef4444,stroke:#f87171,color:#fff\n    classDef progress fill:#06b6d4,stroke:#22d3ee,color:#fff\n    classDef done fill:#10b981,stroke:#34d399,color:#fff`,
+      { title: 'Soumettre un avis de séjour (AdS)', steps: ['Cliquez "+ Nouvel AdS" dans l\'onglet "Avis de séjour"', 'Choisissez le type (Individuel ou Équipe) et sélectionnez le site d\'entrée', 'Renseignez la catégorie de visite (Maintenance, Projet, Inspection...), les dates et l\'objet', 'Ajoutez les passagers : créez un nouveau profil ou attachez un contact existant du module Tiers', 'Vérifiez la conformité de chaque PAX — les certifications manquantes ou expirées sont signalées en rouge', 'Une fois tous les checks verts, cliquez "Soumettre" — l\'AdS entre dans le workflow de validation'],
+        diagram: `graph TD\n    A["Brouillon"]:::draft -->|Soumettre| B["Soumis"]:::submitted\n    B --> C{"Conformité"}\n    C -->|OK| D["En validation"]:::validation\n    C -->|Issues| E["Bloqué"]:::blocked\n    D -->|Approuver| F["Approuvé"]:::approved\n    D -->|Rejeter| G["Rejeté"]:::rejected\n    F -->|Démarrer| H["En cours"]:::progress\n    H -->|Terminer| I["Terminé"]:::done\n    classDef draft fill:#475569,stroke:#64748b,color:#fff\n    classDef submitted fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef validation fill:#8b5cf6,stroke:#a78bfa,color:#fff\n    classDef blocked fill:#f59e0b,stroke:#fbbf24,color:#000\n    classDef approved fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef rejected fill:#ef4444,stroke:#f87171,color:#fff\n    classDef progress fill:#06b6d4,stroke:#22d3ee,color:#fff\n    classDef done fill:#10b981,stroke:#34d399,color:#fff`,
       },
     ],
-    tips: ['La conformite est verifiee automatiquement pour chaque PAX — les certifications HUET/BOSIET manquantes ou expirees bloquent la soumission', 'Un PAX non conforme doit regulariser ses documents avant que l\'AdS puisse avancer dans le workflow', 'Le lien externe permet aux sous-traitants de remplir les informations PAX sans acces a OpsFlux', 'La liste d\'attente POB gere les situations de depassement de capacite sur un site', 'Les signalements permettent de remonter des incidents lies a un PAX (comportement, securite, interdiction)', 'L\'onglet Rotations affiche le planning des rotations de personnel par site'],
+    tips: ['La conformité est vérifiée automatiquement pour chaque PAX — les certifications HUET/BOSIET manquantes ou expirées bloquent la soumission', 'Un PAX non conforme doit régulariser ses documents avant que l\'AdS puisse avancer dans le workflow', 'Le lien externe permet aux sous-traitants de remplir les informations PAX sans accès à OpsFlux', 'La liste d\'attente POB gère les situations de dépassement de capacité sur un site', 'Les signalements permettent de remonter des incidents liés à un PAX (comportement, sécurité, interdiction)', 'L\'onglet Rotations affiche le planning des rotations de personnel par site'],
     elementHelp: {
-      'paxlog.ads.create': 'Cree un nouvel avis de sejour. Le type Individuel ne contient qu\'un seul PAX, le type Equipe regroupe plusieurs PAX partageant les memes dates et destination.',
-      'paxlog.ads.status.draft': 'Brouillon — l\'AdS peut etre modifie librement. Il n\'est pas encore soumis au workflow et ne consomme pas de quota POB.',
-      'paxlog.ads.status.submitted': 'Soumis — l\'AdS est entre dans le workflow. La conformite est verifiee automatiquement et les approbateurs sont notifies.',
-      'paxlog.ads.status.approved': 'Approuve — toutes les validations sont OK. L\'AdS peut etre attache a un voyage TravelWiz et les PAX entrent au POB a l\'arrivee.',
-      'paxlog.ads.status.rejected': 'Rejete — un validateur a refuse. Consultez les commentaires pour comprendre le motif et creer un nouvel AdS corrige si necessaire.',
-      'paxlog.ads.submit': 'Soumet l\'AdS au workflow. Bloque tant que des PAX sont non conformes (sauf derogation accordee).',
-      'paxlog.ads.compliance': 'Indicateur de conformite agrege pour tous les PAX. Vert = OK, Orange = avertissement non bloquant, Rouge = soumission impossible.',
-      'paxlog.pax.add': 'Ajoute un passager a l\'AdS. Vous pouvez creer une fiche ou rattacher un contact existant du module Tiers.',
-      'paxlog.pax.compliance.badge': 'Statut conformite du PAX. Cliquez pour voir le detail des certifications, leur date d\'expiration et l\'historique.',
-      'paxlog.pob.counter': 'Population on Board actuelle vs capacite maximale du site. Cliquez pour voir la decomposition par entreprise et categorie.',
-      'paxlog.waitlist.promote': 'Promeut un AdS en attente vers le statut Approuve des qu\'une place POB se libere. Respect du FIFO ou de la priorite operationnelle.',
-      'paxlog.external.link': 'Genere une URL signee a duree limitee pour qu\'un sous-traitant remplisse les fiches PAX sans acces complet a OpsFlux.',
-      'paxlog.rotation.calendar': 'Vue calendrier des rotations de personnel par site. Affiche les arrivees/departs prevus et le solde POB jour par jour.',
+      'paxlog.ads.create': 'Crée un nouvel avis de séjour. Le type Individuel ne contient qu\'un seul PAX, le type Équipe regroupe plusieurs PAX partageant les mêmes dates et destination.',
+      'paxlog.ads.status.draft': 'Brouillon — l\'AdS peut être modifié librement. Il n\'est pas encore soumis au workflow et ne consomme pas de quota POB.',
+      'paxlog.ads.status.submitted': 'Soumis — l\'AdS est entré dans le workflow. La conformité est vérifiée automatiquement et les approbateurs sont notifiés.',
+      'paxlog.ads.status.approved': 'Approuvé — toutes les validations sont OK. L\'AdS peut être attaché à un voyage TravelWiz et les PAX entrent au POB à l\'arrivée.',
+      'paxlog.ads.status.rejected': 'Rejeté — un validateur a refusé. Consultez les commentaires pour comprendre le motif et créer un nouvel AdS corrigé si nécessaire.',
+      'paxlog.ads.submit': 'Soumet l\'AdS au workflow. Bloqué tant que des PAX sont non conformes (sauf dérogation accordée).',
+      'paxlog.ads.compliance': 'Indicateur de conformité agrégé pour tous les PAX. Vert = OK, Orange = avertissement non bloquant, Rouge = soumission impossible.',
+      'paxlog.pax.add': 'Ajoute un passager à l\'AdS. Vous pouvez créer une fiche ou rattacher un contact existant du module Tiers.',
+      'paxlog.pax.compliance.badge': 'Statut conformité du PAX. Cliquez pour voir le détail des certifications, leur date d\'expiration et l\'historique.',
+      'paxlog.pob.counter': 'Population on Board actuelle vs capacité maximale du site. Cliquez pour voir la décomposition par entreprise et catégorie.',
+      'paxlog.waitlist.promote': 'Promeut un AdS en attente vers le statut Approuvé dès qu\'une place POB se libère. Respect du FIFO ou de la priorité opérationnelle.',
+      'paxlog.external.link': 'Génère une URL signée à durée limitée pour qu\'un sous-traitant remplisse les fiches PAX sans accès complet à OpsFlux.',
+      'paxlog.rotation.calendar': 'Vue calendrier des rotations de personnel par site. Affiche les arrivées/départs prévus et le solde POB jour par jour.',
     },
   },
   planner: {
-    title: 'Planner — Planification operationnelle', icon: '\u{1F4C5}',
-    description: 'Module de planification operationnelle des activites sur les installations. Il permet de visualiser et gerer le plan d\'occupation des sites via un Gantt interactif, de detecter automatiquement les conflits de capacite (quand le nombre de PAX prevu depasse la capacite d\'un site), de resoudre ces conflits via un systeme d\'arbitrage, et de simuler des scenarios what-if pour comparer differentes organisations avant de les appliquer. Le module est connecte aux Projets (chaque activite peut etre rattachee a un projet) et a PaxLog (les quotas PAX impactent le calcul POB).',
+    title: 'Planner — Planification opérationnelle', icon: '\u{1F4C5}',
+    description: 'Module de planification opérationnelle des activités sur les installations. Il permet de visualiser et gérer le plan d\'occupation des sites via un Gantt interactif, de détecter automatiquement les conflits de capacité (quand le nombre de PAX prévu dépasse la capacité d\'un site), de résoudre ces conflits via un système d\'arbitrage, et de simuler des scénarios what-if pour comparer différentes organisations avant de les appliquer. Le module est connecté aux Projets (chaque activité peut être rattachée à un projet) et à PaxLog (les quotas PAX impactent le calcul POB).',
     workflows: [
-      { title: 'Creer une activite', steps: ['Cliquez "+ Nouvelle activite" dans la barre d\'outils ou via le menu contextuel du Gantt', 'Selectionnez le site/installation cible dans le picker d\'assets (hierarchie arborescente)', 'Choisissez le type d\'activite (Projet, Maintenance, Workover, Forage, Inspection, Evenement)', 'Definissez les dates de debut et fin, et le quota PAX prevu', 'Rattachez optionnellement un projet existant et/ou un centre de couts pour l\'imputation', 'L\'activite apparait immediatement dans le Gantt — les conflits eventuels sont detectes en temps reel'] },
-      { title: 'Resoudre un conflit de capacite', steps: ['Les conflits apparaissent dans l\'onglet "Conflits" avec un compteur rouge dans la tab bar', 'Cliquez sur un conflit pour voir les activites concernees et le depassement de capacite', 'Trois options de resolution : decaler une activite dans le temps, reduire le quota PAX, ou annuler', 'Le directeur des operations (DO) peut forcer la priorite d\'une activite critique via l\'action "Forcer"', 'Validez la resolution — les activites sont mises a jour et le conflit passe en "Resolu"'],
-        diagram: `graph TD\n    A["Activite A"]:::act --> C{"Conflit capacite"}\n    B["Activite B"]:::act --> C\n    C -->|Decaler| D["Reportee"]:::resolved\n    C -->|Reduire| E["Ajustee"]:::resolved\n    C -->|Annuler| F["Annulee"]:::cancelled\n    classDef act fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef resolved fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef cancelled fill:#ef4444,stroke:#f87171,color:#fff`,
+      { title: 'Créer une activité', steps: ['Cliquez "+ Nouvelle activité" dans la barre d\'outils ou via le menu contextuel du Gantt', 'Sélectionnez le site/installation cible dans le picker d\'assets (hiérarchie arborescente)', 'Choisissez le type d\'activité (Projet, Maintenance, Workover, Forage, Inspection, Événement)', 'Définissez les dates de début et fin, et le quota PAX prévu', 'Rattachez optionnellement un projet existant et/ou un centre de coûts pour l\'imputation', 'L\'activité apparaît immédiatement dans le Gantt — les conflits éventuels sont détectés en temps réel'] },
+      { title: 'Résoudre un conflit de capacité', steps: ['Les conflits apparaissent dans l\'onglet "Conflits" avec un compteur rouge dans la tab bar', 'Cliquez sur un conflit pour voir les activités concernées et le dépassement de capacité', 'Trois options de résolution : décaler une activité dans le temps, réduire le quota PAX, ou annuler', 'Le directeur des opérations (DO) peut forcer la priorité d\'une activité critique via l\'action "Forcer"', 'Validez la résolution — les activités sont mises à jour et le conflit passe en "Résolu"'],
+        diagram: `graph TD\n    A["Activité A"]:::act --> C{"Conflit capacité"}\n    B["Activité B"]:::act --> C\n    C -->|Décaler| D["Reportée"]:::resolved\n    C -->|Réduire| E["Ajustée"]:::resolved\n    C -->|Annuler| F["Annulée"]:::cancelled\n    classDef act fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef resolved fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef cancelled fill:#ef4444,stroke:#f87171,color:#fff`,
       },
-      { title: 'Comparer des scenarios', steps: ['Cliquez "Nouveau scenario"', 'Modifiez les activites sans affecter le reel', 'Comparez les scenarios cote a cote', 'Appliquez le scenario retenu'] },
+      { title: 'Comparer des scénarios', steps: ['Cliquez "Nouveau scénario"', 'Modifiez les activités sans affecter le réel', 'Comparez les scénarios côte à côte', 'Appliquez le scénario retenu'] },
     ],
-    tips: ['Les conflits de capacite sont detectes automatiquement des qu\'une activite est creee ou modifiee — le Planner compare le total PAX prevu avec la capacite POB du site', 'Les scenarios what-if permettent de tester des modifications sans affecter le plan reel — creez un scenario, ajoutez/modifiez des activites, simulez l\'impact, puis promouvez le scenario si valide', 'La vue Capacite affiche un heatmap du taux de remplissage par site et par jour — les zones rouges indiquent un depassement', 'Les signaux de revision alertent quand une activite validee a ete modifiee apres approbation', 'Les previsions (Forecast) montrent la tendance du plan de charge sur les prochaines semaines avec un calendrier heatmap'],
+    tips: ['Les conflits de capacité sont détectés automatiquement dès qu\'une activité est créée ou modifiée — le Planner compare le total PAX prévu avec la capacité POB du site', 'Les scénarios what-if permettent de tester des modifications sans affecter le plan réel — créez un scénario, ajoutez/modifiez des activités, simulez l\'impact, puis promouvez le scénario si valide', 'La vue Capacité affiche un heatmap du taux de remplissage par site et par jour — les zones rouges indiquent un dépassement', 'Les signaux de révision alertent quand une activité validée a été modifiée après approbation', 'Les prévisions (Forecast) montrent la tendance du plan de charge sur les prochaines semaines avec un calendrier heatmap'],
     elementHelp: {
-      'planner.activity.create': 'Cree une nouvelle activite operationnelle (Workover, maintenance, projet, inspection). Detecte les conflits POB en temps reel.',
-      'planner.activity.type.workover': 'Workover — intervention lourde sur un puits. Bloque automatiquement les autres operations sur le meme puits et consomme un quota PAX eleve.',
-      'planner.activity.type.maintenance': 'Maintenance — intervention planifiee sur equipement. N\'arrete pas la production mais consomme du POB.',
-      'planner.activity.type.audit': 'Audit/Inspection — visite reglementaire ou interne. Quota PAX faible mais priorite elevee si lie a une certification.',
-      'planner.gantt.toolbar': 'Barre d\'outils du Gantt. Filtres par site/type, zoom temporel, bascule entre plan reel et scenario.',
-      'planner.conflict.badge': 'Compteur de conflits de capacite actifs. Cliquez pour ouvrir la liste detaillee avec impact POB et options de resolution.',
-      'planner.conflict.severity.critical': 'Conflit CRITICAL — depassement majeur du POB necessitant un arbitrage DO. Bloque la validation des AdS associes.',
-      'planner.scenario.new': 'Cree un scenario what-if en dupliquant le plan reel. Permet de tester des modifications sans impact operationnel.',
-      'planner.scenario.compare': 'Compare jusqu\'a 3 scenarios cote a cote sur les KPIs cles (POB, conflits, couts, jalons impactes).',
-      'planner.scenario.apply': 'Applique le scenario selectionne au plan reel. Action atomique avec rollback possible depuis l\'historique.',
-      'planner.priority.force': 'Forcer priorite DO — reserve aux directeurs. Reorganise automatiquement les autres activites pour liberer la capacite.',
-      'planner.capacity.heatmap': 'Heatmap de capacite par site et par jour. Rouge = depassement POB, Orange = saturation imminente, Vert = capacite disponible.',
+      'planner.activity.create': 'Crée une nouvelle activité opérationnelle (Workover, maintenance, projet, inspection). Détecte les conflits POB en temps réel.',
+      'planner.activity.type.workover': 'Workover — intervention lourde sur un puits. Bloque automatiquement les autres opérations sur le même puits et consomme un quota PAX élevé.',
+      'planner.activity.type.maintenance': 'Maintenance — intervention planifiée sur équipement. N\'arrête pas la production mais consomme du POB.',
+      'planner.activity.type.audit': 'Audit/Inspection — visite réglementaire ou interne. Quota PAX faible mais priorité élevée si lié à une certification.',
+      'planner.gantt.toolbar': 'Barre d\'outils du Gantt. Filtres par site/type, zoom temporel, bascule entre plan réel et scénario.',
+      'planner.conflict.badge': 'Compteur de conflits de capacité actifs. Cliquez pour ouvrir la liste détaillée avec impact POB et options de résolution.',
+      'planner.conflict.severity.critical': 'Conflit CRITICAL — dépassement majeur du POB nécessitant un arbitrage DO. Bloque la validation des AdS associés.',
+      'planner.scenario.new': 'Crée un scénario what-if en dupliquant le plan réel. Permet de tester des modifications sans impact opérationnel.',
+      'planner.scenario.compare': 'Compare jusqu\'à 3 scénarios côte à côte sur les KPIs clés (POB, conflits, coûts, jalons impactés).',
+      'planner.scenario.apply': 'Applique le scénario sélectionné au plan réel. Action atomique avec rollback possible depuis l\'historique.',
+      'planner.priority.force': 'Forcer priorité DO — réservé aux directeurs. Réorganise automatiquement les autres activités pour libérer la capacité.',
+      'planner.capacity.heatmap': 'Heatmap de capacité par site et par jour. Rouge = dépassement POB, Orange = saturation imminente, Vert = capacité disponible.',
     },
   },
   tiers: {
     title: 'Tiers', icon: '\u{1F3E2}',
     description: 'Annuaire des entreprises partenaires, fournisseurs, sous-traitants et leurs contacts.',
     workflows: [
-      { title: 'Ajouter une entreprise', steps: ['Cliquez "+ Nouveau tiers"', 'Renseignez la raison sociale, SIRET, type', 'Ajoutez les contacts', "Liez l'entreprise aux utilisateurs concernes"] },
-      { title: 'Gerer les contacts', steps: ['Ouvrez la fiche d\'un tiers', 'Onglet "Contacts" > "+ Nouveau contact"', 'Renseignez nom, fonction, email, telephone', 'Le contact peut etre utilise comme PAX'] },
-      { title: 'Transferer un contact', steps: ['Ouvrez la fiche du contact', 'Cliquez "Transferer"', 'Selectionnez le nouveau tiers', "L'historique est conserve"] },
+      { title: 'Ajouter une entreprise', steps: ['Cliquez "+ Nouveau tiers"', 'Renseignez la raison sociale, SIRET, type', 'Ajoutez les contacts', "Liez l'entreprise aux utilisateurs concernés"] },
+      { title: 'Gérer les contacts', steps: ['Ouvrez la fiche d\'un tiers', 'Onglet "Contacts" > "+ Nouveau contact"', 'Renseignez nom, fonction, email, téléphone', 'Le contact peut être utilisé comme PAX'] },
+      { title: 'Transférer un contact', steps: ['Ouvrez la fiche du contact', 'Cliquez "Transférer"', 'Sélectionnez le nouveau tiers', "L'historique est conservé"] },
     ],
-    tips: ['Un tiers peut etre fournisseur ET sous-traitant', 'Les contacts tiers sont utilises comme PAX externes dans PaxLog', 'Le blocage d\'un tiers empeche les nouveaux AdS pour ses contacts'],
+    tips: ['Un tiers peut être fournisseur ET sous-traitant', 'Les contacts tiers sont utilisés comme PAX externes dans PaxLog', 'Le blocage d\'un tiers empêche les nouveaux AdS pour ses contacts'],
     elementHelp: {},
   },
   conformite: {
     title: 'Conformite', icon: '\u2705',
     description: 'Gestion des certifications, habilitations, formations obligatoires et audits.',
     workflows: [
-      { title: "Verifier la conformite d'un PAX", steps: ['Onglet Verifications', 'Recherchez le PAX', 'Consultez ses certifications', 'Les expirations sont en rouge'],
-        diagram: `graph TD\n    A["Regles site"]:::rule --> D{"Verification"}\n    B["Profil / Habilitations"]:::rule --> D\n    C["Auto-declarations"]:::rule --> D\n    D -->|Tout OK| E["Conforme"]:::ok\n    D -->|Manquant| F["Non conforme"]:::nok\n    D -->|Expire| G["Expire"]:::expired\n    classDef rule fill:#475569,stroke:#64748b,color:#fff\n    classDef ok fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef nok fill:#f59e0b,stroke:#fbbf24,color:#000\n    classDef expired fill:#ef4444,stroke:#f87171,color:#fff`,
+      { title: "Vérifier la conformité d'un PAX", steps: ['Onglet Vérifications', 'Recherchez le PAX', 'Consultez ses certifications', 'Les expirations sont en rouge'],
+        diagram: `graph TD\n    A["Règles site"]:::rule --> D{"Vérification"}\n    B["Profil / Habilitations"]:::rule --> D\n    C["Auto-déclarations"]:::rule --> D\n    D -->|Tout OK| E["Conforme"]:::ok\n    D -->|Manquant| F["Non conforme"]:::nok\n    D -->|Expiré| G["Expiré"]:::expired\n    classDef rule fill:#475569,stroke:#64748b,color:#fff\n    classDef ok fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef nok fill:#f59e0b,stroke:#fbbf24,color:#000\n    classDef expired fill:#ef4444,stroke:#f87171,color:#fff`,
       },
-      { title: 'Configurer les regles', steps: ['Onglet "Regles" > "+ Nouvelle regle"', 'Selectionnez le type de site', 'Definissez les certifications requises', 'Configurez les delais de validite'] },
-      { title: 'Enregistrer une certification', steps: ['Ouvrez le profil du PAX', 'Onglet "Conformite"', '"+Ajouter une certification"', 'Selectionnez type et validite', 'Joignez le justificatif'] },
+      { title: 'Configurer les règles', steps: ['Onglet "Règles" > "+ Nouvelle règle"', 'Sélectionnez le type de site', 'Définissez les certifications requises', 'Configurez les délais de validité'] },
+      { title: 'Enregistrer une certification', steps: ['Ouvrez le profil du PAX', 'Onglet "Conformité"', '"+Ajouter une certification"', 'Sélectionnez type et validité', 'Joignez le justificatif'] },
     ],
-    tips: ['Les regles sont configurables par type de site', 'Le score de conformite est calcule automatiquement', 'Alertes d\'expiration envoyees 30 jours avant l\'echeance'],
+    tips: ['Les règles sont configurables par type de site', 'Le score de conformité est calculé automatiquement', 'Alertes d\'expiration envoyées 30 jours avant l\'échéance'],
     elementHelp: {},
   },
   travelwiz: {
     title: 'TravelWiz — Transport & Logistique', icon: '\u{1F681}',
-    description: 'Module de gestion du transport aerien (helicoptere) et maritime (bateau) entre les bases logistiques et les installations offshore. Il couvre la planification des voyages, la generation des manifestes passagers et fret (avec verification automatique du poids vs capacite du vecteur), le suivi en temps reel de la flotte sur carte, les conditions meteo par site, et la gestion de la maintenance des vecteurs. Le portail capitaine permet au commandant de bord de gerer le voyage directement depuis le terrain.',
+    description: 'Module de gestion du transport aérien (hélicoptère) et maritime (bateau) entre les bases logistiques et les installations offshore. Il couvre la planification des voyages, la génération des manifestes passagers et fret (avec vérification automatique du poids vs capacité du vecteur), le suivi en temps réel de la flotte sur carte, les conditions météo par site, et la gestion de la maintenance des vecteurs. Le portail capitaine permet au commandant de bord de gérer le voyage directement depuis le terrain.',
     workflows: [
-      { title: 'Creer un voyage', steps: ['Cliquez "+ Nouveau voyage"', 'Selectionnez le vecteur', "Definissez l'itineraire et les escales", 'Renseignez date et horaires', 'Le voyage apparait dans le planning'] },
-      { title: 'Generer un manifeste', steps: ['Ouvrez un voyage valide', 'Cliquez "Generer manifeste"', 'Les PAX des AdS approuves sont listes', 'Verifiez les poids', 'Validez pour impression'],
-        diagram: `graph LR\n    A["AdS Approuves"]:::input --> B["Manifeste"]:::manifest\n    B --> C{"Poids"}\n    C -->|OK| D["Valide"]:::ok\n    C -->|Depasse| E["Surcharge"]:::warn\n    classDef input fill:#475569,stroke:#64748b,color:#fff\n    classDef manifest fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef ok fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef warn fill:#f59e0b,stroke:#fbbf24,color:#000`,
+      { title: 'Créer un voyage', steps: ['Cliquez "+ Nouveau voyage"', 'Sélectionnez le vecteur', "Définissez l'itinéraire et les escales", 'Renseignez date et horaires', 'Le voyage apparaît dans le planning'] },
+      { title: 'Générer un manifeste', steps: ['Ouvrez un voyage valide', 'Cliquez "Générer manifeste"', 'Les PAX des AdS approuvés sont listés', 'Vérifiez les poids', 'Validez pour impression'],
+        diagram: `graph LR\n    A["AdS Approuvés"]:::input --> B["Manifeste"]:::manifest\n    B --> C{"Poids"}\n    C -->|OK| D["Validé"]:::ok\n    C -->|Dépassé| E["Surcharge"]:::warn\n    classDef input fill:#475569,stroke:#64748b,color:#fff\n    classDef manifest fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef ok fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef warn fill:#f59e0b,stroke:#fbbf24,color:#000`,
       },
-      { title: 'Gerer la flotte', steps: ['Onglet "Flotte"', 'Ajoutez un vecteur (type, immatriculation, capacite)', 'Definissez les periodes de maintenance', 'Consultez la disponibilite'] },
+      { title: 'Gérer la flotte', steps: ['Onglet "Flotte"', 'Ajoutez un vecteur (type, immatriculation, capacité)', 'Définissez les périodes de maintenance', 'Consultez la disponibilité'] },
     ],
-    tips: ['Le manifeste calcule le poids total (PAX + bagages + fret) vs MTOW — bloque la validation si depassement', 'Vecteurs en maintenance (planifiee ou non) exclus automatiquement du picker de planification', 'Conditions meteo (vent, houle, plafond, visibilite) verifiees avant chaque vol', 'Portail capitaine fonctionne en mode degrade hors ligne avec sync au retour reseau', 'Pickups multi-sites optimises automatiquement (ordre des escales selon coordonnees GPS)'],
+    tips: ['Le manifeste calcule le poids total (PAX + bagages + fret) vs MTOW — bloque la validation si dépassement', 'Vecteurs en maintenance (planifiée ou non) exclus automatiquement du picker de planification', 'Conditions météo (vent, houle, plafond, visibilité) vérifiées avant chaque vol', 'Portail capitaine fonctionne en mode dégradé hors ligne avec sync au retour réseau', 'Pickups multi-sites optimisés automatiquement (ordre des escales selon coordonnées GPS)'],
     elementHelp: {
-      'travelwiz.voyage.create': 'Cree un nouveau voyage. Selectionnez le vecteur, l\'itineraire avec escales et la date — le systeme reserve la disponibilite.',
-      'travelwiz.voyage.status.planned': 'Planifie — le voyage est cree et le vecteur reserve. Pas encore de manifeste valide ni d\'embarquement commence.',
-      'travelwiz.voyage.status.boarding': 'Embarquement — le manifeste est valide et les PAX sont en cours de pointage a l\'embarquement.',
-      'travelwiz.voyage.status.intransit': 'En transit — le vecteur est parti (ATD saisi). Suivi GPS actif et tracking des escales en temps reel.',
-      'travelwiz.voyage.status.completed': 'Termine — le vecteur est arrive a destination finale (ATA saisi). Manifeste archive et rapport de vol soumis.',
-      'travelwiz.manifest.generate': 'Genere le manifeste PAX et fret depuis les AdS approuves. Verifie automatiquement le poids vs MTOW du vecteur.',
-      'travelwiz.manifest.weight.warning': 'Alerte de surcharge — le poids total depasse la MTOW. Bloque la validation jusqu\'a correction.',
-      'travelwiz.vector.maintenance': 'Periode de maintenance du vecteur. Bloque automatiquement toute planification de voyage sur cette plage.',
-      'travelwiz.vector.gps.live': 'Position GPS temps reel du vecteur (actualisee toutes les 60s). Affiche aussi la trace des dernieres heures.',
-      'travelwiz.weather.check': 'Verification automatique des conditions meteo avant validation. Alerte si limite vecteur depassee.',
-      'travelwiz.captain.portal.url': 'URL dediee au portail capitaine — auth simplifiee mobile/tablette, mode degrade hors ligne avec sync au retour reseau.',
-      'travelwiz.pickup.multisite': 'Voyage avec pickup sur plusieurs sites. L\'ordre des escales est optimise automatiquement selon les coordonnees GPS.',
-      'travelwiz.incident.report': 'Signale un incident vecteur (panne, meteo, medical) — declenche la recherche d\'un vecteur de substitution.',
+      'travelwiz.voyage.create': 'Crée un nouveau voyage. Sélectionnez le vecteur, l\'itinéraire avec escales et la date — le système réserve la disponibilité.',
+      'travelwiz.voyage.status.planned': 'Planifié — le voyage est créé et le vecteur réservé. Pas encore de manifeste valide ni d\'embarquement commencé.',
+      'travelwiz.voyage.status.boarding': 'Embarquement — le manifeste est valide et les PAX sont en cours de pointage à l\'embarquement.',
+      'travelwiz.voyage.status.intransit': 'En transit — le vecteur est parti (ATD saisi). Suivi GPS actif et tracking des escales en temps réel.',
+      'travelwiz.voyage.status.completed': 'Terminé — le vecteur est arrivé à destination finale (ATA saisi). Manifeste archivé et rapport de vol soumis.',
+      'travelwiz.manifest.generate': 'Génère le manifeste PAX et fret depuis les AdS approuvés. Vérifie automatiquement le poids vs MTOW du vecteur.',
+      'travelwiz.manifest.weight.warning': 'Alerte de surcharge — le poids total dépasse la MTOW. Bloque la validation jusqu\'à correction.',
+      'travelwiz.vector.maintenance': 'Période de maintenance du vecteur. Bloque automatiquement toute planification de voyage sur cette plage.',
+      'travelwiz.vector.gps.live': 'Position GPS temps réel du vecteur (actualisée toutes les 60s). Affiche aussi la trace des dernières heures.',
+      'travelwiz.weather.check': 'Vérification automatique des conditions météo avant validation. Alerte si limite vecteur dépassée.',
+      'travelwiz.captain.portal.url': 'URL dédiée au portail capitaine — auth simplifiée mobile/tablette, mode dégradé hors ligne avec sync au retour réseau.',
+      'travelwiz.pickup.multisite': 'Voyage avec pickup sur plusieurs sites. L\'ordre des escales est optimisé automatiquement selon les coordonnées GPS.',
+      'travelwiz.incident.report': 'Signale un incident vecteur (panne, météo, médical) — déclenche la recherche d\'un vecteur de substitution.',
     },
   },
   packlog: {
     title: 'PackLog', icon: '\u{1F4E6}',
     description: 'Gestion des articles, lettres de transport (LT), cargos et suivi des expeditions offshore.',
     workflows: [
-      { title: 'Creer une lettre de transport', steps: ['Cliquez "+ Nouvelle LT"', "Selectionnez expediteur et destinataire", 'Ajoutez les articles (reference, quantite, poids)', 'Affectez un voyage TravelWiz', 'Validez la LT'] },
-      { title: 'Suivre un cargo', steps: ['Onglet "Cargos"', 'Filtrez par statut', 'Cliquez pour voir le detail', "L'historique des mouvements est trace"],
-        diagram: `graph LR\n    A["Preparation"]:::prep --> B["En transit"]:::transit\n    B --> C["Receptionne"]:::received\n    C --> D["Livre"]:::delivered\n    classDef prep fill:#475569,stroke:#64748b,color:#fff\n    classDef transit fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef received fill:#8b5cf6,stroke:#a78bfa,color:#fff\n    classDef delivered fill:#22c55e,stroke:#4ade80,color:#fff`,
+      { title: 'Créer une lettre de transport', steps: ['Cliquez "+ Nouvelle LT"', "Sélectionnez expéditeur et destinataire", 'Ajoutez les articles (référence, quantité, poids)', 'Affectez un voyage TravelWiz', 'Validez la LT'] },
+      { title: 'Suivre un cargo', steps: ['Onglet "Cargos"', 'Filtrez par statut', 'Cliquez pour voir le détail', "L'historique des mouvements est tracé"],
+        diagram: `graph LR\n    A["Préparation"]:::prep --> B["En transit"]:::transit\n    B --> C["Réceptionné"]:::received\n    C --> D["Livré"]:::delivered\n    classDef prep fill:#475569,stroke:#64748b,color:#fff\n    classDef transit fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef received fill:#8b5cf6,stroke:#a78bfa,color:#fff\n    classDef delivered fill:#22c55e,stroke:#4ade80,color:#fff`,
       },
     ],
-    tips: ['Articles lies au catalogue centralise — reference unique, photo, dimensions, poids, classe HAZMAT', 'Poids total calcule automatiquement a partir des articles et conditionnement', 'LT liees aux voyages TravelWiz pour la tracabilite complete', 'Alertes en cas de retard de livraison ou ecart a la reception', 'Matieres HAZMAT exigent FDS, classification IMDG/IATA, numero UN', 'Scan QR a chaque transition assure la tracabilite bout-en-bout'],
+    tips: ['Articles liés au catalogue centralisé — référence unique, photo, dimensions, poids, classe HAZMAT', 'Poids total calculé automatiquement à partir des articles et conditionnement', 'LT liées aux voyages TravelWiz pour la traçabilité complète', 'Alertes en cas de retard de livraison ou écart à la réception', 'Matières HAZMAT exigent FDS, classification IMDG/IATA, numéro UN', 'Scan QR à chaque transition assure la traçabilité bout-en-bout'],
     elementHelp: {
-      'packlog.lt.create': 'Cree une nouvelle Lettre de Transport. Selectionnez expediteur, destinataire, articles depuis le catalogue et voyage TravelWiz.',
-      'packlog.lt.status.draft': 'Brouillon — la LT est en cours de saisie. Articles modifiables, pas encore de cargo physique constitue.',
-      'packlog.lt.status.validated': 'Validee — le BL est genere et signe. Le cargo passe automatiquement en statut Preparation en base.',
-      'packlog.article.catalog': 'Picker catalogue articles — recherche par reference, designation, code-barres ou categorie. Affiche stock, poids et HAZMAT.',
-      'packlog.article.hazmat': 'Article matiere dangereuse — exige classe IMDG/IATA, numero UN, groupe d\'emballage et FDS jointe.',
-      'packlog.cargo.status.preparation': 'Preparation — le cargo est en cours de constitution physique en base. Pointage articles vs LT, pesee et marquage.',
-      'packlog.cargo.status.transit': 'En transit — le cargo est embarque sur le vecteur. Position GPS = celle du vecteur, ETA mise a jour en continu.',
-      'packlog.cargo.status.received': 'Receptionne — le cargo est arrive sur site et confirme par le destinataire (intact / endommage / manquants).',
-      'packlog.cargo.status.delivered': 'Livre — signature electronique du destinataire final. Cargo clos, LT marquee Livree, historique archive.',
-      'packlog.cargo.qr.scan': 'Scan QR du cargo a chaque transition. Horodatage, operateur et photo captures pour la tracabilite bout-en-bout.',
-      'packlog.cargo.weight.total': 'Poids total du cargo calcule automatiquement (somme articles + conditionnement). Verifie vs capacite fret du vecteur.',
-      'packlog.hazmat.declaration': 'Declaration expediteur OACI (aerien) ou IMO (maritime) generee automatiquement pour les cargos HAZMAT.',
+      'packlog.lt.create': 'Crée une nouvelle Lettre de Transport. Sélectionnez expéditeur, destinataire, articles depuis le catalogue et voyage TravelWiz.',
+      'packlog.lt.status.draft': 'Brouillon — la LT est en cours de saisie. Articles modifiables, pas encore de cargo physique constitué.',
+      'packlog.lt.status.validated': 'Validée — le BL est généré et signé. Le cargo passe automatiquement en statut Préparation en base.',
+      'packlog.article.catalog': 'Picker catalogue articles — recherche par référence, désignation, code-barres ou catégorie. Affiche stock, poids et HAZMAT.',
+      'packlog.article.hazmat': 'Article matière dangereuse — exige classe IMDG/IATA, numéro UN, groupe d\'emballage et FDS jointe.',
+      'packlog.cargo.status.preparation': 'Préparation — le cargo est en cours de constitution physique en base. Pointage articles vs LT, pesée et marquage.',
+      'packlog.cargo.status.transit': 'En transit — le cargo est embarqué sur le vecteur. Position GPS = celle du vecteur, ETA mise à jour en continu.',
+      'packlog.cargo.status.received': 'Réceptionné — le cargo est arrivé sur site et confirmé par le destinataire (intact / endommagé / manquants).',
+      'packlog.cargo.status.delivered': 'Livré — signature électronique du destinataire final. Cargo clos, LT marquée Livrée, historique archivé.',
+      'packlog.cargo.qr.scan': 'Scan QR du cargo à chaque transition. Horodatage, opérateur et photo capturés pour la traçabilité bout-en-bout.',
+      'packlog.cargo.weight.total': 'Poids total du cargo calculé automatiquement (somme articles + conditionnement). Vérifié vs capacité fret du vecteur.',
+      'packlog.hazmat.declaration': 'Déclaration expéditeur OACI (aérien) ou IMO (maritime) générée automatiquement pour les cargos HAZMAT.',
     },
   },
   imputations: {
     title: 'Imputations', icon: '\u{1F4B0}',
-    description: 'Ventilation des couts par centre de couts, projet, activite et entite. Suivi budgetaire.',
+    description: 'Ventilation des coûts par centre de coûts, projet, activité et entité. Suivi budgétaire.',
     workflows: [
-      { title: 'Imputer un cout', steps: ['Cliquez "+ Nouvelle imputation"', 'Selectionnez la reference (projet, activite, voyage)', 'Choisissez le centre de couts', 'Renseignez montant et devise', "Validez l'imputation"] },
-      { title: 'Suivi budgetaire', steps: ['Onglet "Suivi budgetaire"', 'Filtrez par periode, projet ou centre de couts', 'Consultez budget consomme vs alloue', 'Exportez en PDF ou Excel'] },
+      { title: 'Imputer un coût', steps: ['Cliquez "+ Nouvelle imputation"', 'Sélectionnez la référence (projet, activité, voyage)', 'Choisissez le centre de coûts', 'Renseignez montant et devise', "Validez l'imputation"] },
+      { title: 'Suivi budgétaire', steps: ['Onglet "Suivi budgétaire"', 'Filtrez par période, projet ou centre de coûts', 'Consultez budget consommé vs alloué', 'Exportez en PDF ou Excel'] },
     ],
-    tips: ['Imputations liees automatiquement aux projets et activites', 'Detection des depassements budgetaires', 'Centres de couts configures dans les parametres', 'Export analytique pour rapprochement comptable'],
+    tips: ['Imputations liées automatiquement aux projets et activités', 'Détection des dépassements budgétaires', 'Centres de coûts configurés dans les paramètres', 'Export analytique pour rapprochement comptable'],
     elementHelp: {},
   },
   papyrus: {
     title: 'Papyrus', icon: '\u{1F4C4}',
     description: 'Stockage, classement, versionning et partage des documents. Modeles et generation PDF.',
     workflows: [
-      { title: 'Deposer un document', steps: ['Cliquez "+ Nouveau document" ou glissez-deposez', 'Choisissez categorie et classeur', 'Ajoutez des tags', "Definissez les droits d'acces", 'Le document est indexe immediatement'] },
-      { title: 'Generer depuis un modele', steps: ['Onglet "Modeles"', 'Selectionnez un modele', 'Donnees pre-remplies depuis le contexte', 'Completez les champs manuels', 'Generez le PDF final'] },
+      { title: 'Déposer un document', steps: ['Cliquez "+ Nouveau document" ou glissez-déposez', 'Choisissez catégorie et classeur', 'Ajoutez des tags', "Définissez les droits d'accès", 'Le document est indexé immédiatement'] },
+      { title: 'Générer depuis un modèle', steps: ['Onglet "Modèles"', 'Sélectionnez un modèle', 'Données pré-remplies depuis le contexte', 'Complétez les champs manuels', 'Générez le PDF final'] },
     ],
-    tips: ['Recherche plein texte dans les PDF et documents Office', 'Versions precedentes conservees', 'Documents liables a tout objet (projet, AdS, tiers)', 'Modeles PDF personnalisables dans les parametres'],
+    tips: ['Recherche plein texte dans les PDF et documents Office', 'Versions précédentes conservées', 'Documents liables à tout objet (projet, AdS, tiers)', 'Modèles PDF personnalisables dans les paramètres'],
     elementHelp: {},
   },
   workflows: {
     title: 'Workflows', icon: '\u{1F504}',
-    description: 'Conception et execution des workflows de validation. Editeur visuel, versioning et delegation.',
+    description: 'Conception et exécution des workflows de validation. Éditeur visuel, versioning et délégation.',
     workflows: [
-      { title: 'Creer un workflow', steps: ['Cliquez "+ Nouveau workflow"', "Nommez et choisissez l'objet cible", 'Editeur drag-and-drop pour les etapes', 'Configurez les conditions de transition', 'Definissez les approbateurs', 'Publiez (nouvelle version creee)'],
+      { title: 'Créer un workflow', steps: ['Cliquez "+ Nouveau workflow"', "Nommez et choisissez l'objet cible", 'Éditeur drag-and-drop pour les étapes', 'Configurez les conditions de transition', 'Définissez les approbateurs', 'Publiez (nouvelle version créée)'],
         diagram: `graph TD\n    A["Conception"]:::design --> B["Test"]:::test\n    B --> C["Publication"]:::published\n    C --> D["Nouvelle version"]:::version\n    D --> B\n    classDef design fill:#475569,stroke:#64748b,color:#fff\n    classDef test fill:#eab308,stroke:#facc15,color:#000\n    classDef published fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef version fill:#3b82f6,stroke:#60a5fa,color:#fff`,
       },
-      { title: 'Deleguer une approbation', steps: ['Ouvrez vos taches en attente', 'Cliquez "Deleguer"', 'Selectionnez le delegataire', 'Definissez la duree (optionnel)', 'Le delegataire est notifie'] },
+      { title: 'Déléguer une approbation', steps: ['Ouvrez vos tâches en attente', 'Cliquez "Déléguer"', 'Sélectionnez le délégataire', 'Définissez la durée (optionnel)', 'Le délégataire est notifié'] },
     ],
-    tips: ['Chaque publication cree une nouvelle version', 'La delegation est tracee dans l\'audit trail', 'Notifications automatiques a chaque changement d\'etape'],
+    tips: ['Chaque publication crée une nouvelle version', 'La délégation est tracée dans l\'audit trail', 'Notifications automatiques à chaque changement d\'étape'],
     elementHelp: {},
   },
   assets: {
     title: 'Assets', icon: '\u{1F3ED}',
-    description: 'Hierarchie des sites, installations, equipements et zones. Capacites et geolocalisation.',
+    description: 'Hiérarchie des sites, installations, équipements et zones. Capacités et géolocalisation.',
     workflows: [
-      { title: 'Naviguer dans la hierarchie', steps: ['Selectionnez un site dans l\'arborescence', 'Consultez details, capacites et equipements', 'Recherche par nom ou code'] },
-      { title: 'Configurer les capacites', steps: ['Selectionnez l\'asset', 'Onglet "Capacites"', 'Modifiez les limites (PAX, poids)', 'Chaque modification cree un nouvel enregistrement historise'] },
+      { title: 'Naviguer dans la hiérarchie', steps: ['Sélectionnez un site dans l\'arborescence', 'Consultez détails, capacités et équipements', 'Recherche par nom ou code'] },
+      { title: 'Configurer les capacités', steps: ['Sélectionnez l\'asset', 'Onglet "Capacités"', 'Modifiez les limites (PAX, poids)', 'Chaque modification crée un nouvel enregistrement historisé'] },
     ],
-    tips: ['Hierarchie configurable par tenant', 'Capacites utilisees par le Planner pour detecter les conflits', 'Carte avec tous les assets geolocalises', 'Chaque asset peut avoir des regles de conformite specifiques'],
+    tips: ['Hiérarchie configurable par tenant', 'Capacités utilisées par le Planner pour détecter les conflits', 'Carte avec tous les assets géolocalisés', 'Chaque asset peut avoir des règles de conformité spécifiques'],
     elementHelp: {},
   },
   entites: {
     title: 'Entites', icon: '\u{1F310}',
-    description: 'Administration des entites (filiales, pays, divisions). Isolation des donnees operationnelles.',
+    description: 'Administration des entités (filiales, pays, divisions). Isolation des données opérationnelles.',
     workflows: [
-      { title: 'Configurer une entite', steps: ['Selectionnez l\'entite', 'Renseignez informations legales et adresse', 'Configurez departements et BU', 'Definissez devise et fuseau horaire', 'Affectez les utilisateurs'] },
+      { title: 'Configurer une entité', steps: ['Sélectionnez l\'entité', 'Renseignez informations légales et adresse', 'Configurez départements et BU', 'Définissez devise et fuseau horaire', 'Affectez les utilisateurs'] },
     ],
-    tips: ['Un utilisateur peut etre dans plusieurs entites', 'Changement d\'entite via le selecteur en haut de page', 'Donnees strictement isolees entre entites', 'Parametres globaux du tenant s\'appliquent sauf override'],
+    tips: ['Un utilisateur peut être dans plusieurs entités', 'Changement d\'entité via le sélecteur en haut de page', 'Données strictement isolées entre entités', 'Paramètres globaux du tenant s\'appliquent sauf override'],
     elementHelp: {},
   },
   support: {
     title: 'Support', icon: '\u{1F3AB}',
     description: 'Tickets de support, signalements de bugs, annonces et communication.',
-    workflows: [{ title: 'Signaler un bug', steps: ['Cliquez le bouton assistant', 'Allez dans l\'onglet Ticket', 'Choisissez "Bug"', 'Decrivez le probleme', "Ajoutez une capture d'ecran"] }],
-    tips: ['Les captures masquent automatiquement le widget', "L'enregistrement video montre les etapes de reproduction"],
+    workflows: [{ title: 'Signaler un bug', steps: ['Cliquez le bouton assistant', 'Allez dans l\'onglet Ticket', 'Choisissez "Bug"', 'Décrivez le problème', "Ajoutez une capture d'écran"] }],
+    tips: ['Les captures masquent automatiquement le widget', "L'enregistrement vidéo montre les étapes de reproduction"],
     elementHelp: {},
   },
   settings: {
     title: 'Parametres', icon: '\u2699\uFE0F',
-    description: "Configuration du profil, de l'application, des integrations et des modules.",
-    workflows: [], tips: ['Les modeles PDF permettent de personnaliser les exports', 'La delegation permet de confier ses droits a un collegue'],
+    description: "Configuration du profil, de l'application, des intégrations et des modules.",
+    workflows: [], tips: ['Les modèles PDF permettent de personnaliser les exports', 'La délégation permet de confier ses droits à un collègue'],
     elementHelp: {},
   },
 }
@@ -436,22 +436,22 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
 // ── Contextual chat suggestions per module ────────────────────
 
 const CONTEXTUAL_SUGGESTIONS: Record<string, string[]> = {
-  dashboard: ['Quels sont mes KPIs importants aujourd\'hui ?', 'Comment personnaliser mon tableau de bord avec des widgets ?', 'Expliquer les indicateurs de chaque module', 'Comment ajouter un widget meteo ou charge PAX ?'],
-  users: ['Comment creer un compte utilisateur et lui attribuer un role ?', 'Expliquer le systeme RBAC (roles, groupes, permissions)', 'Comment deleguer temporairement mes droits a un collegue ?', 'Quelle est la difference entre un override utilisateur et un role ?'],
-  projets: ['Comment creer un projet et definir les taches dans le Gantt ?', 'Comment fonctionne le calcul d\'avancement pondere (effort, duree, manuel) ?', 'Comment ajouter des dependances entre taches (FS, SS, FF, SF) ?', 'Comment exporter le planning Gantt en PDF ?'],
-  paxlog: ['Comment creer et soumettre un avis de sejour (AdS) complet ?', 'Un PAX a des certifications expirees — comment regulariser avant soumission ?', 'Comment fonctionne le workflow de validation multi-niveaux (initiateur, chef de projet, CDS) ?', 'Comment generer un lien externe pour qu\'un sous-traitant remplisse les infos PAX ?', 'Expliquer la liste d\'attente POB et la promotion automatique'],
-  planner: ['Comment creer une activite et la positionner sur le Gantt du plan ?', 'Il y a un conflit de capacite sur un site — comment le resoudre ?', 'Comment creer un scenario what-if pour comparer des options de planification ?', 'Comment fonctionne la detection automatique des conflits PAX ?', 'Expliquer les signaux de revision et les demandes de decision'],
-  tiers: ['Comment ajouter une entreprise sous-traitante et ses contacts ?', 'Comment transferer un contact d\'une entreprise a une autre en gardant l\'historique ?', 'Comment bloquer un tiers pour empecher les nouveaux AdS pour ses contacts ?', 'Quelle est la difference entre un tiers fournisseur et un sous-traitant ?'],
-  conformite: ['Comment verifier la conformite complete d\'un PAX avant un deplacement ?', 'Comment configurer les regles de conformite par type de site (certifications requises) ?', 'Comment enregistrer une nouvelle certification pour un PAX ?', 'Les alertes d\'expiration fonctionnent comment ?'],
-  travelwiz: ['Comment planifier un vol helicoptere avec passagers et fret ?', 'Comment generer et valider un manifeste avant le depart ?', 'Comment fonctionne le portail capitaine pour la gestion terrain ?', 'Comment surveiller les conditions meteo sur les sites avant un vol ?', 'Comment gerer la maintenance d\'un vecteur (helicoptere, bateau) ?'],
-  packlog: ['Comment creer une lettre de transport (LT) avec des articles ?', 'Comment suivre un cargo de la preparation a la livraison ?', 'Comment lier une LT a un voyage TravelWiz ?', 'Expliquer le catalogue d\'articles et le mode global vs per-entity'],
-  imputations: ['Comment imputer un cout a un projet ou un centre de couts ?', 'Comment consulter le suivi budgetaire par periode ?', 'Comment exporter les donnees analytiques pour le rapprochement comptable ?'],
-  papyrus: ['Comment deposer et classer un document dans Papyrus ?', 'Comment generer un PDF depuis un modele avec des donnees pre-remplies ?', 'Comment retrouver un document par recherche plein texte ?'],
-  workflows: ['Comment concevoir un workflow de validation avec l\'editeur visuel ?', 'Comment deleguer une approbation a un collegue ?', 'Comment fonctionne le versioning des workflows (brouillon, publie, archive) ?'],
-  assets: ['Comment naviguer dans la hierarchie des installations ?', 'Comment configurer la capacite POB d\'un site ?', 'Comment les capacites sont utilisees par le Planner pour les conflits ?'],
-  entites: ['Comment configurer une nouvelle entite (filiale, pays) ?', 'Comment changer d\'entite active dans l\'application ?', 'Comment les donnees sont isolees entre entites ?'],
-  support: ['Comment signaler un bug avec une capture d\'ecran ?', 'Comment creer un ticket d\'amelioration ?', 'Comment suivre l\'avancement de mes tickets ?'],
-  settings: ['Comment modifier mon profil et mes preferences ?', 'Comment configurer les notifications par module ?', 'Comment connecter une integration externe (SMTP, S3, OAuth) ?', 'Comment personnaliser les modeles PDF d\'export ?'],
+  dashboard: ['Quels sont mes KPIs importants aujourd\'hui ?', 'Comment personnaliser mon tableau de bord avec des widgets ?', 'Expliquer les indicateurs de chaque module', 'Comment ajouter un widget météo ou charge PAX ?'],
+  users: ['Comment créer un compte utilisateur et lui attribuer un rôle ?', 'Expliquer le système RBAC (rôles, groupes, permissions)', 'Comment déléguer temporairement mes droits à un collègue ?', 'Quelle est la différence entre un override utilisateur et un rôle ?'],
+  projets: ['Comment créer un projet et définir les tâches dans le Gantt ?', 'Comment fonctionne le calcul d\'avancement pondéré (effort, durée, manuel) ?', 'Comment ajouter des dépendances entre tâches (FS, SS, FF, SF) ?', 'Comment exporter le planning Gantt en PDF ?'],
+  paxlog: ['Comment créer et soumettre un avis de séjour (AdS) complet ?', 'Un PAX a des certifications expirées — comment régulariser avant soumission ?', 'Comment fonctionne le workflow de validation multi-niveaux (initiateur, chef de projet, CDS) ?', 'Comment générer un lien externe pour qu\'un sous-traitant remplisse les infos PAX ?', 'Expliquer la liste d\'attente POB et la promotion automatique'],
+  planner: ['Comment créer une activité et la positionner sur le Gantt du plan ?', 'Il y a un conflit de capacité sur un site — comment le résoudre ?', 'Comment créer un scénario what-if pour comparer des options de planification ?', 'Comment fonctionne la détection automatique des conflits PAX ?', 'Expliquer les signaux de révision et les demandes de décision'],
+  tiers: ['Comment ajouter une entreprise sous-traitante et ses contacts ?', 'Comment transférer un contact d\'une entreprise à une autre en gardant l\'historique ?', 'Comment bloquer un tiers pour empêcher les nouveaux AdS pour ses contacts ?', 'Quelle est la différence entre un tiers fournisseur et un sous-traitant ?'],
+  conformite: ['Comment vérifier la conformité complète d\'un PAX avant un déplacement ?', 'Comment configurer les règles de conformité par type de site (certifications requises) ?', 'Comment enregistrer une nouvelle certification pour un PAX ?', 'Les alertes d\'expiration fonctionnent comment ?'],
+  travelwiz: ['Comment planifier un vol hélicoptère avec passagers et fret ?', 'Comment générer et valider un manifeste avant le départ ?', 'Comment fonctionne le portail capitaine pour la gestion terrain ?', 'Comment surveiller les conditions météo sur les sites avant un vol ?', 'Comment gérer la maintenance d\'un vecteur (hélicoptère, bateau) ?'],
+  packlog: ['Comment créer une lettre de transport (LT) avec des articles ?', 'Comment suivre un cargo de la préparation à la livraison ?', 'Comment lier une LT à un voyage TravelWiz ?', 'Expliquer le catalogue d\'articles et le mode global vs per-entity'],
+  imputations: ['Comment imputer un coût à un projet ou un centre de coûts ?', 'Comment consulter le suivi budgétaire par période ?', 'Comment exporter les données analytiques pour le rapprochement comptable ?'],
+  papyrus: ['Comment déposer et classer un document dans Papyrus ?', 'Comment générer un PDF depuis un modèle avec des données pré-remplies ?', 'Comment retrouver un document par recherche plein texte ?'],
+  workflows: ['Comment concevoir un workflow de validation avec l\'éditeur visuel ?', 'Comment déléguer une approbation à un collègue ?', 'Comment fonctionne le versioning des workflows (brouillon, publié, archivé) ?'],
+  assets: ['Comment naviguer dans la hiérarchie des installations ?', 'Comment configurer la capacité POB d\'un site ?', 'Comment les capacités sont utilisées par le Planner pour les conflits ?'],
+  entites: ['Comment configurer une nouvelle entité (filiale, pays) ?', 'Comment changer d\'entité active dans l\'application ?', 'Comment les données sont isolées entre entités ?'],
+  support: ['Comment signaler un bug avec une capture d\'écran ?', 'Comment créer un ticket d\'amélioration ?', 'Comment suivre l\'avancement de mes tickets ?'],
+  settings: ['Comment modifier mon profil et mes préférences ?', 'Comment configurer les notifications par module ?', 'Comment connecter une intégration externe (SMTP, S3, OAuth) ?', 'Comment personnaliser les modèles PDF d\'export ?'],
 }
 
 // ── Guided tours definitions ───────────────────────────────────
@@ -474,25 +474,25 @@ const GUIDED_TOURS: GuidedTour[] = [
   {
     id: 'welcome',
     title: 'Bienvenue sur OpsFlux',
-    description: 'Decouvrez les fonctionnalites principales de la plateforme.',
+    description: 'Découvrez les fonctionnalités principales de la plateforme.',
     module: null,
     steps: [
-      { target: 'sidebar', title: 'Navigation', content: 'La barre laterale vous permet de naviguer entre les modules. Cliquez sur les icones pour acceder aux differentes sections.' },
-      { target: 'topbar', title: 'Barre superieure', content: 'Recherche globale, notifications, preferences de langue et de theme sont accessibles ici.' },
+      { target: 'sidebar', title: 'Navigation', content: 'La barre latérale vous permet de naviguer entre les modules. Cliquez sur les icônes pour accéder aux différentes sections.' },
+      { target: 'topbar', title: 'Barre supérieure', content: 'Recherche globale, notifications, préférences de langue et de thème sont accessibles ici.' },
       { target: 'search-bar', title: 'Recherche', content: 'Tapez pour filtrer la page en cours, ou utilisez Ctrl+K pour la palette de commandes.' },
-      { target: 'main-content', title: 'Zone principale', content: 'Les pages affichent leur contenu ici. Quand vous selectionnez un element, un panel de detail s\'ouvre sur le cote.' },
-      { target: 'assistant-button', title: 'Assistant', content: 'Ce bouton ouvre l\'assistant OpsFlux : aide contextuelle, chatbot IA, visites guidees et tickets.' },
+      { target: 'main-content', title: 'Zone principale', content: 'Les pages affichent leur contenu ici. Quand vous sélectionnez un élément, un panel de détail s\'ouvre sur le côté.' },
+      { target: 'assistant-button', title: 'Assistant', content: 'Ce bouton ouvre l\'assistant OpsFlux : aide contextuelle, chatbot IA, visites guidées et tickets.' },
     ],
   },
   {
     id: 'projets-basics',
     title: 'Premiers pas avec les Projets',
-    description: 'Apprenez a creer et gerer vos projets.',
+    description: 'Apprenez à créer et gérer vos projets.',
     module: 'projets',
     steps: [
       { target: 'main-content', title: 'Vue liste', content: 'La page Projets affiche tous vos projets. Utilisez les filtres et le tri pour trouver rapidement un projet.' },
-      { target: 'search-bar', title: 'Recherche projets', content: 'Tapez le nom ou code d\'un projet pour le filtrer instantanement.' },
-      { target: 'sidebar', title: 'Modules lies', content: 'Le Planner et les Imputations dans la sidebar sont lies a vos projets pour la planification et le suivi des couts.' },
+      { target: 'search-bar', title: 'Recherche projets', content: 'Tapez le nom ou code d\'un projet pour le filtrer instantanément.' },
+      { target: 'sidebar', title: 'Modules liés', content: 'Le Planner et les Imputations dans la sidebar sont liés à vos projets pour la planification et le suivi des coûts.' },
     ],
   },
   {
@@ -501,18 +501,18 @@ const GUIDED_TOURS: GuidedTour[] = [
     description: 'Gestion des avis de séjour et passagers.',
     module: 'paxlog',
     steps: [
-      { target: 'main-content', title: 'Avis de séjour', content: 'Un AdS est une demande de deplacement de passagers vers un site. Chaque AdS passe par un workflow de validation.' },
-      { target: 'search-bar', title: 'Recherche PAX', content: 'Recherchez un passager, un site ou un numero d\'AdS pour le retrouver rapidement.' },
+      { target: 'main-content', title: 'Avis de séjour', content: 'Un AdS est une demande de déplacement de passagers vers un site. Chaque AdS passe par un workflow de validation.' },
+      { target: 'search-bar', title: 'Recherche PAX', content: 'Recherchez un passager, un site ou un numéro d\'AdS pour le retrouver rapidement.' },
     ],
   },
   {
     id: 'users-rbac',
     title: 'Gestion des droits d\'acces',
-    description: 'Comprendre le systeme RBAC d\'OpsFlux.',
+    description: 'Comprendre le système RBAC d\'OpsFlux.',
     module: 'users',
     steps: [
-      { target: 'main-content', title: 'Liste des utilisateurs', content: 'Tous les comptes utilisateurs sont affiches ici. Cliquez sur un utilisateur pour voir ses details et permissions.' },
-      { target: 'sidebar', title: 'Modules admin', content: 'Les modules Comptes, Entites et Parametres en bas de la sidebar contiennent les outils d\'administration.' },
+      { target: 'main-content', title: 'Liste des utilisateurs', content: 'Tous les comptes utilisateurs sont affichés ici. Cliquez sur un utilisateur pour voir ses détails et permissions.' },
+      { target: 'sidebar', title: 'Modules admin', content: 'Les modules Comptes, Entités et Paramètres en bas de la sidebar contiennent les outils d\'administration.' },
     ],
   },
 ]
@@ -625,7 +625,7 @@ function TourSpotlight({
             <div key={i} className={cn('h-1 flex-1 rounded-full', i <= step ? 'bg-primary' : 'bg-border')} />
           ))}
         </div>
-        <span className="text-[10px] text-muted-foreground block mb-2">Etape {step + 1} / {totalSteps}</span>
+        <span className="text-[10px] text-muted-foreground block mb-2">Étape {step + 1} / {totalSteps}</span>
 
         <h4 className="text-sm font-semibold text-foreground mb-1">{tooltipContent.title}</h4>
         <p className="text-xs text-muted-foreground leading-relaxed mb-4">{tooltipContent.content}</p>
@@ -637,7 +637,7 @@ function TourSpotlight({
           <div className="flex gap-2">
             {step > 0 && (
               <button onClick={onPrev} className="gl-button-sm gl-button-default text-[10px]">
-                Precedent
+                Précédent
               </button>
             )}
             <button onClick={onNext} className="gl-button-sm gl-button-confirm text-[10px] flex items-center gap-1">
@@ -732,7 +732,7 @@ export function AssistantPanel() {
   if (!aiPanelOpen) return null
 
   const modeIcon = panelMode === 'docked' ? PanelRight : panelMode === 'floating' ? Maximize2 : Minimize2
-  const modeLabel = panelMode === 'docked' ? 'Docke (clic: flottant)' : panelMode === 'floating' ? 'Flottant (clic: compact)' : 'Compact (clic: docke)'
+  const modeLabel = panelMode === 'docked' ? 'Docké (clic: flottant)' : panelMode === 'floating' ? 'Flottant (clic: compact)' : 'Compact (clic: docké)'
   const ModeIcon = modeIcon
 
   return (
@@ -1272,7 +1272,7 @@ function ToursTab({ currentModule }: { currentModule: string }) {
               <div>
                 <p className="text-xs font-medium text-primary">{activeTour.title}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                  Etape {currentStep + 1} / {activeTour.steps.length} — {activeTour.steps[currentStep].title}
+                  Étape {currentStep + 1} / {activeTour.steps.length} — {activeTour.steps[currentStep].title}
                 </p>
               </div>
               <button onClick={closeTour} className="text-[10px] text-muted-foreground hover:text-foreground">
@@ -1283,7 +1283,7 @@ function ToursTab({ currentModule }: { currentModule: string }) {
         )}
 
         <p className="text-xs text-muted-foreground mb-2">
-          Visites guidees interactives avec spotlight sur les elements de la page.
+          Visites guidées interactives avec spotlight sur les éléments de la page.
         </p>
 
         {availableTours.length === 0 && (
@@ -1312,7 +1312,7 @@ function ToursTab({ currentModule }: { currentModule: string }) {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">{tour.description}</p>
-                  <p className="text-[10px] text-muted-foreground/60 mt-1">{tour.steps.length} etapes</p>
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">{tour.steps.length} étapes</p>
                 </div>
                 {isActive ? (
                   <button onClick={closeTour} className="gl-button-sm gl-button-default shrink-0 flex items-center gap-1 text-red-500">
@@ -1323,7 +1323,7 @@ function ToursTab({ currentModule }: { currentModule: string }) {
                     onClick={() => startTour(tour)}
                     className="gl-button-sm gl-button-default shrink-0 flex items-center gap-1"
                   >
-                    <Play size={10} /> {isCompleted ? 'Revoir' : 'Demarrer'}
+                    <Play size={10} /> {isCompleted ? 'Revoir' : 'Démarrer'}
                   </button>
                 )}
               </div>
@@ -1377,7 +1377,7 @@ function AlertsTab({ navigate }: { navigate: (path: string) => void }) {
   function timeAgo(dateStr: string): string {
     const diff = Date.now() - new Date(dateStr).getTime()
     const mins = Math.floor(diff / 60000)
-    if (mins < 1) return "a l'instant"
+    if (mins < 1) return "à l'instant"
     if (mins < 60) return `${mins}min`
     const hours = Math.floor(mins / 60)
     if (hours < 24) return `${hours}h`
@@ -1459,7 +1459,7 @@ function AlertsTab({ navigate }: { navigate: (path: string) => void }) {
 
 const TICKET_TYPE_OPTIONS: { value: TicketType; label: string; icon: typeof Bug }[] = [
   { value: 'bug', label: 'Bug', icon: Bug },
-  { value: 'improvement', label: 'Amelioration', icon: Lightbulb },
+  { value: 'improvement', label: 'Amélioration', icon: Lightbulb },
   { value: 'question', label: 'Question', icon: HelpCircle },
 ]
 
@@ -1492,7 +1492,7 @@ function TicketTab() {
         setCapturing(false)
       }, 'image/png')
     } catch {
-      toast({ title: "Capture d'ecran impossible", variant: 'error' })
+      toast({ title: "Capture d'écran impossible", variant: 'error' })
       setCapturing(false)
     }
   }, [toast])
@@ -1539,12 +1539,12 @@ function TicketTab() {
           fd.append('file', file)
           fd.append('owner_type', 'support_ticket')
           fd.append('owner_id', ticket.id)
-          fd.append('description', file.type.startsWith('image/') ? "Capture d'ecran" : 'Piece jointe')
+          fd.append('description', file.type.startsWith('image/') ? "Capture d'écran" : 'Pièce jointe')
           await api.post('/api/v1/attachments', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
         } catch { /* non-blocking */ }
       }
 
-      toast({ title: 'Ticket cree !', description: `Ref: ${ticket.reference}`, variant: 'success' })
+      toast({ title: 'Ticket créé !', description: `Ref: ${ticket.reference}`, variant: 'success' })
       setForm({ title: '', description: '', ticket_type: 'bug', priority: 'medium' })
       setAttachments([])
       setPreviews([])
@@ -1577,7 +1577,7 @@ function TicketTab() {
       {/* Title */}
       <input
         className={cn('gl-form-input text-sm w-full', form.title.trim().length > 0 && form.title.trim().length < 10 && 'border-orange-400')}
-        placeholder="Titre clair et precis (min. 10 car.)..."
+        placeholder="Titre clair et précis (min. 10 car.)..."
         value={form.title}
         onChange={e => setForm({ ...form, title: e.target.value })}
       />
@@ -1585,7 +1585,7 @@ function TicketTab() {
       {/* Description */}
       <textarea
         className="gl-form-input text-sm w-full min-h-[80px] resize-y"
-        placeholder={form.ticket_type === 'bug' ? 'Decrivez: que faisiez-vous ? que s\'est-il passe ? (min. 20 car.)' : 'Decrivez votre demande...'}
+        placeholder={form.ticket_type === 'bug' ? 'Décrivez: que faisiez-vous ? que s\'est-il passé ? (min. 20 car.)' : 'Décrivez votre demande...'}
         value={form.description || ''}
         onChange={e => setForm({ ...form, description: e.target.value })}
       />
@@ -1596,9 +1596,9 @@ function TicketTab() {
         value={form.priority}
         onChange={e => setForm({ ...form, priority: e.target.value as TicketCreate['priority'] })}
       >
-        <option value="low">Priorite basse</option>
-        <option value="medium">Priorite moyenne</option>
-        <option value="high">Priorite haute</option>
+        <option value="low">Priorité basse</option>
+        <option value="medium">Priorité moyenne</option>
+        <option value="high">Priorité haute</option>
         <option value="critical">Critique</option>
       </select>
 

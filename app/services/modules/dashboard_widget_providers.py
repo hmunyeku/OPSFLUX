@@ -1370,17 +1370,16 @@ async def provider_users_by_role(
 ) -> dict:
     """Chart: users grouped by role."""
     r = await db.execute(text("""
-        SELECT r.name AS role_name, COUNT(DISTINCT ugm.user_id) AS user_count
+        SELECT r.name AS name, COUNT(DISTINCT ugm.user_id) AS value
         FROM user_group_roles ugr
         JOIN roles r ON r.code = ugr.role_code
         JOIN user_group_members ugm ON ugm.group_id = ugr.group_id
         JOIN user_groups ug ON ug.id = ugr.group_id AND ug.entity_id = :eid AND ug.active = TRUE
-        GROUP BY r.name ORDER BY user_count DESC
+        GROUP BY r.name ORDER BY value DESC
     """), {"eid": str(entity_id)})
-    rows = [dict(row) for row in r.mappings().all()]
     return {
-        "data": rows,
-        "series": ["user_count"],
+        "data": [dict(row) for row in r.mappings().all()],
+        "series": [{"name": "Utilisateurs", "type": "bar"}],
     }
 
 
@@ -1390,16 +1389,15 @@ async def provider_users_by_group(
 ) -> dict:
     """Chart: users per group."""
     r = await db.execute(text("""
-        SELECT ug.name AS group_name, COUNT(ugm.user_id) AS member_count
+        SELECT ug.name AS name, COUNT(ugm.user_id) AS value
         FROM user_groups ug
         LEFT JOIN user_group_members ugm ON ugm.group_id = ug.id
         WHERE ug.entity_id = :eid AND ug.active = TRUE
-        GROUP BY ug.name ORDER BY member_count DESC
+        GROUP BY ug.name ORDER BY value DESC
     """), {"eid": str(entity_id)})
-    rows = [dict(row) for row in r.mappings().all()]
     return {
-        "data": rows,
-        "series": ["member_count"],
+        "data": [dict(row) for row in r.mappings().all()],
+        "series": [{"name": "Membres", "type": "bar"}],
     }
 
 

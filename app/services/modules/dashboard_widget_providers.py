@@ -880,7 +880,7 @@ async def provider_assets_equipment_by_class(
         FROM ar_equipment WHERE entity_id = :eid AND deleted_at IS NULL
         GROUP BY equipment_class ORDER BY value DESC LIMIT 15
     """), {"eid": str(entity_id)})
-    return {"data": [dict(row) for row in r.mappings().all()], "series": [{"name": "Equipements", "type": "pie"}]}
+    return {"data": [dict(row) for row in r.mappings().all()], "series": [{"name": "Équipements", "type": "pie"}]}
 
 
 async def provider_assets_by_status(

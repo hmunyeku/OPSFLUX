@@ -1373,7 +1373,7 @@ function TableWidget({
       const colors = ['#22c55e', '#84cc16', '#f59e0b', '#f97316', '#ef4444']
       const color = colors[Math.min(n, colors.length - 1)] || '#94a3b8'
       return (
-        <div className="flex items-center gap-1" title={`Criticite ${n}/5`}>
+        <div className="flex items-center gap-1" title={`Criticité ${n}/5`}>
           <div className="w-2.5 h-5 rounded-sm border border-border/40 overflow-hidden flex flex-col-reverse">
             <div style={{ height: `${n * 20}%`, backgroundColor: color }} className="rounded-sm" />
           </div>

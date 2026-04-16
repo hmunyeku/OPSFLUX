@@ -1199,27 +1199,27 @@ async def provider_packlog_overview(
 async def provider_packlog_requests_by_status(
     *, config: dict, tenant_id: UUID, entity_id: UUID | None,
     user: Any, db: AsyncSession,
-) -> dict:
+) -> list:
     r = await db.execute(text("""
         SELECT status AS name, COUNT(*) AS value
         FROM cargo_requests
         WHERE entity_id = :eid AND active = TRUE
         GROUP BY status ORDER BY value DESC
     """), {"eid": str(entity_id)})
-    return {"data": [dict(row) for row in r.mappings().all()]}
+    return [dict(row) for row in r.mappings().all()]
 
 
 async def provider_packlog_cargo_by_status(
     *, config: dict, tenant_id: UUID, entity_id: UUID | None,
     user: Any, db: AsyncSession,
-) -> dict:
+) -> list:
     r = await db.execute(text("""
         SELECT status AS name, COUNT(*) AS value
         FROM cargo_items
         WHERE entity_id = :eid AND active = TRUE
         GROUP BY status ORDER BY value DESC
     """), {"eid": str(entity_id)})
-    return {"data": [dict(row) for row in r.mappings().all()]}
+    return [dict(row) for row in r.mappings().all()]
 
 
 async def provider_packlog_tracking(

@@ -321,6 +321,10 @@ function WidgetRenderer({
     case 'chart':
       return <ChartWidget widgetId={widget.id} config={widget.config} data={data} />
     case 'table':
+      // If the widget config has chart_type, it's a chart stored with the wrong type — route to ChartWidget
+      if (widget.config?.chart_type) {
+        return <ChartWidget widgetId={widget.id} config={widget.config} data={data} />
+      }
       return <TableWidget widgetId={widget.id} config={widget.config} data={data} />
     case 'map':
       return <MapWidget config={widget.config} data={data} />

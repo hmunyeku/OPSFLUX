@@ -1470,7 +1470,7 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
           </select>
         </div>
         <div>
-          <label className="text-[10px] text-muted-foreground mb-0.5 block">Priorite</label>
+          <label className="text-[10px] text-muted-foreground mb-0.5 block">Priorité</label>
           <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className={`${panelInputClass} w-full text-xs`}>
             {projectPriorityOptions.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
@@ -1965,7 +1965,7 @@ function TaskRow({
               </select>
             </div>
             <div>
-              <label className="text-[10px] text-muted-foreground block mb-0.5">Priorite</label>
+              <label className="text-[10px] text-muted-foreground block mb-0.5">Priorité</label>
               <select value={task.priority} onChange={(e) => handleFieldSave('priority', e.target.value)} className={`${panelInputClass} w-full text-xs`}>
                 {projectPriorityOptions.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
               </select>

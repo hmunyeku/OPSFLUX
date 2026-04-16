@@ -1124,7 +1124,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 value={scheduleForm.grace_minutes}
                 onChange={(e) => setScheduleForm((current) => ({ ...current, grace_minutes: Number(e.target.value || 15) }))}
                 className={panelInputClass}
-                placeholder="Grace minutes"
+                placeholder="Délai (minutes)"
               />
               <input
                 value={scheduleForm.channel.subject ?? ''}

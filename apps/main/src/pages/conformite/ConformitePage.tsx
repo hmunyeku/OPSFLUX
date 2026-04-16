@@ -189,7 +189,7 @@ function CreateTypePanel() {
   return (
     <DynamicPanelShell
       title="Nouveau type"
-      subtitle="Conformite"
+      subtitle="Conformité"
       icon={<ShieldCheck size={14} className="text-primary" />}
       actions={
         <>
@@ -206,7 +206,7 @@ function CreateTypePanel() {
     >
       <form id="create-ct-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title="Categorie">
+          <FormSection title="Catégorie">
             <TagSelector
               options={categoryOptions}
               value={form.category}
@@ -300,7 +300,7 @@ function TypeDetailPanel({ id }: { id: string }) {
       <PanelContentLayout>
         <FormSection title="Informations" collapsible defaultExpanded>
           <DetailFieldGrid>
-            <ReadOnlyRow label="Categorie" value={<span className="gl-badge gl-badge-info">{categoryLabels[ct.category] ?? ct.category}</span>} />
+            <ReadOnlyRow label="Catégorie" value={<span className="gl-badge gl-badge-info">{categoryLabels[ct.category] ?? ct.category}</span>} />
             <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{ct.code || '—'}</span>} />
             <InlineEditableRow label="Nom" value={ct.name} onSave={(v) => handleSave('name', v)} />
             <ReadOnlyRow label="Validite" value={ct.validity_days ? `${ct.validity_days} jours` : 'Permanent'} />
@@ -636,7 +636,7 @@ function CreateExemptionPanel() {
             </DynamicPanelField>
           </FormSection>
 
-          <FormSection title="Periode">
+          <FormSection title="Période">
             <DateRangePicker
               startDate={form.start_date || null}
               endDate={form.end_date || null}
@@ -736,7 +736,7 @@ function ExemptionDetailPanel({ id }: { id: string }) {
           <DetailFieldGrid>
             <ReadOnlyRow label="Statut" value={statusBadge} />
             <ReadOnlyRow label="Type de conformite" value={exemption.record_type_name || '--'} />
-            <ReadOnlyRow label="Categorie" value={exemption.record_type_category ? <span className="gl-badge gl-badge-neutral">{exemption.record_type_category}</span> : '--'} />
+            <ReadOnlyRow label="Catégorie" value={exemption.record_type_category ? <span className="gl-badge gl-badge-neutral">{exemption.record_type_category}</span> : '--'} />
             <ReadOnlyRow label="Proprietaire" value={exemption.owner_name || '--'} />
             <ReadOnlyRow label="Date de debut" value={new Date(exemption.start_date).toLocaleDateString('fr-FR')} />
             <ReadOnlyRow label="Date de fin" value={new Date(exemption.end_date).toLocaleDateString('fr-FR')} />
@@ -835,7 +835,7 @@ function CreateJobPositionPanel() {
   return (
     <DynamicPanelShell
       title="Nouvelle fiche de poste"
-      subtitle="Conformite HSE"
+      subtitle="Conformité HSE"
       icon={<Briefcase size={14} className="text-primary" />}
       actions={
         <>
@@ -1126,11 +1126,11 @@ export function ConformitePage() {
 
   // Filters
   const typeFilters = useMemo<DataTableFilterDef[]>(() => [
-    { id: 'category', label: 'Categorie', type: 'select', options: categoryOptions.map(o => ({ value: o.value, label: o.label })) },
+    { id: 'category', label: 'Catégorie', type: 'select', options: categoryOptions.map(o => ({ value: o.value, label: o.label })) },
   ], [categoryOptions])
 
   const recordFilters = useMemo<DataTableFilterDef[]>(() => [
-    { id: 'category', label: 'Categorie', type: 'select', options: categoryOptions.map(o => ({ value: o.value, label: o.label })) },
+    { id: 'category', label: 'Catégorie', type: 'select', options: categoryOptions.map(o => ({ value: o.value, label: o.label })) },
     { id: 'status', label: 'Statut', type: 'select', options: statusOptions.map(o => ({ value: o.value, label: o.label })) },
   ], [categoryOptions, statusOptions])
 
@@ -1382,7 +1382,7 @@ export function ConformitePage() {
   return (
     <div className="flex h-full">
       {!isFullPanel && <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <PanelHeader icon={ShieldCheck} title="Conformite" subtitle="Formations, certifications, habilitations, audits">
+        <PanelHeader icon={ShieldCheck} title="Conformité" subtitle="Formations, certifications, habilitations, audits">
           {toolbarAction}
         </PanelHeader>
 

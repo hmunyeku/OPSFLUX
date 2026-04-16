@@ -65,7 +65,7 @@ export function WidgetSettingsPerspective({ config, onChange }: WidgetSettingsPe
           placeholder="ex: name, status, total"
         />
         <p className="text-[10px] text-muted-foreground mt-1">
-          Separer par virgule. Laissez vide pour tout afficher.
+          Séparer par virgule. Laissez vide pour tout afficher.
         </p>
       </DynamicPanelField>
 

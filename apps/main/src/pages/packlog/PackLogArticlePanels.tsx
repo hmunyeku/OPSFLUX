@@ -104,7 +104,7 @@ export function CreateArticlePanel() {
                   placeholder="Carton, Palette..."
                 />
               </DynamicPanelField>
-              <DynamicPanelField label="Unite">
+              <DynamicPanelField label="Unité">
                 <input
                   type="text"
                   value={form.unit ?? ''}

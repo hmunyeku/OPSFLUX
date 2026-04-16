@@ -1081,7 +1081,7 @@ async def provider_conformite_by_category(
     rows = r.mappings().all()
     return {
         "data": [{"name": row["name"] or "autre", "total": row["total"], "valid": row["valid"], "expired": row["expired"]} for row in rows],
-        "series": [{"name": "Valide", "type": "bar"}, {"name": "Expire", "type": "bar"}],
+        "series": [{"name": "Valide", "type": "bar"}, {"name": "Expiré", "type": "bar"}],
     }
 
 

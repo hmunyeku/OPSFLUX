@@ -92,14 +92,14 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     title: 'Tableau de bord',
     icon: '\u{1F4CA}',
     description:
-      "Vue d'ensemble de vos operations. Les widgets affichent les KPIs en temps reel de tous les modules.",
+      "Vue d'ensemble de vos opérations. Les widgets affichent les KPIs en temps réel de tous les modules.",
     workflows: [
       {
         title: 'Personnaliser le dashboard',
         requiredAnyPermissions: ['dashboard.customize', 'dashboard.admin'],
         steps: [
-          'Cliquez sur "Modifier" en haut a droite',
-          'Glissez-deposez les widgets pour les reorganiser',
+          'Cliquez sur "Modifier" en haut à droite',
+          'Glissez-déposez les widgets pour les réorganiser',
           'Cliquez "+" pour ajouter un widget depuis le catalogue',
           'Configurez chaque widget via son icone \u2699\uFE0F',
           'Cliquez "Terminer" pour sauvegarder',
@@ -107,8 +107,8 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
       },
     ],
     tips: [
-      'Chaque module a son propre dashboard avec des widgets specifiques',
-      'Les donnees se rafraichissent automatiquement toutes les 5 minutes',
+      'Chaque module a son propre dashboard avec des widgets spécifiques',
+      'Les données se rafraîchissent automatiquement toutes les 5 minutes',
     ],
     elementHelp: {},
   },
@@ -116,10 +116,10 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     title: 'Comptes utilisateurs',
     icon: '\u{1F465}',
     description:
-      "Gestion des comptes, roles, groupes et permissions. Controle d'acces centralise (RBAC).",
+      "Gestion des comptes, rôles, groupes et permissions. Contrôle d'accès centralisé (RBAC).",
     workflows: [
       {
-        title: 'Creer un utilisateur',
+        title: 'Créer un utilisateur',
         requiredAnyPermissions: ['user.create', 'core.users.manage'],
         steps: [
           'Cliquez "+ Nouvel utilisateur"',
@@ -129,13 +129,13 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
         ],
       },
       {
-        title: 'Gerer les permissions',
+        title: 'Gérer les permissions',
         requiredAnyPermissions: ['core.rbac.manage', 'admin.rbac'],
         steps: [
           'Cliquez sur un utilisateur dans la liste',
           'Allez dans l\'onglet "Permissions"',
           'Cliquez sur les cellules \u2713/\u2717 pour accorder ou retirer',
-          'Les permissions heritees du role/groupe sont indiquees par un badge',
+          'Les permissions héritées du rôle/groupe sont indiquées par un badge',
         ],
         diagram: `graph TD
     A["\u{1F464} Utilisateur"]:::user --> B["\u{1F465} Groupe"]:::group
@@ -159,16 +159,16 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
         requiredAnyPermissions: ['core.rbac.manage', 'admin.rbac'],
         steps: [
           'Allez dans l\'onglet "Groupes"',
-          'Creez un groupe ou selectionnez un existant',
+          'Créez un groupe ou sélectionnez un existant',
           'Ajoutez des membres au groupe',
           'Le role du groupe est automatiquement applique aux membres',
         ],
       },
     ],
     tips: [
-      'Un utilisateur peut appartenir a plusieurs groupes',
-      'Les overrides utilisateur priment sur les permissions du groupe/role',
-      'Le role SUPER_ADMIN ne peut pas etre supprime',
+      'Un utilisateur peut appartenir à plusieurs groupes',
+      'Les overrides utilisateur priment sur les permissions du groupe/rôle',
+      'Le rôle SUPER_ADMIN ne peut pas être supprimé',
     ],
     elementHelp: {},
   },
@@ -179,7 +179,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
       "Module complet de gestion de projets pour les opérations Oil & Gas Perenco. Comprend un Gantt interactif avec dépendances entre tâches (FS, FF, SS, SF), un tableur pour l'édition en masse, une vue Kanban par statut, et un système de calcul d'avancement pondéré (par effort, par durée, par poids manuel ou égal). Les projets sont rattachés à un site/installation, peuvent être importés depuis Gouti, et supportent jalons, sous-tâches, pièces jointes, commentaires, suivi budgétaire et imputation analytique par centre de coûts.",
     workflows: [
       {
-        title: 'Creer un projet',
+        title: 'Créer un projet',
         requiredPermission: 'project.create',
         steps: [
           'Cliquez "+ Nouveau projet" dans la liste des projets',
@@ -202,10 +202,10 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
         title: "Suivre l'avancement",
         requiredPermission: 'project.read',
         steps: [
-          'Le Gantt montre la timeline des taches',
-          "Double-cliquez une tache pour l'editer",
-          "Le % d'avancement se met a jour automatiquement",
-          "Le Tableur permet l'edition en masse",
+          'Le Gantt montre la timeline des tâches',
+          "Double-cliquez une tâche pour l'éditer",
+          "Le % d'avancement se met à jour automatiquement",
+          "Le Tableur permet l'édition en masse",
         ],
         diagram: `graph LR
     A["\u{1F4DD} \u00C0 faire"]:::todo --> B["\u{1F504} En cours"]:::progress
@@ -257,7 +257,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
       },
     ],
     tips: [
-      'Utilisez le Kanban pour un suivi par statut (glisser-deposer)',
+      'Utilisez le Kanban pour un suivi par statut (glisser-déposer)',
       "Sync Gouti permet d'importer des projets depuis Gouti avec rafraîchissement auto",
       'Les dépendances entre tâches sont visibles dans le Gantt (FS, SS, FF, SF) avec calcul du chemin critique',
       'Le mode "Poids manuel" est recommandé quand toutes les tâches n\'ont pas le même impact business',
@@ -369,7 +369,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
       },
     ],
     tips: [
-      "Si la capacite site n'est pas configuree, l'AdS passe en mode illimite par defaut",
+      "Si la capacité site n'est pas configurée, l'AdS passe en mode illimité par défaut",
       'La conformité vérifie les certifications HUET/BOSIET, visite médicale et habilitations spécifiques au site',
       'Un PAX bloqué doit régulariser sa situation ou obtenir une dérogation avant le mouvement',
       'Le lien externe expire automatiquement et toute soumission est tracée dans l\'audit trail',
@@ -393,13 +393,13 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     },
   },
   planner: {
-    title: 'Planner — Planification des activites',
+    title: 'Planner — Planification des activités',
     icon: '\u{1F4C5}',
     description:
       "Module de planification opérationnelle des activités sur les installations Perenco (Workover, forage, maintenance majeure, projets, inspections, audits HSE). Le Gantt interactif visualise toutes les activités par asset (FPSO, plateformes, bases) et détecte automatiquement les conflits de capacité POB. Les scénarios what-if permettent de simuler l'impact de modifications avant application. Intégration native avec PaxLog (les quotas PAX consomment le POB du site) et avec Projets (chaque activité peut être rattachée à un projet pour le suivi budgétaire).",
     workflows: [
       {
-        title: 'Creer une activite',
+        title: 'Créer une activité',
         requiredAnyPermissions: ['planner.activity.create', 'planner.activity.read'],
         steps: [
           'Cliquez "+ Nouvelle activité" dans la barre d\'outils du Gantt',
@@ -411,13 +411,13 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
         ],
       },
       {
-        title: 'Resoudre un conflit de capacite',
+        title: 'Résoudre un conflit de capacité',
         requiredAnyPermissions: ['planner.conflict.resolve', 'planner.conflict.read'],
         steps: [
-          'Les conflits sont signales par une icone rouge dans le Gantt',
-          'Cliquez sur le conflit pour voir les details',
-          'Choisissez une resolution : decaler, reduire ou annuler une activite',
-          'Validez la resolution pour mettre a jour le planning',
+          'Les conflits sont signalés par une icône rouge dans le Gantt',
+          'Cliquez sur le conflit pour voir les détails',
+          'Choisissez une résolution : décaler, réduire ou annuler une activité',
+          'Validez la résolution pour mettre à jour le planning',
         ],
         diagram: `graph TD
     A["\u{1F4C5} Activit\u00e9 A"]:::act --> C{"\u26A0\uFE0F Conflit capacit\u00e9"}
@@ -504,53 +504,53 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
           'Cliquez "+ Nouveau tiers"',
           'Renseignez la raison sociale, SIRET, type',
           'Ajoutez les contacts (personnes)',
-          "Liez l'entreprise aux utilisateurs concernes",
+          "Liez l'entreprise aux utilisateurs concernés",
         ],
       },
       {
-        title: 'Gerer les contacts',
+        title: 'Gérer les contacts',
         requiredAnyPermissions: ['tier.contact.create', 'tier.contact.read'],
         steps: [
           'Ouvrez la fiche d\'un tiers',
           'Allez dans l\'onglet "Contacts"',
           'Cliquez "+ Nouveau contact"',
-          'Renseignez nom, prenom, fonction, email, telephone',
-          'Le contact peut etre utilise comme PAX dans PaxLog',
+          'Renseignez nom, prénom, fonction, email, téléphone',
+          'Le contact peut être utilisé comme PAX dans PaxLog',
         ],
       },
       {
-        title: 'Transferer un contact entre entreprises',
+        title: 'Transférer un contact entre entreprises',
         requiredAnyPermissions: ['tier.contact.transfer', 'tier.contact.update'],
         steps: [
           'Ouvrez la fiche du contact',
-          'Cliquez "Transferer"',
-          'Selectionnez le nouveau tiers de rattachement',
-          "L'historique des affectations est conserve",
+          'Cliquez "Transférer"',
+          'Sélectionnez le nouveau tiers de rattachement',
+          "L'historique des affectations est conservé",
         ],
       },
     ],
     tips: [
-      'Un tiers peut etre fournisseur ET sous-traitant (types multiples)',
-      'Les contacts tiers sont utilises comme PAX externes dans PaxLog',
+      'Un tiers peut être fournisseur ET sous-traitant (types multiples)',
+      'Les contacts tiers sont utilisés comme PAX externes dans PaxLog',
       'Le portail externe permet aux tiers de soumettre des documents directement',
-      'Le blocage d\'un tiers empeche la creation de nouveaux AdS pour ses contacts',
+      'Le blocage d\'un tiers empêche la création de nouveaux AdS pour ses contacts',
     ],
     elementHelp: {},
   },
   conformite: {
-    title: 'Conformite',
+    title: 'Conformité',
     icon: '\u2705',
     description:
-      'Gestion des certifications, habilitations, formations obligatoires et audits. Verification automatique avant chaque deplacement.',
+      'Gestion des certifications, habilitations, formations obligatoires et audits. Vérification automatique avant chaque déplacement.',
     workflows: [
       {
-        title: "Verifier la conformite d'un PAX",
+        title: "Vérifier la conformité d'un PAX",
         requiredAnyPermissions: ['conformite.verify', 'conformite.record.read'],
         steps: [
-          'Allez dans l\'onglet Verifications',
+          'Allez dans l\'onglet Vérifications',
           'Recherchez le PAX par nom',
           'Consultez ses certifications et leur statut',
-          'Les expirations sont signalees en rouge',
+          'Les expirations sont signalées en rouge',
         ],
         diagram: `graph TD
     A["\u{1F4CB} R\u00e8gles site"]:::rule --> D{"\u{1F50D} V\u00e9rification"}
@@ -566,35 +566,35 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     classDef expired fill:#ef4444,stroke:#f87171,color:#fff`,
       },
       {
-        title: 'Configurer les regles de conformite',
+        title: 'Configurer les règles de conformité',
         requiredAnyPermissions: ['conformite.rule.create', 'conformite.admin'],
         steps: [
-          'Allez dans l\'onglet "Regles"',
-          'Cliquez "+ Nouvelle regle"',
-          'Selectionnez le type de site ou de visite',
-          'Definissez les certifications requises',
-          'Configurez les delais de validite',
-          'La regle s\'applique immediatement aux nouvelles verifications',
+          'Allez dans l\'onglet "Règles"',
+          'Cliquez "+ Nouvelle règle"',
+          'Sélectionnez le type de site ou de visite',
+          'Définissez les certifications requises',
+          'Configurez les délais de validité',
+          'La règle s\'applique immédiatement aux nouvelles vérifications',
         ],
       },
       {
         title: 'Enregistrer une certification',
         requiredAnyPermissions: ['conformite.record.create', 'conformite.record.update'],
         steps: [
-          'Ouvrez le profil du PAX concerne',
-          'Allez dans l\'onglet "Conformite"',
+          'Ouvrez le profil du PAX concerné',
+          'Allez dans l\'onglet "Conformité"',
           'Cliquez "+ Ajouter une certification"',
-          'Selectionnez le type et la date de validite',
+          'Sélectionnez le type et la date de validité',
           'Joignez le justificatif (scan, PDF)',
-          'La certification est prise en compte dans les verifications',
+          'La certification est prise en compte dans les vérifications',
         ],
       },
     ],
     tips: [
-      'Les regles de conformite sont configurables par type de site',
-      'Le score de conformite est calcule automatiquement',
-      'Les alertes d\'expiration sont envoyees 30 jours avant l\'echeance',
-      'La conformite est verifiee automatiquement lors de la soumission d\'un AdS',
+      'Les règles de conformité sont configurables par type de site',
+      'Le score de conformité est calculé automatiquement',
+      'Les alertes d\'expiration sont envoyées 30 jours avant l\'échéance',
+      'La conformité est vérifiée automatiquement lors de la soumission d\'un AdS',
     ],
     elementHelp: {},
   },
@@ -602,32 +602,32 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     title: 'Registre des assets',
     icon: '\u{1F3ED}',
     description:
-      "Hierarchie des installations, sites, equipements et zones. Configuration des capacites et regles d'acces.",
+      "Hiérarchie des installations, sites, équipements et zones. Configuration des capacités et règles d'accès.",
     workflows: [
       {
-        title: 'Naviguer dans la hierarchie',
+        title: 'Naviguer dans la hiérarchie',
         requiredAnyPermissions: ['asset.read'],
         steps: [
-          "Selectionnez un site ou une installation dans l'arborescence a gauche",
-          'Consultez les details, capacites et equipements dans le panneau principal',
+          "Sélectionnez un site ou une installation dans l'arborescence à gauche",
+          'Consultez les détails, capacités et équipements dans le panneau principal',
           'Utilisez la recherche pour trouver un asset par nom ou code',
         ],
       },
       {
-        title: 'Configurer les capacites',
+        title: 'Configurer les capacités',
         requiredAnyPermissions: ['asset.update', 'asset.capacity.manage'],
         steps: [
-          "Selectionnez l'asset dans l'arborescence",
-          'Allez dans l\'onglet "Capacites"',
+          "Sélectionnez l'asset dans l'arborescence",
+          'Allez dans l\'onglet "Capacités"',
           'Ajoutez ou modifiez les limites (PAX, poids, etc.)',
-          'Les capacites sont historisees (chaque modification cree un nouvel enregistrement)',
+          'Les capacités sont historisées (chaque modification crée un nouvel enregistrement)',
         ],
       },
     ],
     tips: [
-      "La hierarchie est configurable par tenant (niveaux personnalisables)",
-      "Les capacites sont utilisees par le Planner pour detecter les conflits",
-      "Chaque asset peut avoir des regles de conformite specifiques",
+      "La hiérarchie est configurable par tenant (niveaux personnalisables)",
+      "Les capacités sont utilisées par le Planner pour détecter les conflits",
+      "Chaque asset peut avoir des règles de conformité spécifiques",
     ],
     elementHelp: {},
   },
@@ -638,7 +638,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
       "Module de gestion du transport aérien (hélicoptère) et maritime (bateau, crewboat, supply) entre les bases logistiques (Douala, Kribi) et les installations offshore Perenco (Ebome, Ekoundou, Mokoko, Sanaga). Couvre la planification des voyages avec pickup multi-sites, la génération des manifestes PAX et fret avec contrôle automatique du poids vs capacité, le suivi GPS temps réel des vecteurs, les conditions météo par site (vent, houle, plafond, visibilité), la gestion de la maintenance, et le portail capitaine pour la gestion terrain depuis les FPSO.",
     workflows: [
       {
-        title: 'Creer un voyage',
+        title: 'Créer un voyage',
         requiredAnyPermissions: ['travelwiz.voyage.create', 'travelwiz.voyage.read'],
         steps: [
           'Cliquez "+ Nouveau voyage" dans la barre d\'outils',
@@ -649,13 +649,13 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
         ],
       },
       {
-        title: 'Generer un manifeste',
+        title: 'Générer un manifeste',
         requiredAnyPermissions: ['travelwiz.manifest.create', 'travelwiz.manifest.read'],
         steps: [
           'Ouvrez un voyage valide',
-          'Cliquez "Generer manifeste"',
-          'Les passagers des AdS approuves sont automatiquement listes',
-          'Verifiez les poids bagages et le fret',
+          'Cliquez "Générer manifeste"',
+          'Les passagers des AdS approuvés sont automatiquement listés',
+          'Vérifiez les poids bagages et le fret',
           'Validez le manifeste pour impression ou envoi',
         ],
         diagram: `graph LR
@@ -670,13 +670,13 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     classDef warn fill:#f59e0b,stroke:#fbbf24,color:#000`,
       },
       {
-        title: 'Gerer la flotte',
+        title: 'Gérer la flotte',
         requiredAnyPermissions: ['travelwiz.vector.create', 'travelwiz.vector.read'],
         steps: [
           'Allez dans l\'onglet "Flotte"',
-          'Ajoutez un vecteur (type, immatriculation, capacite)',
-          'Definissez les periodes de maintenance',
-          'Consultez la disponibilite dans le calendrier',
+          'Ajoutez un vecteur (type, immatriculation, capacité)',
+          'Définissez les périodes de maintenance',
+          'Consultez la disponibilité dans le calendrier',
         ],
       },
       {
@@ -831,10 +831,10 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
     },
   },
   imputations: {
-    title: 'Imputations — Allocation des couts',
+    title: 'Imputations — Allocation des coûts',
     icon: '\u{1F4B0}',
     description:
-      'Ventilation des couts par centre de couts, projet, activite et entite. Suivi budgetaire et analytique.',
+      'Ventilation des coûts par centre de coûts, projet, activité et entité. Suivi budgétaire et analytique.',
     workflows: [
       {
         title: 'Imputer un cout',

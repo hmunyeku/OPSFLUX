@@ -329,7 +329,7 @@ export function DashboardPage() {
           {canCustomize && !isBuiltin && !editMode && (
             <button
               onClick={() => setEditMode(true)}
-              className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium transition-colors hover:bg-muted text-muted-foreground"
+              className="gl-button-sm gl-button-default"
             >
               <Settings2 className="h-3.5 w-3.5" />
               {t('dashboard.edit_dashboard')}
@@ -340,7 +340,7 @@ export function DashboardPage() {
               <button
                 onClick={() => editorRef.current?.undo()}
                 disabled={!editorRef.current?.canUndo}
-                className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs font-medium transition-colors hover:bg-muted text-muted-foreground disabled:opacity-30"
+                className="gl-button-sm gl-button-ghost"
                 title="Annuler (Ctrl+Z)"
               >
                 <Undo2 className="h-3.5 w-3.5" />
@@ -348,7 +348,7 @@ export function DashboardPage() {
               <button
                 onClick={() => editorRef.current?.redo()}
                 disabled={!editorRef.current?.canRedo}
-                className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs font-medium transition-colors hover:bg-muted text-muted-foreground disabled:opacity-30"
+                className="gl-button-sm gl-button-ghost"
                 title="Refaire (Ctrl+Y)"
               >
                 <Redo2 className="h-3.5 w-3.5" />
@@ -362,7 +362,7 @@ export function DashboardPage() {
                 editorRef.current?.flushSave()
                 setEditMode(false)
               }}
-              className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90"
+              className="gl-button-sm gl-button-confirm"
             >
               <Check className="h-3.5 w-3.5" />
               {t('dashboard.save_dashboard')}
@@ -374,7 +374,7 @@ export function DashboardPage() {
                 editorRef.current?.discardChanges()
                 setEditMode(false)
               }}
-              className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium transition-colors hover:bg-muted text-muted-foreground"
+              className="gl-button-sm gl-button-default"
             >
               <X className="h-3.5 w-3.5" />
               {t('common.cancel')}

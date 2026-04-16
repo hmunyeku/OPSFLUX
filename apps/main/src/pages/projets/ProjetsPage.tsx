@@ -1494,8 +1494,8 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
       </div>
 
       <div className="flex justify-end gap-1.5 pt-1">
-        <button onClick={onClose} className="px-2.5 py-1 text-xs rounded border border-border hover:bg-muted text-muted-foreground">Annuler</button>
-        <button onClick={handleSubmit} disabled={createTask.isPending || !form.title.trim()} className="px-2.5 py-1 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40">
+        <button onClick={onClose} className="gl-button-sm gl-button-default">Annuler</button>
+        <button onClick={handleSubmit} disabled={createTask.isPending || !form.title.trim()} className="gl-button-sm gl-button-confirm">
           {createTask.isPending ? <Loader2 size={10} className="animate-spin inline mr-1" /> : null}
           Créer
         </button>
@@ -1644,7 +1644,7 @@ function TaskDependenciesSection({ task, projectId, allTasks }: {
             <button
               onClick={handleCreate}
               disabled={!depForm.to_task_id || createDep.isPending}
-              className="px-2 py-0.5 text-[10px] rounded bg-primary text-primary-foreground disabled:opacity-40"
+              className="gl-button-sm gl-button-confirm text-[10px]"
             >
               {createDep.isPending ? <Loader2 size={9} className="animate-spin inline" /> : 'Ajouter'}
             </button>
@@ -3190,7 +3190,7 @@ function WbsSection({ projectId }: { projectId: string }) {
             <button
               onClick={handleCreate}
               disabled={!form.code.trim() || !form.name.trim() || createNode.isPending}
-              className="px-2 py-0.5 text-[10px] rounded bg-primary text-primary-foreground disabled:opacity-40"
+              className="gl-button-sm gl-button-confirm text-[10px]"
             >
               {createNode.isPending ? <Loader2 size={9} className="animate-spin inline" /> : 'Créer'}
             </button>
@@ -3449,7 +3449,7 @@ function PlanningRevisionsSection({ projectId }: { projectId: string }) {
             <button
               onClick={handleCreate}
               disabled={!revName.trim() || createRev.isPending}
-              className="px-2 py-0.5 text-[10px] rounded bg-primary text-primary-foreground disabled:opacity-40"
+              className="gl-button-sm gl-button-confirm text-[10px]"
             >
               {createRev.isPending ? <Loader2 size={9} className="animate-spin inline" /> : 'Créer'}
             </button>

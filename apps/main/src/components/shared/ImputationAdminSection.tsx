@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Download, Edit2, Loader2, Plus, Trash2, Upload, X } from 'lucide-react'
+import { Download, Loader2, Pencil, Plus, Trash2, Upload, X } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useToast } from '@/components/ui/Toast'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
@@ -571,7 +571,7 @@ export function ImputationAdminSection() {
               className="gl-button gl-button-sm gl-button-secondary"
               onClick={() => handleEditAssignment(row.original)}
             >
-              <Edit2 size={14} />
+              <Pencil size={14} />
             </button>
             <button
               type="button"

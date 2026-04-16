@@ -2865,7 +2865,7 @@ function ScenariosTab({
                     <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground">
                       <span>{s.created_by_name as string || '—'}</span>
                       <span>{formatDateShort(s.created_at as string)}</span>
-                      <span>{(s.activity_count as number) || 0} activités</span>
+                      <span>{isReference ? 'Toutes les activités héritées' : `${(s.activity_count as number) || 0} activité${((s.activity_count as number) || 0) !== 1 ? 's' : ''}`}</span>
                       {(s.conflict_days as number) != null && (
                         <span className={cn((s.conflict_days as number) > 0 && 'text-red-500 font-medium')}>
                           {s.conflict_days as number}j conflit
@@ -2874,8 +2874,8 @@ function ScenariosTab({
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    {/* Activate/deactivate button — always visible */}
-                    {isActive ? (
+                    {/* Activate/deactivate button — only for non-reference scenarios */}
+                    {!isReference && (isActive ? (
                       <button
                         onClick={(e) => { e.stopPropagation(); onActivateScenario?.(null) }}
                         className="px-2 py-1 rounded text-[10px] font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors shrink-0"
@@ -2887,11 +2887,11 @@ function ScenariosTab({
                       <button
                         onClick={(e) => { e.stopPropagation(); onActivateScenario?.(sid) }}
                         className="px-2 py-1 rounded text-[10px] font-medium opacity-0 group-hover:opacity-100 bg-primary/10 text-primary hover:bg-primary/20 transition-all shrink-0"
-                        title="Voir toutes les vues en mode scénario"
+                        title="Activer ce scénario"
                       >
                         <Play size={9} className="inline mr-0.5" />Activer
                       </button>
-                    )}
+                    ))}
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {s.status === 'draft' && (
                         <button

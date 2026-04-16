@@ -1053,7 +1053,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
               </div>
               {latestExternalUrl ? (
                 <div className="rounded-md border border-border bg-muted/20 p-3 space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground">Dernier lien genere</div>
+                  <div className="text-xs font-medium text-muted-foreground">Dernier lien généré</div>
                   <div className="text-xs break-all">{latestExternalUrl}</div>
                 </div>
               ) : null}

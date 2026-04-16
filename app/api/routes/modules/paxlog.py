@@ -8471,7 +8471,7 @@ def _ensure_stay_program_ads_status(ads_status: str) -> None:
     if ads_status not in STAY_PROGRAM_ACTIVE_ADS_STATUSES:
         raise HTTPException(
             status_code=400,
-            detail="Le programme de sejour n'est autorise qu'a partir du statut brouillon.",
+            detail="Le programme de séjour n'est autorisé qu'à partir du statut brouillon.",
         )
 
 
@@ -8508,7 +8508,7 @@ async def _ensure_stay_program_target_belongs_to_ads(
     if not pax_result.scalar_one_or_none():
         raise HTTPException(
             status_code=400,
-            detail="Le PAX cible doit deja appartenir a cette AdS.",
+            detail="Le PAX cible doit déjà appartenir à cette AdS.",
         )
 
 
@@ -9809,7 +9809,7 @@ async def resolve_signalement(
     if incident.resolved_at:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Ce signalement est deja resolu.",
+            detail="Ce signalement est déjà résolu.",
         )
 
     incident.resolved_at = func.now()

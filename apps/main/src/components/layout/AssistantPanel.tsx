@@ -507,7 +507,7 @@ const GUIDED_TOURS: GuidedTour[] = [
   },
   {
     id: 'users-rbac',
-    title: 'Gestion des droits d\'acces',
+    title: 'Gestion des droits d\'accès',
     description: 'Comprendre le système RBAC d\'OpsFlux.',
     module: 'users',
     steps: [

@@ -220,7 +220,7 @@ function CreateTypePanel() {
               <FormSection title="Informations">
                 <FormGrid>
                   <DynamicPanelField label="Code">
-                    <span className="text-sm font-mono text-muted-foreground italic">Auto-genere a la creation</span>
+                    <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
                   </DynamicPanelField>
                   <DynamicPanelField label="Nom" required>
                     <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Formation HSE Niveau 1" />
@@ -855,10 +855,10 @@ function CreateJobPositionPanel() {
           <FormSection title="Informations">
             <FormGrid>
               <DynamicPanelField label="Code">
-                <span className="text-sm font-mono text-muted-foreground italic">Auto-genere a la creation</span>
+                <span className="text-sm font-mono text-muted-foreground italic">Auto-généré à la création</span>
               </DynamicPanelField>
-              <DynamicPanelField label="Intitule du poste" required>
-                <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Operateur de production" />
+              <DynamicPanelField label="Intitulé du poste" required>
+                <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Opérateur de production" />
               </DynamicPanelField>
               <DynamicPanelField label="Departement">
                 <input type="text" value={form.department ?? ''} onChange={(e) => setForm({ ...form, department: e.target.value || null })} className={panelInputClass} placeholder="Production, HSE, Maintenance..." />
@@ -950,7 +950,7 @@ function JobPositionDetailPanel({ id }: { id: string }) {
         <FormSection title="Informations" collapsible defaultExpanded>
           <DetailFieldGrid>
             <ReadOnlyRow label="Code" value={<span className="text-sm font-mono font-medium text-foreground">{jp.code || '—'}</span>} />
-            <InlineEditableRow label="Intitule" value={jp.name} onSave={(v) => handleSave('name', v)} />
+            <InlineEditableRow label="Intitulé" value={jp.name} onSave={(v) => handleSave('name', v)} />
             <InlineEditableRow label="Departement" value={jp.department || ''} onSave={(v) => handleSave('department', v)} />
           </DetailFieldGrid>
         </FormSection>
@@ -3108,7 +3108,7 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
 
   if (!item) {
     return (
-      <DynamicPanelShell title="Verification" onClose={closeDynamicPanel}>
+      <DynamicPanelShell title="Vérification" onClose={closeDynamicPanel}>
         <p className="text-sm text-muted-foreground p-4">Document non trouvé ou déjà traité.</p>
       </DynamicPanelShell>
     )

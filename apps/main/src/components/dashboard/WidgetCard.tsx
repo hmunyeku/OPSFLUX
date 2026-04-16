@@ -576,24 +576,24 @@ function KPIWidget({
   // Details
   const details = (meta?.details || config.details) as Record<string, unknown> | undefined
 
+  const hasDetails = details && Object.keys(details).length > 0
+
   return (
-    <div className="flex flex-col h-full gap-2">
-      {/* Top row: icon + value + sparkline */}
-      <div className="flex items-start gap-3 flex-1">
-        {/* Icon square */}
+    <div className="flex flex-col h-full">
+      {/* ── Top section: icon + value + trend (shrink-0) ── */}
+      <div className="flex items-start gap-3 shrink-0">
+        {/* Icon badge */}
         <div className={cn('h-10 w-10 rounded-lg flex items-center justify-center shrink-0', iconPreset.bg)}>
           <IconComp className={cn('h-5 w-5', iconPreset.fg)} />
         </div>
-
-        {/* Value block */}
+        {/* Value + trend */}
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[2rem] font-bold tracking-[-0.04em] leading-none text-foreground tabular-nums">
+            <span className="text-[2.25rem] font-bold tracking-[-0.04em] leading-none text-foreground tabular-nums">
               {displayValue}
             </span>
             {unit && <span className="text-xs text-muted-foreground/70 font-medium">{unit}</span>}
           </div>
-          {/* Delta row */}
           {trend !== null && (
             <div className="flex items-center gap-1.5 mt-1">
               {TrendIcon && <TrendIcon className={cn('h-3.5 w-3.5', trendColor)} />}
@@ -607,35 +607,41 @@ function KPIWidget({
             <span className="text-[11px] text-muted-foreground mt-0.5 block">{comparison}</span>
           )}
         </div>
-
-        {/* Mini sparkline (right side) */}
-        {sparklineData && sparklineData.length > 1 && (
-          <div className="w-20 h-10 shrink-0 self-center">
-            <KPISparkline data={sparklineData} color={sparklineColor} />
-          </div>
-        )}
       </div>
 
       {/* Label */}
       {labelField && (
-        <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">{labelField}</span>
+        <span className="text-[11px] text-muted-foreground/70 font-medium uppercase tracking-wider mt-1 shrink-0">
+          {labelField}
+        </span>
       )}
 
-      {/* Detail stat grid */}
-      {details && Object.keys(details).length > 0 && (
-        <div className="mt-1 pt-3 border-t border-border/40 grid grid-cols-2 gap-x-3 gap-y-1.5">
-          {Object.entries(details).slice(0, 6).map(([k, v]) => {
+      {/* ── Middle: sparkline grows to fill available space ── */}
+      {sparklineData && sparklineData.length > 1 && (
+        <div className="flex-1 min-h-0 py-2">
+          <KPISparkline data={sparklineData} color={sparklineColor} />
+        </div>
+      )}
+
+      {/* ── Bottom: detail stat grid ── */}
+      {hasDetails && (
+        <div className={cn(
+          'shrink-0 grid gap-x-2 gap-y-1.5',
+          Object.keys(details!).length <= 4 ? 'grid-cols-2' : 'grid-cols-3',
+        )}>
+          {Object.entries(details!).slice(0, 6).map(([k, v]) => {
             const label = tLabel(k)
             const val = String(v)
-            const isGood = /compliant|active|done|valid/.test(k)
+            const isGood = /compliant|active|done|valid|completed/.test(k)
             const isBad = /overdue|expired|critical|cancelled/.test(k)
-            const valColor = isGood ? 'text-emerald-600 dark:text-emerald-400'
+            const valColor = isGood
+              ? 'text-emerald-600 dark:text-emerald-400'
               : isBad ? 'text-red-500 dark:text-red-400'
               : 'text-foreground'
             return (
-              <div key={k} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors min-w-0">
-                <span className="text-[11px] font-medium text-muted-foreground truncate">{label}</span>
-                <span className={cn('text-[13px] font-bold tabular-nums shrink-0', valColor)}>{val}</span>
+              <div key={k} className="flex items-center justify-between gap-1.5 px-2 py-1.5 rounded-md bg-muted/40 hover:bg-muted/60 transition-colors min-w-0">
+                <span className="text-[10px] font-medium text-muted-foreground truncate">{label}</span>
+                <span className={cn('text-[12px] font-bold tabular-nums shrink-0', valColor)}>{val}</span>
               </div>
             )
           })}

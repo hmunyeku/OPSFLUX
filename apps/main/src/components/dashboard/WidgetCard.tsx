@@ -48,6 +48,9 @@ import {
   CheckCircle2,
   UserCheck,
   AlertCircle,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
 } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
@@ -443,17 +446,17 @@ function WidgetRenderer({
 //                        Delta + comparison
 //         [Label below]
 
-// Icon color presets — mapped from config.icon_color or accent
+// Icon color presets — Elastic UI style: light tinted bg + colored icon
 const KPI_ICON_COLORS: Record<string, { bg: string; fg: string }> = {
-  blue:   { bg: 'bg-blue-500',   fg: 'text-white' },
-  green:  { bg: 'bg-emerald-500', fg: 'text-white' },
-  red:    { bg: 'bg-red-500',    fg: 'text-white' },
-  orange: { bg: 'bg-orange-400', fg: 'text-white' },
-  yellow: { bg: 'bg-yellow-400', fg: 'text-yellow-900' },
-  violet: { bg: 'bg-violet-500', fg: 'text-white' },
-  cyan:   { bg: 'bg-cyan-500',   fg: 'text-white' },
-  pink:   { bg: 'bg-pink-500',   fg: 'text-white' },
-  slate:  { bg: 'bg-slate-500',  fg: 'text-white' },
+  blue:   { bg: 'bg-blue-100 dark:bg-blue-500/20 ring-1 ring-inset ring-blue-200 dark:ring-blue-500/30',       fg: 'text-blue-600 dark:text-blue-400' },
+  green:  { bg: 'bg-emerald-100 dark:bg-emerald-500/20 ring-1 ring-inset ring-emerald-200 dark:ring-emerald-500/30', fg: 'text-emerald-600 dark:text-emerald-400' },
+  red:    { bg: 'bg-red-100 dark:bg-red-500/20 ring-1 ring-inset ring-red-200 dark:ring-red-500/30',           fg: 'text-red-600 dark:text-red-400' },
+  orange: { bg: 'bg-orange-100 dark:bg-orange-500/20 ring-1 ring-inset ring-orange-200 dark:ring-orange-500/30', fg: 'text-orange-600 dark:text-orange-400' },
+  yellow: { bg: 'bg-yellow-100 dark:bg-yellow-500/20 ring-1 ring-inset ring-yellow-200 dark:ring-yellow-500/30', fg: 'text-yellow-700 dark:text-yellow-400' },
+  violet: { bg: 'bg-violet-100 dark:bg-violet-500/20 ring-1 ring-inset ring-violet-200 dark:ring-violet-500/30', fg: 'text-violet-600 dark:text-violet-400' },
+  cyan:   { bg: 'bg-cyan-100 dark:bg-cyan-500/20 ring-1 ring-inset ring-cyan-200 dark:ring-cyan-500/30',       fg: 'text-cyan-600 dark:text-cyan-400' },
+  pink:   { bg: 'bg-pink-100 dark:bg-pink-500/20 ring-1 ring-inset ring-pink-200 dark:ring-pink-500/30',       fg: 'text-pink-600 dark:text-pink-400' },
+  slate:  { bg: 'bg-slate-100 dark:bg-slate-700/50 ring-1 ring-inset ring-slate-200 dark:ring-slate-600/50',   fg: 'text-slate-600 dark:text-slate-400' },
 }
 
 // Semantic icon map — widget_id → Lucide icon
@@ -525,11 +528,11 @@ function KPIWidget({
   meta?: Record<string, unknown>
 }) {
   const valueField = (config.value_field as string) || 'value'
-  const labelField = (config.label as string) || ''
+  const labelField = (config.label as string) || (meta?.label as string) || ''
   const trend = (meta?.trend as number) ?? (config.trend as number) ?? null
   const comparison = (meta?.comparison as string) || (config.comparison as string) || ''
   const format = (config.format as string) || 'number'
-  const unit = (config.unit as string) || ''
+  const unit = (config.unit as string) || (meta?.unit as string) || ''
   const iconColor = (config.icon_color as string) || 'blue'
   const iconPreset = KPI_ICON_COLORS[iconColor] || KPI_ICON_COLORS.blue
   const IconComp = (widgetId ? WIDGET_ICON_MAP[widgetId] : null) || Gauge
@@ -985,6 +988,9 @@ function TableWidget({
     : (rawData as Record<string, unknown>[])
   const pageSize = (config.page_size as number) || 10
   const [page, setPage] = useState(0)
+  // Sort state
+  const [sortField, setSortField] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   // Hidden columns from config
   const hiddenColumns = (config.hidden_columns as string[]) || []
@@ -1067,6 +1073,40 @@ function TableWidget({
   const isProgressCol = (key: string) => /progress|pct|avancement|%/i.test(key)
   const isDateCol = (key: string) => /date|echeance|échéance|deadline|start|end|debut|fin|created|updated|_at$|login|connexion|expire|expir/i.test(key)
   const isRefCol = (key: string, colIdx: number) => colIdx === 0 || /code|ref|reference|id$/i.test(key)
+  const isNumericCol = (key: string) => /count|nb|nombre|pax|weight|volume|amount|montant|value|valeur|qty|quantite|quantité|score|rate|taux|pct|percent|progress/i.test(key)
+
+  // Toggle sort on a column — reset page on sort change
+  const handleSort = (key: string) => {
+    if (sortField === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(key)
+      setSortDir('asc')
+    }
+    setPage(0)
+  }
+
+  // Apply sort to rows
+  const sortedRows = useMemo(() => {
+    if (!sortField) return rows
+    return [...rows].sort((a, b) => {
+      const av = a[sortField]
+      const bv = b[sortField]
+      if (av == null && bv == null) return 0
+      if (av == null) return 1
+      if (bv == null) return -1
+      // Numeric comparison if both parse as numbers
+      const an = parseFloat(String(av))
+      const bn = parseFloat(String(bv))
+      if (!isNaN(an) && !isNaN(bn)) {
+        return sortDir === 'asc' ? an - bn : bn - an
+      }
+      // String comparison
+      const as_ = String(av).toLowerCase()
+      const bs_ = String(bv).toLowerCase()
+      return sortDir === 'asc' ? as_.localeCompare(bs_) : bs_.localeCompare(as_)
+    })
+  }, [rows, sortField, sortDir])
 
   const renderCell = (value: unknown, key: string, colIdx: number) => {
     if (value == null) return <span className="text-muted-foreground/30">—</span>
@@ -1160,46 +1200,69 @@ function TableWidget({
 
   if (!rows.length || !effectiveColumns.length) {
     return (
-      <div className="flex items-center justify-center h-full text-xs text-muted-foreground/40">
-        Aucune donnée disponible
+      <div className="flex flex-col items-center justify-center h-full gap-2 text-center">
+        <Table2 className="h-8 w-8 text-muted-foreground/15" />
+        <span className="text-xs text-muted-foreground/40">Aucune donnée disponible</span>
       </div>
     )
   }
 
-  const totalPages = Math.ceil(rows.length / pageSize)
-  const pagedRows = rows.slice(page * pageSize, (page + 1) * pageSize)
+  const totalPages = Math.ceil(sortedRows.length / pageSize)
+  const pagedRows = sortedRows.slice(page * pageSize, (page + 1) * pageSize)
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 min-h-0 overflow-auto">
         <table className="w-full text-xs border-separate border-spacing-0">
-          <thead className="sticky top-0 z-[1] bg-muted/50 backdrop-blur-sm">
+          <thead className="sticky top-0 z-[1] bg-muted/60 backdrop-blur-sm">
             <tr>
-              {effectiveColumns.map((col) => (
-                <th
-                  key={col.key}
-                  className="text-left px-3 py-1.5 font-semibold text-[10px] uppercase tracking-[0.06em] whitespace-nowrap text-muted-foreground/70 border-b border-border/60 first:pl-4"
-                >
-                  {col.label}
-                </th>
-              ))}
+              {effectiveColumns.map((col) => {
+                const isSorted = sortField === col.key
+                const isNum = isNumericCol(col.key)
+                return (
+                  <th
+                    key={col.key}
+                    onClick={() => handleSort(col.key)}
+                    className={cn(
+                      'px-3 py-2 font-semibold text-[10px] uppercase tracking-[0.06em] whitespace-nowrap',
+                      'border-b border-border/60 cursor-pointer select-none transition-colors',
+                      'first:pl-4 last:pr-4',
+                      isNum ? 'text-right' : 'text-left',
+                      isSorted ? 'text-foreground/80' : 'text-muted-foreground/60 hover:text-muted-foreground',
+                    )}
+                  >
+                    <span className={cn('inline-flex items-center gap-1', isNum && 'flex-row-reverse')}>
+                      {col.label}
+                      {isSorted ? (
+                        sortDir === 'asc'
+                          ? <ChevronUp className="h-3 w-3 text-primary shrink-0" />
+                          : <ChevronDown className="h-3 w-3 text-primary shrink-0" />
+                      ) : (
+                        <ChevronsUpDown className="h-3 w-3 opacity-25 shrink-0" />
+                      )}
+                    </span>
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>
             {pagedRows.map((row, rowIdx) => (
               <tr key={rowIdx} className={cn(
-                'group transition-colors hover:bg-primary/[0.035]',
-                rowIdx % 2 === 1 && 'bg-muted/[0.15]',
+                'group transition-colors hover:bg-primary/[0.04]',
+                rowIdx % 2 === 1 && 'bg-muted/[0.18]',
               )}>
                 {effectiveColumns.map((col, colIdx) => {
                   const cellValue = row[col.key]
                   const isActive = isFilterActive(col.key, cellValue)
+                  const isNum = isNumericCol(col.key)
                   return (
                     <td
                       key={col.key}
                       className={cn(
-                        'px-3 py-1.5 whitespace-nowrap max-w-[180px] border-b border-border/15',
+                        'px-3 py-1.5 whitespace-nowrap max-w-[200px] border-b border-border/10',
                         'first:pl-4 last:pr-4',
+                        isNum ? 'text-right tabular-nums' : 'text-left',
                         crossFilterEnabled && 'cursor-pointer',
                         isActive && 'bg-primary/10',
                       )}
@@ -1214,11 +1277,18 @@ function TableWidget({
           </tbody>
         </table>
       </div>
-      {/* Unified footer — count + optional pagination */}
+      {/* Footer: entry count + optional sort indicator + pagination */}
       <div className="flex items-center justify-between px-4 py-1.5 border-t border-border/40 shrink-0 bg-muted/20">
-        <span className="text-[10px] text-muted-foreground/60 font-medium tabular-nums">
-          {rows.length} {rows.length === 1 ? 'entrée' : 'entrées'}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground/60 font-medium tabular-nums">
+            {sortedRows.length} {sortedRows.length === 1 ? 'entrée' : 'entrées'}
+          </span>
+          {sortField && (
+            <span className="text-[10px] text-primary/60 font-medium">
+              ↕ {effectiveColumns.find((c) => c.key === sortField)?.label}
+            </span>
+          )}
+        </div>
         {totalPages > 1 && (
           <div className="flex items-center gap-0.5">
             <button

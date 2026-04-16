@@ -573,7 +573,7 @@ function PIDDetailPanel({ id }: { id: string }) {
         </SectionColumns>
 
         {/* -- Revision History (full width below columns) -- */}
-        <FormSection title={`Historique des revisions${revisions ? ` (${revisions.length})` : ''}`} collapsible defaultExpanded>
+        <FormSection title={`Historique des révisions${revisions ? ` (${revisions.length})` : ''}`} collapsible defaultExpanded>
           {revisionsLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 size={14} className="animate-spin text-muted-foreground" />

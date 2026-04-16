@@ -1560,18 +1560,18 @@ async def on_project_task_planner_sync_required(event: OpsFluxEvent) -> None:
             field_labels = {
                 "title": "titre",
                 "description": "description",
-                "start_date": "date de debut",
+                "start_date": "date de début",
                 "due_date": "date de fin",
                 "status": "statut",
             }
             changed_label = ", ".join(
                 field_labels.get(str(field), str(field)) for field in changed_fields
-            ) or "donnees critiques"
-            title = "Revision Planner suggeree"
+            ) or "données critiques"
+            title = "Révision Planner suggérée"
             body = (
-                f"La tâche projet '{task_title}' du projet {project_code or project_id} a change "
+                f"La tâche projet '{task_title}' du projet {project_code or project_id} a changé "
                 f"({changed_label}). {planner_activity_count} activité(s) Planner liée(s) ont été resynchronisées. "
-                "Une revision d'arbitrage peut etre necessaire."
+                "Une révision d'arbitrage peut être nécessaire."
             )
 
             for recipient_id in recipient_ids:

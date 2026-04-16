@@ -289,9 +289,9 @@ async def on_workflow_transition(event: OpsFluxEvent) -> None:
                     if creator_id and str(creator_id) != str(actor_id):
                         try:
                             status_label = (
-                                "approuvee" if to_state.lower() == "approved"
-                                else "rejetee" if to_state.lower() == "rejected"
-                                else "terminee"
+                                "approuvée" if to_state.lower() == "approved"
+                                else "rejetée" if to_state.lower() == "rejected"
+                                else "terminée"
                             )
                             await send_in_app(
                                 db,

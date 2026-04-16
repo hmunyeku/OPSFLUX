@@ -1669,7 +1669,7 @@ function EquipmentDetailPanel({ id }: { id: string }) {
               }
             />
             {equip.capacity_value != null && (
-              <ReadOnlyRow label="Capacite" value={`${equip.capacity_value} ${equip.capacity_unit || ''}`} />
+              <ReadOnlyRow label="Capacité" value={`${equip.capacity_value} ${equip.capacity_unit || ''}`} />
             )}
           </DetailFieldGrid>
         </FormSection>

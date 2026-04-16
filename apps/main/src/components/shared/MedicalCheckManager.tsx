@@ -25,7 +25,7 @@ export function MedicalCheckManager({ ownerType, ownerId, compact, hideAddButton
       ? { key: 'check_type', label: 'Type', required: true, type: 'combobox' as const, options: checkTypeOptions }
       : { key: 'check_type', label: 'Type', required: true, placeholder: 'Standard, International...' },
     { key: 'check_date', label: 'Date', required: true, type: 'date' as const },
-    { key: 'expiry_date', label: 'Expire le', type: 'date' as const },
+    { key: 'expiry_date', label: 'Expiré le', type: 'date' as const },
     { key: 'provider', label: 'Médecin / Centre', placeholder: 'Dr. Martin, Centre médical...' },
     { key: 'notes', label: 'Notes', placeholder: 'Observations...' },
   ]

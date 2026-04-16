@@ -24,7 +24,7 @@ export function PassportManager({ userId, compact, hideAddButton, onAddRef }: { 
       : { key: 'country', label: 'Pays', required: true, placeholder: 'France' },
     { key: 'passport_name', label: 'Nom sur passeport', placeholder: 'NOM PRENOM' },
     { key: 'issue_date', label: 'Délivré le', type: 'date' as const },
-    { key: 'expiry_date', label: 'Expire le', type: 'date' as const },
+    { key: 'expiry_date', label: 'Expiré le', type: 'date' as const },
   ]
 
   // Build country labels from nationality dictionary

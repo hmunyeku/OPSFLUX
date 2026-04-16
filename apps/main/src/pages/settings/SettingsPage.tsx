@@ -200,7 +200,7 @@ registerSettingsSection({ id: 'planner-config', label: 'Planner', icon: Calendar
 registerSettingsSection({ id: 'travelwiz-config', label: 'TravelWiz', icon: Ship, component: TravelWizConfigTab, category: 'general', order: 38, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'packlog-config', label: 'PackLog', icon: Boxes, component: PackLogConfigTab, category: 'general', order: 39, requiredPermission: 'core.settings.manage' })
 
-registerSettingsSection({ id: 'gdpr', label: 'RGPD / Protection des donnees', icon: Shield, component: GdprTab, category: 'general', order: 40, requiredPermission: 'admin.system' })
+registerSettingsSection({ id: 'gdpr', label: 'RGPD / Protection des données', icon: Shield, component: GdprTab, category: 'general', order: 40, requiredPermission: 'admin.system' })
 registerSettingsSection({ id: 'security-policy', label: 'Sécurité & Authentification', icon: ShieldCheck, component: SecurityPolicyTab, category: 'general', order: 45, requiredPermission: 'admin.system' })
 registerSettingsSection({ id: 'delete-policies', label: 'Politiques de suppression', icon: Trash2, component: DeletePoliciesTab, category: 'general', order: 50, requiredPermission: 'core.settings.manage' })
 registerSettingsSection({ id: 'system', label: 'Système', icon: Activity, component: SystemTab, category: 'general', order: 60, requiredPermission: 'core.settings.manage' })

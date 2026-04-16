@@ -119,8 +119,8 @@ function buildSampleVariables(
       total_weight_kg: 425.5,
       total_packages: 7,
       cargo_items: [
-        { tracking_code: 'CGO-001', request_code: 'LTR-001', designation: 'Pompe', destination_name: 'Site Bravo', receiver_name: 'Log Base', weight_kg: 220, package_count: 2, status_label: 'Enregistre' },
-        { tracking_code: 'CGO-002', request_code: 'LTR-001', designation: 'Caisse outillage', destination_name: 'Site Bravo', receiver_name: 'Log Base', weight_kg: 205.5, package_count: 5, status_label: 'Charge' },
+        { tracking_code: 'CGO-001', request_code: 'LTR-001', designation: 'Pompe', destination_name: 'Site Bravo', receiver_name: 'Log Base', weight_kg: 220, package_count: 2, status_label: 'Enregistré' },
+        { tracking_code: 'CGO-002', request_code: 'LTR-001', designation: 'Caisse outillage', destination_name: 'Site Bravo', receiver_name: 'Log Base', weight_kg: 205.5, package_count: 5, status_label: 'Chargé' },
       ],
     }
   }
@@ -128,20 +128,20 @@ function buildSampleVariables(
     return {
       ...base,
       request_code: 'LTR-2026-0012',
-      request_title: 'Demande expedition materiel forage',
+      request_title: 'Demande expédition matériel forage',
       request_status: 'approved',
       sender_name: 'Base logistique',
       receiver_name: 'Chef de site Bravo',
       destination_name: 'Site Bravo',
       requester_name: 'A. User',
-      description: 'Acheminement de materiel critique pour intervention.',
+      description: 'Acheminement de matériel critique pour intervention.',
       imputation_reference: 'IMP-001 Forage',
       total_cargo_items: 2,
       total_weight_kg: 425.5,
       total_packages: 7,
       cargo_items: [
-        { tracking_code: 'CGO-001', designation: 'Pompe', cargo_type: 'unit', weight_kg: 220, package_count: 2, status_label: 'Enregistre' },
-        { tracking_code: 'CGO-002', designation: 'Caisse outillage', cargo_type: 'consumable', weight_kg: 205.5, package_count: 5, status_label: 'Charge' },
+        { tracking_code: 'CGO-001', designation: 'Pompe', cargo_type: 'unit', weight_kg: 220, package_count: 2, status_label: 'Enregistré' },
+        { tracking_code: 'CGO-002', designation: 'Caisse outillage', cargo_type: 'consumable', weight_kg: 205.5, package_count: 5, status_label: 'Chargé' },
       ],
     }
   }
@@ -223,7 +223,7 @@ function buildSampleVariables(
       status: 'approved',
       equipment_count: 12,
       line_count: 18,
-      notes: 'Apercu de demonstration avec donnees d’exemple pour validation du template.',
+      notes: "Aperçu de démonstration avec données d’exemple pour validation du template.",
     }
   }
   if (slug === 'ads.ticket' || slug === 'ads.manifest') {

@@ -2676,7 +2676,7 @@ function ActivityFeedSection({ projectId }: { projectId: string }) {
       case 'status_change': return item.detail || 'Changement de statut'
       case 'task_change': return `${item.task_title || 'Tache'}: ${item.field} ${item.old ? `${fmtVal(item.old)} →` : '→'} ${fmtVal(item.new)}`
       case 'comment': return `${item.user || 'Utilisateur'}: ${(item.body || '').slice(0, 80)}${(item.body?.length ?? 0) > 80 ? '...' : ''}`
-      default: return 'Activite'
+      default: return 'Activité'
     }
   }
 

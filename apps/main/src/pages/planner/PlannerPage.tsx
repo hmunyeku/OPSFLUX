@@ -5345,7 +5345,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
             {impactPreview.data ? (
               <div className="space-y-2 text-sm">
                 <p className="text-muted-foreground">
-                  Activite: <span className="text-foreground font-medium">{impactPreview.data.activity_title}</span>
+                  Activité: <span className="text-foreground font-medium">{impactPreview.data.activity_title}</span>
                 </p>
                 {impactPreview.data.ads_affected > 0 && (
                   <p className="text-amber-600">AdS impactes: {impactPreview.data.ads_affected}</p>

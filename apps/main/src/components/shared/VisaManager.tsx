@@ -23,7 +23,7 @@ export function VisaManager({ userId, compact, hideAddButton, onAddRef }: { user
       : { key: 'country', label: 'Pays', required: true, placeholder: 'Angola' },
     { key: 'number', label: 'Numéro', placeholder: 'V123456' },
     { key: 'issue_date', label: 'Délivré le', type: 'date' as const },
-    { key: 'expiry_date', label: 'Expire le', type: 'date' as const },
+    { key: 'expiry_date', label: 'Expiré le', type: 'date' as const },
   ]
 
   const countryLabels: Record<string, string> = {}

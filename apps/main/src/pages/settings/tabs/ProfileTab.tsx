@@ -833,8 +833,8 @@ export function ProfileTab() {
       {/* RGPD — Mes données personnelles */}
       <CollapsibleSection
         id="gdpr-personal"
-        title="Mes donnees personnelles (RGPD)"
-        description="Exercez vos droits sur vos donnees personnelles conformement au RGPD."
+        title="Mes données personnelles (RGPD)"
+        description="Exercez vos droits sur vos données personnelles conformément au RGPD."
         storageKey="settings.profile.collapse"
         showSeparator={false}
       >
@@ -842,8 +842,8 @@ export function ProfileTab() {
           <div className="flex items-start gap-4 p-3 rounded-lg border border-border bg-muted/20">
             <Download size={16} className="text-primary mt-0.5 shrink-0" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">Exporter mes donnees</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Demander un export de vos donnees personnelles (Art. 15 & 20). Vous recevrez une notification et un email quand l'export sera pret.</p>
+              <p className="text-sm font-medium text-foreground">Exporter mes données</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Demander un export de vos données personnelles (Art. 15 & 20). Vous recevrez une notification et un email quand l'export sera prêt.</p>
             </div>
             <button
               className="gl-button-sm gl-button-default shrink-0"
@@ -905,7 +905,7 @@ export function ProfileTab() {
             <Trash2 size={16} className="text-red-500 mt-0.5 shrink-0" />
             <div className="flex-1">
               <p className="text-sm font-medium text-foreground">Supprimer mon compte</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Anonymiser definitivement votre compte et supprimer vos donnees personnelles (Art. 17). Cette action est irreversible.</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Anonymiser définitivement votre compte et supprimer vos données personnelles (Art. 17). Cette action est irréversible.</p>
             </div>
             <button
               className="gl-button-sm bg-red-600 text-white hover:bg-red-700 shrink-0"

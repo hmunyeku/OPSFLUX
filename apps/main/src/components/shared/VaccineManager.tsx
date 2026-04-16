@@ -17,7 +17,7 @@ export function VaccineManager({ userId, compact, hideAddButton, onAddRef }: { u
       ? { key: 'vaccine_type', label: 'Type', required: true, type: 'combobox' as const, options: vaccineTypeOptions }
       : { key: 'vaccine_type', label: 'Type', required: true, placeholder: 'Fièvre jaune, COVID-19...' },
     { key: 'date_administered', label: 'Date', type: 'date' as const },
-    { key: 'expiry_date', label: 'Expire le', type: 'date' as const },
+    { key: 'expiry_date', label: 'Expiré le', type: 'date' as const },
     { key: 'batch_number', label: 'N° Lot', placeholder: 'AB1234' },
   ]
 

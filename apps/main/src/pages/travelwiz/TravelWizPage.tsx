@@ -1925,7 +1925,7 @@ function CronScheduleBuilder({
         </div>
       </DynamicPanelField>
 
-      <DynamicPanelField label="Resume" span="full">
+      <DynamicPanelField label="Résumé" span="full">
         <p className="text-sm text-foreground font-medium py-1.5">
           {description || buildDescription(freq, day, hour, minute)}
         </p>
@@ -2136,10 +2136,10 @@ function CreateVectorPanel() {
           </FormSection>
           <FormSection title="Capacites">
             <FormGrid>
-              <DynamicPanelField label="Capacite PAX" required>
+              <DynamicPanelField label="Capacité PAX" required>
                 <input type="number" min={0} required value={form.pax_capacity ?? 0} onChange={(e) => setForm({ ...form, pax_capacity: e.target.value ? Number(e.target.value) : 0 })} className={panelInputClass} />
               </DynamicPanelField>
-              <DynamicPanelField label="Capacite poids (kg)">
+              <DynamicPanelField label="Capacité poids (kg)">
                 <input type="number" min={0} step="any" value={form.weight_capacity_kg ?? ''} onChange={(e) => setForm({ ...form, weight_capacity_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} />
               </DynamicPanelField>
               <DynamicPanelField label="Volume (m3)">
@@ -3460,7 +3460,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
 
             {/* Capacity */}
             {capacity && (
-              <FormSection title="Capacite" collapsible defaultExpanded>
+              <FormSection title="Capacité" collapsible defaultExpanded>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-lg border border-border p-3">
                     <div className="flex items-center gap-1.5 text-muted-foreground mb-1"><Users size={12} /><span className="text-[10px] font-medium uppercase tracking-wide">PAX</span></div>
@@ -3665,8 +3665,8 @@ function VectorDetailPanel({ id }: { id: string }) {
             </FormSection>
             <FormSection title="Capacites">
               <FormGrid>
-                <DynamicPanelField label="Capacite PAX"><input type="number" min={0} value={editForm.pax_capacity ?? ''} onChange={(e) => setEditForm({ ...editForm, pax_capacity: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
-                <DynamicPanelField label="Capacite poids (kg)"><input type="number" min={0} step="any" value={editForm.weight_capacity_kg ?? ''} onChange={(e) => setEditForm({ ...editForm, weight_capacity_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+                <DynamicPanelField label="Capacité PAX"><input type="number" min={0} value={editForm.pax_capacity ?? ''} onChange={(e) => setEditForm({ ...editForm, pax_capacity: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
+                <DynamicPanelField label="Capacité poids (kg)"><input type="number" min={0} step="any" value={editForm.weight_capacity_kg ?? ''} onChange={(e) => setEditForm({ ...editForm, weight_capacity_kg: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
                 <DynamicPanelField label="Volume (m3)"><input type="number" min={0} step="any" value={editForm.volume_capacity_m3 ?? ''} onChange={(e) => setEditForm({ ...editForm, volume_capacity_m3: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} /></DynamicPanelField>
               </FormGrid>
             </FormSection>
@@ -3702,8 +3702,8 @@ function VectorDetailPanel({ id }: { id: string }) {
             </FormSection>
 
             <FormSection title="Capacites">
-              <DetailRow label="Capacite PAX" value={vector.pax_capacity} />
-              <DetailRow label="Capacite poids" value={vector.weight_capacity_kg ? `${vector.weight_capacity_kg.toLocaleString('fr-FR')} kg` : '—'} />
+              <DetailRow label="Capacité PAX" value={vector.pax_capacity} />
+              <DetailRow label="Capacité poids" value={vector.weight_capacity_kg ? `${vector.weight_capacity_kg.toLocaleString('fr-FR')} kg` : '—'} />
               <DetailRow label="Volume" value={vector.volume_capacity_m3 ? `${vector.volume_capacity_m3.toLocaleString('fr-FR')} m³` : '—'} />
             </FormSection>
 
@@ -3721,7 +3721,7 @@ function VectorDetailPanel({ id }: { id: string }) {
                       <MapPin size={14} className="text-muted-foreground shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{zone.name}</p>
-                        <p className="text-xs text-muted-foreground">{zone.zone_type}{zone.capacity ? ` • Capacite: ${zone.capacity}` : ''}</p>
+                        <p className="text-xs text-muted-foreground">{zone.zone_type}{zone.capacity ? ` • Capacité: ${zone.capacity}` : ''}</p>
                       </div>
                       <span className={cn('gl-badge', zone.active ? 'gl-badge-success' : 'gl-badge-neutral')}>{zone.active ? 'Actif' : 'Inactif'}</span>
                     </div>

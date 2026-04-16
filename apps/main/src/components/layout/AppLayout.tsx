@@ -168,8 +168,8 @@ export function AppLayout({ children }: AppLayoutProps) {
       {import.meta.env.DEV && (
         <Banner
           variant="warning"
-          title="Environnement de developpement"
-          description="Vous utilisez l'environnement de developpement. Les donnees peuvent etre reintialisees."
+          title="Environnement de développement"
+          description="Vous utilisez l'environnement de développement. Les données peuvent être réinitialisées."
           dismissKey="banner:dev-env-v1"
           compact
         />

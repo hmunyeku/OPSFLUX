@@ -44,7 +44,7 @@ export function FieldLicenseManager({ fieldId, compact, hideAddButton, onAddRef 
     { key: 'license_number', label: 'N° Licence', required: true, placeholder: 'PSC-2015-001' },
     { key: 'authority', label: 'Autorité', placeholder: 'SNH, Ministère...' },
     { key: 'issue_date', label: 'Délivrée le', type: 'date' as const },
-    { key: 'expiry_date', label: 'Expire le', type: 'date' as const },
+    { key: 'expiry_date', label: 'Expiré le', type: 'date' as const },
     { key: 'status', label: 'Statut', type: 'combobox' as const, options: statusOptions },
   ]
 

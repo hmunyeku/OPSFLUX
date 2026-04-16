@@ -159,7 +159,7 @@ function AnnouncementItem({
           <div className="flex items-center gap-2 mt-1.5">
             <span className="text-[9px] text-muted-foreground">{ann.sender_name || 'Système'}</span>
             <span className="text-[9px] text-muted-foreground">{fmtDate(ann.published_at)}</span>
-            {ann.expires_at && <span className="text-[9px] text-amber-500">Expire {fmtDate(ann.expires_at)}</span>}
+            {ann.expires_at && <span className="text-[9px] text-amber-500">Expire le {fmtDate(ann.expires_at)}</span>}
           </div>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">

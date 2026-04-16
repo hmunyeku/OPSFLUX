@@ -118,21 +118,19 @@ const LABEL_FR: Record<string, string> = {
   helicopter: 'Hélicoptère', boat: 'Bateau', vehicle: 'Véhicule',
   offshore: 'Offshore', onshore: 'Onshore',
   // Users KPI details
-  inactive: 'Inactifs', online: 'En ligne',
+  online: 'En ligne',
   // Asset KPI details
   fields: 'Champs', sites: 'Sites', installations: 'Installations',
   equipment: 'Équipements', pipelines: 'Pipelines',
   // Tiers KPI details
   clients: 'Clients', suppliers: 'Fournisseurs', subcontractors: 'Sous-traitants',
   contacts: 'Contacts', partners: 'Partenaires',
-  // Support KPI details
-  open: 'Ouverts', resolved: 'Résolus', critical: 'Critique',
   // Papyrus KPI details
-  in_review: 'En revue', ready: 'Prêts', revisions: 'Révisions',
+  in_review: 'En revue', revisions: 'Révisions',
   forms: 'Formulaires', links: 'Liens actifs',
   pending_submissions: 'Soumissions', failed_dispatches: 'Envois échoués',
   // Planner KPI details
-  total_pax: 'PAX total', draft: 'Brouillons',
+  total_pax: 'PAX total',
   // PackLog KPI details
   active_requests: 'Demandes actives', blocked_requests: 'Demandes bloquées',
   cargo_count: 'Colis', total_weight_kg: 'Poids (kg)',
@@ -1371,7 +1369,7 @@ function TableWidget({
       return (
         <div className="flex items-center gap-1" title={`Criticite ${n}/5`}>
           <div className="w-2.5 h-5 rounded-sm border border-border/40 overflow-hidden flex flex-col-reverse">
-            <div style={{ height: `${Math.max(20, n * 20)}%`, backgroundColor: color }} className="rounded-sm" />
+            <div style={{ height: `${n * 20}%`, backgroundColor: color }} className="rounded-sm" />
           </div>
           <span className="text-[10px] font-medium" style={{ color }}>{n}</span>
         </div>
@@ -1666,13 +1664,15 @@ function MapWidget({ config, data }: MapWidgetProps) {
     if (bounds.isValid()) {
       map.fitBounds(bounds, { padding: [20, 20], maxZoom: 12 })
     }
-  }, [positions.length, isFleetMap])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(positions), isFleetMap])
 
-  if (positions.length === 0 && flatItems.length === 0) {
+  if (positions.length === 0) {
+    const msg = flatItems.length > 0 ? 'Coordonnées manquantes' : 'Aucune position'
     return (
       <div className="flex flex-col items-center justify-center h-full gap-1 text-center">
         <MapPin className="h-6 w-6 text-muted-foreground/30" />
-        <p className="text-[10px] text-muted-foreground">Aucune position</p>
+        <p className="text-[10px] text-muted-foreground">{msg}</p>
       </div>
     )
   }

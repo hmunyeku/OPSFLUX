@@ -790,7 +790,7 @@ async def provider_projets_weather(
     """), {"eid": str(entity_id)})
     rows = r.mappings().all()
     return {
-        "data": [{"name": row["weather"] or "unknown", "value": row["cnt"]} for row in rows],
+        "data": [{"name": row["weather"] or "inconnu", "value": row["cnt"]} for row in rows],
         "series": [{"name": "Projets", "type": "bar"}],
     }
 
@@ -813,10 +813,10 @@ async def provider_projets_deadlines(
     return {
         "columns": [
             {"key": "project_code", "label": "Projet"},
-            {"key": "title", "label": "Tache"},
-            {"key": "due_date", "label": "Echeance"},
+            {"key": "title", "label": "Tâche"},
+            {"key": "due_date", "label": "Échéance"},
             {"key": "status", "label": "Statut"},
-            {"key": "priority", "label": "Priorite"},
+            {"key": "priority", "label": "Priorité"},
         ],
         "rows": [dict(row) for row in rows],
     }
@@ -839,7 +839,7 @@ async def provider_projets_top_volume(
     return {
         "columns": [
             {"key": "code", "label": "Code"}, {"key": "name", "label": "Nom"},
-            {"key": "progress", "label": "%"}, {"key": "task_count", "label": "Taches"},
+            {"key": "progress", "label": "%"}, {"key": "task_count", "label": "Tâches"},
         ],
         "rows": [dict(row) for row in rows],
     }
@@ -2058,12 +2058,12 @@ async def provider_papyrus_recent_documents(
     """), {"eid": str(entity_id)})
     return {
         "columns": [
-            {"key": "number", "label": "Numero"},
+            {"key": "number", "label": "Numéro"},
             {"key": "title", "label": "Titre"},
             {"key": "doc_type_code", "label": "Type"},
             {"key": "status", "label": "Statut"},
-            {"key": "current_revision", "label": "Revision"},
-            {"key": "updated_at", "label": "Mis a jour"},
+            {"key": "current_revision", "label": "Révision"},
+            {"key": "updated_at", "label": "Mis à jour"},
         ],
         "rows": [dict(row) for row in r.mappings().all()],
     }
@@ -2084,7 +2084,7 @@ async def provider_papyrus_forms_overview(
     row = r.mappings().first()
     return {
         "value": row["pending_submissions"] if row else 0,
-        "label": "Collecte a traiter",
+        "label": "Collecte à traiter",
         "unit": "soumissions",
         "trend": None,
         "details": {

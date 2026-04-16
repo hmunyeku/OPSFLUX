@@ -311,7 +311,7 @@ export function EChartsWidget({
               left: 'center',
               top: '46%',
               style: {
-                text: 'total',
+                text: 'Total',
                 fill: isDark ? '#71717a' : '#9ca3af',
                 font: `10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`,
                 textAlign: 'center',
@@ -534,7 +534,7 @@ export function EChartsWidget({
       default:
         return null
     }
-  }, [chartType, data, xField, yFields, title, isDark])
+  }, [chartType, data, xField, yFields, title, isDark, stacked, seriesNames])
 
   // Empty data
   if (!data || data.length === 0 || !option) {

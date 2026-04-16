@@ -2260,7 +2260,7 @@ function CreateDocTypePanel() {
               <FormSection title="Identification">
                 <FormGrid>
                   <DynamicPanelField label="Code">
-                    <input type="text" value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} className={cn(panelInputClass, 'font-mono')} placeholder="Auto-genere" />
+                    <input type="text" value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} className={cn(panelInputClass, 'font-mono')} placeholder="Auto-généré" />
                   </DynamicPanelField>
                   <DynamicPanelField label="Nom (FR)" required>
                     <input type="text" required value={form.name_fr} onChange={(e) => setForm(f => ({ ...f, name_fr: e.target.value }))} className={panelInputClass} placeholder="Note technique" />

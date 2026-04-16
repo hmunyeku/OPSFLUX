@@ -222,7 +222,7 @@ export function ComplianceDashboard() {
           subtitle="sous 30 jours"
         />
         <StatCard
-          label="Taux de conformite"
+          label="Taux de conformité"
           value={`${data.compliance_rate}%`}
           icon={TrendingUp}
           color={data.compliance_rate >= 80 ? 'text-emerald-600' : data.compliance_rate >= 50 ? 'text-amber-600' : 'text-red-600'}

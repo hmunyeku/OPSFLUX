@@ -221,7 +221,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
         diagram: `graph LR\n    A["Planifié"]:::planned --> B["Actif"]:::active\n    B --> C["Terminé"]:::done\n    B --> D["Annulé"]:::cancelled\n    classDef planned fill:#475569,stroke:#64748b,color:#fff\n    classDef active fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef done fill:#22c55e,stroke:#4ade80,color:#fff\n    classDef cancelled fill:#ef4444,stroke:#f87171,color:#fff`,
       },
       { title: "Suivre l'avancement", steps: ['Le Gantt montre la timeline', "Double-cliquez une tâche pour l'éditer", "Le % d'avancement se met à jour automatiquement", "Le Tableur permet l'édition en masse"],
-        diagram: `graph LR\n    A["A faire"]:::todo --> B["En cours"]:::progress\n    B --> C["Revue"]:::review\n    C --> D["Termine"]:::done\n    C -->|Corrections| B\n    classDef todo fill:#475569,stroke:#64748b,color:#fff\n    classDef progress fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef review fill:#eab308,stroke:#facc15,color:#000\n    classDef done fill:#22c55e,stroke:#4ade80,color:#fff`,
+        diagram: `graph LR\n    A["À faire"]:::todo --> B["En cours"]:::progress\n    B --> C["Revue"]:::review\n    C --> D["Terminé"]:::done\n    C -->|Corrections| B\n    classDef todo fill:#475569,stroke:#64748b,color:#fff\n    classDef progress fill:#3b82f6,stroke:#60a5fa,color:#fff\n    classDef review fill:#eab308,stroke:#facc15,color:#000\n    classDef done fill:#22c55e,stroke:#4ade80,color:#fff`,
       },
     ],
     tips: ['Utilisez le Kanban pour un suivi par statut', 'Les dépendances sont visibles dans le Gantt', 'Le mode Poids manuel est recommandé quand toutes les tâches n\'ont pas le même impact business', 'Sync Gouti permet d\'importer des projets avec rafraîchissement auto'],

@@ -128,6 +128,7 @@ const LABEL_FR: Record<string, string> = {
   // Support KPI details
   open: 'Ouverts', resolved: 'Résolus', critical: 'Critique',
   // Papyrus KPI details
+  in_review: 'En revue', ready: 'Prêts', revisions: 'Révisions',
   forms: 'Formulaires', links: 'Liens actifs',
   pending_submissions: 'Soumissions', failed_dispatches: 'Envois échoués',
   // Planner KPI details

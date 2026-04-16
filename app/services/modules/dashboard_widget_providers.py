@@ -1624,7 +1624,10 @@ async def provider_conformite_urgency(
         GROUP BY 1
         ORDER BY MIN(expires_at)
     """), {"eid": str(entity_id)})
-    return {"data": [dict(row) for row in r.mappings().all()]}
+    return {
+        "data": [dict(row) for row in r.mappings().all()],
+        "series": [{"name": "Expirations", "type": "bar"}],
+    }
 
 
 async def provider_conformite_by_status(
@@ -1637,7 +1640,10 @@ async def provider_conformite_by_status(
         FROM compliance_records WHERE entity_id = :eid
         GROUP BY status ORDER BY value DESC
     """), {"eid": str(entity_id)})
-    return {"data": [dict(row) for row in r.mappings().all()]}
+    return {
+        "data": [dict(row) for row in r.mappings().all()],
+        "series": [{"name": "Conformités", "type": "pie"}],
+    }
 
 
 async def provider_conformite_matrix(
@@ -1741,7 +1747,10 @@ async def provider_planner_by_type(
         WHERE entity_id = :eid AND active = TRUE
         GROUP BY type ORDER BY value DESC
     """), {"eid": str(entity_id)})
-    return {"data": [dict(row) for row in r.mappings().all()]}
+    return {
+        "data": [dict(row) for row in r.mappings().all()],
+        "series": [{"name": "Activités", "type": "pie"}],
+    }
 
 
 async def provider_planner_by_status(
@@ -1757,7 +1766,10 @@ async def provider_planner_by_status(
             WHEN 'draft' THEN 1 WHEN 'submitted' THEN 2 WHEN 'validated' THEN 3
             WHEN 'in_progress' THEN 4 WHEN 'completed' THEN 5 ELSE 6 END
     """), {"eid": str(entity_id)})
-    return {"data": [dict(row) for row in r.mappings().all()]}
+    return {
+        "data": [dict(row) for row in r.mappings().all()],
+        "series": [{"name": "Activités", "type": "bar"}],
+    }
 
 
 async def provider_planner_conflicts_kpi(
@@ -1991,7 +2003,10 @@ async def provider_papyrus_by_status(
             ELSE 7
         END
     """), {"eid": str(entity_id)})
-    return {"data": [dict(row) for row in r.mappings().all()]}
+    return {
+        "data": [dict(row) for row in r.mappings().all()],
+        "series": [{"name": "Documents", "type": "pie"}],
+    }
 
 
 async def provider_papyrus_by_type(
@@ -2010,7 +2025,10 @@ async def provider_papyrus_by_type(
         ORDER BY value DESC, name
         LIMIT 12
     """), {"eid": str(entity_id)})
-    return {"data": [dict(row) for row in r.mappings().all()]}
+    return {
+        "data": [dict(row) for row in r.mappings().all()],
+        "series": [{"name": "Documents", "type": "bar"}],
+    }
 
 
 async def provider_papyrus_recent_documents(
@@ -2120,7 +2138,10 @@ async def provider_workflow_by_definition(
         WHERE wi.entity_id = :eid
         GROUP BY wd.name ORDER BY value DESC
     """), {"eid": str(entity_id)})
-    return {"data": [dict(row) for row in r.mappings().all()]}
+    return {
+        "data": [dict(row) for row in r.mappings().all()],
+        "series": [{"name": "Instances", "type": "pie"}],
+    }
 
 
 async def provider_workflow_pending(

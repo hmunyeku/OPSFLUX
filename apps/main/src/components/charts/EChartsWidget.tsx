@@ -241,31 +241,59 @@ export function EChartsWidget({
       }
 
       case 'pie': {
-        const showInlineLabel = data.length <= 6
+        const showInlineLabel = data.length <= 5
+        const total = data.reduce((sum, d) => sum + (Number(d[yFields[0]] ?? 0)), 0)
+        const totalLabel = total >= 1_000_000
+          ? `${(total / 1_000_000).toFixed(1)}M`
+          : total >= 10_000 ? `${(total / 1_000).toFixed(1)}k` : String(total)
         return {
           color: COLOR_PALETTE,
           tooltip: {
             trigger: 'item',
             ...tooltipStyle,
             formatter: (p: { name: string; value: number; percent: number; marker: string }) =>
-              `${p.marker} <b>${p.name}</b><br/>Valeur: <b>${p.value >= 1000 ? (p.value / 1000).toFixed(1) + 'k' : p.value}</b> (${p.percent}%)`,
+              `${p.marker} <b>${p.name}</b><br/>${p.value >= 1000 ? (p.value / 1000).toFixed(1) + 'k' : p.value} <span style="opacity:.6">(${p.percent}%)</span>`,
           },
           toolbox,
+          graphic: [
+            {
+              type: 'text',
+              left: 'center',
+              top: '37%',
+              style: {
+                text: totalLabel,
+                fill: isDark ? '#f4f4f5' : '#111827',
+                font: `bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`,
+                textAlign: 'center',
+              },
+            },
+            {
+              type: 'text',
+              left: 'center',
+              top: '46%',
+              style: {
+                text: 'total',
+                fill: isDark ? '#71717a' : '#9ca3af',
+                font: `10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`,
+                textAlign: 'center',
+              },
+            },
+          ],
           legend: {
             bottom: 0,
-            textStyle: baseTextStyle,
+            textStyle: { ...baseTextStyle, fontSize: 10 },
             icon: 'circle',
-            itemWidth: 8,
-            itemHeight: 8,
-            itemGap: 12,
+            itemWidth: 7,
+            itemHeight: 7,
+            itemGap: 10,
           },
           series: [
             {
               type: 'pie',
-              radius: ['42%', '72%'],
-              center: ['50%', '45%'],
+              radius: ['45%', '70%'],
+              center: ['50%', '44%'],
               padAngle: 2,
-              itemStyle: { borderRadius: 4, borderColor: isDark ? '#18181b' : '#fff', borderWidth: 2 },
+              itemStyle: { borderRadius: 5, borderColor: isDark ? '#18181b' : '#fff', borderWidth: 2 },
               label: showInlineLabel ? {
                 show: true,
                 position: 'outside' as const,
@@ -274,10 +302,11 @@ export function EChartsWidget({
                 formatter: (p: { name: string; percent: number }) => `${p.name}\n${p.percent.toFixed(0)}%`,
                 lineHeight: 14,
               } : { show: false },
-              labelLine: showInlineLabel ? { show: true, length: 10, length2: 8 } : { show: false },
+              labelLine: showInlineLabel ? { show: true, length: 8, length2: 6 } : { show: false },
               emphasis: {
-                label: { show: true, fontSize: 13, fontWeight: 'bold' as const },
-                itemStyle: { shadowBlur: 12, shadowColor: 'rgba(0,0,0,0.15)' },
+                label: { show: true, fontSize: 12, fontWeight: 'bold' as const },
+                itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.15)', borderWidth: 3 },
+                scaleSize: 5,
               },
               data: data.map((d, i) => ({
                 name: String(d[xField] ?? ''),

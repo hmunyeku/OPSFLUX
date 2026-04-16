@@ -345,4 +345,11 @@ export const packlogService = {
     const { data } = await api.get(`${BASE}/public/voyages/${encodeURIComponent(voyageCode)}/cargo`)
     return data
   },
+  getCargoLabelPdf: async (cargoId: string, language: 'fr' | 'en' = 'fr'): Promise<Blob> => {
+    const { data } = await api.get(`${BASE}/cargo/${cargoId}/label.pdf`, {
+      params: { language },
+      responseType: 'blob',
+    })
+    return data
+  },
 }

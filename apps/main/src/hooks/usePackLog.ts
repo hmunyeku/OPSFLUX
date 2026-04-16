@@ -82,6 +82,13 @@ export function usePackLogCargoRequestLtPdf() {
   })
 }
 
+export function useCargoLabelPdf() {
+  return useMutation({
+    mutationFn: async ({ id, language = 'fr' }: { id: string; language?: 'fr' | 'en' }) =>
+      openPdfBlob(() => packlogService.getCargoLabelPdf(id, language)),
+  })
+}
+
 export function usePackLogCargoRequestLoadingOptions(id: string | undefined) {
   return useQuery({
     queryKey: ['packlog', 'cargo-requests', id, 'loading-options'],

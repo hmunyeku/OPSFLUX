@@ -31,7 +31,7 @@ import { useToast } from '@/components/ui/Toast'
 import { useAttachments } from '@/hooks/useSettings'
 import { useDictionaryLabels, useDictionaryOptions } from '@/hooks/useDictionary'
 import { useAllManifests, useVectorZones, useVoyage } from '@/hooks/useTravelWiz'
-import { usePackLogSapMatch } from '@/hooks/usePackLog'
+import { useCargoLabelPdf, usePackLogSapMatch } from '@/hooks/usePackLog'
 import {
   useCargoDictionaryCategory,
   useCargoWorkspace,
@@ -150,6 +150,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
   const updatePackageElementDisposition = useWorkspaceUpdatePackageElementDisposition()
   const { data: cargoHistory } = useWorkspaceCargoHistory(id)
   const sapMatch = usePackLogSapMatch()
+  const labelPdf = useCargoLabelPdf()
   const cargoTypeOptions = useDictionaryOptions(cargoTypeCategory)
   const ownershipOptions = useDictionaryOptions(ownershipCategory)
   const backCargoReturnTypeOptions = useDictionaryOptions(backCargoReturnTypeCategory)
@@ -415,9 +416,10 @@ export function CargoDetailPanel({ id }: { id: string }) {
         {!editing && (
           <PanelActionButton
             icon={<Printer size={12} />}
-            onClick={() => window.open(`${import.meta.env.VITE_API_URL || ''}/api/v1/packlog/cargo/${id}/label.pdf`, '_blank')}
+            onClick={() => labelPdf.mutate({ id })}
+            disabled={labelPdf.isPending}
           >
-            Étiquette PDF
+            {labelPdf.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Étiquette PDF'}
           </PanelActionButton>
         )}
         {!editing && <PanelActionButton onClick={startEdit} icon={<Pencil size={12} />}>Modifier</PanelActionButton>}

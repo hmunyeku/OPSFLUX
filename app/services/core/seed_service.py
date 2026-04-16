@@ -547,6 +547,10 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
         "papyrus_recent_documents": "table", "papyrus_forms_overview": "kpi",
         # Workflow
         "workflow_overview": "kpi", "workflow_by_definition": "chart", "workflow_pending": "table",
+        # PackLog module
+        "packlog_overview": "kpi", "packlog_catalog_overview": "kpi",
+        "packlog_requests_by_status": "chart", "packlog_cargo_by_status": "chart",
+        "packlog_tracking": "table", "packlog_alerts": "table",
     }
 
     def _make_widget(widget_type: str, title: str, config: dict, position: dict) -> dict:

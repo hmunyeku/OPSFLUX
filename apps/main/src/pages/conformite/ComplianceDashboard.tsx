@@ -236,7 +236,7 @@ export function ComplianceDashboard() {
         <div className="lg:col-span-1 rounded-lg border border-border bg-card p-4 shadow-sm">
           <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
             <ShieldCheck size={14} className="text-muted-foreground" />
-            Conformite par categorie
+            Conformité par catégorie
           </h3>
           <CategoryBreakdown data={data.by_category} />
         </div>

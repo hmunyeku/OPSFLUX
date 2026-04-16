@@ -5088,7 +5088,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
               {/* Workflow */}
               <FormSection title="Workflow">
                 <DetailFieldGrid>
-                  <DetailRow label="Cree par" value={activity.created_by_name || '—'} />
+                  <DetailRow label="Créé par" value={activity.created_by_name || '—'} />
                   {activity.submitted_by_name && (
                     <DetailRow
                       label="Soumis par"

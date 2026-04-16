@@ -416,7 +416,7 @@ function PreviewCard({
       {/* Created date */}
       {preview.created_at && (
         <div className="text-[11px] text-muted-foreground pl-6">
-          <span className="text-muted-foreground/70">Cree le:</span>{' '}
+          <span className="text-muted-foreground/70">Créé le :</span>{' '}
           {formatDate(preview.created_at)}
         </div>
       )}

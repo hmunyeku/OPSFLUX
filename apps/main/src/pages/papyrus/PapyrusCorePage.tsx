@@ -119,10 +119,10 @@ const TABS: { id: ReportEditorTab; label: string; icon: typeof FileText }[] = [
 const STATUS_OPTIONS = [
   { value: 'draft', label: 'Brouillon' },
   { value: 'in_review', label: 'En revue' },
-  { value: 'approved', label: 'Approuve' },
-  { value: 'published', label: 'Publie' },
-  { value: 'obsolete', label: 'Obsolete' },
-  { value: 'archived', label: 'Archive' },
+  { value: 'approved', label: 'Approuvé' },
+  { value: 'published', label: 'Publié' },
+  { value: 'obsolete', label: 'Obsolète' },
+  { value: 'archived', label: 'Archivé' },
 ]
 
 const CLASSIFICATION_OPTIONS = [
@@ -843,9 +843,9 @@ function DocumentDetailPanel({ id }: { id: string }) {
             <ReadOnlyRow label="Nb revisions" value={String(doc.revision_count)} />
             <ReadOnlyRow label="Projet" value={doc.project_name || '--'} />
             <ReadOnlyRow label="Langue" value={doc.language} />
-            <ReadOnlyRow label="Createur" value={doc.creator_name || '--'} />
-            <ReadOnlyRow label="Cree le" value={formatDate(doc.created_at)} />
-            <ReadOnlyRow label="Mis a jour" value={formatDate(doc.updated_at)} />
+            <ReadOnlyRow label="Créateur" value={doc.creator_name || '--'} />
+            <ReadOnlyRow label="Créé le" value={formatDate(doc.created_at)} />
+            <ReadOnlyRow label="Mis à jour" value={formatDate(doc.updated_at)} />
           </DetailFieldGrid>
         </FormSection>
 
@@ -998,7 +998,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
               <DetailFieldGrid>
                 <ReadOnlyRow label="Nom" value={linkedPapyrusForm.name} />
                 <ReadOnlyRow label="Actif" value={linkedPapyrusForm.is_active ? 'Oui' : 'Non'} />
-                <ReadOnlyRow label="Cree le" value={formatDate(linkedPapyrusForm.created_at)} />
+                <ReadOnlyRow label="Créé le" value={formatDate(linkedPapyrusForm.created_at)} />
                 <ReadOnlyRow
                   label={t('papyrus.scope')}
                   value={
@@ -1928,7 +1928,7 @@ export function ReportEditorPage() {
                       <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Version</th>
                       <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Champs</th>
                       <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Actif</th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Cree le</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Créé le</th>
                     </tr>
                   </thead>
                   <tbody>

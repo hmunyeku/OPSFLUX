@@ -740,9 +740,9 @@ function ExemptionDetailPanel({ id }: { id: string }) {
             <ReadOnlyRow label="Proprietaire" value={exemption.owner_name || '--'} />
             <ReadOnlyRow label="Date de debut" value={new Date(exemption.start_date).toLocaleDateString('fr-FR')} />
             <ReadOnlyRow label="Date de fin" value={new Date(exemption.end_date).toLocaleDateString('fr-FR')} />
-            <ReadOnlyRow label="Approuve par" value={exemption.approver_name || '--'} />
-            <ReadOnlyRow label="Cree par" value={exemption.creator_name || '--'} />
-            <ReadOnlyRow label="Cree le" value={new Date(exemption.created_at).toLocaleDateString('fr-FR')} />
+            <ReadOnlyRow label="Approuvé par" value={exemption.approver_name || '--'} />
+            <ReadOnlyRow label="Créé par" value={exemption.creator_name || '--'} />
+            <ReadOnlyRow label="Créé le" value={new Date(exemption.created_at).toLocaleDateString('fr-FR')} />
           </DetailFieldGrid>
         </FormSection>
 

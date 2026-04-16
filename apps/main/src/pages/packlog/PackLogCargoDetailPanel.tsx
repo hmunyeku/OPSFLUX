@@ -676,8 +676,8 @@ export function CargoDetailPanel({ id }: { id: string }) {
                   <DetailRow label="Documents" value={cargo.document_attachment_count?.toString() ?? '0'} />
                   <DetailRow label="Description" value={cargo.description ?? '—'} />
                   <DetailRow label="Notes avarie" value={cargo.damage_notes ?? '—'} />
-                  {cargo.received_at && <DetailRow label="Recu le" value={new Date(cargo.received_at).toLocaleString('fr-FR')} />}
-                  <DetailRow label="Cree le" value={new Date(cargo.created_at).toLocaleDateString('fr-FR')} />
+                  {cargo.received_at && <DetailRow label="Reçu le" value={new Date(cargo.received_at).toLocaleString('fr-FR')} />}
+                  <DetailRow label="Créé le" value={new Date(cargo.created_at).toLocaleDateString('fr-FR')} />
                 </FormSection>
 
                 <CargoReadinessSection missingRequirements={missingRequirements} workflowBlockingItems={workflowBlockingItems} />

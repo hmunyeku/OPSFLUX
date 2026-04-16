@@ -21,7 +21,7 @@ export function DrivingLicenseManager({ userId, compact, hideAddButton, onAddRef
     countryOptions.length > 0
       ? { key: 'country', label: 'Pays', required: true, type: 'combobox' as const, options: countryOptions }
       : { key: 'country', label: 'Pays', required: true, placeholder: 'France' },
-    { key: 'expiry_date', label: 'Expire le', type: 'date' as const },
+    { key: 'expiry_date', label: 'Expiré le', type: 'date' as const },
   ]
 
   const countryLabels: Record<string, string> = {}

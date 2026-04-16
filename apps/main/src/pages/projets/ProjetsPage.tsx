@@ -2032,7 +2032,7 @@ function TaskRow({
           <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1">
             {task.code && <span>Ref: {task.code}</span>}
             {task.assignee_name && <span>Resp: {task.assignee_name}</span>}
-            <span>Cree le {new Date(task.created_at).toLocaleDateString('fr-FR')}</span>
+            <span>Créé le {new Date(task.created_at).toLocaleDateString('fr-FR')}</span>
             {task.completed_at && <span>Terminé le {new Date(task.completed_at).toLocaleDateString('fr-FR')}</span>}
           </div>
         </div>

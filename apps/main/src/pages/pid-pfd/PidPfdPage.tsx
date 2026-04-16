@@ -114,9 +114,9 @@ const STATUS_LABELS: Record<string, string> = {
 const STATUS_OPTIONS = [
   { value: 'draft', label: 'Brouillon' },
   { value: 'in_review', label: 'En revue' },
-  { value: 'approved', label: 'Approuve' },
-  { value: 'issued', label: 'Emis' },
-  { value: 'superseded', label: 'Remplace' },
+  { value: 'approved', label: 'Approuvé' },
+  { value: 'issued', label: 'Émis' },
+  { value: 'superseded', label: 'Remplacé' },
   { value: 'cancelled', label: 'Annulé' },
 ]
 
@@ -513,10 +513,10 @@ function PIDDetailPanel({ id }: { id: string }) {
             <FormSection title="Associations" collapsible defaultExpanded>
               <DetailFieldGrid>
                 <ReadOnlyRow label="Projet" value={doc.project_name || '--'} />
-                <ReadOnlyRow label="Equipements" value={<span className="tabular-nums">{doc.equipment_count}</span>} />
-                <ReadOnlyRow label="Cree par" value={doc.creator_name || '--'} />
+                <ReadOnlyRow label="Équipements" value={<span className="tabular-nums">{doc.equipment_count}</span>} />
+                <ReadOnlyRow label="Créé par" value={doc.creator_name || '--'} />
                 <ReadOnlyRow
-                  label="Cree le"
+                  label="Créé le"
                   value={new Date(doc.created_at).toLocaleDateString('fr-FR')}
                 />
               </DetailFieldGrid>

@@ -26,6 +26,7 @@ import {
   DynamicPanelShell, PanelContentLayout, FormSection, FormGrid,
   DynamicPanelField, PanelActionButton, DangerConfirmButton, DetailFieldGrid,
   InlineEditableRow, ReadOnlyRow, panelInputClass,
+  type ActionItem,
 } from '@/components/layout/DynamicPanel'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { TabBar, PageNavBar } from '@/components/ui/Tabs'
@@ -279,6 +280,60 @@ function TicketDetailPanel({ id }: { id: string }) {
     toast({ title: t('support.toast.comment_added'), variant: 'success' })
   }, [id, commentText, isInternal, addComment, toast])
 
+  const confirmTicket = useConfirm()
+
+  const ticketActionItems = useMemo<ActionItem[]>(() => {
+    const items: ActionItem[] = []
+    if (isAdmin && ticket && ticket.status !== 'resolved' && ticket.status !== 'closed') {
+      items.push({
+        id: 'resolve',
+        label: 'Resoudre',
+        icon: CheckCircle2,
+        priority: 80,
+        loading: resolveTicket.isPending,
+        disabled: resolveTicket.isPending,
+        onClick: () => resolveTicket.mutate({ id }),
+      })
+    }
+    if (isAdmin && ticket && ticket.status === 'resolved') {
+      items.push({
+        id: 'close',
+        label: 'Fermer',
+        icon: X,
+        priority: 60,
+        loading: closeTicket.isPending,
+        disabled: closeTicket.isPending,
+        onClick: () => closeTicket.mutate(id),
+      })
+    }
+    if (isAdmin && ticket && (ticket.status === 'resolved' || ticket.status === 'closed')) {
+      items.push({
+        id: 'reopen',
+        label: 'Rouvrir',
+        icon: ArrowRight,
+        priority: 50,
+        loading: reopenTicket.isPending,
+        disabled: reopenTicket.isPending,
+        onClick: () => reopenTicket.mutate(id),
+      })
+    }
+    items.push({
+      id: 'delete',
+      label: t('common.delete'),
+      icon: Trash2,
+      variant: 'danger',
+      priority: 70,
+      confirm: {
+        title: 'Archiver ?',
+        message: '',
+        confirmLabel: 'Archiver ?',
+        variant: 'danger',
+      },
+      onClick: handleDelete,
+    })
+    return items
+  }, [isAdmin, ticket, t, resolveTicket, closeTicket, reopenTicket, id, handleDelete])
+
   if (!ticket || isDeleting) {
     return (
       <DynamicPanelShell title={isDeleting ? 'Archivage...' : t('common.loading')} icon={<LifeBuoy size={14} className="text-primary" />}>
@@ -292,28 +347,8 @@ function TicketDetailPanel({ id }: { id: string }) {
       title={ticket.reference}
       subtitle={ticket.title}
       icon={<LifeBuoy size={14} className="text-primary" />}
-      actions={
-        <>
-          {isAdmin && ticket.status !== 'resolved' && ticket.status !== 'closed' && (
-            <PanelActionButton icon={<CheckCircle2 size={12} />} onClick={() => resolveTicket.mutate({ id })} disabled={resolveTicket.isPending}>
-              Résoudre
-            </PanelActionButton>
-          )}
-          {isAdmin && ticket.status === 'resolved' && (
-            <PanelActionButton icon={<X size={12} />} onClick={() => closeTicket.mutate(id)} disabled={closeTicket.isPending}>
-              Fermer
-            </PanelActionButton>
-          )}
-          {isAdmin && (ticket.status === 'resolved' || ticket.status === 'closed') && (
-            <PanelActionButton icon={<ArrowRight size={12} />} onClick={() => reopenTicket.mutate(id)} disabled={reopenTicket.isPending}>
-              Rouvrir
-            </PanelActionButton>
-          )}
-          <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDelete} confirmLabel="Archiver ?">
-            {t('common.delete')}
-          </DangerConfirmButton>
-        </>
-      }
+      actionItems={ticketActionItems}
+      onActionConfirm={confirmTicket}
     >
       {/* Sub-tabs */}
       <TabBar
@@ -511,7 +546,7 @@ function TicketTodoList({ ticketId }: { ticketId: string }) {
           placeholder="Ajouter une tâche..."
           onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
         />
-        <button onClick={handleAdd} disabled={!newTitle.trim()} className="p-1.5 rounded-md bg-primary text-primary-foreground disabled:opacity-40 hover:bg-primary/90 transition-colors">
+        <button onClick={handleAdd} disabled={!newTitle.trim()} className="gl-button-sm gl-button-confirm">
           <Plus size={12} />
         </button>
       </div>

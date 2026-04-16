@@ -34,12 +34,12 @@ import {
   InlineEditableRow,
   ReadOnlyRow,
   PanelActionButton,
-  DangerConfirmButton,
   TagSelector,
   panelInputClass,
   PanelContentLayout,
   DetailFieldGrid,
 } from '@/components/layout/DynamicPanel'
+import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { useDictionaryLabels, useDictionaryOptions } from '@/hooks/useDictionary'
@@ -186,23 +186,25 @@ function CreateTypePanel() {
     }
   }
 
+  const actionItems = useMemo<ActionItem[]>(() => [
+    { id: 'cancel', label: t('common.cancel'), priority: 40, onClick: closeDynamicPanel },
+    {
+      id: 'create',
+      label: t('common.create'),
+      variant: 'primary',
+      priority: 100,
+      loading: createType.isPending,
+      disabled: createType.isPending,
+      onClick: () => (document.getElementById('create-ct-form') as HTMLFormElement)?.requestSubmit(),
+    },
+  ], [t, closeDynamicPanel, createType.isPending])
+
   return (
     <DynamicPanelShell
       title="Nouveau type"
-      subtitle="Conformité"
+      subtitle="Conformite"
       icon={<ShieldCheck size={14} className="text-primary" />}
-      actions={
-        <>
-          <PanelActionButton onClick={closeDynamicPanel}>{t('common.cancel')}</PanelActionButton>
-          <PanelActionButton
-            variant="primary"
-            disabled={createType.isPending}
-            onClick={() => (document.getElementById('create-ct-form') as HTMLFormElement)?.requestSubmit()}
-          >
-            {createType.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.create')}
-          </PanelActionButton>
-        </>
-      }
+      actionItems={actionItems}
     >
       <form id="create-ct-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
@@ -286,16 +288,23 @@ function TypeDetailPanel({ id }: { id: string }) {
     )
   }
 
+  const actionItems = useMemo<ActionItem[]>(() => [
+    {
+      id: 'delete',
+      label: t('common.delete'),
+      icon: Trash2,
+      variant: 'danger',
+      priority: 20,
+      onClick: handleDelete,
+    },
+  ], [t, handleDelete])
+
   return (
     <DynamicPanelShell
       title={ct.code}
       subtitle={ct.name}
       icon={<ShieldCheck size={14} className="text-primary" />}
-      actions={
-        <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDelete} confirmLabel="Supprimer ?">
-          {t('common.delete')}
-        </DangerConfirmButton>
-      }
+      actionItems={actionItems}
     >
       <PanelContentLayout>
         <FormSection title="Informations" collapsible defaultExpanded>
@@ -382,19 +391,25 @@ function CreateComplianceRecordPanel() {
     }
   }
 
+  const actionItems = useMemo<ActionItem[]>(() => [
+    { id: 'cancel', label: t('common.cancel'), priority: 40, onClick: closeDynamicPanel },
+    {
+      id: 'create',
+      label: t('common.create'),
+      variant: 'primary',
+      priority: 100,
+      loading: createRecord.isPending,
+      disabled: createRecord.isPending,
+      onClick: handleCreate,
+    },
+  ], [t, closeDynamicPanel, createRecord.isPending, handleCreate])
+
   return (
     <DynamicPanelShell
       title={t('conformite.records.create')}
       subtitle={t('conformite.title')}
       icon={<FileCheck size={14} className="text-primary" />}
-      actions={
-        <>
-          <PanelActionButton onClick={closeDynamicPanel}>{t('common.cancel')}</PanelActionButton>
-          <PanelActionButton variant="primary" disabled={createRecord.isPending} onClick={handleCreate}>
-            {createRecord.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.create')}
-          </PanelActionButton>
-        </>
-      }
+      actionItems={actionItems}
     >
       <PanelContentLayout>
         <FormSection title={t('conformite.records.sections.general')}>
@@ -508,16 +523,23 @@ function ComplianceRecordDetailPanel({ id }: { id: string }) {
           ? 'gl-badge-warning'
           : 'gl-badge-neutral'
 
+  const actionItems = useMemo<ActionItem[]>(() => [
+    {
+      id: 'delete',
+      label: t('common.delete'),
+      icon: Trash2,
+      variant: 'danger',
+      priority: 20,
+      onClick: handleDelete,
+    },
+  ], [t, handleDelete])
+
   return (
     <DynamicPanelShell
       title={record.type_name || t('conformite.records.detail_title')}
       subtitle={record.reference_number || record.owner_type}
       icon={<FileCheck size={14} className="text-primary" />}
-      actions={
-        <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDelete} confirmLabel={t('common.delete')}>
-          {t('common.delete')}
-        </DangerConfirmButton>
-      }
+      actionItems={actionItems}
     >
       <PanelContentLayout>
         <FormSection title={t('conformite.records.sections.general')}>
@@ -585,23 +607,25 @@ function CreateExemptionPanel() {
     }
   }
 
+  const actionItems = useMemo<ActionItem[]>(() => [
+    { id: 'cancel', label: t('common.cancel'), priority: 40, onClick: closeDynamicPanel },
+    {
+      id: 'create',
+      label: t('common.create'),
+      variant: 'primary',
+      priority: 100,
+      loading: createExemption.isPending,
+      disabled: createExemption.isPending,
+      onClick: () => (document.getElementById('create-exemption-form') as HTMLFormElement)?.requestSubmit(),
+    },
+  ], [t, closeDynamicPanel, createExemption.isPending])
+
   return (
     <DynamicPanelShell
       title="Nouvelle exemption"
-      subtitle="Dérogation de conformité"
+      subtitle="Derogation de conformite"
       icon={<ShieldOff size={14} className="text-amber-500" />}
-      actions={
-        <>
-          <PanelActionButton onClick={closeDynamicPanel}>{t('common.cancel')}</PanelActionButton>
-          <PanelActionButton
-            variant="primary"
-            disabled={createExemption.isPending}
-            onClick={() => (document.getElementById('create-exemption-form') as HTMLFormElement)?.requestSubmit()}
-          >
-            {createExemption.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.create')}
-          </PanelActionButton>
-        </>
-      }
+      actionItems={actionItems}
     >
       <form id="create-exemption-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
@@ -720,16 +744,23 @@ function ExemptionDetailPanel({ id }: { id: string }) {
     return <span className={cn('gl-badge', cls)}>{label}</span>
   })()
 
+  const actionItems = useMemo<ActionItem[]>(() => [
+    {
+      id: 'delete',
+      label: t('common.delete'),
+      icon: Trash2,
+      variant: 'danger',
+      priority: 20,
+      onClick: handleDelete,
+    },
+  ], [t, handleDelete])
+
   return (
     <DynamicPanelShell
       title="Exemption"
       subtitle={exemption.record_type_name || 'Detail'}
       icon={<ShieldOff size={14} className="text-amber-500" />}
-      actions={
-        <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDelete} confirmLabel="Supprimer ?">
-          {t('common.delete')}
-        </DangerConfirmButton>
-      }
+      actionItems={actionItems}
     >
       <PanelContentLayout>
         <FormSection title="Informations" collapsible defaultExpanded>
@@ -832,23 +863,25 @@ function CreateJobPositionPanel() {
     }
   }
 
+  const actionItems = useMemo<ActionItem[]>(() => [
+    { id: 'cancel', label: t('common.cancel'), priority: 40, onClick: closeDynamicPanel },
+    {
+      id: 'create',
+      label: t('common.create'),
+      variant: 'primary',
+      priority: 100,
+      loading: createJP.isPending,
+      disabled: createJP.isPending,
+      onClick: () => (document.getElementById('create-jp-form') as HTMLFormElement)?.requestSubmit(),
+    },
+  ], [t, closeDynamicPanel, createJP.isPending])
+
   return (
     <DynamicPanelShell
       title="Nouvelle fiche de poste"
-      subtitle="Conformité HSE"
+      subtitle="Conformite HSE"
       icon={<Briefcase size={14} className="text-primary" />}
-      actions={
-        <>
-          <PanelActionButton onClick={closeDynamicPanel}>{t('common.cancel')}</PanelActionButton>
-          <PanelActionButton
-            variant="primary"
-            disabled={createJP.isPending}
-            onClick={() => (document.getElementById('create-jp-form') as HTMLFormElement)?.requestSubmit()}
-          >
-            {createJP.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.create')}
-          </PanelActionButton>
-        </>
-      }
+      actionItems={actionItems}
     >
       <form id="create-jp-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
@@ -935,16 +968,23 @@ function JobPositionDetailPanel({ id }: { id: string }) {
     )
   ) ?? []
 
+  const actionItems = useMemo<ActionItem[]>(() => [
+    {
+      id: 'delete',
+      label: t('common.delete'),
+      icon: Trash2,
+      variant: 'danger',
+      priority: 20,
+      onClick: handleDelete,
+    },
+  ], [t, handleDelete])
+
   return (
     <DynamicPanelShell
       title={jp.code}
       subtitle={jp.name}
       icon={<Briefcase size={14} className="text-primary" />}
-      actions={
-        <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDelete} confirmLabel="Supprimer ?">
-          {t('common.delete')}
-        </DangerConfirmButton>
-      }
+      actionItems={actionItems}
     >
       <PanelContentLayout>
         <FormSection title="Informations" collapsible defaultExpanded>
@@ -2581,26 +2621,40 @@ function EditRulePanel() {
     }
   }
 
+  const actionItems = useMemo<ActionItem[]>(() => {
+    const items: ActionItem[] = [
+      { id: 'cancel', label: 'Annuler', priority: 40, onClick: closeDynamicPanel },
+    ]
+    if (canDelete) {
+      items.unshift({
+        id: 'delete',
+        label: 'Supprimer',
+        icon: Trash2,
+        variant: 'danger',
+        priority: 20,
+        onClick: handleDelete,
+      })
+    }
+    if (canUpdate) {
+      items.push({
+        id: 'save',
+        label: 'Enregistrer',
+        variant: 'primary',
+        priority: 100,
+        loading: updateRule.isPending,
+        disabled: updateRule.isPending || !changeReason.trim(),
+        onClick: handleSave,
+      })
+    }
+    return items
+  }, [canDelete, canUpdate, closeDynamicPanel, handleDelete, handleSave, updateRule.isPending, changeReason])
+
   return (
     <DynamicPanelShell
-      title="Modifier la règle"
+      title="Modifier la regle"
       subtitle={`v${rule.version ?? 1}`}
       icon={<Scale size={14} className="text-primary" />}
-      actions={
-        <>
-          {canDelete && (
-            <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDelete} confirmLabel="Supprimer ?">
-              Supprimer
-            </DangerConfirmButton>
-          )}
-          <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
-          {canUpdate && (
-            <PanelActionButton variant="primary" disabled={updateRule.isPending || !changeReason.trim()} onClick={handleSave}>
-              {updateRule.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
-            </PanelActionButton>
-          )}
-        </>
-      }
+      actionItems={actionItems}
     >
       <RuleFormFields form={form} setForm={canUpdate ? setForm : () => {}} typesData={typesData} jpData={jpData} typeReadOnly />
 
@@ -2706,19 +2760,25 @@ function CreateRulePanel() {
     }
   }
 
+  const actionItems = useMemo<ActionItem[]>(() => [
+    { id: 'cancel', label: 'Annuler', priority: 40, onClick: closeDynamicPanel },
+    {
+      id: 'create',
+      label: 'Creer',
+      variant: 'primary',
+      priority: 100,
+      loading: createRule.isPending,
+      disabled: !form.compliance_type_id || createRule.isPending,
+      onClick: handleCreate,
+    },
+  ], [closeDynamicPanel, createRule.isPending, form.compliance_type_id, handleCreate])
+
   return (
     <DynamicPanelShell
-      title="Nouvelle règle"
-      subtitle="Conformité"
+      title="Nouvelle regle"
+      subtitle="Conformite"
       icon={<Scale size={14} className="text-primary" />}
-      actions={
-        <>
-          <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
-          <PanelActionButton variant="primary" disabled={!form.compliance_type_id || createRule.isPending} onClick={handleCreate}>
-            {createRule.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
-          </PanelActionButton>
-        </>
-      }
+      actionItems={actionItems}
     >
       <RuleFormFields form={form} setForm={setForm} typesData={typesData} jpData={jpData} />
       <div className="px-4 pb-2">

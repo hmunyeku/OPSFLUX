@@ -358,7 +358,7 @@ export function VariablePobEditor({
           <button
             type="button"
             onClick={applyBulkFill}
-            className="px-2 py-0.5 text-[10px] rounded bg-primary text-primary-foreground"
+            className="gl-button-sm gl-button-confirm"
           >
             OK
           </button>

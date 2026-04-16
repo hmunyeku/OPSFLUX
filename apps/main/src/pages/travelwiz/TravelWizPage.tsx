@@ -29,10 +29,10 @@ import {
   FormGrid,
   DynamicPanelField,
   PanelActionButton,
-  DangerConfirmButton,
   DetailRow,
   SectionColumns,
   panelInputClass,
+  type ActionItem,
 } from '@/components/layout/DynamicPanel'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { TagManager } from '@/components/shared/TagManager'
@@ -1707,15 +1707,14 @@ function CreateVoyagePanel() {
     } catch { toast({ title: t('travelwiz.toast.voyage_creation_error'), variant: 'error' }) }
   }
 
+  const createVoyageActions = useMemo<ActionItem[]>(() => [
+    { id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: closeDynamicPanel },
+    { id: 'submit', label: 'Creer', variant: 'primary', priority: 100, loading: createVoyage.isPending, disabled: createVoyage.isPending, onClick: () => (document.getElementById('create-voyage-form') as HTMLFormElement)?.requestSubmit() },
+  ], [closeDynamicPanel, createVoyage.isPending])
+
   return (
     <DynamicPanelShell title="Nouveau voyage" subtitle="TravelWiz" icon={<Plane size={14} className="text-primary" />}
-      actions={<>
-        <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
-        <PanelActionButton variant="primary" disabled={createVoyage.isPending}
-          onClick={() => (document.getElementById('create-voyage-form') as HTMLFormElement)?.requestSubmit()}>
-          {createVoyage.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
-        </PanelActionButton>
-      </>}
+      actionItems={createVoyageActions}
     >
       <form id="create-voyage-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
@@ -1963,21 +1962,17 @@ function CreateRotationPanel() {
     }
   }
 
+  const createRotationActions = useMemo<ActionItem[]>(() => [
+    { id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: closeDynamicPanel },
+    { id: 'submit', label: 'Creer', variant: 'primary', priority: 100, loading: createRotation.isPending, disabled: createRotation.isPending, onClick: () => (document.getElementById('create-rotation-form') as HTMLFormElement)?.requestSubmit() },
+  ], [closeDynamicPanel, createRotation.isPending])
+
   return (
     <DynamicPanelShell
       title="Nouvelle rotation"
-      subtitle="Programmation récurrente TravelWiz"
+      subtitle="Programmation recurrente TravelWiz"
       icon={<Route size={14} className="text-primary" />}
-      actions={<>
-        <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
-        <PanelActionButton
-          variant="primary"
-          disabled={createRotation.isPending}
-          onClick={() => (document.getElementById('create-rotation-form') as HTMLFormElement)?.requestSubmit()}
-        >
-          {createRotation.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
-        </PanelActionButton>
-      </>}
+      actionItems={createRotationActions}
     >
       <form id="create-rotation-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
@@ -2085,15 +2080,14 @@ function CreateVectorPanel() {
     } catch { toast({ title: t('travelwiz.toast.vector_creation_error'), variant: 'error' }) }
   }
 
+  const createVectorActions = useMemo<ActionItem[]>(() => [
+    { id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: closeDynamicPanel },
+    { id: 'submit', label: 'Creer', variant: 'primary', priority: 100, loading: createVector.isPending, disabled: createVector.isPending, onClick: () => (document.getElementById('create-vector-form') as HTMLFormElement)?.requestSubmit() },
+  ], [closeDynamicPanel, createVector.isPending])
+
   return (
     <DynamicPanelShell title="Nouveau vecteur" subtitle="TravelWiz" icon={<Ship size={14} className="text-primary" />}
-      actions={<>
-        <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
-        <PanelActionButton variant="primary" disabled={createVector.isPending}
-          onClick={() => (document.getElementById('create-vector-form') as HTMLFormElement)?.requestSubmit()}>
-          {createVector.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
-        </PanelActionButton>
-      </>}
+      actionItems={createVectorActions}
     >
       <form id="create-vector-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
@@ -2213,23 +2207,17 @@ export function CreateCargoRequestPanel() {
   ]
   const readinessScore = Math.round((readinessChecklist.filter((item) => item.done).length / readinessChecklist.length) * 100)
 
+  const createCargoRequestActions = useMemo<ActionItem[]>(() => [
+    { id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: closeDynamicPanel },
+    { id: 'submit', label: 'Creer', variant: 'primary', priority: 100, loading: createCargoRequest.isPending, disabled: createCargoRequest.isPending, onClick: () => (document.getElementById('create-cargo-request-form') as HTMLFormElement)?.requestSubmit() },
+  ], [closeDynamicPanel, createCargoRequest.isPending])
+
   return (
     <DynamicPanelShell
-      title="Nouvelle demande d'expédition"
+      title="Nouvelle demande d'expedition"
       subtitle={moduleLabel}
       icon={<FileText size={14} className="text-primary" />}
-      actions={
-        <>
-          <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
-          <PanelActionButton
-            variant="primary"
-            disabled={createCargoRequest.isPending}
-            onClick={() => (document.getElementById('create-cargo-request-form') as HTMLFormElement)?.requestSubmit()}
-          >
-            {createCargoRequest.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
-          </PanelActionButton>
-        </>
-      }
+      actionItems={createCargoRequestActions}
     >
       <form id="create-cargo-request-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
@@ -2448,15 +2436,14 @@ export function CreateCargoPanel() {
     } catch { toast({ title: t('travelwiz.toast.parcel_creation_error'), variant: 'error' }) }
   }
 
+  const createCargoActions = useMemo<ActionItem[]>(() => [
+    { id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: closeDynamicPanel },
+    { id: 'submit', label: 'Creer', variant: 'primary', priority: 100, loading: createCargo.isPending, disabled: createCargo.isPending, onClick: () => (document.getElementById('create-cargo-form') as HTMLFormElement)?.requestSubmit() },
+  ], [closeDynamicPanel, createCargo.isPending])
+
   return (
     <DynamicPanelShell title="Nouveau colis" subtitle={moduleLabel} icon={<Package size={14} className="text-primary" />}
-      actions={<>
-        <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
-        <PanelActionButton variant="primary" disabled={createCargo.isPending}
-          onClick={() => (document.getElementById('create-cargo-form') as HTMLFormElement)?.requestSubmit()}>
-          {createCargo.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
-        </PanelActionButton>
-      </>}
+      actionItems={createCargoActions}
     >
       <form id="create-cargo-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
@@ -3252,6 +3239,26 @@ function VoyageDetailPanel({ id }: { id: string }) {
     })) ?? []
   ), [cargoOperationsReport?.items, cargoStatusLabels, cargoWorkflowLabels, packageReturnStatusLabels])
 
+  const voyageDetailActions = useMemo<ActionItem[]>(() => {
+    const items: ActionItem[] = []
+    if (!editing && canUpdate) items.push({ id: 'edit', label: 'Modifier', icon: Pencil, variant: 'default', priority: 80, onClick: startEdit })
+    if (editing) {
+      items.push({ id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: () => setEditing(false) })
+      items.push({ id: 'save', label: 'Enregistrer', icon: Save, variant: 'primary', priority: 100, loading: updateVoyage.isPending, disabled: updateVoyage.isPending, onClick: handleSave })
+    }
+    if (!editing) {
+      items.push({ id: 'pax-manifest', label: 'Manifeste PAX', icon: FileText, variant: 'default', priority: 60, loading: downloadPaxManifestPdf.isPending, disabled: downloadPaxManifestPdf.isPending, onClick: handlePrintPaxManifest })
+      items.push({ id: 'cargo-manifest', label: 'Manifeste cargo', icon: FileText, variant: 'default', priority: 60, loading: downloadCargoManifestPdf.isPending, disabled: downloadCargoManifestPdf.isPending, onClick: handlePrintCargoManifest })
+    }
+    if (!editing && canUpdate && (voyage?.status === 'arrived')) {
+      items.push({ id: 'close', label: 'Cloturer', icon: CheckCircle2, variant: 'default', priority: 70, loading: closeTrip.isPending, disabled: closeTrip.isPending, onClick: handleClose })
+    }
+    if (!editing && canDelete) {
+      items.push({ id: 'delete', label: 'Supprimer', icon: Trash2, variant: 'danger', priority: 20, confirm: { title: 'Supprimer le voyage', message: 'Supprimer ce voyage ?', confirmLabel: 'Supprimer', variant: 'danger' }, onClick: handleDelete })
+    }
+    return items
+  }, [editing, canUpdate, canDelete, startEdit, updateVoyage.isPending, handleSave, downloadPaxManifestPdf.isPending, handlePrintPaxManifest, downloadCargoManifestPdf.isPending, handlePrintCargoManifest, voyage?.status, closeTrip.isPending, handleClose, handleDelete])
+
   if (isLoading || !voyage) {
     return (
       <DynamicPanelShell title="Chargement..." icon={<Plane size={14} className="text-primary" />}>
@@ -3267,35 +3274,24 @@ function VoyageDetailPanel({ id }: { id: string }) {
   const cargoWeight = capacity?.current_cargo_kg ?? 0
   const hasHazmat = false // from cargo items if available
 
+  const voyageStatusSelect = !editing && canUpdate && voyage.status !== 'cancelled' && voyage.status !== 'closed' ? (
+    <select
+      className="text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground h-7"
+      value=""
+      onChange={(e) => { if (e.target.value) updateStatus.mutate({ id, status: e.target.value }) }}
+    >
+      <option value="">Statut...</option>
+      {voyageStatusOptions.filter((option) => option.value !== voyage.status).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+    </select>
+  ) : null
+
   return (
     <DynamicPanelShell
       title={voyage.code}
-      subtitle={`${departureLabel} → ${destinationLabel}`}
+      subtitle={`${departureLabel} \u2192 ${destinationLabel}`}
       icon={<Plane size={14} className="text-primary" />}
-      actions={<>
-        {!editing && canUpdate && <PanelActionButton onClick={startEdit} icon={<Pencil size={12} />}>Modifier</PanelActionButton>}
-        {editing && <>
-          <PanelActionButton onClick={() => setEditing(false)}>Annuler</PanelActionButton>
-          <PanelActionButton variant="primary" onClick={handleSave} disabled={updateVoyage.isPending} icon={<Save size={12} />}>
-            {updateVoyage.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
-          </PanelActionButton>
-        </>}
-        {!editing && <PanelActionButton onClick={handlePrintPaxManifest} disabled={downloadPaxManifestPdf.isPending} icon={<FileText size={12} />}>Manifeste PAX</PanelActionButton>}
-        {!editing && <PanelActionButton onClick={handlePrintCargoManifest} disabled={downloadCargoManifestPdf.isPending} icon={<FileText size={12} />}>Manifeste cargo</PanelActionButton>}
-        {!editing && canUpdate && voyage.status !== 'cancelled' && voyage.status !== 'closed' && (
-          <select className="text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground h-7" value=""
-            onChange={(e) => { if (e.target.value) updateStatus.mutate({ id, status: e.target.value }) }}>
-            <option value="">Statut...</option>
-            {voyageStatusOptions.filter((option) => option.value !== voyage.status).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
-        )}
-        {!editing && canUpdate && (voyage.status as string) === 'arrived' && (
-          <PanelActionButton onClick={handleClose} disabled={closeTrip.isPending} icon={<CheckCircle2 size={12} />}>
-            Cloturer
-          </PanelActionButton>
-        )}
-        {!editing && canDelete && <DangerConfirmButton onConfirm={handleDelete} icon={<Trash2 size={12} />}>Supprimer</DangerConfirmButton>}
-      </>}
+      actionItems={voyageDetailActions}
+      headerRight={voyageStatusSelect}
     >
       <PanelContentLayout>
         {/* Status badge */}
@@ -3610,6 +3606,19 @@ function VectorDetailPanel({ id }: { id: string }) {
     catch { toast({ title: t('travelwiz.toast.vector_deletion_error'), variant: 'error' }) }
   }
 
+  const vectorDetailActions = useMemo<ActionItem[]>(() => {
+    const items: ActionItem[] = []
+    if (!editing && canUpdate) items.push({ id: 'edit', label: 'Modifier', icon: Pencil, variant: 'default', priority: 80, onClick: startEdit })
+    if (editing) {
+      items.push({ id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: () => setEditing(false) })
+      items.push({ id: 'save', label: 'Enregistrer', icon: Save, variant: 'primary', priority: 100, loading: updateVector.isPending, disabled: updateVector.isPending, onClick: handleSave })
+    }
+    if (!editing && canDelete) {
+      items.push({ id: 'delete', label: 'Supprimer', icon: Trash2, variant: 'danger', priority: 20, confirm: { title: 'Supprimer le vecteur', message: 'Supprimer ce vecteur ?', confirmLabel: 'Supprimer', variant: 'danger' }, onClick: handleDelete })
+    }
+    return items
+  }, [editing, canUpdate, canDelete, startEdit, updateVector.isPending, handleSave, handleDelete])
+
   if (isLoading || !vector) {
     return (
       <DynamicPanelShell title="Chargement..." icon={<Ship size={14} className="text-primary" />}>
@@ -3623,16 +3632,7 @@ function VectorDetailPanel({ id }: { id: string }) {
 
   return (
     <DynamicPanelShell title={vector.name} subtitle={vector.registration} icon={<Ship size={14} className="text-primary" />}
-      actions={<>
-        {!editing && canUpdate && <PanelActionButton onClick={startEdit} icon={<Pencil size={12} />}>Modifier</PanelActionButton>}
-        {editing && <>
-          <PanelActionButton onClick={() => setEditing(false)}>Annuler</PanelActionButton>
-          <PanelActionButton variant="primary" onClick={handleSave} disabled={updateVector.isPending} icon={<Save size={12} />}>
-            {updateVector.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
-          </PanelActionButton>
-        </>}
-        {!editing && canDelete && <DangerConfirmButton onConfirm={handleDelete} icon={<Trash2 size={12} />}>Supprimer</DangerConfirmButton>}
-      </>}
+      actionItems={vectorDetailActions}
     >
       <PanelContentLayout>
         {editing ? (
@@ -3778,6 +3778,17 @@ function RotationDetailPanel({ id }: { id: string }) {
     }
   }
 
+  const rotationDetailActions = useMemo<ActionItem[]>(() => {
+    const items: ActionItem[] = []
+    if (!editing) items.push({ id: 'edit', label: 'Modifier', icon: Pencil, variant: 'default', priority: 80, onClick: startEdit })
+    if (editing) {
+      items.push({ id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: () => setEditing(false) })
+      items.push({ id: 'save', label: 'Enregistrer', icon: Save, variant: 'primary', priority: 100, loading: updateRotation.isPending, disabled: updateRotation.isPending, onClick: handleSave })
+    }
+    if (!editing) items.push({ id: 'close', label: 'Fermer', variant: 'default', priority: 50, onClick: closeDynamicPanel })
+    return items
+  }, [editing, startEdit, updateRotation.isPending, handleSave, closeDynamicPanel])
+
   if (isLoading || !rotation) {
     return (
       <DynamicPanelShell title="Chargement..." icon={<Route size={14} className="text-primary" />}>
@@ -3791,16 +3802,7 @@ function RotationDetailPanel({ id }: { id: string }) {
       title={rotation.name}
       subtitle={rotation.vector_name ?? 'Rotation TravelWiz'}
       icon={<Route size={14} className="text-primary" />}
-      actions={<>
-        {!editing && <PanelActionButton onClick={startEdit} icon={<Pencil size={12} />}>Modifier</PanelActionButton>}
-        {editing && <>
-          <PanelActionButton onClick={() => setEditing(false)}>Annuler</PanelActionButton>
-          <PanelActionButton variant="primary" onClick={handleSave} disabled={updateRotation.isPending} icon={<Save size={12} />}>
-            {updateRotation.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
-          </PanelActionButton>
-        </>}
-        {!editing && <PanelActionButton onClick={closeDynamicPanel}>Fermer</PanelActionButton>}
-      </>}
+      actionItems={rotationDetailActions}
     >
       <PanelContentLayout>
         {editing ? (

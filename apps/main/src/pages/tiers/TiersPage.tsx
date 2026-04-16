@@ -46,13 +46,12 @@ import {
   InlineEditableSelect,
   InlineEditableTags,
   ReadOnlyRow,
-  PanelActionButton,
-  DangerConfirmButton,
   TagSelector,
   panelInputClass,
   SectionColumns,
   DetailFieldGrid,
   PanelContentLayout,
+  type ActionItem,
 } from '@/components/layout/DynamicPanel'
 import { AddressManager } from '@/components/shared/AddressManager'
 import { TagManager } from '@/components/shared/TagManager'
@@ -79,6 +78,7 @@ import { useAddresses, useNotes, useAttachments, usePhones, useContactEmails, us
 import { useLegalIdentifiers } from '@/hooks/useUserSubModels'
 import { useProjects } from '@/hooks/useProjets'
 import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { Tier, TierCreate, TierContact, TierContactCreate, TierContactUpdate, TierContactWithTier } from '@/types/api'
 
 // -- Constants ----------------------------------------------------------------
@@ -160,25 +160,32 @@ function CreateTierPanel() {
     closeDynamicPanel()
   }
 
+  const actionItems = useMemo<ActionItem[]>(() => [
+    {
+      id: 'cancel',
+      label: t('common.cancel'),
+      icon: X,
+      priority: 40,
+      onClick: closeDynamicPanel,
+    },
+    {
+      id: 'create',
+      label: t('common.create'),
+      icon: Plus,
+      variant: 'primary',
+      priority: 100,
+      loading: createTier.isPending,
+      disabled: createTier.isPending,
+      onClick: () => (document.getElementById('create-tier-form') as HTMLFormElement)?.requestSubmit(),
+    },
+  ], [t, closeDynamicPanel, createTier.isPending])
+
   return (
     <DynamicPanelShell
       title={t('tiers.create')}
       subtitle={t('tiers.title')}
       icon={<Building2 size={14} className="text-primary" />}
-      actions={
-        <>
-          <PanelActionButton onClick={closeDynamicPanel}>
-            {t('common.cancel')}
-          </PanelActionButton>
-          <PanelActionButton
-            variant="primary"
-            disabled={createTier.isPending}
-            onClick={() => (document.getElementById('create-tier-form') as HTMLFormElement)?.requestSubmit()}
-          >
-            {createTier.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.create')}
-          </PanelActionButton>
-        </>
-      }
+      actionItems={actionItems}
     >
       <form id="create-tier-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
@@ -425,6 +432,25 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
   // Related projects (where this tier is contractor/client)
   const { data: relatedProjects } = useProjects({ tier_id: tier?.id, page_size: 10 })
 
+  const confirm = useConfirm()
+
+  const tierActionItems = useMemo<ActionItem[]>(() => [
+    {
+      id: 'delete',
+      label: t('common.delete'),
+      icon: Trash2,
+      variant: 'danger',
+      priority: 70,
+      confirm: {
+        title: t('common.confirm_delete'),
+        message: '',
+        confirmLabel: t('common.confirm_delete'),
+        variant: 'danger',
+      },
+      onClick: () => { archiveTier.mutate(id); closeDynamicPanel() },
+    },
+  ], [t, archiveTier, id, closeDynamicPanel])
+
   if (!tier) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<Building2 size={14} className="text-primary" />}>
@@ -453,15 +479,8 @@ function TierDetailPanel({ id, initialContactId }: { id: string; initialContactI
       title={tier.code}
       subtitle={tier.name}
       icon={<Building2 size={14} className="text-primary" />}
-      actions={
-        <DangerConfirmButton
-          icon={<Trash2 size={12} />}
-          onConfirm={() => { archiveTier.mutate(id); closeDynamicPanel() }}
-          confirmLabel={t('common.confirm_delete')}
-        >
-          {t('common.delete')}
-        </DangerConfirmButton>
-      }
+      actionItems={tierActionItems}
+      onActionConfirm={confirm}
     >
       <PanelContentLayout>
         {/* Tags — full width */}
@@ -985,7 +1004,7 @@ function ContactListSection({
             <button
               onClick={handleCreate}
               disabled={!form.first_name.trim() || !form.last_name.trim() || createContact.isPending}
-              className="px-2 py-1 rounded text-[11px] font-medium bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
+              className="gl-button-sm gl-button-confirm"
             >
               {createContact.isPending ? <Loader2 size={11} className="animate-spin" /> : t('common.create')}
             </button>
@@ -1153,6 +1172,28 @@ function ContactDetailPanel({
     }
   }, [tierId, contactId, promoteContact, toast, t])
 
+  const confirmContact = useConfirm()
+
+  const contactActionItems = useMemo<ActionItem[]>(() => {
+    if (!canEdit) return []
+    return [
+      {
+        id: 'delete',
+        label: t('common.delete'),
+        icon: Trash2,
+        variant: 'danger',
+        priority: 70,
+        confirm: {
+          title: t('common.confirm_delete'),
+          message: '',
+          confirmLabel: t('common.confirm_delete'),
+          variant: 'danger',
+        },
+        onClick: handleDelete,
+      },
+    ]
+  }, [canEdit, t, handleDelete])
+
   if (!contact) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<Users size={14} className="text-primary" />}>
@@ -1171,21 +1212,8 @@ function ContactDetailPanel({
       title={fullName}
       subtitle={contact.position || tierName}
       icon={<Users size={14} className="text-primary" />}
-      actions={
-        <>
-          {canEdit && (
-            <>
-              <DangerConfirmButton
-                icon={<Trash2 size={12} />}
-                onConfirm={handleDelete}
-                confirmLabel={t('common.confirm_delete')}
-              >
-                {t('common.delete')}
-              </DangerConfirmButton>
-            </>
-          )}
-        </>
-      }
+      actionItems={contactActionItems}
+      onActionConfirm={confirmContact}
     >
       <PanelContentLayout>
         {/* Back button + breadcrumb */}
@@ -1282,7 +1310,7 @@ function ContactDetailPanel({
                 {!contact.is_primary && (
                   <button
                     onClick={handleSetPrimary}
-                    className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10"
+                    className="gl-button-sm gl-button-ghost"
                   >
                     <Star size={10} /> {t('tiers.ui.set_primary_contact')}
                   </button>

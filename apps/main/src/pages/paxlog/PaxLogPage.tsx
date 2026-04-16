@@ -715,7 +715,7 @@ function RequesterHomeTab({
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-95" onClick={onCreateAds}>
+              <button className="gl-button-sm gl-button-confirm" onClick={onCreateAds}>
                 <ClipboardList size={14} />
                 {t('paxlog.new_ads')}
               </button>

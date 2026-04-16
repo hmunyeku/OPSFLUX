@@ -2871,7 +2871,7 @@ function ScenariosTab({
                     ) : (
                       <button
                         onClick={(e) => { e.stopPropagation(); onActivateScenario?.(sid) }}
-                        className="px-2 py-1 rounded text-[10px] font-medium opacity-0 group-hover:opacity-100 bg-primary/10 text-primary hover:bg-primary/20 transition-all shrink-0"
+                        className="gl-button-sm gl-button-ghost opacity-0 group-hover:opacity-100"
                         title="Activer ce scénario"
                       >
                         <Play size={9} className="inline mr-0.5" />Activer
@@ -4111,7 +4111,7 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
             <button
               onClick={save}
               disabled={isPending || !draftOtherId}
-              className="px-2 py-1 text-[11px] rounded bg-primary text-primary-foreground disabled:opacity-50"
+              className="gl-button-sm gl-button-confirm"
             >
               Enregistrer
             </button>

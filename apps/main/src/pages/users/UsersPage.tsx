@@ -34,11 +34,11 @@ import {
   InlineEditableTags,
   InlineEditableCombobox,
   ReadOnlyRow,
-  PanelActionButton,
   SectionHeader,
   DetailFieldGrid,
   TagSelector,
   panelInputClass,
+  type ActionItem,
 } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
@@ -473,25 +473,32 @@ function CreateUserPanel() {
 
   const entities = allEntitiesData?.items?.filter((e) => e.active) ?? []
 
+  const createUserActionItems = useMemo<ActionItem[]>(() => [
+    {
+      id: 'cancel',
+      label: t('common.cancel'),
+      icon: X,
+      priority: 40,
+      onClick: closeDynamicPanel,
+    },
+    {
+      id: 'create',
+      label: t('common.create'),
+      icon: Plus,
+      variant: 'primary',
+      priority: 100,
+      loading: createUser.isPending,
+      disabled: createUser.isPending,
+      onClick: () => (document.getElementById('create-user-form') as HTMLFormElement)?.requestSubmit(),
+    },
+  ], [t, closeDynamicPanel, createUser.isPending])
+
   return (
     <DynamicPanelShell
       title={t('users.create')}
       subtitle={t('users.title')}
       icon={<Users size={14} className="text-primary" />}
-      actions={
-        <>
-          <PanelActionButton onClick={closeDynamicPanel}>
-            {t('common.cancel')}
-          </PanelActionButton>
-          <PanelActionButton
-            variant="primary"
-            disabled={createUser.isPending}
-            onClick={() => (document.getElementById('create-user-form') as HTMLFormElement)?.requestSubmit()}
-          >
-            {createUser.isPending ? <Loader2 size={12} className="animate-spin" /> : t('common.create')}
-          </PanelActionButton>
-        </>
-      }
+      actionItems={createUserActionItems}
     >
       <form id="create-user-form" onSubmit={handleSubmit} className="p-4 space-y-0">
         <SectionColumns>
@@ -1177,6 +1184,29 @@ function UserDetailPanel({ id }: { id: string }) {
   const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
   const formatDateTime = (d: string | null) => d ? new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
 
+  const userDetailActionItems = useMemo<ActionItem[]>(() => [
+    {
+      id: 'toggle-active',
+      label: user.active ? 'Desactiver' : 'Activer',
+      icon: user.active ? UserX : UserCheck,
+      variant: user.active ? 'danger' : 'primary',
+      priority: 80,
+      loading: updateUser.isPending,
+      disabled: updateUser.isPending,
+      onClick: handleToggleActive,
+    },
+    {
+      id: 'delete',
+      label: 'Supprimer',
+      icon: Trash2,
+      variant: 'danger',
+      priority: 70,
+      loading: deleteUser.isPending,
+      disabled: deleteUser.isPending,
+      onClick: handleDelete,
+    },
+  ], [user.active, updateUser.isPending, deleteUser.isPending, handleToggleActive, handleDelete])
+
   return (
     <DynamicPanelShell
       title={`${user.first_name} ${user.last_name}`}
@@ -1190,28 +1220,7 @@ function UserDetailPanel({ id }: { id: string }) {
           </div>
         )
       }
-      actions={
-        <>
-          <PanelActionButton
-            variant={user.active ? 'danger' : 'primary'}
-            onClick={handleToggleActive}
-            disabled={updateUser.isPending}
-          >
-            {user.active ? (
-              <><UserX size={12} className="mr-1" /> Désactiver</>
-            ) : (
-              <><UserCheck size={12} className="mr-1" /> Activer</>
-            )}
-          </PanelActionButton>
-          <PanelActionButton
-            variant="danger"
-            onClick={handleDelete}
-            disabled={deleteUser.isPending}
-          >
-            <Trash2 size={12} className="mr-1" /> Supprimer
-          </PanelActionButton>
-        </>
-      }
+      actionItems={userDetailActionItems}
     >
       <div className="p-4 space-y-5">
         {/* Profile header with avatar upload */}

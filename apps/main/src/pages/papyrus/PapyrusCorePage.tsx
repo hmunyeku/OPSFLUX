@@ -33,12 +33,11 @@ import {
   FormSection,
   FormGrid,
   ReadOnlyRow,
-  DangerConfirmButton,
-  PanelActionButton,
   PanelContentLayout,
   SectionColumns,
   DetailFieldGrid,
   panelInputClass,
+  type ActionItem,
 } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { usePermission } from '@/hooks/usePermission'
@@ -798,6 +797,22 @@ function DocumentDetailPanel({ id }: { id: string }) {
     }
   }, [id, runPapyrusDispatchNow, toast])
 
+  const docDetailActions = useMemo<ActionItem[]>(() => [
+    ...(canDeleteDoc ? [{
+      id: 'delete',
+      label: t('common.delete'),
+      icon: Trash2,
+      variant: 'danger' as const,
+      confirm: {
+        title: t('common.delete'),
+        message: 'Supprimer ce document ?',
+        confirmLabel: 'Supprimer',
+        variant: 'danger' as const,
+      },
+      onClick: handleDelete,
+    }] : []),
+  ], [canDeleteDoc, handleDelete, t])
+
   if (docLoading || !doc) {
     return (
       <DynamicPanelShell title={t('common.loading')} icon={<FileText size={14} className="text-primary" />}>
@@ -822,13 +837,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
       title={doc.number}
       subtitle={doc.title}
       icon={<FileText size={14} className="text-primary" />}
-      actions={
-        canDeleteDoc ? (
-          <DangerConfirmButton icon={<Trash2 size={12} />} onConfirm={handleDelete} confirmLabel="Supprimer ?">
-            {t('common.delete')}
-          </DangerConfirmButton>
-        ) : undefined
-      }
+      actionItems={docDetailActions}
     >
       <PanelContentLayout>
         {/* Metadata */}
@@ -2101,25 +2110,25 @@ function CreateDocumentPanel() {
     }
   }, [form, createDoc, toast, closeDynamicPanel, t])
 
+  const createDocumentActions = useMemo<ActionItem[]>(() => [
+    { id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: closeDynamicPanel },
+    {
+      id: 'submit',
+      label: 'Creer',
+      variant: 'primary',
+      priority: 100,
+      loading: createDoc.isPending,
+      disabled: createDoc.isPending,
+      onClick: () => (document.getElementById('create-document-form') as HTMLFormElement)?.requestSubmit(),
+    },
+  ], [closeDynamicPanel, createDoc.isPending])
+
   return (
     <DynamicPanelShell
       title="Nouveau document"
       subtitle="Papyrus"
       icon={<FileText size={14} className="text-primary" />}
-      actions={
-        <>
-          <PanelActionButton onClick={closeDynamicPanel}>
-            Annuler
-          </PanelActionButton>
-          <PanelActionButton
-            variant="primary"
-            disabled={createDoc.isPending}
-            onClick={() => (document.getElementById('create-document-form') as HTMLFormElement)?.requestSubmit()}
-          >
-            {createDoc.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
-          </PanelActionButton>
-        </>
-      }
+      actionItems={createDocumentActions}
     >
       <form id="create-document-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
@@ -2236,22 +2245,23 @@ function CreateDocTypePanel() {
     }
   }, [form, toast, closeDynamicPanel, queryClient, t])
 
+  const createDocTypeActions = useMemo<ActionItem[]>(() => [
+    { id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: closeDynamicPanel },
+    {
+      id: 'submit',
+      label: 'Creer',
+      variant: 'primary',
+      priority: 100,
+      onClick: () => (document.getElementById('create-doctype-form') as HTMLFormElement)?.requestSubmit(),
+    },
+  ], [closeDynamicPanel])
+
   return (
     <DynamicPanelShell
       title="Nouveau type de document"
       subtitle="Papyrus"
       icon={<FolderCog size={14} className="text-primary" />}
-      actions={
-        <>
-          <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
-          <PanelActionButton
-            variant="primary"
-            onClick={() => (document.getElementById('create-doctype-form') as HTMLFormElement)?.requestSubmit()}
-          >
-            Créer
-          </PanelActionButton>
-        </>
-      }
+      actionItems={createDocTypeActions}
     >
       <form id="create-doctype-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
@@ -2343,22 +2353,23 @@ function CreateTemplatePanel() {
     }
   }, [form, toast, closeDynamicPanel, queryClient, t])
 
+  const createTemplateActions = useMemo<ActionItem[]>(() => [
+    { id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: closeDynamicPanel },
+    {
+      id: 'submit',
+      label: 'Creer',
+      variant: 'primary',
+      priority: 100,
+      onClick: () => (document.getElementById('create-template-form') as HTMLFormElement)?.requestSubmit(),
+    },
+  ], [closeDynamicPanel])
+
   return (
     <DynamicPanelShell
       title="Nouveau template"
       subtitle="Papyrus"
       icon={<FileCode2 size={14} className="text-primary" />}
-      actions={
-        <>
-          <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
-          <PanelActionButton
-            variant="primary"
-            onClick={() => (document.getElementById('create-template-form') as HTMLFormElement)?.requestSubmit()}
-          >
-            Créer
-          </PanelActionButton>
-        </>
-      }
+      actionItems={createTemplateActions}
     >
       <form id="create-template-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
@@ -2431,6 +2442,13 @@ function DocTypeDetailPanel({ id }: { id: string }) {
     }
   }, [docType, form, updateDocType, toast, t])
 
+  const docTypeDetailActions = useMemo<ActionItem[]>(() => editing ? [
+    { id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: () => setEditing(false) },
+    { id: 'save', label: 'Enregistrer', variant: 'primary', priority: 100, loading: updateDocType.isPending, disabled: updateDocType.isPending, onClick: handleSave },
+  ] : [
+    { id: 'edit', label: 'Modifier', variant: 'default', priority: 80, onClick: () => setEditing(true) },
+  ], [editing, updateDocType.isPending, handleSave])
+
   if (isLoading) {
     return (
       <DynamicPanelShell title="Type de document" subtitle="Chargement..." icon={<FolderCog size={14} className="text-primary" />}>
@@ -2452,18 +2470,7 @@ function DocTypeDetailPanel({ id }: { id: string }) {
       title={docType.code}
       subtitle="Type de document"
       icon={<FolderCog size={14} className="text-primary" />}
-      actions={
-        editing ? (
-          <>
-            <PanelActionButton onClick={() => setEditing(false)}>Annuler</PanelActionButton>
-            <PanelActionButton variant="primary" disabled={updateDocType.isPending} onClick={handleSave}>
-              {updateDocType.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
-            </PanelActionButton>
-          </>
-        ) : (
-          <PanelActionButton onClick={() => setEditing(true)}>Modifier</PanelActionButton>
-        )
-      }
+      actionItems={docTypeDetailActions}
     >
       <PanelContentLayout>
         <FormSection title="Identification">
@@ -2571,23 +2578,19 @@ function TemplateDetailPanel({ id }: { id: string }) {
     )
   }
 
+  const templateDetailActions = useMemo<ActionItem[]>(() => editing ? [
+    { id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: () => setEditing(false) },
+    { id: 'save', label: 'Enregistrer', variant: 'primary', priority: 100, loading: updateTemplate.isPending, disabled: updateTemplate.isPending, onClick: handleSave },
+  ] : [
+    { id: 'edit', label: 'Modifier', variant: 'default', priority: 80, onClick: () => setEditing(true) },
+  ], [editing, updateTemplate.isPending, handleSave])
+
   return (
     <DynamicPanelShell
       title={template.name}
       subtitle="Template"
       icon={<FileCode2 size={14} className="text-primary" />}
-      actions={
-        editing ? (
-          <>
-            <PanelActionButton onClick={() => setEditing(false)}>Annuler</PanelActionButton>
-            <PanelActionButton variant="primary" disabled={updateTemplate.isPending} onClick={handleSave}>
-              {updateTemplate.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
-            </PanelActionButton>
-          </>
-        ) : (
-          <PanelActionButton onClick={() => setEditing(true)}>Modifier</PanelActionButton>
-        )
-      }
+      actionItems={templateDetailActions}
     >
       <PanelContentLayout>
         <FormSection title="Informations">

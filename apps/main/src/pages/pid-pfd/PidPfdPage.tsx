@@ -18,7 +18,7 @@ import {
   FileText, Loader2, Search, Upload, Plus, Trash2,
   LayoutDashboard, Layers, GitBranch, Tag, BookOpen,
   Lock, FilePlus2, ShieldCheck,
-  FileDown, Cpu, History, PenTool, MoreHorizontal,
+  FileDown, Cpu, History, PenTool, X,
 } from 'lucide-react'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -35,11 +35,10 @@ import {
   ReadOnlyRow,
   InlineEditableRow,
   InlineEditableTags,
-  PanelActionButton,
   PanelContentLayout,
   DetailFieldGrid,
-  DangerConfirmButton,
   SectionColumns,
+  type ActionItem,
 } from '@/components/layout/DynamicPanel'
 import { CollapsibleSection } from '@/components/shared/CollapsibleSection'
 import { TagManager } from '@/components/shared/TagManager'
@@ -49,6 +48,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { usePermission } from '@/hooks/usePermission'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import {
   usePIDDocuments,
   usePIDDocument,
@@ -341,9 +341,6 @@ function PIDDetailPanel({ id }: { id: string }) {
   // Draw.io editor state
   const [showEditor, setShowEditor] = useState(false)
 
-  // More actions dropdown
-  const [showMoreActions, setShowMoreActions] = useState(false)
-
   const handleSaveXml = useCallback(async (xml: string) => {
     try {
       await saveXml.mutateAsync({ id, xmlContent: xml })
@@ -412,68 +409,62 @@ function PIDDetailPanel({ id }: { id: string }) {
     )
   }
 
+  const pidActionItems: ActionItem[] = [
+    ...(canEditPid ? [{
+      id: 'editor',
+      label: 'Editeur',
+      icon: PenTool,
+      variant: 'primary' as const,
+      priority: 100,
+      onClick: () => setShowEditor(true),
+    }] : []),
+    ...(canEditPid ? [{
+      id: 'revision',
+      label: 'Revision',
+      icon: FilePlus2,
+      priority: 80,
+      loading: createRevision.isPending,
+      disabled: createRevision.isPending,
+      onClick: handleCreateRevision,
+    }] : []),
+    {
+      id: 'afc',
+      label: 'AFC',
+      icon: ShieldCheck,
+      priority: 60,
+      loading: validateAfc.isPending,
+      disabled: validateAfc.isPending,
+      onClick: handleValidateAfc,
+    },
+    {
+      id: 'export-svg',
+      label: 'Exporter SVG',
+      icon: FileDown,
+      priority: 55,
+      onClick: handleExportSvg,
+    },
+    {
+      id: 'export-pdf',
+      label: 'Exporter PDF',
+      icon: FileDown,
+      priority: 50,
+      onClick: handleExportPdf,
+    },
+    {
+      id: 'close',
+      label: t('common.close'),
+      icon: X,
+      priority: 40,
+      onClick: closeDynamicPanel,
+    },
+  ]
+
   return (
     <DynamicPanelShell
       title={doc.number}
       subtitle={doc.title}
       icon={<FileText size={14} className="text-primary" />}
-      actions={
-        <>
-          {canEditPid && (
-            <PanelActionButton
-              variant="primary"
-              icon={<PenTool size={12} />}
-              onClick={() => setShowEditor(true)}
-            >
-              Editeur
-            </PanelActionButton>
-          )}
-          {canEditPid && (
-            <PanelActionButton
-              icon={createRevision.isPending ? <Loader2 size={12} className="animate-spin" /> : <FilePlus2 size={12} />}
-              onClick={handleCreateRevision}
-              disabled={createRevision.isPending}
-            >
-              Révision
-            </PanelActionButton>
-          )}
-          <PanelActionButton
-            icon={validateAfc.isPending ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
-            onClick={handleValidateAfc}
-            disabled={validateAfc.isPending}
-          >
-            AFC
-          </PanelActionButton>
-          {/* More actions dropdown */}
-          <div className="relative">
-            <PanelActionButton
-              icon={<MoreHorizontal size={12} />}
-              onClick={() => setShowMoreActions(!showMoreActions)}
-            >
-              {''}
-            </PanelActionButton>
-            {showMoreActions && (
-              <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] rounded-md border border-border bg-popover shadow-md py-1">
-                <button
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
-                  onClick={() => { handleExportSvg(); setShowMoreActions(false) }}
-                >
-                  <FileDown size={12} className="text-muted-foreground" />
-                  Exporter SVG
-                </button>
-                <button
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
-                  onClick={() => { handleExportPdf(); setShowMoreActions(false) }}
-                >
-                  <FileDown size={12} className="text-muted-foreground" />
-                  Exporter PDF
-                </button>
-              </div>
-            )}
-          </div>
-          <PanelActionButton onClick={closeDynamicPanel}>{t('common.close')}</PanelActionButton>
-        </>
-      }
+      actionItems={pidActionItems}
     >
       <PanelContentLayout>
         <SectionColumns>
@@ -1590,6 +1581,28 @@ function EquipmentDetailPanel({ id }: { id: string }) {
     }
   }, [id, deleteEquipment, toast, closeDynamicPanel])
 
+  const confirmEquip = useConfirm()
+
+  const equipActionItems = useMemo<ActionItem[]>(() => {
+    if (!canDeleteEquip) return []
+    return [
+      {
+        id: 'delete',
+        label: 'Supprimer',
+        icon: Trash2,
+        variant: 'danger',
+        priority: 70,
+        confirm: {
+          title: 'Supprimer ?',
+          message: '',
+          confirmLabel: 'Supprimer ?',
+          variant: 'danger',
+        },
+        onClick: handleDelete,
+      },
+    ]
+  }, [canDeleteEquip, handleDelete])
+
   if (isLoading || !equip) {
     return (
       <DynamicPanelShell title="Chargement..." icon={<Cpu size={14} className="text-primary" />}>
@@ -1605,17 +1618,8 @@ function EquipmentDetailPanel({ id }: { id: string }) {
       title={equip.tag}
       subtitle={equip.description || undefined}
       icon={<Cpu size={14} className="text-primary" />}
-      actions={
-        canDeleteEquip ? (
-          <DangerConfirmButton
-            icon={<Trash2 size={12} />}
-            onConfirm={handleDelete}
-            confirmLabel="Supprimer ?"
-          >
-            Supprimer
-          </DangerConfirmButton>
-        ) : undefined
-      }
+      actionItems={equipActionItems}
+      onActionConfirm={confirmEquip}
     >
       <PanelContentLayout>
         {/* -- Identification -- */}

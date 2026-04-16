@@ -2078,7 +2078,7 @@ export function GanttView({
               <button
                 type="button"
                 onClick={handleSaveDep}
-                className="gl-button-sm bg-primary text-primary-foreground hover:bg-primary/90"
+                className="gl-button-sm gl-button-confirm"
               >
                 Enregistrer
               </button>

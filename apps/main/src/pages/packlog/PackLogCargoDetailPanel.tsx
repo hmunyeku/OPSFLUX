@@ -23,7 +23,6 @@ import {
   FormGrid,
   DynamicPanelField,
   DetailRow,
-  SectionColumns,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import { TabBar, TabButton } from '@/components/ui/Tabs'

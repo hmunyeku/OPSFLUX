@@ -1803,7 +1803,10 @@ async def provider_planner_pax_by_site(
             AND pa.status IN ('draft', 'submitted', 'validated', 'in_progress')
         GROUP BY i.name ORDER BY value DESC LIMIT 10
     """), {"eid": str(entity_id)})
-    return {"data": [dict(row) for row in r.mappings().all()]}
+    return {
+        "data": [dict(row) for row in r.mappings().all()],
+        "series": [{"name": "PAX quota", "type": "bar"}],
+    }
 
 
 # ── Plan de charge (workload chart) ─────────────────────────────────────

@@ -271,8 +271,14 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
             )}
           </div>
         </div>
-        {/* Content */}
-        <div className="flex-1 min-h-0 p-4" style={accentColor ? { '--widget-accent': accentColor } as React.CSSProperties : undefined}>
+        {/* Content — table widgets are edge-to-edge, others have padding */}
+        <div
+          className={cn(
+            'flex-1 min-h-0',
+            (widget.type === 'table' || widget.type === 'perspective') ? 'overflow-hidden' : 'p-3',
+          )}
+          style={accentColor ? { '--widget-accent': accentColor } as React.CSSProperties : undefined}
+        >
           {widgetContent}
         </div>
       </div>
@@ -295,7 +301,13 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
               <Minimize2 className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
           </div>
-          <div className="flex-1 min-h-0 p-5" style={accentColor ? { '--widget-accent': accentColor } as React.CSSProperties : undefined}>
+          <div
+            className={cn(
+              'flex-1 min-h-0',
+              (widget.type === 'table' || widget.type === 'perspective') ? 'overflow-hidden' : 'p-5',
+            )}
+            style={accentColor ? { '--widget-accent': accentColor } as React.CSSProperties : undefined}
+          >
             {widgetContent}
           </div>
         </div>
@@ -323,10 +335,54 @@ function WidgetError({ onRetry }: { error?: unknown; onRetry: () => void }) {
 
 // ── Loading Skeleton ────────────────────────────────────────────
 
-function WidgetSkeleton(_props: { type: string }) {
+function WidgetSkeleton({ type }: { type: string }) {
+  // Skeleton shimmer style
+  const shimmer = 'animate-pulse rounded bg-muted/60'
+
+  if (type === 'kpi') {
+    return (
+      <div className="flex flex-col h-full gap-3 p-1">
+        <div className="flex items-start gap-3">
+          <div className={cn(shimmer, 'h-10 w-10 rounded-lg shrink-0')} />
+          <div className="flex-1 space-y-2">
+            <div className={cn(shimmer, 'h-8 w-24')} />
+            <div className={cn(shimmer, 'h-3 w-16')} />
+          </div>
+          <div className={cn(shimmer, 'h-10 w-20 rounded-md')} />
+        </div>
+        <div className="grid grid-cols-2 gap-2 mt-auto">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className={cn(shimmer, 'h-8 rounded-md')} />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (type === 'table') {
+    return (
+      <div className="flex flex-col h-full">
+        <div className={cn(shimmer, 'h-8 w-full rounded-none shrink-0')} />
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="flex items-center gap-3 px-3 py-2 border-b border-border/20">
+            <div className={cn(shimmer, 'h-3 w-16')} />
+            <div className={cn(shimmer, 'h-3 flex-1')} />
+            <div className={cn(shimmer, 'h-5 w-14 rounded-full')} />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // Chart / default — centered spinner + bar skeleton
   return (
-    <div className="flex items-center justify-center h-full">
-      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+    <div className="flex flex-col items-center justify-end h-full gap-1 pb-4">
+      <div className="flex items-end gap-1.5 h-3/4 w-full px-4">
+        {[0.4, 0.7, 0.55, 0.9, 0.65, 0.8, 0.5].map((h, i) => (
+          <div key={i} className={cn(shimmer, 'flex-1 rounded-sm')} style={{ height: `${h * 100}%` }} />
+        ))}
+      </div>
+      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40 mt-2" />
     </div>
   )
 }
@@ -917,11 +973,32 @@ function TableWidget({
   // Hidden columns from config
   const hiddenColumns = (config.hidden_columns as string[]) || []
 
+  // Auto-label map — translates raw DB keys to readable French labels
+  const AUTO_LABELS: Record<string, string> = {
+    id: 'ID', name: 'Nom', title: 'Titre', status: 'Statut', type: 'Type',
+    priority: 'Priorité', progress: 'Avancement', created_at: 'Créé le',
+    updated_at: 'Mis à jour', start_date: 'Début', end_date: 'Fin',
+    due_date: 'Échéance', date: 'Date', reference: 'Référence',
+    code: 'Code', description: 'Description', category: 'Catégorie',
+    site: 'Site', location: 'Lieu', asset_name: 'Asset', project: 'Projet',
+    count: 'Nb', value: 'Valeur', amount: 'Montant', quantity: 'Qté',
+    pax: 'PAX', entity: 'Entité', email: 'Email', phone: 'Tél',
+    first_name: 'Prénom', last_name: 'Nom', full_name: 'Nom complet',
+    requester: 'Demandeur', assignee: 'Responsable', owner: 'Propriétaire',
+    role: 'Rôle', department: 'Département', comment: 'Commentaire',
+    expires_at: 'Expire le', issued_at: 'Émis le',
+    flight: 'Vol', origin: 'Origine', destination: 'Destination',
+    weight: 'Poids', volume: 'Volume', tracking: 'Suivi',
+  }
+  const autoLabel = (key: string) =>
+    AUTO_LABELS[key] ?? AUTO_LABELS[key.replace(/_id$/, '').replace(/_/g, ' ')] ??
+    key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+
   // Auto-detect columns from first row if not configured
   const allColumns = columns.length > 0
     ? columns
     : rows.length > 0
-      ? Object.keys(rows[0]).slice(0, 12).map((key) => ({ key, label: key }))
+      ? Object.keys(rows[0]).slice(0, 12).map((key) => ({ key, label: autoLabel(key) }))
       : []
 
   // Store available column keys in config for the settings panel column picker
@@ -1080,12 +1157,12 @@ function TableWidget({
     <div className="flex flex-col h-full">
       <div className="flex-1 min-h-0 overflow-auto">
         <table className="w-full text-xs border-separate border-spacing-0">
-          <thead className="sticky top-0 z-[1] bg-muted/40 backdrop-blur-sm">
+          <thead className="sticky top-0 z-[1] bg-muted/50 backdrop-blur-sm">
             <tr>
               {effectiveColumns.map((col) => (
                 <th
                   key={col.key}
-                  className="text-left px-3 py-2 font-semibold text-[10px] uppercase tracking-[0.06em] whitespace-nowrap text-muted-foreground border-b border-border/50"
+                  className="text-left px-3 py-1.5 font-semibold text-[10px] uppercase tracking-[0.06em] whitespace-nowrap text-muted-foreground/70 border-b border-border/60 first:pl-4"
                 >
                   {col.label}
                 </th>
@@ -1095,8 +1172,8 @@ function TableWidget({
           <tbody>
             {pagedRows.map((row, rowIdx) => (
               <tr key={rowIdx} className={cn(
-                'transition-colors hover:bg-primary/[0.04]',
-                rowIdx % 2 === 1 && 'bg-muted/20',
+                'group transition-colors hover:bg-primary/[0.035]',
+                rowIdx % 2 === 1 && 'bg-muted/[0.15]',
               )}>
                 {effectiveColumns.map((col, colIdx) => {
                   const cellValue = row[col.key]
@@ -1105,9 +1182,10 @@ function TableWidget({
                     <td
                       key={col.key}
                       className={cn(
-                        'px-3 py-2 whitespace-nowrap max-w-[200px] border-b border-border/20',
+                        'px-3 py-1.5 whitespace-nowrap max-w-[180px] border-b border-border/15',
+                        'first:pl-4 last:pr-4',
                         crossFilterEnabled && 'cursor-pointer',
-                        isActive && 'bg-primary/10 ring-1 ring-inset ring-primary/30',
+                        isActive && 'bg-primary/10',
                       )}
                       onClick={() => handleCellClick(col.key, cellValue)}
                     >
@@ -1120,20 +1198,20 @@ function TableWidget({
           </tbody>
         </table>
       </div>
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-2 py-1.5 border-t shrink-0">
-          <span className="text-[10px] text-muted-foreground">
-            {page * pageSize + 1}-{Math.min((page + 1) * pageSize, rows.length)} / {rows.length}
-          </span>
+      {/* Unified footer — count + optional pagination */}
+      <div className="flex items-center justify-between px-4 py-1.5 border-t border-border/40 shrink-0 bg-muted/20">
+        <span className="text-[10px] text-muted-foreground/60 font-medium tabular-nums">
+          {rows.length} {rows.length === 1 ? 'entrée' : 'entrées'}
+        </span>
+        {totalPages > 1 && (
           <div className="flex items-center gap-0.5">
             <button
               onClick={() => setPage(Math.max(0, page - 1))}
               disabled={page === 0}
-              className="text-[10px] px-1.5 py-0.5 rounded hover:bg-muted disabled:opacity-30"
+              className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 text-[10px] text-muted-foreground"
             >
-              &lt;
+              ‹
             </button>
-            {/* Numbered page buttons — show max 5 with ellipsis */}
             {(() => {
               const pages: (number | 'ellipsis')[] = []
               if (totalPages <= 5) {
@@ -1147,19 +1225,19 @@ function TableWidget({
               }
               return pages.map((p, idx) =>
                 p === 'ellipsis' ? (
-                  <span key={`e${idx}`} className="text-[10px] px-1 text-muted-foreground">…</span>
+                  <span key={`e${idx}`} className="text-[10px] px-0.5 text-muted-foreground/40">…</span>
                 ) : (
                   <button
                     key={p}
-                    onClick={() => setPage(p)}
+                    onClick={() => setPage(p as number)}
                     className={cn(
-                      'text-[10px] min-w-[20px] h-5 rounded transition-colors',
+                      'h-5 min-w-[20px] px-1 rounded text-[10px] transition-colors',
                       p === page
-                        ? 'bg-primary text-primary-foreground font-bold'
-                        : 'hover:bg-muted text-muted-foreground',
+                        ? 'bg-primary text-primary-foreground font-semibold'
+                        : 'text-muted-foreground hover:bg-muted',
                     )}
                   >
-                    {p + 1}
+                    {(p as number) + 1}
                   </button>
                 ),
               )
@@ -1167,13 +1245,13 @@ function TableWidget({
             <button
               onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
               disabled={page >= totalPages - 1}
-              className="text-[10px] px-1.5 py-0.5 rounded hover:bg-muted disabled:opacity-30"
+              className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-muted disabled:opacity-30 text-[10px] text-muted-foreground"
             >
-              &gt;
+              ›
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

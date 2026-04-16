@@ -13,6 +13,8 @@ export interface EChartsWidgetProps {
   data: Record<string, unknown>[]
   xField?: string
   yFields?: string[]
+  /** Override display names for each series (parallel to yFields) */
+  seriesNames?: string[]
   title?: string
   height?: number | string
   /** Stack multi-series bar/area charts on top of each other (e.g. plan de
@@ -44,16 +46,40 @@ const COLOR_PALETTE = [
 
 // Semantic colors for known status/weather/category names
 const SEMANTIC_COLORS: Record<string, string> = {
+  // Weather
   sunny: '#f59e0b', cloudy: '#94a3b8', rainy: '#3b82f6', stormy: '#ef4444',
-  active: '#22c55e', completed: '#3b82f6', planned: '#f59e0b', cancelled: '#ef4444',
+  // Generic lifecycle
+  active: '#22c55e', completed: '#22c55e', done: '#22c55e', arrived: '#22c55e',
+  validated: '#22c55e', approved: '#22c55e', valid: '#22c55e',
+  planned: '#f59e0b', scheduled: '#f59e0b', todo: '#94a3b8',
+  in_progress: '#3b82f6', review: '#8b5cf6', boarding: '#3b82f6', departed: '#06b6d4',
   draft: '#94a3b8', on_hold: '#f97316', suspended: '#d946ef',
-  todo: '#94a3b8', in_progress: '#3b82f6', done: '#22c55e', review: '#f59e0b',
+  cancelled: '#ef4444', rejected: '#ef4444', expired: '#ef4444', non_compliant: '#ef4444',
+  // ADS statuses
+  submitted: '#6366f1', pending_validation: '#8b5cf6',
+  pending_compliance: '#f97316', pending_project_review: '#a855f7',
+  pending_initiator_review: '#7c3aed', pending_arbitration: '#dc2626',
+  requires_review: '#f59e0b',
+  // Cargo statuses
+  registered: '#94a3b8', ready: '#14b8a6', ready_for_loading: '#14b8a6',
+  loaded: '#3b82f6', in_transit: '#06b6d4', delivered: '#22c55e',
+  returned: '#94a3b8', scrapped: '#64748b', damaged: '#ef4444', missing: '#dc2626',
+  // Assets
   operational: '#22c55e', standby: '#f59e0b', decommissioned: '#ef4444',
+  // Priorities
   low: '#22c55e', medium: '#f59e0b', high: '#f97316', critical: '#ef4444',
+  basse: '#22c55e', moyenne: '#f59e0b', haute: '#f97316', critique: '#ef4444',
+  // Tier types
   client: '#3b82f6', supplier: '#22c55e', subcontractor: '#f97316', partner: '#8b5cf6',
+  fournisseur: '#22c55e', sous_traitant: '#f97316', partenaire: '#8b5cf6',
+  // Site / installation types
   production: '#22c55e', shore_base: '#3b82f6', terminal: '#f59e0b', storage: '#8b5cf6',
+  // Credential types
   formation: '#3b82f6', certification: '#22c55e', habilitation: '#f59e0b', medical: '#ef4444',
+  // Equipment classes
   pump: '#3b82f6', crane: '#f59e0b', separator: '#22c55e', compressor: '#8b5cf6',
+  // Compliance
+  compliant: '#22c55e', non_conformant: '#ef4444', expiring: '#f59e0b',
 }
 
 /** Get color for a data point name — semantic first, then palette fallback */
@@ -67,11 +93,15 @@ export function EChartsWidget({
   data,
   xField = 'name',
   yFields = ['value'],
+  seriesNames,
   title,
   height = '100%',
   stacked = false,
   onChartClick,
 }: EChartsWidgetProps) {
+  /** Resolve display name for series i — use seriesNames override, then humanise field key */
+  const getSeriesDisplayName = (field: string, i: number): string =>
+    seriesNames?.[i] || field.replace(/_/g, ' ')
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme)
   const isDark = resolvedTheme === 'dark'
 
@@ -132,7 +162,7 @@ export function EChartsWidget({
             const isStacked = stacked && !isSingleSeries
             const isTopOfStack = isStacked && i === yFields.length - 1
             return {
-              name: field,
+              name: getSeriesDisplayName(field, i),
               type: 'bar',
               ...(isStacked ? { stack: 'total' } : {}),
               data: data.map((d, j) => ({
@@ -190,7 +220,7 @@ export function EChartsWidget({
           series: yFields.map((field, i) => {
             const c = COLOR_PALETTE[i % COLOR_PALETTE.length]
             return {
-              name: field,
+              name: getSeriesDisplayName(field, i),
               type: 'line',
               data: data.map((d) => d[field] ?? 0),
               smooth: 0.35,
@@ -220,7 +250,7 @@ export function EChartsWidget({
           series: yFields.map((field, i) => {
             const c = COLOR_PALETTE[i % COLOR_PALETTE.length]
             return {
-              name: field,
+              name: getSeriesDisplayName(field, i),
               type: 'line',
               data: data.map((d) => d[field] ?? 0),
               smooth: 0.4,

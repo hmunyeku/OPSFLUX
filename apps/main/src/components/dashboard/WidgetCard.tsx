@@ -531,8 +531,10 @@ function KPIWidget({
   const labelField = (config.label as string) || (meta?.label as string) || ''
   const trend = (meta?.trend as number) ?? (config.trend as number) ?? null
   const comparison = (meta?.comparison as string) || (config.comparison as string) || ''
-  const format = (config.format as string) || 'number'
-  const unit = (config.unit as string) || (meta?.unit as string) || ''
+  const rawUnit = (config.unit as string) || (meta?.unit as string) || ''
+  // Auto-detect percent format when unit is "%" to show e.g. "65.0%" instead of "65 %"
+  const format = (config.format as string) || (rawUnit === '%' ? 'percent' : 'number')
+  const unit = rawUnit === '%' && format === 'percent' ? '' : rawUnit
   const iconColor = (config.icon_color as string) || 'blue'
   const iconPreset = KPI_ICON_COLORS[iconColor] || KPI_ICON_COLORS.blue
   const IconComp = (widgetId ? WIDGET_ICON_MAP[widgetId] : null) || Gauge
@@ -794,6 +796,13 @@ function ChartWidget({
     ? (firstItem.data as Record<string, unknown>[])
     : (data as Record<string, unknown>[])
 
+  // Extract series names from provider series config (e.g. [{name: "AdS", type: "bar"}])
+  const providerSeries = (firstItem && Array.isArray(firstItem.series))
+    ? (firstItem.series as { name?: string; type?: string }[])
+    : null
+  const getSeriesName = (fieldKey: string, idx: number): string =>
+    providerSeries?.[idx]?.name || fieldKey.replace(/_/g, ' ')
+
   // Map legacy chart_type values to EChartsWidget types
   const validTypes = ['bar', 'line', 'area', 'pie', 'scatter', 'radar', 'heatmap', 'gauge', 'treemap'] as const
   type ChartType = typeof validTypes[number]
@@ -828,12 +837,16 @@ function ChartWidget({
     )
   }
 
+  // Build seriesNames from provider series config (e.g. [{name: "AdS"}])
+  const resolvedSeriesNames = yFields.map((_, i) => getSeriesName(yFields[i], i))
+
   return (
     <EChartsWidget
       chartType={resolvedType}
       data={translatedData}
       xField={xField}
       yFields={yFields}
+      seriesNames={resolvedSeriesNames}
       stacked={stacked}
       height="100%"
       onChartClick={handleChartClick}

@@ -5,7 +5,7 @@
  * Content is delegated to WidgetRenderer which picks the right sub-component
  * based on widget.type (kpi, chart, table, map, text).
  */
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import L from 'leaflet'
 import {
@@ -29,6 +29,25 @@ import {
   Clock,
   LayoutGrid,
   Download,
+  Calendar,
+  Users,
+  Shield,
+  ShieldAlert,
+  Package,
+  Bell,
+  Plane,
+  Building2,
+  Database,
+  Briefcase,
+  Activity,
+  ListChecks,
+  GanttChart,
+  PieChart,
+  Layers,
+  FileText,
+  CheckCircle2,
+  UserCheck,
+  AlertCircle,
 } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
@@ -323,9 +342,10 @@ function WidgetRenderer({
   data: unknown[]
   meta?: Record<string, unknown>
 }) {
+  const rendererWidgetId = (widget.config?.widget_id as string) || widget.id
   switch (widget.type) {
     case 'kpi':
-      return <KPIWidget config={widget.config} data={data} meta={meta} />
+      return <KPIWidget widgetId={rendererWidgetId} config={widget.config} data={data} meta={meta} />
     case 'chart':
       return <ChartWidget widgetId={widget.id} config={widget.config} data={data} />
     case 'table':
@@ -380,11 +400,70 @@ const KPI_ICON_COLORS: Record<string, { bg: string; fg: string }> = {
   slate:  { bg: 'bg-slate-500',  fg: 'text-white' },
 }
 
+// Semantic icon map — widget_id → Lucide icon
+// Used so each KPI shows a meaningful icon instead of generic Gauge
+const WIDGET_ICON_MAP: Record<string, React.ElementType> = {
+  // Planner
+  planner_overview: Calendar,
+  planner_conflicts_kpi: AlertTriangle,
+  planner_by_type: PieChart,
+  planner_by_status: BarChart3,
+  planner_pax_by_site: Users,
+  capacity_heatmap: Activity,
+  planner_gantt_mini: GanttChart,
+  planner_workload_chart: BarChart3,
+  // Compliance / Conformité
+  compliance_expiry: ShieldAlert,
+  compliance_kpi: Shield,
+  conformite_urgency: ShieldAlert,
+  conformite_by_status: BarChart3,
+  conformite_matrix: Layers,
+  conformite_trend: Activity,
+  // PaxLog / ADS
+  pax_ads_pending: Clock,
+  ads_pending: Clock,
+  my_ads: UserCheck,
+  trips_today: Plane,
+  // PackLog / Cargo
+  cargo_pending: Package,
+  packlog_requests: Package,
+  packlog_cargo: Package,
+  packlog_requests_by_status: BarChart3,
+  packlog_cargo_by_status: BarChart3,
+  // Projects
+  projets_kpis: Briefcase,
+  project_status: Briefcase,
+  projets_deadlines: Calendar,
+  projets_top_volume: BarChart3,
+  // Assets
+  assets_overview: Database,
+  assets_kpi: Database,
+  // Tiers / Contacts
+  tiers_kpi: Building2,
+  contacts_kpi: Building2,
+  // Alerts / Signals
+  alerts_urgent: Bell,
+  signalements_actifs: AlertCircle,
+  // Papyrus docs
+  papyrus_overview: FileText,
+  papyrus_recent_documents: FileText,
+  papyrus_by_status: BarChart3,
+  papyrus_by_type: PieChart,
+  papyrus_forms_overview: ListChecks,
+  // Support
+  support_overview: AlertCircle,
+  support_by_priority: BarChart3,
+  // Compliance rate
+  compliance_rate: CheckCircle2,
+}
+
 function KPIWidget({
+  widgetId,
   config,
   data,
   meta,
 }: {
+  widgetId?: string
   config: Record<string, unknown>
   data: unknown[]
   meta?: Record<string, unknown>
@@ -397,6 +476,7 @@ function KPIWidget({
   const unit = (config.unit as string) || ''
   const iconColor = (config.icon_color as string) || 'blue'
   const iconPreset = KPI_ICON_COLORS[iconColor] || KPI_ICON_COLORS.blue
+  const IconComp = (widgetId ? WIDGET_ICON_MAP[widgetId] : null) || Gauge
 
   // Extract value
   const rawValue = data?.[0]
@@ -446,7 +526,7 @@ function KPIWidget({
       <div className="flex items-start gap-3 flex-1">
         {/* Icon square */}
         <div className={cn('h-10 w-10 rounded-lg flex items-center justify-center shrink-0', iconPreset.bg)}>
-          <Gauge className={cn('h-5 w-5', iconPreset.fg)} />
+          <IconComp className={cn('h-5 w-5', iconPreset.fg)} />
         </div>
 
         {/* Value block */}
@@ -668,6 +748,11 @@ function ChartWidget({
   // Translate enum labels in chart data (open→Ouvert, supplier→Fournisseur, etc.)
   const translatedData = useMemo(() => translateChartData(chartData, xField), [chartData, xField])
 
+  // Gantt chart — custom renderer
+  if (chartType === 'gantt') {
+    return <GanttWidget data={chartData} />
+  }
+
   return (
     <EChartsWidget
       chartType={resolvedType}
@@ -679,6 +764,128 @@ function ChartWidget({
       onChartClick={handleChartClick}
     />
   )
+}
+
+// ── Gantt Widget — Horizontal timeline chart ────────────────────
+
+const GANTT_STATUS_COLORS: Record<string, string> = {
+  draft: '#94a3b8',
+  submitted: '#6366f1',
+  validated: '#8b5cf6',
+  in_progress: '#3b82f6',
+  completed: '#22c55e',
+  done: '#22c55e',
+  cancelled: '#ef4444',
+  planned: '#f59e0b',
+}
+
+function GanttWidget({ data }: { data: unknown[] }) {
+  const activities = (data as Record<string, unknown>[])
+    .filter((a) => a.start_date || a.end_date)
+    .slice(0, 18)
+
+  const option = useMemo(() => {
+    if (!activities.length) return {}
+    const now = Date.now()
+    const toMs = (d: unknown) => d ? new Date(d as string).getTime() : null
+    const startTimes = activities.map((a) => toMs(a.start_date)).filter(Boolean) as number[]
+    const endTimes = activities.map((a) => toMs(a.end_date)).filter(Boolean) as number[]
+    const minDate = Math.min(...startTimes, now - 86400000 * 3)
+    const maxDate = Math.max(...endTimes, now + 86400000 * 14)
+
+    const categories = [...activities].reverse().map((a) =>
+      String(a.title || a.asset_name || 'Activité').slice(0, 28)
+    )
+
+    const seriesData = [...activities].reverse().map((a, idx) => {
+      const start = toMs(a.start_date) || now
+      const end = toMs(a.end_date) || start + 86400000 * 7
+      const status = String(a.status || 'draft').toLowerCase()
+      return {
+        name: String(a.title || ''),
+        value: [start, end, idx] as [number, number, number],
+        itemStyle: { color: GANTT_STATUS_COLORS[status] || '#3b82f6' },
+      }
+    })
+
+    return {
+      tooltip: {
+        formatter: (params: { name: string; value: [number, number, number] }) => {
+          const [start, end] = params.value
+          const fmt = (ts: number) => new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+          return `<b>${params.name}</b><br/>${fmt(start)} → ${fmt(end)}`
+        },
+      },
+      grid: { top: 8, right: 16, bottom: 30, left: 0, containLabel: true },
+      xAxis: {
+        type: 'time' as const,
+        min: minDate,
+        max: maxDate,
+        axisLabel: {
+          fontSize: 10,
+          color: '#94a3b8',
+          formatter: (v: number) =>
+            new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }),
+        },
+        splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } },
+        axisLine: { lineStyle: { color: '#e2e8f0' } },
+        axisTick: { show: false },
+      },
+      yAxis: {
+        type: 'category' as const,
+        data: categories,
+        axisLabel: { fontSize: 10, color: '#64748b', width: 110, overflow: 'truncate' as const },
+        axisTick: { show: false },
+        axisLine: { show: false },
+        splitLine: { show: false },
+      },
+      series: [
+        {
+          type: 'custom' as const,
+          renderItem: (
+            _params: unknown,
+            api: {
+              value: (idx: number) => number
+              coord: (arr: number[]) => number[]
+              size: (arr: number[]) => number[]
+              style: () => object
+            },
+          ) => {
+            const start = api.value(0)
+            const end = api.value(1)
+            const catIdx = api.value(2)
+            const startCoord = api.coord([start, catIdx])
+            const endCoord = api.coord([end, catIdx])
+            const cellH = Math.abs(api.size([0, 1])[1])
+            const barH = Math.min(18, Math.max(8, cellH * 0.55))
+            const x = Math.min(startCoord[0], endCoord[0])
+            const width = Math.max(4, Math.abs(endCoord[0] - startCoord[0]))
+            return {
+              type: 'rect',
+              shape: { x, y: startCoord[1] - barH / 2, width, height: barH, r: 3 },
+              style: { ...(api.style() as object), opacity: 0.88 },
+              emphasis: { style: { opacity: 1, shadowBlur: 6, shadowColor: 'rgba(0,0,0,0.15)' } },
+            }
+          },
+          encode: { x: [0, 1], y: 2 },
+          data: seriesData,
+        },
+      ],
+      animation: false,
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(activities)])
+
+  if (!activities.length) {
+    return (
+      <div className="flex items-center justify-center h-full gap-2 text-xs text-muted-foreground/50">
+        <GanttChart className="h-4 w-4" />
+        Aucune activité planifiée
+      </div>
+    )
+  }
+
+  return <ReactECharts option={option} style={{ height: '100%', width: '100%' }} opts={{ renderer: 'svg' }} />
 }
 
 // ── Table Widget ────────────────────────────────────────────────

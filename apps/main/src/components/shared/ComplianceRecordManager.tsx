@@ -216,8 +216,8 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
             endDate={form.expires_at || null}
             onStartChange={(v) => setForm({ ...form, issued_at: v })}
             onEndChange={(v) => setForm({ ...form, expires_at: v })}
-            startLabel="Date emission"
-            endLabel="Date expiration"
+            startLabel="Date d'émission"
+            endLabel="Date d'expiration"
           />
           <input type="text" value={form.reference_number} onChange={(e) => setForm({ ...form, reference_number: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background" placeholder="N° référence..." />
           <div className="flex justify-end gap-1.5">

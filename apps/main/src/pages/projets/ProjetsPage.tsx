@@ -1483,7 +1483,7 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
           endDate={form.due_date || null}
           onStartChange={(v) => setForm({ ...form, start_date: v })}
           onEndChange={(v) => setForm({ ...form, due_date: v })}
-          startLabel="Debut"
+          startLabel="Début"
           endLabel="Fin"
           className="flex-1"
         />
@@ -1978,7 +1978,7 @@ function TaskRow({
             endDate={task.due_date?.split('T')[0] ?? null}
             onStartChange={(v) => handleFieldSave('start_date', v || null)}
             onEndChange={(v) => handleFieldSave('due_date', v || null)}
-            startLabel="Debut"
+            startLabel="Début"
             endLabel="Fin"
           />
 

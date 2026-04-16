@@ -1475,7 +1475,7 @@ function PickupTab() {
                     </span>
                   </div>
                   {stop.scheduled_time && (
-                    <p className="text-muted-foreground">Prevu: {formatDateTime(stop.scheduled_time)}</p>
+                    <p className="text-muted-foreground">Prévu: {formatDateTime(stop.scheduled_time)}</p>
                   )}
                   {stop.actual_time && (
                     <p className="text-muted-foreground">Réel: {formatDateTime(stop.actual_time)}</p>

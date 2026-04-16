@@ -1239,7 +1239,7 @@ _ADS_MANIFEST_BODY_FR = """\
         <th>Société</th>
         <th>N. Badge</th>
         <th>Conformité</th>
-        <th>Siege</th>
+        <th>Siège</th>
       </tr>
     </thead>
     <tbody>
@@ -1738,8 +1738,8 @@ _VOYAGE_CARGO_MANIFEST_BODY_FR = """\
         <th>#</th>
         <th>Reference</th>
         <th>Demande</th>
-        <th>Designation</th>
-        <th>Expediteur</th>
+        <th>Désignation</th>
+        <th>Expéditeur</th>
         <th>Destinataire</th>
         <th>Destination</th>
         <th>Poids (kg)</th>
@@ -2118,7 +2118,7 @@ _CARGO_LT_BODY_FR = """\
       <tr>
         <th style="width:20px;">#</th>
         <th>Tracking</th>
-        <th>Designation</th>
+        <th>Désignation</th>
         <th>Type</th>
         <th>Dimensions (LxlxH)</th>
         <th>Poids unit.</th>

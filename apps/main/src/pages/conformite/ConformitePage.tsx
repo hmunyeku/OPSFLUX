@@ -3152,7 +3152,7 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
           <ReadOnlyRow label="Description" value={item.description} />
           <ReadOnlyRow label="Émetteur" value={(item as any).issuer || '—'} />
           <ReadOnlyRow label="Référence" value={(item as any).reference_number || '—'} />
-          <ReadOnlyRow label="Date emission" value={fmtDate((item as any).issued_at)} />
+          <ReadOnlyRow label="Date d'émission" value={fmtDate((item as any).issued_at)} />
           <ReadOnlyRow label="Expiration" value={fmtDate((item as any).expires_at)} />
           <ReadOnlyRow label="Soumis le" value={fmtDate(item.submitted_at)} />
         </DetailFieldGrid>

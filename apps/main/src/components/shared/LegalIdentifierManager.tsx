@@ -269,7 +269,7 @@ export function LegalIdentifierManager({ ownerType, ownerId, country, compact }:
             <input
               type="text"
               className={`${panelInputClass} flex-1`}
-              placeholder="Date expiration (YYYY-MM-DD)"
+              placeholder="Date d'expiration (YYYY-MM-DD)"
               value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)}
             />

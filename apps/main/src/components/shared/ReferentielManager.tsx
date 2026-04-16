@@ -323,7 +323,7 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
                           </span>
                         )}
                         {rec.expires_at && (
-                          <span className="text-[10px] text-muted-foreground tabular-nums shrink-0" title="Date expiration">
+                          <span className="text-[10px] text-muted-foreground tabular-nums shrink-0" title="Date d'expiration">
                             → {formatDate(rec.expires_at)}
                           </span>
                         )}
@@ -408,8 +408,8 @@ export function ReferentielManager({ ownerType, ownerId, compact, category }: Re
             endDate={form.expires_at || null}
             onStartChange={(v) => setForm({ ...form, issued_at: v })}
             onEndChange={(v) => setForm({ ...form, expires_at: v })}
-            startLabel="Date émission"
-            endLabel="Date expiration"
+            startLabel="Date d'émission"
+            endLabel="Date d'expiration"
           />
 
           <div className="grid grid-cols-2 gap-2">

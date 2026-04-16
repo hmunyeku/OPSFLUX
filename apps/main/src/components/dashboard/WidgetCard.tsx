@@ -671,10 +671,11 @@ function KPIWidget({
   const TrendIcon = trend === null ? null : trendUp ? TrendingUp : trendDown ? TrendingDown : Minus
   const trendColor = trend === null ? 'text-muted-foreground' : trendUp ? 'text-emerald-600' : trendDown ? 'text-red-500' : 'text-muted-foreground'
 
-  // Sparkline: use data from meta/config, or always generate a pattern
+  // Sparkline: use real data from meta/config, else generate a subtle pattern
+  // If value is 0, use a flat line so we don't imply false activity
   const rawSparkline = (meta?.sparkline as number[]) || (config.sparkline as number[]) || null
   const sparklineData = rawSparkline || (() => {
-    // Always generate sparkline — even for 0 values, show a subtle variation
+    if (numValue === 0) return Array(8).fill(0)
     const base = Math.max(numValue, 1)
     const seed = (numValue * 7 + 13) % 19 + 2
     return Array.from({ length: 8 }, (_, i) => {

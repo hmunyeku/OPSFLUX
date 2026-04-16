@@ -225,7 +225,7 @@ function CreateTypePanel() {
                   <DynamicPanelField label="Nom" required>
                     <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={panelInputClass} placeholder="Formation HSE Niveau 1" />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Validite (jours)">
+                  <DynamicPanelField label="Validité (jours)">
                     <input type="number" value={form.validity_days ?? ''} onChange={(e) => setForm({ ...form, validity_days: e.target.value ? Number(e.target.value) : null })} className={panelInputClass} placeholder="365 (vide = permanent)" />
                   </DynamicPanelField>
                 </FormGrid>

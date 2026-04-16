@@ -200,7 +200,7 @@ export function ComplianceDashboard() {
           bgColor="bg-emerald-500/10"
         />
         <StatCard
-          label="Expires"
+          label="Expirés"
           value={data.expired_count}
           icon={XCircle}
           color="text-red-600"

@@ -2604,7 +2604,7 @@ function CommentsSection({ projectId }: { projectId: string }) {
         <div className="space-y-1">
           {replyTo && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <span>Reponse a un commentaire</span>
+              <span>Réponse à un commentaire</span>
               <button onClick={() => setReplyTo(null)} className="text-destructive"><X size={10} /></button>
             </div>
           )}

@@ -5158,7 +5158,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                         </select>
                       </div>
                       <div>
-                        <label className="text-xs font-medium text-muted-foreground">Delai (jours)</label>
+                        <label className="text-xs font-medium text-muted-foreground">Délai (jours)</label>
                         <input
                           type="number"
                           value={depForm.lag_days}

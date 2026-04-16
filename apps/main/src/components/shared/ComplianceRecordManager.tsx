@@ -207,7 +207,7 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
               </select>
             </div>
             <div>
-              <label className="text-[9px] text-muted-foreground block mb-0.5">Emetteur</label>
+              <label className="text-[9px] text-muted-foreground block mb-0.5">Émetteur</label>
               <input type="text" value={form.issuer} onChange={(e) => setForm({ ...form, issuer: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background" placeholder="Organisme..." />
             </div>
           </div>

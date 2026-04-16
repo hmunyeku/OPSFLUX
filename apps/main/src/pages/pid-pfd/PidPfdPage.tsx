@@ -194,17 +194,17 @@ const TAG_TYPE_OPTIONS = [
   // Transmitters
   { value: 'TT', label: 'TT - Transmetteur temp.' },
   { value: 'PT', label: 'PT - Transmetteur pression' },
-  { value: 'FT', label: 'FT - Transmetteur debit' },
+  { value: 'FT', label: 'FT - Transmetteur débit' },
   { value: 'LT', label: 'LT - Transmetteur niveau' },
   // Controllers
-  { value: 'PIC', label: 'PIC - Controleur pression' },
-  { value: 'TIC', label: 'TIC - Controleur temp.' },
-  { value: 'FIC', label: 'FIC - Controleur debit' },
-  { value: 'LIC', label: 'LIC - Controleur niveau' },
+  { value: 'PIC', label: 'PIC - Contrôleur pression' },
+  { value: 'TIC', label: 'TIC - Contrôleur temp.' },
+  { value: 'FIC', label: 'FIC - Contrôleur débit' },
+  { value: 'LIC', label: 'LIC - Contrôleur niveau' },
   // Control valves
-  { value: 'PCV', label: 'PCV - Vanne reg. pression' },
-  { value: 'TCV', label: 'TCV - Vanne reg. temp.' },
-  { value: 'FCV', label: 'FCV - Vanne reg. debit' },
+  { value: 'PCV', label: 'PCV - Vanne rég. pression' },
+  { value: 'TCV', label: 'TCV - Vanne rég. temp.' },
+  { value: 'FCV', label: 'FCV - Vanne rég. débit' },
   { value: 'LCV', label: 'LCV - Vanne reg. niveau' },
   // Alarms
   { value: 'PAH', label: 'PAH - Alarme haute pression' },
@@ -498,10 +498,10 @@ function PIDDetailPanel({ id }: { id: string }) {
             </FormSection>
 
             {/* Specifications */}
-            <FormSection title="Specifications" collapsible defaultExpanded>
+            <FormSection title="Spécifications" collapsible defaultExpanded>
               <DetailFieldGrid>
                 <ReadOnlyRow label="Format" value={<SheetFormatCard format={doc.sheet_format} />} />
-                <InlineEditableRow label="Echelle" value={doc.scale || ''} onSave={handleFieldSave('scale')} />
+                <InlineEditableRow label="Échelle" value={doc.scale || ''} onSave={handleFieldSave('scale')} />
                 <InlineEditableRow label="N° dessin" value={doc.drawing_number || ''} onSave={handleFieldSave('drawing_number')} />
               </DetailFieldGrid>
             </FormSection>
@@ -650,7 +650,7 @@ function DashboardTab() {
       <CollapsibleSection id="pid-kpis" title="Indicateurs" defaultExpanded showSeparator={false}>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-2">
           <KpiCard label="Documents PID" value={totalPids} icon={FileText} color="bg-blue-600" />
-          <KpiCard label="Equipements" value={totalEquipment} icon={Cpu} color="bg-emerald-600" />
+          <KpiCard label="Équipements" value={totalEquipment} icon={Cpu} color="bg-emerald-600" />
           <KpiCard label="Tags DCS" value={totalTags} icon={Tag} color="bg-amber-600" />
           <KpiCard label="Lignes process" value={totalLines} icon={GitBranch} color="bg-purple-600" />
         </div>
@@ -1329,7 +1329,7 @@ export function PidPfdPage() {
           <PanelHeader
             icon={FileText}
             title="PID / PFD"
-            subtitle="Diagrammes process, equipements, lignes, instrumentation"
+            subtitle="Diagrammes process, équipements, lignes, instrumentation"
           >
             {toolbarAction}
           </PanelHeader>

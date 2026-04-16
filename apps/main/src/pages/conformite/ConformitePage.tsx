@@ -3150,7 +3150,7 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
             <ReadOnlyRow label="Personne" value={item.owner_name || 'Inconnu'} />
           <ReadOnlyRow label="Type" value={recordTypeLabels[item.record_type] || item.record_type} />
           <ReadOnlyRow label="Description" value={item.description} />
-          <ReadOnlyRow label="Emetteur" value={(item as any).issuer || '—'} />
+          <ReadOnlyRow label="Émetteur" value={(item as any).issuer || '—'} />
           <ReadOnlyRow label="Référence" value={(item as any).reference_number || '—'} />
           <ReadOnlyRow label="Date emission" value={fmtDate((item as any).issued_at)} />
           <ReadOnlyRow label="Expiration" value={fmtDate((item as any).expires_at)} />

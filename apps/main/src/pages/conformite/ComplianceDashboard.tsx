@@ -214,7 +214,7 @@ export function ComplianceDashboard() {
           bgColor="bg-amber-500/10"
         />
         <StatCard
-          label="Expirent bientot"
+          label="Expirent bientôt"
           value={data.expiring_soon_count}
           icon={AlertTriangle}
           color="text-orange-600"

@@ -7495,7 +7495,7 @@ async def create_external_link(
     if not allowed_ids:
         raise HTTPException(
             status_code=400,
-            detail="Impossible de creer un lien externe : aucune entreprise autorisee n'est configuree sur cette AdS. "
+            detail="Impossible de créer un lien externe : aucune entreprise autorisée n'est configurée sur cette AdS. "
                    "Ajoutez au moins une entreprise dans les parametres de l'AdS avant de generer un lien.",
         )
 
@@ -10234,7 +10234,7 @@ async def get_avm_pdf(
         variables=variables,
     )
     if not pdf_bytes:
-        raise HTTPException(404, "Template PDF 'avm.ticket' introuvable. Creez-le dans Parametres > Modeles PDF.")
+        raise HTTPException(404, "Template PDF 'avm.ticket' introuvable. Créez-le dans Paramètres > Modèles PDF.")
 
     filename = f"AVM_{avm.reference.replace(' ', '_')}.pdf"
     return Response(

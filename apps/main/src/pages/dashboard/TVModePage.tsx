@@ -91,7 +91,7 @@ export function TVModePage() {
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span>Rafraichissement: {data.tv_refresh_seconds || 60}s</span>
-          <span>Derniere MAJ: {lastRefresh.toLocaleTimeString('fr-FR')}</span>
+          <span>Dernière MAJ : {lastRefresh.toLocaleTimeString('fr-FR')}</span>
         </div>
       </div>
 

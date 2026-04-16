@@ -1501,10 +1501,10 @@ async def on_planner_activity_completed_suggest_task_closure(event: OpsFluxEvent
                 db,
                 user_id=recipient_id,
                 entity_id=UUID(str(entity_id)),
-                title="Cloture de tache a confirmer",
+                title="Clôture de tâche à confirmer",
                 body=(
-                    f"La tache projet '{task.title}' est liee a une activite Planner terminee "
-                    f"apres cloture de l'AdS {ads_id or ''}. Verifiez si la tache doit etre cloturee."
+                    f"La tâche projet '{task.title}' est liée à une activité Planner terminée "
+                    f"après clôture de l'AdS {ads_id or ''}. Vérifiez si la tâche doit être clôturée."
                 ).strip(),
                 category="projets",
                 link=f"/projets?task={task.id}",
@@ -1569,8 +1569,8 @@ async def on_project_task_planner_sync_required(event: OpsFluxEvent) -> None:
             ) or "donnees critiques"
             title = "Revision Planner suggeree"
             body = (
-                f"La tache projet '{task_title}' du projet {project_code or project_id} a change "
-                f"({changed_label}). {planner_activity_count} activite(s) Planner liee(s) ont ete resynchronisees. "
+                f"La tâche projet '{task_title}' du projet {project_code or project_id} a change "
+                f"({changed_label}). {planner_activity_count} activité(s) Planner liée(s) ont été resynchronisées. "
                 "Une revision d'arbitrage peut etre necessaire."
             )
 
@@ -1603,7 +1603,7 @@ async def on_planner_revision_requested(event: OpsFluxEvent) -> None:
     request_id = payload.get("request_id")
     target_user_id = payload.get("target_user_id")
     requester_user_name = payload.get("requester_user_name") or "Planner"
-    task_title = payload.get("task_title") or "Tache liee"
+    task_title = payload.get("task_title") or "Tâche liée"
     project_code = payload.get("project_code") or payload.get("project_id") or ""
     due_at = payload.get("due_at")
     if not entity_id or not target_user_id:
@@ -1614,11 +1614,11 @@ async def on_planner_revision_requested(event: OpsFluxEvent) -> None:
 
         async with async_session_factory() as db:
             body = (
-                f"{requester_user_name} demande votre arbitrage sur la revision Planner "
+                f"{requester_user_name} demande votre arbitrage sur la révision Planner "
                 f"de '{task_title}' ({project_code})."
             ).strip()
             if due_at:
-                body += f" Reponse attendue avant le {due_at[:10]}."
+                body += f" Réponse attendue avant le {due_at[:10]}."
             await send_in_app(
                 db,
                 user_id=UUID(str(target_user_id)),
@@ -1662,7 +1662,7 @@ async def on_planner_revision_responded(event: OpsFluxEvent) -> None:
                 db,
                 user_id=UUID(str(requester_user_id)),
                 entity_id=UUID(str(entity_id)),
-                title="Reponse a une revision Planner",
+                title="Réponse à une révision Planner",
                 body=body,
                 category="planner",
                 link=f"/planner?revisionRequest={request_id}" if request_id else "/planner",
@@ -1687,7 +1687,7 @@ async def on_planner_revision_forced(event: OpsFluxEvent) -> None:
         from app.core.notifications import send_in_app
 
         async with async_session_factory() as db:
-            body = "La decision Planner a ete forcee apres echeance."
+            body = "La décision Planner a été forcée après échéance."
             if reason:
                 body += f" {reason}"
             await send_in_app(
@@ -1861,7 +1861,7 @@ async def on_planner_revision_validated(event: OpsFluxEvent) -> None:
                     title="AdS en revision — Planner mis a jour",
                     body=(
                         f"L'AdS {ref} necessite une revision suite a la validation "
-                        f"d'une revision Planner sur l'activite associee."
+                        f"d'une revision Planner sur l'activité associée."
                     ),
                     category="paxlog",
                     link=f"/paxlog/ads/{ads_id}",

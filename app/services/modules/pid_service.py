@@ -1474,7 +1474,7 @@ async def export_pdf(
     except RuntimeError as exc:
         raise HTTPException(503, str(exc)) from exc
     if not pdf_bytes:
-        raise HTTPException(404, "Template PDF 'pid.export' introuvable. Creez-le dans Parametres > Modeles PDF.")
+        raise HTTPException(404, "Template PDF 'pid.export' introuvable. Créez-le dans Paramètres > Modèles PDF.")
 
     revision_label = pid.revision or "0"
     filename = f"{pid.number}_rev{revision_label}.pdf"

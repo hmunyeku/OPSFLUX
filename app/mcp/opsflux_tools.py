@@ -1692,7 +1692,7 @@ async def _get_planner_activity(args: dict) -> dict:
             PlannerActivity.id == UUID(str(aid)))
         a = (await session.execute(query)).scalar_one_or_none()
         if not a:
-            return _err("Activite introuvable")
+            return _err("Activité introuvable")
     return _ok({"id": str(a.id), "title": a.title, "type": a.type, "subtype": a.subtype,
                 "status": a.status, "priority": a.priority, "pax_quota": a.pax_quota,
                 "description": (a.description or "")[:500],

@@ -473,8 +473,8 @@ async def on_asset_created(event: OpsFluxEvent) -> None:
                             db,
                             user_id=admin_id,
                             entity_id=UUID(str(entity_id)),
-                            title="Nouvel actif cree",
-                            body=f"L'actif '{asset_name}' ({asset_code}) de type '{asset_type}' a ete cree.",
+                            title="Nouvel actif créé",
+                            body=f"L'actif '{asset_name}' ({asset_code}) de type '{asset_type}' a été créé.",
                             category="asset",
                             link=f"/assets/{asset_id}",
                         )

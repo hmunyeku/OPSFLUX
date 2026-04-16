@@ -374,7 +374,7 @@ async def download_cargo_request_lt_pdf_impl(
         variables=variables,
     )
     if not pdf_bytes:
-        raise HTTPException(404, "Template PDF 'cargo.lt' introuvable. Initialisez-le dans Parametres > Modeles PDF.")
+        raise HTTPException(404, "Template PDF 'cargo.lt' introuvable. Initialisez-le dans Paramètres > Modèles PDF.")
     filename = f"{cargo_request.request_code}_lt.pdf"
     return Response(
         content=pdf_bytes,

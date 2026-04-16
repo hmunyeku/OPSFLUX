@@ -3112,7 +3112,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   const handleGenerateLink = (recipient?: { user_id: string | null; contact_id: string | null }) => {
     if (!hasAllowedCompaniesForExternalLink) {
       toast({
-        title: "Ajoutez au moins une entreprise autorisee avant de generer un lien externe.",
+        title: "Ajoutez au moins une entreprise autorisée avant de générer un lien externe.",
         variant: 'error',
       })
       return
@@ -3157,7 +3157,7 @@ function AdsDetailPanel({ id }: { id: string }) {
   const openExternalLinkFlow = () => {
     if (!hasAllowedCompaniesForExternalLink) {
       toast({
-        title: "Ajoutez au moins une entreprise autorisee dans l'AdS avant de generer un lien externe.",
+        title: "Ajoutez au moins une entreprise autorisée dans l'AdS avant de générer un lien externe.",
         variant: 'error',
       })
       return

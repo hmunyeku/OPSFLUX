@@ -981,7 +981,7 @@ async def export_pdf(
     if not pdf_bytes:
         raise HTTPException(
             status_code=404,
-            detail="Template PDF 'document.export' introuvable. Creez-le dans Parametres > Modeles PDF.",
+            detail="Template PDF 'document.export' introuvable. Créez-le dans Paramètres > Modèles PDF.",
         )
 
     return Response(

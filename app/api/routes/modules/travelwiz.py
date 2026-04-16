@@ -1695,7 +1695,7 @@ async def download_voyage_pax_manifest_pdf(
             detail=f"Failed to render PDF: {type(exc).__name__}: {exc}",
         )
     if not pdf_bytes:
-        raise HTTPException(404, "Template PDF 'voyage.manifest' introuvable. Initialisez-le dans Parametres > Modeles PDF.")
+        raise HTTPException(404, "Template PDF 'voyage.manifest' introuvable. Initialisez-le dans Paramètres > Modèles PDF.")
     filename = f"{voyage.code}_manifest_pax.pdf"
     return Response(
         content=pdf_bytes,
@@ -1724,7 +1724,7 @@ async def download_voyage_cargo_manifest_pdf(
         variables=variables,
     )
     if not pdf_bytes:
-        raise HTTPException(404, "Template PDF 'voyage.cargo_manifest' introuvable. Initialisez-le dans Parametres > Modeles PDF.")
+        raise HTTPException(404, "Template PDF 'voyage.cargo_manifest' introuvable. Initialisez-le dans Paramètres > Modèles PDF.")
     filename = f"{voyage.code}_manifest_cargo.pdf"
     return Response(
         content=pdf_bytes,

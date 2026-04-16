@@ -5459,7 +5459,7 @@ function CreateActivityPanel() {
     >
       <form id="create-activity-form" onSubmit={handleSubmit}>
         <PanelContentLayout>
-          <FormSection title="Informations generales">
+          <FormSection title="Informations générales">
             <FormGrid>
               <DynamicPanelField label="Titre" required>
                 <input
@@ -5527,7 +5527,7 @@ function CreateActivityPanel() {
                   onChange={(e) => setForm({ ...form, pax_quota_mode: e.target.value as 'constant' | 'variable' })}
                   className={panelInputClass}
                 >
-                  <option value="constant">Constant (meme valeur tous les jours)</option>
+                  <option value="constant">Constant (même valeur tous les jours)</option>
                   <option value="variable">Variable (par jour)</option>
                 </select>
               </DynamicPanelField>

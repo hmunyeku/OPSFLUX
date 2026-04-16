@@ -956,7 +956,7 @@ _ADS_TICKET_BODY_FR = """\
             <div class="field-value">{{ visit_purpose | default('--') }}</div>
           </div>
           <div class="field">
-            <div class="field-label">Categorie</div>
+            <div class="field-label">Catégorie</div>
             <div class="field-value">{{ visit_category | default('--') }}</div>
           </div>
         </div>

@@ -2501,7 +2501,7 @@ async def export_project_pdf(project_id: UUID, entity_id: UUID = Depends(get_cur
     }
     pdf_bytes = await render_pdf(db, slug="project.report", entity_id=entity_id, variables=variables, language="fr")
     if not pdf_bytes:
-        raise HTTPException(404, "Template PDF 'project.report' introuvable. Creez-le dans Parametres > Modeles PDF.")
+        raise HTTPException(404, "Template PDF 'project.report' introuvable. Créez-le dans Paramètres > Modèles PDF.")
     return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename={project.code}_report.pdf'})
 
 

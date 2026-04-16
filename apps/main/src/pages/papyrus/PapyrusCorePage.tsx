@@ -834,7 +834,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
         {/* Metadata */}
         <FormSection title="Informations" collapsible defaultExpanded>
           <DetailFieldGrid>
-            <ReadOnlyRow label="Numero" value={<span className="font-mono text-xs">{doc.number}</span>} />
+            <ReadOnlyRow label="Numéro" value={<span className="font-mono text-xs">{doc.number}</span>} />
             <ReadOnlyRow label="Titre" value={doc.title} />
             <ReadOnlyRow label="Type" value={doc.doc_type_name || '--'} />
             <ReadOnlyRow label="Statut" value={<StatusBadge status={doc.status} />} />
@@ -1190,7 +1190,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                 Historique des dispatchs{papyrusDispatchRuns ? ` (${papyrusDispatchRuns.length})` : ''}
               </div>
               {!papyrusDispatchRuns || papyrusDispatchRuns.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Aucun dispatch Papyrus enregistre.</p>
+                <p className="text-xs text-muted-foreground">Aucun dispatch Papyrus enregistré.</p>
               ) : (
                 <div className="space-y-2">
                   {papyrusDispatchRuns.slice(0, 10).map((run) => (
@@ -1875,7 +1875,7 @@ export function ReportEditorPage() {
                 }}
                 searchValue={search}
                 onSearchChange={setSearch}
-                searchPlaceholder="Rechercher par numero ou titre..."
+                searchPlaceholder="Rechercher par numéro ou titre..."
                 filters={documentFilters}
                 activeFilters={activeFilters}
                 onFilterChange={handleFilterChange}
@@ -1887,7 +1887,7 @@ export function ReportEditorPage() {
                   advancedExport: true,
                   filenamePrefix: 'documents',
                   exportHeaders: {
-                    number: 'Numero',
+                    number: 'Numéro',
                     title: 'Titre',
                     doc_type_name: 'Type',
                     status: 'Statut',

@@ -482,7 +482,7 @@ function PIDDetailPanel({ id }: { id: string }) {
             {/* Identification */}
             <FormSection title="Identification" collapsible defaultExpanded>
               <DetailFieldGrid>
-                <ReadOnlyRow label="Numero" value={doc.number} />
+                <ReadOnlyRow label="Numéro" value={doc.number} />
                 <InlineEditableRow label="Titre" value={doc.title} onSave={handleFieldSave('title')} />
                 <ReadOnlyRow
                   label="Type"
@@ -1219,7 +1219,7 @@ export function PidPfdPage() {
             }}
             searchValue={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Rechercher par numero, titre..."
+            searchPlaceholder="Rechercher par numéro, titre..."
             filters={docFilters}
             activeFilters={activeFilters}
             onFilterChange={handleFilterChange}
@@ -1231,7 +1231,7 @@ export function PidPfdPage() {
               advancedExport: true,
               filenamePrefix: 'pid-pfd',
               exportHeaders: {
-                number: 'Numero',
+                number: 'Numéro',
                 title: 'Titre',
                 pid_type: 'Type',
                 revision: 'Revision',
@@ -1284,7 +1284,7 @@ export function PidPfdPage() {
             }}
             searchValue={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Rechercher par numero de ligne..."
+            searchPlaceholder="Rechercher par numéro de ligne..."
             emptyIcon={GitBranch}
             emptyTitle="Aucune ligne process"
             columnResizing
@@ -1750,7 +1750,7 @@ function CreateProcessLinePanel() {
         <FormSection title="Identification">
           <div className="space-y-3 p-3">
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Numero de ligne *</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Numéro de ligne *</label>
               <input className="gl-form-input text-sm w-full font-mono" value={form.line_number} onChange={(e) => set('line_number', e.target.value)} placeholder="6&quot;-HC-1001-A1A-HI" />
             </div>
             <div>

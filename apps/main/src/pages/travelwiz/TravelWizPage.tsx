@@ -1493,7 +1493,7 @@ function PickupTab() {
                 onClick={() => closeRound.mutate(roundDetail.id)}
                 disabled={closeRound.isPending}
               >
-                {closeRound.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Cloturer la tournee'}
+                {closeRound.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Clôturer la tournée'}
               </button>
             )}
           </div>
@@ -2156,7 +2156,7 @@ function CreateVectorPanel() {
                 </label>
               </DynamicPanelField>
               {form.mode === 'sea' && (
-                <DynamicPanelField label="Numero MMSI">
+                <DynamicPanelField label="Numéro MMSI">
                   <input type="text" value={form.mmsi_number ?? ''} onChange={(e) => setForm({ ...form, mmsi_number: e.target.value || null })} className={panelInputClass} placeholder="123456789" />
                 </DynamicPanelField>
               )}
@@ -3502,7 +3502,7 @@ function VoyageDetailPanel({ id }: { id: string }) {
                     </div>
                   ))}
                 </div>
-              ) : <p className="text-xs text-muted-foreground py-2">Aucun evenement enregistre.</p>}
+              ) : <p className="text-xs text-muted-foreground py-2">Aucun événement enregistré.</p>}
             </FormSection>
 
             {/* KPIs (if trip completed) */}
@@ -3679,7 +3679,7 @@ function VectorDetailPanel({ id }: { id: string }) {
                   </label>
                 </DynamicPanelField>
                 {(editForm.mode === 'sea') && (
-                  <DynamicPanelField label="Numero MMSI"><input type="text" value={editForm.mmsi_number ?? ''} onChange={(e) => setEditForm({ ...editForm, mmsi_number: e.target.value || null })} className={panelInputClass} placeholder="123456789" /></DynamicPanelField>
+                  <DynamicPanelField label="Numéro MMSI"><input type="text" value={editForm.mmsi_number ?? ''} onChange={(e) => setEditForm({ ...editForm, mmsi_number: e.target.value || null })} className={panelInputClass} placeholder="123456789" /></DynamicPanelField>
                 )}
                 <DynamicPanelField label="Actif">
                   <label className="inline-flex items-center gap-2 text-xs">
@@ -3709,7 +3709,7 @@ function VectorDetailPanel({ id }: { id: string }) {
 
             <FormSection title="Opérationnel" collapsible defaultExpanded={false}>
               <DetailRow label="Pesée requise" value={vector.requires_weighing ? 'Oui' : 'Non'} />
-              {vector.mode === 'sea' && <DetailRow label="Numero MMSI" value={vector.mmsi_number ?? '—'} />}
+              {vector.mode === 'sea' && <DetailRow label="Numéro MMSI" value={vector.mmsi_number ?? '—'} />}
             </FormSection>
 
             {/* Deck surfaces / Zones */}

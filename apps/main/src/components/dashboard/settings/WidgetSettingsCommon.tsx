@@ -54,7 +54,7 @@ export function WidgetSettingsCommon({ widget, onUpdateMeta, onUpdateConfig }: W
 
   return (
     <>
-      <FormSection title="General">
+      <FormSection title="Général">
         <DynamicPanelField label="Titre">
           <input
             type="text"

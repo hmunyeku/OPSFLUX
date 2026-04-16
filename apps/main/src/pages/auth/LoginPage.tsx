@@ -342,7 +342,7 @@ export function LoginPage() {
 
               {serverStatus === 'offline' && (
                 <p className="text-[11px] text-red-500 text-center">
-                  {t('auth.server_offline_hint', 'Le serveur est injoignable. Verifiez votre connexion ou contactez l\'administrateur.')}
+                  {t('auth.server_offline_hint', 'Le serveur est injoignable. Vérifiez votre connexion ou contactez l\'administrateur.')}
                 </p>
               )}
             </form>

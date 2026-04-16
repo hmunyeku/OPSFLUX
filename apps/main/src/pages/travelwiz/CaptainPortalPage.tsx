@@ -80,7 +80,7 @@ function CaptainLogin({ onLogin }: { onLogin: (voyageId: string, captainName: st
             <Ship size={32} className="text-primary" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Portail Capitaine</h1>
-          <p className="text-sm text-muted-foreground">Entrez votre code d'acces a 6 chiffres</p>
+          <p className="text-sm text-muted-foreground">Entrez votre code d'accès à 6 chiffres</p>
         </div>
 
         {/* Code input */}
@@ -342,7 +342,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
               className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {recordEvent.isPending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-              Enregistrer l'evenement
+              Enregistrer l'événement
             </button>
             {recordEvent.isSuccess && (
               <p className="text-xs text-green-600 text-center">Événement enregistré</p>

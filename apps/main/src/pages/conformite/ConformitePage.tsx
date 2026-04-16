@@ -2970,7 +2970,7 @@ function VerificationsTab() {
         }
         return (
           <div className="flex items-center gap-1">
-            <button onClick={(e) => { e.stopPropagation(); if (!proofMissing) handleVerify(item.record_type, item.id) }} disabled={proofMissing} className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-40 disabled:cursor-not-allowed" title={proofMissing ? t('conformite.verifications.proof_required_before_verify') : 'Verifier'}><Check size={13} /></button>
+            <button onClick={(e) => { e.stopPropagation(); if (!proofMissing) handleVerify(item.record_type, item.id) }} disabled={proofMissing} className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-40 disabled:cursor-not-allowed" title={proofMissing ? t('conformite.verifications.proof_required_before_verify') : 'Vérifier'}><Check size={13} /></button>
             <button onClick={(e) => { e.stopPropagation(); setRejectingId(item.id) }} className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" title="Rejeter"><X size={13} /></button>
           </div>
         )
@@ -3109,7 +3109,7 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
   if (!item) {
     return (
       <DynamicPanelShell title="Verification" onClose={closeDynamicPanel}>
-        <p className="text-sm text-muted-foreground p-4">Document non trouve ou deja traite.</p>
+        <p className="text-sm text-muted-foreground p-4">Document non trouvé ou déjà traité.</p>
       </DynamicPanelShell>
     )
   }

@@ -271,7 +271,7 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
       >
         {/* Header — uppercase label + divider + hover toolbar */}
         <div className={cn(
-          'flex items-center px-4 py-2.5 gap-2 shrink-0 border-b',
+          'flex items-center px-3 py-1.5 gap-2 shrink-0 border-b',
           !hasBgColor ? 'border-border/60' : 'border-white/10',
           hideHeader && mode !== 'edit' ? 'opacity-0 group-hover:opacity-100 transition-opacity' : 'opacity-100',
         )}>
@@ -291,18 +291,18 @@ export function WidgetCard({ widget, mode, onRemove, dragHandleProps, badge: _ba
             'flex items-center gap-0.5 transition-opacity',
             mode !== 'edit' ? 'opacity-20 group-hover:opacity-100' : 'opacity-80',
           )}>
-            <button onClick={() => refetch()} className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title="Actualiser">
-              <RefreshCw className={cn('h-3 w-3', hasBgColor ? 'text-white/70' : 'text-muted-foreground', isLoading && 'animate-spin')} />
+            <button onClick={() => refetch()} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title="Actualiser">
+              <RefreshCw className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/70' : 'text-muted-foreground', isLoading && 'animate-spin')} />
             </button>
-            <button onClick={handleExport} className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title="Exporter">
-              <Download className={cn('h-3 w-3', hasBgColor ? 'text-white/70' : 'text-muted-foreground')} />
+            <button onClick={handleExport} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title="Exporter">
+              <Download className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/70' : 'text-muted-foreground')} />
             </button>
-            <button onClick={() => setFullscreen(true)} className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title="Plein écran">
-              <Maximize2 className={cn('h-3 w-3', hasBgColor ? 'text-white/70' : 'text-muted-foreground')} />
+            <button onClick={() => setFullscreen(true)} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-black/6 dark:hover:bg-white/10 transition-colors" title="Plein écran">
+              <Maximize2 className={cn('h-2.5 w-2.5', hasBgColor ? 'text-white/70' : 'text-muted-foreground')} />
             </button>
             {mode === 'edit' && onRemove && (
-              <button onClick={onRemove} className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-destructive/10 transition-colors" title="Supprimer">
-                <X className="h-3 w-3 text-destructive/60" />
+              <button onClick={onRemove} className="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-destructive/10 transition-colors" title="Supprimer">
+                <X className="h-2.5 w-2.5 text-destructive/60" />
               </button>
             )}
           </div>
@@ -695,13 +695,13 @@ function KPIWidget({
       {/* ── Top section: icon + value + trend (shrink-0) ── */}
       <div className="flex items-start gap-3 shrink-0">
         {/* Icon badge */}
-        <div className={cn('h-10 w-10 rounded-lg flex items-center justify-center shrink-0', iconPreset.bg)}>
-          <IconComp className={cn('h-5 w-5', iconPreset.fg)} />
+        <div className={cn('h-8 w-8 rounded-md flex items-center justify-center shrink-0', iconPreset.bg)}>
+          <IconComp className={cn('h-4 w-4', iconPreset.fg)} />
         </div>
         {/* Value + trend */}
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[2.25rem] font-bold tracking-[-0.04em] leading-none text-foreground tabular-nums">
+            <span className="text-[1.875rem] font-bold tracking-[-0.04em] leading-none text-foreground tabular-nums">
               {displayValue}
             </span>
             {unit && <span className="text-xs text-muted-foreground/70 font-medium">{unit}</span>}
@@ -723,14 +723,14 @@ function KPIWidget({
 
       {/* Label */}
       {labelField && (
-        <span className="text-[11px] text-muted-foreground/70 font-medium uppercase tracking-wider mt-1 shrink-0">
+        <span className="text-[11px] text-muted-foreground/70 font-medium uppercase tracking-wider mt-0.5 shrink-0">
           {labelField}
         </span>
       )}
 
       {/* ── Middle: sparkline fills available space, capped at 128px ── */}
       {sparklineData && sparklineData.length > 1 && (
-        <div className="flex-1 min-h-0 max-h-32 py-2">
+        <div className="flex-1 min-h-0 max-h-28 py-1">
           <KPISparkline data={sparklineData} color={sparklineColor} />
         </div>
       )}
@@ -762,9 +762,9 @@ function KPIWidget({
               : isBad ? 'text-red-500 dark:text-red-400'
               : 'text-foreground'
             return (
-              <div key={k} className="flex items-center justify-between gap-1.5 px-2 py-1.5 rounded-md bg-muted/40 hover:bg-muted/60 transition-colors min-w-0">
-                <span className="text-[10px] font-medium text-muted-foreground truncate">{label}</span>
-                <span className={cn('text-[12px] font-bold tabular-nums shrink-0', valColor)}>{val}</span>
+              <div key={k} className="flex items-center justify-between gap-1 px-1.5 py-1 rounded bg-muted/40 hover:bg-muted/60 transition-colors min-w-0">
+                <span className="text-[9.5px] font-medium text-muted-foreground truncate">{label}</span>
+                <span className={cn('text-[11px] font-bold tabular-nums shrink-0', valColor)}>{val}</span>
               </div>
             )
           })}
@@ -988,7 +988,9 @@ const GANTT_STATUS_COLORS: Record<string, string> = {
 function GanttWidget({ data }: { data: unknown[] }) {
   const activities = (data as Record<string, unknown>[])
     .filter((a) => a.start_date || a.end_date)
-    .slice(0, 18)
+    .slice(0, 20)
+
+  const isDark = document.documentElement.classList.contains('dark')
 
   const option = useMemo(() => {
     if (!activities.length) return {}
@@ -996,58 +998,106 @@ function GanttWidget({ data }: { data: unknown[] }) {
     const toMs = (d: unknown) => d ? new Date(d as string).getTime() : null
     const startTimes = activities.map((a) => toMs(a.start_date)).filter(Boolean) as number[]
     const endTimes = activities.map((a) => toMs(a.end_date)).filter(Boolean) as number[]
-    const minDate = Math.min(...startTimes, now - 86400000 * 3)
+    const minDate = Math.min(...startTimes, now - 86400000 * 5)
     const maxDate = Math.max(...endTimes, now + 86400000 * 14)
 
-    const categories = [...activities].reverse().map((a) =>
-      String(a.title || a.asset_name || 'Activité').slice(0, 28)
+    // Build reversed for display (last = top)
+    const reversed = [...activities].reverse()
+    const categories = reversed.map((a) =>
+      String(a.title || a.asset_name || 'Activité').slice(0, 26)
     )
 
-    const seriesData = [...activities].reverse().map((a, idx) => {
+    const seriesData = reversed.map((a, idx) => {
       const start = toMs(a.start_date) || now
       const end = toMs(a.end_date) || start + 86400000 * 7
       const status = String(a.status || 'draft').toLowerCase()
+      const progress = typeof a.progress === 'number' ? Math.min(100, Math.max(0, a.progress)) : 0
+      const type = String(a.activity_type || a.type || '').toLowerCase()
       return {
         name: String(a.title || ''),
-        value: [start, end, idx] as [number, number, number],
+        value: [start, end, idx, progress, start] as [number, number, number, number, number],
+        status,
         itemStyle: { color: GANTT_STATUS_COLORS[status] || '#3b82f6' },
+        activityType: type,
       }
     })
 
+    const textColor = isDark ? '#94a3b8' : '#64748b'
+    const gridColor = isDark ? '#1e293b' : '#f1f5f9'
+    const axisColor = isDark ? '#334155' : '#e2e8f0'
+    const todayColor = '#ef4444'
+
     return {
       tooltip: {
-        formatter: (params: { name: string; value: [number, number, number] }) => {
-          const [start, end] = params.value
-          const fmt = (ts: number) => new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
-          return `<b>${params.name}</b><br/>${fmt(start)} → ${fmt(end)}`
+        trigger: 'item' as const,
+        formatter: (params: { name: string; value: [number, number, number, number]; data: { status: string; activityType: string } }) => {
+          const [start, end, , progress] = params.value
+          const fmt = (ts: number) => new Date(ts).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
+          const dur = Math.ceil((end - start) / 86400000)
+          const statusLabel: Record<string, string> = {
+            draft: 'Brouillon', submitted: 'Soumis', validated: 'Validé',
+            in_progress: 'En cours', completed: 'Terminé', done: 'Terminé',
+            cancelled: 'Annulé', planned: 'Planifié',
+          }
+          const st = statusLabel[params.data?.status] || params.data?.status || ''
+          return [
+            `<div style="font-size:12px;font-weight:600;margin-bottom:4px">${params.name}</div>`,
+            `<div style="font-size:11px;color:#94a3b8">${fmt(start)} → ${fmt(end)} <b style="color:#64748b">(${dur}j)</b></div>`,
+            st ? `<div style="font-size:11px;margin-top:3px">Statut : <b>${st}</b></div>` : '',
+            progress > 0 ? `<div style="font-size:11px">Avancement : <b>${progress}%</b></div>` : '',
+          ].filter(Boolean).join('')
         },
+        backgroundColor: isDark ? '#1e293b' : '#ffffff',
+        borderColor: isDark ? '#334155' : '#e2e8f0',
+        textStyle: { color: isDark ? '#e2e8f0' : '#1e293b', fontSize: 12 },
+        extraCssText: 'box-shadow:0 4px 16px rgba(0,0,0,0.12);border-radius:8px;padding:10px 12px',
       },
-      grid: { top: 8, right: 16, bottom: 30, left: 0, containLabel: true },
+      grid: { top: 4, right: 12, bottom: 28, left: 0, containLabel: true },
       xAxis: {
         type: 'time' as const,
         min: minDate,
         max: maxDate,
         axisLabel: {
           fontSize: 10,
-          color: '#94a3b8',
-          formatter: (v: number) =>
-            new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }),
+          color: textColor,
+          formatter: (v: number) => {
+            const d = new Date(v)
+            const day = d.getDate()
+            if (day === 1 || day === 15) {
+              return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+            }
+            return day === 8 || day === 22 ? `${day}` : ''
+          },
         },
-        splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } },
-        axisLine: { lineStyle: { color: '#e2e8f0' } },
+        splitLine: {
+          show: true,
+          lineStyle: { color: gridColor, type: 'solid' as const, width: 1 },
+        },
+        axisLine: { lineStyle: { color: axisColor } },
         axisTick: { show: false },
       },
       yAxis: {
         type: 'category' as const,
         data: categories,
-        axisLabel: { fontSize: 10, color: '#64748b', width: 110, overflow: 'truncate' as const },
+        axisLabel: {
+          fontSize: 10,
+          color: textColor,
+          width: 115,
+          overflow: 'truncate' as const,
+          rich: {},
+        },
         axisTick: { show: false },
         axisLine: { show: false },
-        splitLine: { show: false },
+        splitLine: {
+          show: true,
+          lineStyle: { color: gridColor, type: 'dashed' as const, width: 1 },
+        },
       },
       series: [
+        // Main bars
         {
           type: 'custom' as const,
+          z: 2,
           renderItem: (
             _params: unknown,
             api: {
@@ -1060,27 +1110,75 @@ function GanttWidget({ data }: { data: unknown[] }) {
             const start = api.value(0)
             const end = api.value(1)
             const catIdx = api.value(2)
+            const progress = api.value(3) / 100
             const startCoord = api.coord([start, catIdx])
             const endCoord = api.coord([end, catIdx])
             const cellH = Math.abs(api.size([0, 1])[1])
-            const barH = Math.min(18, Math.max(8, cellH * 0.55))
+            const barH = Math.min(16, Math.max(8, cellH * 0.52))
             const x = Math.min(startCoord[0], endCoord[0])
-            const width = Math.max(4, Math.abs(endCoord[0] - startCoord[0]))
+            const totalW = Math.max(4, Math.abs(endCoord[0] - startCoord[0]))
+            const progressW = Math.max(0, totalW * progress)
+            const y = startCoord[1] - barH / 2
+            const style = api.style() as Record<string, unknown>
+            const barColor = style.fill as string || '#3b82f6'
+
             return {
-              type: 'rect',
-              shape: { x, y: startCoord[1] - barH / 2, width, height: barH, r: 3 },
-              style: { ...(api.style() as object), opacity: 0.88 },
-              emphasis: { style: { opacity: 1, shadowBlur: 6, shadowColor: 'rgba(0,0,0,0.15)' } },
+              type: 'group',
+              children: [
+                // Background track
+                {
+                  type: 'rect',
+                  shape: { x, y, width: totalW, height: barH, r: 4 },
+                  style: { fill: barColor, opacity: 0.22 },
+                  z2: 1,
+                },
+                // Progress fill
+                ...(progress > 0 ? [{
+                  type: 'rect',
+                  shape: { x, y: y + 1, width: Math.max(barH, progressW), height: barH - 2, r: 3 },
+                  style: { fill: barColor, opacity: 0.9 },
+                  z2: 2,
+                }] : [
+                  // No progress: full opaque bar
+                  {
+                    type: 'rect',
+                    shape: { x, y, width: totalW, height: barH, r: 4 },
+                    style: { fill: barColor, opacity: 0.75 },
+                    z2: 2,
+                  },
+                ]),
+              ],
             }
           },
           encode: { x: [0, 1], y: 2 },
           data: seriesData,
         },
+        // Today line
+        {
+          type: 'line' as const,
+          z: 10,
+          markLine: {
+            symbol: ['none', 'none'],
+            silent: true,
+            data: [{ xAxis: now }],
+            lineStyle: { color: todayColor, width: 1.5, type: 'solid' as const, opacity: 0.8 },
+            label: {
+              show: true,
+              position: 'insideStartTop' as const,
+              formatter: "Auj.",
+              fontSize: 9,
+              color: todayColor,
+              fontWeight: 'bold' as const,
+              distance: 2,
+            },
+          },
+          data: [],
+        },
       ],
       animation: false,
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(activities)])
+  }, [JSON.stringify(activities), isDark])
 
   if (!activities.length) {
     return (
@@ -1091,7 +1189,23 @@ function GanttWidget({ data }: { data: unknown[] }) {
     )
   }
 
-  return <ReactECharts option={option} style={{ height: '100%', width: '100%' }} opts={{ renderer: 'svg' }} />
+  return (
+    <div className="flex flex-col h-full">
+      <ReactECharts option={option} style={{ height: '100%', width: '100%' }} opts={{ renderer: 'svg' }} />
+      {/* Status legend */}
+      <div className="flex items-center gap-3 flex-wrap px-1 pb-0.5 shrink-0">
+        {([['in_progress', 'En cours'], ['completed', 'Terminé'], ['planned', 'Planifié'], ['cancelled', 'Annulé']] as [string, string][]).map(([k, l]) => (
+          <span key={k} className="flex items-center gap-1 text-[9.5px] text-muted-foreground">
+            <span className="inline-block h-2 w-3 rounded-sm" style={{ backgroundColor: GANTT_STATUS_COLORS[k] || '#94a3b8', opacity: 0.85 }} />
+            {l}
+          </span>
+        ))}
+        <span className="flex items-center gap-1 text-[9.5px] text-red-500 ml-auto">
+          <span className="inline-block h-2 w-0.5 bg-red-500" />Aujourd'hui
+        </span>
+      </div>
+    </div>
+  )
 }
 
 // ── Table Widget ────────────────────────────────────────────────

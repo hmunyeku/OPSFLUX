@@ -24,7 +24,7 @@ import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
-import { TabBar } from '@/components/ui/Tabs'
+import { PageNavBar } from '@/components/ui/Tabs'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useFilterPersistence } from '@/hooks/useFilterPersistence'
 import { usePageSize } from '@/hooks/usePageSize'
@@ -1335,7 +1335,7 @@ export function PidPfdPage() {
           </PanelHeader>
 
           {/* Tab bar */}
-          <TabBar items={TABS} activeId={activeTab} onTabChange={handleTabChange} />
+          <PageNavBar items={TABS} activeId={activeTab} onTabChange={handleTabChange} />
 
           <PanelContent scroll={false}>
             {renderTabContent()}

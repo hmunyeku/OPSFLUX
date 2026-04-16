@@ -85,7 +85,7 @@ import {
   type CardRendererProps,
 } from '@/components/ui/DataTable'
 import { relativeTime, getAvatarColor } from '@/components/ui/DataTable/utils'
-import { TabBar, TabButton } from '@/components/ui/Tabs'
+import { TabBar, TabButton, PageNavBar } from '@/components/ui/Tabs'
 
 // ── Auth type labels ─────────────────────────────────────
 const AUTH_TYPE_LABELS: Record<string, string> = {
@@ -2509,7 +2509,7 @@ export function UsersPage() {
           </PanelHeader>
 
           {/* Tab bar */}
-          <TabBar
+          <PageNavBar
             items={[
               { id: 'overview' as const, label: 'Vue d\'ensemble', icon: LayoutDashboard },
               { id: 'users' as const, label: t('users.title'), icon: Users },

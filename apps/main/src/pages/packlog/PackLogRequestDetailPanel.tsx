@@ -1,10 +1,8 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   CheckCircle2,
-  Clock,
   FileText,
-  Layers,
   Loader2,
   MapPin,
   Package,
@@ -28,6 +26,7 @@ import {
   DetailRow,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
+import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { TabBar, TabButton } from '@/components/ui/Tabs'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
@@ -194,6 +193,63 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
     }
   }
 
+  const actionItems = useMemo<ActionItem[]>(() => {
+    if (!editing) {
+      return [
+        {
+          id: 'add-colis',
+          label: 'Ajouter un colis',
+          icon: Plus,
+          variant: 'primary',
+          priority: 100,
+          onClick: () =>
+            useUIStore.getState().openDynamicPanel({
+              type: 'create',
+              module: panelModule,
+              meta: {
+                subtype: 'cargo',
+                requestId: id,
+                requestTitle: cargoRequest?.title,
+                requestCode: cargoRequest?.request_code,
+              },
+            }),
+        },
+        {
+          id: 'print-lt',
+          label: 'Imprimer LT',
+          icon: FileText,
+          priority: 60,
+          loading: downloadCargoRequestLtPdf.isPending,
+          onClick: handlePrintLt,
+        },
+        {
+          id: 'edit',
+          label: 'Modifier',
+          icon: Pencil,
+          priority: 80,
+          onClick: startEdit,
+        },
+      ]
+    }
+    return [
+      {
+        id: 'cancel',
+        label: 'Annuler',
+        priority: 40,
+        onClick: () => setEditing(false),
+      },
+      {
+        id: 'save',
+        label: 'Enregistrer',
+        icon: Save,
+        variant: 'primary',
+        priority: 100,
+        loading: updateCargoRequest.isPending,
+        onClick: handleSave,
+      },
+    ]
+  }, [editing, panelModule, id, cargoRequest, downloadCargoRequestLtPdf.isPending, handlePrintLt, startEdit, updateCargoRequest.isPending, handleSave])
+
   if (isLoading || !cargoRequest) {
     return (
       <DynamicPanelShell
@@ -212,61 +268,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
       title={cargoRequest.request_code}
       subtitle={cargoRequest.title}
       icon={<FileText size={14} className="text-primary" />}
-      actions={
-        <>
-          {!editing && (
-            <PanelActionButton
-              variant="primary"
-              onClick={() =>
-                useUIStore.getState().openDynamicPanel({
-                  type: 'create',
-                  module: panelModule,
-                  meta: {
-                    subtype: 'cargo',
-                    requestId: id,
-                    requestTitle: cargoRequest.title,
-                    requestCode: cargoRequest.request_code,
-                  },
-                })
-              }
-              icon={<Plus size={12} />}
-            >
-              Ajouter un colis
-            </PanelActionButton>
-          )}
-          {!editing && (
-            <PanelActionButton
-              onClick={handlePrintLt}
-              disabled={downloadCargoRequestLtPdf.isPending}
-              icon={<FileText size={12} />}
-            >
-              Imprimer LT
-            </PanelActionButton>
-          )}
-          {!editing && (
-            <PanelActionButton onClick={startEdit} icon={<Pencil size={12} />}>
-              Modifier
-            </PanelActionButton>
-          )}
-          {editing && (
-            <>
-              <PanelActionButton onClick={() => setEditing(false)}>Annuler</PanelActionButton>
-              <PanelActionButton
-                variant="primary"
-                onClick={handleSave}
-                disabled={updateCargoRequest.isPending}
-                icon={<Save size={12} />}
-              >
-                {updateCargoRequest.isPending ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  'Enregistrer'
-                )}
-              </PanelActionButton>
-            </>
-          )}
-        </>
-      }
+      actionItems={actionItems}
     >
       {/* ── Compact summary header — always visible ────────────── */}
       <div className="border-b border-border/60 bg-card/50 px-4 py-3 @container">
@@ -639,7 +641,7 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
                             <span className="font-mono text-[10px] text-muted-foreground">
                               {cargo.code}
                             </span>
-                            {cargo.is_hazmat && (
+                            {cargo.hazmat_validated && (
                               <span className="gl-badge gl-badge-danger text-[9px]">HAZMAT</span>
                             )}
                           </div>

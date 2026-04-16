@@ -28,7 +28,7 @@ import {
   InlineEditableRow, ReadOnlyRow, panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
-import { TabBar } from '@/components/ui/Tabs'
+import { TabBar, PageNavBar } from '@/components/ui/Tabs'
 import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer'
 import { useUIStore } from '@/stores/uiStore'
 import { usePermission } from '@/hooks/usePermission'
@@ -901,7 +901,7 @@ export function SupportPage() {
           {toolbarAction}
         </PanelHeader>
 
-        <TabBar
+        <PageNavBar
           items={[
             { id: 'dashboard' as const, label: 'Tableau de bord', icon: LayoutDashboard },
             { id: 'tickets' as const, label: 'Tickets', icon: LifeBuoy },

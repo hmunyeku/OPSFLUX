@@ -21,7 +21,7 @@ import {
   FileDown, Copy, MessageSquare, Activity, Send, LayoutTemplate,
   LayoutDashboard,
 } from 'lucide-react'
-import { TabBar } from '@/components/ui/Tabs'
+import { PageNavBar } from '@/components/ui/Tabs'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef, InlineEditConfig } from '@/components/ui/DataTable/types'
@@ -4858,7 +4858,7 @@ export function ProjetsPage() {
 
         {/* Tab bar — sits below the title bar; rightSlot hosts the
             dashboard "Modifier" toolbar via portal when on the dashboard tab. */}
-        <TabBar
+        <PageNavBar
           items={PROJETS_TABS.map((tab) => ({ id: tab.id, icon: tab.icon, label: t(tab.labelKey) }))}
           activeId={viewTab}
           onTabChange={setViewTab}

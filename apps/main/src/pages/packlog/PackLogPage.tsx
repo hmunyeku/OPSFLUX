@@ -16,7 +16,7 @@ import {
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
 import { renderRegisteredPanel } from '@/components/layout/DetachedPanelRenderer'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
-import { TabBar } from '@/components/ui/Tabs'
+import { PageNavBar } from '@/components/ui/Tabs'
 import { DataTable } from '@/components/ui/DataTable/DataTable'
 import { useToast } from '@/components/ui/Toast'
 import { usePageSize } from '@/hooks/usePageSize'
@@ -814,7 +814,7 @@ export function PackLogPage() {
               )}
             </PanelHeader>
 
-            <TabBar
+            <PageNavBar
               items={tabItems}
               activeId={activeTab}
               onTabChange={setActiveTab}

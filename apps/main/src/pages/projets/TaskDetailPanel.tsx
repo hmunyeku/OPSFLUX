@@ -27,7 +27,6 @@ import { useToast } from '@/components/ui/Toast'
 import { cn } from '@/lib/utils'
 import {
   DynamicPanelShell,
-  PanelActionButton,
   PanelContentLayout,
   SectionColumns,
   FormSection,
@@ -36,6 +35,7 @@ import {
   InlineEditableRow,
   InlineEditableSelect,
 } from '@/components/layout/DynamicPanel'
+import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { TabBar, TabButton } from '@/components/ui/Tabs'
 import { TagManager } from '@/components/shared/TagManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
@@ -341,6 +341,28 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
     )
   }, [respondRevisionDecisionRequest, t, toast, task])
 
+  const actionItems = useMemo<ActionItem[]>(() => [
+    {
+      id: 'toggle-planner',
+      label: isLinkedToPlanner
+        ? t('projets.task.planner.unlink_button', 'Retirer du Planner')
+        : t('projets.task.planner.link_button', 'Lier au Planner'),
+      icon: isLinkedToPlanner ? X : Send,
+      loading: sendToPlanner.isPending || unlinkFromPlanner.isPending,
+      variant: isLinkedToPlanner ? 'default' : 'primary',
+      priority: 100,
+      onClick: handleTogglePlannerLink,
+    },
+    {
+      id: 'view-project',
+      label: t('projets.task.view_project', 'Voir le projet'),
+      icon: FolderKanban,
+      variant: 'default',
+      priority: 50,
+      onClick: () => openDynamicPanel({ type: 'detail', module: 'projets', id: projectId }),
+    },
+  ], [isLinkedToPlanner, sendToPlanner.isPending, unlinkFromPlanner.isPending, handleTogglePlannerLink, openDynamicPanel, projectId, t])
+
   if (!task) {
     return (
       <DynamicPanelShell title="T\u00e2che" subtitle="Chargement..." icon={<CheckCircle2 size={14} className="text-primary" />}>
@@ -366,31 +388,7 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
           <CheckCircle2 size={14} style={{ color: statusInfo.color }} />
         </div>
       }
-      actions={
-        <>
-          <PanelActionButton
-            variant={isLinkedToPlanner ? 'default' : 'primary'}
-            icon={
-              sendToPlanner.isPending || unlinkFromPlanner.isPending
-                ? <Loader2 size={12} className="animate-spin" />
-                : isLinkedToPlanner ? <X size={12} /> : <Send size={12} />
-            }
-            disabled={sendToPlanner.isPending || unlinkFromPlanner.isPending}
-            onClick={handleTogglePlannerLink}
-          >
-            {isLinkedToPlanner
-              ? t('projets.task.planner.unlink_button', 'Retirer du Planner')
-              : t('projets.task.planner.link_button', 'Lier au Planner')}
-          </PanelActionButton>
-          <PanelActionButton
-            variant="default"
-            icon={<FolderKanban size={12} />}
-            onClick={() => openDynamicPanel({ type: 'detail', module: 'projets', id: projectId })}
-          >
-            {t('projets.task.view_project', 'Voir le projet')}
-          </PanelActionButton>
-        </>
-      }
+      actionItems={actionItems}
     >
       {/* ── Summary header (always visible) ─────────────────── */}
       <div className="border-b border-border/60 bg-card/50 px-4 py-3 @container">

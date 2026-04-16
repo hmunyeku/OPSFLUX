@@ -15,7 +15,7 @@ import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef, DataTableBatchAction, ImportExportConfig } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
-import { TabBar, TabButton } from '@/components/ui/Tabs'
+import { PageNavBar } from '@/components/ui/Tabs'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
@@ -890,17 +890,11 @@ export function AssetRegistryPage() {
               )}
             </>
           </PanelHeader>
-          <TabBar>
-            {TABS.map(({ key, icon, labelKey }) => (
-              <TabButton
-                key={key}
-                active={activeTab === key}
-                onClick={() => setActiveTab(key)}
-                icon={icon}
-                label={t(labelKey)}
-              />
-            ))}
-          </TabBar>
+          <PageNavBar
+            items={TABS.map(({ key, icon, labelKey }) => ({ id: key, icon, label: t(labelKey) }))}
+            activeId={activeTab}
+            onTabChange={(id) => setActiveTab(id as TabKey)}
+          />
           <PanelContent scroll={false}>
             {tabContent[activeTab]}
           </PanelContent>

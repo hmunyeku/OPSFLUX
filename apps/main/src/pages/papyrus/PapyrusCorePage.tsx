@@ -21,7 +21,7 @@ import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
-import { TabBar } from '@/components/ui/Tabs'
+import { PageNavBar } from '@/components/ui/Tabs'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useFilterPersistence } from '@/hooks/useFilterPersistence'
@@ -2038,7 +2038,7 @@ export function ReportEditorPage() {
             {toolbarAction}
           </PanelHeader>
 
-          <TabBar
+          <PageNavBar
             items={TABS}
             activeId={activeTab}
             onTabChange={handleTabChange}

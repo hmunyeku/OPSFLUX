@@ -16,7 +16,7 @@ import { DataTableToolbar } from '@/components/ui/DataTable/Toolbar'
 import { ExportWizard } from '@/components/shared/ExportWizard'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { ConditionBuilder } from '@/components/shared/ConditionBuilder'
-import { TabBar, SubTabBar } from '@/components/ui/Tabs'
+import { PageNavBar, SubTabBar } from '@/components/ui/Tabs'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
@@ -1386,7 +1386,7 @@ export function ConformitePage() {
           {toolbarAction}
         </PanelHeader>
 
-        <TabBar
+        <PageNavBar
           items={tabs.filter((tab) => {
             if (tab.id === 'dashboard') return hasPermission('conformite.record.read')
             if (tab.id === 'verifications') return canVerify

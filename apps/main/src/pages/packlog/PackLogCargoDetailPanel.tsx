@@ -17,7 +17,6 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import {
   DynamicPanelShell,
-  PanelActionButton,
   PanelContentLayout,
   FormSection,
   FormGrid,
@@ -25,6 +24,7 @@ import {
   DetailRow,
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
+import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { TabBar, TabButton } from '@/components/ui/Tabs'
 import { useUIStore } from '@/stores/uiStore'
 import { UserPicker } from '@/components/shared/UserPicker'
@@ -373,6 +373,65 @@ export function CargoDetailPanel({ id }: { id: string }) {
     }
   }, [id, initiateReturn, returnDraft, toast])
 
+  // Derive cargoRequest before actionItems useMemo (cargo may be undefined before early return)
+  const cargoRequest = cargo?.request_id
+    ? cargoRequests.find((request) => request.id === cargo.request_id) ?? null
+    : null
+
+  const actionItems = useMemo<ActionItem[]>(() => {
+    if (!editing) {
+      const items: ActionItem[] = []
+      if (cargoRequest) {
+        items.push({
+          id: 'open-request',
+          label: 'Ouvrir la demande',
+          icon: FileText,
+          priority: 50,
+          onClick: () =>
+            useUIStore.getState().openDynamicPanel({
+              type: 'detail',
+              module: panelModule,
+              id: cargoRequest.id,
+              meta: { subtype: 'cargo-request' },
+            }),
+        })
+      }
+      items.push({
+        id: 'label-pdf',
+        label: 'Etiquette PDF',
+        icon: Printer,
+        loading: labelPdf.isPending,
+        priority: 60,
+        onClick: () => labelPdf.mutate({ id }),
+      })
+      items.push({
+        id: 'edit',
+        label: 'Modifier',
+        icon: Pencil,
+        priority: 80,
+        onClick: startEdit,
+      })
+      return items
+    }
+    return [
+      {
+        id: 'cancel',
+        label: 'Annuler',
+        priority: 40,
+        onClick: () => setEditing(false),
+      },
+      {
+        id: 'save',
+        label: 'Enregistrer',
+        icon: Save,
+        loading: updateCargo.isPending,
+        variant: 'primary',
+        priority: 100,
+        onClick: handleSave,
+      },
+    ]
+  }, [editing, cargoRequest, panelModule, id, labelPdf, startEdit, updateCargo.isPending, handleSave])
+
   if (isLoading || !cargo) {
     return (
       <DynamicPanelShell title="Chargement..." icon={<Package size={14} className="text-primary" />}>
@@ -387,9 +446,6 @@ export function CargoDetailPanel({ id }: { id: string }) {
     ? (manifests?.items ?? []).find((manifest) => manifest.id === cargo.manifest_id)?.reference ?? cargo.manifest_id
     : null
   const volumeLabel = cargo.volume_m3 ? `${cargo.volume_m3.toLocaleString('fr-FR')} m³` : '—'
-  const cargoRequest = cargo.request_id
-    ? cargoRequests.find((request) => request.id === cargo.request_id) ?? null
-    : null
   const cargoRequestStatusLabel = cargoRequest?.status
     ? (cargoRequestStatusLabels[cargoRequest.status] ?? cargoRequest.status)
     : '—'
@@ -407,32 +463,7 @@ export function CargoDetailPanel({ id }: { id: string }) {
 
   return (
     <DynamicPanelShell title={cargo.code} subtitle={cargo.description || 'Colis'} icon={<Package size={14} className="text-primary" />}
-      actions={<>
-        {!editing && cargoRequest && (
-          <PanelActionButton
-            onClick={() => useUIStore.getState().openDynamicPanel({ type: 'detail', module: panelModule, id: cargoRequest.id, meta: { subtype: 'cargo-request' } })}
-            icon={<FileText size={12} />}
-          >
-            Ouvrir la demande
-          </PanelActionButton>
-        )}
-        {!editing && (
-          <PanelActionButton
-            icon={<Printer size={12} />}
-            onClick={() => labelPdf.mutate({ id })}
-            disabled={labelPdf.isPending}
-          >
-            {labelPdf.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Étiquette PDF'}
-          </PanelActionButton>
-        )}
-        {!editing && <PanelActionButton onClick={startEdit} icon={<Pencil size={12} />}>Modifier</PanelActionButton>}
-        {editing && <>
-          <PanelActionButton onClick={() => setEditing(false)}>Annuler</PanelActionButton>
-          <PanelActionButton variant="primary" onClick={handleSave} disabled={updateCargo.isPending} icon={<Save size={12} />}>
-            {updateCargo.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
-          </PanelActionButton>
-        </>}
-      </>}
+      actionItems={actionItems}
     >
       <PanelContentLayout>
         {/* Compact summary header — always visible */}

@@ -2,7 +2,8 @@
  * Tabs — Pajamas-style tab bar + tab button.
  *
  * Centralized tab component for consistent styling across all modules.
- * Mobile-friendly: icons-only on small screens, horizontal scroll.
+ * Mobile-friendly: icons-only on narrow containers (container queries),
+ * horizontal scroll when tabs overflow.
  *
  * Usage:
  *   <TabBar>
@@ -14,6 +15,13 @@
  *   <TabBar
  *     items={[{ id: 'sec', label: 'Securité', icon: Shield }]}
  *     activeId="sec"
+ *     onTabChange={(id) => setTab(id)}
+ *   />
+ *
+ * For page-level navigation (pill style, not underline tabs):
+ *   <PageNavBar
+ *     items={[{ id: 'overview', label: 'Vue d\'ensemble', icon: LayoutDashboard }]}
+ *     activeId="overview"
  *     onTabChange={(id) => setTab(id)}
  *   />
  */
@@ -71,11 +79,10 @@ export function TabBar<T extends string = string>({
         className,
       )}
     >
-      {/* Tabs container — scrolls horizontally on narrow viewports
-          while the rightSlot stays anchored. Scrollbar is hidden via
-          inline arbitrary variants so the bar stays clean (matches the
-          outer .gl-tab-bar rule which already hides its own scrollbar). */}
-      <div className="flex items-center gap-1 min-w-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      {/* Tabs container — scrolls horizontally on narrow containers
+          while the rightSlot stays anchored. @container enables child
+          TabButtons to hide their labels below 380px using @[380px]:inline. */}
+      <div className="@container flex items-center gap-1 min-w-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {items
           ? items
               .filter((t) => !t.hidden)
@@ -130,7 +137,7 @@ export function TabButton({
       )}
     >
       <Icon size={13} className="shrink-0" />
-      <span className="hidden sm:inline">{label}</span>
+      <span className="hidden @[380px]:inline">{label}</span>
       {badge !== undefined && badge !== 0 && (
         <span
           className={cn(
@@ -142,6 +149,71 @@ export function TabButton({
         </span>
       )}
     </button>
+  )
+}
+
+/* ── PageNavBar — pill/segment button nav for page-level tabs ── */
+/**
+ * PageNavBar replaces TabBar in main page content areas.
+ * Renders as a pill/button-group rather than underline tabs.
+ * Labels are hidden below 380px of the container width (container query).
+ */
+
+interface PageNavBarProps<T extends string = string> {
+  items: TabBarItem<T>[]
+  activeId?: T
+  onTabChange?: (id: T) => void
+  className?: string
+  rightSlot?: React.ReactNode
+}
+
+export function PageNavBar<T extends string = string>({
+  items,
+  activeId,
+  onTabChange,
+  className,
+  rightSlot,
+}: PageNavBarProps<T>) {
+  return (
+    <div className={cn('@container gl-page-nav-bar', rightSlot && 'justify-between', className)}>
+      <div className="flex items-center gap-1 min-w-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        {items
+          .filter((t) => !t.hidden)
+          .map((item) => {
+            const Icon = item.icon
+            const isActive = activeId === item.id
+            return (
+              <button
+                key={item.id}
+                onClick={() => onTabChange?.(item.id)}
+                title={item.label}
+                className={cn(
+                  'gl-page-nav-btn',
+                  isActive ? 'gl-page-nav-active' : 'gl-page-nav-inactive',
+                )}
+              >
+                <Icon size={13} className="shrink-0" />
+                <span className="hidden @[380px]:inline">{item.label}</span>
+                {item.badge !== undefined && item.badge !== 0 && (
+                  <span
+                    className={cn(
+                      'gl-tab-badge',
+                      isActive ? 'bg-primary/10 text-primary' : 'bg-accent text-muted-foreground',
+                    )}
+                  >
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+      </div>
+      {rightSlot && (
+        <div className="flex items-center gap-1.5 shrink-0 pl-3">
+          {rightSlot}
+        </div>
+      )}
+    </div>
   )
 }
 

@@ -42,7 +42,7 @@ import { registerPanelRenderer } from '@/components/layout/DetachedPanelRenderer
 import ReactECharts from 'echarts-for-react'
 import { GanttView } from './GanttView'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
-import { TabBar } from '@/components/ui/Tabs'
+import { PageNavBar } from '@/components/ui/Tabs'
 import { buildCells, buildHeaderGroups, getDefaultDateRange } from '@/components/shared/gantt/ganttEngine'
 import type { TimeScale } from '@/components/shared/gantt/ganttEngine'
 import type { GanttSettings } from '@/components/shared/gantt/ganttTypes'
@@ -3485,11 +3485,11 @@ export function PlannerPage() {
             </div>
           )}
 
-          {/* Tab bar — uses the shared `TabBar` component for visual
+          {/* Tab bar — uses the shared `PageNavBar` component for visual
               parity with Tiers / Projets / PaxLog / TravelWiz.
               The rightSlot hosts the dashboard "Modifier" toolbar via
               portal, only when the dashboard tab is active. */}
-          <TabBar
+          <PageNavBar
             items={translatedTabs}
             activeId={activeTab}
             onTabChange={setActiveTab}

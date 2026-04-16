@@ -47,7 +47,7 @@ import { paxlogService } from '@/services/paxlogService'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
-import { TabBar } from '@/components/ui/Tabs'
+import { PageNavBar } from '@/components/ui/Tabs'
 import {
   DynamicPanelShell,
   DynamicPanelField,
@@ -6038,11 +6038,11 @@ export function PaxLogPage() {
             {showCreate && <ToolbarButton icon={Plus} label={createLabel} variant="primary" onClick={handleCreate} />}
           </PanelHeader>
 
-          {/* Tab bar — uses the shared `TabBar` component for visual
+          {/* Tab bar — uses the shared `PageNavBar` component for visual
               parity with Tiers / Projets / Planner / TravelWiz.
               The rightSlot hosts the dashboard "Modifier" toolbar via
               portal, only when the dashboard tab is active. */}
-          <TabBar
+          <PageNavBar
             items={visibleTabs.map((tab) => ({
               id: tab.id,
               label: t(tab.labelKey),

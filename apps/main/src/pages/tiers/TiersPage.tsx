@@ -27,7 +27,7 @@ import { DataTable } from '@/components/ui/DataTable/DataTable'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTablePagination, DataTableFilterDef, ImportExportConfig } from '@/components/ui/DataTable/types'
 import { cn } from '@/lib/utils'
-import { TabBar } from '@/components/ui/Tabs'
+import { PageNavBar } from '@/components/ui/Tabs'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { normalizeNames } from '@/lib/normalize'
 import { validateTierForm, validateTierContactForm, type FormErrors } from '@/lib/formValidation'
@@ -1687,7 +1687,7 @@ export function TiersPage() {
         </PanelHeader>
 
         {/* Tab bar — rightSlot hosts the dashboard "Modifier" button via portal */}
-        <TabBar
+        <PageNavBar
           items={TABS.map((tab) => ({
             ...tab,
             label: t(tab.label),

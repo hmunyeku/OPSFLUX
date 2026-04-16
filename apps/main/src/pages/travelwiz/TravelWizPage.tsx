@@ -20,7 +20,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePageSize } from '@/hooks/usePageSize'
 import { PanelHeader, PanelContent, ToolbarButton } from '@/components/layout/PanelHeader'
-import { TabBar } from '@/components/ui/Tabs'
+import { PageNavBar } from '@/components/ui/Tabs'
 import { useUIStore } from '@/stores/uiStore'
 import {
   DynamicPanelShell,
@@ -1645,7 +1645,7 @@ export function TravelWizPage() {
             {showCreate && canCreate && <ToolbarButton icon={Plus} label={createLabel} variant="primary" onClick={handleCreate} />}
           </PanelHeader>
 
-          <TabBar
+          <PageNavBar
             items={TABS.map((tab) => ({ id: tab.id, icon: tab.icon, label: t(tab.labelKey) }))}
             activeId={activeTab}
             onTabChange={setActiveTab}

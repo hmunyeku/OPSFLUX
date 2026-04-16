@@ -346,6 +346,28 @@
     @apply text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[18px] text-center;
   }
 
+  /* Page-level navigation bar (pill/segment style — not underline tabs).
+     Used on main page areas instead of TabBar. Tabs only inside panels. */
+  .gl-page-nav-bar {
+    @apply flex items-center gap-1 px-2 sm:px-4 py-2 shrink-0 overflow-x-auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .gl-page-nav-bar::-webkit-scrollbar { display: none; }
+  .gl-page-nav-btn {
+    @apply flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium
+           rounded-md transition-colors whitespace-nowrap;
+  }
+  .gl-page-nav-active {
+    @apply bg-primary text-primary-foreground shadow-sm;
+  }
+  .gl-page-nav-inactive {
+    @apply text-muted-foreground;
+  }
+  .gl-page-nav-inactive:hover {
+    @apply bg-accent text-foreground;
+  }
+
   /* Sub-tabs (secondary, smaller variant) */
   .gl-subtab-bar {
     @apply flex items-center gap-0.5 sm:gap-1

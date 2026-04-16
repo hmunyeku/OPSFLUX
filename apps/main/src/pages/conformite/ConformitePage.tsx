@@ -3132,7 +3132,7 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
           <div className="w-px h-4 bg-border/60 mx-1" />
           {/* Action buttons */}
           <button onClick={handleVerify} disabled={verifyRecord.isPending || ((item.attachment_required !== false) && ((item.attachment_count ?? 0) <= 0))} className="gl-button-sm gl-button-confirm disabled:opacity-50 disabled:cursor-not-allowed">
-            {verifyRecord.isPending ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} Verifier
+            {verifyRecord.isPending ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} Vérifier
           </button>
           <button onClick={() => setShowReject(true)} className="gl-button-sm gl-button-danger">
             <X size={11} /> Rejeter

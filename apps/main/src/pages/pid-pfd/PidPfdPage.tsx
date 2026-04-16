@@ -132,34 +132,34 @@ const PID_TYPE_OPTIONS = [
 ]
 
 const EQUIPMENT_TYPE_OPTIONS = [
-  { value: 'vessel', label: 'Capacite' },
-  { value: 'heat_exchanger', label: 'Echangeur' },
+  { value: 'vessel', label: 'Capacité' },
+  { value: 'heat_exchanger', label: 'Échangeur' },
   { value: 'pump', label: 'Pompe' },
   { value: 'compressor', label: 'Compresseur' },
   { value: 'turbine', label: 'Turbine' },
   { value: 'column', label: 'Colonne' },
-  { value: 'reactor', label: 'Reacteur' },
+  { value: 'reactor', label: 'Réacteur' },
   { value: 'tank', label: 'Bac' },
   { value: 'filter', label: 'Filtre' },
   { value: 'valve', label: 'Vanne' },
   { value: 'instrument', label: 'Instrument' },
-  { value: 'mixer', label: 'Melangeur' },
-  { value: 'dryer', label: 'Secheur' },
-  { value: 'boiler', label: 'Chaudiere' },
+  { value: 'mixer', label: 'Mélangeur' },
+  { value: 'dryer', label: 'Sécheur' },
+  { value: 'boiler', label: 'Chaudière' },
   { value: 'furnace', label: 'Four' },
   { value: 'conveyor', label: 'Convoyeur' },
   { value: 'centrifuge', label: 'Centrifugeuse' },
-  { value: 'ejector', label: 'Ejecteur' },
+  { value: 'ejector', label: 'Éjecteur' },
   { value: 'flare', label: 'Torche' },
-  { value: 'separator', label: 'Separateur' },
+  { value: 'separator', label: 'Séparateur' },
   { value: 'pig_launcher', label: 'Lanceur racleur' },
   { value: 'pig_receiver', label: 'Receveur racleur' },
   { value: 'manifold', label: 'Collecteur' },
-  { value: 'wellhead', label: 'Tete de puits' },
-  { value: 'christmas_tree', label: 'Arbre de Noel' },
+  { value: 'wellhead', label: 'Tête de puits' },
+  { value: 'christmas_tree', label: 'Arbre de Noël' },
   { value: 'choke', label: 'Duse' },
-  { value: 'safety_valve', label: 'Soupape securite' },
-  { value: 'control_valve', label: 'Vanne de controle' },
+  { value: 'safety_valve', label: 'Soupape sécurité' },
+  { value: 'control_valve', label: 'Vanne de contrôle' },
   { value: 'other', label: 'Autre' },
 ]
 
@@ -1896,7 +1896,7 @@ function CreateDCSTagPanel() {
         <FormSection title="Mesure" collapsible defaultExpanded={false}>
           <div className="space-y-3 p-3">
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Unite d'ingenierie</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Unité d'ingénierie</label>
               <input className="gl-form-input text-sm w-full" value={form.engineering_unit} onChange={(e) => set('engineering_unit', e.target.value)} placeholder="barg, °C, m3/h..." />
             </div>
             <div className="grid grid-cols-2 gap-3">

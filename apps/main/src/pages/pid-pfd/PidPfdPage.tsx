@@ -105,9 +105,9 @@ const STATUS_COLORS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Brouillon',
   in_review: 'En revue',
-  approved: 'Approuve',
-  issued: 'Emis',
-  superseded: 'Remplace',
+  approved: 'Approuvé',
+  issued: 'Émis',
+  superseded: 'Remplacé',
   cancelled: 'Annulé',
 }
 

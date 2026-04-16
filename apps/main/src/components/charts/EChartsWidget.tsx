@@ -45,16 +45,23 @@ const COLOR_PALETTE = [
 ]
 
 // Semantic colors for known status/weather/category names
+// Keys are lowercased + non-alphanumeric chars replaced by _ (matching getDataColor normalisation)
 const SEMANTIC_COLORS: Record<string, string> = {
-  // Weather
+  // Weather (English + French translated)
   sunny: '#f59e0b', cloudy: '#94a3b8', rainy: '#3b82f6', stormy: '#ef4444',
-  // Generic lifecycle
+  ensoleill_: '#f59e0b', nuageux: '#94a3b8', pluvieux: '#3b82f6', orageux: '#ef4444',
+  // Generic lifecycle (English)
   active: '#22c55e', completed: '#22c55e', done: '#22c55e', arrived: '#22c55e',
   validated: '#22c55e', approved: '#22c55e', valid: '#22c55e',
   planned: '#f59e0b', scheduled: '#f59e0b', todo: '#94a3b8',
   in_progress: '#3b82f6', review: '#8b5cf6', boarding: '#3b82f6', departed: '#06b6d4',
   draft: '#94a3b8', on_hold: '#f97316', suspended: '#d946ef',
   cancelled: '#ef4444', rejected: '#ef4444', expired: '#ef4444', non_compliant: '#ef4444',
+  // Generic lifecycle (French translated)
+  actif: '#22c55e', termin_: '#22c55e', arriv_: '#22c55e', valid_: '#22c55e', approuv_: '#22c55e',
+  planifi_: '#f59e0b', en_cours: '#3b82f6', revue: '#8b5cf6', parti: '#06b6d4',
+  brouillon: '#94a3b8', suspendu: '#d946ef', annul_: '#ef4444', rejet_: '#ef4444',
+  expir_: '#ef4444', non_conforme: '#ef4444', en_attente: '#f97316',
   // ADS statuses
   submitted: '#6366f1', pending_validation: '#8b5cf6',
   pending_compliance: '#f97316', pending_project_review: '#a855f7',

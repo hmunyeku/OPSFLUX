@@ -265,6 +265,12 @@ PREDEFINED_WIDGETS: dict[str, dict[str, Any]] = {
         "description": "Formation, certification, habilitation, médical — valides vs expirés",
         "source": "conformite",
         "roles": ["RESPONSABLE_CONFORMITE", "OPERATEUR_CONFORMITE", "CHSE"],
+        "default_config": {
+            "chart_type": "bar",
+            "x_field": "name",
+            "y_fields": ["valid", "expired"],
+            "stacked": True,
+        },
     },
     # ── Tiers module widgets ──
     "tiers_overview": {

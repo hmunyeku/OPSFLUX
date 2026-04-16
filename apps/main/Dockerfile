@@ -7,6 +7,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
 
+# Cache-buster: change BUILD_ID in docker-compose.yml to force a fresh build
+# (invalidates the COPY layer cache so Vite always recompiles from latest source)
+ARG BUILD_ID=1
+
 # Copy source and build
 COPY . .
 ARG VITE_API_URL=https://api.opsflux.io

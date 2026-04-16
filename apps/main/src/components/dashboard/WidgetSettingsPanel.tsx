@@ -38,7 +38,7 @@ export function WidgetSettingsPanel({
   const handleDelete = async () => {
     const ok = await confirm({
       title: 'Supprimer le widget ?',
-      message: `Le widget "${widget.title}" sera retire du tableau de bord.`,
+      message: `Le widget "${widget.title}" sera retiré du tableau de bord.`,
       confirmLabel: 'Supprimer',
       variant: 'danger',
     })

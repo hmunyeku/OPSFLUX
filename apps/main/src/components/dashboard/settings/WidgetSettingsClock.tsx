@@ -9,12 +9,12 @@ import {
 } from '@/components/layout/DynamicPanel'
 
 const MODE_OPTIONS = [
-  { value: 'digital', label: 'Numerique' },
+  { value: 'digital', label: 'Numérique' },
   { value: 'analog', label: 'Analogique' },
 ]
 
 const LOCALE_OPTIONS = [
-  { value: 'fr', label: 'Francais' },
+  { value: 'fr', label: 'Français' },
   { value: 'en', label: 'English' },
 ]
 

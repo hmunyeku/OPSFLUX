@@ -56,11 +56,11 @@ export function WidgetSettingsChart({ config, onChange }: WidgetSettingsChartPro
           className={panelInputClass}
           value={yFields}
           onChange={(e) => onChange({ y_fields: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
-          placeholder="ex: count, total (separes par virgule)"
+          placeholder="ex: count, total (séparés par virgule)"
         />
-        <p className="text-[10px] text-muted-foreground mt-1">Separer par virgule pour plusieurs series</p>
+        <p className="text-[10px] text-muted-foreground mt-1">Séparer par virgule pour plusieurs séries</p>
       </DynamicPanelField>
-      <DynamicPanelField label="Legende">
+      <DynamicPanelField label="Légende">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
@@ -68,10 +68,10 @@ export function WidgetSettingsChart({ config, onChange }: WidgetSettingsChartPro
             checked={config.show_legend !== false}
             onChange={(e) => onChange({ show_legend: e.target.checked })}
           />
-          <span className="text-sm text-foreground">Afficher la legende</span>
+          <span className="text-sm text-foreground">Afficher la légende</span>
         </label>
       </DynamicPanelField>
-      <DynamicPanelField label="Filtrage croise">
+      <DynamicPanelField label="Filtrage croisé">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
@@ -79,7 +79,7 @@ export function WidgetSettingsChart({ config, onChange }: WidgetSettingsChartPro
             checked={config.cross_filter !== false}
             onChange={(e) => onChange({ cross_filter: e.target.checked })}
           />
-          <span className="text-xs text-foreground">Clic sur element = filtre global</span>
+          <span className="text-xs text-foreground">Clic sur élément = filtre global</span>
         </label>
       </DynamicPanelField>
     </FormSection>

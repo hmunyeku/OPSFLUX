@@ -247,7 +247,7 @@ async def get_pid_workflow_state(
     history_rows = await db.execute(
         text(
             "SELECT wt.from_state, wt.to_state, wt.comment, wt.created_at, "
-            "COALESCE(u.full_name, u.email, 'Systeme') AS actor_name "
+            "COALESCE(u.full_name, u.email, 'Système') AS actor_name "
             "FROM workflow_transitions wt "
             "LEFT JOIN users u ON u.id = wt.actor_id "
             "WHERE wt.instance_id = :iid "

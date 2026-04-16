@@ -203,7 +203,7 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
               <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full text-xs border border-border rounded px-2 py-1 bg-background">
                 <option value="valid">Valide</option>
                 <option value="pending">En attente</option>
-                <option value="expired">Expire</option>
+                <option value="expired">Expiré</option>
               </select>
             </div>
             <div>

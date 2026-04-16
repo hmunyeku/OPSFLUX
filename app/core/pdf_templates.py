@@ -235,8 +235,8 @@ def _build_invalid_template_html(*, title: str, issues: list[dict[str, str]]) ->
 <body>
   <div class="box">
     <h1>{title}</h1>
-    <p>Le modele PDF publie contient des erreurs bloquantes. Le document d'origine n'a pas ete execute comme template libre.</p>
-    <p>Diagnostics:</p>
+    <p>Le modèle PDF publié contient des erreurs bloquantes. Le document d'origine n'a pas été exécuté comme template libre.</p>
+    <p>Diagnostics :</p>
     <ul>{items or '<li>Aucun detail disponible.</li>'}</ul>
   </div>
 </body>

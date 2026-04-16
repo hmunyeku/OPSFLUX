@@ -67,7 +67,7 @@ function CaptainLogin({ onLogin }: { onLogin: (voyageId: string, captainName: st
       const result = await auth.mutateAsync(code)
       onLogin(result.voyage_id, result.captain_name)
     } catch {
-      setError('Code invalide ou expire')
+      setError('Code invalide ou expiré')
     }
   }, [code, auth, onLogin])
 

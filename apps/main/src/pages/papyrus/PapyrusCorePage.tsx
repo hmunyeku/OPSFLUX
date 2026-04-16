@@ -1332,7 +1332,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
               <Loader2 size={14} className="animate-spin text-muted-foreground" />
             </div>
           ) : !revisions || revisions.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-2">Aucune revision enregistree.</p>
+            <p className="text-xs text-muted-foreground py-2">Aucune révision enregistrée.</p>
           ) : (
             <div className="space-y-2">
               {/* Compare button */}
@@ -1980,7 +1980,7 @@ export function ReportEditorPage() {
                       <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Code</th>
                       <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Nom</th>
                       <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Discipline</th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Schema de revision</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Schéma de révision</th>
                       <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Nomenclature</th>
                       <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Actif</th>
                     </tr>
@@ -2280,7 +2280,7 @@ function CreateDocTypePanel() {
                   <DynamicPanelField label="Pattern de nomenclature" required span="full">
                     <input type="text" required value={form.nomenclature_pattern} onChange={(e) => setForm(f => ({ ...f, nomenclature_pattern: e.target.value }))} className={panelInputClass} placeholder="{ENTITY}-{DOCTYPE}-{SEQ:4}" />
                   </DynamicPanelField>
-                  <DynamicPanelField label="Schema de revision">
+                  <DynamicPanelField label="Schéma de révision">
                     <select value={form.revision_scheme} onChange={(e) => setForm(f => ({ ...f, revision_scheme: e.target.value as 'alpha' | 'numeric' | 'semver' }))} className={panelInputClass}>
                       <option value="alpha">Alphabetique (A, B, C...)</option>
                       <option value="numeric">Numerique (1, 2, 3...)</option>
@@ -2499,7 +2499,7 @@ function DocTypeDetailPanel({ id }: { id: string }) {
             ) : (
               <ReadOnlyRow label="Pattern" value={docType.nomenclature_pattern} />
             )}
-            <ReadOnlyRow label="Schema de revision" value={docType.revision_scheme} />
+            <ReadOnlyRow label="Schéma de révision" value={docType.revision_scheme} />
             <ReadOnlyRow label="Langue par défaut" value={docType.default_language} />
             <ReadOnlyRow label="Actif" value={docType.is_active ? 'Oui' : 'Non'} />
           </FormGrid>

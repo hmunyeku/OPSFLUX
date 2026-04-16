@@ -102,7 +102,7 @@ function CategoryBreakdown({ data }: { data: ComplianceDashboardKPIs['by_categor
       {/* Legend */}
       <div className="flex items-center gap-4 pt-1 text-[10px] text-muted-foreground">
         <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> Valide</span>
-        <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-red-500" /> Expire</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-red-500" /> Expiré</span>
         <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-amber-400" /> En attente</span>
       </div>
     </div>

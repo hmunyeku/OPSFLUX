@@ -493,7 +493,7 @@ function PIDDetailPanel({ id }: { id: string }) {
                   }
                 />
                 <ReadOnlyRow label="Statut" value={<StatusBadge status={doc.status} />} />
-                <ReadOnlyRow label="Revision" value={<span className="font-mono text-xs">{doc.revision}</span>} />
+                <ReadOnlyRow label="Révision" value={<span className="font-mono text-xs">{doc.revision}</span>} />
               </DetailFieldGrid>
             </FormSection>
 
@@ -602,7 +602,7 @@ function PIDDetailPanel({ id }: { id: string }) {
               ))}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground">Aucune revision enregistree.</p>
+            <p className="text-xs text-muted-foreground">Aucune révision enregistrée.</p>
           )}
         </FormSection>
 
@@ -1234,7 +1234,7 @@ export function PidPfdPage() {
                 number: 'Numéro',
                 title: 'Titre',
                 pid_type: 'Type',
-                revision: 'Revision',
+                revision: 'Révision',
                 status: 'Statut',
                 sheet_format: 'Format',
                 equipment_count: 'Equipements',

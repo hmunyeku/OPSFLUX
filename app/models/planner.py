@@ -28,7 +28,7 @@ from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKe
 # ─── Planner Activities ──────────────────────────────────────────────────────
 
 class PlannerActivity(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
-    """Activite planifiee — projet, workover, drilling, maintenance, etc."""
+    """Activité planifiée — projet, workover, drilling, maintenance, etc."""
     __tablename__ = "planner_activities"
     __table_args__ = (
         Index("idx_planner_act_entity", "entity_id"),
@@ -155,7 +155,7 @@ class PlannerActivity(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base
 # ─── Planner Conflicts ──────────────────────────────────────────────────────
 
 class PlannerConflict(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
-    """Conflit de capacite detecte sur un site a une date donnee."""
+    """Conflit de capacité détecté sur un site à une date donnée."""
     __tablename__ = "planner_conflicts"
     __table_args__ = (
         Index("idx_planner_conf_entity", "entity_id"),

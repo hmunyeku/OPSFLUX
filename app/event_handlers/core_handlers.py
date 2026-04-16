@@ -261,7 +261,7 @@ async def on_workflow_transition(event: OpsFluxEvent) -> None:
                             user_id=UUID(str(requester_id)),
                             entity_id=UUID(str(entity_id)),
                             title=f"{workflow_name}: {from_state} -> {to_state}",
-                            body=f"Votre demande a ete deplacee vers l'etat '{to_state}'.",
+                            body=f"Votre demande a été déplacée vers l'état '{to_state}'.",
                             category="workflow",
                             link=f"/workflows/{instance_id}",
                         )

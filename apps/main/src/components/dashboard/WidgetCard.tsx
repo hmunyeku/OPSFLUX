@@ -104,6 +104,19 @@ const LABEL_FR: Record<string, string> = {
   true: 'Oui', false: 'Non', yes: 'Oui', no: 'Non', oui: 'Oui', non: 'Non',
   male: 'Homme', female: 'Femme',
   internal: 'Interne', external: 'Externe',
+  // KPI detail keys (project/task/compliance context)
+  total: 'Total', avg_progress: 'Avancement moy.', total_budget: 'Budget total',
+  tasks_in_progress: 'Tâches en cours', tasks_overdue: 'Tâches en retard',
+  tasks_critical: 'Tâches critiques', tasks_done: 'Tâches terminées',
+  compliant: 'Conformes', non_compliant_count: 'Non conformes',
+  expiring_soon: 'Expirant bientôt', total_active: 'Actifs total',
+  overdue: 'En retard', on_time: 'À l\'heure', ahead: 'En avance',
+  pending_count: 'En attente', open_count: 'Ouverts',
+  mfa_enabled: 'MFA actif', mfa_disabled: 'MFA inactif',
+  total_users: 'Utilisateurs', active_users: 'Actifs',
+  helice: 'Hélicoptère', bateau: 'Bateau', vehicule: 'Véhicule',
+  helicopter: 'Hélicoptère', boat: 'Bateau', vehicle: 'Véhicule',
+  offshore: 'Offshore', onshore: 'Onshore',
 }
 
 /** Translate a raw label to French if a mapping exists */
@@ -462,6 +475,15 @@ const KPI_ICON_COLORS: Record<string, { bg: string; fg: string }> = {
 // Semantic icon map — widget_id → Lucide icon
 // Used so each KPI shows a meaningful icon instead of generic Gauge
 const WIDGET_ICON_MAP: Record<string, React.ElementType> = {
+  // Home / cross-module KPIs
+  pax_on_site: Users,
+  kpi_fleet: Plane,
+  pickup_progress: Zap,
+  weather_sites: Activity,
+  fleet_map: MapPin,
+  // Alerts / Signals
+  alerts_urgent: Bell,
+  signalements_actifs: AlertCircle,
   // Planner
   planner_overview: Calendar,
   planner_conflicts_kpi: AlertTriangle,
@@ -474,8 +496,11 @@ const WIDGET_ICON_MAP: Record<string, React.ElementType> = {
   // Compliance / Conformité
   compliance_expiry: ShieldAlert,
   compliance_kpi: Shield,
+  compliance_rate: CheckCircle2,
+  conformite_kpis: Shield,
   conformite_urgency: ShieldAlert,
   conformite_by_status: BarChart3,
+  conformite_by_category: BarChart3,
   conformite_matrix: Layers,
   conformite_trend: Activity,
   // PaxLog / ADS
@@ -483,37 +508,63 @@ const WIDGET_ICON_MAP: Record<string, React.ElementType> = {
   ads_pending: Clock,
   my_ads: UserCheck,
   trips_today: Plane,
+  paxlog_compliance_rate: Shield,
+  paxlog_incidents: AlertTriangle,
+  paxlog_ads_by_status: BarChart3,
+  paxlog_expiring_credentials: ShieldAlert,
   // PackLog / Cargo
   cargo_pending: Package,
+  packlog_overview: Package,
   packlog_requests: Package,
   packlog_cargo: Package,
   packlog_requests_by_status: BarChart3,
   packlog_cargo_by_status: BarChart3,
+  packlog_tracking: Activity,
+  packlog_alerts: Bell,
+  packlog_catalog_overview: Database,
   // Projects
   projets_kpis: Briefcase,
   project_status: Briefcase,
   projets_deadlines: Calendar,
   projets_top_volume: BarChart3,
+  projets_weather: Activity,
   // Assets
   assets_overview: Database,
   assets_kpi: Database,
+  assets_equipment_by_class: BarChart3,
+  assets_by_status: BarChart3,
+  assets_sites_by_type: BarChart3,
+  assets_map: MapPin,
   // Tiers / Contacts
+  tiers_overview: Building2,
   tiers_kpi: Building2,
+  tiers_by_type: PieChart,
+  tiers_recent: Building2,
   contacts_kpi: Building2,
-  // Alerts / Signals
-  alerts_urgent: Bell,
-  signalements_actifs: AlertCircle,
+  // Users
+  users_overview: Users,
+  users_mfa_stats: Shield,
+  users_by_role: BarChart3,
+  users_by_group: BarChart3,
+  users_recent_activity: Activity,
+  users_orphans: AlertTriangle,
+  // Support
+  support_overview: AlertCircle,
+  support_by_status: BarChart3,
+  support_by_priority: BarChart3,
+  support_by_type: PieChart,
+  support_trend: Activity,
+  support_tickets_recent: AlertCircle,
   // Papyrus docs
   papyrus_overview: FileText,
   papyrus_recent_documents: FileText,
   papyrus_by_status: BarChart3,
   papyrus_by_type: PieChart,
   papyrus_forms_overview: ListChecks,
-  // Support
-  support_overview: AlertCircle,
-  support_by_priority: BarChart3,
-  // Compliance rate
-  compliance_rate: CheckCircle2,
+  // Workflow
+  workflow_overview: Zap,
+  workflow_by_definition: BarChart3,
+  workflow_pending: Clock,
 }
 
 function KPIWidget({
@@ -636,9 +687,20 @@ function KPIWidget({
         )}>
           {Object.entries(details!).slice(0, 6).map(([k, v]) => {
             const label = tLabel(k)
-            const val = String(v)
-            const isGood = /compliant|active|done|valid|completed/.test(k)
-            const isBad = /overdue|expired|critical|cancelled/.test(k)
+            const n = typeof v === 'number' ? v : parseFloat(String(v))
+            // Smart formatting based on key semantics
+            let val: string
+            if (/progress|rate|pct|percent/i.test(k)) {
+              val = `${isNaN(n) ? 0 : n.toFixed(1)}%`
+            } else if (/budget|amount|montant/i.test(k)) {
+              val = n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(0)}k` : String(Math.round(n))
+            } else if (typeof v === 'number' && !Number.isInteger(v)) {
+              val = n.toFixed(1)
+            } else {
+              val = String(v)
+            }
+            const isGood = /compliant|active|done|valid|completed|on_time|ahead/i.test(k)
+            const isBad = /overdue|expired|critical|cancelled|non_compliant|expiring/i.test(k)
             const valColor = isGood
               ? 'text-emerald-600 dark:text-emerald-400'
               : isBad ? 'text-red-500 dark:text-red-400'

@@ -1212,7 +1212,7 @@ export function ConformitePage() {
     }},
     { accessorKey: 'description', header: t('conformite.columns.description'), cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.description || '--'}</span> },
     { id: 'actions', header: '', size: 50, cell: ({ row }) => canDeleteRule ? (
-      <button onClick={(e) => { e.stopPropagation(); deleteRule.mutate({ id: row.original.id }) }} className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+      <button onClick={(e) => { e.stopPropagation(); deleteRule.mutate({ id: row.original.id }) }} className="gl-button-sm gl-button-default opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive">
         <Trash2 size={12} />
       </button>
     ) : null},
@@ -1663,14 +1663,14 @@ function RulesMatrixView({
             <div className="flex items-center gap-0.5 bg-accent rounded-lg p-0.5">
               <button
                 onClick={() => setViewMode('matrix')}
-                className={cn('p-1.5 rounded-md transition-colors', viewMode === 'matrix' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
+                className={cn('gl-button-sm gl-button-default', viewMode === 'matrix' ? 'shadow-sm' : 'opacity-60 hover:opacity-100')}
                 title={t('conformite.rules.view.matrix')}
               >
                 <Grid3X3 size={14} />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={cn('p-1.5 rounded-md transition-colors', viewMode === 'list' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
+                className={cn('gl-button-sm gl-button-default', viewMode === 'list' ? 'shadow-sm' : 'opacity-60 hover:opacity-100')}
                 title={t('conformite.rules.view.list')}
               >
                 <List size={14} />
@@ -1678,7 +1678,7 @@ function RulesMatrixView({
             </div>
             <button
               onClick={() => setExportOpen(true)}
-              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              className="gl-button-sm gl-button-default"
               title={t('conformite.rules.export')}
             >
               <Download size={14} />
@@ -2970,8 +2970,8 @@ function VerificationsTab() {
         }
         return (
           <div className="flex items-center gap-1">
-            <button onClick={(e) => { e.stopPropagation(); if (!proofMissing) handleVerify(item.record_type, item.id) }} disabled={proofMissing} className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-40 disabled:cursor-not-allowed" title={proofMissing ? t('conformite.verifications.proof_required_before_verify') : 'Vérifier'}><Check size={13} /></button>
-            <button onClick={(e) => { e.stopPropagation(); setRejectingId(item.id) }} className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" title="Rejeter"><X size={13} /></button>
+            <button onClick={(e) => { e.stopPropagation(); if (!proofMissing) handleVerify(item.record_type, item.id) }} disabled={proofMissing} className="gl-button-sm gl-button-default text-green-600 hover:text-green-700 disabled:opacity-40" title={proofMissing ? t('conformite.verifications.proof_required_before_verify') : 'Vérifier'}><Check size={12} /></button>
+            <button onClick={(e) => { e.stopPropagation(); setRejectingId(item.id) }} className="gl-button-sm gl-button-default text-destructive hover:text-destructive" title="Rejeter"><X size={12} /></button>
           </div>
         )
       },
@@ -3123,10 +3123,10 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
         <div className="flex items-center gap-1">
           {/* Navigation prev/next */}
           <span className="text-[10px] text-muted-foreground tabular-nums mr-1">{currentIdx + 1}/{items.length}</span>
-          <button onClick={() => goTo(currentIdx - 1)} disabled={currentIdx <= 0} className="p-1 rounded hover:bg-muted disabled:opacity-30 text-muted-foreground">
+          <button onClick={() => goTo(currentIdx - 1)} disabled={currentIdx <= 0} className="gl-button-sm gl-button-default disabled:opacity-30">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
-          <button onClick={() => goTo(currentIdx + 1)} disabled={currentIdx >= items.length - 1} className="p-1 rounded hover:bg-muted disabled:opacity-30 text-muted-foreground">
+          <button onClick={() => goTo(currentIdx + 1)} disabled={currentIdx >= items.length - 1} className="gl-button-sm gl-button-default disabled:opacity-30">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
           </button>
           <div className="w-px h-4 bg-border/60 mx-1" />

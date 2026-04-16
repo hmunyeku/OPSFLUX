@@ -129,12 +129,12 @@ export function AssetEntityChangeLog({
     <div className="py-2 px-1">
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 size={20} className="animate-spin text-muted-foreground" />
+          <Loader2 size={16} className="animate-spin text-muted-foreground" />
         </div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
-          <History size={28} className="opacity-30" />
-          <p className="text-sm">{t('assets.no_changes')}</p>
+        <div className="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground/50">
+          <History size={32} strokeWidth={1.5} />
+          <span className="text-sm">{t('assets.no_changes')}</span>
         </div>
       ) : (
         <>

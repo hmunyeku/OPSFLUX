@@ -502,14 +502,9 @@ function _GanttTabLegacy() { // eslint-disable-line
           <Loader2 size={16} className="animate-spin text-muted-foreground" />
         </div>
       ) : assets.length === 0 ? (
-        <div className="flex flex-col items-center justify-center flex-1 text-center px-6">
-          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-            <GanttChart size={24} className="text-primary" />
-          </div>
-          <h3 className="text-base font-semibold text-foreground mb-1">Aucune activité</h3>
-          <p className="text-sm text-muted-foreground max-w-sm">
-            Aucune activité trouvée pour cette période. Ajustez les filtres ou la plage de dates.
-          </p>
+        <div className="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground/50 flex-1">
+          <GanttChart size={32} strokeWidth={1.5} />
+          <span className="text-sm">Aucune activité trouvée pour cette période. Ajustez les filtres ou la plage de dates.</span>
         </div>
       ) : (
         <div ref={scrollRef} className="flex-1 overflow-auto relative">
@@ -2438,18 +2433,11 @@ function CapacityTab({
             <Loader2 size={16} className="animate-spin text-muted-foreground" />
           </div>
         ) : heatmapDays.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center px-6">
-            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-              <BarChart3 size={24} className="text-primary" />
-            </div>
-            <h3 className="text-base font-semibold text-foreground mb-1">
+          <div className="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground/50 min-h-[300px]">
+            <BarChart3 size={32} strokeWidth={1.5} />
+            <span className="text-sm">
               {assetId ? t('planner.capacity.empty_title') : t('planner.capacity.empty_idle_title')}
-            </h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              {assetId
-                ? t('planner.capacity.empty_description')
-                : t('planner.capacity.empty_idle_description')}
-            </p>
+            </span>
           </div>
         ) : (
           <div className="space-y-6 p-4">
@@ -2820,15 +2808,12 @@ function ScenariosTab({
         {isLoading ? (
           <div className="flex items-center justify-center py-12"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
         ) : scenarios.length === 0 ? (
-          <div className="flex items-center justify-center py-12 text-center">
-            <div>
-              <FlaskConical size={32} className="mx-auto mb-2 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">Aucun scénario</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Créez un scénario what-if pour tester l'impact d'activités proposées.</p>
-              <button onClick={() => setShowCreate(true)} className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
-                <Plus size={12} /> Nouveau scénario
-              </button>
-            </div>
+          <div className="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground/50">
+            <FlaskConical size={32} strokeWidth={1.5} />
+            <span className="text-sm">Aucun scénario</span>
+            <button onClick={() => setShowCreate(true)} className="gl-button gl-button-default inline-flex items-center gap-1.5 text-xs mt-1">
+              <Plus size={12} /> Nouveau scénario
+            </button>
           </div>
         ) : (
           <div className="divide-y divide-border">

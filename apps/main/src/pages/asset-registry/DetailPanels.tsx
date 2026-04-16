@@ -263,7 +263,7 @@ export function FieldDetailPanel({ id }: { id: string }) {
     <DynamicPanelShell
       title={`${field.code} — ${field.name}`}
       subtitle={t('assets.field')}
-      icon={<MapPin size={16} />}
+      icon={<MapPin size={14} />}
       headerRight={
         canDelete ? (
           <DangerConfirmButton confirmLabel={t('common.confirm_delete')} onConfirm={handleDelete}>{t('common.delete')}</DangerConfirmButton>
@@ -453,7 +453,7 @@ export function SiteDetailPanel({ id }: { id: string }) {
     <DynamicPanelShell
       title={`${site.code} — ${site.name}`}
       subtitle={site.site_type.replace(/_/g, ' ')}
-      icon={<Landmark size={16} />}
+      icon={<Landmark size={14} />}
       headerRight={
         canDelete ? (
           <DangerConfirmButton confirmLabel={t('common.confirm_delete')} onConfirm={handleDelete}>{t('common.delete')}</DangerConfirmButton>
@@ -678,7 +678,7 @@ export function InstallationDetailPanel({ id }: { id: string }) {
     <DynamicPanelShell
       title={`${inst.code} — ${inst.name}`}
       subtitle={inst.installation_type.replace(/_/g, ' ')}
-      icon={<Factory size={16} />}
+      icon={<Factory size={14} />}
       headerRight={
         canDelete ? (
           <DangerConfirmButton confirmLabel={t('common.confirm_delete')} onConfirm={handleDelete}>{t('common.delete')}</DangerConfirmButton>
@@ -971,7 +971,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
     <DynamicPanelShell
       title={equip.tag_number}
       subtitle={`${equip.name} — ${equip.equipment_class.replace(/_/g, ' ')}`}
-      icon={<Wrench size={16} />}
+      icon={<Wrench size={14} />}
       headerRight={
         canDelete ? (
           <DangerConfirmButton confirmLabel={t('common.confirm_delete')} onConfirm={handleDelete}>{t('common.delete')}</DangerConfirmButton>
@@ -1248,7 +1248,7 @@ export function PipelineDetailPanel({ id }: { id: string }) {
     <DynamicPanelShell
       title={pipe.pipeline_id}
       subtitle={pipe.name}
-      icon={<Ship size={16} />}
+      icon={<Ship size={14} />}
       headerRight={
         canDelete ? (
           <DangerConfirmButton confirmLabel={t('common.confirm_delete')} onConfirm={handleDelete}>{t('common.delete')}</DangerConfirmButton>

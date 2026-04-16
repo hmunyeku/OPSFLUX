@@ -988,7 +988,7 @@ const GANTT_STATUS_COLORS: Record<string, string> = {
 function GanttWidget({ data }: { data: unknown[] }) {
   const activities = (data as Record<string, unknown>[])
     .filter((a) => a.start_date || a.end_date)
-    .slice(0, 20)
+    .slice(0, 14)
 
   const isDark = document.documentElement.classList.contains('dark')
 
@@ -1052,7 +1052,7 @@ function GanttWidget({ data }: { data: unknown[] }) {
         textStyle: { color: isDark ? '#e2e8f0' : '#1e293b', fontSize: 12 },
         extraCssText: 'box-shadow:0 4px 16px rgba(0,0,0,0.12);border-radius:8px;padding:10px 12px',
       },
-      grid: { top: 4, right: 12, bottom: 28, left: 0, containLabel: true },
+      grid: { top: 4, right: 10, bottom: 22, left: 0, containLabel: true },
       xAxis: {
         type: 'time' as const,
         min: minDate,
@@ -1080,17 +1080,18 @@ function GanttWidget({ data }: { data: unknown[] }) {
         type: 'category' as const,
         data: categories,
         axisLabel: {
-          fontSize: 10,
+          fontSize: 9,
           color: textColor,
-          width: 115,
+          width: 110,
           overflow: 'truncate' as const,
           rich: {},
+          lineHeight: 14,
         },
         axisTick: { show: false },
         axisLine: { show: false },
         splitLine: {
           show: true,
-          lineStyle: { color: gridColor, type: 'dashed' as const, width: 1 },
+          lineStyle: { color: gridColor, type: 'solid' as const, width: 1, opacity: 0.6 },
         },
       },
       series: [
@@ -1114,36 +1115,54 @@ function GanttWidget({ data }: { data: unknown[] }) {
             const startCoord = api.coord([start, catIdx])
             const endCoord = api.coord([end, catIdx])
             const cellH = Math.abs(api.size([0, 1])[1])
-            const barH = Math.min(16, Math.max(8, cellH * 0.52))
+            const barH = Math.min(10, Math.max(5, cellH * 0.38))
             const x = Math.min(startCoord[0], endCoord[0])
             const totalW = Math.max(4, Math.abs(endCoord[0] - startCoord[0]))
             const progressW = Math.max(0, totalW * progress)
             const y = startCoord[1] - barH / 2
             const style = api.style() as Record<string, unknown>
             const barColor = style.fill as string || '#3b82f6'
+            const pct = Math.round(progress * 100)
 
             return {
               type: 'group',
               children: [
-                // Background track
+                // Background track (subtle, full width)
                 {
                   type: 'rect',
-                  shape: { x, y, width: totalW, height: barH, r: 4 },
-                  style: { fill: barColor, opacity: 0.22 },
+                  shape: { x, y, width: totalW, height: barH, r: 3 },
+                  style: { fill: barColor, opacity: 0.18 },
                   z2: 1,
                 },
                 // Progress fill
-                ...(progress > 0 ? [{
-                  type: 'rect',
-                  shape: { x, y: y + 1, width: Math.max(barH, progressW), height: barH - 2, r: 3 },
-                  style: { fill: barColor, opacity: 0.9 },
-                  z2: 2,
-                }] : [
-                  // No progress: full opaque bar
+                ...(progress > 0 ? [
                   {
                     type: 'rect',
-                    shape: { x, y, width: totalW, height: barH, r: 4 },
-                    style: { fill: barColor, opacity: 0.75 },
+                    shape: { x, y: y + 0.5, width: Math.max(barH * 1.2, progressW), height: barH - 1, r: 2.5 },
+                    style: { fill: barColor, opacity: 0.88 },
+                    z2: 2,
+                  },
+                  // Progress % label (only when bar is wide enough)
+                  ...(totalW > 38 && pct > 0 ? [{
+                    type: 'text' as const,
+                    style: {
+                      text: `${pct}%`,
+                      x: x + Math.min(progressW, totalW) - 2,
+                      y: startCoord[1],
+                      textAlign: 'right' as const,
+                      textVerticalAlign: 'middle' as const,
+                      fontSize: 6.5,
+                      fill: '#fff',
+                      fontWeight: 'bold' as const,
+                    },
+                    z2: 3,
+                  }] : []),
+                ] : [
+                  // No progress: full opaque pill
+                  {
+                    type: 'rect',
+                    shape: { x, y: y + 0.5, width: totalW, height: barH - 1, r: 2.5 },
+                    style: { fill: barColor, opacity: 0.72 },
                     z2: 2,
                   },
                 ]),
@@ -1192,16 +1211,16 @@ function GanttWidget({ data }: { data: unknown[] }) {
   return (
     <div className="flex flex-col h-full">
       <ReactECharts option={option} style={{ height: '100%', width: '100%' }} opts={{ renderer: 'svg' }} />
-      {/* Status legend */}
-      <div className="flex items-center gap-3 flex-wrap px-1 pb-0.5 shrink-0">
-        {([['in_progress', 'En cours'], ['completed', 'Terminé'], ['planned', 'Planifié'], ['cancelled', 'Annulé']] as [string, string][]).map(([k, l]) => (
-          <span key={k} className="flex items-center gap-1 text-[9.5px] text-muted-foreground">
-            <span className="inline-block h-2 w-3 rounded-sm" style={{ backgroundColor: GANTT_STATUS_COLORS[k] || '#94a3b8', opacity: 0.85 }} />
+      {/* Status legend — ultra-compact */}
+      <div className="flex items-center gap-2 flex-wrap px-1 pb-0.5 shrink-0 border-t border-border/40 pt-0.5 mt-0.5">
+        {([['in_progress', 'En cours'], ['completed', 'Terminé'], ['planned', 'Planifié'], ['draft', 'Brouillon']] as [string, string][]).map(([k, l]) => (
+          <span key={k} className="flex items-center gap-1 text-[8.5px] text-muted-foreground/70">
+            <span className="inline-block h-1.5 w-2.5 rounded-[2px]" style={{ backgroundColor: GANTT_STATUS_COLORS[k] || '#94a3b8', opacity: 0.82 }} />
             {l}
           </span>
         ))}
-        <span className="flex items-center gap-1 text-[9.5px] text-red-500 ml-auto">
-          <span className="inline-block h-2 w-0.5 bg-red-500" />Aujourd'hui
+        <span className="flex items-center gap-1 text-[8.5px] text-red-400/80 ml-auto">
+          <span className="inline-block h-2.5 w-px bg-red-400" />Auj.
         </span>
       </div>
     </div>

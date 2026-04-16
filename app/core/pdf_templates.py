@@ -1912,323 +1912,307 @@ _VOYAGE_CARGO_MANIFEST_BODY_EN = """\
 </html>"""
 
 _CARGO_LT_BODY_FR = """\
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="utf-8"/></head>
+<body>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 9pt; color: #111; }
-  .doc { width: 100%; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9pt; color: #000; background: #fff; }
 
-  /* ── Header band ── */
-  .header-band { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 10px; }
-  .header-left { display: flex; align-items: center; gap: 12px; }
-  .logo-placeholder { width: 48px; height: 48px; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 7pt; color: #999; text-align: center; }
-  .header-title-block {}
-  .header-title { font-size: 14pt; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #111; }
-  .header-org { font-size: 8pt; color: #555; margin-top: 2px; }
-  .header-right { text-align: right; display: flex; gap: 14px; align-items: flex-start; }
-  .header-ref { text-align: right; }
-  .header-ref .lbl { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.10em; color: #666; }
-  .header-ref .val { font-size: 12pt; font-weight: 700; color: #111; margin-top: 1px; }
-  .header-date { font-size: 8pt; color: #333; margin-top: 2px; }
-  .header-qr { width: 58px; }
-  .header-qr img { width: 54px; height: 54px; }
-  .header-qr .qr-lbl { font-size: 6pt; color: #666; text-align: center; margin-top: 2px; }
+  /* ── Top bar ── */
+  .top-bar {
+    display: flex; align-items: stretch;
+    border-bottom: 3pt solid #000; margin-bottom: 0;
+  }
+  .brand-block {
+    background: #000; color: #fff; padding: 5mm 6mm;
+    display: flex; flex-direction: column; justify-content: center;
+    min-width: 55mm;
+  }
+  .brand-block .company { font-size: 18pt; font-weight: 900; letter-spacing: 1pt; }
+  .brand-block .sub     { font-size: 7pt; text-transform: uppercase; letter-spacing: 1.5pt; opacity: 0.7; margin-top: 1mm; }
+  .lt-ref-block {
+    flex: 1; padding: 4mm 6mm;
+    display: flex; flex-direction: column; justify-content: center;
+    border-left: 2pt solid #000;
+  }
+  .lt-ref-label { font-size: 7pt; text-transform: uppercase; letter-spacing: 1pt; color: #555; font-weight: 700; }
+  .lt-ref-code  { font-family: 'Courier New', monospace; font-size: 22pt; font-weight: 900; letter-spacing: 1pt; line-height: 1.1; }
+  .lt-status    { margin-top: 1.5mm; }
+  .status-chip  {
+    display: inline-block; padding: 1mm 3mm;
+    font-size: 7pt; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5pt;
+    border: 1pt solid #000; border-radius: 1mm;
+  }
+  .qr-block {
+    width: 38mm; padding: 3mm;
+    border-left: 2pt solid #000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .qr-block img { width: 30mm; height: 30mm; }
+  .qr-lbl { font-size: 5.5pt; color: #666; margin-top: 1mm; text-align: center; text-transform: uppercase; letter-spacing: 0.3pt; }
 
-  /* ── Status line ── */
-  .status-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; font-size: 8pt; }
-  .status-tag { display: inline-block; padding: 2px 7px; border: 1px solid #333; font-weight: 700; text-transform: uppercase; font-size: 7pt; letter-spacing: 0.04em; }
-  .status-tag.hazmat { border-color: #111; background: #111; color: #fff; }
+  /* ── HAZMAT bar ── */
+  .hazmat-bar {
+    background: #ffcc00; color: #000;
+    text-align: center; font-weight: 900; font-size: 9pt;
+    padding: 2mm; letter-spacing: 1pt; text-transform: uppercase;
+    border-bottom: 2pt solid #000;
+  }
 
-  /* ── Two-column address blocks ── */
-  .addr-row { display: flex; gap: 0; margin-bottom: 10px; }
-  .addr-box { flex: 1; border: 1px solid #333; padding: 8px 10px; }
-  .addr-box + .addr-box { border-left: none; }
-  .addr-box .lbl { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.10em; color: #666; font-weight: 700; margin-bottom: 4px; }
-  .addr-box .name { font-size: 9pt; font-weight: 700; color: #111; }
-  .addr-box .detail { font-size: 8pt; color: #333; white-space: pre-line; margin-top: 3px; line-height: 1.35; }
-
-  /* ── Info grid (key-value pairs in bordered cells) ── */
-  .info-grid { display: flex; flex-wrap: wrap; gap: 0; margin-bottom: 10px; }
-  .info-cell { flex: 1; min-width: 120px; border: 1px solid #333; padding: 5px 8px; margin-right: -1px; margin-bottom: -1px; }
-  .info-cell .lbl { font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.08em; color: #666; }
-  .info-cell .val { font-size: 9pt; font-weight: 700; color: #111; margin-top: 2px; }
-
-  /* ── Transport section ── */
-  .transport-section { margin-bottom: 10px; }
-  .transport-grid { display: flex; gap: 0; }
-  .transport-cell { flex: 1; border: 1px solid #333; padding: 5px 8px; margin-right: -1px; }
-  .transport-cell .lbl { font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.08em; color: #666; }
-  .transport-cell .val { font-size: 9pt; font-weight: 700; color: #111; margin-top: 2px; }
-
-  /* ── Section titles ── */
-  .sect-title { font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.10em; color: #111; border-bottom: 1px solid #333; padding-bottom: 3px; margin-bottom: 6px; margin-top: 10px; }
-
-  /* ── Description ── */
-  .desc-block { font-size: 8pt; color: #333; white-space: pre-wrap; line-height: 1.4; padding: 6px 0; border-bottom: 1px solid #ccc; margin-bottom: 6px; }
-  .req-block { margin-top: 4px; font-size: 7.5pt; color: #333; }
-  .req-block strong { font-size: 7.5pt; }
-  .req-block .line { margin-top: 2px; }
-
-  /* ── HAZMAT warning ── */
-  .hazmat-warn { border: 2px solid #111; padding: 5px 8px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
-  .hazmat-warn .icon { font-size: 12pt; }
-  .hazmat-warn .text { font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+  /* ── Sections ── */
+  .section-grid { display: flex; border-bottom: 1.5pt solid #000; }
+  .section-box  { flex: 1; padding: 3mm 5mm; border-right: 1pt solid #ccc; }
+  .section-box:last-child { border-right: none; }
+  .section-title {
+    font-size: 6.5pt; text-transform: uppercase; letter-spacing: 1pt;
+    font-weight: 900; background: #000; color: #fff;
+    display: inline-block; padding: 0.5mm 2mm; margin-bottom: 2mm;
+  }
+  .field { margin-bottom: 2mm; }
+  .field-lbl { font-size: 6pt; text-transform: uppercase; letter-spacing: 0.3pt; color: #666; font-weight: 700; }
+  .field-val  { font-size: 9pt; font-weight: 700; line-height: 1.3; }
+  .field-val.big { font-size: 11pt; font-weight: 900; }
 
   /* ── Cargo table ── */
-  table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
-  th { background: #f0f0f0; color: #111; text-align: left; padding: 4px 5px; font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; border: 1px solid #333; }
-  td { padding: 4px 5px; border: 1px solid #999; font-size: 7.5pt; vertical-align: top; color: #111; }
-  tr:nth-child(even) td { background: #f8f8f8; }
-  .mono { font-family: 'Courier New', monospace; font-size: 7pt; }
-  .mini-qr img { width: 32px; height: 32px; }
-  .status-chip { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; }
-  .hazmat-flag { font-size: 6.5pt; font-weight: 700; border: 1px solid #111; padding: 1px 4px; margin-left: 3px; }
-  .dim { font-size: 6.5pt; color: #555; }
-  .totals-row td { font-weight: 700; background: #f0f0f0; border-top: 2px solid #111; font-size: 8pt; }
+  .cargo-section { padding: 3mm 5mm; border-bottom: 1.5pt solid #000; }
+  .cargo-table {
+    width: 100%; border-collapse: collapse; font-size: 8pt; margin-top: 2mm;
+  }
+  .cargo-table th {
+    background: #000; color: #fff;
+    text-align: left; padding: 1.5mm 2mm;
+    font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.5pt; font-weight: 700;
+  }
+  .cargo-table td { padding: 1.5mm 2mm; border-bottom: 0.5pt solid #e0e0e0; vertical-align: top; }
+  .cargo-table tr:last-child td { border-bottom: none; }
+  .cargo-table td.ref { font-family: monospace; font-weight: 700; font-size: 8pt; }
+  .hazmat-chip {
+    background: #ffcc00; color: #000;
+    font-size: 6pt; font-weight: 900; padding: 0.3mm 1.5mm;
+    border-radius: 0.5mm; white-space: nowrap;
+  }
 
-  /* ── Totals summary ── */
-  .totals-summary { display: flex; gap: 0; margin-bottom: 12px; }
-  .totals-summary .cell { flex: 1; border: 1px solid #333; padding: 5px 8px; margin-right: -1px; text-align: center; }
-  .totals-summary .cell .lbl { font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.08em; color: #666; }
-  .totals-summary .cell .val { font-size: 11pt; font-weight: 700; color: #111; margin-top: 2px; }
-
-  /* ── Signatures ── */
-  .sig-section { margin-top: 16px; page-break-inside: avoid; }
-  .sig-grid { display: flex; gap: 0; }
-  .sig-box { flex: 1; border: 1px solid #333; padding: 8px 10px; margin-right: -1px; min-height: 70px; }
-  .sig-box .lbl { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.08em; color: #666; font-weight: 700; margin-bottom: 4px; }
-  .sig-box .sig-line { border-bottom: 1px solid #999; margin-top: 36px; margin-bottom: 4px; }
-  .sig-box .sig-date { font-size: 7pt; color: #666; }
+  /* ── Totals ── */
+  .totals-row {
+    display: flex; border-top: 2pt solid #000; border-bottom: 1.5pt solid #000;
+  }
+  .total-box {
+    flex: 1; padding: 2.5mm 5mm; border-right: 1pt solid #ccc; text-align: center;
+  }
+  .total-box:last-child { border-right: none; }
+  .total-box .t-lbl { font-size: 6pt; text-transform: uppercase; letter-spacing: 0.5pt; color: #555; font-weight: 700; }
+  .total-box .t-val { font-size: 14pt; font-weight: 900; line-height: 1.2; }
+  .total-box .t-unit { font-size: 7pt; color: #555; }
 
   /* ── Footer ── */
-  .doc-footer { margin-top: 10px; padding-top: 6px; border-top: 1px solid #333; font-size: 6.5pt; color: #666; display: flex; justify-content: space-between; }
-  .conditions { margin-top: 8px; font-size: 6pt; color: #999; line-height: 1.3; border-top: 1px solid #ccc; padding-top: 4px; }
+  .doc-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 2mm 5mm; font-size: 6.5pt; color: #666;
+    border-top: 0.5pt dashed #ccc; margin-top: auto;
+  }
+  .footer-note { max-width: 65%; line-height: 1.4; }
 </style>
 
-<div class="doc">
-
-  <!-- ═══ HEADER ═══ -->
-  <div class="header-band">
-    <div class="header-left">
-      <div class="logo-placeholder">LOGO</div>
-      <div class="header-title-block">
-        <div class="header-title">Lettre de Transport</div>
-        <div class="header-org">{{ entity.name | default('OpsFlux') }}</div>
-      </div>
-    </div>
-    <div class="header-right">
-      <div class="header-ref">
-        <div class="lbl">Ref. LT</div>
-        <div class="val">{{ request_code }}</div>
-        <div class="header-date">{{ generated_at | default('--') }}</div>
-      </div>
-      {% if request_qr_data or request_code %}
-      <div class="header-qr">
-        <img src="{{ qr_code(request_qr_data | default(request_code)) }}" alt="QR"/>
-        <div class="qr-lbl">SCANNER</div>
-      </div>
-      {% endif %}
+<!-- TOP BAR: brand + LT ref + QR -->
+<div class="top-bar">
+  <div class="brand-block">
+    <div class="company">{{ entity.name or 'OpsFlux' }}</div>
+    <div class="sub">Lettre de Transport</div>
+  </div>
+  <div class="lt-ref-block">
+    <div class="lt-ref-label">N° Lettre de Transport</div>
+    <div class="lt-ref-code">{{ request_code }}</div>
+    <div class="lt-status">
+      <span class="status-chip">{{ request_status or 'En cours' }}</span>
     </div>
   </div>
-
-  <!-- ═══ STATUS ═══ -->
-  <div class="status-row">
-    <span class="status-tag">{{ request_status }}</span>
-    {% if request_ready %}
-      <span class="status-tag">COMPLET</span>
-    {% else %}
-      <span class="status-tag">A COMPLETER</span>
-    {% endif %}
-    {% if has_hazmat %}
-      <span class="status-tag hazmat">HAZMAT</span>
+  <div class="qr-block">
+    {% if request_qr_data or request_code %}
+    <img src="{{ qr_code(request_qr_data or request_code) }}" alt="QR LT"/>
+    <div class="qr-lbl">Scanner la LT</div>
     {% endif %}
   </div>
+</div>
 
-  <!-- ═══ EXPEDITEUR / DESTINATAIRE ═══ -->
-  <div class="addr-row">
-    <div class="addr-box">
-      <div class="lbl">Expediteur</div>
-      <div class="name">{{ sender_name | default('--') }}</div>
-      {% if sender_address %}<div class="detail">{{ sender_address }}</div>{% endif %}
-      {% if sender_contact_name %}<div class="detail">Contact : {{ sender_contact_name }}</div>{% endif %}
+{% if has_hazmat %}
+<div class="hazmat-bar">&#9888; EXPÉDITION CONTENANT DES MATIÈRES DANGEREUSES — HAZMAT &#9888;</div>
+{% endif %}
+
+<!-- FROM / TO / INFO -->
+<div class="section-grid">
+  <div class="section-box">
+    <div class="section-title">Expéditeur</div>
+    <div class="field">
+      <div class="field-lbl">Société</div>
+      <div class="field-val big">{{ sender_name or '—' }}</div>
     </div>
-    <div class="addr-box">
-      <div class="lbl">Destinataire</div>
-      <div class="name">{{ receiver_name | default('--') }}</div>
-      {% if destination_name %}<div class="detail">{{ destination_name }}</div>{% endif %}
+    {% if sender_contact_name %}
+    <div class="field">
+      <div class="field-lbl">Contact</div>
+      <div class="field-val">{{ sender_contact_name }}</div>
+    </div>
+    {% endif %}
+    {% if requester_name %}
+    <div class="field">
+      <div class="field-lbl">Demandeur</div>
+      <div class="field-val">{{ requester_name }}</div>
+    </div>
+    {% endif %}
+  </div>
+  <div class="section-box">
+    <div class="section-title">Destinataire / Destination</div>
+    <div class="field">
+      <div class="field-lbl">Destinataire</div>
+      <div class="field-val big">{{ receiver_name or '—' }}</div>
+    </div>
+    <div class="field">
+      <div class="field-lbl">Site de destination</div>
+      <div class="field-val">{{ destination_name or '—' }}</div>
     </div>
   </div>
-
-  <!-- ═══ INFOS DOSSIER ═══ -->
-  <div class="info-grid">
-    <div class="info-cell"><div class="lbl">Intitule</div><div class="val">{{ request_title }}</div></div>
-    <div class="info-cell"><div class="lbl">Demandeur</div><div class="val">{{ requester_name | default('--') }}</div></div>
-    <div class="info-cell"><div class="lbl">Imputation</div><div class="val">{{ imputation_reference | default('--') }}</div></div>
-  </div>
-
-  <!-- ═══ TRANSPORT ═══ -->
-  {% if transport_voyage_code %}
-  <div class="transport-section">
-    <div class="sect-title">Transport</div>
-    <div class="transport-grid">
-      <div class="transport-cell"><div class="lbl">Code voyage</div><div class="val">{{ transport_voyage_code }}</div></div>
-      {% if transport_vector_name %}
-        <div class="transport-cell"><div class="lbl">Vecteur</div><div class="val">{{ transport_vector_name }}</div></div>
-      {% endif %}
-      {% if transport_vector_registration %}
-        <div class="transport-cell"><div class="lbl">Immatriculation</div><div class="val">{{ transport_vector_registration }}</div></div>
-      {% endif %}
+  <div class="section-box">
+    <div class="section-title">Transport</div>
+    {% if transport_voyage_code %}
+    <div class="field">
+      <div class="field-lbl">Voyage</div>
+      <div class="field-val">{{ transport_voyage_code }}</div>
     </div>
-  </div>
-  {% endif %}
-
-  <!-- ═══ HAZMAT ═══ -->
-  {% if has_hazmat %}
-  <div class="hazmat-warn">
-    <div class="icon">&#9888;</div>
-    <div class="text">Marchandises dangereuses (HAZMAT) -- manipuler avec precaution</div>
-  </div>
-  {% endif %}
-
-  <!-- ═══ INSTRUCTIONS ═══ -->
-  <div class="sect-title">Instructions</div>
-  <div class="desc-block">{{ description | default('--') }}</div>
-  {% if request_missing_requirements and request_missing_requirements|length > 0 %}
-    <div class="req-block">
-      <strong>Points bloquants :</strong>
-      {% for item in request_missing_requirements %}
-        <div class="line">- {{ item }}</div>
-      {% endfor %}
+    {% endif %}
+    {% if transport_vector_name %}
+    <div class="field">
+      <div class="field-lbl">Vecteur</div>
+      <div class="field-val">{{ transport_vector_name }}</div>
     </div>
-  {% endif %}
-
-  <!-- ═══ RECAPITULATIF ═══ -->
-  <div class="sect-title">Recapitulatif</div>
-  <div class="totals-summary">
-    <div class="cell"><div class="lbl">Colis</div><div class="val">{{ total_cargo_items }}</div></div>
-    <div class="cell"><div class="lbl">Packages</div><div class="val">{{ total_packages }}</div></div>
-    <div class="cell"><div class="lbl">Poids total</div><div class="val">{{ total_weight_kg }} kg</div></div>
-    <div class="cell"><div class="lbl">Volume total</div><div class="val">{{ total_volume_m3 }} m&sup3;</div></div>
-    <div class="cell"><div class="lbl">Livres</div><div class="val">{{ status_breakdown.delivered_final | default(0) }}</div></div>
+    {% endif %}
+    {% if transport_vector_registration %}
+    <div class="field">
+      <div class="field-lbl">Immatriculation</div>
+      <div class="field-val">{{ transport_vector_registration }}</div>
+    </div>
+    {% endif %}
+    {% if imputation_reference %}
+    <div class="field">
+      <div class="field-lbl">Imputation</div>
+      <div class="field-val">{{ imputation_reference }}</div>
+    </div>
+    {% endif %}
   </div>
+</div>
 
-  <!-- ═══ TABLEAU COLIS ═══ -->
-  <div class="sect-title">Detail des colis</div>
-  <table>
+<!-- TOTALS -->
+<div class="totals-row">
+  <div class="total-box">
+    <div class="t-lbl">Colis</div>
+    <div class="t-val">{{ total_cargo_items or '—' }}</div>
+  </div>
+  <div class="total-box">
+    <div class="t-lbl">Poids total</div>
+    <div class="t-val">{{ total_weight_kg or '—' }}</div>
+    <div class="t-unit">kg</div>
+  </div>
+  <div class="total-box">
+    <div class="t-lbl">Volume total</div>
+    <div class="t-val">{{ total_volume_m3 or '—' }}</div>
+    <div class="t-unit">m³</div>
+  </div>
+  <div class="total-box">
+    <div class="t-lbl">Total emballages</div>
+    <div class="t-val">{{ total_packages or '—' }}</div>
+  </div>
+</div>
+
+<!-- CARGO ITEMS TABLE -->
+<div class="cargo-section">
+  <div class="section-title">Détail des colis</div>
+  <table class="cargo-table">
     <thead>
       <tr>
-        <th style="width:20px;">#</th>
-        <th>Tracking</th>
+        <th>Réf.</th>
         <th>Désignation</th>
-        <th>Type</th>
-        <th>Dimensions (LxlxH)</th>
-        <th>Poids unit.</th>
+        <th>Poids</th>
+        <th>Vol.</th>
         <th>Colis</th>
-        <th>Poids total</th>
-        <th>HAZMAT</th>
         <th>Statut</th>
-        <th style="width:36px;">QR</th>
+        <th>Spécial</th>
       </tr>
     </thead>
     <tbody>
       {% for cargo in cargo_items %}
       <tr>
-        <td>{{ loop.index }}</td>
-        <td><span class="mono">{{ cargo.tracking_code }}</span></td>
+        <td class="ref">{{ cargo.reference }}</td>
+        <td>{{ cargo.designation or cargo.description or '—' }}</td>
+        <td>{% if cargo.weight_kg %}{{ cargo.weight_kg }} kg{% else %}—{% endif %}</td>
+        <td>{% if cargo.volume_m3 %}{{ cargo.volume_m3 }} m³{% else %}—{% endif %}</td>
+        <td>{{ cargo.package_count or 1 }}</td>
+        <td>{{ cargo.status_label or cargo.status or '—' }}</td>
         <td>
-          {{ cargo.designation | default(cargo.description) }}
-          {% if cargo.pickup_contact_name %}
-            <div class="dim">Enlevement : {{ cargo.pickup_contact_name }}{% if cargo.pickup_contact_phone %} / {{ cargo.pickup_contact_phone }}{% endif %}</div>
-          {% endif %}
-          {% if cargo.pickup_location %}
-            <div class="dim">Lieu : {{ cargo.pickup_location }}</div>
-          {% endif %}
-        </td>
-        <td>{{ cargo.cargo_type | default('--') }}</td>
-        <td>
-          {% if cargo.length_cm and cargo.width_cm and cargo.height_cm %}
-            {{ cargo.length_cm }}x{{ cargo.width_cm }}x{{ cargo.height_cm }} cm
-            {% if cargo.volume_m3 %}<div class="dim">{{ cargo.volume_m3 }} m&sup3;</div>{% endif %}
-          {% else %}--{% endif %}
-        </td>
-        <td>{{ cargo.weight_kg }} kg</td>
-        <td>{{ cargo.package_count | default('--') }}</td>
-        <td>{{ cargo.weight_subtotal }} kg</td>
-        <td>{% if cargo.is_hazmat %}<span class="hazmat-flag">OUI</span>{% else %}--{% endif %}</td>
-        <td><span class="status-chip">{{ cargo.status_label | default(cargo.status) }}</span></td>
-        <td class="mini-qr">
-          {% if cargo.qr_data %}
-            <img src="{{ qr_code(cargo.qr_data) }}" alt="QR"/>
-          {% endif %}
+          {% if cargo.is_hazmat %}<span class="hazmat-chip">HAZMAT</span>{% endif %}
+          {% if cargo.is_urgent %}<span style="font-weight:900;font-size:7pt;">URGENT</span>{% endif %}
         </td>
       </tr>
       {% endfor %}
     </tbody>
-    <tfoot>
-      <tr class="totals-row">
-        <td colspan="5" style="text-align:right;">TOTAUX</td>
-        <td></td>
-        <td>{{ total_packages }}</td>
-        <td>{{ total_weight_kg }} kg</td>
-        <td colspan="3"></td>
-      </tr>
-    </tfoot>
   </table>
+</div>
 
-  <!-- ═══ SIGNATURES ═══ -->
-  <div class="sig-section">
-    <div class="sect-title">Signatures</div>
-    <div class="sig-grid">
-      <div class="sig-box">
-        <div class="lbl">Expediteur</div>
-        <div class="sig-line"></div>
-        <div class="sig-date">Date : ___/___/______</div>
-      </div>
-      <div class="sig-box">
-        <div class="lbl">Transporteur</div>
-        <div class="sig-line"></div>
-        <div class="sig-date">Date : ___/___/______</div>
-      </div>
-      <div class="sig-box">
-        <div class="lbl">Destinataire</div>
-        <div class="sig-line"></div>
-        <div class="sig-date">Date : ___/___/______</div>
-      </div>
-    </div>
+<!-- FOOTER -->
+<div class="doc-footer">
+  <div class="footer-note">
+    Ce document est une lettre de transport officielle générée par {{ entity.name or 'OpsFlux' }}.
+    Scanner le QR code pour vérifier et suivre l'expédition en temps réel.
+    {% if description %} — {{ description }}{% endif %}
   </div>
+  <div>Généré le {{ generated_at }}</div>
+</div>
 
-  <!-- ═══ FOOTER ═══ -->
-  <div class="doc-footer">
-    <span>Généré le {{ generated_at | default('--') }}</span>
-    <span>{{ entity.name | default('OpsFlux') }} -- Lettre de Transport -- PackLog</span>
-  </div>
-  <div class="conditions">
-    Les marchandises voyagent aux risques et perils de l'expediteur. Le transporteur decline toute responsabilite en cas de
-    dommages resultant d'un emballage insuffisant ou d'une declaration inexacte. Ce document ne constitue pas un titre de propriete.
-  </div>
-
-</div>"""
+</body>
+</html>"""
 
 _CARGO_LT_BODY_EN = """\
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"/></head>
+<body>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 9pt; color: #111; }
-  .doc { width: 100%; }
-
-  /* ── Header band ── */
-  .header-band { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 10px; }
-  .header-left { display: flex; align-items: center; gap: 12px; }
-  .logo-placeholder { width: 48px; height: 48px; border: 1px solid #999; display: flex; align-items: center; justify-content: center; font-size: 7pt; color: #999; text-align: center; }
-  .header-title-block {}
-  .header-title { font-size: 14pt; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #111; }
-  .header-org { font-size: 8pt; color: #555; margin-top: 2px; }
-  .header-right { text-align: right; display: flex; gap: 14px; align-items: flex-start; }
-  .header-ref { text-align: right; }
-  .header-ref .lbl { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.10em; color: #666; }
-  .header-ref .val { font-size: 12pt; font-weight: 700; color: #111; margin-top: 1px; }
-  .header-date { font-size: 8pt; color: #333; margin-top: 2px; }
-  .header-qr { width: 58px; }
-  .header-qr img { width: 54px; height: 54px; }
-  .header-qr .qr-lbl { font-size: 6pt; color: #666; text-align: center; margin-top: 2px; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 9pt; color: #000; background: #fff; }
+  .top-bar { display: flex; align-items: stretch; border-bottom: 3pt solid #000; }
+  .brand-block { background: #000; color: #fff; padding: 5mm 6mm; display: flex; flex-direction: column; justify-content: center; min-width: 55mm; }
+  .brand-block .company { font-size: 18pt; font-weight: 900; letter-spacing: 1pt; }
+  .brand-block .sub { font-size: 7pt; text-transform: uppercase; letter-spacing: 1.5pt; opacity: 0.7; margin-top: 1mm; }
+  .lt-ref-block { flex: 1; padding: 4mm 6mm; display: flex; flex-direction: column; justify-content: center; border-left: 2pt solid #000; }
+  .lt-ref-label { font-size: 7pt; text-transform: uppercase; letter-spacing: 1pt; color: #555; font-weight: 700; }
+  .lt-ref-code { font-family: 'Courier New', monospace; font-size: 22pt; font-weight: 900; letter-spacing: 1pt; line-height: 1.1; }
+  .status-chip { display: inline-block; padding: 1mm 3mm; font-size: 7pt; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5pt; border: 1pt solid #000; border-radius: 1mm; }
+  .qr-block { width: 38mm; padding: 3mm; border-left: 2pt solid #000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .qr-block img { width: 30mm; height: 30mm; }
+  .qr-lbl { font-size: 5.5pt; color: #666; margin-top: 1mm; text-align: center; text-transform: uppercase; letter-spacing: 0.3pt; }
+  .hazmat-bar { background: #ffcc00; color: #000; text-align: center; font-weight: 900; font-size: 9pt; padding: 2mm; letter-spacing: 1pt; text-transform: uppercase; border-bottom: 2pt solid #000; }
+  .section-grid { display: flex; border-bottom: 1.5pt solid #000; }
+  .section-box { flex: 1; padding: 3mm 5mm; border-right: 1pt solid #ccc; }
+  .section-box:last-child { border-right: none; }
+  .section-title { font-size: 6.5pt; text-transform: uppercase; letter-spacing: 1pt; font-weight: 900; background: #000; color: #fff; display: inline-block; padding: 0.5mm 2mm; margin-bottom: 2mm; }
+  .field { margin-bottom: 2mm; }
+  .field-lbl { font-size: 6pt; text-transform: uppercase; letter-spacing: 0.3pt; color: #666; font-weight: 700; }
+  .field-val { font-size: 9pt; font-weight: 700; line-height: 1.3; }
+  .field-val.big { font-size: 11pt; font-weight: 900; }
+  .cargo-section { padding: 3mm 5mm; border-bottom: 1.5pt solid #000; }
+  .cargo-table { width: 100%; border-collapse: collapse; font-size: 8pt; margin-top: 2mm; }
+  .cargo-table th { background: #000; color: #fff; text-align: left; padding: 1.5mm 2mm; font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.5pt; font-weight: 700; }
+  .cargo-table td { padding: 1.5mm 2mm; border-bottom: 0.5pt solid #e0e0e0; vertical-align: top; }
+  .cargo-table tr:last-child td { border-bottom: none; }
+  .cargo-table td.ref { font-family: monospace; font-weight: 700; font-size: 8pt; }
+  .hazmat-chip { background: #ffcc00; color: #000; font-size: 6pt; font-weight: 900; padding: 0.3mm 1.5mm; border-radius: 0.5mm; white-space: nowrap; }
+  .totals-row { display: flex; border-top: 2pt solid #000; border-bottom: 1.5pt solid #000; }
+  .total-box { flex: 1; padding: 2.5mm 5mm; border-right: 1pt solid #ccc; text-align: center; }
+  .total-box:last-child { border-right: none; }
+  .total-box .t-lbl { font-size: 6pt; text-transform: uppercase; letter-spacing: 0.5pt; color: #555; font-weight: 700; }
+  .total-box .t-val { font-size: 14pt; font-weight: 900; line-height: 1.2; }
+  .total-box .t-unit { font-size: 7pt; color: #555; }
+  .doc-footer { display: flex; align-items: center; justify-content: space-between; padding: 2mm 5mm; font-size: 6.5pt; color: #666; border-top: 0.5pt dashed #ccc; }
+  .footer-note { max-width: 65%; line-height: 1.4; }
 
   /* ── Status line ── */
   .status-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; font-size: 8pt; }
@@ -2274,236 +2258,79 @@ _CARGO_LT_BODY_EN = """\
   table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
   th { background: #f0f0f0; color: #111; text-align: left; padding: 4px 5px; font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; border: 1px solid #333; }
   td { padding: 4px 5px; border: 1px solid #999; font-size: 7.5pt; vertical-align: top; color: #111; }
-  tr:nth-child(even) td { background: #f8f8f8; }
-  .mono { font-family: 'Courier New', monospace; font-size: 7pt; }
-  .mini-qr img { width: 32px; height: 32px; }
-  .status-chip { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; }
-  .hazmat-flag { font-size: 6.5pt; font-weight: 700; border: 1px solid #111; padding: 1px 4px; margin-left: 3px; }
-  .dim { font-size: 6.5pt; color: #555; }
-  .totals-row td { font-weight: 700; background: #f0f0f0; border-top: 2px solid #111; font-size: 8pt; }
-
-  /* ── Totals summary ── */
-  .totals-summary { display: flex; gap: 0; margin-bottom: 12px; }
-  .totals-summary .cell { flex: 1; border: 1px solid #333; padding: 5px 8px; margin-right: -1px; text-align: center; }
-  .totals-summary .cell .lbl { font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.08em; color: #666; }
-  .totals-summary .cell .val { font-size: 11pt; font-weight: 700; color: #111; margin-top: 2px; }
-
-  /* ── Signatures ── */
-  .sig-section { margin-top: 16px; page-break-inside: avoid; }
-  .sig-grid { display: flex; gap: 0; }
-  .sig-box { flex: 1; border: 1px solid #333; padding: 8px 10px; margin-right: -1px; min-height: 70px; }
-  .sig-box .lbl { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.08em; color: #666; font-weight: 700; margin-bottom: 4px; }
-  .sig-box .sig-line { border-bottom: 1px solid #999; margin-top: 36px; margin-bottom: 4px; }
-  .sig-box .sig-date { font-size: 7pt; color: #666; }
-
-  /* ── Footer ── */
-  .doc-footer { margin-top: 10px; padding-top: 6px; border-top: 1px solid #333; font-size: 6.5pt; color: #666; display: flex; justify-content: space-between; }
-  .conditions { margin-top: 8px; font-size: 6pt; color: #999; line-height: 1.3; border-top: 1px solid #ccc; padding-top: 4px; }
+  .footer-note { max-width: 65%; line-height: 1.4; }
 </style>
-
-<div class="doc">
-
-  <!-- ═══ HEADER ═══ -->
-  <div class="header-band">
-    <div class="header-left">
-      <div class="logo-placeholder">LOGO</div>
-      <div class="header-title-block">
-        <div class="header-title">Transport Letter</div>
-        <div class="header-org">{{ entity.name | default('OpsFlux') }}</div>
-      </div>
-    </div>
-    <div class="header-right">
-      <div class="header-ref">
-        <div class="lbl">LT Ref.</div>
-        <div class="val">{{ request_code }}</div>
-        <div class="header-date">{{ generated_at | default('--') }}</div>
-      </div>
-      {% if request_qr_data or request_code %}
-      <div class="header-qr">
-        <img src="{{ qr_code(request_qr_data | default(request_code)) }}" alt="QR"/>
-        <div class="qr-lbl">SCAN</div>
-      </div>
-      {% endif %}
-    </div>
+<div class="top-bar">
+  <div class="brand-block">
+    <div class="company">{{ entity.name or 'OpsFlux' }}</div>
+    <div class="sub">Transport Letter</div>
   </div>
-
-  <!-- ═══ STATUS ═══ -->
-  <div class="status-row">
-    <span class="status-tag">{{ request_status }}</span>
-    {% if request_ready %}
-      <span class="status-tag">COMPLETE</span>
-    {% else %}
-      <span class="status-tag">INCOMPLETE</span>
-    {% endif %}
-    {% if has_hazmat %}
-      <span class="status-tag hazmat">HAZMAT</span>
+  <div class="lt-ref-block">
+    <div class="lt-ref-label">Transport Letter No.</div>
+    <div class="lt-ref-code">{{ request_code }}</div>
+    <div style="margin-top:1.5mm"><span class="status-chip">{{ request_status or 'In progress' }}</span></div>
+  </div>
+  <div class="qr-block">
+    {% if request_qr_data or request_code %}
+    <img src="{{ qr_code(request_qr_data or request_code) }}" alt="QR LT"/>
+    <div class="qr-lbl">Scan LT</div>
     {% endif %}
   </div>
-
-  <!-- ═══ SENDER / RECEIVER ═══ -->
-  <div class="addr-row">
-    <div class="addr-box">
-      <div class="lbl">Sender</div>
-      <div class="name">{{ sender_name | default('--') }}</div>
-      {% if sender_address %}<div class="detail">{{ sender_address }}</div>{% endif %}
-      {% if sender_contact_name %}<div class="detail">Contact: {{ sender_contact_name }}</div>{% endif %}
-    </div>
-    <div class="addr-box">
-      <div class="lbl">Receiver</div>
-      <div class="name">{{ receiver_name | default('--') }}</div>
-      {% if destination_name %}<div class="detail">{{ destination_name }}</div>{% endif %}
-    </div>
+</div>
+{% if has_hazmat %}
+<div class="hazmat-bar">&#9888; SHIPMENT CONTAINS HAZARDOUS MATERIALS — HAZMAT &#9888;</div>
+{% endif %}
+<div class="section-grid">
+  <div class="section-box">
+    <div class="section-title">Sender</div>
+    <div class="field"><div class="field-lbl">Company</div><div class="field-val big">{{ sender_name or '—' }}</div></div>
+    {% if sender_contact_name %}<div class="field"><div class="field-lbl">Contact</div><div class="field-val">{{ sender_contact_name }}</div></div>{% endif %}
+    {% if requester_name %}<div class="field"><div class="field-lbl">Requester</div><div class="field-val">{{ requester_name }}</div></div>{% endif %}
   </div>
-
-  <!-- ═══ FILE INFO ═══ -->
-  <div class="info-grid">
-    <div class="info-cell"><div class="lbl">Title</div><div class="val">{{ request_title }}</div></div>
-    <div class="info-cell"><div class="lbl">Requester</div><div class="val">{{ requester_name | default('--') }}</div></div>
-    <div class="info-cell"><div class="lbl">Imputation</div><div class="val">{{ imputation_reference | default('--') }}</div></div>
+  <div class="section-box">
+    <div class="section-title">Recipient / Destination</div>
+    <div class="field"><div class="field-lbl">Recipient</div><div class="field-val big">{{ receiver_name or '—' }}</div></div>
+    <div class="field"><div class="field-lbl">Destination site</div><div class="field-val">{{ destination_name or '—' }}</div></div>
   </div>
-
-  <!-- ═══ TRANSPORT ═══ -->
-  {% if transport_voyage_code %}
-  <div class="transport-section">
-    <div class="sect-title">Transport</div>
-    <div class="transport-grid">
-      <div class="transport-cell"><div class="lbl">Voyage code</div><div class="val">{{ transport_voyage_code }}</div></div>
-      {% if transport_vector_name %}
-        <div class="transport-cell"><div class="lbl">Vector</div><div class="val">{{ transport_vector_name }}</div></div>
-      {% endif %}
-      {% if transport_vector_registration %}
-        <div class="transport-cell"><div class="lbl">Registration</div><div class="val">{{ transport_vector_registration }}</div></div>
-      {% endif %}
-    </div>
+  <div class="section-box">
+    <div class="section-title">Transport</div>
+    {% if transport_voyage_code %}<div class="field"><div class="field-lbl">Voyage</div><div class="field-val">{{ transport_voyage_code }}</div></div>{% endif %}
+    {% if transport_vector_name %}<div class="field"><div class="field-lbl">Vector</div><div class="field-val">{{ transport_vector_name }}</div></div>{% endif %}
+    {% if transport_vector_registration %}<div class="field"><div class="field-lbl">Registration</div><div class="field-val">{{ transport_vector_registration }}</div></div>{% endif %}
+    {% if imputation_reference %}<div class="field"><div class="field-lbl">Imputation</div><div class="field-val">{{ imputation_reference }}</div></div>{% endif %}
   </div>
-  {% endif %}
-
-  <!-- ═══ HAZMAT ═══ -->
-  {% if has_hazmat %}
-  <div class="hazmat-warn">
-    <div class="icon">&#9888;</div>
-    <div class="text">Hazardous materials (HAZMAT) -- handle with care</div>
-  </div>
-  {% endif %}
-
-  <!-- ═══ INSTRUCTIONS ═══ -->
-  <div class="sect-title">Instructions</div>
-  <div class="desc-block">{{ description | default('--') }}</div>
-  {% if request_missing_requirements and request_missing_requirements|length > 0 %}
-    <div class="req-block">
-      <strong>Open items:</strong>
-      {% for item in request_missing_requirements %}
-        <div class="line">- {{ item }}</div>
-      {% endfor %}
-    </div>
-  {% endif %}
-
-  <!-- ═══ SUMMARY ═══ -->
-  <div class="sect-title">Summary</div>
-  <div class="totals-summary">
-    <div class="cell"><div class="lbl">Cargo items</div><div class="val">{{ total_cargo_items }}</div></div>
-    <div class="cell"><div class="lbl">Packages</div><div class="val">{{ total_packages }}</div></div>
-    <div class="cell"><div class="lbl">Total weight</div><div class="val">{{ total_weight_kg }} kg</div></div>
-    <div class="cell"><div class="lbl">Total volume</div><div class="val">{{ total_volume_m3 }} m&sup3;</div></div>
-    <div class="cell"><div class="lbl">Delivered</div><div class="val">{{ status_breakdown.delivered_final | default(0) }}</div></div>
-  </div>
-
-  <!-- ═══ CARGO TABLE ═══ -->
-  <div class="sect-title">Cargo details</div>
-  <table>
-    <thead>
-      <tr>
-        <th style="width:20px;">#</th>
-        <th>Tracking</th>
-        <th>Description</th>
-        <th>Type</th>
-        <th>Dimensions (LxWxH)</th>
-        <th>Unit wt.</th>
-        <th>Pkgs</th>
-        <th>Total wt.</th>
-        <th>HAZMAT</th>
-        <th>Status</th>
-        <th style="width:36px;">QR</th>
-      </tr>
-    </thead>
+</div>
+<div class="totals-row">
+  <div class="total-box"><div class="t-lbl">Cargo items</div><div class="t-val">{{ total_cargo_items or '—' }}</div></div>
+  <div class="total-box"><div class="t-lbl">Total weight</div><div class="t-val">{{ total_weight_kg or '—' }}</div><div class="t-unit">kg</div></div>
+  <div class="total-box"><div class="t-lbl">Total volume</div><div class="t-val">{{ total_volume_m3 or '—' }}</div><div class="t-unit">m³</div></div>
+  <div class="total-box"><div class="t-lbl">Total packages</div><div class="t-val">{{ total_packages or '—' }}</div></div>
+</div>
+<div class="cargo-section">
+  <div class="section-title">Cargo details</div>
+  <table class="cargo-table">
+    <thead><tr><th>Ref.</th><th>Description</th><th>Weight</th><th>Vol.</th><th>Pkgs</th><th>Status</th><th>Special</th></tr></thead>
     <tbody>
       {% for cargo in cargo_items %}
       <tr>
-        <td>{{ loop.index }}</td>
-        <td><span class="mono">{{ cargo.tracking_code }}</span></td>
-        <td>
-          {{ cargo.designation | default(cargo.description) }}
-          {% if cargo.pickup_contact_name %}
-            <div class="dim">Pickup: {{ cargo.pickup_contact_name }}{% if cargo.pickup_contact_phone %} / {{ cargo.pickup_contact_phone }}{% endif %}</div>
-          {% endif %}
-          {% if cargo.pickup_location %}
-            <div class="dim">Location: {{ cargo.pickup_location }}</div>
-          {% endif %}
-        </td>
-        <td>{{ cargo.cargo_type | default('--') }}</td>
-        <td>
-          {% if cargo.length_cm and cargo.width_cm and cargo.height_cm %}
-            {{ cargo.length_cm }}x{{ cargo.width_cm }}x{{ cargo.height_cm }} cm
-            {% if cargo.volume_m3 %}<div class="dim">{{ cargo.volume_m3 }} m&sup3;</div>{% endif %}
-          {% else %}--{% endif %}
-        </td>
-        <td>{{ cargo.weight_kg }} kg</td>
-        <td>{{ cargo.package_count | default('--') }}</td>
-        <td>{{ cargo.weight_subtotal }} kg</td>
-        <td>{% if cargo.is_hazmat %}<span class="hazmat-flag">YES</span>{% else %}--{% endif %}</td>
-        <td><span class="status-chip">{{ cargo.status_label | default(cargo.status) }}</span></td>
-        <td class="mini-qr">
-          {% if cargo.qr_data %}
-            <img src="{{ qr_code(cargo.qr_data) }}" alt="QR"/>
-          {% endif %}
-        </td>
+        <td class="ref">{{ cargo.reference }}</td>
+        <td>{{ cargo.designation or cargo.description or '—' }}</td>
+        <td>{% if cargo.weight_kg %}{{ cargo.weight_kg }} kg{% else %}—{% endif %}</td>
+        <td>{% if cargo.volume_m3 %}{{ cargo.volume_m3 }} m³{% else %}—{% endif %}</td>
+        <td>{{ cargo.package_count or 1 }}</td>
+        <td>{{ cargo.status_label or cargo.status or '—' }}</td>
+        <td>{% if cargo.is_hazmat %}<span class="hazmat-chip">HAZMAT</span>{% endif %}{% if cargo.is_urgent %}<span style="font-weight:900;font-size:7pt;">URGENT</span>{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
-    <tfoot>
-      <tr class="totals-row">
-        <td colspan="5" style="text-align:right;">TOTALS</td>
-        <td></td>
-        <td>{{ total_packages }}</td>
-        <td>{{ total_weight_kg }} kg</td>
-        <td colspan="3"></td>
-      </tr>
-    </tfoot>
   </table>
-
-  <!-- ═══ SIGNATURES ═══ -->
-  <div class="sig-section">
-    <div class="sect-title">Signatures</div>
-    <div class="sig-grid">
-      <div class="sig-box">
-        <div class="lbl">Sender</div>
-        <div class="sig-line"></div>
-        <div class="sig-date">Date: ___/___/______</div>
-      </div>
-      <div class="sig-box">
-        <div class="lbl">Carrier</div>
-        <div class="sig-line"></div>
-        <div class="sig-date">Date: ___/___/______</div>
-      </div>
-      <div class="sig-box">
-        <div class="lbl">Receiver</div>
-        <div class="sig-line"></div>
-        <div class="sig-date">Date: ___/___/______</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ FOOTER ═══ -->
-  <div class="doc-footer">
-    <span>Generated on {{ generated_at | default('--') }}</span>
-    <span>{{ entity.name | default('OpsFlux') }} -- Transport Letter -- PackLog</span>
-  </div>
-  <div class="conditions">
-    Goods travel at the sender's risk. The carrier declines all responsibility for damage resulting from
-    insufficient packaging or inaccurate declaration. This document does not constitute a title of ownership.
-  </div>
-
-</div>"""
+</div>
+<div class="doc-footer">
+  <div class="footer-note">This is an official transport letter generated by {{ entity.name or 'OpsFlux' }}. Scan the QR code to verify and track the shipment in real time.{% if description %} — {{ description }}{% endif %}</div>
+  <div>Generated {{ generated_at }}</div>
+</div>
+</body>
+</html>"""
 
 # ── Patch default versions with actual HTML ──────────────────────────────
 # (Avoids forward-reference issues with the walrus operator placeholders above)
@@ -3174,103 +3001,373 @@ DEFAULT_PDF_TEMPLATES[9]["default_versions"]["en"]["body_html"] = _PLANNER_GANTT
 # 10×15 cm physical label. Kept deliberately simple so it prints clearly
 # on cheap thermal printers and handheld-camera-friendly QR stays large.
 
-_CARGO_LABEL_BODY_FR = """
+_CARGO_LABEL_BODY_FR = """\
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"/></head>
+<body>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-         font-size: 9pt; color: #0f172a; margin: 0; }
-  .label { display: flex; flex-direction: column; gap: 4mm; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start;
-            border-bottom: 1pt solid #1e3a5f; padding-bottom: 2mm; }
-  .header .brand { font-size: 11pt; font-weight: 700; color: #1e3a5f; }
-  .header .entity { font-size: 7pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.5pt; }
-  .reference { font-size: 14pt; font-weight: 800; letter-spacing: 0.5pt; text-align: center;
-               padding: 2mm; background: #1e3a5f; color: #ffffff; border-radius: 2mm; }
-  .qr-block { display: flex; justify-content: center; margin: 1mm 0; }
-  .qr-block img { width: 52mm; height: 52mm; }
-  .tracking-code { font-family: 'Courier New', monospace; font-size: 9pt;
-                   text-align: center; letter-spacing: 0.5pt; color: #334155; }
-  .info { font-size: 8pt; line-height: 1.35; }
-  .info .row { display: flex; border-top: 0.5pt solid #e2e8f0; padding: 1mm 0; }
-  .info .row .label { width: 22mm; color: #64748b; font-size: 7pt;
-                      text-transform: uppercase; letter-spacing: 0.3pt; }
-  .info .row .value { flex: 1; font-weight: 500; }
-  .hazmat { background: #dc2626; color: #ffffff; font-weight: 700; font-size: 9pt;
-            text-align: center; padding: 2mm; border-radius: 1mm; letter-spacing: 0.5pt; }
-  .footer { font-size: 6pt; color: #94a3b8; text-align: center; margin-top: auto;
-            padding-top: 1mm; border-top: 0.5pt dashed #cbd5e1; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: #fff; color: #000;
+    width: 100%; font-size: 9pt;
+  }
+  .label {
+    width: 100%;
+    border: 2pt solid #000;
+    display: flex; flex-direction: column;
+    min-height: 130mm;
+  }
+
+  /* ── Header: branding + service ── */
+  .hdr {
+    display: flex; align-items: stretch;
+    border-bottom: 2pt solid #000;
+  }
+  .hdr-brand {
+    flex: 1; background: #000; color: #fff;
+    padding: 2.5mm 3mm;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .hdr-brand .company { font-size: 13pt; font-weight: 900; letter-spacing: 1pt; line-height: 1; }
+  .hdr-brand .module  { font-size: 7pt; font-weight: 600; text-transform: uppercase;
+                        letter-spacing: 1pt; opacity: 0.75; margin-top: 0.5mm; }
+  .hdr-service {
+    padding: 2.5mm 3mm;
+    display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
+    border-left: 1.5pt solid #000;
+    min-width: 28mm;
+  }
+  .service-chip {
+    background: #000; color: #fff;
+    font-size: 7.5pt; font-weight: 900;
+    text-transform: uppercase; letter-spacing: 0.5pt;
+    padding: 1mm 2mm; border-radius: 1mm;
+  }
+  .service-date { font-size: 6pt; color: #666; margin-top: 1mm; }
+
+  /* ── HAZMAT banner ── */
+  .hazmat {
+    background: #ffcc00; color: #000;
+    font-weight: 900; font-size: 8.5pt;
+    text-align: center; padding: 1.5mm 3mm;
+    letter-spacing: 1pt; text-transform: uppercase;
+    border-bottom: 2pt solid #000;
+    border-top: 0.5pt solid #b8960a;
+  }
+
+  /* ── Reference block ── */
+  .ref-block {
+    display: flex; align-items: stretch;
+    border-bottom: 2pt solid #000;
+  }
+  .ref-main {
+    flex: 1; padding: 2.5mm 3mm;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .ref-sup { font-size: 6pt; text-transform: uppercase; letter-spacing: 0.5pt; color: #666; font-weight: 700; }
+  .ref-code {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 20pt; font-weight: 900;
+    letter-spacing: 1pt; line-height: 1.1;
+    color: #000;
+  }
+  .tracking-mono {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 6.5pt; color: #555; letter-spacing: 0.5pt;
+    margin-top: 0.5mm;
+  }
+  .qr-col {
+    width: 34mm; padding: 2mm;
+    border-left: 1.5pt solid #000;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: #fafafa;
+  }
+  .qr-col img { width: 28mm; height: 28mm; display: block; }
+  .qr-col .scan-lbl { font-size: 5.5pt; color: #666; margin-top: 1mm;
+                       text-transform: uppercase; letter-spacing: 0.3pt; text-align: center; }
+
+  /* ── FROM / TO ── */
+  .route {
+    display: flex; border-bottom: 1.5pt solid #000;
+  }
+  .addr-block { flex: 1; padding: 2mm 3mm; }
+  .addr-block.from { border-right: 1pt solid #ccc; }
+  .addr-badge {
+    display: inline-block;
+    background: #000; color: #fff;
+    font-size: 6pt; font-weight: 900;
+    text-transform: uppercase; letter-spacing: 1.5pt;
+    padding: 0.5mm 2mm; margin-bottom: 1.5mm;
+  }
+  .from-name { font-size: 8pt; font-weight: 700; line-height: 1.3; }
+  .to-name   { font-size: 10.5pt; font-weight: 900; line-height: 1.25; text-transform: uppercase; }
+  .to-sub    { font-size: 7.5pt; font-weight: 600; color: #333; margin-top: 0.5mm; }
+
+  /* ── Details grid ── */
+  .details {
+    padding: 2mm 3mm;
+    border-bottom: 1pt solid #ddd;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+  .d-item { padding: 1mm 0; }
+  .d-item.full { grid-column: 1 / -1; }
+  .d-lbl  { font-size: 6pt; text-transform: uppercase; letter-spacing: 0.3pt; color: #777; font-weight: 700; }
+  .d-val  { font-size: 9pt; font-weight: 700; line-height: 1.2; }
+
+  /* ── Footer ── */
+  .meta {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.5mm 3mm;
+    border-top: 0.5pt dashed #ccc;
+  }
+  .lt-badge { font-size: 6.5pt; font-weight: 700; }
+  .lt-badge span { font-family: monospace; font-size: 8pt; font-weight: 900; }
+  .gen-date { font-size: 5.5pt; color: #999; }
 </style>
+
 <div class="label">
-  <div class="header">
-    <div>
-      <div class="brand">{{ entity.name or 'OpsFlux' }}</div>
-      <div class="entity">Bordereau de colis</div>
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="hdr-brand">
+      <div class="company">{{ entity.name or 'OpsFlux' }}</div>
+      <div class="module">PackLog</div>
     </div>
-    <div style="text-align: right; font-size: 7pt; color: #64748b;">
-      {{ generated_at }}
+    <div class="hdr-service">
+      <div class="service-chip">{{ cargo_type or 'GÉNÉRAL' }}</div>
+      <div class="service-date">{{ generated_at }}</div>
     </div>
   </div>
 
-  <div class="reference">{{ reference or tracking_code }}</div>
-
+  <!-- HAZMAT banner -->
   {% if hazmat %}
-  <div class="hazmat">⚠ MATIÈRE DANGEREUSE — MANIPULATION SPÉCIALE</div>
+  <div class="hazmat">&#9888;&nbsp;&nbsp;MATIÈRE DANGEREUSE — MANIPULATION SPÉCIALE&nbsp;&nbsp;&#9888;</div>
   {% endif %}
 
-  <div class="qr-block">
-    <img src="{{ qr_code_data_uri }}" alt="QR code"/>
+  <!-- Reference + QR -->
+  <div class="ref-block">
+    <div class="ref-main">
+      <div class="ref-sup">Référence colis</div>
+      <div class="ref-code">{{ reference or tracking_code }}</div>
+      <div class="tracking-mono">{{ tracking_code }}</div>
+    </div>
+    <div class="qr-col">
+      {% if qr_code_data_uri %}
+      <img src="{{ qr_code_data_uri }}" alt="QR"/>
+      <div class="scan-lbl">Scanner</div>
+      {% endif %}
+    </div>
   </div>
-  <div class="tracking-code">{{ tracking_code }}</div>
 
-  <div class="info">
+  <!-- FROM / TO -->
+  <div class="route">
+    <div class="addr-block from">
+      <div class="addr-badge">DE</div>
+      <div class="from-name">{{ sender_name or '—' }}</div>
+    </div>
+    <div class="addr-block">
+      <div class="addr-badge">À</div>
+      <div class="to-name">{{ destination_name or recipient_name or '—' }}</div>
+      {% if destination_name and recipient_name and destination_name != recipient_name %}
+      <div class="to-sub">{{ recipient_name }}</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Details -->
+  <div class="details">
     {% if description %}
-    <div class="row"><div class="label">Désignation</div><div class="value">{{ description }}</div></div>
-    {% endif %}
-    {% if cargo_type %}
-    <div class="row"><div class="label">Type</div><div class="value">{{ cargo_type }}</div></div>
+    <div class="d-item full">
+      <div class="d-lbl">Désignation</div>
+      <div class="d-val">{{ description }}</div>
+    </div>
     {% endif %}
     {% if weight_kg %}
-    <div class="row"><div class="label">Poids</div><div class="value">{{ weight_kg }} kg</div></div>
+    <div class="d-item">
+      <div class="d-lbl">Poids</div>
+      <div class="d-val">{{ weight_kg }} kg</div>
+    </div>
     {% endif %}
-    {% if sender_name %}
-    <div class="row"><div class="label">Expéditeur</div><div class="value">{{ sender_name }}</div></div>
+    {% if package_count %}
+    <div class="d-item">
+      <div class="d-lbl">Colis</div>
+      <div class="d-val">{{ package_count }}</div>
+    </div>
     {% endif %}
-    {% if recipient_name %}
-    <div class="row"><div class="label">Destinataire</div><div class="value">{{ recipient_name }}</div></div>
-    {% endif %}
-    {% if destination_name %}
-    <div class="row"><div class="label">Destination</div><div class="value">{{ destination_name }}</div></div>
-    {% endif %}
+  </div>
+
+  <!-- Footer / meta -->
+  <div class="meta">
     {% if request_code %}
-    <div class="row"><div class="label">N° LT</div><div class="value">{{ request_code }}</div></div>
+    <div class="lt-badge">N° LT : <span>{{ request_code }}</span></div>
+    {% else %}
+    <div></div>
+    {% endif %}
+    <div class="gen-date">Généré le {{ generated_at }}</div>
+  </div>
+
+</div>
+</body>
+</html>"""
+
+_CARGO_LABEL_BODY_EN = """\
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"/></head>
+<body>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: #fff; color: #000;
+    width: 100%; font-size: 9pt;
+  }
+  .label {
+    width: 100%;
+    border: 2pt solid #000;
+    display: flex; flex-direction: column;
+    min-height: 130mm;
+  }
+  .hdr { display: flex; align-items: stretch; border-bottom: 2pt solid #000; }
+  .hdr-brand {
+    flex: 1; background: #000; color: #fff;
+    padding: 2.5mm 3mm;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .hdr-brand .company { font-size: 13pt; font-weight: 900; letter-spacing: 1pt; line-height: 1; }
+  .hdr-brand .module  { font-size: 7pt; font-weight: 600; text-transform: uppercase;
+                        letter-spacing: 1pt; opacity: 0.75; margin-top: 0.5mm; }
+  .hdr-service {
+    padding: 2.5mm 3mm;
+    display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
+    border-left: 1.5pt solid #000; min-width: 28mm;
+  }
+  .service-chip {
+    background: #000; color: #fff;
+    font-size: 7.5pt; font-weight: 900;
+    text-transform: uppercase; letter-spacing: 0.5pt;
+    padding: 1mm 2mm; border-radius: 1mm;
+  }
+  .service-date { font-size: 6pt; color: #666; margin-top: 1mm; }
+  .hazmat {
+    background: #ffcc00; color: #000;
+    font-weight: 900; font-size: 8.5pt;
+    text-align: center; padding: 1.5mm 3mm;
+    letter-spacing: 1pt; text-transform: uppercase;
+    border-bottom: 2pt solid #000; border-top: 0.5pt solid #b8960a;
+  }
+  .ref-block { display: flex; align-items: stretch; border-bottom: 2pt solid #000; }
+  .ref-main { flex: 1; padding: 2.5mm 3mm; display: flex; flex-direction: column; justify-content: center; }
+  .ref-sup { font-size: 6pt; text-transform: uppercase; letter-spacing: 0.5pt; color: #666; font-weight: 700; }
+  .ref-code {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 20pt; font-weight: 900; letter-spacing: 1pt; line-height: 1.1; color: #000;
+  }
+  .tracking-mono { font-family: 'Courier New', Courier, monospace; font-size: 6.5pt; color: #555; letter-spacing: 0.5pt; margin-top: 0.5mm; }
+  .qr-col { width: 34mm; padding: 2mm; border-left: 1.5pt solid #000; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fafafa; }
+  .qr-col img { width: 28mm; height: 28mm; display: block; }
+  .qr-col .scan-lbl { font-size: 5.5pt; color: #666; margin-top: 1mm; text-transform: uppercase; letter-spacing: 0.3pt; text-align: center; }
+  .route { display: flex; border-bottom: 1.5pt solid #000; }
+  .addr-block { flex: 1; padding: 2mm 3mm; }
+  .addr-block.from { border-right: 1pt solid #ccc; }
+  .addr-badge { display: inline-block; background: #000; color: #fff; font-size: 6pt; font-weight: 900; text-transform: uppercase; letter-spacing: 1.5pt; padding: 0.5mm 2mm; margin-bottom: 1.5mm; }
+  .from-name { font-size: 8pt; font-weight: 700; line-height: 1.3; }
+  .to-name   { font-size: 10.5pt; font-weight: 900; line-height: 1.25; text-transform: uppercase; }
+  .to-sub    { font-size: 7.5pt; font-weight: 600; color: #333; margin-top: 0.5mm; }
+  .details { padding: 2mm 3mm; border-bottom: 1pt solid #ddd; display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .d-item { padding: 1mm 0; }
+  .d-item.full { grid-column: 1 / -1; }
+  .d-lbl { font-size: 6pt; text-transform: uppercase; letter-spacing: 0.3pt; color: #777; font-weight: 700; }
+  .d-val { font-size: 9pt; font-weight: 700; line-height: 1.2; }
+  .meta { display: flex; align-items: center; justify-content: space-between; padding: 1.5mm 3mm; border-top: 0.5pt dashed #ccc; }
+  .lt-badge { font-size: 6.5pt; font-weight: 700; }
+  .lt-badge span { font-family: monospace; font-size: 8pt; font-weight: 900; }
+  .gen-date { font-size: 5.5pt; color: #999; }
+</style>
+
+<div class="label">
+
+  <div class="hdr">
+    <div class="hdr-brand">
+      <div class="company">{{ entity.name or 'OpsFlux' }}</div>
+      <div class="module">PackLog</div>
+    </div>
+    <div class="hdr-service">
+      <div class="service-chip">{{ cargo_type or 'GENERAL' }}</div>
+      <div class="service-date">{{ generated_at }}</div>
+    </div>
+  </div>
+
+  {% if hazmat %}
+  <div class="hazmat">&#9888;&nbsp;&nbsp;HAZARDOUS MATERIAL — SPECIAL HANDLING&nbsp;&nbsp;&#9888;</div>
+  {% endif %}
+
+  <div class="ref-block">
+    <div class="ref-main">
+      <div class="ref-sup">Package reference</div>
+      <div class="ref-code">{{ reference or tracking_code }}</div>
+      <div class="tracking-mono">{{ tracking_code }}</div>
+    </div>
+    <div class="qr-col">
+      {% if qr_code_data_uri %}
+      <img src="{{ qr_code_data_uri }}" alt="QR"/>
+      <div class="scan-lbl">Scan</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="route">
+    <div class="addr-block from">
+      <div class="addr-badge">FROM</div>
+      <div class="from-name">{{ sender_name or '—' }}</div>
+    </div>
+    <div class="addr-block">
+      <div class="addr-badge">TO</div>
+      <div class="to-name">{{ destination_name or recipient_name or '—' }}</div>
+      {% if destination_name and recipient_name and destination_name != recipient_name %}
+      <div class="to-sub">{{ recipient_name }}</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="details">
+    {% if description %}
+    <div class="d-item full">
+      <div class="d-lbl">Description</div>
+      <div class="d-val">{{ description }}</div>
+    </div>
+    {% endif %}
+    {% if weight_kg %}
+    <div class="d-item">
+      <div class="d-lbl">Weight</div>
+      <div class="d-val">{{ weight_kg }} kg</div>
+    </div>
+    {% endif %}
+    {% if package_count %}
+    <div class="d-item">
+      <div class="d-lbl">Packages</div>
+      <div class="d-val">{{ package_count }}</div>
+    </div>
     {% endif %}
   </div>
 
-  <div class="footer">
-    Scannez ce code avec l'application OpsFlux pour enregistrer la position et le statut.
+  <div class="meta">
+    {% if request_code %}
+    <div class="lt-badge">LT # : <span>{{ request_code }}</span></div>
+    {% else %}
+    <div></div>
+    {% endif %}
+    <div class="gen-date">Generated {{ generated_at }}</div>
   </div>
-</div>
-"""
 
-_CARGO_LABEL_BODY_EN = _CARGO_LABEL_BODY_FR.replace(
-    "Bordereau de colis", "Cargo label"
-).replace(
-    "MATIÈRE DANGEREUSE — MANIPULATION SPÉCIALE", "HAZARDOUS MATERIAL — SPECIAL HANDLING"
-).replace(
-    "Désignation", "Description"
-).replace(
-    "Poids", "Weight"
-).replace(
-    "Expéditeur", "Sender"
-).replace(
-    "Destinataire", "Recipient"
-).replace(
-    "Destination", "Destination"
-).replace(
-    "N° LT", "LT #"
-).replace(
-    "Scannez ce code avec l'application OpsFlux pour enregistrer la position et le statut.",
-    "Scan this code with the OpsFlux app to record position and status.",
-)
+</div>
+</body>
+</html>"""
 
 DEFAULT_PDF_TEMPLATES[10]["default_versions"]["fr"]["body_html"] = _CARGO_LABEL_BODY_FR
 DEFAULT_PDF_TEMPLATES[10]["default_versions"]["en"]["body_html"] = _CARGO_LABEL_BODY_EN

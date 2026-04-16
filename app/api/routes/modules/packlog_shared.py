@@ -128,7 +128,7 @@ async def _validate_cargo_dossier_refs(
     if getattr(payload, "request_id", None):
         cargo_request = await db.get(CargoRequest, payload.request_id)
         if not cargo_request or cargo_request.entity_id != entity_id or not cargo_request.active:
-            raise HTTPException(400, "Demande d'expedition introuvable ou inactive")
+            raise HTTPException(400, "Demande d'expédition introuvable ou inactive")
     if payload.imputation_reference_id:
         imputation = await db.get(ImputationReference, payload.imputation_reference_id)
         if not imputation or imputation.entity_id != entity_id or not imputation.active:
@@ -136,11 +136,11 @@ async def _validate_cargo_dossier_refs(
     if payload.pickup_contact_user_id:
         pickup_user = await db.get(User, payload.pickup_contact_user_id)
         if not pickup_user or not pickup_user.active:
-            raise HTTPException(400, "Utilisateur d'enlevement introuvable ou inactif")
+            raise HTTPException(400, "Utilisateur d'enlèvement introuvable ou inactif")
     if payload.pickup_contact_tier_contact_id:
         pickup_contact = await db.get(TierContact, payload.pickup_contact_tier_contact_id)
         if not pickup_contact or not pickup_contact.active:
-            raise HTTPException(400, "Contact d'enlevement introuvable ou inactif")
+            raise HTTPException(400, "Contact d'enlèvement introuvable ou inactif")
     if getattr(payload, "planned_zone_id", None):
         zone = await db.get(TransportVectorZone, payload.planned_zone_id)
         if not zone or not zone.active:
@@ -199,7 +199,7 @@ async def _validate_cargo_request_refs(
     if sender_tier_id:
         sender_tier = await db.get(Tier, sender_tier_id)
         if not sender_tier or sender_tier.entity_id != entity_id or not sender_tier.active:
-            raise HTTPException(400, "Entreprise expeditrice introuvable ou inactive")
+            raise HTTPException(400, "Entreprise expéditrice introuvable ou inactive")
     if requester_user_id:
         requester = await db.get(User, requester_user_id)
         if not requester or not requester.active or not await _user_has_access_to_entity(db, user_id=requester_user_id, entity_id=entity_id):
@@ -209,9 +209,9 @@ async def _validate_cargo_request_refs(
         if not sender_contact or not sender_contact.active:
             raise HTTPException(400, "Contact entreprise introuvable ou inactif")
         if not sender_tier_id:
-            raise HTTPException(400, "Selectionnez d'abord une entreprise expeditrice")
+            raise HTTPException(400, "Sélectionnez d'abord une entreprise expéditrice")
         if sender_contact.tier_id != sender_tier_id:
-            raise HTTPException(400, "Le contact entreprise ne correspond pas a l'entreprise expeditrice")
+            raise HTTPException(400, "Le contact entreprise ne correspond pas à l'entreprise expéditrice")
 
 
 async def list_cargo_requests_impl(

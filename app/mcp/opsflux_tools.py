@@ -1510,7 +1510,7 @@ async def _get_equipment(args: dict) -> dict:
             query = query.where(RegistryEquipment.tag_number == str(eid))
         e = (await session.execute(query)).scalar_one_or_none()
         if not e:
-            return _err("Equipement introuvable")
+            return _err("Équipement introuvable")
     return _ok({"id": str(e.id), "tag_number": e.tag_number, "name": e.name, "equipment_class": e.equipment_class,
                 "status": e.status, "manufacturer": e.manufacturer, "model": e.model, "serial_number": e.serial_number,
                 "installation_id": str(e.installation_id) if e.installation_id else None,

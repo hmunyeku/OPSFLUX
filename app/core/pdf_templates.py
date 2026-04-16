@@ -1026,7 +1026,7 @@ _ADS_TICKET_BODY_FR = """\
     </div>
   </div>
   <div class="ticket-footer">
-    <span>Document genere le {{ generated_at | default('--') }}</span>
+    <span>Document généré le {{ generated_at | default('--') }}</span>
     <span>{{ entity.name | default('OpsFlux') }} -- Avis de séjour</span>
   </div>
 </div>
@@ -1260,7 +1260,7 @@ _ADS_MANIFEST_BODY_FR = """\
     </tbody>
   </table>
   <div class="footer">
-    <span>Genere le {{ generated_at | default('--') }}</span>
+    <span>Généré le {{ generated_at | default('--') }}</span>
     <span>{{ entity.name | default('OpsFlux') }} -- Manifeste ADS</span>
   </div>
 </body>
@@ -1371,7 +1371,7 @@ _DOCUMENT_EXPORT_BODY_FR = """\
     {{ document_body }}
   </div>
   <div class="doc-footer">
-    {{ entity.name | default('OpsFlux') }} &mdash; {{ document_number }} &mdash; Genere le {{ generated_at | default('--') }}
+    {{ entity.name | default('OpsFlux') }} &mdash; {{ document_number }} &mdash; Généré le {{ generated_at | default('--') }}
   </div>
 </body>
 </html>"""
@@ -1530,7 +1530,7 @@ _VOYAGE_MANIFEST_BODY_FR = """\
     <div class="sig">Date</div>
   </div>
   <div class="footer">
-    <span>Genere le {{ generated_at | default('--') }}</span>
+    <span>Généré le {{ generated_at | default('--') }}</span>
     <span>{{ entity.name | default('OpsFlux') }} -- TravelWiz</span>
   </div>
 </body>
@@ -1777,7 +1777,7 @@ _VOYAGE_CARGO_MANIFEST_BODY_FR = """\
     <div class="sig">Date</div>
   </div>
   <div class="footer">
-    <span>Genere le {{ generated_at | default('--') }}</span>
+    <span>Généré le {{ generated_at | default('--') }}</span>
     <span>{{ entity.name | default('OpsFlux') }} -- TravelWiz Cargo</span>
   </div>
 </body>
@@ -2198,7 +2198,7 @@ _CARGO_LT_BODY_FR = """\
 
   <!-- ═══ FOOTER ═══ -->
   <div class="doc-footer">
-    <span>Genere le {{ generated_at | default('--') }}</span>
+    <span>Généré le {{ generated_at | default('--') }}</span>
     <span>{{ entity.name | default('OpsFlux') }} -- Lettre de Transport -- PackLog</span>
   </div>
   <div class="conditions">
@@ -2738,13 +2738,13 @@ _PROJECT_REPORT_BODY_FR = """\
 <h2>Fiche projet</h2>
 <div class="meta-grid">
   <div class="meta-item"><span class="meta-label">Statut</span><span class="meta-value">{{ project.status }}</span></div>
-  <div class="meta-item"><span class="meta-label">Priorite</span><span class="meta-value">{{ project.priority }}</span></div>
-  <div class="meta-item"><span class="meta-label">Meteo</span><span class="meta-value">{{ project.weather }}</span></div>
+  <div class="meta-item"><span class="meta-label">Priorité</span><span class="meta-value">{{ project.priority }}</span></div>
+  <div class="meta-item"><span class="meta-label">Météo</span><span class="meta-value">{{ project.weather }}</span></div>
   <div class="meta-item"><span class="meta-label">Avancement</span><span class="meta-value">{{ project.progress }}%</span></div>
   <div class="meta-item"><span class="meta-label">Chef de projet</span><span class="meta-value">{{ project.manager_name }}</span></div>
   <div class="meta-item"><span class="meta-label">Budget</span><span class="meta-value">{{ project.budget }}</span></div>
-  <div class="meta-item"><span class="meta-label">Debut</span><span class="meta-value">{{ project.start_date }}</span></div>
-  <div class="meta-item"><span class="meta-label">Fin prevue</span><span class="meta-value">{{ project.end_date }}</span></div>
+  <div class="meta-item"><span class="meta-label">Début</span><span class="meta-value">{{ project.start_date }}</span></div>
+  <div class="meta-item"><span class="meta-label">Fin prévue</span><span class="meta-value">{{ project.end_date }}</span></div>
 </div>
 
 {% if project.description %}
@@ -2752,10 +2752,10 @@ _PROJECT_REPORT_BODY_FR = """\
 <div class="description">{{ project.description }}</div>
 {% endif %}
 
-<h2>Taches ({{ task_count }})</h2>
+<h2>Tâches ({{ task_count }})</h2>
 {% if tasks %}
 <table>
-  <thead><tr><th>Tache</th><th>Statut</th><th>Priorite</th><th>%</th><th>Debut</th><th>Fin</th></tr></thead>
+  <thead><tr><th>Tâche</th><th>Statut</th><th>Priorité</th><th>%</th><th>Début</th><th>Fin</th></tr></thead>
   <tbody>
   {% for t in tasks %}
   <tr>
@@ -2770,13 +2770,13 @@ _PROJECT_REPORT_BODY_FR = """\
   </tbody>
 </table>
 {% else %}
-<p>Aucune tache.</p>
+<p>Aucune tâche.</p>
 {% endif %}
 
 {% if milestones %}
 <h2>Jalons ({{ milestone_count }})</h2>
 <table>
-  <thead><tr><th>Jalon</th><th>Echeance</th><th>Statut</th></tr></thead>
+  <thead><tr><th>Jalon</th><th>Échéance</th><th>Statut</th></tr></thead>
   <tbody>
   {% for m in milestones %}
   <tr><td>{{ m.name }}</td><td>{{ m.due_date }}</td><td>{{ m.status }}</td></tr>
@@ -2797,7 +2797,7 @@ _PROJECT_REPORT_BODY_FR = """\
 </table>
 {% endif %}
 
-<div class="footer">OpsFlux &mdash; Rapport genere le {{ generated_at }}</div>
+<div class="footer">OpsFlux &mdash; Rapport généré le {{ generated_at }}</div>
 </body>
 </html>
 """
@@ -2921,7 +2921,7 @@ _PID_EXPORT_BODY_FR = """\
     <span><strong>Dessin</strong> {{ drawing_number or '-' }}</span>
     <span><strong>Statut</strong> {{ status }}</span>
     <span><strong>Feuille</strong> {{ sheet_format or 'A1' }}</span>
-    <span><strong>Genere le</strong> {{ generated_at }}</span>
+    <span><strong>Généré le</strong> {{ generated_at }}</span>
   </div>
   <div class="canvas">{{ svg_content | safe }}</div>
 </body>

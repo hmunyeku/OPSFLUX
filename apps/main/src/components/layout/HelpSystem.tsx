@@ -125,7 +125,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
           'Cliquez "+ Nouvel utilisateur"',
           'Renseignez nom, prénom, email',
           "Choisissez l'entité et le rôle",
-          'Le mot de passe temporaire est envoye par email',
+          'Le mot de passe temporaire est envoyé par email',
         ],
       },
       {

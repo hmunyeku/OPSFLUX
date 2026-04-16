@@ -379,7 +379,7 @@ const HELP_CONTENT: Record<string, ModuleHelp> = {
   },
   papyrus: {
     title: 'Papyrus', icon: '\u{1F4C4}',
-    description: 'Stockage, classement, versionning et partage des documents. Modeles et generation PDF.',
+    description: 'Stockage, classement, versionning et partage des documents. Modèles et génération PDF.',
     workflows: [
       { title: 'Déposer un document', steps: ['Cliquez "+ Nouveau document" ou glissez-déposez', 'Choisissez catégorie et classeur', 'Ajoutez des tags', "Définissez les droits d'accès", 'Le document est indexé immédiatement'] },
       { title: 'Générer depuis un modèle', steps: ['Onglet "Modèles"', 'Sélectionnez un modèle', 'Données pré-remplies depuis le contexte', 'Complétez les champs manuels', 'Générez le PDF final'] },

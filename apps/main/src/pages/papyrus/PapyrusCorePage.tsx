@@ -2186,7 +2186,7 @@ function CreateDocumentPanel() {
                 </FormGrid>
               </FormSection>
               <p className="text-[10px] text-muted-foreground px-1">
-                Tags, notes et fichiers joints seront geres dans la fiche apres creation.
+                Tags, notes et fichiers joints seront gérés dans la fiche après création.
               </p>
             </div>
           </SectionColumns>
@@ -2381,7 +2381,7 @@ function CreateTemplatePanel() {
             </FormGrid>
           </FormSection>
           <p className="text-[10px] text-muted-foreground px-3 pb-3">
-            La structure et les styles seront edites dans le detail du template apres creation.
+            La structure et les styles seront édités dans le détail du template après création.
           </p>
         </PanelContentLayout>
       </form>

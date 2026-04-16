@@ -1835,11 +1835,11 @@ function buildDescription(freq: string, day: string, hour: string, minute: strin
   const time = `${h}h${m}`
   const dayLabel = DAY_OPTIONS.find(d => d.value === day)?.label || 'Lundi'
   switch (freq) {
-    case 'daily': return `Tous les jours a ${time}`
-    case 'weekly': return `Chaque ${dayLabel.toLowerCase()} a ${time}`
-    case 'biweekly': return `Un ${dayLabel.toLowerCase()} sur deux a ${time}`
-    case 'monthly': return `Le ${day || '1'}e de chaque mois a ${time}`
-    default: return `Recurrent a ${time}`
+    case 'daily': return `Tous les jours à ${time}`
+    case 'weekly': return `Chaque ${dayLabel.toLowerCase()} à ${time}`
+    case 'biweekly': return `Un ${dayLabel.toLowerCase()} sur deux à ${time}`
+    case 'monthly': return `Le ${day || '1'}e de chaque mois à ${time}`
+    default: return `Récurrent à ${time}`
   }
 }
 

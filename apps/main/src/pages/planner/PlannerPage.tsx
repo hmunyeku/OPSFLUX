@@ -1058,7 +1058,7 @@ function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
               type: 'Type',
               priority: 'Priorité',
               pax_quota: 'PAX',
-              start_date: 'Debut',
+              start_date: 'Début',
               end_date: 'Fin',
               status: 'Statut',
             },
@@ -4933,7 +4933,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
               <FormSection title="Planning">
                 <DetailFieldGrid>
                   <InlineEditableRow
-                    label="Date debut"
+                    label="Date début"
                     value={activity.start_date ? activity.start_date.slice(0, 10) : ''}
                     onSave={(v) => handleInlineSave('start_date', v)}
                     type="date"
@@ -4947,13 +4947,13 @@ function ActivityDetailPanel({ id }: { id: string }) {
                 </DetailFieldGrid>
                 <DetailFieldGrid>
                   <InlineEditableRow
-                    label="Debut reel"
+                    label="Début réel"
                     value={activity.actual_start ? activity.actual_start.slice(0, 10) : ''}
                     onSave={(v) => handleInlineSave('actual_start', v)}
                     type="date"
                   />
                   <InlineEditableRow
-                    label="Fin reelle"
+                    label="Fin réelle"
                     value={activity.actual_end ? activity.actual_end.slice(0, 10) : ''}
                     onSave={(v) => handleInlineSave('actual_end', v)}
                     type="date"

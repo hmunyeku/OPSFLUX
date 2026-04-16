@@ -513,7 +513,7 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
     _RENDER_TYPES: dict[str, str] = {
         "alerts_urgent": "kpi", "pax_on_site": "kpi", "kpi_fleet": "kpi",
         "pickup_progress": "kpi", "weather_sites": "kpi",
-        "ads_pending": "table", "compliance_expiry": "table", "signalements_actifs": "table",
+        "ads_pending": "kpi", "compliance_expiry": "table", "signalements_actifs": "table",
         "project_status": "table", "my_ads": "table", "trips_today": "table", "cargo_pending": "table",
         "planner_gantt_mini": "chart", "capacity_heatmap": "chart",
         "fleet_map": "map",

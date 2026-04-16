@@ -1011,6 +1011,21 @@ function TableWidget({
     expires_at: 'Expire le', issued_at: 'Émis le',
     flight: 'Vol', origin: 'Origine', destination: 'Destination',
     weight: 'Poids', volume: 'Volume', tracking: 'Suivi',
+    // Extra common keys from providers
+    label: 'Libellé', unit: 'Unité', trend: 'Tendance',
+    vector_name: 'Vecteur', vector_type: 'Type vecteur',
+    departure_base: 'Base départ', arrival_base: 'Base arrivée',
+    scheduled_departure: 'Départ prévu', scheduled_arrival: 'Arrivée prévue',
+    actual_departure: 'Départ réel', actual_arrival: 'Arrivée réelle',
+    pax_name: 'PAX', badge_number: 'Badge', credential_name: 'Certification',
+    days_remaining: 'Jours restants', expiry_date: 'Expiration',
+    tracking_code: 'Tracking', weight_kg: 'Poids (kg)',
+    user_name: 'Utilisateur', entity_name: 'Entité', module_name: 'Module',
+    last_login: 'Dernière connexion', role_name: 'Rôle',
+    completion_rate: '% Terminé', avg_duration: 'Durée moy.',
+    pax_count: 'Nb PAX', cargo_count: 'Nb colis', vector_count: 'Nb vecteurs',
+    site_name: 'Site', asset_type: 'Type asset', serial_number: 'N° série',
+    manufacturer: 'Fabricant', model: 'Modèle',
   }
   const autoLabel = (key: string) =>
     AUTO_LABELS[key] ?? AUTO_LABELS[key.replace(/_id$/, '').replace(/_/g, ' ')] ??
@@ -1046,22 +1061,63 @@ function TableWidget({
 
   // ── Smart cell rendering ──
 
-  // Status badge colors
+  // Status badge colors — comprehensive mapping for all OpsFlux statuses
   const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+    // Neutral / draft
     draft: { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-300' },
     brouillon: { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-300' },
+    todo: { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-300' },
+    // Planned / scheduled
     planned: { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300' },
     planifie: { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300' },
+    scheduled: { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300' },
+    // Active / in-progress
     active: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300' },
     in_progress: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300' },
-    todo: { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-300' },
+    boarding: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300' },
+    departed: { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-300' },
+    in_transit: { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-300' },
+    // Pending / waiting
+    pending: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300' },
+    submitted: { bg: 'bg-indigo-100 dark:bg-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-300' },
+    review: { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300' },
+    pending_validation: { bg: 'bg-indigo-100 dark:bg-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-300' },
+    pending_compliance: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300' },
+    pending_project_review: { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300' },
+    pending_initiator_review: { bg: 'bg-violet-100 dark:bg-violet-900/30', text: 'text-violet-700 dark:text-violet-300' },
+    pending_arbitration: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300' },
+    requires_review: { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300' },
+    pending_validation_: { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300' },
+    // Ready / prepared
+    ready: { bg: 'bg-teal-100 dark:bg-teal-900/30', text: 'text-teal-700 dark:text-teal-300' },
+    ready_for_loading: { bg: 'bg-teal-100 dark:bg-teal-900/30', text: 'text-teal-700 dark:text-teal-300' },
+    // Approved / validated
+    approved: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300' },
+    validated: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300' },
+    valid: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300' },
+    // Completed / done
     completed: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300' },
     done: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300' },
-    cancelled: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300' },
+    arrived: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300' },
+    delivered: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300' },
+    delivered_final: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300' },
+    reintegrated: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300' },
+    // Halted / hold
     suspended: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-700 dark:text-yellow-300' },
     on_hold: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-700 dark:text-yellow-300' },
-    review: { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-300' },
-    submitted: { bg: 'bg-indigo-100 dark:bg-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-300' },
+    // Negative / cancelled / expired
+    cancelled: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300' },
+    rejected: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300' },
+    expired: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300' },
+    non_compliant: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300' },
+    missing: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300' },
+    damaged: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300' },
+    scrapped: { bg: 'bg-slate-200 dark:bg-slate-700', text: 'text-slate-500 dark:text-slate-400' },
+    archived: { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-500 dark:text-slate-400' },
+    // Cargo transit states
+    loaded: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300' },
+    returned: { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-300' },
+    registered: { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-300' },
   }
 
   const PRIORITY_COLORS: Record<string, string> = {
@@ -1120,9 +1176,25 @@ function TableWidget({
     }
     const s = String(value)
 
+    // Days remaining — urgency coloring
+    if (/days_remaining|jours_restants/i.test(key)) {
+      const n = parseInt(s)
+      if (!isNaN(n)) {
+        const urgent = n <= 7
+        const warning = n <= 14
+        const cls = urgent
+          ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+          : warning
+            ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+            : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
+        return <span className={cn('inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold tabular-nums', cls)}>{n}j</span>
+      }
+    }
+
     // Status badge
     if (isStatusCol(key)) {
-      const colors = STATUS_COLORS[s.toLowerCase().replace(/[^a-z_]/g, '_')] || STATUS_COLORS.draft
+      const normalized = s.toLowerCase().replace(/[\s-]+/g, '_').replace(/[^a-z_]/g, '')
+      const colors = STATUS_COLORS[normalized] || STATUS_COLORS.draft
       return <span className={cn('inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold', colors?.bg, colors?.text)}>{tLabel(s)}</span>
     }
 

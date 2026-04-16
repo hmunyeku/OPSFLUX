@@ -56,6 +56,7 @@ const LABEL_FR: Record<string, string> = {
   todo: 'À faire', in_progress: 'En cours', review: 'Revue', done: 'Terminé',
   valid: 'Valide', expired: 'Expiré', non_compliant: 'Non conforme',
   approved: 'Approuvé', rejected: 'Rejeté', submitted: 'Soumis',
+  validated: 'Validé', completed: 'Terminé',
   // Priorities
   low: 'Basse', medium: 'Moyenne', high: 'Haute', critical: 'Critique',
   // Types
@@ -463,7 +464,7 @@ function KPIWidget({
       {details && Object.keys(details).length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {Object.entries(details).slice(0, 6).map(([k, v]) => {
-            const label = k.replace(/_/g, ' ')
+            const label = tLabel(k)
             const val = String(v)
             const isGood = /compliant|active|done|valid/.test(k)
             const isBad = /overdue|expired|critical|cancelled/.test(k)

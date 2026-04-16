@@ -728,9 +728,9 @@ function KPIWidget({
         </span>
       )}
 
-      {/* ── Middle: sparkline grows to fill available space ── */}
+      {/* ── Middle: sparkline fills available space, capped at 128px ── */}
       {sparklineData && sparklineData.length > 1 && (
-        <div className="flex-1 min-h-0 py-2">
+        <div className="flex-1 min-h-0 max-h-32 py-2">
           <KPISparkline data={sparklineData} color={sparklineColor} />
         </div>
       )}

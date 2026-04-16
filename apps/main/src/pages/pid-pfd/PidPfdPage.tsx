@@ -595,7 +595,7 @@ function PIDDetailPanel({ id }: { id: string }) {
                       <p className="text-muted-foreground mt-0.5">{rev.change_description}</p>
                     )}
                     <p className="text-muted-foreground/60 mt-0.5">
-                      {rev.creator_name || 'Systeme'} — {new Date(rev.created_at).toLocaleDateString('fr-FR')}
+                      {rev.creator_name || 'Système'} — {new Date(rev.created_at).toLocaleDateString('fr-FR')}
                     </p>
                   </div>
                 </div>

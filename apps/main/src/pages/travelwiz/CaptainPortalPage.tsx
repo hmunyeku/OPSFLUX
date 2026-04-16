@@ -249,12 +249,12 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Clock size={12} />
-            <span>Depart: {formatDateTime(voyage.departure_at)}</span>
+            <span>Départ : {formatDateTime(voyage.departure_at)}</span>
           </div>
           {voyage.arrival_at && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Clock size={12} />
-              <span>Arrivee: {formatDateTime(voyage.arrival_at)}</span>
+              <span>Arrivée : {formatDateTime(voyage.arrival_at)}</span>
             </div>
           )}
         </div>

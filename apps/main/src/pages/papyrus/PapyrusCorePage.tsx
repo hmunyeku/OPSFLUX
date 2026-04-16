@@ -328,7 +328,7 @@ function WorkflowActions({ docId }: { docId: string }) {
           <div className="space-y-1">
             {wfState.history.map((h, i) => (
               <div key={i} className="text-xs text-muted-foreground">
-                <span className="font-medium">{h.actor_name || 'Systeme'}</span>
+                <span className="font-medium">{h.actor_name || 'Système'}</span>
                 {' '}{h.from_state} &rarr; {h.to_state}
                 {h.comment && <span className="italic ml-1">&laquo;{h.comment}&raquo;</span>}
                 {h.created_at && (
@@ -1388,7 +1388,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                       <span className="font-mono font-medium">{rev.rev_code}</span>
                     </div>
                     <span className="text-muted-foreground flex-1 truncate">
-                      {rev.creator_name || 'Systeme'} — {rev.word_count} mots
+                      {rev.creator_name || 'Système'} — {rev.word_count} mots
                     </span>
                     <span className="text-muted-foreground tabular-nums shrink-0">{formatDate(rev.created_at)}</span>
                     {rev.is_locked && (

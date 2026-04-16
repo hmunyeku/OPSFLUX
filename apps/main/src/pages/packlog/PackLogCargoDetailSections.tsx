@@ -571,7 +571,7 @@ export function CargoHistorySection({ cargoHistory }: { cargoHistory: Array<{ id
                   <p className="text-[11px] text-muted-foreground">{new Date(entry.created_at).toLocaleString('fr-FR')}</p>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {entry.actor_name || 'Systeme'}
+                  {entry.actor_name || 'Système'}
                   {fromStatus && toStatus ? ` • ${fromStatus} -> ${toStatus}` : ''}
                   {!fromStatus && changedFields.length > 0 ? ` • Champs: ${changedFields.join(', ')}` : ''}
                 </p>

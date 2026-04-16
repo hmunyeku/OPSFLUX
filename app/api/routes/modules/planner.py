@@ -1193,6 +1193,7 @@ async def list_conflicts(
     status: str | None = None,
     conflict_date_from: date | None = None,
     conflict_date_to: date | None = None,
+    conflict_type: str | None = None,
     pagination: PaginationParams = Depends(),
     entity_id: UUID = Depends(get_current_entity),
     current_user: User = Depends(get_current_user),
@@ -1213,6 +1214,8 @@ async def list_conflicts(
         query = query.where(PlannerConflict.conflict_date >= conflict_date_from)
     if conflict_date_to:
         query = query.where(PlannerConflict.conflict_date <= conflict_date_to)
+    if conflict_type:
+        query = query.where(PlannerConflict.conflict_type == conflict_type)
 
     query = query.order_by(PlannerConflict.conflict_date.desc(), PlannerConflict.created_at.desc())
 
@@ -2214,6 +2217,97 @@ async def force_revision_decision_request(
 
     resolution_row = await _get_latest_revision_request_resolution(db, entity_id=entity_id, request_id=request_id)
     return _build_revision_request_read(request_row, resolution_row)
+
+
+@router.post(
+    "/revision-decision-requests/{request_id}/accept-counter",
+    response_model=RevisionDecisionRequestRead,
+)
+async def accept_counter_revision_decision_request(
+    request_id: UUID,
+    request: Request,
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    _: None = require_permission("planner.activity.validate"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Arbiter accepts a counter-proposal from the target reviewer.
+
+    Applies counter_* values (instead of proposed_*) to the task and activities.
+    Creates a new resolution AuditLog with action='planner.revision.counter_accepted'.
+    """
+    request_row = await db.get(AuditLog, request_id)
+    if not request_row or request_row.entity_id != entity_id:
+        raise HTTPException(404, "Revision decision request not found")
+    if request_row.action != "planner.revision.requested" or request_row.resource_type != "planner_revision_signal":
+        raise HTTPException(400, "Invalid revision decision request")
+
+    # Only the original requester can accept a counter
+    if request_row.user_id != current_user.id:
+        raise HTTPException(403, "Only the original requester can accept a counter-proposal")
+
+    resolution_row = await _get_latest_revision_request_resolution(
+        db, entity_id=entity_id, request_id=request_id,
+    )
+    if not resolution_row:
+        raise HTTPException(400, "No response to accept — revision decision request is still pending")
+
+    resolution_details = resolution_row.details or {}
+    if resolution_details.get("response") != "counter_proposed":
+        raise HTTPException(400, "The response is not a counter-proposal")
+
+    # Build a synthetic request_details with counter_* values replacing proposed_* values
+    request_details = request_row.details or {}
+    counter_request_details = {
+        **request_details,
+        "proposed_start_date": resolution_details.get("counter_start_date"),
+        "proposed_end_date": resolution_details.get("counter_end_date"),
+        "proposed_pax_quota": resolution_details.get("counter_pax_quota"),
+        "proposed_status": resolution_details.get("counter_status"),
+    }
+
+    application_result = await _apply_accepted_revision_request(
+        db, entity_id=entity_id, request_details=counter_request_details,
+    )
+
+    now = datetime.now(timezone.utc)
+    await record_audit(
+        db,
+        action="planner.revision.counter_accepted",
+        resource_type="planner_revision_request",
+        resource_id=str(request_id),
+        user_id=current_user.id,
+        entity_id=entity_id,
+        details={
+            "signal_id": request_details.get("signal_id") or request_row.resource_id,
+            "response": "counter_accepted",
+            "counter_start_date": resolution_details.get("counter_start_date"),
+            "counter_end_date": resolution_details.get("counter_end_date"),
+            "counter_pax_quota": resolution_details.get("counter_pax_quota"),
+            "counter_status": resolution_details.get("counter_status"),
+            "accepted_at": now.isoformat(),
+            "application_result": application_result,
+        },
+        ip_address=getattr(request.client, "host", None) if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
+
+    await event_bus.publish(OpsFluxEvent(
+        event_type="planner.revision.counter_accepted",
+        payload={
+            "entity_id": str(entity_id),
+            "request_id": str(request_id),
+            "signal_id": request_details.get("signal_id") or request_row.resource_id,
+            "requester_user_id": str(current_user.id),
+            "target_user_id": request_details.get("target_user_id"),
+            "target_user_name": request_details.get("target_user_name"),
+            "application_result": application_result,
+        },
+    ))
+
+    updated_resolution = await _get_latest_revision_request_resolution(db, entity_id=entity_id, request_id=request_id)
+    return _build_revision_request_read(request_row, updated_resolution)
 
 
 # ── Capacity ─────────────────────────────────────────────────────────────

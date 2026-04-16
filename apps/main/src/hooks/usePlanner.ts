@@ -234,6 +234,7 @@ export function useConflicts(params: PaginationParams & {
   status?: string
   conflict_date_from?: string
   conflict_date_to?: string
+  conflict_type?: string
 } = {}) {
   return useQuery({
     queryKey: ['planner', 'conflicts', params],
@@ -309,6 +310,17 @@ export function useForceRevisionDecisionRequest() {
   return useMutation({
     mutationFn: ({ requestId, reason }: { requestId: string; reason?: string }) =>
       plannerService.forceRevisionDecisionRequest(requestId, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['planner', 'revision-decision-requests'] })
+    },
+  })
+}
+
+export function useAcceptCounterRevisionDecision() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (requestId: string) =>
+      plannerService.acceptCounterRevisionDecision(requestId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['planner', 'revision-decision-requests'] })
     },

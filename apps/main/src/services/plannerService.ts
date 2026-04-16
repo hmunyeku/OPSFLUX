@@ -96,6 +96,7 @@ interface ConflictListParams extends PaginationParams {
   status?: string
   conflict_date_from?: string
   conflict_date_to?: string
+  conflict_type?: string
 }
 
 interface CapacityParams {
@@ -237,6 +238,13 @@ export const plannerService = {
   forceRevisionDecisionRequest: async (requestId: string, reason?: string): Promise<PlannerRevisionDecisionRequest> => {
     const { data } = await api.post(`${BASE}/revision-decision-requests/${requestId}/force`, reason ? { reason } : {})
     return data
+  },
+
+  acceptCounterRevisionDecision: async (requestId: string): Promise<PlannerRevisionDecisionRequest> => {
+    const res = await api.post<PlannerRevisionDecisionRequest>(
+      `${BASE}/revision-decision-requests/${requestId}/accept-counter`,
+    )
+    return res.data
   },
 
   resolveConflict: async (id: string, payload: PlannerConflictResolve): Promise<PlannerConflict> => {

@@ -2495,7 +2495,7 @@ export interface PlannerRevisionDecisionRequest {
   signal_id: string
   created_at: string
   due_at: string | null
-  status: 'pending' | 'responded' | 'forced'
+  status: 'pending' | 'responded' | 'forced' | 'counter_accepted'
   project_id: string | null
   project_code: string | null
   project_name: string | null

@@ -86,6 +86,7 @@ import {
   useRequestRevisionDecision,
   useRespondRevisionDecisionRequest,
   useForceRevisionDecisionRequest,
+  useAcceptCounterRevisionDecision,
   useResolveConflict,
   useConflictAudit,
   useBulkResolveConflicts,
@@ -1116,6 +1117,9 @@ function ConflitsTab() {
   const requestRevisionDecision = useRequestRevisionDecision()
   const respondRevisionDecisionRequest = useRespondRevisionDecisionRequest()
   const forceRevisionDecisionRequest = useForceRevisionDecisionRequest()
+  const acceptCounterRevision = useAcceptCounterRevisionDecision()
+  const [forceReasonModal, setForceReasonModal] = useState<PlannerRevisionDecisionRequest | null>(null)
+  const [forceReasonText, setForceReasonText] = useState('')
   const { data: revisionSignalsData, isLoading: revisionSignalsLoading } = useRevisionSignals({ page: 1, page_size: 6 })
   const { data: incomingRevisionRequestsData, isLoading: incomingRevisionRequestsLoading } = useRevisionDecisionRequests({ page: 1, page_size: 6, direction: 'incoming', status: 'pending' })
   const { data: outgoingRevisionRequestsData, isLoading: outgoingRevisionRequestsLoading } = useRevisionDecisionRequests({ page: 1, page_size: 6, direction: 'outgoing', status: 'all' })
@@ -1151,16 +1155,10 @@ function ConflitsTab() {
     asset_id: conflictFilters.assetId || undefined,
     conflict_date_from: conflictFilters.dateFrom || undefined,
     conflict_date_to: conflictFilters.dateTo || undefined,
+    conflict_type: conflictFilters.conflictTypeFilter || undefined,
   })
 
-  const rawItems: PlannerConflict[] = data?.items ?? []
-  // Filter conflict_type client-side since the backend list endpoint doesn't
-  // expose a conflict_type query parameter yet (the column was added later;
-  // backend filtering can be added separately when we batch backend changes).
-  const items: PlannerConflict[] = useMemo(() => {
-    if (!conflictFilters.conflictTypeFilter) return rawItems
-    return rawItems.filter((c) => c.conflict_type === conflictFilters.conflictTypeFilter)
-  }, [rawItems, conflictFilters.conflictTypeFilter])
+  const items: PlannerConflict[] = data?.items ?? []
   const revisionSignals: PlannerRevisionSignal[] = revisionSignalsData?.items ?? []
   const incomingRevisionRequests: PlannerRevisionDecisionRequest[] = incomingRevisionRequestsData?.items ?? []
   const outgoingRevisionRequests: PlannerRevisionDecisionRequest[] = outgoingRevisionRequestsData?.items ?? []
@@ -1702,18 +1700,43 @@ function ConflitsTab() {
                       })}
                     </p>
                   )}
-                  {item.status === 'pending' && (
-                    <div className="mt-2">
+                  {item.status === 'responded' && item.response === 'counter_proposed' && (
+                    <div className="mt-2 flex items-center gap-2">
                       <button
                         type="button"
-                        className="gl-button-sm gl-button-default text-xs"
-                        onClick={() => forceRevisionDecisionRequest.mutate({ requestId: item.id })}
-                        disabled={forceRevisionDecisionRequest.isPending}
+                        className="gl-button-sm gl-button-confirm text-xs"
+                        onClick={() => acceptCounterRevision.mutate(item.id, {
+                          onSuccess: () => toast({ title: t('planner.revision_requests.counter_accepted_success'), variant: 'success' }),
+                          onError: (err) => toast({ title: extractApiError(err) ?? t('common.error'), variant: 'error' }),
+                        })}
+                        disabled={acceptCounterRevision.isPending}
                       >
-                        {t('planner.revision_requests.force')}
+                        {acceptCounterRevision.isPending ? <Loader2 size={12} className="animate-spin" /> : t('planner.revision_requests.accept_counter')}
                       </button>
                     </div>
                   )}
+                  {item.status === 'pending' && (() => {
+                    const dueAt = item.due_at ? new Date(item.due_at) : null
+                    const isOverdue = !dueAt || dueAt <= new Date()
+                    return (
+                      <div className="mt-2 flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="gl-button-sm gl-button-default text-xs"
+                          onClick={() => { setForceReasonModal(item); setForceReasonText('') }}
+                          disabled={!isOverdue || forceRevisionDecisionRequest.isPending}
+                          title={!isOverdue && dueAt ? `Disponible le ${formatDateShort(dueAt.toISOString())}` : undefined}
+                        >
+                          {t('planner.revision_requests.force')}
+                        </button>
+                        {!isOverdue && dueAt && (
+                          <span className="text-[11px] text-muted-foreground">
+                            {t('planner.revision_requests.force_available_at', { date: formatDateShort(dueAt.toISOString()) })}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
               ))}
             </div>
@@ -1964,6 +1987,42 @@ function ConflitsTab() {
                 disabled={requestRevisionDecision.isPending}
               >
                 {requestRevisionDecision.isPending ? <Loader2 size={12} className="animate-spin" /> : t('planner.revision_requests.send_request')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {forceReasonModal && (
+        <div className="gl-modal-backdrop" onClick={() => setForceReasonModal(null)}>
+          <div className="gl-modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-foreground">{t('planner.revision_requests.force_title')}</h3>
+            <p className="text-xs text-muted-foreground">{t('planner.revision_requests.force_description')}</p>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">{t('planner.revision_requests.force_reason')}</label>
+              <textarea
+                value={forceReasonText}
+                onChange={(e) => setForceReasonText(e.target.value)}
+                className="w-full min-h-[72px] px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder={t('planner.revision_requests.force_reason_placeholder')}
+              />
+            </div>
+            <div className="flex items-center gap-2 justify-end">
+              <button className="gl-button-sm gl-button-default" onClick={() => setForceReasonModal(null)}>{t('common.cancel')}</button>
+              <button
+                className="gl-button-sm gl-button-danger text-xs"
+                disabled={forceRevisionDecisionRequest.isPending}
+                onClick={() => {
+                  forceRevisionDecisionRequest.mutate(
+                    { requestId: forceReasonModal.id, reason: forceReasonText || undefined },
+                    {
+                      onSuccess: () => { setForceReasonModal(null); setForceReasonText(''); toast({ title: t('planner.revision_requests.forced_success'), variant: 'success' }) },
+                      onError: (err) => toast({ title: extractApiError(err) ?? t('common.error'), variant: 'error' }),
+                    }
+                  )
+                }}
+              >
+                {forceRevisionDecisionRequest.isPending ? <Loader2 size={12} className="animate-spin" /> : t('planner.revision_requests.force_confirm')}
               </button>
             </div>
           </div>

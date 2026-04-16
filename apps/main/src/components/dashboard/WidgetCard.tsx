@@ -567,6 +567,36 @@ const WIDGET_ICON_MAP: Record<string, React.ElementType> = {
   workflow_pending: Clock,
 }
 
+// Semantic color map — widget_id → color preset key
+// Governs the tinted icon badge background/foreground on KPI cards
+const WIDGET_COLOR_MAP: Record<string, string> = {
+  // Alerts / urgent → red
+  alerts_urgent: 'red', signalements_actifs: 'red', paxlog_incidents: 'red',
+  conformite_urgency: 'red', conformite_urgency_kpi: 'red', support_overview: 'red',
+  // Compliance / certification → orange
+  compliance_expiry: 'orange', paxlog_expiring_credentials: 'orange',
+  conformite_kpis: 'orange', users_orphans: 'orange', workflow_pending: 'orange',
+  // PAX / People → violet
+  pax_on_site: 'violet', users_overview: 'violet', pax_ads_pending: 'violet',
+  planner_pax_by_site: 'violet', tiers_overview: 'violet',
+  // Compliance rate / MFA / shield → green
+  paxlog_compliance_rate: 'green', users_mfa_stats: 'green',
+  compliance_rate: 'green', conformite_by_status: 'green',
+  // Fleet / transport → blue (default)
+  kpi_fleet: 'blue', trips_today: 'blue', fleet_map: 'blue', planner_overview: 'blue',
+  // ADS / clock items → cyan
+  ads_pending: 'cyan', my_ads: 'cyan', planner_conflicts_kpi: 'cyan',
+  // Cargo / packages → yellow
+  packlog_overview: 'yellow', cargo_pending: 'yellow', packlog_catalog_overview: 'yellow',
+  // Projects / workflow → green
+  projets_kpis: 'green', project_status: 'green', workflow_overview: 'green',
+  papyrus_overview: 'green', papyrus_forms_overview: 'green',
+  // Assets → slate
+  assets_overview: 'slate',
+  // pickup / quick KPIs → pink
+  pickup_progress: 'pink',
+}
+
 function KPIWidget({
   widgetId,
   config,
@@ -586,7 +616,8 @@ function KPIWidget({
   // Auto-detect percent format when unit is "%" to show e.g. "65.0%" instead of "65 %"
   const format = (config.format as string) || (rawUnit === '%' ? 'percent' : 'number')
   const unit = rawUnit === '%' && format === 'percent' ? '' : rawUnit
-  const iconColor = (config.icon_color as string) || 'blue'
+  // Color: explicit config → semantic map → fallback blue
+  const iconColor = (config.icon_color as string) || (widgetId ? WIDGET_COLOR_MAP[widgetId] : '') || 'blue'
   const iconPreset = KPI_ICON_COLORS[iconColor] || KPI_ICON_COLORS.blue
   const IconComp = (widgetId ? WIDGET_ICON_MAP[widgetId] : null) || Gauge
 

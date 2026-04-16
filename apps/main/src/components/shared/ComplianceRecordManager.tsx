@@ -192,7 +192,7 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
             onChange={(e) => setForm({ ...form, compliance_type_id: e.target.value })}
             className="w-full text-xs border border-border rounded px-2 py-1 bg-background"
           >
-            <option value="">Selectionner un type...</option>
+            <option value="">Sélectionner un type...</option>
             {typesData?.items?.map(t => (
               <option key={t.id} value={t.id}>{t.code} — {t.name}</option>
             ))}

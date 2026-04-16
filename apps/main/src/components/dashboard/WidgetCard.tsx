@@ -1139,7 +1139,7 @@ function TableWidget({
     first_name: 'Prénom', last_name: 'Nom', full_name: 'Nom complet',
     requester: 'Demandeur', assignee: 'Responsable', owner: 'Propriétaire',
     role: 'Rôle', department: 'Département', comment: 'Commentaire',
-    expires_at: 'Expire le', issued_at: 'Émis le',
+    expires_at: 'Expiré le', issued_at: 'Émis le',
     flight: 'Vol', origin: 'Origine', destination: 'Destination',
     weight: 'Poids', volume: 'Volume', tracking: 'Suivi',
     // Extra common keys from providers

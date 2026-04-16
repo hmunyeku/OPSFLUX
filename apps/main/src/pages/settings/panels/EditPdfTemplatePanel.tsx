@@ -182,8 +182,8 @@ function buildSampleVariables(
     return {
       ...base,
       document_number: 'DOC-2026-0007',
-      document_title: 'Rapport hebdomadaire d’activite',
-      document_body: '<h2>Synthese</h2><p>Activite soutenue cette semaine avec progression conforme au plan.</p><h3>Points cles</h3><ul><li>2 actions critiques cloturees</li><li>1 reserve en cours de traitement</li></ul>',
+      document_title: ‘Rapport hebdomadaire d’activité’,
+      document_body: ‘<h2>Synthèse</h2><p>Activité soutenue cette semaine avec progression conforme au plan.</p><h3>Points clés</h3><ul><li>2 actions critiques clôturées</li><li>1 réserve en cours de traitement</li></ul>’,
       author_name: 'A. User',
       revision: '03',
       status: 'approved',

@@ -1150,7 +1150,7 @@ export function PidPfdPage() {
       return canCreate ? (
         <ToolbarButton
           icon={Plus}
-          label="Nouvel equipement"
+          label="Nouvel équipement"
           variant="primary"
           onClick={() => openDynamicPanel({ type: 'create', module: 'pid-pfd', meta: { subType: 'equipment' } })}
         />
@@ -1265,7 +1265,7 @@ export function PidPfdPage() {
             onFilterChange={handleFilterChange}
             onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'pid-pfd', id: row.id, meta: { subType: 'equipment' } })}
             emptyIcon={Cpu}
-            emptyTitle="Aucun equipement"
+            emptyTitle="Aucun équipement"
             columnResizing
             columnVisibility
             storageKey="pid-pfd-equipment"
@@ -1485,7 +1485,7 @@ function CreateEquipmentPanel() {
   const set = (field: string, value: string) => setForm((f) => ({ ...f, [field]: value }))
 
   return (
-    <DynamicPanelShell title="Nouvel equipement" icon={<Plus size={14} className="text-primary" />} onClose={closeDynamicPanel}>
+    <DynamicPanelShell title="Nouvel équipement" icon={<Plus size={14} className="text-primary" />} onClose={closeDynamicPanel}>
       <PanelContentLayout>
         <FormSection title="Identification">
           <div className="space-y-3 p-3">
@@ -1494,14 +1494,14 @@ function CreateEquipmentPanel() {
               <input className="gl-form-input text-sm w-full font-mono" value={form.tag} onChange={(e) => set('tag', e.target.value)} placeholder="V-1001" />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Type d'equipement</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Type d'équipement</label>
               <select className="gl-form-select text-sm w-full" value={form.equipment_type} onChange={(e) => set('equipment_type', e.target.value)}>
                 {EQUIPMENT_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Description</label>
-              <input className="gl-form-input text-sm w-full" value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Description de l'equipement" />
+              <input className="gl-form-input text-sm w-full" value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Description de l'équipement" />
             </div>
           </div>
         </FormSection>
@@ -1881,7 +1881,7 @@ function CreateDCSTagPanel() {
           </div>
         </FormSection>
 
-        <FormSection title="Association equipement">
+        <FormSection title="Association équipement">
           <div className="space-y-3 p-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Equipement</label>

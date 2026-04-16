@@ -727,7 +727,7 @@ async def seed_dashboard_tabs(db: AsyncSession, entity_id) -> None:
             "target_module": "planner",
             "tab_order": 0,
             "widgets": [
-                _make_widget("planner_overview", "Activites",
+                _make_widget("planner_overview", "Activités",
                              {"source": "planner", "icon_color": "blue"},
                              {"x": 0, "y": 0, "w": 3, "h": 4}),
                 _make_widget("planner_conflicts_kpi", "Conflits",

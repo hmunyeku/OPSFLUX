@@ -87,6 +87,8 @@ const SEMANTIC_COLORS: Record<string, string> = {
   pump: '#3b82f6', crane: '#f59e0b', separator: '#22c55e', compressor: '#8b5cf6',
   // Compliance
   compliant: '#22c55e', non_conformant: '#ef4444', expiring: '#f59e0b',
+  // Unknown / fallback
+  unknown: '#94a3b8', inconnu: '#94a3b8', n_a: '#94a3b8',
 }
 
 /** Get color for a data point name — semantic first, then palette fallback */
@@ -121,10 +123,17 @@ export function EChartsWidget({
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     }
 
+    const fmtNum = (v: number) => v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `${(v / 1_000).toFixed(v >= 10_000 ? 0 : 1)}k` : String(v)
+
     const axisCommon = {
       axisLabel: { ...baseTextStyle, margin: 10 },
       axisLine: { show: false },
       splitLine: { lineStyle: { color: isDark ? '#27272a' : '#f3f4f6', type: 'solid' as const } },
+    }
+    const valueAxis = {
+      ...axisCommon,
+      minInterval: 1,
+      axisLabel: { ...baseTextStyle, margin: 8, formatter: (v: number) => fmtNum(v) },
     }
 
     const tooltipStyle = {
@@ -163,7 +172,7 @@ export function EChartsWidget({
           ...(hasLegend ? { legend: { bottom: 0, textStyle: baseTextStyle, icon: 'roundRect', itemWidth: 10, itemHeight: 6 } } : {}),
           grid: { left: 8, right: 8, top: title ? 32 : 12, bottom: hasLegend ? 38 : 20, containLabel: true },
           xAxis: { type: 'category', data: xData, ...axisCommon, axisLabel: { ...baseTextStyle, rotate: willRotate ? 25 : 0, hideOverlap: true, margin: 6 } },
-          yAxis: { type: 'value', ...axisCommon, minInterval: 1 },
+          yAxis: { type: 'value', ...valueAxis },
           series: yFields.map((field, i) => {
             const isSingleSeries = yFields.length === 1
             const isStacked = stacked && !isSingleSeries
@@ -223,7 +232,7 @@ export function EChartsWidget({
           ...(hasLegend ? { legend: { bottom: 0, textStyle: baseTextStyle, icon: 'roundRect', itemWidth: 10, itemHeight: 6 } } : {}),
           grid: { left: 8, right: 8, top: title ? 32 : 12, bottom: hasLegend ? 38 : 20, containLabel: true },
           xAxis: { type: 'category', data: xData, ...axisCommon, axisLabel: { ...baseTextStyle, rotate: xData.length > 8 ? 25 : 0, hideOverlap: true, margin: 6 } },
-          yAxis: { type: 'value', ...axisCommon, minInterval: 1 },
+          yAxis: { type: 'value', ...valueAxis },
           series: yFields.map((field, i) => {
             const c = COLOR_PALETTE[i % COLOR_PALETTE.length]
             return {
@@ -248,12 +257,20 @@ export function EChartsWidget({
         const hasLegend = yFields.length > 1
         return {
           color: COLOR_PALETTE,
-          tooltip: { trigger: 'axis', ...tooltipStyle },
+          tooltip: {
+            trigger: 'axis',
+            ...tooltipStyle,
+            axisPointer: {
+              type: 'cross',
+              crossStyle: { color: isDark ? '#52525b' : '#d1d5db' },
+              lineStyle: { color: isDark ? '#52525b' : '#d1d5db', type: 'dashed' },
+            },
+          },
           toolbox,
           ...(hasLegend ? { legend: { bottom: 0, textStyle: baseTextStyle, icon: 'roundRect', itemWidth: 10, itemHeight: 6 } } : {}),
           grid: { left: 8, right: 8, top: title ? 32 : 12, bottom: hasLegend ? 38 : 20, containLabel: true },
           xAxis: { type: 'category', data: xData, ...axisCommon, axisLabel: { ...baseTextStyle, rotate: xData.length > 8 ? 25 : 0, hideOverlap: true, margin: 6 } },
-          yAxis: { type: 'value', ...axisCommon, minInterval: 1 },
+          yAxis: { type: 'value', ...valueAxis },
           series: yFields.map((field, i) => {
             const c = COLOR_PALETTE[i % COLOR_PALETTE.length]
             return {
@@ -365,7 +382,7 @@ export function EChartsWidget({
           toolbox,
           grid: { left: 40, right: 16, top: title ? 32 : 16, bottom: 24, containLabel: false },
           xAxis: { type: 'value', ...axisCommon },
-          yAxis: { type: 'value', ...axisCommon, minInterval: 1 },
+          yAxis: { type: 'value', ...valueAxis },
           series: yFields.map((field, i) => ({
             name: field,
             type: 'scatter',
@@ -540,7 +557,7 @@ export function EChartsWidget({
   if (!data || data.length === 0 || !option) {
     return (
       <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
-        Aucune donn&eacute;e
+        Aucune donnée
       </div>
     )
   }

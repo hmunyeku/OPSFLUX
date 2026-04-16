@@ -1586,7 +1586,7 @@ async def provider_support_trend(
     r = await db.execute(text("""
         SELECT
             TO_CHAR(DATE_TRUNC('week', created_at), 'DD/MM') AS week,
-            COUNT(*) FILTER (WHERE TRUE) AS opened,
+            COUNT(*) AS opened,
             COUNT(*) FILTER (WHERE status IN ('resolved', 'closed')) AS resolved
         FROM support_tickets WHERE entity_id = :eid
             AND created_at >= NOW() - INTERVAL '8 weeks'

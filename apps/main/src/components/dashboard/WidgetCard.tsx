@@ -102,6 +102,7 @@ const LABEL_FR: Record<string, string> = {
   sunny: 'Ensoleillé', cloudy: 'Nuageux', rainy: 'Pluvieux', stormy: 'Orageux',
   // Boolean / misc
   true: 'Oui', false: 'Non', yes: 'Oui', no: 'Non', oui: 'Oui', non: 'Non',
+  unknown: 'Inconnu', inconnu: 'Inconnu', n_a: 'N/A', none: '—',
   male: 'Homme', female: 'Femme',
   internal: 'Interne', external: 'Externe',
   // KPI detail keys (project/task/compliance context)
@@ -1349,10 +1350,14 @@ function TableWidget({
       )
     }
 
-    // Weather icons
+    // Weather icons (English + French DB values)
     if (/weather|meteo|météo/i.test(key)) {
-      const icons: Record<string, string> = { sunny: '☀️', cloudy: '⛅', rainy: '🌧️', stormy: '⛈️' }
-      return <span title={s}>{icons[s.toLowerCase()] || s}</span>
+      const icons: Record<string, string> = {
+        sunny: '☀️', cloudy: '⛅', rainy: '🌧️', stormy: '⛈️',
+        ensoleill_: '☀️', nuageux: '⛅', pluvieux: '🌧️', orageux: '⛈️',
+      }
+      const normalized = s.toLowerCase().replace(/[^a-z0-9_]/g, '_')
+      return <span title={tLabel(s)}>{icons[normalized] || icons[s.toLowerCase()] || tLabel(s)}</span>
     }
 
     // Trend icons

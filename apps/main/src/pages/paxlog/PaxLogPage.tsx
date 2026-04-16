@@ -186,9 +186,11 @@ const PAX_STATUS_LABELS_FALLBACK: Record<string, string> = {
 const ADS_STATUS_LABELS_FALLBACK: Record<string, string> = {
   draft: 'Brouillon',
   submitted: 'Soumis',
+  pending_project_review: 'Revue projet',
   pending_compliance: 'En conformité',
   pending_validation: 'En validation',
   pending_arbitration: 'En arbitrage',
+  pending_initiator_review: 'Revue initiateur',
   approved: 'Approuvé',
   rejected: 'Rejeté',
   cancelled: 'Annulé',
@@ -200,9 +202,11 @@ const ADS_STATUS_LABELS_FALLBACK: Record<string, string> = {
 const ADS_STATUS_BADGES: Record<string, string> = {
   draft: 'gl-badge-neutral',
   submitted: 'gl-badge-info',
+  pending_project_review: 'gl-badge-warning',
   pending_compliance: 'gl-badge-warning',
   pending_validation: 'gl-badge-warning',
   pending_arbitration: 'gl-badge-warning',
+  pending_initiator_review: 'gl-badge-warning',
   approved: 'gl-badge-success',
   rejected: 'gl-badge-danger',
   cancelled: 'gl-badge-neutral',

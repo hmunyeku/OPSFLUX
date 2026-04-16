@@ -1441,7 +1441,7 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
   return (
     <div className="border border-primary/30 rounded-md bg-primary/5 p-3 space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-primary">Nouvelle tache</span>
+        <span className="text-xs font-medium text-primary">Nouvelle tâche</span>
         <button onClick={onClose} className="p-0.5 rounded hover:bg-muted text-muted-foreground"><X size={12} /></button>
       </div>
 
@@ -1450,7 +1450,7 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
         value={form.title}
         onChange={(e) => setForm({ ...form, title: e.target.value })}
         className={`${panelInputClass} w-full text-xs`}
-        placeholder="Titre de la tache *"
+        placeholder="Titre de la tâche *"
         autoFocus
       />
 
@@ -2021,7 +2021,7 @@ function TaskRow({
               onBlur={(e) => handleFieldSave('description', e.target.value || null)}
               className={`${panelInputClass} w-full text-xs min-h-[36px] resize-y`}
               rows={2}
-              placeholder="Description de la tache..."
+              placeholder="Description de la tâche..."
             />
           </div>
 
@@ -2304,7 +2304,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
 
   return (
     <FormSection
-      title={`Taches (${tasks.length})`}
+      title={`Tâches (${tasks.length})`}
       collapsible
       defaultExpanded
       storageKey="project-detail-tasks"
@@ -2335,7 +2335,7 @@ function TaskSection({ projectId, tasks }: { projectId: string; tasks: ProjectTa
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 py-1"
         >
-          <Plus size={12} /> Ajouter une tache
+          <Plus size={12} /> Ajouter une tâche
         </button>
       )}
     </FormSection>
@@ -2674,7 +2674,7 @@ function ActivityFeedSection({ projectId }: { projectId: string }) {
   const labelForItem = (item: ActivityFeedItem) => {
     switch (item.type) {
       case 'status_change': return item.detail || 'Changement de statut'
-      case 'task_change': return `${item.task_title || 'Tache'}: ${item.field} ${item.old ? `${fmtVal(item.old)} →` : '→'} ${fmtVal(item.new)}`
+      case 'task_change': return `${item.task_title || 'Tâche'}: ${item.field} ${item.old ? `${fmtVal(item.old)} →` : '→'} ${fmtVal(item.new)}`
       case 'comment': return `${item.user || 'Utilisateur'}: ${(item.body || '').slice(0, 80)}${(item.body?.length ?? 0) > 80 ? '...' : ''}`
       default: return 'Activité'
     }
@@ -2970,7 +2970,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
             )}
 
             {/* Equipe / Members — like Gouti "Gestion > Les collaborateurs" */}
-            <FormSection title={`Equipe (${members?.length ?? 0})`} collapsible defaultExpanded storageKey="project-detail-equipe">
+            <FormSection title={`Équipe (${members?.length ?? 0})`} collapsible defaultExpanded storageKey="project-detail-equipe">
               {members && members.length > 0 ? (
                 <div>
                   {members.map((m) => <MemberRow key={m.id} member={m} projectId={id} />)}
@@ -2983,7 +2983,7 @@ function ProjectDetailPanel({ id }: { id: string }) {
           </div>
 
           <div className="@container space-y-5">
-            {/* Tasks — inspired by Gouti "Progression et controle > Liste des taches" */}
+            {/* Tasks — inspired by Gouti "Progression et contrôle > Liste des tâches" */}
             <TaskSection projectId={id} tasks={tasks ?? []} />
 
             {/* Milestones — like Gouti "Cadrage > Jalons" */}
@@ -4014,7 +4014,7 @@ function _MacroPlanningViewLegacy() { // eslint-disable-line
         <div className="flex items-center gap-2 ml-auto">
           <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
             <input type="checkbox" checked={config.showTasks} onChange={(e) => setConfig(c => ({ ...c, showTasks: e.target.checked }))} className="w-3 h-3" />
-            Taches
+            Tâches
           </label>
           <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
             <input type="checkbox" checked={config.showMilestones} onChange={(e) => setConfig(c => ({ ...c, showMilestones: e.target.checked }))} className="w-3 h-3" />

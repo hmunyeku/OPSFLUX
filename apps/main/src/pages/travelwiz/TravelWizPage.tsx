@@ -1438,7 +1438,7 @@ function PickupTab() {
               onPaginationChange={(p) => setPage(p)}
               searchValue={search}
               onSearchChange={(v) => { setSearch(v); setPage(1) }}
-              searchPlaceholder="Rechercher une tournee..."
+              searchPlaceholder="Rechercher une tournée..."
               onRowClick={(row) => setSelectedId(row.id)}
               emptyIcon={Route}
               emptyTitle="Aucune tournée de ramassage"

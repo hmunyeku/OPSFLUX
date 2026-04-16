@@ -2578,7 +2578,7 @@ function CommentsSection({ projectId }: { projectId: string }) {
                     </div>
                     <p className="mt-0.5 whitespace-pre-wrap">{c.body}</p>
                     <div className="flex gap-2 mt-1">
-                      <button onClick={() => setReplyTo(c.id)} className="text-primary hover:text-primary/80 text-[10px]">Repondre</button>
+                      <button onClick={() => setReplyTo(c.id)} className="text-primary hover:text-primary/80 text-[10px]">Répondre</button>
                       <button onClick={() => handleDelete(c.id)} className="text-destructive hover:text-destructive/80 text-[10px]">Supprimer</button>
                     </div>
                   </div>

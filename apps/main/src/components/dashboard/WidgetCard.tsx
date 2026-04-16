@@ -57,6 +57,19 @@ const LABEL_FR: Record<string, string> = {
   valid: 'Valide', expired: 'Expiré', non_compliant: 'Non conforme',
   approved: 'Approuvé', rejected: 'Rejeté', submitted: 'Soumis',
   validated: 'Validé', completed: 'Terminé',
+  // Cargo / logistics statuses
+  registered: 'Enregistré', ready: 'Prêt', ready_for_loading: 'Prêt au chargement',
+  loaded: 'Chargé', in_transit: 'En transit', delivered: 'Livré',
+  delivered_intermediate: 'Livré (escale)', delivered_final: 'Livré (final)',
+  return_declared: 'Retour déclaré', return_in_transit: 'Retour en transit',
+  returned: 'Retourné', reintegrated: 'Réintégré', scrapped: 'Mis au rebut',
+  damaged: 'Endommagé', missing: 'Manquant',
+  // Voyage statuses
+  scheduled: 'Planifié', boarding: 'Embarquement', departed: 'Parti', arrived: 'Arrivé',
+  // PaxLog AdS statuses
+  pending_project_review: 'Revue projet', pending_compliance: 'En conformité',
+  pending_validation: 'En validation', pending_initiator_review: 'Revue initiateur',
+  requires_review: 'À revoir',
   // Priorities
   low: 'Basse', medium: 'Moyenne', high: 'Haute', critical: 'Critique',
   // Types

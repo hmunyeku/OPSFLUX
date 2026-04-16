@@ -5295,7 +5295,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
                       value={priorityOverrideForm.reason}
                       onChange={(e) => setPriorityOverrideForm({ ...priorityOverrideForm, reason: e.target.value })}
                       className={cn(panelInputClass, 'min-h-[50px] py-1.5')}
-                      placeholder="Justification du changement de priorite..."
+                      placeholder="Justification du changement de priorité..."
                     />
                   </div>
                   <div className="flex items-center gap-2">

@@ -359,7 +359,7 @@ function InlineIdentifierEditor({
           value={editExpires}
           onChange={(e) => setEditExpires(e.target.value)}
           className="flex-1 px-1 py-0.5 text-[10px] rounded border border-border/60 bg-card focus:outline-none"
-          placeholder="Expiration"
+          placeholder="Expiration (YYYY-MM-DD)"
         />
         <button onClick={handleSave} disabled={isSaving} className="p-0.5 rounded hover:bg-green-100 text-green-600">
           {isSaving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />}

@@ -879,7 +879,7 @@ function ManifestesTab() {
           onPaginationChange={(p) => setPage(p)}
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
-          searchPlaceholder="Rechercher par reference, voyage..."
+          searchPlaceholder="Rechercher par référence, voyage..."
           onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'travelwiz', id: row.original.voyage_id, meta: { subtype: 'voyage' } })}
           emptyIcon={FileText}
           emptyTitle="Aucun manifeste"

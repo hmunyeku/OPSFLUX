@@ -809,6 +809,16 @@ function ChartWidget({
     return <GanttWidget data={chartData} />
   }
 
+  // Empty state
+  if (!chartData.length) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-2">
+        <BarChart3 className="h-8 w-8 text-muted-foreground/20" />
+        <span className="text-xs text-muted-foreground/40">Aucune donnée</span>
+      </div>
+    )
+  }
+
   return (
     <EChartsWidget
       chartType={resolvedType}

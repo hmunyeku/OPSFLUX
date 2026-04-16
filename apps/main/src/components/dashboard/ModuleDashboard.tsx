@@ -181,7 +181,7 @@ export function ModuleDashboard({ module, title, className, children, toolbarPor
           onExitEdit={() => setEditMode(false)}
         />
       ) : (
-        <div className="p-4 pt-2">
+        <div className="px-5 py-4">
           <DashboardGrid widgets={widgets} mode="view" />
         </div>
       )}

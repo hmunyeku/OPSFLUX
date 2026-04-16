@@ -28,8 +28,8 @@ import { cn } from '@/lib/utils'
 const COLS_DESKTOP = 12
 const COLS_TABLET = 6
 const COLS_MOBILE = 2
-const CELL_HEIGHT = 80 // px
-const GAP = 12 // px
+const CELL_HEIGHT = 88 // px — slightly taller cells for better proportions
+const GAP = 16 // px — more breathing room between widgets
 
 /** Responsive column count based on container width */
 function useResponsiveCols(): { cols: number; scale: number } {

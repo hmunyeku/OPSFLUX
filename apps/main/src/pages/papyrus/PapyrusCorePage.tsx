@@ -2116,7 +2116,7 @@ function CreateDocumentPanel() {
             disabled={createDoc.isPending}
             onClick={() => (document.getElementById('create-document-form') as HTMLFormElement)?.requestSubmit()}
           >
-            {createDoc.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Creer'}
+            {createDoc.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
           </PanelActionButton>
         </>
       }

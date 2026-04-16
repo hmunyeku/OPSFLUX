@@ -52,7 +52,7 @@ export function WidgetSettingsOther({ widgetType, config, onChange }: WidgetSett
             max={100}
           />
         </DynamicPanelField>
-        <DynamicPanelField label="Filtrage croise">
+        <DynamicPanelField label="Filtrage croisé">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -106,7 +106,7 @@ export function WidgetSettingsOther({ widgetType, config, onChange }: WidgetSett
             <span className="text-sm text-foreground">Afficher les vecteurs de transport</span>
           </label>
         </DynamicPanelField>
-        <DynamicPanelField label="Zoom par defaut">
+        <DynamicPanelField label="Zoom par défaut">
           <input
             type="number"
             className={panelInputClass}

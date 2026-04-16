@@ -125,7 +125,7 @@ function ExpirationList({ items, variant }: { items: ExpirationItem[]; variant: 
   if (items.length === 0) {
     return (
       <div className="text-center text-muted-foreground text-sm py-6">
-        {variant === 'recent' ? 'Aucune expiration recente' : 'Aucune expiration a venir'}
+        {variant === 'recent' ? 'Aucune expiration récente' : 'Aucune expiration à venir'}
       </div>
     )
   }
@@ -245,7 +245,7 @@ export function ComplianceDashboard() {
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
           <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
             <XCircle size={14} className="text-red-500" />
-            Expirations recentes
+            Expirations récentes
           </h3>
           <ExpirationList items={data.recent_expirations} variant="recent" />
         </div>

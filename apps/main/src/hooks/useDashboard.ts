@@ -73,7 +73,7 @@ const BUILTIN_CATALOG_ENTRIES: WidgetCatalogEntry[] = [
     id: 'builtin:perspective',
     type: 'perspective',
     title: 'Analyse dynamique',
-    description: 'Tableau croise dynamique interactif (pivot, graphiques, filtres)',
+    description: 'Tableau croisé dynamique interactif (pivot, graphiques, filtres)',
     permissions: [],
     default_config: { plugin: 'Datagrid' },
     source_module: 'Analyse',
@@ -83,7 +83,7 @@ const BUILTIN_CATALOG_ENTRIES: WidgetCatalogEntry[] = [
     id: 'builtin:clock',
     type: 'clock',
     title: 'Horloge',
-    description: 'Horloge temps reel avec date, phase lunaire et saison. Mode numerique ou analogique.',
+    description: 'Horloge temps réel avec date, phase lunaire et saison. Mode numérique ou analogique.',
     permissions: [],
     default_config: {
       mode: 'digital',
@@ -99,8 +99,8 @@ const BUILTIN_CATALOG_ENTRIES: WidgetCatalogEntry[] = [
   {
     id: 'builtin:quick_access',
     type: 'quick_access',
-    title: 'Acces rapide',
-    description: 'Grille de raccourcis, favoris, marque-pages et actions frequentes',
+    title: 'Accès rapide',
+    description: 'Grille de raccourcis, favoris, marque-pages et actions fréquentes',
     permissions: [],
     default_config: {
       columns: 4,

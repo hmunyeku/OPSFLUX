@@ -113,14 +113,14 @@ export function WidgetSettingsCommon({ widget, onUpdateMeta, onUpdateConfig }: W
             {accentColor && <div className="w-5 h-5 rounded border shrink-0" style={{ backgroundColor: accentColor }} />}
           </div>
         </DynamicPanelField>
-        <DynamicPanelField label="Masquer en-tete">
+        <DynamicPanelField label="Masquer en-tête">
           <label className="flex items-center gap-2 text-xs cursor-pointer">
             <input
               type="checkbox"
               checked={hideHeader}
               onChange={(e) => onUpdateConfig({ hide_header: e.target.checked })}
             />
-            En-tete minimal (titre seulement, pas de barre)
+            En-tête minimal (titre seulement, pas de barre)
           </label>
         </DynamicPanelField>
       </FormSection>

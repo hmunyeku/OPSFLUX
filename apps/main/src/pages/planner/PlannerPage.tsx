@@ -5452,7 +5452,7 @@ function CreateActivityPanel() {
             disabled={createActivity.isPending}
             onClick={() => (document.getElementById('create-activity-form') as HTMLFormElement)?.requestSubmit()}
           >
-            {createActivity.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Creer'}
+            {createActivity.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
           </PanelActionButton>
         </>
       }

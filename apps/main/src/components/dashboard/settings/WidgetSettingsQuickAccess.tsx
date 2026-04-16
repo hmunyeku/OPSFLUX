@@ -24,7 +24,7 @@ const ICON_OPTIONS = [
   { value: 'assets', label: 'Assets' },
   { value: 'projets', label: 'Projets' },
   { value: 'travelwiz', label: 'TravelWiz' },
-  { value: 'conformite', label: 'Conformite' },
+  { value: 'conformite', label: 'Conformité' },
   { value: 'planner', label: 'Planner' },
   { value: 'documents', label: 'Documents' },
   { value: 'settings', label: 'Settings' },
@@ -81,7 +81,7 @@ export function WidgetSettingsQuickAccess({ config, onChange }: WidgetSettingsQu
   }
 
   return (
-    <FormSection title="Configuration Acces Rapide" collapsible defaultExpanded storageKey="widget-settings-quick-access">
+    <FormSection title="Configuration Accès Rapide" collapsible defaultExpanded storageKey="widget-settings-quick-access">
       <DynamicPanelField label="Colonnes">
         <TagSelector
           options={COLUMN_OPTIONS}

@@ -110,7 +110,7 @@ export function WidgetSettingsGroup({ config, onChange }: WidgetSettingsGroupPro
                 className={panelInputClass}
                 value={child.unit || ''}
                 onChange={(e) => updateChild(idx, { unit: e.target.value })}
-                placeholder="Unite"
+                placeholder="Unité"
               />
               <input
                 type="text"

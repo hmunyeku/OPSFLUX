@@ -224,7 +224,7 @@ export function ComplianceRecordManager({ ownerType, ownerId, compact }: Complia
             <button onClick={() => setShowForm(false)} className="px-2 py-0.5 text-[10px] rounded border border-border hover:bg-muted text-muted-foreground">Annuler</button>
             <button onClick={handleCreate} disabled={!form.compliance_type_id || createRecord.isPending} className="px-2 py-0.5 text-[10px] rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40">
               {createRecord.isPending ? <Loader2 size={10} className="animate-spin inline mr-1" /> : null}
-              Creer
+              Créer
             </button>
           </div>
         </div>

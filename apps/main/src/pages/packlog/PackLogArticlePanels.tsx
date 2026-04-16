@@ -57,7 +57,7 @@ export function CreateArticlePanel() {
             disabled={createArticle.isPending}
             onClick={() => (document.getElementById('create-article-form') as HTMLFormElement)?.requestSubmit()}
           >
-            {createArticle.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Creer'}
+            {createArticle.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
           </PanelActionButton>
         </>
       }

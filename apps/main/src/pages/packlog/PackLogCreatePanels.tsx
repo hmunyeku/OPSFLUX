@@ -298,7 +298,7 @@ export function CreateCargoPanel() {
         <>
           <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
           <PanelActionButton variant="primary" disabled={createCargo.isPending} onClick={() => (document.getElementById('create-cargo-form') as HTMLFormElement)?.requestSubmit()}>
-            {createCargo.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Creer'}
+            {createCargo.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
           </PanelActionButton>
         </>
       }

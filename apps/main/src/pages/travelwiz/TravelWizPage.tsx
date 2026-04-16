@@ -1713,7 +1713,7 @@ function CreateVoyagePanel() {
         <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
         <PanelActionButton variant="primary" disabled={createVoyage.isPending}
           onClick={() => (document.getElementById('create-voyage-form') as HTMLFormElement)?.requestSubmit()}>
-          {createVoyage.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Creer'}
+          {createVoyage.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
         </PanelActionButton>
       </>}
     >
@@ -2091,7 +2091,7 @@ function CreateVectorPanel() {
         <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
         <PanelActionButton variant="primary" disabled={createVector.isPending}
           onClick={() => (document.getElementById('create-vector-form') as HTMLFormElement)?.requestSubmit()}>
-          {createVector.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Creer'}
+          {createVector.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
         </PanelActionButton>
       </>}
     >
@@ -2454,7 +2454,7 @@ export function CreateCargoPanel() {
         <PanelActionButton onClick={closeDynamicPanel}>Annuler</PanelActionButton>
         <PanelActionButton variant="primary" disabled={createCargo.isPending}
           onClick={() => (document.getElementById('create-cargo-form') as HTMLFormElement)?.requestSubmit()}>
-          {createCargo.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Creer'}
+          {createCargo.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Créer'}
         </PanelActionButton>
       </>}
     >

@@ -79,7 +79,7 @@ export function TagManager({ ownerType, ownerId, compact }: TagManagerProps) {
       setShowForm(false)
       toast({ title: 'Tag ajoute', variant: 'success' })
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de creer le tag.', variant: 'error' })
+      toast({ title: 'Erreur', description: 'Impossible de créer le tag.', variant: 'error' })
     }
   }, [ownerId, ownerType, name, color, visibility, parentId, createTag, toast])
 

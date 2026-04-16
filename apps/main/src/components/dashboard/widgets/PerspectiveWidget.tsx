@@ -38,8 +38,8 @@ export function PerspectiveWidget({ data, config }: PerspectiveWidgetProps) {
         <p className="text-sm font-medium">Analyse dynamique</p>
         <p className="text-xs opacity-70">
           {data?.length
-            ? `${data.length} enregistrements prets pour l'analyse`
-            : 'Aucune donnee disponible'}
+            ? `${data.length} enregistrement${data.length > 1 ? 's' : ''} prêts pour l'analyse`
+            : 'Aucune donnée disponible'}
         </p>
         <p className="text-xs opacity-50 mt-2">
           Module Perspective (installation en cours)

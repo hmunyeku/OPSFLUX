@@ -1542,7 +1542,7 @@ async def provider_support_by_status(
         FROM support_tickets WHERE entity_id = :eid
         GROUP BY status ORDER BY value DESC
     """), {"eid": str(entity_id)})
-    return {"data": [dict(row) for row in r.mappings().all()]}
+    return {"data": [dict(row) for row in r.mappings().all()], "series": [{"name": "Tickets", "type": "pie"}]}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1560,7 +1560,7 @@ async def provider_support_by_type(
         FROM support_tickets WHERE entity_id = :eid
         GROUP BY ticket_type ORDER BY value DESC
     """), {"eid": str(entity_id)})
-    return {"data": [dict(row) for row in r.mappings().all()]}
+    return {"data": [dict(row) for row in r.mappings().all()], "series": [{"name": "Tickets", "type": "pie"}]}
 
 
 async def provider_support_by_priority(
@@ -1575,7 +1575,7 @@ async def provider_support_by_priority(
             WHEN 'critical' THEN 1 WHEN 'high' THEN 2
             WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END
     """), {"eid": str(entity_id)})
-    return {"data": [dict(row) for row in r.mappings().all()]}
+    return {"data": [dict(row) for row in r.mappings().all()], "series": [{"name": "Tickets ouverts", "type": "bar"}]}
 
 
 async def provider_support_trend(

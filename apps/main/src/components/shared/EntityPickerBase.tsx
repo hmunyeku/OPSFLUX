@@ -231,7 +231,7 @@ export function EntityPickerBase<T>({
                     ))}
                   </div>
                 ) : (
-                  <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucun resultat</div>
+                  <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucun résultat</div>
                 )}
               </>
             )}

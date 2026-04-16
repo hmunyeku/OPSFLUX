@@ -201,7 +201,7 @@ export function GlideRenderer<T>({
   if (!data || data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-xs text-muted-foreground">
-        Aucune donnee a afficher
+        Aucune donnée à afficher
       </div>
     )
   }

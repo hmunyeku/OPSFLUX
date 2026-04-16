@@ -51,7 +51,7 @@ function CategoryBreakdown({ data }: { data: ComplianceDashboardKPIs['by_categor
   if (data.length === 0) {
     return (
       <div className="text-center text-muted-foreground text-sm py-8">
-        Aucune donnee par categorie
+        Aucune donnée par catégorie
       </div>
     )
   }

@@ -3006,7 +3006,7 @@ function VerificationsTab() {
         }
       }}
       emptyIcon={ClipboardCheck}
-      emptyTitle={statusFilter === 'pending' ? 'Aucune verification en attente' : 'Aucun resultat'}
+      emptyTitle={statusFilter === 'pending' ? 'Aucune vérification en attente' : 'Aucun résultat'}
       columnResizing
       columnVisibility
       storageKey="conformite-verifications"

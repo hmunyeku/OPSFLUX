@@ -1858,10 +1858,10 @@ async def on_planner_revision_validated(event: OpsFluxEvent) -> None:
                     db,
                     user_id=UUID(str(requester_id)),
                     entity_id=UUID(str(entity_id)),
-                    title="AdS en revision — Planner mis a jour",
+                    title="AdS en révision — Planner mis à jour",
                     body=(
-                        f"L'AdS {ref} necessite une revision suite a la validation "
-                        f"d'une revision Planner sur l'activité associée."
+                        f"L'AdS {ref} nécessite une révision suite à la validation "
+                        f"d'une révision Planner sur l'activité associée."
                     ),
                     category="paxlog",
                     link=f"/paxlog/ads/{ads_id}",

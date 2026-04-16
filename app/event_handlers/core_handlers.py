@@ -178,7 +178,7 @@ async def on_user_created(event: OpsFluxEvent) -> None:
                             user_id=admin_id,
                             entity_id=UUID(str(entity_id)),
                             title="Nouvel utilisateur",
-                            body=f"{first_name} {last_name} ({user_email}) a rejoint l'entite.",
+                            body=f"{first_name} {last_name} ({user_email}) a rejoint l'entité.",
                             category="info",
                             link=f"/admin/users/{user_id}",
                         )
@@ -276,7 +276,7 @@ async def on_workflow_transition(event: OpsFluxEvent) -> None:
                             user_id=UUID(str(next_approver_id)),
                             entity_id=UUID(str(entity_id)),
                             title=f"{workflow_name}: action requise",
-                            body=f"Une demande attend votre approbation (etat: '{to_state}').",
+                            body=f"Une demande attend votre approbation (état: '{to_state}').",
                             category="workflow",
                             link=f"/workflows/{instance_id}",
                         )
@@ -298,7 +298,7 @@ async def on_workflow_transition(event: OpsFluxEvent) -> None:
                                 user_id=UUID(str(creator_id)),
                                 entity_id=UUID(str(entity_id)),
                                 title=f"{workflow_name}: demande {status_label}",
-                                body=f"Votre demande a ete {status_label}.",
+                                body=f"Votre demande a été {status_label}.",
                                 category="workflow",
                                 link=f"/workflows/{instance_id}",
                             )

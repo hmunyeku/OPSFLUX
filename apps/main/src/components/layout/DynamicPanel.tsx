@@ -579,12 +579,9 @@ export function DetailFieldGrid({
         // 2 cols once the container is at least 500px wide so each field has
         // ~240px for its value — enough for typical dates / labels without
         // breaking long strings character-by-character.
+        // Capped at 2 columns max per UX request: more columns made labels
+        // hard to scan and value columns too narrow on dense forms.
         '@[500px]:grid-cols-2',
-        // 3 cols on very wide containers (e.g. full-mode panel column on a
-        // 1920px monitor where each SectionColumns half is ~870px). Lets
-        // dense field groups (Identité, Informations légales) lay out as
-        // 3-up instead of 2-up + lots of empty space.
-        '@[860px]:grid-cols-3',
         className,
       )}
     >

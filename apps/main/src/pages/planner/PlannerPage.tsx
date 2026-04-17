@@ -4727,7 +4727,8 @@ function ActivityDetailPanel({ id }: { id: string }) {
       />
       <PanelContentLayout>
         {editing ? (
-          /* ── EDIT MODE ── */
+          /* ── EDIT MODE — only visible on Informations tab; other tabs stay hidden ── */
+          detailTab === 'informations' ? (
           <>
             <FormSection title="Informations">
               <FormGrid>
@@ -4903,6 +4904,12 @@ function ActivityDetailPanel({ id }: { id: string }) {
               </FormSection>
             )}
           </>
+          ) : (
+            /* Edit mode but non-informations tab: show a hint */
+            <div className="p-6 text-sm text-muted-foreground">
+              Cliquez sur l'onglet <strong>Informations</strong> pour continuer l'édition.
+            </div>
+          )
         ) : (
           /* ── READ MODE ── */
           <>

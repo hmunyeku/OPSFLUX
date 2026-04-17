@@ -3310,10 +3310,14 @@ function VoyageDetailPanel({ id }: { id: string }) {
         onTabChange={setDetailTab}
       />
       <PanelContentLayout>
-        {/* Status badge */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <StatusBadge status={voyage.status} labels={voyageStatusLabels} badges={VOYAGE_STATUS_BADGES} />
-        </div>
+        {detailTab === 'informations' && (
+          <>
+          {/* Status badge — visible only on Informations tab */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <StatusBadge status={voyage.status} labels={voyageStatusLabels} badges={VOYAGE_STATUS_BADGES} />
+          </div>
+          </>
+        )}
 
         {detailTab === 'informations' && (
           editing ? (

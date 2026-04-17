@@ -2604,6 +2604,13 @@ function TemplateDetailPanel({ id }: { id: string }) {
     }
   }, [template, form, updateTemplate, toast, t])
 
+  const templateDetailActions = useMemo<ActionItem[]>(() => editing ? [
+    { id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: () => setEditing(false) },
+    { id: 'save', label: 'Enregistrer', variant: 'primary', priority: 100, loading: updateTemplate.isPending, disabled: updateTemplate.isPending, onClick: handleSave },
+  ] : [
+    { id: 'edit', label: 'Modifier', variant: 'default', priority: 80, onClick: () => setEditing(true) },
+  ], [editing, updateTemplate.isPending, handleSave])
+
   if (isLoading) {
     return (
       <DynamicPanelShell title="Template" subtitle="Chargement..." icon={<FileCode2 size={14} className="text-primary" />}>
@@ -2611,13 +2618,6 @@ function TemplateDetailPanel({ id }: { id: string }) {
       </DynamicPanelShell>
     )
   }
-
-  const templateDetailActions = useMemo<ActionItem[]>(() => editing ? [
-    { id: 'cancel', label: 'Annuler', variant: 'default', priority: 40, onClick: () => setEditing(false) },
-    { id: 'save', label: 'Enregistrer', variant: 'primary', priority: 100, loading: updateTemplate.isPending, disabled: updateTemplate.isPending, onClick: handleSave },
-  ] : [
-    { id: 'edit', label: 'Modifier', variant: 'default', priority: 80, onClick: () => setEditing(true) },
-  ], [editing, updateTemplate.isPending, handleSave])
 
   if (!template) {
     return (

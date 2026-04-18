@@ -16,6 +16,8 @@ import {
   Zap, GitBranch, Settings2,
   FileDown, Copy, MessageSquare, Activity, Send, LayoutTemplate,
 } from 'lucide-react'
+import { TabBar } from '@/components/ui/Tabs'
+import { Info, Paperclip, LayoutList, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { normalizeNames } from '@/lib/normalize'
 import { useDebounce } from '@/hooks/useDebounce'
@@ -1410,6 +1412,7 @@ export function ProjectDetailPanel({ id }: { id: string }) {
   const { data: allUsersData } = useUsers({ page_size: 100, active: true })
   const goutiSyncOne = useGoutiSyncOne()
   const [showPlannerLink, setShowPlannerLink] = useState(false)
+  const [detailTab, setDetailTab] = useState<'fiche' | 'taches' | 'planification' | 'activite' | 'documents'>('fiche')
   const exportPdf = useExportProjectPdf()
   const { data: goutiStatus } = useGoutiStatus()
   const { toast } = useToast()
@@ -1512,11 +1515,23 @@ export function ProjectDetailPanel({ id }: { id: string }) {
         </>
       }
     >
+      <TabBar
+        items={[
+          { id: 'fiche', label: 'Fiche', icon: Info },
+          { id: 'taches', label: `Tâches (${tasks?.length ?? 0})`, icon: ListTodo },
+          { id: 'planification', label: 'Planification', icon: BarChart3 },
+          { id: 'activite', label: 'Activité', icon: LayoutList },
+          { id: 'documents', label: 'Documents', icon: Paperclip },
+        ]}
+        activeId={detailTab}
+        onTabChange={(id) => setDetailTab(id as typeof detailTab)}
+      />
       <PanelContentLayout>
         <TagManager ownerType="project" ownerId={project.id} compact />
 
         {isGouti && <GoutiProjectBanner />}
 
+        {detailTab === 'fiche' && <>
         {/* Description — shown above the Fiche section so the project's
             purpose/summary is the first thing the reader sees. */}
         {(project.description || isProjectFieldEditable(project, 'description', capabilities)) && (
@@ -1672,59 +1687,65 @@ export function ProjectDetailPanel({ id }: { id: string }) {
               <MemberQuickAdd projectId={id} />
             </FormSection>
           </div>
-
-          <div className="@container space-y-5">
-            {/* Tasks — inspired by Gouti "Progression et contrôle > Liste des tâches" */}
-            <TaskSection projectId={id} tasks={tasks ?? []} />
-
-            {/* Milestones — like Gouti "Cadrage > Jalons" */}
-            <FormSection title={`Jalons (${milestones?.length ?? 0})`} collapsible defaultExpanded storageKey="project-detail-jalons">
-              {milestones && milestones.length > 0 ? (
-                <div>
-                  {milestones.map((ms) => (
-                    <MilestoneRow key={ms.id} ms={ms} projectId={id} />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState icon={Milestone} title="Aucun jalon" variant="search" size="compact" />
-              )}
-              <MilestoneQuickAdd projectId={id} />
-            </FormSection>
-          </div>
         </SectionColumns>
+        </>}
 
-        {/* WBS — Work Breakdown Structure */}
-        <WbsSection projectId={id} />
+        {detailTab === 'taches' && <>
+          {/* Tasks — inspired by Gouti "Progression et contrôle > Liste des tâches" */}
+          <TaskSection projectId={id} tasks={tasks ?? []} />
 
-        {/* CPM — Critical Path Method analysis */}
-        <CpmSection projectId={id} />
+          {/* Milestones — like Gouti "Cadrage > Jalons" */}
+          <FormSection title={`Jalons (${milestones?.length ?? 0})`} collapsible defaultExpanded storageKey="project-detail-jalons">
+            {milestones && milestones.length > 0 ? (
+              <div>
+                {milestones.map((ms) => (
+                  <MilestoneRow key={ms.id} ms={ms} projectId={id} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState icon={Milestone} title="Aucun jalon" variant="search" size="compact" />
+            )}
+            <MilestoneQuickAdd projectId={id} />
+          </FormSection>
+        </>}
 
-        {/* Planning Revisions — baselines + what-if simulations */}
-        <PlanningRevisionsSection projectId={id} />
+        {detailTab === 'planification' && <>
+          {/* WBS — Work Breakdown Structure */}
+          <WbsSection projectId={id} />
 
-        {/* Custom Fields (EAV) */}
-        <CustomFieldsSection projectId={id} />
+          {/* CPM — Critical Path Method analysis */}
+          <CpmSection projectId={id} />
 
-        {/* Templates */}
-        <TemplatesSection projectId={id} />
+          {/* Planning Revisions — baselines + what-if simulations */}
+          <PlanningRevisionsSection projectId={id} />
+        </>}
 
-        {/* Comments */}
-        <CommentsSection projectId={id} />
+        {detailTab === 'activite' && <>
+          {/* Custom Fields (EAV) */}
+          <CustomFieldsSection projectId={id} />
 
-        {/* Activity Feed */}
-        <ActivityFeedSection projectId={id} />
+          {/* Templates */}
+          <TemplatesSection projectId={id} />
 
-        {/* Notes & Documents */}
-        <FormSection title="Notes & Documents" collapsible defaultExpanded={false} storageKey="project-detail-docs">
-          <DetailFieldGrid>
-            <div>
-              <NoteManager ownerType="project" ownerId={project.id} compact />
-            </div>
-            <div>
-              <AttachmentManager ownerType="project" ownerId={project.id} compact />
-            </div>
-          </DetailFieldGrid>
-        </FormSection>
+          {/* Comments */}
+          <CommentsSection projectId={id} />
+
+          {/* Activity Feed */}
+          <ActivityFeedSection projectId={id} />
+        </>}
+
+        {detailTab === 'documents' && (
+          <FormSection title="Notes & Documents" collapsible defaultExpanded storageKey="project-detail-docs">
+            <DetailFieldGrid>
+              <div>
+                <NoteManager ownerType="project" ownerId={project.id} compact />
+              </div>
+              <div>
+                <AttachmentManager ownerType="project" ownerId={project.id} compact />
+              </div>
+            </DetailFieldGrid>
+          </FormSection>
+        )}
       </PanelContentLayout>
       <PlannerLinkModal
         open={showPlannerLink}

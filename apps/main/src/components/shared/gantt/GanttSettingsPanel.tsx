@@ -8,6 +8,7 @@
 import { useState, type ReactNode } from 'react'
 import { Settings2, X, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { DynamicPanelShell, type ActionItem } from '@/components/layout/DynamicPanel'
 import type { GanttSettings, GanttPreset } from './ganttTypes'
 import { DEFAULT_SETTINGS } from './ganttTypes'
 
@@ -51,25 +52,25 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
     )
   }
 
-  return (
-    <div className="fixed top-16 right-8 z-[9999] w-[360px] max-h-[80vh] overflow-y-auto rounded-lg border bg-card shadow-xl">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b sticky top-0 bg-card z-10">
-        <span className="text-xs font-semibold">Paramètres Gantt</span>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => onChange({ ...DEFAULT_SETTINGS, scale: settings.scale })}
-            className="p-1 rounded hover:bg-muted text-muted-foreground"
-            title="Réinitialiser"
-          >
-            <RotateCcw className="h-3 w-3" />
-          </button>
-          <button onClick={() => setOpen(false)} className="p-1 rounded hover:bg-muted text-muted-foreground">
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
+  const actionItems: ActionItem[] = [
+    {
+      id: 'reset',
+      label: 'Réinitialiser',
+      icon: RotateCcw,
+      onClick: () => onChange({ ...DEFAULT_SETTINGS, scale: settings.scale }),
+    },
+  ]
 
+  return (
+    <DynamicPanelShell
+      inline
+      onClose={() => setOpen(false)}
+      title="Paramètres Gantt"
+      icon={<Settings2 size={14} />}
+      inlineWidth={360}
+      actionItems={actionItems}
+      className="fixed top-16 right-8 z-[9999] max-h-[80vh] rounded-lg border shadow-xl"
+    >
       <div className="p-3 space-y-4">
         {/* ── Display ──────────────────────────────────────── */}
         <section>
@@ -295,6 +296,6 @@ export function GanttSettingsPanel({ settings, onChange, statuses = [], prioriti
           </section>
         )}
       </div>
-    </div>
+    </DynamicPanelShell>
   )
 }

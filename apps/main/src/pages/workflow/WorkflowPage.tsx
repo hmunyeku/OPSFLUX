@@ -15,6 +15,7 @@
  */
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { AxiosError } from 'axios'
 import i18n from '@/lib/i18n'
 import {
   GitBranch, Plus, Play, Pause, Archive, Copy, Send,
@@ -725,7 +726,8 @@ export function WorkflowPage() {
     publishMut.mutate(id, {
       onSuccess: () => toast({ title: t('workflow.published_success'), variant: 'success' }),
       onError: (err: Error) => {
-        const detail = (err as any)?.response?.data?.detail
+        const axErr = err as AxiosError<{ detail?: string | { errors?: string[] } }>
+        const detail = axErr.response?.data?.detail
         if (typeof detail === 'object' && detail?.errors) {
           toast({
             title: t('workflow.publish_error'),
@@ -766,7 +768,8 @@ export function WorkflowPage() {
     deleteMut.mutate(id, {
       onSuccess: () => toast({ title: t('workflow.deleted_success'), variant: 'success' }),
       onError: (err: Error) => {
-        const detail = (err as any)?.response?.data?.detail
+        const axErr = err as AxiosError<{ detail?: string }>
+        const detail = axErr.response?.data?.detail
         toast({ title: t('common.error'), description: String(detail || err.message), variant: 'error' })
       },
     })

@@ -4,8 +4,8 @@
  * Shows when a widget is selected. Renders common settings + type-specific config.
  * Uses DynamicPanel design system components for consistency.
  */
-import { X, Trash2, Info, Database, Shield, Hash } from 'lucide-react'
-import { FormSection } from '@/components/layout/DynamicPanel'
+import { Trash2, Info, Database, Shield, Hash } from 'lucide-react'
+import { DynamicPanelShell, FormSection } from '@/components/layout/DynamicPanel'
 import { WidgetTypeIcon } from './WidgetCard'
 import { WidgetSettingsCommon } from './settings/WidgetSettingsCommon'
 import { WidgetSettingsKPI } from './settings/WidgetSettingsKPI'
@@ -46,23 +46,15 @@ export function WidgetSettingsPanel({
   }
 
   return (
-    <div className="flex flex-col h-full max-h-[calc(100vh-120px)]">
-      {/* Header */}
-      <div className="h-10 px-3 flex items-center justify-between border-b border-border shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <WidgetTypeIcon type={widget.type} className="text-primary shrink-0" />
-          <span className="text-sm font-semibold text-foreground truncate">{widget.title}</span>
-        </div>
-        <button
-          onClick={onClose}
-          className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
-        >
-          <X size={14} />
-        </button>
-      </div>
-
-      {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-4">
+    <DynamicPanelShell
+      inline
+      onClose={onClose}
+      title={widget.title}
+      icon={<WidgetTypeIcon type={widget.type} className="text-primary" />}
+      inlineWidth="100%"
+      className="h-full max-h-[calc(100vh-120px)] border-l-0"
+    >
+      <div className="p-3 space-y-4">
         {/* Common settings */}
         <WidgetSettingsCommon
           widget={widget}
@@ -193,6 +185,6 @@ export function WidgetSettingsPanel({
           </button>
         </div>
       </div>
-    </div>
+    </DynamicPanelShell>
   )
 }

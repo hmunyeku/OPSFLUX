@@ -2214,8 +2214,9 @@ const STRUCTURED_OPERATOR_TO_PACKLOG_CONDITION: Record<string, string> = {
 function buildPackLogConditionBuilderValue(value: Record<string, any> | null) {
   const when = value?.when
   if (!when || typeof when !== 'object') return null
-  const logic = Array.isArray((when as any).any) ? 'or' : 'and'
-  const conditions = (((when as any).all ?? (when as any).any) as Array<Record<string, any>> | undefined)?.map((item) => ({
+  const whenObj = when as Record<string, unknown>
+  const logic = Array.isArray(whenObj.any) ? 'or' : 'and'
+  const conditions = ((whenObj.all ?? whenObj.any) as Array<Record<string, any>> | undefined)?.map((item) => ({
     field: item.field ?? '',
     operator: STRUCTURED_OPERATOR_TO_PACKLOG_CONDITION[String(item.op ?? 'eq')] ?? 'equals',
     value: item.value ?? '',
@@ -2980,20 +2981,20 @@ function VerificationsTab() {
       accessorKey: 'issuer',
       header: t('conformite.columns.issuer'),
       size: 130,
-      cell: ({ row }) => <span className="truncate">{(row.original as any).issuer as string || '—'}</span>,
+      cell: ({ row }) => <span className="truncate">{(row.original.issuer as string) || '—'}</span>,
     },
     {
       accessorKey: 'submitted_at',
       header: t('conformite.columns.date'),
       size: 100,
-      cell: ({ row }) => fmtDate((row.original as any).issued_at as string || row.original.submitted_at),
+      cell: ({ row }) => fmtDate((row.original.issued_at as string) || row.original.submitted_at),
     },
     {
       accessorKey: 'expires_at',
       header: t('conformite.columns.expiration'),
       size: 100,
       cell: ({ row }) => {
-        const exp = (row.original as any).expires_at as string | null
+        const exp = row.original.expires_at as string | null
         if (!exp) return <span className="text-muted-foreground">—</span>
         const d = new Date(exp)
         const now = new Date()

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { X, Download, Pencil, Trash2, Folder, FileText, Image, Film, FileArchive, File, Music, Loader2 } from 'lucide-react'
+import { Download, Pencil, Trash2, Folder, FileText, Image, Film, FileArchive, File, Music, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
+import { DynamicPanelShell } from '@/components/layout/DynamicPanel'
 import type { FSItem } from '../hooks/useFileManager'
 import { getPreviewType } from '../hooks/useFileManager'
 
@@ -109,71 +110,69 @@ export function FilePreviewPanel({ item, onClose, onDownload, onRename, onDelete
   const ext = item.name.split('.').pop()?.toUpperCase() || ''
 
   return (
-    <div className="w-80 shrink-0 border-l border-border flex flex-col bg-background overflow-hidden max-lg:fixed max-lg:inset-0 max-lg:w-full max-lg:z-[200]">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border shrink-0">
-        <Icon size={16} className="text-muted-foreground shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
-          <span className="gl-badge gl-badge-neutral text-[8px]">{ext}</span>
+    <DynamicPanelShell
+      inline
+      onClose={onClose}
+      title={item.name}
+      subtitle={ext}
+      icon={<Icon size={14} className="text-muted-foreground" />}
+      inlineWidth={320}
+      className="max-lg:fixed max-lg:inset-0 max-lg:w-full max-lg:z-[200]"
+    >
+      <div className="flex flex-col h-full">
+        {/* Actions — top position per design system */}
+        <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border shrink-0">
+          <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="gl-button-sm gl-button-confirm flex-1 justify-center" onClick={(e) => e.stopPropagation()}>
+            <Download size={11} /> Télécharger
+          </a>
+          <button onClick={() => onRename(item)} className="gl-button-sm gl-button-default">
+            <Pencil size={11} />
+          </button>
+          <button onClick={() => onDelete(item)} className="gl-button-sm gl-button-danger">
+            <Trash2 size={11} />
+          </button>
         </div>
-        <button onClick={onClose} className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0">
-          <X size={14} />
-        </button>
-      </div>
 
-      {/* Actions — top position per design system */}
-      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border shrink-0">
-        <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="gl-button-sm gl-button-confirm flex-1 justify-center" onClick={(e) => e.stopPropagation()}>
-          <Download size={11} /> Télécharger
-        </a>
-        <button onClick={() => onRename(item)} className="gl-button-sm gl-button-default">
-          <Pencil size={11} />
-        </button>
-        <button onClick={() => onDelete(item)} className="gl-button-sm gl-button-danger">
-          <Trash2 size={11} />
-        </button>
-      </div>
+        {/* Preview content */}
+        <div className="flex-1 overflow-auto bg-muted/10">
+          {previewType === 'image' && (
+            <div className="p-3 flex items-center justify-center min-h-[200px]">
+              <AuthMedia src={`/api/v1/admin/fs/download?path=${encodeURIComponent(item.path)}`} alt={item.name} type="image" />
+            </div>
+          )}
+          {previewType === 'pdf' && (
+            <iframe src={downloadUrl} className="w-full h-full min-h-[400px]" title={item.name} />
+          )}
+          {previewType === 'video' && (
+            <div className="p-3">
+              <AuthMedia src={`/api/v1/admin/fs/download?path=${encodeURIComponent(item.path)}`} alt={item.name} type="video" />
+            </div>
+          )}
+          {previewType === 'audio' && (
+            <div className="p-6 flex flex-col items-center gap-4">
+              <Music size={48} className="text-muted-foreground/30" />
+              <AuthMedia src={`/api/v1/admin/fs/download?path=${encodeURIComponent(item.path)}`} alt={item.name} type="audio" />
+            </div>
+          )}
+          {previewType === 'text' && (
+            <TextPreview url={`/api/v1/admin/fs/download?path=${encodeURIComponent(item.path)}`} />
+          )}
+          {previewType === 'none' && (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <Icon size={48} className="mb-3 opacity-30" />
+              <p className="text-xs">Aperçu non disponible</p>
+              <p className="text-[10px] mt-1">Téléchargez le fichier pour le consulter</p>
+            </div>
+          )}
+        </div>
 
-      {/* Preview content */}
-      <div className="flex-1 overflow-auto bg-muted/10">
-        {previewType === 'image' && (
-          <div className="p-3 flex items-center justify-center min-h-[200px]">
-            <AuthMedia src={`/api/v1/admin/fs/download?path=${encodeURIComponent(item.path)}`} alt={item.name} type="image" />
-          </div>
-        )}
-        {previewType === 'pdf' && (
-          <iframe src={downloadUrl} className="w-full h-full min-h-[400px]" title={item.name} />
-        )}
-        {previewType === 'video' && (
-          <div className="p-3">
-            <AuthMedia src={`/api/v1/admin/fs/download?path=${encodeURIComponent(item.path)}`} alt={item.name} type="video" />
-          </div>
-        )}
-        {previewType === 'audio' && (
-          <div className="p-6 flex flex-col items-center gap-4">
-            <Music size={48} className="text-muted-foreground/30" />
-            <AuthMedia src={`/api/v1/admin/fs/download?path=${encodeURIComponent(item.path)}`} alt={item.name} type="audio" />
-          </div>
-        )}
-        {previewType === 'text' && (
-          <TextPreview url={`/api/v1/admin/fs/download?path=${encodeURIComponent(item.path)}`} />
-        )}
-        {previewType === 'none' && (
-          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <Icon size={48} className="mb-3 opacity-30" />
-            <p className="text-xs">Aperçu non disponible</p>
-            <p className="text-[10px] mt-1">Téléchargez le fichier pour le consulter</p>
-          </div>
-        )}
+        {/* Metadata */}
+        <div className="px-3 py-2 border-t border-border/50 space-y-1 text-[10px] text-muted-foreground shrink-0">
+          <div className="flex justify-between"><span>Taille</span><span className="font-mono">{formatBytes(item.size || 0)}</span></div>
+          <div className="flex justify-between"><span>Modifié</span><span>{formatDate(item.updatedAt, dateLocale)}</span></div>
+          <div className="flex justify-between"><span>Chemin</span><span className="font-mono truncate max-w-[180px]" title={item.path}>{item.path}</span></div>
+        </div>
       </div>
-
-      {/* Metadata */}
-      <div className="px-3 py-2 border-t border-border/50 space-y-1 text-[10px] text-muted-foreground shrink-0">
-        <div className="flex justify-between"><span>Taille</span><span className="font-mono">{formatBytes(item.size || 0)}</span></div>
-        <div className="flex justify-between"><span>Modifié</span><span>{formatDate(item.updatedAt, dateLocale)}</span></div>
-        <div className="flex justify-between"><span>Chemin</span><span className="font-mono truncate max-w-[180px]" title={item.path}>{item.path}</span></div>
-      </div>
-    </div>
+    </DynamicPanelShell>
   )
 }

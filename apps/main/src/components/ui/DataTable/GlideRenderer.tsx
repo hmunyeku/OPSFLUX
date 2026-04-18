@@ -20,8 +20,7 @@ import { useThemeStore } from '@/stores/themeStore'
 
 /** Extract accessor key from a tanstack ColumnDef */
 function getAccessorKey<T>(colDef: ColumnDef<T, unknown>): string | null {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const def = colDef as any
+  const def = colDef as { accessorKey?: string | number; id?: string }
   if (def.accessorKey) return String(def.accessorKey)
   if (def.id) return String(def.id)
   return null
@@ -30,8 +29,7 @@ function getAccessorKey<T>(colDef: ColumnDef<T, unknown>): string | null {
 /** Extract header label from a tanstack ColumnDef */
 function getHeaderLabel<T>(colDef: ColumnDef<T, unknown>): string {
   if (typeof colDef.header === 'string') return colDef.header
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const def = colDef as any
+  const def = colDef as { accessorKey?: string | number; id?: string }
   if (def.accessorKey) return String(def.accessorKey)
   if (def.id) return String(def.id)
   return ''

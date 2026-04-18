@@ -982,7 +982,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
   return (
     <DynamicPanelShell
       title={equip.tag_number}
-      subtitle={`${equip.name} — ${equip.equipment_class.replace(/_/g, ' ')}`}
+      subtitle={`${equip.name}${equip.equipment_class ? ` — ${equip.equipment_class.replace(/_/g, ' ')}` : ''}`}
       icon={<Wrench size={14} />}
       headerRight={
         canDelete ? (
@@ -1015,7 +1015,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label="Tag" value={<span className="font-mono font-semibold">{equip.tag_number}</span>} />
               {canUpdate
                 ? <InlineEditableRow label={t('assets.equipment_class')} value={equip.equipment_class || ''} onSave={(v) => handleSave('equipment_class', v || null)} />
-                : <ReadOnlyRow label={t('assets.equipment_class')} value={<span className="gl-badge gl-badge-neutral">{equip.equipment_class.replace(/_/g, ' ')}</span>} />
+                : <ReadOnlyRow label={t('assets.equipment_class')} value={equip.equipment_class ? <span className="gl-badge gl-badge-neutral">{equip.equipment_class.replace(/_/g, ' ')}</span> : '—'} />
               }
               {canUpdate
                 ? <InlineEditableTags label={t('common.status')} value={equip.status} options={statusOptions} onSave={(v) => handleSave('status', v)} />

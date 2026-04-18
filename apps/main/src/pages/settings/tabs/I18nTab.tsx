@@ -730,7 +730,7 @@ function LanguagesPanel({
       rtl: newLang.rtl,
       sort_order: newLang.sort_order,
       active: true,
-    } as any)
+    })
     setNewLang({
       code: '',
       label: '',

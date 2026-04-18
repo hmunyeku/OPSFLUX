@@ -103,6 +103,7 @@ import type {
   PapyrusDocument,
   PapyrusForm,
   PapyrusSchedule,
+  PapyrusVersionSummary,
 } from '@/services/papyrusService'
 
 // -- Constants ----------------------------------------------------------------
@@ -918,28 +919,16 @@ function DocumentDetailPanel({ id }: { id: string }) {
             <p className="text-sm text-muted-foreground">Aucune version technique Papyrus enregistrée.</p>
           ) : (
             <div className="border border-border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/30">
-                    <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Version</th>
-                    <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Type</th>
-                    <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Tag workflow</th>
-                    <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Message</th>
-                    <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {papyrusVersions.map((version) => (
-                    <tr key={version.id} className="border-b border-border last:border-0">
-                      <td className="px-3 py-2 font-mono text-xs">{version.version}</td>
-                      <td className="px-3 py-2">{version.patch_type}</td>
-                      <td className="px-3 py-2">{version.workflow_tag || '--'}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{version.message || '--'}</td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">{formatDate(version.created_at)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable<PapyrusVersionSummary>
+                data={papyrusVersions}
+                columns={[
+                  { accessorKey: 'version', header: 'Version', cell: ({ row }) => <span className="font-mono text-xs">{row.original.version}</span> },
+                  { accessorKey: 'patch_type', header: 'Type' },
+                  { accessorKey: 'workflow_tag', header: 'Tag workflow', cell: ({ row }) => <>{row.original.workflow_tag || '--'}</> },
+                  { accessorKey: 'message', header: 'Message', cell: ({ row }) => <span className="text-muted-foreground">{row.original.message || '--'}</span> },
+                  { accessorKey: 'created_at', header: 'Date', cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDate(row.original.created_at)}</span> },
+                ]}
+              />
             </div>
           )}
         </FormSection>
@@ -1954,40 +1943,24 @@ export function ReportEditorPage() {
               </div>
             ) : (
               <div className="border border-border rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/30">
-                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Nom</th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Type de document</th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Version</th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Champs</th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Actif</th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Créé le</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {templates.map((tpl: Template) => (
-                      <tr
-                        key={tpl.id}
-                        className="border-b border-border last:border-0 hover:bg-muted/20 cursor-pointer"
-                        onClick={() => openDynamicPanel({ type: 'detail', module: 'papyrus', id: tpl.id, meta: { subtype: 'template' } })}
-                      >
-                        <td className="px-3 py-2 font-medium text-foreground">{tpl.name}</td>
-                        <td className="px-3 py-2 text-muted-foreground text-xs">{tpl.doc_type_name || '--'}</td>
-                        <td className="px-3 py-2 text-muted-foreground text-xs tabular-nums">v{tpl.version}</td>
-                        <td className="px-3 py-2 text-muted-foreground text-xs tabular-nums">{tpl.field_count}</td>
-                        <td className="px-3 py-2">
-                          {tpl.is_active ? (
-                            <span className="gl-badge gl-badge-success">{t('common.active')}</span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Inactif</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-muted-foreground text-xs tabular-nums">{formatDate(tpl.created_at)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <DataTable<Template>
+                  data={templates}
+                  onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'papyrus', id: row.id, meta: { subtype: 'template' } })}
+                  columns={[
+                    { accessorKey: 'name', header: 'Nom', cell: ({ row }) => <span className="font-medium text-foreground">{row.original.name}</span> },
+                    { accessorKey: 'doc_type_name', header: 'Type de document', cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.doc_type_name || '--'}</span> },
+                    { accessorKey: 'version', header: 'Version', cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">v{row.original.version}</span> },
+                    { accessorKey: 'field_count', header: 'Champs', cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{row.original.field_count}</span> },
+                    {
+                      accessorKey: 'is_active',
+                      header: 'Actif',
+                      cell: ({ row }) => row.original.is_active
+                        ? <span className="gl-badge gl-badge-success">{t('common.active')}</span>
+                        : <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Inactif</span>,
+                    },
+                    { accessorKey: 'created_at', header: 'Créé le', cell: ({ row }) => <span className="text-muted-foreground text-xs tabular-nums">{formatDate(row.original.created_at)}</span> },
+                  ]}
+                />
               </div>
             )}
           </div>
@@ -2008,44 +1981,33 @@ export function ReportEditorPage() {
               </div>
             ) : (
               <div className="border border-border rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/30">
-                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Code</th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Nom</th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Discipline</th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Schéma de révision</th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Nomenclature</th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Actif</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {docTypes.map((dt: DocType) => {
-                      // Render the name from the i18n Record — use 'fr' or first key
-                      const displayName = dt.name.fr || dt.name.en || Object.values(dt.name)[0] || dt.code
-                      return (
-                        <tr
-                          key={dt.id}
-                          className="border-b border-border last:border-0 hover:bg-muted/20 cursor-pointer"
-                          onClick={() => openDynamicPanel({ type: 'detail', module: 'papyrus', id: dt.id, meta: { subtype: 'doc-type' } })}
-                        >
-                          <td className="px-3 py-2 font-mono font-medium text-foreground text-xs">{dt.code}</td>
-                          <td className="px-3 py-2 text-foreground">{displayName}</td>
-                          <td className="px-3 py-2 text-muted-foreground text-xs">{dt.discipline || '--'}</td>
-                          <td className="px-3 py-2 text-muted-foreground text-xs">{dt.revision_scheme}</td>
-                          <td className="px-3 py-2 text-muted-foreground text-xs font-mono">{dt.nomenclature_pattern}</td>
-                          <td className="px-3 py-2">
-                            {dt.is_active ? (
-                              <span className="gl-badge gl-badge-success">{t('common.active')}</span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Inactif</span>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                <DataTable<DocType>
+                  data={docTypes}
+                  onRowClick={(row) => openDynamicPanel({ type: 'detail', module: 'papyrus', id: row.id, meta: { subtype: 'doc-type' } })}
+                  columns={[
+                    { accessorKey: 'code', header: 'Code', cell: ({ row }) => <span className="font-mono font-medium text-foreground text-xs">{row.original.code}</span> },
+                    {
+                      id: 'name',
+                      header: 'Nom',
+                      accessorFn: (dt) => dt.name.fr || dt.name.en || Object.values(dt.name)[0] || dt.code,
+                      cell: ({ row }) => {
+                        const dt = row.original
+                        const displayName = dt.name.fr || dt.name.en || Object.values(dt.name)[0] || dt.code
+                        return <span className="text-foreground">{displayName}</span>
+                      },
+                    },
+                    { accessorKey: 'discipline', header: 'Discipline', cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.discipline || '--'}</span> },
+                    { accessorKey: 'revision_scheme', header: 'Schéma de révision', cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.revision_scheme}</span> },
+                    { accessorKey: 'nomenclature_pattern', header: 'Nomenclature', cell: ({ row }) => <span className="text-muted-foreground text-xs font-mono">{row.original.nomenclature_pattern}</span> },
+                    {
+                      accessorKey: 'is_active',
+                      header: 'Actif',
+                      cell: ({ row }) => row.original.is_active
+                        ? <span className="gl-badge gl-badge-success">{t('common.active')}</span>
+                        : <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Inactif</span>,
+                    },
+                  ]}
+                />
               </div>
             )}
           </div>

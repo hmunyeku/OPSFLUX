@@ -545,12 +545,12 @@ export function SectionColumns({
   return (
     <div
       className={cn(
-        'grid gap-x-8 gap-y-5 grid-cols-1',
-        // Kick into 2 columns earlier (was @[700px]) so docked panels
-        // benefit too. Detail panels typically pass 2 children — wider
-        // breakpoints are not added here because that would leave an
-        // empty column.
-        '@[640px]:grid-cols-2',
+        // UX request: NEVER split sections into side-by-side columns.
+        // Each section should be a single column taking full panel width,
+        // with its internal DetailFieldGrid providing up to 2-col layout.
+        // This keeps max 2 data columns total (was 4 before: 2 side-sections
+        // × 2 fields each).
+        'grid gap-y-5 grid-cols-1',
         className,
       )}
     >

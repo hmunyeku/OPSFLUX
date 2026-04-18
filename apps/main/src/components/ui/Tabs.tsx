@@ -82,7 +82,7 @@ export function TabBar<T extends string = string>({
       {/* Tabs container — scrolls horizontally on narrow containers
           while the rightSlot stays anchored. @container enables child
           TabButtons to hide their labels below 380px using @[380px]:inline. */}
-      <div className="@container flex items-center gap-1 min-w-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <div className="@container flex-1 flex items-center gap-1 min-w-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {items
           ? items
               .filter((t) => !t.hidden)

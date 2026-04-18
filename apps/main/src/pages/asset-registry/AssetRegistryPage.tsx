@@ -827,6 +827,7 @@ const TAB_MODULE: Record<TabKey, string> = {
   installations: 'ar-installation',
   equipment: 'ar-equipment',
   pipelines: 'ar-pipeline',
+  maps: '',
 }
 
 export function AssetRegistryPage() {

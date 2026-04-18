@@ -1007,6 +1007,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
       </div>
 
       {tab === 'details' && (
+        <ErrorBoundary>
         <PanelContentLayout>
           <FormSection title={t('common.details')}>
             <DetailFieldGrid>
@@ -1226,6 +1227,7 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
             <TagManager ownerType="ar_equipment" ownerId={id} compact />
           </FormSection>
         </PanelContentLayout>
+        </ErrorBoundary>
       )}
 
       {tab === 'files' && <div className="p-4"><AttachmentManager ownerType="ar_equipment" ownerId={id} /></div>}

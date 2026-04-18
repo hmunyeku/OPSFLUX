@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FileCheck, Trash2, Loader2, Info, Paperclip } from 'lucide-react'
+import { FileCheck, Trash2, Loader2, Info, Paperclip, CheckCircle2, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TabBar } from '@/components/ui/Tabs'
 import {
@@ -15,8 +15,10 @@ import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { usePermission } from '@/hooks/usePermission'
 import { normalizeNames } from '@/lib/normalize'
-import { useComplianceRecords, useUpdateComplianceRecord, useDeleteComplianceRecord } from '@/hooks/useConformite'
+import { useComplianceRecords, useUpdateComplianceRecord, useDeleteComplianceRecord, useVerifyRecord } from '@/hooks/useConformite'
 import type { ComplianceRecordUpdate } from '@/types/api'
 import { useConformiteDictionaryState } from '../shared'
 import { ComplianceOwnerCard } from '../components'
@@ -27,7 +29,11 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
   const { data } = useComplianceRecords({ page: 1, page_size: 200 })
   const updateRecord = useUpdateComplianceRecord()
   const deleteRecord = useDeleteComplianceRecord()
+  const verifyRecord = useVerifyRecord()
   const { toast } = useToast()
+  const confirm = useConfirm()
+  const { hasPermission } = usePermission()
+  const canVerify = hasPermission('conformite.record.verify')
   const { statusLabels } = useConformiteDictionaryState()
   const record = data?.items.find((item) => item.id === id)
   const [detailTab, setDetailTab] = useState<'informations' | 'documents'>('informations')
@@ -38,20 +44,68 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
     toast({ title: t('common.deleted'), variant: 'success' })
   }, [closeDynamicPanel, deleteRecord, id, t, toast])
 
+  const handleVerify = useCallback(async () => {
+    try {
+      await verifyRecord.mutateAsync({ recordType: 'compliance_record', recordId: id, action: 'verify' })
+      toast({ title: t('conformite.toast.verified'), variant: 'success' })
+    } catch {
+      toast({ title: t('conformite.toast.error'), variant: 'error' })
+    }
+  }, [verifyRecord, id, toast, t])
+
+  const handleReject = useCallback(async () => {
+    const ok = await confirm({
+      title: t('conformite.verifications.reject_title'),
+      message: t('conformite.verifications.reject_prompt'),
+      confirmLabel: t('common.reject'),
+      variant: 'danger',
+    })
+    if (!ok) return
+    try {
+      await verifyRecord.mutateAsync({ recordType: 'compliance_record', recordId: id, action: 'reject', rejectionReason: 'Rejeté depuis la fiche enregistrement' })
+      toast({ title: t('conformite.toast.rejected'), variant: 'success' })
+    } catch {
+      toast({ title: t('conformite.toast.error'), variant: 'error' })
+    }
+  }, [verifyRecord, id, confirm, toast, t])
+
   const handleSave = useCallback((payload: ComplianceRecordUpdate) => {
     updateRecord.mutate({ id, payload: normalizeNames(payload) })
   }, [id, updateRecord])
 
-  const actionItems = useMemo<ActionItem[]>(() => [
-    {
+  const actionItems = useMemo<ActionItem[]>(() => {
+    const items: ActionItem[] = []
+    // Only offer verify/reject when status is pending and user has permission.
+    if (record?.status === 'pending' && canVerify) {
+      items.push({
+        id: 'verify',
+        label: t('conformite.verifications.verify'),
+        icon: CheckCircle2,
+        variant: 'primary',
+        priority: 5,
+        loading: verifyRecord.isPending,
+        onClick: handleVerify,
+      })
+      items.push({
+        id: 'reject',
+        label: t('common.reject'),
+        icon: XCircle,
+        variant: 'danger',
+        priority: 10,
+        loading: verifyRecord.isPending,
+        onClick: handleReject,
+      })
+    }
+    items.push({
       id: 'delete',
       label: t('common.delete'),
       icon: Trash2,
       variant: 'danger',
       priority: 20,
       onClick: handleDelete,
-    },
-  ], [t, handleDelete])
+    })
+    return items
+  }, [t, handleDelete, handleVerify, handleReject, record?.status, canVerify, verifyRecord.isPending])
 
   if (!record) {
     return (

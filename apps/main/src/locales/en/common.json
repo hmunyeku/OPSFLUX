@@ -1191,9 +1191,12 @@
       "proof_missing": "Proof required",
       "proof_required_before_verify": "Add at least one supporting file before verifying this record.",
       "search": "Search by person, type, description...",
+      "verify": "Validate",
       "verify_button": "Verify & Approve",
       "reject_button": "Reject",
       "reject_reason": "Rejection reason",
+      "reject_title": "Reject this record?",
+      "reject_prompt": "The record will be marked as rejected. This action is visible in the history. Confirm?",
       "record_types": {
         "compliance_record": "Reference",
         "passport": "Passport",

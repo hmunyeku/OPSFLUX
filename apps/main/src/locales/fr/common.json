@@ -1247,9 +1247,12 @@
       "proof_missing": "Preuve requise",
       "proof_required_before_verify": "Ajoutez au moins une pièce justificative avant de vérifier ce dossier.",
       "search": "Rechercher par personne, type, description...",
+      "verify": "Valider",
       "verify_button": "Vérifier & Valider",
       "reject_button": "Rejeter",
       "reject_reason": "Motif du rejet",
+      "reject_title": "Rejeter cet enregistrement ?",
+      "reject_prompt": "L'enregistrement sera marqué comme rejeté. Cette action est visible dans l'historique. Confirmer ?",
       "record_types": {
         "compliance_record": "Référentiel",
         "passport": "Passeport",

@@ -187,6 +187,54 @@ export function VerificationOwnerSummary({
 }
 
 /**
+ * ComplianceOwnerCell — compact table cell showing avatar + full name for
+ * the owner of a compliance record. Resolves tier_contact / user via hooks
+ * (React Query dedupes + caches, so repeated owners share a single fetch).
+ *
+ * Falls back to a muted label (ownerType) when the owner can't be resolved.
+ */
+export function ComplianceOwnerCell({
+  ownerType,
+  ownerId,
+}: {
+  ownerType: string | null | undefined
+  ownerId: string | null | undefined
+}) {
+  const isTierContact = ownerType === 'tier_contact'
+  const isUser = ownerType === 'user'
+  const { data: contact } = useGlobalTierContact(isTierContact ? ownerId || undefined : undefined)
+  const { data: user } = useUser(isUser ? ownerId || '' : '')
+
+  const fullName = isTierContact && contact
+    ? `${contact.first_name} ${contact.last_name}`.trim()
+    : isUser && user
+      ? `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() || user.email
+      : null
+
+  const photoUrl = isTierContact && contact ? contact.photo_url : null
+  const initials = fullName
+    ? fullName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
+    : '?'
+
+  if (!ownerId) return <span className="text-muted-foreground/40">—</span>
+
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      {photoUrl ? (
+        <img src={photoUrl} alt="" className="h-5 w-5 rounded-full object-cover shrink-0" />
+      ) : (
+        <div className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-semibold shrink-0">
+          {initials}
+        </div>
+      )}
+      <span className="text-xs text-foreground truncate">
+        {fullName || <span className="text-muted-foreground">{ownerType}</span>}
+      </span>
+    </div>
+  )
+}
+
+/**
  * ComplianceOwnerCard — rich panel card for the owner of a compliance record
  * or verification. Resolves tier_contact (via useGlobalTierContact) and
  * user (via useUser) into a proper identity card: avatar, full name, role,

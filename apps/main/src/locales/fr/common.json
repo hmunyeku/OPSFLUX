@@ -1095,6 +1095,7 @@
       "reference_number": "N° référence",
       "attachments_help": "Joignez ici le justificatif (certificat, attestation, etc.).",
       "sections": {
+        "owner": "Propriétaire",
         "general": "Informations générales",
         "reference": "Référence",
         "attachments": "Pièces jointes"

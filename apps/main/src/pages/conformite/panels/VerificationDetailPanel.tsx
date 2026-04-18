@@ -14,7 +14,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { usePendingVerifications, useVerifyRecord, useVerificationHistory } from '@/hooks/useConformite'
 import { useVerificationRecordTypeLabels } from '../shared'
-import { VerificationOwnerSummary } from '../components'
+import { ComplianceOwnerCard } from '../components'
 
 function VerificationHistorySection({ ownerId, recordType, currentId }: { ownerId: string; recordType: string; currentId: string }) {
   const { data } = useVerificationHistory(1, 10, { owner_id: ownerId, record_type: recordType })
@@ -139,19 +139,18 @@ export function VerificationDetailPanel({ id, recordType: _recordType }: { id: s
     >
         <PanelContentLayout>
           <FormSection title="Propriétaire" collapsible defaultExpanded>
-            <VerificationOwnerSummary ownerType={item.owner_type} ownerId={item.owner_id} ownerName={item.owner_name} />
+            <ComplianceOwnerCard ownerType={item.owner_type} ownerId={item.owner_id} />
           </FormSection>
 
           <DetailFieldGrid>
-            <ReadOnlyRow label="Personne" value={item.owner_name || 'Inconnu'} />
-          <ReadOnlyRow label="Type" value={recordTypeLabels[item.record_type] || item.record_type} />
-          <ReadOnlyRow label="Description" value={item.description} />
-          <ReadOnlyRow label="Émetteur" value={(item as any).issuer || '—'} />
-          <ReadOnlyRow label="Référence" value={(item as any).reference_number || '—'} />
-          <ReadOnlyRow label="Date d'émission" value={fmtDate((item as any).issued_at)} />
-          <ReadOnlyRow label="Expiration" value={fmtDate((item as any).expires_at)} />
-          <ReadOnlyRow label="Soumis le" value={fmtDate(item.submitted_at)} />
-        </DetailFieldGrid>
+            <ReadOnlyRow label="Type" value={recordTypeLabels[item.record_type] || item.record_type} />
+            <ReadOnlyRow label="Description" value={item.description} />
+            <ReadOnlyRow label="Émetteur" value={(item as { issuer?: string | null }).issuer || '—'} />
+            <ReadOnlyRow label="Référence" value={(item as { reference_number?: string | null }).reference_number || '—'} />
+            <ReadOnlyRow label="Date d'émission" value={fmtDate((item as { issued_at?: string | null }).issued_at)} />
+            <ReadOnlyRow label="Expiration" value={fmtDate((item as { expires_at?: string | null }).expires_at)} />
+            <ReadOnlyRow label="Soumis le" value={fmtDate(item.submitted_at)} />
+          </DetailFieldGrid>
 
         <FormSection title="Pièces jointes">
           {(item.attachment_required !== false) && ((item.attachment_count ?? 0) <= 0) && (

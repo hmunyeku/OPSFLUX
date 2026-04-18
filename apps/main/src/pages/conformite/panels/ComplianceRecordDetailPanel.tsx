@@ -19,6 +19,7 @@ import { normalizeNames } from '@/lib/normalize'
 import { useComplianceRecords, useUpdateComplianceRecord, useDeleteComplianceRecord } from '@/hooks/useConformite'
 import type { ComplianceRecordUpdate } from '@/types/api'
 import { useConformiteDictionaryState } from '../shared'
+import { ComplianceOwnerCard } from '../components'
 
 export function ComplianceRecordDetailPanel({ id }: { id: string }) {
   const { t } = useTranslation()
@@ -86,11 +87,12 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
       />
       {detailTab === 'informations' && (
         <PanelContentLayout>
+          <FormSection title={t('conformite.records.sections.owner')}>
+            <ComplianceOwnerCard ownerType={record.owner_type} ownerId={record.owner_id} />
+          </FormSection>
           <FormSection title={t('conformite.records.sections.general')}>
             <DetailFieldGrid>
               <ReadOnlyRow label={t('conformite.records.fields.type')} value={record.type_name || '—'} />
-              <ReadOnlyRow label={t('conformite.records.fields.owner_type')} value={record.owner_type} />
-              <ReadOnlyRow label={t('conformite.records.fields.owner_id')} value={<span className="font-mono text-xs">{record.owner_id}</span>} />
               <ReadOnlyRow label={t('conformite.records.fields.status')} value={<span className={cn('gl-badge', statusClass)}>{statusLabels[record.status] ?? record.status}</span>} />
               <ReadOnlyRow label={t('common.created_at')} value={record.created_at ? new Date(record.created_at).toLocaleDateString('fr-FR') : '—'} />
             </DetailFieldGrid>

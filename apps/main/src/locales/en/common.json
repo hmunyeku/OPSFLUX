@@ -1039,6 +1039,7 @@
       "reference_number": "Reference #",
       "attachments_help": "Attach the supporting document (certificate, proof, etc.) here.",
       "sections": {
+        "owner": "Owner",
         "general": "General information",
         "reference": "Reference",
         "attachments": "Attachments"

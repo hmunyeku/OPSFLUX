@@ -2,11 +2,12 @@
  * Shared components for the Conformite page: SearchableSelect, MultiSearchableSelect, VerificationOwnerSummary.
  */
 import React, { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, User, Building2, Mail, Briefcase, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
 import { CrossModuleLink } from '@/components/shared/CrossModuleLink'
 import { useGlobalTierContact } from '@/hooks/useTiers'
+import { useUser } from '@/hooks/useUsers'
 
 export function SearchableSelect({ value, onChange, options, placeholder, disabled }: {
   value: string
@@ -180,6 +181,116 @@ export function VerificationOwnerSummary({
             )}
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * ComplianceOwnerCard — rich panel card for the owner of a compliance record
+ * or verification. Resolves tier_contact (via useGlobalTierContact) and
+ * user (via useUser) into a proper identity card: avatar, full name, role,
+ * email, and navigation links to the owner's profile / tier fiche.
+ *
+ * Use in ComplianceRecordDetailPanel and VerificationDetailPanel to give
+ * verifiers immediate context about whose compliance they're reviewing.
+ */
+export function ComplianceOwnerCard({
+  ownerType,
+  ownerId,
+}: {
+  ownerType: string | null | undefined
+  ownerId: string | null | undefined
+}) {
+  const isTierContact = ownerType === 'tier_contact'
+  const isUser = ownerType === 'user'
+  const { data: contact } = useGlobalTierContact(isTierContact ? ownerId || undefined : undefined)
+  const { data: user } = useUser(isUser ? ownerId || '' : '')
+
+  // Resolve identity from whichever source matches the owner_type.
+  const fullName = isTierContact && contact
+    ? `${contact.first_name} ${contact.last_name}`.trim()
+    : isUser && user
+      ? `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() || user.email
+      : null
+
+  const subtitle = isTierContact && contact
+    ? contact.position || contact.department || null
+    : isUser && user
+      ? user.email
+      : null
+
+  const photoUrl = isTierContact && contact ? contact.photo_url : null
+  const email = isTierContact && contact ? contact.email : isUser && user ? user.email : null
+  const initials = fullName
+    ? fullName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
+    : '?'
+
+  if (!ownerId) return <span className="text-muted-foreground">—</span>
+
+  return (
+    <div className="rounded-lg border border-border bg-background-subtle/50 p-3">
+      <div className="flex items-start gap-3">
+        {photoUrl ? (
+          <img src={photoUrl} alt={fullName || 'avatar'} className="h-10 w-10 rounded-full object-cover shrink-0" />
+        ) : (
+          <div className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold shrink-0">
+            {initials}
+          </div>
+        )}
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {isUser ? <User size={12} className="text-muted-foreground shrink-0" /> : <Building2 size={12} className="text-muted-foreground shrink-0" />}
+            <span className="text-sm font-semibold text-foreground truncate">
+              {fullName || <span className="font-mono text-xs text-muted-foreground">{ownerId}</span>}
+            </span>
+          </div>
+          {subtitle && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
+              <Briefcase size={11} className="shrink-0" />
+              <span className="truncate">{subtitle}</span>
+            </div>
+          )}
+          {email && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
+              <Mail size={11} className="shrink-0" />
+              <a href={`mailto:${email}`} className="truncate hover:text-primary">{email}</a>
+            </div>
+          )}
+          {/* Navigation links */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            {isTierContact && contact && (
+              <CrossModuleLink
+                module="tiers"
+                id={contact.tier_id}
+                label={contact.tier_name || contact.tier_code || 'Voir le tiers'}
+                className="text-xs"
+              />
+            )}
+            {isTierContact && contact?.linked_user_id && (
+              <CrossModuleLink
+                module="users"
+                id={contact.linked_user_id}
+                label={contact.linked_user_email || 'Compte utilisateur'}
+                className="text-xs"
+              />
+            )}
+            {isUser && user && (
+              <CrossModuleLink
+                module="users"
+                id={user.id}
+                label="Voir le profil"
+                className="text-xs"
+              />
+            )}
+            {!isTierContact && !isUser && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <ExternalLink size={10} />
+                {ownerType} · <span className="font-mono">{ownerId.slice(0, 8)}…</span>
+              </span>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

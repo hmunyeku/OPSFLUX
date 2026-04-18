@@ -2827,10 +2827,10 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
             </PanelActionButton>
           )}
           {!editing && <PanelActionButton onClick={handlePrintLt} disabled={downloadCargoRequestLtPdf.isPending} icon={<FileText size={12} />}>Imprimer LT</PanelActionButton>}
-          {!editing && <PanelActionButton onClick={startEdit} icon={<Pencil size={12} />}>Modifier</PanelActionButton>}
+          {!editing && <PanelActionButton onClick={startEdit} icon={<Pencil size={12} />}>{t('common.edit')}</PanelActionButton>}
           {editing && (
             <>
-              <PanelActionButton onClick={() => setEditing(false)}>Annuler</PanelActionButton>
+              <PanelActionButton onClick={() => setEditing(false)}>{t('common.cancel')}</PanelActionButton>
               <PanelActionButton variant="primary" onClick={handleSave} disabled={updateCargoRequest.isPending} icon={<Save size={12} />}>
                 {updateCargoRequest.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
               </PanelActionButton>

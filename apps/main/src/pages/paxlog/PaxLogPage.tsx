@@ -719,7 +719,7 @@ function RequesterHomeTab({
                 <ClipboardList size={14} />
                 {t('paxlog.new_ads')}
               </button>
-              <button className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-accent" onClick={onCreateAvm}>
+              <button className="gl-button-sm gl-button-default" onClick={onCreateAvm}>
                 <Briefcase size={14} />
                 {t('paxlog.new_avm')}
               </button>
@@ -5108,7 +5108,7 @@ function CreateAvmPanel() {
                 </DynamicPanelField>
               </div>
             ))}
-            <button type="button" className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-accent" onClick={addProgramLine}>
+            <button type="button" className="gl-button-sm gl-button-default" onClick={addProgramLine}>
               <Plus size={13} />
               {t('paxlog.create_avm.program.add_line')}
             </button>

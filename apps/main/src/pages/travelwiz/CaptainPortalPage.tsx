@@ -108,7 +108,7 @@ function CaptainLogin({ onLogin }: { onLogin: (voyageId: string, captainName: st
             disabled={code.length !== 6 || auth.isPending}
             className="gl-button-sm gl-button-primary w-full py-4 text-lg font-semibold justify-center gap-2"
           >
-            {auth.isPending ? <Loader2 size={20} className="animate-spin" /> : <LogIn size={20} />}
+            {auth.isPending ? <Loader2 size={14} className="animate-spin" /> : <LogIn size={14} />}
             Acceder
           </button>
         </div>
@@ -192,7 +192,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
   if (isLoading || !manifest) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 size={32} className="animate-spin text-primary" />
+        <Loader2 size={16} className="animate-spin text-primary" />
       </div>
     )
   }
@@ -210,7 +210,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
         activeSection === id ? 'bg-primary/10 border-2 border-primary' : 'bg-card border-2 border-border hover:border-primary/50',
       )}
     >
-      <Icon size={20} className={activeSection === id ? 'text-primary' : 'text-muted-foreground'} />
+      <Icon size={16} className={activeSection === id ? 'text-primary' : 'text-muted-foreground'} />
       <span className="flex-1 font-medium text-sm text-foreground">{label}</span>
       {count != null && <span className="text-xs bg-muted rounded-full px-2 py-0.5 text-muted-foreground">{count}</span>}
       {activeSection === id ? <ChevronUp size={16} className="text-muted-foreground" /> : <ChevronDown size={16} className="text-muted-foreground" />}
@@ -224,7 +224,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-foreground flex items-center gap-2">
-              <Ship size={20} className="text-primary" />
+              <Ship size={16} className="text-primary" />
               {voyage.code || 'Voyage'}
             </h1>
             <p className="text-xs text-muted-foreground">Capitaine: {captainName}</p>
@@ -341,7 +341,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
               disabled={recordEvent.isPending}
               className="gl-button-sm gl-button-primary w-full py-3 font-semibold justify-center gap-2"
             >
-              {recordEvent.isPending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+              {recordEvent.isPending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
               Enregistrer l'événement
             </button>
             {recordEvent.isSuccess && (
@@ -414,7 +414,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
               disabled={reportWeather.isPending}
               className="gl-button-sm gl-button-primary w-full py-3 font-semibold justify-center gap-2"
             >
-              {reportWeather.isPending ? <Loader2 size={18} className="animate-spin" /> : <CloudSun size={18} />}
+              {reportWeather.isPending ? <Loader2 size={14} className="animate-spin" /> : <CloudSun size={14} />}
               Envoyer rapport météo
             </button>
             {reportWeather.isSuccess && (

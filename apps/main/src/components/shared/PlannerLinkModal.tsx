@@ -338,7 +338,7 @@ export function PlannerLinkModal({ open, onClose, projectId, projectCode, assetI
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">{selectedIds.size} sélectionnée{selectedIds.size > 1 ? 's' : ''}</span>
-              <button onClick={onClose} className="px-3 py-1.5 text-xs rounded border border-border hover:bg-muted">Annuler</button>
+              <button onClick={onClose} className="gl-button-sm gl-button-default">Annuler</button>
               <button onClick={handleSend} disabled={selectedIds.size === 0 || sendToPlanner.isPending}
                 className="px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 flex items-center gap-1.5">
                 {sendToPlanner.isPending ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}

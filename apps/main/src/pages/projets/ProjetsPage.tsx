@@ -1486,7 +1486,7 @@ function TaskCreateForm({ projectId, onClose }: { projectId: string; onClose: ()
       </div>
 
       <div className="flex justify-end gap-1.5 pt-1">
-        <button onClick={onClose} className="gl-button-sm gl-button-default">Annuler</button>
+        <button onClick={onClose} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>
         <button onClick={handleSubmit} disabled={createTask.isPending || !form.title.trim()} className="gl-button-sm gl-button-confirm">
           {createTask.isPending ? <Loader2 size={10} className="animate-spin inline mr-1" /> : null}
           Créer
@@ -1632,7 +1632,7 @@ function TaskDependenciesSection({ task, projectId, allTasks }: {
             />
           </div>
           <div className="flex justify-end gap-1">
-            <button onClick={() => setShowAdd(false)} className="px-2 py-0.5 text-[10px] rounded hover:bg-muted">Annuler</button>
+            <button onClick={() => setShowAdd(false)} className="px-2 py-0.5 text-[10px] rounded hover:bg-muted">{t('common.cancel')}</button>
             <button
               onClick={handleCreate}
               disabled={!depForm.to_task_id || createDep.isPending}
@@ -2571,7 +2571,7 @@ function CommentsSection({ projectId }: { projectId: string }) {
                     <p className="mt-0.5 whitespace-pre-wrap">{c.body}</p>
                     <div className="flex gap-2 mt-1">
                       <button onClick={() => setReplyTo(c.id)} className="text-primary hover:text-primary/80 text-[10px]">Répondre</button>
-                      <button onClick={() => handleDelete(c.id)} className="text-destructive hover:text-destructive/80 text-[10px]">Supprimer</button>
+                      <button onClick={() => handleDelete(c.id)} className="text-destructive hover:text-destructive/80 text-[10px]">{t('common.delete')}</button>
                     </div>
                   </div>
                 </div>
@@ -2583,7 +2583,7 @@ function CommentsSection({ projectId }: { projectId: string }) {
                         <span className="text-muted-foreground">{new Date(r.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                       <p className="mt-0.5 whitespace-pre-wrap">{r.body}</p>
-                      <button onClick={() => handleDelete(r.id)} className="text-destructive hover:text-destructive/80 text-[10px] mt-1">Supprimer</button>
+                      <button onClick={() => handleDelete(r.id)} className="text-destructive hover:text-destructive/80 text-[10px] mt-1">{t('common.delete')}</button>
                     </div>
                   </div>
                 ))}
@@ -3872,276 +3872,6 @@ function SpreadsheetView() {
       </div>
       <ProjectSelectorModal open={showSelector} onClose={() => setShowSelector(false)} selection={selection} onSelectionChange={setSelection} />
     </div>
-  )
-}
-
-// -- Macro Planning View -------------------------------------------------------
-
-interface PlanningConfig {
-  showProjects: boolean
-  showTasks: boolean
-  showMilestones: boolean
-  levelDepth: number  // 1 = projects only, 2 = +tasks, 3 = +sub-tasks
-  colorBy: 'status' | 'priority' | 'weather'
-}
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-gray-300', planned: 'bg-blue-300', active: 'bg-green-400',
-  on_hold: 'bg-yellow-400', completed: 'bg-emerald-500', cancelled: 'bg-red-400',
-  todo: 'bg-gray-300', in_progress: 'bg-blue-400', review: 'bg-yellow-400', done: 'bg-green-500',
-}
-const PRIORITY_COLORS: Record<string, string> = {
-  low: 'bg-gray-300', medium: 'bg-blue-300', high: 'bg-orange-400', critical: 'bg-red-500',
-}
-const WEATHER_COLORS: Record<string, string> = {
-  sunny: 'bg-yellow-400', cloudy: 'bg-gray-400', rainy: 'bg-blue-500', stormy: 'bg-red-500',
-}
-
-function getBarColor(item: { status?: string; priority?: string; weather?: string }, colorBy: string): string {
-  if (colorBy === 'priority') return PRIORITY_COLORS[(item as Record<string, string>).priority] || 'bg-gray-300'
-  if (colorBy === 'weather') return WEATHER_COLORS[(item as Record<string, string>).weather] || 'bg-gray-300'
-  return STATUS_COLORS[(item as Record<string, string>).status] || 'bg-gray-300'
-}
-
-/* @ts-expect-error legacy — replaced by ProjectGanttView.tsx */
-function _MacroPlanningViewLegacy() { // eslint-disable-line
-  const [config, setConfig] = useState<PlanningConfig>({
-    showProjects: true,
-    showTasks: true,
-    showMilestones: true,
-    levelDepth: 2,
-    colorBy: 'status',
-  })
-
-  const { data: projectsData, isLoading } = useProjects({ page_size: 100 })
-  const projects = projectsData?.items ?? []
-
-  // Date range: min/max across all projects
-  const allDates = useMemo(() => {
-    const dates: number[] = []
-    for (const p of projects) {
-      if (p.start_date) dates.push(new Date(p.start_date).getTime())
-      if (p.end_date) dates.push(new Date(p.end_date).getTime())
-    }
-    if (dates.length === 0) {
-      const now = Date.now()
-      return { min: now - 30 * 86400000, max: now + 180 * 86400000 }
-    }
-    const min = Math.min(...dates) - 7 * 86400000
-    const max = Math.max(...dates) + 30 * 86400000
-    return { min, max }
-  }, [projects])
-
-  const totalDays = Math.max(1, Math.ceil((allDates.max - allDates.min) / 86400000))
-
-  // Generate month headers
-  const months = useMemo(() => {
-    const result: { label: string; startPct: number; widthPct: number }[] = []
-    const startDate = new Date(allDates.min)
-    startDate.setDate(1)
-    const endDate = new Date(allDates.max)
-    let current = new Date(startDate)
-    while (current <= endDate) {
-      const monthStart = Math.max(0, (current.getTime() - allDates.min) / 86400000)
-      const nextMonth = new Date(current.getFullYear(), current.getMonth() + 1, 1)
-      const monthEnd = Math.min(totalDays, (nextMonth.getTime() - allDates.min) / 86400000)
-      result.push({
-        label: current.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
-        startPct: (monthStart / totalDays) * 100,
-        widthPct: ((monthEnd - monthStart) / totalDays) * 100,
-      })
-      current = nextMonth
-    }
-    return result
-  }, [allDates, totalDays])
-
-  const getBarStyle = (startDateStr: string | null, endDateStr: string | null) => {
-    if (!startDateStr) return null
-    const start = new Date(startDateStr).getTime()
-    const end = endDateStr ? new Date(endDateStr).getTime() : start + 30 * 86400000
-    const left = ((start - allDates.min) / 86400000 / totalDays) * 100
-    const width = Math.max(1, ((end - start) / 86400000 / totalDays) * 100)
-    return { left: `${left}%`, width: `${width}%` }
-  }
-
-  return (
-    <div className="flex flex-col h-full">
-      {/* Config toolbar */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-border bg-muted/30 flex-wrap">
-        <CalendarRange size={14} className="text-primary" />
-        <span className="text-xs font-medium text-muted-foreground">Macro-Planning</span>
-
-        <div className="flex items-center gap-1.5 ml-4">
-          <span className="text-[10px] text-muted-foreground">Niveaux:</span>
-          {[1, 2, 3].map(level => (
-            <button
-              key={level}
-              onClick={() => setConfig(c => ({ ...c, levelDepth: level }))}
-              className={cn(
-                'text-[10px]',
-                config.levelDepth === level ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default',
-              )}
-            >
-              {level}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-muted-foreground">Couleur:</span>
-          {(['status', 'priority', 'weather'] as const).map(opt => (
-            <button
-              key={opt}
-              onClick={() => setConfig(c => ({ ...c, colorBy: opt }))}
-              className={cn(
-                'text-[10px]',
-                config.colorBy === opt ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default',
-              )}
-            >
-              {opt === 'status' ? 'Statut' : opt === 'priority' ? 'Priorité' : 'Météo'}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-2 ml-auto">
-          <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
-            <input type="checkbox" checked={config.showTasks} onChange={(e) => setConfig(c => ({ ...c, showTasks: e.target.checked }))} className="w-3 h-3" />
-            Tâches
-          </label>
-          <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
-            <input type="checkbox" checked={config.showMilestones} onChange={(e) => setConfig(c => ({ ...c, showMilestones: e.target.checked }))} className="w-3 h-3" />
-            Jalons
-          </label>
-        </div>
-      </div>
-
-      {/* Planning grid */}
-      <div className="flex-1 overflow-auto">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
-        ) : projects.length === 0 ? (
-          <EmptyState icon={CalendarRange} title="Aucun projet" variant="search" />
-        ) : (
-          <div className="min-w-[900px]">
-            {/* Month headers */}
-            <div className="flex border-b border-border bg-muted/50 sticky top-0 z-10">
-              <div className="w-[260px] shrink-0 px-3 py-1.5 text-[10px] font-medium text-muted-foreground border-r border-border">Nom</div>
-              <div className="flex-1 relative h-7">
-                {months.map((m, i) => (
-                  <div
-                    key={i}
-                    className="absolute top-0 h-full text-[10px] text-muted-foreground flex items-center px-1 border-r border-border/40"
-                    style={{ left: `${m.startPct}%`, width: `${m.widthPct}%` }}
-                  >
-                    {m.label}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Project rows */}
-            {projects.map((project) => (
-              <PlanningProjectRow
-                key={project.id}
-                project={project}
-                config={config}
-                getBarStyle={getBarStyle}
-                allDates={allDates}
-                totalDays={totalDays}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function PlanningProjectRow({
-  project, config, getBarStyle, allDates, totalDays,
-}: {
-  project: Project
-  config: PlanningConfig
-  getBarStyle: (s: string | null, e: string | null) => { left: string; width: string } | null
-  allDates: { min: number; max: number }
-  totalDays: number
-}) {
-  const [expanded, setExpanded] = useState(false)
-  const { data: tasks } = useProjectTasks(expanded && config.levelDepth >= 2 ? project.id : undefined)
-  const { data: milestones } = useProjectMilestones(expanded && config.showMilestones ? project.id : undefined)
-
-  const barStyle = getBarStyle(project.start_date, project.end_date)
-  const isMacro = (project.children_count ?? 0) > 0
-
-  return (
-    <>
-      {/* Project bar */}
-      <div
-        className={cn('flex border-b border-border/50 hover:bg-muted/30 cursor-pointer', isMacro && 'bg-muted/20')}
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="w-[260px] shrink-0 px-3 py-1.5 flex items-center gap-1.5 border-r border-border">
-          <ChevronRight size={12} className={cn('text-muted-foreground transition-transform shrink-0', expanded && 'rotate-90')} />
-          {isMacro && <Layers size={11} className="text-primary shrink-0" />}
-          <span className={cn('text-xs truncate', isMacro ? 'font-semibold' : 'font-medium')}>{project.code}</span>
-          <span className="text-[10px] text-muted-foreground truncate">{project.name}</span>
-        </div>
-        <div className="flex-1 relative py-1.5 min-h-[28px]">
-          {barStyle && (
-            <div
-              className={cn('absolute h-4 rounded-sm top-1/2 -translate-y-1/2', getBarColor(project, config.colorBy))}
-              style={barStyle}
-              title={`${project.name} — ${project.status} (${project.progress}%)`}
-            >
-              <span className="text-[9px] text-white px-1 truncate block leading-4">{project.progress}%</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Expanded: tasks + milestones */}
-      {expanded && config.showTasks && config.levelDepth >= 2 && tasks?.map((task) => {
-        const tBarStyle = getBarStyle(task.start_date, task.due_date)
-        return (
-          <div key={task.id} className="flex border-b border-border/30 bg-background">
-            <div className="w-[260px] shrink-0 px-3 py-1 flex items-center gap-1.5 border-r border-border pl-8">
-              <TaskStatusIcon status={task.status} size={10} />
-              <span className={cn('text-[11px] truncate', task.status === 'done' && 'line-through text-muted-foreground')}>{task.title}</span>
-            </div>
-            <div className="flex-1 relative py-1 min-h-[22px]">
-              {tBarStyle && (
-                <div
-                  className={cn('absolute h-3 rounded-sm top-1/2 -translate-y-1/2', getBarColor(task, config.colorBy))}
-                  style={tBarStyle}
-                  title={`${task.title} — ${task.status}`}
-                />
-              )}
-            </div>
-          </div>
-        )
-      })}
-
-      {expanded && config.showMilestones && milestones?.map((ms) => {
-        if (!ms.due_date) return null
-        const msDay = (new Date(ms.due_date).getTime() - allDates.min) / 86400000
-        const leftPct = (msDay / totalDays) * 100
-        return (
-          <div key={ms.id} className="flex border-b border-border/30 bg-background">
-            <div className="w-[260px] shrink-0 px-3 py-1 flex items-center gap-1.5 border-r border-border pl-8">
-              <Milestone size={10} className={ms.status === 'completed' ? 'text-green-500' : 'text-yellow-500'} />
-              <span className="text-[11px] truncate text-muted-foreground">{ms.name}</span>
-            </div>
-            <div className="flex-1 relative py-1 min-h-[22px]">
-              <div
-                className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rotate-45 bg-yellow-500 border border-yellow-600"
-                style={{ left: `${leftPct}%` }}
-                title={`${ms.name} — ${new Date(ms.due_date).toLocaleDateString('fr-FR')}`}
-              />
-            </div>
-          </div>
-        )
-      })}
-    </>
   )
 }
 

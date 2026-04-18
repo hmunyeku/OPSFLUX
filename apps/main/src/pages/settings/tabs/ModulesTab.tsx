@@ -52,12 +52,12 @@ export function ModulesTab() {
                   </div>
                 </div>
                 {module.is_protected ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-[10px] font-medium text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                  <span className="gl-badge gl-badge-warning">
                     <ShieldAlert className="h-3 w-3" />
                     Protégé
                   </span>
                 ) : module.enabled ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-medium text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
+                  <span className="gl-badge gl-badge-success">
                     <Sparkles className="h-3 w-3" />
                     Disponible
                   </span>

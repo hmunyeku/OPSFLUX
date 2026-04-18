@@ -272,7 +272,7 @@ function PdfTemplateGrid({
             </span>
 
             {/* Page format */}
-            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+            <span className="gl-badge gl-badge-info">
               {PAGE_SIZE_LABELS[t.page_size] ?? t.page_size} {t.orientation === 'landscape' ? '↔' : '↕'}
             </span>
 
@@ -287,7 +287,7 @@ function PdfTemplateGrid({
                 </span>
               ))
             ) : (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+              <span className="gl-badge gl-badge-warning">
                 Aucune version
               </span>
             )}

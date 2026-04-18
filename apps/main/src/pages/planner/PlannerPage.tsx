@@ -91,7 +91,6 @@ import {
   useResolveConflict,
   useConflictAudit,
   useBulkResolveConflicts,
-  useGanttData,
   useCapacityHeatmap,
   useAssetCapacities,
   useCreateAssetCapacity,
@@ -118,7 +117,6 @@ import type {
   PlannerConflict, PlannerDependency,
   PlannerRevisionSignal,
   PlannerRevisionDecisionRequest,
-  GanttActivity, GanttAsset,
   AssetCapacity,
   ForecastDay,
 } from '@/types/api'
@@ -245,17 +243,6 @@ const DEP_TYPE_LABELS_FALLBACK: Record<string, string> = {
   SF: 'Début-Fin (SF)',
 }
 
-const ACTIVITY_TYPE_COLORS: Record<string, string> = {
-  project: '#3b82f6',
-  workover: '#16a34a',
-  drilling: '#dc2626',
-  integrity: '#0d9488',
-  maintenance: '#f97316',
-  permanent_ops: '#9ca3af',
-  inspection: '#9333ea',
-  event: '#d1d5db',
-}
-
 // ── Helpers ───────────────────────────────────────────────────
 
 function StatusBadge({ status, labels, badges }: { status: string; labels: Record<string, string>; badges: Record<string, string> }) {
@@ -310,38 +297,6 @@ function StatCard({ label, value, icon: Icon, accent }: {
   )
 }
 
-/** Days between two ISO date strings, inclusive */
-function daysBetween(a: string, b: string): number {
-  const d1 = new Date(a)
-  const d2 = new Date(b)
-  return Math.max(1, Math.round((d2.getTime() - d1.getTime()) / 86400000) + 1)
-}
-
-/** Day offset from a base date */
-function dayOffset(base: string, target: string): number {
-  const d1 = new Date(base)
-  const d2 = new Date(target)
-  return Math.round((d2.getTime() - d1.getTime()) / 86400000)
-}
-
-/** Generate array of dates between two ISO date strings */
-function dateRange(start: string, end: string): string[] {
-  const dates: string[] = []
-  const d = new Date(start)
-  const dEnd = new Date(end)
-  while (d <= dEnd) {
-    dates.push(d.toISOString().split('T')[0])
-    d.setDate(d.getDate() + 1)
-  }
-  return dates
-}
-
-function addDays(d: string, n: number): string {
-  const dt = new Date(d)
-  dt.setDate(dt.getDate() + n)
-  return dt.toISOString().split('T')[0]
-}
-
 function toISODate(d: Date): string {
   return d.toISOString().split('T')[0]
 }
@@ -366,299 +321,6 @@ function shiftTimelineRange(scale: TimeScale, start: string, end: string, direct
     endDate.setMonth(endDate.getMonth() + 6 * direction)
   }
   return { start: toISODate(startDate), end: toISODate(endDate) }
-}
-
-// ── Gantt Tab ─────────────────────────────────────────────────
-
-type TimeUnit = 'week' | 'month' | 'quarter'
-
-/* Legacy GanttTab — replaced by GanttView.tsx */
-/* @ts-expect-error keeping code for reference */
-function _GanttTabLegacy() { // eslint-disable-line
-  const { t } = useTranslation()
-  const openDynamicPanel = useUIStore((s) => s.openDynamicPanel)
-  const activityTypeLabels = useDictionaryLabels('planner_activity_type', ACTIVITY_TYPE_LABELS_FALLBACK)
-  const activityStatusLabels = useDictionaryLabels('planner_activity_status', ACTIVITY_STATUS_LABELS_FALLBACK)
-  const activityTypeOptions = useMemo(() => buildDictionaryOptions(activityTypeLabels, PLANNER_ACTIVITY_TYPE_VALUES), [activityTypeLabels])
-  const activityStatusOptions = useMemo(() => buildDictionaryOptions(activityStatusLabels, PLANNER_ACTIVITY_STATUS_VALUES, 'Tous'), [activityStatusLabels])
-
-  const [timeUnit, setTimeUnit] = useState<TimeUnit>('month')
-  const [typeFilter, setTypeFilter] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-  const scrollRef = useRef<HTMLDivElement>(null)
-
-  // Compute date range based on unit
-  const { startDate, endDate } = useMemo(() => {
-    const today = new Date()
-    let start: Date
-    let end: Date
-    if (timeUnit === 'week') {
-      const day = today.getDay()
-      start = new Date(today)
-      start.setDate(today.getDate() - (day === 0 ? 6 : day - 1))
-      end = new Date(start)
-      end.setDate(start.getDate() + 6 * 7 - 1) // 6 weeks
-    } else if (timeUnit === 'month') {
-      start = new Date(today.getFullYear(), today.getMonth(), 1)
-      end = new Date(today.getFullYear(), today.getMonth() + 3, 0) // 3 months
-    } else {
-      const q = Math.floor(today.getMonth() / 3)
-      start = new Date(today.getFullYear(), q * 3, 1)
-      end = new Date(today.getFullYear(), q * 3 + 12, 0) // 4 quarters
-    }
-    return { startDate: toISODate(start), endDate: toISODate(end) }
-  }, [timeUnit])
-
-  const [viewStart, setViewStart] = useState(startDate)
-  const [viewEnd, setViewEnd] = useState(endDate)
-
-  // Sync when timeUnit changes
-  useEffect(() => {
-    setViewStart(startDate)
-    setViewEnd(endDate)
-  }, [startDate, endDate])
-
-  const { data: ganttData, isLoading } = useGanttData(viewStart, viewEnd, {
-    types: typeFilter || undefined,
-    statuses: statusFilter || undefined,
-    show_permanent_ops: true,
-  })
-
-  const assets: GanttAsset[] = ganttData?.assets ?? []
-  const totalDays = daysBetween(viewStart, viewEnd)
-  const dayWidth = timeUnit === 'week' ? 40 : timeUnit === 'month' ? 18 : 6
-  const dates = useMemo(() => dateRange(viewStart, viewEnd), [viewStart, viewEnd])
-
-  const navigate = useCallback((dir: -1 | 1) => {
-    const shift = timeUnit === 'week' ? 7 : timeUnit === 'month' ? 30 : 90
-    setViewStart(addDays(viewStart, dir * shift))
-    setViewEnd(addDays(viewEnd, dir * shift))
-  }, [viewStart, viewEnd, timeUnit])
-
-  // Today line position
-  const todayStr = toISODate(new Date())
-  const todayOffset = dayOffset(viewStart, todayStr)
-  const showTodayLine = todayOffset >= 0 && todayOffset < totalDays
-
-  return (
-    <div className="flex flex-col flex-1 min-h-0">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 border-b border-border px-3.5 h-9 shrink-0">
-        {/* Time unit switcher */}
-        <div className="flex items-center gap-0.5 mr-2">
-          {(['week', 'month', 'quarter'] as TimeUnit[]).map((u) => (
-            <button
-              key={u}
-              onClick={() => setTimeUnit(u)}
-              className={cn(
-                'px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap',
-                timeUnit === u ? 'bg-primary/[0.16] text-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {u === 'week' ? 'Semaine' : u === 'month' ? 'Mois' : 'Trimestre'}
-            </button>
-          ))}
-        </div>
-
-        {/* Navigation */}
-        <button onClick={() => navigate(-1)} className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground">
-          <ChevronLeft size={14} />
-        </button>
-        <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
-          {formatDateOnly(viewStart)} — {formatDateOnly(viewEnd)}
-        </span>
-        <button onClick={() => navigate(1)} className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground">
-          <ChevronRight size={14} />
-        </button>
-
-        {/* Filters */}
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-        >
-          <option value="">{t('planner.filters.all_types')}</option>
-          {activityTypeOptions.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-6 px-1.5 text-xs border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-        >
-          {activityStatusOptions.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-
-        <span className="text-xs text-muted-foreground ml-auto shrink-0">
-          {assets.length} site(s)
-        </span>
-      </div>
-
-      {/* Gantt chart */}
-      {isLoading ? (
-        <div className="flex items-center justify-center flex-1">
-          <Loader2 size={16} className="animate-spin text-muted-foreground" />
-        </div>
-      ) : assets.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-10 text-muted-foreground/50 flex-1">
-          <GanttChart size={32} strokeWidth={1.5} />
-          <span className="text-sm">Aucune activité trouvée pour cette période. Ajustez les filtres ou la plage de dates.</span>
-        </div>
-      ) : (
-        <div ref={scrollRef} className="flex-1 overflow-auto relative">
-          {/* Timeline header */}
-          <div className="sticky top-0 z-10 flex border-b border-border bg-background">
-            <div className="w-52 flex-shrink-0 border-r border-border px-2 py-1.5">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Site</span>
-            </div>
-            <div className="flex" style={{ minWidth: totalDays * dayWidth }}>
-              {dates.map((d) => {
-                const dt = new Date(d)
-                const isMonday = dt.getDay() === 1
-                const isFirstOfMonth = dt.getDate() === 1
-                const showLabel = timeUnit === 'week'
-                  ? isMonday
-                  : timeUnit === 'month'
-                    ? (dt.getDate() === 1 || dt.getDate() === 15)
-                    : isFirstOfMonth
-
-                return (
-                  <div
-                    key={d}
-                    className={cn(
-                      'flex-shrink-0 border-r border-border/30 text-center',
-                      d === todayStr && 'bg-primary/5',
-                      dt.getDay() === 0 && 'bg-muted/30',
-                      dt.getDay() === 6 && 'bg-muted/20',
-                    )}
-                    style={{ width: dayWidth }}
-                  >
-                    {showLabel && (
-                      <span className="text-[8px] text-muted-foreground leading-none block pt-0.5">
-                        {dt.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
-                      </span>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Today line */}
-          {showTodayLine && (
-            <div
-              className="absolute top-0 bottom-0 w-px bg-primary/60 z-20 pointer-events-none"
-              style={{ left: 208 + todayOffset * dayWidth + dayWidth / 2 }}
-            />
-          )}
-
-          {/* Asset rows */}
-          {assets.map((asset) => {
-            // Compute total used pax for a rough capacity bar
-            const usedPax = asset.activities.reduce((s, a) => s + (a.pax_quota ?? 0), 0)
-            const maxPax = asset.capacity?.max_pax ?? 0
-
-            return (
-              <div key={asset.id} className="flex border-b border-border hover:bg-accent/20 group">
-                {/* Asset label + capacity bar */}
-                <div className="w-52 flex-shrink-0 p-2 border-r border-border flex flex-col justify-center gap-1">
-                  <span className="text-xs font-medium text-foreground truncate" title={asset.name}>{asset.name}</span>
-                  {maxPax > 0 && (
-                    <CapacityBar current={usedPax} max={maxPax} />
-                  )}
-                </div>
-
-                {/* Activity bars */}
-                <div className="relative flex-1 min-h-[36px]" style={{ minWidth: totalDays * dayWidth }}>
-                  {asset.activities.map((act) => (
-                    <ActivityBar
-                      key={act.id}
-                      activity={act}
-                      viewStart={viewStart}
-                      viewEnd={viewEnd}
-                      dayWidth={dayWidth}
-                      onClick={() => openDynamicPanel({ type: 'detail', module: 'planner', id: act.id, meta: { subtype: 'activity' } })}
-                    />
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Gantt sub-components ─────────────────────────────────────
-
-function CapacityBar({ current, max }: { current: number; max: number }) {
-  const pct = max > 0 ? Math.min(100, Math.round((current / max) * 100)) : 0
-  const colorClass = pct > 90 ? 'bg-destructive' : pct > 70 ? 'bg-amber-500' : 'bg-emerald-500'
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-        <div className={cn('h-full rounded-full transition-all', colorClass)} style={{ width: `${pct}%` }} />
-      </div>
-      <span className={cn(
-        'text-[9px] tabular-nums font-medium',
-        pct > 90 ? 'text-destructive' : pct > 70 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
-      )}>
-        {current}/{max}
-      </span>
-    </div>
-  )
-}
-
-function ActivityBar({ activity, viewStart, viewEnd, dayWidth, onClick }: {
-  activity: GanttActivity
-  viewStart: string
-  viewEnd: string
-  dayWidth: number
-  onClick: () => void
-}) {
-  if (!activity.start_date || !activity.end_date) return null
-
-  const barStart = Math.max(0, dayOffset(viewStart, activity.start_date))
-  const barEnd = Math.min(daysBetween(viewStart, viewEnd) - 1, dayOffset(viewStart, activity.end_date))
-  if (barEnd < barStart) return null
-
-  const left = barStart * dayWidth
-  const width = Math.max(dayWidth, (barEnd - barStart + 1) * dayWidth)
-  const color = ACTIVITY_TYPE_COLORS[activity.type] || '#94a3b8'
-  const status = activity.status
-
-  // Status overlay styles
-  const opacity = status === 'draft' ? 0.5 : 1
-  const borderStyle = status === 'submitted' ? '2px dashed' : '2px solid'
-  const showProgress = status === 'in_progress'
-
-  return (
-    <button
-      onClick={onClick}
-      className="absolute top-1 h-[calc(100%-8px)] rounded-sm cursor-pointer text-white text-[9px] font-medium truncate px-1 flex items-center gap-0.5 hover:brightness-110 transition-all z-10"
-      style={{
-        left,
-        width,
-        backgroundColor: color,
-        opacity,
-        border: borderStyle,
-        borderColor: color,
-      }}
-      title={`${activity.title} (${activity.has_children && activity.children_pob_total != null ? `\u03A3${activity.children_pob_total}` : activity.pax_quota} PAX)`}
-    >
-      {showProgress && (
-        <div className="absolute inset-0 rounded-sm overflow-hidden">
-          <div className="h-full bg-white/20 animate-pulse" style={{ width: '40%' }} />
-        </div>
-      )}
-      <span className="relative z-10 truncate">{activity.title}</span>
-      <span className="relative z-10 shrink-0 text-[8px] opacity-80">{activity.has_children && activity.children_pob_total != null ? `\u03A3${activity.children_pob_total}` : activity.pax_quota}</span>
-    </button>
-  )
 }
 
 // ── Activities Tab ────────────────────────────────────────────
@@ -910,7 +572,7 @@ function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
                   const ok = await confirmDialog({ title: 'Annuler ?', message: 'Annuler cette activité ?', confirmLabel: 'Annuler', variant: 'warning' })
                   if (ok) cancelActivity.mutate(row.original.id)
                 })}
-                title="Annuler"
+                title={t('common.cancel')}
               >
                 <Ban size={12} />
               </button>
@@ -922,7 +584,7 @@ function ActivitiesTab({ scenarioId }: { scenarioId?: string }) {
                   const ok = await confirmDialog({ title: 'Supprimer ?', message: 'Supprimer cette activité ?', confirmLabel: 'Supprimer', variant: 'danger' })
                   if (ok) deleteActivity.mutate(row.original.id)
                 })}
-                title="Supprimer"
+                title={t('common.delete')}
               >
                 <span className="text-xs">&times;</span>
               </button>
@@ -2662,7 +2324,7 @@ function CapacityTab({
               />
             </div>
             <div className="flex items-center gap-2 justify-end">
-              <button className="gl-button-sm gl-button-default" onClick={() => setShowCapModal(false)}>Annuler</button>
+              <button className="gl-button-sm gl-button-default" onClick={() => setShowCapModal(false)}>{t('common.cancel')}</button>
               <button
                 className="gl-button-sm gl-button-confirm"
                 onClick={handleCreateCapacity}
@@ -2901,7 +2563,7 @@ function ScenariosTab({
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDelete(sid) }}
                         className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                        title="Supprimer"
+                        title={t('common.delete')}
                       >
                         <Trash2 size={12} />
                       </button>
@@ -2940,7 +2602,7 @@ function ScenariosTab({
               />
             </div>
             <div className="flex items-center gap-2 justify-end">
-              <button className="gl-button-sm gl-button-default" onClick={() => setShowCreate(false)}>Annuler</button>
+              <button className="gl-button-sm gl-button-default" onClick={() => setShowCreate(false)}>{t('common.cancel')}</button>
               <button
                 className="gl-button-sm gl-button-confirm"
                 onClick={handleCreate}
@@ -3024,7 +2686,7 @@ function ForecastTab() {
 
       {data && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             <div className={cn('border rounded p-2 text-center', data.summary.at_risk_days > 0 ? 'border-orange-500/30 bg-orange-500/5' : '')}>
               <div className="text-[9px] uppercase text-muted-foreground">Jours à risque (&gt;80%)</div>
               <div className={cn('text-lg font-semibold tabular-nums', data.summary.at_risk_days > 0 && 'text-orange-600')}>{data.summary.at_risk_days}</div>
@@ -3811,7 +3473,7 @@ function ScenarioDetailPanel({ id }: { id: string }) {
                 <textarea className={cn(panelInputClass, 'min-h-[60px]')} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
               </DynamicPanelField>
               <div className="col-span-full flex gap-2 justify-end">
-                <button className="gl-button-sm gl-button-default" onClick={() => setEditing(false)}>Annuler</button>
+                <button className="gl-button-sm gl-button-default" onClick={() => setEditing(false)}>{t('common.cancel')}</button>
                 <button className="gl-button-sm gl-button-confirm" onClick={handleSave} disabled={!editForm.title.trim() || updateScenario.isPending}>
                   {updateScenario.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Enregistrer'}
                 </button>
@@ -3843,7 +3505,7 @@ function ScenarioDetailPanel({ id }: { id: string }) {
               {scenario.last_simulated_at && <ReadOnlyRow label="Dernière simulation" value={new Date(scenario.last_simulated_at).toLocaleString('fr-FR')} />}
               {!isPromoted && !isArchived && (
                 <div className="col-span-full pt-1">
-                  <button className="text-xs text-primary hover:underline" onClick={() => setEditing(true)}>Modifier</button>
+                  <button className="text-xs text-primary hover:underline" onClick={() => setEditing(true)}>{t('common.edit')}</button>
                 </div>
               )}
             </DetailFieldGrid>
@@ -3918,9 +3580,9 @@ function ScenarioDetailPanel({ id }: { id: string }) {
                 </div>
               </div>
               <div className="flex gap-2 justify-end">
-                <button className="gl-button-sm gl-button-default text-xs" onClick={() => setShowAddActivity(false)}>Annuler</button>
+                <button className="gl-button-sm gl-button-default text-xs" onClick={() => setShowAddActivity(false)}>{t('common.cancel')}</button>
                 <button className="gl-button-sm gl-button-confirm text-xs" onClick={handleAddScenarioActivity} disabled={addScenarioActivity.isPending}>
-                  {addScenarioActivity.isPending ? <Loader2 size={11} className="animate-spin" /> : 'Ajouter'}
+                  {addScenarioActivity.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Ajouter'}
                 </button>
               </div>
             </div>
@@ -4017,6 +3679,7 @@ interface DependencyRowProps {
 }
 
 function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete, onUpdate, isPending }: DependencyRowProps) {
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
 
   // Identify the "other" activity (not the current one) — that's what the user
@@ -4164,14 +3827,14 @@ function DependencyRow({ dep, currentActivityId, dependencyTypeOptions, onDelete
       <button
         onClick={startEdit}
         className="p-0.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"
-        title="Modifier"
+        title={t('common.edit')}
       >
         <Pencil size={11} />
       </button>
       <button
         onClick={() => onDelete(dep.id)}
         className="p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-        title="Supprimer"
+        title={t('common.delete')}
       >
         <XCircle size={11} />
       </button>
@@ -5408,7 +5071,7 @@ function ActivityDetailPanel({ id }: { id: string }) {
               </div>
             ) : null}
             <div className="flex items-center gap-2 justify-end">
-              <button className="gl-button-sm gl-button-default" onClick={() => { setShowImpact(false) }}>Annuler</button>
+              <button className="gl-button-sm gl-button-default" onClick={() => { setShowImpact(false) }}>{t('common.cancel')}</button>
               <button
                 className="gl-button-sm gl-button-confirm"
                 onClick={doSave}

@@ -259,7 +259,7 @@ export function VariablePobEditor({
           title="Augmenter de 1 (raccourci : +)"
           disabled={selectedKeys.length === 0}
         >
-          <Plus size={10} /> 1
+          <Plus size={13} /> 1
         </button>
         <button
           type="button"
@@ -268,7 +268,7 @@ export function VariablePobEditor({
           title="Diminuer de 1 (raccourci : -)"
           disabled={selectedKeys.length === 0}
         >
-          <Minus size={10} /> 1
+          <Minus size={13} /> 1
         </button>
         <button
           type="button"
@@ -277,7 +277,7 @@ export function VariablePobEditor({
           title="Remplir la sélection avec une valeur"
           disabled={selectedKeys.length === 0}
         >
-          <Wand2 size={10} /> Remplir
+          <Wand2 size={13} /> Remplir
         </button>
         <button
           type="button"
@@ -286,7 +286,7 @@ export function VariablePobEditor({
           title="Copier la première cellule sur toute la sélection"
           disabled={selectedKeys.length === 0}
         >
-          <Copy size={10} /> Copier
+          <Copy size={13} /> Copier
         </button>
         <button
           type="button"
@@ -295,7 +295,7 @@ export function VariablePobEditor({
           title="Vider la sélection (Suppr)"
           disabled={selectedKeys.length === 0}
         >
-          <Trash2 size={10} /> Vider
+          <Trash2 size={13} /> Vider
         </button>
 
         <span className="mx-1 text-[10px] text-muted-foreground">|</span>

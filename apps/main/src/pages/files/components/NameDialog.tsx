@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export function NameDialog({ title, defaultValue, onConfirm, onCancel }: {
   title: string
@@ -6,12 +7,13 @@ export function NameDialog({ title, defaultValue, onConfirm, onCancel }: {
   onConfirm: (name: string) => void
   onCancel: () => void
 }) {
+  const { t } = useTranslation()
   const [value, setValue] = useState(defaultValue || '')
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { inputRef.current?.focus(); inputRef.current?.select() }, [])
 
-  const handleSubmit = () => { const t = value.trim(); if (t) onConfirm(t) }
+  const handleSubmit = () => { const trimmed = value.trim(); if (trimmed) onConfirm(trimmed) }
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40" onClick={onCancel}>
@@ -26,7 +28,7 @@ export function NameDialog({ title, defaultValue, onConfirm, onCancel }: {
           placeholder="Nom..."
         />
         <div className="flex justify-end gap-2">
-          <button onClick={onCancel} className="gl-button-sm gl-button-default">Annuler</button>
+          <button onClick={onCancel} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>
           <button onClick={handleSubmit} disabled={!value.trim()} className="gl-button-sm gl-button-confirm">Confirmer</button>
         </div>
       </div>

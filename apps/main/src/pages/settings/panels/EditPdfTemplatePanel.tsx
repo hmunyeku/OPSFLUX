@@ -1364,7 +1364,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
                             </div>
                           </div>
                           {version.is_published && (
-                            <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                            <span className="gl-badge gl-badge-success">
                               {t('common.publish')}
                             </span>
                           )}
@@ -1452,7 +1452,7 @@ function EditPdfTemplateInner({ templateId }: { templateId: string }) {
                 </span>
               </div>
               {!isCreatingVersion && selectedVersion?.is_published && (
-                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                <span className="gl-badge gl-badge-success">
                   {t('common.publish')}
                 </span>
               )}

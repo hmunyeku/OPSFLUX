@@ -35,6 +35,8 @@ import {
 import api from '@/lib/api'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { cn } from '@/lib/utils'
+import { useToast } from '@/components/ui/Toast'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 interface I18nLanguage {
   code: string
@@ -347,6 +349,7 @@ function MessageRow({ message }: { message: I18nMessage }) {
   const [notes, setNotes] = useState(message.notes ?? '')
   const upsert = useUpsertMessage()
   const remove = useDeleteMessage()
+  const confirm = useConfirm()
 
   useEffect(() => {
     setValue(message.value)
@@ -365,7 +368,13 @@ function MessageRow({ message }: { message: I18nMessage }) {
   }
 
   async function handleDelete() {
-    if (!window.confirm(`Supprimer la clé "${message.key}" ?`)) return
+    const ok = await confirm({
+      title: 'Supprimer ?',
+      message: `Supprimer la clé "${message.key}" ?`,
+      variant: 'danger',
+      confirmLabel: 'Supprimer',
+    })
+    if (!ok) return
     await remove.mutateAsync(message.id)
   }
 
@@ -608,6 +617,8 @@ function ImportExportMenu({
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const bulk = useBulkUpsert()
+  const { toast } = useToast()
+  const confirm = useConfirm()
 
   function exportJson() {
     const payload = messages.reduce(
@@ -632,22 +643,27 @@ function ImportExportMenu({
     try {
       parsed = JSON.parse(text)
     } catch {
-      window.alert('Le fichier doit être un JSON plat { clé: "valeur" }.')
+      toast({ title: 'Le fichier doit être un JSON plat { clé: "valeur" }.', variant: 'warning' })
       return
     }
     const entries = Object.entries(parsed)
     if (entries.length === 0) {
-      window.alert('Fichier vide.')
+      toast({ title: 'Fichier vide.', variant: 'warning' })
       return
     }
-    if (!window.confirm(`Importer ${entries.length} clé(s) pour ${languageCode}/${namespace} ?`)) return
+    const ok = await confirm({
+      title: 'Importer',
+      message: `Importer ${entries.length} clé(s) pour ${languageCode}/${namespace} ?`,
+      confirmLabel: 'Importer',
+    })
+    if (!ok) return
     await bulk.mutateAsync({
       language_code: languageCode,
       namespace,
       messages: entries.map(([key, value]) => ({ key, value: String(value) })),
       replace: false,
     })
-    window.alert('Import terminé.')
+    toast({ title: 'Import terminé.', variant: 'warning' })
   }
 
   return (
@@ -694,6 +710,7 @@ function LanguagesPanel({
   const create = useCreateLanguage()
   const update = useUpdateLanguage()
   const remove = useDeleteLanguage()
+  const confirm = useConfirm()
 
   const [showAdd, setShowAdd] = useState(false)
   const [newLang, setNewLang] = useState({
@@ -763,7 +780,13 @@ function LanguagesPanel({
               </label>
               <button
                 onClick={async () => {
-                  if (!window.confirm(`Supprimer ${lang.label} et TOUTES ses traductions ?`)) return
+                  const ok = await confirm({
+                    title: 'Supprimer la langue ?',
+                    message: `Supprimer ${lang.label} et TOUTES ses traductions ?`,
+                    variant: 'danger',
+                    confirmLabel: 'Supprimer',
+                  })
+                  if (!ok) return
                   await remove.mutateAsync(lang.code)
                 }}
                 className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"

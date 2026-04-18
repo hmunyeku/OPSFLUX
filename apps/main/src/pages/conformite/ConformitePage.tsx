@@ -1135,7 +1135,6 @@ export function ConformitePage() {
   const canCreateType = hasPermission('conformite.type.create')
   const canCreateRecord = hasPermission('conformite.record.create')
   const canCreateRule = hasPermission('conformite.rule.create')
-  const canDeleteRule = hasPermission('conformite.rule.delete')
   const canCreateJP = hasPermission('conformite.jobposition.create')
   const canCreateExemption = hasPermission('conformite.exemption.create')
   const canApproveExemption = hasPermission('conformite.exemption.approve')
@@ -1276,31 +1275,6 @@ export function ConformitePage() {
     { accessorKey: 'department', header: t('conformite.columns.department'), size: 140, cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.department || '--'}</span> },
     { accessorKey: 'created_at', header: t('conformite.columns.created_at'), size: 100, cell: ({ row }) => <span className="text-muted-foreground text-xs">{new Date(row.original.created_at).toLocaleDateString('fr-FR')}</span> },
   ], [])
-
-  // Rules columns (flat list -- not paginated)
-  // @ts-expect-error — ruleColumns kept for future DataTable integration
-  const ruleColumns = useMemo<ColumnDef<ComplianceRule, unknown>[]>(() => [
-    { accessorKey: 'compliance_type_id', header: t('conformite.columns.type'), size: 200, cell: ({ row }) => {
-      const ct = typesData?.items.find(t => t.id === row.original.compliance_type_id)
-      return <span className="text-foreground font-medium">{ct ? `${ct.code} — ${ct.name}` : row.original.compliance_type_id.slice(0, 8)}</span>
-    }},
-    { accessorKey: 'target_type', header: t('conformite.columns.target'), size: 130, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{ruleTargetLabels[row.original.target_type] ?? row.original.target_type}</span> },
-    { accessorKey: 'target_value', header: t('conformite.columns.value'), size: 200, cell: ({ row }) => {
-      const val = row.original.target_value
-      if (!val) return <span className="text-muted-foreground text-xs">N/A</span>
-      if (row.original.target_type === 'job_position') {
-        const jp = jobPositionsData?.items?.find((p: JobPosition) => p.id === val)
-        return <span className="text-foreground text-xs">{jp ? `${jp.code} — ${jp.name}` : val.slice(0, 8)}</span>
-      }
-      return <span className="text-muted-foreground text-xs">{val}</span>
-    }},
-    { accessorKey: 'description', header: t('conformite.columns.description'), cell: ({ row }) => <span className="text-muted-foreground text-xs">{row.original.description || '--'}</span> },
-    { id: 'actions', header: '', size: 50, cell: ({ row }) => canDeleteRule ? (
-      <button onClick={(e) => { e.stopPropagation(); deleteRule.mutate({ id: row.original.id }) }} className="gl-button-sm gl-button-default opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive">
-        <Trash2 size={12} />
-      </button>
-    ) : null},
-  ], [typesData?.items, jobPositionsData?.items, deleteRule, canDeleteRule])
 
   // Transfer columns
   const transferColumns = useMemo<ColumnDef<TierContactTransfer, unknown>[]>(() => [
@@ -3288,7 +3262,7 @@ function VerificationDetailPanel({ id, recordType: _recordType }: { id: string; 
               autoFocus
             />
             <div className="flex items-center gap-2 justify-end">
-              <button onClick={() => { setShowReject(false); setRejectReason('') }} className="gl-button-sm gl-button-default">Annuler</button>
+              <button onClick={() => { setShowReject(false); setRejectReason('') }} className="gl-button-sm gl-button-default">{t('common.cancel')}</button>
               <button onClick={handleReject} disabled={!rejectReason.trim() || verifyRecord.isPending} className="gl-button-sm gl-button-danger">
                 {verifyRecord.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Confirmer le rejet'}
               </button>

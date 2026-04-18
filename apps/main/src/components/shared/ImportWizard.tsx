@@ -950,32 +950,32 @@ export function ImportWizard({ open, onClose, targetObject, onImportComplete }: 
                 </div>
                 <div className="flex items-center gap-2">
                   {syncStep < 3 && (
-                    <button onClick={handleClose} className="px-3 py-1.5 text-xs rounded border hover:bg-accent">{t('import.cancel')}</button>
+                    <button onClick={handleClose} className="gl-button-sm gl-button-default">{t('import.cancel')}</button>
                   )}
                   {syncStep === 0 && (
                     <button onClick={handleSyncFetchPreview}
                       disabled={!selectedProvider || syncPreviewMut.isPending || !(syncProviders ?? []).find(p => p.id === selectedProvider)?.configured}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                      className="gl-button-sm gl-button-primary">
                       {syncPreviewMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <Users size={12} />}
                       {syncPreviewMut.isPending ? t('import.sync.fetching') : t('import.sync.fetch_users')}
                     </button>
                   )}
                   {syncStep === 1 && (
                     <button onClick={() => setSyncStep(2)} disabled={syncSelectedEmails.size === 0}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                      className="gl-button-sm gl-button-primary">
                       {t('import.next')} <ChevronRight size={12} />
                     </button>
                   )}
                   {syncStep === 2 && (
                     <button onClick={handleSyncExecute} disabled={syncSelectedEmails.size === 0 || syncExecuteMut.isPending}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                      className="gl-button-sm gl-button-primary">
                       {syncExecuteMut.isPending ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
                       {t('import.import_button')}
                     </button>
                   )}
                   {syncStep === 3 && (
                     <button onClick={handleClose}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90">
+                      className="gl-button-sm gl-button-primary">
                       {t('import.finish')}
                     </button>
                   )}
@@ -1010,7 +1010,7 @@ export function ImportWizard({ open, onClose, targetObject, onImportComplete }: 
               </div>
               {/* Source selection footer */}
               <div className="flex items-center justify-end px-6 py-3 border-t shrink-0">
-                <button onClick={handleClose} className="px-3 py-1.5 text-xs rounded border hover:bg-accent">{t('import.cancel')}</button>
+                <button onClick={handleClose} className="gl-button-sm gl-button-default">{t('import.cancel')}</button>
               </div>
             </>
           ) : (
@@ -1116,35 +1116,35 @@ export function ImportWizard({ open, onClose, targetObject, onImportComplete }: 
                 <div>
                   {step === 0 && supportsExternalSync && (
                     <button onClick={() => setImportSource(null)}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded border hover:bg-accent">
+                      className="gl-button-sm gl-button-default">
                       <ChevronLeft size={12} /> {t('import.previous')}
                     </button>
                   )}
                   {step > 0 && step < 3 && (
-                    <button onClick={goBack} className="flex items-center gap-1 px-3 py-1.5 text-xs rounded border hover:bg-accent">
+                    <button onClick={goBack} className="gl-button-sm gl-button-default">
                       <ChevronLeft size={12} /> {t('import.previous')}
                     </button>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
                   {step < 3 && (
-                    <button onClick={handleClose} className="px-3 py-1.5 text-xs rounded border hover:bg-accent">{t('import.cancel')}</button>
+                    <button onClick={handleClose} className="gl-button-sm gl-button-default">{t('import.cancel')}</button>
                   )}
                   {step < 2 && (
                     <button onClick={goNext} disabled={!canGoNext}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                      className="gl-button-sm gl-button-primary">
                       {t('import.next')} <ChevronRight size={12} />
                     </button>
                   )}
                   {step === 2 && (
                     <button onClick={goNext} disabled={!previewResult || validateMut.isPending}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                      className="gl-button-sm gl-button-primary">
                       {t('import.import_button')} <Upload size={12} />
                     </button>
                   )}
                   {step === 3 && (
                     <button onClick={handleClose}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90">
+                      className="gl-button-sm gl-button-primary">
                       {t('import.finish')}
                     </button>
                   )}
@@ -1269,11 +1269,11 @@ function StepMapping({ allHeaders, targetFields, columnMapping, transforms, conf
             {savedMappings.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         )}
-        <button onClick={onAddVirtual} className="flex items-center gap-1 px-3 py-1.5 text-xs rounded border hover:bg-accent text-primary"
+        <button onClick={onAddVirtual} className="gl-button-sm gl-button-default"
           title={t('import.add_computed_column')}>
           <Plus size={12} /> <Calculator size={12} /> {t('import.add_computed_column')}
         </button>
-        <button onClick={onToggleSaveMapping} className="flex items-center gap-1 px-3 py-1.5 text-xs rounded border hover:bg-accent ml-auto">
+        <button onClick={onToggleSaveMapping} className="gl-button-sm gl-button-default ml-auto">
           <Save size={12} /> {t('import.save_mapping')}
         </button>
       </div>

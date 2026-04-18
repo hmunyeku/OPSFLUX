@@ -778,7 +778,7 @@ function LibraryTab() {
           <Loader2 size={16} className="animate-spin text-muted-foreground" />
         </div>
       ) : libraryItems && libraryItems.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {libraryItems.map((item) => (
             <div
               key={item.id}

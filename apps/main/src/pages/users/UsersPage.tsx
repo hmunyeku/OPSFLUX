@@ -2040,7 +2040,7 @@ function AccountsOverview({ onNavigate, onCreateGroup }: { onNavigate: (tab: Acc
   return (
     <div className="flex-1 overflow-auto p-6 space-y-6">
       {/* Stats grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {stats.map((card) => {
           const Icon = card.icon
           return (
@@ -2220,6 +2220,7 @@ function BatchAssignModal({ title, subtitle, searchPlaceholder, items, isPending
   onSelect: (id: string) => void
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -2277,7 +2278,7 @@ function BatchAssignModal({ title, subtitle, searchPlaceholder, items, isPending
             )
           })}
         </div>
-        <button onClick={onClose} className="gl-button-sm gl-button-default w-full text-xs">Annuler</button>
+        <button onClick={onClose} className="gl-button-sm gl-button-default w-full text-xs">{t('common.cancel')}</button>
       </div>
     </div>
   )

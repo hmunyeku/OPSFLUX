@@ -6,9 +6,11 @@ import { usePermission } from '@/hooks/usePermission'
 import { useModules } from '@/hooks/useModules'
 import { AppLayout } from '@/components/layout/AppLayout'
 import CookieConsent from '@/components/layout/CookieConsent'
-import { LoginPage } from '@/pages/auth/LoginPage'
-import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage'
-import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
+import { LoaderFallback } from '@/components/ui/LoaderFallback'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
+const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ default: m.LoginPage })))
+const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })))
+const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })))
 const VerifyEmailPage = lazy(() => import('@/pages/auth/VerifyEmailPage'))
 const PrivacyPage = lazy(() => import('@/pages/legal/PrivacyPage'))
 
@@ -45,21 +47,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 /** Route-level permission guard — redirects to /dashboard if user lacks the required permission. */
 function RequirePermission({ permission, children }: { permission: string; children: React.ReactNode }) {
   const { hasPermission, loading } = usePermission()
-  if (loading) return <div className="flex items-center justify-center h-full"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+  if (loading) return <div className="flex items-center justify-center h-full"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
   if (!hasPermission(permission)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
 function RequireAnyPermission({ permissions, children }: { permissions: string[]; children: React.ReactNode }) {
   const { hasAny, loading } = usePermission()
-  if (loading) return <div className="flex items-center justify-center h-full"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+  if (loading) return <div className="flex items-center justify-center h-full"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
   if (!hasAny(permissions)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
 function RequireModuleEnabled({ module, children }: { module: string; children: React.ReactNode }) {
   const { data: modules = [], isLoading } = useModules()
-  if (isLoading) return <div className="flex items-center justify-center h-full"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+  if (isLoading) return <div className="flex items-center justify-center h-full"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
   const enabled = modules.some((entry) => entry.slug === module && entry.enabled)
   if (!enabled) return <Navigate to="/dashboard" replace />
   return <>{children}</>
@@ -69,20 +71,21 @@ export default function App() {
   return (
     <>
     <CookieConsent />
+    <ErrorBoundary>
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/privacy" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}><PrivacyPage /></Suspense>} />
-      <Route path="/verify-email" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}><VerifyEmailPage /></Suspense>} />
-      <Route path="/captain-portal" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}><CaptainPortalPage /></Suspense>} />
-      <Route path="/tv/:token" element={<Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}><TVModePage /></Suspense>} />
+      <Route path="/login" element={<Suspense fallback={<LoaderFallback />}><LoginPage /></Suspense>} />
+      <Route path="/forgot-password" element={<Suspense fallback={<LoaderFallback />}><ForgotPasswordPage /></Suspense>} />
+      <Route path="/reset-password" element={<Suspense fallback={<LoaderFallback />}><ResetPasswordPage /></Suspense>} />
+      <Route path="/privacy" element={<Suspense fallback={<LoaderFallback />}><PrivacyPage /></Suspense>} />
+      <Route path="/verify-email" element={<Suspense fallback={<LoaderFallback />}><VerifyEmailPage /></Suspense>} />
+      <Route path="/captain-portal" element={<Suspense fallback={<LoaderFallback />}><CaptainPortalPage /></Suspense>} />
+      <Route path="/tv/:token" element={<Suspense fallback={<LoaderFallback />}><TVModePage /></Suspense>} />
       <Route
         path="/*"
         element={
           <ProtectedRoute>
             <AppLayout>
-              <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
+              <Suspense fallback={<LoaderFallback />}>
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/comptes" element={<Navigate to="/users" replace />} />
@@ -105,7 +108,7 @@ export default function App() {
                   <Route path="/report-editor/*" element={<Navigate to="/papyrus" replace />} />
                   <Route path="/papyrus/*" element={<RequireModuleEnabled module="papyrus"><RequirePermission permission="document.read"><PapyrusPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/pid-pfd/*" element={<RequireModuleEnabled module="pid_pfd"><RequirePermission permission="pid.read"><PidPfdPage /></RequirePermission></RequireModuleEnabled>} />
-                  <Route path="/files/*" element={<RequirePermission permission="core.settings.manage"><Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}><FileManagerPage /></Suspense></RequirePermission>} />
+                  <Route path="/files/*" element={<RequirePermission permission="core.settings.manage"><Suspense fallback={<LoaderFallback />}><FileManagerPage /></Suspense></RequirePermission>} />
                   <Route path="/support/*" element={<RequireModuleEnabled module="support"><RequirePermission permission="support.ticket.read"><SupportPage /></RequirePermission></RequireModuleEnabled>} />
                   <Route path="/settings/*" element={<SettingsPage />} />
                   {/* French path aliases → redirect to canonical English paths */}
@@ -119,6 +122,7 @@ export default function App() {
         }
       />
     </Routes>
+    </ErrorBoundary>
     </>
   )
 }

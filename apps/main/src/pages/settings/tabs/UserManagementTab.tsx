@@ -53,7 +53,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string; icon: typeof Shield 
 function StatusBadge({ user }: { user: AdminUser }) {
   if (user.is_locked) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+      <span className="gl-badge gl-badge-warning">
         <ShieldAlert size={11} />
         Verrouillé
         {user.lock_remaining_minutes != null && ` (${user.lock_remaining_minutes}min)`}
@@ -62,7 +62,7 @@ function StatusBadge({ user }: { user: AdminUser }) {
   }
   if (!user.active) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400">
+      <span className="gl-badge gl-badge-danger">
         <ShieldOff size={11} />
         Désactivé
       </span>

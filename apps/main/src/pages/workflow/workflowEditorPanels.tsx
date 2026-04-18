@@ -46,7 +46,7 @@ export function EditorToolbox({ onAddNode }: { onAddNode: (type: WorkflowNodeDef
       >
         <GitBranch size={12} />
         {!collapsed && <span className="flex-1 text-left uppercase tracking-wider">{t('workflow.toolbox.blocks')}</span>}
-        <ArrowLeft size={10} className={cn('transition-transform', collapsed && 'rotate-180')} />
+        <ArrowLeft size={12} className={cn('transition-transform', collapsed && 'rotate-180')} />
       </button>
       {!collapsed && (
         <div className="px-1.5 pb-1.5 space-y-1">
@@ -132,7 +132,7 @@ export function NodeConfigPanel({
         {nodeType === 'human_validation' && !structureLocked && (
           <div>
             <label className="block text-[10px] font-medium text-muted-foreground mb-1">
-              <Shield size={10} className="inline mr-0.5" /> {t('workflow.required_roles')}
+              <Shield size={12} className="inline mr-0.5" /> {t('workflow.required_roles')}
             </label>
             <select
               className="gl-form-input text-xs w-full mb-1"
@@ -169,7 +169,7 @@ export function NodeConfigPanel({
         {nodeType === 'condition' && !structureLocked && (
           <div>
             <label className="block text-[10px] font-medium text-muted-foreground mb-1">
-              <Code2 size={10} className="inline mr-0.5" /> {t('workflow.expression')}
+              <Code2 size={12} className="inline mr-0.5" /> {t('workflow.expression')}
             </label>
             <input
               type="text"
@@ -187,7 +187,7 @@ export function NodeConfigPanel({
         {nodeType === 'timer' && !structureLocked && (
           <div>
             <label className="block text-[10px] font-medium text-muted-foreground mb-1">
-              <Timer size={10} className="inline mr-0.5" /> {t('workflow.duration_hours')}
+              <Timer size={12} className="inline mr-0.5" /> {t('workflow.duration_hours')}
             </label>
             <input
               type="number"
@@ -204,7 +204,7 @@ export function NodeConfigPanel({
         {nodeType === 'notification' && !structureLocked && (
           <div>
             <label className="block text-[10px] font-medium text-muted-foreground mb-1">
-              <Bell size={10} className="inline mr-0.5" /> {t('workflow.template')}
+              <Bell size={12} className="inline mr-0.5" /> {t('workflow.template')}
             </label>
             <input
               type="text"
@@ -222,7 +222,7 @@ export function NodeConfigPanel({
         {nodeType === 'system_check' && !structureLocked && (
           <div>
             <label className="block text-[10px] font-medium text-muted-foreground mb-1">
-              <Settings2 size={10} className="inline mr-0.5" /> {t('workflow.system_check')}
+              <Settings2 size={12} className="inline mr-0.5" /> {t('workflow.system_check')}
             </label>
             <input
               type="text"
@@ -312,7 +312,7 @@ export function EdgeConfigPanel({
                 !edge.animated ? 'bg-primary/15 text-primary' : 'bg-accent/50 text-muted-foreground hover:bg-accent',
               )}
             >
-              <User size={10} className="inline mr-1" />{t('workflow.manual')}
+              <User size={12} className="inline mr-1" />{t('workflow.manual')}
             </button>
             <button
               onClick={() => onUpdate(edge.id, { animated: true })}
@@ -322,14 +322,14 @@ export function EdgeConfigPanel({
                 edge.animated ? 'bg-primary/15 text-primary' : 'bg-accent/50 text-muted-foreground hover:bg-accent',
               )}
             >
-              <Zap size={10} className="inline mr-1" />{t('workflow.auto')}
+              <Zap size={12} className="inline mr-1" />{t('workflow.auto')}
             </button>
           </div>
         </div>
 
         <div>
           <label className="block text-[10px] font-medium text-muted-foreground mb-1">
-            <Code2 size={10} className="inline mr-0.5" /> {t('workflow.optional_condition')}
+            <Code2 size={12} className="inline mr-0.5" /> {t('workflow.optional_condition')}
           </label>
           <input
             type="text"
@@ -345,7 +345,7 @@ export function EdgeConfigPanel({
 
         <div>
           <label className="block text-[10px] font-medium text-muted-foreground mb-1">
-            <Shield size={10} className="inline mr-0.5" /> {t('workflow.required_role')}
+            <Shield size={12} className="inline mr-0.5" /> {t('workflow.required_role')}
           </label>
           <select
             className="gl-form-input text-xs w-full"

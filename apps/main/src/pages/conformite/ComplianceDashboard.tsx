@@ -184,7 +184,7 @@ export function ComplianceDashboard() {
   return (
     <div className="space-y-6">
       {/* ── KPI Stat Cards ── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         <StatCard
           label="Total enregistrements"
           value={data.total_records}

@@ -201,15 +201,17 @@ function ArborescenceTreeNode({
 function StatusBadge({ status }: { status: string }) {
   const colorMap: Record<string, string> = {
     draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-    in_review: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-    approved: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-    published: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-    obsolete: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+    in_review: 'gl-badge-warning',
+    approved: 'gl-badge-success',
+    published: 'gl-badge-info',
+    obsolete: 'gl-badge-danger',
     archived: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
   }
   const label = STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status
+  const variant = colorMap[status] || 'bg-gray-100 text-gray-700'
+  const isGlBadge = variant.startsWith('gl-badge-')
   return (
-    <span className={cn('inline-flex items-center px-2 py-0.5 rounded text-xs font-medium', colorMap[status] || 'bg-gray-100 text-gray-700')}>
+    <span className={isGlBadge ? cn('gl-badge', variant) : cn('inline-flex items-center px-2 py-0.5 rounded text-xs font-medium', variant)}>
       {label}
     </span>
   )
@@ -219,11 +221,13 @@ function ClassificationBadge({ classification }: { classification: string }) {
   const colorMap: Record<string, string> = {
     INT: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
     CONF: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
-    REST: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-    PUB: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+    REST: 'gl-badge-danger',
+    PUB: 'gl-badge-success',
   }
+  const variant = colorMap[classification] || 'bg-gray-100 text-gray-600'
+  const isGlBadge = variant.startsWith('gl-badge-')
   return (
-    <span className={cn('inline-flex items-center px-2 py-0.5 rounded text-xs font-medium', colorMap[classification] || 'bg-gray-100 text-gray-600')}>
+    <span className={isGlBadge ? cn('gl-badge', variant) : cn('inline-flex items-center px-2 py-0.5 rounded text-xs font-medium', variant)}>
       {classification}
     </span>
   )
@@ -316,7 +320,7 @@ function WorkflowActions({ docId }: { docId: string }) {
               onClick={() => { setCommentFor(null); setComment('') }}
               className="gl-button-sm gl-button-default"
             >
-              <span>Annuler</span>
+              <span>{t('common.cancel')}</span>
             </button>
           </div>
         </div>
@@ -1318,7 +1322,7 @@ function DocumentDetailPanel({ id }: { id: string }) {
                         <span>Confirmer le rejet</span>
                       </button>
                       <button onClick={() => { setShowRejectInput(false); setRejectReason('') }} className="gl-button-sm gl-button-default">
-                        <span>Annuler</span>
+                        <span>{t('common.cancel')}</span>
                       </button>
                     </div>
                   </div>
@@ -1974,7 +1978,7 @@ export function ReportEditorPage() {
                         <td className="px-3 py-2 text-muted-foreground text-xs tabular-nums">{tpl.field_count}</td>
                         <td className="px-3 py-2">
                           {tpl.is_active ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Actif</span>
+                            <span className="gl-badge gl-badge-success">{t('common.active')}</span>
                           ) : (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Inactif</span>
                           )}
@@ -2032,7 +2036,7 @@ export function ReportEditorPage() {
                           <td className="px-3 py-2 text-muted-foreground text-xs font-mono">{dt.nomenclature_pattern}</td>
                           <td className="px-3 py-2">
                             {dt.is_active ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Actif</span>
+                              <span className="gl-badge gl-badge-success">{t('common.active')}</span>
                             ) : (
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Inactif</span>
                             )}

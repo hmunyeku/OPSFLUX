@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { X, Download, Pencil, Trash2, Folder, FileText, Image, Film, FileArchive, File, Music, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import type { FSItem } from '../hooks/useFileManager'
 import { getPreviewType } from '../hooks/useFileManager'
 
 /** Fetches media via authenticated API and renders as blob URL. */
 function AuthMedia({ src, alt, type }: { src: string; alt: string; type: 'image' | 'video' | 'audio' }) {
+  const { t } = useTranslation()
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [error, setError] = useState(false)
 
@@ -23,7 +25,7 @@ function AuthMedia({ src, alt, type }: { src: string; alt: string; type: 'image'
     return () => { if (revoke) URL.revokeObjectURL(revoke) }
   }, [src])
 
-  if (error) return <p className="text-xs text-muted-foreground p-3">Impossible de charger le fichier.</p>
+  if (error) return <p className="text-xs text-muted-foreground p-3">{t('files.preview.loadError', 'Impossible de charger le fichier.')}</p>
   if (!blobUrl) return <div className="flex items-center justify-center py-12"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
 
   if (type === 'image') return <img src={blobUrl} alt={alt} className="max-w-full max-h-[60vh] object-contain rounded shadow-sm" />
@@ -39,9 +41,9 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
 }
 
-function formatDate(iso: string | undefined): string {
+function formatDate(iso: string | undefined, locale: string): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 function getIcon(name: string) {
@@ -99,6 +101,8 @@ function TextPreview({ url }: { url: string }) {
 }
 
 export function FilePreviewPanel({ item, onClose, onDownload, onRename, onDelete }: FilePreviewPanelProps) {
+  const { i18n } = useTranslation()
+  const dateLocale = i18n.language.startsWith('fr') ? 'fr-FR' : i18n.language
   const previewType = getPreviewType(item.name)
   const downloadUrl = onDownload(item.path)
   const Icon = item.isDirectory ? Folder : getIcon(item.name)
@@ -167,7 +171,7 @@ export function FilePreviewPanel({ item, onClose, onDownload, onRename, onDelete
       {/* Metadata */}
       <div className="px-3 py-2 border-t border-border/50 space-y-1 text-[10px] text-muted-foreground shrink-0">
         <div className="flex justify-between"><span>Taille</span><span className="font-mono">{formatBytes(item.size || 0)}</span></div>
-        <div className="flex justify-between"><span>Modifié</span><span>{formatDate(item.updatedAt)}</span></div>
+        <div className="flex justify-between"><span>Modifié</span><span>{formatDate(item.updatedAt, dateLocale)}</span></div>
         <div className="flex justify-between"><span>Chemin</span><span className="font-mono truncate max-w-[180px]" title={item.path}>{item.path}</span></div>
       </div>
     </div>

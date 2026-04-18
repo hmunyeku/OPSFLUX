@@ -36,7 +36,7 @@ import {
   InlineEditableSelect,
 } from '@/components/layout/DynamicPanel'
 import type { ActionItem } from '@/components/layout/DynamicPanel'
-import { TabBar, TabButton } from '@/components/ui/Tabs'
+import { TabBar } from '@/components/ui/Tabs'
 import { TagManager } from '@/components/shared/TagManager'
 import { AttachmentManager } from '@/components/shared/AttachmentManager'
 import type { PlannerRevisionDecisionRequest, ProjectTask } from '@/types/api'
@@ -466,35 +466,17 @@ export function TaskDetailPanel({ projectId, taskId }: { projectId: string; task
       </div>
 
       {/* ── Tab bar ──────────────────────────────────────────── */}
-      <TabBar className="px-4">
-        <TabButton
-          icon={ListTodo}
-          label="D\u00e9tails"
-          active={activeTab === 'details'}
-          onClick={() => setActiveTab('details')}
-        />
-        <TabButton
-          icon={Layers}
-          label="Sous-t\u00e2ches"
-          active={activeTab === 'subtasks'}
-          badge={childTasks.length || undefined}
-          onClick={() => setActiveTab('subtasks')}
-        />
-        <TabButton
-          icon={Link2}
-          label="D\u00e9pendances"
-          active={activeTab === 'dependencies'}
-          badge={depsCount || undefined}
-          onClick={() => setActiveTab('dependencies')}
-        />
-        <TabButton
-          icon={MessageSquare}
-          label="Collaboration"
-          active={activeTab === 'collaboration'}
-          badge={commentsCount || undefined}
-          onClick={() => setActiveTab('collaboration')}
-        />
-      </TabBar>
+      <TabBar
+        className="px-4"
+        activeId={activeTab}
+        onTabChange={(id) => setActiveTab(id as typeof activeTab)}
+        items={[
+          { id: 'details', label: 'D\u00e9tails', icon: ListTodo },
+          { id: 'subtasks', label: 'Sous-t\u00e2ches', icon: Layers, badge: childTasks.length || undefined },
+          { id: 'dependencies', label: 'D\u00e9pendances', icon: Link2, badge: depsCount || undefined },
+          { id: 'collaboration', label: 'Collaboration', icon: MessageSquare, badge: commentsCount || undefined },
+        ]}
+      />
 
       {/* ── Tab content ──────────────────────────────────────── */}
       <PanelContentLayout>

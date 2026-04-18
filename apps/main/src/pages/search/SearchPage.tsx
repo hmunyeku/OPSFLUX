@@ -325,10 +325,8 @@ export function SearchPage() {
                     key={scope.id}
                     onClick={() => handleScopeChange(scope.id)}
                     className={cn(
-                      'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
-                      isActive
-                        ? 'bg-primary/15 text-primary'
-                        : 'text-muted-foreground hover:bg-accent',
+                      'gl-button-sm',
+                      isActive ? 'gl-button-primary' : 'gl-button-default',
                     )}
                   >
                     <Icon size={13} />

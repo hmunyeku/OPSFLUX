@@ -27,7 +27,7 @@ import {
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import type { ActionItem } from '@/components/layout/DynamicPanel'
-import { TabBar, TabButton } from '@/components/ui/Tabs'
+import { TabBar } from '@/components/ui/Tabs'
 import { AssetPicker } from '@/components/shared/AssetPicker'
 import { ProjectPicker } from '@/components/shared/ProjectPicker'
 import { ImputationPicker } from '@/components/shared/ImputationPicker'
@@ -342,28 +342,15 @@ export function CargoRequestDetailPanel({ id }: { id: string }) {
 
       {/* ── Tab bar — hidden when editing ──────────────────────── */}
       {!editing && (
-        <TabBar>
-          <TabButton
-            icon={FileText}
-            label="Informations"
-            active={activeTab === 'informations'}
-            onClick={() => setActiveTab('informations')}
-          />
-          <TabButton
-            icon={Package}
-            label="Colis"
-            active={activeTab === 'colis'}
-            onClick={() => setActiveTab('colis')}
-            badge={requestCargo.length > 0 ? String(requestCargo.length) : undefined}
-          />
-          <TabButton
-            icon={Truck}
-            label="Chargement"
-            active={activeTab === 'chargement'}
-            onClick={() => setActiveTab('chargement')}
-            badge={loadableOptions > 0 ? String(loadableOptions) : undefined}
-          />
-        </TabBar>
+        <TabBar
+          items={[
+            { id: 'informations', label: 'Informations', icon: FileText },
+            { id: 'colis', label: 'Colis', icon: Package, badge: requestCargo.length > 0 ? String(requestCargo.length) : undefined },
+            { id: 'chargement', label: 'Chargement', icon: Truck, badge: loadableOptions > 0 ? String(loadableOptions) : undefined },
+          ]}
+          activeId={activeTab}
+          onTabChange={(id) => setActiveTab(id as typeof activeTab)}
+        />
       )}
 
       {/* ── Content ────────────────────────────────────────────── */}

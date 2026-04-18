@@ -1124,11 +1124,7 @@ export function CreateGroupForm({ onClose }: { onClose: () => void }) {
                   key={r.code}
                   type="button"
                   onClick={() => toggleRole(r.code)}
-                  className={`text-[10px] px-1.5 py-0.5 rounded transition-all ${
-                    isSelected
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-accent text-muted-foreground hover:bg-accent/80'
-                  }`}
+                  className={isSelected ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default'}
                 >
                   {r.name}
                 </button>

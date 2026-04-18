@@ -23,7 +23,7 @@ import {
   History,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { TabBar, TabButton } from '@/components/ui/Tabs'
+import { TabBar } from '@/components/ui/Tabs'
 import {
   DynamicPanelShell,
   FormSection,
@@ -271,13 +271,17 @@ export function FieldDetailPanel({ id }: { id: string }) {
       }
     >
       <div className="border-b border-border px-3">
-        <TabBar>
-          <TabButton icon={Info} label={t('common.details')} active={tab === 'details'} onClick={() => setTab('details')} />
-          <TabButton icon={Paperclip} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
-          <TabButton icon={MessageSquare} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
-          <TabButton icon={ExternalLink} label={t('assets.references')} active={tab === 'refs'} onClick={() => setTab('refs')} />
-          <TabButton icon={History} label={t('assets.history')} active={tab === 'history'} onClick={() => setTab('history')} />
-        </TabBar>
+        <TabBar
+          items={[
+            { id: 'details', label: t('common.details'), icon: Info },
+            { id: 'files', label: t('common.files'), icon: Paperclip },
+            { id: 'notes', label: t('common.notes'), icon: MessageSquare },
+            { id: 'refs', label: t('assets.references'), icon: ExternalLink },
+            { id: 'history', label: t('assets.history'), icon: History },
+          ]}
+          activeId={tab}
+          onTabChange={(id) => setTab(id as typeof tab)}
+        />
       </div>
 
       {tab === 'details' && (
@@ -461,13 +465,17 @@ export function SiteDetailPanel({ id }: { id: string }) {
       }
     >
       <div className="border-b border-border px-3">
-        <TabBar>
-          <TabButton icon={Info} label={t('common.details')} active={tab === 'details'} onClick={() => setTab('details')} />
-          <TabButton icon={Paperclip} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
-          <TabButton icon={MessageSquare} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
-          <TabButton icon={ExternalLink} label={t('assets.references')} active={tab === 'refs'} onClick={() => setTab('refs')} />
-          <TabButton icon={History} label={t('assets.history')} active={tab === 'history'} onClick={() => setTab('history')} />
-        </TabBar>
+        <TabBar
+          items={[
+            { id: 'details', label: t('common.details'), icon: Info },
+            { id: 'files', label: t('common.files'), icon: Paperclip },
+            { id: 'notes', label: t('common.notes'), icon: MessageSquare },
+            { id: 'refs', label: t('assets.references'), icon: ExternalLink },
+            { id: 'history', label: t('assets.history'), icon: History },
+          ]}
+          activeId={tab}
+          onTabChange={(id) => setTab(id as typeof tab)}
+        />
       </div>
 
       {tab === 'details' && (
@@ -686,13 +694,17 @@ export function InstallationDetailPanel({ id }: { id: string }) {
       }
     >
       <div className="border-b border-border px-3">
-        <TabBar>
-          <TabButton icon={Info} label={t('common.details')} active={tab === 'details'} onClick={() => setTab('details')} />
-          <TabButton icon={Paperclip} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
-          <TabButton icon={MessageSquare} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
-          <TabButton icon={ExternalLink} label={t('assets.references')} active={tab === 'refs'} onClick={() => setTab('refs')} />
-          <TabButton icon={History} label={t('assets.history')} active={tab === 'history'} onClick={() => setTab('history')} />
-        </TabBar>
+        <TabBar
+          items={[
+            { id: 'details', label: t('common.details'), icon: Info },
+            { id: 'files', label: t('common.files'), icon: Paperclip },
+            { id: 'notes', label: t('common.notes'), icon: MessageSquare },
+            { id: 'refs', label: t('assets.references'), icon: ExternalLink },
+            { id: 'history', label: t('assets.history'), icon: History },
+          ]}
+          activeId={tab}
+          onTabChange={(id) => setTab(id as typeof tab)}
+        />
       </div>
 
       {tab === 'details' && (
@@ -979,13 +991,17 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
       }
     >
       <div className="border-b border-border px-3">
-        <TabBar>
-          <TabButton icon={Info} label={t('common.details')} active={tab === 'details'} onClick={() => setTab('details')} />
-          <TabButton icon={Paperclip} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
-          <TabButton icon={MessageSquare} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
-          <TabButton icon={ExternalLink} label={t('assets.references')} active={tab === 'refs'} onClick={() => setTab('refs')} />
-          <TabButton icon={History} label={t('assets.history')} active={tab === 'history'} onClick={() => setTab('history')} />
-        </TabBar>
+        <TabBar
+          items={[
+            { id: 'details', label: t('common.details'), icon: Info },
+            { id: 'files', label: t('common.files'), icon: Paperclip },
+            { id: 'notes', label: t('common.notes'), icon: MessageSquare },
+            { id: 'refs', label: t('assets.references'), icon: ExternalLink },
+            { id: 'history', label: t('assets.history'), icon: History },
+          ]}
+          activeId={tab}
+          onTabChange={(id) => setTab(id as typeof tab)}
+        />
       </div>
 
       {tab === 'details' && (
@@ -1256,13 +1272,17 @@ export function PipelineDetailPanel({ id }: { id: string }) {
       }
     >
       <div className="border-b border-border px-3">
-        <TabBar>
-          <TabButton icon={Info} label={t('common.details')} active={tab === 'details'} onClick={() => setTab('details')} />
-          <TabButton icon={Paperclip} label={t('common.files')} active={tab === 'files'} onClick={() => setTab('files')} />
-          <TabButton icon={MessageSquare} label={t('common.notes')} active={tab === 'notes'} onClick={() => setTab('notes')} />
-          <TabButton icon={ExternalLink} label={t('assets.references')} active={tab === 'refs'} onClick={() => setTab('refs')} />
-          <TabButton icon={History} label={t('assets.history')} active={tab === 'history'} onClick={() => setTab('history')} />
-        </TabBar>
+        <TabBar
+          items={[
+            { id: 'details', label: t('common.details'), icon: Info },
+            { id: 'files', label: t('common.files'), icon: Paperclip },
+            { id: 'notes', label: t('common.notes'), icon: MessageSquare },
+            { id: 'refs', label: t('assets.references'), icon: ExternalLink },
+            { id: 'history', label: t('assets.history'), icon: History },
+          ]}
+          activeId={tab}
+          onTabChange={(id) => setTab(id as typeof tab)}
+        />
       </div>
 
       {tab === 'details' && (

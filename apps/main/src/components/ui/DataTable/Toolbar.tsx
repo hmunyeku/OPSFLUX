@@ -619,7 +619,9 @@ export function DataTableToolbar({
                     </button>
                     {dropdown.type === 'action' && dropdown.id === '_batch' && (
                       <div className="absolute right-0 top-full mt-1 z-50 min-w-[200px] rounded-md border bg-popover shadow-lg py-1">
-                        {batchActions.map((action) => (
+                        {batchActions.map((action) => {
+                          const Icon = typeof action.icon === 'function' ? action.icon : null
+                          return (
                           <button
                             key={action.id}
                             onClick={() => {
@@ -631,10 +633,11 @@ export function DataTableToolbar({
                               action.variant === 'danger' && 'text-destructive hover:bg-destructive/10',
                             )}
                           >
-                            {action.icon}
+                            {Icon ? <Icon className="h-3.5 w-3.5" /> : (action.icon as React.ReactNode)}
                             {action.label}
                           </button>
-                        ))}
+                          )
+                        })}
                       </div>
                     )}
                   </div>

@@ -238,7 +238,7 @@ export function AdminerTab() {
             <button
               onClick={runQuery}
               disabled={isRunning || !query.trim()}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="gl-button-sm gl-button-primary"
             >
               {isRunning ? (
                 <Loader2 size={12} className="animate-spin" />
@@ -252,7 +252,7 @@ export function AdminerTab() {
                 setQuery('')
                 setResult(null)
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors"
+              className="gl-button-sm gl-button-default"
             >
               <Trash2 size={12} />
               Effacer

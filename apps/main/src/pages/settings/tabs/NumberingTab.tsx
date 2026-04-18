@@ -712,10 +712,8 @@ function PatternRow({
                     </button>
                     <button
                       className={cn(
-                        'h-7 px-2.5 flex items-center justify-center gap-1 rounded-md text-xs font-medium transition-colors',
-                        validation.valid
-                          ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                          : 'bg-muted text-muted-foreground cursor-not-allowed',
+                        'gl-button-sm',
+                        validation.valid ? 'gl-button-primary' : 'gl-button-default cursor-not-allowed',
                       )}
                       onClick={() => mutation.mutate()}
                       disabled={mutation.isPending || !validation.valid}

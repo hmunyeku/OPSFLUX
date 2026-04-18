@@ -27,7 +27,7 @@ import {
   panelInputClass,
 } from '@/components/layout/DynamicPanel'
 import type { ActionItem } from '@/components/layout/DynamicPanel'
-import { TabBar, TabButton } from '@/components/ui/Tabs'
+import { TabBar } from '@/components/ui/Tabs'
 import { useUIStore } from '@/stores/uiStore'
 import { UserPicker } from '@/components/shared/UserPicker'
 import { ContactPicker } from '@/components/shared/ContactPicker'
@@ -515,13 +515,17 @@ export function CargoDetailPanel({ id }: { id: string }) {
         {/* Tab bar — only shown when not editing */}
         {!editing && (
           <div className="-mx-4">
-            <TabBar>
-              <TabButton icon={Package} label="Informations" active={activeTab === 'details'} onClick={() => setActiveTab('details')} />
-              <TabButton icon={MapPin} label="Logistique" active={activeTab === 'logistique'} onClick={() => setActiveTab('logistique')} />
-              <TabButton icon={Layers} label="Éléments" active={activeTab === 'elements'} badge={(cargo.sub_item_count ?? 0) > 0 ? (cargo.sub_item_count ?? undefined) : undefined} onClick={() => setActiveTab('elements')} />
-              <TabButton icon={FileText} label="Documents" active={activeTab === 'documents'} onClick={() => setActiveTab('documents')} />
-              <TabButton icon={Clock} label="Historique" active={activeTab === 'historique'} onClick={() => setActiveTab('historique')} />
-            </TabBar>
+            <TabBar
+              items={[
+                { id: 'details', label: 'Informations', icon: Package },
+                { id: 'logistique', label: 'Logistique', icon: MapPin },
+                { id: 'elements', label: 'Éléments', icon: Layers, badge: (cargo.sub_item_count ?? 0) > 0 ? (cargo.sub_item_count ?? undefined) : undefined },
+                { id: 'documents', label: 'Documents', icon: FileText },
+                { id: 'historique', label: 'Historique', icon: Clock },
+              ]}
+              activeId={activeTab}
+              onTabChange={(id) => setActiveTab(id as typeof activeTab)}
+            />
           </div>
         )}
 

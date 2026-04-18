@@ -70,7 +70,7 @@ export interface ActiveFilterToken {
 export interface DataTableBatchAction<TData> {
   id: string
   label: string
-  icon?: ReactNode
+  icon?: LucideIcon | ReactNode
   variant?: 'default' | 'danger'
   onAction: (rows: TData[]) => void | Promise<void>
   confirm?: boolean | string

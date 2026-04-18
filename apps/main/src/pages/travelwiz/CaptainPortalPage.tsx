@@ -106,7 +106,7 @@ function CaptainLogin({ onLogin }: { onLogin: (voyageId: string, captainName: st
           <button
             onClick={handleSubmit}
             disabled={code.length !== 6 || auth.isPending}
-            className="w-full py-4 rounded-xl bg-primary text-primary-foreground text-lg font-semibold transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="gl-button-sm gl-button-primary w-full py-4 text-lg font-semibold justify-center gap-2"
           >
             {auth.isPending ? <Loader2 size={20} className="animate-spin" /> : <LogIn size={20} />}
             Acceder
@@ -339,7 +339,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
             <button
               onClick={handleRecordEvent}
               disabled={recordEvent.isPending}
-              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+              className="gl-button-sm gl-button-primary w-full py-3 font-semibold justify-center gap-2"
             >
               {recordEvent.isPending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
               Enregistrer l'événement
@@ -412,7 +412,7 @@ function CaptainDashboard({ voyageId, captainName }: { voyageId: string; captain
             <button
               onClick={handleWeatherReport}
               disabled={reportWeather.isPending}
-              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+              className="gl-button-sm gl-button-primary w-full py-3 font-semibold justify-center gap-2"
             >
               {reportWeather.isPending ? <Loader2 size={18} className="animate-spin" /> : <CloudSun size={18} />}
               Envoyer rapport météo

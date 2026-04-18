@@ -930,7 +930,7 @@ function EntitiesListView() {
         {
           id: 'activate',
           label: 'Activer',
-          icon: <Power size={12} />,
+          icon: Power,
           onAction: async (rows) => {
             const inactive = rows.filter((r) => !r.active)
             if (inactive.length === 0) return
@@ -940,7 +940,7 @@ function EntitiesListView() {
         {
           id: 'archive',
           label: 'Archiver',
-          icon: <Archive size={12} />,
+          icon: Archive,
           variant: 'danger',
           onAction: async (rows) => {
             const activeRows = rows.filter((r) => r.active)

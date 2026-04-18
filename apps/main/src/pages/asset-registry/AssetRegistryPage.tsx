@@ -222,7 +222,7 @@ function FieldsTab() {
       actions.push({
         id: 'archive',
         label: t('common.archive'),
-        icon: <Archive className="h-3.5 w-3.5" />,
+        icon: Archive,
         variant: 'danger',
         confirm: t('assets.confirm_archive_selected'),
         onAction: async (rows) => {
@@ -352,7 +352,7 @@ function SitesTab() {
       actions.push({
         id: 'archive',
         label: t('common.archive'),
-        icon: <Archive className="h-3.5 w-3.5" />,
+        icon: Archive,
         variant: 'danger',
         confirm: t('assets.confirm_archive_selected'),
         onAction: async (rows) => {
@@ -478,7 +478,7 @@ function InstallationsTab() {
       actions.push({
         id: 'archive',
         label: t('common.archive'),
-        icon: <Archive className="h-3.5 w-3.5" />,
+        icon: Archive,
         variant: 'danger',
         confirm: t('assets.confirm_archive_selected'),
         onAction: async (rows) => {
@@ -633,7 +633,7 @@ function EquipmentTab() {
       actions.push({
         id: 'archive',
         label: t('common.archive'),
-        icon: <Archive className="h-3.5 w-3.5" />,
+        icon: Archive,
         variant: 'danger',
         confirm: t('assets.confirm_archive_selected'),
         onAction: async (rows) => {
@@ -757,7 +757,7 @@ function PipelinesTab() {
       actions.push({
         id: 'archive',
         label: t('common.archive'),
-        icon: <Archive className="h-3.5 w-3.5" />,
+        icon: Archive,
         variant: 'danger',
         confirm: t('assets.confirm_archive_selected'),
         onAction: async (rows) => {

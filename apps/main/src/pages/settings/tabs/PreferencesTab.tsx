@@ -109,11 +109,7 @@ export function PreferencesTab() {
                 type="button"
                 onClick={() => handleLanguageChange(opt.value)}
                 disabled={updateProfile.isPending}
-                className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
-                  i18n.language === opt.value
-                    ? 'bg-primary/10 border-primary/40 text-primary shadow-sm'
-                    : 'bg-background border-border text-muted-foreground hover:bg-accent hover:text-foreground'
-                }`}
+                className={i18n.language === opt.value ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default'}
               >
                 {opt.label}
               </button>
@@ -171,11 +167,7 @@ function PageSizeSection() {
               key={size}
               type="button"
               onClick={() => handleChange(size)}
-              className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
-                pageSize === size && !showCustom
-                  ? 'bg-primary/10 border-primary/40 text-primary shadow-sm'
-                  : 'bg-background border-border text-muted-foreground hover:bg-accent hover:text-foreground'
-              }`}
+              className={pageSize === size && !showCustom ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default'}
             >
               {size}
             </button>
@@ -205,7 +197,7 @@ function PageSizeSection() {
             <button
               type="button"
               onClick={() => setShowCustom(true)}
-              className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all border bg-background border-border text-muted-foreground hover:bg-accent hover:text-foreground border-dashed"
+              className="gl-button-sm gl-button-default"
             >
               Autre...
             </button>
@@ -305,7 +297,7 @@ function UIScaleSection() {
         <button
           type="button"
           onClick={handleReset}
-          className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all border bg-background border-border text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="gl-button-sm gl-button-default"
         >
           {t('settings.ui_scale_reset')} ({DEFAULT_SCALE}%)
         </button>

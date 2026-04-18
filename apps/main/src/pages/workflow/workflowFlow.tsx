@@ -14,6 +14,7 @@ import {
   Timer,
   User,
   XCircle,
+  type LucideIcon,
 } from 'lucide-react'
 import {
   Handle,
@@ -27,7 +28,7 @@ import {
 import type { WorkflowDefinition, WorkflowEdgeDef, WorkflowNodeDef } from '@/services/workflowService'
 
 export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
-  icon: React.ReactNode
+  icon: LucideIcon
   labelKey: string
   color: string        // text colour for icon + label
   bgColor: string      // node background
@@ -36,7 +37,7 @@ export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
   descriptionKey: string
 }> = {
   start: {
-    icon: <Play size={14} />,
+    icon: Play,
     labelKey: 'workflow.node.start',
     color: 'text-white',
     bgColor: 'bg-blue-600 dark:bg-blue-700',
@@ -45,7 +46,7 @@ export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
     descriptionKey: 'workflow.node_desc.start',
   },
   human_validation: {
-    icon: <User size={14} />,
+    icon: User,
     labelKey: 'workflow.node.human_validation',
     color: 'text-purple-700 dark:text-purple-300',
     bgColor: 'bg-white dark:bg-slate-800',
@@ -54,7 +55,7 @@ export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
     descriptionKey: 'workflow.node_desc.human_validation',
   },
   system_check: {
-    icon: <Settings2 size={14} />,
+    icon: Settings2,
     labelKey: 'workflow.node.system_check',
     color: 'text-cyan-700 dark:text-cyan-300',
     bgColor: 'bg-white dark:bg-slate-800',
@@ -63,7 +64,7 @@ export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
     descriptionKey: 'workflow.node_desc.system_check',
   },
   notification: {
-    icon: <Bell size={14} />,
+    icon: Bell,
     labelKey: 'workflow.node.notification',
     color: 'text-amber-700 dark:text-amber-300',
     bgColor: 'bg-white dark:bg-slate-800',
@@ -72,7 +73,7 @@ export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
     descriptionKey: 'workflow.node_desc.notification',
   },
   condition: {
-    icon: <Diamond size={14} />,
+    icon: Diamond,
     labelKey: 'workflow.node.condition',
     color: 'text-orange-700 dark:text-orange-300',
     bgColor: 'bg-orange-50 dark:bg-orange-950/40',
@@ -81,7 +82,7 @@ export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
     descriptionKey: 'workflow.node_desc.condition',
   },
   parallel: {
-    icon: <GitFork size={14} />,
+    icon: GitFork,
     labelKey: 'workflow.node.parallel',
     color: 'text-indigo-700 dark:text-indigo-300',
     bgColor: 'bg-white dark:bg-slate-800',
@@ -90,7 +91,7 @@ export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
     descriptionKey: 'workflow.node_desc.parallel',
   },
   timer: {
-    icon: <Timer size={14} />,
+    icon: Timer,
     labelKey: 'workflow.node.timer',
     color: 'text-teal-700 dark:text-teal-300',
     bgColor: 'bg-white dark:bg-slate-800',
@@ -99,7 +100,7 @@ export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
     descriptionKey: 'workflow.node_desc.timer',
   },
   end_approved: {
-    icon: <CheckCircle2 size={14} />,
+    icon: CheckCircle2,
     labelKey: 'workflow.node.end_approved',
     color: 'text-white',
     bgColor: 'bg-emerald-600 dark:bg-emerald-700',
@@ -108,7 +109,7 @@ export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
     descriptionKey: 'workflow.node_desc.end_approved',
   },
   end_rejected: {
-    icon: <XCircle size={14} />,
+    icon: XCircle,
     labelKey: 'workflow.node.end_rejected',
     color: 'text-white',
     bgColor: 'bg-red-600 dark:bg-red-700',
@@ -117,7 +118,7 @@ export const NODE_TYPE_CONFIG: Record<WorkflowNodeDef['type'], {
     descriptionKey: 'workflow.node_desc.end_rejected',
   },
   end_cancelled: {
-    icon: <Archive size={14} />,
+    icon: Archive,
     labelKey: 'workflow.node.end_cancelled',
     color: 'text-white',
     bgColor: 'bg-zinc-500 dark:bg-zinc-600',
@@ -350,7 +351,7 @@ function PillNode({ data, selected }: NodeProps) {
       {!isStart && (
         <Handle type="target" position={Position.Top} className={H_TARGET} />
       )}
-      <span className="shrink-0">{config.icon}</span>
+      <span className="shrink-0"><config.icon size={14} /></span>
       <span className="text-[11px] font-bold tracking-wide truncate">
         {(data.label as string) || i18n.t(config.labelKey)}
       </span>
@@ -437,7 +438,7 @@ function RectNode({ data, selected }: NodeProps) {
 
       <div className="px-3 py-2.5 flex flex-col justify-center gap-1">
         <div className={cn('flex items-center gap-2', config.color)}>
-          {config.icon}
+          <config.icon size={14} />
           <span className="text-[11px] font-semibold leading-snug truncate">
             {(data.label as string) || i18n.t(config.labelKey)}
           </span>

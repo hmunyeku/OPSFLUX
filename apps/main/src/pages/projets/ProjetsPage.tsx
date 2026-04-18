@@ -536,11 +536,9 @@ function GoutiProjectRow({
                 onClick={() => onTaskModeChange(mode)}
                 disabled={!included}
                 className={cn(
-                  'text-[9px] px-1.5 py-0.5 rounded border',
+                  'text-[9px] px-1.5 py-0.5 rounded',
                   !included && 'opacity-40',
-                  taskMode === mode
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border hover:bg-muted',
+                  taskMode === mode ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default',
                 )}
               >
                 {mode === 'all' ? 'Toutes' : mode === 'some' ? 'Choix' : 'Aucune'}
@@ -860,10 +858,8 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                           key={s.value}
                           onClick={() => toggleStatus(s.value)}
                           className={cn(
-                            'text-[9px] px-1.5 py-0.5 rounded border',
-                            active
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : 'border-border hover:bg-muted',
+                            'text-[9px] px-1.5 py-0.5 rounded',
+                            active ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default',
                           )}
                         >
                           {label} <span className="opacity-60">({s.count})</span>
@@ -888,10 +884,8 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                           key={c.value}
                           onClick={() => toggleCriticality(c.value)}
                           className={cn(
-                            'text-[9px] px-1.5 py-0.5 rounded border',
-                            active
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : 'border-border hover:bg-muted',
+                            'text-[9px] px-1.5 py-0.5 rounded',
+                            active ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default',
                           )}
                         >
                           {c.value} <span className="opacity-60">({c.count})</span>
@@ -916,10 +910,8 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                           key={cat.id}
                           onClick={() => toggleCategory(cat.id)}
                           className={cn(
-                            'text-[9px] px-1.5 py-0.5 rounded border',
-                            active
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : 'border-border hover:bg-muted',
+                            'text-[9px] px-1.5 py-0.5 rounded',
+                            active ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default',
                           )}
                         >
                           {cat.name}
@@ -950,7 +942,7 @@ function GoutiImportModal({ onClose }: { onClose: () => void }) {
                     <button
                       onClick={handleSaveAsAdminDefault}
                       disabled={setDefaultFilters.isPending}
-                      className="w-full text-[10px] px-2 py-0.5 rounded bg-primary text-primary-foreground disabled:opacity-50"
+                      className="w-full gl-button-sm gl-button-primary disabled:opacity-50"
                     >
                       {setDefaultFilters.isPending
                         ? <Loader2 size={9} className="animate-spin inline" />
@@ -3986,8 +3978,8 @@ function _MacroPlanningViewLegacy() { // eslint-disable-line
               key={level}
               onClick={() => setConfig(c => ({ ...c, levelDepth: level }))}
               className={cn(
-                'px-1.5 py-0.5 rounded text-[10px] border',
-                config.levelDepth === level ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted'
+                'text-[10px]',
+                config.levelDepth === level ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default',
               )}
             >
               {level}
@@ -4002,8 +3994,8 @@ function _MacroPlanningViewLegacy() { // eslint-disable-line
               key={opt}
               onClick={() => setConfig(c => ({ ...c, colorBy: opt }))}
               className={cn(
-                'px-1.5 py-0.5 rounded text-[10px] border',
-                config.colorBy === opt ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted'
+                'text-[10px]',
+                config.colorBy === opt ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default',
               )}
             >
               {opt === 'status' ? 'Statut' : opt === 'priority' ? 'Priorité' : 'Météo'}

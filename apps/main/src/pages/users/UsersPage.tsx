@@ -85,7 +85,7 @@ import {
   type CardRendererProps,
 } from '@/components/ui/DataTable'
 import { relativeTime, getAvatarColor } from '@/components/ui/DataTable/utils'
-import { TabBar, TabButton, PageNavBar } from '@/components/ui/Tabs'
+import { TabBar, PageNavBar } from '@/components/ui/Tabs'
 
 // ── Auth type labels ─────────────────────────────────────
 const AUTH_TYPE_LABELS: Record<string, string> = {
@@ -1338,13 +1338,17 @@ function UserDetailPanel({ id }: { id: string }) {
 
         {/* Detail tabs */}
         <div className="-mx-4">
-          <TabBar>
-            <TabButton icon={Users} label="Fiche" active={detailTab === 'fiche'} onClick={() => setDetailTab('fiche')} />
-            <TabButton icon={Building2} label="Entités & Rôles" active={detailTab === 'entities'} badge={entitiesCount || undefined} onClick={() => setDetailTab('entities')} />
-            <TabButton icon={Shield} label="Sécurité" active={detailTab === 'securite'} onClick={() => setDetailTab('securite')} />
-            <TabButton icon={Clock} label="Journal" active={detailTab === 'journal'} onClick={() => setDetailTab('journal')} />
-            <TabButton icon={ShieldCheck} label="Permissions" active={detailTab === 'permissions'} onClick={() => setDetailTab('permissions')} />
-          </TabBar>
+          <TabBar
+            items={[
+              { id: 'fiche', label: 'Fiche', icon: Users },
+              { id: 'entities', label: 'Entités & Rôles', icon: Building2, badge: entitiesCount || undefined },
+              { id: 'securite', label: 'Sécurité', icon: Shield },
+              { id: 'journal', label: 'Journal', icon: Clock },
+              { id: 'permissions', label: 'Permissions', icon: ShieldCheck },
+            ]}
+            activeId={detailTab}
+            onTabChange={(id) => setDetailTab(id as typeof detailTab)}
+          />
         </div>
 
         {detailTab === 'fiche' ? (
@@ -2203,7 +2207,8 @@ interface BatchAssignItem {
   sublabel?: string
   meta?: string
   badge?: string
-  icon?: React.ReactNode
+  icon?: import('lucide-react').LucideIcon
+  iconClassName?: string
 }
 
 function BatchAssignModal({ title, subtitle, searchPlaceholder, items, isPending, onSelect, onClose }: {
@@ -2250,14 +2255,16 @@ function BatchAssignModal({ title, subtitle, searchPlaceholder, items, isPending
         <div className="space-y-0.5 max-h-72 overflow-y-auto">
           {filtered.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-4">Aucun résultat</p>
-          ) : filtered.map((item) => (
+          ) : filtered.map((item) => {
+            const Icon = item.icon
+            return (
             <button
               key={item.id}
               onClick={() => onSelect(item.id)}
               disabled={isPending}
               className="w-full text-left px-3 py-2 rounded-md hover:bg-accent/50 flex items-center gap-2.5 transition-colors group"
             >
-              {item.icon}
+              {Icon && <Icon size={13} className={cn('shrink-0', item.iconClassName)} />}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm font-medium text-foreground truncate">{item.label}</span>
@@ -2267,7 +2274,8 @@ function BatchAssignModal({ title, subtitle, searchPlaceholder, items, isPending
               </div>
               {item.meta && <span className="text-[10px] text-muted-foreground shrink-0 ml-auto">{item.meta}</span>}
             </button>
-          ))}
+            )
+          })}
         </div>
         <button onClick={onClose} className="gl-button-sm gl-button-default w-full text-xs">Annuler</button>
       </div>
@@ -2347,7 +2355,7 @@ export function UsersPage() {
         {
           id: 'reset-password',
           label: 'Réinitialiser le mot de passe',
-          icon: <KeyRound size={12} />,
+          icon: KeyRound,
           onAction: async (rows) => {
             const ok = await confirm({
               title: `Réinitialiser le mot de passe de ${rows.length} utilisateur${rows.length > 1 ? 's' : ''} ?`,
@@ -2361,7 +2369,7 @@ export function UsersPage() {
         {
           id: 'activate',
           label: 'Activer',
-          icon: <UserCheck size={12} />,
+          icon: UserCheck,
           onAction: async (rows) => {
             const inactiveRows = rows.filter((r) => !r.active)
             if (inactiveRows.length === 0) return
@@ -2373,7 +2381,7 @@ export function UsersPage() {
         {
           id: 'deactivate',
           label: 'Désactiver',
-          icon: <UserX size={12} />,
+          icon: UserX,
           variant: 'danger' as const,
           onAction: async (rows) => {
             const activeRows = rows.filter((r) => r.active)
@@ -2393,7 +2401,7 @@ export function UsersPage() {
         {
           id: 'unlock',
           label: 'Déverrouiller',
-          icon: <Unlock size={12} />,
+          icon: Unlock,
           onAction: async (rows) => {
             const locked = rows.filter((r) => r.failed_login_count > 0 || (r.locked_until && new Date(r.locked_until) > new Date()))
             if (locked.length === 0) return
@@ -2405,7 +2413,7 @@ export function UsersPage() {
         {
           id: 'set-user-type',
           label: 'Changer le type',
-          icon: <Shield size={12} />,
+          icon: Shield,
           onAction: async (rows) => {
             const ok = await confirm({
               title: `Changer le type de ${rows.length} utilisateur${rows.length > 1 ? 's' : ''} ?`,
@@ -2423,7 +2431,7 @@ export function UsersPage() {
       actions.push({
         id: 'assign-group',
         label: 'Affecter à un groupe',
-        icon: <Users size={12} />,
+        icon: Users,
         onAction: (rows) => {
           setBatchGroupUserIds(rows.map((r) => r.id))
         },
@@ -2433,7 +2441,7 @@ export function UsersPage() {
       actions.push({
         id: 'assign-entity',
         label: 'Affecter à une entité',
-        icon: <Building2 size={12} />,
+        icon: Building2,
         onAction: (rows) => {
           setBatchEntityUserIds(rows.map((r) => r.id))
         },
@@ -2696,7 +2704,8 @@ export function UsersPage() {
             sublabel: g.role_names.join(', ') || g.role_codes.join(', ') || 'Aucun rôle',
             meta: `${g.member_count} membre${g.member_count !== 1 ? 's' : ''}`,
             badge: g.entity_name || undefined,
-            icon: <Users size={13} className="text-violet-500 shrink-0" />,
+            icon: Users,
+            iconClassName: 'text-violet-500',
           }))}
           isPending={addGroupMembers.isPending}
           onSelect={(groupId) => {
@@ -2721,7 +2730,8 @@ export function UsersPage() {
             sublabel: e.code,
             meta: `${e.user_count} utilisateur${e.user_count !== 1 ? 's' : ''}`,
             badge: e.country || undefined,
-            icon: <Building2 size={13} className="text-blue-500 shrink-0" />,
+            icon: Building2,
+            iconClassName: 'text-blue-500',
           }))}
           isPending={assignToEntity.isPending}
           onSelect={async (entityId) => {

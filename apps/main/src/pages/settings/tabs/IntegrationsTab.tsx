@@ -15,6 +15,7 @@ import {
   Cloud, Shield, Plus, X, ExternalLink,
   Check, Settings2, ChevronDown, ChevronRight, Trash2,
   AlertCircle, Zap, Send,
+  type LucideIcon,
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
@@ -501,12 +502,12 @@ const CONNECTORS_CATALOG: ConnectorDef[] = [
   },
 ]
 
-const CATEGORY_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
-  oauth2: { label: 'Authentification & Identity', icon: <Shield size={16} /> },
-  storage: { label: 'Stockage', icon: <Cloud size={16} /> },
-  communication: { label: 'Communication', icon: <Key size={16} /> },
-  compliance: { label: 'Conformité & Formation', icon: <Shield size={16} /> },
-  other: { label: 'Autres', icon: <Settings2 size={16} /> },
+const CATEGORY_LABELS: Record<string, { label: string; icon: LucideIcon }> = {
+  oauth2: { label: 'Authentification & Identity', icon: Shield },
+  storage: { label: 'Stockage', icon: Cloud },
+  communication: { label: 'Communication', icon: Key },
+  compliance: { label: 'Conformité & Formation', icon: Shield },
+  other: { label: 'Autres', icon: Settings2 },
 }
 
 // ── Connector Card (configured) ────────────────────────────
@@ -783,7 +784,7 @@ function AddConnectorDialog({
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
               onClick={() => setSelectedCategory(null)}
-              className={`px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${!selectedCategory ? 'bg-primary text-primary-foreground' : 'bg-accent text-muted-foreground hover:text-foreground'}`}
+              className={!selectedCategory ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default'}
             >
               Tous
             </button>
@@ -793,7 +794,7 @@ function AddConnectorDialog({
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-                  className={`px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${selectedCategory === cat ? 'bg-primary text-primary-foreground' : 'bg-accent text-muted-foreground hover:text-foreground'}`}
+                  className={selectedCategory === cat ? 'gl-button-sm gl-button-primary' : 'gl-button-sm gl-button-default'}
                 >
                   {label?.label || cat}
                 </button>
@@ -1122,10 +1123,11 @@ export function IntegrationsTab() {
         <div className="mt-4 space-y-6">
           {Object.entries(connectorsByCategory).map(([category, connectors]) => {
             const catLabel = CATEGORY_LABELS[category]
+            const CatIcon = catLabel?.icon
             return (
               <div key={category}>
                 <div className="flex items-center gap-2 mb-3">
-                  {catLabel?.icon}
+                  {CatIcon && <CatIcon size={16} />}
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     {catLabel?.label || category}
                   </h3>

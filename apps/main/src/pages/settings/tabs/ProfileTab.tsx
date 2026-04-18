@@ -1117,7 +1117,7 @@ function LinkedSSOAccounts() {
               <button
                 key={a.id}
                 onClick={() => handleLink(a.id)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border/60 bg-card hover:bg-accent/50 hover:border-border text-sm font-medium transition-all"
+                className="gl-button-sm gl-button-default"
               >
                 <span className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold">{meta.icon}</span>
                 Lier {meta.name}

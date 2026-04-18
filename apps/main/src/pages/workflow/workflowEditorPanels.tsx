@@ -69,7 +69,7 @@ export function EditorToolbox({ onAddNode }: { onAddNode: (type: WorkflowNodeDef
                     )}
                     title={t(config.descriptionKey)}
                   >
-                    {config.icon}
+                    <config.icon size={14} />
                     <span className="text-[10px] font-medium text-foreground truncate">{t(config.labelKey)}</span>
                   </button>
                 )
@@ -105,7 +105,7 @@ export function NodeConfigPanel({
     <div className="w-[260px] shrink-0 border-l border-border bg-card overflow-y-auto">
       <div className="flex items-center justify-between px-3 py-2 border-b border-border">
         <div className="flex items-center gap-1.5">
-          <span className={config.color}>{config.icon}</span>
+          <span className={config.color}><config.icon size={14} /></span>
           <h3 className="text-xs font-semibold text-foreground">{t(config.labelKey)}</h3>
         </div>
         <button onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground">

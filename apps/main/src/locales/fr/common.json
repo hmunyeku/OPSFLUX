@@ -1082,6 +1082,7 @@
     "records": {
       "title": "Enregistrements",
       "create": "Nouvel enregistrement",
+      "detail_title": "Enregistrement de conformité",
       "status": "Statut",
       "valid": "Valide",
       "expired": "Expiré",
@@ -1091,7 +1092,24 @@
       "issued_at": "Date d'émission",
       "expires_at": "Date d'expiration",
       "issuer": "Émetteur",
-      "reference_number": "N° référence"
+      "reference_number": "N° référence",
+      "attachments_help": "Joignez ici le justificatif (certificat, attestation, etc.).",
+      "sections": {
+        "general": "Informations générales",
+        "reference": "Référence",
+        "attachments": "Pièces jointes"
+      },
+      "fields": {
+        "type": "Type",
+        "owner_type": "Propriétaire",
+        "owner_id": "Identifiant propriétaire",
+        "status": "Statut",
+        "issuer": "Émetteur",
+        "reference_number": "N° référence",
+        "issued_at": "Date d'émission",
+        "expires_at": "Date d'expiration",
+        "notes": "Notes"
+      }
     },
     "rules": {
       "title": "Règles de conformité",

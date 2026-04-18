@@ -1026,6 +1026,7 @@
     "records": {
       "title": "Records",
       "create": "New record",
+      "detail_title": "Compliance record",
       "status": "Status",
       "valid": "Valid",
       "expired": "Expired",
@@ -1035,7 +1036,24 @@
       "issued_at": "Issue date",
       "expires_at": "Expiry date",
       "issuer": "Issuer",
-      "reference_number": "Reference #"
+      "reference_number": "Reference #",
+      "attachments_help": "Attach the supporting document (certificate, proof, etc.) here.",
+      "sections": {
+        "general": "General information",
+        "reference": "Reference",
+        "attachments": "Attachments"
+      },
+      "fields": {
+        "type": "Type",
+        "owner_type": "Owner",
+        "owner_id": "Owner ID",
+        "status": "Status",
+        "issuer": "Issuer",
+        "reference_number": "Reference #",
+        "issued_at": "Issue date",
+        "expires_at": "Expiry date",
+        "notes": "Notes"
+      }
     },
     "rules": {
       "title": "Compliance rules",

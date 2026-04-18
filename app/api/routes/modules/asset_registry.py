@@ -3,7 +3,8 @@
 Hierarchy: Field -> Site -> Installation -> Equipment, plus Pipelines.
 """
 
-from datetime import datetime, timezone
+import logging
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
@@ -72,6 +73,8 @@ from app.schemas.asset_registry import (
     ColumnSectionCreate, ColumnSectionUpdate, ColumnSectionRead,
     AssetChangeLogRead,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/asset-registry", tags=["asset-registry"], dependencies=[require_module_enabled("asset_registry")])
 
@@ -918,24 +921,38 @@ async def get_equipment(
     obj = await _get_or_404(db, RegistryEquipment, equipment_id, entity_id, "Equipment")
 
     # Load specialized sub-table data if available
-    spec_model = EQUIPMENT_CLASS_MODEL_MAP.get(obj.equipment_class)
+    # Wrapped in try/except so any sub-table issue (missing row, serialization,
+    # schema drift) doesn't 500 the whole equipment GET — the base equipment
+    # fields are always returned, specialized_data falls back to None.
     specialized_data = None
-    if spec_model is not None:
-        result = await db.execute(select(spec_model).where(spec_model.id == equipment_id))
-        spec_obj = result.scalars().first()
-        if spec_obj:
-            # Convert to dict, exclude the 'id' (same as equipment id)
-            from sqlalchemy import inspect as sa_inspect
-            mapper = sa_inspect(spec_model)
-            specialized_data = {}
-            for col in mapper.columns:
-                if col.key == "id":
-                    continue
-                val = getattr(spec_obj, col.key)
-                # Convert Decimal to float for JSON serialization
-                if isinstance(val, Decimal):
-                    val = float(val)
-                specialized_data[col.key] = val
+    try:
+        spec_model = EQUIPMENT_CLASS_MODEL_MAP.get(obj.equipment_class) if obj.equipment_class else None
+        if spec_model is not None:
+            result = await db.execute(select(spec_model).where(spec_model.id == equipment_id))
+            spec_obj = result.scalars().first()
+            if spec_obj:
+                from sqlalchemy import inspect as sa_inspect
+                mapper = sa_inspect(spec_model)
+                specialized_data = {}
+                for col in mapper.columns:
+                    if col.key == "id":
+                        continue
+                    val = getattr(spec_obj, col.key, None)
+                    # Convert non-JSON-serializable types
+                    if isinstance(val, Decimal):
+                        val = float(val)
+                    elif isinstance(val, (datetime, date)):
+                        val = val.isoformat()
+                    elif val is not None and not isinstance(val, (str, int, float, bool, list, dict)):
+                        # Unknown type — stringify as last resort
+                        val = str(val)
+                    specialized_data[col.key] = val
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Failed to load specialized_data for equipment %s (class=%s): %s",
+            equipment_id, obj.equipment_class, exc,
+        )
+        specialized_data = None
 
     # Attach specialized_data to the response
     resp = EquipmentRead.model_validate(obj)

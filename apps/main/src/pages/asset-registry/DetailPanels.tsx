@@ -57,6 +57,7 @@ import {
   ColumnSectionManager,
 } from './EquipmentSubModels'
 import { AssetEntityChangeLog } from './AssetChangeHistory'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { apiGeoToEditorValue, editorValueToApiGeo, latLonToPointValue } from '@/utils/geoHelpers'
 import { usePermission } from '@/hooks/usePermission'
 import { useUIStore } from '@/stores/uiStore'
@@ -1183,37 +1184,43 @@ export function EquipmentDetailPanel({ id }: { id: string }) {
           </FormSection>
 
 
-          {/* Specialized equipment sub-type fields */}
-          <EquipmentContextualFields
-            equipmentClass={equip.equipment_class}
-            specializedData={equip.specialized_data}
-            equipmentId={id}
-          />
+          {/* Specialized equipment sub-type fields — wrapped in ErrorBoundary to isolate
+              crashes in data-dependent sub-components (e.g. when specialized_data shape
+              diverges from the expected layout). */}
+          <ErrorBoundary>
+            <EquipmentContextualFields
+              equipmentClass={equip.equipment_class}
+              specializedData={equip.specialized_data}
+              equipmentId={id}
+            />
+          </ErrorBoundary>
 
           {/* Equipment class-specific sub-model managers */}
-          {equip.equipment_class === 'CRANE' && (
-            <CraneSubModelSections equipmentId={id} canEdit={canUpdate} />
-          )}
-          {equip.equipment_class === 'SEPARATOR' && (
-            <>
-              <FormSection title="Piquages (Nozzles)" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-sep-nozzles">
-                <SeparatorNozzleManager equipmentId={id} canEdit={canUpdate} />
+          <ErrorBoundary>
+            {equip.equipment_class === 'CRANE' && (
+              <CraneSubModelSections equipmentId={id} canEdit={canUpdate} />
+            )}
+            {equip.equipment_class === 'SEPARATOR' && (
+              <>
+                <FormSection title="Piquages (Nozzles)" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-sep-nozzles">
+                  <SeparatorNozzleManager equipmentId={id} canEdit={canUpdate} />
+                </FormSection>
+                <FormSection title="Cas process" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-sep-cases">
+                  <SeparatorProcessCaseManager equipmentId={id} canEdit={canUpdate} />
+                </FormSection>
+              </>
+            )}
+            {equip.equipment_class === 'PUMP' && (
+              <FormSection title="Courbe de pompe" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-pump-curve">
+                <PumpCurvePointManager equipmentId={id} canEdit={canUpdate} />
               </FormSection>
-              <FormSection title="Cas process" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-sep-cases">
-                <SeparatorProcessCaseManager equipmentId={id} canEdit={canUpdate} />
+            )}
+            {equip.equipment_class === 'PROCESS_COLUMN' && (
+              <FormSection title="Sections colonne" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-col-sections">
+                <ColumnSectionManager equipmentId={id} canEdit={canUpdate} />
               </FormSection>
-            </>
-          )}
-          {equip.equipment_class === 'PUMP' && (
-            <FormSection title="Courbe de pompe" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-pump-curve">
-              <PumpCurvePointManager equipmentId={id} canEdit={canUpdate} />
-            </FormSection>
-          )}
-          {equip.equipment_class === 'PROCESS_COLUMN' && (
-            <FormSection title="Sections colonne" collapsible storageKey="panel.ar-equip.sections" id="ar-equip-col-sections">
-              <ColumnSectionManager equipmentId={id} canEdit={canUpdate} />
-            </FormSection>
-          )}
+            )}
+          </ErrorBoundary>
 
           <FormSection title="Tags">
             <TagManager ownerType="ar_equipment" ownerId={id} compact />

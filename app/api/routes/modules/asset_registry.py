@@ -8,7 +8,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from sqlalchemy import select, func as sqla_func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -1935,3 +1935,75 @@ async def delete_crane_lift_zone(
     await db.delete(obj)
     await db.commit()
     return {"detail": "Lift zone deleted"}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# KMZ IMPORT / EXPORT
+# ════════════════════════════════════════════════════════════════════════════
+# Import workflow:
+#   1. POST /kmz/preview — upload a KMZ, returns counts + samples. No DB write.
+#   2. POST /kmz/import  — (TODO) upload a KMZ, creates Field/Site/Installations/
+#      Equipment (wells)/Pipelines in one transaction, using the FIELD/SITE
+#      attributes from the KMZ to group records. Not exposed until we agree on
+#      field/site naming + upsert semantics.
+#
+# Export workflow:
+#   GET /kmz/export — returns a KMZ built from the entity's current registry.
+#     Installations → Point placemarks, Wells → Point placemarks, Pipelines →
+#     LineString placemarks, grouped in 3 top-level Folders, styled per fluid.
+
+
+@router.post("/kmz/preview", dependencies=[require_permission("asset.read")])
+async def kmz_preview(
+    file: UploadFile = File(...),
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Parse a KMZ file and return a preview of what it contains:
+    count + attribute schema + first 5 samples per category (platforms,
+    wells, pipelines, cables, structures). Does not touch the database.
+    """
+    from app.services.kmz_parser import parse_kmz_preview
+
+    if not file.filename or not file.filename.lower().endswith(".kmz"):
+        raise HTTPException(400, "File must be a .kmz archive")
+    content = await file.read()
+    if len(content) > 100 * 1024 * 1024:
+        raise HTTPException(400, "KMZ too large (max 100 MB)")
+    try:
+        preview = parse_kmz_preview(content)
+    except ValueError as exc:
+        raise HTTPException(400, f"Invalid KMZ: {exc}") from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("KMZ preview failed for %s", file.filename)
+        raise HTTPException(500, f"Parse error: {exc}") from exc
+    preview["uploaded_by"] = str(current_user.id)
+    preview["entity_id"] = str(entity_id)
+    preview["filename"] = file.filename
+    return preview
+
+
+@router.get("/kmz/export", dependencies=[require_permission("asset.read")])
+async def kmz_export(
+    entity_id: UUID = Depends(get_current_entity),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Build and stream back a KMZ containing the current entity's assets.
+    """
+    from app.services.kmz_export import build_kmz
+
+    try:
+        kmz_bytes = await build_kmz(db, entity_id, title=f"OpsFlux — Asset Registry ({current_user.first_name or ''})")
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("KMZ export failed for entity %s", entity_id)
+        raise HTTPException(500, f"Export error: {exc}") from exc
+
+    filename = "opsflux-assets.kmz"
+    return Response(
+        content=kmz_bytes,
+        media_type="application/vnd.google-earth.kmz",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

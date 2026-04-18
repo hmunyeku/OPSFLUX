@@ -13,6 +13,9 @@ dependencies = [
     "alembic>=1.13.0",
     "greenlet>=3.0.0",
     "geoalchemy2>=0.15.0",
+    "shapely>=2.0.0",
+    # KMZ import/export (asset registry GIS interop)
+    "lxml>=5.0.0",
     # Redis
     "redis[hiredis]>=5.0.0",
     # Auth

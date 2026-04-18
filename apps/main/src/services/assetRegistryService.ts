@@ -52,6 +52,39 @@ interface PipelineListParams extends PaginationParams {
   search?: string
 }
 
+// ── KMZ preview shape ────────────────────────────────────────
+export interface KmzPreviewSample {
+  kml_id: string
+  name: string
+  attributes: Record<string, string>
+  folder: string
+  geometry_type?: 'Point' | 'LineString' | 'Polygon'
+  coordinates?: Array<[number, number]>
+  parsed_name?: { diameter_in: number | null; fluid: string | null; from_tag: string | null; to_tag: string | null }
+}
+
+export interface KmzPreviewCategory {
+  count: number
+  attribute_keys?: string[]
+  samples?: KmzPreviewSample[]
+  note?: string
+}
+
+export interface KmzPreview {
+  source: { document_name: string; folder_count: number; placemark_count: number }
+  categories: {
+    platforms: KmzPreviewCategory
+    wells: KmzPreviewCategory
+    pipelines: KmzPreviewCategory
+    cables: KmzPreviewCategory
+    structures: KmzPreviewCategory
+    bathymetry: KmzPreviewCategory
+  }
+  filename?: string
+  uploaded_by?: string
+  entity_id?: string
+}
+
 // ── Service ──────────────────────────────────────────────────
 export const assetRegistryService = {
 
@@ -410,6 +443,25 @@ export const assetRegistryService = {
 
   getRecentChanges: async (limit = 10): Promise<AssetChangeLogEntry[]> => {
     const { data } = await api.get(`${BASE}/history/recent`, { params: { limit } })
+    return data
+  },
+
+  // ── KMZ import / export ────────────────────────────────────
+  kmzPreview: async (file: File): Promise<KmzPreview> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const { data } = await api.post(`${BASE}/kmz/preview`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data
+  },
+
+  /** Download the entity's assets as a KMZ file (triggers browser download). */
+  kmzExportUrl: (): string => `${BASE}/kmz/export`,
+
+  /** Fetch the entity's assets as a KMZ blob for programmatic download. */
+  kmzExportBlob: async (): Promise<Blob> => {
+    const { data } = await api.get(`${BASE}/kmz/export`, { responseType: 'blob' })
     return data
   },
 }

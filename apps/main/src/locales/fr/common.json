@@ -195,6 +195,32 @@
     "title": "Assets",
     "create": "Nouvel asset",
     "hierarchy": "Hiérarchie",
+    "kmz": {
+      "tab": "Cartes & KMZ",
+      "title": "Import / Export KMZ",
+      "description": "Importez un fichier KMZ (Google Earth) pour prévisualiser les assets offshore (plateformes, puits, pipelines, câbles) ou exportez le référentiel actuel au format KMZ.",
+      "export_button": "Exporter en KMZ",
+      "export_ready": "KMZ exporté",
+      "preview_ready": "Aperçu prêt",
+      "uploading": "Analyse du fichier KMZ...",
+      "dropzone_title": "Déposez un fichier KMZ ici ou cliquez pour parcourir",
+      "dropzone_hint": "Formats supportés : .kmz (KML zippé, compatible Google Earth, ArcGIS, QGIS)",
+      "import_pending_title": "Import en base — à venir",
+      "import_pending_message": "L'aperçu ci-dessus ne crée aucun asset. L'import effectif en base (création des Fields / Sites / Installations / Wells / Pipelines) sera activé après validation des règles de rattachement hiérarchique.",
+      "categories": {
+        "platforms": "Plateformes",
+        "wells": "Puits",
+        "pipelines": "Pipelines",
+        "cables": "Câbles",
+        "structures": "Structures (CAD)",
+        "bathymetry": "Bathymétrie"
+      },
+      "errors": {
+        "not_kmz": "Seuls les fichiers .kmz sont acceptés",
+        "parse_failed": "Impossible d'analyser le KMZ",
+        "export_failed": "Échec de l'export KMZ"
+      }
+    },
     "list": "Liste",
     "map": "Carte",
     "subtitle": "Référentiel des sites et équipements",

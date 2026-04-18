@@ -45,6 +45,7 @@ import { FieldDetailPanel, SiteDetailPanel, InstallationDetailPanel, EquipmentDe
 import { CreateFieldPanel, CreateSitePanel, CreateInstallationPanel, CreateEquipmentPanel, CreatePipelinePanel } from './CreatePanels'
 import { ModuleDashboard } from '@/components/dashboard/ModuleDashboard'
 import { AssetHierarchyTree } from './AssetHierarchyTree'
+import { MapsTab } from './MapsTab'
 
 
 // ── Status badge helper ──────────────────────────────────────
@@ -141,7 +142,7 @@ function filterStr(filters: Record<string, unknown>, key: string): string | unde
 
 // ── Tab definitions ──────────────────────────────────────────
 
-type TabKey = 'dashboard' | 'hierarchy' | 'fields' | 'sites' | 'installations' | 'equipment' | 'pipelines'
+type TabKey = 'dashboard' | 'hierarchy' | 'fields' | 'sites' | 'installations' | 'equipment' | 'pipelines' | 'maps'
 
 const TABS: { key: TabKey; icon: typeof MapPin; labelKey: string }[] = [
   { key: 'dashboard', icon: LayoutDashboard, labelKey: 'assets.dashboard_tab' },
@@ -151,6 +152,7 @@ const TABS: { key: TabKey; icon: typeof MapPin; labelKey: string }[] = [
   { key: 'installations', icon: Factory, labelKey: 'assets.installations' },
   { key: 'equipment', icon: Wrench, labelKey: 'assets.equipment_tab' },
   { key: 'pipelines', icon: Ship, labelKey: 'assets.pipelines' },
+  { key: 'maps', icon: MapPin, labelKey: 'assets.kmz.tab' },
 ]
 
 
@@ -865,6 +867,7 @@ export function AssetRegistryPage() {
     installations: <InstallationsTab />,
     equipment: <EquipmentTab />,
     pipelines: <PipelinesTab />,
+    maps: <MapsTab />,
   }
 
   // Check if a dynamic panel is open for one of our modules

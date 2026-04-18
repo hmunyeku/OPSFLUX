@@ -197,6 +197,32 @@
     "hierarchy": "Hierarchy",
     "list": "List",
     "map": "Map",
+    "kmz": {
+      "tab": "Maps & KMZ",
+      "title": "KMZ Import / Export",
+      "description": "Import a KMZ file (Google Earth) to preview offshore assets (platforms, wells, pipelines, cables) or export the current registry as KMZ.",
+      "export_button": "Export as KMZ",
+      "export_ready": "KMZ exported",
+      "preview_ready": "Preview ready",
+      "uploading": "Analysing KMZ file...",
+      "dropzone_title": "Drop a KMZ file here or click to browse",
+      "dropzone_hint": "Supported: .kmz (zipped KML, compatible with Google Earth, ArcGIS, QGIS)",
+      "import_pending_title": "Database import — coming soon",
+      "import_pending_message": "The preview above does not create any asset. Actual database commit will be enabled after hierarchical mapping rules are validated.",
+      "categories": {
+        "platforms": "Platforms",
+        "wells": "Wells",
+        "pipelines": "Pipelines",
+        "cables": "Cables",
+        "structures": "Structures (CAD)",
+        "bathymetry": "Bathymetry"
+      },
+      "errors": {
+        "not_kmz": "Only .kmz files are accepted",
+        "parse_failed": "Failed to parse KMZ",
+        "export_failed": "KMZ export failed"
+      }
+    },
     "subtitle": "Sites and equipment registry",
     "total": "assets",
     "select": "Select a site...",

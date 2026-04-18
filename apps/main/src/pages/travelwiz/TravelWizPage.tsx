@@ -105,9 +105,10 @@ export function TravelWizPage() {
             items={TABS.map((tab) => ({ id: tab.id, icon: tab.icon, label: t(tab.labelKey) }))}
             activeId={activeTab}
             onTabChange={setActiveTab}
+            rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-travelwiz" /> : null}
           />
 
-          {activeTab === 'dashboard' && <ModuleDashboard module="travelwiz" />}
+          {activeTab === 'dashboard' && <div className="flex-1 overflow-y-auto"><div className="space-y-4 p-4"><ModuleDashboard module="travelwiz" toolbarPortalId="dash-toolbar-travelwiz" /></div></div>}
           {activeTab === 'voyages' && <VoyagesTab />}
           {activeTab === 'manifests' && <ManifestesTab />}
           {activeTab === 'vectors' && <VecteursTab />}

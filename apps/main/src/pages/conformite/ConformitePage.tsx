@@ -270,7 +270,7 @@ export function ConformitePage() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <div className="p-6"><ModuleDashboard module="conformite" /></div>
+        return <div className="space-y-4 p-4"><ModuleDashboard module="conformite" toolbarPortalId="dash-toolbar-conformite" /></div>
       case 'referentiel':
         return (
           <DataTable<ComplianceType>
@@ -415,9 +415,10 @@ export function ConformitePage() {
           })}
           activeId={activeTab}
           onTabChange={handleTabChange}
+          rightSlot={activeTab === 'dashboard' ? <div id="dash-toolbar-conformite" /> : null}
         />
 
-        <PanelContent scroll={false}>
+        <PanelContent scroll={activeTab === 'dashboard'}>
           {renderTabContent()}
         </PanelContent>
       </div>}

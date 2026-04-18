@@ -161,7 +161,8 @@ const PIPELINE_SERVICE_FALLBACK = [
   { value: 'OTHER', label: 'Autre' },
 ]
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status }: { status: string | null | undefined }) {
+  if (!status) return <span className="text-muted-foreground">—</span>
   return (
     <span className={cn('gl-badge', STATUS_COLORS[status] || 'gl-badge-neutral')}>
       {status.replace(/_/g, ' ')}
@@ -456,7 +457,7 @@ export function SiteDetailPanel({ id }: { id: string }) {
   return (
     <DynamicPanelShell
       title={`${site.code} — ${site.name}`}
-      subtitle={site.site_type.replace(/_/g, ' ')}
+      subtitle={site.site_type ? site.site_type.replace(/_/g, ' ') : ''}
       icon={<Landmark size={14} />}
       headerRight={
         canDelete ? (
@@ -489,7 +490,7 @@ export function SiteDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label={t('common.code')} value={<span className="font-mono font-semibold">{site.code}</span>} />
               {canUpdate
                 ? <InlineEditableSelect label={t('common.type')} value={site.site_type} options={SITE_TYPE_OPTIONS} onSave={(v) => handleSave('site_type', v)} />
-                : <ReadOnlyRow label={t('common.type')} value={<span className="gl-badge gl-badge-neutral">{site.site_type.replace(/_/g, ' ')}</span>} />
+                : <ReadOnlyRow label={t('common.type')} value={site.site_type ? <span className="gl-badge gl-badge-neutral">{site.site_type.replace(/_/g, ' ')}</span> : '—'} />
               }
               {canUpdate
                 ? <InlineEditableTags label={t('common.status')} value={site.status} options={statusOptions} onSave={(v) => handleSave('status', v)} />
@@ -685,7 +686,7 @@ export function InstallationDetailPanel({ id }: { id: string }) {
   return (
     <DynamicPanelShell
       title={`${inst.code} — ${inst.name}`}
-      subtitle={inst.installation_type.replace(/_/g, ' ')}
+      subtitle={inst.installation_type ? inst.installation_type.replace(/_/g, ' ') : ''}
       icon={<Factory size={14} />}
       headerRight={
         canDelete ? (
@@ -718,7 +719,7 @@ export function InstallationDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label={t('common.code')} value={<span className="font-mono font-semibold">{inst.code}</span>} />
               {canUpdate
                 ? <InlineEditableSelect label={t('common.type')} value={inst.installation_type} options={INSTALLATION_TYPE_OPTIONS} onSave={(v) => handleSave('installation_type', v)} />
-                : <ReadOnlyRow label={t('common.type')} value={<span className="gl-badge gl-badge-neutral">{inst.installation_type.replace(/_/g, ' ')}</span>} />
+                : <ReadOnlyRow label={t('common.type')} value={inst.installation_type ? <span className="gl-badge gl-badge-neutral">{inst.installation_type.replace(/_/g, ' ')}</span> : '—'} />
               }
               {canUpdate
                 ? <InlineEditableTags label={t('common.status')} value={inst.status} options={statusOptions} onSave={(v) => handleSave('status', v)} />
@@ -1296,7 +1297,7 @@ export function PipelineDetailPanel({ id }: { id: string }) {
               <ReadOnlyRow label="ID Pipeline" value={<span className="font-mono font-semibold">{pipe.pipeline_id}</span>} />
               {canUpdate
                 ? <InlineEditableSelect label={t('assets.service')} value={pipe.service} options={pipelineServiceOptions} onSave={(v) => handleSave('service', v)} />
-                : <ReadOnlyRow label={t('assets.service')} value={<span className="gl-badge gl-badge-info">{pipe.service.replace(/_/g, ' ')}</span>} />
+                : <ReadOnlyRow label={t('assets.service')} value={pipe.service ? <span className="gl-badge gl-badge-info">{pipe.service.replace(/_/g, ' ')}</span> : '—'} />
               }
               {canUpdate
                 ? <InlineEditableTags label={t('common.status')} value={pipe.status} options={statusOptions} onSave={(v) => handleSave('status', v)} />

@@ -23,6 +23,7 @@ import { usePermission } from '@/hooks/usePermission'
 import { useUIStore } from '@/stores/uiStore'
 import { useDictionaryOptions } from '@/hooks/useDictionary'
 import { useToast } from '@/components/ui/Toast'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import {
   useFields,
   useSites,
@@ -901,17 +902,22 @@ export function AssetRegistryPage() {
         </div>
       )}
 
-      {/* ── Dynamic Panels ── */}
-      {dynamicPanel?.module === 'ar-field' && dynamicPanel.type === 'create' && <CreateFieldPanel />}
-      {dynamicPanel?.module === 'ar-field' && dynamicPanel.type === 'detail' && <FieldDetailPanel id={dynamicPanel.id} />}
-      {dynamicPanel?.module === 'ar-site' && dynamicPanel.type === 'create' && <CreateSitePanel />}
-      {dynamicPanel?.module === 'ar-site' && dynamicPanel.type === 'detail' && <SiteDetailPanel id={dynamicPanel.id} />}
-      {dynamicPanel?.module === 'ar-installation' && dynamicPanel.type === 'create' && <CreateInstallationPanel />}
-      {dynamicPanel?.module === 'ar-installation' && dynamicPanel.type === 'detail' && <InstallationDetailPanel id={dynamicPanel.id} />}
-      {dynamicPanel?.module === 'ar-equipment' && dynamicPanel.type === 'create' && <CreateEquipmentPanel />}
-      {dynamicPanel?.module === 'ar-equipment' && dynamicPanel.type === 'detail' && <EquipmentDetailPanel id={dynamicPanel.id} />}
-      {dynamicPanel?.module === 'ar-pipeline' && dynamicPanel.type === 'create' && <CreatePipelinePanel />}
-      {dynamicPanel?.module === 'ar-pipeline' && dynamicPanel.type === 'detail' && <PipelineDetailPanel id={dynamicPanel.id} />}
+      {/* ── Dynamic Panels ──
+          Each panel wrapped in ErrorBoundary so a render crash inside one
+          doesn't unmount the whole AssetRegistryPage main content area.
+          The fallback UI shows the error message + a retry button.  */}
+      <ErrorBoundary>
+        {dynamicPanel?.module === 'ar-field' && dynamicPanel.type === 'create' && <CreateFieldPanel />}
+        {dynamicPanel?.module === 'ar-field' && dynamicPanel.type === 'detail' && <FieldDetailPanel id={dynamicPanel.id} />}
+        {dynamicPanel?.module === 'ar-site' && dynamicPanel.type === 'create' && <CreateSitePanel />}
+        {dynamicPanel?.module === 'ar-site' && dynamicPanel.type === 'detail' && <SiteDetailPanel id={dynamicPanel.id} />}
+        {dynamicPanel?.module === 'ar-installation' && dynamicPanel.type === 'create' && <CreateInstallationPanel />}
+        {dynamicPanel?.module === 'ar-installation' && dynamicPanel.type === 'detail' && <InstallationDetailPanel id={dynamicPanel.id} />}
+        {dynamicPanel?.module === 'ar-equipment' && dynamicPanel.type === 'create' && <CreateEquipmentPanel />}
+        {dynamicPanel?.module === 'ar-equipment' && dynamicPanel.type === 'detail' && <EquipmentDetailPanel id={dynamicPanel.id} />}
+        {dynamicPanel?.module === 'ar-pipeline' && dynamicPanel.type === 'create' && <CreatePipelinePanel />}
+        {dynamicPanel?.module === 'ar-pipeline' && dynamicPanel.type === 'detail' && <PipelineDetailPanel id={dynamicPanel.id} />}
+      </ErrorBoundary>
     </div>
   )
 }

@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FileCheck } from 'lucide-react'
+import { FileCheck, Paperclip, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   DynamicPanelShell,
@@ -15,6 +15,7 @@ import type { ActionItem } from '@/components/layout/DynamicPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { useToast } from '@/components/ui/Toast'
 import { useComplianceTypes, useCreateComplianceRecord } from '@/hooks/useConformite'
+import { attachmentsService } from '@/services/settingsService'
 import type { ComplianceRecordCreate } from '@/types/api'
 import { useConformiteDictionaryState } from '../shared'
 import { SearchableSelect } from '../components'
@@ -44,6 +45,12 @@ export function CreateComplianceRecordPanel() {
     reference_number: null,
     notes: null,
   })
+  // Attachment is required at creation — the verification rule enforces
+  // 'no PJ = no validation', so we block the form before the backend can
+  // reject it. Keeps the workflow linear (no orphan draft records).
+  const [file, setFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
 
   const typeOptions = useMemo(
     () =>
@@ -70,12 +77,40 @@ export function CreateComplianceRecordPanel() {
       toast({ title: t('conformite.records.errors.missing_required'), variant: 'error' })
       return
     }
+    if (!file) {
+      toast({
+        title: t('conformite.records.errors.attachment_required'),
+        description: t('conformite.verifications.proof_required_before_verify'),
+        variant: 'error',
+      })
+      return
+    }
     try {
       const created = await createRecord.mutateAsync(form)
+      // Upload the attachment right after creation so the record never sits
+      // in 'pending without PJ' state (which the verify endpoint rejects 422).
+      setUploading(true)
+      try {
+        await attachmentsService.upload('compliance_record', created.id, file)
+      } catch (uploadErr) {
+        const typed = uploadErr as { response?: { data?: { detail?: string } } }
+        toast({
+          title: t('conformite.records.errors.attachment_upload_failed'),
+          description: typed?.response?.data?.detail || undefined,
+          variant: 'warning',
+        })
+      } finally {
+        setUploading(false)
+      }
       toast({ title: t('conformite.records.create_success'), variant: 'success' })
       openDynamicPanel({ type: 'detail', module: 'conformite', id: created.id, meta: { subtype: 'record' } })
-    } catch {
-      toast({ title: t('common.error'), variant: 'error' })
+    } catch (err) {
+      const typed = err as { response?: { data?: { detail?: string } } }
+      toast({
+        title: t('common.error'),
+        description: typed?.response?.data?.detail || undefined,
+        variant: 'error',
+      })
     }
   }
 
@@ -86,11 +121,12 @@ export function CreateComplianceRecordPanel() {
       label: t('common.create'),
       variant: 'primary',
       priority: 100,
-      loading: createRecord.isPending,
-      disabled: createRecord.isPending,
+      loading: createRecord.isPending || uploading,
+      disabled: createRecord.isPending || uploading || !file,
+      tooltip: !file ? t('conformite.records.errors.attachment_required') : undefined,
       onClick: handleCreate,
     },
-  ], [t, closeDynamicPanel, createRecord.isPending, handleCreate])
+  ], [t, closeDynamicPanel, createRecord.isPending, uploading, file, handleCreate])
 
   return (
     <DynamicPanelShell
@@ -164,9 +200,40 @@ export function CreateComplianceRecordPanel() {
           </FormGrid>
         </FormSection>
 
-        <p className="px-1 text-xs text-muted-foreground italic">
-          {t('conformite.records.create_attachment_hint')}
-        </p>
+        <FormSection title={t('conformite.records.sections.attachments')}>
+          <p className="mb-2 text-xs text-muted-foreground">
+            {t('conformite.records.attachment_required_hint')}
+          </p>
+          {file ? (
+            <div className="flex items-center gap-2 rounded-md border border-border bg-background-subtle px-3 py-2">
+              <Paperclip size={14} className="text-primary shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-foreground truncate">{file.name}</div>
+                <div className="text-[10px] text-muted-foreground">{Math.round(file.size / 1024)} Ko</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setFile(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
+                className="gl-button-sm gl-button-default !h-7 !w-7 !p-0 shrink-0"
+                aria-label={t('common.remove')}
+                disabled={uploading}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ) : (
+            <label className="flex items-center gap-2 rounded-md border border-dashed border-border px-3 py-3 cursor-pointer hover:bg-background-subtle">
+              <Paperclip size={14} className="text-muted-foreground shrink-0" />
+              <span className="text-sm text-muted-foreground">{t('conformite.records.attachment_upload_cta')}</span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(f) }}
+              />
+            </label>
+          )}
+        </FormSection>
       </PanelContentLayout>
     </DynamicPanelShell>
   )

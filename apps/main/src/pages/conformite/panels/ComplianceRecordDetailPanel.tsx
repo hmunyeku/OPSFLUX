@@ -44,12 +44,22 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
     toast({ title: t('common.deleted'), variant: 'success' })
   }, [closeDynamicPanel, deleteRecord, id, t, toast])
 
+  const extractApiError = (err: unknown): string | null => {
+    const typed = err as { response?: { data?: { detail?: string } } }
+    return typed?.response?.data?.detail || null
+  }
+
   const handleVerify = useCallback(async () => {
     try {
       await verifyRecord.mutateAsync({ recordType: 'compliance_record', recordId: id, action: 'verify' })
       toast({ title: t('conformite.toast.verified'), variant: 'success' })
-    } catch {
-      toast({ title: t('conformite.toast.error'), variant: 'error' })
+    } catch (err) {
+      const detail = extractApiError(err)
+      toast({
+        title: t('conformite.toast.error'),
+        description: detail || undefined,
+        variant: 'error',
+      })
     }
   }, [verifyRecord, id, toast, t])
 
@@ -64,8 +74,13 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
     try {
       await verifyRecord.mutateAsync({ recordType: 'compliance_record', recordId: id, action: 'reject', rejectionReason: 'Rejeté depuis la fiche enregistrement' })
       toast({ title: t('conformite.toast.rejected'), variant: 'success' })
-    } catch {
-      toast({ title: t('conformite.toast.error'), variant: 'error' })
+    } catch (err) {
+      const detail = extractApiError(err)
+      toast({
+        title: t('conformite.toast.error'),
+        description: detail || undefined,
+        variant: 'error',
+      })
     }
   }, [verifyRecord, id, confirm, toast, t])
 
@@ -77,6 +92,7 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
     const items: ActionItem[] = []
     // Only offer verify/reject when status is pending and user has permission.
     if (record?.status === 'pending' && canVerify) {
+      const hasAttachment = (record.attachment_count ?? 0) > 0
       items.push({
         id: 'verify',
         label: t('conformite.verifications.verify'),
@@ -84,6 +100,8 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
         variant: 'primary',
         priority: 5,
         loading: verifyRecord.isPending,
+        disabled: !hasAttachment,
+        tooltip: !hasAttachment ? t('conformite.verifications.proof_required_before_verify') : undefined,
         onClick: handleVerify,
       })
       items.push({
@@ -105,7 +123,7 @@ export function ComplianceRecordDetailPanel({ id }: { id: string }) {
       onClick: handleDelete,
     })
     return items
-  }, [t, handleDelete, handleVerify, handleReject, record?.status, canVerify, verifyRecord.isPending])
+  }, [t, handleDelete, handleVerify, handleReject, record?.status, record?.attachment_count, canVerify, verifyRecord.isPending])
 
   if (!record) {
     return (

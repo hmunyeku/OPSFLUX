@@ -2537,9 +2537,13 @@
         "job_position": "Job position"
       },
       "errors": {
-        "missing_required": "Fill in the type, owner and owner identifier."
+        "missing_required": "Fill in the type, owner and owner identifier.",
+        "attachment_required": "Supporting document required",
+        "attachment_upload_failed": "The record was created but the attachment upload failed. You can re-upload it from the record page."
       },
       "create_attachment_hint": "After creation, the record stays open so the required supporting files can be uploaded immediately.",
+      "attachment_required_hint": "A supporting document is required to create a record — the verifier cannot approve without proof.",
+      "attachment_upload_cta": "Upload the supporting document (certificate, attestation, scan…)",
       "attachments_help": "Upload the proof for the declared reference here: certificate, attestation, signed copy, scan, or any other supporting evidence."
     },
     "incident_panel": {

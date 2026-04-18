@@ -216,20 +216,30 @@ export function ComplianceOwnerCell({
     ? fullName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
     : '?'
 
+  // Entity/company affinity shown next to the name when available:
+  // - tier_contact → the tier name/code (the company the contact is attached to)
+  // - user         → no company on User model, fall back to just the name
+  const tierLabel = isTierContact && contact ? (contact.tier_name || contact.tier_code) : null
+
   if (!ownerId) return <span className="text-muted-foreground/40">—</span>
 
   return (
     <div className="flex items-center gap-2 min-w-0">
       {photoUrl ? (
-        <img src={photoUrl} alt="" className="h-5 w-5 rounded-full object-cover shrink-0" />
+        <img src={photoUrl} alt="" className="h-6 w-6 rounded-full object-cover shrink-0" />
       ) : (
-        <div className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-semibold shrink-0">
+        <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-semibold shrink-0">
           {initials}
         </div>
       )}
-      <span className="text-xs text-foreground truncate">
-        {fullName || <span className="text-muted-foreground">{ownerType}</span>}
-      </span>
+      <div className="flex flex-col min-w-0 leading-tight">
+        <span className="text-xs text-foreground truncate">
+          {fullName || <span className="text-muted-foreground">{ownerType}</span>}
+        </span>
+        {tierLabel && (
+          <span className="text-[10px] text-muted-foreground truncate">{tierLabel}</span>
+        )}
+      </div>
     </div>
   )
 }

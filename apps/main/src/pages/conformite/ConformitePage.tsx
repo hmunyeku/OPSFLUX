@@ -203,10 +203,12 @@ export function ConformitePage() {
   ], [categoryLabels, t])
 
   const recordColumns = useMemo<ColumnDef<ComplianceRecord, unknown>[]>(() => [
-    { accessorKey: 'type_name', header: t('conformite.columns.type'), cell: ({ row }) => <span className="text-foreground font-medium">{row.original.type_name || '--'}</span> },
+    // Reordered per UX feedback: propriétaire (nom + avatar) EN PREMIER pour
+    // que le vérificateur identifie immédiatement à qui appartient la ligne.
+    { accessorKey: 'owner_type', header: t('conformite.columns.owner'), size: 200, cell: ({ row }) => <ComplianceOwnerCell ownerType={row.original.owner_type} ownerId={row.original.owner_id} /> },
+    { accessorKey: 'type_name', header: t('conformite.columns.type'), size: 180, cell: ({ row }) => <span className="text-foreground font-medium">{row.original.type_name || '--'}</span> },
     { accessorKey: 'type_category', header: t('conformite.columns.category'), size: 110, cell: ({ row }) => <span className="gl-badge gl-badge-neutral">{row.original.type_category || '--'}</span> },
-    { accessorKey: 'owner_type', header: t('conformite.columns.owner'), size: 180, cell: ({ row }) => <ComplianceOwnerCell ownerType={row.original.owner_type} ownerId={row.original.owner_id} /> },
-    { accessorKey: 'status', header: t('conformite.columns.status'), size: 90, cell: ({ row }) => {
+    { accessorKey: 'status', header: t('conformite.columns.status'), size: 100, cell: ({ row }) => {
       const s = row.original.status
       const cls = s === 'valid' ? 'gl-badge-success' : s === 'expired' ? 'gl-badge-danger' : s === 'pending' ? 'gl-badge-warning' : 'gl-badge-neutral'
       return <span className={cn('gl-badge', cls)}>{statusLabels[s] ?? s}</span>

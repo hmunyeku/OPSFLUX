@@ -2700,9 +2700,13 @@
         "job_position": "Fiche de poste"
       },
       "errors": {
-        "missing_required": "Renseignez le type, le propriétaire et son identifiant."
+        "missing_required": "Renseignez le type, le propriétaire et son identifiant.",
+        "attachment_required": "Pièce justificative obligatoire",
+        "attachment_upload_failed": "L'enregistrement a été créé mais l'envoi du justificatif a échoué. Vous pouvez le redéposer depuis la fiche."
       },
       "create_attachment_hint": "Après création, la fiche reste accessible pour déposer immédiatement les pièces justificatives requises.",
+      "attachment_required_hint": "Une pièce justificative est requise pour créer un enregistrement — le validateur ne pourra pas l'approuver sans preuve.",
+      "attachment_upload_cta": "Déposez ici le justificatif (certificat, attestation, scan…)",
       "attachments_help": "Déposez ici les preuves du référentiel déclaré: certificat, attestation, copie signée, scan, ou tout autre justificatif utile."
     },
     "incident_panel": {

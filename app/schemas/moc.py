@@ -136,6 +136,10 @@ class MOCValidationUpsert(BaseModel):
     approved: bool | None = None
     level: str | None = Field(default=None, pattern="^(DO|DG|DO_AND_DG)$")
     comments: str | None = None
+    # When targeting an ad-hoc invited row, pass the invitee's user_id so
+    # the upsert hits the right row (otherwise the NULL-validator template
+    # row is selected by default).
+    target_validator_id: UUID | None = None
 
 
 class MOCValidationRead(BaseModel):

@@ -616,6 +616,7 @@ export function MOCDetailPanel({ id }: Props) {
                             payload: {
                               role: v.role,
                               metier_code: v.metier_code,
+                              target_validator_id: v.validator_id,
                               ...patch,
                             },
                           })

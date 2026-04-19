@@ -329,6 +329,9 @@ def _resolve_owner_model(owner_type: str):
     if owner_type == "planner_activity":
         from app.models.planner import PlannerActivity
         return (PlannerActivity, True)
+    if owner_type == "moc":
+        from app.models.moc import MOC
+        return (MOC, True)
     # Unmapped (asset, medical_check, passport, etc.) fall through to
     # permission-only check upstream. Doesn't close the orphan loophole
     # for those types but doesn't regress them either.
@@ -399,6 +402,10 @@ _OWNER_PERMISSION_MAP: dict[str, tuple[str, str]] = {
     "rotation": ("travelwiz.voyage.read", "travelwiz.voyage.update"),
     # Papyrus documents
     "document": ("document.read", "document.edit"),
+    # MOC — attachments (PIDs, ESD, photos, études) + notes piggyback on
+    # the read/update perms. A user who can read the MOC can list its
+    # attachments; a user who can update can upload/delete.
+    "moc": ("moc.read", "moc.update"),
 }
 
 

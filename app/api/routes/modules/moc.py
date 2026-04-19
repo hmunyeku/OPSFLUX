@@ -878,6 +878,7 @@ async def upsert_moc_validation(
         approved=body.approved,
         level=body.level,
         comments=body.comments,
+        target_validator_id=body.target_validator_id,
     )
     await record_audit(
         db, user_id=current_user.id, entity_id=entity_id,

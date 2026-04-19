@@ -270,6 +270,9 @@ export interface MOCValidationUpsertPayload {
   approved?: boolean | null
   level?: MOCValidationLevel | null
   comments?: string | null
+  // Pass the invitee's user_id to edit an ad-hoc invited row. Omit to
+  // target the template/manual row (validator_id NULL).
+  target_validator_id?: string | null
 }
 
 export interface MOCExecutionAccordPayload {

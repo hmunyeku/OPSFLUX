@@ -256,13 +256,25 @@ async def upsert_validation(
     approved: bool | None = None,
     level: str | None = None,
     comments: str | None = None,
+    target_validator_id: UUID | None = None,
 ) -> MOCValidation:
-    """Create or update a validation entry. Keyed by (moc_id, role, metier_code)."""
+    """Create or update a validation entry.
+
+    Keyed by (moc_id, role, metier_code, validator_id). When
+    `target_validator_id` is provided, the upsert targets the ad-hoc
+    invited row for that user — needed once invitations landed in the
+    same matrix, otherwise multiple rows for the same (role, metier)
+    would surface a MultipleResultsFound error.
+
+    Defaults to the NULL-validator row (i.e. the template/manual row).
+    """
     existing_q = select(MOCValidation).where(
         MOCValidation.moc_id == moc.id,
         MOCValidation.role == role,
         (MOCValidation.metier_code == metier_code) if metier_code
         else MOCValidation.metier_code.is_(None),
+        (MOCValidation.validator_id == target_validator_id) if target_validator_id
+        else MOCValidation.validator_id.is_(None),
     )
     result = await db.execute(existing_q)
     row = result.scalar_one_or_none()

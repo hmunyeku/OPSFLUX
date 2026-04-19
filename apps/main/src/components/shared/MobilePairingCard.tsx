@@ -18,6 +18,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { QRCodeSVG } from 'qrcode.react'
 import { Smartphone, CheckCircle2, XCircle, RefreshCw, X } from 'lucide-react'
 import api from '@/lib/api'
@@ -44,6 +45,7 @@ const INITIAL_STATE: PairingState = {
 const POLL_INTERVAL_MS = 2000
 
 export function MobilePairingCard() {
+  const { t } = useTranslation()
   const [state, setState] = useState<PairingState>(INITIAL_STATE)
   const [secondsLeft, setSecondsLeft] = useState(0)
   const pollTimer = useRef<number | null>(null)
@@ -166,7 +168,7 @@ export function MobilePairingCard() {
     <CollapsibleSection
       id="mobile-pairing"
       title="App mobile OpsFlux"
-      description="Connectez-vous sur votre téléphone en scannant un QR code, sans taper vos identifiants."
+      description={t('shared.connectez_vous_sur_votre_telephone_en_sc')}
       storageKey="settings.mobile.collapse"
       defaultExpanded={false}
     >
@@ -219,6 +221,7 @@ export function MobilePairingCard() {
 /* ── Sub-views ─────────────────────────────────────────────────────── */
 
 function IdleView({ onGenerate }: { onGenerate: () => void }) {
+  const { t } = useTranslation()
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-md border border-border bg-muted/30 p-4">
       <div className="flex items-start gap-3">
@@ -226,7 +229,7 @@ function IdleView({ onGenerate }: { onGenerate: () => void }) {
           <Smartphone size={20} />
         </div>
         <div className="text-sm">
-          <div className="font-medium text-foreground">Coupler un appareil</div>
+          <div className="font-medium text-foreground">{t('shared.coupler_un_appareil')}</div>
           <div className="text-muted-foreground mt-0.5">
             Affichez un QR code à scanner depuis l'app mobile OpsFlux. Valable 2 minutes.
           </div>
@@ -251,6 +254,7 @@ function WaitingView({
   secondsLeft: number
   onCancel: () => void
 }) {
+  const { t } = useTranslation()
   const minutes = Math.floor(secondsLeft / 60)
   const seconds = secondsLeft % 60
   const label = minutes > 0 ? `${minutes}:${String(seconds).padStart(2, '0')}` : `${seconds}s`
@@ -282,24 +286,24 @@ function WaitingView({
         <div>
           <div className="font-medium text-foreground">Scannez depuis l'app mobile</div>
           <ol className="mt-2 space-y-2 text-muted-foreground list-decimal list-inside">
-            <li>Ouvrez l'app OpsFlux sur votre téléphone.</li>
+            <li>{t('shared.ouvrez_l_app_opsflux_sur_votre_telephone')}</li>
             <li>
               Sur l'écran de connexion, tapotez{' '}
-              <span className="font-medium text-foreground">Scanner un QR</span>.
+              <span className="font-medium text-foreground">{t('shared.scanner_un_qr')}</span>.
             </li>
-            <li>Pointez la caméra vers ce QR code.</li>
+            <li>{t('shared.pointez_la_camera_vers_ce_qr_code')}</li>
           </ol>
         </div>
 
         <div className="rounded border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">Sécurité :</span> ce code est à
+          <span className="font-medium text-foreground">{t('shared.securite')}</span> ce code est à
           usage unique et n'est valable que depuis votre appareil web. Ne le partagez
           pas.
         </div>
 
         <button
           onClick={onCancel}
-          className="gl-button-sm gl-button-default text-xs flex items-center gap-1.5"
+          className="gl-button-sm gl-button-default text-xs items-center gap-1.5"
         >
           <X size={14} />
           Annuler
@@ -316,6 +320,7 @@ function ConsumedView({
   deviceInfo: Record<string, any> | null
   onDone: () => void
 }) {
+  const { t } = useTranslation()
   const deviceLabel = (() => {
     if (!deviceInfo) return 'un appareil'
     const model = deviceInfo.model || deviceInfo.device_model
@@ -328,7 +333,7 @@ function ConsumedView({
     <div className="flex items-start gap-3 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-4">
       <CheckCircle2 size={20} className="shrink-0 mt-0.5 text-emerald-600" />
       <div className="text-sm flex-1">
-        <div className="font-medium text-foreground">Appareil connecté</div>
+        <div className="font-medium text-foreground">{t('shared.appareil_connecte')}</div>
         <div className="text-muted-foreground mt-0.5">
           Votre app mobile est maintenant authentifiée depuis {deviceLabel}.
         </div>
@@ -341,11 +346,12 @@ function ConsumedView({
 }
 
 function ExpiredView({ onRetry, onCancel }: { onRetry: () => void; onCancel: () => void }) {
+  const { t } = useTranslation()
   return (
     <div className="flex items-start gap-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-4">
       <XCircle size={20} className="shrink-0 mt-0.5 text-amber-600" />
       <div className="text-sm flex-1">
-        <div className="font-medium text-foreground">Code expiré</div>
+        <div className="font-medium text-foreground">{t('shared.code_expire')}</div>
         <div className="text-muted-foreground mt-0.5">
           Le QR code n'a pas été scanné à temps. Générez-en un nouveau.
         </div>

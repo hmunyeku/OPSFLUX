@@ -144,21 +144,21 @@ export function SecurityPolicyTab() {
       {/* ── Politique de mots de passe ── */}
       <CollapsibleSection
         id="password-policy"
-        title="Politique de mots de passe"
-        description="Règles de complexité appliquées lors de la création et du changement de mot de passe."
+        title={t('settings.politique_de_mots_de_passe')}
+        description={t('settings.regles_de_complexite_appliquees_lors_de')}
         storageKey="settings.security-policy.collapse"
       >
         <div className="mt-2 space-y-0">
-          <SettingRow label="Longueur minimale" description="Nombre minimum de caractères requis.">
+          <SettingRow label="Longueur minimale" description={t('settings.nombre_minimum_de_caracteres_requis')}>
             <NumberInput value={s.password_min_length ?? 12} onChange={(v) => save('password_min_length', v)} min={6} max={128} />
           </SettingRow>
-          <SettingRow label="Majuscule obligatoire" description="Au moins une lettre majuscule requise.">
+          <SettingRow label="Majuscule obligatoire" description={t('settings.au_moins_une_lettre_majuscule_requise')}>
             <Toggle checked={s.password_require_uppercase ?? true} onChange={(v) => save('password_require_uppercase', v)} />
           </SettingRow>
-          <SettingRow label="Chiffre obligatoire" description="Au moins un chiffre requis.">
+          <SettingRow label="Chiffre obligatoire" description={t('settings.au_moins_un_chiffre_requis')}>
             <Toggle checked={s.password_require_digit ?? true} onChange={(v) => save('password_require_digit', v)} />
           </SettingRow>
-          <SettingRow label="Caractère spécial obligatoire" description="Au moins un caractère spécial requis (!@#$...).">
+          <SettingRow label={t('settings.caractere_special_obligatoire')} description={t('settings.au_moins_un_caractere_special_requis')}>
             <Toggle checked={s.password_require_special ?? true} onChange={(v) => save('password_require_special', v)} />
           </SettingRow>
         </div>
@@ -167,15 +167,15 @@ export function SecurityPolicyTab() {
       {/* ── Verrouillage de compte ── */}
       <CollapsibleSection
         id="account-lockout"
-        title="Verrouillage de compte"
-        description="Après un nombre défini de tentatives échouées, le compte est temporairement verrouillé."
+        title={t('settings.verrouillage_de_compte')}
+        description={t('settings.apres_un_nombre_defini_de_tentatives_ech')}
         storageKey="settings.security-policy.collapse"
       >
         <div className="mt-2 space-y-0">
-          <SettingRow label="Tentatives max avant verrouillage" description="Nombre de tentatives de connexion échouées autorisées.">
+          <SettingRow label="Tentatives max avant verrouillage" description={t('settings.nombre_de_tentatives_de_connexion_echoue')}>
             <NumberInput value={s.max_failed_attempts ?? 5} onChange={(v) => save('max_failed_attempts', v)} min={1} max={50} />
           </SettingRow>
-          <SettingRow label="Durée du verrouillage (minutes)" description="Durée pendant laquelle le compte reste verrouillé.">
+          <SettingRow label={t('settings.duree_du_verrouillage_minutes')} description={t('settings.duree_pendant_laquelle_le_compte_reste_v')}>
             <NumberInput value={s.lockout_duration_min ?? 15} onChange={(v) => save('lockout_duration_min', v)} min={1} max={1440} />
           </SettingRow>
         </div>
@@ -184,15 +184,15 @@ export function SecurityPolicyTab() {
       {/* ── Limitation de taux ── */}
       <CollapsibleSection
         id="rate-limiting"
-        title="Limitation de taux"
-        description="Limite le nombre de tentatives de connexion par minute pour protéger contre les attaques par force brute."
+        title={t('settings.limitation_de_taux')}
+        description={t('settings.limite_le_nombre_de_tentatives_de_connex')}
         storageKey="settings.security-policy.collapse"
       >
         <div className="mt-2 space-y-0">
-          <SettingRow label="Limite par adresse IP (par minute)" description="Nombre max de tentatives depuis une même IP.">
+          <SettingRow label="Limite par adresse IP (par minute)" description={t('settings.nombre_max_de_tentatives_depuis_une_meme')}>
             <NumberInput value={s.rate_limit_per_ip ?? 10} onChange={(v) => save('rate_limit_per_ip', v)} min={1} max={100} />
           </SettingRow>
-          <SettingRow label="Limite par email (par minute)" description="Nombre max de tentatives pour un même email.">
+          <SettingRow label="Limite par email (par minute)" description={t('settings.nombre_max_de_tentatives_pour_un_meme_em')}>
             <NumberInput value={s.rate_limit_per_email ?? 5} onChange={(v) => save('rate_limit_per_email', v)} min={1} max={50} />
           </SettingRow>
         </div>
@@ -202,16 +202,16 @@ export function SecurityPolicyTab() {
       <CollapsibleSection
         id="bot-protection"
         title="Protection anti-bots (CAPTCHA)"
-        description="Ajoute une vérification CAPTCHA sur la page de connexion pour bloquer les bots."
+        description={t('settings.ajoute_une_verification_captcha_sur_la_p')}
         storageKey="settings.security-policy.collapse"
       >
         <div className="mt-2 space-y-0">
-          <SettingRow label="Activer le CAPTCHA" description="Affiche un widget CAPTCHA sur la page de connexion.">
+          <SettingRow label={t('settings.activer_le_captcha')} description={t('settings.affiche_un_widget_captcha_sur_la_page_de')}>
             <Toggle checked={s.captcha_enabled ?? false} onChange={(v) => save('captcha_enabled', v)} />
           </SettingRow>
           {s.captcha_enabled && (
             <>
-              <SettingRow label="Fournisseur CAPTCHA" description="Service de vérification utilisé.">
+              <SettingRow label="Fournisseur CAPTCHA" description={t('settings.service_de_verification_utilise')}>
                 <TagSelector
                   options={[
                     { value: 'turnstile', label: 'Cloudflare Turnstile' },
@@ -222,16 +222,16 @@ export function SecurityPolicyTab() {
                   onChange={(v: string) => save('captcha_provider', v)}
                 />
               </SettingRow>
-              <SettingRow label="Clé du site (site key)" description="Clé publique fournie par le fournisseur CAPTCHA.">
+              <SettingRow label={t('settings.cle_du_site_site_key')} description={t('settings.cle_publique_fournie_par_le_fournisseur')}>
                 <input
                   type="text"
                   value={s.captcha_site_key ?? ''}
                   onChange={(e) => save('captcha_site_key', e.target.value)}
-                  placeholder="Clé du site..."
+                  placeholder={t('settings.cle_du_site')}
                   className="gl-form-input h-8 w-64 text-sm"
                 />
               </SettingRow>
-              <SettingRow label="Clé secrète" description="Clé serveur du fournisseur. Non affichée après enregistrement.">
+              <SettingRow label={t('settings.cle_secrete')} description={t('settings.cle_serveur_du_fournisseur_non_affichee')}>
                 <input
                   type="password"
                   defaultValue=""
@@ -250,12 +250,12 @@ export function SecurityPolicyTab() {
       {/* ── Notifications ── */}
       <CollapsibleSection
         id="sessions-notifications"
-        title="Notifications de sécurité"
-        description="Alertes envoyées lors de connexions suspectes."
+        title={t('settings.notifications_de_securite')}
+        description={t('settings.alertes_envoyees_lors_de_connexions_susp')}
         storageKey="settings.security-policy.collapse"
       >
         <div className="mt-2 space-y-0">
-          <SettingRow label="Notifier les connexions suspectes" description="Envoie un email lors d'une connexion depuis un nouvel appareil ou lieu.">
+          <SettingRow label={t('settings.notifier_les_connexions_suspectes')} description="Envoie un email lors d'une connexion depuis un nouvel appareil ou lieu.">
             <Toggle checked={s.suspicious_login_notify ?? true} onChange={(v) => save('suspicious_login_notify', v)} />
           </SettingRow>
         </div>
@@ -264,14 +264,14 @@ export function SecurityPolicyTab() {
       {/* ── Conformité ── */}
       <CollapsibleSection
         id="compliance-policy"
-        title="Conformité"
-        description="Critères de vérification pour déclarer un compte conforme."
+        title={t('nav.conformite')}
+        description={t('settings.criteres_de_verification_pour_declarer_u')}
         storageKey="settings.security-policy.collapse"
       >
         <div className="mt-2 space-y-0">
           <SettingRow
-            label="Exiger la vérification du compte"
-            description="Un utilisateur doit avoir au moins un email ou téléphone vérifié pour être déclaré conforme. Si désactivé, seules les règles de conformité (records vérifiés par le chargé) sont prises en compte."
+            label={t('settings.exiger_la_verification_du_compte')}
+            description={t('settings.un_utilisateur_doit_avoir_au_moins_un_em')}
           >
             <Toggle checked={s.require_account_verification ?? true} onChange={(v) => save('require_account_verification', v)} />
           </SettingRow>
@@ -281,26 +281,26 @@ export function SecurityPolicyTab() {
       {/* ── Canaux de messagerie ── */}
       <CollapsibleSection
         id="messaging-channels"
-        title="Canaux de messagerie (défaut)"
-        description="Canal par défaut pour chaque type de message. Les utilisateurs peuvent personnaliser dans leurs préférences."
+        title={t('settings.canaux_de_messagerie_defaut')}
+        description={t('settings.canal_par_defaut_pour_chaque_type_de_mes')}
         storageKey="settings.security-policy.collapse"
       >
         <div className="mt-2 space-y-0">
-          <SettingRow label="Codes de vérification (OTP)" description="Canal utilisé pour envoyer les codes de vérification téléphone.">
+          <SettingRow label={t('settings.codes_de_verification_otp')} description={t('settings.canal_utilise_pour_envoyer_les_codes_de')}>
             <TagSelector
               options={MESSAGING_CHANNEL_OPTIONS}
               value={s.messaging_channel_otp ?? 'auto'}
               onChange={(v: string) => save('messaging_channel_otp', v)}
             />
           </SettingRow>
-          <SettingRow label="Notifications" description="Canal utilisé pour les notifications système (rappels conformité, alertes, etc.).">
+          <SettingRow label="Notifications" description={t('settings.canal_utilise_pour_les_notifications_sys')}>
             <TagSelector
               options={MESSAGING_CHANNEL_OPTIONS}
               value={s.messaging_channel_notification ?? 'auto'}
               onChange={(v: string) => save('messaging_channel_notification', v)}
             />
           </SettingRow>
-          <SettingRow label="Alertes critiques" description="Canal utilisé pour les alertes urgentes (expiration imminente, incidents).">
+          <SettingRow label="Alertes critiques" description={t('settings.canal_utilise_pour_les_alertes_urgentes')}>
             <TagSelector
               options={MESSAGING_CHANNEL_OPTIONS}
               value={s.messaging_channel_alert ?? 'auto'}

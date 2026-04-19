@@ -221,7 +221,7 @@ export function PapyrusFormBuilder({ schema, disabled = false, isSaving = false,
                 value={field.label}
                 onChange={(event) => updateField(index, (current) => ({ ...current, label: event.target.value }))}
                 className={panelInputClass}
-                placeholder="Libellé"
+                placeholder={t('common.label')}
                 disabled={disabled}
               />
               <input
@@ -290,7 +290,7 @@ export function PapyrusFormBuilder({ schema, disabled = false, isSaving = false,
                         )),
                       }))}
                       className={panelInputClass}
-                      placeholder="Libellé"
+                      placeholder={t('common.label')}
                       disabled={disabled}
                     />
                     <input
@@ -328,14 +328,14 @@ export function PapyrusFormBuilder({ schema, disabled = false, isSaving = false,
                   disabled={disabled}
                 >
                   <Plus size={12} />
-                  <span>Ajouter une option</span>
+                  <span>{t('papyrus.ajouter_une_option')}</span>
                 </button>
               </div>
             ) : null}
 
             {usesColumns ? (
               <div className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground">Colonnes du tableau</div>
+                <div className="text-xs font-medium text-muted-foreground">{t('papyrus.colonnes_du_tableau')}</div>
                 {(field.columns ?? []).map((column, columnIndex) => (
                   <div key={`${field.id}_column_${columnIndex}`} className="grid gap-2 md:grid-cols-[1fr_1fr_140px_auto]">
                     <input
@@ -347,7 +347,7 @@ export function PapyrusFormBuilder({ schema, disabled = false, isSaving = false,
                         )),
                       }))}
                       className={panelInputClass}
-                      placeholder="Libellé"
+                      placeholder={t('common.label')}
                       disabled={disabled}
                     />
                     <input
@@ -359,7 +359,7 @@ export function PapyrusFormBuilder({ schema, disabled = false, isSaving = false,
                         )),
                       }))}
                       className={cn(panelInputClass, 'font-mono text-xs')}
-                      placeholder="Clé"
+                      placeholder={t('settings.pdf_templates_editor.schema_editor.key')}
                       disabled={disabled}
                     />
                     <select
@@ -401,7 +401,7 @@ export function PapyrusFormBuilder({ schema, disabled = false, isSaving = false,
                   disabled={disabled}
                 >
                   <Plus size={12} />
-                  <span>Ajouter une colonne</span>
+                  <span>{t('papyrus.ajouter_une_colonne')}</span>
                 </button>
               </div>
             ) : null}

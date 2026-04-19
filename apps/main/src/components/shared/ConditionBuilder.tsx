@@ -10,6 +10,7 @@
  * Empty conditions → null.
  */
 import { useState, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, Trash2, Code, LayoutList } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
@@ -97,6 +98,7 @@ function parseValue(value: Record<string, unknown> | null): { group: ConditionGr
 // ── Component ─────────────────────────────────────────────────
 
 export function ConditionBuilder({ value, onChange, disabled, fields }: ConditionBuilderProps) {
+  const { t } = useTranslation()
   const allFields = fields ?? DEFAULT_FIELDS
   const { group: initialGroup, isLegacy } = useMemo(() => parseValue(value), [])
   const [mode, setMode] = useState<'visual' | 'json'>(isLegacy ? 'json' : 'visual')
@@ -203,7 +205,7 @@ export function ConditionBuilder({ value, onChange, disabled, fields }: Conditio
               'text-[10px] font-bold uppercase px-2 py-0.5 rounded transition-colors',
               group.logic === 'or' ? 'bg-primary/15 text-primary' : 'bg-accent text-muted-foreground hover:text-foreground',
             )}
-            title="Basculer entre ET / OU"
+            title={t('shared.basculer_entre_et_ou')}
           >
             {group.logic === 'and' ? 'ET (toutes)' : 'OU (au moins une)'}
           </button>
@@ -324,7 +326,7 @@ export function ConditionBuilder({ value, onChange, disabled, fields }: Conditio
           </button>
 
           {group.conditions.length === 0 && (
-            <p className="text-[11px] text-muted-foreground">Aucune condition. La règle s'applique sans restriction.</p>
+            <p className="text-[11px] text-muted-foreground">{t('conformite.conditions.no_condition')}</p>
           )}
         </div>
       ) : (

@@ -5,6 +5,7 @@
  * that follows the {id, user_id, created_at, ...} pattern.
  */
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, X, Loader2, Trash2, Pencil, Check, ChevronDown, ShieldCheck, Lock, type LucideIcon } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { panelInputClass } from '@/components/layout/DynamicPanel'
@@ -34,6 +35,7 @@ function InlineCombobox({
   placeholder?: string
   className?: string
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [highlightIdx, setHighlightIdx] = useState(0)
@@ -113,7 +115,7 @@ function InlineCombobox({
       {open && (
         <ul ref={listRef} className="absolute z-50 mt-1 w-full max-h-44 overflow-auto rounded-lg border border-border bg-popover shadow-md py-1">
           {filtered.length === 0 && (
-            <li className="px-2 py-1.5 text-[10px] text-muted-foreground text-center">Aucun résultat</li>
+            <li className="px-2 py-1.5 text-[10px] text-muted-foreground text-center">{t('common.no_results')}</li>
           )}
           {filtered.map((o, idx) => (
             <li
@@ -165,6 +167,7 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
   hideAddButton,
   onAddRef,
 }: SubModelManagerProps<TRead, TCreate>) {
+  const { t } = useTranslation()
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState<Record<string, string>>({})
@@ -306,13 +309,13 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
             <p className="text-xs text-red-600 dark:text-red-400 px-1">{saveError}</p>
           )}
           <div className="flex items-center gap-2 justify-end">
-            <button onClick={handleCancel} className="gl-button-sm gl-button-default flex items-center gap-1">
+            <button onClick={handleCancel} className="gl-button-sm gl-button-default items-center gap-1">
               <X size={12} /> Annuler
             </button>
             <button
               onClick={handleSave}
               disabled={createPending}
-              className="gl-button-sm gl-button-confirm flex items-center gap-1"
+              className="gl-button-sm gl-button-confirm items-center gap-1"
             >
               {createPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
               Enregistrer
@@ -355,17 +358,17 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
                     ))}
                   </div>
                   <div className="flex items-center gap-2 justify-end">
-                    <button onClick={handleCancel} className="gl-button-sm gl-button-default flex items-center gap-1">
+                    <button onClick={handleCancel} className="gl-button-sm gl-button-default items-center gap-1">
                       <X size={12} /> Annuler
                     </button>
-                    <button onClick={handleSave} className="gl-button-sm gl-button-confirm flex items-center gap-1">
+                    <button onClick={handleSave} className="gl-button-sm gl-button-confirm items-center gap-1">
                       <Check size={12} /> Enregistrer
                     </button>
                   </div>
                 </div>
               ) : deletingId === item.id ? (
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-destructive/10 border border-destructive/20">
-                  <span className="text-xs text-destructive flex-1">Supprimer cet élément ?</span>
+                  <span className="text-xs text-destructive flex-1">{t('common.confirm_delete_title')}</span>
                   <button onClick={() => setDeletingId(null)} className="gl-button-sm gl-button-default text-xs">Non</button>
                   <button onClick={() => handleConfirmDelete(item.id)} className="gl-button-sm gl-button-danger text-xs">Oui</button>
                 </div>
@@ -413,7 +416,7 @@ export function SubModelManager<TRead extends { id: string }, TCreate>({
                       </button>
                     </div>
                   ) : (
-                    <span className="text-[9px] text-green-600 font-medium shrink-0 px-1.5 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20">Vérifié</span>
+                    <span className="text-[9px] text-green-600 font-medium shrink-0 px-1.5 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20">{t('conformite.verifications.verified')}</span>
                   )}
                 </div>
               )}

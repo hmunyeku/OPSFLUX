@@ -89,12 +89,12 @@ export function GeneralConfigTab() {
       {/* ── Langue & Région ── */}
       <CollapsibleSection
         id="langue-region"
-        title="Langue & Région"
+        title={t('settings.langue_region')}
         description="Paramètres régionaux pour cette entité. Affecte tous les utilisateurs de l'entité."
         storageKey="settings.general-config.collapse"
       >
         <div className="mt-2 space-y-0">
-          <SettingRow label="Langue par défaut" description="Langue de l'interface pour les nouveaux utilisateurs.">
+          <SettingRow label={t('settings.langue_par_defaut')} description="Langue de l'interface pour les nouveaux utilisateurs.">
             <TagSelector
               options={[
                 { value: 'fr', label: 'Français' },
@@ -121,7 +121,7 @@ export function GeneralConfigTab() {
             </select>
           </SettingRow>
 
-          <SettingRow label="Format de date" description="Format d'affichage des dates dans toute l'application.">
+          <SettingRow label={t('export.date_format')} description="Format d'affichage des dates dans toute l'application.">
             <TagSelector
               options={[
                 { value: 'dd/MM/yyyy', label: 'dd/MM/yyyy' },
@@ -138,12 +138,12 @@ export function GeneralConfigTab() {
       {/* ── Tableaux de données ── */}
       <CollapsibleSection
         id="datatable-config"
-        title="Tableaux de données"
-        description="Nombre de lignes par page par défaut pour tous les utilisateurs. Les utilisateurs peuvent personnaliser dans leurs préférences."
+        title={t('settings.tableaux_de_donnees')}
+        description={t('settings.nombre_de_lignes_par_page_par_defaut_pou')}
         storageKey="settings.general-config.collapse"
       >
         <div className="mt-2 space-y-0">
-          <SettingRow label="Lignes par page" description="Nombre de lignes affichées par défaut dans les tableaux de données.">
+          <SettingRow label="Lignes par page" description={t('settings.nombre_de_lignes_affichees_par_defaut_da')}>
             <select
               className="gl-form-select text-sm"
               value={(s['datatable.page_size'] as number) ?? 25}
@@ -155,7 +155,7 @@ export function GeneralConfigTab() {
             </select>
           </SettingRow>
 
-          <SettingRow label="Maximum lignes par page" description="Limite maximale que les utilisateurs peuvent configurer dans leurs préférences.">
+          <SettingRow label="Maximum lignes par page" description={t('settings.limite_maximale_que_les_utilisateurs_peu')}>
             <div className="flex items-center gap-2">
               <input
                 type="number"
@@ -179,7 +179,7 @@ export function GeneralConfigTab() {
       <CollapsibleSection
         id="cartographie"
         title="Cartographie"
-        description="Position par défaut de la carte. Cliquez sur la carte ou recherchez une adresse pour définir le centre."
+        description={t('settings.position_par_defaut_de_la_carte_cliquez')}
         storageKey="settings.general-config.collapse"
       >
         <CartographySection settings={s} save={save} />
@@ -189,11 +189,11 @@ export function GeneralConfigTab() {
       <CollapsibleSection
         id="notifications-config"
         title="Notifications"
-        description="Paramètres par défaut des notifications toast pour tous les utilisateurs. Les utilisateurs peuvent personnaliser dans leurs préférences."
+        description={t('settings.parametres_par_defaut_des_notifications')}
         storageKey="settings.general-config.collapse"
       >
         <div className="mt-2 space-y-0">
-          <SettingRow label="Position par défaut" description="Position d'affichage des notifications toast à l'écran.">
+          <SettingRow label={t('settings.position_par_defaut')} description="Position d'affichage des notifications toast à l'écran.">
             <select
               className="gl-form-select text-sm"
               value={(s['core.toast_position'] as string) ?? 'bottom-right'}
@@ -205,7 +205,7 @@ export function GeneralConfigTab() {
             </select>
           </SettingRow>
 
-          <SettingRow label="Durée par défaut" description="Durée d'affichage des notifications (en secondes). Min 1s, max 30s.">
+          <SettingRow label={t('settings.duree_par_defaut')} description="Durée d'affichage des notifications (en secondes). Min 1s, max 30s.">
             <div className="flex items-center gap-2">
               <input
                 type="number"
@@ -223,7 +223,7 @@ export function GeneralConfigTab() {
             </div>
           </SettingRow>
 
-          <SettingRow label="Opacité par défaut" description="Opacité des notifications toast (10% à 100%). Les utilisateurs peuvent personnaliser.">
+          <SettingRow label={t('settings.opacite_par_defaut')} description={t('settings.opacite_des_notifications_toast_10_a_100')}>
             <div className="flex items-center gap-2">
               <input
                 type="number"
@@ -259,7 +259,7 @@ export function GeneralConfigTab() {
             />
           </SettingRow>
 
-          <SettingRow label="Texte de pied de page" description="Texte affiché en bas de chaque email.">
+          <SettingRow label={t('settings.texte_de_pied_de_page')} description={t('settings.texte_affiche_en_bas_de_chaque_email')}>
             <input
               type="text"
               className="gl-form-input w-48 text-sm"
@@ -268,7 +268,7 @@ export function GeneralConfigTab() {
             />
           </SettingRow>
 
-          <SettingRow label="Couleur d'accent" description="Couleur principale des boutons et liens dans les emails.">
+          <SettingRow label="Couleur d'accent" description={t('settings.couleur_principale_des_boutons_et_liens')}>
             <div className="flex items-center gap-2">
               <input
                 type="color"
@@ -297,6 +297,7 @@ function EmailLogoUpload({
   onSave: (url: string) => void
   uploadMutation: UseMutationResult<string, unknown, File, unknown>
 }) {
+  const { t } = useTranslation()
   const fileRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState(currentUrl)
   const apiBase = import.meta.env.VITE_API_URL || ''
@@ -329,7 +330,7 @@ function EmailLogoUpload({
 
       {/* Upload button */}
       <button
-        className="gl-button-sm gl-button-default flex items-center gap-1.5"
+        className="gl-button-sm gl-button-default items-center gap-1.5"
         onClick={() => fileRef.current?.click()}
         disabled={uploadMutation.isPending}
       >
@@ -342,7 +343,7 @@ function EmailLogoUpload({
       <input
         type="text"
         className="gl-form-input w-48 text-xs"
-        placeholder="Ou saisir une URL..."
+        placeholder={t('settings.ou_saisir_une_url')}
         defaultValue={currentUrl}
         onBlur={(e) => {
           if (e.target.value !== preview) {
@@ -363,6 +364,7 @@ function CartographySection({
   settings: Record<string, unknown>
   save: (key: string, value: unknown) => void
 }) {
+  const { t } = useTranslation()
   const currentLat = (s['core.map_default_lat'] as number) ?? 3.848
   const currentLng = (s['core.map_default_lng'] as number) ?? 9.54
   const currentZoom = (s['core.map_default_zoom'] as number) ?? 8
@@ -449,7 +451,7 @@ function CartographySection({
           type="button"
           onClick={handleGeolocate}
           className="gl-button-sm gl-button-default"
-          title="Utiliser ma position"
+          title={t('settings.utiliser_ma_position')}
         >
           <Crosshair size={12} />
           Ma position

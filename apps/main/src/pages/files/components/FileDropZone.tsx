@@ -1,6 +1,8 @@
 import { Upload } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 export function FileDropZone({ active }: { active: boolean }) {
+  const { t } = useTranslation()
   if (!active) return null
 
   return (
@@ -8,8 +10,8 @@ export function FileDropZone({ active }: { active: boolean }) {
       <div className="bg-primary/10 rounded-full p-4 mb-3">
         <Upload size={32} className="text-primary/60" />
       </div>
-      <p className="text-sm font-medium text-primary/80">Déposer les fichiers ici</p>
-      <p className="text-xs text-muted-foreground mt-1">Les fichiers seront uploadés dans le dossier courant</p>
+      <p className="text-sm font-medium text-primary/80">{t('files.deposer_les_fichiers_ici')}</p>
+      <p className="text-xs text-muted-foreground mt-1">{t('files.les_fichiers_seront_uploades_dans_le_dos')}</p>
     </div>
   )
 }

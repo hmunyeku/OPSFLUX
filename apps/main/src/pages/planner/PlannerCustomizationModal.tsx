@@ -8,6 +8,7 @@
  * This component is purely presentational + state-lifted.
  */
 import { useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Layers, Filter, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAssetHierarchy } from '@/hooks/useAssetRegistry'
@@ -149,6 +150,7 @@ interface Props {
 }
 
 export function PlannerCustomizationSections({ prefs, onChange, barHeight = 18 }: Props) {
+  const { t } = useTranslation()
   const { data: hierarchy = [] } = useAssetHierarchy()
 
   // ── Field/Site/Installation options derived from hierarchy ──
@@ -211,12 +213,12 @@ export function PlannerCustomizationSections({ prefs, onChange, barHeight = 18 }
     <div className="space-y-4">
 
       {/* ── Hierarchy levels ── */}
-      <Section icon={Layers} title="Niveaux affichés">
+      <Section icon={Layers} title={t('planner.niveaux_affiches')}>
         <div className="grid grid-cols-2 gap-1.5">
           <Toggle label="Champs" checked={prefs.show_field_rows} onChange={(v) => update('show_field_rows', v)} />
           <Toggle label="Sites" checked={prefs.show_site_rows} onChange={(v) => update('show_site_rows', v)} />
           <Toggle label="Installations" checked={prefs.show_installation_rows} onChange={(v) => update('show_installation_rows', v)} />
-          <Toggle label="Activités" checked={prefs.show_activity_rows} onChange={(v) => update('show_activity_rows', v)} />
+          <Toggle label={t('planner.tabs.activities')} checked={prefs.show_activity_rows} onChange={(v) => update('show_activity_rows', v)} />
         </div>
         <div className="mt-2 pt-2 border-t border-border/50 space-y-2">
           <Toggle
@@ -225,12 +227,12 @@ export function PlannerCustomizationSections({ prefs, onChange, barHeight = 18 }
             onChange={(v) => update('show_legend', v)}
           />
           <Toggle
-            label="Masquer les lignes vides (sans activité)"
+            label={t('planner.masquer_les_lignes_vides_sans_activite')}
             checked={prefs.hide_empty_rows}
             onChange={(v) => update('hide_empty_rows', v)}
           />
           <Toggle
-            label="Afficher les sous-titres (3 install., Brouillon, …)"
+            label={t('planner.afficher_les_sous_titres_3_install_broui')}
             checked={prefs.show_row_sublabels}
             onChange={(v) => update('show_row_sublabels', v)}
           />
@@ -277,7 +279,7 @@ export function PlannerCustomizationSections({ prefs, onChange, barHeight = 18 }
       </Section>
 
       {/* ── Total rows ── */}
-      <Section icon={BarChart3} title="Lignes de récapitulatif">
+      <Section icon={BarChart3} title={t('planner.lignes_de_recapitulatif')}>
         <div className="grid grid-cols-1 gap-1.5">
           <Toggle label="Pic max global (%)" checked={prefs.show_total_peak} onChange={(v) => update('show_total_peak', v)} />
           <Toggle label="Somme PAX globale" checked={prefs.show_total_sum} onChange={(v) => update('show_total_sum', v)} />
@@ -288,7 +290,7 @@ export function PlannerCustomizationSections({ prefs, onChange, barHeight = 18 }
           />
           {prefs.show_workload_chart && (
             <Toggle
-              label="Courbe cumulée (tendance)"
+              label={t('planner.courbe_cumulee_tendance')}
               checked={prefs.show_workload_cumulative}
               onChange={(v) => update('show_workload_cumulative', v)}
             />
@@ -320,7 +322,7 @@ export function PlannerCustomizationSections({ prefs, onChange, barHeight = 18 }
       </Section>
 
       {/* ── Aggregation mode for parent rows ── */}
-      <Section icon={BarChart3} title="Agrégation des lignes parents (Champ / Site / Installation)">
+      <Section icon={BarChart3} title={t('planner.agregation_des_lignes_parents_champ_site')}>
         <div className="flex items-center gap-1 flex-wrap">
           <RadioPill
             label="Somme PAX"
@@ -339,17 +341,17 @@ export function PlannerCustomizationSections({ prefs, onChange, barHeight = 18 }
       <Section icon={BarChart3} title="Déplacement d'une barre avec dépendances">
         <div className="flex items-center gap-1 flex-wrap">
           <RadioPill
-            label="Avertir (pas de cascade)"
+            label={t('planner.avertir_pas_de_cascade')}
             active={prefs.drag_cascade_mode === 'warn'}
             onClick={() => update('drag_cascade_mode', 'warn')}
           />
           <RadioPill
-            label="Cascade (décaler les successeurs)"
+            label={t('planner.cascade_decaler_les_successeurs')}
             active={prefs.drag_cascade_mode === 'cascade'}
             onClick={() => update('drag_cascade_mode', 'cascade')}
           />
           <RadioPill
-            label="Strict (refuser si conflit)"
+            label={t('planner.strict_refuser_si_conflit')}
             active={prefs.drag_cascade_mode === 'strict'}
             onClick={() => update('drag_cascade_mode', 'strict')}
           />
@@ -361,7 +363,7 @@ export function PlannerCustomizationSections({ prefs, onChange, barHeight = 18 }
       </Section>
 
       {/* ── Scope filters ── */}
-      <Section icon={Filter} title="Périmètre">
+      <Section icon={Filter} title={t('export.scope')}>
         <div className="space-y-1.5">
           <Selector
             label="Champ"
@@ -387,7 +389,7 @@ export function PlannerCustomizationSections({ prefs, onChange, barHeight = 18 }
       </Section>
 
       {/* ── Heatmap cell text ── */}
-      <Section icon={BarChart3} title="Texte des cellules heatmap">
+      <Section icon={BarChart3} title={t('planner.texte_des_cellules_heatmap')}>
         <div className="flex items-center gap-1 flex-wrap">
           <RadioPill label="Saturation %" active={prefs.heatmap_text_mode === 'percentage'} onClick={() => update('heatmap_text_mode', 'percentage')} />
           <RadioPill label="PAX" active={prefs.heatmap_text_mode === 'pax_count'} onClick={() => update('heatmap_text_mode', 'pax_count')} />
@@ -396,11 +398,11 @@ export function PlannerCustomizationSections({ prefs, onChange, barHeight = 18 }
       </Section>
 
       {/* ── Bar title ── */}
-      <Section icon={BarChart3} title="Titre des barres">
+      <Section icon={BarChart3} title={t('planner.titre_des_barres')}>
         <div className="flex items-center gap-1 flex-wrap">
           <RadioPill label="Aucun" active={prefs.bar_title_position === 'none'} onClick={() => update('bar_title_position', 'none')} />
           <RadioPill label="Avant" active={prefs.bar_title_position === 'before'} onClick={() => update('bar_title_position', 'before')} />
-          <RadioPill label="Après" active={prefs.bar_title_position === 'after'} onClick={() => update('bar_title_position', 'after')} />
+          <RadioPill label={t('paxlog.avm_detail.change.after')} active={prefs.bar_title_position === 'after'} onClick={() => update('bar_title_position', 'after')} />
         </div>
       </Section>
     </div>

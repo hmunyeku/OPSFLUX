@@ -11,6 +11,7 @@
  *   <NoteManager ownerType="asset" ownerId={asset.id} />
  */
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   MessageSquare, Trash2, Pencil, Loader2,
   Pin, Lock, Globe, Send,
@@ -44,6 +45,7 @@ interface NoteManagerProps {
 }
 
 export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: NoteManagerProps) {
+  const { t } = useTranslation()
   const { toast } = useToast()
   const userId = useAuthStore((s) => s.user?.id)
   const { data, isLoading } = useNotes(ownerType, ownerId)
@@ -113,7 +115,7 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
       <div className="border border-border/60 rounded-lg bg-card overflow-hidden">
         <textarea
           className="w-full px-3 py-2.5 text-sm bg-transparent border-0 outline-none resize-none placeholder:text-muted-foreground/60"
-          placeholder="Ajouter une note ou un commentaire..."
+          placeholder={t('shared.notes.add')}
           rows={compact ? 2 : 3}
           autoFocus={initialShowForm}
           value={content}
@@ -280,7 +282,7 @@ export function NoteManager({ ownerType, ownerId, compact, initialShowForm }: No
 
       {/* Empty state */}
       {!isLoading && notes.length === 0 && (
-        <EmptyState icon={MessageSquare} title="Aucune note" description="Aucune note pour le moment." size="compact" />
+        <EmptyState icon={MessageSquare} title="Aucune note" description={t('shared.notes.empty_description')} size="compact" />
       )}
     </div>
   )

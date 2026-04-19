@@ -5,6 +5,7 @@
  * Accessible only to admins with core.settings.manage permission.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
   HardDrive, FileText, Image, Film, FileArchive, File, Search,
@@ -51,6 +52,7 @@ const OWNER_TYPE_LABELS: Record<string, string> = {
 }
 
 export function FileManagerTab() {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState<string>('')
   const [page, setPage] = useState(1)
@@ -108,7 +110,7 @@ export function FileManagerTab() {
             {/* By owner type */}
             {stats.by_owner_type?.length > 0 && (
               <div>
-                <h4 className="text-xs font-medium text-muted-foreground mb-2">Par catégorie</h4>
+                <h4 className="text-xs font-medium text-muted-foreground mb-2">{t('settings.par_categorie')}</h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {stats.by_owner_type.map((t: any) => (
                     <button
@@ -182,7 +184,7 @@ export function FileManagerTab() {
                       const a = document.createElement('a'); a.href = url; a.download = file.original_name; a.click(); window.URL.revokeObjectURL(url)
                     }}
                     className="p-1 rounded hover:bg-muted text-muted-foreground"
-                    title="Télécharger"
+                    title={t('shared.telecharger')}
                   >
                     <Download size={12} />
                   </button>
@@ -195,7 +197,7 @@ export function FileManagerTab() {
               <div className="flex items-center justify-between px-3 py-2 border-t border-border mt-2">
                 <span className="text-xs text-muted-foreground">{files.total} fichiers au total</span>
                 <div className="flex items-center gap-1">
-                  <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="gl-button-sm gl-button-default text-[10px]">Précédent</button>
+                  <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="gl-button-sm gl-button-default text-[10px]">{t('common.previous')}</button>
                   <span className="text-xs text-muted-foreground px-2">{page}/{Math.ceil(files.total / 50)}</span>
                   <button disabled={page * 50 >= files.total} onClick={() => setPage(p => p + 1)} className="gl-button-sm gl-button-default text-[10px]">Suivant</button>
                 </div>
@@ -203,7 +205,7 @@ export function FileManagerTab() {
             )}
           </div>
         ) : (
-          <EmptyState icon={HardDrive} title="Aucun fichier" description={search ? 'Aucun résultat pour cette recherche.' : 'Aucun fichier uploadé.'} size="compact" />
+          <EmptyState icon={HardDrive} title={t('shared.attachments.empty')} description={search ? 'Aucun résultat pour cette recherche.' : 'Aucun fichier uploadé.'} size="compact" />
         )}
       </div>
     </div>

@@ -107,6 +107,7 @@ interface RichEditorProps {
 }
 
 function RichEditor({ value, onChange, variables, placeholder, minHeight = 200 }: RichEditorProps) {
+  const { t } = useTranslation()
   const editorRef = useRef<HTMLDivElement>(null)
   const promptInput = usePromptInput()
   const [isSource, setIsSource] = useState(false)
@@ -170,7 +171,7 @@ function RichEditor({ value, onChange, variables, placeholder, minHeight = 200 }
         <ToolbarBtn onClick={() => execCmd('italic')} title="Italique" disabled={isSource}>
           <Italic size={13} />
         </ToolbarBtn>
-        <ToolbarBtn onClick={() => execCmd('underline')} title="Souligné" disabled={isSource}>
+        <ToolbarBtn onClick={() => execCmd('underline')} title={t('settings.pdf_templates_editor.rich_editor.underline')} disabled={isSource}>
           <Underline size={13} />
         </ToolbarBtn>
         <ToolbarSep />
@@ -181,17 +182,17 @@ function RichEditor({ value, onChange, variables, placeholder, minHeight = 200 }
           <Type size={13} />
         </ToolbarBtn>
         <ToolbarSep />
-        <ToolbarBtn onClick={() => execCmd('insertUnorderedList')} title="Liste à puces" disabled={isSource}>
+        <ToolbarBtn onClick={() => execCmd('insertUnorderedList')} title={t('settings.liste_a_puces')} disabled={isSource}>
           <List size={13} />
         </ToolbarBtn>
-        <ToolbarBtn onClick={() => execCmd('insertOrderedList')} title="Liste numérotée" disabled={isSource}>
+        <ToolbarBtn onClick={() => execCmd('insertOrderedList')} title={t('settings.pdf_templates_editor.rich_editor.numbered_list')} disabled={isSource}>
           <ListOrdered size={13} />
         </ToolbarBtn>
         <ToolbarSep />
-        <ToolbarBtn onClick={insertLink} title="Insérer un lien" disabled={isSource}>
+        <ToolbarBtn onClick={insertLink} title={t('settings.pdf_templates_editor.rich_editor.insert_link_title')} disabled={isSource}>
           <Link size={13} />
         </ToolbarBtn>
-        <ToolbarBtn onClick={() => execCmd('justifyLeft')} title="Aligner à gauche" disabled={isSource}>
+        <ToolbarBtn onClick={() => execCmd('justifyLeft')} title={t('settings.pdf_templates_editor.rich_editor.align_left')} disabled={isSource}>
           <AlignLeft size={13} />
         </ToolbarBtn>
         <ToolbarBtn onClick={() => execCmd('justifyCenter')} title="Centrer" disabled={isSource}>
@@ -201,7 +202,7 @@ function RichEditor({ value, onChange, variables, placeholder, minHeight = 200 }
         <ToolbarBtn onClick={() => execCmd('undo')} title="Annuler" disabled={isSource}>
           <Undo2 size={13} />
         </ToolbarBtn>
-        <ToolbarBtn onClick={() => execCmd('redo')} title="Rétablir" disabled={isSource}>
+        <ToolbarBtn onClick={() => execCmd('redo')} title={t('settings.pdf_templates_editor.rich_editor.redo')} disabled={isSource}>
           <Redo2 size={13} />
         </ToolbarBtn>
 
@@ -368,7 +369,7 @@ function CreatePanel() {
             <input
               type="text"
               className={panelInputClass}
-              placeholder="ex: Invitation utilisateur"
+              placeholder={t('settings.ex_invitation_utilisateur')}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -377,7 +378,7 @@ function CreatePanel() {
           <DynamicPanelField label="Description">
             <textarea
               className={`${panelInputClass} min-h-[60px]`}
-              placeholder="Description du modèle..."
+              placeholder={t('settings.description_du_modele')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -703,7 +704,7 @@ function EditPanel({ templateId }: { templateId: string }) {
                     <span className="text-xs text-foreground truncate">{v.subject}</span>
                   </div>
                   <div className="flex items-center gap-0.5 shrink-0">
-                    <MiniBtn onClick={(e) => { e.stopPropagation(); handlePreview(v) }} title="Prévisualiser">
+                    <MiniBtn onClick={(e) => { e.stopPropagation(); handlePreview(v) }} title={t('settings.previsualiser')}>
                       <Eye size={11} />
                     </MiniBtn>
                     <MiniBtn onClick={(e) => { e.stopPropagation(); handleDuplicate(v) }} title="Dupliquer vers autre langue">
@@ -725,7 +726,7 @@ function EditPanel({ templateId }: { templateId: string }) {
 
           {template.versions.length === 0 && !showNewVersion && (
             <div className="px-3 py-6 text-center">
-              <p className="text-xs text-muted-foreground mb-2">Aucune version. Créez-en une pour commencer.</p>
+              <p className="text-xs text-muted-foreground mb-2">{t('settings.aucune_version_creez_en_une_pour_commenc')}</p>
               <button onClick={() => setShowNewVersion(true)} className="gl-button-sm gl-button-confirm">
                 <Plus size={12} /> Créer une version
               </button>
@@ -763,7 +764,7 @@ function EditPanel({ templateId }: { templateId: string }) {
         {showNewVersion && (
           <div className="rounded-lg border border-primary/30 overflow-hidden">
             <div className="flex items-center justify-between px-3 py-2 bg-primary/5 border-b border-primary/20">
-              <span className="text-xs font-semibold text-primary">Nouvelle version</span>
+              <span className="text-xs font-semibold text-primary">{t('settings.pdf_templates_editor.actions.new_version')}</span>
               <button onClick={() => setShowNewVersion(false)} className="p-0.5 rounded hover:bg-accent">
                 <X size={12} className="text-muted-foreground" />
               </button>
@@ -804,7 +805,7 @@ function EditPanel({ templateId }: { templateId: string }) {
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <DynamicPanelField label="Active à partir du">
+                  <DynamicPanelField label={t('settings.active_a_partir_du')}>
                     <input
                       type="datetime-local"
                       className={`${panelInputClass} text-xs`}
@@ -886,6 +887,7 @@ function VersionEditor({
   onSave: (subject: string, bodyHtml: string, validFrom: string | null, validUntil: string | null) => Promise<void>
   isSaving: boolean
 }) {
+  const { t } = useTranslation()
   const [subject, setSubject] = useState(version.subject)
   const [bodyHtml, setBodyHtml] = useState(version.body_html)
   const [validFrom, setValidFrom] = useState(version.valid_from?.slice(0, 16) ?? '')
@@ -976,7 +978,7 @@ function VersionEditor({
             </span>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <DynamicPanelField label="Active à partir du">
+            <DynamicPanelField label={t('settings.active_a_partir_du')}>
               <input
                 type="datetime-local"
                 className={`${panelInputClass} text-xs`}

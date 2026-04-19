@@ -75,7 +75,7 @@ export function CreateTokenPanel() {
   if (createdToken) {
     return (
       <DynamicPanelShell
-        title="Jeton créé"
+        title={t('settings.toast.tokens.created')}
         icon={<Key size={14} className="text-primary" />}
         actions={
           <PanelActionButton variant="primary" onClick={closeDynamicPanel}>
@@ -107,7 +107,7 @@ export function CreateTokenPanel() {
 
   return (
     <DynamicPanelShell
-      title="Nouveau jeton"
+      title={t('settings.nouveau_jeton')}
       icon={<Key size={14} className="text-primary" />}
       actions={
         <>
@@ -124,7 +124,7 @@ export function CreateTokenPanel() {
     >
       <form id="create-token-form" onSubmit={handleSubmit} className="p-4 space-y-5">
         <FormSection title="Informations">
-          <DynamicPanelField label="Nom du jeton" required>
+          <DynamicPanelField label={t('settings.nom_du_jeton')} required>
             <input
               type="text"
               className={panelInputClass}

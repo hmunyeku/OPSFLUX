@@ -96,6 +96,7 @@ const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
 // ── Nested History Row ───────────────────────────────────────
 
 function JobHistoryRows({ jobId }: { jobId: string }) {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { pageSize: histPageSize } = usePageSize()
   const [histSearch, setHistSearch] = useState('')
@@ -162,10 +163,10 @@ function JobHistoryRows({ jobId }: { jobId: string }) {
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-accent/40 border-b border-border/30">
-                <th className="text-left px-3 py-1.5 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider w-[100px]">Exécution</th>
+                <th className="text-left px-3 py-1.5 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider w-[100px]">{t('settings.execution')}</th>
                 <th className="text-left px-2 py-1.5 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider w-[70px]">Statut</th>
-                <th className="text-left px-2 py-1.5 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Début</th>
-                <th className="text-left px-2 py-1.5 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider w-[70px]">Durée</th>
+                <th className="text-left px-2 py-1.5 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">{t('conformite.columns.start_date')}</th>
+                <th className="text-left px-2 py-1.5 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider w-[70px]">{t('common.duration')}</th>
                 <th className="text-left px-2 py-1.5 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider w-[70px]">Source</th>
                 <th className="text-left px-2 py-1.5 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">Erreur</th>
               </tr>
@@ -291,7 +292,7 @@ export function SchedulerTab() {
   return (
     <CollapsibleSection
       id="scheduler-jobs"
-      title="Tâches planifiées"
+      title={t('settings.taches_planifiees')}
       description="Jobs de fond exécutés automatiquement par le serveur. Cliquez sur une ligne pour voir l'historique d'exécution."
       storageKey="settings.scheduler.collapse"
     >
@@ -301,7 +302,7 @@ export function SchedulerTab() {
           <div className="relative flex-1">
             <input
               className="gl-form-input text-xs pl-3 w-full h-8"
-              placeholder="Rechercher un job..."
+              placeholder={t('settings.rechercher_un_job')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -322,7 +323,7 @@ export function SchedulerTab() {
         ) : jobs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-sm text-muted-foreground">
             <Clock size={24} className="mb-2 text-muted-foreground/40" />
-            <span>Aucun job planifié</span>
+            <span>{t('settings.aucun_job_planifie')}</span>
           </div>
         ) : (
           <div className="border border-border rounded-lg overflow-hidden">
@@ -331,9 +332,9 @@ export function SchedulerTab() {
                 <tr className="bg-accent/30 border-b border-border">
                   <th className="w-8 px-2 py-2" />
                   <th className="text-left px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Job</th>
-                  <th className="text-left px-2 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Fréquence</th>
+                  <th className="text-left px-2 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">{t('assets.spec.frequency')}</th>
                   <th className="text-left px-2 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Statut</th>
-                  <th className="text-left px-2 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Dernière exéc.</th>
+                  <th className="text-left px-2 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">{t('settings.derniere_exec')}</th>
                   <th className="text-left px-2 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Prochaine</th>
                   <th className="text-right px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Actions</th>
                 </tr>
@@ -388,7 +389,7 @@ export function SchedulerTab() {
                               onClick={() => runJob.mutate(job.id)}
                               disabled={isRunning}
                               className="gl-button-sm gl-button-confirm"
-                              title="Exécuter maintenant"
+                              title={t('settings.executer_maintenant')}
                             >
                               {isRunning ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />}
                             </button>

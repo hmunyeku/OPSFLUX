@@ -55,8 +55,8 @@ export function PaxLogConfigTab() {
 
   return (
     <>
-      <CollapsibleSection id="paxlog-compliance" title="Séquence conformité"
-        description="Ordre officiel des couches de vérification conformité appliqué dans le moteur, les emails automatiques et la validation AdS."
+      <CollapsibleSection id="paxlog-compliance" title={t('settings.sequence_conformite')}
+        description={t('settings.ordre_officiel_des_couches_de_verificati')}
         storageKey="settings.paxlog.collapse">
         <div className="mt-2 space-y-0">
           {[0, 1, 2].map((i) => (
@@ -70,19 +70,19 @@ export function PaxLogConfigTab() {
         </div>
       </CollapsibleSection>
 
-      <CollapsibleSection id="paxlog-operations" title="Opérations"
-        description="Réglages opérationnels du module PaxLog au niveau entité."
+      <CollapsibleSection id="paxlog-operations" title={t('assets.operations')}
+        description={t('settings.reglages_operationnels_du_module_paxlog')}
         storageKey="settings.paxlog.collapse" showSeparator={false}>
         <div className="mt-2 space-y-0">
-          <SettingRow label="Comportement capacité site non configurée"
+          <SettingRow label={t('settings.paxlog.null_capacity_behavior')}
             description="Que faire quand la capacité POB d'un site n'est pas définie dans le registre des assets.">
             <select className="gl-form-select text-sm" value={(s['paxlog.null_capacity_behavior'] as string) ?? 'unlimited'}
               onChange={(e) => save('paxlog.null_capacity_behavior', e.target.value)}>
-              <option value="unlimited">Illimitée (pas de restriction)</option>
+              <option value="unlimited">{t('settings.paxlog.null_capacity_unlimited')}</option>
               <option value="blocking">Bloquante (admin doit configurer)</option>
             </select>
           </SettingRow>
-          <SettingRow label="Délai de grâce retour AdS"
+          <SettingRow label={t('settings.delai_de_grace_retour_ads')}
             description="Nombre de jours après la date de fin d'une AdS en cours avant clôture automatique nocturne.">
             <div className="flex items-center gap-2">
               <input type="number" min={0} max={30} step={1} className="gl-form-input w-20 text-sm text-right font-mono"
@@ -92,8 +92,8 @@ export function PaxLogConfigTab() {
             </div>
           </SettingRow>
           <SettingRow
-            label="Délai relance multi-imputation (heures)"
-            description="Spec 3.7 : intervalle entre chaque relance des chefs de projet non répondants sur une AdS multi-imputation bloquée, et notification du demandeur."
+            label={t('settings.delai_relance_multi_imputation_heures')}
+            description={t('settings.spec_3_7_intervalle_entre_chaque_relance')}
           >
             <div className="flex items-center gap-2">
               <input
@@ -120,8 +120,8 @@ export function PaxLogConfigTab() {
               value={(s['paxlog.waitlist_auto_notify'] as string) ?? 'enabled'}
               onChange={(e) => save('paxlog.waitlist_auto_notify', e.target.value)}
             >
-              <option value="enabled">Activée</option>
-              <option value="disabled">Désactivée</option>
+              <option value="enabled">{t('settings.activee')}</option>
+              <option value="disabled">{t('settings.desactivee')}</option>
             </select>
           </SettingRow>
         </div>

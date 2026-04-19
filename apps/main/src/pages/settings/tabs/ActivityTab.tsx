@@ -4,6 +4,7 @@
  * API-backed: GET /api/v1/audit-log (paginated, filtered)
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { usePageSize } from '@/hooks/usePageSize'
 import { useAuditLog } from '@/hooks/useSettings'
 import {
@@ -78,6 +79,7 @@ function formatRelativeDate(isoString: string): string {
 }
 
 export function ActivityTab() {
+  const { t } = useTranslation()
   const { pageSize } = usePageSize()
   const [activeFilter, setActiveFilter] = useState('')
   const [page, setPage] = useState(1)
@@ -207,7 +209,7 @@ export function ActivityTab() {
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted mb-3">
                 <MessageSquare size={24} className="text-muted-foreground" />
               </div>
-              <p className="text-sm font-semibold text-foreground">Aucune activité</p>
+              <p className="text-sm font-semibold text-foreground">{t('planner.no_activity')}</p>
               <p className="text-xs text-muted-foreground mt-1">{search ? `Aucun résultat pour « ${search} »` : 'Aucun événement ne correspond à ce filtre.'}</p>
             </div>
           )}
@@ -236,7 +238,7 @@ export function ActivityTab() {
                 <button
                   className="gl-button-sm gl-button-default ml-1"
                   onClick={() => setPage(1)}
-                  title="Rafraîchir"
+                  title={t('settings.rafraichir')}
                 >
                   <RefreshCw size={12} />
                 </button>
